@@ -1199,8 +1199,23 @@ las dos, no una:
   corrección va en el LAYOUT (padding y `flex-wrap` en la fila), nunca bajando la tipografía.
 - **`--lh-base` es la palanca barata**: `line-height` se hereda, así que subirlo da altura de
   caja a los ~900 sitios que fijan `font-size` en línea sin tocar ninguno.
-- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`** en `styles.css`: usar la
-  escala (`--space-*`, `--radius-*`). Quedan 71 excepciones, todas deliberadas.
+- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`**, en `styles.css` **y en el
+  HTML que arma el JS** (v22.7 migró 2,256 sitios): usar la escala (`--space-*`, `--radius-*`).
+  Quedan 71 excepciones en CSS y 196 en JS, todas deliberadas (valores negativos, dinámicos o
+  fuera de tabla). **Si el espaciado de una pantalla se escribe en px, esa pantalla no responde
+  a la densidad.**
+- **Los colores de ESTADO no se migran a ciegas.** `#f59e0b`/`#ef4444`/`#10b981`… siguen crudos
+  (~920 hexes) a propósito: su token correcto depende del ROL (`--warn-text` sobre fondo claro
+  vs `--warn-fill` como relleno con texto blanco), y eso no se deduce de la propiedad. Los
+  neutros (grises) sí están migrados.
+- **Antes de cambiar un `color:` hay que mirar su fondo.** `color:#e2e8f0` aparece 47 veces y
+  parece texto invisible sobre blanco, pero **siempre** viene con `background:#1e293b`/`#0f172a`:
+  son modales de superficie oscura, auto-consistentes. Tocar solo el texto da oscuro sobre
+  oscuro. El codemod de v22.7 salta cualquier `color:` cuyo mismo `style` pinte fondo oscuro.
+- **Un `::before` CUENTA como ítem flex.** `.tp-card-title` tenía `justify-content:
+  space-between` y los módulos le agregan una barrita de acento con `::before`: con un solo hijo
+  real el título quedaba huérfano pegado a la derecha. La regla ahora es `flex-start` +
+  `margin-left:auto` en un segundo hijo.
 - **El chrome de navegación NO escala con la densidad.** `.platform-bar`, `.platform-tab`,
   `.topbar`, `.tbm-*`, `.bottom-nav` quedaron fuera del codemod a propósito: la barra mide
   ~1900px expandida y engordar su `padding: 14px 28px` trae de vuelta el envolvimiento a

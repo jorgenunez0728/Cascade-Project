@@ -164,14 +164,14 @@ function _pnRenderProjectGrid(el) {
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-sm);">+ Proyecto</button></div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
     // Tarjetas (día a día) vs Portafolio (la vista para reportar hacia arriba)
     html += '<div class="pn-proj-viewtabs">';
     html += '<button class="pn-proj-viewtab' + (!portfolio ? ' active' : '') + '" onclick="window._pnGridView=\'cards\';_pnProjNav();">🗃️ Tarjetas</button>';
     html += '<button class="pn-proj-viewtab' + (portfolio ? ' active' : '') + '" onclick="window._pnGridView=\'portfolio\';_pnProjNav();">📊 Portafolio</button>';
     html += '</div>';
     if (projects.length === 0) {
-        html += '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos todavía.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin proyectos todavía.</div>';
     }
     html += '</div>';
     if (portfolio && projects.length > 0) {
@@ -202,7 +202,7 @@ function _pnRenderProjectGrid(el) {
         });
         html += '</div>';
     }
-    html += '<div style="text-align:center;margin-top:10px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;"><input type="checkbox" ' + (showArchived ? 'checked' : '') + ' onchange="window._pnProjShowArchived=this.checked;_pnProjNav();" style="vertical-align:middle;"> Mostrar cerrados/archivados</label></div>';
+    html += '<div style="text-align:center;margin-top: var(--space-md);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;"><input type="checkbox" ' + (showArchived ? 'checked' : '') + ' onchange="window._pnProjShowArchived=this.checked;_pnProjNav();" style="vertical-align:middle;"> Mostrar cerrados/archivados</label></div>';
     el.innerHTML = html;
 }
 
@@ -212,19 +212,19 @@ function _pnRenderProjectDetail(el, p) {
     var asset = (p.assetId && typeof invState !== 'undefined') ? (invState.assets || []).find(function(a) { return a.id === p.assetId; }) : null;
 
     var html = '<div class="tp-card">';
-    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;margin-bottom: var(--space-sm);">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=null;_pnProjNav();" style="font-size: var(--fs-sm);">← Proyectos</button>';
     html += '<span style="font-weight:800;font-size:14px;flex:1;">' + escapeHtml(p.name) + '</span>';
     html += '<span class="pn-proj-status pn-proj-status--' + p.status + '">' + (PN_PROJECT_STATUS[p.status] || p.status) + '</span>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProject(\'' + p.id + '\')" style="font-size: var(--fs-sm);">✏️ Editar</button>';
     html += '</div>';
-    if (p.desc) html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">' + escapeHtml(p.desc) + '</div>';
+    if (p.desc) html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">' + escapeHtml(p.desc) + '</div>';
     var metaBits = [];
     if (asset) metaBits.push('🔧 ' + escapeHtml(asset.name));
     if (p.owner) metaBits.push('👤 ' + escapeHtml(p.owner));
-    if (metaBits.length) html += '<div style="font-size: var(--fs-sm);margin-bottom:8px;">' + metaBits.join(' · ') + '</div>';
+    if (metaBits.length) html += '<div style="font-size: var(--fs-sm);margin-bottom: var(--space-sm);">' + metaBits.join(' · ') + '</div>';
 
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin-bottom:10px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div class="tp-metric"><div class="tp-metric-val">' + prog.done + '/' + prog.total + '</div><div class="tp-metric-label">Pasos</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.pct === 100 ? tokenColor('--ok-text') : tokenColor('--info-text')) + '">' + prog.pct + '%</div><div class="tp-metric-label">Avance</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.overdueN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.overdueN + '</div><div class="tp-metric-label">Vencidos</div></div>';
@@ -319,7 +319,7 @@ function _pnProjectTableHTML(p) {
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
         '</tr></thead><tbody>';
     if (steps.length === 0) {
-        html += '<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--tp-dim);">Sin pasos todavía.</td></tr>';
+        html += '<tr><td colspan="7" style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Sin pasos todavía.</td></tr>';
     }
     steps.forEach(function(s) {
         var isOverdue = s.status !== 'completado' && s.targetDate && s.targetDate < today;
@@ -336,7 +336,7 @@ function _pnProjectTableHTML(p) {
         html += '</td></tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<div style="margin-top: var(--space-sm);display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size: var(--fs-sm);">+ Paso</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size: var(--fs-sm);">📤 CSV</button>';
@@ -348,12 +348,12 @@ function _pnProjectTableHTML(p) {
 function _pnProjectTimelineHTML(p) {
     var events = pnProjectTimeline(p);
     var html = '<div class="pn-proj-timeline">';
-    html += '<div style="display:flex;gap:6px;margin-bottom:12px;">';
-    html += '<input type="text" id="pn-proj-note-input" placeholder="Agregar una nota…" style="flex:1;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){pnAddProjectLog(\'' + p.id + '\');}">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);">';
+    html += '<input type="text" id="pn-proj-note-input" placeholder="Agregar una nota…" style="flex:1;padding: var(--space-sm) var(--space-md);border:1px solid var(--tp-border);border-radius: var(--radius-xl);font-size:12px;" onkeydown="if(event.key===\'Enter\'){pnAddProjectLog(\'' + p.id + '\');}">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectLog(\'' + p.id + '\')" style="font-size: var(--fs-sm);">Agregar</button>';
     html += '</div>';
     if (events.length === 0) {
-        html += '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos todavía — agrega una nota o un paso.</div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos todavía — agrega una nota o un paso.</div>';
     }
     events.forEach(function(ev) {
         var icon = ev.kind === 'done' ? '✅' : ev.kind === 'blocked' ? '🚧' : ev.kind === 'created' ? '➕' : ev.kind === 'moved' ? '📅' : '📝';
@@ -370,7 +370,7 @@ function _pnProjectTimelineHTML(p) {
 
 function _pnProjectGanttHTML(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
-    if (steps.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
+    if (steps.length === 0) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
 
     var cpm = pnProjectCPM(p);
     var hasBaseline = steps.some(function(s) { return s.baselineTarget; });
@@ -382,7 +382,7 @@ function _pnProjectGanttHTML(p) {
             var n = _pnDayNum(d); if (n !== null) days.push(n);
         });
     });
-    if (!days.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin fechas capturadas todavía.</div>';
+    if (!days.length) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin fechas capturadas todavía.</div>';
     var todayN = _pnDayNum(localToday());
     days.push(todayN);
     var minN = Math.min.apply(null, days), maxN = Math.max.apply(null, days);
@@ -492,7 +492,7 @@ function _pnProjectGanttHTML(p) {
 // accesible y el que sirve con teclado o si el arrastre falla.
 function _pnProjectKanbanHTML(p) {
     var steps = pnProjStepsFor(p);
-    if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
+    if (!steps.length) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
     var today = localToday();
     var cpm = pnProjectCPM(p);
 
@@ -656,7 +656,7 @@ function _pnProjectWorkloadHTML(p) {
     html += '<button class="pn-proj-viewtab' + (!all ? ' active' : '') + '" onclick="window._pnWorkloadAll=false;_pnProjNav();">Solo este proyecto</button>';
     html += '<button class="pn-proj-viewtab' + (all ? ' active' : '') + '" onclick="window._pnWorkloadAll=true;_pnProjNav();">Todos los proyectos</button>';
     html += '</div>';
-    if (!rows.length) return html + '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos que repartir todavía.</div>';
+    if (!rows.length) return html + '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos que repartir todavía.</div>';
 
     html += '<div class="pn-workload" data-help="pn-proj-workload">';
     rows.forEach(function(r) {
@@ -725,7 +725,7 @@ function pnProjectSCurve(p) {
 
 function _pnProjectSCurveHTML(p) {
     var data = pnProjectSCurve(p);
-    if (!data) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Hace falta al menos un paso con fecha objetivo para dibujar la curva.</div>';
+    if (!data) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Hace falta al menos un paso con fecha objetivo para dibujar la curva.</div>';
     var idxNow = data.actual.reduce(function(acc, v, i) { return v === null ? acc : i; }, 0);
     var planNow = data.planned[idxNow] || 0, realNow = data.actual[idxNow] || 0;
     var diff = realNow - planNow;
@@ -813,7 +813,7 @@ function _pnPortfolioHTML() {
     var rows = pnPortfolioRows();
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-proj-portfolio"><span>🗂️ Portafolio — ' + rows.length + ' proyecto' + (rows.length === 1 ? '' : 's') + ' activo' + (rows.length === 1 ? '' : 's') + '</span>' +
         '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size: var(--fs-sm);">📤 CSV</button></div>';
-    if (!rows.length) { return html + '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos activos.</div></div>'; }
+    if (!rows.length) { return html + '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin proyectos activos.</div></div>'; }
 
     var counts = { red: 0, amber: 0, ok: 0, done: 0 };
     rows.forEach(function(r) { counts[r.health]++; });
@@ -907,7 +907,7 @@ function pnPromoteTaskToProject(taskId) {
     showModal({
         title: 'Mover a un proyecto', type: 'info', confirmText: 'Mover',
         message: '<div style="text-align:left;">La actividad <strong>' + escapeHtml(t.title) + '</strong> dejará de ser una tarea suelta y pasará a ser un paso del proyecto que elijas.' +
-            '<div style="margin-top:10px;"><select id="pn-promote-target" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;">' + opts + '</select></div></div>',
+            '<div style="margin-top: var(--space-md);"><select id="pn-promote-target" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);">' + opts + '</select></div></div>',
         onConfirm: function() {
             var pid = (document.getElementById('pn-promote-target') || {}).value;
             if (!pid) return;
@@ -935,15 +935,15 @@ function pnAddProject(editId) {
     var statusOpts = Object.keys(PN_PROJECT_STATUS).map(function(k) {
         return '<option value="' + k + '" ' + ((p ? p.status : 'activo') === k ? 'selected' : '') + '>' + PN_PROJECT_STATUS[k] + '</option>';
     }).join('');
-    var fieldStyle = 'width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var fieldStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);box-sizing:border-box;';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
-    var msg = '<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">' +
+    var msg = '<div style="display:flex;flex-direction:column;gap: var(--space-md);text-align:left;">' +
         '<div><label style="' + lblStyle + '">Nombre *</label><input id="pn-proj-name" value="' + escapeHtml(p ? p.name : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Equipo (opcional)</label><select id="pn-proj-asset" style="' + fieldStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-proj-owner" value="' + escapeHtml(p ? (p.owner || '') : defaultOwner) + '" style="' + fieldStyle + '"></div>' +
-        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:#475569;padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">' +
+        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Descripción</label><input id="pn-proj-desc" value="' + escapeHtml(p ? (p.desc || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '</div></details>' +
@@ -1016,8 +1016,8 @@ function pnAddProjectStep(projectId, stepId) {
     var statusOpts = Object.keys(PN_STEP_STATUS).map(function(k) {
         return '<option value="' + k + '" ' + ((s ? s.status : 'pendiente') === k ? 'selected' : '') + '>' + PN_STEP_STATUS[k] + '</option>';
     }).join('');
-    var fieldStyle = 'width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var fieldStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);box-sizing:border-box;';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
     // Dependencias: solo se ofrecen los pasos que NO crean un ciclo. Los que
     // dependen (directa o indirectamente) de este paso quedan fuera de la lista,
@@ -1032,25 +1032,25 @@ function pnAddProjectStep(projectId, stepId) {
         }).join('');
         depsHTML = '<div><label style="' + lblStyle + '" data-help="pn-proj-depends">Depende de (Ctrl+clic para varios)</label>' +
             '<select id="pn-step-deps" multiple size="' + Math.min(5, Math.max(2, others.length)) + '" style="' + fieldStyle + 'height:auto;">' + opts + '</select>' +
-            '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:3px;">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
+            '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
     }
 
-    var msg = '<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">' +
+    var msg = '<div style="display:flex;flex-direction:column;gap: var(--space-md);text-align:left;">' +
         '<div><label style="' + lblStyle + '">Paso *</label><input id="pn-step-title" value="' + escapeHtml(s ? s.title : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-step-resp" value="' + escapeHtml(s ? (s.responsible || '') : defaultResp) + '" style="' + fieldStyle + '"></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Fecha objetivo</label><input type="date" id="pn-step-target" value="' + (s ? (s.targetDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
-        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:#475569;padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">' +
+        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-phase">Fase (para el Gantt)</label><input id="pn-step-phase" value="' + escapeHtml(s ? (s.phase || '') : '') + '" style="' + fieldStyle + '"></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-start">Fecha de inicio</label><input type="date" id="pn-step-start" value="' + (s ? (s.startDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Fecha de cumplimiento</label><input type="date" id="pn-step-done" value="' + (s ? (s.doneDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-roadblock">Obstáculo / comentario</label><input id="pn-step-roadblock" value="' + escapeHtml(s ? (s.roadblock || '') : '') + '" style="' + fieldStyle + '"></div>' +
-        '<label style="' + lblStyle + 'display:flex;align-items:center;gap:8px;cursor:pointer;" data-help="pn-proj-milestone">' +
+        '<label style="' + lblStyle + 'display:flex;align-items:center;gap: var(--space-sm);cursor:pointer;" data-help="pn-proj-milestone">' +
         '<input type="checkbox" id="pn-step-milestone" ' + (s && s.isMilestone ? 'checked' : '') + '> ◆ Es un hito (entregable clave del proyecto)</label>' +
         depsHTML +
         (s && s.baselineTarget ? '<div style="font-size: var(--fs-sm);color:var(--tp-dim);">📅 Comprometido originalmente: <strong>' + s.baselineTarget + '</strong>' +
@@ -1782,7 +1782,7 @@ function _pnProjImportStep2HTML() {
     h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
     if (!steps.length) {
-        h += '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
+        h += '<tr><td colspan="7" style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
     }
     steps.slice(0, 8).forEach(function(s) {
         h += '<tr><td>' + escapeHtml(s.title) + '</td><td>' + escapeHtml(s.responsible || '—') + '</td>' +

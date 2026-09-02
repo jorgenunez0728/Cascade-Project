@@ -935,7 +935,13 @@ body{ overflow-x: hidden; }
 .tp-main { padding: var(--space-xl) var(--space-2xl); max-width: var(--content-max); margin: 0 auto; }
 
 /* Cards — covered by unified .card system above; .tp-card-title extended for justify */
-.tp-card-title { justify-content: space-between; }
+/* v22.7 — Era `justify-content: space-between`, y como los módulos le agregan una
+   barrita de acento con ::before (línea ~2036), ese pseudo-elemento CUENTA como ítem
+   flex: con un solo hijo real la barra se iba a la izquierda y el título quedaba
+   huérfano pegado a la derecha. Ahora el contenido arranca junto a la barra y solo
+   un SEGUNDO hijo se empuja al extremo — que es el efecto que se buscaba. */
+.tp-card-title { justify-content: flex-start; }
+.tp-card-title > *:last-child:not(:first-child) { margin-left: auto; }
 
 /* Metrics — neumorphic cards */
 .tp-metric {

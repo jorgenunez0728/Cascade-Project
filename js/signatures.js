@@ -30,11 +30,11 @@ function sigCaptureOpen(opts) {
             '<div class="sig-capture-field">' +
                 '<label>Nombre completo:</label>' +
                 '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '"' +
-                    (opts.lockName ? ' readonly style="background:#f1f5f9;cursor:not-allowed;"' : '') +
+                    (opts.lockName ? ' readonly style="background:var(--surface-alt);cursor:not-allowed;"' : '') +
                     ' placeholder="Escribe tu nombre" autocomplete="name">' +
                 (opts.lockName
                     ? '<button type="button" id="sig-onbehalf-btn" onclick="sigUnlockName()" ' +
-                      'style="margin-top:6px;background:none;border:none;color:var(--info-text);font-size: var(--fs-sm);cursor:pointer;text-decoration:underline;padding:0;">' +
+                      'style="margin-top: var(--space-sm);background:none;border:none;color:var(--info-text);font-size: var(--fs-sm);cursor:pointer;text-decoration:underline;padding:0;">' +
                       'Firmar por otra persona…</button>'
                     : '') +
             '</div>' +

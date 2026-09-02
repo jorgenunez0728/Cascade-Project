@@ -127,7 +127,7 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');" style="margin-top: var(--space-md);">📅 Generar Plan Semanal</button></div>'; return; }
     const wData = plans.map((w,i) => {
         const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
         return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
@@ -139,7 +139,7 @@ function tpRenderPlanActual(el) {
     const carry = lastAcc ? lastAcc.items.filter(i=>!i.completed) : [];
 
     el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${plans.length}</div><div class="tp-metric-label">Semanas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${totDone}</div><div class="tp-metric-label">Completadas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${avgPct}%</div><div class="tp-metric-label">Cumplimiento</div></div>
@@ -149,16 +149,16 @@ function tpRenderPlanActual(el) {
     <div class="tp-card" style="border-left:3px solid var(--tp-red);">
         <div class="tp-card-title"><span style="color:var(--tp-red);font-size: var(--fs-sm);">🔄 Carry-over (${carry.length} pendientes)</span>
         <button class="tp-btn tp-btn-primary" onclick="tpCarryOver()" style="font-size: var(--fs-sm);">Agregar al próximo</button></div>
-        ${carry.map(c=>`<div style="padding:2px 6px;font-size: var(--fs-xs);color:var(--tp-amber);border:1px solid var(--tp-border);border-radius:3px;margin-bottom:2px;">${c.desc}</div>`).join('')}
+        ${carry.map(c=>`<div style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--tp-amber);border:1px solid var(--tp-border);border-radius: var(--radius-md);margin-bottom: var(--space-2xs);">${c.desc}</div>`).join('')}
     </div>`:''}
     <div class="tp-card">
         <div class="tp-card-title"><span>Cumplimiento</span></div>
-        <div style="display:flex;align-items:flex-end;gap:3px;height:100px;padding:8px 0;">
+        <div style="display:flex;align-items:flex-end;gap: var(--space-2xs);height:100px;padding:8px 0;">
             ${wData.map(w=>`
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap: var(--space-2xs);">
                 <span style="font-size: var(--fs-sm);font-weight:700;color:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${w.pct}%</span>
-                <div style="width:100%;max-width:35px;background:var(--tp-border);border-radius:3px;height:65px;position:relative;overflow:hidden;">
-                    <div style="position:absolute;bottom:0;width:100%;height:${w.pct}%;background:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};border-radius:3px;"></div>
+                <div style="width:100%;max-width:35px;background:var(--tp-border);border-radius: var(--radius-md);height:65px;position:relative;overflow:hidden;">
+                    <div style="position:absolute;bottom:0;width:100%;height:${w.pct}%;background:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};border-radius: var(--radius-md);"></div>
                 </div>
                 <span style="font-size: var(--fs-xs);color:var(--tp-dim);">S${w.week}</span>
             </div>`).join('')}
@@ -203,7 +203,7 @@ function tpRenderPlanHistory(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Historial de Importaciones</span></div>';
     if (history.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin historial previo.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin historial previo.</div>';
     } else {
         html += '<table class="tp-table" style="width:100%;"><thead><tr><th>Fecha</th><th>Configs</th><th>Vol Total</th></tr></thead><tbody>';
         history.forEach(function(h) {
@@ -217,7 +217,7 @@ function tpRenderPlanHistory(el) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);">';
         html += '<div class="tp-card-title"><span>Ultimo Cambio (' + new Date(tpState.lastDiffDate||'').toLocaleDateString('es-MX',{day:'numeric',month:'short'}) + ')</span></div>';
 
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap:5px;margin-bottom:8px;">';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap: var(--space-xs);margin-bottom: var(--space-sm);">';
         html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">' + diff.added.length + '</div><div class="tp-metric-label">Nuevas</div></div>';
         html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">' + diff.removed.length + '</div><div class="tp-metric-label">Retiradas</div></div>';
         html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--ok-text)">' + diff.volUp.length + '</div><div class="tp-metric-label">Vol +</div></div>';
@@ -225,7 +225,7 @@ function tpRenderPlanHistory(el) {
         html += '</div>';
 
         if (diff.monthsDetected) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:6px;padding:6px 8px;background:var(--tp-bg);border-radius:6px;">';
+            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:var(--tp-bg);border-radius: var(--radius-lg);">';
             html += '📅 Meses detectados en el CSV: ' + (diff.monthsDetected.length ? diff.monthsDetected.join(', ') : '<span style="color:var(--tp-amber);">ninguno</span>');
             if (diff.unrecognizedCols && diff.unrecognizedCols.length > 0) {
                 html += '<br>⚠ Columnas no reconocidas (ni campo conocido ni formato de mes): ' + diff.unrecognizedCols.join(', ');
@@ -234,9 +234,9 @@ function tpRenderPlanHistory(el) {
         }
 
         if (diff.volUp.length > 0) {
-            html += '<div style="margin-bottom:6px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--ok-text);margin-bottom:3px;">\u{1F4C8} Subieron volumen</div>';
+            html += '<div style="margin-bottom: var(--space-sm);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--ok-text);margin-bottom: var(--space-2xs);">\u{1F4C8} Subieron volumen</div>';
             diff.volUp.slice(0,20).forEach(function(d) {
-                html += '<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size: var(--fs-xs);border:1px solid rgba(16,185,129,0.2);border-radius:4px;margin-bottom:2px;background:rgba(16,185,129,0.05);">';
+                html += '<div style="display:flex;justify-content:space-between;padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);border:1px solid rgba(16,185,129,0.2);border-radius: var(--radius-md);margin-bottom: var(--space-2xs);background:rgba(16,185,129,0.05);">';
                 html += '<span style="color:var(--tp-amber);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;">' + d.desc + '</span>';
                 html += '<span><span style="color:var(--tp-dim);">' + d.oldVol.toLocaleString() + '</span> \u2192 <span style="color:var(--ok-text);font-weight:700;">' + d.newVol.toLocaleString() + '</span></span></div>';
             });
@@ -244,9 +244,9 @@ function tpRenderPlanHistory(el) {
         }
 
         if (diff.volDown.length > 0) {
-            html += '<div style="margin-bottom:6px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom:3px;">\u{1F4C9} Bajaron volumen</div>';
+            html += '<div style="margin-bottom: var(--space-sm);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom: var(--space-2xs);">\u{1F4C9} Bajaron volumen</div>';
             diff.volDown.slice(0,20).forEach(function(d) {
-                html += '<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size: var(--fs-xs);border:1px solid rgba(239,68,68,0.2);border-radius:4px;margin-bottom:2px;background:rgba(239,68,68,0.05);">';
+                html += '<div style="display:flex;justify-content:space-between;padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);border:1px solid rgba(239,68,68,0.2);border-radius: var(--radius-md);margin-bottom: var(--space-2xs);background:rgba(239,68,68,0.05);">';
                 html += '<span style="color:var(--tp-amber);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;">' + d.desc + '</span>';
                 html += '<span><span style="color:var(--tp-dim);">' + d.oldVol.toLocaleString() + '</span> \u2192 <span style="color:var(--danger-text);font-weight:700;">' + d.newVol.toLocaleString() + '</span></span></div>';
             });
@@ -254,25 +254,25 @@ function tpRenderPlanHistory(el) {
         }
 
         if (diff.added.length > 0) {
-            html += '<div style="margin-bottom:6px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-green);margin-bottom:3px;">\u{1F195} Nuevas</div>';
+            html += '<div style="margin-bottom: var(--space-sm);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-green);margin-bottom: var(--space-2xs);">\u{1F195} Nuevas</div>';
             diff.added.slice(0,15).forEach(function(c) {
-                html += '<div style="padding:2px 6px;font-size: var(--fs-xs);color:var(--tp-green);border:1px solid rgba(16,185,129,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + ' \u2014 ' + c.total.toLocaleString() + ' uds</div>';
+                html += '<div style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--tp-green);border:1px solid rgba(16,185,129,0.2);border-radius: var(--radius-md);margin-bottom: var(--space-2xs);">' + c.desc + ' \u2014 ' + c.total.toLocaleString() + ' uds</div>';
             });
             if (diff.added.length > 15) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">... y ' + (diff.added.length-15) + ' mas</div>';
             html += '</div>';
         }
 
         if (diff.removed.length > 0) {
-            html += '<div><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-red);margin-bottom:3px;">\u{1F5D1} Retiradas (conservadas vol=0)</div>';
+            html += '<div><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-red);margin-bottom: var(--space-2xs);">\u{1F5D1} Retiradas (conservadas vol=0)</div>';
             diff.removed.slice(0,15).forEach(function(c) {
-                html += '<div style="padding:2px 6px;font-size: var(--fs-xs);color:var(--tp-red);opacity:0.7;border:1px solid rgba(239,68,68,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + '</div>';
+                html += '<div style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--tp-red);opacity:0.7;border:1px solid rgba(239,68,68,0.2);border-radius: var(--radius-md);margin-bottom: var(--space-2xs);">' + c.desc + '</div>';
             });
             html += '</div>';
         }
 
         html += '</div>';
     } else {
-        html += '<div class="tp-card" style="text-align:center;padding:20px;color:var(--tp-dim);">Importa un plan actualizado para ver cambios.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Importa un plan actualizado para ver cambios.</div>';
     }
 
     el.innerHTML = html;
@@ -1173,7 +1173,7 @@ function tpConfigBadges(item, opts) {
     }
     var h = '';
     if (c.mod) h += '<span class="tp-badge" style="background:rgba(59,130,246,0.2);color:var(--info-text);font-size:'+sz+';font-weight:800;">'+c.mod+'</span>';
-    if (c.body) h += '<span class="tp-badge" style="background:rgba(148,163,184,0.15);color:#94a3b8;font-size:'+sz+';">'+c.body+'</span>';
+    if (c.body) h += '<span class="tp-badge" style="background:rgba(148,163,184,0.15);color:var(--muted);font-size:'+sz+';">'+c.body+'</span>';
     if (c.eng) h += '<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--ok-text);font-size:'+sz+';">'+c.eng+'</span>';
     if (c.tx) h += '<span class="tp-badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:'+sz+';">'+c.tx+'</span>';
     if (c.my) h += '<span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:'+sz+';">'+c.my+'</span>';
@@ -1214,9 +1214,9 @@ function tpRenderExecSummary() {
     var top = analysis.filter(function(a){return a.deficit>0;}).slice(0,8);
     var deadlines = families.filter(function(f){return f.daysToDeadline!==null;}).sort(function(a,b){return a.daysToDeadline-b.daysToDeadline;}).slice(0,8);
 
-    var html = '<div class="tp-card" style="border-left:3px solid var(--tp-amber);margin-bottom:14px;background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
+    var html = '<div class="tp-card" style="border-left:3px solid var(--tp-amber);margin-bottom: var(--space-lg);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
     html += '<div class="tp-card-title"><span style="font-size:14px;">📸 Resumen Ejecutivo — Foto del Plan</span></div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;margin:8px 0;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap: var(--space-sm);margin:8px 0;">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+deficit+'</div><div class="tp-metric-label">Pruebas pendientes</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label" title="Pruebas realizadas ÷ pruebas requeridas (por volumen) — no confundir con el % de configs al día del badge">Pruebas cumplidas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+highRisk+'</div><div class="tp-metric-label">Familias riesgo alto</div></div>';
@@ -1225,16 +1225,16 @@ function tpRenderExecSummary() {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+etaColor+'">'+etaTxt+'</div><div class="tp-metric-label">ETA ritmo actual</div></div>';
     html += '</div>';
     if (etaWeeks!==null && gdWeeks!==null) {
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:4px;">Al ritmo de '+velo.toFixed(1)+' pruebas/sem terminas en ~'+etaWeeks+' sem; deadline global en '+gdWeeks+' sem '+(etaWeeks>gdWeeks?'<span style="color:var(--tp-red);font-weight:700;">(EN RIESGO)</span>':'<span style="color:var(--tp-green);font-weight:700;">(a tiempo)</span>')+'.</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-xs);">Al ritmo de '+velo.toFixed(1)+' pruebas/sem terminas en ~'+etaWeeks+' sem; deadline global en '+gdWeeks+' sem '+(etaWeeks>gdWeeks?'<span style="color:var(--tp-red);font-weight:700;">(EN RIESGO)</span>':'<span style="color:var(--tp-green);font-weight:700;">(a tiempo)</span>')+'.</div>';
     }
 
     // 🔥 Prioridades — qué probar ahora
-    html += '<div style="margin-top:10px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom:5px;">🔥 Prioridades — qué probar ahora</div>';
+    html += '<div style="margin-top: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom: var(--space-xs);">🔥 Prioridades — qué probar ahora</div>';
     if (top.length === 0) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin déficit pendiente. 🎉</div>';
     else top.forEach(function(a){
         var reason = tpScoreReason(a, a.testedN);
         var modSafe = (a.mod||'').replace(/'/g,"\\'");
-        html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap:6px;padding:5px 7px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);cursor:pointer;flex-wrap:wrap;">';
+        html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);cursor:pointer;flex-wrap:wrap;">';
         html += '<span class="tp-badge" style="background:'+tpRegionColor(a.rgn)+'20;color:'+tpRegionColor(a.rgn)+';font-size: var(--fs-sm);">'+(a.rgn||'?')+'</span>';
         html += '<span style="font-size: var(--fs-xs);font-weight:700;">'+a.mod+'</span><span style="font-size: var(--fs-xs);color:var(--tp-dim);">'+a.eng+' '+a.tx+' '+a.my+'</span>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);flex:1;min-width:80px;">'+reason+'</span>';
@@ -1245,12 +1245,12 @@ function tpRenderExecSummary() {
 
     // ⏰ Deadlines próximos
     if (deadlines.length > 0) {
-        html += '<div style="margin-top:10px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom:5px;">⏰ Deadlines próximos</div>';
+        html += '<div style="margin-top: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom: var(--space-xs);">⏰ Deadlines próximos</div>';
         deadlines.forEach(function(f){
             var c = f.daysToDeadline < 7 ? 'var(--tp-red)' : f.daysToDeadline < 14 ? 'var(--tp-amber)' : 'var(--tp-blue)';
             var t = f.daysToDeadline < 0 ? 'VENCIDO' : f.daysToDeadline + ' días';
             var modSafe = (f.mod||'').replace(/'/g,"\\'");
-            html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap:6px;padding:5px 7px;margin-bottom:3px;border:1px solid '+c+'40;border-radius:6px;background:'+c+'10;cursor:pointer;flex-wrap:wrap;">';
+            html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid '+c+'40;border-radius: var(--radius-lg);background:'+c+'10;cursor:pointer;flex-wrap:wrap;">';
             html += tpFamilyFlagBadge(f);
             html += '<span style="font-size: var(--fs-xs);font-weight:700;">'+f.mod+'</span><span style="font-size: var(--fs-xs);color:var(--tp-dim);">'+f.eng+' '+f.tx+' '+f.my+' · '+f.reg+'</span>';
             html += '<span style="font-size: var(--fs-sm);font-weight:700;color:'+c+';margin-left:auto;">'+t+' ('+f.overrideDeadline+')</span>';
@@ -1310,38 +1310,38 @@ function tpRenderAnnualBudgetCard(analysis, stats) {
         return '<div title="' + label + ' · ' + n + ' pruebas" style="flex:0 0 ' + (n / maxBar * 100) + '%;background:' + tpTierColor(t) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size: var(--fs-sm);font-weight:800;overflow:hidden;white-space:nowrap;">' + (n / maxBar > 0.06 ? label + ' · ' + n : '') + '</div>';
     }).join('');
     var legend = tiers.map(function(t) {
-        return '<span style="font-size: var(--fs-xs);color:var(--tp-dim);"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + tpTierColor(t) + ';margin-right:3px;"></span>' + (t ? 'P' + t : 'Sin prioridad') + ' · ' + byTier[t] + '</span>';
+        return '<span style="font-size: var(--fs-xs);color:var(--tp-dim);"><span style="display:inline-block;width:8px;height:8px;border-radius: var(--radius-sm);background:' + tpTierColor(t) + ';margin-right: var(--space-2xs);"></span>' + (t ? 'P' + t : 'Sin prioridad') + ' · ' + byTier[t] + '</span>';
     }).join('');
 
     return `
-    <div class="tp-card" style="border-left:3px solid ${vColor};margin-bottom:14px;">
-        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+    <div class="tp-card" style="border-left:3px solid ${vColor};margin-bottom: var(--space-lg);">
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-sm);">
             <span>📅 Presupuesto Anual ${year}</span>
             <span style="font-size: var(--fs-sm);font-weight:800;color:${vColor};">${verdict}</span>
         </div>
-        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">
+        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
             Requeridas del año: <b style="color:var(--tp-text);">${stats.totalReq}</b> ·
             Probadas: <b style="color:var(--tp-green);">${stats.totalT}</b> ·
             Pendiente: <b style="color:var(--tp-red);">${deficit}</b> &nbsp;|&nbsp;
             Capacidad restante: <b style="color:var(--tp-text);">${capacityRemaining}</b> pruebas
             (${remainingWeeks} sem × ~${weekCap}/sem) · Capacidad anual ≈ ${capacityAnnual}
         </div>
-        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">Pendiente por prioridad</div>
-        <div style="display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);margin-bottom:6px;">${pendSegs || '<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size: var(--fs-xs);color:var(--tp-green);">Sin pendientes 🎉</div>'}</div>
-        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">Capacidad restante del año</div>
-        <div style="display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);">
+        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">Pendiente por prioridad</div>
+        <div style="display:flex;height:18px;border-radius: var(--radius-lg);overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);margin-bottom: var(--space-sm);">${pendSegs || '<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size: var(--fs-xs);color:var(--tp-green);">Sin pendientes 🎉</div>'}</div>
+        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">Capacidad restante del año</div>
+        <div style="display:flex;height:18px;border-radius: var(--radius-lg);overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);">
             <div style="flex:0 0 ${capacityRemaining / maxBar * 100}%;background:var(--tp-green);opacity:0.75;display:flex;align-items:center;justify-content:center;color:#fff;font-size: var(--fs-sm);font-weight:800;">${capacityRemaining}</div>
         </div>
-        ${legend ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">' + legend + '</div>' : ''}
+        ${legend ? '<div style="display:flex;gap: var(--space-md);flex-wrap:wrap;margin-top: var(--space-sm);">' + legend + '</div>' : ''}
     </div>`;
 }
 
 function tpRenderDashboard(el) {
     if (tpState.planData.length === 0) {
-        el.innerHTML = `<div class="tp-card" style="text-align:center;padding:60px 20px;">
-            <div style="font-size:48px;margin-bottom:16px;">📋</div>
-            <h3 style="color:var(--tp-amber);margin-bottom:8px;">No hay plan de producción cargado</h3>
-            <p style="color:var(--tp-dim);margin-bottom:20px;">Ve a la pestaña 🏭 Producción para importar tu CSV del plan de producción.</p>
+        el.innerHTML = `<div class="tp-card" style="text-align:center;padding: var(--space-4xl) var(--space-xl);">
+            <div style="font-size:48px;margin-bottom: var(--space-lg);">📋</div>
+            <h3 style="color:var(--tp-amber);margin-bottom: var(--space-sm);">No hay plan de producción cargado</h3>
+            <p style="color:var(--tp-dim);margin-bottom: var(--space-xl);">Ve a la pestaña 🏭 Producción para importar tu CSV del plan de producción.</p>
             <button class="tp-btn tp-btn-primary" onclick="tpSwitchTab('tp-production');">Ir a Producción →</button>
         </div>`;
         return;
@@ -1375,41 +1375,41 @@ function tpRenderDashboard(el) {
     var auditGlobalPct = stats.totalReq > 0 ? Math.round((stats.totalT / stats.totalReq) * 100) : 100;
 
     el.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-dashboard');" style="font-size: var(--fs-sm);" title="Resumen cross-módulo del laboratorio">📊 Ver Resumen del Lab →</button></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom: var(--space-sm);"><button class="tp-btn tp-btn-ghost" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-dashboard');" style="font-size: var(--fs-sm);" title="Resumen cross-módulo del laboratorio">📊 Ver Resumen del Lab →</button></div>
     ${tpRenderExecSummary()}
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
     ${tpRenderAuditReadinessCard()}
     ${tpRenderCoverageHeatmap()}
 
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-md);flex-wrap:wrap;margin-bottom: var(--space-sm);">
       <button class="tp-btn tp-btn-ghost" onclick="tpExportPlanJSON()" title="Exporta unidades probadas/liberadas, plan semanal, familias, calendario y KPIs en JSON" style="font-size: var(--fs-sm);">📦 Exportar datos (JSON)</button>
-      <label style="display:flex;align-items:center;gap:6px;font-size: var(--fs-sm);cursor:pointer;color:var(--tp-dim);">
+      <label style="display:flex;align-items:center;gap: var(--space-sm);font-size: var(--fs-sm);cursor:pointer;color:var(--tp-dim);">
         <input type="checkbox" onchange="window._tpAuditView=this.checked;tpRender();" ${window._tpAuditView ? 'checked' : ''}>
         Vista Auditoria (cobertura por representativa)
       </label>
     </div>
 
     ${window._tpAuditView ? `
-    <div class="tp-card tp-audit-card" style="border-left:3px solid var(--tp-blue);margin-bottom:14px;">
+    <div class="tp-card tp-audit-card" style="border-left:3px solid var(--tp-blue);margin-bottom: var(--space-lg);">
       <div class="tp-card-title" style="color:var(--tp-blue);font-size:12px;">RESUMEN PARA AUDITORIA</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin:8px 0;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap: var(--space-sm);margin:8px 0;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${auditTotalFam}</div><div class="tp-metric-label">Familias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${auditFullCov}</div><div class="tp-metric-label">Cubiertas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${auditPartial}</div><div class="tp-metric-label">Parcial</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${auditNone}</div><div class="tp-metric-label">Sin cobertura</div></div>
       </div>
-      <div style="margin-bottom:6px;">
-        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">Pruebas realizadas: ${stats.totalT} / ${stats.totalReq} (${auditGlobalPct}%)</div>
+      <div style="margin-bottom: var(--space-sm);">
+        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">Pruebas realizadas: ${stats.totalT} / ${stats.totalReq} (${auditGlobalPct}%)</div>
         <div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${auditGlobalPct}%;background:var(--tp-green);"></div></div>
       </div>
       <div>
-        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">Representativas probadas: ${auditRepTested} / ${auditTotalFam} familias (${auditRepPct}%)</div>
+        <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">Representativas probadas: ${auditRepTested} / ${auditTotalFam} familias (${auditRepPct}%)</div>
         <div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${auditRepPct}%;background:var(--tp-blue);"></div></div>
       </div>
     </div>` : ''}
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap: var(--space-md);margin-bottom: var(--space-lg);">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${stats.total}</div><div class="tp-metric-label">Configuraciones</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${stats.totalReq}</div><div class="tp-metric-label">Pruebas Requeridas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${stats.totalT}</div><div class="tp-metric-label">Probadas</div></div>
@@ -1424,7 +1424,7 @@ function tpRenderDashboard(el) {
         ${[['ok',stats.ok],['warn',stats.warn],['crit',stats.crit]].map(([s,n]) => `
             <div class="tp-status-segment" style="flex:${Math.max(n,1)};background:${tpStatusColor[s]}18;border:1px solid ${tpStatusColor[s]}40;" onclick="window._tpDashFilter=window._tpDashFilter==='${s}'?'ALL':'${s}';tpRender();">
                 <span style="font-size:18px;font-weight:800;color:${tpStatusColor[s]}">${n}</span>
-                <span style="font-size: var(--fs-xs);color:var(--tp-dim);margin-left:4px;">${tpStatusLabel[s]}</span>
+                <span style="font-size: var(--fs-xs);color:var(--tp-dim);margin-left: var(--space-xs);">${tpStatusLabel[s]}</span>
             </div>
         `).join('')}
     </div>
@@ -1436,11 +1436,11 @@ function tpRenderDashboard(el) {
             <button class="tp-btn tp-btn-ghost" onclick="window._tpChartCfgOpen=!window._tpChartCfgOpen;tpRender();" style="font-size: var(--fs-sm);">⚙️</button>
         </div>
         ${window._tpChartCfgOpen ? `
-        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="padding: var(--space-md);background:var(--tp-bg);border:1px solid var(--tp-border);border-radius: var(--radius-xl);margin-bottom: var(--space-md);">
+            <div style="display:flex;gap: var(--space-md);flex-wrap:wrap;align-items:flex-end;">
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
-                    <select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Agrupar por</label>
+                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
                         <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
                         <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
@@ -1448,28 +1448,28 @@ function tpRenderDashboard(el) {
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Metrica Y</label>
-                    <select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Metrica Y</label>
+                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
                         <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
                         <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
                         <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo de grafica</label>
-                    <select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Tipo de grafica</label>
+                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
                         <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-xs);" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','yMax',parseInt(this.value));tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-base);" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','yMax',parseInt(this.value));tpRender();">
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Altura (px)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-xs);" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartH',parseInt(this.value));tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Altura (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-base);" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartH',parseInt(this.value));tpRender();">
                 </div>
             </div>
         </div>` : ''}
@@ -1480,17 +1480,17 @@ function tpRenderDashboard(el) {
     <div class="tp-card">
         <details ${window._tpBurndownOpen ? 'open' : ''}>
             <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
-            <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap: var(--space-sm);margin:10px 0 6px;flex-wrap:wrap;">
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);">Deadline:</label>
-                <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius:6px;padding:4px 8px;font-size: var(--fs-sm);">
+                <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);">
                 ${tpState.deadline ? "<button class=\"tp-btn tp-btn-ghost\" onclick=\"tpState.deadline=&#39;&#39;;tpSave();document.getElementById(&#39;tp-deadline-input&#39;).value=&#39;&#39;;document.getElementById(&#39;tp-burndown-container&#39;).innerHTML=tpRenderBurndownChart(tpGetAnalysis());\" style=\"font-size: var(--fs-sm);\">Quitar deadline</button>" : ''}
             </div>
-            <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
+            <div style="margin-top: var(--space-md);" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
         </details>
     </div>
 
     <!-- Fix plan button -->
-    <div class="tp-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <div class="tp-card" style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
         <button class="tp-btn tp-btn-ghost" onclick="tpExportGapCSV()" style="font-size: var(--fs-sm);">Exportar CSV</button>
         <span style="font-size: var(--fs-sm);color:var(--tp-dim);">Guarda un snapshot del plan actual con fecha para referencia</span>
@@ -1503,7 +1503,7 @@ function tpRenderDashboard(el) {
             <span>🔍 Análisis de Gap — Configuraciones</span>
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">
             <input class="tp-input" aria-label="Buscar configuración" placeholder="Buscar config..." style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
             <select class="tp-select" id="tp-dash-fmodel" onchange="tpRenderDashTable()">
                 <option value="ALL">Todos los modelos</option>
@@ -1525,7 +1525,7 @@ function tpRenderDashboard(el) {
 // ═══ BURNDOWN CHART ═══
 function tpRenderBurndownChart(stats) {
     var tested = (tpState.testedList || []).slice();
-    if (tested.length < 2) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-xs);">Necesitas al menos 2 pruebas completadas para generar burndown.</div>';
+    if (tested.length < 2) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-xs);">Necesitas al menos 2 pruebas completadas para generar burndown.</div>';
 
     tested.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
 
@@ -1637,15 +1637,15 @@ function tpRenderBurndownChart(stats) {
     // Risk alert banner
     var html = '';
     if (riskMsg) {
-        html += '<div style="padding:10px 14px;background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">' +
+        html += '<div style="padding: var(--space-md) var(--space-lg);background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius: var(--radius-xl);margin-bottom: var(--space-md);display:flex;align-items:center;gap: var(--space-md);">' +
             '<span style="font-size:18px;">' + riskIcon + '</span>' +
             '<div><div style="font-size:12px;font-weight:700;color:' + riskColor + ';">' + riskMsg + '</div>';
-        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
+        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
         html += '</div></div>';
     }
 
     // Metrics
-    html += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
@@ -1655,13 +1655,13 @@ function tpRenderBurndownChart(stats) {
 
     // Velocity trend mini-table
     if (velTrend.length >= 2) {
-        html += '<div style="display:flex;gap:4px;margin-bottom:8px;align-items:center;">' +
-            '<span style="font-size: var(--fs-xs);color:var(--tp-dim);margin-right:4px;">Vel. reciente:</span>';
+        html += '<div style="display:flex;gap: var(--space-xs);margin-bottom: var(--space-sm);align-items:center;">' +
+            '<span style="font-size: var(--fs-xs);color:var(--tp-dim);margin-right: var(--space-xs);">Vel. reciente:</span>';
         velTrend.forEach(function(v, i) {
             var prevV = i > 0 ? velTrend[i-1] : v;
             var arrow = v > prevV ? '↑' : v < prevV ? '↓' : '→';
             var clr = v > prevV ? '#10b981' : v < prevV ? '#ef4444' : '#64748b';
-            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + clr + ';padding:2px 8px;background:' + clr + '15;border-radius:4px;">' + v + ' ' + arrow + '</span>';
+            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + clr + ';padding: var(--space-2xs) var(--space-sm);background:' + clr + '15;border-radius: var(--radius-md);">' + v + ' ' + arrow + '</span>';
         });
         html += '</div>';
     }
@@ -1770,7 +1770,7 @@ function tpRenderDashChart(analysis) {
     // Limit to top 15 groups for readability
     if (data.length > 15) data = data.slice(0, 15);
 
-    if (data.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin datos</div>';
+    if (data.length === 0) return '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin datos</div>';
 
     const hStyle = chartH > 0 ? `height:${chartH}px;` : '';
     const autoMax = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
@@ -1779,28 +1779,28 @@ function tpRenderDashChart(analysis) {
 
     // Horizontal bars
     if (chartType === 'hbar') {
-        return `<div style="display:flex;flex-direction:column;gap:4px;">
+        return `<div style="display:flex;flex-direction:column;gap: var(--space-xs);">
             ${data.map(r => {
                 const val = metric === 'pct' ? (r.req > 0 ? Math.round(r.tested / r.req * 100) : 0) : metric === 'deficit' ? Math.max(0, r.req - r.tested) : r.req;
                 const val2 = metric === 'qty' ? r.tested : 0;
                 const pct1 = maxVal > 0 ? Math.min(100, Math.round(val / maxVal * 100)) : 0;
                 const pct2 = metric === 'qty' && maxVal > 0 ? Math.min(100, Math.round(val2 / maxVal * 100)) : 0;
                 const color = metric === 'pct' ? (val >= 100 ? 'var(--tp-green)' : val >= 50 ? 'var(--tp-amber)' : 'var(--tp-red)') : metric === 'deficit' ? 'var(--tp-red)' : 'var(--tp-amber)';
-                return `<div style="display:flex;align-items:center;gap:6px;">
+                return `<div style="display:flex;align-items:center;gap: var(--space-sm);">
                     <div style="width:80px;font-size: var(--fs-xs);color:var(--tp-text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.name}">${r.name}</div>
-                    <div style="flex:1;height:18px;background:var(--tp-border);border-radius:3px;position:relative;overflow:hidden;">
+                    <div style="flex:1;height:18px;background:var(--tp-border);border-radius: var(--radius-md);position:relative;overflow:hidden;">
                         ${metric === 'qty' ? `
-                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;opacity:0.4;"></div>
-                        <div style="position:absolute;height:100%;width:${pct2}%;background:var(--tp-green);border-radius:3px;"></div>
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius: var(--radius-md);opacity:0.4;"></div>
+                        <div style="position:absolute;height:100%;width:${pct2}%;background:var(--tp-green);border-radius: var(--radius-md);"></div>
                         ` : `
-                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;"></div>
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius: var(--radius-md);"></div>
                         `}
                     </div>
                     <div style="width:55px;font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);text-align:left;">${metric === 'pct' ? val + '%' : metric === 'qty' ? val2 + '/' + val : val}</div>
                 </div>`;
             }).join('')}
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
+        <div style="display:flex;gap: var(--space-lg);justify-content:center;margin-top: var(--space-sm);">${legend}</div>`;
     }
 
     // Stacked bars (vertical)
@@ -1823,7 +1823,7 @@ function tpRenderDashChart(analysis) {
                 </div>`;
             }).join('')}
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
+        <div style="display:flex;gap: var(--space-lg);justify-content:center;margin-top: var(--space-sm);">
             <span style="font-size: var(--fs-xs);color:var(--tp-green);">■ Probadas</span>
             <span style="font-size: var(--fs-xs);color:var(--tp-red);opacity:0.5;">■ Deficit</span>
         </div>`;
@@ -1863,7 +1863,7 @@ function tpRenderDashChart(analysis) {
             </div>`;
         }).join('')}
     </div>
-    <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
+    <div style="display:flex;gap: var(--space-lg);justify-content:center;margin-top: var(--space-sm);">${legend}</div>`;
 }
 
 function tpRenderDashTable() {
@@ -1918,8 +1918,8 @@ function tpRenderDashTable() {
                 </tr>
                 ${dormant ? `
                 <tr>
-                    <td colspan="14" style="background:rgba(245,158,11,0.08);padding:5px 10px;">
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size: var(--fs-xs);" data-help="tp-dormant-help">
+                    <td colspan="14" style="background:rgba(245,158,11,0.08);padding: var(--space-xs) var(--space-md);">
+                        <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;font-size: var(--fs-xs);" data-help="tp-dormant-help">
                             <span>😴 3+ meses sin producción — ¿seguir contabilizando esta configuración?</span>
                             <button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpConfirmDormantActive('${descAttr}')">Sí, seguir</button>
                             <button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);color:var(--tp-red);" onclick="tpPauseConfig('${descAttr}')">⏸ Pausar</button>
@@ -1929,7 +1929,7 @@ function tpRenderDashTable() {
             `;}).join('')}
         </tbody>
     </table>
-    ${filtered.length > 80 ? `<div style="padding:8px;text-align:center;color:var(--tp-dim);font-size: var(--fs-xs);">Mostrando 80 de ${filtered.length}</div>` : ''}
+    ${filtered.length > 80 ? `<div style="padding: var(--space-sm);text-align:center;color:var(--tp-dim);font-size: var(--fs-xs);">Mostrando 80 de ${filtered.length}</div>` : ''}
     `;
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
 }
@@ -2139,7 +2139,7 @@ function tpExportPlanJSON() {
 // ═══ TESTED TAB ═══
 function tpRenderTested(el) {
     el.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">
         <button class="tp-btn ${window._tpTestedMode!=='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='manual';tpRender();">✏️ Captura Manual</button>
         <button class="tp-btn ${window._tpTestedMode==='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='json';tpRender();">📥 Importar JSON</button>
         <button class="tp-btn tp-btn-ghost" onclick="tpRecoverFromCOP15()" style="border-color:#8b5cf6;color:#8b5cf6;">🔄 Recuperar de COP15</button>
@@ -2148,36 +2148,36 @@ function tpRenderTested(el) {
     ${window._tpTestedMode !== 'json' ? `
     <div class="tp-card">
         <div class="tp-card-title"><span>✏️ Registrar Vehículo Probado</span></div>
-        <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="display:flex;gap: var(--space-md);align-items:flex-start;flex-wrap:wrap;">
             <div style="flex:1;min-width:250px;position:relative;">
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Config Text (escribe para buscar)</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Config Text (escribe para buscar)</label>
                 <input class="tp-input" id="tp-manual-config" placeholder="Ej: BL7m-27 MODEL-6AT..." oninput="tpShowSuggestions()">
                 <div id="tp-suggestions" class="tp-suggestions" style="display:none;"></div>
             </div>
             <div style="width:130px;">
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Fecha</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Fecha</label>
                 <input class="tp-input" type="date" id="tp-manual-date" value="${localToday()}">
             </div>
             <div style="flex:1;min-width:150px;">
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Nota (VIN, etc.)</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Nota (VIN, etc.)</label>
                 <input class="tp-input" id="tp-manual-note" placeholder="VIN, observaciones...">
             </div>
-            <div style="padding-top:16px;">
+            <div style="padding-top: var(--space-lg);">
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManual()">+ Agregar</button>
             </div>
         </div>
-        <div id="tp-manual-msg" style="margin-top:6px;font-size: var(--fs-sm);"></div>
+        <div id="tp-manual-msg" style="margin-top: var(--space-sm);font-size: var(--fs-sm);"></div>
     </div>
     ` : `
     <div class="tp-card">
         <div class="tp-card-title"><span>📥 Importar desde JSON (COP15)</span></div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">Pega el JSON exportado de tu herramienta COP15. Se busca el campo <code style="color:var(--tp-amber)">configCode</code> en cada registro.</p>
-        <textarea id="tp-json-input" placeholder='Pega aquí el JSON...' style="width:100%;height:100px;background:#161f2e;border:1px solid var(--tp-border);border-radius:6px;padding:10px;color:var(--tp-text);font-size: var(--fs-sm);font-family:monospace;resize:vertical;"></textarea>
-        <div style="margin-top:8px;display:flex;gap:8px;">
+        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">Pega el JSON exportado de tu herramienta COP15. Se busca el campo <code style="color:var(--tp-amber)">configCode</code> en cada registro.</p>
+        <textarea id="tp-json-input" placeholder='Pega aquí el JSON...' style="width:100%;height:100px;background:#161f2e;border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-md);color:var(--tp-text);font-size: var(--fs-sm);font-family:monospace;resize:vertical;"></textarea>
+        <div style="margin-top: var(--space-sm);display:flex;gap: var(--space-sm);">
             <button class="tp-btn tp-btn-primary" onclick="tpImportJSON()">Importar</button>
             <button class="tp-btn tp-btn-ghost" onclick="document.getElementById('tp-json-input').value='';">Limpiar</button>
         </div>
-        <div id="tp-json-msg" style="margin-top:6px;font-size: var(--fs-sm);"></div>
+        <div id="tp-json-msg" style="margin-top: var(--space-sm);font-size: var(--fs-sm);"></div>
     </div>
     `}
 
@@ -2186,15 +2186,15 @@ function tpRenderTested(el) {
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
             ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){if(typeof undoPush==='function')undoPush('testplan','Borrar registros de pruebas');tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();showToast('Registros borrados','success',null,undoPop);},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size: var(--fs-xs);">🗑 Borrar todo</button>` : ''}
         </div>
-        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
+        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);"><div style="font-size:24px;margin-bottom: var(--space-sm);">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top: var(--space-md);">✏️ Agregar Manual</button></div>` : `
+        <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-sm);flex-wrap:wrap;align-items:flex-end;">
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;">Desde</label>
-                <input type="date" class="tp-input" id="tp-tested-from" value="${window._tpTestedFrom||''}" onchange="window._tpTestedFrom=this.value;tpRender();" style="font-size: var(--fs-xs);">
+                <input type="date" class="tp-input" id="tp-tested-from" value="${window._tpTestedFrom||''}" onchange="window._tpTestedFrom=this.value;tpRender();" style="font-size: var(--fs-base);">
             </div>
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;">Hasta</label>
-                <input type="date" class="tp-input" id="tp-tested-to" value="${window._tpTestedTo||''}" onchange="window._tpTestedTo=this.value;tpRender();" style="font-size: var(--fs-xs);">
+                <input type="date" class="tp-input" id="tp-tested-to" value="${window._tpTestedTo||''}" onchange="window._tpTestedTo=this.value;tpRender();" style="font-size: var(--fs-base);">
             </div>
             <button class="tp-btn tp-btn-ghost" onclick="window._tpTestedFrom='';window._tpTestedTo='';tpRender();" style="font-size: var(--fs-sm);">Limpiar filtro</button>
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);margin-left:auto;">${(() => {
@@ -2258,7 +2258,7 @@ function tpShowSuggestions() {
     box.innerHTML = matches.map(m => `
         <div class="tp-suggestion" onclick="document.getElementById('tp-manual-config').value='${m.desc}';document.getElementById('tp-suggestions').style.display='none';">
             <span style="color:var(--tp-amber)">${m.desc}</span>
-            <span style="color:var(--tp-dim);font-size: var(--fs-xs);margin-left:8px;">[${m.id}]</span>
+            <span style="color:var(--tp-dim);font-size: var(--fs-xs);margin-left: var(--space-sm);">[${m.id}]</span>
         </div>
     `).join('');
 }
@@ -2394,27 +2394,27 @@ function tpRenderRules(el) {
     });
 
     el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr;gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
         <div class="tp-card">
             <div class="tp-card-title" data-help="tp-ratio-help">
                 <span>⚙️ Reglas de Ratio</span>
-                <div style="display:flex;gap:6px;">
+                <div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
                     <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Reset</button>
                 </div>
             </div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
             <div style="max-height:380px;overflow-y:auto;">
                 <table class="tp-table">
                     <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Label</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-xs);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-xs);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
                                 <td><input class="tp-input" type="number" min="1" value="${r.ratio}" style="width:45px;text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" type="number" min="100" step="100" value="${r.per}" style="width:55px;text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
-                                <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-xs);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
+                                <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
                                 <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
                             </tr>
@@ -2423,9 +2423,9 @@ function tpRenderRules(el) {
                 </table>
             </div>
             ${_tpNoSpecificRule.length > 0 ? `
-            <details style="margin-top:8px;">
+            <details style="margin-top: var(--space-sm);">
                 <summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-amber);font-weight:700;">⚠ ${_tpNoSpecificRule.length} config(s) sin regla específica (usan la regla comodín/default)</summary>
-                <div style="max-height:160px;overflow-y:auto;margin-top:6px;font-size: var(--fs-xs);">
+                <div style="max-height:160px;overflow-y:auto;margin-top: var(--space-sm);font-size: var(--fs-xs);">
                     ${_tpNoSpecificRule.slice(0,50).map(c => `<div style="padding:3px 0;border-bottom:1px solid var(--tp-border);"><span style="color:var(--tp-dim);">${escapeHtml(c.rgn)} / ${escapeHtml(c.reg)}</span> — ${escapeHtml(c.desc)}</div>`).join('')}
                     ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
                 </div>
@@ -2433,32 +2433,32 @@ function tpRenderRules(el) {
         </div>
         <div>
             ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
-            <div class="tp-card" style="margin-top:14px;">
+            <div class="tp-card" style="margin-top: var(--space-lg);">
                 <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-sm);">
                         <span style="font-size: var(--fs-sm);font-weight:600;">${label}</span>
-                        <select class="tp-select" style="font-size: var(--fs-xs);max-width:170px;" onchange="tpSetStartPurpose('${key}', this.value)">
+                        <select class="tp-select" style="font-size: var(--fs-base);max-width:170px;" onchange="tpSetStartPurpose('${key}', this.value)">
                             ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${p}</option>`).join('')}
                         </select>
                     </div>
                 `).join('')}
             </div>
-            <div class="tp-card" style="margin-top:14px;">
+            <div class="tp-card" style="margin-top: var(--space-lg);">
                 <div class="tp-card-title">
                     <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
                     <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>
                 </div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
-                ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size: var(--fs-sm);">No hay plantillas guardadas.</div>' :
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+                ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">No hay plantillas guardadas.</div>' :
                 (tpState.rulePresets||[]).map((p,i) => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm);margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);">
                         <div>
                             <div style="font-size:12px;font-weight:700;color:var(--tp-text);">${p.name}</div>
                             <div style="font-size: var(--fs-xs);color:var(--tp-dim);">${p.rules.length} reglas · ${new Date(p.created).toLocaleDateString('es-MX')}</div>
                         </div>
-                        <div style="display:flex;gap:5px;">
+                        <div style="display:flex;gap: var(--space-xs);">
                             <button class="tp-btn tp-btn-primary" onclick="tpLoadRulePreset(${i})" style="font-size: var(--fs-sm);">Cargar</button>
                             <button class="tp-btn tp-btn-ghost" onclick="tpDeleteRulePreset(${i})" style="font-size: var(--fs-sm);color:var(--tp-red);">🗑</button>
                         </div>
@@ -2668,7 +2668,7 @@ function tpBuildSchedulePreview(workDays) {
     if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
     const cap = tpWeekCapacity(workDays);
     let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
-    html += slots.map(s => `<span style="padding:1px 5px;background:rgba(59,130,246,0.1);border-radius:3px;margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
+    html += slots.map(s => `<span style="padding: var(--space-2xs) var(--space-xs);background:rgba(59,130,246,0.1);border-radius: var(--radius-md);margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
     html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
     return html;
 }
@@ -2939,8 +2939,8 @@ function tpAssignSchedule(items, workDays, opts) {
 
 /** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
 function _tpSliderHTML(o) {
-    return '<div style="margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:3px;">' +
+    return '<div style="margin-bottom: var(--space-md);">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom: var(--space-2xs);">' +
         '<span style="font-size: var(--fs-sm);' + (o.labelColor ? 'color:' + o.labelColor + ';font-weight:600;' : '') + '">' + o.label + '</span>' +
         '<span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">' + o.value + (o.unit || '') + '</span>' +
         '</div>' +
@@ -3074,13 +3074,13 @@ function tpBuildPriorityKnobsHTML(opts) {
     var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
             bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
                 set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
         });
-    bWeights += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
+    bWeights += '<details style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top: var(--space-sm);">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
         bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
             set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
@@ -3140,8 +3140,8 @@ function tpBuildPriorityKnobsHTML(opts) {
                                  : { label: 'apagado', tone: 'neutral' }
         });
     } else {
-        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>🌍 Peso por región</span></div>' + bRegions + '</div>';
-        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>⏳ Empuje por antigüedad</span></div>' + bAging + '</div>';
+        h += '<div class="tp-card" style="margin-top: var(--space-lg);"><div class="tp-card-title"><span>🌍 Peso por región</span></div>' + bRegions + '</div>';
+        h += '<div class="tp-card" style="margin-top: var(--space-lg);"><div class="tp-card-title"><span>⏳ Empuje por antigüedad</span></div>' + bAging + '</div>';
     }
 
     return h;
@@ -3151,9 +3151,9 @@ function tpBuildPriorityKnobsHTML(opts) {
 function tpBuildCarryoverPanelHTML() {
     var p = tpPlannerCfg();
     var B = tpBacklogEligible();
-    var h = '<div class="tp-card" style="margin-top:14px;">';
+    var h = '<div class="tp-card" style="margin-top: var(--space-lg);">';
     h += '<div class="tp-card-title" data-help="tp-carryover-help"><span>🔄 Cola de pendientes</span></div>';
-    h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size: var(--fs-sm);">' +
+    h += '<label style="display:flex;align-items:center;gap: var(--space-sm);cursor:pointer;margin-bottom: var(--space-md);font-size: var(--fs-sm);">' +
          '<input type="checkbox" ' + (p.carryoverOn ? 'checked' : '') +
          ' onchange="tpSetPlannerFlag(\'carryoverOn\', this.checked)">' +
          '<span>Incluir pendientes de semanas anteriores</span></label>';
@@ -3162,13 +3162,13 @@ function tpBuildCarryoverPanelHTML() {
             min: 0, max: 12, step: 1, set: "tpPlannerCfg().carryoverTtlWeeks=+this.value", onInput: '_tpDebouncedPreview()' });
         h += _tpSliderHTML({ label: '📐 Máximo de la semana', value: (+p.carryoverMaxPct || 0), unit: '%',
             min: 0, max: 100, step: 10, set: "tpPlannerCfg().carryoverMaxPct=+this.value", onInput: '_tpDebouncedPreview()' });
-        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:4px;">' +
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-xs);">' +
              'El resto de los lugares queda reservado para las prioridades de hoy. Antes la cola se llevaba la semana entera.</p>';
     }
-    h += '<div style="margin-top:8px;font-size: var(--fs-xs);color:var(--tp-dim);">' +
+    h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">' +
          '✅ ' + B.eligible.length + ' vigentes · 🕒 ' + B.expired.length + ' caducadas · 🔎 ' + B.filtered.length + ' fuera del filtro</div>';
     if (B.eligible.length || B.expired.length) {
-        h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
+        h += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-sm);flex-wrap:wrap;">' +
              '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpLoadCarryoverPicks()">➕ Incluir las que quepan</button>' +
              '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);color:var(--tp-red);" onclick="tpClearCarryover()">🧹 Vaciar la cola</button>' +
              '</div>';
@@ -3188,26 +3188,26 @@ function tpBuildWeekFilterHTML() {
                 ['modelMatch','Modelo'], ['engMatch','Cilindrada'], ['bodyMatch','Body'], ['drvMatch','Manejo']];
     var active = cols.filter(function(c) { return p.filters[c[0]]; }).length;
 
-    var h = '<div class="tp-card" style="margin-top:14px;">';
+    var h = '<div class="tp-card" style="margin-top: var(--space-lg);">';
     h += '<div class="tp-card-title" data-help="tp-weekfilter-help"><span>🔎 Filtros de la semana</span>' +
          (active ? '<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);">' + active + ' activo(s)</span>' : '') +
          '</div>';
-    h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size: var(--fs-sm);">' +
+    h += '<label style="display:flex;align-items:center;gap: var(--space-sm);cursor:pointer;margin-bottom: var(--space-md);font-size: var(--fs-sm);">' +
          '<input type="checkbox" ' + (p.filtersOn ? 'checked' : '') +
          ' onchange="tpSetPlannerFlag(\'filtersOn\', this.checked)">' +
          '<span>Probar solo lo que cumpla estos filtros</span></label>';
     if (p.filtersOn) {
         // Grid propio: .inv-row-list-2col depende del ancho de VENTANA, y aquí lo que
         // manda es el ancho de la columna izquierda del planificador.
-        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px 10px;">';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap: var(--space-xs) var(--space-md);">';
         cols.forEach(function(c) {
             var field = c[0], cur = p.filters[field] || '';
             var opts = [];
             try { opts = tpRuleFieldOptions(p.filters, field) || []; } catch (e) { opts = []; }
             var has = opts.some(function(o) { return o.value === cur; });
-            h += '<div class="form-group" style="margin-bottom:6px;">' +
-                 '<label style="font-size: var(--fs-xs);">' + c[1] + '</label>' +
-                 '<select class="tp-select" style="font-size: var(--fs-xs);" onchange="tpSetWeekFilter(\'' + field + '\', this.value)">' +
+            h += '<div class="form-group" style="margin-bottom: var(--space-sm);">' +
+                 '<label style="font-size: var(--fs-sm);">' + c[1] + '</label>' +
+                 '<select class="tp-select" style="font-size: var(--fs-base);" onchange="tpSetWeekFilter(\'' + field + '\', this.value)">' +
                  '<option value="">Todas</option>' +
                  opts.map(function(o) {
                      return '<option value="' + escapeHtml(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>';
@@ -3217,7 +3217,7 @@ function tpBuildWeekFilterHTML() {
         });
         h += '</div>';
         if (active) {
-            h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);margin-top:6px;" onclick="tpClearWeekFilters()">Limpiar filtros</button>';
+            h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);margin-top: var(--space-sm);" onclick="tpClearWeekFilters()">Limpiar filtros</button>';
         }
     }
     h += '</div>';
@@ -3300,7 +3300,7 @@ function tpRenderPlannerPreview() {
     try { R = tpSelectWeeklyItems(tpPlannerOpts({ dryRun: true })); }
     catch (e) {
         console.error('tpRenderPlannerPreview:', e);
-        host.innerHTML = '<div style="padding:12px;color:var(--tp-red);font-size: var(--fs-sm);">No se pudo calcular la propuesta: ' + escapeHtml(e.message) + '</div>';
+        host.innerHTML = '<div style="padding: var(--space-md);color:var(--tp-red);font-size: var(--fs-sm);">No se pudo calcular la propuesta: ' + escapeHtml(e.message) + '</div>';
         return;
     }
     // shuffle:false para que los días no bailen en cada tecla
@@ -3309,7 +3309,7 @@ function tpRenderPlannerPreview() {
     var excl = window._tpWeekExclude || [];
 
     var h = '';
-    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+    h += '<div style="display:flex;align-items:center;gap: var(--space-md);flex-wrap:wrap;margin-bottom: var(--space-sm);">';
     h += '<span style="font-size:18px;font-weight:800;color:var(--tp-text);">' + rows.length + ' / ' + R.capacity + '</span>';
     h += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' +
          R.freshTaken + ' frescas · ' + R.carryTaken + ' de cola' +
@@ -3317,17 +3317,17 @@ function tpRenderPlannerPreview() {
     h += '</div>';
 
     if (!rows.length) {
-        h += '<div class="empty-state" style="padding:18px;text-align:center;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+        h += '<div class="empty-state" style="padding: var(--space-lg);text-align:center;font-size: var(--fs-sm);color:var(--tp-dim);">' +
              'Nada que proponer con estos ajustes. Afloja los filtros o revisa el déficit.</div>';
     } else {
         rows.forEach(function(it, i) {
             var origen = it.manual ? ['📌 Obligatoria', 'var(--tp-blue)']
                        : it.carriedOver ? ['🔄 Cola ' + (tpCarryoverAge(it.desc) || 1) + ' sem', 'var(--tp-amber)']
                        : ['🆕 Déficit', 'var(--tp-green)'];
-            h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
             h += '<span style="font-family:monospace;font-size: var(--fs-xs);color:var(--tp-dim);min-width:18px;">' + (i + 1) + '</span>';
             h += '<div style="flex:1;min-width:180px;">';
-            h += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">' +
+            h += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">' +
                  (it.unscheduled ? '<span style="color:var(--tp-red);">sin día</span>' : 'Preacon ' + (it.preconLabel || '?') + ' → Prueba ' + (it.testLabel || '?')) +
                  ' · <span style="color:' + origen[1] + ';font-weight:700;">' + origen[0] + '</span></div>';
             h += (typeof tpConfigBadges === 'function' ? tpConfigBadges(it) : escapeHtml(it.desc));
@@ -3344,11 +3344,11 @@ function tpRenderPlannerPreview() {
 
     // Avisos
     if (R.outOfFilter && R.outOfFilter.length) {
-        h += '<div style="margin-top:8px;font-size: var(--fs-xs);color:var(--tp-amber);">⚠ ' + R.outOfFilter.length +
+        h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-amber);">⚠ ' + R.outOfFilter.length +
              ' obligatoria(s) fuera del filtro — entran igual porque las fijaste a mano.</div>';
     }
     if (R.expiredCount || R.filteredCount) {
-        h += '<div style="margin-top:6px;font-size: var(--fs-xs);color:var(--tp-dim);">🕒 ' + R.expiredCount +
+        h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">🕒 ' + R.expiredCount +
              ' caducadas · 🔎 ' + R.filteredCount + ' fuera del filtro (no compiten esta semana).</div>';
     }
 
@@ -3359,9 +3359,9 @@ function tpRenderPlannerPreview() {
         return c.deficit > 0 && !usados[c.desc] && excl.indexOf(c.desc) === -1 && tpPassesWeekFilter(c);
     }).slice(0, 6);
     if (cands.length) {
-        h += '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">➕ Siguientes candidatos (' + cands.length + ')</summary><div style="padding-top:6px;">';
+        h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">➕ Siguientes candidatos (' + cands.length + ')</summary><div style="padding-top: var(--space-sm);">';
         cands.forEach(function(c) {
-            h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid var(--tp-border);">' +
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-xs);border-bottom:1px solid var(--tp-border);">' +
                  '<div style="flex:1;min-width:150px;font-size: var(--fs-xs);">' + escapeHtml(c.desc) + '</div>' +
                  '<span style="font-family:monospace;font-size: var(--fs-xs);color:var(--tp-dim);">S:' + Math.round(c.score) + '</span>' +
                  '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" title="Fijar en la semana" onclick="tpPinPreviewItem(\'' + _tpQ(c.desc) + '\')">➕</button>' +
@@ -3372,9 +3372,9 @@ function tpRenderPlannerPreview() {
 
     // Excluidas
     if (excl.length) {
-        h += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">🚫 Excluidas esta semana (' + excl.length + ')</summary><div style="padding-top:6px;">';
+        h += '<details style="margin-top: var(--space-sm);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">🚫 Excluidas esta semana (' + excl.length + ')</summary><div style="padding-top: var(--space-sm);">';
         excl.forEach(function(d) {
-            h += '<div style="display:flex;align-items:center;gap:8px;padding:4px;font-size: var(--fs-xs);">' +
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs);font-size: var(--fs-xs);">' +
                  '<span style="flex:1;">' + escapeHtml(d) + '</span>' +
                  '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpUnexcludePreviewItem(\'' + _tpQ(d) + '\')">↩ Devolver</button></div>';
         });
@@ -4428,7 +4428,7 @@ function tpBuildWeekIndexHTML() {
     if (!planes.length) return '';
     var h = '<div class="tp-card"><div class="tp-card-title"><span>🗂 Semanas generadas</span>' +
             '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-myweek\')" style="font-size: var(--fs-sm);">📅 Abrir Mi semana</button></div>' +
-            '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
+            '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
             '<div class="tp-week-index">';
     // v20.10: cuántos planes hay por semana — "Generar" deja uno nuevo cada vez, así que
     // una semana puede acumular el aceptado + varias propuestas viejas. Se avisa y se
@@ -4468,7 +4468,7 @@ function tpBuildWeekIndexHTML() {
              'pero conviene borrar las propuestas que ya no sirven con 🗑.</p>';
     }
     if ((tpState.weeklyPlans || []).length > 8) {
-        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:6px;">Se muestran las 8 más recientes de ' +
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">Se muestran las 8 más recientes de ' +
              tpState.weeklyPlans.length + '.</p>';
     }
     return h + '</div>';
@@ -4519,40 +4519,40 @@ function tpRenderWeekly(el) {
     ${tpBuildFocusChipsHTML()}
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
         <div class="tp-card-title"><span style="font-size:15px;">🎛️ Armar la semana</span></div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:10px;">Decide CÓMO se elige; a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera — y te lleva directo al tablero de Mi semana.</p>
+        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);">Decide CÓMO se elige; a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera — y te lleva directo al tablero de Mi semana.</p>
 
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="display:flex;gap: var(--space-sm);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-md);">
             <div>
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Semana del</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Semana del</label>
                 <input type="date" id="tp-weekly-date" value="${window._tpWeekDate || _defDateStr}" class="tp-select" style="width:150px;font-size: var(--fs-sm);" onchange="window._tpWeekDate=this.value;">
             </div>
             <div>
-                <label for="tp-weekly-cap" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
+                <label for="tp-weekly-cap" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad</label>
                 <input type="number" id="tp-weekly-cap" value="${Math.min(window._tpWeekCap || _cap.max, _cap.max)}" min="1" max="${_cap.max}" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);tpRender();">
             </div>
             <div>
-                <label for="tp-veh-per-slot" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Veh. por par</label>
+                <label for="tp-veh-per-slot" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Veh. por par</label>
                 <input type="number" id="tp-veh-per-slot" value="${_cap.perSlot}" min="1" max="10" class="tp-select" style="width:65px;text-align:center;" onchange="tpSetVehiclesPerSlot(this.value);">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateAndOpen()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;" title="Genera el plan y abre el tablero de Mi semana">🚀 Generar y abrir Mi semana</button>
-            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateMonthly()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;" title="Genera 4 semanas de una vez distribuyendo los déficits de mayor prioridad">📅 Generar Mes</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateAndOpen()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:var(--tp-amber);color:#000;font-weight:700;" title="Genera el plan y abre el tablero de Mi semana">🚀 Generar y abrir Mi semana</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateMonthly()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;" title="Genera 4 semanas de una vez distribuyendo los déficits de mayor prioridad">📅 Generar Mes</button>
         </div>
 
         <details class="tp-workdays" ${window._tpWorkDaysOpen ? 'open' : ''} ontoggle="window._tpWorkDaysOpen=this.open;">
             <summary>🗓 Días de asistencia · <strong>${_cap.slots} par(es)</strong> · máximo ${_cap.max} prueba(s) · reposo ${_cap.soakHours} h</summary>
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:6px 0;">Selecciona los días que asistirás. El hueco entre preacondicionar y probar sale de las <strong>horas de reposo</strong> reales (${_cap.soakHours} h → ${_cap.gapDays} día(s)), no de un supuesto fijo.${_cap.spill && _cap.spill.length ? ' Con este reposo, preacondicionar en ' + _cap.spill.map(function(d){return TP_DAY_LABELS[d];}).join(' o ') + ' deja la prueba para la semana siguiente.' : ''}</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">
                 ${['dom','lun','mar','mie','jue','vie','sab'].map((d,i) => {
                     const labels = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
                     const checked = _workDays[d] ? 'checked' : '';
-                    return `<label style="display:flex;align-items:center;gap:3px;font-size: var(--fs-xs);color:var(--tp-text);cursor:pointer;padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
+                    return `<label style="display:flex;align-items:center;gap: var(--space-2xs);font-size: var(--fs-sm);color:var(--tp-text);cursor:pointer;padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
                         <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={dom:false,lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
                         ${labels[i]}
                     </label>`;
                 }).join('')}
             </div>
-            <div style="margin-top:6px;font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-schedule-preview">
+            <div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-schedule-preview">
                 ${tpBuildSchedulePreview(_workDays)}
             </div>
         </details>
@@ -4566,40 +4566,40 @@ function tpRenderWeekly(el) {
     <div class="tp-planner-grid">
         <div class="tp-planner-controls">
         ${backlog.length > 0 ? `
-        <div style="padding:8px 10px;background:rgba(139,92,246,0.05);border-radius:8px;border:1px solid rgba(139,92,246,0.3);margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-wrap:wrap;gap:4px;">
+        <div style="padding: var(--space-sm) var(--space-md);background:rgba(139,92,246,0.05);border-radius: var(--radius-xl);border:1px solid rgba(139,92,246,0.3);margin-bottom: var(--space-md);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-2xs);flex-wrap:wrap;gap: var(--space-xs);">
                 <div style="font-size: var(--fs-sm);font-weight:700;color:#8b5cf6;" data-help="tpBacklog">🔄 Pendientes de semanas anteriores (${backlog.length})</div>
-                <div style="display:flex;gap:4px;">
+                <div style="display:flex;gap: var(--space-xs);">
                     <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size: var(--fs-sm);background:#8b5cf6;" ${_room === 0 ? 'disabled' : ''}>Incluir las que quepan (${_room})</button>
                     ${typeof authCan === 'function' && authCan('plan.manage') ? '<button class="tp-btn tp-btn-ghost" onclick="tpClearCarryover()" style="font-size: var(--fs-sm);color:var(--tp-red);" title="Sacarlas de la cola sin tocar la cobertura">🧹 Limpiar</button>' : ''}
                 </div>
             </div>
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:0 0 6px;">Caben <b>${_cap.max}</b> pruebas esta semana (${_cap.slots} par(es) × ${_cap.perSlot}). Lo que no entra se queda en la cola y sube de prioridad cada semana que pasa.</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">
+            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);">
             ${backlog.slice(0, window._tpBacklogExpanded ? backlog.length : 8).map(b => {
                 const c = b.cfg;
                 const isAlreadyPicked = manualPicks.includes(b.desc);
                 const esc = b.desc.replace(/'/g,"\\'");
-                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:5px;flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
+                return `<div style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius: var(--radius-lg);flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
                     <span style="font-size: var(--fs-xs);color:#8b5cf6;flex-shrink:0;" title="Semanas arrastrada">🔄 ${b.weeksCarried} sem</span>
                     ${tpConfigBadges(c,{fontSize:'var(--fs-xs)'})}
-                    <span style="margin-left:auto;display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                    <span style="margin-left:auto;display:flex;gap: var(--space-xs);align-items:center;flex-shrink:0;">
                     ${isAlreadyPicked ? '<span style="font-size: var(--fs-xs);color:var(--tp-green);">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${esc}'))window._tpWeeklyManualPicks.push('${esc}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:12px;" title="Agregar a esta semana">+</button>`}
                     ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpDismissCarryover('${esc}')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size: var(--fs-sm);" title="Sacar de la cola (no cuenta como probada)">✕</button>` : ''}
                     </span>
                 </div>`;
             }).join('')}
             </div>
-            ${backlog.length > 8 ? `<button class="tp-btn tp-btn-ghost" onclick="window._tpBacklogExpanded=${window._tpBacklogExpanded?'false':'true'};tpRender();" style="font-size: var(--fs-sm);margin-top:5px;width:100%;">${window._tpBacklogExpanded ? 'Ver menos' : 'Ver las ' + backlog.length + ' →'}</button>` : ''}
+            ${backlog.length > 8 ? `<button class="tp-btn tp-btn-ghost" onclick="window._tpBacklogExpanded=${window._tpBacklogExpanded?'false':'true'};tpRender();" style="font-size: var(--fs-sm);margin-top: var(--space-xs);width:100%;">${window._tpBacklogExpanded ? 'Ver menos' : 'Ver las ' + backlog.length + ' →'}</button>` : ''}
         </div>` : ''}
         ${dismissedList.length > 0 ? `
-        <details style="margin-bottom:12px;">
+        <details style="margin-bottom: var(--space-md);">
             <summary style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;padding:4px 0;">Descartadas (${dismissedList.length}) — siguen contando como déficit</summary>
-            <div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;">
+            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);margin-top: var(--space-xs);">
             ${dismissedList.map(d => {
                 const info = tpState.carryoverDismissed[d] || {};
                 const esc = d.replace(/'/g,"\\'");
-                return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:5px;flex-wrap:wrap;">
+                return `<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-lg);flex-wrap:wrap;">
                     <span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${d}</span>
                     <span style="font-size: var(--fs-xs);color:var(--tp-dim);">${info.by || '?'}${info.at ? ' · ' + new Date(info.at).toLocaleDateString('es-MX') : ''}</span>
                     ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpRestoreCarryover('${esc}')" style="background:none;border:none;color:var(--tp-blue);cursor:pointer;font-size: var(--fs-sm);">restaurar</button>` : ''}
@@ -4607,32 +4607,32 @@ function tpRenderWeekly(el) {
             }).join('')}
             </div>
         </details>` : ''}
-        <div style="padding:10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);">
-            <div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom:5px;">📌 Pruebas obligatorias</div>
+        <div style="padding: var(--space-md);background:var(--tp-card);border-radius: var(--radius-xl);border:1px solid var(--tp-border);">
+            <div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom: var(--space-xs);">📌 Pruebas obligatorias</div>
             ${suggested.length > 0 ? `
-            <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:4px;">⚡ Sugeridas (mayor prioridad):</div>
-            <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;">
+            <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-xs);">⚡ Sugeridas (mayor prioridad):</div>
+            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);margin-bottom: var(--space-sm);">
                 ${suggested.map(s => `
-                <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius:6px;cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
+                <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
                     <span style="font-size: var(--fs-xs);flex-shrink:0;">⚡</span>
                     ${tpConfigBadges(s,{fontSize:'var(--fs-xs)'})}
                     <span style="font-size: var(--fs-xs);color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
                     <span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">+</span>
                 </div>`).join('')}
             </div>` : ''}
-            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-bottom: var(--space-sm);">
                 <input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)"
-                       style="flex:1;min-width:150px;font-size: var(--fs-xs);" oninput="tpFilterPickOptions(this.value)">
-                <select id="tp-manual-pick-select" class="tp-select" style="flex:2;min-width:200px;font-size: var(--fs-xs);">
+                       style="flex:1;min-width:150px;font-size: var(--fs-base);" oninput="tpFilterPickOptions(this.value)">
+                <select id="tp-manual-pick-select" class="tp-select" style="flex:2;min-width:200px;font-size: var(--fs-base);">
                     <option value="">Seleccionar...</option>
                     ${suggested.length > 0 ? `<optgroup label="⚡ Sugeridas">${suggested.map(s => `<option value="${s.desc}">${s.desc}</option>`).join('')}</optgroup>` : ''}
                     ${tpBuildPickOptgroupsHTML(restConfigs)}
                 </select>
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size: var(--fs-sm);">+</button>
             </div>
-            ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap:4px;">${manualPicks.map((p,i) => {
+            ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap: var(--space-xs);">${manualPicks.map((p,i) => {
                 const _pc = tpState.planData.find(c => c.desc === p);
-                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;flex-wrap:wrap;">
+                return `<div style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius: var(--radius-lg);flex-wrap:wrap;">
                     <span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">📌</span>
                     ${_pc ? tpConfigBadges(_pc,{fontSize:'var(--fs-xs)'}) : '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
                     <button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 2px;margin-left:auto;">×</button>
@@ -4647,9 +4647,9 @@ function tpRenderWeekly(el) {
         <div class="tp-planner-side">
             <div class="tp-card">
                 <div class="tp-card-title" data-help="tp-preview-help"><span>🔮 Propuesta en vivo</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Esto es exactamente lo que crearía "Generar" ahora mismo. Se actualiza al mover cualquier control.</p>
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Esto es exactamente lo que crearía "Generar" ahora mismo. Se actualiza al mover cualquier control.</p>
                 <div id="tp-planner-preview"></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:10px;border-top:1px solid var(--tp-border);padding-top:6px;">
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-md);border-top:1px solid var(--tp-border);padding-top: var(--space-sm);">
                     Nota: "📅 Mes" usa solo el déficit — no la cola ni estos filtros.</p>
             </div>
         </div>
@@ -4674,7 +4674,7 @@ function tpScoreBadge(item) {
     var color = d.deficit >= 3 ? 'var(--tp-red)' : d.deficit >= 1 ? 'var(--tp-amber)' : 'var(--tp-green)';
     var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
     var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
-    return '<span style="font-size: var(--fs-xs);padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
+    return '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
 }
 
 // Renders the "Iniciar test" button shown on each weekly-plan item
@@ -4683,7 +4683,7 @@ function tpStartTestButton(weekIdx, itemIdx, item, isEdit) {
     if (isEdit || item.completed) return '';
     return '<button onclick="tpStartTestFromPlan(' + weekIdx + ',' + itemIdx + ')" ' +
         'class="tp-btn tp-btn-primary" ' +
-        'style="font-size: var(--fs-sm);padding:3px 8px;white-space:nowrap;" ' +
+        'style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);white-space:nowrap;" ' +
         'title="Abre Alta de COP15 con esta configuración precargada">' +
         '▶ Iniciar test</button>';
 }
@@ -5207,7 +5207,7 @@ function tpMaterializeRecovery() {
 // ── Render de la pestaña Recuperación ──
 function tpRenderRecovery(el) {
     if (!tpState.planData || tpState.planData.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
         return;
     }
     var R = tpBuildRecoveryPlan();
@@ -5219,11 +5219,11 @@ function tpRenderRecovery(el) {
     // Banner
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.08),transparent);">';
     html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">🚑 Plan de Recuperación</div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:2px;">Dinamómetro en mantenimiento — agenda las pruebas pendientes por prioridad en las semanas disponibles.</div></div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top: var(--space-2xs);">Dinamómetro en mantenimiento — agenda las pruebas pendientes por prioridad en las semanas disponibles.</div></div>';
 
     // KPIs
-    function kpi(val, label, color) { return '<div class="tp-card" style="text-align:center;padding:12px;"><div style="font-size:24px;font-weight:800;color:' + color + ';">' + val + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + label + '</div></div>'; }
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;">';
+    function kpi(val, label, color) { return '<div class="tp-card" style="text-align:center;padding: var(--space-md);"><div style="font-size:24px;font-weight:800;color:' + color + ';">' + val + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + label + '</div></div>'; }
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
     s.tiers.forEach(function(t) { html += kpi(s.pending.tiers[t] || 0, 'Pendientes P' + t, tpTierColor(t)); });
     if (s.pending.none > 0) html += kpi(s.pending.none, 'Sin prioridad', '#94a3b8');
     html += kpi(s.availWeeks, 'Semanas disp.', '#10b981');
@@ -5236,11 +5236,11 @@ function tpRenderRecovery(el) {
         : '<span style="color:var(--tp-green);font-weight:700;">Todo cabe en ' + s.etaAll + ' semana(s)</span>';
     html += '<div class="tp-card" style="font-size: var(--fs-sm);">🏁 ' + etaTxt;
     html += ' &nbsp;·&nbsp; ' + s.tiers.map(function(t) { return 'P' + t + ': ' + (s.etaByTier[t] === null ? '⚠️ no alcanza' : s.etaByTier[t] + ' sem'); }).join(' · ');
-    if (s.deadlineRiskCount > 0) html += '<div style="color:var(--tp-red);margin-top:4px;">⏰ ' + s.deadlineRiskCount + ' prueba(s) quedarían después del deadline de su familia.</div>';
+    if (s.deadlineRiskCount > 0) html += '<div style="color:var(--tp-red);margin-top: var(--space-xs);">⏰ ' + s.deadlineRiskCount + ' prueba(s) quedarían después del deadline de su familia.</div>';
     html += '</div>';
 
     // Actions
-    html += '<div class="tp-card" style="display:flex;gap:8px;flex-wrap:wrap;">';
+    html += '<div class="tp-card" style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="tpRender()" style="font-size:12px;">🔄 Recalcular</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="tpMaterializeRecovery()" style="font-size:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;">📅 Generar planes semanales</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-calendar\')" style="font-size:12px;">🗓️ Ver Calendario</button></div>';
@@ -5248,31 +5248,31 @@ function tpRenderRecovery(el) {
     // Weekly availability
     html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-availability-help"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
     var _endYear = new Date().getFullYear() + '-12-31';
-    html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size: var(--fs-xs);">';
-    html += '<label style="color:var(--tp-dim);">📅 Planear hasta: <input type="date" value="' + (tpState.recoveryUntil || '') + '" onchange="tpSetRecoveryUntil(this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
+    html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;margin-bottom: var(--space-sm);font-size: var(--fs-xs);">';
+    html += '<label style="color:var(--tp-dim);">📅 Planear hasta: <input type="date" value="' + (tpState.recoveryUntil || '') + '" onchange="tpSetRecoveryUntil(this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpSetRecoveryUntil(\'' + _endYear + '\')" style="font-size: var(--fs-sm);">Fin de año</button>';
     if (tpState.recoveryUntil) html += '<button class="tp-btn tp-btn-ghost" onclick="tpSetRecoveryUntil(\'\')" style="font-size: var(--fs-sm);">Auto</button>';
     html += '</div>';
-    html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Marca las semanas en que NO probarás (mantenimiento) y ajusta días/capacidad. La capacidad es el nº de pruebas por semana — puedes preparar/probar más de un vehículo por día.</p>';
+    html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Marca las semanas en que NO probarás (mantenimiento) y ajusta días/capacidad. La capacidad es el nº de pruebas por semana — puedes preparar/probar más de un vehículo por día.</p>';
     R.weeks.forEach(function(w) {
         var dt = w.mondayDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-        html += '<div style="border:1px solid var(--tp-border);border-radius:8px;padding:8px;margin-bottom:6px;background:' + (w.available ? 'transparent' : 'rgba(239,68,68,0.06)') + ';opacity:' + (w.available ? '1' : '0.6') + ';">';
-        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+        html += '<div style="border:1px solid var(--tp-border);border-radius: var(--radius-xl);padding: var(--space-sm);margin-bottom: var(--space-sm);background:' + (w.available ? 'transparent' : 'rgba(239,68,68,0.06)') + ';opacity:' + (w.available ? '1' : '0.6') + ';">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
-        html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size: var(--fs-sm);padding:3px 8px;">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
-        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
+        html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
+        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">días: ' + w.attendDays + ' · capacidad: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong>/sem</span>';
-        html += '</div><div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">';
+        html += '</div><div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
         dayOrder.forEach(function(d) {
             var on = w.workDays[d];
-            html += '<label style="font-size: var(--fs-xs);padding:2px 6px;border:1px solid var(--tp-border);border-radius:5px;cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
+            html += '<label style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
         html += '</div>';
         // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
         if (w.available && typeof invMaintPlannedForWeek === 'function') {
             var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
             if (mtto.length > 0) {
-                html += '<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+                html += '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius: var(--radius-lg);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-sm);">';
                 html += '<span style="font-size: var(--fs-xs);color:#92400e;">🛠️ Mantenimiento programado: ' + mtto.map(function(m) { return escapeHtml(m.asset.name + ' — ' + m.act.desc); }).join(', ') + '</span>';
                 html += '<button class="tp-btn tp-btn-ghost" onclick="_tpEnsureWeekAv(\'' + w.monday + '\').available=false;tpSave();tpRender();" style="font-size: var(--fs-sm);">Marcar no disponible</button>';
                 html += '</div>';
@@ -5283,15 +5283,15 @@ function tpRenderRecovery(el) {
     html += '</div>';
 
     // Priority rules
-    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size: var(--fs-sm);">Restaurar default</button></span></div>';
-    html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size: var(--fs-sm);">Restaurar default</button></span></div>';
+    html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
     html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th>Manejo</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
         function sel(field, cur, w) {
             var opts = tpRuleFieldOptions(r, field);
             cur = cur || '';
             function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-            var o = '<select onchange="tpSetPriorityRule(\'' + r.id + '\',\'' + field + '\',this.value)" style="max-width:' + (w || 120) + 'px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;font-size: var(--fs-xs);">';
+            var o = '<select onchange="tpSetPriorityRule(\'' + r.id + '\',\'' + field + '\',this.value)" style="max-width:' + (w || 120) + 'px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);font-size: var(--fs-base);">';
             o += '<option value="" ' + (!cur ? 'selected' : '') + '>Todas</option>';
             var has = false;
             opts.forEach(function(op) { var sd = _tpNorm(op.value) === _tpNorm(cur); if (sd) has = true; o += '<option value="' + esc(op.value) + '" ' + (sd ? 'selected' : '') + '>' + esc(op.label) + '</option>'; });
@@ -5300,12 +5300,12 @@ function tpRenderRecovery(el) {
         }
         html += '<tr style="border-top:1px solid var(--tp-border);">';
         var _topts = ''; for (var _tt = 1; _tt <= Math.max(tpMaxTiers(), r.tier || 1); _tt++) _topts += '<option value="' + _tt + '" ' + (r.tier === _tt ? 'selected' : '') + '>P' + _tt + '</option>';
-        html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);font-size: var(--fs-xs);">' + _topts + '</select></td>';
+        html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);font-size: var(--fs-base);">' + _topts + '</select></td>';
         html += '<td>' + sel('familyMatch', r.familyMatch, 170) + '</td>';
         html += '<td>' + sel('region', r.region) + '</td><td>' + sel('regulation', r.regulation) + '</td><td>' + sel('modelMatch', r.modelMatch) + '</td><td>' + sel('engMatch', r.engMatch) + '</td><td>' + sel('bodyMatch', r.bodyMatch) + '</td><td>' + sel('drvMatch', r.drvMatch) + '</td>';
-        html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size: var(--fs-sm);padding:2px 6px;">✕</button></td></tr>';
+        html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">✕</button></td></tr>';
     });
-    html += '</table></div><button class="tp-btn tp-btn-ghost" onclick="tpAddPriorityRule()" style="font-size: var(--fs-sm);margin-top:6px;">+ Agregar regla</button></div>';
+    html += '</table></div><button class="tp-btn tp-btn-ghost" onclick="tpAddPriorityRule()" style="font-size: var(--fs-sm);margin-top: var(--space-sm);">+ Agregar regla</button></div>';
 
     // Pending by priority
     function tierSection(title, color, arr) {
@@ -5314,9 +5314,9 @@ function tpRenderRecovery(el) {
         if (!arr.length) return h + '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin pendientes.</div></div>';
         arr.slice(0, 15).forEach(function(it) {
             var dl = it.deadline ? ' · ⏰ ' + (it.daysToDeadline < 0 ? 'vencido' : it.daysToDeadline + 'd') : '';
-            h += '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);"><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span><span style="white-space:nowrap;color:var(--tp-dim);">×' + it.deficit + dl + '</span></div>';
+            h += '<div style="display:flex;justify-content:space-between;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);"><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span><span style="white-space:nowrap;color:var(--tp-dim);">×' + it.deficit + dl + '</span></div>';
         });
-        if (arr.length > 15) h += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (arr.length - 15) + ' más…</div>';
+        if (arr.length > 15) h += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top: var(--space-xs);">+' + (arr.length - 15) + ' más…</div>';
         return h + '</div>';
     }
     s.tiers.forEach(function(t) { html += tierSection('Prioridad ' + t, tpTierColor(t), R.pending.byTier[t]); });
@@ -5328,10 +5328,10 @@ function tpRenderRecovery(el) {
     if (!anyWk.length) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">No hay semanas disponibles con capacidad. Marca semanas disponibles arriba.</div>';
     anyWk.forEach(function(w) {
         var dt = w.mondayDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-        html += '<div style="margin-bottom:8px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-blue);">Semana ' + dt + ' (' + w.items.length + '/' + w.effCap + ')</div>';
+        html += '<div style="margin-bottom: var(--space-sm);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-blue);">Semana ' + dt + ' (' + w.items.length + '/' + w.effCap + ')</div>';
         w.items.forEach(function(it) {
             var tc = tpTierColor(it.tier);
-            html += '<div style="display:flex;gap:6px;align-items:center;padding:2px 0;font-size: var(--fs-sm);"><span style="padding:1px 5px;border-radius:3px;background:' + tc + '20;color:' + tc + ';font-weight:700;">' + (it.tier ? 'P' + it.tier : '—') + '</span><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span></div>';
+            html += '<div style="display:flex;gap: var(--space-sm);align-items:center;padding:2px 0;font-size: var(--fs-sm);"><span style="padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:' + tc + '20;color:' + tc + ';font-weight:700;">' + (it.tier ? 'P' + it.tier : '—') + '</span><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span></div>';
         });
         html += '</div>';
     });
@@ -5340,7 +5340,7 @@ function tpRenderRecovery(el) {
         R.unscheduled.forEach(function(it) { var k = it.tier || 'none'; byT[k] = (byT[k] || 0) + 1; });
         var uparts = s.tiers.filter(function(t) { return byT[t]; }).map(function(t) { return 'P' + t + ': ' + byT[t]; });
         if (byT.none) uparts.push('Sin prioridad: ' + byT.none);
-        html += '<div style="border-top:1px solid var(--tp-border);margin-top:6px;padding-top:6px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-red);">⚠️ No alcanzan (' + R.unscheduled.length + ')</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + uparts.join(' · ') + '</div></div>';
+        html += '<div style="border-top:1px solid var(--tp-border);margin-top: var(--space-sm);padding-top: var(--space-sm);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-red);">⚠️ No alcanzan (' + R.unscheduled.length + ')</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + uparts.join(' · ') + '</div></div>';
     }
     html += '</div>';
 
@@ -5987,7 +5987,7 @@ function tpRenderWeekHistory(el) {
     if (!tpState.weekHistory) tpState.weekHistory = [];
     const hist = tpState.weekHistory;
     if (hist.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay semanas archivadas. Las semanas se archivan automaticamente al aceptarlas.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">No hay semanas archivadas. Las semanas se archivan automaticamente al aceptarlas.</div>';
         return;
     }
     const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
@@ -6000,7 +6000,7 @@ function tpRenderWeekHistory(el) {
     const avgPct = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
 
     let html = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">${totalWeeks}</div><div class="tp-metric-label">Semanas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">${totalCompleted}</div><div class="tp-metric-label">Completados</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">${totalCarryover}</div><div class="tp-metric-label">Carryover</div></div>
@@ -6018,37 +6018,37 @@ function tpRenderWeekHistory(el) {
 
         html += `
         <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':h.carryover>0?'#8b5cf6':'var(--tp-amber)'};">
-            <div onclick="window._tpHistExpand=${isExpanded?-1:hi};tpRender();" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+            <div onclick="window._tpHistExpand=${isExpanded?-1:hi};tpRender();" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">
                 <div>
                     <span style="font-size:12px;font-weight:700;">Sem ${h.weekNum}</span>
                     <span style="font-size: var(--fs-xs);color:var(--tp-dim);">${dt}</span>
-                    ${wdStr ? `<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;">${wdStr}</span>` : ''}
+                    ${wdStr ? `<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);">${wdStr}</span>` : ''}
                     <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size: var(--fs-xs);">Aceptado ${acceptDt}</span>
                     ${h.carryover>0?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size: var(--fs-xs);">${h.carryover} carryover</span>`:''}
                 </div>
-                <div style="display:flex;align-items:center;gap:5px;">
+                <div style="display:flex;align-items:center;gap: var(--space-xs);">
                     <span style="font-size: var(--fs-sm);font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${h.completed}/${h.total}</span>
                     <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size: var(--fs-xs);">${pct}%</span></div>
                     <span style="font-size:12px;color:var(--tp-dim);">${isExpanded?'▲':'▼'}</span>
                 </div>
             </div>
             ${isExpanded && h.items ? `
-            <div style="margin-top:8px;border-top:1px solid var(--tp-border);padding-top:8px;">
+            <div style="margin-top: var(--space-sm);border-top:1px solid var(--tp-border);padding-top: var(--space-sm);">
                 ${h.items.map(item => `
-                <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius: var(--radius-lg);background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
                     <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size: var(--fs-xs);color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
-                    ${item.substituted?'<span style="font-size: var(--fs-xs);color:var(--warn-text);background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                    ${item.carriedOver?'<span style="font-size: var(--fs-xs);color:#8b5cf6;background:rgba(139,92,246,0.1);padding: var(--space-2xs) var(--space-2xs);border-radius: var(--radius-sm);">carryover</span>':''}
+                    ${item.substituted?'<span style="font-size: var(--fs-xs);color:var(--warn-text);background:rgba(245,158,11,0.1);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-sm);" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size: var(--fs-xs);color:var(--tp-amber);">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'var(--fs-xs)'})}
-                    ${item.testLabel?`<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
+                    ${item.testLabel?`<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
                 </div>`).join('')}
             </div>` : ''}
         </div>`;
     });
 
     // Delete history button
-    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Borrar todo el historial de semanas?',function(){tpState.weekHistory=[];tpSave();tpRender();},{title:'Borrar historial',type:'danger',confirmText:'Borrar todo'})" style="font-size: var(--fs-sm);color:var(--tp-red);">Borrar historial</button></div>`;
+    html += `<div style="text-align:center;margin-top: var(--space-md);"><button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Borrar todo el historial de semanas?',function(){tpState.weekHistory=[];tpSave();tpRender();},{title:'Borrar historial',type:'danger',confirmText:'Borrar todo'})" style="font-size: var(--fs-sm);color:var(--tp-red);">Borrar historial</button></div>`;
 
     el.innerHTML = html;
 }
@@ -6640,7 +6640,7 @@ function tpLinkVehicleMenu(weekIdx, itemIdx, verTodas) {
     if (item.linkedVehicleId != null) {
         body += '<div class="tp-link-current">Vinculada a <strong>' + (item.linkedVin || item.linkedVehicleId) + '</strong>' +
                 (item.linkedBy ? ' · por ' + item.linkedBy : '') +
-                '<button class="tp-week-movebtn tp-week-movebtn--danger" style="margin-top:6px;" ' +
+                '<button class="tp-week-movebtn tp-week-movebtn--danger" style="margin-top: var(--space-sm);" ' +
                 'onclick="document.getElementById(\'globalModal\').remove();tpUnlinkVehicleFromItem(' + weekIdx + ',' + itemIdx + ')">' +
                 '<span class="tp-week-movebtn-day">✕ Quitar el vínculo</span></button></div>';
     }
@@ -6705,8 +6705,8 @@ function tpRenderProduction(el) {
             <span>📥 Importar Plan de Producción (CSV)</span>
             ${tpState.planImportDate ? `<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Última importación: ${new Date(tpState.planImportDate).toLocaleDateString('es-MX')}</span>` : ''}
         </div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:10px;">Carga el CSV con columnas: codigo_config, codigo_config_text, Modelo, ... , count_hist, Feb-26, Mar-26, ..., Total_Calc</p>
-        <div style="display:flex;gap:10px;align-items:center;">
+        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);">Carga el CSV con columnas: codigo_config, codigo_config_text, Modelo, ... , count_hist, Feb-26, Mar-26, ..., Total_Calc</p>
+        <div style="display:flex;gap: var(--space-md);align-items:center;">
             <input type="file" accept=".csv" id="tp-csv-file" style="font-size:12px;color:var(--tp-text);">
             <button class="tp-btn tp-btn-primary" onclick="tpHandleCSVUpload()">📤 Importar CSV</button>
             ${hasData ? `<span style="font-size: var(--fs-sm);color:var(--tp-green);">✅ ${plan.length} configs cargadas</span>` : ''}
@@ -6720,26 +6720,26 @@ function tpRenderProduction(el) {
             <button class="tp-btn tp-btn-ghost" onclick="window._tpProdChartCfg=!window._tpProdChartCfg;tpRender();" style="font-size: var(--fs-sm);">⚙️</button>
         </div>
         ${window._tpProdChartCfg ? `
-        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="padding: var(--space-md);background:var(--tp-bg);border:1px solid var(--tp-border);border-radius: var(--radius-xl);margin-bottom: var(--space-md);">
+            <div style="display:flex;gap: var(--space-md);flex-wrap:wrap;align-items:flex-end;">
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Altura grafica (px)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-xs);" value="${window._tpProdChartH || 140}" min="80" max="400" onchange="window._tpProdChartH=parseInt(this.value);tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Altura grafica (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size: var(--fs-base);" value="${window._tpProdChartH || 140}" min="80" max="400" onchange="window._tpProdChartH=parseInt(this.value);tpRender();">
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
-                    <input type="number" class="tp-select" style="width:80px;font-size: var(--fs-xs);" value="${window._tpProdYMax || 0}" min="0" onchange="window._tpProdYMax=parseInt(this.value);tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:80px;font-size: var(--fs-base);" value="${window._tpProdYMax || 0}" min="0" onchange="window._tpProdYMax=parseInt(this.value);tpRender();">
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo</label>
-                    <select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpProdChartType=this.value;tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Tipo</label>
+                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpProdChartType=this.value;tpRender();">
                         <option value="bar" ${(window._tpProdChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpProdChartType==='hbar'?'selected':''}>Horizontal</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
-                    <select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpProdGroupBy=this.value;tpRender();">
+                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Agrupar por</label>
+                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpProdGroupBy=this.value;tpRender();">
                         <option value="month" ${(window._tpProdGroupBy||'month')==='month'?'selected':''}>Mes</option>
                         <option value="region" ${window._tpProdGroupBy==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpProdGroupBy==='model'?'selected':''}>Modelo</option>
@@ -6756,11 +6756,11 @@ function tpRenderProduction(el) {
                 const totals = tpMonths().map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
                 const maxT = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...totals, 1);
                 if (chartType === 'hbar') {
-                    return `<div style="display:flex;flex-direction:column;gap:3px;">
-                        ${tpMonths().map((m,i) => `<div style="display:flex;align-items:center;gap:6px;">
+                    return `<div style="display:flex;flex-direction:column;gap: var(--space-2xs);">
+                        ${tpMonths().map((m,i) => `<div style="display:flex;align-items:center;gap: var(--space-sm);">
                             <div style="width:45px;font-size: var(--fs-xs);color:var(--tp-dim);text-align:right;">${m}</div>
-                            <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
-                                <div style="height:100%;width:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                            <div style="flex:1;height:16px;background:var(--tp-border);border-radius: var(--radius-md);overflow:hidden;">
+                                <div style="height:100%;width:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);border-radius: var(--radius-md);"></div>
                             </div>
                             <div style="width:50px;font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);">${totals[i].toLocaleString()}</div>
                         </div>`).join('')}
@@ -6788,11 +6788,11 @@ function tpRenderProduction(el) {
             if (gData.length > 12) gData = gData.slice(0,12);
             const maxG = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...gData.map(g => g[1]), 1);
             if (chartType === 'hbar') {
-                return `<div style="display:flex;flex-direction:column;gap:3px;">
-                    ${gData.map(([k,v]) => `<div style="display:flex;align-items:center;gap:6px;">
+                return `<div style="display:flex;flex-direction:column;gap: var(--space-2xs);">
+                    ${gData.map(([k,v]) => `<div style="display:flex;align-items:center;gap: var(--space-sm);">
                         <div style="width:70px;font-size: var(--fs-xs);color:var(--tp-dim);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</div>
-                        <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
-                            <div style="height:100%;width:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                        <div style="flex:1;height:16px;background:var(--tp-border);border-radius: var(--radius-md);overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);border-radius: var(--radius-md);"></div>
                         </div>
                         <div style="width:55px;font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);">${v.toLocaleString()}</div>
                     </div>`).join('')}
@@ -6842,12 +6842,12 @@ function tpRenderProduction(el) {
                     `;}).join('')}
                 </tbody>
             </table>
-            ${plan.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--tp-dim);font-size: var(--fs-xs);">Mostrando 100 de ${plan.length}</div>` : ''}
+            ${plan.length > 100 ? `<div style="padding: var(--space-sm);text-align:center;color:var(--tp-dim);font-size: var(--fs-xs);">Mostrando 100 de ${plan.length}</div>` : ''}
         </div>
     </div>
     ` : `
-    <div class="tp-card" style="text-align:center;padding:40px;">
-        <div style="font-size:40px;margin-bottom:12px;">📊</div>
+    <div class="tp-card" style="text-align:center;padding: var(--space-3xl);">
+        <div style="font-size:40px;margin-bottom: var(--space-md);">📊</div>
         <p style="color:var(--tp-dim);">No hay plan cargado. Importa tu CSV usando el botón de arriba.</p>
     </div>
     `}
@@ -6930,10 +6930,10 @@ function tpRenderAlertsBanner() {
     if (alerts.length === 0) return '';
     const typeColor = { critical:'var(--tp-red)', warning:'var(--tp-amber)', info:'var(--tp-blue)' };
     return `
-    <div class="tp-card" style="padding:12px 16px;border-color:${typeColor[alerts[0].type]};">
-        <div class="tp-card-title" style="margin-bottom:8px;"><span>🔔 Centro de Alertas (${alerts.length})</span></div>
+    <div class="tp-card" style="padding: var(--space-md) var(--space-lg);border-color:${typeColor[alerts[0].type]};">
+        <div class="tp-card-title" style="margin-bottom: var(--space-sm);"><span>🔔 Centro de Alertas (${alerts.length})</span></div>
         ${alerts.slice(0,6).map(a => `
-            <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--tp-border)15;">
+            <div style="display:flex;align-items:flex-start;gap: var(--space-sm);padding:5px 0;border-bottom:1px solid var(--tp-border)15;">
                 <span style="font-size:14px;flex-shrink:0;">${a.icon}</span>
                 <span style="font-size: var(--fs-sm);color:${typeColor[a.type]};">${a.msg}</span>
             </div>
@@ -7285,7 +7285,7 @@ function tpFamilyFlagBadge(f) {
 }
 
 function tpRenderFamilies(el) {
-    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
+    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
     const families = tpBuildFamilies();
     const sortBy        = window._tpFamSort    || 'risk';
     const regionFilter  = window._tpFamRegion  || 'ALL';
@@ -7357,25 +7357,25 @@ function tpRenderFamilies(el) {
 
     var _readinessLabels = { direct:'Probadas', partial:'Parciales', equivalent:'Cubiertas por similar', continuity:'Continuidad MY', none:'Sin cubrir' };
     var _readinessBanner = readinessFilter !== 'ALL' ? `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:6px;margin-bottom:8px;font-size: var(--fs-sm);">
+        <div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-md);background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius: var(--radius-lg);margin-bottom: var(--space-sm);font-size: var(--fs-sm);">
             <span>Filtro estado: <b>${_readinessLabels[readinessFilter] || readinessFilter}</b></span>
             <button class="tp-btn tp-btn-ghost" onclick="window._tpReadinessFilter='ALL';tpRefreshFamilies();" style="font-size: var(--fs-sm);margin-left:auto;">Quitar</button>
         </div>` : '';
 
     el.innerHTML = `
     ${_readinessBanner}
-    <div style="margin-bottom:10px;padding:10px 12px;background:var(--tp-card);border-radius:10px;border:1px solid var(--tp-border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <div style="margin-bottom: var(--space-md);padding: var(--space-md) var(--space-md);background:var(--tp-card);border-radius: var(--radius-xl);border:1px solid var(--tp-border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-sm);">
             <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);letter-spacing:0.03em;">CUMPLIMIENTO DE FAMILIAS</span>
             <span style="font-size:15px;font-weight:800;color:${_covPct>=80?'var(--tp-green)':_covPct>=40?'var(--tp-amber)':'var(--tp-red)'};">${_coveredCount}/${_totalFams} <span style="font-size: var(--fs-xs);font-weight:600;">(${_covPct}%)</span></span>
         </div>
-        <div style="height:9px;border-radius:5px;background:var(--tp-border);overflow:hidden;display:flex;gap:1px;">
+        <div style="height:9px;border-radius: var(--radius-lg);background:var(--tp-border);overflow:hidden;display:flex;gap: var(--space-2xs);">
             <div style="width:${_dirPct}%;background:var(--tp-green);transition:width 0.4s;" title="Directas: ${_directCount}"></div>
             <div style="width:${_parPct}%;background:var(--tp-amber);transition:width 0.4s;" title="Parciales: ${_partialCount}"></div>
             <div style="width:${_eqPct}%;background:#38bdf8;transition:width 0.4s;" title="Equivalencia: ${_equivCount}"></div>
             <div style="width:${_coPct}%;background:#84cc16;transition:width 0.4s;" title="Continuidad: ${_contCount}"></div>
         </div>
-        <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap;">
+        <div style="display:flex;gap: var(--space-md);margin-top: var(--space-xs);flex-wrap:wrap;">
             <span style="font-size: var(--fs-xs);color:var(--tp-green);cursor:pointer;" onclick="window._tpReadinessFilter='direct';tpRefreshFamilies();">● Directas ${_directCount}</span>
             <span style="font-size: var(--fs-xs);color:var(--tp-amber);cursor:pointer;" onclick="window._tpReadinessFilter='partial';tpRefreshFamilies();">● Parciales ${_partialCount}</span>
             <span style="font-size: var(--fs-xs);color:#38bdf8;cursor:pointer;" onclick="window._tpReadinessFilter='equivalent';tpRefreshFamilies();">● Equiv ${_equivCount}</span>
@@ -7383,31 +7383,31 @@ function tpRenderFamilies(el) {
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;" onclick="window._tpReadinessFilter='none';tpRefreshFamilies();">● Sin cubrir ${_noneCount}</span>
         </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${filtered.length}</div><div class="tp-metric-label">Familias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${hR}</div><div class="tp-metric-label">Alto</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${mR}</div><div class="tp-metric-label">Medio</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${lR}</div><div class="tp-metric-label">Bajo</div></div>
     </div>
     <div class="tp-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap: var(--space-sm);margin-bottom: var(--space-sm);flex-wrap:wrap;">
             <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);">Familias <span style="font-size: var(--fs-xs);font-weight:400;color:var(--tp-dim);">${filtered.length} mostradas</span></span>
             ${_activeFilters > 0 ? `<button class="tp-btn tp-btn-ghost" onclick="tpClearFamilyFilters();" style="font-size: var(--fs-sm);color:var(--tp-red);border-color:rgba(239,68,68,0.3);">✕ Quitar ${_activeFilters} filtro${_activeFilters>1?'s':''}</button>` : ''}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px;margin-bottom:6px;">
-            <select class="tp-select" onchange="window._tpFamRegion=this.value;tpRefreshFamilies();" style="font-size: var(--fs-xs);${regionFilter!=='ALL'?'border-color:#38bdf8;color:#38bdf8;':''}" title="Filtrar por región de mercado">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap: var(--space-xs);margin-bottom: var(--space-sm);">
+            <select class="tp-select" onchange="window._tpFamRegion=this.value;tpRefreshFamilies();" style="font-size: var(--fs-base);${regionFilter!=='ALL'?'border-color:#38bdf8;color:#38bdf8;':''}" title="Filtrar por región de mercado">
                 <option value="ALL">📍 Región: Todas</option>
                 ${allRegions.map(r => `<option value="${r}" ${r===regionFilter?'selected':''}>${r}</option>`).join('')}
             </select>
-            <select class="tp-select" onchange="window._tpFamMY=this.value;tpRefreshFamilies();" style="font-size: var(--fs-xs);${myFilter!=='ALL'?'border-color:#06b6d4;color:#06b6d4;':''}" title="Filtrar por Model Year">
+            <select class="tp-select" onchange="window._tpFamMY=this.value;tpRefreshFamilies();" style="font-size: var(--fs-base);${myFilter!=='ALL'?'border-color:#06b6d4;color:#06b6d4;':''}" title="Filtrar por Model Year">
                 <option value="ALL">📅 MY: Todos</option>
                 ${allMYs.map(m => `<option value="${m}" ${m===myFilter?'selected':''}>${m}</option>`).join('')}
             </select>
-            <select class="tp-select" onchange="window._tpFamModel=this.value;tpRefreshFamilies();" style="font-size: var(--fs-xs);${modelFilter!=='ALL'?'border-color:#a855f7;color:#a855f7;':''}" title="Filtrar por modelo de vehículo">
+            <select class="tp-select" onchange="window._tpFamModel=this.value;tpRefreshFamilies();" style="font-size: var(--fs-base);${modelFilter!=='ALL'?'border-color:#a855f7;color:#a855f7;':''}" title="Filtrar por modelo de vehículo">
                 <option value="ALL">🚗 Modelo: Todos</option>
                 ${allModels.map(m => `<option value="${m}" ${m===modelFilter?'selected':''}>${m}</option>`).join('')}
             </select>
-            <select class="tp-select" onchange="window._tpFamSort=this.value;tpRefreshFamilies();" style="font-size: var(--fs-xs);" title="Ordenar familias">
+            <select class="tp-select" onchange="window._tpFamSort=this.value;tpRefreshFamilies();" style="font-size: var(--fs-base);" title="Ordenar familias">
                 <option value="risk"     ${sortBy==='risk'    ?'selected':''}>↕ Riesgo</option>
                 <option value="volume"   ${sortBy==='volume'  ?'selected':''}>↕ Volumen</option>
                 <option value="cov_asc"  ${sortBy==='cov_asc' ?'selected':''}>↑ Cobertura (menor)</option>
@@ -7429,11 +7429,11 @@ function tpRenderFamilies(el) {
             var _autoContCount = f.configs.filter(function(c){return c.coveredByContinuity&&c.coveredByContinuity.auto;}).length;
             var _manContCount  = f.continuityCoveredCount - _autoContCount;
             var _contBadge = (f.continuityCoveredCount > 0) ? '<span class="tp-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size: var(--fs-xs);" title="' + _manContCount + ' manual + ' + _autoContCount + ' auto-detectadas por MY">↪ Cont ' + (_autoContCount > 0 ? _autoContCount + ' auto' : f.continuityCoveredCount) + '</span>' : '';
-            var _evidBtn = (f.totalTested > 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.preventDefault();event.stopPropagation();tpOpenFamilyEvidence(\'' + f.key.replace(/'/g, "\\'") + '\');" style="font-size: var(--fs-sm);padding:2px 6px;" title="Ver VINs y evidencia">📋</button>' : '';
+            var _evidBtn = (f.totalTested > 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.preventDefault();event.stopPropagation();tpOpenFamilyEvidence(\'' + f.key.replace(/'/g, "\\'") + '\');" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);" title="Ver VINs y evidencia">📋</button>' : '';
             return `
-            <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
-                <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;flex-wrap:wrap;">
+            <details style="margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-xl);overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
+                <summary style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-md);cursor:pointer;list-style:none;background:var(--tp-card);gap: var(--space-xs);flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap: var(--space-xs);flex:1;min-width:140px;flex-wrap:wrap;">
                         <span style="font-weight:800;font-size: var(--fs-sm);">${f.mod}</span>
                         ${(f.bodies||[]).map(_bodyBadge).join('')}
                         <span style="font-size: var(--fs-xs);color:var(--tp-dim);">${f.eng} ${f.tx}</span>
@@ -7443,7 +7443,7 @@ function tpRenderFamilies(el) {
                         ${(f.drvs||[]).map(d=>`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size: var(--fs-xs);">${d}</span>`).join('')}
                         ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}${tpFamilyFlagBadge(f)}
                     </div>
-                    <div style="display:flex;align-items:center;gap:4px;">
+                    <div style="display:flex;align-items:center;gap: var(--space-xs);">
                         ${(f.pausedCount > 0 || f.dormantCount > 0) ? `<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);" title="${f.pausedCount} pausada(s) que ya no exigen pruebas, ${f.dormantCount} dormida(s) sin decisión (3+ meses en 0)">${f.pausedCount > 0 ? '⏸' + f.pausedCount : ''}${f.dormantCount > 0 ? ' 😴' + f.dormantCount : ''}</span>` : ''}
                         ${tpLastTestBadge(f)}
                         ${_evidBtn}
@@ -7451,23 +7451,23 @@ function tpRenderFamilies(el) {
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size: var(--fs-xs);">${Math.round(_fCov*100)}%</span></div>
                     </div>
                 </summary>
-                <div style="padding:6px 8px;background:var(--tp-dark);border-top:1px solid var(--tp-border);">
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 6px;margin-bottom:6px;background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius:5px;">
+                <div style="padding: var(--space-sm) var(--space-sm);background:var(--tp-dark);border-top:1px solid var(--tp-border);">
+                    <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Criticidad
-                            <select class="tp-select" style="font-size: var(--fs-sm);padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Criticidad
+                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
                                 <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
                                 <option value="high" ${f.criticality==='high'?'selected':''}>Alto</option>
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline familia
-                            <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size: var(--fs-sm);padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Deadline familia
+                            <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
                         </label>
-                        ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size: var(--fs-sm);padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
+                        ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);color:var(--tp-red);">Quitar deadline</button>`:''}
                         <span style="font-size: var(--fs-sm);color:var(--tp-dim);font-style:italic;">· o pon un deadline por variante abajo ↓</span>
                     </div>
-                    ${diffs.length > 0 ? `<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
+                    ${diffs.length > 0 ? `<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-xs);letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
@@ -7478,21 +7478,21 @@ function tpRenderFamilies(el) {
                                 const _fldColors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899',rgn:'#f97316'};
                                 const _bodyColors = {'4DR':'#3b82f6','5DR':'#8b5cf6','WGN':'#14b8a6','WGN LONG':'#10b981','2DR':'#f59e0b'};
                                 const _c = d.field === 'body' ? (_bodyColors[v] || '#64748b') : (_fldColors[d.field] || '#888');
-                                return `<span style="font-size: var(--fs-sm);padding:1px 5px;border-radius:4px;background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
+                                return `<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
                             }).join(' ');
                         } else {
                             // Single config - show tire as identifier
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
-                            if (tire) badges = `<span style="font-size: var(--fs-sm);padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
+                            if (tire) badges = `<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
                         // Build VIN sublist for tested configs
                         let vinHtml = '';
                         if (c.testedN > 0 && c.vins && c.vins.length > 0) {
                             var _vinId = 'tp-vins-' + fi + '-' + _ci;
-                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:var(--tp-dark);border-top:1px solid var(--tp-border);">`;
+                            vinHtml = `<div id="${_vinId}" style="display:none;padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xl);background:var(--tp-dark);border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
-                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid var(--tp-border);color:var(--tp-text);">
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-2xs) var(--space-xs);border-bottom:1px solid var(--tp-border);color:var(--tp-text);">
                                     <span style="font-family:monospace;font-size: var(--fs-sm);color:var(--tp-text);">${vin}</span>
                                     <span style="font-size: var(--fs-sm);color:var(--tp-dim);">${v.date || '?'}</span>
                                 </div>`;
@@ -7507,8 +7507,8 @@ function tpRenderFamilies(el) {
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
                         var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size: var(--fs-sm);color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
                         var _isAutoCont = c.coveredByContinuity && c.coveredByContinuity.auto;
-                        var _contTag = c.coveredByContinuity ? '<span style="font-size: var(--fs-sm);padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
-                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size: var(--fs-sm);padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
+                        var _contTag = c.coveredByContinuity ? '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
+                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
                         // Deadline particular por variante
                         var _descArg = JSON.stringify(c.desc).replace(/"/g, '&quot;');
                         var _cDeadBadge = '';
@@ -7518,18 +7518,18 @@ function tpRenderFamilies(el) {
                             var _ct = _cd < 0 ? 'vencido' : _cd + 'd';
                             _cDeadBadge = '<span style="font-size: var(--fs-sm);font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
                         }
-                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding:2px 4px;width:132px;">'
+                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);width:132px;">'
                             + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size: var(--fs-sm);padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
-                        <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size: var(--fs-sm);flex-wrap:wrap;gap:4px;" ${clickable}>
-                                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
+                        <div style="margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-md);background:var(--tp-card);overflow:hidden;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-sm);flex-wrap:wrap;gap: var(--space-xs);" ${clickable}>
+                                <div style="display:flex;align-items:center;gap: var(--space-xs);flex:1;min-width:0;flex-wrap:wrap;">
                                     <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}${_contTag}
                                     ${badges}
                                     ${c.testedN > 0 ? '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
-                                <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                                <div style="display:flex;gap: var(--space-xs);align-items:center;flex-wrap:wrap;">
                                     ${_cDeadBadge}${_cDeadCtrl}
                                     ${_contBtn}
                                     <span style="font-size: var(--fs-sm);font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
@@ -7553,7 +7553,7 @@ function tpRenderFamilies(el) {
 
 function tpRenderSimulator(el) {
     if (tpState.planData.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Importa el plan de producción primero.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan de producción primero.</div>';
         return;
     }
 
@@ -7566,15 +7566,15 @@ function tpRenderSimulator(el) {
     el.innerHTML = `
     <div class="tp-card">
         <div class="tp-card-title"><span>🔮 Simulador What-If</span></div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:14px;">Simula escenarios ajustando la capacidad semanal para ver en cuánto tiempo alcanzas cobertura completa.</p>
-        <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-lg);">Simula escenarios ajustando la capacidad semanal para ver en cuánto tiempo alcanzas cobertura completa.</p>
+        <div style="display:flex;gap: var(--space-lg);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-lg);">
             <div>
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad Semanal</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad Semanal</label>
                 <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:200px;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;">
-                <span id="tp-sim-cap-val" style="font-weight:800;color:var(--tp-amber);font-size:14px;margin-left:8px;">${simCap}</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">pruebas/semana</span>
+                <span id="tp-sim-cap-val" style="font-weight:800;color:var(--tp-amber);font-size:14px;margin-left: var(--space-sm);">${simCap}</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">pruebas/semana</span>
             </div>
             <div>
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Horizonte (semanas)</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Horizonte (semanas)</label>
                 <input class="tp-input" type="number" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="width:70px;text-align:center;">
             </div>
             <button class="tp-btn tp-btn-primary" onclick="window._tpSimCap=+document.getElementById('tp-sim-cap').value;window._tpSimWeeks=+document.getElementById('tp-sim-weeks').value;tpRender();">🔄 Simular</button>
@@ -7582,7 +7582,7 @@ function tpRenderSimulator(el) {
     </div>
 
     <!-- Key results -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap: var(--space-md);margin-bottom: var(--space-lg);">
         <div class="tp-metric"><div class="tp-metric-val" style="color:${sim.weeksTo100<=simWeeks?'var(--tp-green)':'var(--tp-red)'}">${sim.weeksTo100 <= simWeeks ? sim.weeksTo100 : '>' + simWeeks}</div><div class="tp-metric-label">Semanas a 100%</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${sim.totalTestsNeeded}</div><div class="tp-metric-label">Pruebas necesarias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${sim.currentCoverage}%</div><div class="tp-metric-label">Cobertura actual</div></div>
@@ -7592,11 +7592,11 @@ function tpRenderSimulator(el) {
     <!-- Coverage curve chart -->
     <div class="tp-card">
         <div class="tp-card-title"><span>📈 Curva de Cobertura Proyectada</span></div>
-        <div style="display:flex;align-items:flex-end;gap:1px;height:160px;padding:10px 0;">
+        <div style="display:flex;align-items:flex-end;gap: var(--space-2xs);height:160px;padding:10px 0;">
             ${sim.curve.map((pt, i) => `
                 <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
                     <div style="width:100%;background:${pt.pct>=100?'var(--tp-green)':pt.pct>=50?'var(--tp-amber)':'var(--tp-red)'};border-radius:2px 2px 0 0;height:${pt.pct}%;min-height:2px;transition:height .3s;opacity:0.8;"></div>
-                    ${i % Math.max(1, Math.floor(sim.curve.length/12)) === 0 ? `<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">S${pt.week}</div>` : ''}
+                    ${i % Math.max(1, Math.floor(sim.curve.length/12)) === 0 ? `<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">S${pt.week}</div>` : ''}
                 </div>
             `).join('')}
         </div>
@@ -7609,7 +7609,7 @@ function tpRenderSimulator(el) {
     <!-- Capacity comparison table -->
     <div class="tp-card">
         <div class="tp-card-title"><span>📊 Comparación de Escenarios</span></div>
-        <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Para presentar a gerencia: qué capacidad necesitas para alcanzar cobertura en diferentes plazos.</p>
+        <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Para presentar a gerencia: qué capacidad necesitas para alcanzar cobertura en diferentes plazos.</p>
         <table class="tp-table">
             <thead><tr><th>Capacidad</th><th>Semanas a 100%</th><th>Pruebas Total</th><th>Cobertura Sem 8</th><th>Cobertura Sem 16</th><th>Cobertura Sem 26</th></tr></thead>
             <tbody>
@@ -7779,20 +7779,20 @@ function tpRenderCalendar(el) {
     }
 
     var html = '';
-    html += '<div class="tp-card" style="padding:14px;">';
+    html += '<div class="tp-card" style="padding: var(--space-lg);">';
 
     // Header with navigation
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" style="font-size:16px;padding:4px 10px;">◀</button>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-lg);">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">◀</button>';
     html += '<div style="text-align:center;">';
     html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">' + monthNames[month] + ' ' + year + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + monthCompleted + ' completadas | ' + monthPending + ' pendientes | ' + monthTested + ' probadas</div>';
     html += '</div>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding:4px 10px;">▶</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">▶</button>';
     html += '</div>';
 
     // Metrics row
-    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">' + monthCompleted + '</div><div class="tp-metric-label">Completadas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">' + monthPending + '</div><div class="tp-metric-label">Pendientes</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">' + monthTested + '</div><div class="tp-metric-label">Probadas</div></div>';
@@ -7800,18 +7800,18 @@ function tpRenderCalendar(el) {
     html += '</div>';
 
     // Day headers
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap: var(--space-2xs);margin-bottom: var(--space-xs);">';
     dayNames.forEach(function(dn) {
         html += '<div style="text-align:center;font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);padding:4px 0;">' + dn + '</div>';
     });
     html += '</div>';
 
     // Calendar cells
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap: var(--space-2xs);">';
 
     // Empty cells before first day
     for (var e = 0; e < startDow; e++) {
-        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius: var(--radius-md);opacity:0.3;"></div>';
     }
 
     for (var d = 1; d <= daysInMonth; d++) {
@@ -7820,17 +7820,17 @@ function tpRenderCalendar(el) {
         var isToday = dateKey === todayKey;
         var isWeekend = ((startDow + d - 1) % 7) >= 5;
 
-        html += '<div style="min-height:60px;background:' + (isToday ? 'rgba(59,130,246,0.15)' : isWeekend ? 'rgba(100,116,139,0.05)' : 'var(--tp-card)') + ';border-radius:4px;padding:3px;border:1px solid ' + (isToday ? 'var(--tp-blue)' : 'var(--tp-border)') + ';overflow:hidden;" onclick="tpCalendarDayDetail(\'' + dateKey + '\')">';
-        html += '<div style="font-size: var(--fs-xs);font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? 'var(--tp-blue)' : 'var(--tp-text)') + ';margin-bottom:2px;">' + d + '</div>';
+        html += '<div style="min-height:60px;background:' + (isToday ? 'rgba(59,130,246,0.15)' : isWeekend ? 'rgba(100,116,139,0.05)' : 'var(--tp-card)') + ';border-radius: var(--radius-md);padding: var(--space-2xs);border:1px solid ' + (isToday ? 'var(--tp-blue)' : 'var(--tp-border)') + ';overflow:hidden;" onclick="tpCalendarDayDetail(\'' + dateKey + '\')">';
+        html += '<div style="font-size: var(--fs-xs);font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? 'var(--tp-blue)' : 'var(--tp-text)') + ';margin-bottom: var(--space-2xs);">' + d + '</div>';
 
         // Show max 3 events as dots/pills
         var shown = dayEvents.filter(function(ev) { return ev.type !== 'week'; });
         var weekEv = dayEvents.find(function(ev) { return ev.type === 'week'; });
         if (weekEv) {
-            html += '<div style="font-size: var(--fs-xs);padding:1px 3px;background:rgba(59,130,246,0.2);color:var(--info-text);border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
+            html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-2xs);background:rgba(59,130,246,0.2);color:var(--info-text);border-radius: var(--radius-sm);margin-bottom: var(--space-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
         }
         shown.slice(0, 2).forEach(function(ev) {
-            html += '<div style="font-size: var(--fs-xs);padding:1px 3px;background:' + ev.color + '20;color:' + ev.color + ';border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
+            html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-2xs);background:' + ev.color + '20;color:' + ev.color + ';border-radius: var(--radius-sm);margin-bottom: var(--space-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
         });
         if (shown.length > 2) {
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
@@ -7842,16 +7842,16 @@ function tpRenderCalendar(el) {
     var totalCells = startDow + daysInMonth;
     var remaining = (7 - (totalCells % 7)) % 7;
     for (var r = 0; r < remaining; r++) {
-        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius: var(--radius-md);opacity:0.3;"></div>';
     }
     html += '</div>'; // grid end
 
     // Legend
-    html += '<div style="display:flex;gap:12px;margin-top:10px;justify-content:center;flex-wrap:wrap;">';
-    html += '<div style="display:flex;align-items:center;gap:4px;font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span> Completada</div>';
-    html += '<div style="display:flex;align-items:center;gap:4px;font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pendiente</div>';
-    html += '<div style="display:flex;align-items:center;gap:4px;font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span> Probada (COP)</div>';
-    html += '<div style="display:flex;align-items:center;gap:4px;font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Semana Plan</div>';
+    html += '<div style="display:flex;gap: var(--space-md);margin-top: var(--space-md);justify-content:center;flex-wrap:wrap;">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span> Completada</div>';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pendiente</div>';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span> Probada (COP)</div>';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Semana Plan</div>';
     html += '</div>';
 
     html += '</div>'; // card end
@@ -7897,14 +7897,14 @@ function tpCalendarDayDetail(dateKey) {
     });
 
     if (dayEvents.length === 0) {
-        detailEl.innerHTML = '<div class="tp-card" style="margin-top:8px;text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
+        detailEl.innerHTML = '<div class="tp-card" style="margin-top: var(--space-sm);text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
         return;
     }
 
-    var html = '<div class="tp-card" style="margin-top:8px;">';
+    var html = '<div class="tp-card" style="margin-top: var(--space-sm);">';
     html += '<div class="tp-card-title"><span style="font-size:12px;">📋 ' + dateLabel + ' (' + dayEvents.length + ' eventos)</span></div>';
     dayEvents.forEach(function(ev) {
-        html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<div style="display:flex;gap: var(--space-sm);align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--tp-border);">';
         html += '<div style="font-size:14px;">' + ev.icon + '</div>';
         html += '<div style="flex:1;">';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;color:' + ev.color + ';">' + ev.desc + '</div>';
@@ -7952,10 +7952,10 @@ function tpRenderAltaSuggestionPanel(configText) {
     if (!info || !info.cfg) { panel.innerHTML = ''; panel.style.display = 'none'; return; }
 
     const weeklyHTML = info.weeklyPending.length > 0 ? `
-        <div style="margin-top:8px;padding:8px;background:#f8fafc;border-radius:6px;border:1px solid #e2e5ea;">
-            <div style="font-size: var(--fs-sm);font-weight:700;color:var(--warn-text);margin-bottom:4px;">📌 Pendientes esta semana:</div>
+        <div style="margin-top: var(--space-sm);padding: var(--space-sm);background:var(--surface-alt);border-radius: var(--radius-lg);border:1px solid #e2e5ea;">
+            <div style="font-size: var(--fs-sm);font-weight:700;color:var(--warn-text);margin-bottom: var(--space-xs);">📌 Pendientes esta semana:</div>
             ${info.weeklyPending.slice(0,4).map(i => `
-                <div style="font-size: var(--fs-xs);color:#475569;padding:2px 0;display:flex;justify-content:space-between;">
+                <div style="font-size: var(--fs-xs);color:var(--muted);padding:2px 0;display:flex;justify-content:space-between;">
                     <span style="max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.desc}</span>
                     <span style="color:${i.desc===configText?'var(--ok-text)':'var(--muted)'};font-weight:700;">${i.desc===configText?'← ESTE':'pendiente'}</span>
                 </div>
@@ -7966,10 +7966,10 @@ function tpRenderAltaSuggestionPanel(configText) {
 
     panel.style.display = 'block';
     panel.innerHTML = `
-        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #f59e0b40;border-radius:8px;padding:10px 14px;margin-top:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #f59e0b40;border-radius: var(--radius-xl);padding: var(--space-md) var(--space-lg);margin-top: var(--space-md);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-sm);">
                 <span style="font-weight:800;font-size: var(--fs-sm);color:#92400e;">📊 Test Plan Manager</span>
-                <span style="font-size: var(--fs-sm);padding:2px 8px;border-radius:10px;font-weight:700;background:${info.deficit>0?'#fef2f2;color:var(--danger-text);border:1px solid #fca5a5':'#ecfdf5;color:#059669;border:1px solid #6ee7b7'};">${info.deficit>0?info.tested+'/'+info.required+' (faltan '+info.deficit+')':'✅ Cubierta'}</span>
+                <span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);font-weight:700;background:${info.deficit>0?'#fef2f2;color:var(--danger-text);border:1px solid #fca5a5':'#ecfdf5;color:#059669;border:1px solid #6ee7b7'};">${info.deficit>0?info.tested+'/'+info.required+' (faltan '+info.deficit+')':'✅ Cubierta'}</span>
             </div>
             <div style="font-size: var(--fs-xs);color:#78350f;">
                 ${info.cfg.mod} | ${info.cfg.rgn} | ${info.cfg.eng} | Vol: ${(info.cfg.total+info.cfg.hist).toLocaleString()} uds
@@ -8082,7 +8082,7 @@ function tpGetSubstitutionBadge(item, itemIdx, predictions) {
 
     var color = pred.probability >= 70 ? '#f59e0b' : '#8b5cf6';
     var diffsText = pred.diffs.map(function(d) { return d.field + ': ' + d.planned + ' → ' + d.predicted; }).join(', ');
-    return '<span style="font-size: var(--fs-xs);padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
+    return '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-sm);background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
 }
 
 // Override/extend the cascade filter result to also show TP suggestion
@@ -8135,14 +8135,14 @@ function tpOpenContinuityModal(configDesc, currentMy) {
 
     var html = '';
     html += '<div style="text-align:left;font-size:12px;max-width:560px;">';
-    html += '<div style="background:rgba(132,204,22,0.08);border:1px solid rgba(132,204,22,0.25);border-radius:6px;padding:8px;margin-bottom:10px;">';
-    html += '<div style="font-weight:700;color:var(--ok-text);margin-bottom:2px;">Config actual</div>';
+    html += '<div style="background:rgba(132,204,22,0.08);border:1px solid rgba(132,204,22,0.25);border-radius: var(--radius-lg);padding: var(--space-sm);margin-bottom: var(--space-md);">';
+    html += '<div style="font-weight:700;color:var(--ok-text);margin-bottom: var(--space-2xs);">Config actual</div>';
     html += '<div style="font-family:monospace;font-size: var(--fs-sm);color:#374151;">' + cfg.desc + '</div>';
     html += '</div>';
     html += '<p style="color:#4b5563;font-size: var(--fs-sm);margin:6px 0 10px;">Marcar como "continuidad técnica" si el powertrain y las calibraciones de emisiones no cambiaron respecto al Model Year previo. La cobertura se hereda de la prueba anterior.</p>';
 
     if (candidates.length === 0) {
-        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px;color:#991b1b;font-size: var(--fs-sm);">No se encontraron configs equivalentes en otros Model Years (mismo powertrain+region+regulación+llanta).</div>';
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius: var(--radius-lg);padding: var(--space-sm);color:#991b1b;font-size: var(--fs-sm);">No se encontraron configs equivalentes en otros Model Years (mismo powertrain+region+regulación+llanta).</div>';
         html += '</div>';
         showModal({ title: '↪ Continuidad entre Model Years', message: html, confirmText: 'Cerrar', showCancel: false, type: 'info' });
         return;
@@ -8150,8 +8150,8 @@ function tpOpenContinuityModal(configDesc, currentMy) {
 
     candidates.sort(function(a, b) { return String(a.my).localeCompare(String(b.my)); });
 
-    html += '<label style="display:block;font-weight:700;margin-bottom:4px;">MY previo equivalente</label>';
-    html += '<select id="_tp-cont-select" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size: var(--fs-sm);font-family:monospace;">';
+    html += '<label style="display:block;font-weight:700;margin-bottom: var(--space-xs);">MY previo equivalente</label>';
+    html += '<select id="_tp-cont-select" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-family:monospace;">';
     candidates.forEach(function(c) {
         var tested = tpState.testedList.filter(function(t) { return t.configText === c.desc; }).length;
         var mark = tested > 0 ? ' ✓' + tested : ' (sin pruebas)';
@@ -8159,10 +8159,10 @@ function tpOpenContinuityModal(configDesc, currentMy) {
         html += '<option value="' + c.desc.replace(/"/g, '&quot;') + '" data-my="' + (c.my || '') + '"' + sel + '>[' + (c.my || '?') + ']' + mark + ' — ' + c.desc + '</option>';
     });
     html += '</select>';
-    html += '<label style="display:block;font-weight:700;margin-top:10px;margin-bottom:4px;">Nota (opcional)</label>';
-    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size: var(--fs-sm);" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
+    html += '<label style="display:block;font-weight:700;margin-top: var(--space-md);margin-bottom: var(--space-xs);">Nota (opcional)</label>';
+    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
     if (existing) {
-        html += '<div style="margin-top:8px;padding:6px 8px;background:#f3f4f6;border-radius:6px;font-size: var(--fs-xs);color:#6b7280;">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
+        html += '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:#f3f4f6;border-radius: var(--radius-lg);font-size: var(--fs-xs);color:var(--muted);">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
     }
     html += '</div>';
 
@@ -8246,50 +8246,50 @@ function tpOpenFamilyEvidence(famKey) {
 
     var html = '';
     html += '<div style="text-align:left;font-size:12px;max-width:720px;">';
-    html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px;margin-bottom:10px;">';
+    html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius: var(--radius-lg);padding: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div style="font-weight:700;color:#1e40af;">' + f.mod + ' · ' + f.eng + ' ' + f.tx + ' · ' + f.my + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:#475569;">' + f.reg + ' · ' + f.rgn + (f.drv ? ' · ' + f.drv : '') + (f.body ? ' · ' + f.body : '') + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:#475569;margin-top:2px;">' + f.totalTested + '/' + f.totalRequired + ' pruebas · ' + Math.round((f.coverage || 0) * 100) + '% cobertura directa</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);">' + f.reg + ' · ' + f.rgn + (f.drv ? ' · ' + f.drv : '') + (f.body ? ' · ' + f.body : '') + '</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">' + f.totalTested + '/' + f.totalRequired + ' pruebas · ' + Math.round((f.coverage || 0) * 100) + '% cobertura directa</div>';
     html += '</div>';
 
     if (rows.length === 0) {
-        html += '<div style="color:#6b7280;font-size: var(--fs-sm);padding:12px;text-align:center;">Sin VINs registrados en esta familia.</div>';
+        html += '<div style="color:var(--muted);font-size: var(--fs-sm);padding: var(--space-md);text-align:center;">Sin VINs registrados en esta familia.</div>';
     } else {
-        html += '<div style="max-height:340px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">';
+        html += '<div style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius: var(--radius-lg);">';
         html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
-        html += '<thead style="background:#f9fafb;position:sticky;top:0;"><tr>';
+        html += '<thead style="background:var(--surface-alt);position:sticky;top:0;"><tr>';
         ['VIN', 'Fecha', 'Operador', 'Propósito', 'Estado', 'Variante', ''].forEach(function(h) {
-            html += '<th style="padding:5px 6px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">' + h + '</th>';
+            html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;font-weight:700;color:#374151;border-bottom:1px solid var(--border);">' + h + '</th>';
         });
         html += '</tr></thead><tbody>';
         rows.forEach(function(r, idx) {
             var isLatest = idx === 0 && r.date;
             html += '<tr style="border-bottom:1px solid #f3f4f6;' + (isLatest ? 'background:#eff6ff;' : '') + '">';
-            html += '<td style="padding:4px 6px;font-family:monospace;color:#1f2937;">' + (r.vin || '?') + (r.rep ? ' <span style="font-size: var(--fs-sm);color:#2563eb;font-weight:700;">REP</span>' : '') + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);font-family:monospace;color:#1f2937;">' + (r.vin || '?') + (r.rep ? ' <span style="font-size: var(--fs-sm);color:#2563eb;font-weight:700;">REP</span>' : '') + '</td>';
             var dateCell = '—';
             if (r.date) {
                 var _d = new Date(r.date + 'T12:00:00');
                 var _days = Math.floor((Date.now() - _d.getTime()) / 86400000);
                 dateCell = '<strong style="color:' + (isLatest ? '#1d4ed8' : '#1f2937') + ';">' + _d.toLocaleDateString('es-MX') + '</strong>' +
-                           ' <span style="font-size: var(--fs-xs);color:#6b7280;">' + (_days === 0 ? 'hoy' : 'hace ' + _days + 'd') + '</span>' +
+                           ' <span style="font-size: var(--fs-xs);color:var(--muted);">' + (_days === 0 ? 'hoy' : 'hace ' + _days + 'd') + '</span>' +
                            (isLatest ? ' <span style="font-size: var(--fs-sm);color:#1d4ed8;font-weight:700;">ÚLTIMA</span>' : '');
             }
-            html += '<td style="padding:4px 6px;color:#4b5563;white-space:nowrap;" title="' + r.date + '">' + dateCell + '</td>';
-            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.operator || '—') + '</td>';
-            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.purpose || '—') + '</td>';
-            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.status || '—') + '</td>';
-            html += '<td style="padding:4px 6px;color:#475569;font-size: var(--fs-xs);">' + (r.tire || '—') + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);color:#4b5563;white-space:nowrap;" title="' + r.date + '">' + dateCell + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);color:#4b5563;">' + (r.operator || '—') + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);color:#4b5563;">' + (r.purpose || '—') + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);color:#4b5563;">' + (r.status || '—') + '</td>';
+            html += '<td style="padding: var(--space-xs) var(--space-sm);color:var(--muted);font-size: var(--fs-xs);">' + (r.tire || '—') + '</td>';
             if (r.vehicleId != null) {
-                html += '<td style="padding:4px 6px;"><button onclick="tpGoToVehicle(' + r.vehicleId + ')" style="background:none;border:1px solid #bfdbfe;color:#1d4ed8;font-size: var(--fs-sm);padding:2px 6px;border-radius:4px;cursor:pointer;">Ver</button></td>';
+                html += '<td style="padding: var(--space-xs) var(--space-sm);"><button onclick="tpGoToVehicle(' + r.vehicleId + ')" style="background:none;border:1px solid #bfdbfe;color:#1d4ed8;font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);cursor:pointer;">Ver</button></td>';
             } else {
                 html += '<td></td>';
             }
             html += '</tr>';
         });
         html += '</tbody></table></div>';
-        html += '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">';
-        html += '<span style="font-size: var(--fs-xs);color:#6b7280;">Total: ' + rows.length + ' evidencias</span>';
-        html += '<button onclick="tpExportFamilyEvidenceCSV(\'' + famKey.replace(/'/g, "\\'") + '\')" style="background:#e0e7ff;border:1px solid #a5b4fc;color:#3730a3;font-size: var(--fs-sm);padding:3px 8px;border-radius:4px;cursor:pointer;">Exportar CSV</button>';
+        html += '<div style="margin-top: var(--space-sm);display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size: var(--fs-xs);color:var(--muted);">Total: ' + rows.length + ' evidencias</span>';
+        html += '<button onclick="tpExportFamilyEvidenceCSV(\'' + famKey.replace(/'/g, "\\'") + '\')" style="background:#e0e7ff;border:1px solid #a5b4fc;color:#3730a3;font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);cursor:pointer;">Exportar CSV</button>';
         html += '</div>';
     }
     html += '</div>';
@@ -8378,15 +8378,15 @@ function tpRenderAuditReadinessCard() {
     else { verdict = 'Requiere plan inmediato — ' + none + ' brechas críticas'; verdictColor = '#ef4444'; verdictIcon = '❌'; }
 
     var html = '';
-    html += '<div class="tp-card" style="border-left:3px solid ' + verdictColor + ';margin-bottom:12px;">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+    html += '<div class="tp-card" style="border-left:3px solid ' + verdictColor + ';margin-bottom: var(--space-md);">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-md);flex-wrap:wrap;margin-bottom: var(--space-sm);">';
     html += '<div style="font-weight:800;font-size:13px;color:var(--tp-text);">🛡️ Preparación para auditoría</div>';
-    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-sm);">';
     html += '<span style="font-size:22px;font-weight:800;font-family:monospace;color:' + verdictColor + ';">' + effectivePct + '%</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + verdictColor + ';">' + verdictIcon + ' ' + verdict + '</span>';
     html += '</div>';
     html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap: var(--space-sm);margin-bottom: var(--space-sm);">';
     html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'direct\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-green)">' + direct + '</div><div class="tp-metric-label">Probadas</div></div>';
     html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'partial\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-amber)">' + partial + '</div><div class="tp-metric-label">Parciales</div></div>';
     html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'equivalent\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;" title="Cubiertas por familia similar (body/drive/region)"><div class="tp-metric-val" style="color:#38bdf8">' + equiv + '</div><div class="tp-metric-label">Por similar</div></div>';
@@ -8395,7 +8395,7 @@ function tpRenderAuditReadinessCard() {
     html += '</div>';
     html += '<div class="tp-bar" style="height:10px;"><div class="tp-bar-fill" style="width:' + effectivePct + '%;background:' + verdictColor + ';"></div></div>';
     if (none > 0) {
-        html += '<div style="margin-top:8px;font-size: var(--fs-xs);color:var(--tp-dim);">Las brechas sin cubrir son las que un auditor va a cuestionar primero. Considera marcar continuidad MY donde aplique o priorizar pruebas físicas en el plan semanal.</div>';
+        html += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">Las brechas sin cubrir son las que un auditor va a cuestionar primero. Considera marcar continuidad MY donde aplique o priorizar pruebas físicas en el plan semanal.</div>';
     }
     html += '</div>';
     return html;
@@ -8449,9 +8449,9 @@ function tpRenderCoverageHeatmap() {
 
     var html = '';
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+    html += '<div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-sm);">';
     html += '<span>🧭 Matriz de cobertura</span>';
-    html += '<select class="tp-select" style="font-size: var(--fs-xs);" onchange="window._tpHeatmapY=this.value;tpRender();">';
+    html += '<select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpHeatmapY=this.value;tpRender();">';
     html += '<option value="eng_tx"' + (axisY === 'eng_tx' ? ' selected' : '') + '>Engine + Transmisión</option>';
     html += '<option value="eng"' + (axisY === 'eng' ? ' selected' : '') + '>Engine</option>';
     html += '<option value="model"' + (axisY === 'model' ? ' selected' : '') + '>Modelo</option>';
@@ -8459,14 +8459,14 @@ function tpRenderCoverageHeatmap() {
     html += '</div>';
     html += '<div style="overflow-x:auto;">';
     html += '<table class="tp-heatmap" style="border-collapse:collapse;font-size: var(--fs-xs);min-width:100%;">';
-    html += '<thead><tr><th style="padding:4px 6px;text-align:left;color:var(--tp-dim);font-weight:600;position:sticky;left:0;background:var(--tp-card);z-index:2;">' + (axisY === 'model' ? 'Modelo' : axisY === 'eng' ? 'Engine' : 'Engine+Tx') + '</th>';
+    html += '<thead><tr><th style="padding: var(--space-xs) var(--space-sm);text-align:left;color:var(--tp-dim);font-weight:600;position:sticky;left:0;background:var(--tp-card);z-index:2;">' + (axisY === 'model' ? 'Modelo' : axisY === 'eng' ? 'Engine' : 'Engine+Tx') + '</th>';
     cols.forEach(function(c) {
-        html += '<th style="padding:4px 6px;text-align:center;color:var(--tp-dim);font-weight:600;font-size: var(--fs-xs);white-space:nowrap;">' + c + '</th>';
+        html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;color:var(--tp-dim);font-weight:600;font-size: var(--fs-xs);white-space:nowrap;">' + c + '</th>';
     });
     html += '</tr></thead><tbody>';
     rows.forEach(function(r) {
         html += '<tr>';
-        html += '<td style="padding:4px 6px;color:var(--tp-text);font-weight:600;white-space:nowrap;position:sticky;left:0;background:var(--tp-card);z-index:1;">' + r + '</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);color:var(--tp-text);font-weight:600;white-space:nowrap;position:sticky;left:0;background:var(--tp-card);z-index:1;">' + r + '</td>';
         cols.forEach(function(c) {
             var cell = cells[r + '||' + c];
             var color = cellColor(cell);
@@ -8481,18 +8481,18 @@ function tpRenderCoverageHeatmap() {
             }
             var clickAttr = cell ? 'onclick="window._tpFamRegion=\'' + (cell.families[0].rgn || 'ALL') + '\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"' : '';
             html += '<td class="tp-heatmap-cell" ' + clickAttr + ' title="' + tip + '" style="padding:0;">';
-            html += '<div style="width:38px;height:30px;margin:2px;border-radius:4px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size: var(--fs-xs);">' + label + '</div>';
+            html += '<div style="width:38px;height:30px;margin: var(--space-2xs);border-radius: var(--radius-md);background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size: var(--fs-xs);">' + label + '</div>';
             html += '</td>';
         });
         html += '</tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;font-size: var(--fs-xs);color:var(--tp-dim);">';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(34,197,94,0.85);border-radius:2px;vertical-align:middle;"></span> Probada</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(132,204,22,0.80);border-radius:2px;vertical-align:middle;"></span> Continuidad MY</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(56,189,248,0.80);border-radius:2px;vertical-align:middle;"></span> Por similar</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(245,158,11,0.85);border-radius:2px;vertical-align:middle;"></span> Parcial</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(239,68,68,0.85);border-radius:2px;vertical-align:middle;"></span> Sin cubrir</span>';
+    html += '<div style="margin-top: var(--space-sm);display:flex;gap: var(--space-sm);flex-wrap:wrap;font-size: var(--fs-xs);color:var(--tp-dim);">';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(34,197,94,0.85);border-radius: var(--radius-sm);vertical-align:middle;"></span> Probada</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(132,204,22,0.80);border-radius: var(--radius-sm);vertical-align:middle;"></span> Continuidad MY</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(56,189,248,0.80);border-radius: var(--radius-sm);vertical-align:middle;"></span> Por similar</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(245,158,11,0.85);border-radius: var(--radius-sm);vertical-align:middle;"></span> Parcial</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(239,68,68,0.85);border-radius: var(--radius-sm);vertical-align:middle;"></span> Sin cubrir</span>';
     html += '<span style="color:var(--tp-dim);">Click en celda para filtrar familias</span>';
     html += '</div>';
     html += '</div>';

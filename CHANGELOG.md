@@ -2,6 +2,82 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.7 — Etapa 3: el codemod de los 12 módulos (2026-09-02)
+
+Cierra la serie v22. `styles.css` ya había pasado en v22.0; faltaba el JS, que es donde vive
+la mayor parte de la UI de esta app.
+
+### Espaciado y radios — 2,256 reemplazos
+
+| | antes | después |
+|---|---|---|
+| `var(--space-*)` en JS | ~5 | **2,267** |
+| `var(--radius-*)` en JS | ~11 | **446** |
+| px crudos de espaciado | ~2,450 | **196** |
+
+**Consecuencia práctica: la densidad ahora alcanza a toda la app.** Hasta v22.6 los tres modos
+(`compacto`/`comodo`/`amplio`) solo movían `styles.css` y las pantallas ya migradas; el
+espaciado escrito a mano en JS era sordo.
+
+- **Invariantes verificados por archivo**, que es lo que hace segura una pasada de este tamaño:
+  `node --check` (si el codemod corta una cadena, truena) y **el conteo de `style="` idéntico
+  antes y después**. Los 12 archivos pasaron los dos.
+- **Cero riesgo en generadores**: se comprobó que no existe ni una ocurrencia de
+  `padding/margin/gap/border-radius` con px dentro de código de jsPDF, Chart.js o SVG — esos
+  no usan propiedades CSS con unidades, así que la allowlist de propiedades ya los excluye por
+  construcción.
+
+### Colores — 335 reemplazos, y los que NO se tocaron
+
+Solo los **neutros** (grises), que son los que tienen un rol inequívoco: 246 por propiedad
+(`color`/`background`) + 89 bordes en forma abreviada (`border:1px solid #hex`, que no empataba
+con el primer patrón porque el hex no va pegado a los dos puntos).
+
+- **Guarda de superficie oscura — evitó un bug que iba a introducir yo.** `color:#e2e8f0`
+  aparece 47 veces y a primera vista es "texto casi invisible sobre blanco". Al mirarlo, **siempre
+  viene acompañado de `background:#1e293b`/`#0f172a`/`#334155`**: son modales de superficie
+  oscura, auto-consistentes. Convertir solo el color habría dado **oscuro sobre oscuro**. El
+  codemod salta cualquier `color:` cuyo mismo `style="…"` pinte una superficie oscura (39 casos).
+- **Los colores de ESTADO se dejaron intactos** (`#f59e0b` 98, `#ef4444` 80, `#10b981` 72,
+  `#3b82f6` 36, `#8b5cf6` 53…). Su token correcto depende del rol —`--warn-text` sobre fondo
+  claro, `--warn-fill` como relleno con texto blanco— y eso no se deduce de la propiedad sola.
+  Mapearlos a ciegas es exactamente cómo se rompe un semáforo. Quedan ~920 hexes, casi todos de
+  esta familia.
+
+### Los 269 `--fs-xs` sin clasificar → 49 corregidos
+
+Subclasificados, la mayoría resultó correcta como estaba:
+
+| Sub-categoría | N | Acción |
+|---|---|---|
+| **Campo de captura** (`input`/`select`/`textarea`) | 39 | **→ `--fs-base` (16px)** |
+| Chip con color de estado o fondo | 73 | dejar — un chip es token visual |
+| Texto suelto `<span>`/`<div>` | 110 | dejar — genuinamente ambiguo |
+| `<p>` / `<label>` | 10 | → `--fs-sm` |
+| Celdas de tabla y otros | ~29 | dejar — densidad de tabla es decisión propia |
+
+Los **39 campos de captura a 13px** no son un tema estético: **por debajo de 16px iOS hace zoom
+al enfocar y no vuelve solo**. Es el mismo defecto que v22.1 y v22.2 corrigieron en dos sitios
+puntuales; aquí se cierra en toda la app.
+
+### Un defecto viejo que apareció al revisar capturas
+
+`.tp-card-title` usaba `justify-content: space-between`, y los módulos le agregan una barrita de
+acento con `::before` (`#platform-testplan .tp-card-title::before`, línea ~2036). **Un
+pseudo-elemento cuenta como ítem flex**: con un solo hijo real, la barra se iba a la izquierda y
+el título quedaba huérfano pegado a la derecha ("Armar la semana", "Propuesta en vivo"). Ahora el
+contenido arranca junto a la barra y solo un segundo hijo se empuja al extremo — que es el efecto
+que se buscaba. Preexistente, no lo introdujo esta ronda.
+
+### Verificación
+
+8 pantallas × 3 viewports sin desbordes ni texto recortado; 5 plataformas navegables; los 53
+destinos del lanzador sin fallos; área táctil, colapso de tarjetas, "Solo míos", "Crear otro" y
+el filtro de Proyectos siguen funcionando. Revisión visual de las dos pantallas con más cambios
+(Consumibles → Gases con 636 reemplazos, Plan → Armar semana con 506): sin regresiones.
+
+---
+
 ## v22.6 — Barra de acción fija y la etapa 2 (reclasificar `--fs-xs`) (2026-09-01)
 
 ### Etapa 2 — y la premisa del plan resultó equivocada

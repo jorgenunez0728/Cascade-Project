@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.6';
+var APP_VERSION = '22.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.7', date: '2 sep 2026', title: 'Toda la app pasó a la escala compartida', bullets: [
+        'Los 2,256 espaciados y radios escritos a mano en los 12 módulos pasaron a la escala compartida: ahora la densidad Cómoda/Compacta/Amplia afecta a TODA la app, no solo a las pantallas ya migradas.',
+        '335 colores grises escritos a mano pasaron a los del sistema, así que el texto secundario cumple contraste en todas partes.',
+        '39 CAMPOS DE CAPTURA subieron a 16px: por debajo de eso el iPhone hace zoom al tocarlos y no regresa solo.',
+        'Los títulos de tarjeta en Plan y Consumibles salían pegados a la derecha, separados de su barrita de color. Defecto viejo, corregido.',
+        'Los colores de estado (rojo/ámbar/verde) NO se tocaron: cambiarlos sin saber si van sobre fondo claro u oscuro habría roto algún semáforo.'
+    ] },
     { version: '22.6', date: '1 sep 2026', title: 'Barra de acción fija y los botones dejaron de ser letra chica', bullets: [
         'BARRA FIJA CON "IR A…", BÚSQUEDA Y "CREAR" en todas las pantallas, no solo en HOY. Es lo primero que se ve bajo las pestañas y desde ahí se llega a cualquiera de las 53 pantallas.',
         'Los mismos botones se quitaron de HOY y del menú ⋯: tenerlos en tres lugares era el desorden que veníamos combatiendo.',
@@ -1174,11 +1181,11 @@ function _swPromptReload() {
     bar.id = 'sw-update-banner';
     bar.setAttribute('role', 'status');
     bar.style.cssText = 'position:fixed;bottom:74px;left:50%;transform:translateX(-50%);z-index:4000;' +
-        'background:#05141f;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius:12px;' +
-        'padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 28px rgba(0,0,0,0.35);font-size:13px;';
+        'background:#05141f;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius: var(--radius-2xl);' +
+        'padding: var(--space-md) var(--space-lg);display:flex;align-items:center;gap: var(--space-md);box-shadow:0 12px 28px rgba(0,0,0,0.35);font-size:13px;';
     bar.innerHTML = '⬆️ Nueva versión disponible' +
-        '<button onclick="location.reload()" style="padding:8px 14px;background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
-        '<button onclick="document.getElementById(\'sw-update-banner\').remove()" aria-label="Cerrar" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;padding:4px;">✕</button>';
+        '<button onclick="location.reload()" style="padding: var(--space-sm) var(--space-lg);background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
+        '<button onclick="document.getElementById(\'sw-update-banner\').remove()" aria-label="Cerrar" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;padding: var(--space-xs);">✕</button>';
     document.body.appendChild(bar);
 }
 
@@ -1644,7 +1651,7 @@ function setBtnLoading(btn, isLoading, loadingText) {
     if (!btn) return;
     if (isLoading) {
         btn._origText = btn.innerHTML;
-        btn.innerHTML = '<span class="loading-spinner" style="vertical-align:middle;margin-right:6px;"></span>' + (loadingText || 'Guardando...');
+        btn.innerHTML = '<span class="loading-spinner" style="vertical-align:middle;margin-right: var(--space-sm);"></span>' + (loadingText || 'Guardando...');
         btn.classList.add('btn-loading');
         btn.disabled = true;
     } else {
@@ -1823,7 +1830,7 @@ function showToast(msg, type) {
     if (hasUndo) {
         var undoBtn = document.createElement('button');
         undoBtn.textContent = ' Deshacer';
-        undoBtn.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid currentColor;border-radius:4px;background:transparent;color:inherit;cursor:pointer;font-size: var(--fs-sm);font-weight:700;';
+        undoBtn.style.cssText = 'margin-left: var(--space-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid currentColor;border-radius: var(--radius-md);background:transparent;color:inherit;cursor:pointer;font-size: var(--fs-sm);font-weight:700;';
         var undoFn = arguments[3];
         undoBtn.onclick = function() { undoFn(); dismiss(); };
         toast.appendChild(undoBtn);
@@ -2038,22 +2045,22 @@ function chartConfigBuildPanel(chartId, instanceVar, opts) {
 
     return '<details class="chart-config-panel" ' + (window['_ccOpen_' + chartId] ? 'open' : '') + '>' +
         '<summary onclick="window[\'_ccOpen_' + chartId + '\']=!this.parentElement.open;">⚙️ Configurar Grafico</summary>' +
-        '<div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="padding: var(--space-md) var(--space-md);display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
         // Row 1: Height
         '<div style="grid-column:1/-1;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-2xs);">' +
                 '<label class="cfg-label">Altura: <strong id="' + chartId + '-height-val" class="cfg-value">' + cfg.height + 'px</strong></label>' +
-                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding:2px 8px;">Auto-fit</button>' +
+                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">Auto-fit</button>' +
             '</div>' +
             '<input type="range" aria-label="Altura del gráfico" id="' + chartId + '-height-slider" min="200" max="600" step="20" value="' + cfg.height + '" oninput="chartConfigSet(\'' + chartId + '\',\'height\',+this.value);document.getElementById(\'' + chartId + '-height-val\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
         '</div>' +
         // Row 2: Y min / Y max
         '<div>' +
-            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y min</label>' +
+            '<label class="cfg-label" style="display:block;margin-bottom: var(--space-2xs);">Eje Y min</label>' +
             '<input type="number" step="any" aria-label="Eje Y mínimo" id="' + chartId + '-ymin" class="tp-input" placeholder="Auto" value="' + (cfg.yMin !== null ? cfg.yMin : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMin\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size: var(--fs-sm);">' +
         '</div>' +
         '<div>' +
-            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y max</label>' +
+            '<label class="cfg-label" style="display:block;margin-bottom: var(--space-2xs);">Eje Y max</label>' +
             '<input type="number" step="any" aria-label="Eje Y máximo" id="' + chartId + '-ymax" class="tp-input" placeholder="Auto" value="' + (cfg.yMax !== null ? cfg.yMax : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMax\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size: var(--fs-sm);">' +
         '</div>' +
         // Row 3: Point radius / Line width
@@ -2076,16 +2083,16 @@ function chartConfigBuildPanel(chartId, instanceVar, opts) {
         '</div>' +
         // Row 5: Legend / Palette
         '<div>' +
-            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Leyenda</label>' +
-            '<select class="tp-select" aria-label="Posición de leyenda" style="font-size: var(--fs-xs);width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'legendPosition\',this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' + legendOpts + '</select>' +
+            '<label class="cfg-label" style="display:block;margin-bottom: var(--space-2xs);">Leyenda</label>' +
+            '<select class="tp-select" aria-label="Posición de leyenda" style="font-size: var(--fs-base);width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'legendPosition\',this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' + legendOpts + '</select>' +
         '</div>' +
         '<div>' +
-            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Paleta</label>' +
-            '<select class="tp-select" aria-label="Paleta de colores" style="font-size: var(--fs-xs);width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'colorPalette\',this.value);chartConfigApplyColors(\'' + chartId + '\',\'' + instanceVar + '\');">' + paletteOptions + '</select>' +
+            '<label class="cfg-label" style="display:block;margin-bottom: var(--space-2xs);">Paleta</label>' +
+            '<select class="tp-select" aria-label="Paleta de colores" style="font-size: var(--fs-base);width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'colorPalette\',this.value);chartConfigApplyColors(\'' + chartId + '\',\'' + instanceVar + '\');">' + paletteOptions + '</select>' +
         '</div>' +
         // Row 6: Grid toggle / Font size
         '<div>' +
-            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size: var(--fs-xs);color:var(--tp-dim);">' +
+            '<label style="display:flex;align-items:center;gap: var(--space-sm);cursor:pointer;font-size: var(--fs-xs);color:var(--tp-dim);">' +
                 '<input type="checkbox" ' + (cfg.gridDisplay ? 'checked' : '') + ' onchange="chartConfigSet(\'' + chartId + '\',\'gridDisplay\',this.checked);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="accent-color:var(--tp-amber);">' +
                 'Mostrar grid' +
             '</label>' +
@@ -2095,7 +2102,7 @@ function chartConfigBuildPanel(chartId, instanceVar, opts) {
             '<input type="range" aria-label="Tamaño de fuente de ejes" min="7" max="14" step="1" value="' + cfg.tickFontSize + '" oninput="chartConfigSet(\'' + chartId + '\',\'tickFontSize\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
         '</div>' +
         // Row 7: Export + Reset
-        '<div style="grid-column:1/-1;display:flex;gap:6px;margin-top:4px;">' +
+        '<div style="grid-column:1/-1;display:flex;gap: var(--space-sm);margin-top: var(--space-xs);">' +
             '<button onclick="chartExportPNG(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;">📷 PNG</button>' +
             '<button onclick="chartExportPDF(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;">📄 PDF</button>' +
             '<button onclick="chartConfigReset(\'' + chartId + '\');' + (opts.rerenderFn || '') + '" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;color:var(--tp-red);">↺ Reset</button>' +
@@ -2208,20 +2215,20 @@ function noteCount(entityType, entityId) { return noteGet(entityType, entityId).
 
 function noteBuildButton(entityType, entityId) {
     var c = noteCount(entityType, entityId);
-    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);position:relative;padding:3px 8px;">' +
-        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size: var(--fs-xs);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
+    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);position:relative;padding: var(--space-2xs) var(--space-sm);">' +
+        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size: var(--fs-xs);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left: var(--space-2xs);">' + c + '</span>' : '') +
         '</button>';
 }
 
 function noteShowModal(entityType, entityId) {
     var notes = noteGet(entityType, entityId);
-    var html = '<div style="max-height:300px;overflow-y:auto;margin-bottom:10px;">';
+    var html = '<div style="max-height:300px;overflow-y:auto;margin-bottom: var(--space-md);">';
     if (notes.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin notas</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin notas</div>';
     } else {
         notes.slice().reverse().forEach(function(n) {
-            html += '<div style="padding:8px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-bg);">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+            html += '<div style="padding: var(--space-sm);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-bg);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-xs);">';
             html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + new Date(n.timestamp).toLocaleString('es-MX') + '</span>';
             html += '<button onclick="noteDelete(\'' + entityType + '\',\'' + entityId + '\',' + n.id + ');noteShowModal(\'' + entityType + '\',\'' + entityId + '\');" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 4px;">×</button>';
             html += '</div>';
@@ -2230,9 +2237,9 @@ function noteShowModal(entityType, entityId) {
         });
     }
     html += '</div>';
-    html += '<div style="display:flex;gap:6px;">';
-    html += '<input type="text" id="_noteInput" aria-label="Agregar nota" class="tp-input" placeholder="Agregar nota..." style="flex:1;font-size: var(--fs-sm);padding:8px;" onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}}">';
-    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding:8px 14px;">+</button>';
+    html += '<div style="display:flex;gap: var(--space-sm);">';
+    html += '<input type="text" id="_noteInput" aria-label="Agregar nota" class="tp-input" placeholder="Agregar nota..." style="flex:1;font-size: var(--fs-sm);padding: var(--space-sm);" onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}}">';
+    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">+</button>';
     html += '</div>';
 
     showModal('Notas — ' + entityType + ':' + entityId.substring(0, 15), html, []);
@@ -2378,9 +2385,9 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
 function _tabRenderError(target, err) {
     if (!target) { console.error('tab render error', err); return; }
     var msg = (err && err.message) ? err.message : String(err);
-    target.innerHTML = '<div class="tp-card" style="border-left:3px solid var(--tp-red,#ef4444);padding:12px;">' +
+    target.innerHTML = '<div class="tp-card" style="border-left:3px solid var(--tp-red,#ef4444);padding: var(--space-md);">' +
         '<b style="color:var(--tp-red,#ef4444);">Error al renderizar esta sección</b>' +
-        '<pre style="white-space:pre-wrap;font-size: var(--fs-xs);color:var(--tp-dim,#64748b);margin-top:6px;overflow:auto;">' +
+        '<pre style="white-space:pre-wrap;font-size: var(--fs-xs);color:var(--tp-dim,#64748b);margin-top: var(--space-sm);overflow:auto;">' +
         msg.replace(/</g, '&lt;') + '</pre></div>';
 }
 
@@ -2429,7 +2436,7 @@ window.navigateToDetail = navigateToDetail;
  * Generate skeleton placeholder HTML for loading state.
  */
 function _skeletonHTML() {
-    return '<div style="padding:12px;">' +
+    return '<div style="padding: var(--space-md);">' +
         '<div class="skeleton-grid">' +
         '<div class="skeleton skeleton-kpi"></div>' +
         '<div class="skeleton skeleton-kpi"></div>' +
@@ -2689,7 +2696,7 @@ function dailyDashRender() {
     html += '</div>';
 
     // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
-    html += '<div id="hoy-lab-overview" style="margin-bottom:8px;"></div>';
+    html += '<div id="hoy-lab-overview" style="margin-bottom: var(--space-sm);"></div>';
 
     // ── [v15.9] Mi Turno (compacto — la lista de vehículos vive ahora en el tablero) ──
     var currentOp = '';
@@ -2707,7 +2714,7 @@ function dailyDashRender() {
         }).length;
         var shiftTarget = 8;
         var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
-        html += '<div class="v7-mi-turno-card" style="margin-bottom:10px;">';
+        html += '<div class="v7-mi-turno-card" style="margin-bottom: var(--space-md);">';
         html += '<div class="v7-mi-turno-header">';
         html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
         html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
@@ -3084,7 +3091,7 @@ function dashRenderRow(a) {
     }
     if (a.progress && a.progress.total) {
         var ppct = Math.round((a.progress.done / a.progress.total) * 100);
-        h += '<div class="daily-dash-week-bar" style="max-width:180px;margin-top:4px;"><div class="daily-dash-week-fill" style="width:' + ppct + '%"></div></div>';
+        h += '<div class="daily-dash-week-bar" style="max-width:180px;margin-top: var(--space-xs);"><div class="daily-dash-week-fill" style="width:' + ppct + '%"></div></div>';
     }
     h += '</div>';
     h += '<div class="dash-row-side">';
@@ -3183,7 +3190,7 @@ function dashEtaEdit(vehicleId, el, ev) {
     var cur = v && v.expectedReleaseAt ? v.expectedReleaseAt : '';
     el.innerHTML = '📅 <input type="date" aria-label="Fecha estimada de liberación" value="' + cur + '" onclick="event.stopPropagation()" ' +
                    'onchange="dashSetExpectedRelease(' + vehicleId + ', this.value)" ' +
-                   'style="font-size: var(--fs-sm);border:1px solid var(--border);border-radius:4px;padding:1px 3px;">';
+                   'style="font-size: var(--fs-sm);border:1px solid var(--border);border-radius: var(--radius-md);padding: var(--space-2xs) var(--space-2xs);">';
     var inp = el.querySelector('input');
     if (inp && inp.showPicker) { try { inp.showPicker(); } catch (e) {} }
 }
@@ -3205,7 +3212,7 @@ function dashTaskModalOpen() {
         ? pnState.operators.filter(function(o) { return o.active !== false && !o.deleted; }) : [];
     var html = '<div class="dash-task-overlay" id="dash-task-modal" onclick="if(event.target===this)dashTaskModalClose()">';
     html += '<div class="dash-task-box">';
-    html += '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">➕ Nueva actividad</div>';
+    html += '<div style="font-weight:800;font-size:14px;margin-bottom: var(--space-md);">➕ Nueva actividad</div>';
     html += '<label class="dash-task-field">Título<input type="text" id="dash-task-title" placeholder="p.ej. Pedir gas de calibración CO/N2"></label>';
     // v16.8: si el pendiente pertenece a un proyecto, nace ahí en vez de quedar
     // como tarea suelta — es lo que pidió el usuario ("doy de alta algo nuevo
@@ -3222,7 +3229,7 @@ function dashTaskModalOpen() {
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Fecha límite<input type="date" id="dash-task-due"></label>';
     html += '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('task', 'Crear otra al guardar') + '</div>';
-    html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">';
+    html += '<div style="display:flex;gap: var(--space-sm);justify-content:flex-end;margin-top: var(--space-md);">';
     html += '<button class="btn btn-ghost" onclick="dashTaskModalClose()">Cancelar</button>';
     html += '<button class="btn" style="background:var(--accent-cascade);color:#fff;font-weight:700;" onclick="dashTaskModalSave()">Guardar</button></div>';
     html += '</div></div>';
@@ -3615,25 +3622,25 @@ function globalVinSearch(query) {
     });
 
     if (results.length === 0) {
-        res.innerHTML = '<div style="padding:12px;background:var(--kia-dark);border:1px solid var(--border-strong);border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
+        res.innerHTML = '<div style="padding: var(--space-md);background:var(--kia-dark);border:1px solid var(--border-strong);border-radius:0 0 8px 8px;color:var(--muted);font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
         return;
     }
 
     var html = '<div style="background:var(--kia-dark);border:1px solid var(--border-strong);border-radius:0 0 8px 8px;overflow:hidden;">';
     results.slice(0, 15).forEach(function(r) {
-        html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #000;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding: var(--space-md) var(--space-lg);border-bottom:1px solid #000;cursor:pointer;display:flex;align-items:center;gap: var(--space-md);" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
         html += '<span style="font-size:16px;">' + r.icon + '</span>';
         html += '<div style="flex:1;min-width:0;">';
         html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + escapeHtml(r.vin) + '</div>';
-        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(r.detail) + '</div>';
+        html += '<div style="font-size:0.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(r.detail) + '</div>';
         html += '</div>';
         html += '<div style="text-align:right;">';
-        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#a5b4fc;">' + escapeHtml(r.module) + '</span>';
-        if (r.date) html += '<div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
+        html += '<span style="font-size:0.65rem;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:rgba(99,102,241,0.15);color:#a5b4fc;">' + escapeHtml(r.module) + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(r.date) + '</div>';
         html += '</div></div>';
     });
     if (results.length > 15) {
-        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#94a3b8;">...y ' + (results.length - 15) + ' más</div>';
+        html += '<div style="padding: var(--space-sm);text-align:center;font-size:0.75rem;color:var(--muted);">...y ' + (results.length - 15) + ' más</div>';
     }
     html += '</div>';
     res.innerHTML = html;
@@ -4382,7 +4389,7 @@ function renderNotifications() {
     var list = document.getElementById('notification-list');
     if (!list) return;
     if (_notificationLog.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:12px;">Sin notificaciones</div>';
+        list.innerHTML = '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);font-size:12px;">Sin notificaciones</div>';
         return;
     }
     var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
@@ -4962,11 +4969,11 @@ function renderLabDashboard(container) {
                 '<span class="lab-dash-alert-badge" style="background:' + a.color + '20;color:' + a.color + ';">' + a.level + '</span>' +
                 '<span class="lab-dash-alert-mod">' + a.module + '</span>' +
                 '<span style="flex:1;font-size: var(--fs-xs);color:var(--text);">' + a.message + '</span>' +
-                '<span style="font-size: var(--fs-xs);color:#475569;">→</span></div>';
+                '<span style="font-size: var(--fs-xs);color:var(--muted);">→</span></div>';
         });
         html += '</div>';
     } else {
-        html += '<div style="padding:12px;text-align:center;background:var(--ok-bg);border:1px solid var(--ok-text);border-radius:8px;font-size:12px;color:var(--ok-text);font-weight:700;">✅ Sin alertas activas — Laboratorio operando normalmente</div>';
+        html += '<div style="padding: var(--space-md);text-align:center;background:var(--ok-bg);border:1px solid var(--ok-text);border-radius: var(--radius-xl);font-size:12px;color:var(--ok-text);font-weight:700;">✅ Sin alertas activas — Laboratorio operando normalmente</div>';
     }
 
     // Module summary cards
@@ -5000,7 +5007,7 @@ function renderLabDashboard(container) {
     html += '</div>';
 
     // Weekly productivity
-    html += '<div style="margin-top:10px;padding:10px;background:#1e293b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">' +
+    html += '<div style="margin-top: var(--space-md);padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size: var(--fs-sm);color:var(--muted);">Productividad semanal:</span>' +
         '<span style="font-size:13px;font-weight:700;color:' + (diff >= 0 ? tokenColor('--ok-text') : tokenColor('--danger-text')) + ';">' +
         thisWeekReleased + ' liberados ' + (diff !== 0 ? '(' + (diff > 0 ? '↑' : '↓') + ' ' + Math.abs(diff) + ' vs sem pasada)' : '(= sem pasada)') +
@@ -5110,19 +5117,19 @@ function renderBackupStatus(container) {
 
     // Storage bar
     html += '<div class="backup-card">' +
-        '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);margin-bottom:4px;">' +
+        '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);margin-bottom: var(--space-xs);">' +
         '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
-        '<div style="height:8px;background:#1e293b;border-radius:4px;overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;"></div></div></div>';
+        '<div style="height:8px;background:#1e293b;border-radius: var(--radius-md);overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
 
     // Backup snapshots (async from IndexedDB)
     html += '<div class="backup-card" id="backupSnapshotsList">' +
         '<div style="font-size: var(--fs-sm);color:var(--muted);">Cargando snapshots...</div></div>';
 
     // Actions
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
-        '<button class="btn-secondary" onclick="downloadFullBackup()" style="font-size: var(--fs-sm);padding:6px 14px;">📥 Descargar Backup Completo</button>' +
-        '<button class="btn-secondary" onclick="openRestoreBackup()" style="font-size: var(--fs-sm);padding:6px 14px;">♻️ Restaurar desde Backup</button>' +
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;margin-top: var(--space-sm);">' +
+        '<button class="btn-secondary" onclick="downloadFullBackup()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">📥 Descargar Backup Completo</button>' +
+        '<button class="btn-secondary" onclick="openRestoreBackup()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">♻️ Restaurar desde Backup</button>' +
         '</div></div>';
 
     container.innerHTML = html;
@@ -5140,7 +5147,7 @@ function renderBackupStatus(container) {
                 el.innerHTML = '<div style="font-size: var(--fs-sm);color:var(--muted);">Sin snapshots automáticos aún</div>';
                 return;
             }
-            var sHtml = '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:6px;">' + snapshots.length + ' snapshots en IndexedDB</div>';
+            var sHtml = '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin-bottom: var(--space-sm);">' + snapshots.length + ' snapshots en IndexedDB</div>';
             snapshots.reverse().forEach(function(s) {
                 var ago = _timeAgo(s.timestamp);
                 sHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size: var(--fs-xs);">' +
@@ -5187,15 +5194,15 @@ function openRestoreBackup() {
             snapshots.forEach(function(s, i) {
                 var ago = _timeAgo(s.timestamp);
                 var dt = new Date(s.timestamp).toLocaleString('es-MX');
-                html += '<div class="backup-restore-item" onclick="restoreFromBackup(' + s.id + ')" style="cursor:pointer;padding:10px;margin-bottom:6px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
+                html += '<div class="backup-restore-item" onclick="restoreFromBackup(' + s.id + ')" style="cursor:pointer;padding: var(--space-md);margin-bottom: var(--space-sm);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                     '<span style="font-size:12px;font-weight:700;color:var(--text);">' + dt + '</span>' +
                     '<span style="font-size: var(--fs-xs);color:var(--muted);">' + ago + '</span></div>' +
-                    '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:4px;">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' vehículos (' + (s.activeCount || 0) + ' activos)</div>' +
+                    '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' vehículos (' + (s.activeCount || 0) + ' activos)</div>' +
                     '</div>';
             });
             html += '</div>';
-            html += '<div style="margin-top:10px;padding:8px;background:var(--warn-bg);border-radius:6px;font-size: var(--fs-xs);color:var(--warn-text);">' +
+            html += '<div style="margin-top: var(--space-md);padding: var(--space-sm);background:var(--warn-bg);border-radius: var(--radius-lg);font-size: var(--fs-xs);color:var(--warn-text);">' +
                 '⚠️ Restaurar reemplazará TODOS los datos actuales. Se creará un backup automático antes de restaurar.</div>';
             showModal(html, 'Restaurar desde Backup');
         };
@@ -5524,10 +5531,10 @@ function helpShowTab(tabId) {
     if (!h) { showToast('Sin ayuda registrada para esta sección', 'info'); return; }
     var html = '<div style="text-align:left;font-size:13px;line-height:1.6;">' + escapeHtml(h.text) + '</div>';
     if (h.tips && h.tips.length) {
-        html += '<ul style="text-align:left;margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;">' +
+        html += '<ul style="text-align:left;margin:10px 0 0;padding-left: var(--space-lg);font-size:12.5px;line-height:1.6;">' +
             h.tips.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>';
     }
-    html += '<div style="margin-top:14px;text-align:left;border-top:1px solid var(--border);padding-top:10px;">' +
+    html += '<div style="margin-top: var(--space-lg);text-align:left;border-top:1px solid var(--border);padding-top: var(--space-md);">' +
         '<button type="button" class="help-banner-more" onclick="helpShowGlossary()">📖 Ver glosario del laboratorio</button></div>';
     showModal({ title: '💡 ' + h.title, message: html, showCancel: false, confirmText: 'Entendido', type: 'info' });
 }
@@ -5567,7 +5574,7 @@ var HELP_GLOSSARY = [
 function helpShowGlossary() {
     var html = '<div style="text-align:left;">' +
         '<input type="text" id="help-glossary-search" aria-label="Buscar término en el glosario" placeholder="Buscar término…" oninput="helpFilterGlossary(this.value)" ' +
-        'style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;box-sizing:border-box;">' +
+        'style="width:100%;padding: var(--space-sm) var(--space-md);font-size:13px;border:1px solid var(--border);border-radius: var(--radius-xl);margin-bottom: var(--space-md);box-sizing:border-box;">' +
         '<div id="help-glossary-list" style="max-height:360px;overflow-y:auto;"></div></div>';
     showModal({ title: '📖 Glosario del laboratorio', message: html, showCancel: false, confirmText: 'Cerrar', type: 'info' });
     helpFilterGlossary('');
@@ -5584,7 +5591,7 @@ function helpFilterGlossary(q) {
     list.innerHTML = items.map(function(g) {
         return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
             '<div style="font-weight:700;font-size:13px;">' + escapeHtml(g.term) + '</div>' +
-            '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + escapeHtml(g.def) + '</div></div>';
+            '<div style="font-size:12px;color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(g.def) + '</div></div>';
     }).join('');
 }
 
@@ -5603,7 +5610,7 @@ function helpMenuOpen() {
     var moduleKey = (typeof PLATFORM_SECTION_MAP !== 'undefined') ? (PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform) : 'today';
     var moduleLabels = { today: 'Hoy', testplan: 'Plan', cop15: 'Pruebas', inventory: 'Inventario', panel: 'Datos', cop: 'CoP' };
     var moduleLabel = moduleLabels[moduleKey] || moduleKey;
-    var html = '<div style="display:flex;flex-direction:column;gap:8px;text-align:left;">' +
+    var html = '<div style="display:flex;flex-direction:column;gap: var(--space-sm);text-align:left;">' +
         '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'' + moduleKey + '\')">🧭 Recorrido guiado de ' + escapeHtml(moduleLabel) + '</button>' +
         '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'global\')">🗺️ Recorrido general de la plataforma</button>' +
         '<button type="button" class="help-menu-item" onclick="_helpCloseModal();helpShowGlossary()">📖 Glosario del laboratorio</button>' +
@@ -5723,17 +5730,17 @@ function templateRenderManager(module, applyCallback) {
     var list = templateGetAll(module);
     var html = '<div style="max-height:50vh;overflow-y:auto;">';
     if (list.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px;">No hay plantillas guardadas</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);font-size:12px;">No hay plantillas guardadas</div>';
     } else {
         list.forEach(function(tpl) {
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding: var(--space-sm) var(--space-md);border-bottom:1px solid var(--border);">';
             html += '<div>';
             html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + escapeHtml(tpl.name) + '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
             html += '</div>';
-            html += '<div style="display:flex;gap:6px;">';
-            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size: var(--fs-sm);">Aplicar</button>';
-            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding:4px 8px;font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius:4px;cursor:pointer;">✕</button>';
+            html += '<div style="display:flex;gap: var(--space-sm);">';
+            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);">Aplicar</button>';
+            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius: var(--radius-md);cursor:pointer;">✕</button>';
             html += '</div></div>';
         });
     }

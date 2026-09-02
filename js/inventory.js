@@ -711,8 +711,8 @@ function invRenderDashboard(el) {
     var eqExpired = equip.filter(function(e){ var d = new Date(e.nextCalDate); return d < new Date(); }).length;
     var eqWarn = equip.filter(function(e){ var d = new Date(e.nextCalDate); var diff = (d - new Date())/(1000*60*60*24); return diff > 0 && diff < 30; }).length;
 
-    var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-dashboard\');" style="font-size: var(--fs-sm);" title="Resumen cross-módulo del laboratorio">📊 Ver Resumen del Lab →</button></div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:12px;">';
+    var html = '<div style="display:flex;justify-content:flex-end;margin-bottom: var(--space-sm);"><button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-dashboard\');" style="font-size: var(--fs-sm);" title="Resumen cross-módulo del laboratorio">📊 Ver Resumen del Lab →</button></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">' + gases.length + '</div><div class="tp-metric-label">Cilindros</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">' + expired + '</div><div class="tp-metric-label">Vencidos</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">' + warning + '</div><div class="tp-metric-label"><30 dias</div></div>';
@@ -729,7 +729,7 @@ function invRenderDashboard(el) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="invSwitchTab(\'inv-predict\')" style="font-size: var(--fs-sm);">Ver predicción</button></div>';
         forecast.slice(0, 5).forEach(function(f) {
             var color = f.severidad === 'critical' ? 'var(--tp-red)' : 'var(--tp-amber)';
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);">';
             html += '<span style="font-size:13px;">' + (f.kind === 'fuel' ? '⛽' : '🧪') + '</span>';
             html += '<div style="flex:1;"><div style="font-weight:700;font-size: var(--fs-sm);">' + f.name + ' <span style="font-weight:400;color:var(--tp-dim);">(' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')</span></div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Requerido ~' + f.requerido + ' ' + f.unit + ' para ' + f.pruebasPend + ' pruebas · disponible ' + f.disponible + '</div></div>';
@@ -749,7 +749,7 @@ function invRenderDashboard(el) {
         html += '<div class="tp-card"><div class="tp-card-title"><span>🔻 Top 3 a Reponer</span>';
         html += '<button class="tp-btn tp-btn-ghost" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);">Capturar</button></div>';
         refill.forEach(function(x){
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);">';
             html += '<div style="flex:1;"><div style="font-weight:700;font-size: var(--fs-sm);">' + x.g.formula + ' #' + x.g.controlNo + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (x.g.zone||'?') + ' · ' + x.lvl.text + '</div></div>';
             html += '<div style="min-width:70px;"><div class="u-bar"><span style="width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></span></div></div>';
             html += '<div style="font-weight:800;font-size: var(--fs-sm);color:' + x.lvl.color + ';min-width:38px;text-align:right;">' + x.lvl.pct + '%</div>';
@@ -779,11 +779,11 @@ function invRenderDashboard(el) {
         alerts.sort(function(a,b){ return a.sev === 'red' ? -1 : 1; });
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">Alertas (' + alerts.length + ')</span></div>';
         alerts.slice(0, 15).forEach(function(a) {
-            html += '<div style="padding:3px 8px;font-size: var(--fs-xs);color:' + (a.sev==='red'?'#fca5a5':'#fde68a') + ';border:1px solid ' + (a.sev==='red'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.2)') + ';border-radius:4px;margin-bottom:2px;">' + a.msg + '</div>';
+            html += '<div style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:' + (a.sev==='red'?'#fca5a5':'#fde68a') + ';border:1px solid ' + (a.sev==='red'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.2)') + ';border-radius: var(--radius-md);margin-bottom: var(--space-2xs);">' + a.msg + '</div>';
         });
         html += '</div>';
     } else if (gases.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding: var(--space-xl);color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
 
     // Anomaly detection banner
@@ -794,18 +794,18 @@ function invRenderDashboard(el) {
 
     // Zone map (simplified visual)
     html += '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap: var(--space-sm);">';
     invState.zones.forEach(function(z) {
         var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
         var occupied = zGases.length;
         var hasAlert = zGases.some(function(g){ var e = invGasExpiry(g); return e.status==='expired'; });
         var borderClr = hasAlert ? 'var(--tp-red)' : occupied > 0 ? 'var(--tp-green)' : 'var(--tp-border)';
-        html += '<div style="padding:8px;border:2px solid ' + borderClr + ';border-radius:8px;background:var(--tp-card);cursor:pointer;" onclick="invShowZone(\'' + z.id + '\')">';
-        html += '<div style="font-weight:800;font-size:13px;margin-bottom:2px;">' + z.id + '</div>';
+        html += '<div style="padding: var(--space-sm);border:2px solid ' + borderClr + ';border-radius: var(--radius-xl);background:var(--tp-card);cursor:pointer;" onclick="invShowZone(\'' + z.id + '\')">';
+        html += '<div style="font-weight:800;font-size:13px;margin-bottom: var(--space-2xs);">' + z.id + '</div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + z.label + ' (' + z.type + ')</div>';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;color:' + (occupied > 0 ? 'var(--tp-amber)' : 'var(--tp-dim)') + ';">' + occupied + '/' + z.slots + '</div>';
         // Mini dots
-        html += '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">';
+        html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-2xs);margin-top: var(--space-2xs);">';
         for (var s = 1; s <= z.slots; s++) {
             var slotGas = zGases.find(function(g){ return g.position === s; });
             var dotClr = '#334155';
@@ -817,7 +817,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="margin-top:12px;">➕ Agregar Gas</button></div>';
+        html += '<div class="tp-card" style="text-align:center;padding: var(--space-2xl);color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="margin-top: var(--space-md);">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;
@@ -834,37 +834,37 @@ function invRenderGases(el) {
 
     var _invGasCompact = getViewMode('inv-gases') === 'compact';
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestion de Cilindros (' + gases.length + ')</span>';
-    html += '<div style="display:flex;gap:5px;align-items:center;">' + renderViewModeToggle('inv-gases', false);
+    html += '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + renderViewModeToggle('inv-gases', false);
     html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size: var(--fs-sm);">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size: var(--fs-sm);">Exportar</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size: var(--fs-sm);">Importar</button></div></div>';
     html += '<input type="file" id="inv-import-file" accept=".json" style="display:none;" onchange="invHandleImport(event)">';
 
     // Filters
-    html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">';
-    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;_invDebouncedRender();" style="font-size: var(--fs-xs);"><option value="ALL">Todas zonas</option>';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-sm);flex-wrap:wrap;">';
+    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;_invDebouncedRender();" style="font-size: var(--fs-base);"><option value="ALL">Todas zonas</option>';
     allZones.forEach(function(z){ html += '<option value="' + z + '" ' + (z===filterZone?'selected':'') + '>' + z + '</option>'; });
     html += '</select></div>';
 
     if (filtered.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros' + (filterZone !== 'ALL' ? ' en zona ' + filterZone : '') + '</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin cilindros' + (filterZone !== 'ALL' ? ' en zona ' + filterZone : '') + '</div>';
     } else {
         html += '<div class="inv-row-list-2col ' + (_invGasCompact ? 'list-compact' : '') + '" style="max-height:500px;overflow-y:auto;">';
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
-            html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap: var(--space-xs);">';
             if (exp.status === 'expired') {
-                html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius:6px;"></div>';
+                html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius: var(--radius-lg);"></div>';
                 html += '<div style="position:absolute;top:2px;right:8px;font-size: var(--fs-xs);font-weight:900;color:var(--danger-text);transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
             }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size: var(--fs-sm);">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
             html += '<div class="compact-hide" style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
             html += '</div>';
-            html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:var(--radius-md);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
+            html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-md);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar cilindro">\u270F</button>';
             if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size: var(--fs-sm);" title="Tendencia" aria-label="Ver tendencia de consumo">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size: var(--fs-sm);" title="C\u00F3digo de barras" aria-label="Ver c\u00F3digo de barras">\u{1F4CB}</button>';
@@ -885,8 +885,8 @@ function invShowAddGas(editId) {
     var title = isEdit ? 'Modificar Cilindro' : 'Nuevo Cilindro';
     var nextFree = isEdit ? '' : _invNextFreeSlot();
     var lastTS = isEdit ? { traceability: g.traceability, supplier: g.supplier } : _invLastGasTraceSupplier();
-    var inpStyle = 'width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:6px;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var inpStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
     var zoneOpts = invState.zones.map(function(z) {
         var opts = '';
@@ -905,20 +905,20 @@ function invShowAddGas(editId) {
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:460px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:90vh;overflow-y:auto;">' +
+    modal.innerHTML = '<div style="max-width:460px;margin:30px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;max-height:90vh;overflow-y:auto;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
         '<div><label style="' + lblStyle + '">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + gasTypeOpts + '</select></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Conc. Nominal</label><select id="inv-g-conc" style="' + inpStyle + '"></select></div>' +
         '<div><label style="' + lblStyle + '">Zona + Posici\u00f3n *</label><select id="inv-g-zone" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + zoneOpts + '</select></div>' +
         '</div>' +
         '<div><label style="' + lblStyle + '">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="' + inpStyle + '"></div>' +
         '</div>' +
-        '<details style="margin-top:10px;"><summary style="font-size: var(--fs-sm);color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (control, estatus, lote, trazabilidad\u2026)</summary>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Control <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size: var(--fs-sm);background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="' + inpStyle + '"></div>' +
+        '<details style="margin-top: var(--space-md);"><summary style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (control, estatus, lote, trazabilidad\u2026)</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-top: var(--space-sm);">' +
+        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Control <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size: var(--fs-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-md);padding: var(--space-2xs) var(--space-sm);cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-g-status" style="' + inpStyle + '"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + ((g&&g.status==='In use')||!isEdit?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
         '<div><label style="' + lblStyle + '">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="' + inpStyle + '"></div>' +
@@ -932,10 +932,10 @@ function invShowAddGas(editId) {
         // laboratorio. Solo en el alta, no al editar.
         (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('gas', 'Dar de alta otro al guardar') + '</div>') +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
     if (g) { invUpdateConcOpts(); document.getElementById('inv-g-conc').value = g.concNominal || ''; }
@@ -1051,44 +1051,44 @@ function invShowBarcode(id) {
     modal.style.display = 'block';
 
     // ── Print-optimized layout: barcode label strip + data sheet ──
-    var html = '<div id="inv-print-page" style="max-width:700px;margin:20px auto;background:#fff;border-radius:14px;padding:0;color:#0f172a;">';
+    var html = '<div id="inv-print-page" style="max-width:700px;margin:20px auto;background:#fff;border-radius: var(--radius-2xl);padding:0;color:var(--text);">';
 
     // === BARCODE LABEL STRIP (designed to be cut out) ===
-    html += '<div id="inv-barcode-label" style="border:2px dashed #94a3b8;border-radius:10px;padding:12px 20px;margin:20px;page-break-after:auto;">';
-    html += '<div style="display:flex;align-items:center;gap:16px;">';
+    html += '<div id="inv-barcode-label" style="border:2px dashed #94a3b8;border-radius: var(--radius-xl);padding: var(--space-md) var(--space-xl);margin: var(--space-xl);page-break-after:auto;">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-lg);">';
     // Left: barcode
     html += '<div id="inv-barcode-container" style="flex-shrink:0;"></div>';
     // Right: key info for the label
-    html += '<div style="flex:1;border-left:1px solid #e2e8f0;padding-left:14px;">';
-    html += '<div style="font-size:16px;font-weight:800;">' + g.formula + ' <span style="font-weight:400;color:#64748b;">' + (g.concNominal || '') + '</span></div>';
-    html += '<div style="font-size: var(--fs-sm);color:#334155;margin-top:2px;">' + (g.gasType || '') + '</div>';
-    html += '<table style="font-size: var(--fs-xs);margin-top:6px;border-collapse:collapse;">';
-    html += '<tr><td style="color:#64748b;padding-right:8px;">Control:</td><td style="font-weight:700;">' + g.controlNo + '</td></tr>';
-    html += '<tr><td style="color:#64748b;padding-right:8px;">Cilindro:</td><td style="font-weight:700;">' + (g.cylinderNo || '—') + '</td></tr>';
-    html += '<tr><td style="color:#64748b;padding-right:8px;">Zona:</td><td style="font-weight:700;">' + (g.zone || '—') + '</td></tr>';
-    html += '<tr><td style="color:#64748b;padding-right:8px;">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
+    html += '<div style="flex:1;border-left:1px solid var(--border);padding-left: var(--space-lg);">';
+    html += '<div style="font-size:16px;font-weight:800;">' + g.formula + ' <span style="font-weight:400;color:var(--muted);">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--text);margin-top: var(--space-2xs);">' + (g.gasType || '') + '</div>';
+    html += '<table style="font-size: var(--fs-xs);margin-top: var(--space-sm);border-collapse:collapse;">';
+    html += '<tr><td style="color:var(--muted);padding-right: var(--space-sm);">Control:</td><td style="font-weight:700;">' + g.controlNo + '</td></tr>';
+    html += '<tr><td style="color:var(--muted);padding-right: var(--space-sm);">Cilindro:</td><td style="font-weight:700;">' + (g.cylinderNo || '—') + '</td></tr>';
+    html += '<tr><td style="color:var(--muted);padding-right: var(--space-sm);">Zona:</td><td style="font-weight:700;">' + (g.zone || '—') + '</td></tr>';
+    html += '<tr><td style="color:var(--muted);padding-right: var(--space-sm);">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
     html += '</table>';
     html += '</div></div>';
-    html += '<div style="text-align:center;margin-top:4px;font-size: var(--fs-xs);color:var(--muted);letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
+    html += '<div style="text-align:center;margin-top: var(--space-xs);font-size: var(--fs-xs);color:var(--muted);letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
     html += '</div>';
 
     // === FICHA DE RECEPCION DE CILINDRO ===
     html += '<div style="padding:0 24px 24px;">';
 
     // Header
-    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:2px solid #0f172a;padding-bottom:8px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom: var(--space-md);border-bottom:2px solid #0f172a;padding-bottom: var(--space-sm);">';
     html += '<div>';
     html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
-    html += '<div style="font-size: var(--fs-sm);color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Ficha de Recepcion de Cilindro de Gas</div>';
     html += '</div>';
-    html += '<div style="text-align:right;font-size: var(--fs-sm);color:#475569;font-weight:600;">';
-    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
+    html += '<div style="text-align:right;font-size: var(--fs-sm);color:var(--muted);font-weight:600;">';
+    html += '<div>Fecha recepcion: <strong style="color:var(--text);font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
     html += '<div>Folio: ' + g.controlNo + '</div>';
     html += '</div></div>';
 
     // Identification table
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom:4px;color:#334155;">1. Identificacion del Cilindro</div>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;">';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">1. Identificacion del Cilindro</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);">';
     var idFields = [
         ['Formula / Gas', g.formula],
         ['Tipo de Gas', g.gasType || '—'],
@@ -1103,22 +1103,22 @@ function invShowBarcode(id) {
     ];
     for (var i = 0; i < idFields.length; i += 2) {
         html += '<tr>';
-        html += '<td style="padding:3px 8px;font-size: var(--fs-xs);color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i][0] + '</td>';
-        html += '<td style="padding:3px 8px;font-size: var(--fs-xs);font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i][1] + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--muted);border:1px solid var(--border);width:22%;background:var(--surface-alt);">' + idFields[i][0] + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);font-weight:600;border:1px solid var(--border);width:28%;">' + idFields[i][1] + '</td>';
         if (i + 1 < idFields.length) {
-            html += '<td style="padding:3px 8px;font-size: var(--fs-xs);color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i+1][0] + '</td>';
-            html += '<td style="padding:3px 8px;font-size: var(--fs-xs);font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i+1][1] + '</td>';
+            html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--muted);border:1px solid var(--border);width:22%;background:var(--surface-alt);">' + idFields[i+1][0] + '</td>';
+            html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);font-weight:600;border:1px solid var(--border);width:28%;">' + idFields[i+1][1] + '</td>';
         } else {
-            html += '<td colspan="2" style="border:1px solid #e2e8f0;"></td>';
+            html += '<td colspan="2" style="border:1px solid var(--border);"></td>';
         }
         html += '</tr>';
     }
     html += '</table>';
 
     // Checklist de recepcion
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom:4px;color:#334155;">2. Checklist de Recepcion</div>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size: var(--fs-xs);">';
-    html += '<thead><tr style="background:#f8fafc;"><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;width:60%;">Verificacion</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">OK</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">N/A</th><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;">Observaciones</th></tr></thead><tbody>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">2. Checklist de Recepcion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
+    html += '<thead><tr style="background:var(--surface-alt);"><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;width:60%;">Verificacion</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">OK</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">N/A</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;">Observaciones</th></tr></thead><tbody>';
     var checks = [
         'Cilindro sin dano visible (golpes, corrosion, abolladuras)',
         'Valvula en buenas condiciones y cierra correctamente',
@@ -1131,67 +1131,67 @@ function invShowBarcode(id) {
         'Zona de almacenamiento asignada y etiquetada'
     ];
     checks.forEach(function(c) {
-        html += '<tr><td style="padding:3px 8px;border:1px solid #e2e8f0;">' + c + '</td>';
-        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
-        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
-        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;"></td></tr>';
+        html += '<tr><td style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);">' + c + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:center;">&#9744;</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:center;">&#9744;</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);"></td></tr>';
     });
     html += '</tbody></table>';
 
     // Presion inicial
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom:4px;color:#334155;">3. Presion Inicial</div>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size: var(--fs-xs);">';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">3. Presion Inicial</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
     html += '<tr>';
-    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:30%;background:#f8fafc;">Presion al recibir (psi):</td>';
-    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
-    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;background:#f8fafc;">Fecha de lectura:</td>';
-    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;">' + (g.regDate || '') + '</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:30%;background:var(--surface-alt);">Presion al recibir (psi):</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;background:var(--surface-alt);">Fecha de lectura:</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;">' + (g.regDate || '') + '</td>';
     html += '</tr></table>';
 
     // Bitacora de lecturas (blank rows to fill by hand)
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom:4px;color:#334155;">4. Bitacora de Lecturas de Presion</div>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size: var(--fs-xs);">';
-    html += '<thead><tr style="background:#f8fafc;">';
-    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:18%;">Fecha</th>';
-    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">PSI</th>';
-    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">Temp. (&deg;C)</th>';
-    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Operador</th>';
-    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Observaciones</th>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">4. Bitacora de Lecturas de Presion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
+    html += '<thead><tr style="background:var(--surface-alt);">';
+    html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:18%;">Fecha</th>';
+    html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:14%;">PSI</th>';
+    html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:14%;">Temp. (&deg;C)</th>';
+    html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);">Operador</th>';
+    html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);">Observaciones</th>';
     html += '</tr></thead><tbody>';
     for (var r = 0; r < 15; r++) {
         html += '<tr>';
-        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;height:18px;">&nbsp;</td>';
-        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
-        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
-        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
-        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--border);height:18px;">&nbsp;</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--border);">&nbsp;</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--border);">&nbsp;</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--border);">&nbsp;</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--border);">&nbsp;</td>';
         html += '</tr>';
     }
     html += '</tbody></table>';
 
     // Firmas
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom:8px;color:#334155;">5. Firmas de Recepcion</div>';
-    html += '<div style="display:flex;gap:20px;margin-bottom:14px;">';
-    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-sm);color:var(--text);">5. Firmas de Recepcion</div>';
+    html += '<div style="display:flex;gap: var(--space-xl);margin-bottom: var(--space-lg);">';
+    html += '<div style="flex:1;border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm);text-align:center;">';
     html += '<div style="height:50px;"></div>';
-    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size: var(--fs-xs);color:#64748b;">Recibio — Nombre y firma</div></div>';
-    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="border-top:1px solid #0f172a;padding-top: var(--space-xs);font-size: var(--fs-xs);color:var(--muted);">Recibio — Nombre y firma</div></div>';
+    html += '<div style="flex:1;border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm);text-align:center;">';
     html += '<div style="height:50px;"></div>';
-    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size: var(--fs-xs);color:#64748b;">Verifico — Nombre y firma</div></div>';
+    html += '<div style="border-top:1px solid #0f172a;padding-top: var(--space-xs);font-size: var(--fs-xs);color:var(--muted);">Verifico — Nombre y firma</div></div>';
     html += '</div>';
 
     // Notas
-    html += '<div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px;min-height:40px;">';
+    html += '<div style="border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm);min-height:40px;">';
     html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Notas / Observaciones:</div>';
     html += '</div>';
 
     html += '</div>'; // end data sheet
 
     // === ACTION BUTTONS (hidden on print) ===
-    html += '<div class="inv-no-print" style="display:flex;gap:8px;justify-content:center;padding:0 24px 24px;">';
-    html += '<button onclick="invPrintBarcodePage()" style="padding:10px 24px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>';
-    html += '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar Barcode</button>';
-    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px 24px;background:#e2e8f0;color:#334155;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>';
+    html += '<div class="inv-no-print" style="display:flex;gap: var(--space-sm);justify-content:center;padding:0 24px 24px;">';
+    html += '<button onclick="invPrintBarcodePage()" style="padding: var(--space-md) var(--space-xl);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Imprimir</button>';
+    html += '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding: var(--space-md) var(--space-xl);background:#3b82f6;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Descargar Barcode</button>';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md) var(--space-xl);background:var(--surface-alt);color:var(--text);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cerrar</button>';
     html += '</div>';
 
     html += '</div>'; // end inv-print-page
@@ -1272,56 +1272,56 @@ function invShowTimeline(id) {
     var tl = g.timeline || [];
     var exp = invGasExpiry(g);
     var lvl = invGasLevel(g);
-    var html = '<div style="max-width:450px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;max-height:85vh;overflow-y:auto;position:relative;">';
+    var html = '<div style="max-width:450px;margin:30px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);max-height:85vh;overflow-y:auto;position:relative;">';
     html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>';
-    html += '<h3 style="margin:0 0 4px;color:#0f172a;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>';
-    html += '<div style="font-size: var(--fs-sm);color:#64748b;margin-bottom:12px;">Control: ' + g.controlNo + ' | Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>';
+    html += '<h3 style="margin:0 0 4px;color:var(--text);">' + g.formula + ' ' + (g.concNominal||'') + '</h3>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-md);">Control: ' + g.controlNo + ' | Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>';
     // Status badges
-    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     var statusClr = g.status==='In use'?'#dcfce7;color:#16a34a':g.status==='Empty'?'#fef2f2;color:var(--danger-text)':'#fef9c3;color:#ca8a04';
-    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + statusClr + ';">' + g.status + '</span>';
-    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + exp.color + '20;color:' + exp.color + ';">' + exp.text + '</span>';
-    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:var(--radius-full);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-2xl);background:' + statusClr + ';">' + g.status + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-2xl);background:' + exp.color + '20;color:' + exp.color + ';">' + exp.text + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-full);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
     html += '</div>';
     // Info grid
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size: var(--fs-xs);margin-bottom:12px;color:#334155;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-xs);font-size: var(--fs-xs);margin-bottom: var(--space-md);color:var(--text);">';
     html += '<div><span style="color:var(--muted);">Recibido:</span> ' + (g.regDate||'?') + '</div>';
     html += '<div><span style="color:var(--muted);">Vigencia:</span> ' + (g.validUntil||'?') + '</div>';
     html += '<div><span style="color:var(--muted);">Trazabilidad:</span> ' + (g.traceability||'?') + '</div>';
     html += '<div><span style="color:var(--muted);">Conc. Real:</span> ' + (g.concReal||'?') + '</div>';
     html += '</div>';
     // Timeline
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#0f172a;margin-bottom:6px;">Historial</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin-bottom: var(--space-sm);">Historial</div>';
     if (tl.length === 0) { html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Sin historial.</div>'; }
     else {
         tl.slice().reverse().forEach(function(e) {
             var d = new Date(e.date);
-            html += '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;">';
+            html += '<div style="display:flex;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid var(--border);">';
             html += '<div style="font-size: var(--fs-xs);color:var(--muted);min-width:70px;">' + d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}) + '</div>';
-            html += '<div style="font-size: var(--fs-xs);color:#334155;">' + e.action + '</div>';
+            html += '<div style="font-size: var(--fs-xs);color:var(--text);">' + e.action + '</div>';
             html += '</div>';
         });
     }
     // Last 5 readings
     if (g.readings && g.readings.length > 0) {
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#0f172a;margin:10px 0 6px;">Ultimas Lecturas</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin:10px 0 6px;">Ultimas Lecturas</div>';
         g.readings.slice(-5).reverse().forEach(function(r) {
-            html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size: var(--fs-xs);color:#334155;border-bottom:1px solid #f8fafc;">';
+            html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size: var(--fs-xs);color:var(--text);border-bottom:1px solid #f8fafc;">';
             html += '<span>' + r.date + '</span><span style="font-weight:700;">' + r.psi + ' psi</span>';
             html += '</div>';
         });
     }
     // Quick reading inline form
-    html += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:10px;">';
-    html += '<button onclick="invMapQuickRead(\'' + g.id + '\')" id="inv-map-read-btn" style="width:100%;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Registrar Lectura</button>';
-    html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
-    html += '<div style="display:flex;gap:6px;align-items:center;">';
-    html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
-    html += '<input id="inv-map-date" type="date" value="' + localToday() + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size: var(--fs-xs);color:#334155;">';
+    html += '<div style="margin-top: var(--space-md);border-top:1px solid var(--border);padding-top: var(--space-md);">';
+    html += '<button onclick="invMapQuickRead(\'' + g.id + '\')" id="inv-map-read-btn" style="width:100%;padding: var(--space-md);background:#8b5cf6;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;">Registrar Lectura</button>';
+    html += '<div id="inv-map-read-area" style="display:none;margin-top: var(--space-sm);">';
+    html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
+    html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding: var(--space-md);font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius: var(--radius-xl);background:var(--surface-alt);color:var(--text);">';
+    html += '<input id="inv-map-date" type="date" value="' + localToday() + '" style="padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);font-size: var(--fs-base);color:var(--text);">';
     html += '</div>';
-    html += '<div style="display:flex;gap:6px;margin-top:6px;">';
-    html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
-    html += '<button onclick="invMapQuickReadSave(\'' + g.id + '\')" style="flex:2;padding:8px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Guardar</button>';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-sm);">';
+    html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding: var(--space-sm);background:var(--surface-alt);color:var(--text);border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
+    html += '<button onclick="invMapQuickReadSave(\'' + g.id + '\')" style="flex:2;padding: var(--space-sm);background:#8b5cf6;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-weight:700;font-size:12px;">Guardar</button>';
     html += '</div></div></div>';
     html += '</div>';
     modal.innerHTML = html;
@@ -1632,38 +1632,38 @@ function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = invRenderAnomalyBanner();
     html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-help"><span>Captura Diaria — Gases (psi)</span>';
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="invStartReadingRound()" style="font-size: var(--fs-sm);">🔄 Hacer la ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-sm);">📷 Escanear</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invSaveDailyCapture()" style="font-size: var(--fs-sm);">💾 Guardar lo capturado</button>';
     html += '</div></div>';
     // v21: los dos modos reales del laboratorio, dichos con todas sus letras — la
     // ronda para el recorrido con el celular, esta retícula para pasar la libreta.
-    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom:10px;line-height:1.5;">' +
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);line-height:1.5;">' +
             '<strong>¿Vas al cuarto de gases?</strong> Usa <strong>🔄 Hacer la ronda</strong>: te va pidiendo un cilindro a la vez, en el orden en que están acomodados. ' +
             '<strong>¿Traes la libreta?</strong> Captura aquí abajo y elige la fecha del recorrido.</div>';
     // La fecha del lote: capturar de papel casi siempre ocurre después del recorrido.
-    html += '<div class="u-flex-between" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);">' +
+    html += '<div class="u-flex-between" style="flex-wrap:wrap;gap: var(--space-sm);margin-bottom: var(--space-md);padding: var(--space-sm) var(--space-md);background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);">' +
             '<label for="inv-capture-date" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">📅 Fecha de estas lecturas</label>' +
             '<input type="date" id="inv-capture-date" value="' + localToday() + '" max="' + localToday() + '" ' +
             'class="tp-input" style="width:auto;min-height:var(--target-min);font-size: var(--fs-base);">' +
             '</div>';
 
     if (invState.gases.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size: var(--fs-sm);margin-left:6px;">🔴 Dar de alta un cilindro →</button></div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">🔴 Dar de alta un cilindro →</button></div>';
     } else if (gases.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros en uso.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin cilindros en uso.</div>';
     } else {
         html += '<div style="max-height:500px;overflow-y:auto;">';
         gases.forEach(function(g) {
             var lastR = g.readings.length > 0 ? g.readings[g.readings.length-1] : null;
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
             html += '<div style="min-width:100px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
-            html += '<div style="flex:1;min-width:180px;display:flex;gap:3px;flex-wrap:wrap;">';
+            html += '<div style="flex:1;min-width:180px;display:flex;gap: var(--space-2xs);flex-wrap:wrap;">';
             var last5 = (g.readings||[]).slice(-5);
             if (last5.length > 0) {
-                last5.forEach(function(r){ html += '<span style="font-size: var(--fs-xs);padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
+                last5.forEach(function(r){ html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
             } else { html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
             html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:100px;text-align:center;font-weight:700;">';
@@ -1677,12 +1677,12 @@ function invRenderReadings(el) {
     var tanks = invState.fuelTanks || [];
     html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-fuel-help"><span>⛽ Captura Diaria — Combustible</span></div>';
     if (tanks.length === 0) {
-        html += '<div style="text-align:center;padding:15px;color:var(--tp-dim);">Sin tanques configurados.</div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Sin tanques configurados.</div>';
     } else {
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Registra el nivel actual de cada tanque.</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Registra el nivel actual de cada tanque.</div>';
         tanks.forEach(function(t) {
             var lastR = (t.readings && t.readings.length) ? t.readings[t.readings.length-1] : null;
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
             html += '<div style="min-width:120px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + (t.name||'Tanque') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: ' + (t.currentLevel!=null?t.currentLevel:'?') + ' ' + (t.unit||'L') + (lastR?(' | '+lastR.date.slice(5)):'') + '</div></div>';
             html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:110px;text-align:center;font-weight:700;">';
             html += '</div>';
@@ -1703,7 +1703,7 @@ function invRenderReadings(el) {
             html += '<tr><td style="font-size: var(--fs-xs);">' + r.date + '</td><td style="font-size: var(--fs-sm);">' + r.gas + '</td><td style="font-size: var(--fs-sm);">' + (r.zone||'') + '</td><td style="font-weight:700;">' + r.psi + '</td></tr>';
         });
         html += '</tbody></table></div>';
-    } else { html += '<div style="text-align:center;padding:15px;color:var(--tp-dim);">Sin lecturas registradas.</div>'; }
+    } else { html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Sin lecturas registradas.</div>'; }
     html += '</div>';
     el.innerHTML = html;
 }
@@ -1750,24 +1750,24 @@ function invScanBarcode() {
     var hasLib = typeof Html5Qrcode !== 'undefined';
 
     var html = '<div style="max-width:420px;margin:20px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-lg);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">';
-    html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
     html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
 
     if (hasCamera && hasLib) {
-        html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
-        html += '<div id="inv-scan-reader" style="width:100%;border-radius:8px;overflow:hidden;"></div>';
-        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
+        html += '<div id="inv-scan-area" style="position:relative;margin-bottom: var(--space-md);">';
+        html += '<div id="inv-scan-reader" style="width:100%;border-radius: var(--radius-xl);overflow:hidden;"></div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top: var(--space-sm);">Apunta al codigo de barras...</div>';
         html += '</div>';
     } else if (!hasLib) {
-        html += '<div style="padding:10px;background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Librería de escaneo no cargada. Usa la búsqueda rápida de abajo.</div>';
+        html += '<div style="padding: var(--space-md);background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom: var(--space-md);font-size: var(--fs-xs);color:var(--warn-text);">Librería de escaneo no cargada. Usa la búsqueda rápida de abajo.</div>';
     } else {
-        html += '<div style="padding:10px;background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Cámara no disponible. Usa la búsqueda rápida de abajo.</div>';
+        html += '<div style="padding: var(--space-md);background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom: var(--space-md);font-size: var(--fs-xs);color:var(--warn-text);">Cámara no disponible. Usa la búsqueda rápida de abajo.</div>';
     }
 
     // Quick search fallback (always shown)
-    html += '<div style="margin-bottom:12px;">';
-    html += '<label style="font-size: var(--fs-xs);color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
-    html += '<input id="inv-scan-search" aria-label="Buscar cilindro" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" class="tp-input" style="width:100%;margin-top:4px;">';
+    html += '<div style="margin-bottom: var(--space-md);">';
+    html += '<label style="font-size: var(--fs-xs);color:var(--muted);">Busqueda rapida (No. Control, cilindro o formula)</label>';
+    html += '<input id="inv-scan-search" aria-label="Buscar cilindro" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" class="tp-input" style="width:100%;margin-top: var(--space-xs);">';
     html += '</div>';
 
     // Search results
@@ -1859,7 +1859,7 @@ function invScanFilter() {
     }
 
     if (gases.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:15px;color:#64748b;font-size: var(--fs-sm);">Sin resultados</div>';
+        container.innerHTML = '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-sm);">Sin resultados</div>';
         return;
     }
 
@@ -1867,16 +1867,16 @@ function invScanFilter() {
     gases.forEach(function(g) {
         var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
         var lvl = invGasLevel(g);
-        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;text-align:left;color:var(--text);min-height:var(--target-min);">';
+        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding: var(--space-md);margin-bottom: var(--space-xs);background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;text-align:left;color:var(--text);min-height:var(--target-min);">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size: var(--fs-xs);color:#94a3b8;">' + (g.concNominal || '') + '</span>';
-        html += '<div style="font-size: var(--fs-xs);color:#64748b;">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
+        html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size: var(--fs-xs);color:var(--muted);">' + (g.concNominal || '') + '</span>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
         html += '<div style="text-align:right;">';
         if (lastR) {
             html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
-            html += '<div style="font-size: var(--fs-xs);color:#64748b;">' + lastR.date + '</div>';
+            html += '<div style="font-size: var(--fs-xs);color:var(--muted);">' + lastR.date + '</div>';
         } else {
-            html += '<div style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Sin lecturas</div>';
+            html += '<div style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Sin lecturas</div>';
         }
         html += '</div></div></button>';
     });
@@ -1897,48 +1897,48 @@ function invQuickReadPopup(g) {
     var html = '<div style="max-width:400px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-xl);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">';
     html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" aria-label="Cerrar" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
 
-    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="text-align:center;margin-bottom: var(--space-lg);">';
     html += '<div style="font-size: var(--fs-md);font-weight:700;">' + escapeHtml(g.formula || '') + ' <span style="color:var(--muted);font-weight:400;">' + escapeHtml(g.concNominal || '') + '</span></div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--muted);">' + escapeHtml(g.gasType || '') + '</div>';
-    html += '<div style="display:flex;justify-content:center;gap:6px;margin-top:6px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;justify-content:center;gap: var(--space-sm);margin-top: var(--space-sm);flex-wrap:wrap;">';
     html += '<span class="u-chip u-chip--neutral">Control: <strong>' + escapeHtml(g.controlNo || '') + '</strong></span>';
     html += '<span class="u-chip u-chip--neutral">Cil: <strong>' + escapeHtml(g.cylinderNo || '?') + '</strong></span>';
     html += '<span class="u-chip u-chip--neutral">Zona: <strong>' + escapeHtml(g.zone || '?') + '</strong></span>';
     html += '</div></div>';
 
-    html += '<div style="background:var(--surface-alt);border-radius:var(--radius-lg);padding:14px;margin-bottom:16px;border:1px solid var(--border);">';
-    html += '<div style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-bottom:6px;">Lectura anterior</div>';
+    html += '<div style="background:var(--surface-alt);border-radius:var(--radius-lg);padding: var(--space-lg);margin-bottom: var(--space-lg);border:1px solid var(--border);">';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-bottom: var(--space-sm);">Lectura anterior</div>';
     if (lastR) {
         html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
         html += '<span style="font-size: var(--fs-lg);font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size: var(--fs-sm);font-weight:400;">psi</span></span>';
         html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + escapeHtml(lastR.date || '') + '</span>';
         html += '</div>';
-        html += '<div class="u-bar" style="margin-top:6px;"><span style="width:' + Math.min(lvl.pct, 100) + '%;background:' + lvl.color + ';"></span></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:3px;">' + escapeHtml(lvl.text) + '</div>';
+        html += '<div class="u-bar" style="margin-top: var(--space-sm);"><span style="width:' + Math.min(lvl.pct, 100) + '%;background:' + lvl.color + ';"></span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(lvl.text) + '</div>';
     } else {
         html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Sin lecturas previas</div>';
     }
     html += '</div>';
 
-    html += '<div style="background:var(--info-bg);border:2px solid var(--info-fill);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;">';
-    html += '<label for="inv-quick-psi" style="display:block;font-size: var(--fs-sm);color:var(--info-text);font-weight:700;margin-bottom:8px;">Nueva lectura</label>';
-    html += '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">';
+    html += '<div style="background:var(--info-bg);border:2px solid var(--info-fill);border-radius:var(--radius-lg);padding: var(--space-lg);margin-bottom: var(--space-lg);">';
+    html += '<label for="inv-quick-psi" style="display:block;font-size: var(--fs-sm);color:var(--info-text);font-weight:700;margin-bottom: var(--space-sm);">Nueva lectura</label>';
+    html += '<div style="display:flex;gap: var(--space-md);align-items:flex-start;flex-wrap:wrap;">';
     html += '<div style="flex:1;min-width:140px;">';
     html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus class="tp-input" style="width:100%;font-size: var(--fs-lg);font-weight:700;text-align:center;">';
-    html += '<div style="text-align:center;font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-top:3px;">psi</div>';
+    html += '<div style="text-align:center;font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-top: var(--space-2xs);">psi</div>';
     html += '</div>';
-    html += '<div><label for="inv-quick-date" style="display:block;font-size: var(--fs-xs);color:var(--muted);margin-bottom:2px;">Fecha</label>';
+    html += '<div><label for="inv-quick-date" style="display:block;font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-2xs);">Fecha</label>';
     html += '<input id="inv-quick-date" type="date" value="' + today + '" max="' + today + '" class="tp-input" style="width:auto;"></div>';
     html += '</div>';
     // Aviso en vivo: informa mientras teclea, nunca impide guardar.
-    html += '<div id="inv-quick-warn" style="min-height:16px;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-top:6px;"></div>';
+    html += '<div id="inv-quick-warn" style="min-height:16px;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-top: var(--space-sm);"></div>';
     html += '</div>';
 
-    html += '<div style="display:flex;gap:8px;">';
+    html += '<div style="display:flex;gap: var(--space-sm);">';
     html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" class="tp-btn tp-btn-ghost" style="flex:1;min-height:var(--target-min);">Cancelar</button>';
     html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" class="tp-btn tp-btn-primary" style="flex:2;min-height:var(--target-min);font-weight:700;">Guardar Lectura</button>';
     html += '</div>';
-    html += '<button onclick="invScanBarcode()" class="tp-btn tp-btn-ghost" style="width:100%;margin-top:8px;min-height:var(--target-min);">📷 Escanear otro cilindro</button>';
+    html += '<button onclick="invScanBarcode()" class="tp-btn tp-btn-ghost" style="width:100%;margin-top: var(--space-sm);min-height:var(--target-min);">📷 Escanear otro cilindro</button>';
 
     html += '</div>';
     modal.innerHTML = html;
@@ -1999,33 +1999,33 @@ function invRenderEquipment(el) {
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>🔧 Equipos y Calibración (' + equip.length + ')</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size: var(--fs-sm);">+ Instrumento</button></div>';
 
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:6px;margin-bottom:10px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--ok-text)">' + summary.vigentes + '</div><div class="tp-metric-label">Vigentes</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--warn-text)">' + summary.porVencer + '</div><div class="tp-metric-label">Por vencer ≤60d</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--danger-text)">' + summary.vencidos + '</div><div class="tp-metric-label">VENCIDOS</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#64748b">' + summary.sinRegistro + '</div><div class="tp-metric-label">Sin registro</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--muted)">' + summary.sinRegistro + '</div><div class="tp-metric-label">Sin registro</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (summary.pct >= 80 ? '#10b981' : summary.pct >= 50 ? '#f59e0b' : '#ef4444') + '">' + summary.pct + '%</div><div class="tp-metric-label">% Vigencia</div></div>';
     html += '</div>';
 
     var criticalOverdue = equip.filter(function(e) { return e.critical === 'Si' && invCalStatus(e).code === 'vencido'; });
     if (criticalOverdue.length > 0) {
-        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:10px;">';
-        html += '<div style="font-weight:800;color:#b91c1c;font-size: var(--fs-sm);margin-bottom:4px;">⚠️ ' + criticalOverdue.length + ' instrumento(s) CRÍTICO(S) con calibración vencida — identificar como NO OPERABLE</div>';
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius: var(--radius-xl);padding: var(--space-md);margin-bottom: var(--space-md);">';
+        html += '<div style="font-weight:800;color:#b91c1c;font-size: var(--fs-sm);margin-bottom: var(--space-xs);">⚠️ ' + criticalOverdue.length + ' instrumento(s) CRÍTICO(S) con calibración vencida — identificar como NO OPERABLE</div>';
         criticalOverdue.forEach(function(e) {
             html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size: var(--fs-xs);color:#7f1d1d;">' +
                 '<span>' + escapeHtml(e.name) + '</span>' +
-                '<button class="tp-btn tp-btn-danger" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding:3px 8px;">Calibrar</button></div>';
+                '<button class="tp-btn tp-btn-danger" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">Calibrar</button></div>';
         });
         html += '</div>';
     }
 
-    html += '<div style="margin-bottom:8px;"><input type="text" aria-label="Buscar instrumento, KMM o equipo" placeholder="Buscar instrumento, KMM, equipo..." value="' + escapeHtml(window._invEqSearch || '') + '" oninput="window._invEqSearch=this.value;_invDebouncedRender();" style="width:100%;padding:6px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size: var(--fs-sm);"></div>';
+    html += '<div style="margin-bottom: var(--space-sm);"><input type="text" aria-label="Buscar instrumento, KMM o equipo" placeholder="Buscar instrumento, KMM, equipo..." value="' + escapeHtml(window._invEqSearch || '') + '" oninput="window._invEqSearch=this.value;_invDebouncedRender();" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);font-size: var(--fs-sm);"></div>';
 
     var chips = [['all', 'Todos'], ['vencido', '🔴 Vencidos'], ['porvencer', '🟠 Por vencer'], ['vigente', '🟢 Vigentes'], ['noaplica', '⚪ No aplica']];
-    html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-xs);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     chips.forEach(function(c) {
         var active = filter === c[0];
-        html += '<button class="tp-btn ' + (active ? 'tp-btn-primary' : 'tp-btn-ghost') + '" onclick="window._invEqFilter=\'' + c[0] + '\';_invDebouncedRender();" style="font-size: var(--fs-sm);padding:4px 8px;">' + c[1] + '</button>';
+        html += '<button class="tp-btn ' + (active ? 'tp-btn-primary' : 'tp-btn-ghost') + '" onclick="window._invEqFilter=\'' + c[0] + '\';_invDebouncedRender();" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">' + c[1] + '</button>';
     });
     html += '</div>';
 
@@ -2044,7 +2044,7 @@ function invRenderEquipment(el) {
     if (noAsset.length > 0) groups.push({ asset: null, items: noAsset });
 
     if (groups.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin instrumentos que coincidan.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin instrumentos que coincidan.</div>';
     } else {
         var order = { vencido: 4, sinregistro: 3, porvencer: 2, vigente: 1, noaplica: 0 };
         var colorOf = { vencido: '#ef4444', sinregistro: '#64748b', porvencer: '#f59e0b', vigente: '#10b981', noaplica: '#94a3b8' };
@@ -2053,22 +2053,22 @@ function invRenderEquipment(el) {
             g.items.forEach(function(e) { var c = invCalStatus(e).code; if (order[c] > order[worst]) worst = c; });
             var okCount = g.items.filter(function(e) { return invCalStatus(e).code === 'vigente'; }).length;
             var openAttr = (worst === 'vencido' || worst === 'sinregistro') ? ' open' : '';
-            html += '<details' + openAttr + ' style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">';
-            html += '<summary style="cursor:pointer;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;background:var(--tp-card);border-left:4px solid ' + colorOf[worst] + ';list-style:none;">';
+            html += '<details' + openAttr + ' style="margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);overflow:hidden;">';
+            html += '<summary style="cursor:pointer;padding: var(--space-sm) var(--space-md);display:flex;justify-content:space-between;align-items:center;background:var(--tp-card);border-left:4px solid ' + colorOf[worst] + ';list-style:none;">';
             html += '<span style="font-weight:700;font-size:12px;">' + (g.asset ? escapeHtml(g.asset.name) : 'Sin equipo padre') + '</span>';
-            html += '<span style="display:flex;gap:6px;align-items:center;">';
+            html += '<span style="display:flex;gap: var(--space-sm);align-items:center;">';
             html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + okCount + '/' + g.items.length + ' vigentes</span>';
             if (g.asset) html += '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();event.preventDefault();invAddAsset(\'' + g.asset.id + '\')" style="font-size: var(--fs-sm);" title="Editar equipo" aria-label="Editar equipo padre">✏️</button>';
             html += '</span></summary>';
-            html += '<div style="padding:6px 8px;">';
+            html += '<div style="padding: var(--space-sm) var(--space-sm);">';
             g.items.forEach(function(e) {
                 var st = invCalStatus(e);
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 6px;margin-bottom:3px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap: var(--space-xs);">';
                 html += '<div style="flex:1;min-width:150px;"><div style="font-weight:600;font-size: var(--fs-sm);">' + escapeHtml(e.magnitude || e.type || e.name) + '</div>';
                 html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (e.kmmId ? 'KMM ' + escapeHtml(e.kmmId) + ' · ' : '') + (e.nextCalDate ? 'próxima ' + e.nextCalDate : 'sin fecha') + '</div></div>';
-                html += '<div style="display:flex;gap:5px;align-items:center;">';
-                html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + st.color + '20;color:' + st.color + ';">' + st.label + '</span>';
-                if (e.requiresCal !== 'No') html += '<button class="tp-btn tp-btn-primary" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding:4px 8px;">✅ Calibrado</button>';
+                html += '<div style="display:flex;gap: var(--space-xs);align-items:center;">';
+                html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:' + st.color + '20;color:' + st.color + ';">' + st.label + '</span>';
+                if (e.requiresCal !== 'No') html += '<button class="tp-btn tp-btn-primary" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">✅ Calibrado</button>';
                 html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar instrumento">✏️</button>';
                 html += '</div></div>';
             });
@@ -2085,18 +2085,18 @@ function invShowCalRegisterModal(eqId) {
     if (!eq) return;
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
-        '<h3 style="margin:0 0 4px;color:#0f172a;">✅ Calibración realizada</h3>' +
-        '<div style="font-size: var(--fs-sm);color:#64748b;margin-bottom:14px;">' + escapeHtml(eq.name) + (eq.magnitude ? ' — ' + escapeHtml(eq.magnitude) : '') + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Fecha</label><input id="inv-calreg-date" type="date" value="' + localToday() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">No. de Certificado</label><input id="inv-calreg-cert" value="" placeholder="Ej. T-2199-2026" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Proveedor</label><input id="inv-calreg-prov" value="' + escapeHtml(eq.calLab || '') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<h3 style="margin:0 0 4px;color:var(--text);">✅ Calibración realizada</h3>' +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-lg);">' + escapeHtml(eq.name) + (eq.magnitude ? ' — ' + escapeHtml(eq.magnitude) : '') + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label><input id="inv-calreg-date" type="date" value="' + localToday() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">No. de Certificado</label><input id="inv-calreg-cert" value="" placeholder="Ej. T-2199-2026" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Proveedor</label><input id="inv-calreg-prov" value="' + escapeHtml(eq.calLab || '') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveCalRegister(\x27' + eqId + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveCalRegister(\x27' + eqId + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -2157,31 +2157,31 @@ function invAddEquipment(editId) {
     var typeOpts = '<option value=""></option>' + INV_CAL_TYPES.map(function(o) { return '<option value="' + o + '" ' + (v('calType') === o ? 'selected' : '') + '>' + o + '</option>'; }).join('');
     var placeOpts = '<option value=""></option>' + INV_CAL_PLACES.map(function(o) { return '<option value="' + o + '" ' + (v('calPlace') === o ? 'selected' : '') + '>' + o + '</option>'; }).join('');
     var critOpts = ['No', 'Si'].map(function(o) { return '<option value="' + o + '" ' + (v('critical', 'No') === o ? 'selected' : '') + '>' + (o === 'Si' ? 'Sí' : 'No') + '</option>'; }).join('');
-    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var inpStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:92vh;overflow-y:auto;">' +
+    modal.innerHTML = '<div style="max-width:560px;margin:24px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;max-height:92vh;overflow-y:auto;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Instrumento' : 'Nuevo Instrumento') + '</h3>' +
+        '<h3 style="margin:0 0 12px;color:var(--text);">' + (isEdit ? 'Editar Instrumento' : 'Nuevo Instrumento') + '</h3>' +
 
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
         '<div><label style="' + lblStyle + '">Nombre *</label><input id="inv-eq-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Equipo padre</label><select id="inv-eq-asset" onchange="invEqAutofillFromAsset()" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-magnitude">Magnitud</label><input id="inv-eq-magnitude" value="' + escapeHtml(v('magnitude')) + '" placeholder="Ej. Thermometer" style="' + inpStyle + '"></div>' +
         '</div>' +
 
-        '<details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🏷️ Identificación</summary>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
+        '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🏷️ Identificación</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Marca</label><input id="inv-eq-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-eq-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-eq-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">KMM ID</label><input id="inv-eq-kmmid" value="' + escapeHtml(v('kmmId')) + '" style="' + inpStyle + '"></div>' +
         '</div></details>' +
 
-        '<details style="margin-top:8px;"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
+        '<details style="margin-top: var(--space-sm);"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-requires">¿Requiere calibración?</label><select id="inv-eq-requires" style="' + inpStyle + '">' + reqOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-caltype">Tipo</label><select id="inv-eq-caltype" style="' + inpStyle + '">' + typeOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-freq">Frecuencia</label><select id="inv-eq-freq" onchange="invEqRecalcNext()" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
@@ -2193,8 +2193,8 @@ function invAddEquipment(editId) {
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Certificado</label><input id="inv-eq-cert" value="' + escapeHtml(v('calCertNo')) + '" style="' + inpStyle + '"></div>' +
         '</div></details>' +
 
-        '<details style="margin-top:8px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🔬 Metrología</summary>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
+        '<details style="margin-top: var(--space-sm);"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🔬 Metrología</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Rango máximo</label><input id="inv-eq-rangemax" value="' + escapeHtml(v('rangeMax')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Rango de uso</label><input id="inv-eq-rangeuse" value="' + escapeHtml(v('rangeUse')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-maxerror">Error máx. permitido</label><input id="inv-eq-maxerror" value="' + escapeHtml(v('maxError')) + '" style="' + inpStyle + '"></div>' +
@@ -2205,10 +2205,10 @@ function invAddEquipment(editId) {
 
         (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('equipment', 'Dar de alta otro al guardar') + '</div>') +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -2277,28 +2277,28 @@ function invAddAsset(editId) {
     var v = function(f, d) { return a ? (a[f] != null && a[f] !== '' ? a[f] : (d || '')) : (d || ''); };
     var labOpts = INV_LABS.map(function(l) { return '<option value="' + l + '" ' + (v('lab', 'Emisiones') === l ? 'selected' : '') + '>' + l + '</option>'; }).join('');
     var statusOpts = ['Activo', 'Inactivo', 'Fuera de servicio'].map(function(s) { return '<option value="' + s + '" ' + (v('status', 'Activo') === s ? 'selected' : '') + '>' + s + '</option>'; }).join('');
-    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var inpStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
         '<h3 style="margin:0 0 12px;">' + (isEdit ? 'Editar Equipo' : 'Nuevo Equipo') + '</h3>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
         '<div><label style="' + lblStyle + '">Nombre *</label><input id="inv-asset-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Laboratorio</label><select id="inv-asset-lab" style="' + inpStyle + '">' + labOpts + '</select></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label style="' + lblStyle + '">Marca</label><input id="inv-asset-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);"><div><label style="' + lblStyle + '">Marca</label><input id="inv-asset-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-asset-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div></div>' +
         '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-asset-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-asset-status" style="' + inpStyle + '">' + statusOpts + '</select></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-asset-blocks" ' + (v('blocksTesting') ? 'checked' : '') + '> Si está en mantenimiento, bloquea pruebas</label></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap: var(--space-sm);"><input type="checkbox" id="inv-asset-blocks" ' + (v('blocksTesting') ? 'checked' : '') + '> Si está en mantenimiento, bloquea pruebas</label></div>' +
         '<div><label style="' + lblStyle + '">Notas</label><input id="inv-asset-notes" value="' + escapeHtml(v('notes')) + '" style="' + inpStyle + '"></div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveAsset(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo? Sus instrumentos quedaran sin equipo padre.\',function(){invState.assets=invState.assets.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveAsset(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo? Sus instrumentos quedaran sin equipo padre.\',function(){invState.assets=invState.assets.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -2348,10 +2348,10 @@ function invRenderMaint(el) {
             return { asset: a, project: pnActiveProjectForAsset(a.id) };
         }).filter(function(x) { return x.project; });
         if (linkedProjects.length > 0) {
-            html += '<div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;margin-bottom:10px;">';
+            html += '<div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">';
             linkedProjects.forEach(function(x) {
                 var prog = typeof pnProjectProgress === 'function' ? pnProjectProgress(x.project) : { done: 0, total: 0, pct: 0 };
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding:3px 0;">';
                 html += '<span style="font-size: var(--fs-sm);"><b>' + escapeHtml(x.asset.name) + '</b>: 🗂️ Proyecto abierto — ' + escapeHtml(x.project.name) + ' (' + prog.done + '/' + prog.total + ' pasos, ' + prog.pct + '%)</span>';
                 html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=\'' + x.project.id + '\';dashGo(\'panel\',\'pn-projects\')" style="font-size: var(--fs-sm);">Ver →</button>';
                 html += '</div>';
@@ -2361,45 +2361,45 @@ function invRenderMaint(el) {
     }
 
     if (overdue.length > 0) {
-        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:10px;">';
-        html += '<div style="font-weight:800;color:#b91c1c;font-size: var(--fs-sm);margin-bottom:6px;">⚠️ ' + overdue.length + ' mantenimiento(s) vencido(s)</div>';
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius: var(--radius-xl);padding: var(--space-md);margin-bottom: var(--space-md);">';
+        html += '<div style="font-weight:800;color:#b91c1c;font-size: var(--fs-sm);margin-bottom: var(--space-sm);">⚠️ ' + overdue.length + ' mantenimiento(s) vencido(s)</div>';
         overdue.forEach(function(o) {
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #fecaca;flex-wrap:wrap;gap:4px;">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #fecaca;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><div style="font-size: var(--fs-sm);font-weight:700;">' + escapeHtml(o.asset ? o.asset.name : '?') + ' — ' + escapeHtml(o.act.desc) + '</div>';
             html += '<div style="font-size: var(--fs-xs);color:#7f1d1d;">Vencido desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)</div></div>';
-            html += '<button class="tp-btn tp-btn-danger" onclick="invMaintMarkDone(\'' + o.act.id + '\');invRender();" style="font-size: var(--fs-sm);padding:4px 10px;">✔ Hecho</button>';
+            html += '<button class="tp-btn tp-btn-danger" onclick="invMaintMarkDone(\'' + o.act.id + '\');invRender();" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);">✔ Hecho</button>';
             html += '</div>';
         });
         html += '</div>';
     }
 
-    html += '<div class="tp-card" style="margin-bottom:10px;"><div class="tp-card-title"><span>📅 Semana ' + curWeek + ' · ' + dueThisWeek.length + ' programado(s)</span></div>';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);"><div class="tp-card-title"><span>📅 Semana ' + curWeek + ' · ' + dueThisWeek.length + ' programado(s)</span></div>';
     if (dueThisWeek.length === 0) {
-        html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos programados esta semana.</div>';
+        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos programados esta semana.</div>';
     } else {
         dueThisWeek.forEach(function(d) {
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><div style="font-size: var(--fs-sm);font-weight:700;">' + escapeHtml(d.asset ? d.asset.name : '?') + ' — ' + escapeHtml(d.act.desc) + '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + escapeHtml(d.act.responsible || '') + '</div></div>';
-            html += '<div style="display:flex;gap:5px;">';
-            html += '<button class="tp-btn tp-btn-primary" onclick="invMaintMarkDone(\'' + d.act.id + '\');invRender();" style="font-size: var(--fs-sm);padding:4px 10px;">✔ Hecho</button>';
+            html += '<div style="display:flex;gap: var(--space-xs);">';
+            html += '<button class="tp-btn tp-btn-primary" onclick="invMaintMarkDone(\'' + d.act.id + '\');invRender();" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);">✔ Hecho</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowMaintDetailModal(\'' + d.act.id + '\')" style="font-size: var(--fs-sm);">…con detalle</button>';
             html += '</div></div>';
         });
     }
     html += '</div>';
 
-    html += '<div class="tp-card" style="margin-bottom:10px;"><div class="tp-card-title" data-help="inv-maint-compliance-help"><span>📊 Cumplimiento ' + year + '</span></div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:6px;margin-bottom:8px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);"><div class="tp-card-title" data-help="inv-maint-compliance-help"><span>📊 Cumplimiento ' + year + '</span></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap: var(--space-sm);margin-bottom: var(--space-sm);">';
     html += '<div class="tp-metric"><div class="tp-metric-val">' + compliance.planned + '</div><div class="tp-metric-label">Planeados</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--ok-text)">' + compliance.doneOnWeek + '</div><div class="tp-metric-label">En semana</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val">' + compliance.logged + '</div><div class="tp-metric-label">Registros (año)</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (compliance.pct >= 80 ? '#10b981' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444') + '">' + compliance.pct + '%</div><div class="tp-metric-label">% Cumplimiento</div></div>';
     html += '</div>';
     if (compliance.byAsset.length > 0) {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;"><thead><tr style="text-align:left;color:var(--tp-dim);"><th style="padding:4px;">Equipo</th><th style="padding:4px;">Plan</th><th style="padding:4px;">Real</th><th style="padding:4px;">%</th></tr></thead><tbody>';
+        html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;"><thead><tr style="text-align:left;color:var(--tp-dim);"><th style="padding: var(--space-xs);">Equipo</th><th style="padding: var(--space-xs);">Plan</th><th style="padding: var(--space-xs);">Real</th><th style="padding: var(--space-xs);">%</th></tr></thead><tbody>';
         compliance.byAsset.forEach(function(b) {
-            html += '<tr style="border-top:1px solid var(--tp-border);"><td style="padding:4px;">' + escapeHtml(b.name) + '</td><td style="padding:4px;">' + b.plan + '</td><td style="padding:4px;">' + b.real + '</td><td style="padding:4px;">' + (b.pct !== null ? b.pct + '%' : '—') + '</td></tr>';
+            html += '<tr style="border-top:1px solid var(--tp-border);"><td style="padding: var(--space-xs);">' + escapeHtml(b.name) + '</td><td style="padding: var(--space-xs);">' + b.plan + '</td><td style="padding: var(--space-xs);">' + b.real + '</td><td style="padding: var(--space-xs);">' + (b.pct !== null ? b.pct + '%' : '—') + '</td></tr>';
         });
         html += '</tbody></table></div>';
     }
@@ -2408,12 +2408,12 @@ function invRenderMaint(el) {
     var matrix = invMaintMatrix(year);
     var monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-plan-help"><span class="ui-card-icon">🗓️</span><span class="ui-card-title">Plan Maestro</span><span class="u-chip u-chip--neutral">52 semanas</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
-    html += '<div style="padding:8px;">';
-    html += '<div style="margin-bottom:8px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);">Año: </label><select onchange="window._invMaintYear=parseInt(this.value);invRender();" style="padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size: var(--fs-sm);">';
+    html += '<div style="padding: var(--space-sm);">';
+    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);">Año: </label><select onchange="window._invMaintYear=parseInt(this.value);invRender();" style="padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);font-size: var(--fs-sm);">';
     for (var yy = year - 1; yy <= year + 1; yy++) html += '<option value="' + yy + '" ' + (yy === year ? 'selected' : '') + '>' + yy + '</option>';
     html += '</select></div>';
     if (matrix.length === 0) {
-        html += '<div style="text-align:center;padding:14px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin actividades activas. Agrega el catálogo abajo.</div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Sin actividades activas. Agrega el catálogo abajo.</div>';
     } else {
         html += '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size: var(--fs-xs);min-width:900px;">';
         html += '<tr><td style="min-width:130px;position:sticky;left:0;background:var(--tp-bg);"></td>';
@@ -2422,21 +2422,21 @@ function invRenderMaint(el) {
             var mon = new Date(invMondayOfWeek(year, wk) + 'T00:00:00').getMonth();
             var span = 0, w2 = wk;
             while (w2 <= 52 && new Date(invMondayOfWeek(year, w2) + 'T00:00:00').getMonth() === mon) { span++; w2++; }
-            html += '<td colspan="' + span + '" style="text-align:center;padding:2px;color:var(--tp-dim);text-transform:uppercase;">' + monthNames[mon] + '</td>';
+            html += '<td colspan="' + span + '" style="text-align:center;padding: var(--space-2xs);color:var(--tp-dim);text-transform:uppercase;">' + monthNames[mon] + '</td>';
             wk = w2;
         }
         html += '</tr><tr><td style="position:sticky;left:0;background:var(--tp-bg);"></td>';
         for (var n = 1; n <= 52; n++) {
-            html += '<td style="text-align:center;padding:1px;color:var(--tp-dim);' + (n === curWeek ? 'background:rgba(15,118,110,0.15);font-weight:800;' : '') + '">' + n + '</td>';
+            html += '<td style="text-align:center;padding: var(--space-2xs);color:var(--tp-dim);' + (n === curWeek ? 'background:rgba(15,118,110,0.15);font-weight:800;' : '') + '">' + n + '</td>';
         }
         html += '</tr>';
         matrix.forEach(function(row) {
-            html += '<tr><td style="position:sticky;left:0;background:var(--tp-card);padding:3px 6px;white-space:nowrap;font-weight:600;border-top:1px solid var(--tp-border);">' + escapeHtml(row.asset ? row.asset.name : '?') + '<div style="font-weight:400;color:var(--tp-dim);">' + escapeHtml(row.act.desc) + '</div></td>';
+            html += '<tr><td style="position:sticky;left:0;background:var(--tp-card);padding: var(--space-2xs) var(--space-sm);white-space:nowrap;font-weight:600;border-top:1px solid var(--tp-border);">' + escapeHtml(row.asset ? row.asset.name : '?') + '<div style="font-weight:400;color:var(--tp-dim);">' + escapeHtml(row.act.desc) + '</div></td>';
             row.weeks.forEach(function(w) {
                 var cell = w.done ? '✓' : (w.planned ? 'P' : '');
                 var bg = w.overdue ? 'background:#fecaca;' : (w.done ? 'background:#d1fae5;' : '');
                 var clickable = w.planned && !w.done;
-                html += '<td style="text-align:center;padding:1px;border-top:1px solid var(--tp-border);' + bg + (w.n === curWeek ? 'outline:1px solid #0f766e;' : '') + (clickable ? 'cursor:pointer;' : '') + '"' + (clickable ? ' onclick="invMaintMarkDone(\'' + row.act.id + '\',{date:\'' + invMondayOfWeek(year, w.n) + '\'});invRender();" title="Marcar hecho"' : '') + '>' + cell + '</td>';
+                html += '<td style="text-align:center;padding: var(--space-2xs);border-top:1px solid var(--tp-border);' + bg + (w.n === curWeek ? 'outline:1px solid #0f766e;' : '') + (clickable ? 'cursor:pointer;' : '') + '"' + (clickable ? ' onclick="invMaintMarkDone(\'' + row.act.id + '\',{date:\'' + invMondayOfWeek(year, w.n) + '\'});invRender();" title="Marcar hecho"' : '') + '>' + cell + '</td>';
             });
             html += '</tr>';
         });
@@ -2445,11 +2445,11 @@ function invRenderMaint(el) {
     html += '</div></div></details>';
 
     html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-catalog-help"><span class="ui-card-icon">🔧</span><span class="ui-card-title">Catálogo de actividades</span><span class="u-chip u-chip--neutral">' + (invState.maintActivities || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
-    html += '<div style="padding:8px;">';
-    html += '<div style="text-align:right;margin-bottom:6px;"><button class="tp-btn tp-btn-primary" onclick="invAddMaintActivity()" style="font-size: var(--fs-sm);">+ Actividad</button></div>';
+    html += '<div style="padding: var(--space-sm);">';
+    html += '<div style="text-align:right;margin-bottom: var(--space-sm);"><button class="tp-btn tp-btn-primary" onclick="invAddMaintActivity()" style="font-size: var(--fs-sm);">+ Actividad</button></div>';
     (invState.maintActivities || []).forEach(function(a) {
         var asset = (invState.assets || []).find(function(x) { return x.id === a.assetId; });
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;' + (a.active === false ? 'opacity:0.5;' : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap: var(--space-xs);' + (a.active === false ? 'opacity:0.5;' : '') + '">';
         html += '<div><div style="font-size: var(--fs-sm);font-weight:700;">' + escapeHtml(asset ? asset.name : '?') + ' — ' + escapeHtml(a.desc) + '</div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + a.freq + ' · desde sem ' + a.startWeek + ' · ' + escapeHtml(a.responsible || '') + (a.active === false ? ' · INACTIVA' : '') + '</div></div>';
         html += '<button class="tp-btn tp-btn-ghost" onclick="invAddMaintActivity(\'' + a.id + '\')" style="font-size: var(--fs-sm);">✏️</button>';
@@ -2459,14 +2459,14 @@ function invRenderMaint(el) {
 
     var log = (invState.maintLog || []).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 50);
     html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head"><span class="ui-card-icon">📋</span><span class="ui-card-title">Historial</span><span class="u-chip u-chip--neutral">' + (invState.maintLog || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
-    html += '<div style="padding:8px;">';
+    html += '<div style="padding: var(--space-sm);">';
     if (log.length === 0) {
-        html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos registrados.</div>';
+        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos registrados.</div>';
     } else {
         log.forEach(function(l) {
             var act = (invState.maintActivities || []).find(function(a) { return a.id === l.activityId; });
             var asset = act ? (invState.assets || []).find(function(x) { return x.id === act.assetId; }) : null;
-            html += '<div style="display:flex;justify-content:space-between;padding:5px 4px;border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="display:flex;justify-content:space-between;padding: var(--space-xs) var(--space-xs);border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div>' + l.date + ' — ' + escapeHtml(asset ? asset.name : '?') + ' — ' + escapeHtml(act ? act.desc : '?') + '</div>';
             html += '<div style="color:var(--tp-dim);">' + escapeHtml(l.by || '') + (l.hours ? ' · ' + l.hours + 'h' : '') + '</div>';
             html += '</div>';
@@ -2482,18 +2482,18 @@ function invShowMaintDetailModal(activityId) {
     if (!act) return;
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
         '<h3 style="margin:0 0 4px;">✔ Registrar mantenimiento</h3>' +
-        '<div style="font-size: var(--fs-sm);color:#64748b;margin-bottom:14px;">' + escapeHtml(act.desc) + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Fecha</label><input id="inv-mdet-date" type="date" value="' + localToday() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Horas</label><input id="inv-mdet-hours" type="number" step="0.5" min="0" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Comentarios</label><input id="inv-mdet-comments" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-lg);">' + escapeHtml(act.desc) + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label><input id="inv-mdet-date" type="date" value="' + localToday() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Horas</label><input id="inv-mdet-hours" type="number" step="0.5" min="0" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Comentarios</label><input id="inv-mdet-comments" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveMaintDetail(\x27' + activityId + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveMaintDetail(\x27' + activityId + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -2514,31 +2514,31 @@ function invAddMaintActivity(editId) {
     var assets = invState.assets || [];
     var assetOpts = assets.map(function(x) { return '<option value="' + x.id + '" ' + (v('assetId') === x.id ? 'selected' : '') + '>' + escapeHtml(x.name) + '</option>'; }).join('');
     var freqOpts = Object.keys(INV_MTTO_FREQ_WEEKS).map(function(f) { return '<option value="' + f + '" ' + (v('freq', 'Mensual') === f ? 'selected' : '') + '>' + f + '</option>'; }).join('');
-    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
-    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
+    var inpStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);';
+    var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
         '<h3 style="margin:0 0 12px;">' + (isEdit ? 'Editar Actividad' : 'Nueva Actividad') + '</h3>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
         '<div><label style="' + lblStyle + '">Equipo *</label><select id="inv-mact-asset" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Descripción *</label><input id="inv-mact-desc" value="' + escapeHtml(v('desc')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-mtto-freq">Frecuencia</label><select id="inv-mact-freq" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
         '</div>' +
-        '<details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Más detalles (semana, responsable…)</summary>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;padding-top:6px;">' +
+        '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Más detalles (semana, responsable…)</summary>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" min="1" max="52" value="' + v('startWeek', isEdit ? 1 : invWeekOfYear(localToday())) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible', (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '')) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap: var(--space-sm);"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
         '</div></details>' +
         (editId || typeof uiCreateAnotherHTML !== 'function' ? '' :
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('maint', 'Crear otra al guardar') + '</div>') +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -2617,18 +2617,18 @@ function invRenderPredict(el) {
 
     html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
     html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Prediccion Activa de Consumo</span>';
-    html += '<span style="font-size: var(--fs-xs);padding:2px 8px;border-radius:10px;background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
     if (!hasAdaptiveData) {
-        html += '<div style="text-align:center;padding:14px;color:var(--tp-dim);font-size: var(--fs-sm);">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left:6px;">📏 Ir a Capturar →</button></div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📏 Ir a Capturar →</button></div>';
     }
 
     // Regulation test count badges
     var regKeys = Object.keys(regTestCounts);
     if (regKeys.length > 0) {
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;margin-bottom: var(--space-md);">';
         regKeys.forEach(function(r) {
-            html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:4px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa;">' + r + ': ' + regTestCounts[r] + ' veh.</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa;">' + r + ': ' + regTestCounts[r] + ' veh.</span>';
         });
         html += '</div>';
     }
@@ -2649,21 +2649,21 @@ function invRenderPredict(el) {
 
         Object.keys(allRegs).sort().forEach(function(reg) {
             var pending = pendingByReg[reg] || 0;
-            html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:6px;background:rgba(139,92,246,0.03);">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            html += '<div style="margin-bottom: var(--space-md);padding: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:rgba(139,92,246,0.03);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-sm);">';
             html += '<span style="font-weight:800;font-size:12px;color:#a78bfa;">' + reg + '</span>';
-            if (pending > 0) html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--tp-blue);border:1px solid rgba(59,130,246,0.2);">' + pending + ' pruebas pendientes</span>';
+            if (pending > 0) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:rgba(59,130,246,0.1);color:var(--tp-blue);border:1px solid rgba(59,130,246,0.2);">' + pending + ' pruebas pendientes</span>';
             html += '</div>';
 
             // Gas rates for this regulation
             var gasFormulas = Object.keys(rates.gas).filter(function(f) { return rates.gas[f][reg]; });
             if (gasFormulas.length > 0) {
-                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);margin-bottom:3px;">Gas (psi/prueba):</div>';
-                html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:3px;">';
+                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);margin-bottom: var(--space-2xs);">Gas (psi/prueba):</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap: var(--space-2xs);">';
                 gasFormulas.forEach(function(f) {
                     var r = rates.gas[f][reg];
                     var conf = r.n >= 10 ? '#10b981' : r.n >= 3 ? '#f59e0b' : '#94a3b8';
-                    html += '<div style="font-size: var(--fs-xs);padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);">';
+                    html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:var(--tp-card);border:1px solid var(--tp-border);">';
                     html += '<span style="color:var(--tp-dim);">' + f + ':</span> <strong style="color:var(--tp-amber);">' + r.ewma.toFixed(1) + '</strong> psi';
                     html += ' <span style="font-size: var(--fs-xs);color:' + conf + ';">(' + r.n + ' obs)</span>';
                     html += '</div>';
@@ -2673,8 +2673,8 @@ function invRenderPredict(el) {
 
             // Fuel rate for this regulation
             if (rates.fuel[reg] && rates.fuel[reg].ewma > 0) {
-                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);margin-top:4px;margin-bottom:2px;">Combustible (' + (rates.fuel[reg].unit || 'L') + '/prueba):</div>';
-                html += '<div style="font-size: var(--fs-xs);padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);display:inline-block;">';
+                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);margin-top: var(--space-xs);margin-bottom: var(--space-2xs);">Combustible (' + (rates.fuel[reg].unit || 'L') + '/prueba):</div>';
+                html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:var(--tp-card);border:1px solid var(--tp-border);display:inline-block;">';
                 html += '<span style="color:var(--tp-dim);">' + (rates.fuel[reg].tankName || reg) + ':</span> <strong style="color:#f97316;">' + rates.fuel[reg].ewma.toFixed(1) + '</strong> ' + (rates.fuel[reg].unit || 'L');
                 html += ' <span style="font-size: var(--fs-xs);color:' + (rates.fuel[reg].n >= 5 ? '#10b981' : '#f59e0b') + ';">(' + rates.fuel[reg].n + ' obs)</span>';
                 html += '</div>';
@@ -2691,10 +2691,10 @@ function invRenderPredict(el) {
     if (totalPending > 0 && hasAdaptiveData) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);">';
         html += '<div class="tp-card-title"><span>Proyeccion: Plan de Pruebas (' + totalPending + ' pendientes)</span></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para completar las pruebas pendientes del Test Plan.</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Consumo estimado para completar las pruebas pendientes del Test Plan.</div>';
 
         // Gas projection
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom: var(--space-xs);">Gases</div>';
         var gasAlerts = [];
         invState.gases.filter(function(g) { return g.status === 'In use' && g.readings && g.readings.length > 0; }).forEach(function(g) {
             var lastPsi = g.readings[g.readings.length - 1].psi;
@@ -2708,7 +2708,7 @@ function invRenderPredict(el) {
                 var sufficient = lastPsi >= totalNeeded;
                 var pctUsed = Math.round((totalNeeded / lastPsi) * 100);
                 var clr = sufficient ? (pctUsed > 70 ? '#f59e0b' : '#10b981') : '#ef4444';
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border-radius: var(--radius-md);border:1px solid ' + clr + '30;background:' + clr + '08;">';
                 html += '<span style="font-size: var(--fs-xs);">' + g.formula + ' ' + (g.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + g.controlNo + '</span></span>';
                 html += '<span style="font-size: var(--fs-xs);">necesita <strong>' + totalNeeded.toFixed(0) + '</strong> / tiene <strong>' + lastPsi + '</strong> psi';
                 html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
@@ -2720,13 +2720,13 @@ function invRenderPredict(el) {
         // Fuel projection
         var fuelRegs = Object.keys(rates.fuel).filter(function(r) { return rates.fuel[r].ewma > 0 && pendingByReg[r]; });
         if (fuelRegs.length > 0) {
-            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#f97316;margin-top: var(--space-sm);margin-bottom: var(--space-xs);">Combustible</div>';
             fuelRegs.forEach(function(reg) {
                 var needed = rates.fuel[reg].ewma * pendingByReg[reg];
                 (invState.fuelTanks || []).filter(function(t) { return t.regulation === reg; }).forEach(function(t) {
                     var sufficient = t.currentLevel >= needed;
                     var clr = sufficient ? '#10b981' : '#ef4444';
-                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border-radius: var(--radius-md);border:1px solid ' + clr + '30;background:' + clr + '08;">';
                     html += '<span style="font-size: var(--fs-xs);">' + t.name + '</span>';
                     html += '<span style="font-size: var(--fs-xs);">necesita <strong>' + needed.toFixed(1) + '</strong> / tiene <strong>' + t.currentLevel + '</strong> ' + (t.unit || 'L');
                     html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
@@ -2736,12 +2736,12 @@ function invRenderPredict(el) {
         }
 
         if (gasAlerts.length > 0) {
-            html += '<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);font-size: var(--fs-xs);color:#fca5a5;">Atencion: ' + gasAlerts.join(', ') + ' no alcanzan para completar el plan.</div>';
+            html += '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);border-radius: var(--radius-lg);background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);font-size: var(--fs-xs);color:#fca5a5;">Atencion: ' + gasAlerts.join(', ') + ' no alcanzan para completar el plan.</div>';
         }
         html += '</div>';
     } else if (totalPending > 0 && !hasAdaptiveData) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding:10px;">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding: var(--space-md);">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
     }
 
     // ═══════════════════════════════════════════════
@@ -2754,19 +2754,19 @@ function invRenderPredict(el) {
         var borderColor = criticalCount > 0 ? '#ef4444' : '#10b981';
         html += '<div class="tp-card" style="border-left:3px solid ' + borderColor + ';">';
         html += '<div class="tp-card-title"><span>🗓 Forecast Semanal: ' + wf.planLabel + '</span>';
-        if (criticalCount > 0) html += '<span style="font-size: var(--fs-xs);padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
+        if (criticalCount > 0) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
         html += '</div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
 
         // Gas forecast table
         var gasItems = wf.items.filter(function(i) { return i.type === 'gas'; });
         if (gasItems.length > 0) {
-            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom: var(--space-xs);">Gases</div>';
             gasItems.forEach(function(item) {
                 var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border-radius: var(--radius-md);border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap: var(--space-xs);">';
                 html += '<span style="font-size: var(--fs-xs);">' + item.name + '</span>';
-                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">';
                 html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> psi</span>';
                 html += '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(0) + '</strong> psi</span>';
                 html += '<span style="font-size: var(--fs-xs);color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(0) + '</strong> psi</span>';
@@ -2778,12 +2778,12 @@ function invRenderPredict(el) {
         // Fuel forecast table
         var fuelItems = wf.items.filter(function(i) { return i.type === 'fuel'; });
         if (fuelItems.length > 0) {
-            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#f97316;margin-top: var(--space-sm);margin-bottom: var(--space-xs);">Combustible</div>';
             fuelItems.forEach(function(item) {
                 var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border-radius: var(--radius-md);border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap: var(--space-xs);">';
                 html += '<span style="font-size: var(--fs-xs);">' + item.name + '</span>';
-                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">';
                 html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> ' + (item.unit || 'L') + '</span>';
                 html += '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
                 html += '<span style="font-size: var(--fs-xs);color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
@@ -2793,7 +2793,7 @@ function invRenderPredict(el) {
         }
 
         // Export button
-        html += '<div style="margin-top:8px;display:flex;gap:8px;">';
+        html += '<div style="margin-top: var(--space-sm);display:flex;gap: var(--space-sm);">';
         html += '<button onclick="invExportWeeklyForecast()" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);">📤 Exportar CSV</button>';
         html += '</div>';
         html += '</div>';
@@ -2803,7 +2803,7 @@ function invRenderPredict(el) {
     // 4. INDIVIDUAL GAS PREDICTIONS
     // ═══════════════════════════════════════════════
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:20px;color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos para ver predicciones individuales.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos para ver predicciones individuales.</div>';
     } else {
         html += '<div class="tp-card"><div class="tp-card-title"><span>Estado Individual de Cilindros</span></div>';
         var predictions = gases.map(function(g) {
@@ -2847,12 +2847,12 @@ function invRenderPredict(el) {
         predictions.forEach(function(p) {
             var g = p.g;
             var borderClr = p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981';
-            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + borderClr + ';background:var(--tp-card);">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+            html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + borderClr + ';background:var(--tp-card);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><span style="font-weight:700;font-size: var(--fs-sm);">' + g.formula + ' ' + (g.concNominal || '') + '</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone || '?') + ')</span></div>';
             html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + borderClr + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
             html += '</div>';
-            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:4px;margin-top:6px;">';
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap: var(--space-xs);margin-top: var(--space-sm);">';
             html += '<div style="font-size: var(--fs-xs);"><span style="color:var(--tp-dim);">Actual:</span> <strong>' + p.lastPsi + ' psi</strong></div>';
             html += '<div style="font-size: var(--fs-xs);"><span style="color:var(--tp-dim);">psi/dia:</span> <strong>' + p.dailyRate.toFixed(1) + '</strong></div>';
             html += '<div style="font-size: var(--fs-xs);"><span style="color:var(--tp-dim);">psi/sem:</span> <strong>' + p.weeklyRate.toFixed(0) + '</strong></div>';
@@ -2864,9 +2864,9 @@ function invRenderPredict(el) {
             html += '</div>';
             // Per-regulation breakdown
             if (p.adaptiveRateLabel) {
-                html += '<div style="font-size: var(--fs-xs);color:#a78bfa;margin-top:3px;">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
+                html += '<div style="font-size: var(--fs-xs);color:#a78bfa;margin-top: var(--space-2xs);">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
             }
-            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + p.pctLeft + '%;background:' + (p.pctLeft < 15 ? '#ef4444' : p.pctLeft < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + p.pctLeft + '%;background:' + (p.pctLeft < 15 ? '#ef4444' : p.pctLeft < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -2894,12 +2894,12 @@ function invRenderPredict(el) {
             var adaptiveFuelPerTest = (t.regulation && rates.fuel[t.regulation]) ? rates.fuel[t.regulation].ewma : 0;
             var testsRemaining = adaptiveFuelPerTest > 0 ? Math.floor(last.level / adaptiveFuelPerTest) : 0;
             var clr = daysLeft < 14 ? '#ef4444' : daysLeft < 30 ? '#f59e0b' : '#10b981';
-            html += '<div style="padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + clr + ';background:var(--tp-card);">';
+            html += '<div style="padding: var(--space-sm);margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;">';
             html += '<div><strong>' + t.name + '</strong> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">(' + (t.regulation || t.fuelType || '') + ')</span></div>';
             html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + clr + ';">' + (daysLeft > 365 ? '>1 ano' : '~' + daysLeft + ' dias') + '</span>';
             html += '</div>';
-            html += '<div style="display:flex;gap:12px;font-size: var(--fs-xs);margin-top:4px;flex-wrap:wrap;">';
+            html += '<div style="display:flex;gap: var(--space-md);font-size: var(--fs-xs);margin-top: var(--space-xs);flex-wrap:wrap;">';
             html += '<span>Nivel: <strong>' + last.level + '/' + t.capacity + ' ' + (t.unit || 'L') + '</strong></span>';
             if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/dia: <strong>' + dailyRate.toFixed(1) + '</strong></span>';
             if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/sem: <strong>' + (dailyRate * 7).toFixed(1) + '</strong></span>';
@@ -2908,7 +2908,7 @@ function invRenderPredict(el) {
                 html += '<span style="color:var(--tp-amber);">Pruebas rest.: <strong>' + testsRemaining + '</strong></span>';
             }
             html += '</div>';
-            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -3117,24 +3117,24 @@ function invTraceByVin(vin) {
 
 // Traceability tab renderer
 function invRenderTrace(el) {
-    var html = '<div class="tp-card" style="margin-bottom:10px;">' +
+    var html = '<div class="tp-card" style="margin-bottom: var(--space-md);">' +
         '<div class="tp-card-title"><span>🔗 Trazabilidad Gas ↔ Prueba</span></div>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+        '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:flex-end;">' +
         '<div style="flex:1;min-width:140px;">' +
-        '<label style="font-size: var(--fs-sm);color:#475569;font-weight:600;display:block;margin-bottom:3px;">Buscar por</label>' +
-        '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;display:block;margin-bottom: var(--space-2xs);">Buscar por</label>' +
+        '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
         '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
         '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
-        '<label style="font-size: var(--fs-sm);color:#475569;font-weight:600;display:block;margin-bottom:3px;">Valor</label>' +
-        '<input id="inv-trace-q" aria-label="Buscar en trazabilidad" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;display:block;margin-bottom: var(--space-2xs);">Valor</label>' +
+        '<input id="inv-trace-q" aria-label="Buscar en trazabilidad" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
         '</div>' +
-        '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding:8px 14px;">Buscar</button>' +
+        '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding: var(--space-sm) var(--space-lg);">Buscar</button>' +
         '</div></div>' +
         '<div id="inv-trace-results" style="font-size:12px;"></div>';
 
     // Also show gas dropdown for "gas" mode
-    html += '<div id="inv-trace-gas-select" style="display:none;margin-bottom:8px;">' +
-        '<select id="inv-trace-gas-id" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+    html += '<div id="inv-trace-gas-select" style="display:none;margin-bottom: var(--space-sm);">' +
+        '<select id="inv-trace-gas-id" onchange="invTraceSearch()" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
         '<option value="">— Seleccionar cilindro —</option>';
     invState.gases.forEach(function(g) {
         html += '<option value="' + g.id + '">' + g.controlNo + ' — ' + g.formula + (g.lotNumber ? ' (Lote: ' + g.lotNumber + ')' : '') + '</option>';
@@ -3182,29 +3182,29 @@ function invTraceSearch() {
     if (!el) return;
 
     if (results.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:20px;color:var(--muted);">Sin resultados' + (mode === 'gas' && !document.getElementById('inv-trace-gas-id').value ? ' — selecciona un cilindro' : '') + '</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-xl);color:var(--muted);">Sin resultados' + (mode === 'gas' && !document.getElementById('inv-trace-gas-id').value ? ' — selecciona un cilindro' : '') + '</div>';
         return;
     }
 
-    var html = '<div style="margin-bottom:6px;font-weight:600;color:var(--accent-results);">' + results.length + ' prueba' + (results.length !== 1 ? 's' : '') + ' encontrada' + (results.length !== 1 ? 's' : '') + '</div>';
+    var html = '<div style="margin-bottom: var(--space-sm);font-weight:600;color:var(--accent-results);">' + results.length + ' prueba' + (results.length !== 1 ? 's' : '') + ' encontrada' + (results.length !== 1 ? 's' : '') + '</div>';
 
     results.sort(function(a, b) { return (b.timestamp || b.date || '').localeCompare(a.timestamp || a.date || ''); });
 
     results.forEach(function(entry) {
-        html += '<div class="tp-card" style="padding:10px 12px;margin-bottom:6px;">' +
+        html += '<div class="tp-card" style="padding: var(--space-md) var(--space-md);margin-bottom: var(--space-sm);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
             '<span style="font-weight:600;">VIN: ' + (entry.vin || '?') + '</span>' +
             '<span style="font-size: var(--fs-xs);color:var(--muted);">' + (entry.date || (entry.timestamp || '').slice(0,10)) + '</span></div>' +
-            '<div style="font-size: var(--fs-sm);color:#64748b;margin-top:3px;">Config: ' + (entry.configCode || '?') + ' · ' + (entry.purpose || '') + '</div>';
+            '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top: var(--space-2xs);">Config: ' + (entry.configCode || '?') + ' · ' + (entry.purpose || '') + '</div>';
 
         // Show cylinders
         if (entry.cylinders && entry.cylinders.length > 0) {
-            html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+            html += '<div style="margin-top: var(--space-sm);display:flex;flex-wrap:wrap;gap: var(--space-xs);">';
             entry.cylinders.forEach(function(c) {
                 var highlight = '';
                 if (mode === 'gas' && c.id === document.getElementById('inv-trace-gas-id').value) highlight = 'border:2px solid #0f766e;';
                 if (mode === 'lot' && (c.lotNumber || '').toLowerCase() === (document.getElementById('inv-trace-q').value || '').trim().toLowerCase()) highlight = 'border:2px solid #0f766e;';
-                html += '<div style="background:#f0fdf4;border-radius:6px;padding:4px 8px;font-size: var(--fs-xs);' + highlight + '">' +
+                html += '<div style="background:#f0fdf4;border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);font-size: var(--fs-xs);' + highlight + '">' +
                     '<strong>' + c.controlNo + '</strong> ' + c.formula +
                     (c.lotNumber ? ' <span style="color:var(--accent-results);">Lote: ' + c.lotNumber + '</span>' : '') +
                     (c.psi !== null ? ' · ' + c.psi + ' PSI' : '') +
@@ -3403,25 +3403,25 @@ function invRenderFuel(el) {
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddFuelTank()" style="font-size: var(--fs-sm);">+ Agregar Tambo</button></div>';
 
     if (tanks.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin tambos registrados. Agrega tus tambos de gasolina, diesel, etc.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin tambos registrados. Agrega tus tambos de gasolina, diesel, etc.</div>';
     } else {
         tanks.forEach(function(t) {
             var pct = t.capacity > 0 ? Math.round((t.currentLevel / t.capacity) * 100) : 0;
             var clr = pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981';
-            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + clr + ';background:var(--tp-card);">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+            html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + clr + ';background:var(--tp-card);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><span style="font-weight:700;font-size:12px;">' + t.name + '</span>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (t.fuelType||'') + ' | ' + (t.octane||'') + ' | ' + (t.supplier||'') + '</div></div>';
-            html += '<div style="display:flex;gap:6px;align-items:center;">';
+            html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
             html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + clr + ';">' + t.currentLevel + '/' + t.capacity + ' ' + (t.unit||'L') + ' (' + pct + '%)</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditFuelTank(\x27' + t.id + '\x27)" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar tanque">\u270F</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invFuelReading(\x27' + t.id + '\x27)" style="font-size: var(--fs-sm);" title="Registrar lectura" aria-label="Registrar lectura de nivel">\u{1F4CF}</button>';
             html += '</div></div>';
             // Progress bar
-            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
             // Readings mini history
             if (t.readings && t.readings.length > 0) {
-                html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:4px;">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
+                html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-xs);">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
             }
             html += '</div>';
         });
@@ -3476,25 +3476,25 @@ function invAddFuelTank(editId) {
     var v = function(f,d){ return t ? (t[f]||'') : (d||''); };
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:450px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:90vh;overflow-y:auto;">' +
+    modal.innerHTML = '<div style="max-width:450px;margin:30px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;max-height:90vh;overflow-y:auto;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tambo' : 'Nuevo Tambo') + '</h3>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label for="inv-ft-reg" style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Regulación</label>' + _invRegulationSelectHTML('inv-ft-reg', v('regulation')) + '</div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
+        '<h3 style="margin:0 0 12px;color:var(--text);">' + (isEdit ? 'Editar Tambo' : 'Nuevo Tambo') + '</h3>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
+        '<div style="grid-column:1/-1;"><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label for="inv-ft-reg" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Regulación</label>' + _invRegulationSelectHTML('inv-ft-reg', v('regulation')) + '</div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -3551,14 +3551,14 @@ function invFuelReading(tankId) {
     if (!t) return;
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
+        '<h3 style="margin:0 0 12px;color:var(--text);">Lectura: ' + t.name + '</h3>' +
         '<div><label for="inv-fuel-level" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual (' + (t.unit||'L') + ')</label>' +
-        '<input id="inv-fuel-level" type="number" inputmode="decimal" step="0.1" value="' + (t.currentLevel||0) + '" class="tp-input" style="width:100%;font-size: var(--fs-lg);font-weight:700;text-align:center;margin-top:4px;"></div>' +
-        '<div style="margin-top:10px;"><label for="inv-fuel-read-date" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label>' +
-        '<input id="inv-fuel-read-date" type="date" value="' + localToday() + '" max="' + localToday() + '" class="tp-input" style="width:100%;margin-top:4px;"></div>' +
-        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" class="tp-btn tp-btn-primary" style="width:100%;margin-top:14px;min-height:var(--target-min);font-weight:700;">Guardar Lectura</button>' +
+        '<input id="inv-fuel-level" type="number" inputmode="decimal" step="0.1" value="' + (t.currentLevel||0) + '" class="tp-input" style="width:100%;font-size: var(--fs-lg);font-weight:700;text-align:center;margin-top: var(--space-xs);"></div>' +
+        '<div style="margin-top: var(--space-md);"><label for="inv-fuel-read-date" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label>' +
+        '<input id="inv-fuel-read-date" type="date" value="' + localToday() + '" max="' + localToday() + '" class="tp-input" style="width:100%;margin-top: var(--space-xs);"></div>' +
+        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" class="tp-btn tp-btn-primary" style="width:100%;margin-top: var(--space-lg);min-height:var(--target-min);font-weight:700;">Guardar Lectura</button>' +
         '</div>';
     setTimeout(function(){ var inp = document.getElementById('inv-fuel-level'); if(inp) inp.focus(); }, 100);
 }
@@ -3594,7 +3594,7 @@ function invRenderReport(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-report-help"><span>Reporte Semanal de Consumibles</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invExportReport()" style="font-size: var(--fs-sm);">Copiar HTML</button></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Semana: ' + weekLabel + '</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Semana: ' + weekLabel + '</div>';
 
     // ── FUEL SECTION ──
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">1. Reference fuel consumption status</h3>';
@@ -3605,12 +3605,12 @@ function invRenderReport(el) {
         var pctUsed = t.capacity > 0 ? Math.round((used / t.capacity) * 100) : 0;
         var pctRemaining = 100 - pctUsed;
         // Stacked bar chart (CSS)
-        html += '<div style="margin-bottom:12px;">';
-        html += '<div style="font-weight:700;font-size: var(--fs-sm);color:var(--tp-amber);margin-bottom:4px;">' + (t.regulation||t.name) + '</div>';
-        html += '<div style="display:flex;align-items:center;gap:10px;">';
+        html += '<div style="margin-bottom: var(--space-md);">';
+        html += '<div style="font-weight:700;font-size: var(--fs-sm);color:var(--tp-amber);margin-bottom: var(--space-xs);">' + (t.regulation||t.name) + '</div>';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-md);">';
         // Chart
-        html += '<div style="width:200px;height:120px;border:1px solid var(--tp-border);border-radius:6px;padding:8px;background:var(--tp-card);position:relative;">';
-        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom:4px;">Fuel Status ' + (t.regulation||t.name) + '</div>';
+        html += '<div style="width:200px;height:120px;border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-sm);background:var(--tp-card);position:relative;">';
+        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Fuel Status ' + (t.regulation||t.name) + '</div>';
         html += '<div style="display:flex;height:80px;align-items:flex-end;justify-content:center;gap:0;">';
         var barH = 70;
         html += '<div style="width:80px;height:' + barH + 'px;display:flex;flex-direction:column;">';
@@ -3629,7 +3629,7 @@ function invRenderReport(el) {
             var drop = r0.level - rn.level;
             var dailyRate = drop / days;
             var daysLeft = dailyRate > 0 ? Math.round(rn.level / dailyRate) : 999;
-            html += '<div style="margin-top:4px;color:var(--tp-amber);">Consumo/sem: <strong>' + (dailyRate*7).toFixed(1) + ' ' + (t.unit||'L') + '</strong></div>';
+            html += '<div style="margin-top: var(--space-xs);color:var(--tp-amber);">Consumo/sem: <strong>' + (dailyRate*7).toFixed(1) + ' ' + (t.unit||'L') + '</strong></div>';
             if (daysLeft < 365) html += '<div>Vacio en: <strong>~' + daysLeft + ' dias</strong></div>';
         }
         html += '</div></div></div>';
@@ -3639,14 +3639,14 @@ function invRenderReport(el) {
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">2. Reference gas consumption status</h3>';
     html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr style="background:#0e7490;color:#fff;">';
-    html += '<th style="padding:4px 6px;text-align:left;">Tipo</th>';
-    html += '<th style="padding:4px 6px;text-align:left;">Consumible</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Inventario (PSI)</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Consumo Sem (PSI)</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Consumo Dia (PSI)</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Repos. (dias)</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Limite Inf (PSI)</th>';
-    html += '<th style="padding:4px 6px;text-align:center;">Status</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Tipo</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Consumible</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Inventario (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Sem (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Dia (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (dias)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Limite Inf (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Status</th>';
     html += '</tr></thead><tbody>';
 
     invState.gases.forEach(function(g) {
@@ -3661,14 +3661,14 @@ function invRenderReport(el) {
         var isOk = !invGasIsLow(g);
         var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
         html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
-        html += '<td style="padding:3px 6px;font-size: var(--fs-xs);color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
-        html += '<td style="padding:3px 6px;">' + g.gasType.toUpperCase().slice(0,20) + ' ' + g.concNominal + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;font-weight:700;">' + lastPsi + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;">' + weekly.toFixed(1) + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;">' + daily.toFixed(1) + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;">' + repos + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;color:var(--warn-text);">' + limit.toFixed(0) + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;font-weight:700;color:' + (isOk?'#22c55e':'#ef4444') + ';">' + (isOk?'OK':'BAJO') + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);">' + g.gasType.toUpperCase().slice(0,20) + ' ' + g.concNominal + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;font-weight:700;">' + lastPsi + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + weekly.toFixed(1) + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + daily.toFixed(1) + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + repos + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;color:var(--warn-text);">' + limit.toFixed(0) + '</td>';
+        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;font-weight:700;color:' + (isOk?'#22c55e':'#ef4444') + ';">' + (isOk?'OK':'BAJO') + '</td>';
         html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -3682,15 +3682,15 @@ function invRenderReport(el) {
     });
     if (eqAlerts.length > 0) {
         html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
-        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding:4px;">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
+        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
         eqAlerts.forEach(function(e) {
             var days = Math.round((new Date(e.nextCalDate) - new Date())/(1000*60*60*24));
             var clr = days < 0 ? '#ef4444' : days < 30 ? '#f59e0b' : '#22c55e';
-            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:3px 6px;">' + e.name + '</td><td>' + (e.kmmId||e.serialNo||'') + '</td><td>' + e.nextCalDate + '</td><td style="color:' + clr + ';font-weight:700;">' + days + '</td><td style="color:' + clr + ';">' + (days<0?'VENCIDO':days+'d') + '</td></tr>';
+            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding: var(--space-2xs) var(--space-sm);">' + e.name + '</td><td>' + (e.kmmId||e.serialNo||'') + '</td><td>' + e.nextCalDate + '</td><td style="color:' + clr + ';font-weight:700;">' + days + '</td><td style="color:' + clr + ';">' + (days<0?'VENCIDO':days+'d') + '</td></tr>';
         });
         html += '</tbody></table></div>';
     } else {
-        html += '<div style="text-align:center;padding:10px;color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 dias)</div>';
+        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 dias)</div>';
     }
 
     html += '</div>';
@@ -3700,7 +3700,7 @@ function invRenderReport(el) {
 function invExportReport() {
     var content = document.getElementById('inv-content').innerHTML;
     var blob = new Blob([
-        '<html><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial;background:#fff;color:#333;padding:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:4px 8px;font-size: var(--fs-sm);}th{background:#0e7490;color:#fff;}</style></head><body>' +
+        '<html><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial;background:#fff;color:#333;padding: var(--space-xl);}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);}th{background:#0e7490;color:#fff;}</style></head><body>' +
         '<h2>KMX Emissions Laboratory Consumables Status ' + new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) + '</h2>' +
         content + '</body></html>'
     ], {type:'text/html'});
@@ -3740,7 +3740,7 @@ function invRenderZoneMap(el) {
     var search = (window._invZoneMapSearch || '').toLowerCase();
 
     var html = '<div class="inv-zonemap-toolbar" data-help="inv-zonemap-help">';
-    html += '<input type="text" aria-label="Buscar cilindro, fórmula o zona" placeholder="Buscar cilindro, fórmula, zona…" value="' + escapeHtml(window._invZoneMapSearch || '') + '" oninput="window._invZoneMapSearch=this.value;_invDebouncedRender();" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;font-size:12px;">';
+    html += '<input type="text" aria-label="Buscar cilindro, fórmula o zona" placeholder="Buscar cilindro, fórmula, zona…" value="' + escapeHtml(window._invZoneMapSearch || '') + '" oninput="window._invZoneMapSearch=this.value;_invDebouncedRender();" style="flex:1;min-width:140px;padding: var(--space-sm) var(--space-md);border:1px solid var(--tp-border);border-radius: var(--radius-xl);font-size:12px;">';
     if (_invUndoStack.length > 0) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="invUndoLastMove()" style="font-size: var(--fs-sm);white-space:nowrap;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
     }
@@ -3894,7 +3894,7 @@ function invRenderCharts(el) {
     var chartType = window._invChartType || 'gas_psi';
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Graficas de Consumo</span></div>';
-    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
         '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size: var(--fs-sm);">PSI por Cilindro</button>';
     html += '<button class="tp-btn ' + (chartType === 'fuel_level' ? 'tp-btn-primary' : 'tp-btn-ghost') +
@@ -3906,13 +3906,13 @@ function invRenderCharts(el) {
     var _invChartId = 'inv_' + chartType;
     html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel(_invChartId, '_invChartInstance', {rerenderFn:'invRender();'}) : '');
     var _invCH = typeof chartConfigGet === 'function' ? chartConfigGet(_invChartId).height : 300;
-    html += '<div id="' + _invChartId + '-wrapper" style="position:relative;height:' + _invCH + 'px;margin-bottom:12px;">';
+    html += '<div id="' + _invChartId + '-wrapper" style="position:relative;height:' + _invCH + 'px;margin-bottom: var(--space-md);">';
     html += '<canvas id="inv-chart-main"></canvas>';
     html += '</div>';
 
     if (chartType === 'gas_psi') {
         var gasesWithReadings = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2; });
-        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" class="tp-select" style="width:100%;">';
+        html += '<div style="margin-bottom: var(--space-sm);"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" class="tp-select" style="width:100%;">';
         gasesWithReadings.forEach(function(g) {
             html += '<option value="' + g.id + '">' + g.formula + ' ' + (g.concNominal||'') + ' #' + g.controlNo + '</option>';
         });
@@ -4013,14 +4013,14 @@ function invDrawMainChart() {
 function invRenderConfig(el) {
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuracion de Zonas</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddZone()" style="font-size: var(--fs-sm);">+ Agregar Zona</button></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Edita el layout de tu cuarto de gases. Cada zona tiene un ID, nombre, slots y tipo.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Edita el layout de tu cuarto de gases. Cada zona tiene un ID, nombre, slots y tipo.</div>';
 
     invState.zones.forEach(function(z, idx) {
         var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
         html += '<div style="font-weight:800;font-size:14px;width:30px;text-align:center;color:var(--tp-amber);">' + z.id + '</div>';
         html += '<div style="flex:1;min-width:120px;"><div style="font-size: var(--fs-sm);font-weight:600;">' + z.label + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + z.slots + ' slots | ' + z.type + ' | ' + occupied + ' ocupados</div></div>';
-        html += '<div style="display:flex;gap:4px;">';
+        html += '<div style="display:flex;gap: var(--space-xs);">';
         html += '<button class="tp-btn tp-btn-ghost" onclick="invEditZone(' + idx + ')" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar zona">\u270F</button>';
         html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteZone(' + idx + ')" style="font-size: var(--fs-sm);color:var(--tp-red);" title="Eliminar" aria-label="Eliminar zona">\u2715</button>';
         html += '</div></div>';
@@ -4031,7 +4031,7 @@ function invRenderConfig(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Tipos de Gas</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddGasType()" style="font-size: var(--fs-sm);">+ Agregar Tipo</button></div>';
     invState.gasTypes.forEach(function(gt, idx) {
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:var(--tp-card);">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);">';
         html += '<div style="flex:1;font-size: var(--fs-xs);"><strong>' + gt.formula + '</strong> — ' + gt.name + '</div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
         html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar tipo de gas">\u270F</button>';
@@ -4047,12 +4047,12 @@ function invRenderConfig(el) {
 
     // Data management
     html += '<div class="tp-card"><div class="tp-card-title"><span>Datos</span></div>';
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size: var(--fs-sm);">Exportar JSON</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size: var(--fs-sm);">Importar JSON</button>';
     html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){if(typeof undoPush===\\x27function\\x27)undoPush(\\x27inventory\\x27,\\x27Resetear inventario\\x27);invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();showToast(\\x27Inventario reseteado\\x27,\\x27success\\x27,null,undoPop);},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size: var(--fs-xs);">Resetear</button>';
     html += '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:4px;">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-xs);">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -4083,24 +4083,24 @@ function invShowZoneModal(idx) {
     var v = function(f,d){ return z ? (z[f]||'') : (d||''); };
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
-        '<div style="display:grid;gap:10px;">' +
-        (!isEdit ? '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">ID</label><input id="inv-zone-id" maxlength="2" value="' + _invNextFreeZoneId() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<h3 style="margin:0 0 12px;color:var(--text);">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
+        '<div style="display:grid;gap: var(--space-md);">' +
+        (!isEdit ? '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">ID</label><input id="inv-zone-id" maxlength="2" value="' + _invNextFreeZoneId() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size:16px;text-transform:uppercase;"></div>' : '') +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
-        '<details style="margin-top:10px;"><summary style="font-size: var(--fs-sm);color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (tipo de zona)</summary>' +
-        '<div style="padding-top:6px;"><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<details style="margin-top: var(--space-md);"><summary style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (tipo de zona)</summary>' +
+        '<div style="padding-top: var(--space-sm);"><select id="inv-zone-type" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
         '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
         '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
         '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
         '<option value="fuel"' + (v('type')==='fuel'?' selected':'') + '>Fuel</option>' +
         '</select></div></details>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveZoneModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveZoneModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
 
@@ -4159,18 +4159,18 @@ function invShowGasTypeModal(idx) {
     var concsVal = gt ? gt.concs.join(', ') : '';
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tipo de Gas' : 'Nuevo Tipo de Gas') + '</h3>' +
-        '<div style="display:grid;gap:10px;">' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<h3 style="margin:0 0 12px;color:var(--text);">' + (isEdit ? 'Editar Tipo de Gas' : 'Nuevo Tipo de Gas') + '</h3>' +
+        '<div style="display:grid;gap: var(--space-md);">' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
 
@@ -4220,11 +4220,11 @@ function invShowTrendChart(gasId) {
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
     modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-lg);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>' +
         '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
-        '<div style="font-size: var(--fs-sm);color:#475569;font-weight:600;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-bottom: var(--space-md);">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
         '<canvas id="inv-trend-canvas" style="width:100%;height:220px;"></canvas>' +
-        '<div id="inv-trend-stats" style="margin-top:10px;"></div>' +
+        '<div id="inv-trend-stats" style="margin-top: var(--space-md);"></div>' +
         '</div>';
 
     // Slight delay to ensure DOM is ready
@@ -4333,12 +4333,12 @@ function invDrawTrendChart(g) {
     var weeklyDrop = dailyDrop * 7;
     var statsEl = document.getElementById('inv-trend-stats');
     if (statsEl) {
-        statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;">' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size: var(--fs-xs);color:#64748b;">PSI actual</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + dailyDrop.toFixed(1) + '</div><div style="font-size: var(--fs-xs);color:#64748b;">PSI/dia</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + weeklyDrop.toFixed(0) + '</div><div style="font-size: var(--fs-xs);color:#64748b;">PSI/semana</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:#64748b;">dias restantes</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size: var(--fs-xs);color:#64748b;">fecha vacio</div></div>' +
+        statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap: var(--space-sm);">' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI actual</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + dailyDrop.toFixed(1) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/dia</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + weeklyDrop.toFixed(0) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/semana</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">dias restantes</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">fecha vacio</div></div>' +
             '</div>';
     }
 }
@@ -4399,19 +4399,19 @@ function invRenderReorderAlerts() {
 
     var html = '<div class="tp-card" style="border-left:3px solid #f97316;">';
     html += '<div class="tp-card-title"><span style="color:#f97316;">Alertas de Reorden (' + alerts.length + ')</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Cilindros que se proyectan a agotarse en menos de 6 semanas.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cilindros que se proyectan a agotarse en menos de 6 semanas.</div>';
 
     alerts.forEach(function(a) {
         var urgClr = a.urgency === 'critica' ? '#ef4444' : a.urgency === 'alta' ? '#f59e0b' : '#3b82f6';
-        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + urgClr + '30;border-radius:6px;background:' + urgClr + '08;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div style="padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid ' + urgClr + '30;border-radius: var(--radius-lg);background:' + urgClr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
         html += '<div>';
         html += '<span style="font-weight:700;font-size: var(--fs-sm);">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
         html += ' <span style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
         html += '</div>';
-        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding:2px 8px;border-radius:10px;background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">' + a.urgency.toUpperCase() + ' ~' + a.weeksLeft + ' sem</span>';
+        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">' + a.urgency.toUpperCase() + ' ~' + a.weeksLeft + ' sem</span>';
         html += '</div>';
-        html += '<div style="display:flex;gap:8px;margin-top:4px;font-size: var(--fs-xs);flex-wrap:wrap;">';
+        html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-xs);font-size: var(--fs-xs);flex-wrap:wrap;">';
         html += '<span style="color:var(--tp-dim);">Actual: <strong>' + a.currentPsi + ' psi</strong></span>';
         html += '<span style="color:var(--tp-dim);">Consumo: <strong>' + a.dailyDrop.toFixed(1) + ' psi/dia</strong></span>';
         html += '<span style="color:var(--tp-dim);">Vacio en: <strong style="color:' + urgClr + ';">' + a.daysLeft + ' dias</strong></span>';
@@ -4422,7 +4422,7 @@ function invRenderReorderAlerts() {
         }
         html += '</div>';
         // Reorder spec
-        html += '<div style="margin-top:6px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.06);border:1px dashed ' + urgClr + '30;font-size: var(--fs-xs);color:#f97316;">';
+        html += '<div style="margin-top: var(--space-sm);padding: var(--space-xs) var(--space-sm);border-radius: var(--radius-md);background:rgba(249,115,22,0.06);border:1px dashed ' + urgClr + '30;font-size: var(--fs-xs);color:#f97316;">';
         html += '<strong>Reorden:</strong> ' + a.gasType + ' | ' + (a.concNominal || '') + ' | Trazabilidad: ' + a.traceability;
         html += '</div>';
         html += '</div>';
@@ -4498,22 +4498,22 @@ function invRenderAnomalyBanner() {
 
     var html = '<div class="tp-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.04);">';
     html += '<div class="tp-card-title"><span style="color:var(--danger-text);">Anomalias Detectadas (' + anomalies.length + ')</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Cilindros con consumo inusual vs. su patron historico.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cilindros con consumo inusual vs. su patron historico.</div>';
 
     anomalies.forEach(function(a) {
         var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
         var icon = a.type === 'leak' ? '🚨' : '⚠️';
-        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + clr + '30;border-radius:6px;background:' + clr + '08;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div style="padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid ' + clr + '30;border-radius: var(--radius-lg);background:' + clr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
         html += '<div>';
         html += '<span style="font-size:13px;">' + icon + '</span> ';
         html += '<span style="font-weight:700;font-size: var(--fs-sm);">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
         html += ' <span style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
         html += '</div>';
-        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding:2px 8px;border-radius:10px;background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
+        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
         html += '</div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:4px;">' + a.message + '</div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-xs);">' + a.message + '</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
         html += '</div>';
     });
 
@@ -5161,28 +5161,28 @@ function _invRoundRenderCurrent() {
 
     var html = '<div class="reading-round-overlay">' +
         '<div class="reading-round-card">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-lg);">' +
         '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);">' + (idx + 1) + ' de ' + total + (esFuel ? ' · ⛽' : '') + '</span>' +
         '<button onclick="_invRoundCancel()" aria-label="Salir de la ronda" style="background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
         '</div>' +
-        '<div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:var(--ok-fill);border-radius:2px;transition:width 0.3s;"></div>' +
+        '<div style="height:4px;background:var(--border);border-radius: var(--radius-sm);margin-bottom: var(--space-lg);overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:var(--ok-fill);border-radius: var(--radius-sm);transition:width 0.3s;"></div>' +
         '</div>' +
-        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="text-align:center;margin-bottom: var(--space-xl);">' +
         '<div style="font-size: var(--fs-base);font-weight:800;color:var(--text);">' + escapeHtml(titulo) + '</div>' +
-        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top:2px;">' + escapeHtml(sub) + '</div>' +
-        (esFuel ? '' : '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">Conc: ' + escapeHtml(ref.concNominal || '—') + '</div>') +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(sub) + '</div>' +
+        (esFuel ? '' : '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Conc: ' + escapeHtml(ref.concNominal || '—') + '</div>') +
         '</div>' +
-        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
-        (lastVal !== '' ? '<div style="text-align:center;margin-bottom:8px;font-size: var(--fs-xs);color:var(--muted);">Última lectura: <strong style="color:var(--text);">' + lastVal + ' ' + unidad + '</strong></div>' : '') +
-        '<div style="text-align:center;margin-bottom:6px;">' +
+        (sparkHtml ? '<div style="text-align:center;margin-bottom: var(--space-md);">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Últimas 5 lecturas</div></div>' : '') +
+        (lastVal !== '' ? '<div style="text-align:center;margin-bottom: var(--space-sm);font-size: var(--fs-xs);color:var(--muted);">Última lectura: <strong style="color:var(--text);">' + lastVal + ' ' + unidad + '</strong></div>' : '') +
+        '<div style="text-align:center;margin-bottom: var(--space-sm);">' +
         '<input type="number" inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" id="round-reading-input" ' +
         'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + unidad + '" placeholder="' + unidad + '" value="' + (lastVal || '') + '" ' +
-        'style="width:150px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);color:var(--text);" ' +
+        'style="width:150px;padding: var(--space-md) var(--space-lg);font-size:24px;font-weight:800;text-align:center;border:2px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);color:var(--text);" ' +
         'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
         '</div>' +
-        '<div id="round-warn" style="min-height:18px;text-align:center;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-bottom:10px;"></div>' +
-        '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+        '<div id="round-warn" style="min-height:18px;text-align:center;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-bottom: var(--space-md);"></div>' +
+        '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
         (idx > 0 ? '<button onclick="invRoundPrev()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">← Anterior</button>' : '') +
         '<button onclick="invRoundSkip()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);" title="No se pudo leer este punto">Saltar</button>' +
         (lastVal !== '' ? '<button onclick="_invRoundSameValue()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);border-color:var(--ok-text);color:var(--ok-text);">= Igual</button>' : '') +
@@ -5309,25 +5309,25 @@ function invRoundFinish() {
 
     var html = '<div class="reading-round-overlay">' +
         '<div class="reading-round-card">' +
-        '<div style="text-align:center;margin-bottom:16px;">' +
-        '<div style="font-size:36px;margin-bottom:8px;">✅</div>' +
+        '<div style="text-align:center;margin-bottom: var(--space-lg);">' +
+        '<div style="font-size:36px;margin-bottom: var(--space-sm);">✅</div>' +
         '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
-        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-bottom: var(--space-lg);">' +
+        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
         '<div style="font-size:20px;font-weight:800;color:var(--ok-text);">' + capturadas.length + '</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--muted);">Lecturas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
         '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Alertas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
         '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Tiempo</div></div>' +
         '</div>';
 
     if (alerts.length > 0) {
-        html += '<div style="margin-bottom:12px;">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom:6px;">⚠ Alertas de presión:</div>';
+        html += '<div style="margin-bottom: var(--space-md);">';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom: var(--space-sm);">⚠ Alertas de presión:</div>';
         alerts.forEach(function(a) {
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding:2px 0;">' +
                 escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
@@ -5336,15 +5336,15 @@ function invRoundFinish() {
     }
 
     if (saltadas.length > 0) {
-        html += '<div style="margin-bottom:12px;">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--muted);margin-bottom:6px;">↷ Saltadas (sin lectura):</div>';
+        html += '<div style="margin-bottom: var(--space-md);">';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--muted);margin-bottom: var(--space-sm);">↷ Saltadas (sin lectura):</div>';
         saltadas.forEach(function(s) {
             html += '<div style="font-size: var(--fs-xs);color:var(--muted);padding:2px 0;">' + escapeHtml(s.controlNo) + '</div>';
         });
         html += '</div>';
     }
 
-    html += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+    html += '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
         '<button onclick="_invRoundCopyReport()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">📋 Copiar Resumen</button>' +
         '<button onclick="_invRoundCancel()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">Cerrar</button>' +
         '</div></div></div>';

@@ -723,7 +723,7 @@ function authRenderOperatorPicker() {
     if (!el) return;
     var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
     el.innerHTML = '<button onclick="authSignOut()" title="Cambiar de usuario (cerrar sesión)" ' +
-        'style="display:flex;align-items:center;gap:4px;font-size: var(--fs-sm);background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
+        'style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-sm);background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);cursor:pointer;max-width:170px;min-height:32px;">' +
         '<span>👤</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(cur) + '</span></button>';
 }
 

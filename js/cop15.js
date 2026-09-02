@@ -202,7 +202,7 @@ setAltaDatetimeIfEmpty(true);
                 '<span style="font-size: var(--fs-sm);">Si el vehículo existe pero no está en el catálogo (por ejemplo una variante HEV nueva), ' +
                 'puedes darlo de alta sin salir de aquí.</span><br>' +
                 '<button type="button" onclick="if(typeof openManualConfigForm===\'function\')openManualConfigForm();" ' +
-                'style="margin-top:6px;padding:6px 12px;font-size: var(--fs-sm);font-weight:700;background:var(--kia-red);color:#fff;border:none;border-radius:6px;cursor:pointer;">' +
+                'style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);font-size: var(--fs-sm);font-weight:700;background:var(--kia-red);color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;">' +
                 '➕ Nueva configuración manual</button>';
             return;
         }
@@ -216,22 +216,22 @@ setAltaDatetimeIfEmpty(true);
             // [v16.1] EV (220V/120V/EV): informativo, no advertencia — un eléctrico no
             // tiene emisiones de escape y no requiere perfil de límites.
             const _regHint = (_regName && _isEVRegulation(_regName)) ? `
-                <div style="margin-top:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#047857;">
+                <div style="margin-top: var(--space-md);background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);font-size:12px;color:#047857;">
                     ⚡ Vehículo eléctrico (<strong>${escapeHtml(_regName)}</strong>) — sin emisiones de escape; no aplica captura de gases ni perfil de límites.
                 </div>` : (_regName && !_hasProfile) ? `
-                <div style="margin-top:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#b45309;">
+                <div style="margin-top: var(--space-md);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);font-size:12px;color:#b45309;">
                     ⚠️ La regulación <strong>${escapeHtml(_regName)}</strong> no tiene perfil de límites configurado. Será necesario para liberar emisiones.
-                    <button onclick="switchPlatform('panel');setTimeout(function(){if(typeof pnSwitchTab==='function')pnSwitchTab('pn-regulations');},150);" style="margin-left:6px;background:#b45309;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;">⚗️ Configurar</button>
+                    <button onclick="switchPlatform('panel');setTimeout(function(){if(typeof pnSwitchTab==='function')pnSwitchTab('pn-regulations');},150);" style="margin-left: var(--space-sm);background:#b45309;color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;">⚗️ Configurar</button>
                 </div>` : '';
             resultDiv.innerHTML = `
                 <strong>✅ CONFIGURACIÓN ÚNICA ENCONTRADA:</strong><br>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                <div style="display:flex;align-items:center;gap: var(--space-sm);margin-top: var(--space-md);">
                     <div style="font-family: monospace; color: var(--kia-red); font-weight: bold;flex:1;">
                         ${config.codigo_config_text}
                     </div>
-                    <button onclick="copyToClipboard('${config.codigo_config_text.replace(/'/g,"\\'")}', this)" style="background:var(--kia-dark);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
+                    <button onclick="copyToClipboard('${config.codigo_config_text.replace(/'/g,"\\'")}', this)" style="background:var(--kia-dark);color:#fff;border:none;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
                 </div>
-                <div style="margin-top: 10px; font-size: 0.9rem; color: #475569;">
+                <div style="margin-top: var(--space-md); font-size: 0.9rem; color:var(--muted);">
                     <strong>Modelo:</strong> ${config.Modelo} |
                     <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} |
                     <strong>Motor:</strong> ${config['ENGINE CAPACITY']}<br>
@@ -243,7 +243,7 @@ setAltaDatetimeIfEmpty(true);
         } else {
             resultDiv.innerHTML = `
                 <strong>📋 ${filtered.length} CONFIGURACIONES POSIBLES</strong><br>
-                <div style="margin-top: 10px; font-size: 0.85rem;">
+                <div style="margin-top: var(--space-md); font-size: 0.85rem;">
                     Continúe filtrando para reducir las opciones...
                 </div>
             `;
@@ -327,7 +327,7 @@ function cascadeSearch(q) {
     }).slice(0, 12);
     if (matches.length === 0) {
         box.style.display = 'block';
-        box.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:12px;">Sin coincidencias</div>';
+        box.innerHTML = '<div style="padding: var(--space-sm) var(--space-md);color:var(--muted);font-size:12px;">Sin coincidencias</div>';
         return;
     }
     var html = '';
@@ -335,7 +335,7 @@ function cascadeSearch(q) {
         var i = allConfigurations.indexOf(c);
         var label = (c.Modelo||'') + ' ' + (c['MODEL YEAR (VIN)']||'') + ' · ' + (c['ENGINE CAPACITY']||'') + ' ' +
             (c.TRANSMISSION||'') + ' · ' + (c['EMISSION REGULATION']||'');
-        html += '<button type="button" onclick="cascadePickConfig(allConfigurations[' + i + '])" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid #f1f5f9;background:#fff;padding:8px 10px;font-size:12px;cursor:pointer;">' + escapeHtml(label) + '</button>';
+        html += '<button type="button" onclick="cascadePickConfig(allConfigurations[' + i + '])" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--border);background:#fff;padding: var(--space-sm) var(--space-md);font-size:12px;cursor:pointer;">' + escapeHtml(label) + '</button>';
     });
     box.style.display = 'block';
     box.innerHTML = html;
@@ -433,7 +433,7 @@ function renderCascadeTree() {
                 var withProfile = data.options.filter(function(o){ return profileNames.indexOf(o.value) !== -1; });
                 var withoutProfile = data.options.filter(function(o){ return profileNames.indexOf(o.value) === -1; });
                 if (profiles.length === 0) {
-                    html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ No hay perfiles de regulación configurados. ' +
+                    html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size:12px;margin-bottom: var(--space-sm);">⚠️ No hay perfiles de regulación configurados. ' +
                         '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;">Configurar regulaciones →</button></div>';
                     data.options.forEach(function(opt) {
                         var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
@@ -448,7 +448,7 @@ function renderCascadeTree() {
                     var evOpts = withoutProfile.filter(function(o){ return _isEVRegulation(o.value); });
                     var noProfileOpts = withoutProfile.filter(function(o){ return !_isEVRegulation(o.value); });
                     if (withProfile.length === 0 && evOpts.length === 0 && noProfileOpts.length > 0) {
-                        html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ Ninguna regulación disponible tiene perfil configurado — puedes seleccionarla igual, pero configúralo antes de liberar emisiones. ' +
+                        html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size:12px;margin-bottom: var(--space-sm);">⚠️ Ninguna regulación disponible tiene perfil configurado — puedes seleccionarla igual, pero configúralo antes de liberar emisiones. ' +
                             '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;">Configurar →</button></div>';
                     }
                     withProfile.forEach(function(opt) {
@@ -470,7 +470,7 @@ function renderCascadeTree() {
                             escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
                     });
                     if (noProfileOpts.length > 0) {
-                        html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top:6px;">Las regulaciones con ⚠ no tienen perfil de límites (necesario para liberar emisiones). ' +
+                        html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top: var(--space-sm);">Las regulaciones con ⚠ no tienen perfil de límites (necesario para liberar emisiones). ' +
                             '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size: var(--fs-sm);padding:0;">Configurar →</button></div>';
                     }
                 }
@@ -1039,7 +1039,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             if (!checksumHint) {
                 checksumHint = document.createElement('div');
                 checksumHint.id = 'vin-checksum-hint';
-                checksumHint.style.cssText = 'font-size: var(--fs-xs);padding:2px 0;margin-top:2px;';
+                checksumHint.style.cssText = 'font-size: var(--fs-xs);padding:2px 0;margin-top: var(--space-2xs);';
                 counter.parentElement.appendChild(checksumHint);
             }
             if (input.value[8] === checkResult) {
@@ -1057,7 +1057,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             if (!warning) {
                 warning = document.createElement('div');
                 warning.id = 'vin-dup-warning';
-                warning.style.cssText = 'font-size:12px;padding:6px 10px;border-radius:6px;margin-top:4px;';
+                warning.style.cssText = 'font-size:12px;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-lg);margin-top: var(--space-xs);';
                 counter.parentElement.appendChild(warning);
             }
             if (dupActive) {
@@ -1169,7 +1169,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 setAltaDatetimeIfEmpty(true);
 
         const summary = `
-            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; line-height: 1.8;">
+            <div style="background:var(--surface-alt); padding: var(--space-lg); border-radius: var(--radius-xl); line-height: 1.8;">
                 <strong>VIN:</strong> ${vin}<br>
                 <strong>Propósito:</strong> ${purpose}<br>
                 <strong>Código Config:</strong> ${configCode}<br>
@@ -2127,15 +2127,15 @@ function updateReadinessChecklist() {
         }
     ];
 
-    var html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
-    html += '<span style="font-weight:700;color:#475569;font-size: var(--fs-sm);">Progreso:</span>';
+    var html = '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-weight:700;color:var(--muted);font-size: var(--fs-sm);">Progreso:</span>';
 
     sections.forEach(function(s) {
         var filled = s.fields.filter(function(f) { return f !== undefined && f !== null && f !== ''; }).length;
         var pct = Math.round((filled / s.total) * 100);
         var icon = pct === 100 ? '✅' : pct >= 50 ? '⚠️' : '❌';
         var color = pct === 100 ? tokenColor('--ok-fill') : pct >= 50 ? tokenColor('--warn-fill') : tokenColor('--danger-fill');
-        html += '<span style="font-size: var(--fs-sm);padding:3px 8px;border-radius:6px;background:' + color + '10;color:' + color + ';border:1px solid ' + color + '30;">' + icon + ' ' + s.name + ' ' + filled + '/' + s.total + '</span>';
+        html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-lg);background:' + color + '10;color:' + color + ';border:1px solid ' + color + '30;">' + icon + ' ' + s.name + ' ' + filled + '/' + s.total + '</span>';
     });
 
     html += '</div>';
@@ -2206,15 +2206,15 @@ function checkAutoAdvance(vehicle) {
 
   var toast = document.createElement('div');
   toast.className = 'auto-advance-toast';
-  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s var(--ease-out);border:1px solid #334155;';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding: var(--space-md) var(--space-lg);border-radius: var(--radius-2xl);box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap: var(--space-md);font-size:12px;max-width:90vw;animation:slideUp 0.3s var(--ease-out);border:1px solid #334155;';
 
   var icon = status === 'testing' ? '🏁' : '⚡';
   var html = '<span>' + icon + ' ' + suggestion + '</span>';
   if (nextStatus) {
-    html += '<button class="auto-advance-btn" onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
-    html += '<button class="auto-advance-btn" onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size: var(--fs-sm);cursor:pointer;">No</button>';
+    html += '<button class="auto-advance-btn" onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-sm) var(--space-lg);border-radius: var(--radius-xl);font-size: var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button class="auto-advance-btn" onclick="this.parentElement.remove()" style="background:transparent;color:var(--muted);border:1px solid #475569;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-xl);font-size: var(--fs-sm);cursor:pointer;">No</button>';
   } else {
-    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size: var(--fs-sm);cursor:pointer;">OK</button>';
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:var(--muted);border:1px solid #475569;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-xl);font-size: var(--fs-sm);cursor:pointer;">OK</button>';
   }
   toast.innerHTML = html;
   document.body.appendChild(toast);
@@ -2324,20 +2324,20 @@ function _libRegPickerControlsHTML(vehicle, currentName) {
     var profiles = (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [];
     var html = '';
     if (profiles.length === 0) {
-        html += '<div style="font-size:12px;margin-bottom:6px;">No hay ningún perfil de límites configurado todavía.</div>';
+        html += '<div style="font-size:12px;margin-bottom: var(--space-sm);">No hay ningún perfil de límites configurado todavía.</div>';
     } else {
-        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:center;">' +
             '<select id="lib-reg-select" class="form-control" style="flex:1;min-width:180px;font-size:13px;">' +
             _libRegOptionsHTML(currentName) + '</select>' +
-            '<button class="btn-primary" style="font-size:12px;padding:8px 14px;" onclick="libApplyComparisonRegulation()">Comparar contra esta</button>' +
+            '<button class="btn-primary" style="font-size:12px;padding: var(--space-sm) var(--space-lg);" onclick="libApplyComparisonRegulation()">Comparar contra esta</button>' +
             '</div>';
     }
-    html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
+    html += '<div style="margin-top: var(--space-sm);display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     if (vehicle.regulationOverride && vehicle.regulationOverride.name) {
-        html += '<button class="btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="libClearComparisonRegulation()">↩️ Volver a la del alta (' +
+        html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-sm) var(--space-md);" onclick="libClearComparisonRegulation()">↩️ Volver a la del alta (' +
                 escapeHtml(_libGetCatalogRegulation(vehicle) || 'sin dato') + ')</button>';
     }
-    html += '<button class="btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);">⚗️ Crear/editar perfiles</button>';
+    html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-sm) var(--space-md);" onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);">⚗️ Crear/editar perfiles</button>';
     html += '</div>';
     return html;
 }
@@ -2347,17 +2347,17 @@ function _libRegBasisHTML(vehicle, regName) {
     var ov = vehicle.regulationOverride;
     var canChange = vehicle.status === 'ready-release';
     var catalogReg = _libGetCatalogRegulation(vehicle);
-    var html = '<div style="background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1e3a8a;">';
-    html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+    var html = '<div style="background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);font-size:12px;color:#1e3a8a;">';
+    html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">' +
         '<span style="flex:1;min-width:160px;">⚖️ Comparando contra <strong>' + escapeHtml(regName) + '</strong>' +
         (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>' : '') +
         '</span>';
     if (canChange) {
-        html += '<button class="btn-secondary" style="font-size:12px;padding:4px 12px;" onclick="libRegPickerToggle()">Cambiar</button>';
+        html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-xs) var(--space-md);" onclick="libRegPickerToggle()">Cambiar</button>';
     }
     html += '</div>';
     if (canChange) {
-        html += '<div id="lib-reg-picker" style="display:none;margin-top:8px;">' + _libRegPickerControlsHTML(vehicle, regName) + '</div>';
+        html += '<div id="lib-reg-picker" style="display:none;margin-top: var(--space-sm);">' + _libRegPickerControlsHTML(vehicle, regName) + '</div>';
     }
     html += '</div>';
     return html;
@@ -2519,11 +2519,11 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
     if (!el) return;
     var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
-    html += '<th style="text-align:left;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Gas</th>';
-    html += '<th style="text-align:center;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Unidad</th>';
-    html += '<th style="text-align:center;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Límite</th>';
-    html += '<th style="text-align:center;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Valor</th>';
-    html += '<th style="text-align:center;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Estado</th>';
+    html += '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Gas</th>';
+    html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Unidad</th>';
+    html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Límite</th>';
+    html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Valor</th>';
+    html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Estado</th>';
     html += '</tr></thead><tbody>';
     profile.gases.forEach(function(g) {
         // Se teclea y se muestra en la unidad de captura; el valor guardado sigue
@@ -2534,13 +2534,13 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
         var val = stored === '' ? '' : gasConvert(stored, g.unit, capUnit);
         var dispLimit = (g.limit !== null && g.limit !== undefined) ? gasConvert(g.limit, g.unit, capUnit) : null;
         html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" id="lib-gas-row-' + g.field + '">';
-        html += '<td style="padding:6px 8px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
-        html += '<td style="text-align:center;padding:6px 8px;color:#64748b;">' + escapeHtml(capUnit)
+        html += '<td style="padding: var(--space-sm) var(--space-sm);font-weight:600;">' + escapeHtml(g.label) + '</td>';
+        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);color:var(--muted);">' + escapeHtml(capUnit)
              +  (converted ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '')
              +  '</td>';
-        html += '<td style="text-align:center;padding:6px 8px;">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
-        html += '<td style="padding:6px 8px;text-align:center;"><input type="number" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
-        html += '<td style="text-align:center;padding:6px 8px;" id="lib-gas-status-' + g.field + '">—</td>';
+        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
+        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" id="lib-gas-status-' + g.field + '">—</td>';
         html += '</tr>';
     });
     html += '</tbody></table>';
@@ -2738,7 +2738,7 @@ function loadRelease() {
     if (_relBlockers.length > 0 && _relInfoEl) {
         var _secs = {};
         _relBlockers.forEach(function(m) { (_secs[m.section] = _secs[m.section] || []).push(m.label); });
-        var _bh = '<div style="margin-top:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:8px 12px;font-size:12px;color:#b45309;">⚠️ Faltan <strong>' + _relBlockers.length + '</strong> campos para un PDF completo: ';
+        var _bh = '<div style="margin-top: var(--space-sm);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);font-size:12px;color:#b45309;">⚠️ Faltan <strong>' + _relBlockers.length + '</strong> campos para un PDF completo: ';
         _bh += Object.keys(_secs).map(function(s) { return s + ' (' + _secs[s].length + ')'; }).join(', ');
         _bh += '. Complétalos en la pestaña Operación antes de liberar.</div>';
         _relInfoEl.innerHTML += _bh;
@@ -2750,7 +2750,7 @@ function loadRelease() {
     if (!isEm) {
         var s = testData.simple || {};
         document.getElementById('testSummary').innerHTML =
-            '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+            '<div style="background:var(--surface-alt);padding: var(--space-lg);border-radius: var(--radius-xl);">' +
             '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
             '<strong>Operador:</strong> ' + escapeHtml(s.operator || 'N/A') + '<br>' +
             '<strong>Fecha/Hora:</strong> ' + escapeHtml(s.datetime || 'N/A') + '<br>' +
@@ -2764,7 +2764,7 @@ function loadRelease() {
     }
 
     document.getElementById('testSummary').innerHTML =
-        '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+        '<div style="background:var(--surface-alt);padding: var(--space-lg);border-radius: var(--radius-xl);">' +
         (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
         (testData.targetA ? '<strong>Target A:</strong> ' + testData.targetA + ' lbs<br>' : '') +
         (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
@@ -2782,8 +2782,8 @@ function loadRelease() {
         // o "N/A"). La elección se guarda en el vehículo y queda auditada.
         gasCard.style.display = 'block';
         document.getElementById('lib-gas-entry-content').innerHTML =
-            '<div style="padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;">' +
-            '<div style="font-size:13px;margin-bottom:10px;">⚠️ <strong>' + escapeHtml(regName || 'Sin regulación') + '</strong> no es una regulación con límites configurados' +
+            '<div style="padding: var(--space-lg);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;">' +
+            '<div style="font-size:13px;margin-bottom: var(--space-md);">⚠️ <strong>' + escapeHtml(regName || 'Sin regulación') + '</strong> no es una regulación con límites configurados' +
             (regName ? ' (así quedó registrada en el alta de este vehículo).' : '.') +
             '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
             _libRegPickerControlsHTML(vehicle, '') +
@@ -2801,13 +2801,13 @@ function loadRelease() {
             var _pr = vehicle.pendingReturn;
             var _n = Array.isArray(vehicle.returnHistory) ? vehicle.returnHistory.length : 1;
             _gasEl.insertAdjacentHTML('afterbegin',
-                '<div style="padding:10px 12px;margin-bottom:10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:8px;font-size:13px;line-height:1.55;">'
+                '<div style="padding: var(--space-md) var(--space-md);margin-bottom: var(--space-md);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius: var(--radius-xl);font-size:13px;line-height:1.55;">'
                 + '<b>↩️ El aprobador devolvió esta prueba</b>'
                 + (_n > 1 ? ' <span style="color:var(--muted);">(devolución ' + _n + ')</span>' : '')
-                + '<div style="margin-top:4px;">' + escapeHtml(_pr.reason || '') + '</div>'
-                + '<div style="margin-top:4px;font-size:11px;color:var(--muted);">'
+                + '<div style="margin-top: var(--space-xs);">' + escapeHtml(_pr.reason || '') + '</div>'
+                + '<div style="margin-top: var(--space-xs);font-size:11px;color:var(--muted);">'
                 + escapeHtml(_pr.by || 'Aprobador') + ' · ' + new Date(_pr.at).toLocaleString('es-MX') + '</div>'
-                + '<div style="margin-top:6px;font-size:12px;">Vuelve a leer los valores <b>del reporte del banco</b> y firma otra vez.</div>'
+                + '<div style="margin-top: var(--space-sm);font-size:12px;">Vuelve a leer los valores <b>del reporte del banco</b> y firma otra vez.</div>'
                 + '</div>');
         }
         libOnGasChange();
@@ -2832,7 +2832,7 @@ function loadApproval() {
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
         (vehicle.regulationOverride && vehicle.regulationOverride.name
-            ? '<div style="margin-top:6px;font-size:12px;color:#1e3a8a;">⚖️ Regulación de comparación elegida por el liberador' +
+            ? '<div style="margin-top: var(--space-sm);font-size:12px;color:#1e3a8a;">⚖️ Regulación de comparación elegida por el liberador' +
               (vehicle.regulationOverride.by ? ' (' + escapeHtml(vehicle.regulationOverride.by) + ')' : '') +
               (_libGetCatalogRegulation(vehicle) ? '; en el alta quedó "' + escapeHtml(_libGetCatalogRegulation(vehicle)) + '"' : '') + '.</div>'
             : '');
@@ -2840,7 +2840,7 @@ function loadApproval() {
     var testData = vehicle.testData || {};
     var isEm = isEmissionsPurpose(vehicle.purpose);
     document.getElementById('approvalSummary').innerHTML =
-        '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+        '<div style="background:var(--surface-alt);padding: var(--space-lg);border-radius: var(--radius-xl);">' +
         (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
         '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
         (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
@@ -2854,10 +2854,10 @@ function loadApproval() {
 
     if (!isEm || !profile) {
         document.getElementById('appr-gas-entry-content').innerHTML = (isEm && !profile)
-            ? '<div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12px;">' +
+            ? '<div style="padding: var(--space-md);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;font-size:12px;">' +
               '⚠️ La regulación de este vehículo (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) no tiene perfil de límites, así que no hay gases que verificar. ' +
               'Si debía compararse contra una norma, pide al liberador que la elija en la pestaña Liberación (botón "Cambiar") antes de aprobar.</div>'
-            : '<p style="color:#64748b;font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
+            : '<p style="color:var(--muted);font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
         if (btn) btn.disabled = false;
         return;
     }
@@ -3094,15 +3094,15 @@ function returnToReleaser() {
             'El vehículo <b>' + escapeHtml(vehicle.vin) + '</b> regresa a <b>Liberación</b>. ' +
             'Se borran los valores de gases y la firma del liberador para que los capture y firme de nuevo.</p>' +
             (mismatchGases
-                ? '<div style="padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;margin-bottom:10px;">' +
+                ? '<div style="padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-xl);font-size:12px;margin-bottom: var(--space-md);">' +
                   'No coincidieron: <b>' + escapeHtml(mismatchGases) + '</b></div>'
                 : '') +
-            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Motivo (mínimo 5 caracteres) *</label>' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Motivo (mínimo 5 caracteres) *</label>' +
             '<textarea id="return-reason" class="form-control" rows="3" style="width:100%;box-sizing:border-box;font-size:13px;" ' +
             'placeholder="Ej: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
             // El doble ciego solo sirve si el liberador vuelve a leer del reporte,
             // no si el aprobador le dicta el número correcto.
-            '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:12px;line-height:1.5;">' +
+            '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
             '⚠️ <b>No escribas tus valores en el motivo.</b> El liberador debe volver a leerlos del reporte; ' +
             'si le dictas el número, la verificación doble ciego deja de servir.</div>',
         buttons: [
@@ -3204,12 +3204,12 @@ function _renderUsedCylinders(vehicle) {
 
     if (cylinders.length === 0) return;
 
-    var html = '<div style="margin-top:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">' +
-        '<div style="font-weight:700;font-size:12px;margin-bottom:6px;">🔗 Gases utilizados (' + cylinders.length + ' cilindros)</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    var html = '<div style="margin-top: var(--space-md);background:#f0fdf4;border:1px solid #bbf7d0;border-radius: var(--radius-xl);padding: var(--space-md);">' +
+        '<div style="font-weight:700;font-size:12px;margin-bottom: var(--space-sm);">🔗 Gases utilizados (' + cylinders.length + ' cilindros)</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
 
     cylinders.forEach(function(c) {
-        html += '<div style="background:#fff;border:1px solid #d1fae5;border-radius:6px;padding:4px 8px;font-size: var(--fs-xs);">' +
+        html += '<div style="background:#fff;border:1px solid #d1fae5;border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);font-size: var(--fs-xs);">' +
             '<strong>' + c.controlNo + '</strong> ' + c.formula +
             (c.lotNumber ? ' · Lote: <span style="color:#0f766e;font-weight:600;">' + c.lotNumber + '</span>' : '') +
             (c.psi !== null && c.psi !== undefined ? ' · ' + c.psi + ' PSI' : '') +
@@ -3256,7 +3256,7 @@ function _renderUsedCylinders(vehicle) {
        }
 
        // Filter toggle + Notes button
-       var filterHtml = '<div class="tl-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+       var filterHtml = '<div class="tl-filters" style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">' +
            '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
            '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
            (typeof noteBuildButton === 'function' ? '<span style="margin-left:auto;">' + noteBuildButton('vehicle', String(vehicle.id)) + '</span>' : '') +
@@ -3333,35 +3333,35 @@ function showSubstitutionModal(data) {
     var modal = document.getElementById('substitutionModal');
     if (!modal) return;
 
-    var html = '<div style="font-size:0.85rem;color:#475569;margin-bottom:16px;">' +
-        'El vehículo <strong style="color:#1e293b;">' + escapeHtml(data.vin) + '</strong> con configuración ' +
-        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + escapeHtml(data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+    var html = '<div style="font-size:0.85rem;color:var(--muted);margin-bottom: var(--space-lg);">' +
+        'El vehículo <strong style="color:var(--text);">' + escapeHtml(data.vin) + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:var(--surface-alt);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);">' + escapeHtml(data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
         ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
         '</div>' +
-        '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
+        '<div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom: var(--space-md);">Configuraciones similares encontradas:</div>';
 
     data.matches.slice(0, 5).forEach(function(m, idx) {
         var borderClr = m.diffs.length === 1 ? tokenColor('--ok-fill') : m.diffs.length === 2 ? tokenColor('--warn-fill') : tokenColor('--danger-fill');
-        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius:8px;padding:12px;margin-bottom:10px;background:' + borderClr + '05;">';
-        html += '<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:6px;">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
+        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius: var(--radius-xl);padding: var(--space-md);margin-bottom: var(--space-md);background:' + borderClr + '05;">';
+        html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text);margin-bottom: var(--space-sm);">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
 
         // Show differences
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">';
+        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;margin-bottom: var(--space-sm);">';
         m.diffs.forEach(function(d) {
-            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
+            html += '<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
                 d.label + ': <s>' + d.planned + '</s> → <strong>' + d.actual + '</strong></span>';
         });
         html += '</div>';
 
-        html += '<div style="display:flex;gap:8px;align-items:center;">';
-        html += '<span style="font-size:0.7rem;color:#475569;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
+        html += '<span style="font-size:0.7rem;color:var(--muted);">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
         html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
-            'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
+            'style="margin-left:auto;padding: var(--space-sm) var(--space-lg);font-size:0.8rem;border-radius: var(--radius-lg);">Sustituir</button>';
         html += '</div></div>';
     });
 
-    html += '<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">' +
-        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding:8px 20px;font-size:0.85rem;">No sustituir, solo liberar</button>' +
+    html += '<div style="text-align:center;margin-top: var(--space-md);padding-top: var(--space-md);border-top:1px solid var(--border);">' +
+        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding: var(--space-sm) var(--space-xl);font-size:0.85rem;">No sustituir, solo liberar</button>' +
         '</div>';
 
     document.getElementById('substitutionContent').innerHTML = html;
@@ -3450,7 +3450,7 @@ function closeSubstitutionModal() {
             '<div><label>Propósito</label><select onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
-            '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
+            '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
         '</div>';
     }
 
@@ -3514,7 +3514,7 @@ function closeSubstitutionModal() {
 
         if(vehicles.length === 0) {
             container.innerHTML = '<div class="hist-filter-count">' + 0 + ' de ' + total + ' registros</div>' +
-                '<p style="text-align: center; color: var(--muted); padding: 20px;">No hay registros con estos filtros</p>';
+                '<p style="text-align: center; color: var(--muted); padding: var(--space-xl);">No hay registros con estos filtros</p>';
             return;
         }
 
@@ -3525,11 +3525,11 @@ function closeSubstitutionModal() {
         var hasMore = filtered > pageSize;
 
         container.innerHTML = `
-            <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="hist-filter-count" style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
-                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size: var(--fs-sm);font-weight:700;">PDF Seleccionados</button>
-                <button class="btn-secondary" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;padding:4px 12px;font-size: var(--fs-sm);font-weight:700;background:#7f1d1d;color:#fca5a5;">🗑 Eliminar seleccionados</button>
-                <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size: var(--fs-sm);font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
+                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;">PDF Seleccionados</button>
+                <button class="btn-secondary" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;background:#7f1d1d;color:#fca5a5;">🗑 Eliminar seleccionados</button>
+                <button class="btn-secondary" onclick="window.print()" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
             </div>
             <table class="history-table">
                 <thead>
@@ -3559,11 +3559,11 @@ function closeSubstitutionModal() {
                             <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
-                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
-                                    ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
-                                    ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
+                                <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">
+                                    ${motor ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
+                                    ${reg ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
                                 </div>
-                                <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);margin-top:2px;">${safeConfigCode}</div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);margin-top: var(--space-2xs);">${safeConfigCode}</div>
                             </td>
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
@@ -3574,22 +3574,22 @@ function closeSubstitutionModal() {
                                 var libVals = gr.liberador.values || {};
                                 var gasCount = Object.keys(libVals).length;
                                 var appr = gr.aprobador ? '<span style="color:var(--ok-text);font-size: var(--fs-xs);" title="Doble verificación completada">✓✓</span>' : '<span style="color:var(--warn-text);font-size: var(--fs-xs);" title="Solo liberador">✓</span>';
-                                return '<div style="display:flex;gap:4px;align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:#64748b;">' + gasCount + ' gases</span></div>';
+                                return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
                             })()}</td>
                             <td>
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
+                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
                                 ${(function(){
                                     if (!isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
                                     if (_c.ok) return '';
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left: var(--space-xs);" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
                                 })()}
-                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
+                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;margin-left: var(--space-xs);" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
                                     🕘
                                 </button>
-                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
+                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left: var(--space-xs);" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
                                     🗑
                                 </button>
                             </td>
@@ -3597,7 +3597,7 @@ function closeSubstitutionModal() {
                     `}).join('')}
                 </tbody>
             </table>
-            ${hasMore ? `<div style="text-align:center;margin-top:12px;"><button class="btn-secondary" onclick="histShowMore()" style="padding:10px 24px;font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
+            ${hasMore ? `<div style="text-align:center;margin-top: var(--space-md);"><button class="btn-secondary" onclick="histShowMore()" style="padding: var(--space-md) var(--space-xl);font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
     }
 
@@ -3636,7 +3636,7 @@ function batchPDFExport() {
 
     showConfirm(
         '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
-        '<p style="font-size: var(--fs-sm);color:#475569;">Cada vehículo será una página del PDF.</p>',
+        '<p style="font-size: var(--fs-sm);color:var(--muted);">Cada vehículo será una página del PDF.</p>',
         function() { _doBatchPDF(ids); },
         { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
     );
@@ -3920,15 +3920,15 @@ function handleImportArchive(event) {
       const modal = document.getElementById('importModal') || document.createElement('div');
       modal.id = 'importModal';
       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
-      modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%;">' +
-        '<h3 style="margin:0 0 8px;color:#0f172a;">Importar ' + data.vehicles.length + ' vehículos</h3>' +
-        '<p style="font-size: var(--fs-sm);color:#475569;margin-bottom:14px;">Selecciona el estado destino:</p>' +
-        '<div style="display:grid;gap:6px;">' +
-        '<button onclick="executeArchiveImport(\'registered\')" style="padding:10px;background:var(--info-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Registrado</button>' +
-        '<button onclick="executeArchiveImport(\'in-progress\')" style="padding:10px;background:var(--warn-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">En Progreso</button>' +
-        '<button onclick="executeArchiveImport(\'ready-release\')" style="padding:10px;background:var(--ok-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Listo para Liberar</button>' +
-        '<button onclick="executeArchiveImport(\'archived\')" style="padding:10px;background:#64748b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Archivado</button>' +
-        '<button onclick="this.closest(\'#importModal\').remove();" style="padding:8px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+      modal.innerHTML = '<div style="background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);max-width:380px;width:90%;">' +
+        '<h3 style="margin:0 0 8px;color:var(--text);">Importar ' + data.vehicles.length + ' vehículos</h3>' +
+        '<p style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-lg);">Selecciona el estado destino:</p>' +
+        '<div style="display:grid;gap: var(--space-sm);">' +
+        '<button onclick="executeArchiveImport(\'registered\')" style="padding: var(--space-md);background:var(--info-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:600;">Registrado</button>' +
+        '<button onclick="executeArchiveImport(\'in-progress\')" style="padding: var(--space-md);background:var(--warn-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:600;">En Progreso</button>' +
+        '<button onclick="executeArchiveImport(\'ready-release\')" style="padding: var(--space-md);background:var(--ok-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:600;">Listo para Liberar</button>' +
+        '<button onclick="executeArchiveImport(\'archived\')" style="padding: var(--space-md);background:#64748b;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:600;">Archivado</button>' +
+        '<button onclick="this.closest(\'#importModal\').remove();" style="padding: var(--space-sm);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
       document.body.appendChild(modal);
 
@@ -4007,9 +4007,9 @@ function deleteVehicleCascade(vehicleId) {
     if (invCount > 0) lines.push('• Inventario: ' + invCount + ' registro' + (invCount>1?'s':'') + ' de uso');
 
     showConfirm(
-        '<p style="margin-bottom:8px;">Eliminar <b>' + (v.vin||'?') + '</b> permanentemente de:</p>' +
-        '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.9;">' + lines.join('<br>') + '</div>' +
-        '<p style="margin-top:8px;font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
+        '<p style="margin-bottom: var(--space-sm);">Eliminar <b>' + (v.vin||'?') + '</b> permanentemente de:</p>' +
+        '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size:12px;line-height:1.9;">' + lines.join('<br>') + '</div>' +
+        '<p style="margin-top: var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
         function() {
             // 1. COP15
             db.vehicles = db.vehicles.filter(x => x !== v);
@@ -4048,10 +4048,10 @@ function batchDeleteVehicles() {
     });
 
     showConfirm(
-        '<p style="margin-bottom:8px;">Eliminar <b>' + ids.length + ' vehículo' + (ids.length>1?'s':'') + '</b> y todos sus datos?</p>' +
-        '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:6px 10px;font-size: var(--fs-sm);max-height:120px;overflow-y:auto;">' +
+        '<p style="margin-bottom: var(--space-sm);">Eliminar <b>' + ids.length + ' vehículo' + (ids.length>1?'s':'') + '</b> y todos sus datos?</p>' +
+        '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size: var(--fs-sm);max-height:120px;overflow-y:auto;">' +
         vins.map(function(vin){return '• '+vin;}).join('<br>') + '</div>' +
-        '<p style="margin-top:8px;font-size: var(--fs-sm);color:var(--muted);">Esto borrará también sus registros en Plan Manager e Inventario. No se puede deshacer.</p>',
+        '<p style="margin-top: var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Esto borrará también sus registros en Plan Manager e Inventario. No se puede deshacer.</p>',
         function() {
             ids.forEach(function(id) {
                 var veh = db.vehicles.find(function(x){return x.id==id;});
@@ -4221,9 +4221,9 @@ function validatePdfCompleteness(vehicle) {
 function _showPdfMissingPopup(missing) {
   var bySection = {};
   missing.forEach(function(m) { (bySection[m.section] = bySection[m.section] || []).push(m.label); });
-  var html = '<div style="text-align:left;max-height:320px;overflow:auto;">Para evitar un PDF con espacios en blanco, completa estos campos antes de continuar:<ul style="margin:8px 0;padding-left:18px;">';
+  var html = '<div style="text-align:left;max-height:320px;overflow:auto;">Para evitar un PDF con espacios en blanco, completa estos campos antes de continuar:<ul style="margin:8px 0;padding-left: var(--space-lg);">';
   Object.keys(bySection).forEach(function(sec) {
-    html += '<li style="margin-bottom:5px;"><strong>' + sec + ':</strong> ' + bySection[sec].join(', ') + '</li>';
+    html += '<li style="margin-bottom: var(--space-xs);"><strong>' + sec + ':</strong> ' + bySection[sec].join(', ') + '</li>';
   });
   html += '</ul></div>';
   showModal({ title: 'Faltan ' + missing.length + ' campos', message: html, type: 'warning', showCancel: false, confirmText: 'Entendido' });
@@ -4256,7 +4256,7 @@ function _histBuildInput(f, idx, value, disabled) {
   var ref = f.refId ? document.getElementById(f.refId) : null;
   var val = _histBlank(value) ? '' : String(value);
   var common = ' id="hist-f-' + idx + '" data-idx="' + idx + '" class="form-control hist-input"' +
-               (disabled ? ' disabled' : '') + ' style="width:100%;font-size:12px;padding:5px 8px;"';
+               (disabled ? ' disabled' : '') + ' style="width:100%;font-size:12px;padding: var(--space-xs) var(--space-sm);"';
   if (ref && ref.tagName === 'SELECT') {
     // Quitar 'selected' heredado del form activo y anteponer opción vacía: un campo
     // faltante debe arrancar vacío, no con la selección de otro vehículo.
@@ -4283,11 +4283,11 @@ function histOpenCompleteModal(vehicleId) {
 
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
   html += '<div class="hist-complete-box">';
-  html += '<div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--accent-cop, #0891b2);padding-bottom:10px;margin-bottom:12px;">';
+  html += '<div style="display:flex;align-items:center;gap: var(--space-md);border-bottom:2px solid var(--accent-cop, #0891b2);padding-bottom: var(--space-md);margin-bottom: var(--space-md);">';
   html += '<span style="font-size:15px;font-weight:800;flex:1;" data-help="hist-retro-help">📝 Completar datos retroactivos</span>';
   html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
-  html += '<div style="font-size:12px;margin-bottom:4px;"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
-  html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:12px;">' +
+  html += '<div style="font-size:12px;margin-bottom: var(--space-xs);"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
+  html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">' +
           'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
 
   // Campos del descriptor, agrupados por sección
@@ -4307,16 +4307,16 @@ function histOpenCompleteModal(vehicleId) {
       var f = it.f, idx = it.idx;
       var cur = _histGetPath(vehicle, f.path);
       var isMissing = _histBlank(cur);
-      var unitTag = f.unitLabel ? ' <span style="color:#64748b;font-size: var(--fs-xs);">(' + f.unitLabel + ')</span>' : '';
+      var unitTag = f.unitLabel ? ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + f.unitLabel + ')</span>' : '';
       html += '<tr class="' + (isMissing ? 'hist-field-missing' : 'hist-field-locked') + '" id="hist-row-' + idx + '">';
-      html += '<td style="padding:5px 8px;width:42%;font-weight:600;">' + escapeHtml(f.label) + unitTag + (isMissing ? '' : ' 🔒') + '</td>';
-      html += '<td style="padding:5px 8px;">' + _histBuildInput(f, idx, cur, !isMissing);
+      html += '<td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(f.label) + unitTag + (isMissing ? '' : ' 🔒') + '</td>';
+      html += '<td style="padding: var(--space-xs) var(--space-sm);">' + _histBuildInput(f, idx, cur, !isMissing);
       if (!isMissing) {
-        html += '<div id="hist-reason-wrap-' + idx + '" style="display:none;margin-top:4px;">' +
-                '<textarea id="hist-reason-' + idx + '" data-idx="' + idx + '" placeholder="Razón del cambio (obligatoria)" oninput="_histOnReasonInput(' + idx + ')" style="width:100%;font-size: var(--fs-sm);padding:4px 6px;min-height:34px;border:1px solid #f59e0b;border-radius:5px;"></textarea></div>';
+        html += '<div id="hist-reason-wrap-' + idx + '" style="display:none;margin-top: var(--space-xs);">' +
+                '<textarea id="hist-reason-' + idx + '" data-idx="' + idx + '" placeholder="Razón del cambio (obligatoria)" oninput="_histOnReasonInput(' + idx + ')" style="width:100%;font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);min-height:34px;border:1px solid #f59e0b;border-radius: var(--radius-lg);"></textarea></div>';
       }
       html += '</td>';
-      html += '<td style="padding:5px 8px;width:88px;text-align:center;">' +
+      html += '<td style="padding: var(--space-xs) var(--space-sm);width:88px;text-align:center;">' +
               (isMissing ? '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>'
                          : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size: var(--fs-sm);" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
       html += '</tr>';
@@ -4331,13 +4331,13 @@ function histOpenCompleteModal(vehicleId) {
     if (missingGases.length) {
       html += '<details class="hist-section" open>';
       html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Resultados de Emisiones <span style="color:var(--warn-text);font-weight:800;">· ' + missingGases.length + ' faltantes</span></summary>';
-      html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:6px;">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
+      html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
       missingGases.forEach(function(g) {
-        html += '<tr class="hist-field-missing"><td style="padding:5px 8px;width:42%;font-weight:600;">' + escapeHtml(g.label) +
-                ' <span style="color:#64748b;font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
-        html += '<td style="padding:5px 8px;"><input type="number" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding:5px 8px;"></td>';
-        html += '<td style="padding:5px 8px;width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
+        html += '<tr class="hist-field-missing"><td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(g.label) +
+                ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
       });
       html += '</table></details>';
     }
@@ -4350,13 +4350,13 @@ function histOpenCompleteModal(vehicleId) {
   if (needSigR || needSigA) {
     html += '<details class="hist-section" open>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Firmas <span style="color:var(--warn-text);font-weight:800;">· faltantes</span></summary>';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 0;">';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;padding:6px 0;">';
     if (needSigR) html += '<button class="btn btn-sm" onclick="histCaptureSig(\'releaser\')" id="hist-sig-releaser" style="background:var(--info-fill);color:#fff;font-size: var(--fs-sm);">✍️ Capturar firma del Liberador</button>';
     if (needSigA) html += '<button class="btn btn-sm" onclick="histCaptureSig(\'approver\')" id="hist-sig-approver" style="background:var(--info-fill);color:#fff;font-size: var(--fs-sm);">✍️ Capturar firma del Aprobador</button>';
-    html += '</div><div style="font-size: var(--fs-xs);color:#64748b;">La firma se registra con la fecha actual (captura retroactiva, queda asentado así).</div></details>';
+    html += '</div><div style="font-size: var(--fs-xs);color:var(--muted);">La firma se registra con la fecha actual (captura retroactiva, queda asentado así).</div></details>';
   }
 
-  html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:1px solid #e5e7eb;padding-top:10px;">';
+  html += '<div style="display:flex;gap: var(--space-sm);justify-content:flex-end;margin-top: var(--space-lg);border-top:1px solid var(--border);padding-top: var(--space-md);">';
   html += '<button class="btn btn-ghost" onclick="histCloseCompleteModal()">Cancelar</button>';
   html += '<button class="btn" onclick="histSaveCompleteModal()" style="background:var(--info-fill);color:#fff;font-weight:700;">💾 Guardar cambios</button>';
   html += '</div>';
@@ -4421,7 +4421,7 @@ function histGasInput(input) {
   var pctStr = _libPctOfLimitStr(val, limit) || '';
   var warn = _libValueImplausible(field, val) ? ' <span style="color:var(--warn-text);font-weight:700;">⚠ improbable</span>' : '';
   statusEl.innerHTML = (pass ? '<span style="color:var(--ok-text);font-weight:700;">✓ PASA</span>' : '<span style="color:var(--danger-text);font-weight:700;">✗ FALLA</span>') +
-                       ' <span style="color:#64748b;">' + pctStr + '</span>' + warn;
+                       ' <span style="color:var(--muted);">' + pctStr + '</span>' + warn;
 }
 
 function histCaptureSig(which) {
@@ -4575,32 +4575,32 @@ function histShowTimelineModal(vehicleId) {
   var tl = (vehicle.timeline || []).slice().reverse();
   var html = '<div style="text-align:left;font-size:12px;max-height:380px;overflow:auto;">';
   if (!tl.length) {
-    html += '<div style="color:#6b7280;padding:12px;text-align:center;">Sin eventos registrados.</div>';
+    html += '<div style="color:var(--muted);padding: var(--space-md);text-align:center;">Sin eventos registrados.</div>';
   } else {
     tl.forEach(function(item) {
       var d = new Date(item.timestamp);
       var isRetro = item.action === 'Datos completados retroactivamente';
-      html += '<div style="border-left:3px solid ' + (isRetro ? '#f59e0b' : '#0891b2') + ';padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 6px 6px 0;">';
-      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">' +
+      html += '<div style="border-left:3px solid ' + (isRetro ? '#f59e0b' : '#0891b2') + ';padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-sm);background:var(--surface-alt);border-radius:0 6px 6px 0;">';
+      html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:baseline;">' +
               '<b>' + escapeHtml(item.action || '') + '</b>' +
-              '<span style="font-size: var(--fs-xs);color:#64748b;">' + d.toLocaleString('es-MX') + ' · ' + escapeHtml(item.user || '') + '</span></div>';
+              '<span style="font-size: var(--fs-xs);color:var(--muted);">' + d.toLocaleString('es-MX') + ' · ' + escapeHtml(item.user || '') + '</span></div>';
       var data = item.data || {};
       if (data.added && data.added.length) {
-        html += '<div style="font-size: var(--fs-xs);color:#334155;margin-top:2px;">Añadidos: ' + data.added.map(escapeHtml).join(', ') + '</div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--text);margin-top: var(--space-2xs);">Añadidos: ' + data.added.map(escapeHtml).join(', ') + '</div>';
       }
       if (data.modified && data.modified.length) {
-        html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top:4px;"><thead><tr>' +
-                ['Campo', 'Antes', 'Después', 'Razón'].map(function(h) { return '<th style="text-align:left;padding:2px 6px;border-bottom:1px solid #e5e7eb;color:#64748b;">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+        html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top: var(--space-xs);"><thead><tr>' +
+                ['Campo', 'Antes', 'Después', 'Razón'].map(function(h) { return '<th style="text-align:left;padding: var(--space-2xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
         data.modified.forEach(function(m) {
-          html += '<tr><td style="padding:2px 6px;font-weight:600;">' + escapeHtml(m.campo || m.path || '') + '</td>' +
-                  '<td style="padding:2px 6px;color:var(--danger-text);">' + escapeHtml(String(m.antes)) + '</td>' +
-                  '<td style="padding:2px 6px;color:var(--ok-text);">' + escapeHtml(String(m.despues)) + '</td>' +
-                  '<td style="padding:2px 6px;color:#475569;">' + escapeHtml(m.razon || '') + '</td></tr>';
+          html += '<tr><td style="padding: var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(m.campo || m.path || '') + '</td>' +
+                  '<td style="padding: var(--space-2xs) var(--space-sm);color:var(--danger-text);">' + escapeHtml(String(m.antes)) + '</td>' +
+                  '<td style="padding: var(--space-2xs) var(--space-sm);color:var(--ok-text);">' + escapeHtml(String(m.despues)) + '</td>' +
+                  '<td style="padding: var(--space-2xs) var(--space-sm);color:var(--muted);">' + escapeHtml(m.razon || '') + '</td></tr>';
         });
         html += '</tbody></table>';
       }
       if (data.signature && data.signature.signerName) {
-        html += '<div style="font-size: var(--fs-xs);color:#92400e;margin-top:2px;">✍️ Firmado por ' + escapeHtml(data.signature.signerName) + '</div>';
+        html += '<div style="font-size: var(--fs-xs);color:#92400e;margin-top: var(--space-2xs);">✍️ Firmado por ' + escapeHtml(data.signature.signerName) + '</div>';
       }
       html += '</div>';
     });
@@ -5188,7 +5188,7 @@ function openConfigPanel() {
     const srcEl = document.getElementById('configSource');
     var modalSrc = document.getElementById('configSourceModal');
     var srcHtml = isCustom
-        ? '<span style="color:var(--warn-text);">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size: var(--fs-sm);padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
+        ? '<span style="color:var(--warn-text);">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);background:#1e293b;color:#fff;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;margin-left: var(--space-sm);">Restaurar original</button>'
         : '<span style="color:var(--muted);">CSV embebido (original)</span>';
     if (srcEl) srcEl.innerHTML = srcHtml;
     if (modalSrc) modalSrc.innerHTML = srcHtml;
@@ -5286,7 +5286,7 @@ function openManualConfigForm(editIdx) {
     });
 
     html += '<div class="mcf-preview" id="mcfPreview">' +
-        '<div style="font-size: var(--fs-xs);color:#475569;margin-bottom:2px;">Código generado:</div>' +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-2xs);">Código generado:</div>' +
         '<div id="mcfPreviewCode" style="font-family:monospace;font-size: var(--fs-sm);color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
         '</div></div>';
 
@@ -5445,13 +5445,13 @@ function renderManualConfigsList() {
     }
 
     var csvCount = allConfigurations.filter(function(c) { return c._source !== 'manual'; }).length;
-    var html = '<div style="margin-top:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
-        '<div style="font-size: var(--fs-sm);font-weight:700;color:#1d4ed8;margin-bottom:6px;">' +
+    var html = '<div style="margin-top: var(--space-md);padding: var(--space-md);background:#eff6ff;border:1px solid #bfdbfe;border-radius: var(--radius-xl);">' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:#1d4ed8;margin-bottom: var(--space-sm);">' +
         manuals.length + ' manual(es) + ' + csvCount + ' CSV = ' + allConfigurations.length + ' total</div>';
 
     manuals.forEach(function(mc, i) {
         var code = mc.codigo_config_text || _buildConfigCode(mc);
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size: var(--fs-xs);">' +
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid #dbeafe;font-size: var(--fs-xs);">' +
             '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
             '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
             '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
@@ -5513,7 +5513,7 @@ handleConfigCSVImport = function(event) {
             '<div style="text-align:left;">' +
             '<p>Nuevo CSV: <strong>' + newConfigs.length + '</strong> configs</p>' +
             '<p>Configs manuales: <strong>' + manuals.length + '</strong> (' + dupes + ' ya existen en CSV, ' + unique + ' únicas)</p>' +
-            '<p style="margin-top:8px;font-size:12px;">¿Qué hacer con las configuraciones manuales?</p>' +
+            '<p style="margin-top: var(--space-sm);font-size:12px;">¿Qué hacer con las configuraciones manuales?</p>' +
             '</div>',
             function() {
                 // Keep unique manuals
@@ -5554,7 +5554,7 @@ displayConfigResult = function(filtered) {
     if (filtered.length === 1 && filtered[0]._source === 'manual') {
         var resultDiv = document.getElementById('cfg_result');
         if (resultDiv) {
-            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size: var(--fs-sm);font-weight:700;">MANUAL</span>';
+            var badge = '<span style="display:inline-block;margin-left: var(--space-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;font-size: var(--fs-sm);font-weight:700;">MANUAL</span>';
             resultDiv.querySelector('div') && (resultDiv.querySelector('strong').innerHTML += badge);
         }
     }
@@ -6049,27 +6049,27 @@ function renderKanban() {
 
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
-    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
+    var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
-    html += '<span style="font-size: var(--fs-sm);color:#475569;">' + totalActive + ' activos</span>';
+    html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
-        html += '<button onclick="renderPrecondBatchView()" style="background:var(--warn-fill);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+        html += '<button onclick="renderPrecondBatchView()" style="background:var(--warn-fill);color:#fff;border:none;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-xl);font-size: var(--fs-sm);font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
     }
     html += '</div>';
 
     // Search + Sort + Filter bar
-    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-    html += '<input type="text" aria-label="Buscar VIN, modelo u operador" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
-    html += '<select aria-label="Ordenar por" onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size: var(--fs-xs);background:#fff;">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;align-items:center;">';
+    html += '<input type="text" aria-label="Buscar VIN, modelo u operador" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding: var(--space-sm) var(--space-md);border:1px solid var(--border);border-radius: var(--radius-lg);font-size:13px;">';
+    html += '<select aria-label="Ordenar por" onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
     html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
     html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
     html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
     html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
     html += '</select>';
     if (opList.length > 0) {
-        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size: var(--fs-xs);background:#fff;">';
+        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
         html += '<option value="">Todos ops</option>';
         opList.forEach(function(op) {
             html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
@@ -6077,27 +6077,27 @@ function renderKanban() {
         html += '</select>';
     }
     if (_kanbanFilters.search || _kanbanFilters.operator) {
-        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size: var(--fs-sm);cursor:pointer;">✕ Limpiar</button>';
+        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:var(--surface-alt);border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size: var(--fs-sm);cursor:pointer;">✕ Limpiar</button>';
     }
     html += '</div>';
 
     // Apply filters to all non-archived vehicles
     var filteredVehicles = kanbanApplyFilters(vehicles);
 
-    html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+    html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap: var(--space-sm);align-items:start;">';
 
     columns.forEach(function(col) {
         var colVehicles = filteredVehicles.filter(function(v) { return v.status === col.key; });
 
-        html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
+        html += '<div style="background:var(--surface-alt);border-radius: var(--radius-xl);padding: var(--space-md);border-top:3px solid ' + col.color + ';min-height:120px;">';
         // Header
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-        html += '<span style="font-weight:700;font-size:12px;color:#0f172a;">' + col.icon + ' ' + col.label + '</span>';
-        html += '<span style="font-size: var(--fs-sm);padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-sm);">';
+        html += '<span style="font-weight:700;font-size:12px;color:var(--text);">' + col.icon + ' ' + col.label + '</span>';
+        html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
         html += '</div>';
 
         if (colVehicles.length === 0) {
-            html += '<div style="text-align:center;padding:15px;color:var(--muted);font-size: var(--fs-xs);">Sin vehiculos</div>';
+            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehiculos</div>';
         } else {
             colVehicles.forEach(function(v) {
                 var td = v.testData || {};
@@ -6126,11 +6126,11 @@ function renderKanban() {
                     else purposeBorder = '#0ea5e9';
                 }
 
-                html += '<div class="anim-card-hover" style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                html += '<div class="anim-card-hover" style="background:#fff;border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--border);border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
                 // VIN + copy + time
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-                html += '<span style="display:flex;align-items:center;gap:4px;">';
-                html += '<span style="font-family:monospace;font-size: var(--fs-sm);font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
+                html += '<span style="display:flex;align-items:center;gap: var(--space-xs);">';
+                html += '<span style="font-family:monospace;font-size: var(--fs-sm);font-weight:700;color:var(--text);">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size: var(--fs-sm);padding:0 2px;" title="Copiar VIN">📋</button>';
                 if (v.adhoc) html += '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>';
                 html += '</span>';
@@ -6138,21 +6138,21 @@ function renderKanban() {
                 html += '</div>';
                 // Config labels
                 if (modelo) {
-                    html += '<div style="font-size: var(--fs-xs);font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
+                    html += '<div style="font-size: var(--fs-xs);font-weight:600;color:var(--text);margin-top: var(--space-2xs);">' + modelo + '</div>';
                 }
-                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
-                if (motor) html += '<span style="font-size: var(--fs-xs);padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
-                if (regulacion) html += '<span style="font-size: var(--fs-xs);padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
+                html += '<div class="compact-hide" style="display:flex;gap: var(--space-xs);margin-top: var(--space-2xs);flex-wrap:wrap;">';
+                if (motor) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
+                if (regulacion) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
                 html += '</div>';
                 // Purpose badge
-                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                html += '<div class="compact-hide" style="display:flex;gap: var(--space-xs);margin-top: var(--space-xs);flex-wrap:wrap;">';
                 if (v.purpose) {
                     var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
-                    html += '<span style="font-size: var(--fs-xs);padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
+                    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
                 }
                 // Operator
                 if (td.operator) {
-                    html += '<span style="font-size: var(--fs-xs);padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
+                    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);color:var(--muted);">' + td.operator + '</span>';
                 }
                 html += '</div>';
 
@@ -6162,7 +6162,7 @@ function renderKanban() {
                     if (remaining > 0) {
                         var hrs = Math.floor(remaining / (1000 * 60 * 60));
                         var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        html += '<div class="compact-hide" style="margin-top:4px;font-size: var(--fs-xs);padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                        html += '<div class="compact-hide" style="margin-top: var(--space-xs);font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
                     }
                 }
                 html += '</div>';
@@ -6175,9 +6175,9 @@ function renderKanban() {
 
     // Summary metrics below
     var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
-    html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size: var(--fs-sm);"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#475569;">archivados</span></div>';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size: var(--fs-sm);"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#475569;">total historico</span></div>';
+    html += '<div style="display:flex;gap: var(--space-md);margin-top: var(--space-md);flex-wrap:wrap;">';
+    html += '<div style="padding: var(--space-sm) var(--space-lg);border-radius: var(--radius-xl);background:var(--surface-alt);font-size: var(--fs-sm);"><strong style="color:var(--text);">' + archived + '</strong> <span style="color:var(--muted);">archivados</span></div>';
+    html += '<div style="padding: var(--space-sm) var(--space-lg);border-radius: var(--radius-xl);background:var(--surface-alt);font-size: var(--fs-sm);"><strong style="color:var(--text);">' + vehicles.length + '</strong> <span style="color:var(--muted);">total historico</span></div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -6212,28 +6212,28 @@ function renderPrecondBatchView() {
     var soakData = null;
     try { var raw = localStorage.getItem('kia_soak_timer'); if (raw) soakData = JSON.parse(raw); } catch(e) {}
 
-    var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
-    html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size: var(--fs-sm);cursor:pointer;">← Kanban</button>';
+    var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
+    html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding: var(--space-sm) var(--space-md);border-radius: var(--radius-xl);font-size: var(--fs-sm);cursor:pointer;">← Kanban</button>';
     html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
-    html += '<span style="font-size: var(--fs-sm);color:#475569;">' + vehicles.length + ' vehiculos</span>';
+    html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + vehicles.length + ' vehiculos</span>';
     html += '</div>';
 
     // Batch actions
-    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
-    html += '<button onclick="batchScheduleTests()" style="background:var(--ok-fill);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;">🗓 Programar Tests (seleccionados)</button>';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
+    html += '<button onclick="batchScheduleTests()" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-sm) var(--space-lg);border-radius: var(--radius-xl);font-size: var(--fs-sm);font-weight:700;cursor:pointer;">🗓 Programar Tests (seleccionados)</button>';
     html += '</div>';
 
     // Table header
     html += '<div style="overflow-x:auto;">';
     html += '<table style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">';
-    html += '<thead><tr style="background:#f1f5f9;text-align:left;">';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;width:30px;"><input type="checkbox" id="batch-select-all" onchange="batchToggleAll(this.checked)" style="accent-color:var(--warn-text);"></th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">VIN</th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Modelo</th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Status</th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Precond</th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Soak</th>';
-    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Acciones</th>';
+    html += '<thead><tr style="background:var(--surface-alt);text-align:left;">';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);width:30px;"><input type="checkbox" id="batch-select-all" onchange="batchToggleAll(this.checked)" style="accent-color:var(--warn-text);"></th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">VIN</th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">Modelo</th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">Status</th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">Precond</th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">Soak</th>';
+    html += '<th style="padding: var(--space-sm) var(--space-sm);border-bottom:2px solid var(--border);">Acciones</th>';
     html += '</tr></thead><tbody>';
 
     vehicles.forEach(function(v) {
@@ -6276,23 +6276,23 @@ function renderPrecondBatchView() {
 
         var barColor = precondPct === 100 ? tokenColor('--ok-fill') : precondPct >= 50 ? tokenColor('--warn-fill') : tokenColor('--danger-fill');
 
-        html += '<tr style="border-bottom:1px solid #e2e8f0;" data-vid="' + v.id + '">';
-        html += '<td style="padding:8px 6px;"><input type="checkbox" class="batch-check" value="' + v.id + '" style="accent-color:var(--warn-text);"></td>';
-        html += '<td style="padding:8px 6px;font-weight:600;font-family:monospace;font-size: var(--fs-xs);">' + (v.vin || '').slice(-6) + '</td>';
-        html += '<td style="padding:8px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (v.configCode || '') + '">' + model + '</td>';
-        html += '<td style="padding:8px 6px;"><span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + statusColor + '15;color:' + statusColor + ';border:1px solid ' + statusColor + '30;">' + statusLabel + '</span></td>';
-        html += '<td style="padding:8px 6px;">';
-        html += '<div style="display:flex;align-items:center;gap:4px;">';
-        html += '<div style="width:50px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;"><div style="width:' + precondPct + '%;height:100%;background:' + barColor + ';border-radius:3px;"></div></div>';
+        html += '<tr style="border-bottom:1px solid var(--border);" data-vid="' + v.id + '">';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);"><input type="checkbox" class="batch-check" value="' + v.id + '" style="accent-color:var(--warn-text);"></td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);font-weight:600;font-family:monospace;font-size: var(--fs-xs);">' + (v.vin || '').slice(-6) + '</td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (v.configCode || '') + '">' + model + '</td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);"><span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:' + statusColor + '15;color:' + statusColor + ';border:1px solid ' + statusColor + '30;">' + statusLabel + '</span></td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-xs);">';
+        html += '<div style="width:50px;height:6px;background:var(--surface-alt);border-radius: var(--radius-md);overflow:hidden;"><div style="width:' + precondPct + '%;height:100%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div>';
         html += '<span style="font-size: var(--fs-xs);color:' + barColor + ';">' + filled + '/' + total + '</span>';
         if (precondOk) html += ' <span style="font-size: var(--fs-xs);">✅</span>';
         html += '</div></td>';
-        html += '<td style="padding:8px 6px;"><span style="font-size: var(--fs-xs);color:' + soakColor + ';">' + soakStatus + '</span></td>';
-        html += '<td style="padding:8px 6px;">';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);"><span style="font-size: var(--fs-xs);color:' + soakColor + ';">' + soakStatus + '</span></td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);">';
         if (precondOk) {
-            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
+            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
         } else {
-            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
         }
         html += '</td></tr>';
     });
