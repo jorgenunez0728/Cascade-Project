@@ -5127,7 +5127,34 @@ body.cop-present .cop-toolbar    { display: none; }
 /* En pantallas angostas el tablero se apila: una columna por día, en orden. */
 @media (max-width: 720px) {
     .tp-week-board { grid-template-columns: 1fr; }
-    .tp-week-head  { flex-direction: column; align-items: stretch; }
+    .tp-week-head  { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+    /* [v23] La navegación de semana cabe en UNA fila. Antes ◀ / título / ▶ envolvían a
+       tres renglones y el tablero empezaba media pantalla más abajo — en el teléfono
+       desde el que se reportó el #126, lo primero que se veía era el encabezado. */
+    .tp-week-nav { flex-wrap: nowrap; }
+    .tp-week-nav > .tp-btn { flex: 0 0 auto; }
+    .tp-week-title { flex: 1; min-width: 0; flex-wrap: wrap; font-size: var(--fs-sm); }
+    .tp-week-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-week-headacts { justify-content: flex-start; }
+}
+
+/* [v23] Entre 400 y 900 px la semana se LEE como una semana: una fila de columnas que
+   se desliza con enganche, en vez de cinco bloques apilados que no se reconocen como
+   días. A 427 px (el teléfono del reporte) una columna al 86% mide ~367 px — más que
+   los 347 px que daba la pila, así que no se pierde nada de ancho y se gana la lectura
+   de semana. Mover sigue siendo cosa del toque, no del arrastre. */
+@media (min-width: 400px) and (max-width: 900px) {
+    .tp-week-board {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 86%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: var(--space-xs);
+        overscroll-behavior-x: contain;
+    }
+    .tp-week-col { scroll-snap-align: start; }
 }
 
 @media print {
@@ -5292,6 +5319,58 @@ body.cop-present .cop-toolbar    { display: none; }
 }
 .tp-week-kpi--unplanned .tp-week-kpi-n { color: var(--info-text); }
 .tp-week-card--unplanned { border-left: 3px solid var(--info-text); }
+
+/* ── [v23] Mover con el pulgar ──────────────────────────────────────────────
+   El tablero de la semana se opera en un teléfono de 427 px, donde las columnas
+   se apilan: el arrastre no sirve (bloquea el scroll y el destino queda fuera de
+   pantalla), así que el gesto de verdad es tocar el asa y tocar el día. */
+.tp-week-selbar {
+    /* FIJA y colgada de <body>: si empujara el contenido, el click que el navegador
+       sintetiza tras el touchend caería sobre otro elemento (medido: abría el modal
+       de "Agregar prueba"). Al pie, además, la alcanza el pulgar. */
+    position: fixed; left: var(--space-md); right: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px) + 56px);
+    z-index: 900;
+    display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--info-bg); border: 1px solid var(--info-text);
+    border-radius: var(--radius-lg);
+    font-size: var(--fs-sm); color: var(--info-text);
+    box-shadow: var(--shadow-lg, var(--shadow-md));
+    animation: accordionOpen var(--dur-fast) ease-out;
+}
+@media (min-width: 1024px) {
+    /* En escritorio no hay bottom-nav que esquivar. */
+    .tp-week-selbar { bottom: var(--space-lg); left: auto; right: var(--space-lg); max-width: 420px; }
+}
+.tp-week-selbar-txt { flex: 1; min-width: 0; }
+.tp-week-selbar .tp-btn { flex-shrink: 0; }
+
+/* Mientras hay algo seleccionado, cada columna es un destino tocable. */
+.tp-week-board--picking .tp-week-col-body {
+    outline: 2px dashed var(--info-text); outline-offset: -4px;
+    min-height: 72px; cursor: pointer;
+}
+.tp-week-board--picking .tp-week-col-body::before {
+    content: 'Mover aquí';
+    display: block; text-align: center;
+    font-size: var(--fs-sm); font-weight: 700; color: var(--info-text);
+    padding: var(--space-xs) 0;
+}
+.tp-week-board--picking .tp-week-card { opacity: 0.55; }
+.tp-week-board--picking .tp-week-grip--sel { opacity: 1; }
+
+/* El asa: la caja se queda del tamaño que se ve y el ÁREA crece solo con el dedo
+   (patrón .u-hit de v22.1 — el ::after va en un elemento normal, nunca un input). */
+@media (pointer: coarse) {
+    .tp-week-grip { position: relative; }
+    .tp-week-grip::after {
+        content: ''; position: absolute;
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: var(--target-min, 44px); height: var(--target-min, 44px);
+    }
+}
+
     </style>
 </head>
 
@@ -7635,7 +7714,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609022101';
+var APP_BUILD = '202609022110';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8030,14 +8109,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609022101' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609022110' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609022101' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609022110' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8053,7 +8132,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609022101' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609022110' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -13532,6 +13611,19 @@ var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
 /** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
 function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
+/**
+ * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha
+ * quien quiera pintar el estado "moviendo…" sin repintar la pantalla entera.
+ * `detail.id` null significa que ya no hay selección.
+ */
+function _gridKbdNotify() {
+    try {
+        document.dispatchEvent(new CustomEvent('grid:selection', {
+            detail: { id: _gridKbd.id, from: _gridKbd.from, label: _gridKbd.label, ns: _gridKbd.ns }
+        }));
+    } catch (e) {}
+}
+
 function gridKbdCancel(silencioso) {
     var label = _gridKbd.label;
     // La clase de selección la elige cada rejilla, así que se recuerda con la selección
@@ -13539,6 +13631,7 @@ function gridKbdCancel(silencioso) {
     var cls = _gridKbd.cls || 'grid-drag-kbdsel';
     _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
     document.querySelectorAll('.' + cls).forEach(function(s) { s.classList.remove(cls); });
+    _gridKbdNotify();
     if (!silencioso && typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
 }
 
@@ -13619,6 +13712,11 @@ function gridDragInit(container, opts) {
         var pt = getXY(e);
         _gridDrag.startX = pt.x; _gridDrag.startY = pt.y; _gridDrag.committed = false;
         _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        // v23: el ELEMENTO del gesto, no solo su celda. `onTap` recibía siempre `null`
+        // como segundo argumento, así que un consumidor no podía hacer nada útil con un
+        // toque — y el toque es la única forma de mover con el pulgar en un tablero que
+        // en móvil se apila y no cabe en pantalla.
+        _gridDrag.el = slotEl;
         if (!slotEl.getAttribute(ID_ATTR)) {
             // Celda sin carga: no hay arrastre, pero el toque corto sigue valiendo.
             _gridDrag.timer = setTimeout(function() { _gridDrag.timer = null; }, LONG_PRESS_MS);
@@ -13630,6 +13728,35 @@ function gridDragInit(container, opts) {
             container.style.touchAction = 'none';
             startDragMode(slotEl, pt);
         }, LONG_PRESS_MS);
+    }
+
+    // Las opciones de la máquina de selección: las MISMAS para teclado y para toque,
+    // así que hay una sola regla de legalidad (`canDrop`) y un solo movimiento.
+    function kbdOpts() {
+        return { idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
+                 itemSelector: SEL, refocusSelector: opts.refocusSelector,
+                 label: labelOf, canDrop: canDrop, onDrop: onDrop };
+    }
+
+    /** Un toque corto que no llegó a arrastre. */
+    function _gridTap(cell, el) {
+        if (onTap) onTap(cell, el || null);
+    }
+
+    /**
+     * Desplaza la página cuando el arrastre llega al borde. Sin esto, `preventDefault`
+     * en `touchmove` deja la vista clavada y no se puede alcanzar un destino que quedó
+     * fuera de pantalla. Va detrás de `opts.autoScroll` para no tocar el mapa de zonas
+     * de Consumibles, cuya rejilla no se desplaza.
+     */
+    function _autoScroll(y) {
+        if (!opts.autoScroll) return;
+        var alto = window.innerHeight || 800;
+        var margen = Math.max(60, alto * 0.15);
+        var d = 0;
+        if (y < margen) d = -Math.ceil((margen - y) / 6);
+        else if (y > alto - margen) d = Math.ceil((y - (alto - margen)) / 6);
+        if (d) window.scrollBy(0, d);
     }
 
     function onPointerMove(e) {
@@ -13648,20 +13775,25 @@ function gridDragInit(container, opts) {
             _gridDrag.ghostEl.style.left = (pt.x - GHOST_W / 2) + 'px';
             _gridDrag.ghostEl.style.top  = (pt.y - GHOST_W / 2) + 'px';
         }
+        _autoScroll(pt.y);
     }
 
     function onPointerUp(e) {
         if (_gridDrag.timer) {
             clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
-            var tapCell = _gridDrag.from; _gridDrag.from = null;
-            if (tapCell && onTap) onTap(tapCell, null);
+            var tapCell = _gridDrag.from, tapEl = _gridDrag.el;
+            _gridDrag.from = null; _gridDrag.el = null;
+            if (tapCell) _gridTap(tapCell, tapEl);
             return;
         }
         if (!_gridDrag.active || _gridDrag.ns !== NS) return;
         var pt = getXY(e);
-        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from;
+        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from, el0 = _gridDrag.el;
         cancelDrag();
-        if (!comprometido) { if (from && onTap) onTap(from, null); return; }
+        // Un arrastre de verdad NO debe además contar como toque: algunos navegadores
+        // sintetizan un `click` al soltar.
+        if (comprometido) window._gridSuppressClick = true;
+        if (!comprometido) { if (from) _gridTap(from, el0); return; }
 
         var targetEl = document.elementFromPoint(pt.x, pt.y);
         if (targetEl) targetEl = targetEl.closest(SEL);
@@ -13680,15 +13812,25 @@ function gridDragInit(container, opts) {
         slot.addEventListener('touchstart', onPointerDown, { passive: true });
         slot.addEventListener('mousedown', onPointerDown);
         slot.addEventListener('click', function(e) {
-            if (e.detail !== 0) return;   // sólo Enter/Espacio; un clic real trae detail ≥ 1
-            // Mismo motivo que en onPointerDown: seleccionar el asa burbujeaba hasta su
-            // propia columna, que leía "misma celda" y cancelaba la selección al instante.
+            // Mismo motivo que en onPointerDown: seleccionar el asa burbujea hasta su
+            // propia columna, que leería "misma celda" y cancelaría la selección al instante.
+            if (e.detail === 0) {                 // Enter/Espacio
+                e.stopPropagation();
+                gridKbdSelect(slot, kbdOpts());
+                return;
+            }
+            if (!opts.tapToMove) return;
+            // [v23] TOCAR PARA MOVER, y va en `click` — NO en `touchend`.
+            //
+            // Se intentó primero en el toque (`onPointerUp`) y funcionaba… hasta que el
+            // tablero pasó a ser un carrusel horizontal con enganche. En un contenedor
+            // que se desplaza en X el navegador considera el gesto un posible barrido y
+            // dispara `touchcancel`: el `touchend` no llega nunca y la selección no
+            // ocurría. `click` llega siempre, incluso después de que el navegador
+            // descarte el barrido. Medido a 427 px, que es el caso que importa.
+            if (window._gridSuppressClick) { window._gridSuppressClick = false; return; }
             e.stopPropagation();
-            gridKbdSelect(slot, {
-                idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
-                itemSelector: SEL, refocusSelector: opts.refocusSelector,
-                label: labelOf, canDrop: canDrop, onDrop: onDrop
-            });
+            gridKbdSelect(slot, kbdOpts());
         });
     });
 
@@ -13731,6 +13873,7 @@ function gridKbdSelect(slotEl, o) {
             var movido = _gridKbd.label, origen = _gridKbd.from, quien = _gridKbd.id;
             _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
             document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+            _gridKbdNotify();
             o.onDrop(quien, origen, cell, slotEl);
             // onDrop repinta: el foco se perdería del todo sin volver a buscarlo.
             // OJO: `itemSelector` puede ser una LISTA separada por comas (el tablero de la
@@ -13758,6 +13901,7 @@ function gridKbdSelect(slotEl, o) {
     _gridKbd = { id: id, from: cell, label: label, ns: o.ns, cls: o.selectedClass };
     document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
     slotEl.classList.add(o.selectedClass);
+    _gridKbdNotify();
     if (typeof a11yAnnounce === 'function') {
         a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
     }
@@ -31560,6 +31704,21 @@ function tpWeekBoardDragInit(host) {
         cellAttr: 'data-drag-cell',
         selectedClass: 'tp-week-grip--sel',
         ghostWidth: 44,
+        // [v23] Dos cosas que faltaban para poder operar el tablero con el pulgar:
+        //
+        //  · `tapToMove`: un TOQUE en el asa selecciona y un toque en un día mueve —
+        //    la misma máquina de estados del teclado (v17.8), que ya existía y solo se
+        //    alcanzaba con Enter. En un teléfono de 427 px el tablero se apila en una
+        //    columna por día; el arrastre hace `preventDefault` en `touchmove` (la
+        //    página no puede desplazarse mientras arrastras) y el destino se resuelve
+        //    con `elementFromPoint`, que solo ve lo que está en pantalla. Mover del
+        //    lunes al viernes con el dedo era imposible. Es la pantalla desde la que
+        //    se reportó el #126.
+        //  · `autoScroll`: para el arrastre de verdad, desplazar al llegar al borde.
+        //    Va detrás de una opción para NO tocar `invInitZoneDrag`, cuya rejilla no
+        //    se desplaza.
+        tapToMove: true,
+        autoScroll: true,
         label: function(id, el) { return (el && el.getAttribute('aria-label')) || 'La prueba'; },
         canDrop: function(id, from, to, el) {
             if (!to || to === from || to === '_sin') return false;
@@ -31579,6 +31738,48 @@ function tpWeekBoardDragInit(host) {
             var p = String(id || '').split('::');
             tpWeekDoMove(p[0], p[1], to, false);
         }
+    });
+    _tpWireSelectionBar();
+}
+
+/**
+ * La barra de "estás moviendo algo".
+ *
+ * Se cablea UNA vez para toda la plataforma y NO repinta el tablero: repintar
+ * destruiría el elemento que el usuario acaba de tocar.
+ *
+ * Va `position: fixed` al pie de la ventana, FUERA del flujo, y colgada de <body>.
+ * La primera versión la insertaba antes del tablero y eso movía todo hacia abajo:
+ * el `click` que el navegador sintetiza después de un `touchend` llega a las mismas
+ * coordenadas de pantalla, que para entonces son de OTRO elemento — en la prueba a
+ * 427 px, tocar el asa terminaba abriendo el modal de "Agregar prueba". Una barra
+ * que aparece bajo el dedo no puede empujar lo que hay bajo el dedo. De paso, al
+ * pie es donde alcanza el pulgar.
+ */
+function _tpWireSelectionBar() {
+    if (window._tpSelBarWired) return;
+    window._tpSelBarWired = true;
+    document.addEventListener('grid:selection', function(e) {
+        var d = (e && e.detail) || {};
+        var bar = document.getElementById('tp-week-selbar');
+        var board = document.getElementById('tp-myweek-board');
+        if (d.ns !== 'tp-week' || !d.id) {
+            if (bar) bar.remove();
+            if (board) board.classList.remove('tp-week-board--picking');
+            return;
+        }
+        if (board) board.classList.add('tp-week-board--picking');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'tp-week-selbar';
+            bar.className = 'tp-week-selbar';
+            bar.setAttribute('role', 'status');
+            document.body.appendChild(bar);
+        }
+        bar.innerHTML = '<span class="tp-week-selbar-txt">Moviendo <strong>' +
+            String(d.label || 'la prueba').replace(/^Mover /, '').split('.')[0] +
+            '</strong> — toca el día donde va</span>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="gridKbdCancel()">Cancelar</button>';
     });
 }
 
@@ -47196,7 +47397,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609022101' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609022110' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

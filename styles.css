@@ -4686,7 +4686,34 @@ body.cop-present .cop-toolbar    { display: none; }
 /* En pantallas angostas el tablero se apila: una columna por día, en orden. */
 @media (max-width: 720px) {
     .tp-week-board { grid-template-columns: 1fr; }
-    .tp-week-head  { flex-direction: column; align-items: stretch; }
+    .tp-week-head  { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+    /* [v23] La navegación de semana cabe en UNA fila. Antes ◀ / título / ▶ envolvían a
+       tres renglones y el tablero empezaba media pantalla más abajo — en el teléfono
+       desde el que se reportó el #126, lo primero que se veía era el encabezado. */
+    .tp-week-nav { flex-wrap: nowrap; }
+    .tp-week-nav > .tp-btn { flex: 0 0 auto; }
+    .tp-week-title { flex: 1; min-width: 0; flex-wrap: wrap; font-size: var(--fs-sm); }
+    .tp-week-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-week-headacts { justify-content: flex-start; }
+}
+
+/* [v23] Entre 400 y 900 px la semana se LEE como una semana: una fila de columnas que
+   se desliza con enganche, en vez de cinco bloques apilados que no se reconocen como
+   días. A 427 px (el teléfono del reporte) una columna al 86% mide ~367 px — más que
+   los 347 px que daba la pila, así que no se pierde nada de ancho y se gana la lectura
+   de semana. Mover sigue siendo cosa del toque, no del arrastre. */
+@media (min-width: 400px) and (max-width: 900px) {
+    .tp-week-board {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 86%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: var(--space-xs);
+        overscroll-behavior-x: contain;
+    }
+    .tp-week-col { scroll-snap-align: start; }
 }
 
 @media print {
@@ -4851,3 +4878,55 @@ body.cop-present .cop-toolbar    { display: none; }
 }
 .tp-week-kpi--unplanned .tp-week-kpi-n { color: var(--info-text); }
 .tp-week-card--unplanned { border-left: 3px solid var(--info-text); }
+
+/* ── [v23] Mover con el pulgar ──────────────────────────────────────────────
+   El tablero de la semana se opera en un teléfono de 427 px, donde las columnas
+   se apilan: el arrastre no sirve (bloquea el scroll y el destino queda fuera de
+   pantalla), así que el gesto de verdad es tocar el asa y tocar el día. */
+.tp-week-selbar {
+    /* FIJA y colgada de <body>: si empujara el contenido, el click que el navegador
+       sintetiza tras el touchend caería sobre otro elemento (medido: abría el modal
+       de "Agregar prueba"). Al pie, además, la alcanza el pulgar. */
+    position: fixed; left: var(--space-md); right: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px) + 56px);
+    z-index: 900;
+    display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--info-bg); border: 1px solid var(--info-text);
+    border-radius: var(--radius-lg);
+    font-size: var(--fs-sm); color: var(--info-text);
+    box-shadow: var(--shadow-lg, var(--shadow-md));
+    animation: accordionOpen var(--dur-fast) ease-out;
+}
+@media (min-width: 1024px) {
+    /* En escritorio no hay bottom-nav que esquivar. */
+    .tp-week-selbar { bottom: var(--space-lg); left: auto; right: var(--space-lg); max-width: 420px; }
+}
+.tp-week-selbar-txt { flex: 1; min-width: 0; }
+.tp-week-selbar .tp-btn { flex-shrink: 0; }
+
+/* Mientras hay algo seleccionado, cada columna es un destino tocable. */
+.tp-week-board--picking .tp-week-col-body {
+    outline: 2px dashed var(--info-text); outline-offset: -4px;
+    min-height: 72px; cursor: pointer;
+}
+.tp-week-board--picking .tp-week-col-body::before {
+    content: 'Mover aquí';
+    display: block; text-align: center;
+    font-size: var(--fs-sm); font-weight: 700; color: var(--info-text);
+    padding: var(--space-xs) 0;
+}
+.tp-week-board--picking .tp-week-card { opacity: 0.55; }
+.tp-week-board--picking .tp-week-grip--sel { opacity: 1; }
+
+/* El asa: la caja se queda del tamaño que se ve y el ÁREA crece solo con el dedo
+   (patrón .u-hit de v22.1 — el ::after va en un elemento normal, nunca un input). */
+@media (pointer: coarse) {
+    .tp-week-grip { position: relative; }
+    .tp-week-grip::after {
+        content: ''; position: absolute;
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: var(--target-min, 44px); height: var(--target-min, 44px);
+    }
+}
+

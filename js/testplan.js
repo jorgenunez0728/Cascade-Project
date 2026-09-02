@@ -4569,6 +4569,21 @@ function tpWeekBoardDragInit(host) {
         cellAttr: 'data-drag-cell',
         selectedClass: 'tp-week-grip--sel',
         ghostWidth: 44,
+        // [v23] Dos cosas que faltaban para poder operar el tablero con el pulgar:
+        //
+        //  · `tapToMove`: un TOQUE en el asa selecciona y un toque en un día mueve —
+        //    la misma máquina de estados del teclado (v17.8), que ya existía y solo se
+        //    alcanzaba con Enter. En un teléfono de 427 px el tablero se apila en una
+        //    columna por día; el arrastre hace `preventDefault` en `touchmove` (la
+        //    página no puede desplazarse mientras arrastras) y el destino se resuelve
+        //    con `elementFromPoint`, que solo ve lo que está en pantalla. Mover del
+        //    lunes al viernes con el dedo era imposible. Es la pantalla desde la que
+        //    se reportó el #126.
+        //  · `autoScroll`: para el arrastre de verdad, desplazar al llegar al borde.
+        //    Va detrás de una opción para NO tocar `invInitZoneDrag`, cuya rejilla no
+        //    se desplaza.
+        tapToMove: true,
+        autoScroll: true,
         label: function(id, el) { return (el && el.getAttribute('aria-label')) || 'La prueba'; },
         canDrop: function(id, from, to, el) {
             if (!to || to === from || to === '_sin') return false;
@@ -4588,6 +4603,48 @@ function tpWeekBoardDragInit(host) {
             var p = String(id || '').split('::');
             tpWeekDoMove(p[0], p[1], to, false);
         }
+    });
+    _tpWireSelectionBar();
+}
+
+/**
+ * La barra de "estás moviendo algo".
+ *
+ * Se cablea UNA vez para toda la plataforma y NO repinta el tablero: repintar
+ * destruiría el elemento que el usuario acaba de tocar.
+ *
+ * Va `position: fixed` al pie de la ventana, FUERA del flujo, y colgada de <body>.
+ * La primera versión la insertaba antes del tablero y eso movía todo hacia abajo:
+ * el `click` que el navegador sintetiza después de un `touchend` llega a las mismas
+ * coordenadas de pantalla, que para entonces son de OTRO elemento — en la prueba a
+ * 427 px, tocar el asa terminaba abriendo el modal de "Agregar prueba". Una barra
+ * que aparece bajo el dedo no puede empujar lo que hay bajo el dedo. De paso, al
+ * pie es donde alcanza el pulgar.
+ */
+function _tpWireSelectionBar() {
+    if (window._tpSelBarWired) return;
+    window._tpSelBarWired = true;
+    document.addEventListener('grid:selection', function(e) {
+        var d = (e && e.detail) || {};
+        var bar = document.getElementById('tp-week-selbar');
+        var board = document.getElementById('tp-myweek-board');
+        if (d.ns !== 'tp-week' || !d.id) {
+            if (bar) bar.remove();
+            if (board) board.classList.remove('tp-week-board--picking');
+            return;
+        }
+        if (board) board.classList.add('tp-week-board--picking');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'tp-week-selbar';
+            bar.className = 'tp-week-selbar';
+            bar.setAttribute('role', 'status');
+            document.body.appendChild(bar);
+        }
+        bar.innerHTML = '<span class="tp-week-selbar-txt">Moviendo <strong>' +
+            String(d.label || 'la prueba').replace(/^Mover /, '').split('.')[0] +
+            '</strong> — toca el día donde va</span>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="gridKbdCancel()">Cancelar</button>';
     });
 }
 

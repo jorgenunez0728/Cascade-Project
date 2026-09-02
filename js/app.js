@@ -6178,6 +6178,19 @@ var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
 /** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
 function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
+/**
+ * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha
+ * quien quiera pintar el estado "moviendo…" sin repintar la pantalla entera.
+ * `detail.id` null significa que ya no hay selección.
+ */
+function _gridKbdNotify() {
+    try {
+        document.dispatchEvent(new CustomEvent('grid:selection', {
+            detail: { id: _gridKbd.id, from: _gridKbd.from, label: _gridKbd.label, ns: _gridKbd.ns }
+        }));
+    } catch (e) {}
+}
+
 function gridKbdCancel(silencioso) {
     var label = _gridKbd.label;
     // La clase de selección la elige cada rejilla, así que se recuerda con la selección
@@ -6185,6 +6198,7 @@ function gridKbdCancel(silencioso) {
     var cls = _gridKbd.cls || 'grid-drag-kbdsel';
     _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
     document.querySelectorAll('.' + cls).forEach(function(s) { s.classList.remove(cls); });
+    _gridKbdNotify();
     if (!silencioso && typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
 }
 
@@ -6265,6 +6279,11 @@ function gridDragInit(container, opts) {
         var pt = getXY(e);
         _gridDrag.startX = pt.x; _gridDrag.startY = pt.y; _gridDrag.committed = false;
         _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        // v23: el ELEMENTO del gesto, no solo su celda. `onTap` recibía siempre `null`
+        // como segundo argumento, así que un consumidor no podía hacer nada útil con un
+        // toque — y el toque es la única forma de mover con el pulgar en un tablero que
+        // en móvil se apila y no cabe en pantalla.
+        _gridDrag.el = slotEl;
         if (!slotEl.getAttribute(ID_ATTR)) {
             // Celda sin carga: no hay arrastre, pero el toque corto sigue valiendo.
             _gridDrag.timer = setTimeout(function() { _gridDrag.timer = null; }, LONG_PRESS_MS);
@@ -6276,6 +6295,35 @@ function gridDragInit(container, opts) {
             container.style.touchAction = 'none';
             startDragMode(slotEl, pt);
         }, LONG_PRESS_MS);
+    }
+
+    // Las opciones de la máquina de selección: las MISMAS para teclado y para toque,
+    // así que hay una sola regla de legalidad (`canDrop`) y un solo movimiento.
+    function kbdOpts() {
+        return { idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
+                 itemSelector: SEL, refocusSelector: opts.refocusSelector,
+                 label: labelOf, canDrop: canDrop, onDrop: onDrop };
+    }
+
+    /** Un toque corto que no llegó a arrastre. */
+    function _gridTap(cell, el) {
+        if (onTap) onTap(cell, el || null);
+    }
+
+    /**
+     * Desplaza la página cuando el arrastre llega al borde. Sin esto, `preventDefault`
+     * en `touchmove` deja la vista clavada y no se puede alcanzar un destino que quedó
+     * fuera de pantalla. Va detrás de `opts.autoScroll` para no tocar el mapa de zonas
+     * de Consumibles, cuya rejilla no se desplaza.
+     */
+    function _autoScroll(y) {
+        if (!opts.autoScroll) return;
+        var alto = window.innerHeight || 800;
+        var margen = Math.max(60, alto * 0.15);
+        var d = 0;
+        if (y < margen) d = -Math.ceil((margen - y) / 6);
+        else if (y > alto - margen) d = Math.ceil((y - (alto - margen)) / 6);
+        if (d) window.scrollBy(0, d);
     }
 
     function onPointerMove(e) {
@@ -6294,20 +6342,25 @@ function gridDragInit(container, opts) {
             _gridDrag.ghostEl.style.left = (pt.x - GHOST_W / 2) + 'px';
             _gridDrag.ghostEl.style.top  = (pt.y - GHOST_W / 2) + 'px';
         }
+        _autoScroll(pt.y);
     }
 
     function onPointerUp(e) {
         if (_gridDrag.timer) {
             clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
-            var tapCell = _gridDrag.from; _gridDrag.from = null;
-            if (tapCell && onTap) onTap(tapCell, null);
+            var tapCell = _gridDrag.from, tapEl = _gridDrag.el;
+            _gridDrag.from = null; _gridDrag.el = null;
+            if (tapCell) _gridTap(tapCell, tapEl);
             return;
         }
         if (!_gridDrag.active || _gridDrag.ns !== NS) return;
         var pt = getXY(e);
-        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from;
+        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from, el0 = _gridDrag.el;
         cancelDrag();
-        if (!comprometido) { if (from && onTap) onTap(from, null); return; }
+        // Un arrastre de verdad NO debe además contar como toque: algunos navegadores
+        // sintetizan un `click` al soltar.
+        if (comprometido) window._gridSuppressClick = true;
+        if (!comprometido) { if (from) _gridTap(from, el0); return; }
 
         var targetEl = document.elementFromPoint(pt.x, pt.y);
         if (targetEl) targetEl = targetEl.closest(SEL);
@@ -6326,15 +6379,25 @@ function gridDragInit(container, opts) {
         slot.addEventListener('touchstart', onPointerDown, { passive: true });
         slot.addEventListener('mousedown', onPointerDown);
         slot.addEventListener('click', function(e) {
-            if (e.detail !== 0) return;   // sólo Enter/Espacio; un clic real trae detail ≥ 1
-            // Mismo motivo que en onPointerDown: seleccionar el asa burbujeaba hasta su
-            // propia columna, que leía "misma celda" y cancelaba la selección al instante.
+            // Mismo motivo que en onPointerDown: seleccionar el asa burbujea hasta su
+            // propia columna, que leería "misma celda" y cancelaría la selección al instante.
+            if (e.detail === 0) {                 // Enter/Espacio
+                e.stopPropagation();
+                gridKbdSelect(slot, kbdOpts());
+                return;
+            }
+            if (!opts.tapToMove) return;
+            // [v23] TOCAR PARA MOVER, y va en `click` — NO en `touchend`.
+            //
+            // Se intentó primero en el toque (`onPointerUp`) y funcionaba… hasta que el
+            // tablero pasó a ser un carrusel horizontal con enganche. En un contenedor
+            // que se desplaza en X el navegador considera el gesto un posible barrido y
+            // dispara `touchcancel`: el `touchend` no llega nunca y la selección no
+            // ocurría. `click` llega siempre, incluso después de que el navegador
+            // descarte el barrido. Medido a 427 px, que es el caso que importa.
+            if (window._gridSuppressClick) { window._gridSuppressClick = false; return; }
             e.stopPropagation();
-            gridKbdSelect(slot, {
-                idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
-                itemSelector: SEL, refocusSelector: opts.refocusSelector,
-                label: labelOf, canDrop: canDrop, onDrop: onDrop
-            });
+            gridKbdSelect(slot, kbdOpts());
         });
     });
 
@@ -6377,6 +6440,7 @@ function gridKbdSelect(slotEl, o) {
             var movido = _gridKbd.label, origen = _gridKbd.from, quien = _gridKbd.id;
             _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
             document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+            _gridKbdNotify();
             o.onDrop(quien, origen, cell, slotEl);
             // onDrop repinta: el foco se perdería del todo sin volver a buscarlo.
             // OJO: `itemSelector` puede ser una LISTA separada por comas (el tablero de la
@@ -6404,6 +6468,7 @@ function gridKbdSelect(slotEl, o) {
     _gridKbd = { id: id, from: cell, label: label, ns: o.ns, cls: o.selectedClass };
     document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
     slotEl.classList.add(o.selectedClass);
+    _gridKbdNotify();
     if (typeof a11yAnnounce === 'function') {
         a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
     }
