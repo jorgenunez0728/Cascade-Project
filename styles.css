@@ -4835,3 +4835,9 @@ body.cop-present .cop-toolbar    { display: none; }
 .cop-co2-conclusion--pass     { border-left-color: var(--ok-fill);     background: var(--ok-bg);     color: var(--ok-text); }
 .cop-co2-conclusion--fail     { border-left-color: var(--danger-fill); background: var(--danger-bg); color: var(--danger-text); }
 .cop-co2-conclusion--continue { border-left-color: var(--warn-fill);   background: var(--warn-bg);   color: var(--warn-text); }
+
+/* [v23] Limpiar propuestas duplicadas de una semana (índice de semanas). */
+.tp-week-index-clean {
+    display: flex; flex-wrap: wrap; gap: var(--space-xs);
+    margin-top: var(--space-sm);
+}

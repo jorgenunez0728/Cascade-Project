@@ -1307,16 +1307,17 @@ function _fbPullSeed(col, remoteData, pulled) {
         // (v16.4 suma la capacidad real y el backlog: sin esto, sincronizar contra una copia
         // en la nube escrita por una versión anterior borraba en silencio los vehículos por
         // par configurados y las configuraciones ya descartadas de la cola).
-        // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana) y
-        // autoPlanLastRun: sin esto, sincronizar contra una copia escrita por código
-        // anterior borraba la configuración del planificador en silencio.
+        // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana): sin
+        // esto, sincronizar contra una copia escrita por código anterior borraba la
+        // configuración del planificador en silencio. (v23: `autoPlanLastRun` salió de
+        // la lista junto con el auto-plan que guardaba.)
         // v20 suma `soak` (horas de reposo por familia/norma, de donde sale el hueco
         // preacon→prueba) y `_migr` (guardas de migración de una sola vez). Si no se
         // preservan, un pull desde código anterior los deja undefined: el laboratorio
         // pierde su tabla de soak, y la guarda perdida hace que la migración VUELVA a
         // correr. Es la misma trampa que documentó plannerCfg en v18.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
-         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun',
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'capacity',
          'soak', '_migr'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
@@ -2278,17 +2279,29 @@ function fbMergeAnalyze(remoteData) {
         };
     }
 
-    // ── TestPlan: compare testedList by configText+date ──
+    // ── TestPlan: comparar testedList por configText + fecha + IDENTIDAD ──
+    //
+    // v23: la clave era `configText|date` a secas, y eso PIERDE evidencia. Con
+    // `vehiclesPerSlot > 1` —justo la configuración que produjo el "40" del issue
+    // #126— el laboratorio corre dos unidades de la misma configuración el mismo día;
+    // la segunda se clasificaba como duplicada y se descartaba en silencio. La
+    // identidad del vehículo (v23 escribe `vehicleId`/`vin`; antes solo el VIN dentro
+    // de `note`) es lo que las distingue. Las declaraciones a mano se distinguen por
+    // `itemUid`, que también es único.
     if (remoteData.testplan) {
+        var _tKey = function(t) {
+            if (!t) return '';
+            var ident = t.vehicleId || t.vin || t.itemUid ||
+                        ((typeof _tpExtractVin === 'function') ? (_tpExtractVin(t.note) || '') : '');
+            return t.configText + '|' + (t.date || '') + '|' + ident;
+        };
         var localTested = {};
-        (tpState.testedList || []).forEach(function(t) {
-            localTested[t.configText + '|' + (t.date || '')] = t;
-        });
+        (tpState.testedList || []).forEach(function(t) { localTested[_tKey(t)] = t; });
         var remoteTested = (remoteData.testplan.testedList || []);
         var newTests = [], dupTests = [];
 
         remoteTested.forEach(function(rt) {
-            var key = rt.configText + '|' + (rt.date || '');
+            var key = _tKey(rt);
             if (!localTested[key]) newTests.push(rt);
             else dupTests.push(key);
         });
@@ -2662,6 +2675,13 @@ function fbMergeExecute(remoteData, analysis, choices) {
                         }
                     });
                 }
+                // v23: tras unir los dos lados, quitar las propuestas que quedaron por
+                // duplicado. Cada dispositivo generaba su propio plan (con su propio
+                // `id`), así que ninguno reconocía al del otro y una semana acumulaba N
+                // copias del mismo contenido — el "montón de planes que yo no hice".
+                // Solo se van las IDÉNTICAS al plan vigente y sin trabajo encima.
+                try { if (typeof tpDedupeWeeklyPlans === 'function') tpDedupeWeeklyPlans({ skipSave: true }); }
+                catch (e) { console.warn('tpDedupeWeeklyPlans:', e); }
             }
             // Also merge planHistory if remote has entries
             if ((remoteData.testplan.planHistory || []).length > 0) {

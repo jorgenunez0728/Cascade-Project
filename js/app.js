@@ -2853,37 +2853,77 @@ function dashCollectActivities() {
     if (typeof tpWeekBoardRows === 'function') {
         var _b = null;
         try { _b = tpWeekBoardRows({}); } catch (e) { _b = null; }
+
+        // [v23] El aviso que REEMPLAZA al auto-plan del viernes. Antes, a partir del
+        // viernes 14:00 la app generaba sola una propuesta en cada dispositivo (y el
+        // sync las acumulaba todas: issue #126). Ahora solo lo dice; armar la semana es
+        // una decision de alguien. Un aviso no escribe estado ni se sincroniza.
+        try {
+            var _ah = new Date();
+            var _dw = _ah.getDay();
+            var _finDeSemana = (_dw === 5 && _ah.getHours() >= 14) || _dw === 6 || _dw === 0;
+            if (_finDeSemana && typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') {
+                var _prox = new Date(_ah);
+                var _falta = (8 - _dw) % 7; if (_falta === 0) _falta = 7;
+                _prox.setDate(_ah.getDate() + _falta);
+                var _proxISO = _tpFmtDate(_prox);
+                var _yaHay = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(_proxISO) : null;
+                if (!_yaHay) {
+                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓',
+                        title: 'Falta armar la semana del ' + _proxISO,
+                        meta: 'La semana que entra no tiene plan. La app ya no lo genera sola: lo armas tu y decides que entra.',
+                        status: 'pendiente', urgency: 2,
+                        action: { label: '🎛️ Armar la semana',
+                                  js: "dashGo('testplan','tp-myweek');setTimeout(function(){if(typeof tpOpenArmar==='function')tpOpenArmar('" + _proxISO + "');},400)" } });
+                }
+            }
+        } catch (e) {}
+
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {
                 acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
                     title: 'No hay plan para esta semana',
-                    meta: 'El último plan es de otra semana — no se usa para decidir qué toca hoy.',
+                    meta: 'El ultimo plan es de otra semana — no se usa para decidir que toca hoy.',
                     status: 'pendiente', urgency: 1,
-                    action: { label: '🎛️ Armar semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-weekly');" } });
+                    action: { label: '🎛️ Armar semana', js: "dashGo('testplan','tp-myweek');setTimeout(function(){if(typeof tpOpenArmar==='function')tpOpenArmar();},400)" } });
             }
+        } else if (_b && _b.plan && !_b.accepted) {
+            // [v23] El plan de pruebas aparece en HOY SOLO una vez aceptado. Antes las
+            // propuestas se listaban prueba por prueba con la nota "propuesta sin
+            // aceptar", y con el auto-plan generando en cada dispositivo eso llenaba HOY
+            // de pruebas que nadie habia decidido correr. Una propuesta es una sola
+            // linea: la decision de aceptarla.
+            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳',
+                title: 'Hay una propuesta sin aceptar para esta semana',
+                meta: (_b.rows || []).length + ' prueba(s) propuestas. Hasta que se acepte, HOY no las agenda.' +
+                      (_b.otrosPlanes ? ' · ' + _b.otrosPlanes + ' propuesta(s) mas de la misma semana' : ''),
+                status: 'pendiente', urgency: 2,
+                action: { label: '📅 Revisarla', js: "dashGo('testplan','tp-myweek')" } });
         } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
             _b.rows.forEach(function(row) {
                 var isTest = row.testDay === hoyKey, isPre = row.preconDay === hoyKey;
                 if (!isTest && !isPre) return;
-                // El semáforo viene de `tpWeekItemRisk`, no se recalcula aquí: un solo
+                // El semaforo viene de `tpWeekItemRisk`, no se recalcula aqui: un solo
                 // criterio de riesgo en toda la plataforma.
                 var motivo = row.risk.reasons.length ? row.risk.reasons[0].text : '';
+                var _ref = "'" + (row.planId || row.planIdx) + "','" + (row.uid || row.itemIdx) + "'";
                 acts.push({
-                    id: 'act-plan-' + row.itemIdx + (isTest ? 't' : 'p'), cat: 'plan',
+                    id: 'act-plan-' + (row.uid || row.itemIdx) + (isTest ? 't' : 'p'), cat: 'plan',
                     icon: isTest ? '🏭' : '🔧',
                     title: (isTest ? 'Prueba' : 'Preacondicionamiento') + ': ' + (row.shortName || row.desc),
                     meta: (row.variantTag ? row.variantTag + ' · ' : '') +
                           (row.moved ? '↪ movida · ' : '') +
-                          // Un plan sin aceptar SÍ se muestra —el técnico necesita saber qué
-                          // hay agendado hoy— pero se dice que aún es propuesta.
-                          (_b.accepted ? '' : '⏳ propuesta sin aceptar · ') +
+                          (row.item && row.item.unplanned ? '⚡ no planeada · ' : '') +
                           (motivo || (row.soakHours + ' h de reposo')),
                     status: row.done ? 'hecho' : (row.risk.level === 'riesgo' ? 'atrasado' : row.state === 'encurso' ? 'encurso' : 'pendiente'),
                     urgency: row.done ? 0 : (row.risk.level === 'riesgo' ? 3 : 2),
-                    checkbox: { js: 'tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');dailyDashRender();', checked: row.done },
-                    action: { label: '📅 Mi semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-myweek');" },
-                    action2: { label: '↪ Mover', js: 'tpWeekMoveMenu(' + row.planIdx + ',' + row.itemIdx + ')' }
+                    // v23: identidad, no indices. HOY se pinta una vez y se queda en
+                    // pantalla; para cuando alguien toca la casilla, un pull de sync ya
+                    // pudo haber movido el plan de posicion (issue #126).
+                    checkbox: { js: 'tpToggleWeeklyItem(' + _ref + ');dailyDashRender();', checked: row.done },
+                    action: { label: '📅 Mi semana', js: "dashGo('testplan','tp-myweek')" },
+                    action2: { label: '↪ Mover', js: 'tpWeekMoveMenu(' + _ref + ')' }
                 });
             });
         }
@@ -4083,9 +4123,20 @@ function storageHousekeeping() {
         if (typeof fbMergePurgeOldSnapshots === 'function') freed += fbMergePurgeOldSnapshots();
     } catch(e) { console.warn('fbMergePurgeOldSnapshots:', e); }
 
+    // 4) [v23] Claves de funciones retiradas. `kia_autoplan_lastrun` era el guard del
+    //    auto-plan del viernes, eliminado en v23 (ver el bloque AUTO-PLAN en
+    //    testplan.js). Se borra una vez y deja de ocupar lugar en cada dispositivo.
+    try {
+        var _muertas = ['kia_autoplan_lastrun'];
+        _muertas.forEach(function(k) {
+            var raw = localStorage.getItem(k);
+            if (raw !== null) { localStorage.removeItem(k); freed += raw.length + k.length; }
+        });
+    } catch(e) {}
+
     if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
 
-    // 4) Avisar ANTES de que un guardado falle a media operación.
+    // 5) Avisar ANTES de que un guardado falle a media operación.
     try {
         if (typeof pnStorageScan === 'function') {
             var scan = pnStorageScan();
@@ -4211,12 +4262,14 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
         try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
-        // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
-        try {
-            if (typeof tpAutoGenerateIfNeeded === 'function') {
-                setTimeout(tpAutoGenerateIfNeeded, 3000);
-            }
-        } catch(e) { console.error('autoplan error:', e); }
+        // [v23] El auto-plan del viernes se ELIMINÓ. Corría 3 s después de cargar la app
+        // en CADA dispositivo (vie 14:00+, sáb y dom) y su guard vivía en
+        // `tpState.autoPlanLastRun`, que se SINCRONIZA — o sea, es eventual: dos equipos
+        // abiertos a la vez generaban los dos, y el merge los conservaba a ambos porque
+        // `tpPlanId` incluye un `Date.now()` por dispositivo. Ésa era la fábrica de los
+        // "planes que yo no hice" del issue #126. En su lugar, `dashCollectActivities`
+        // deja un AVISO pasivo cuando la semana que entra no tiene plan: un aviso no se
+        // sincroniza, no se duplica y no escribe nada.
 
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}

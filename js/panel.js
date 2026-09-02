@@ -2624,7 +2624,6 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_ui_prefs',          label: 'Preferencias de interfaz', tier: 'cache',
       note: 'Densidad, "solo míos", alcance de búsqueda y tarjetas colapsadas. '
           + 'Al borrarla todo vuelve a sus valores por defecto.' },
-    { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
     { key: 'kia_last_module',       label: 'Última pestaña',           tier: 'cache' },
