@@ -4841,3 +4841,13 @@ body.cop-present .cop-toolbar    { display: none; }
     display: flex; flex-wrap: wrap; gap: var(--space-xs);
     margin-top: var(--space-sm);
 }
+
+/* [v23] Pruebas que entraron solas al liberarse en Cascade: no estaban planeadas,
+   pero ocurrieron. Se distinguen del compromiso de la semana sin gritar. */
+.tp-week-flag--unplanned {
+    background: var(--info-tint, rgba(59,130,246,0.10));
+    color: var(--info-text);
+    border-color: var(--info-text);
+}
+.tp-week-kpi--unplanned .tp-week-kpi-n { color: var(--info-text); }
+.tp-week-card--unplanned { border-left: 3px solid var(--info-text); }

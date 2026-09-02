@@ -886,26 +886,63 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 // ── Auto-feed from COP15 releases ──
 // opts.skipSave: el llamador (cascada de liberación) hace un único tpSave al final
 function tpAutoFeedFromRelease(vehicle, opts) {
-    if (!vehicle || !vehicle.configCode) return;
-    if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
-    // Las pruebas marcadas "Fuera de Plan" (v.adhoc) se excluyen a propósito del conteo del plan.
+    opts = opts || {};
+    if (!vehicle || !vehicle.configCode) return false;
+    if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return false;
+    // Las pruebas marcadas "Fuera de Plan" (v.adhoc) se excluyen a proposito del conteo del plan.
     if (vehicle.adhoc) {
         console.log('TP: se omite el auto-feed de una prueba fuera de plan', vehicle.vin || vehicle.id);
-        return;
+        return false;
     }
+
+    if (!Array.isArray(tpState.testedList)) tpState.testedList = [];
+
+    // v23: DEDUP POR VEHICULO. Rearchivar el mismo vehiculo (desarchivar y volver a
+    // aprobar, o correr el lote dos veces) empujaba una segunda fila y contaba la
+    // misma prueba dos veces en la cobertura. La identidad es el id del vehiculo;
+    // el VIN cubre las filas escritas antes de v23.
+    var yaEsta = tpState.testedList.some(function(t) {
+        if (!t || t.source === 'plan-manual') return false;
+        if (t.vehicleId != null && vehicle.id != null) return t.vehicleId === vehicle.id;
+        return !!vehicle.vin && tpTestedVin(t) === vehicle.vin;
+    });
+    if (yaEsta) {
+        console.log('TP: ese vehiculo ya estaba registrado como probado', vehicle.vin || vehicle.id);
+        return false;
+    }
+
+    // v23: la fecha es la de la PRUEBA, no la del dia en que se aprobo. Una prueba del
+    // viernes aprobada el lunes se contaba en la semana equivocada.
+    var fecha = opts.date || _tpVehicleTestDate(vehicle);
 
     const entry = {
         configText: vehicle.configCode,
-        date: localToday(),
+        date: fecha,
+        vin: vehicle.vin || '',
+        vehicleId: vehicle.id,
         note: `VIN: ${vehicle.vin} — Auto desde COP15`,
         source: 'cop15-release',
         purpose: vehicle.purpose,
     };
-    // v20: una declaración a mano es un MARCADOR de posición hasta que hay evidencia
-    // real. Al llegar la liberación de esa config, la más vieja se retira: si no, la
-    // misma prueba contaría dos veces (declarada + verificada) e inflaría la cobertura.
-    var _decl = (tpState.testedList || []).findIndex(function(t) {
-        return t && t.configText === vehicle.configCode && tpTestedIsDeclared(t);
+    // v20: una declaracion a mano es un MARCADOR de posicion hasta que hay evidencia
+    // real. Al llegar la liberacion de esa config, la mas vieja se retira: si no, la
+    // misma prueba contaria dos veces (declarada + verificada) e inflaria la cobertura.
+    //
+    // v23: acotada a la SEMANA de la prueba. Antes empataba solo por `configText`, asi
+    // que liberar una config borraba la primera declaracion de esa config en TODA la
+    // historia — incluida la de otra semana, que quedaba con `declared:true` y sin
+    // ninguna fila que la respaldara.
+    var semana = (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function')
+                 ? _tpFmtDate(_tpMonday(new Date(fecha + 'T12:00:00'))) : null;
+    var finSemana = null;
+    if (semana) {
+        var f = new Date(semana + 'T00:00:00'); f.setDate(f.getDate() + 6);
+        finSemana = _tpFmtDate(f);
+    }
+    var _decl = tpState.testedList.findIndex(function(t) {
+        if (!t || t.configText !== vehicle.configCode || !tpTestedIsDeclared(t)) return false;
+        if (!semana) return true;
+        return t.date >= semana && t.date <= finSemana;
     });
     if (_decl >= 0) {
         entry.promotedFrom = 'plan-manual';
@@ -914,9 +951,186 @@ function tpAutoFeedFromRelease(vehicle, opts) {
     }
     tpState.testedList.push(entry);
     if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
-    if (!(opts && opts.skipSave)) tpSave();
+    if (!opts.skipSave) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
+    return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v23] EL CREDITO DE UNA LIBERACION — una sola definicion
+//
+// Antes eran dos llamadas sueltas en dos sitios (`approveAndArchive` y
+// `v7BatchRelease`) que ya divergian: el lote descartaba el resultado del marcado
+// y por tanto no ofrecia sustitucion. Y faltaba lo principal: si ninguna fila del
+// plan empataba, el vehiculo liberado quedaba INVISIBLE en Mi semana. Sumaba a la
+// cobertura, pero la semana no lo mostraba — que es justo lo que el laboratorio
+// reportaba como "corri la prueba y el plan sigue en rojo".
+//
+// Reglas:
+//  · La semana es la de la PRUEBA, no la de hoy. Una prueba del viernes aprobada
+//    el lunes acredita la semana en que se corrio, o el avance de la semana miente.
+//  · Solo se toca el plan VIGENTE de esa semana (`tpWeekPlanFor`), nunca una
+//    propuesta sin aceptar ni una semana futura.
+//  · Si no hay fila que empate, se AGREGA una marcada `unplanned` — y se puede
+//    quitar del plan sin tocar la cobertura.
+//  · Si esa semana no tiene ningun plan, NO se inventa uno. Crear un plan como
+//    efecto secundario de archivar un vehiculo es exactamente la clase de bug que
+//    produjo el issue #126. La evidencia queda en `testedList` y el tablero lo
+//    declara en su estado vacio.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** La fecha en que se CORRIO la prueba (no la de aprobacion). Devuelve 'YYYY-MM-DD'. */
+function _tpVehicleTestDate(v) {
+    if (!v) return (typeof localToday === 'function') ? localToday() : '';
+    var td = v.testData || {};
+    var cand = td.testDatetime || (td.preconditioning && td.preconditioning.datetime) || v.archivedAt || v.registeredAt;
+    if (cand) {
+        var iso = String(cand).slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+    }
+    return (typeof localToday === 'function') ? localToday() : '';
+}
+
+/** El dia de la semana ('lun'…'dom') de una fecha 'YYYY-MM-DD'. */
+function _tpDayKeyOf(fecha) {
+    var d = new Date(fecha + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    return TP_DAY_ORDER[d.getDay()];
+}
+
+/**
+ * Agrega al plan una fila YA HECHA por una prueba que nadie habia planeado.
+ * El dia sale de las fechas REALES del vehiculo, no de un hueco libre: el punto
+ * es registrar lo que paso. Si eso deja el dia por encima del cupo, se marca —
+ * es cierto, y esconderlo seria mentir sobre la carga de la semana.
+ */
+function _tpAppendCreditedItem(plan, vehicle, fechaPrueba) {
+    var cfg = (tpState.planData || []).find(function(c) { return c.desc === vehicle.configCode; });
+    var item = cfg ? _tpMakeItem(cfg, (tpState.testedList || []).slice(), {})
+                   : { uid: _tpItemUid(), desc: vehicle.configCode, required: 0, deficit: 0, score: 0 };
+    if (!item.uid) item.uid = _tpItemUid();
+
+    item.origin = 'cascade';
+    item.unplanned = true;
+    item.completed = true;
+    item.completedDate = fechaPrueba;
+    item.declared = false;                   // hay vehiculo liberado: es evidencia real
+    item.linkedVehicleId = vehicle.id;
+    item.linkedVin = vehicle.vin || '';
+    item.addedAt = new Date().toISOString();
+    item.addedBy = 'auto';
+    if (vehicle.purpose) item.purpose = vehicle.purpose;
+
+    var soak = cfg ? tpSoakHoursFor(cfg) : { hours: tpSoakCfg().defaultHours, source: 'laboratorio' };
+    item.soakHours = soak.hours;
+    item.soakSource = soak.source;
+
+    var diaPrueba = _tpDayKeyOf(fechaPrueba);
+    var workDays = tpWorkDaysFor(plan);
+    var par = diaPrueba ? tpSlotsForSoak(soak.hours, workDays).filter(function(sl) { return sl.test === diaPrueba; })[0] : null;
+    if (par) {
+        item.testDay = par.test; item.preconDay = par.precon;
+        item.testLabel = par.testLabel; item.preconLabel = par.preconLabel;
+    } else {
+        // El dia real no forma un par legal con este reposo (p. ej. se corrio en
+        // sabado). Se respeta el dia REAL y se deja el preacon vacio: el dato es
+        // lo que ocurrio, no lo que el modelo permitiria.
+        item.testDay = diaPrueba || null;
+        item.preconDay = null;
+        item.testLabel = diaPrueba ? TP_DAY_LABELS[diaPrueba] : null;
+    }
+    item.plannedTestDay = item.testDay;      // no fue "movida": nacio en su dia
+
+    if (item.testDay) {
+        var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+        var ocupado = (plan.items || []).filter(function(it) { return it.testDay === item.testDay; }).length;
+        if (ocupado >= perSlot) item.overCapacity = true;
+    }
+
+    if (!Array.isArray(plan.items)) plan.items = [];
+    plan.items.push(item);
+    return item;
+}
+
+/**
+ * LA definicion del credito de una liberacion. La llaman `approveAndArchive` y
+ * `v7BatchRelease` — las dos, por aqui, para que no vuelvan a divergir.
+ *
+ * @returns {{evidence:boolean, matched:boolean, appended:object|null,
+ *            weekDate:string, planId:string|null, noPlan:boolean,
+ *            unknownConfig:boolean, substitutionCandidates:Array}}
+ */
+function tpCreditReleaseToWeek(vehicle, opts) {
+    opts = opts || {};
+    var out = { evidence: false, matched: false, appended: null, weekDate: null,
+                planId: null, noPlan: false, unknownConfig: false, substitutionCandidates: [] };
+    if (!vehicle) return out;
+
+    var fecha = _tpVehicleTestDate(vehicle);
+    out.weekDate = (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function')
+                   ? _tpFmtDate(_tpMonday(new Date(fecha + 'T12:00:00'))) : null;
+
+    // 1) Evidencia en testedList (con dedup por vehiculo: rearchivar no cuenta dos veces).
+    out.evidence = tpAutoFeedFromRelease(vehicle, { skipSave: true, date: fecha });
+
+    // Fuera de plan o proposito no contable: se registro (o no) y se termina.
+    if (vehicle.adhoc || !TP_PURPOSES_VALID.includes(vehicle.purpose)) return out;
+
+    // 2) Una configuracion que no existe en el plan de produccion no puede acreditar
+    //    nada, y hasta ahora eso pasaba EN SILENCIO. `configCode` es 'MANUAL' en toda
+    //    alta manual y tambien cuando la cascada resuelve 0 o mas de una fila.
+    var conocida = (tpState.planData || []).some(function(c) { return c.desc === vehicle.configCode; });
+    if (!conocida) out.unknownConfig = true;
+
+    if (!out.weekDate) return out;
+    var vig = tpWeekPlanFor(out.weekDate);
+    if (!vig) { out.noPlan = true; return out; }
+    out.planId = vig.planId;
+
+    // 3) Marcar la fila que empate, dentro del plan VIGENTE de esa semana.
+    // El propio marcado sella `linkedVehicleId` en la fila que acredito.
+    out.matched = !!tpAutoMarkWeeklyCompletionFromVehicle(vehicle, {
+        skipSave: true, weekDate: out.weekDate, date: fecha
+    });
+    if (out.matched) return out;
+
+    // 4) Sin empate exacto: si hay candidatas flexibles se ofrecen (el llamador decide),
+    //    y de todas formas la prueba entra a la semana marcada como no planeada.
+    if (typeof tpFindFlexibleMatches === 'function' && !out.unknownConfig) {
+        try { out.substitutionCandidates = tpFindFlexibleMatches(vehicle.configCode, vehicle.config) || []; }
+        catch (e) { out.substitutionCandidates = []; }
+    }
+    out.appended = _tpAppendCreditedItem(vig.plan, vehicle, fecha);
+    if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
+    if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_credited', { type: 'plan', label: vehicle.configCode },
+                 'Prueba no planeada agregada a la semana del ' + out.weekDate +
+                 ' · VIN ' + (vehicle.vin || '?'));
+    }
+    if (!(opts && opts.skipSave)) tpSave();
+    return out;
+}
+
+/**
+ * Quitar del plan una fila que se agrego sola. La evidencia NO se toca: sale de la
+ * semana, no de la cobertura. Es la valvula de escape del auto-agregado.
+ */
+function tpUnplanCreditedItem(weekIdx, itemIdx) {
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    if (!_n.item.unplanned) { showToast('Esa prueba si estaba planeada — usa "Quitar del plan".', 'info'); return; }
+    var lbl = _n.item.desc;
+    if (typeof undoPush === 'function') undoPush('testplan', 'Quitar prueba no planeada');
+    _n.plan.items.splice(_n.itemIdx, 1);
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_unplanned_removed', { type: 'plan', label: lbl }, 'Semana ' + (_n.plan.weekDate || '—'));
+    }
+    showToast('Fuera del plan. La prueba sigue contando en la cobertura: la evidencia no se borro.',
+              'success', null, (typeof undoPop === 'function') ? undoPop : null);
+    _tpBoardRepaint();
 }
 
 // ── CSV Import ──
@@ -2229,13 +2443,10 @@ function tpRenderTested(el) {
                         return true;
                     }).map((t,i) => {
                         const origIdx = tpState.testedList.indexOf(t);
-                        // v20: iba `\\s` dentro de un template literal, o sea una barra invertida
-                        // LITERAL obligatoria seguida de ceros-o-más 's'. Las notas son
-                        // "VIN: KNAxxx — Auto desde COP15", sin barra, así que NUNCA empataba y
-                        // la columna VIN salía siempre '—'. Es justo la columna que se necesita
-                        // para reconstruir una semana. La versión buena ya existía en :2138.
-                        const vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
-                        const vin = vinMatch ? vinMatch[1] : '';
+                        // v23: un solo lector, `tpTestedVin` — prefiere el campo `vin`
+                        // (que las filas nuevas ya traen) y solo cae al texto de la nota
+                        // para las viejas. Antes había DOS regex distintas conviviendo.
+                        const vin = tpTestedVin(t);
                         return `
                         <tr>
                             <td style="max-width:260px;">${tpConfigBadges({desc:t.configText},{fontSize:'var(--fs-sm)'})}</td>
@@ -2333,12 +2544,12 @@ function tpRecoverFromCOP15() {
         return;
     }
 
-    // Build set of existing entries by VIN to detect duplicates
-    var existingVINs = {};
+    // v23: la identidad sale de `tpTestedVin`/`tpTestedVehicleId`, no de una regex
+    // propia. Las filas nuevas traen `vin` y `vehicleId` como campos.
+    var existingVINs = {}, existingIds = {};
     (tpState.testedList || []).forEach(function(t) {
-        // Extract VIN from note field (format: "VIN: XXXXX" or "VIN: XXXXX — Auto desde COP15")
-        var vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
-        if (vinMatch) existingVINs[vinMatch[1]] = true;
+        var v = tpTestedVin(t); if (v) existingVINs[v] = true;
+        var id = tpTestedVehicleId(t); if (id != null) existingIds[id] = true;
     });
 
     // Also check by configText+date as secondary dedup
@@ -2351,8 +2562,8 @@ function tpRecoverFromCOP15() {
     if (!tpState.testedList) tpState.testedList = [];
 
     archived.forEach(function(v) {
-        // Skip if VIN already registered
-        if (existingVINs[v.vin]) { skipped++; return; }
+        // Ya registrado: por id del vehículo (fuerte) o por VIN (filas viejas).
+        if (existingIds[v.id] || existingVINs[v.vin]) { skipped++; return; }
 
         var tsArch = v.archivedAt || v.registeredAt;
         var date = tsArch ? localDateStr(new Date(tsArch)) : localToday();
@@ -2364,11 +2575,14 @@ function tpRecoverFromCOP15() {
         tpState.testedList.push({
             configText: v.configCode,
             date: date,
+            vin: v.vin || '',
+            vehicleId: v.id,
             note: 'VIN: ' + v.vin + ' — Recuperado de COP15',
             source: 'cop15-recovery',
             purpose: v.purpose
         });
         existingVINs[v.vin] = true;
+        existingIds[v.id] = true;
         existingKeys[key] = true;
         added++;
     });
@@ -3742,6 +3956,7 @@ function tpWeekBoardRows(opts) {
                 return (pi >= 0 && ti >= pi) ? TP_DAY_ORDER.slice(pi, ti + 1) : [];
             })(),
             done: !!item.completed, declared: !!item.declared,
+            unplanned: !!item.unplanned, origin: item.origin || null,
             substituted: !!item.substituted, substitution: item.substitution || null,
             carriedOver: !!item.carriedOver, manual: !!item.manual,
             vehicle: veh && veh.status !== 'archived' ? veh : null,
@@ -3810,7 +4025,11 @@ function tpWeekBoardRows(opts) {
         days: dias, rows: rows,
         unscheduled: rows.filter(function(r) { return !r.testDay; }),
         kpis: {
-            planeadas: rows.length,
+            // v23: `planeadas` es el COMPROMISO — no incluye lo que entró solo al
+            // liberar. Sumarlas haría que el plan pareciera haber previsto algo que
+            // nadie previó, que es justo lo que un plan no debe decir.
+            planeadas: rows.filter(function(r) { return !r.unplanned; }).length,
+            noPlaneadas: rows.filter(function(r) { return r.unplanned; }).length,
             hechas: rows.filter(function(r) { return r.done; }).length,
             declaradas: rows.filter(function(r) { return r.done && r.declared; }).length,
             encurso: rows.filter(function(r) { return r.state === 'encurso'; }).length,
@@ -3977,6 +4196,7 @@ function _tpWeekCardHTML(row, workDays) {
     if (row.done) mods.push('tp-week-card--done');
     if (row.risk.level === 'riesgo') mods.push('tp-week-card--risk');
     else if (row.risk.level === 'atencion') mods.push('tp-week-card--warn');
+    if (row.unplanned) mods.push('tp-week-card--unplanned');
     if (row.moved) mods.push('tp-week-card--moved');
     if (row.substituted) mods.push('tp-week-card--subst');
 
@@ -4016,6 +4236,7 @@ function _tpWeekCardHTML(row, workDays) {
     // aviso era ruido en la pantalla que más se mira. El registro NO se pierde — sigue
     // en `moves[]` (append-only), en la auditoría, y a la vista en el menú ⋯ y en el
     // título del asa. El borde punteado de la tarjeta lo insinúa sin gritarlo.
+    if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
     if (row.substituted) marcas.push('<span class="tp-week-flag tp-week-flag--subst">🔄 sustituida</span>');
@@ -4080,9 +4301,25 @@ function tpRenderMyWeek(el) {
          '</div></div>';
 
     if (!b.plan) {
+        // v23: si esa semana SÍ tuvo pruebas, decirlo. Una semana sin plan pero con
+        // trabajo hecho no es una semana vacía, y hasta ahora se veía igual que una.
+        var _hechasSinPlan = 0;
+        try {
+            if (b.weekDate) {
+                var _f = new Date(b.weekDate + 'T00:00:00'); _f.setDate(_f.getDate() + 6);
+                var _fin = _tpFmtDate(_f);
+                _hechasSinPlan = (tpState.testedList || []).filter(function(t) {
+                    return t && !tpTestedIsDeclared(t) && t.date >= b.weekDate && t.date <= _fin;
+                }).length;
+            }
+        } catch (e) {}
         h += '<div class="tp-week-empty tp-card">' +
              '<div class="tp-week-empty-icon">📅</div>' +
              '<div><strong>No hay plan para esta semana.</strong></div>' +
+             (_hechasSinPlan
+                ? '<p><strong>' + _hechasSinPlan + ' prueba(s) se corrieron igual</strong> y cuentan en la cobertura. ' +
+                  'No se inventa un plan al liberar: si quieres registrarlas aquí, arma la semana y vincúlalas.</p>'
+                : '') +
              '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro.</p>' +
              '<button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\')">🎛️ Armar esta semana</button>' +
              '</div></div>';
@@ -4098,7 +4335,9 @@ function tpRenderMyWeek(el) {
                '<div class="tp-week-kpi-n">' + v + '</div><div class="tp-week-kpi-l">' + lbl + '</div></div>';
     }
     h += '<div class="tp-week-kpis" data-help="tp_week_kpis">' +
-         kpi(k.planeadas, 'planeadas', '') +
+         kpi(k.planeadas, 'planeadas', '', 'Lo que la semana se comprometió a correr') +
+         (k.noPlaneadas ? kpi(k.noPlaneadas, 'no planeadas', 'tp-week-kpi--unplanned',
+             'Pruebas liberadas en Cascade que no tenían fila en el plan: entraron solas y ya cuentan como hechas') : '') +
          kpi(k.hechas, 'hechas', k.hechas ? 'tp-week-kpi--ok' : '',
              k.declaradas ? k.declaradas + ' declarada(s) a mano, sin vehículo liberado' : 'Con evidencia registrada') +
          kpi(k.encurso, 'en curso', k.encurso ? 'tp-week-kpi--live' : '') +
@@ -4476,6 +4715,11 @@ function tpWeekCardMenu(weekIdx, itemIdx) {
         '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpOpenSubstituteModal(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">🔄 Sustituir</span>' +
           '<span class="tp-week-movebtn-sub">Misma familia, misma norma o misma región</span></button>' +
+        (item.unplanned
+          ? '<button class="tp-week-movebtn tp-week-movebtn--danger" onclick="document.getElementById(\'globalModal\').remove();tpUnplanCreditedItem(' + _ref + ')">' +
+              '<span class="tp-week-movebtn-day">⚡ Quitar del plan (entró sola)</span>' +
+              '<span class="tp-week-movebtn-sub">Sale de la semana. La prueba sigue contando en la cobertura: la evidencia no se borra.</span></button>'
+          : '') +
         '<button class="tp-week-movebtn tp-week-movebtn--danger" onclick="document.getElementById(\'globalModal\').remove();tpRemoveWeeklyItem(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">🗑 Quitar del plan</span></button>';
     if (Array.isArray(item.moves) && item.moves.length) {
@@ -4823,6 +5067,11 @@ function tpStartTestFromPlan(weekIdx, itemIdx) {
         source: 'weekly-plan',
         weekIdx: weekIdx,
         itemIdx: itemIdx,
+        // v23: identidad estable del plan y del item. `weekIdx`/`itemIdx` viajan solo
+        // como respaldo — el vehículo puede tardar días en liberarse y para entonces
+        // los índices ya no significan lo mismo.
+        planId: tpPlanId(_n.plan),
+        itemUid: item.uid || null,
         configCode: item.desc || '',
         purpose: tpPurposeForRegion(item.rgn), // default por región (COP solo Europa); el usuario puede cambiarlo
         planItem: {
@@ -6517,7 +6766,13 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
             var item = plan.items[j];
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
-                item.completedDate = localToday();
+                item.completedDate = (opts && opts.date) || localToday();
+                // v23: dejar escrito QUÉ vehículo la acreditó. Sin esto el tablero
+                // tiene que readivinarlo por heurística en cada render (v20.1).
+                if (opts && opts.vehicle) {
+                    item.linkedVehicleId = opts.vehicle.id;
+                    item.linkedVin = opts.vehicle.vin || '';
+                }
                 if (typeof tpSyncWeekHistoryFor === 'function') tpSyncWeekHistoryFor(tpPlanId(plan));
                 if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText, '· semana', plan.weekDate);
@@ -6534,7 +6789,7 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
 function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
-    if (link && typeof link.itemIdx === 'number') {
+    if (link && (link.itemUid || typeof link.itemIdx === 'number')) {
         // v20: el enlace se resuelve por planId (identidad estable). weekIdx queda como
         // respaldo para los vehículos registrados antes de esta versión — pero es un
         // índice de array, así que un borrado lo deja apuntando a otra semana.
@@ -6542,11 +6797,18 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
                  ? tpFindPlanIndexById(link.planId) : -1;
         if (wi < 0 && typeof link.weekIdx === 'number') wi = link.weekIdx;
         var plan = tpState.weeklyPlans[wi];
-        if (plan && plan.items && plan.items[link.itemIdx]) {
-            var item = plan.items[link.itemIdx];
+        // v23: `itemUid` primero. `itemIdx` es un índice dentro de `plan.items` y
+        // cualquier splice (quitar una fila, limpiar una no planeada) lo deja apuntando
+        // a otra prueba. Se conserva como respaldo para los vehículos dados de alta
+        // antes de v23.
+        var _ri = plan ? _tpRefItem(plan, link.itemUid || link.itemIdx) : null;
+        if (_ri) {
+            var item = _ri.item;
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
-                item.completedDate = localToday();
+                item.completedDate = (opts && opts.date) || localToday();
+                item.linkedVehicleId = vehicle.id;
+                item.linkedVin = vehicle.vin || '';
                 // La foto archivada se re-sincroniza SIEMPRE (antes se congelaba en
                 // completed:false para siempre); guardar respeta skipSave, porque la
                 // cascada de liberación hace un único tpSave al final.
@@ -6557,8 +6819,11 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
             }
         }
     }
-    // Fall back to the legacy description-based match
-    return tpAutoMarkWeeklyCompletion(vehicle.configCode, opts);
+    // Respaldo: empatar por descripción, dentro del plan vigente de la semana indicada.
+    var o = {};
+    for (var k in (opts || {})) o[k] = opts[k];
+    o.vehicle = vehicle;
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode, o);
 }
 
 // ── Flexible Substitution ──
@@ -7667,12 +7932,42 @@ function tpFamilyWeeklyProgress(familyKey) {
     return rows;
 }
 
+/**
+ * [v23] LA definicion de "que vehiculo respalda esta fila de `testedList`".
+ *
+ * Hasta v22.7 el VIN vivia SOLO dentro del texto libre de `note`, y se leia con
+ * DOS expresiones regulares distintas (`[^\s—-]+` en un sitio, `[^\s—]+` en otro)
+ * mas `note.includes('VIN: ' + vin)` en cop15.js — que es inseguro por prefijo:
+ * borrar el vehiculo `KNA123` se llevaba tambien la evidencia de `KNA1234`.
+ *
+ * Desde v23 las filas nuevas traen `vin` y `vehicleId` como campos propios. Este
+ * lector los prefiere y cae al texto solo para las filas viejas, asi que no hace
+ * falta migrar nada para que empiece a funcionar bien.
+ */
+function tpTestedVin(t) {
+    if (!t) return '';
+    if (t.vin) return String(t.vin);
+    return _tpExtractVin(t.note);
+}
+
+/** La identidad fuerte de la fila, cuando la hay: el id del vehiculo. */
+function tpTestedVehicleId(t) {
+    return (t && t.vehicleId != null) ? t.vehicleId : null;
+}
+
+/**
+ * Extrae el VIN del texto de una nota. PURA.
+ *
+ * v23: se le quito el "respaldo" que partia la nota por el guion largo y devolvia
+ * el primer trozo. Con `TP_DECLARED_NOTE` ("Declarada en el plan — sin vehiculo
+ * liberado") eso devolvia la cadena `Declarada en el plan` COMO SI FUERA UN VIN, y
+ * cualquier consumidor que comparara VINes la trataba como uno real. Si no hay un
+ * "VIN:" explicito, no hay VIN: se devuelve cadena vacia.
+ */
 function _tpExtractVin(note) {
     if (!note) return '';
-    var m = String(note).match(/VIN:\s*([^\s—]+)/);
-    if (m) return m[1];
-    var parts = String(note).split('—');
-    return (parts[0] || '').trim();
+    var m = String(note).match(/VIN:\s*([^\s,;—-]+)/);
+    return m ? m[1] : '';
 }
 
 // Force re-render of families tab (bypasses tabCache so filters/sort take effect immediately)
@@ -7932,7 +8227,7 @@ function tpRenderFamilies(el) {
                             var _vinId = 'tp-vins-' + fi + '-' + _ci;
                             vinHtml = `<div id="${_vinId}" style="display:none;padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xl);background:var(--tp-dark);border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
-                                const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
+                                const vin = tpTestedVin(v) || '—';
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-2xs) var(--space-xs);border-bottom:1px solid var(--tp-border);color:var(--tp-text);">
                                     <span style="font-family:monospace;font-size: var(--fs-sm);color:var(--tp-text);">${vin}</span>
                                     <span style="font-size: var(--fs-sm);color:var(--tp-dim);">${v.date || '?'}</span>

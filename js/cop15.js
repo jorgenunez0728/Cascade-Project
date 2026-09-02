@@ -1223,15 +1223,18 @@ setAltaDatetimeIfEmpty(true);
             planLink = {
                 weekIdx: window._pendingCop15Preload.weekIdx,
                 itemIdx: window._pendingCop15Preload.itemIdx,
+                // v23: el par (planId, itemUid) es la identidad estable. `weekIdx`/
+                // `itemIdx` son índices de array y quedan solo como respaldo para los
+                // vehículos dados de alta antes de esta versión.
+                planId: window._pendingCop15Preload.planId || null,
+                itemUid: window._pendingCop15Preload.itemUid || null,
                 configCode: window._pendingCop15Preload.configCode
             };
-            // v20: weekIdx es un ÍNDICE DE ARRAY — borrar una semana anterior recorre
-            // todas las posteriores y este enlace queda apuntando a OTRO plan. planId
-            // es la identidad estable; weekIdx se conserva solo como respaldo.
             try {
-                var _pl = (typeof tpState === 'object' && tpState && tpState.weeklyPlans)
-                          ? tpState.weeklyPlans[planLink.weekIdx] : null;
-                if (_pl && typeof tpPlanId === 'function') planLink.planId = tpPlanId(_pl);
+                if (!planLink.planId && typeof tpState === 'object' && tpState && tpState.weeklyPlans) {
+                    var _pl = tpState.weeklyPlans[planLink.weekIdx];
+                    if (_pl && typeof tpPlanId === 'function') planLink.planId = tpPlanId(_pl);
+                }
             } catch (e) {}
         }
 
@@ -3006,20 +3009,6 @@ function approveAndArchive() {
                 // Compactar timeline al archivar: el historial completo ya quedó en el export
                 // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
                 if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
-                // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
-                tpAutoFeedFromRelease(vehicle, { skipSave: true });
-                invLogTestUsage(vehicle, { skipSave: true });
-                if (!vehicle.adhoc) {
-                    var exactMatch = typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function'
-                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true })
-                        : tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
-                    if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
-                        var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
-                        if (flexMatches.length > 0) {
-                            window._pendingSubstitution = { configCode: vehicle.configCode, vin: vehicle.vin, matches: flexMatches };
-                        }
-                    }
-                }
                 auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''));
                 if (typeof fbPostTestCompleted === 'function') {
                     var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
@@ -3052,6 +3041,38 @@ function approveAndArchive() {
                 );
                 return;
             }
+
+            // [v23] EL CRÉDITO VA DESPUÉS DE `saveDB()`, no antes.
+            //
+            // Antes se acreditaba el plan y el inventario DENTRO del try, y los dos
+            // caminos de reversión (el catch y el `saveDB() === false`) solo restauraban
+            // `vehicle.status`/`timeline`. La fila ya empujada a `testedList` y el
+            // `item.completed` ya volteado se quedaban en memoria: el plan decía
+            // "cumplida" y el gas descontado, con el vehículo sin archivar. Moviendo las
+            // llamadas debajo del punto de no retorno, los dos rollbacks quedan
+            // correctos por construcción — a esa altura no se ha mutado nada.
+            //
+            // `tpCreditReleaseToWeek` es LA definición del crédito y la comparten este
+            // camino y el de lote (v7BatchRelease), que antes divergían.
+            try {
+                if (typeof tpCreditReleaseToWeek === 'function') {
+                    var _cred = tpCreditReleaseToWeek(vehicle, { skipSave: true });
+                    if (_cred.unknownConfig) {
+                        showToast('⚠️ Esta configuración no está en el plan de producción (' +
+                                  (vehicle.configCode || '?') + '): la prueba se registró pero no baja ningún déficit.', 'warning');
+                    } else if (_cred.appended) {
+                        showToast('Se agregó a la semana como prueba no planeada — ya cuenta como hecha.', 'info');
+                    } else if (_cred.noPlan) {
+                        showToast('Esa semana no tiene plan: la prueba cuenta en la cobertura, pero no hay semana donde registrarla.', 'info');
+                    } else if (!_cred.matched && _cred.substitutionCandidates.length > 0) {
+                        window._pendingSubstitution = { configCode: vehicle.configCode, vin: vehicle.vin, matches: _cred.substitutionCandidates };
+                    }
+                } else {
+                    tpAutoFeedFromRelease(vehicle, { skipSave: true });
+                }
+            } catch(e) { console.error('tpCreditReleaseToWeek:', e); }
+            try { invLogTestUsage(vehicle, { skipSave: true }); } catch(e) { console.error('invLogTestUsage:', e); }
+
             if (typeof tpSave === 'function') tpSave();
             if (typeof invSave === 'function') invSave();
             refreshAllLists();
@@ -3997,8 +4018,13 @@ function deleteVehicleCascade(vehicleId) {
     if (!v) return;
 
     // Count what will be removed in each module
+    // v23: por identidad. `note.includes('VIN: ' + vin)` es inseguro por prefijo —
+    // borrar KNA123 se llevaba también la evidencia de KNA1234.
+    const _esDeEsteVeh = t => typeof tpTestedVin === 'function'
+        ? (tpTestedVehicleId(t) === v.id || (!!v.vin && tpTestedVin(t) === v.vin))
+        : !!(t.note && t.note.includes('VIN: ' + v.vin));
     const tpCount  = (typeof tpState !== 'undefined' && tpState.testedList)
-        ? tpState.testedList.filter(t => t.note && t.note.includes('VIN: ' + v.vin)).length : 0;
+        ? tpState.testedList.filter(_esDeEsteVeh).length : 0;
     const invCount = (typeof invState !== 'undefined' && invState.usageLog && v.vin)
         ? invState.usageLog.filter(u => u.vin === v.vin).length : 0;
 
@@ -4015,10 +4041,14 @@ function deleteVehicleCascade(vehicleId) {
             db.vehicles = db.vehicles.filter(x => x !== v);
             saveDB();
             // 2. Test Plan testedList
-            if (typeof tpState !== 'undefined' && tpState.testedList && v.vin) {
-                tpState.testedList = tpState.testedList.filter(t => !(t.note && t.note.includes('VIN: ' + v.vin)));
+            if (typeof tpState !== 'undefined' && tpState.testedList) {
+                tpState.testedList = tpState.testedList.filter(t => !_esDeEsteVeh(t));
                 if (typeof tpSave === 'function') tpSave();
-                if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
+                // v23: era `_tpInvalidateCache` (con guion bajo), que solo tira
+                // `_tpCache.planHash`. El invalidador real es `tpInvalidateCache`, que
+                // además tira el análisis, las familias y el tablero — sin él, borrar un
+                // vehículo dejaba la cobertura vieja en pantalla.
+                if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
             }
             // 3. Inventory usage log
             if (typeof invState !== 'undefined' && invState.usageLog && v.vin) {
@@ -4057,14 +4087,17 @@ function batchDeleteVehicles() {
                 var veh = db.vehicles.find(function(x){return x.id==id;});
                 if (!veh) return;
                 db.vehicles = db.vehicles.filter(function(x){return x.id!=id;});
-                if (typeof tpState !== 'undefined' && tpState.testedList && veh.vin)
-                    tpState.testedList = tpState.testedList.filter(function(t){return !(t.note && t.note.includes('VIN: '+veh.vin));});
+                if (typeof tpState !== 'undefined' && tpState.testedList)
+                    tpState.testedList = tpState.testedList.filter(function(t){
+                        if (typeof tpTestedVin !== 'function') return !(t.note && t.note.includes('VIN: '+veh.vin));
+                        return !(tpTestedVehicleId(t) === veh.id || (!!veh.vin && tpTestedVin(t) === veh.vin));
+                    });
                 if (typeof invState !== 'undefined' && invState.usageLog && veh.vin)
                     invState.usageLog = invState.usageLog.filter(function(u){return u.vin !== veh.vin;});
             });
             saveDB();
             if (typeof tpSave       === 'function') tpSave();
-            if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
+            if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
             if (typeof invSave      === 'function') invSave();
             refreshAllLists(); updateProgressBar(); renderHistory();
             if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
@@ -7534,6 +7567,9 @@ function v7BatchRelease() {
 
     var count = 0;
     var errors = 0;
+    // v23: lo que el lote descubre al acreditar se ACUMULA y se dice al final. Antes se
+    // descartaba el resultado y el técnico no se enteraba de nada.
+    var _sinConfig = [], _noPlaneadas = 0, _sinSemana = 0, _sust = [];
     ready.forEach(function(vehicle) {
         try {
             vehicle.status = 'archived';
@@ -7547,17 +7583,23 @@ function v7BatchRelease() {
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
             // Compactar timeline al archivar (el historial completo quedó en el export)
             if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
-            // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
-            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
-            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
-            // Las pruebas fuera de plan (v.adhoc) no acreditan el plan semanal.
-            if (!vehicle.adhoc) {
-                if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
-                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true });
-                } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
-                    tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
+            // v23: el lote entra por LA MISMA definición que la aprobación individual
+            // (`tpCreditReleaseToWeek`). Antes eran dos bloques distintos y ya divergían:
+            // aquí se DESCARTABA el resultado del marcado, así que un vehículo del lote
+            // que no empataba con ninguna fila no ofrecía sustitución ni avisaba nada.
+            // Lo que no empata ahora entra a la semana como prueba no planeada.
+            if (typeof tpCreditReleaseToWeek === 'function') {
+                var _c = tpCreditReleaseToWeek(vehicle, { skipSave: true });
+                if (_c.unknownConfig) _sinConfig.push(vehicle.vin || '?');
+                else if (_c.appended)  _noPlaneadas++;
+                else if (_c.noPlan)    _sinSemana++;
+                else if (!_c.matched && _c.substitutionCandidates.length) {
+                    _sust.push({ configCode: vehicle.configCode, vin: vehicle.vin, matches: _c.substitutionCandidates });
                 }
+            } else if (typeof tpAutoFeedFromRelease === 'function') {
+                tpAutoFeedFromRelease(vehicle, { skipSave: true });
             }
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
@@ -7580,6 +7622,19 @@ function v7BatchRelease() {
     updateProgressBar();
 
     showToast('Liberados ' + count + ' vehiculos' + (errors > 0 ? ' (' + errors + ' errores)' : ''), count > 0 ? 'success' : 'error');
+
+    // v23: el resultado del crédito ya no se descarta — se dice.
+    var _avisos = [];
+    if (_noPlaneadas) _avisos.push(_noPlaneadas + ' se agregaron a su semana como pruebas no planeadas');
+    if (_sinSemana)   _avisos.push(_sinSemana + ' cayeron en semanas sin plan (cuentan en la cobertura)');
+    if (_sinConfig.length) _avisos.push(_sinConfig.length + ' con configuración fuera del plan de producción: ' + _sinConfig.join(', '));
+    if (_avisos.length) {
+        setTimeout(function() { showToast('Plan: ' + _avisos.join(' · '), 'warning'); }, 1200);
+    }
+    if (_sust.length && typeof showSubstitutionModal === 'function') {
+        // Se ofrece la primera; el resto ya quedó registrado en su semana.
+        setTimeout(function() { showSubstitutionModal(_sust[0]); }, 1800);
+    }
     if (count > 0 && typeof animateConfetti === 'function') animateConfetti();
     v7RenderBatchRelease();
 }

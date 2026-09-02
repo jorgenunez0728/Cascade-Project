@@ -13,9 +13,31 @@ const localStorage = {
 };
 
 const noop = () => {};
+// Un elemento simulado que se devuelve a si mismo: el codigo bajo prueba renderiza
+// de verdad (tpUpdateBadges, _tpBoardRepaint), y stubear null lo hace reventar por
+// razones que no tienen nada que ver con lo que se esta probando.
+function _el() {
+    const e = {
+        textContent: '', value: '', innerHTML: '', style: {}, dataset: {}, isConnected: false,
+        classList: { add: noop, remove: noop, contains: () => false, toggle: noop },
+        setAttribute: noop, getAttribute: () => null, removeAttribute: noop,
+        appendChild: noop, removeChild: noop, remove: noop, insertAdjacentHTML: noop,
+        addEventListener: noop, removeEventListener: noop, focus: noop, click: noop,
+        scrollIntoView: noop, getBoundingClientRect: () => ({ top: 0, left: 0, width: 0, height: 0 }),
+        closest: () => null, contains: () => false, children: [], parentElement: null
+    };
+    e.querySelector = () => e;
+    e.querySelectorAll = () => [];
+    e.getElementById = () => e;
+    e.createElement = () => _el();
+    e.body = e;
+    e.documentElement = e;
+    return e;
+}
 const sandbox = {
     localStorage, console,
-    window: {}, document: { getElementById: () => null, querySelectorAll: () => [], querySelector: () => null },
+    window: {},
+    document: _el(),
     showToast: noop, showConfirmDialog: () => Promise.resolve(false), showConfirm: noop, showModal: noop,
     auditLog: noop, undoPush: noop, undoPop: noop, authRequire: () => true, authCan: () => true,
     authGetCurrentUser: () => ({ name: 'Test' }),
@@ -27,7 +49,8 @@ const sandbox = {
     db: { vehicles: [] }, invState: { gases: [] },
     tpUpdateBadges: noop, tpRender: noop, cascadeInjectTooltipsDeferred: noop,
     CASCADE_TOOLTIPS: {}, uiCard: null, a11yClickables: noop, gridDragInit: noop,
-    tabCacheInvalidate: noop, fbPush: noop, dispatchEvent: noop, CustomEvent: function(){},
+    tabCacheInvalidate: noop, fbPush: noop, _tabCache: {}, tabCacheSwitch: noop, tabCacheInit: noop, tabCacheGet: () => null, helpBannerHTML: () => '',
+    helpInjectBannerDeferred: noop, a11yTablist: noop, a11yTablistSync: noop, dispatchEvent: noop, CustomEvent: function(){},
     _normalizeRegulation: (r) => r || 'N/A', Object, Array, Math, Date, JSON, String, Number, Set, Map, parseInt, parseFloat, isNaN
 };
 sandbox.window = sandbox;
