@@ -2,6 +2,141 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.7 — Etapa 3: el codemod de los 12 módulos (2026-09-02)
+
+Cierra la serie v22. `styles.css` ya había pasado en v22.0; faltaba el JS, que es donde vive
+la mayor parte de la UI de esta app.
+
+### Espaciado y radios — 2,256 reemplazos
+
+| | antes | después |
+|---|---|---|
+| `var(--space-*)` en JS | ~5 | **2,267** |
+| `var(--radius-*)` en JS | ~11 | **446** |
+| px crudos de espaciado | ~2,450 | **196** |
+
+**Consecuencia práctica: la densidad ahora alcanza a toda la app.** Hasta v22.6 los tres modos
+(`compacto`/`comodo`/`amplio`) solo movían `styles.css` y las pantallas ya migradas; el
+espaciado escrito a mano en JS era sordo.
+
+- **Invariantes verificados por archivo**, que es lo que hace segura una pasada de este tamaño:
+  `node --check` (si el codemod corta una cadena, truena) y **el conteo de `style="` idéntico
+  antes y después**. Los 12 archivos pasaron los dos.
+- **Cero riesgo en generadores**: se comprobó que no existe ni una ocurrencia de
+  `padding/margin/gap/border-radius` con px dentro de código de jsPDF, Chart.js o SVG — esos
+  no usan propiedades CSS con unidades, así que la allowlist de propiedades ya los excluye por
+  construcción.
+
+### Colores — 335 reemplazos, y los que NO se tocaron
+
+Solo los **neutros** (grises), que son los que tienen un rol inequívoco: 246 por propiedad
+(`color`/`background`) + 89 bordes en forma abreviada (`border:1px solid #hex`, que no empataba
+con el primer patrón porque el hex no va pegado a los dos puntos).
+
+- **Guarda de superficie oscura — evitó un bug que iba a introducir yo.** `color:#e2e8f0`
+  aparece 47 veces y a primera vista es "texto casi invisible sobre blanco". Al mirarlo, **siempre
+  viene acompañado de `background:#1e293b`/`#0f172a`/`#334155`**: son modales de superficie
+  oscura, auto-consistentes. Convertir solo el color habría dado **oscuro sobre oscuro**. El
+  codemod salta cualquier `color:` cuyo mismo `style="…"` pinte una superficie oscura (39 casos).
+- **Los colores de ESTADO se dejaron intactos** (`#f59e0b` 98, `#ef4444` 80, `#10b981` 72,
+  `#3b82f6` 36, `#8b5cf6` 53…). Su token correcto depende del rol —`--warn-text` sobre fondo
+  claro, `--warn-fill` como relleno con texto blanco— y eso no se deduce de la propiedad sola.
+  Mapearlos a ciegas es exactamente cómo se rompe un semáforo. Quedan ~920 hexes, casi todos de
+  esta familia.
+
+### Los 269 `--fs-xs` sin clasificar → 49 corregidos
+
+Subclasificados, la mayoría resultó correcta como estaba:
+
+| Sub-categoría | N | Acción |
+|---|---|---|
+| **Campo de captura** (`input`/`select`/`textarea`) | 39 | **→ `--fs-base` (16px)** |
+| Chip con color de estado o fondo | 73 | dejar — un chip es token visual |
+| Texto suelto `<span>`/`<div>` | 110 | dejar — genuinamente ambiguo |
+| `<p>` / `<label>` | 10 | → `--fs-sm` |
+| Celdas de tabla y otros | ~29 | dejar — densidad de tabla es decisión propia |
+
+Los **39 campos de captura a 13px** no son un tema estético: **por debajo de 16px iOS hace zoom
+al enfocar y no vuelve solo**. Es el mismo defecto que v22.1 y v22.2 corrigieron en dos sitios
+puntuales; aquí se cierra en toda la app.
+
+### Un defecto viejo que apareció al revisar capturas
+
+`.tp-card-title` usaba `justify-content: space-between`, y los módulos le agregan una barrita de
+acento con `::before` (`#platform-testplan .tp-card-title::before`, línea ~2036). **Un
+pseudo-elemento cuenta como ítem flex**: con un solo hijo real, la barra se iba a la izquierda y
+el título quedaba huérfano pegado a la derecha ("Armar la semana", "Propuesta en vivo"). Ahora el
+contenido arranca junto a la barra y solo un segundo hijo se empuja al extremo — que es el efecto
+que se buscaba. Preexistente, no lo introdujo esta ronda.
+
+### Verificación
+
+8 pantallas × 3 viewports sin desbordes ni texto recortado; 5 plataformas navegables; los 53
+destinos del lanzador sin fallos; área táctil, colapso de tarjetas, "Solo míos", "Crear otro" y
+el filtro de Proyectos siguen funcionando. Revisión visual de las dos pantallas con más cambios
+(Consumibles → Gases con 636 reemplazos, Plan → Armar semana con 506): sin regresiones.
+
+---
+
+## v22.6 — Barra de acción fija y la etapa 2 (reclasificar `--fs-xs`) (2026-09-01)
+
+### Etapa 2 — y la premisa del plan resultó equivocada
+
+El plan decía que `--fs-xs` estaba "inflado a 13px transitoriamente" y que volvería a 12px una
+vez movido el texto de cuerpo. Al categorizar los **785 usos** resultó falso:
+
+| Categoría | N | Acción |
+|---|---|---|
+| **Botón** (etiqueta de control) | 141 | → `--fs-sm` |
+| **+ color apagado** (`--tp-dim`/`--muted`) | 308 | **dejar** — es metadato real |
+| **Negrita** (título/etiqueta) | 67 | → `--fs-sm` |
+| **Resto** | 269 | pendiente, juicio caso por caso |
+
+**308 usos son metadato legítimo por la propia convención de la app** (chico + apagado =
+secundario). Así que 13px es el valor **correcto** para `--fs-xs`, no un parche transitorio: a
+13px un contador se lee mejor que a 12px y sigue siendo claramente secundario. Se retira la nota
+de "volver a 12px".
+
+**Se promovieron 208 sitios** (categorías 1 y 3), que son los demostrablemente mal clasificados:
+**la etiqueta de un control no es metadato**, y un título en negrita tampoco. La proporción
+`--fs-xs` : `--fs-sm` pasó de **2.5:1 (775/313) a 1.04:1 (577/554)**.
+
+### Un defecto latente que el cambio destapó
+
+Al crecer los botones de 13 a 15px, 58 quedaron con el texto cortado en Consumibles → Gases a
+390px. **El texto se recortaba en silencio**: la regla base de `.btn`/`.tp-btn` lleva
+`overflow: hidden` (para el ripple), así que un botón apretado no muestra que no cabe — "Exportar"
+se leía "Exporta". Existía desde antes; a 13px simplemente no se alcanzaba a disparar.
+
+- **La corrección va en el layout, nunca en la tipografía**: en ≤1024px el padding horizontal
+  baja un peldaño (`--space-lg` → `--space-md`, de 48px a 32px por botón) **y la fila envuelve**
+  (`:has(> .tp-btn), :has(> .btn) { flex-wrap: wrap }`). Se selecciona por el hijo directo porque
+  esas barras de acciones se arman con `display:flex` en línea y no tienen clase.
+- Devolver los botones a 13px habría "arreglado" el síntoma reintroduciendo el problema.
+
+### Barra de acción fija
+
+`.ui-bar` — permanente **bajo la barra de plataformas y visible en todas las pantallas**:
+`[🧭 Ir a…] [🔍 campo de búsqueda] [➕ Crear]`.
+
+- **Va debajo de `.platform-bar`, no dentro**: esa barra mide ~1900px expandida y colapsa a `⋯`
+  en ≤1600px (v17.9), así que no admite dos controles más. Verificado: sigue en 50px.
+- **El "campo de búsqueda" es un `<button>`, no un `<input>`**: el campo real vive dentro del
+  overlay del lanzador, y duplicarlo obligaría a sincronizar dos estados de texto para nada.
+- **Los mismos botones se RETIRARON de la cabecera de HOY y del menú `⋯`.** En v22.2 vivían ahí
+  porque no había dónde más; tenerlos en tres lugares es el desorden que esta serie combate.
+  En `⋯` queda solo "Buscar VIN", que es otra función: busca **datos**, no pantallas.
+- En ≤768px se ocultan etiquetas y el atajo: quedan tres objetivos de 44px y el campo con el
+  ancho restante.
+
+### Verificación
+
+8 pantallas × 3 viewports sin desbordes **ni texto recortado** (58 → 0). La barra mide 61px, sus
+3 botones ≥44px en los tres tamaños, y abre el lanzador desde cualquier plataforma (59 tiles).
+Búsqueda por concepto y con/sin acentos intacta; los 53 destinos siguen navegando sin fallos.
+
+---
+
 ## v22.5 — El resto de las etapas 7 y 8 (2026-09-01)
 
 ### `uiCard` en el resto de las pantallas

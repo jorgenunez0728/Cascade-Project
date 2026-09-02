@@ -833,13 +833,13 @@ function _pnAlpineTabRenderer(el) {
 function pnRenderAuditTrail(el) {
     var trail = (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-audit-help"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
-        '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);">📤 Exportar CSV</button></div>';
+        '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);">📤 Exportar CSV</button></div>';
     if (trail.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:#475569;">Sin registros de auditoría.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">Sin registros de auditoría.</div>';
     } else {
         trail.slice(0, 100).forEach(function(e) {
-            html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size: var(--fs-xs);">' +
-                '<span style="color:#475569;min-width:55px;">' + (e.ts ? e.ts.slice(11,16) : '') + '</span>' +
+            html += '<div style="display:flex;gap: var(--space-sm);padding:6px 0;border-bottom:1px solid var(--border);font-size: var(--fs-xs);">' +
+                '<span style="color:var(--muted);min-width:55px;">' + (e.ts ? e.ts.slice(11,16) : '') + '</span>' +
                 '<span style="min-width:40px;font-weight:700;">' + (e.mod || '') + '</span>' +
                 '<span style="color:var(--info-text);min-width:60px;">' + (e.user ? e.user.name : '') + '</span>' +
                 '<span style="flex:1;">' + (e.action || '') + (e.details ? ' — ' + e.details : '') + '</span></div>';
@@ -917,12 +917,12 @@ function pnRenderReports(el) {
         { icon: '📜', title: 'CoP — Juicios emitidos', desc: 'Historial de veredictos con fecha, familia, n, decisión, quién lo emitió y los límites con los que se decidió.', actions: [{ label: 'CSV', fn: 'copExportJudgmentsCSV' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
-        + '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
+        + '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
     reports.forEach(function(r) {
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-md);padding: var(--space-md) var(--space-xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
         html += '<div style="font-size:22px;">' + r.icon + '</div>';
         html += '<div style="flex:1;min-width:170px;"><div style="font-size:12px;font-weight:700;color:var(--tp-text);">' + r.title + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + r.desc + '</div></div>';
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
         r.actions.forEach(function(a) {
             html += '<button class="tp-btn tp-btn-ghost" onclick="pnRunReport(\'' + a.fn + '\')" style="font-size: var(--fs-sm);">' + a.label + '</button>';
         });
@@ -1038,9 +1038,9 @@ function renderLabOverview(el, opts) {
             { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
             { value: activeOps, label: 'Operadores', color: '#06b6d4' }
         ];
-        html += '<div class="pn-lab-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;">';
+        html += '<div class="pn-lab-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
         kpis.forEach(function(k) {
-            html += '<div class="tp-card anim-card-hover" style="text-align:center;padding:12px;">'
+            html += '<div class="tp-card anim-card-hover" style="text-align:center;padding: var(--space-md);">'
                 + '<div class="pn-kpi-num" data-kpi-target="' + k.value + '" data-kpi-suffix="' + (k.suffix || '') + '" style="font-size:24px;font-weight:800;color:' + k.color + ';">0</div>'
                 + '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + k.label + '</div></div>';
         });
@@ -1174,21 +1174,21 @@ function pnRenderDashboard(el) {
 
     // Header card
     html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.08),transparent);">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap: var(--space-md);">';
     html += '<div>';
     var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
     html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Lab Dashboard</div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);text-transform:capitalize;">' + todayStr + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-amber);margin-top:4px;">' + shiftLabel + '</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-amber);margin-top: var(--space-xs);">' + shiftLabel + '</div>';
     if (authUser) {
-        html += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);margin-top: var(--space-sm);">';
         html += '<span style="font-size: var(--fs-xs);color:#a78bfa;">Operador: <strong>' + authUser.name + '</strong></span>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">(cámbialo en la barra superior 👤)</span>';
         html += '</div>';
     }
     html += '</div>';
     if (currentShift) {
-        html += '<div style="padding:8px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;">';
+        html += '<div style="padding: var(--space-sm) var(--space-lg);background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius: var(--radius-xl);">';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Operador en turno</div>';
         html += '<div style="font-size:12px;font-weight:700;color:var(--tp-green);">' + currentShift.operator + '</div>';
         html += '</div>';
@@ -1204,10 +1204,10 @@ function pnRenderDashboard(el) {
         if (anomalies.length > 0) {
             html += '<div class="tp-card" style="border-left:3px solid #ef4444;">';
             html += '<div class="tp-card-title"><span style="color:var(--danger-text);">🚨 Anomalias de Gas (' + anomalies.length + ')</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size: var(--fs-xs);">Ver en Inventario</button></div>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size: var(--fs-sm);">Ver en Inventario</button></div>';
             anomalies.slice(0, 3).forEach(function(a) {
                 var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
-                html += '<div style="padding:6px 8px;margin-bottom:3px;border:1px solid ' + clr + '30;border-radius:6px;font-size: var(--fs-xs);color:' + clr + ';">';
+                html += '<div style="padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid ' + clr + '30;border-radius: var(--radius-lg);font-size: var(--fs-xs);color:' + clr + ';">';
                 html += '<strong>' + a.formula + '</strong> #' + a.controlNo + ' — ' + a.message;
                 html += '</div>';
             });
@@ -1253,7 +1253,7 @@ function pnRenderDashboard(el) {
         var pct = soakData.totalMs ? Math.round((1 - remainMs / soakData.totalMs) * 100) : 0;
         html += '<div class="tp-card" style="border:2px solid #8b5cf6;">';
         html += '<div class="tp-card-title"><span style="color:#8b5cf6;">🕐 Soak Timer Activo</span></div>';
-        html += '<div style="text-align:center;padding:8px;">';
+        html += '<div style="text-align:center;padding: var(--space-sm);">';
         html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + hrs + 'h ' + mins + 'm restantes</div>';
         html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(Math.max(pct, 0), 100) + '%;background:#8b5cf6;"></div></div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">VIN: ' + (soakData.vin || '?') + ' | ' + pct + '% completado</div>';
@@ -1266,20 +1266,20 @@ function pnRenderDashboard(el) {
         var queueLen = (typeof fbOfflineQueue !== 'undefined') ? fbOfflineQueue.length : 0;
         html += '<div class="tp-card" style="border-left:3px solid ' + syncClr + ';">';
         html += '<div class="tp-card-title"><span>☁️ Firebase Sync</span>';
-        html += '<span style="font-size: var(--fs-xs);padding:2px 8px;border-radius:4px;background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
+        html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Estacion: ' + (fbSync.stationId || '?') + '</div>';
-        if (queueLen > 0) html += '<div style="font-size: var(--fs-xs);color:var(--warn-text);margin-top:4px;">' + queueLen + ' operaciones en cola offline</div>';
-        if (fbSync.lastSync) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Ultimo sync: ' + new Date(fbSync.lastSync).toLocaleTimeString('es-MX') + '</div>';
+        if (queueLen > 0) html += '<div style="font-size: var(--fs-xs);color:var(--warn-text);margin-top: var(--space-xs);">' + queueLen + ' operaciones en cola offline</div>';
+        if (fbSync.lastSync) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Ultimo sync: ' + new Date(fbSync.lastSync).toLocaleTimeString('es-MX') + '</div>';
         html += '</div>';
     }
 
     // Weekly PDF Report button
-    html += '<div class="tp-card" style="text-align:center;padding:16px;">';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);">';
     html += '<button onclick="if(typeof generateWeeklyStatusPDF===\'function\')generateWeeklyStatusPDF();else showToast(\'Funcion no disponible\',\'error\');" ';
-    html += 'style="padding:12px 24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);">';
+    html += 'style="padding: var(--space-md) var(--space-xl);background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius: var(--radius-xl);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);">';
     html += '📄 Generar Reporte Semanal (PDF)</button>';
-    html += ' <button onclick="window.print()" style="padding:12px 24px;background:linear-gradient(135deg,#475569,#64748b);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimir Dashboard</button>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:6px;">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
+    html += ' <button onclick="window.print()" style="padding: var(--space-md) var(--space-xl);background:linear-gradient(135deg,#475569,#64748b);color:#fff;border:none;border-radius: var(--radius-xl);font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimir Dashboard</button>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
     html += '</div>';
 
     // Cross-module risk dashboard
@@ -1348,12 +1348,12 @@ function pnRenderUsers(el) {
     // Add operator form
     html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">';
     html += '<div class="tp-card-title" data-help="pn-users-help"><span>👥 Agregar Operador</span></div>';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">';
-    html += '<div style="flex:1;min-width:150px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div style="flex:1;min-width:150px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Nombre completo</label>';
     html += '<input type="text" id="pn-new-op-name" placeholder="Nombre Apellido" class="tp-input" style="width:100%;"></div>';
-    html += '<div style="min-width:120px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>';
+    html += '<div style="min-width:120px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Rol</label>';
     html += '<select id="pn-new-op-role" class="tp-select" style="width:100%;">' + roles.map(function(r) { return '<option value="' + r + '">' + r + '</option>'; }).join('') + '</select></div>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddOperator()" style="padding:8px 16px;">+ Agregar</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddOperator()" style="padding: var(--space-sm) var(--space-lg);">+ Agregar</button>';
     html += '</div></div>';
 
     // Operators list — los tombstones (deleted) permanecen en el array para el sync
@@ -1363,12 +1363,12 @@ function pnRenderUsers(el) {
     html += '<div class="tp-card-title"><span>👤 Operadores (' + visibleCount + ')</span></div>';
 
     if (visibleCount === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">No hay operadores registrados.</div>';
     } else {
         operators.forEach(function(op, idx) {
             if (op.deleted) return;
             var stats = opStats[op.name] || { registered: 0, released: 0, active: 0 };
-            html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius:8px;' + (!op.active ? 'opacity:0.5;' : '') + '">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-md);padding: var(--space-md);margin-bottom: var(--space-sm);background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius: var(--radius-xl);' + (!op.active ? 'opacity:0.5;' : '') + '">';
 
             // Avatar
             var initials = authInitials(op.name);
@@ -1378,21 +1378,21 @@ function pnRenderUsers(el) {
 
             // Info
             html += '<div style="flex:1;min-width:0;">';
-            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);">';
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(6,182,212,0.15);color:var(--info-text);border-radius:4px;">' + escapeHtml(op.role || 'Técnico') + '</span>';
-            if (!op.active) html += '<span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Inactivo</span>';
-            html += (op.pinHash2 || op.pinHash) ? '<span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius:4px;">PIN ✓</span>' : '<span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Sin PIN</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(6,182,212,0.15);color:var(--info-text);border-radius: var(--radius-md);">' + escapeHtml(op.role || 'Técnico') + '</span>';
+            if (!op.active) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Inactivo</span>';
+            html += (op.pinHash2 || op.pinHash) ? '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius: var(--radius-md);">PIN ✓</span>' : '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Sin PIN</span>';
             html += '</div>';
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
+            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
 
             // Actions
-            html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
-            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
-            html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;">✏️</button>';
-            html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
-            html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;color:var(--tp-red);">🗑</button>';
+            html += '<div style="display:flex;gap: var(--space-xs);flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
+            html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">✏️</button>';
+            html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">' + (op.active ? '🚫' : '✅') + '</button>';
+            html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);color:var(--tp-red);">🗑</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -1401,9 +1401,9 @@ function pnRenderUsers(el) {
     html += '</div>';
 
     // Sync info
-    html += '<div class="tp-card" style="padding:10px;text-align:center;">';
+    html += '<div class="tp-card" style="padding: var(--space-md);text-align:center;">';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnSyncOperators()" style="font-size: var(--fs-xs);margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnSyncOperators()" style="font-size: var(--fs-sm);margin-top: var(--space-sm);">🔄 Sincronizar Dropdowns Ahora</button>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -1449,15 +1449,15 @@ function pnOpEditModal(opId) {
     showModal({
         title: '✏️ Editar operador',
         body:
-            '<div style="margin-bottom:12px;">' +
-            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Nombre</label>' +
+            '<div style="margin-bottom: var(--space-md);">' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Nombre</label>' +
             '<input id="pn-edit-op-name" class="form-control" style="width:100%;box-sizing:border-box;" value="' + escapeHtml(op.name || '') + '">' +
             '</div>' +
-            '<div style="margin-bottom:10px;">' +
-            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Rol</label>' +
+            '<div style="margin-bottom: var(--space-md);">' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Rol</label>' +
             '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
             '</div>' +
-            '<div style="padding:8px 10px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:12px;line-height:1.5;">' +
+            '<div style="padding: var(--space-sm) var(--space-md);background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
             'El rol decide qué puede hacer esta persona. <b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
             '<br>Las competencias certificadas otorgan permisos adicionales por separado.' +
             '</div>',
@@ -1618,17 +1618,17 @@ function pnPromptPin(op) {
     var need = pnPinLenForRole(op.role || 'Técnico');
     return new Promise(function(resolve) {
         var msg =
-            '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">' +
+            '<div style="font-size:12px;color:var(--muted);margin-bottom: var(--space-md);">' +
             'PIN de <b>' + need + ' dígitos</b> para <b>' + escapeHtml(op.name) + '</b>' +
             (need === PN_PIN_LEN_PRIVILEGED
                 ? '<br><span style="font-size: var(--fs-sm);">Su rol (' + escapeHtml(op.role || 'Técnico') + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
                 : '') +
             '</div>' +
             '<input id="_pn_pin1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
-            'placeholder="Nuevo PIN" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:16px;letter-spacing:4px;text-align:center;">' +
+            'placeholder="Nuevo PIN" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);margin-bottom: var(--space-sm);font-size:16px;letter-spacing:4px;text-align:center;">' +
             '<input id="_pn_pin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
-            'placeholder="Confirmar PIN" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;font-size:16px;letter-spacing:4px;text-align:center;">' +
-            '<div id="_pn_pin_err" style="color:var(--danger);font-size: var(--fs-sm);min-height:14px;margin-top:6px;"></div>';
+            'placeholder="Confirmar PIN" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-xl);font-size:16px;letter-spacing:4px;text-align:center;">' +
+            '<div id="_pn_pin_err" style="color:var(--danger);font-size: var(--fs-sm);min-height:14px;margin-top: var(--space-sm);"></div>';
 
         showModal({
             title: 'Configurar PIN', message: msg, type: 'info',
@@ -1745,7 +1745,7 @@ function pnRenderShiftLog(el) {
     var html = '';
 
     // [R5-M6] Shift report button
-    html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnGenerateShiftReport()" style="font-size: var(--fs-sm);">🔄 Cerrar Turno</button>';
     if (pnState.shiftReports && pnState.shiftReports.length > 0) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="pnShowTurnoverOnLogin()" style="font-size: var(--fs-sm);">📋 Último Reporte</button>';
@@ -1756,34 +1756,34 @@ function pnRenderShiftLog(el) {
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
     html += '<div class="tp-card-title" data-help="pn-shift-help"><span>📝 Nueva Entrada de Bitácora</span></div>';
 
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
-    html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-bottom: var(--space-sm);">';
+    html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Operador</label>';
     var currentUserName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
     html += '<select id="pn-shift-operator" class="tp-select" style="width:100%;">';
     html += '<option value="">Seleccionar...</option>';
     activeOps.forEach(function(n) { html += '<option value="' + n + '"' + (n === currentUserName ? ' selected' : '') + '>' + n + '</option>'; });
     html += '</select></div>';
 
-    html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Categoria</label>';
+    html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Categoria</label>';
     html += '<select id="pn-shift-category" class="tp-select" style="width:100%;">';
     categories.forEach(function(c) { html += '<option value="' + c + '">' + c + '</option>'; });
     html += '</select></div>';
     html += '</div>';
 
-    html += '<div style="margin-bottom:8px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Notas / Descripcion</label>';
+    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Notas / Descripcion</label>';
     html += '<textarea id="pn-shift-notes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea></div>';
 
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddShiftEntry()" style="width:100%;padding:10px;font-size:12px;">+ Registrar en Bitácora</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddShiftEntry()" style="width:100%;padding: var(--space-md);font-size:12px;">+ Registrar en Bitácora</button>';
     html += '</div>';
 
     // Today's entries
     var todayEntries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; }).reverse();
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>📋 Hoy (' + todayEntries.length + ' entradas)</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportShiftLog()" style="font-size: var(--fs-xs);">📤 Exportar</button></div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportShiftLog()" style="font-size: var(--fs-sm);">📤 Exportar</button></div>';
 
     if (todayEntries.length === 0) {
-        html += '<div style="text-align:center;padding:30px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin entradas hoy. Registra el inicio de turno.</div>';
+        html += '<div style="text-align:center;padding: var(--space-2xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin entradas hoy. Registra el inicio de turno.</div>';
     } else {
         todayEntries.forEach(function(entry, i) {
             var catColors = {
@@ -1797,17 +1797,17 @@ function pnRenderShiftLog(el) {
             };
             var icon = catIcons[entry.category] || '📌';
 
-            html += '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-            html += '<div style="min-width:45px;font-size: var(--fs-xs);color:var(--tp-dim);padding-top:2px;">' + (entry.time || '') + '</div>';
+            html += '<div style="display:flex;gap: var(--space-md);padding:8px 0;border-bottom:1px solid var(--tp-border);">';
+            html += '<div style="min-width:45px;font-size: var(--fs-xs);color:var(--tp-dim);padding-top: var(--space-2xs);">' + (entry.time || '') + '</div>';
             html += '<div style="font-size:16px;line-height:1;">' + icon + '</div>';
             html += '<div style="flex:1;">';
-            html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">';
-            html += '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding:1px 6px;background:' + catColor + '20;color:' + catColor + ';border-radius:4px;">' + entry.category + '</span>';
+            html += '<div style="display:flex;gap: var(--space-sm);align-items:center;margin-bottom: var(--space-2xs);">';
+            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:' + catColor + '20;color:' + catColor + ';border-radius: var(--radius-md);">' + entry.category + '</span>';
             html += '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (entry.notes || '') + '</div>';
             html += '</div>';
-            html += '<button onclick="pnDeleteShiftEntry(\'' + entry.id + '\')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;">×</button>';
+            html += '<button onclick="pnDeleteShiftEntry(\'' + entry.id + '\')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding: var(--space-xs);flex-shrink:0;">×</button>';
             html += '</div>';
         });
     }
@@ -1828,11 +1828,11 @@ function pnRenderShiftLog(el) {
         dates.forEach(function(date) {
             var entries = grouped[date];
             var dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
-            html += '<details style="margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;overflow:hidden;">';
-            html += '<summary style="padding:8px 12px;cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">';
+            html += '<details style="margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);overflow:hidden;">';
+            html += '<summary style="padding: var(--space-sm) var(--space-md);cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">';
             html += '<span>' + dateLabel + '</span><span style="color:var(--tp-dim);">' + entries.length + ' entradas</span></summary>';
             entries.reverse().forEach(function(entry) {
-                html += '<div style="display:flex;gap:8px;padding:5px 12px;border-top:1px solid var(--tp-border);font-size: var(--fs-xs);">';
+                html += '<div style="display:flex;gap: var(--space-sm);padding: var(--space-xs) var(--space-md);border-top:1px solid var(--tp-border);font-size: var(--fs-xs);">';
                 html += '<span style="color:var(--tp-dim);min-width:40px;">' + (entry.time || '') + '</span>';
                 html += '<span style="font-weight:700;color:var(--tp-blue);min-width:70px;">' + (entry.operator || '?') + '</span>';
                 html += '<span style="color:var(--tp-dim);flex:1;">[' + (entry.category || '') + '] ' + (entry.notes || '') + '</span>';
@@ -2044,23 +2044,23 @@ function pnRenderAlerts(el) {
     var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
     var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
 
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" data-help="pn-alerts-help">';
-    html += '<div class="tp-card" style="text-align:center;padding:14px;' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);" data-help="pn-alerts-help">';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
     html += '<div style="font-size:28px;font-weight:800;color:var(--danger-text);">' + critical + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Criticas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:14px;' + (high > 0 ? 'border:2px solid #f59e0b;' : '') + '">';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (high > 0 ? 'border:2px solid #f59e0b;' : '') + '">';
     html += '<div style="font-size:28px;font-weight:800;color:var(--warn-text);">' + high + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Altas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:14px;">';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);">';
     html += '<div style="font-size:28px;font-weight:800;color:var(--info-text);">' + medium + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Medias</div></div>';
     html += '</div>';
 
     if (alerts.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:40px;">';
-        html += '<div style="font-size:40px;margin-bottom:10px;">✅</div>';
+        html += '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);">';
+        html += '<div style="font-size:40px;margin-bottom: var(--space-md);">✅</div>';
         html += '<div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>';
-        html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>';
+        html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top: var(--space-xs);">Todo el laboratorio opera con normalidad.</div>';
         html += '</div>';
     } else {
         // Group by source
@@ -2077,8 +2077,8 @@ function pnRenderAlerts(el) {
             html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
 
             sourceAlerts.forEach(function(a) {
-                html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-                html += '<span style="font-size: var(--fs-xs);padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
+                html += '<div style="display:flex;gap: var(--space-md);align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
+                html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius: var(--radius-md);font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
                 html += '<span style="font-size: var(--fs-sm);color:var(--tp-text);">' + a.message + '</span>';
                 html += '</div>';
             });
@@ -2089,8 +2089,8 @@ function pnRenderAlerts(el) {
     // Notification settings
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>🔔 Configuracion de Alertas</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Las alertas se generan automaticamente al abrir este panel.</div>';
-    html += '<div style="display:flex;gap:8px;">';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Las alertas se generan automaticamente al abrir este panel.</div>';
+    html += '<div style="display:flex;gap: var(--space-sm);">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRender()" style="flex:1;font-size: var(--fs-sm);">🔄 Actualizar Alertas</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportAlerts()" style="flex:1;font-size: var(--fs-sm);">📤 Exportar Reporte</button>';
     html += '</div></div>';
@@ -2142,7 +2142,7 @@ function pnRenderIntelligence(el) {
     var cop15Vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
 
     // ── Correlation 1: Gas Consumption vs Test Volume (weekly) ──
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📊 Consumo de Gas vs Volumen de Pruebas</h4>';
 
     var weeklyData = {};
@@ -2175,12 +2175,12 @@ function pnRenderIntelligence(el) {
     if (wkKeys.length >= 2) {
         html += '<canvas id="pn-intel-gas-tests" height="200"></canvas>';
     } else {
-        html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);">Datos insuficientes. Se necesitan al menos 2 semanas con pruebas y consumo de gas registrados.</p>';
+        html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);">Datos insuficientes. Se necesitan al menos 2 semanas con pruebas y consumo de gas registrados.</p>';
     }
     html += '</div>';
 
     // ── Correlation 2: Fail Rate vs Gas Age ──
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚠️ Tasa de Fallo vs Antigüedad del Gas</h4>';
 
     var gasAgeGroups = { fresh: { pass: 0, fail: 0 }, mid: { pass: 0, fail: 0 }, old: { pass: 0, fail: 0 } };
@@ -2207,14 +2207,14 @@ function pnRenderIntelligence(el) {
     if (hasAgeData) {
         html += '<canvas id="pn-intel-fail-age" height="200"></canvas>';
     } else {
-        html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);">Sin datos de correlación. Requiere pruebas con gasType asociado a cilindros con fecha de instalación.</p>';
+        html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);">Sin datos de correlación. Requiere pruebas con gasType asociado a cilindros con fecha de instalación.</p>';
     }
     html += '</div>';
 
     // ── Correlation 3: Plan Velocity vs Pipeline Load ──
     // v16.2: tpState.plans/.records nunca existió (leía siempre []) — la fuente viva de
     // planes semanales es tpState.weeklyPlans[].items[].completed.
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🚀 Velocidad del Plan Semanal vs Carga Pendiente</h4>';
 
     var tpWeeklyPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
@@ -2236,24 +2236,24 @@ function pnRenderIntelligence(el) {
     if (velocityData.length >= 1) {
         html += '<canvas id="pn-intel-velocity" height="200"></canvas>';
     } else {
-        html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);">Sin planes de prueba activos. Cree un plan en Test Plan Manager para ver la correlación.</p>';
+        html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);">Sin planes de prueba activos. Cree un plan en Test Plan Manager para ver la correlación.</p>';
     }
     html += '</div>';
 
     // ── Summary Stats ──
-    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<div class="tp-card" style="padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📈 Resumen Cross-Module</h4>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">';
 
     var totalTests = tests.length;
     var totalGas = gasItems.length;
     var totalVehicles = cop15Vehicles.length;
     var failRate = totalTests > 0 ? ((tests.filter(function(t) { return t.result === 'FAIL' || t.status === 'fail'; }).length / totalTests) * 100).toFixed(1) : '0.0';
 
-    html += '<div style="text-align:center;padding:8px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:var(--info-text);">' + totalTests + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Pruebas Totales</div></div>';
-    html += '<div style="text-align:center;padding:8px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:var(--ok-text);">' + totalVehicles + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Vehículos COP15</div></div>';
-    html += '<div style="text-align:center;padding:8px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:var(--warn-text);">' + totalGas + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Cilindros Gas</div></div>';
-    html += '<div style="text-align:center;padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:var(--danger-text);">' + failRate + '%</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Tasa de Fallo</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(59,130,246,0.1);border-radius: var(--radius-lg);"><div style="font-size:18px;font-weight:700;color:var(--info-text);">' + totalTests + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Pruebas Totales</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(16,185,129,0.1);border-radius: var(--radius-lg);"><div style="font-size:18px;font-weight:700;color:var(--ok-text);">' + totalVehicles + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Vehículos COP15</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(245,158,11,0.1);border-radius: var(--radius-lg);"><div style="font-size:18px;font-weight:700;color:var(--warn-text);">' + totalGas + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Cilindros Gas</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(239,68,68,0.1);border-radius: var(--radius-lg);"><div style="font-size:18px;font-weight:700;color:var(--danger-text);">' + failRate + '%</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Tasa de Fallo</div></div>';
     html += '</div></div>';
 
     html += '</div>';
@@ -2405,7 +2405,7 @@ function pnRenderSystemHealth(el) {
 
     // ── Version / publication date ──
     var _ver = (typeof getAppVersionInfo === 'function') ? getAppVersionInfo() : { version: '?', publishedES: null, isDev: true };
-    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--glass-bg,#f7f7f9);border:1px solid var(--glass-border,#e5e7eb);border-radius:10px;padding:10px 14px;margin-bottom:14px;">'
+    html += '<div style="display:flex;align-items:center;gap: var(--space-md);flex-wrap:wrap;background:var(--glass-bg,#f7f7f9);border:1px solid var(--glass-border,#e5e7eb);border-radius: var(--radius-xl);padding: var(--space-md) var(--space-lg);margin-bottom: var(--space-lg);">'
         + '<span style="font-size:20px;">🏷️</span>'
         + '<div>'
         + '<div style="font-size:13px;font-weight:700;">KIA EmLab v' + _ver.version + '</div>'
@@ -2423,19 +2423,19 @@ function pnRenderSystemHealth(el) {
     var usedPct = scan.pct.toFixed(1);
     var barColor = totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981';
 
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;" data-help="pn_storage">📦 Uso de Almacenamiento</h4>';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-sm);">';
     html += '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
     html += '</div>';
-    html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">';
-    html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>';
+    html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius: var(--radius-md);overflow:hidden;">';
+    html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius: var(--radius-md);transition:width 0.3s;"></div>';
     html += '</div>';
 
     // Este límite es del NAVEGADOR, no de Firebase. Es la duda #1 cuando se llena.
     if (totalBytes > maxStorage * 0.8) {
-        html += '<div style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size: var(--fs-xs);color:var(--tp-text);line-height:1.5;">'
+        html += '<div style="margin-top: var(--space-md);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-xl);font-size: var(--fs-xs);color:var(--tp-text);line-height:1.5;">'
              +  '<b>⚠️ Estás en el límite del navegador.</b> Este espacio es de <b>este dispositivo</b>, no de Firebase: '
              +  'la app trabaja primero contra el almacenamiento local y la nube es la copia compartida. '
              +  'Cuando se llena, las capturas dejan de guardarse aunque la sincronización esté en verde.'
@@ -2444,12 +2444,12 @@ function pnRenderSystemHealth(el) {
 
     // Botón de liberación — dice de antemano cuánto se recupera
     if (scan.reclaimable > 0) {
-        html += '<button class="tp-btn" onclick="pnReclaimSpace()" style="margin-top:10px;width:100%;padding:9px;background:var(--ok-bg,rgba(16,185,129,0.12));color:var(--ok-text);border:1px solid rgba(16,185,129,0.35);font-weight:600;">'
+        html += '<button class="tp-btn" onclick="pnReclaimSpace()" style="margin-top: var(--space-md);width:100%;padding: var(--space-sm);background:var(--ok-bg,rgba(16,185,129,0.12));color:var(--ok-text);border:1px solid rgba(16,185,129,0.35);font-weight:600;">'
              +  '🧹 Liberar ' + _pnFormatBytes(scan.reclaimable) + ' regenerables</button>';
     }
 
     // Desglose completo, clave por clave
-    html += '<div style="margin-top:10px;">';
+    html += '<div style="margin-top: var(--space-md);">';
     var TIER_CHIP = {
         core:   { t: 'dato', c: 'var(--tp-dim)' },
         cache:  { t: 'regenerable', c: 'var(--ok-text)' },
@@ -2459,14 +2459,14 @@ function pnRenderSystemHealth(el) {
         if (it.bytes < 512) return; // el ruido de <0.5 KB no ayuda a decidir
         var pct = totalBytes > 0 ? ((it.bytes / totalBytes) * 100).toFixed(1) : '0.0';
         var chip = TIER_CHIP[it.tier] || TIER_CHIP.review;
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid var(--tp-border);">';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
              +  it.label
              +  ' <span style="color:' + chip.c + ';font-size:10px;">· ' + chip.t + '</span></span>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);flex-shrink:0;">' + _pnFormatBytes(it.bytes) + ' (' + pct + '%)';
         if (it.tier === 'review') {
             html += ' <button class="tp-btn" onclick="pnStorageDeleteKey(\'' + it.key.replace(/'/g, "\\'") + '\')" '
-                 +  'style="padding:1px 7px;font-size:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);margin-left:4px;">Borrar</button>';
+                 +  'style="padding: var(--space-2xs) var(--space-sm);font-size:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);margin-left: var(--space-xs);">Borrar</button>';
         }
         html += '</span>';
         html += '</div>';
@@ -2474,7 +2474,7 @@ function pnRenderSystemHealth(el) {
     html += '</div></div>';
 
     // ── Data Aging ──
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>';
 
     var now = Date.now();
@@ -2511,48 +2511,48 @@ function pnRenderSystemHealth(el) {
     if (agingData.length > 0) {
         html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
         html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">';
-        html += '<th style="text-align:left;padding:4px;">Módulo</th>';
-        html += '<th style="text-align:center;padding:4px;">Total</th>';
-        html += '<th style="text-align:center;padding:4px;">30-60d</th>';
-        html += '<th style="text-align:center;padding:4px;">60-90d</th>';
-        html += '<th style="text-align:center;padding:4px;">>90d</th>';
+        html += '<th style="text-align:left;padding: var(--space-xs);">Módulo</th>';
+        html += '<th style="text-align:center;padding: var(--space-xs);">Total</th>';
+        html += '<th style="text-align:center;padding: var(--space-xs);">30-60d</th>';
+        html += '<th style="text-align:center;padding: var(--space-xs);">60-90d</th>';
+        html += '<th style="text-align:center;padding: var(--space-xs);">>90d</th>';
         html += '</tr>';
         agingData.forEach(function(a) {
             html += '<tr style="color:#e2e8f0;border-bottom:1px solid rgba(30,41,59,0.2);">';
-            html += '<td style="padding:4px;">' + a.label + '</td>';
-            html += '<td style="text-align:center;padding:4px;">' + a.total + '</td>';
-            html += '<td style="text-align:center;padding:4px;color:var(--warn-text);">' + a.d30 + '</td>';
-            html += '<td style="text-align:center;padding:4px;color:var(--danger-text);">' + a.d60 + '</td>';
-            html += '<td style="text-align:center;padding:4px;color:var(--danger-text);font-weight:700;">' + a.d90 + '</td>';
+            html += '<td style="padding: var(--space-xs);">' + a.label + '</td>';
+            html += '<td style="text-align:center;padding: var(--space-xs);">' + a.total + '</td>';
+            html += '<td style="text-align:center;padding: var(--space-xs);color:var(--warn-text);">' + a.d30 + '</td>';
+            html += '<td style="text-align:center;padding: var(--space-xs);color:var(--danger-text);">' + a.d60 + '</td>';
+            html += '<td style="text-align:center;padding: var(--space-xs);color:var(--danger-text);font-weight:700;">' + a.d90 + '</td>';
             html += '</tr>';
         });
         html += '</table>';
     } else {
-        html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);">Sin datos para analizar antigüedad.</p>';
+        html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);">Sin datos para analizar antigüedad.</p>';
     }
     html += '</div>';
 
     // ── Purge Tools ──
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<div class="tp-card" style="margin-bottom: var(--space-md);padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>';
-    html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
+    html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
 
-    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
     html += '</div>';
     html += '</div>';
 
     // ── Performance ──
-    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<div class="tp-card" style="padding: var(--space-md);">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>';
     var perfData = _pnMeasurePerformance();
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
-    html += '<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:var(--info-text);">' + perfData.lsKeys + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Keys localStorage</div></div>';
-    html += '<div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:var(--ok-text);">' + perfData.domNodes + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">DOM Nodes</div></div>';
-    html += '<div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:var(--warn-text);">' + perfData.memoryMB + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Memoria (MB)</div></div>';
-    html += '<div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#8b5cf6;">' + perfData.charts + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Charts Activos</div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(59,130,246,0.1);border-radius: var(--radius-lg);"><div style="font-size:16px;font-weight:700;color:var(--info-text);">' + perfData.lsKeys + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Keys localStorage</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(16,185,129,0.1);border-radius: var(--radius-lg);"><div style="font-size:16px;font-weight:700;color:var(--ok-text);">' + perfData.domNodes + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">DOM Nodes</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(245,158,11,0.1);border-radius: var(--radius-lg);"><div style="font-size:16px;font-weight:700;color:var(--warn-text);">' + perfData.memoryMB + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Memoria (MB)</div></div>';
+    html += '<div style="text-align:center;padding: var(--space-sm);background:rgba(139,92,246,0.1);border-radius: var(--radius-lg);"><div style="font-size:16px;font-weight:700;color:#8b5cf6;">' + perfData.charts + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Charts Activos</div></div>';
     html += '</div>';
     html += '</div>';
 
@@ -2810,16 +2810,16 @@ function pnRenderCalendar(el) {
     if (!_calYear) { var d = new Date(); _calYear = d.getFullYear(); _calMonth = d.getMonth(); }
 
     var events = _pnCollectCalendarEvents(_calYear, _calMonth);
-    var html = '<div class="tp-card" style="padding:16px;">';
+    var html = '<div class="tp-card" style="padding: var(--space-lg);">';
 
     // Header with nav
     var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-    html += '<button onclick="_pnCalendarNav(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-md);">';
+    html += '<button onclick="_pnCalendarNav(-1)" class="btn-secondary" style="padding: var(--space-xs) var(--space-md);">←</button>';
     html += '<span style="font-size:14px;font-weight:800;color:var(--tp-text);">' + monthNames[_calMonth] + ' ' + _calYear + '</span>';
-    html += '<div style="display:flex;gap:6px;">';
-    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding:4px 10px;font-size: var(--fs-xs);">Hoy</button>';
-    html += '<button onclick="_pnCalendarNav(1)" class="btn-secondary" style="padding:4px 12px;">→</button>';
+    html += '<div style="display:flex;gap: var(--space-sm);">';
+    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);">Hoy</button>';
+    html += '<button onclick="_pnCalendarNav(1)" class="btn-secondary" style="padding: var(--space-xs) var(--space-md);">→</button>';
     html += '</div></div>';
 
     // Day headers
@@ -2871,15 +2871,15 @@ function pnRenderCalendar(el) {
     // Week summary
     var thisWeekEvents = _pnCalendarWeekSummary(events);
     if (thisWeekEvents) {
-        html += '<div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size: var(--fs-xs);color:var(--tp-dim);">';
+        html += '<div style="margin-top: var(--space-md);padding: var(--space-md);background:rgba(255,255,255,0.03);border-radius: var(--radius-xl);font-size: var(--fs-xs);color:var(--tp-dim);">';
         html += '<strong style="color:var(--tp-text);">Esta semana:</strong> ' + thisWeekEvents;
         html += '</div>';
     }
 
     // Legend
-    html += '<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-md);margin-top: var(--space-md);flex-wrap:wrap;">';
     [{ color: '#ef4444', label: 'Vencido/Agotado' }, { color: '#f59e0b', label: 'Próximo' }, { color: '#3b82f6', label: 'Planificado' }, { color: '#10b981', label: 'Release/Completado' }].forEach(function(l) {
-        html += '<div style="display:flex;align-items:center;gap:4px;font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:' + l.color + ';display:inline-block;"></span> ' + l.label + '</div>';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:' + l.color + ';display:inline-block;"></span> ' + l.label + '</div>';
     });
     html += '</div></div>';
 
@@ -2998,7 +2998,7 @@ function _pnCalendarDayClick(dateStr) {
     }
     var html = '<div style="max-height:40vh;overflow-y:auto;">';
     dayEvents.forEach(function(ev) {
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b;">';
+        html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding:8px 0;border-bottom:1px solid #1e293b;">';
         html += '<span style="width:8px;height:8px;border-radius:50%;background:' + ev.color + ';flex-shrink:0;"></span>';
         html += '<div>';
         html += '<div style="font-size:12px;font-weight:600;color:var(--tp-text);">' + ev.label + '</div>';
@@ -3127,21 +3127,21 @@ function pnRenderShiftReport(report) {
     var html = '<div style="max-height:60vh;overflow-y:auto;">';
 
     // Header
-    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="text-align:center;margin-bottom: var(--space-lg);">';
     html += '<div style="font-size:12px;color:var(--tp-dim);">' + new Date(report.timestamp).toLocaleString('es-MX') + '</div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:2px;">Operador: ' + escapeHtml(report.operator) + '</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top: var(--space-2xs);">Operador: ' + escapeHtml(report.operator) + '</div>';
     html += '</div>';
 
     // KPIs
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:var(--info-text);">' + report.vehiclesInProgress.length + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">En progreso</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:var(--warn-text);">' + report.pendingTests + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Pruebas pend.</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Gases bajos</div></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap: var(--space-sm);margin-bottom: var(--space-lg);">';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-md);"><div style="font-size:20px;font-weight:800;color:var(--info-text);">' + report.vehiclesInProgress.length + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">En progreso</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-md);"><div style="font-size:20px;font-weight:800;color:var(--warn-text);">' + report.pendingTests + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Pruebas pend.</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding: var(--space-md);"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Gases bajos</div></div>';
     html += '</div>';
 
     // Vehicles in progress
     if (report.vehiclesInProgress.length > 0) {
-        html += '<div style="margin-bottom:12px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom:6px;">Vehículos activos:</div>';
+        html += '<div style="margin-bottom: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom: var(--space-sm);">Vehículos activos:</div>';
         report.vehiclesInProgress.forEach(function(v) {
             var statusColor = v.status === 'testing' ? '#8b5cf6' : v.status === 'ready-release' ? '#10b981' : '#f59e0b';
             html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size: var(--fs-xs);border-bottom:1px solid #1e293b;">';
@@ -3154,7 +3154,7 @@ function pnRenderShiftReport(report) {
 
     // Gases low
     if (report.gasesLow.length > 0) {
-        html += '<div style="margin-bottom:12px;"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom:6px;">⚠ Gases con presión baja:</div>';
+        html += '<div style="margin-bottom: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom: var(--space-sm);">⚠ Gases con presión baja:</div>';
         report.gasesLow.forEach(function(g) {
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding:2px 0;">' + escapeHtml(g.controlNo) + ' (' + escapeHtml(g.gasType) + '): ' + g.psi + ' PSI</div>';
         });
@@ -3163,12 +3163,12 @@ function pnRenderShiftReport(report) {
 
     // Notes
     if (report.notes) {
-        html += '<div style="margin-bottom:12px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--tp-border);font-size: var(--fs-xs);color:var(--tp-dim);"><strong style="color:var(--tp-text);">Notas:</strong> ' + escapeHtml(report.notes) + '</div>';
+        html += '<div style="margin-bottom: var(--space-md);padding: var(--space-sm);background:rgba(255,255,255,0.03);border-radius: var(--radius-lg);border:1px solid var(--tp-border);font-size: var(--fs-xs);color:var(--tp-dim);"><strong style="color:var(--tp-text);">Notas:</strong> ' + escapeHtml(report.notes) + '</div>';
     }
 
-    html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">';
-    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding:6px 14px;font-size: var(--fs-xs);">📋 Copiar</button>';
-    html += '<button onclick="closeModal()" class="btn-primary" style="padding:6px 14px;font-size: var(--fs-xs);">Cerrar</button>';
+    html += '<div style="display:flex;gap: var(--space-sm);justify-content:center;margin-top: var(--space-md);">';
+    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding: var(--space-sm) var(--space-lg);font-size: var(--fs-sm);">📋 Copiar</button>';
+    html += '<button onclick="closeModal()" class="btn-primary" style="padding: var(--space-sm) var(--space-lg);font-size: var(--fs-sm);">Cerrar</button>';
     html += '</div></div>';
 
     showModal(html, 'Reporte de Turno');
@@ -3827,10 +3827,10 @@ function pnRenderExecutive(el) {
                 html += '</div>';
             });
         } else {
-            html += '<div style="color:var(--muted);padding:12px;text-align:center;">Sin alertas de agotamiento proximo</div>';
+            html += '<div style="color:var(--muted);padding: var(--space-md);text-align:center;">Sin alertas de agotamiento proximo</div>';
         }
     } else {
-        html += '<div style="color:var(--muted);padding:12px;text-align:center;">Inventario no disponible</div>';
+        html += '<div style="color:var(--muted);padding: var(--space-md);text-align:center;">Inventario no disponible</div>';
     }
     html += '</div>';
 
@@ -3847,13 +3847,13 @@ function pnRenderExecutive(el) {
         var maxOp = opStats[sortedOps[0]];
         sortedOps.forEach(function(op) {
             var pct = Math.round((opStats[op] / maxOp) * 100);
-            html += '<div style="margin-bottom:8px;">';
-            html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:2px;"><span>' + op + '</span><span>' + opStats[op] + ' esta semana</span></div>';
+            html += '<div style="margin-bottom: var(--space-sm);">';
+            html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom: var(--space-2xs);"><span>' + op + '</span><span>' + opStats[op] + ' esta semana</span></div>';
             html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + pct + '%;background:var(--info);"></div></div>';
             html += '</div>';
         });
     } else {
-        html += '<div style="color:var(--muted);text-align:center;padding:12px;">Sin datos esta semana</div>';
+        html += '<div style="color:var(--muted);text-align:center;padding: var(--space-md);">Sin datos esta semana</div>';
     }
     html += '</div>';
 
@@ -3869,7 +3869,7 @@ function pnRenderTurnaround(el) {
     var archived = vehicles.filter(function(v) { return v.status === 'archived' && v.timeline && v.timeline.length >= 2; });
 
     if (archived.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
         return;
     }
 
@@ -3918,7 +3918,7 @@ function pnRenderTurnaround(el) {
 
     var html = '';
     html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-turnaround-help"><span>Tiempo Promedio por Etapa</span></div>';
-    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:12px;">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom: var(--space-md);">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
 
     var stages = [
         { label: 'Registro → Precond', data: stageStats.registration_to_precond, color: '#3b82f6' },
@@ -3932,8 +3932,8 @@ function pnRenderTurnaround(el) {
     stages.forEach(function(s) {
         var a = avg(s.data);
         var pct = Math.round((a / maxAvg) * 100);
-        html += '<div style="margin-bottom:12px;">';
-        html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:4px;">';
+        html += '<div style="margin-bottom: var(--space-md);">';
+        html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom: var(--space-xs);">';
         html += '<span>' + s.label + '</span>';
         html += '<span style="font-weight:700;">' + formatHrs(a) + ' <span style="color:var(--muted);font-weight:400;">(n=' + s.data.length + ')</span></span>';
         html += '</div>';
@@ -3958,14 +3958,14 @@ function pnRenderTurnaround(el) {
     var dates = Object.keys(dailyCounts).sort();
     var counts = dates.map(function(d) { return dailyCounts[d]; });
     var maxCount = Math.max.apply(null, counts.concat([1]));
-    html += '<div style="display:flex;align-items:flex-end;gap:4px;height:80px;padding:8px 0;">';
+    html += '<div style="display:flex;align-items:flex-end;gap: var(--space-xs);height:80px;padding:8px 0;">';
     dates.forEach(function(d, i) {
         var h = Math.max(4, Math.round((counts[i] / maxCount) * 70));
         var dayLabel = d.slice(8,10);
         html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
-        html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--text);margin-bottom:2px;">' + counts[i] + '</div>';
-        html += '<div style="width:100%;height:' + h + 'px;background:var(--info);border-radius:3px;"></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">' + dayLabel + '</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin-bottom: var(--space-2xs);">' + counts[i] + '</div>';
+        html += '<div style="width:100%;height:' + h + 'px;background:var(--info);border-radius: var(--radius-md);"></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">' + dayLabel + '</div>';
         html += '</div>';
     });
     html += '</div></div>';
@@ -3980,39 +3980,39 @@ function pnRenderTurnaround(el) {
 function pnRenderRegulations(el) {
     var profiles = getAllRegulationProfiles();
     var html = '<div style="padding:4px 0;">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom: var(--space-md);">';
     html += '<h3 style="margin:0;font-size:14px;">⚗️ Perfiles de Regulación de Emisiones</h3>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size: var(--fs-sm);padding:6px 14px;">+ Agregar Regulación</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">+ Agregar Regulación</button>';
     html += '</div>';
 
     if (profiles.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:32px;">';
-        html += '<div style="font-size:32px;margin-bottom:8px;">⚗️</div>';
-        html += '<div style="font-weight:700;margin-bottom:6px;">No hay perfiles configurados</div>';
-        html += '<div style="color:var(--tp-dim);font-size: var(--fs-sm);margin-bottom:16px;">Los perfiles definen qué gases medir y sus límites máximos por regulación.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding: var(--space-2xl);">';
+        html += '<div style="font-size:32px;margin-bottom: var(--space-sm);">⚗️</div>';
+        html += '<div style="font-weight:700;margin-bottom: var(--space-sm);">No hay perfiles configurados</div>';
+        html += '<div style="color:var(--tp-dim);font-size: var(--fs-sm);margin-bottom: var(--space-lg);">Los perfiles definen qué gases medir y sus límites máximos por regulación.</div>';
         html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()">+ Agregar primer perfil</button>';
         html += '</div>';
     } else {
         profiles.forEach(function(p) {
-            html += '<div class="tp-card" style="margin-bottom:10px;">';
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+            html += '<div class="tp-card" style="margin-bottom: var(--space-md);">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom: var(--space-sm);">';
             html += '<div><div style="font-weight:700;font-size:13px;">' + escapeHtml(p.name) + '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + p.gases.length + ' gas' + (p.gases.length !== 1 ? 'es' : '') + ' configurado' + (p.gases.length !== 1 ? 's' : '') + '</div></div>';
-            html += '<div style="display:flex;gap:6px;">';
-            html += '<button class="tp-btn" onclick="pnRegEdit(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-xs);padding:4px 10px;">✏️ Editar</button>';
-            html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-xs);padding:4px 10px;color:var(--danger-text);">🗑️</button>';
+            html += '<div style="display:flex;gap: var(--space-sm);">';
+            html += '<button class="tp-btn" onclick="pnRegEdit(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);">✏️ Editar</button>';
+            html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);color:var(--danger-text);">🗑️</button>';
             html += '</div></div>';
             if (p.gases.length > 0) {
                 html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
-                html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(0,0,0,0.08);"><th style="text-align:left;padding:3px 6px;">Gas</th><th style="text-align:center;padding:3px 6px;">Unidad</th><th style="text-align:center;padding:3px 6px;">Límite</th></tr>';
+                html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(0,0,0,0.08);"><th style="text-align:left;padding: var(--space-2xs) var(--space-sm);">Gas</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Unidad</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Límite</th></tr>';
                 p.gases.forEach(function(g) {
                     html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">';
-                    html += '<td style="padding:4px 6px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
+                    html += '<td style="padding: var(--space-xs) var(--space-sm);font-weight:600;">' + escapeHtml(g.label) + '</td>';
                     var _cap = (typeof gasCaptureUnit === 'function') ? gasCaptureUnit(g) : g.unit;
-                    html += '<td style="text-align:center;padding:4px 6px;color:var(--tp-dim);">' + escapeHtml(g.unit)
+                    html += '<td style="text-align:center;padding: var(--space-xs) var(--space-sm);color:var(--tp-dim);">' + escapeHtml(g.unit)
                          + (_cap !== g.unit ? '<div style="font-size:10px;color:var(--info-text);">se teclea en ' + escapeHtml(_cap) + '</div>' : '')
                          + '</td>';
-                    html += '<td style="text-align:center;padding:4px 6px;">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:var(--danger-text);">' + g.limit + '</span>' : '<span style="color:var(--tp-dim);">Sin límite</span>') + '</td>';
+                    html += '<td style="text-align:center;padding: var(--space-xs) var(--space-sm);">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:var(--danger-text);">' + g.limit + '</span>' : '<span style="color:var(--tp-dim);">Sin límite</span>') + '</td>';
                     html += '</tr>';
                 });
                 html += '</table></div>';
@@ -4053,22 +4053,22 @@ function _pnRegShowModal(profile) {
     p.gases.forEach(function(g, i) { gasRowsHtml += _pnRegGasRowHtml(i, g); });
 
     var bodyHtml =
-        '<div style="margin-bottom:12px;">' +
-        '<label style="font-size: var(--fs-sm);font-weight:600;display:block;margin-bottom:4px;">Nombre de la Regulación *</label>' +
+        '<div style="margin-bottom: var(--space-md);">' +
+        '<label style="font-size: var(--fs-sm);font-weight:600;display:block;margin-bottom: var(--space-xs);">Nombre de la Regulación *</label>' +
         '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
         '</div>' +
-        '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
+        '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom: var(--space-sm);gap: var(--space-sm);flex-wrap:wrap;">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;">Gases a medir</label>' +
-        '<div style="display:flex;gap:6px;">' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnRegApplyIcmsUnits()" style="font-size: var(--fs-xs);padding:3px 10px;">⚡ Captura como el banco</button>' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size: var(--fs-xs);padding:3px 10px;">+ Agregar gas</button>' +
+        '<div style="display:flex;gap: var(--space-sm);">' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegApplyIcmsUnits()" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-md);">⚡ Captura como el banco</button>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-md);">+ Agregar gas</button>' +
         '</div></div>' +
         '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:0 0 6px 0;line-height:1.5;">' +
         '<b>Unidad</b> es la del límite regulatorio y en la que se <b>guarda</b> el dato. ' +
         '<b>Captura</b> es solo cómo se teclea y se muestra: si el reporte del banco trae 24.3 mg/km, ' +
         'pon mg/km y se teclea 24.3 en vez de 0.0243. La conversión es automática y no cambia nada de lo ya guardado.</p>' +
         '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
-        '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding:3px;">Campo</th><th style="text-align:left;padding:3px;">Etiqueta</th><th style="text-align:left;padding:3px;">Unidad</th><th style="text-align:left;padding:3px;">Captura</th><th style="text-align:center;padding:3px;">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
+        '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding: var(--space-2xs);">Campo</th><th style="text-align:left;padding: var(--space-2xs);">Etiqueta</th><th style="text-align:left;padding: var(--space-2xs);">Unidad</th><th style="text-align:left;padding: var(--space-2xs);">Captura</th><th style="text-align:center;padding: var(--space-2xs);">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
         '<tbody id="reg-gas-rows">' + gasRowsHtml + '</tbody>' +
         '</table></div></div>';
 
@@ -4124,12 +4124,12 @@ function _pnRegGasRowHtml(i, g) {
     var opts = (typeof GAS_UNIT_OPTIONS !== 'undefined' ? GAS_UNIT_OPTIONS : ['g/km','mg/km','g/mi','mg/mi'])
         .map(function(u) { return '<option value="' + u + '"' + (u === cap ? ' selected' : '') + '>' + u + '</option>'; }).join('');
     return '<tr data-gas-idx="' + i + '">' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-field" value="' + escapeHtml(g.field||'') + '" placeholder="CO" style="width:55px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-label" value="' + escapeHtml(g.label||'') + '" placeholder="CO" style="width:65px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:56px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><select class="form-control reg-gas-capture" style="width:72px;font-size: var(--fs-xs);">' + opts + '</select></td>' +
-        '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-xs);text-align:center;"></td>' +
-        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size: var(--fs-xs);color:var(--danger-text);">✕</button></td>' +
+        '<td style="padding: var(--space-2xs);"><input class="form-control reg-gas-field" value="' + escapeHtml(g.field||'') + '" placeholder="CO" style="width:55px;font-size: var(--fs-base);"></td>' +
+        '<td style="padding: var(--space-2xs);"><input class="form-control reg-gas-label" value="' + escapeHtml(g.label||'') + '" placeholder="CO" style="width:65px;font-size: var(--fs-base);"></td>' +
+        '<td style="padding: var(--space-2xs);"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:56px;font-size: var(--fs-base);"></td>' +
+        '<td style="padding: var(--space-2xs);"><select class="form-control reg-gas-capture" style="width:72px;font-size: var(--fs-base);">' + opts + '</select></td>' +
+        '<td style="padding: var(--space-2xs);text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-base);text-align:center;"></td>' +
+        '<td style="padding: var(--space-2xs);"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-sm);color:var(--danger-text);">✕</button></td>' +
         '</tr>';
 }
 
@@ -4181,8 +4181,8 @@ function pnRenderFiles(el) {
     html += '<input type="file" id="pn-files-input" accept="' + PN_FILES_ACCEPT + '" style="display:none;" onchange="pnFilesHandleUpload(event)">';
 
     if (!ready.ok) {
-        html += '<div style="text-align:center;padding:24px;color:var(--tp-dim);">';
-        html += '<div style="font-size:32px;margin-bottom:8px;">☁️</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">';
+        html += '<div style="font-size:32px;margin-bottom: var(--space-sm);">☁️</div>';
         html += '<div style="font-size:12px;">' + escapeHtml(ready.reason) + '</div>';
         html += '</div>';
         html += '</div>';
@@ -4190,12 +4190,12 @@ function pnRenderFiles(el) {
         return;
     }
 
-    html += '<div id="pn-files-progress" style="display:none;margin-bottom:10px;">';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:3px;">Subiendo… <span id="pn-files-progress-pct">0%</span></div>';
+    html += '<div id="pn-files-progress" style="display:none;margin-bottom: var(--space-md);">';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">Subiendo… <span id="pn-files-progress-pct">0%</span></div>';
     html += '<div class="tp-bar" style="width:100%;height:8px;"><div class="tp-bar-fill" id="pn-files-progress-fill" style="width:0%;background:var(--tp-blue);"></div></div>';
     html += '</div>';
 
-    html += '<div id="pn-files-quota" style="margin-bottom:12px;"></div>';
+    html += '<div id="pn-files-quota" style="margin-bottom: var(--space-md);"></div>';
     html += '<div id="pn-files-list">' + pnFilesLoadingHTML() + '</div>';
     html += '</div>';
     el.innerHTML = html;
@@ -4205,7 +4205,7 @@ function pnRenderFiles(el) {
 }
 
 function pnFilesLoadingHTML() {
-    return '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Cargando…</div>';
+    return '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Cargando…</div>';
 }
 
 function pnFilesRefresh() {
@@ -4219,7 +4219,7 @@ function pnFilesRefresh() {
         if (!listEl) return;
 
         if (err) {
-            listEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tp-red);font-size: var(--fs-sm);">' + escapeHtml(err) + '</div>';
+            listEl.innerHTML = '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-red);font-size: var(--fs-sm);">' + escapeHtml(err) + '</div>';
             return;
         }
 
@@ -4227,26 +4227,26 @@ function pnFilesRefresh() {
             var maxBytes = (typeof FB_FILES_MAX_BYTES !== 'undefined') ? FB_FILES_MAX_BYTES : (5 * 1024 * 1024);
             var pct = Math.min(100, Math.round((totalBytes / maxBytes) * 100));
             var barColor = pct > 90 ? 'var(--tp-red)' : pct > 70 ? 'var(--tp-amber)' : 'var(--tp-green)';
-            quotaEl.innerHTML = '<div style="display:flex;justify-content:space-between;font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:3px;">' +
+            quotaEl.innerHTML = '<div style="display:flex;justify-content:space-between;font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-2xs);">' +
                 '<span>' + _pnFormatBytes(totalBytes) + ' de ' + _pnFormatBytes(maxBytes) + ' usados</span><span>' + pct + '%</span></div>' +
                 '<div class="tp-bar" style="width:100%;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>';
         }
 
         if (files.length === 0) {
-            listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin archivos todavía. Sube el primero con el botón de arriba.</div>';
+            listEl.innerHTML = '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin archivos todavía. Sube el primero con el botón de arriba.</div>';
             return;
         }
 
         var rows = files.map(function(f) {
             var when = f.uploadedAt ? new Date(f.uploadedAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">' +
+            return '<div style="display:flex;align-items:center;gap: var(--space-md);padding: var(--space-sm) var(--space-xs);border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">' +
                 '<div style="font-size:20px;">' + pnFilesIcon(f.name) + '</div>' +
                 '<div style="flex:1;min-width:160px;">' +
                 '<div style="font-size:12px;font-weight:700;color:var(--tp-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</div>' +
                 '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + _pnFormatBytes(f.size) + ' · ' + escapeHtml(f.uploadedBy) + ' · ' + when + '</div>' +
                 '</div>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesDownload(\'' + f.id + '\')" style="font-size: var(--fs-xs);" title="Descargar" aria-label="Descargar ' + escapeHtml(f.name) + '">⬇️</button>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesConfirmDelete(\'' + f.id + '\',\'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\')" style="font-size: var(--fs-xs);color:var(--tp-red);" title="Eliminar" aria-label="Eliminar ' + escapeHtml(f.name) + '">🗑</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesDownload(\'' + f.id + '\')" style="font-size: var(--fs-sm);" title="Descargar" aria-label="Descargar ' + escapeHtml(f.name) + '">⬇️</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesConfirmDelete(\'' + f.id + '\',\'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\')" style="font-size: var(--fs-sm);color:var(--tp-red);" title="Eliminar" aria-label="Eliminar ' + escapeHtml(f.name) + '">🗑</button>' +
                 '</div>';
         }).join('');
         listEl.innerHTML = rows;

@@ -1466,11 +1466,11 @@ function copRenderStats() {
 
 // ─── HELPERS DE ESTILO (Cascade design tokens) ───────────────────────────────
 function _copTh() {
-    return 'padding:10px 12px;font-size: var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;' +
+    return 'padding: var(--space-md) var(--space-md);font-size: var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;' +
            'letter-spacing:0.5px;border-bottom:1.5px solid var(--border);text-align:center;white-space:nowrap;';
 }
 function _copTd() {
-    return 'padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);text-align:center;';
+    return 'padding: var(--space-sm) var(--space-md);font-size:12px;border-bottom:1px solid var(--border);text-align:center;';
 }
 function _copDecClass(decision) {
     return { PASS: 'badge badge-success', FAIL: 'badge badge-danger', CONTINUE: 'badge badge-warning' }[decision] || 'badge badge-neutral';
@@ -1540,7 +1540,7 @@ function copBuildStatsHTML() {
     // laboratorio — que es justo quien lo va a ver en una auditoría.
     var conGauge = pollStats.filter(function(p) { return p.stats && p.stats.U !== null && p.stats.cv; });
     if (conGauge.length) {
-        html += '<div class="card" style="margin-bottom:16px;">';
+        html += '<div class="card" style="margin-bottom: var(--space-lg);">';
         html += '<div class="card-title" data-help="cop-gauge-help">🎯 Qué tan cerca está cada gas de decidir</div>';
         conGauge.forEach(function(p) { html += _copGaugeRowHTML(p); });
         html += '<div class="cop-gauge-legend">';
@@ -1551,8 +1551,8 @@ function copBuildStatsHTML() {
     }
 
     // Card de análisis
-    html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;border-bottom:2px solid var(--accent-cop);padding-bottom:10px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-md);margin-bottom: var(--space-lg);border-bottom:2px solid var(--accent-cop);padding-bottom: var(--space-md);">';
     html += '<span style="font-size:var(--font-base);font-weight:var(--weight-bold);color:var(--text);flex:1;">📈 Análisis Estadístico</span>';
     html += '<button onclick="copToggleFormula()" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);">' +
             (copState.showFormula ? 'Ocultar fórmula' : 'Ver fórmula') + '</button>';
@@ -1560,13 +1560,13 @@ function copBuildStatsHTML() {
 
     if (copState.showFormula) {
         html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);' +
-                'padding:12px 16px;margin-bottom:14px;">';
-        html += '<p style="font-size:14px;color:var(--text);font-weight:700;font-family:monospace;margin-bottom:10px;">' +
+                'padding: var(--space-md) var(--space-lg);margin-bottom: var(--space-lg);">';
+        html += '<p style="font-size:14px;color:var(--text);font-weight:700;font-family:monospace;margin-bottom: var(--space-md);">' +
                 'U = (x̄ − L) × √n / s</p>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
-        html += '<span class="badge badge-success" style="padding:5px 12px;border-radius:var(--radius-sm);font-size:12px;">U ≤ A(n) → PASS</span>';
-        html += '<span class="badge badge-danger" style="padding:5px 12px;border-radius:var(--radius-sm);font-size:12px;">U ≥ B(n) → FAIL</span>';
-        html += '<span class="badge badge-warning" style="padding:5px 12px;border-radius:var(--radius-sm);font-size:12px;">A &lt; U &lt; B → añadir vehículo</span>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
+        html += '<span class="badge badge-success" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">U ≤ A(n) → PASS</span>';
+        html += '<span class="badge badge-danger" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">U ≥ B(n) → FAIL</span>';
+        html += '<span class="badge badge-warning" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">A &lt; U &lt; B → añadir vehículo</span>';
         html += '</div>';
         html += '</div>';
     }
@@ -1583,7 +1583,7 @@ function copBuildStatsHTML() {
         var st = p.stats;
         if (!st) {
             html += '<tr>';
-            html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left:12px;">' + p.label + '</td>';
+            html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left: var(--space-md);">' + p.label + '</td>';
             html += '<td style="' + _copTd() + 'color:var(--muted);">' + p.validCount + '</td>';
             html += '<td colspan="6" style="' + _copTd() + 'color:var(--muted);font-size: var(--fs-sm);">';
             html += p.validCount === 0 ? 'Sin datos' : 'Faltan ' + (3 - p.validCount) + ' vehículo(s) para calcular';
@@ -1592,7 +1592,7 @@ function copBuildStatsHTML() {
         }
 
         html += '<tr>';
-        html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left:12px;">' + p.label + '</td>';
+        html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left: var(--space-md);">' + p.label + '</td>';
         html += '<td style="' + _copTd() + 'color:var(--muted);">' + st.n + '</td>';
         html += '<td style="' + _copTd() + '">' + copFmtVal(st.mean, p.isPn) + '</td>';
         html += '<td style="' + _copTd() + '">' + copFmtVal(st.s, p.isPn) + '</td>';
@@ -1600,7 +1600,7 @@ function copBuildStatsHTML() {
         html += '<td style="' + _copTd() + 'color:var(--success);font-size: var(--fs-sm);">' + (st.cv ? st.cv.a.toFixed(3) : '—') + '</td>';
         html += '<td style="' + _copTd() + 'color:var(--danger);font-size: var(--fs-sm);">' + (st.cv ? st.cv.b.toFixed(3) : '—') + '</td>';
         html += '<td style="' + _copTd() + '">';
-        html += '<span class="' + _copDecClass(st.decision) + '" style="padding:4px 12px;border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;white-space:nowrap;">' +
+        html += '<span class="' + _copDecClass(st.decision) + '" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;white-space:nowrap;">' +
                 _copDecLabel(st.decision) + '</span>';
         html += '</td>';
         html += '</tr>';
@@ -1699,16 +1699,16 @@ function copBuildOverviewHTML() {
     var regions = {};
     rows.forEach(function(r) { (r.regionsArr || []).forEach(function(x) { if (x) regions[x] = true; }); });
     html += '<div class="cop-toolbar">';
-    html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
+    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
     html += '<select aria-label="Filtrar por región" class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
-            'style="padding:7px 10px;font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
+            'style="padding: var(--space-sm) var(--space-md);font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
     html += '<option value="">Todas</option>';
     Object.keys(regions).sort().forEach(function(r) {
         html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(r) + '</option>';
     });
     html += '</select></div>';
 
-    html += '<div><p class="label-title" style="margin-bottom:6px;">Mostrar</p><div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Mostrar</p><div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     [['', 'Todas'], ['riesgo', '🔴 Riesgo'], ['atencion', '🟡 Atención'], ['sin-datos', '⚪ Sin datos']].forEach(function(o) {
         var active = (f.risk || '') === o[0];
         html += '<button type="button" class="cop-nav-btn' + (active ? ' active' : '') + '" ' +
@@ -1716,7 +1716,7 @@ function copBuildOverviewHTML() {
     });
     html += '</div></div>';
 
-    html += '<div style="margin-left:auto;"><p class="label-title" style="margin-bottom:6px;">Sala</p>';
+    html += '<div style="margin-left:auto;"><p class="label-title" style="margin-bottom: var(--space-sm);">Sala</p>';
     html += '<button type="button" class="cop-nav-btn' + (copState.present ? ' active' : '') + '" ' +
             'data-help="cop-present-help" onclick="copTogglePresent()">🖥️ Modo presentación</button></div>';
     html += '</div>';
@@ -1752,7 +1752,7 @@ function copBuildOverviewHTML() {
 
     if (hidden.length) {
         html += '<details class="cop-hidden-strip"><summary>➖ ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
-                '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:10px;" onclick="event.preventDefault();copShowAllFamilies()">Mostrar todas</button></summary>';
+                '<button type="button" class="btn btn-sm btn-ghost" style="margin-left: var(--space-md);" onclick="event.preventDefault();copShowAllFamilies()">Mostrar todas</button></summary>';
         html += '<div class="cop-hidden-chips">';
         hidden.forEach(function(r) {
             html += '<button type="button" class="cop-chip cop-chip--none" onclick="copShowFamily(\'' +
@@ -1781,15 +1781,15 @@ function copBuildOverviewHTML() {
     // ── Lo que queda FUERA del alcance — se declara, no se esconde ────────────
     var oos = copOutOfScopeSummary();
     if (oos.total) {
-        html += '<details class="card" style="margin-top:16px;">';
+        html += '<details class="card" style="margin-top: var(--space-lg);">';
         html += '<summary data-help="cop-scope-help" style="cursor:pointer;font-weight:var(--weight-bold);color:var(--text);">' +
                 'Fuera del alcance CoP: ' + oos.total + ' configuración(es) ' +
                 '<span class="cop-chip cop-chip--none">no se juzgan aquí</span></summary>';
-        html += '<div style="margin-top:10px;">';
-        html += '<p class="label-title" style="margin-bottom:8px;">El laboratorio hace CoP sobre <b>' +
+        html += '<div style="margin-top: var(--space-md);">';
+        html += '<p class="label-title" style="margin-bottom: var(--space-sm);">El laboratorio hace CoP sobre <b>' +
                 _copEsc(copScope().regulations.join(' · ')) + '</b> en <b>' + _copEsc(copScope().regions.join(' y ')) +
                 '</b>. Estas configuraciones se prueban, pero no entran al juicio de conformidad:</p>';
-        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
         oos.groups.forEach(function(g) {
             html += '<span class="cop-chip cop-chip--none">' + _copEsc(g.label) + ' · ' + g.n + '</span>';
         });
@@ -1855,12 +1855,12 @@ function copBuildDossierHTML() {
     var html = '';
 
     // Selector de familia
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" data-help="cop-dossier-help">🗂️ Expediente de familia</div>';
-    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">';
-    html += '<div style="flex:1;min-width:280px;"><p class="label-title" style="margin-bottom:6px;">Familia</p>';
+    html += '<div style="display:flex;gap: var(--space-md);flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div style="flex:1;min-width:280px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia</p>';
     html += '<select aria-label="Familia del expediente" onchange="copSelectFamily(this.value)" ' +
-            'style="width:100%;padding:7px 10px;font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
+            'style="width:100%;padding: var(--space-sm) var(--space-md);font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
     html += '<option value="">— Selecciona una familia —</option>';
     rows.forEach(function(r) {
         html += '<option value="' + _copEsc(r.key) + '"' + (r.key === key ? ' selected' : '') + '>' +
@@ -1882,7 +1882,7 @@ function copBuildDossierHTML() {
     // Franja del año
     var year = new Date().getFullYear();
     var meses = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" data-help="cop-strip-help">📅 Veredicto vigente por mes — ' + year + '</div>';
     html += '<div class="cop-strip">';
     for (var m = 0; m < 12; m++) {
@@ -1895,12 +1895,12 @@ function copBuildDossierHTML() {
                 (v ? _copDecisionWord(v) : 'sin juicio emitido') + '">' + meses[m] + '</div>';
     }
     html += '</div>';
-    html += '<p class="label-title" style="margin-top:8px;font-size:var(--fs-xs);">Un mes en gris significa que ese mes no había un juicio emitido — nunca se pinta verde por omisión.</p>';
+    html += '<p class="label-title" style="margin-top: var(--space-sm);font-size:var(--fs-sm);">Un mes en gris significa que ese mes no había un juicio emitido — nunca se pinta verde por omisión.</p>';
     html += '</div>';
 
     // Cronología
     var ev = copFamilyHistory(row.key);
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title">🕒 Cronología — ' + _copEsc(row.label) + '</div>';
     if (!ev.length) {
         html += '<p class="label-title">Sin eventos registrados todavía para esta familia.</p>';
@@ -1914,7 +1914,7 @@ function copBuildDossierHTML() {
             html += '<div class="cop-tl-body">' + _copEsc(e.text) + '</div></div>';
         });
         html += '</div>';
-        if (ev.length > 60) html += '<p class="label-title" style="margin-top:8px;">Mostrando los 60 eventos más recientes de ' + ev.length + '.</p>';
+        if (ev.length > 60) html += '<p class="label-title" style="margin-top: var(--space-sm);">Mostrando los 60 eventos más recientes de ' + ev.length + '.</p>';
     }
     html += '</div>';
     return html;
@@ -1992,7 +1992,7 @@ function _copFamilyGanttHTML(rows) {
         return { row: r, weeks: tpFamilyWeeklyProgress(r.key) };
     }).filter(function(d) { return d.weeks.length; });
 
-    var card = '<div class="card" style="margin-bottom:16px;">' +
+    var card = '<div class="card" style="margin-bottom: var(--space-lg);">' +
         '<div class="card-title" data-help="cop-gantt-help">📅 Progreso semanal — familias mostradas</div>';
 
     if (!data.length) {
@@ -2098,7 +2098,7 @@ function _copFamilyGanttHTML(rows) {
 function copBuildHTML() {
     var view = copState.view || 'overview';
     var scope = copScope();
-    var html = '<div class="container cop-main" style="padding-top:20px;padding-bottom:20px;">';
+    var html = '<div class="container cop-main" style="padding-top: var(--space-xl);padding-bottom: var(--space-xl);">';
 
     // Cabecera de plataforma — las otras 4 plataformas la tienen; el CoP no la tenía.
     html += '<div class="cop-header">';
@@ -2143,23 +2143,23 @@ function copBuildValidatorHTML() {
     var html = '';
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 Validador de conformidad</div>';
     // El reglamento (R154/R83) es el PROCEDIMIENTO de ensayo; la norma de emisiones
     // (EURO-5, PRE-EURO 7…) es de dónde salen los límites. Son dos cosas distintas y
     // la cabecera las confundía escribiendo "Euro 6" fijo.
     var _famReg = _copFamilyEmissionReg(copState.familyKey);
-    html += '<p class="label-title" style="margin-bottom:18px;">' +
+    html += '<p class="label-title" style="margin-bottom: var(--space-lg);">' +
             'Tipo 1 · Apéndice 2 · Muestreo secuencial σ desconocida · Procedimiento ' +
             copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')' +
             (_famReg ? ' · Norma de emisiones <b>' + _copEsc(_famReg) + '</b>' : '') + '</p>';
 
-    html += '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">';
+    html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xl);align-items:flex-start;">';
 
     // Reglamento
     html += '<div>';
-    html += '<p class="label-title" style="margin-bottom:8px;">Reglamento</p>';
-    html += '<div style="display:flex;gap:6px;">';
+    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Reglamento</p>';
+    html += '<div style="display:flex;gap: var(--space-sm);">';
     ['R154', 'R83'].forEach(function(r) {
         var active = copState.regulation === r;
         html += '<button onclick="copSetRegulation(\'' + r + '\')" class="btn btn-sm ' +
@@ -2171,8 +2171,8 @@ function copBuildValidatorHTML() {
 
     // Tipo de combustible
     html += '<div>';
-    html += '<p class="label-title" style="margin-bottom:8px;">Tipo de Combustible</p>';
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Tipo de Combustible</p>';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     ['PI', 'CI', 'Híbrido PI', 'Híbrido CI'].forEach(function(f) {
         var active = copState.fuelType === f;
         html += '<button onclick="copSetFuel(\'' + f + '\')" class="btn btn-sm ' +
@@ -2184,8 +2184,8 @@ function copBuildValidatorHTML() {
 
     // Contaminantes activos
     html += '<div>';
-    html += '<p class="label-title" style="margin-bottom:8px;">Contaminantes Activos</p>';
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Contaminantes Activos</p>';
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     limits.forEach(function(p) {
         var active = !!copState.activePolls[p.id];
         var label = p.label + (p.note ? ' <span style="font-size: var(--fs-xs);opacity:0.65;">(' + p.note + ')</span>' : '');
@@ -2200,12 +2200,12 @@ function copBuildValidatorHTML() {
     html += '</div>'; // header card
 
     // ── Selección de familia (filtrable por región) ───────────────────────────
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" data-help="cop-family-help" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
-    html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
-    html += '<select aria-label="Región" onchange="copSetRegion(this.value)" style="padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
+    html += '<select aria-label="Región" onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     html += '<option value="">Todas</option>';
     _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(r) + '</option>'; });
     html += '</select></div>';
@@ -2215,8 +2215,8 @@ function copBuildValidatorHTML() {
     var _copFams = copPortfolioRows().filter(function(f) {
         return !copState.region || (f.regionsArr || []).indexOf(copState.region) !== -1;
     });
-    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom:6px;">Familia (' + _copFams.length + ')</p>';
-    html += '<select aria-label="Familia a evaluar" onchange="copSelectFamily(this.value)" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia (' + _copFams.length + ')</p>';
+    html += '<select aria-label="Familia a evaluar" onchange="copSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     html += '<option value="">— Selecciona una familia —</option>';
     _copFams.forEach(function(f) {
         html += '<option value="' + _copEsc(f.key) + '" ' + (copState.familyKey === f.key ? 'selected' : '') + '>' +
@@ -2225,31 +2225,31 @@ function copBuildValidatorHTML() {
     html += '</select></div>';
     html += '</div>';
     if (!_copFams.length) {
-        html += '<p class="label-title" style="margin-top:10px;color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
+        html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
                 'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
-                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);margin-left:6px;">📥 Ir a Producción →</button></p>';
+                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
-        html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
+        html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
     html += '</div>'; // family card
 
     // ── Tabla de datos de vehículos ───────────────────────────────────────────
-    html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;' +
-            'border-bottom:2px solid var(--accent-cop);padding-bottom:10px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
+    html += '<div style="display:flex;align-items:center;gap: var(--space-md);margin-bottom: var(--space-lg);' +
+            'border-bottom:2px solid var(--accent-cop);padding-bottom: var(--space-md);">';
     html += '<span style="font-size:var(--font-base);font-weight:var(--weight-bold);color:var(--text);flex:1;">' +
             '🚗 Datos de Vehículos</span>';
     html += '<span class="label-title">' + n + ' VIN(es)</span>';
     html += '</div>';
 
-    html += '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">';
     html += '<button onclick="copAddManualRow()" class="btn btn-sm btn-ghost" style="color:var(--info);">➕ VIN manual</button>';
     html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar valores</button>';
     html += '<button onclick="copSaveJudgment()" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;margin-left:auto;">💾 Guardar juicio</button>';
     html += '</div>';
 
     if (activeLimits.length === 0) {
-        html += '<p class="label-title" style="text-align:center;padding:20px;">Activa al menos un contaminante para introducir datos.</p>';
+        html += '<p class="label-title" style="text-align:center;padding: var(--space-xl);">Activa al menos un contaminante para introducir datos.</p>';
     } else {
         var _stale = (copState.vehicles || []).filter(function(v) { return v.staleAuto; });
         if (_stale.length) {
@@ -2265,7 +2265,7 @@ function copBuildValidatorHTML() {
         html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
-        html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left:14px;">VIN</th>';
+        html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
         activeLimits.forEach(function(p) {
             html += '<th scope="col" style="' + _copTh() + '">' + p.label +
                     '<br><span style="font-size: var(--fs-xs);font-weight:400;color:var(--muted);text-transform:none;">L=' + copFmtLimit(p.limit, p.isPn) + ' ' + p.unit + '</span></th>';
@@ -2276,37 +2276,37 @@ function copBuildValidatorHTML() {
         // Una fila por VIN
         copState.vehicles.forEach(function(v) {
             html += '<tr>';
-            html += '<td style="' + _copTd() + 'text-align:left;padding-left:10px;">';
+            html += '<td style="' + _copTd() + 'text-align:left;padding-left: var(--space-md);">';
             html += '<input type="text" aria-label="VIN" value="' + _copEsc(v.vin || '') + '" data-vid="' + v.id + '" ' +
                     'oninput="copSetVin(this)" placeholder="VIN" ' + (v.source === 'auto' ? 'title="Auto desde vehículo probado" ' : '') +
-                    'style="width:170px;padding:6px 8px;font-size: var(--fs-sm);box-sizing:border-box;font-family:monospace;' +
+                    'style="width:170px;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);box-sizing:border-box;font-family:monospace;' +
                     (v.source === 'auto' ? 'border-left:3px solid var(--accent-cop);' : '') + '" />';
             html += '</td>';
             activeLimits.forEach(function(p) {
-                html += '<td style="' + _copTd() + 'padding:6px 8px;">';
+                html += '<td style="' + _copTd() + 'padding: var(--space-sm) var(--space-sm);">';
                 html += '<input type="number" step="any" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
                 html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
-                html += 'style="width:90px;padding:6px 8px;font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
+                html += 'style="width:90px;padding: var(--space-sm) var(--space-sm);font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
                 html += '</td>';
             });
-            html += '<td style="' + _copTd() + 'padding:4px;white-space:nowrap;">';
+            html += '<td style="' + _copTd() + 'padding: var(--space-xs);white-space:nowrap;">';
             if (v.staleAuto) {
                 // El laboratorio tiene otro valor para este VIN. Se AVISA, no se pisa:
                 // reescribir en silencio un número sobre el que ya se emitió un juicio
                 // es exactamente el hallazgo que este módulo existe para evitar.
                 html += '<button onclick="copAcceptLabValues(' + v.id + ')" class="btn btn-sm btn-ghost" ' +
                         'title="El laboratorio tiene otro valor para este VIN — traerlo" ' +
-                        'style="padding:2px 6px;color:var(--warn-text);">↻</button>';
+                        'style="padding: var(--space-2xs) var(--space-sm);color:var(--warn-text);">↻</button>';
             }
-            html += '<button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
+            html += '<button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding: var(--space-2xs) var(--space-sm);">✕</button></td>';
             html += '</tr>';
         });
 
         html += '</tbody></table>';
         html += '</div>'; // overflow-x
-        html += '<p class="label-title" style="margin-top:10px;font-size: var(--fs-xs);color:var(--muted);">Los VINes marcados en azul se autollenaron desde vehículos probados de la familia; captura/edita los gases. El veredicto se recalcula en vivo (requiere ≥3 VINes con valor por contaminante).</p>';
+        html += '<p class="label-title" style="margin-top: var(--space-md);font-size: var(--fs-xs);color:var(--muted);">Los VINes marcados en azul se autollenaron desde vehículos probados de la familia; captura/edita los gases. El veredicto se recalcula en vivo (requiere ≥3 VINes con valor por contaminante).</p>';
     }
     html += '</div>'; // data card
 
@@ -2314,7 +2314,7 @@ function copBuildValidatorHTML() {
     html += '<div id="cop-stats-section">' + copBuildStatsHTML() + '</div>';
 
     // ── Tabla de valores críticos A(n)/B(n) ───────────────────────────────────
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div style="display:flex;align-items:center;cursor:pointer;" onclick="copToggleTable()">';
     html += '<span style="font-size:var(--font-base);font-weight:var(--weight-bold);color:var(--text);flex:1;">' +
             '📊 Tabla Valores Críticos A(n)/B(n)</span>';
@@ -2322,7 +2322,7 @@ function copBuildValidatorHTML() {
             (copState.showTable ? '▾' : '▸') + '</span>';
     html += '</div>';
 
-    html += '<div id="cop-cv-table-body" style="' + (copState.showTable ? '' : 'display:none;') + 'margin-top:14px;overflow-x:auto;">';
+    html += '<div id="cop-cv-table-body" style="' + (copState.showTable ? '' : 'display:none;') + 'margin-top: var(--space-lg);overflow-x:auto;">';
     html += '<table style="border-collapse:collapse;min-width:200px;">';
     html += '<thead><tr style="background:var(--bg);">';
     ['n', 'A(n)', 'B(n)'].forEach(function(h) {
@@ -2345,16 +2345,16 @@ function copBuildValidatorHTML() {
 
     // ── Juicios guardados ──────────────────────────────────────────────────────
     if (copState.saved && copState.saved.length) {
-        html += '<div class="card" style="margin-bottom:16px;">';
+        html += '<div class="card" style="margin-bottom: var(--space-lg);">';
         html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">💾 Juicios guardados (' + copState.saved.length + ')</div>';
         copState.saved.forEach(function(r) {
             var decTxt = r.decision === 'PASS' ? 'CONCORDANTE' : r.decision === 'FAIL' ? 'NO CONCORDANTE' : r.decision === 'CONTINUE' ? 'INCOMPLETO' : r.decision;
-            html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';
+            html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';
             html += '<span style="font-size: var(--fs-xs);color:var(--muted);min-width:74px;">' + new Date(r.date).toLocaleDateString('es-MX') + '</span>';
             html += '<span style="flex:1;min-width:160px;font-size: var(--fs-sm);color:var(--text);">' + _copEsc(r.familyLabel || '(sin familia)') + ' · ' + r.fuelType + ' · ' + r.regulation + '</span>';
-            html += '<span class="' + _copDecClass(r.decision) + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size: var(--fs-xs);font-weight:700;">' + decTxt + '</span>';
-            html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);">Cargar</button>';
-            html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);" title="Borrar">✕</button>';
+            html += '<span class="' + _copDecClass(r.decision) + '" style="padding: var(--space-2xs) var(--space-md);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;">' + decTxt + '</span>';
+            html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);">Cargar</button>';
+            html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);" title="Borrar">✕</button>';
             html += '</div>';
         });
         html += '</div>';
@@ -2366,7 +2366,7 @@ function copBuildValidatorHTML() {
     // ── Disclaimer regulatorio ─────────────────────────────────────────────────
     html += '<div class="cop-note cop-note--warn">';
     html += '<div class="cop-note-title">⚠ Advertencia regulatoria</div>';
-    html += '<p style="font-size:var(--fs-xs);line-height:1.7;margin:0;">' +
+    html += '<p style="font-size:var(--fs-sm);line-height:1.7;margin:0;">' +
             'Los valores A(n)/B(n) son de referencia, basados en R83 Rev.5 / R154 Apéndice 2. ' +
             'Verificar contra el texto oficial del reglamento antes de su uso en homologación real. ' +
             'Los límites aplicados corresponden a ' + _copEsc(copScope().regulations.join(' / ')) +
@@ -2579,21 +2579,21 @@ function copBuildSpcHTML() {
 
     // Panel de alarmas (retráctil)
     var alarms = copSpcScanAlarms();
-    html += '<details class="card" style="margin-bottom:16px;" ' + (alarms.length ? 'open' : '') + '>';
-    html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
+    html += '<details class="card" style="margin-bottom: var(--space-lg);" ' + (alarms.length ? 'open' : '') + '>';
+    html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap: var(--space-md);font-weight:var(--weight-bold);color:var(--text);">' +
             '🚨 Alarmas de control de proceso ' +
-            '<span class="badge ' + (alarms.length ? 'badge-danger' : 'badge-success') + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size: var(--fs-sm);">' +
+            '<span class="badge ' + (alarms.length ? 'badge-danger' : 'badge-success') + '" style="padding: var(--space-2xs) var(--space-md);border-radius:var(--radius-sm);font-size: var(--fs-sm);">' +
             (alarms.length ? alarms.length + ' alarma(s)' : 'sin alarmas') + '</span></summary>';
-    html += '<div style="margin-top:12px;">';
+    html += '<div style="margin-top: var(--space-md);">';
     if (!alarms.length) {
         html += '<p class="label-title" style="margin:0;">Las familias con datos suficientes (n≥' + COP_SPC_MIN + ') están bajo control estadístico.</p>';
     } else {
         alarms.forEach(function(a) {
             html += '<div onclick="copSpcGotoAlarm(\'' + _copEsc(a.famKey).replace(/'/g, '&#39;') + '\',\'' + _copEsc(a.gas) + '\')" ' +
                     'role="button" tabindex="0" aria-label="Ver carta de ' + _copEsc(a.gasLabel) + ' de ' + _copEsc(a.famLabel) + '" ' +
-                    'style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;cursor:pointer;' +
+                    'style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-sm);cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
-            html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size: var(--fs-xs);font-weight:800;">' + a.rule + '</span>';
+            html += '<span class="badge badge-danger" style="padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:800;">' + a.rule + '</span>';
             html += '<b style="font-size:12px;">' + _copEsc(a.gasLabel) + '</b>';
             html += '<span style="font-size:12px;color:var(--text);">' + _copEsc(a.famLabel) + '</span>';
             html += '<span style="margin-left:auto;font-size: var(--fs-sm);color:var(--muted);">' + COP_SPC_RULES[a.rule] +
@@ -2604,24 +2604,24 @@ function copBuildSpcHTML() {
     html += '</div></details>';
 
     // Selección familia + gas + toggles
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
                 'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
-                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);margin-left:6px;">🔬 Ir a Liberación →</button></p>';
+                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">🔬 Ir a Liberación →</button></p>';
         html += '</div>';
         return html;
     }
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">';
-    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom:6px;">Familia (' + sel.fams.length + ')</p>';
-    html += '<select aria-label="Familia para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;margin-bottom: var(--space-md);">';
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia (' + sel.fams.length + ')</p>';
+    html += '<select aria-label="Familia para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     sel.fams.forEach(function(f) {
         html += '<option value="' + _copEsc(f.key) + '" ' + (sel.fam && f.key === sel.fam.key ? 'selected' : '') + '>' +
                 _copEsc(f.label) + ' (' + f.n + ' ensayo' + (f.n === 1 ? '' : 's') + ')</option>';
     });
     html += '</select></div>';
-    html += '<div><p class="label-title" style="margin-bottom:6px;">Gas</p><div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Gas</p><div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     sel.gases.forEach(function(g) {
         var active = sel.gas && g.field === sel.gas.field;
         html += '<button onclick="copSpcSelectGas(\'' + _copEsc(g.field) + '\')" class="btn btn-sm ' + (active ? '' : 'btn-ghost') + '" ' +
@@ -2631,9 +2631,9 @@ function copBuildSpcHTML() {
     html += '</div>';
 
     var hasLimit = !!(sel.gas && sel.gas.limit !== null && sel.gas.limit !== undefined);
-    html += '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:4px;">';
+    html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;margin-bottom: var(--space-xs);">';
     [['showZones', 'Zonas σ', true], ['showLimit', 'Límite regulatorio', hasLimit], ['pctMode', '% del límite', hasLimit]].forEach(function(t) {
-        html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + (t[2] ? 'var(--text)' : 'var(--muted)') + ';cursor:pointer;">' +
+        html += '<label style="display:flex;align-items:center;gap: var(--space-sm);font-size:12px;color:' + (t[2] ? 'var(--text)' : 'var(--muted)') + ';cursor:pointer;">' +
                 '<input type="checkbox" onchange="copSpcToggle(\'' + t[0] + '\', this)" ' +
                 (copState.spc[t[0]] ? 'checked' : '') + (t[2] ? '' : ' disabled') + '> ' + t[1] + '</label>';
     });
@@ -2645,14 +2645,14 @@ function copBuildSpcHTML() {
     var unit = sel.gas ? (sel.gas.unit || '') : '';
 
     if (!st) {
-        html += '<p class="label-title" style="margin-top:12px;">Sin datos para este gas en la familia seleccionada.</p>';
+        html += '<p class="label-title" style="margin-top: var(--space-md);">Sin datos para este gas en la familia seleccionada.</p>';
         html += '</div>';
         return html;
     }
 
     var noCtl = st.n < COP_SPC_MIN;
     var prelim = st.n < COP_SPC_RELIABLE;
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text);">';
+    html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;margin-top: var(--space-md);font-size:12px;color:var(--text);">';
     html += '<span>n = <b>' + st.n + '</b></span>';
     html += '<span>media <b>' + _copSpcFmt(st.mean) + '</b> ' + _copEsc(unit) + '</span>';
     html += '<span>σ <b>' + _copSpcFmt(st.sigma) + '</b></span>';
@@ -2668,11 +2668,11 @@ function copBuildSpcHTML() {
     }
     html += '</div>';
 
-    html += '<div id="cop-spc-ichart-wrapper" style="margin-top:14px;height:300px;position:relative;"><canvas id="cop-spc-ichart"></canvas></div>';
+    html += '<div id="cop-spc-ichart-wrapper" style="margin-top: var(--space-lg);height:300px;position:relative;"><canvas id="cop-spc-ichart"></canvas></div>';
     html += '</div>'; // card carta I
 
     // Carta MR
-    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📉 Carta de rangos móviles (MR)</div>';
     if (st.mrs.length < 1) {
         html += '<p class="label-title" style="margin:0;">Se necesitan ≥2 ensayos.</p>';
@@ -2682,9 +2682,9 @@ function copBuildSpcHTML() {
     html += '</div>';
 
     // Ayuda
-    html += '<details class="card" style="margin-bottom:16px;">';
+    html += '<details class="card" style="margin-bottom: var(--space-lg);">';
     html += '<summary style="cursor:pointer;font-weight:var(--weight-bold);color:var(--text);">ℹ️ Cómo leer estas cartas</summary>';
-    html += '<div style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:10px;">';
+    html += '<div style="font-size:12px;color:var(--muted);line-height:1.7;margin-top: var(--space-md);">';
     html += '<p><b>Carta de individuos (I-MR):</b> cada ensayo es una medición única por familia. La línea central es la media histórica de esa familia para el gas elegido; UCL/LCL son media ± 3σ, con σ estimada del rango móvil (MR̄/1.128). Son los <b>límites de control del proceso</b>, distintos del límite regulatorio (línea ámbar).</p>';
     html += '<p><b>Reglas de alarma (Nelson):</b> R1 = punto fuera de ±3σ (rojo); R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos en fila subiendo o bajando (tendencia). Cualquiera dispara la alarma de la familia.</p>';
     html += '<p><b>Cpk:</b> capacidad del proceso frente al límite regulatorio = (Límite − media) / 3σ. Cpk ≥ 1.33 se considera capaz; &lt; 1.0 indica resultados demasiado cerca (o por encima) del límite. Se calcula con ≥ ' + COP_SPC_RELIABLE + ' ensayos.</p>';
@@ -2934,8 +2934,8 @@ function _copBuildCo2HTML() {
 
     var factors = copCo2Factors();
     var stats = copCo2CalcStats(rows, factors.fcf, factors.evc);
-    var html = '<div class="card" style="margin-bottom:16px;">';
-    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom:8px;">🌱 CO₂ vs valor declarado (Reg. 2017/1151 Ap.I · confirmación R154 §3.3.1)</p>';
+    var html = '<div class="card" style="margin-bottom: var(--space-lg);">';
+    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom: var(--space-sm);">🌱 CO₂ vs valor declarado (Reg. 2017/1151 Ap.I · confirmación R154 §3.3.1)</p>';
 
     // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
     html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
@@ -2954,7 +2954,7 @@ function _copBuildCo2HTML() {
     }
 
     // Tabla por vehículo
-    html += '<div style="overflow-x:auto;margin-top:10px;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
         ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
@@ -2973,7 +2973,7 @@ function _copBuildCo2HTML() {
                    : xVal <= (stats.passBound != null ? stats.passBound : stats.A) ? 'var(--ok-text,#166534)'
                    : xVal > (stats.failBound != null ? stats.failBound : stats.A) ? 'var(--danger-text,#991b1b)' : 'var(--warn-text,#92400e)';
         var cell = function(v, extra) {
-            return '<td style="padding:5px 8px;border-bottom:1px solid var(--border);' + (extra || '') + '">' +
+            return '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--border);' + (extra || '') + '">' +
                 (v == null || v === '' ? '<span style="color:var(--muted);">—</span>' : _copEsc(String(v))) + '</td>';
         };
         html += '<tr>';
@@ -2981,8 +2981,8 @@ function _copBuildCo2HTML() {
         html += cell(h.mcCode);
         html += cell(r.measured == null ? null : Number(r.measured).toFixed(1));
         html += cell(r.target == null ? null : Number(r.target).toFixed(1));
-        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);font-weight:700;color:' + xColor + ';">' + xTxt + '</td>';
-        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);">' + devTxt + '</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--border);font-weight:700;color:' + xColor + ';">' + xTxt + '</td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + devTxt + '</td>';
         html += cell(h.f0); html += cell(h.f1); html += cell(h.f2); html += cell(h.tm);
         html += '</tr>';
     });
@@ -2990,11 +2990,11 @@ function _copBuildCo2HTML() {
 
     var sinFicha = rows.filter(function(r) { return !r.homolog; }).length;
     if (sinFicha) {
-        html += '<p style="font-size: var(--fs-xs);color:var(--warn-text,#92400e);margin-top:8px;">' +
+        html += '<p style="font-size: var(--fs-xs);color:var(--warn-text,#92400e);margin-top: var(--space-sm);">' +
             '⚠️ ' + sinFicha + ' vehículo(s) sin ficha de homologación: se capturan en el Alta ' +
             '(solo aparece para región EUROPE) o se completan importando el catálogo del ICMS en Datos → 🇪🇺 Homologación.</p>';
     }
-    html += '<p style="font-size: var(--fs-xs);color:var(--muted);margin-top:6px;">' +
+    html += '<p style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-sm);">' +
         '"X normalizado" = (CO₂ medido × Evolution Factor × FCF) / CO₂ declarado. A = 1,01 fijo por la norma. ' +
         'Verificar contra el texto oficial (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 y UN R154 §3.3.1) antes de uso en homologación real.</p>';
     html += '</div>';

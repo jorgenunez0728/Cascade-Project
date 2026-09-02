@@ -400,7 +400,7 @@ function homoAltaSearchFromInput() {
         return;
     }
     listEl.innerHTML = hits.map(function(r) {
-        return '<button type="button" class="btn-secondary" style="display:block;width:100%;text-align:left;margin:3px 0;padding:6px 10px;font-size: var(--fs-sm);" ' +
+        return '<button type="button" class="btn-secondary" style="display:block;width:100%;text-align:left;margin:3px 0;padding: var(--space-sm) var(--space-md);font-size: var(--fs-sm);" ' +
             'onclick="homoAltaPick(\'' + escapeHtml(homoRowKey(r)) + '\')">' +
             '<b>' + escapeHtml(r.mcCode || r.workOrder) + '</b>' +
             (r.variant ? ' · ' + escapeHtml(r.variant) : '') +
@@ -480,22 +480,22 @@ function pnRenderHomolog(el) {
 
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-homolog-help"><span>🇪🇺 Catálogo de homologación (ICMS)</span></div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:12px;line-height:1.5;">' +
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);line-height:1.5;">' +
         'Importa aquí el Excel/CSV que baja el ICMS. Puedes subir las dos descargas por separado ' +
         '(la de <b>WLTP Driving energy</b> con f0/f1/f2/TM y la de <b>WLTP - ICE/HEV</b> con el CO₂): ' +
         'se fusionan por <b>MC code</b>, así que la segunda completa las filas de la primera. ' +
         'Reimportar actualiza, no duplica.</div>';
 
-    html += '<div class="inv-row-list-2col" style="margin-bottom:10px;">';
+    html += '<div class="inv-row-list-2col" style="margin-bottom: var(--space-md);">';
     html += '<div class="form-group"><label for="homo-file">Archivo del ICMS (.xlsx / .xls / .csv)</label>' +
         '<input type="file" id="homo-file" accept=".xlsx,.xls,.csv" class="form-control" onchange="homoImportFile(event)"></div>';
     html += '<div class="form-group"><label for="homo-paste">…o pega las filas (copiadas del ICMS)</label>' +
         '<textarea id="homo-paste" class="form-control" rows="3" placeholder="Pega aquí incluyendo la fila de encabezados"></textarea>' +
-        '<button class="tp-btn tp-btn-primary" style="margin-top:6px;" onclick="homoImportPaste()">Importar lo pegado</button></div>';
+        '<button class="tp-btn tp-btn-primary" style="margin-top: var(--space-sm);" onclick="homoImportPaste()">Importar lo pegado</button></div>';
     html += '</div>';
-    html += '<div id="homo-import-status" style="font-size: var(--fs-sm);margin-bottom:10px;"></div>';
+    html += '<div id="homo-import-status" style="font-size: var(--fs-sm);margin-bottom: var(--space-md);"></div>';
 
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+    html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;font-size: var(--fs-sm);color:var(--tp-dim);">' +
         '<span><b style="color:var(--tp-text);font-size:18px;">' + cat.length + '</b> vehículos en catálogo</span>' +
         '<span><b style="color:var(--tp-text);font-size:18px;">' + conDyno + '</b> con coeficientes</span>' +
         '<span><b style="color:var(--tp-text);font-size:18px;">' + conCo2 + '</b> con target de CO₂</span>' +
@@ -520,35 +520,35 @@ function pnRenderHomolog(el) {
     // ── Listado ──
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>📋 Vehículos del catálogo</span>' +
-        (cat.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoExportCSV()" style="font-size: var(--fs-xs);">📤 Exportar CSV</button>' : '') +
+        (cat.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoExportCSV()" style="font-size: var(--fs-sm);">📤 Exportar CSV</button>' : '') +
         '</div>';
     if (!cat.length) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">' +
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">' +
             'Todavía no hay nada importado. Sube el archivo del ICMS arriba.</div>';
     } else {
         html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr>' +
             ['MC code', 'Work Order', 'Variant/Version', 'f0', 'f1', 'f2', 'TM', 'CO₂ comb.', ''].map(function(h) {
-                return '<th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid var(--tp-border);white-space:nowrap;">' + h + '</th>';
+                return '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);border-bottom:1.5px solid var(--tp-border);white-space:nowrap;">' + h + '</th>';
             }).join('') + '</tr></thead><tbody>';
         cat.slice(0, 300).forEach(function(r) {
             var num = function(v) { return v == null ? '<span style="color:var(--tp-red);">—</span>' : v; };
             html += '<tr>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);font-weight:700;">' + escapeHtml(r.mcCode || '—') + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + escapeHtml(r.workOrder || '—') + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + escapeHtml((r.variant || '') + (r.version ? '/' + r.version : '')) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + num(r.f0) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + num(r.f1) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + num(r.f2) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + num(r.tm) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);font-weight:700;">' + num(r.co2Combined) + '</td>' +
-                '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' +
-                '<button class="tp-btn tp-btn-ghost" style="color:var(--tp-red);font-size: var(--fs-xs);" onclick="homoDeleteRow(\'' + r.id + '\')" title="Quitar del catálogo">🗑</button></td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);font-weight:700;">' + escapeHtml(r.mcCode || '—') + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + escapeHtml(r.workOrder || '—') + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + escapeHtml((r.variant || '') + (r.version ? '/' + r.version : '')) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + num(r.f0) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + num(r.f1) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + num(r.f2) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' + num(r.tm) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);font-weight:700;">' + num(r.co2Combined) + '</td>' +
+                '<td style="padding: var(--space-xs) var(--space-sm);border-bottom:1px solid var(--tp-border);">' +
+                '<button class="tp-btn tp-btn-ghost" style="color:var(--tp-red);font-size: var(--fs-sm);" onclick="homoDeleteRow(\'' + r.id + '\')" title="Quitar del catálogo">🗑</button></td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
         if (cat.length > 300) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding-top:6px;">Mostrando 300 de ' + cat.length + '.</div>';
+            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding-top: var(--space-sm);">Mostrando 300 de ' + cat.length + '.</div>';
         }
     }
     html += '</div>';
@@ -1007,9 +1007,9 @@ function _homoIpCardHTML() {
     var fams = homoState.ipFamilies || [];
     var html = '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-homolog-ip-help"><span>🧬 Familias de interpolación (WVTA)</span>' +
-        (fams.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoIpExportCSV()" style="font-size: var(--fs-xs);">📤 Exportar CSV</button>' : '') +
+        (fams.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoIpExportCSV()" style="font-size: var(--fs-sm);">📤 Exportar CSV</button>' : '') +
         '</div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:12px;line-height:1.5;">' +
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);line-height:1.5;">' +
         'La familia de interpolación es la agrupación <b>oficial</b> del CoP en Europa: la declara el certificado ' +
         'de homologación (WVTA) en su punto <b>0.2.3.1</b>, por variante y versión. ' +
         '<b>Los coeficientes f0/f1/f2 NO se capturan aquí</b> — el WVTA solo trae los de los vehículos extremos ' +
@@ -1018,7 +1018,7 @@ function _homoIpCardHTML() {
 
     html += '<div class="form-group"><label for="homo-ip-paste">Pega el texto del WVTA (punto 0.2.3.1 y, si lo tienes, el bloque 3.1 de resultados de CO₂)</label>' +
         '<textarea id="homo-ip-paste" class="form-control" rows="4" placeholder="Copia del PDF del certificado las tablas de Variant(s) / Version(s) / IP Family, y las de Combined y Test mass."></textarea>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">' +
+        '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;margin-top: var(--space-sm);">' +
         '<button class="tp-btn tp-btn-primary" onclick="homoIpImportPaste()">Leer el certificado</button>' +
         '<button class="tp-btn tp-btn-ghost" onclick="homoIpEditModal()">➕ Capturar a mano</button>' +
         '</div></div>';
@@ -1045,8 +1045,8 @@ function _homoIpCardHTML() {
         html += '<td class="cop-l" style="font-size:var(--fs-xs);color:var(--tp-dim);">' + _homoEsc(f.wvta || '—') +
                 (f.wvtaDate ? '<br>' + _homoEsc(f.wvtaDate) : '') + '</td>';
         html += '<td style="white-space:nowrap;">' +
-                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpEditModal(\'' + f.id + '\')">Editar</button>' +
-                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpConfirmDelete(\'' + f.id + '\')" title="Borrar">✕</button></td>';
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-sm);" onclick="homoIpEditModal(\'' + f.id + '\')">Editar</button>' +
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-sm);" onclick="homoIpConfirmDelete(\'' + f.id + '\')" title="Borrar">✕</button></td>';
         html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -1076,7 +1076,7 @@ function homoIpImportPaste() {
 
     h += '<div class="cop-note"><div class="cop-note-title">Se entendieron ' + res.families.length + ' familia(s)</div>';
     if (res.meta.wvta) h += 'Certificado <b>' + _homoEsc(res.meta.wvta) + '</b>' + (res.meta.wvtaDate ? ' · ' + _homoEsc(res.meta.wvtaDate) : '') + '<br>';
-    h += '<table class="cop-table" style="margin-top:8px;"><thead><tr><th class="cop-l">Familia IP</th>' +
+    h += '<table class="cop-table" style="margin-top: var(--space-sm);"><thead><tr><th class="cop-l">Familia IP</th>' +
          '<th class="cop-l">Variantes / versiones</th><th>TML</th><th>TMH</th><th>CO₂ VL–VH</th></tr></thead><tbody>';
     res.families.forEach(function(f) {
         var falta = (f.tml === '' || f.tmh === '');
@@ -1089,10 +1089,10 @@ function homoIpImportPaste() {
         if (falta) { /* se avisa arriba en la celda */ }
     });
     h += '</tbody></table>';
-    h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+    h += '<div style="margin-top: var(--space-md);display:flex;gap: var(--space-sm);flex-wrap:wrap;">' +
          '<button class="tp-btn tp-btn-primary" onclick="homoIpApplyPending()">Guardar estas familias</button>' +
          '<button class="tp-btn tp-btn-ghost" onclick="homoIpCancelPending()">Cancelar</button></div>';
-    h += '<div style="margin-top:8px;font-size:var(--fs-xs);color:var(--tp-dim);">Reimportar el mismo certificado actualiza, no duplica: se empata por código IP.</div>';
+    h += '<div style="margin-top: var(--space-sm);font-size:var(--fs-xs);color:var(--tp-dim);">Reimportar el mismo certificado actualiza, no duplica: se empata por código IP.</div>';
     h += '</div>';
     if (st) st.innerHTML = h;
 }
@@ -1150,7 +1150,7 @@ function homoIpEditModal(id) {
         '<input id="ipf-tmh" type="number" step="0.1" class="form-control" value="' + v('tmh') + '"></div>' +
         '</div>' +
         '<details><summary style="cursor:pointer;font-size:var(--fs-sm);">Más detalles</summary>' +
-        '<div class="inv-row-list-2col" style="margin-top:8px;">' +
+        '<div class="inv-row-list-2col" style="margin-top: var(--space-sm);">' +
         '<div class="form-group"><label for="ipf-co2l">CO₂ combinado del VL (g/km)</label>' +
         '<input id="ipf-co2l" type="number" step="0.1" class="form-control" value="' + v('co2Low') + '"></div>' +
         '<div class="form-group"><label for="ipf-co2h">CO₂ combinado del VH (g/km)</label>' +
@@ -1164,7 +1164,7 @@ function homoIpEditModal(id) {
         '<div class="form-group"><label for="ipf-name">Nombre comercial</label>' +
         '<input id="ipf-name" class="form-control" placeholder="K4" value="' + v('commercialName') + '"></div>' +
         '</div></details>' +
-        '<p style="font-size:var(--fs-xs);color:var(--tp-dim);margin-top:8px;">' +
+        '<p style="font-size:var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">' +
         'Los coeficientes f0/f1/f2 no van aquí: son de cada vehículo y vienen del catálogo del ICMS.</p>';
 
     if (typeof showModal !== 'function') return;

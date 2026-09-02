@@ -84,12 +84,9 @@
         <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">
             <span class="tbm-ico" aria-hidden="true">🔄</span><span class="tbm-label">Actualizar datos</span>
         </button>
-        <button class="tbm-item tbm-item--wide" role="menuitem" onclick="openCommandPalette('launcher')" title="Ir a cualquier pantalla de la plataforma (Ctrl+K)" aria-label="Ir a cualquier pantalla">
-            <span class="tbm-ico" aria-hidden="true">🧭</span><span class="tbm-label">Ir a…</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
-        </button>
-        <button class="tbm-item" role="menuitem" onclick="openCommandPalette('create')" title="Dar de alta algo nuevo" aria-label="Crear algo nuevo">
-            <span class="tbm-ico" aria-hidden="true">➕</span><span class="tbm-label">Crear</span>
-        </button>
+        <!-- v22.6: "Ir a…" y "Crear" salieron de este menú — la .ui-bar los tiene
+             permanentes debajo de la barra de plataformas. Aquí queda solo la
+             búsqueda de VIN, que es otra función (busca DATOS, no pantallas). -->
         <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar un VIN en todos los módulos" aria-label="Buscar VIN en todos los módulos">
             <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span>
         </button>
@@ -109,6 +106,30 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- ═══ v22.6 · BARRA DE ACCIÓN ═══════════════════════════════════════════════
+     Permanente y visible en TODAS las pantallas, no solo en HOY. Va debajo de la
+     .platform-bar y no dentro: esa barra mide ~1900px expandida y colapsa a ⋯ en
+     ≤1600px, así que no admite dos controles más (v17.9).
+     El "campo de búsqueda" es un <button> que abre el lanzador, no un <input>: el
+     campo real vive dentro del overlay, y duplicarlo obligaría a sincronizar dos
+     estados de texto para nada. ══════════════════════════════════════════════ -->
+<div class="ui-bar" id="uiActionBar" role="toolbar" aria-label="Acciones rápidas">
+    <button type="button" class="ui-bar-btn" onclick="openCommandPalette('launcher')"
+            title="Ir a cualquier pantalla (Ctrl+K)" aria-label="Ir a cualquier pantalla">
+        <span class="ui-bar-ico" aria-hidden="true">🧭</span><span class="ui-bar-label">Ir a…</span>
+    </button>
+    <button type="button" class="ui-bar-search" onclick="openCommandPalette('launcher')"
+            aria-label="Buscar una pantalla o un comando">
+        <span class="ui-bar-ico" aria-hidden="true">🔍</span>
+        <span class="ui-bar-ph">Busca una pantalla: cobertura, calibración, familia…</span>
+        <kbd class="ui-bar-kbd">Ctrl K</kbd>
+    </button>
+    <button type="button" class="ui-bar-btn ui-bar-btn--cta" onclick="openCommandPalette('create')"
+            title="Dar de alta algo nuevo" aria-label="Crear algo nuevo">
+        <span class="ui-bar-ico" aria-hidden="true">➕</span><span class="ui-bar-label">Crear</span>
+    </button>
 </div>
 
 <!-- Global VIN Search Bar -->

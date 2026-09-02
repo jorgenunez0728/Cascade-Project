@@ -1186,14 +1186,36 @@ las dos, no una:
   `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px, escrito a
   mano. Si una pantalla necesita una regla propia para caber en compacto, el problema es la
   pantalla, no la densidad.
-- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. `--fs-xs` es 13px
-  en cómodo. Deuda conocida: `--fs-xs` todavía carga ~775 usos en JS que son texto de CUERPO
-  mal clasificado (era el tamaño de facto de la app); reclasificarlos a `--fs-sm` por módulo
-  es trabajo pendiente, y hasta entonces `--fs-xs` está inflado a propósito.
+- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. **`--fs-xs` es 13px
+  y ése es su valor DEFINITIVO, no un parche** (v22.6): al categorizar sus 785 usos, 308 son
+  metadato legítimo por la convención de la app (chico + color apagado = secundario), así que
+  bajarlo a 12px empeoraría la lectura sin arreglar nada. La nota previa de "volver a 12px"
+  partía de una premisa falsa.
+- **La etiqueta de un control NUNCA va a `--fs-xs`.** Un `<button>` a tamaño de metadato es un
+  defecto: v22.6 promovió 141 botones y 67 títulos en negrita a `--fs-sm`. Quedan ~269 usos sin
+  clasificar que piden juicio caso por caso.
+- **`.btn`/`.tp-btn` llevan `overflow: hidden`** (para el ripple), así que un botón que no cabe
+  **recorta su etiqueta en silencio** — no se ve que falta espacio. Si una etiqueta crece, la
+  corrección va en el LAYOUT (padding y `flex-wrap` en la fila), nunca bajando la tipografía.
 - **`--lh-base` es la palanca barata**: `line-height` se hereda, así que subirlo da altura de
   caja a los ~900 sitios que fijan `font-size` en línea sin tocar ninguno.
-- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`** en `styles.css`: usar la
-  escala (`--space-*`, `--radius-*`). Quedan 71 excepciones, todas deliberadas.
+- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`**, en `styles.css` **y en el
+  HTML que arma el JS** (v22.7 migró 2,256 sitios): usar la escala (`--space-*`, `--radius-*`).
+  Quedan 71 excepciones en CSS y 196 en JS, todas deliberadas (valores negativos, dinámicos o
+  fuera de tabla). **Si el espaciado de una pantalla se escribe en px, esa pantalla no responde
+  a la densidad.**
+- **Los colores de ESTADO no se migran a ciegas.** `#f59e0b`/`#ef4444`/`#10b981`… siguen crudos
+  (~920 hexes) a propósito: su token correcto depende del ROL (`--warn-text` sobre fondo claro
+  vs `--warn-fill` como relleno con texto blanco), y eso no se deduce de la propiedad. Los
+  neutros (grises) sí están migrados.
+- **Antes de cambiar un `color:` hay que mirar su fondo.** `color:#e2e8f0` aparece 47 veces y
+  parece texto invisible sobre blanco, pero **siempre** viene con `background:#1e293b`/`#0f172a`:
+  son modales de superficie oscura, auto-consistentes. Tocar solo el texto da oscuro sobre
+  oscuro. El codemod de v22.7 salta cualquier `color:` cuyo mismo `style` pinte fondo oscuro.
+- **Un `::before` CUENTA como ítem flex.** `.tp-card-title` tenía `justify-content:
+  space-between` y los módulos le agregan una barrita de acento con `::before`: con un solo hijo
+  real el título quedaba huérfano pegado a la derecha. La regla ahora es `flex-start` +
+  `margin-left:auto` en un segundo hijo.
 - **El chrome de navegación NO escala con la densidad.** `.platform-bar`, `.platform-tab`,
   `.topbar`, `.tbm-*`, `.bottom-nav` quedaron fuera del codemod a propósito: la barra mide
   ~1900px expandida y engordar su `padding: 14px 28px` trae de vuelta el envolvimiento a
@@ -1248,8 +1270,11 @@ las dos, no una:
   alta una entidad agrega su verbo ahí**, o queda invisible desde Crear. Guarda `typeof` por fila.
 - Los destinos se enriquecen con `HELP_TABS[id].title + .text` para buscar por concepto — otra
   razón para mantener `HELP_TABS` al día además del banner de ayuda.
-- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. Van en el menú `⋯` y en
-  la cabecera de HOY (`.dash-launch-btn`), que es donde abre la app.
+- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. **v22.6**: viven en
+  `.ui-bar`, una franja fija DEBAJO de `.platform-bar`, visible en todas las pantallas; se
+  retiraron de HOY y del menú `⋯` para no tener el mismo botón en tres sitios. El "campo de
+  búsqueda" de esa barra es un `<button>` que abre el lanzador, **no un `<input>`**: el campo
+  real vive en el overlay y duplicarlo obligaría a sincronizar dos estados de texto.
 - Al leer la etiqueta de un botón de navegación, **clonar y borrar los `<span>` en la copia**
   (`_uiCleanLabel`), no hacer `replace()` sobre `textContent`: la pestaña Pruebas lleva DOS
   badges y solo uno tiene la clase `.pt-badge`.

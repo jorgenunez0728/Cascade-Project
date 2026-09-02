@@ -740,7 +740,7 @@ function pnRenderBugs(el) {
                         (r.lastError ? ' · <span style="color:var(--tp-red);">' + escapeHtml(r.lastError) + '</span>' : '') +
                     '</div>' +
                 '</div>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDropQueued(\'' + r.id + '\')" style="color:var(--tp-red);font-size: var(--fs-xs);" title="Descartar este reporte" aria-label="Descartar reporte">🗑</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDropQueued(\'' + r.id + '\')" style="color:var(--tp-red);font-size: var(--fs-sm);" title="Descartar este reporte" aria-label="Descartar reporte">🗑</button>' +
                 '</div>';
         });
         html += '</div>';
@@ -749,8 +749,8 @@ function pnRenderBugs(el) {
     // ── Reportes publicados (respaldo en la nube) ──
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-bugs-help"><span>🐞 Reportes enviados</span>' +
-        '<span><button class="tp-btn tp-btn-ghost" onclick="pnBugsSyncStatuses()" style="font-size: var(--fs-xs);">🔄 Actualizar estados</button></span></div>';
-    html += '<div id="pn-bugs-list">' + '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Cargando…</div>' + '</div>';
+        '<span><button class="tp-btn tp-btn-ghost" onclick="pnBugsSyncStatuses()" style="font-size: var(--fs-sm);">🔄 Actualizar estados</button></span></div>';
+    html += '<div id="pn-bugs-list">' + '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Cargando…</div>' + '</div>';
     html += '</div>';
 
     // ── Configuración de GitHub ──
@@ -768,12 +768,12 @@ function pnRenderBugs(el) {
         '<div class="form-group"><label for="bug-cfg-repo">Repositorio</label>' +
         '<input type="text" id="bug-cfg-repo" class="form-control" value="' + escapeHtml(settings.repo) + '"></div>' +
         '</div>';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">' +
         '<button class="tp-btn tp-btn-primary" onclick="pnBugsSaveConfig()">💾 Guardar</button>' +
         '<button class="tp-btn tp-btn-ghost" onclick="pnBugsTestConfig()">🔌 Probar conexión</button>' +
         (settings.token ? '<button class="tp-btn tp-btn-ghost" onclick="pnBugsClearConfig()" style="color:var(--tp-red);">Borrar token</button>' : '') +
         '</div>';
-    html += '<div id="bug-cfg-status" style="margin-top:8px;font-size: var(--fs-sm);"></div>';
+    html += '<div id="bug-cfg-status" style="margin-top: var(--space-sm);font-size: var(--fs-sm);"></div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -784,18 +784,18 @@ function pnBugsRefresh() {
     var listEl = document.getElementById('pn-bugs-list');
     if (!listEl) return;
     if (typeof fbBugsList !== 'function') {
-        listEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Sincronización no disponible.</div>';
+        listEl.innerHTML = '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Sincronización no disponible.</div>';
         return;
     }
     fbBugsList(function(list, err) {
         listEl = document.getElementById('pn-bugs-list');
         if (!listEl) return;
         if (err) {
-            listEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tp-red);font-size: var(--fs-sm);">' + escapeHtml(err) + '</div>';
+            listEl.innerHTML = '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-red);font-size: var(--fs-sm);">' + escapeHtml(err) + '</div>';
             return;
         }
         if (!list.length) {
-            listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Todavía no hay reportes. Usa el botón 🐞 de la esquina cuando algo falle.</div>';
+            listEl.innerHTML = '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Todavía no hay reportes. Usa el botón 🐞 de la esquina cuando algo falle.</div>';
             return;
         }
         window._pnBugsCache = list;
@@ -812,8 +812,8 @@ function pnBugsRefresh() {
                     '<div class="bug-row-text">' + escapeHtml(b.comment || '') + '</div>' +
                     '<div class="bug-row-meta">' + badge + ' ' + link + ' · ' + escapeHtml(b.operator || '?') + ' · v' + escapeHtml(b.version || '?') + ' · ' + when + '</div>' +
                 '</div>' +
-                (b.chunkCount ? '<button class="tp-btn tp-btn-ghost" onclick="pnBugsViewShot(\'' + b.id + '\')" style="font-size: var(--fs-xs);" title="Ver captura" aria-label="Ver captura">🖼</button>' : '') +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDelete(\'' + b.id + '\')" style="color:var(--tp-red);font-size: var(--fs-xs);" title="Borrar del respaldo" aria-label="Borrar reporte">🗑</button>' +
+                (b.chunkCount ? '<button class="tp-btn tp-btn-ghost" onclick="pnBugsViewShot(\'' + b.id + '\')" style="font-size: var(--fs-sm);" title="Ver captura" aria-label="Ver captura">🖼</button>' : '') +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDelete(\'' + b.id + '\')" style="color:var(--tp-red);font-size: var(--fs-sm);" title="Borrar del respaldo" aria-label="Borrar reporte">🗑</button>' +
                 '</div>';
         }).join('');
     });
@@ -848,7 +848,7 @@ function pnBugsViewShot(id) {
         if (!ok) { showToast(err || 'No se pudo cargar la captura.', 'error'); return; }
         showModal({
             title: 'Captura del reporte',
-            message: '<img src="' + dataUrl + '" alt="Captura del reporte" style="max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--tp-border);">',
+            message: '<img src="' + dataUrl + '" alt="Captura del reporte" style="max-width:100%;max-height:60vh;border-radius: var(--radius-xl);border:1px solid var(--tp-border);">',
             confirmText: 'Cerrar',
             showCancel: false,
             type: 'info'
