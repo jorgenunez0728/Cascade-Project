@@ -1071,7 +1071,10 @@ function themeInit() {
 // que un técnico prefiera vista compacta no debe cambiarle la pantalla a otro.
 // ======================================================================
 var UI_PREFS_KEY = 'kia_ui_prefs';
-var UI_PREFS_DEFAULTS = { density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {} };
+var UI_PREFS_DEFAULTS = {
+    density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
+    dashRange: 'hoy'       // [v23] HOY: 'hoy' | 'semana'
+};
 
 function _uiPrefsRead() {
     try {
@@ -2726,8 +2729,16 @@ function dailyDashRender() {
     // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
     // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
     // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
-    var acts = dashCollectActivities();
-    html += dashRenderBoard(acts, currentOp);
+    // [v23] Hoy o esta semana. El día es el default; la semana usa EL MISMO formato
+    // de calendario que el Plan (`tpBuildDayColumnsHTML`) para que no haya dos
+    // vocabularios distintos para la misma cosa.
+    html += dashRangeTabsHTML();
+    if (dashRange() === 'semana') {
+        html += dashRenderWeek();
+    } else {
+        var acts = dashCollectActivities();
+        html += dashRenderBoard(acts, currentOp);
+    }
 
     // ── Quick Actions ──
     html += '<div class="daily-dash-section">';
@@ -2806,6 +2817,234 @@ var DASH_CATS = {
 };
 var DASH_CAT_ORDER = ['vehiculos', 'plan', 'inventario', 'calidad', 'proyectos', 'manuales'];
 var DASH_STATUS_LABEL = { pendiente: 'Pendiente', encurso: 'En curso', hecho: 'Hecho', atrasado: 'Atrasado' };
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23] HOY: el dia, o la semana, en el MISMO formato de calendario
+//
+// `dashCollectActivities` devuelve "lo de hoy" sin fecha, asi que no se puede
+// repartir por dias. `_pnCollectCalendarEvents` (panel.js) si tiene fechas, pero
+// dos de sus tres ramas estaban MUERTAS: leia `plan.weekStart`, un campo que
+// ningun generador escribe (todos escriben `weekDate`), y filtraba los cilindros
+// por `g.status !== 'active'`, un estado que la app tampoco escribe (los reales
+// son Stock/In use/Empty/Spare). Las dos se arreglan aparte.
+//
+// `dashCollectWeekActivities()` es LA definicion de "que hay esta semana, y que
+// dia": pruebas del plan vigente + hitos de proyectos + calibraciones y
+// mantenimientos que vencen. Se DERIVA en cada render, no guarda nada.
+//
+// Las actividades que NO son pruebas se ven SOLO aqui. La pantalla del Plan
+// muestra pruebas y nada mas — mezclar una calibracion en el tablero del plan
+// haria que "6/8 de la semana" dejara de significar pruebas.
+// ══════════════════════════════════════════════════════════════════════
+
+var DASH_RANGES = { hoy: 'Hoy', semana: 'Esta semana' };
+
+function dashRange() {
+    var v = (typeof uiPref === 'function') ? uiPref('dashRange') : 'hoy';
+    return DASH_RANGES[v] ? v : 'hoy';
+}
+function dashSetRange(v) {
+    if (!DASH_RANGES[v]) return;
+    if (typeof uiPref === 'function') uiPref('dashRange', v);
+    dailyDashRender();
+}
+
+/** El lunes de la semana en curso, 'YYYY-MM-DD'. */
+function _dashMonday() {
+    var d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return localDateStr(d);
+}
+
+/**
+ * Actividades CON FECHA de la semana en curso, agrupadas por dia de la semana.
+ * Todo con guarda `typeof`: HOY tiene que seguir pintando aunque falte un modulo.
+ * @returns {{porDia: {dia: Array}, total: number, lunes: string}}
+ */
+function dashCollectWeekActivities() {
+    var dias = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+    var lunes = _dashMonday();
+    var ini = new Date(lunes + 'T00:00:00');
+    var fin = new Date(ini); fin.setDate(ini.getDate() + 6);
+    var finStr = localDateStr(fin);
+    var porDia = {}; dias.forEach(function(d) { porDia[d] = []; });
+    var total = 0;
+
+    var mete = function(fecha, act) {
+        if (!fecha || fecha < lunes || fecha > finStr) return;
+        var d = new Date(fecha + 'T12:00:00');
+        if (isNaN(d.getTime())) return;
+        act.date = fecha;
+        porDia[dias[d.getDay()]].push(act);
+        total++;
+    };
+    var hoy = localToday();
+
+    // ── Hitos de proyectos: pasos con fecha objetivo ──
+    // `pnProjectMilestones(year, month)` está acotada al MES, y una semana puede
+    // cruzar dos meses: se pide por cada mes que la semana toca y se deduplica.
+    try {
+        if (typeof pnProjectMilestones === 'function') {
+            var meses = {}, vistos = {};
+            [ini, fin].forEach(function(d) { meses[d.getFullYear() + '-' + d.getMonth()] = d; });
+            Object.keys(meses).forEach(function(k) {
+                var d = meses[k];
+                (pnProjectMilestones(d.getFullYear(), d.getMonth()) || []).forEach(function(m) {
+                    if (!m || !m.date) return;
+                    var f = String(m.date).slice(0, 10);
+                    var clave = f + '|' + (m.label || '');
+                    if (vistos[clave]) return;
+                    vistos[clave] = true;
+                    mete(f, {
+                        cat: 'proyectos', icon: '🗂️',
+                        title: String(m.label || 'Paso de proyecto').replace(/^[✓⚠🗂️]+\s*/, ''),
+                        meta: 'Proyecto',
+                        vencido: f < hoy && String(m.label || '').indexOf('✓') !== 0,
+                        done: String(m.label || '').indexOf('✓') === 0,
+                        accion: { label: '🗂️ Abrir', js: "dashGo('panel','pn-projects')" }
+                    });
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/proyectos:', e); }
+
+    // ── Calibraciones que vencen esta semana ──
+    try {
+        if (typeof invState === 'object' && invState && Array.isArray(invState.equipment)) {
+            invState.equipment.forEach(function(eq) {
+                if (!eq || !eq.nextCalDate) return;
+                var f = String(eq.nextCalDate).slice(0, 10);
+                mete(f, {
+                    cat: 'inventario', icon: '🔧',
+                    title: 'Calibración: ' + (eq.name || eq.f11Id || eq.serialNo || '?'),
+                    meta: (eq.calPlace || '') + (eq.certNo ? ' · cert ' + eq.certNo : ''),
+                    vencido: f < hoy,
+                    accion: { label: '✅ Calibrado', js: "dashGo('inventory','inv-equipment')" }
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/calibracion:', e); }
+
+    // ── Mantenimiento preventivo programado para esta semana ──
+    // `invMaintDueThisWeek()` devuelve `{act, asset, week}` — la semana, no el día,
+    // porque el Plan Maestro del F11 se planea POR SEMANA. Va al lunes y lo dice.
+    try {
+        if (typeof invMaintDueThisWeek === 'function') {
+            (invMaintDueThisWeek() || []).forEach(function(m) {
+                if (!m) return;
+                var act = m.act || {}, asset = m.asset || {};
+                mete(lunes, {
+                    cat: 'inventario', icon: '🛠️',
+                    title: 'Mantenimiento: ' + (act.name || act.desc || act.id || '?'),
+                    meta: (asset.name || asset.id || '') + ' · esta semana',
+                    accion: { label: '✔ Hecho', js: "dashGo('inventory','inv-maint')" }
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/mtto:', e); }
+
+    // ── Tareas manuales con fecha ──
+    try {
+        if (typeof pnState === 'object' && pnState && Array.isArray(pnState.tasks)) {
+            pnState.tasks.forEach(function(t) {
+                if (!t || t.deleted || !t.due) return;
+                mete(String(t.due).slice(0, 10), {
+                    cat: 'manuales', icon: '📝',
+                    title: t.title || 'Actividad',
+                    meta: t.assignee || '',
+                    vencido: String(t.due).slice(0, 10) < hoy && !t.done,
+                    done: !!t.done
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/tareas:', e); }
+
+    return { porDia: porDia, total: total, lunes: lunes };
+}
+
+/** Una actividad no-prueba pintada con el MISMO vocabulario que una tarjeta del plan. */
+function _dashWeekCardHTML(a) {
+    var cls = 'tp-week-card tp-week-card--act'
+            + (a.done ? ' tp-week-card--done' : '')
+            + (a.vencido ? ' tp-week-card--risk' : '');
+    var h = '<div class="' + cls + '">';
+    h += '<div class="tp-week-card-top">' +
+         '<span class="tp-week-actico" aria-hidden="true">' + (a.icon || '•') + '</span>' +
+         '<div class="tp-week-card-id"><div class="tp-week-name" title="' + escapeHtml(a.title || '') + '">' +
+         escapeHtml(a.title || '') + '</div>' +
+         (a.meta ? '<div class="tp-week-variant" title="' + escapeHtml(a.meta) + '">' + escapeHtml(a.meta) + '</div>' : '') +
+         '</div></div>';
+    if (a.vencido) h += '<div class="tp-week-flags"><span class="tp-week-flag tp-week-flag--risk">🔴 vencida</span></div>';
+    if (a.accion) h += '<div class="tp-week-actions"><button class="tp-week-act" onclick="' + a.accion.js + '">' + a.accion.label + '</button></div>';
+    return h + '</div>';
+}
+
+/**
+ * La semana completa en HOY: las columnas por día del Plan (mismo marcado, en modo
+ * solo lectura) con las actividades que no son pruebas repartidas en su día.
+ */
+function dashRenderWeek() {
+    if (typeof tpWeekBoardRows !== 'function') {
+        return '<div class="dash-week-empty">El módulo del Plan no está disponible.</div>';
+    }
+    var b = null;
+    try { b = tpWeekBoardRows({}); } catch (e) { b = null; }
+    var W = dashCollectWeekActivities();
+
+    var extra = {};
+    Object.keys(W.porDia).forEach(function(d) {
+        extra[d] = W.porDia[d].map(_dashWeekCardHTML);
+    });
+
+    var h = '<div class="dash-week">';
+    h += '<div class="dash-week-head">' +
+         '<span class="dash-board-title">🗓 La semana del ' + W.lunes + '</span>' +
+         '<span class="dash-chip dash-chip--' + (W.total ? 'pendiente' : 'hecho') + '">' +
+         (W.total ? W.total + ' con fecha esta semana' : 'sin vencimientos') + '</span>' +
+         '</div>';
+
+    // El plan de pruebas SOLO cuando está aceptado (regla de v23).
+    if (!b || !b.plan) {
+        h += '<p class="dash-week-note">Esta semana no tiene plan de pruebas. ' +
+             '<button class="dash-row-action" onclick="tpOpenArmar()">🎛️ Armar la semana</button></p>';
+    } else if (!b.accepted) {
+        h += '<p class="dash-week-note">⏳ Hay una <strong>propuesta sin aceptar</strong> para esta semana: ' +
+             'las pruebas no se agendan hasta que alguien la acepte. ' +
+             '<button class="dash-row-action" onclick="dashGo(\'testplan\',\'tp-myweek\')">Revisarla</button></p>';
+    }
+
+    if (b && b.plan && b.accepted && typeof tpBuildDayColumnsHTML === 'function') {
+        h += tpBuildDayColumnsHTML(b, { readOnly: true, extraByDay: extra, boardId: 'dash-week-board' });
+    } else {
+        // Sin plan aceptado se pintan igual los días, con lo que sí vence esta semana.
+        var dias = ['lun', 'mar', 'mie', 'jue', 'vie'];
+        var labels = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes' };
+        var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
+        h += '<div class="tp-week-board tp-week-board--ro" id="dash-week-board">';
+        dias.forEach(function(d) {
+            h += '<section class="tp-week-col' + (d === hoyKey ? ' tp-week-col--today' : '') + '">' +
+                 '<header class="tp-week-col-head"><span class="tp-week-col-day">' + labels[d] +
+                 (d === hoyKey ? ' · hoy' : '') + '</span><span></span><span></span>' +
+                 '<span class="tp-week-col-load">' + (extra[d] || []).length + ' pendiente(s)</span></header>' +
+                 '<div class="tp-week-col-body">' +
+                 ((extra[d] || []).length ? extra[d].join('') : '<div class="tp-week-col-empty">Sin pendientes</div>') +
+                 '</div></section>';
+        });
+        h += '</div>';
+    }
+    return h + '</div>';
+}
+
+/** El selector Hoy | Esta semana. La preferencia vive en uiPref, no en una clave propia. */
+function dashRangeTabsHTML() {
+    var r = dashRange();
+    var h = '<div class="dash-range" role="tablist" aria-label="Qué mostrar">';
+    Object.keys(DASH_RANGES).forEach(function(k) {
+        h += '<button class="dash-range-tab' + (r === k ? ' dash-range-tab--on' : '') + '" role="tab" ' +
+             'aria-selected="' + (r === k) + '" onclick="dashSetRange(\'' + k + '\')">' + DASH_RANGES[k] + '</button>';
+    });
+    return h + '</div>';
+}
 
 function dashCollectActivities() {
     var acts = [];

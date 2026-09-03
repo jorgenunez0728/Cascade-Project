@@ -4193,7 +4193,8 @@ function _tpWeekSpanHTML(row, workDays) {
     return h + '</div>';
 }
 
-function _tpWeekCardHTML(row, workDays) {
+function _tpWeekCardHTML(row, workDays, opts) {
+    opts = opts || {};
     var chip = TP_STATE_CHIP[row.state] || TP_STATE_CHIP.pendiente;
     var mods = [];
     if (row.done) mods.push('tp-week-card--done');
@@ -4211,7 +4212,7 @@ function _tpWeekCardHTML(row, workDays) {
     h += '<div class="tp-week-card-top">';
     // El asa. La TARJETA no puede ser el <button> (contiene botones), así que el origen del
     // arrastre y del teclado es este elemento — el mismo patrón que conserva v17.8.
-    if (!row.done) {
+    if (!row.done && !opts.readOnly) {
         h += '<button type="button" class="tp-week-grip" ' +
              // Separador '::' y no ':' — un planId lleva fechas con guiones y un
              // `Date.now()`, y partir por ':' rompería en cuanto cambie el formato.
@@ -4261,6 +4262,8 @@ function _tpWeekCardHTML(row, workDays) {
                     (row.risk.level === 'riesgo' ? '🔴' : '⚠️') + ' ' + r.text + '</span>');
     });
     if (marcas.length) h += '<div class="tp-week-flags">' + marcas.join('') + '</div>';
+
+    if (opts.readOnly) return h + '</div>';
 
     h += '<div class="tp-week-actions">';
     if (!row.done && !row.vehicle) {
@@ -4524,6 +4527,53 @@ function tpGenerateMonthlyConfirm() {
     });
 }
 
+/**
+ * [v23] Las columnas por día, extraídas para que HOY pinte la semana con EL MISMO
+ * marcado que Mi semana. Antes vivían dentro de `tpRenderMyWeek`; duplicarlas en
+ * HOY habría dado dos definiciones de "cómo se ve un día" que se desincronizarían
+ * a la primera ronda.
+ *
+ * @param {object} b     lo que devuelve `tpWeekBoardRows`
+ * @param {object} opts  `readOnly` (sin ＋, sin arrastre, sin acciones de tarjeta)
+ *                       `extraByDay` {dia: [htmlDeTarjeta]} — actividades que NO son
+ *                       pruebas (proyectos, calibraciones). Solo las pasa HOY: la
+ *                       pantalla del Plan muestra pruebas y nada más.
+ *                       `boardId` id del contenedor (default 'tp-myweek-board')
+ */
+function tpBuildDayColumnsHTML(b, opts) {
+    opts = opts || {};
+    var extra = opts.extraByDay || {};
+    var h = '<div class="tp-week-board' + (opts.readOnly ? ' tp-week-board--ro' : '') +
+            '" id="' + (opts.boardId || 'tp-myweek-board') + '">';
+    b.days.forEach(function(d) {
+        var cls = 'tp-week-col' + (d.isToday ? ' tp-week-col--today' : '') + (d.isPast && !d.isToday ? ' tp-week-col--past' : '');
+        var sueltas = extra[d.key] || [];
+        h += '<section class="' + cls + '" data-day="' + d.key + '">';
+        h += '<header class="tp-week-col-head">' +
+             '<span class="tp-week-col-day">' + d.label + (d.isToday ? ' · hoy' : '') + '</span>' +
+             (d.dayNum ? '<span class="tp-week-col-date">' + d.dayNum + '</span>' : '<span></span>') +
+             (opts.readOnly ? '<span></span>'
+                : '<button class="tp-week-coladd" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')" ' +
+                  'title="Agregar una prueba el ' + d.label + '" aria-label="Agregar una prueba el ' + d.label + '">＋</button>') +
+             '<span class="tp-week-col-load' + (d.rows.length > d.perSlot ? ' tp-week-col-load--over' : '') + '">' +
+               d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
+               (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
+               (sueltas.length ? ' · ' + sueltas.length + ' pendiente' + (sueltas.length === 1 ? '' : 's') : '') +
+             '</span></header>';
+        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
+        if (!d.rows.length && !sueltas.length) {
+            h += opts.readOnly
+                ? '<div class="tp-week-col-empty">Sin pendientes</div>'
+                : '<button class="tp-week-col-empty tp-week-col-empty--add" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')">＋ agregar</button>';
+        } else {
+            d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays, opts); });
+            sueltas.forEach(function(x) { h += x; });
+        }
+        h += '</div></section>';
+    });
+    return h + '</div>';
+}
+
 function tpRenderMyWeek(el) {
     if (!el) return;
     window._tpMyWeekHost = el;
@@ -4614,27 +4664,7 @@ function tpRenderMyWeek(el) {
     }
 
     // ── El tablero ──
-    h += '<div class="tp-week-board" id="tp-myweek-board">';
-    b.days.forEach(function(d) {
-        var cls = 'tp-week-col' + (d.isToday ? ' tp-week-col--today' : '') + (d.isPast && !d.isToday ? ' tp-week-col--past' : '');
-        h += '<section class="' + cls + '" data-day="' + d.key + '">';
-        h += '<header class="tp-week-col-head">' +
-             '<span class="tp-week-col-day">' + d.label + (d.isToday ? ' · hoy' : '') + '</span>' +
-             (d.dayNum ? '<span class="tp-week-col-date">' + d.dayNum + '</span>' : '<span></span>') +
-             '<button class="tp-week-coladd" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')" ' +
-               'title="Agregar una prueba el ' + d.label + '" aria-label="Agregar una prueba el ' + d.label + '">＋</button>' +
-             '<span class="tp-week-col-load' + (d.rows.length > d.perSlot ? ' tp-week-col-load--over' : '') + '">' +
-               d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
-               (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
-             '</span></header>';
-        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
-        if (!d.rows.length) {
-            h += '<button class="tp-week-col-empty tp-week-col-empty--add" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')">＋ agregar</button>';
-        }
-        else d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays); });
-        h += '</div></section>';
-    });
-    h += '</div>';
+    h += tpBuildDayColumnsHTML(b);
 
     // ── Lo que no cupo: se DECLARA, nunca se esconde (principio del CoP) ──
     if (b.unscheduled.length) {

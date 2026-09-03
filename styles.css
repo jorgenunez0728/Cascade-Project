@@ -5010,3 +5010,39 @@ body.cop-present .cop-toolbar    { display: none; }
     .tp-armar-spacer { display: none; }
     .tp-armar-go { order: -1; }
 }
+
+/* ── [v23] HOY: el día o la semana ──────────────────────────────────────────
+   La vista de semana reusa el marcado del tablero del Plan (.tp-week-*) en modo
+   solo lectura: una sola definición de "cómo se ve un día". */
+.dash-range {
+    display: inline-flex; gap: 0; margin-bottom: var(--space-md);
+    border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+    background: var(--surface);
+}
+.dash-range-tab {
+    border: none; background: transparent; cursor: pointer;
+    font-size: var(--fs-sm); font-weight: 700; color: var(--muted);
+    padding: var(--space-xs) var(--space-lg);
+    min-height: var(--target-min, 40px);
+    transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.dash-range-tab--on { background: var(--info-text); color: #fff; }
+
+.dash-week { margin-bottom: var(--space-lg); }
+.dash-week-head {
+    display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+    margin-bottom: var(--space-sm);
+}
+.dash-week-note {
+    font-size: var(--fs-sm); color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+.dash-week-empty { font-size: var(--fs-sm); color: var(--muted); padding: var(--space-lg); text-align: center; }
+
+/* Una actividad que NO es prueba, con el mismo vocabulario que una tarjeta del plan. */
+.tp-week-card--act { border-left: 3px solid var(--accent-panel, var(--border)); }
+.tp-week-actico { font-size: 16px; line-height: 1; flex: 0 0 auto; }
+/* En solo lectura no hay asa ni acciones: la tarjeta puede respirar menos. */
+.tp-week-board--ro .tp-week-card { cursor: default; }

@@ -2912,7 +2912,10 @@ function _pnCollectCalendarEvents(year, month) {
     // Gas depletion predictions (approximate)
     if (typeof invState !== 'undefined' && invState.gases) {
         invState.gases.forEach(function(g) {
-            if (g.status !== 'active' || !g.readings || g.readings.length < 2) return;
+            // v23: filtraba `g.status !== 'active'`, un estado que la app NUNCA
+            // escribe — los reales son Stock / In use / Empty / Spare (CLAUDE.md v21).
+            // O sea: esta rama entera llevaba rondas sin producir un solo evento.
+            if (g.status === 'Empty' || !g.readings || g.readings.length < 2) return;
             var last2 = g.readings.slice(-2);
             var rate = (last2[0].psi || last2[0].value || 0) - (last2[1].psi || last2[1].value || 0);
             if (rate <= 0) return;
@@ -2934,29 +2937,44 @@ function _pnCollectCalendarEvents(year, month) {
         });
     }
 
-    // Test plan items
-    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
-        tpState.weeklyPlans.forEach(function(plan) {
-            if (!plan.weekStart) return;
-            var ws = parseLocalDate(plan.weekStart);
-            // Show each day of the week
-            for (var i = 0; i < 5; i++) {
-                var d = new Date(ws);
-                d.setDate(d.getDate() + i);
-                if (d >= monthStart && d <= monthEnd) {
-                    var dateStr = localDateStr(d);
-                    var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
-                    if (pending > 0) {
-                        events.push({
-                            date: dateStr,
-                            type: 'test_plan',
-                            color: '#3b82f6',
-                            label: '🧪 ' + pending + ' pruebas plan semanal',
-                            module: 'Test Plan'
-                        });
-                    }
-                }
-            }
+    // Pruebas del plan semanal.
+    //
+    // v23: esta rama estaba MUERTA. Leía `plan.weekStart`, un campo que NINGÚN
+    // generador escribe (todos escriben `weekDate`), así que el `return` de la
+    // primera línea salía siempre y el calendario de Datos nunca mostró una sola
+    // prueba planeada. Misma familia que `w.week` en el merge de sync (v20) y que
+    // `eq.nextCalibration` en las alertas (v16.4): un campo inventado que nadie
+    // verificó contra el que sí se escribe.
+    //
+    // Y se pinta el PLAN VIGENTE de cada semana (`tpWeekPlanFor`), no todos los
+    // planes: una semana con el aceptado más tres propuestas viejas mostraba
+    // cuatro veces las mismas pruebas.
+    if (typeof tpState !== 'undefined' && Array.isArray(tpState.weeklyPlans)) {
+        var _semanasVistas = {};
+        tpState.weeklyPlans.forEach(function(p) {
+            if (!p || !p.weekDate || _semanasVistas[p.weekDate]) return;
+            _semanasVistas[p.weekDate] = true;
+            var vig = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(p.weekDate) : null;
+            var plan = vig ? vig.plan : p;
+            var lunes = parseLocalDate(plan.weekDate);
+            if (!lunes || isNaN(lunes.getTime())) return;
+            var porDia = {};
+            (plan.items || []).forEach(function(it) {
+                if (it.completed || !it.testDay) return;
+                porDia[it.testDay] = (porDia[it.testDay] || 0) + 1;
+            });
+            ['lun', 'mar', 'mie', 'jue', 'vie'].forEach(function(dk, i) {
+                if (!porDia[dk]) return;
+                var d = new Date(lunes); d.setDate(lunes.getDate() + i);
+                if (d < monthStart || d > monthEnd) return;
+                events.push({
+                    date: localDateStr(d),
+                    type: 'test_plan',
+                    color: (vig && !vig.accepted) ? '#94a3b8' : '#3b82f6',
+                    label: '🧪 ' + porDia[dk] + ' prueba(s)' + ((vig && !vig.accepted) ? ' (propuesta)' : ''),
+                    module: 'Test Plan'
+                });
+            });
         });
     }
 
