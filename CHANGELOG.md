@@ -2,6 +2,137 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y tres reportes viejos (2026-09-03)
+
+Tres cosas pedidas juntas: *"arregla esos bugs y la prueba de OBD II no debería contar
+en emisiones, igual lo que dices de los lazos greedy"*.
+
+---
+
+### 1. Una prueba de OBD II ya no acredita el REQ de emisiones
+
+Hasta v23 los **ocho** propósitos de Cascade acreditaban por igual: `tpGetAnalysis`
+contaba toda fila con `configText === cfg.desc` **sin mirar `purpose`**, así que una
+prueba de OBD2 bajaba el déficit de emisiones exactamente igual que una COP. v23 sólo
+expuso el número (`totalNoEmisiones`) porque separarlo mueve la cobertura del
+laboratorio de un día para otro, y eso es una decisión de política, no un arreglo.
+Confirmada, aquí está.
+
+- **`tpTestedCountsForReq(t)` es LA definición** de "esta fila acredita el REQ" y
+  **`tpTestedForConfig(desc, [list])` / `tpTestedCountFor(desc, [list])`** la forma de
+  contar. Todo consumidor nuevo las llama en vez de filtrar por `configText` a secas.
+  Ya migrados: `tpGetAnalysis`, `tpBuildFamilies` (conteo **y** VINes), la continuidad
+  por MY, `tpBuildScoreDetail` (la fecha de "última prueba", de donde sale el empuje
+  por antigüedad), `_tpMakeItem`, el lazo de Recuperación y el snapshot del generador.
+- **Cuatro reglas que no se rompen:**
+  1. **La evidencia NO se toca.** La prueba de OBD2 se sigue registrando en
+     `testedList` — ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y
+     no en la captura es lo que hace el cambio **reversible**: volver a marcar el
+     propósito devuelve los números exactos de antes, sin recuperar nada.
+  2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20):
+     `purpose` sólo se escribe desde v23, así que degradar las filas históricas
+     borraría años de cobertura real de un golpe.
+  3. **El plan es otra cosa.** Palomear una fila de OBD2 en Mi semana la marca como
+     hecha igual que siempre: el compromiso de la semana se cumplió. Lo que no baja es
+     el déficit de emisiones de esa configuración.
+  4. **Lo excluido se declara, nunca se oculta** (principio del semáforo del CoP):
+     `tpCoverageSummary()` suma `totalNoEmisiones` + `noReqPorProposito` +
+     `totalRegistradas`, y Probados pinta el desglose por propósito.
+- **La lista es EDITABLE** (Plan → Reglas, tarjeta "🏷 Qué acredita el REQ de
+  emisiones", `tpSetReqPurpose`): `Correlacion`, `Investigacion` y `ND-Emisiones` SÍ
+  acreditan por default —son mediciones de emisiones sobre la configuración— pero si
+  mañana se decide que sólo `COP-Emisiones` cuenta para el CoP, es una casilla y no
+  una ronda de código. `tpReqPurposes()` es LA forma de leerla (reaplica defaults en
+  cada lectura, patrón `tpPlannerCfg` de v18.0); la clave se sumó a la lista de
+  preservación de `_fbPullSeed`.
+- **Dos efectos de borde arreglados de paso**: la declaración a mano hereda el
+  `purpose` de la fila del plan (sin eso acreditaba por omisión), y **sólo una
+  liberación que acredita retira la declarada** — una prueba de OBD2 no es la prueba
+  de emisiones que esa declaración prometía, y retirarla le subía el déficit a la
+  configuración sin avisar.
+- `const TP_PURPOSES_OBD` va **junto a `TP_PURPOSES_VALID`**, no más abajo:
+  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+  una `var` declarada después estaría *hoisted* pero en `undefined` y la app no
+  arrancaría. (Lo cazó la prueba de Node antes que el navegador.)
+
+### 2. `tpPlanHorizon` — un solo lazo para todo lo que planea varias semanas
+
+Deuda anotada en v18.0 y repetida en v20 y v23. `tpGenerateMonthly` y `tpRunSimulation`
+eran copias cercanas del lazo de `tpSelectWeeklyItems` con su propio `Map` de conteo
+simulado. Consecuencia **real, no teórica**: ninguna de las dos conocía la cuota de la
+cola (`carryoverMaxPct`) ni los filtros de la semana (`tpPassesWeekFilter`), así que
+"Generar mes" podía escribir cuatro semanas de puro arrastre y el simulador prometía
+una curva que el generador real nunca iba a producir — el peor tipo de simulador, el
+que miente con confianza. Tampoco veían las obligatorias, el inventario, la caducidad
+ni la disponibilidad por semana.
+
+- **`opts.testedSeed` es lo que abre `tpSelectWeeklyItems` al horizonte**: la semana
+  parte de donde quedó la anterior en vez del `testedList` real, y devuelve la lista
+  rodante en `R.tested`. Sigue siendo **pura respecto a `tpState`**.
+- **`_tpAnalyze(list)`** se extrajo de `tpGetAnalysis` (que queda como el envoltorio
+  memoizado sobre `tpState.testedList`) para poder preguntar "¿cómo queda el déficit
+  DESPUÉS de la semana 1?" sin reimplementar la resta a mano.
+- **`tpPlanHorizon(opts)` es LA definición del horizonte** y no escribe nada: devuelve
+  las semanas y quien llama decide si las materializa (el mes) o sólo las mide (el
+  simulador). Las **obligatorias sólo aplican a la primera semana** —son de una semana
+  concreta— o el mes repetiría el mismo vehículo fijado cuatro veces. Una semana
+  marcada no disponible se **salta y se declara**; el simulador pasa
+  `respectAvailability:false` porque su pregunta es "¿cuántas semanas me toma?", no un
+  calendario.
+- **Recuperación NO se metió a la fuerza**: explota el déficit en unidades y ordena por
+  tier P1..P10, no por score — es un empaquetado por prioridad, no el mismo lazo. Lo
+  que sí se unificó es la construcción de la fila: `tpMaterializeRecovery` ahora usa
+  `_tpMakeItem` en vez de la tercera réplica a mano de sus 20 campos (que se quedaba
+  sin `purpose` ni `_scoreDetail`).
+- El diálogo de "Generar mes" ya no advierte que el generador no conoce la cuota —
+  ahora sí la conoce.
+
+### 3. Los tres reportes abiertos
+
+**#110 — «En la pantalla de plan, editar semana no hace nada».** El ✏️ de esa pantalla
+desapareció con v23 (el armador vive dentro de Mi semana), pero **la causa seguía
+viva y era mucho más grande que ese botón**: `tabCacheSwitch` sólo repintaba si la
+pestaña estaba "sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo
+la vista** no guarda nada — no tiene por qué — así que toda esa familia estaba muerta:
+el filtro por estado del Dashboard del Plan, los 5 ajustes de su gráfica, Captura
+Manual / Importar JSON, los filtros de fecha de Probados, el año del Plan Maestro de
+Consumibles y sus 3 tipos de gráfica. De las 88 llamadas a `tpRender()` la mayoría no
+guarda. El síntoma es el peor posible: **no pasa nada, sin error**.
+Se **invierte el default**: se repinta siempre, y el caché se conserva sólo cuando el
+llamador lo pide — hoy únicamente el salto de pestaña
+(`xxSwitchTab` → `xxRender({keepCache:true})`), que es donde de verdad sirve.
+
+**#109 — «Esa tira de siguiente vehículo no sirve, tapa los botones de abajo».**
+Tres defectos: (1) no estaba atada a ninguna sección, así que con un vehículo abierto
+en Pruebas seguía ahí en Datos, Plan y HOY —la captura la muestra sobre los botones
+Editar/borrar de Regulaciones—; (2) `z-index: 9000` la ponía **por encima de la
+`.bottom-nav` (2000)**, o sea que en celular y tablet tapaba la navegación completa;
+(3) no se podía apagar. Ahora vive sólo dentro de Pruebas, se apoya *encima* de la
+barra de abajo (z 1990, `bottom: 62px`, y `body.has-next-step` reserva su altura y sube
+el 🐞 y el aviso de soak), y trae una **✕**. La preferencia es
+`uiPref('nextStep')` — nunca una clave propia (regla de v22.0) — y por eso **no se
+sincroniza**: que a un técnico le estorbe no debe apagársela a otro. Se vuelve a
+encender en Datos → Sistema, junto a la densidad.
+
+**#113 — «No funciona el modificar a los operadores».** Se reportó contra la **v18.2**
+y lo arregló **v18.5** (`_pnEnsureAdminExists` rompió el candado circular —todos nacen
+Técnico y cambiar un rol exige `users.manage`— y `_authNormalizeRole` dejó de dar cero
+permisos en silencio a `'SUPERVISOR'` o `' Supervisor'`). Verificado en navegador
+contra el código actual: partiendo de un laboratorio donde **nadie** tiene
+`users.manage`, alguien queda con el permiso, el cambio de rol se guarda,
+`'  TECNICO '` se normaliza a `'Técnico'` y un rol inventado se rechaza con aviso en
+vez de dejar al operador sin permisos. **No hacía falta código nuevo.**
+
+### Verificación
+
+`tests/plan.node.js` sube de 16 a **33 casos** (10 de OBD II, 7 del horizonte);
+`tests/credit.node.js` sigue en 12. `tests/v231.e2e.js` es un recorrido real en
+Chromium a 753×1132 —el dispositivo del #109— que comprueba las tres cosas de arriba.
+`tests/semana.e2e.js` sin regresiones (`mar → jue`, el plan sigue aceptado, HOY
+respeta la puerta del plan aceptado en los dos sentidos).
+
+---
+
 ## v23.0 — El plan de pruebas, de nuevo (2026-09-03)
 
 Ronda disparada por el **issue #126**, reportado desde la app a las 20:20 del 2 de

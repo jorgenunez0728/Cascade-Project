@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.0';
+var APP_VERSION = '23.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.1', date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
+      notes: [
+          'Una prueba de OBD II ya NO baja el déficit de emisiones ni sube la cobertura: se registra igual, pero no acredita. Qué propósito cuenta se decide en Plan → Reglas.',
+          'Generar mes y el Simulador dejaron de tener su propio algoritmo: usan el mismo de "Generar" una semana, así que por fin conocen la cuota de la cola, los filtros y la disponibilidad.',
+          'Los controles que solo cambian la vista (filtros del Dashboard, Captura Manual/Importar JSON, el año del Plan Maestro, los tipos de gráfica) por fin repintan la pantalla — antes no pasaba nada (#110).',
+          'La tira "Siguiente: …" solo se ve dentro de Pruebas, ya no tapa la barra de abajo y se puede apagar con su ✕ (#109).'
+      ] },
     { v: '23.0', date: '3 sep 2026', title: 'El plan de pruebas, de nuevo',
       notes: [
           'Se eliminó el auto-plan del viernes: generaba una propuesta en CADA dispositivo y el sync las acumulaba todas.',
@@ -1084,7 +1091,8 @@ function themeInit() {
 var UI_PREFS_KEY = 'kia_ui_prefs';
 var UI_PREFS_DEFAULTS = {
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
-    dashRange: 'hoy'       // [v23] HOY: 'hoy' | 'semana'
+    dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
+    nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
 };
 
 function _uiPrefsRead() {
@@ -2344,12 +2352,26 @@ function tabCacheInit(moduleId, tabIds) {
 }
 
 /**
- * Switch to a tab with caching. Only re-renders if tab is dirty or never rendered.
+ * Muestra una pestana, repintandola salvo que quien llama pida conservar el cache.
+ *
+ * [v23.1 — issue #110] El valor por defecto estaba INVERTIDO: solo se repintaba si
+ * la pestana estaba "sucia", y quien la ensucia es `xxSave()`. Un control que cambia
+ * SOLO LA VISTA no guarda nada — no tiene por que — asi que toda esa familia estaba
+ * muerta: el filtro por estado del Dashboard del Plan, los 5 ajustes de su grafica,
+ * Captura Manual / Importar JSON y los filtros de fecha de Probados, el ano del Plan
+ * Maestro de Consumibles, sus 3 tipos de grafica... 88 llamadas a `tpRender()` de las
+ * que la mayoria no guarda. El sintoma es el peor posible: no pasa NADA, sin error.
+ *
+ * Ahora se repinta siempre y el cache se conserva solo cuando el llamador lo pide
+ * — hoy unicamente el salto de pestana (`xxSwitchTab` -> `xxRender({keepCache:true})`),
+ * que es el unico caso donde de verdad sirve.
+ *
  * @param {string} moduleId - Module prefix
  * @param {string} tabId - Target tab ID
  * @param {function} renderFn - Function(el) that renders content into the tab div
+ * @param {{keepCache?:boolean}} [opts] - keepCache: reusar lo ya pintado si no esta sucio
  */
-function tabCacheSwitch(moduleId, tabId, renderFn) {
+function tabCacheSwitch(moduleId, tabId, renderFn, opts) {
     var cache = _tabCache[moduleId];
     if (!cache) {
         var c = document.getElementById(moduleId + '-content');
@@ -2378,7 +2400,8 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
 
     var target = document.getElementById(tabId + '-cached');
     if (!target) return;
-    if (!cache.rendered[tabId] || cache.dirty[tabId]) {
+    var keep = !!(opts && opts.keepCache);
+    if (!cache.rendered[tabId] || cache.dirty[tabId] || !keep) {
         if (!cache.rendered[tabId]) target.innerHTML = _skeletonHTML();
         // Show skeleton one frame, then render. Wrap in try/catch so a failing
         // renderer shows a visible error instead of a silent blank ("dead") tab.
@@ -2543,6 +2566,15 @@ function switchPlatform(platform, swipeDir) {
 
     // Hide floating action bar when leaving COP15
     if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+    // [v23.1 · #109] La tira "Siguiente:" vive SOLO dentro de Pruebas.
+    // La rama de swipe difiere el toggle de `.active` 110 ms, así que leer el DOM
+    // aquí daría el estado VIEJO: se apaga de inmediato al salir (sin leer nada) y
+    // se reevalúa una vez que la sección ya cambió.
+    if (typeof v7UpdateNextStepBanner === 'function') {
+        var _nsb = document.getElementById('v7-next-step-banner');
+        if (_nsb && sectionId !== 'cop15') { _nsb.classList.remove('show'); document.body.classList.remove('has-next-step'); }
+        setTimeout(function() { try { v7UpdateNextStepBanner(); } catch (e) {} }, 320);
+    }
 
     // Theme — unified light theme for all modules
     document.body.style.background = 'var(--bg)';
@@ -6340,19 +6372,68 @@ function v7GoToVehicle(vehicleId, gotoSection) {
     }, 300);
 }
 
-// [V7-D2] Floating Next Step Banner
+// ══════════════════════════════════════════════════════════════════════
+// [V7-D2] Tira flotante "Siguiente: ..." — [v23.1] atada a Pruebas y apagable
+//
+// Issue #109 (Iván, tablet 753x1132): «Esa tira de siguiente vehículo no sirve,
+// me gustaría que no esté porque tapa los botones de abajo». Eran tres defectos:
+//
+//  1. No estaba atada a NINGUNA sección: bastaba con tener un vehículo abierto en
+//     Pruebas para que siguiera ahí en Datos, Plan y HOY, encima de lo que hubiera.
+//     La captura la muestra sobre los botones Editar/borrar de Regulaciones.
+//  2. `z-index: 9000` la ponía por encima de la `.bottom-nav` (2000), o sea que en
+//     celular y tablet tapaba la navegación COMPLETA.
+//  3. No se podía apagar.
+//
+// La preferencia vive en `uiPref('nextStep')` — NUNCA una clave propia de
+// localStorage (regla de v22.0) — y por eso NO se sincroniza: que a un técnico le
+// estorbe no debe apagársela a otro.
+// ══════════════════════════════════════════════════════════════════════
+
+/** ¿La sección de Pruebas (COP15) es la que está en pantalla? */
+function _v7InCop15() {
+    var sec = document.getElementById('platform-cop15');
+    return !!(sec && sec.classList.contains('active'));
+}
+
+function v7NextStepEnabled() {
+    return uiPref('nextStep') !== false;
+}
+
+/** La ✕ de la tira. Se vuelve a encender en Datos → Sistema. */
+function v7NextStepDismiss() {
+    uiPref('nextStep', false);
+    v7UpdateNextStepBanner();
+    if (typeof pnDensityRenderChoices === 'function') pnDensityRenderChoices();
+    if (typeof showToast === 'function') {
+        showToast('Tira de "siguiente paso" apagada. Datos → Sistema la vuelve a encender.', 'info');
+    }
+}
+
+function v7NextStepSetEnabled(on) {
+    uiPref('nextStep', !!on);
+    v7UpdateNextStepBanner();
+    if (typeof pnDensityRenderChoices === 'function') pnDensityRenderChoices();
+}
+
 function v7UpdateNextStepBanner() {
     var banner = document.getElementById('v7-next-step-banner');
     if (!banner) return;
-    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    var off = function() { banner.classList.remove('show'); document.body.classList.remove('has-next-step'); };
+    if (!v7NextStepEnabled()) { off(); return; }
+    if (!_v7InCop15()) { off(); return; }
+    if (!activeVehicleId) { off(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    if (!vehicle || vehicle.status === 'archived') { off(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
-    if (!step) { banner.classList.remove('show'); return; }
+    if (!step) { off(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
         '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
-        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')" aria-label="Ir al siguiente paso">&rarr;</button>' +
+        '<button class="v7-next-step-off" onclick="v7NextStepDismiss()" aria-label="No volver a mostrar esta tira" title="No volver a mostrarla">&times;</button>';
     banner.classList.add('show');
+    // La página reserva su altura: sin esto se monta sobre lo último del contenido.
+    document.body.classList.add('has-next-step');
 }
 
 function v7GoToVehicleStep(gotoSection) {

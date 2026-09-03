@@ -1316,9 +1316,12 @@ function _fbPullSeed(col, remoteData, pulled) {
         // preservan, un pull desde código anterior los deja undefined: el laboratorio
         // pierde su tabla de soak, y la guarda perdida hace que la migración VUELVA a
         // correr. Es la misma trampa que documentó plannerCfg en v18.
+        // v23.1 suma `reqPurposes` (qué propósitos acreditan el REQ de emisiones): un
+        // pull desde código anterior no lo trae y sin preservarlo el laboratorio
+        // volvería a contar las pruebas de OBD2 en la cobertura, en silencio.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
          'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'capacity',
-         'soak', '_migr'].forEach(function(k) {
+         'soak', '_migr', 'reqPurposes'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));

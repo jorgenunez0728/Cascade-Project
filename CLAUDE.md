@@ -1341,6 +1341,106 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y la pestaña que no repintaba
+
+### 🏷 Qué acredita el REQ de emisiones
+
+La advertencia de v23 se resolvió: **una prueba de OBD II ya NO baja el déficit de
+emisiones**. Cuatro reglas que no se rompen:
+
+1. **La evidencia NO se toca.** La fila se sigue escribiendo en `testedList` — la
+   prueba ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y no en la
+   captura es lo que hace el cambio **reversible**: volver a marcar el propósito
+   devuelve los números exactos de antes, sin recuperar nada.
+2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20).
+   `purpose` sólo se escribe desde v23; degradar lo histórico borraría años de
+   cobertura real.
+3. **`tpTestedCountsForReq(t)` es LA definición**, y `tpTestedForConfig(desc[, list])`
+   / `tpTestedCountFor(desc[, list])` la forma de contar. Todo consumidor nuevo las
+   llama en vez de filtrar por `configText` a secas. Ya migrados: `tpGetAnalysis`,
+   `tpBuildFamilies` (conteo **y** VINes), la continuidad por MY, `tpBuildScoreDetail`,
+   `_tpMakeItem`, Recuperación y el snapshot del generador.
+4. **El plan es otra cosa.** Palomear una fila de OBD2 la marca como hecha: el
+   compromiso de la semana se cumplió. Lo que no baja es el déficit de emisiones.
+
+- **`tpReqPurposes()` es LA forma de leer la lista** — nunca `tpState.reqPurposes.x`
+  directo (reaplica defaults en cada lectura, patrón `tpPlannerCfg` de v18.0). Es
+  **editable** en Plan → Reglas (`tpSetReqPurpose`, se audita): `Correlacion`,
+  `Investigacion` y `ND-Emisiones` acreditan por default. `reqPurposes` está en la
+  lista de preservación de `_fbPullSeed`.
+- **`const TP_PURPOSES_OBD` va JUNTO a `TP_PURPOSES_VALID`**, no más abajo:
+  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+  una `var` posterior estaría hoisted pero en `undefined` y la app no arranca.
+- **Lo excluido se declara, nunca se oculta**: `tpCoverageSummary()` suma
+  `totalNoEmisiones`, `noReqPorProposito` y `totalRegistradas`; Probados pinta el
+  desglose. `totalTested`/`pct`/`deficit` **sí cambian de valor** (cuentan sólo lo que
+  acredita) — es el punto de la ronda.
+- Dos bordes: la declaración a mano hereda el `purpose` del item (sin eso acreditaba
+  por omisión), y **sólo una liberación que acredita retira la declarada** — una
+  prueba de OBD2 no es la de emisiones que esa declaración prometía.
+
+### `tpPlanHorizon` — el único lazo de varias semanas
+
+Cierra la deuda de v18.0/v20/v23. `tpGenerateMonthly` y `tpRunSimulation` tenían su
+propio `Map` de conteo simulado y **no conocían la cuota de la cola ni los filtros**,
+así que el mes podía escribir cuatro semanas de puro arrastre y el simulador prometía
+una curva que el generador real no iba a producir.
+
+- **`opts.testedSeed` abre `tpSelectWeeklyItems` al horizonte**: la semana parte de
+  donde quedó la anterior y devuelve la lista rodante en `R.tested`. Sigue **pura
+  respecto a `tpState`**.
+- **`_tpAnalyze(list)`** es el cálculo del análisis sobre una lista cualquiera;
+  `tpGetAnalysis()` queda como su envoltorio memoizado sobre `tpState.testedList`.
+- **`tpPlanHorizon(opts)` es LA definición del horizonte** y NO escribe nada. Las
+  **obligatorias sólo aplican a la primera semana** (son de una semana concreta, o el
+  mes repetiría el mismo vehículo fijado 4 veces). Una semana no disponible se salta y
+  se declara; el simulador pasa `respectAvailability:false`.
+- **Recuperación NO se unificó, a propósito**: explota el déficit en unidades y ordena
+  por tier P1..P10, no por score — es empaquetado por prioridad, no el mismo lazo.
+  Lo que sí comparte ahora es la fila: `tpMaterializeRecovery` usa `_tpMakeItem`.
+
+### `tabCacheSwitch` repinta por DEFECTO (issue #110)
+
+**El valor por defecto estaba invertido.** Sólo se repintaba si la pestaña estaba
+"sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo la vista** no
+guarda nada, así que toda esa familia estaba muerta —filtros del Dashboard del Plan,
+los 5 ajustes de su gráfica, Captura Manual / Importar JSON, filtros de Probados, el
+año del Plan Maestro de Consumibles, sus 3 tipos de gráfica— **sin ningún error**.
+
+- Ahora `tabCacheSwitch(moduleId, tabId, renderFn, opts)` repinta siempre y conserva el
+  caché sólo con `opts.keepCache`. **El único que lo pasa es el salto de pestaña**:
+  `tpSwitchTab`/`invSwitchTab`/`pnSwitchTab` → `xxRender({ keepCache: true })`.
+- `tpRender`/`invRender`/`pnRender` aceptan `opts` y lo reenvían. Código nuevo que
+  cambie sólo la vista llama `xxRender()` a secas y **ya funciona** — no hace falta
+  `tabCacheInvalidate` ni un `xxSave()` de mentira.
+
+### La tira "Siguiente: …" (issue #109)
+
+- **`v7UpdateNextStepBanner` sólo la muestra dentro de Pruebas** (`_v7InCop15()` lee
+  `.platform-section.active`). En `switchPlatform` se apaga **de inmediato** al salir
+  sin leer el DOM y se reevalúa a los 320 ms: la rama de swipe difiere el toggle de
+  `.active` 110 ms, así que leer ahí daría el estado viejo.
+- `z-index: 1990` y `bottom: 62px` — **por debajo** de `.bottom-nav` (2000) y apoyada
+  encima, no montada sobre ella. `body.has-next-step` reserva su altura y sube el 🐞 y
+  el badge de soak (el `!important` del soak es deliberado: trae `bottom:68px` en un
+  atributo `style` de index.html).
+- Se apaga con su ✕ y la preferencia es **`uiPref('nextStep')`** — nunca una clave
+  propia (v22.0) — y por eso **no se sincroniza**. Se vuelve a encender en
+  Datos → Sistema, junto a la densidad (`pnDensityRenderChoices`).
+
+### #113 (editar operadores) — ya estaba arreglado
+
+Reportado contra la **v18.2**; lo cerró **v18.5** (`_pnEnsureAdminExists` +
+`_authNormalizeRole`). Verificado en navegador contra el código actual y **sin código
+nuevo**. Al revisar un reporte viejo, comparar primero la versión del reporte con las
+rondas posteriores antes de tocar nada.
+
+### Pruebas
+
+`tests/plan.node.js` 16 → **33 casos**; `tests/credit.node.js` 12; **`tests/v231.e2e.js`**
+(Chromium 753×1132, el dispositivo del #109) cubre la tira, el repintado y OBD II.
+Los E2E necesitan `NODE_PATH` apuntando a un `node_modules` con playwright.
+
 ## v23.0 — El plan de pruebas, de nuevo (`js/testplan.js`, `js/app.js`, `js/cop15.js`)
 
 Ronda del issue #126. **El bug que el reporte describía —"los planes se aceptan
@@ -1507,13 +1607,10 @@ retrocompatible. El chip **solo se pinta cuando NO es una prueba de emisiones**:
 caso normal no necesita etiqueta. `item.actualPurpose` guarda con cuál se corrió de
 verdad.
 
-> **⚠️ Hoy los 8 propósitos acreditan por igual el REQ de EMISIONES.**
-> `tpAutoFeedFromRelease` acepta los ocho y `tpGetAnalysis` cuenta toda fila con
-> `configText === desc` sin mirar `purpose`: **una prueba de OBD2 baja el déficit de
-> emisiones**. Casi seguro no es lo que la norma quiere, pero cambiarlo tira la
-> cobertura del laboratorio de un día para otro — es una decisión de política, no un
-> arreglo. v23 **solo expone el número** (`tpCoverageSummary().totalNoEmisiones`, y
-> un aviso en Probados). Separarlo es una línea en `tpGetAnalysis` cuando se confirme.
+> **✅ RESUELTO en v23.1: OBD II ya NO acredita el REQ de emisiones.**
+> Lo que v23 dejó anotado ("los 8 propósitos acreditan por igual") se confirmó y se
+> separó. Ver la sección **v23.1 → Qué acredita el REQ de emisiones**:
+> `tpTestedCountsForReq` es LA definición y la lista es editable en Plan → Reglas.
 
 ### Pruebas en `tests/`
 
@@ -1522,14 +1619,14 @@ verdad.
 el objeto global del contexto y hace falta un epílogo que lo exponga. `semana.e2e.js`
 es un recorrido real en Chromium a 427×840, el dispositivo del reporte.
 
-### Deuda conocida (heredada de v18.0)
+### Deuda conocida (heredada de v18.0) — CERRADA en v23.1
 
-`tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` siguen siendo copias
-cercanas del mismo lazo greedy y **no** conocen la cuota de la cola ni los filtros.
-v23 **sí** les puso `tpWeeklyCapacityFor` (de donde salía el número absurdo) y le
-puso confirmación a "Generar mes". Unificarlas es una ronda propia:
-`tpBuildRecoveryPlan` explota el déficit en unidades y ordena por tier P1..P10, no
-por score, así que no es el mismo lazo aunque lo parezca.
+`tpGenerateMonthly` y `tpRunSimulation` eran copias del mismo lazo greedy y no
+conocían la cuota de la cola ni los filtros. **v23.1 las unificó sobre
+`tpPlanHorizon`** (ver esa sección). `tpBuildRecoveryPlan` se queda aparte a
+propósito: explota el déficit en unidades y ordena por tier P1..P10, no por score,
+así que no es el mismo lazo aunque lo parezca — lo que sí comparte ya es la
+construcción de la fila (`_tpMakeItem`).
 
 
 ## Working with this project

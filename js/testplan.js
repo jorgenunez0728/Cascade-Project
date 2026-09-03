@@ -297,6 +297,10 @@ function tpRenderPlanHistory(el) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 const TP_PURPOSES_VALID = ['Correlacion', 'Investigacion', 'COP-Emisiones', 'EO-Emisiones', 'COP-OBD2', 'EO-OBD2', 'ND-Emisiones', 'ND-OBD2'];
+// [v23.1] Los tres propósitos de OBD2. Va JUNTO a la lista de arriba y no más abajo:
+// `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+// una `var` declarada después estaría hoisted pero en `undefined` y la app no arrancaría.
+const TP_PURPOSES_OBD = ['COP-OBD2', 'EO-OBD2', 'ND-OBD2'];
 const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26']; // semilla por defecto; los meses reales viven en tpState.months (dinámicos)
 
 // ── Meses de producción dinámicos (etiquetas 'MMM-YY') ──
@@ -424,6 +428,7 @@ function _tpEnsureState() {
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
     if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {}; // guardas de migración
     if (typeof tpSoakCfg === 'function') tpSoakCfg();                            // v20: horas de reposo
+    if (typeof tpReqPurposes === 'function') tpReqPurposes();                    // v23.1: qué acredita el REQ
     // v20.8: la carrocería entró a la clave de familia — remapear claves guardadas
     try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     return tpState;
@@ -504,6 +509,7 @@ function tpPlannerCfg() {
     if (p.carryoverTtlWeeks === undefined) p.carryoverTtlWeeks = 4;
     if (p.carryoverMaxPct   === undefined) p.carryoverMaxPct = 50;
     if (p.filtersOn         === undefined) p.filtersOn = false;
+    if (p.checkInventory    === undefined) p.checkInventory = true;   // v23.1: era `!== false` disperso
     if (!p.filters) p.filters = { familyMatch:'', region:'', regulation:'', modelMatch:'', engMatch:'', bodyMatch:'', drvMatch:'' };
     return p;
 }
@@ -549,6 +555,117 @@ function tpPurposeForRegion(rgn) {
     var p = map[_tpNorm(rgn)] || map['*'];
     return (p && TP_PURPOSES_VALID.indexOf(p) !== -1) ? p : 'COP-Emisiones';
 }
+// ══════════════════════════════════════════════════════════════════════
+// [v23.1] QUÉ ACREDITA EL REQ DE EMISIONES
+//
+// Hasta v23 los OCHO propósitos de Cascade acreditaban por igual: `tpGetAnalysis`
+// contaba toda fila con `configText === cfg.desc` sin mirar `purpose`, así que
+// **una prueba de OBD2 bajaba el déficit de EMISIONES**. v23 sólo expuso el número
+// (`tpCoverageSummary().totalNoEmisiones`) porque separarlo mueve la cobertura del
+// laboratorio de un día para otro y eso es una decisión de política, no un arreglo.
+// Confirmada, aquí está: OBD2 deja de acreditar.
+//
+// REGLAS QUE NO SE ROMPEN:
+//
+//  1. **La evidencia NO se toca.** Una prueba de OBD2 se sigue registrando en
+//     `testedList` — ocurrió. Lo que cambia es quién la CUENTA para el REQ. Filtrar
+//     en el conteo y no en la captura es lo que hace el cambio reversible: apagar
+//     el filtro devuelve exactamente los números de antes, sin recuperar nada.
+//  2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20):
+//     `purpose` sólo se escribe desde v23, así que las filas históricas no lo traen
+//     y degradarlas a "no acredita" borraría de golpe años de cobertura real.
+//  3. **`tpTestedCountsForReq(t)` es LA definición** — todo consumidor nuevo que
+//     cuente probadas contra el REQ la llama, en vez de filtrar por `configText`
+//     a secas. Ya migrados: `tpGetAnalysis`, `tpBuildFamilies` (conteo y VINes),
+//     la continuidad por MY, `tpBuildScoreDetail`, `_tpMakeItem`, el lazo de
+//     Recuperación y el snapshot del generador mensual.
+//  4. **El plan es otra cosa.** Palomear una fila de OBD2 en Mi semana la marca
+//     como hecha igual que siempre: el compromiso de la semana se cumplió. Lo que
+//     no baja es el déficit de emisiones de esa configuración.
+//
+// La lista es EDITABLE (Plan → Reglas) porque el criterio fino es del laboratorio:
+// `Correlacion`, `Investigacion` y `ND-Emisiones` SÍ acreditan por defecto — son
+// mediciones de emisiones sobre la configuración — pero si mañana se decide que
+// sólo `COP-Emisiones` cuenta para el CoP, es una casilla, no una ronda de código.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Default: acredita todo MENOS OBD2. */
+function _tpReqPurposeDefaults() {
+    var d = {};
+    TP_PURPOSES_VALID.forEach(function(p) { d[p] = (TP_PURPOSES_OBD.indexOf(p) === -1); });
+    return d;
+}
+
+/**
+ * LA forma de leer qué propósitos acreditan — nunca `tpState.reqPurposes.x` directo.
+ * Reaplica defaults en CADA lectura (patrón de `tpPlannerCfg`, v18.0): un pull de
+ * sync desde código anterior deja la clave en undefined y la migración de arranque
+ * ya no vuelve a correr.
+ */
+function tpReqPurposes() {
+    if (!tpState.reqPurposes || typeof tpState.reqPurposes !== 'object') tpState.reqPurposes = {};
+    var d = _tpReqPurposeDefaults();
+    for (var k in d) { if (tpState.reqPurposes[k] === undefined) tpState.reqPurposes[k] = d[k]; }
+    return tpState.reqPurposes;
+}
+
+/** ¿Este propósito acredita el REQ de emisiones? Sin propósito ⇒ sí (regla 2). */
+function tpPurposeCountsForReq(purpose) {
+    if (!purpose) return true;
+    var p = String(purpose).trim();
+    if (!p || p === 'Manual') return true;   // captura manual: el operador ya decidió
+    var map = tpReqPurposes();
+    return (map[p] === undefined) ? true : !!map[p];
+}
+
+/** ¿Esta fila de `testedList` acredita el REQ? */
+function tpTestedCountsForReq(t) {
+    return !!t && tpPurposeCountsForReq(t.purpose);
+}
+
+/**
+ * LA forma de listar las probadas de una configuración que acreditan el REQ.
+ * @param {string} desc  cfg.desc
+ * @param {Array}  [list] por defecto tpState.testedList (los generadores pasan su copia)
+ */
+function tpTestedForConfig(desc, list) {
+    var src = list || tpState.testedList || [];
+    return src.filter(function(t) { return t && t.configText === desc && tpTestedCountsForReq(t); });
+}
+
+/** Cuántas probadas de esa configuración acreditan el REQ. */
+function tpTestedCountFor(desc, list) {
+    return tpTestedForConfig(desc, list).length;
+}
+
+/** Diagnóstico: cuántas filas quedaron FUERA del REQ, por propósito. */
+function tpNoReqBreakdown() {
+    var out = { total: 0, byPurpose: {} };
+    (tpState.testedList || []).forEach(function(t) {
+        if (!t || tpTestedCountsForReq(t)) return;
+        out.total++;
+        var p = t.purpose || '(sin propósito)';
+        out.byPurpose[p] = (out.byPurpose[p] || 0) + 1;
+    });
+    return out;
+}
+
+/** Enciende/apaga un propósito. Cambia el REQ de todo el sistema: se audita. */
+function tpSetReqPurpose(purpose, on) {
+    if (TP_PURPOSES_VALID.indexOf(purpose) === -1) return false;
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar qué acredita el REQ')) return false;
+    var map = tpReqPurposes();
+    map[purpose] = !!on;
+    tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'req_purpose_changed', { type: 'config', label: purpose },
+                 (on ? 'ACREDITA' : 'ya NO acredita') + ' el REQ de emisiones');
+    }
+    tpRender();
+    if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+    return true;
+}
+
 function tpSetStartPurpose(regionKey, value) {
     if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = {};
     tpState.startPurposeByRegion[regionKey] = value;
@@ -761,9 +878,12 @@ function tpScoreReason(cfg, testedN) {
 
 // Detalle de score para mostrar el "por qué" en cada item del plan.
 function tpBuildScoreDetail(cfg, n, req, score) {
+    // [v23.1] Solo las que acreditan el REQ: una prueba de OBD2 no debe "refrescar"
+    // la antigüedad de emisiones de esa configuración ni bajarle el empuje.
     var lastTested = '';
     for (var i = tpState.testedList.length - 1; i >= 0; i--) {
-        if (tpState.testedList[i].configText === cfg.desc) { lastTested = tpState.testedList[i].date || ''; break; }
+        var _t = tpState.testedList[i];
+        if (_t && _t.configText === cfg.desc && tpTestedCountsForReq(_t)) { lastTested = _t.date || ''; break; }
     }
     return { deficit: Math.max(0, req - n), score: score, lastTested: lastTested, reason: tpScoreReason(cfg, n) };
 }
@@ -788,9 +908,37 @@ function tpGetAnalysis() {
                    ':' + (tpState._lastSave || 0);
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
-    var result = tpState.planData.map(cfg => {
+    var result = _tpAnalyze(tpState.testedList);
+
+    _tpAnalysisCache = { key: cacheKey, data: result };
+    return result;
+}
+
+/**
+ * [v23.1] El cálculo del análisis SOBRE UNA LISTA CUALQUIERA de probadas.
+ *
+ * Se extrajo de `tpGetAnalysis` (que queda como el envoltorio memoizado sobre
+ * `tpState.testedList`) para que los generadores de HORIZONTE — el mes y el
+ * simulador — puedan preguntar "¿cómo queda el déficit DESPUÉS de la semana 1?"
+ * en vez de reimplementar la resta a mano. Ése era el corazón de la deuda de los
+ * tres lazos greedy: cada uno llevaba su propio `Map` de conteo simulado y su
+ * propia fórmula de déficit, así que las mejoras del semanal (cuota de la cola,
+ * filtros, inventario, obligatorias) no llegaban nunca.
+ *
+ * PURA respecto a `tpState.testedList`: no lee ni escribe la lista global.
+ */
+function _tpAnalyze(list) {
+    var src = list || [];
+    var porDesc = {};
+    src.forEach(function(t) {
+        if (!t || !tpTestedCountsForReq(t)) return;
+        (porDesc[t.configText] || (porDesc[t.configText] = [])).push(t);
+    });
+    return tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
-        const filas = tpState.testedList.filter(t => t.configText === cfg.desc);
+        // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
+        // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
+        const filas = porDesc[cfg.desc] || [];
         const n = filas.length;
         // v20: aditivo. `testedN` NO cambia de significado — sigue contando todo, para
         // que la palomita manual sí baje el déficit (es justo su razón de ser). Al lado
@@ -807,9 +955,6 @@ function tpGetAnalysis() {
         return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
                  required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
-
-    _tpAnalysisCache = { key: cacheKey, data: result };
-    return result;
 }
 
 function tpInvalidateCache() {
@@ -843,6 +988,7 @@ function tpCoverageSummary() {
     // ocultar, siempre declarar (el principio del semáforo del CoP).
     var totalDeclared = analysis.reduce(function(s, a) { return s + (a.testedDeclared || 0); }, 0);
     var okVerified = vigentes.filter(function(a) { return (a.testedVerified || 0) >= a.required; }).length;
+    var _noReq = tpNoReqBreakdown();
     return {
         vigentes: vigentes.length,
         ok: ok,
@@ -851,16 +997,13 @@ function tpCoverageSummary() {
         totalTested: totalTested,
         deficit: deficit,
         totalDeclared: totalDeclared,
-        // [v23] Diagnóstico, NO un cambio de la matemática. Hoy los 8 propósitos de
-        // Cascade acreditan por igual el REQ de emisiones: `tpAutoFeedFromRelease`
-        // acepta los ocho y este cálculo cuenta toda fila con `configText === desc`
-        // sin mirar `purpose`. O sea que una prueba de OBD2 baja el déficit de
-        // EMISIONES, que casi seguro no es lo que la norma quiere — pero cambiarlo
-        // tira la cobertura del laboratorio de un día para otro y es una decisión de
-        // política, no un arreglo. Se EXPONE el número para poder decidirlo con dato.
-        totalNoEmisiones: (tpState.testedList || []).filter(function(t) {
-            return t && t.purpose && !/^(COP|EO)-Emisiones$/.test(t.purpose);
-        }).length,
+        // [v23.1] Ya NO es un diagnóstico: es lo que quedó FUERA del REQ. `totalTested`
+        // (y por tanto `pct`/`deficit`) cuenta solo lo que acredita — ver
+        // `tpTestedCountsForReq`. Lo excluido se declara aquí y se pinta en Probados:
+        // nunca se oculta, el principio del semáforo del CoP.
+        totalNoEmisiones: _noReq.total,
+        noReqPorProposito: _noReq.byPurpose,
+        totalRegistradas: (tpState.testedList || []).length,
         totalVerified: totalTested - totalDeclared,
         okVerified: okVerified,
         pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
@@ -949,7 +1092,10 @@ function tpAutoFeedFromRelease(vehicle, opts) {
         var f = new Date(semana + 'T00:00:00'); f.setDate(f.getDate() + 6);
         finSemana = _tpFmtDate(f);
     }
-    var _decl = tpState.testedList.findIndex(function(t) {
+    // v23.1: solo una liberación que ACREDITA retira la declarada. Una prueba de OBD2
+    // no es la prueba de emisiones que esa declaración prometía: retirarla dejaría a la
+    // configuración sin nada que la respalde y le subiría el déficit sin avisar.
+    var _decl = !tpTestedCountsForReq(entry) ? -1 : tpState.testedList.findIndex(function(t) {
         if (!t || t.configText !== vehicle.configCode || !tpTestedIsDeclared(t)) return false;
         if (!semana) return true;
         return t.date >= semana && t.date <= finSemana;
@@ -1345,7 +1491,9 @@ function tpSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('tp-tabs-bar'), _activeBtn);
     }
-    tpRender();
+    // keepCache: el salto de pestana es el UNICO caso donde reusar lo ya pintado
+    // ayuda. Todo lo demas repinta (issue #110) — ver tabCacheSwitch en app.js.
+    tpRender({ keepCache: true });
 }
 
 function _tpGetRenderer(tabId) {
@@ -1361,7 +1509,7 @@ function _tpGetRenderer(tabId) {
     return map[tabId] || null;
 }
 
-function tpRender() {
+function tpRender(opts) {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
     // Keep the active tab button in sync with tpState.activeTab (covers programmatic
@@ -1373,7 +1521,7 @@ function tpRender() {
     }
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
-    if (renderer) tabCacheSwitch('tp', tab, renderer);
+    if (renderer) tabCacheSwitch('tp', tab, renderer, opts);
     // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('tp', tab);
@@ -2378,12 +2526,13 @@ function tpRenderTested(el) {
     el.innerHTML = `
     ${_cs.totalNoEmisiones ? `<div class="tp-card" style="border-left:3px solid var(--warn-text);">
         <div style="font-size: var(--fs-sm);color:var(--tp-text);">
-            🏷 <strong>${_cs.totalNoEmisiones}</strong> de las ${_cs.totalTested} pruebas registradas
-            <strong>no son de emisiones</strong> (OBD2, correlación, investigación, nuevos modelos)
-            y hoy bajan el déficit de emisiones igual que una prueba COP.
-            <br><span style="color:var(--tp-dim);">Es el comportamiento de siempre y no cambió en v23 —
-            se muestra el número para poder decidir si debe cambiar. Separarlos es una línea en
-            <code>tpGetAnalysis</code> cuando lo confirmes.</span>
+            🏷 <strong>${_cs.totalNoEmisiones}</strong> de las ${_cs.totalRegistradas} pruebas registradas
+            <strong>no acreditan el REQ de emisiones</strong> y quedan fuera de la cobertura:
+            ${Object.keys(_cs.noReqPorProposito || {}).map(k => `${k} (${_cs.noReqPorProposito[k]})`).join(' · ')}.
+            <br><span style="color:var(--tp-dim);">Siguen registradas como evidencia — se hicieron.
+            Lo que cambia es que ya no bajan el déficit. Qué propósito acredita se decide en
+            <button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);padding:var(--space-2xs) var(--space-sm);"
+                onclick="tpSwitchTab('tp-rules')">Reglas</button>.</span>
         </div>
     </div>` : ''}
     <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">
@@ -2640,8 +2789,46 @@ function tpRenderRules(el) {
         if (c.reg && c.rgn && (rr._matchType === 'comodín' || rr._matchType === 'default')) _tpNoSpecificRule.push(c);
     });
 
+    // [v23.1] Qué propósitos acreditan el REQ de emisiones. Vive JUNTO a las reglas de
+    // ratio porque las dos deciden lo mismo: el denominador y el numerador de la
+    // cobertura. Ver `tpTestedCountsForReq` (testplan.js) — LA definición.
+    const _rq = tpReqPurposes();
+    const _rqNo = tpNoReqBreakdown();
+    const _rqHTML = `
+        <div class="tp-card">
+            <div class="tp-card-title" data-help="tp-reqpurpose-help">
+                <span>🏷 Qué acredita el REQ de emisiones</span>
+            </div>
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
+                Una prueba de <strong>OBD II no es una prueba de emisiones</strong>: se hace, se
+                registra y se ve en el historial, pero no baja el déficit ni sube la cobertura.
+                Desmarcar un propósito lo saca del conteo; la evidencia no se pierde ni se borra,
+                así que volver a marcarlo devuelve los números exactos de antes.
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">
+                ${TP_PURPOSES_VALID.map(function(pp) {
+                    var on = _rq[pp] !== false;
+                    var n = _rqNo.byPurpose[pp] || 0;
+                    return '<label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);'
+                         + 'flex:1 1 200px;cursor:pointer;padding:var(--space-sm) var(--space-md);'
+                         + 'border:1px solid ' + (on ? 'var(--tp-border)' : 'var(--warn-text)') + ';'
+                         + 'border-radius:var(--radius-lg);background:' + (on ? 'var(--surface)' : 'var(--warn-bg)') + ';">'
+                         + '<input type="checkbox" ' + (on ? 'checked' : '')
+                         + ' onchange="tpSetReqPurpose(\'' + pp + '\', this.checked)">'
+                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + pp + '</span>'
+                         + (n ? '<span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--tp-dim);">'
+                                + n + ' fuera</span>' : '')
+                         + '</label>';
+                }).join('')}
+            </div>
+            ${_rqNo.total ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
+                Hoy quedan <strong>${_rqNo.total}</strong> pruebas registradas fuera del REQ.
+            </p>` : ''}
+        </div>`;
+
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_rqHTML}
         <div class="tp-card">
             <div class="tp-card-title" data-help="tp-ratio-help">
                 <span>⚙️ Reglas de Ratio</span>
@@ -4544,8 +4731,9 @@ function tpGenerateMonthlyConfirm() {
         title: '📅 Generar el mes',
         message: 'Se crearán CUATRO propuestas, una por semana, del ' + base + ' al ' + finStr + '.\n\n' +
                  'Ninguna queda aceptada: hay que revisarlas una por una.\n\n' +
-                 'Ojo: el generador del mes sólo mira el déficit — no conoce la cuota de la cola ni ' +
-                 'los filtros de la semana.',
+                 'Usa las MISMAS reglas que "Generar" de una semana (cuota de la cola, filtros, ' +
+                 'inventario) y el déficit va bajando de una semana a la siguiente. Las semanas ' +
+                 'marcadas como no disponibles se saltan.',
         type: 'warning', confirmText: 'Crear las 4 propuestas', cancelText: 'Cancelar'
     }).then(function(ok) {
         if (ok) { tpGenerateMonthly(base); _tpBoardRepaint(); }
@@ -5364,6 +5552,10 @@ function _tpDeclareTested(plan, item, itemIdx) {
         date: (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10),
         note: TP_DECLARED_NOTE,
         source: 'plan-manual',
+        // [v23.1] La declaración hereda el propósito de la fila: palomear una prueba de
+        // OBD2 la marca como hecha (el compromiso de la semana se cumplió) pero no baja
+        // el déficit de emisiones. Sin este campo la declaración acreditaría por omisión.
+        purpose: (item && item.purpose) || null,
         verified: false,
         planId: pid,
         itemIdx: itemIdx,
@@ -5772,13 +5964,17 @@ function tpMaterializeRecovery() {
     weeksWithItems.forEach(function(w) {
         var av = (tpState.weekAvailability || {})[w.monday] || {};
         var workDays = av.workDays || _TP_DEFAULT_WD;
-        var seen = {};
+        // [v23.1] La fila la construye `_tpMakeItem`, no una copia a mano de sus 20
+        // campos: era la tercera réplica del mismo objeto y se quedaba sin `purpose`
+        // ni `_scoreDetail`, así que una fila de recuperación no decía por qué estaba
+        // ahí y contaba como emisiones aunque el propósito de su región no lo fuera.
         var items = w.items.map(function(unit) {
             var cfg = tpState.planData.find(function(c) { return c.desc === unit.desc; }) || unit;
-            var n = tpState.testedList.filter(function(t) { return t.configText === unit.desc; }).length;
-            var rule = tpGetRule(cfg);
-            var req = tpCalcRequired(cfg, rule);
-            return { uid: _tpItemUid(), desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: unit.score, completed: false, completedDate: null, manual: false, carriedOver: false, recovery: true, tier: unit.tier };
+            var it = _tpMakeItem(cfg, tpState.testedList, {});
+            it.score = unit.score;
+            it.recovery = true;
+            it.tier = unit.tier;
+            return it;
         });
         var scheduled = tpAssignSchedule(items, workDays);
         tpState.weeklyPlans.push({
@@ -5951,7 +6147,7 @@ function tpRenderRecovery(el) {
 // lo que no cabe se REPORTA en vez de perderse.
 function _tpMakeItem(cfg, testedCopy, flags) {
     var rule = tpGetRule(cfg);
-    var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+    var n = tpTestedCountFor(cfg.desc, testedCopy);
     var req = tpCalcRequired(cfg, rule);
     var sc = tpPriorityScore(cfg, n);
     return {
@@ -5982,7 +6178,12 @@ function tpSelectWeeklyItems(opts) {
     if (isNaN(capPedida) || capPedida <= 0) capPedida = tpWeeklyCapacityFor(opts.weekDate || null, workDays).cap;
     var capacity = Math.max(1, Math.min(capPedida, capReal.max));
     var manualPicks = opts.manualPicks || [];
-    var testedCopy = tpState.testedList.slice();
+    // [v23.1] `opts.testedSeed` es lo que abre esta función al HORIZONTE. Sin él, la
+    // semana siempre parte del `testedList` real; con él, parte de donde quedó la
+    // semana anterior de la simulación, y el déficit decae solo. Es lo que permite
+    // que el mes y el simulador dejen de llevar su propio lazo greedy.
+    var seeded = Array.isArray(opts.testedSeed);
+    var testedCopy = (seeded ? opts.testedSeed : tpState.testedList).slice();
     var items = [], used = new Set(), overflowManual = [], skippedInv = [], outOfFilter = [];
 
     var backlogDescs = new Set(tpBacklog().map(function(b) { return b.desc; }));
@@ -5993,7 +6194,18 @@ function tpSelectWeeklyItems(opts) {
     var excl = new Set(opts.exclude || []);
     var useFilter = !opts.ignoreFilters;
     var passes = function(cfg) { return !useFilter || tpPassesWeekFilter(cfg); };
+    // El análisis vigente de ESTA semana: el memoizado en el caso normal (la vista
+    // previa lo llama en cada tecla), o el recalculado sobre la semilla en horizonte.
+    var _ana = function() { return seeded ? _tpAnalyze(testedCopy) : tpGetAnalysis(); };
     var B = tpBacklogEligible();
+    if (seeded) {
+        // Una config de la cola cuyo déficit ya se cubrió en una semana anterior de la
+        // simulación deja de arrastrarse: si no, el mes la repetiría cuatro veces.
+        var _defNow = {};
+        _ana().forEach(function(a) { _defNow[a.desc] = a.deficit; });
+        B = { eligible: B.eligible.filter(function(b) { return (_defNow[b.desc] || 0) > 0; }),
+              expired: B.expired, filtered: B.filtered };
+    }
 
     // v20.1: `allowRepeat` sólo lo pasan las OBLIGATORIAS. El generador automático
     // (cola y déficit) sigue sin repetir por su cuenta: repetir gasta capacidad que el
@@ -6009,7 +6221,10 @@ function tpSelectWeeklyItems(opts) {
             if (!chk.ok) { skippedInv.push({ desc: cfg.desc, reason: chk.reason }); return false; }
         }
         items.push(_tpMakeItem(cfg, testedCopy, flags));
-        testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan' });
+        // [v23.1] El propósito viaja en la copia rodante: si la región tiene configurado
+        // un propósito que NO acredita, esta fila sintética tampoco debe bajar el déficit.
+        testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan',
+                          purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn) });
         used.add(cfg.desc);
         return true;
     }
@@ -6051,8 +6266,8 @@ function tpSelectWeeklyItems(opts) {
 
     // 3) Déficit fresco por puntaje — ahora SIEMPRE corre, porque el paso 2 no puede
     //    pasar de carryCap.
-    var pool = tpGetAnalysis().filter(function(c) { return c.deficit > 0 && passes(c); })
-                              .sort(function(a, b) { return b.score - a.score; });
+    var pool = _ana().filter(function(c) { return c.deficit > 0 && passes(c); })
+                     .sort(function(a, b) { return b.score - a.score; });
     for (var i = 0; i < pool.length && items.length < capacity; i++) {
         take(byDesc[pool[i].desc], {});
     }
@@ -6072,7 +6287,10 @@ function tpSelectWeeklyItems(opts) {
         outOfFilter: outOfFilter,
         expiredCount: B.expired.length, filteredCount: B.filtered.length,
         carryTaken: carryTaken, carryCap: carryCap,
-        freshTaken: items.length - carryTaken - manualTaken
+        freshTaken: items.length - carryTaken - manualTaken,
+        // [v23.1] La lista rodante DESPUÉS de esta semana — se pasa como `testedSeed`
+        // de la siguiente para encadenar un horizonte sin duplicar el lazo.
+        tested: testedCopy
     };
 }
 
@@ -6104,68 +6322,116 @@ function tpCheckInventoryForConfig(cfg) {
     return { ok: true, reason: '' };
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23.1] tpPlanHorizon — UN SOLO lazo para todo lo que planea VARIAS semanas
+//
+// Deuda anotada desde v18.0 y repetida en v20 y v23: `tpGenerateMonthly` y
+// `tpRunSimulation` eran copias cercanas del lazo de `tpSelectWeeklyItems` con su
+// propio `Map` de conteo simulado. Consecuencia real, no teórica: **ninguna de las
+// dos conocía la cuota de la cola (`carryoverMaxPct`) ni los filtros de la semana
+// (`tpPassesWeekFilter`)**, así que "Generar mes" podía escribir cuatro semanas de
+// puro arrastre y el simulador prometía una curva de cobertura que el generador
+// semanal nunca iba a producir. Tampoco veían las obligatorias, el inventario, la
+// caducidad de la cola ni la disponibilidad por semana.
+//
+// Ahora las dos entran por aquí, y aquí sólo hay UNA cosa nueva: encadenar la
+// lista rodante (`R.tested` → `testedSeed` de la siguiente). Toda la selección la
+// sigue haciendo `tpSelectWeeklyItems`, que es LA definición.
+//
+// `tpPlanHorizon` NO escribe nada: devuelve las semanas y quien llama decide si
+// las materializa (el mes) o sólo las mide (el simulador). Pura respecto a
+// `tpState` — testeable en Node.
+//
+// @param {{weeks?:number, startDate?:string, capacity?:number, workDays?:object,
+//          respectAvailability?:boolean, selectOpts?:object}} opts
+// @returns {{weeks:Array, tested:Array, totalItems:number}}
+//   weeks[i] = { weekDate, workDays, capacity, items, sel }
+// ══════════════════════════════════════════════════════════════════════
+function tpPlanHorizon(opts) {
+    opts = opts || {};
+    var n = Math.max(1, parseInt(opts.weeks, 10) || 4);
+    var baseStr = opts.startDate || (typeof localToday === 'function' ? localToday() : '');
+    var base = new Date(baseStr + 'T12:00:00');
+    if (isNaN(base.getTime())) base = new Date();
+    var wdDefault = opts.workDays || window._tpWorkDays || _TP_DEFAULT_WD;
+    var rolling = (tpState.testedList || []).slice();
+    var out = [];
+
+    for (var w = 0; w < n; w++) {
+        var d = new Date(base.getTime());
+        d.setDate(base.getDate() + w * 7);
+        var weekStr = (typeof localDateStr === 'function') ? localDateStr(d) : _tpFmtDate(d);
+
+        // La disponibilidad por semana (festivos, capacidad reducida, días hábiles)
+        // ya vivía en `weekAvailability` y ninguno de los dos lazos la miraba.
+        var av = (tpState.weekAvailability || {})[weekStr] || {};
+        if (opts.respectAvailability !== false && av.available === false) {
+            out.push({ weekDate: weekStr, workDays: wdDefault, capacity: 0, items: [], sel: null, unavailable: true });
+            continue;
+        }
+        var workDays = av.workDays || wdDefault;
+        var cap = opts.capacity || tpWeeklyCapacityFor(weekStr, workDays).cap;
+
+        // Las obligatorias son de UNA semana concreta: sólo la primera del horizonte
+        // las hereda, o el mes repetiría el mismo vehículo fijado cuatro veces.
+        var sel = tpSelectWeeklyItems(Object.assign({}, opts.selectOpts || {}, {
+            weekDate: weekStr, workDays: workDays, capacity: cap,
+            testedSeed: rolling,
+            manualPicks: (w === 0 ? ((opts.selectOpts || {}).manualPicks || []) : [])
+        }));
+        rolling = sel.tested;
+        out.push({ weekDate: weekStr, workDays: workDays, capacity: sel.capacity,
+                   items: sel.items, sel: sel });
+    }
+    return { weeks: out, tested: rolling,
+             totalItems: out.reduce(function(s, x) { return s + x.items.length; }, 0) };
+}
+
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  MONTHLY PLAN GENERATION — genera 4 semanas de una vez               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 function tpGenerateMonthly(startDateStr) {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
-    // v16.4: el mes conserva su propia simulación (el déficit baja semana a semana), pero el
-    // tope por semana es el mismo de siempre — la capacidad física, no el número del campo.
-    var _capReal = tpWeekCapacity(workDays);
-    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || window._tpWeekDate || localToday();
-    // v23: misma capacidad práctica que la semana; el máximo físico solo acota.
-    var capacity = tpWeeklyCapacityFor(baseStr, workDays).cap;
-    var base = new Date(baseStr + 'T12:00:00');
-    var numWeeks = 4;
+    var workDays = window._tpWorkDays || _TP_DEFAULT_WD;
+    var baseStr = startDateStr || window._tpWeekDate || (typeof localToday === 'function' ? localToday() : '');
 
-    var analysis = tpGetAnalysis();
-    // Déficit simulado por config: baja a lo largo de las semanas (igual que el simulador).
-    var testedSim = new Map();
-    analysis.forEach(function(a){ testedSim.set(a.desc, a.testedN); });
+    // [v23.1] El lazo greedy propio desapareció: el mes son cuatro llamadas a
+    // `tpSelectWeeklyItems` encadenadas por `tpPlanHorizon`. Gana de un golpe la cuota
+    // de la cola, los filtros de la semana, la caducidad, la revisión de inventario y
+    // la disponibilidad por semana — nada de eso lo conocía este generador.
+    var H = tpPlanHorizon({
+        weeks: 4, startDate: baseStr, workDays: workDays,
+        selectOpts: { checkInventory: tpPlannerCfg().checkInventory !== false }
+    });
 
     var monthBatch = Date.now();
-    var created = 0;
-    for (var wk = 0; wk < numWeeks; wk++) {
-        var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
-        var weekStr = localDateStr(weekDate);
-        var scored = analysis.map(function(a){
-            var n = testedSim.get(a.desc) || 0;
-            var rule = tpGetRule(a);
-            var req = tpCalcRequired(a, rule);
-            return Object.assign({}, a, { simTested:n, simReq:req, simDeficit:Math.max(0, req - n) });
-        }).filter(function(c){ return c.simDeficit > 0 && c.total > 0; }).sort(function(a,b){ return b.score - a.score; });
-
-        var items = []; var used = new Set();
-        for (var i = 0; i < scored.length && items.length < capacity; i++) {
-            var cfg = scored[i];
-            if (used.has(cfg.desc)) continue;
-            items.push({
-                uid: _tpItemUid(),
-                desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg,
-                eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body,
-                ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire,
-                required:cfg.simReq, deficit:cfg.simDeficit, score:cfg.score,
-                completed:false, completedDate:null, manual:false, carriedOver:false,
-                _scoreDetail: tpBuildScoreDetail(cfg, cfg.simTested, cfg.simReq, cfg.score)
-            });
-            used.add(cfg.desc);
-            testedSim.set(cfg.desc, (testedSim.get(cfg.desc) || 0) + 1);
-        }
-        if (items.length === 0) break;
-        var scheduled = tpAssignSchedule(items, workDays);
+    var created = 0, saltadas = 0;
+    H.weeks.forEach(function(w, wk) {
+        if (w.unavailable) { saltadas++; return; }
+        if (!w.items.length) return;
+        var scheduled = tpAssignSchedule(w.items, w.workDays);
         tpState.weeklyPlans.push({
-            id: monthBatch + wk, created: new Date().toISOString(), weekDate: weekStr,
-            workDays: JSON.parse(JSON.stringify(workDays)), capacity: capacity,
+            id: monthBatch + wk, planId: 'W' + w.weekDate + '-' + (monthBatch + wk),
+            created: new Date().toISOString(), weekDate: w.weekDate,
+            workDays: JSON.parse(JSON.stringify(w.workDays)), capacity: w.capacity,
             items: scheduled, accepted: false, monthBatch: monthBatch
         });
         created++;
+    });
+    if (created === 0) {
+        showToast(saltadas ? 'Todas las semanas del mes están marcadas como no disponibles'
+                           : 'Sin configuraciones pendientes', 'info');
+        return;
     }
-    if (created === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'plan_mensual_generado', { type: 'plan', label: baseStr },
+                 created + ' propuestas · ' + H.totalItems + ' pruebas');
+    }
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(created);
-    showToast('📅 Plan mensual generado: ' + created + ' semanas. Revísalas y acéptalas.', 'success');
+    showToast('📅 Plan mensual generado: ' + created + ' semanas (' + H.totalItems +
+              ' pruebas). Revísalas y acéptalas.', 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -7805,11 +8071,10 @@ function tpBuildFamilies() {
             families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0 };
         }
         const rule = tpGetRule(cfg);
-        const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
+        // [v23.1] Contra el REQ solo cuentan los propósitos que acreditan (OBD2 no).
+        const vins = tpTestedForConfig(cfg.desc);
+        const n = vins.length;
         const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
-
-        // Get VINs from testedList
-        const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
         families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
         // v15.8: fecha del ensayo más reciente de la familia (ISO 'YYYY-MM-DD' → max lexicográfico)
@@ -7920,7 +8185,7 @@ function tpBuildFamilies() {
             if (c.testedN > 0) return;
             var cont = continuityMap[c.desc];
             if (!cont || !cont.prevConfigDesc) return;
-            var prevTests = tpState.testedList.filter(function(t) { return t.configText === cont.prevConfigDesc; });
+            var prevTests = tpTestedForConfig(cont.prevConfigDesc);
             if (prevTests.length === 0) return;
             c.coveredByContinuity = {
                 prevMy: cont.prevMy || '',
@@ -8505,6 +8770,18 @@ function tpRenderSimulator(el) {
     `;
 }
 
+/**
+ * [v23.1] El simulador dejó de tener su propio lazo greedy.
+ *
+ * Antes elegía "las de más déficit por score" y nada más: no conocía la cuota de la
+ * cola, ni los filtros de la semana, ni la caducidad, ni la disponibilidad. O sea que
+ * su curva prometía una cobertura que el generador real NO iba a producir — el peor
+ * tipo de simulador, el que miente con confianza. Ahora corre el MISMO
+ * `tpSelectWeeklyItems` semana a semana vía `tpPlanHorizon`.
+ *
+ * `capacity` sigue siendo el número que el usuario teclea en el Simulador (esa
+ * pantalla es un "¿y si tuviera N por semana?"), así que se pasa como override.
+ */
 function tpRunSimulation(capacity, maxWeeks) {
     const analysis = tpGetAnalysis();
     const totalConfigs = analysis.length;
@@ -8514,48 +8791,29 @@ function tpRunSimulation(capacity, maxWeeks) {
     const currentCoverage = totalConfigs > 0 ? Math.round((currentOk / totalConfigs) * 100) : 0;
     const totalDeficit = Math.max(0, totalRequired - currentTested);
 
-    // Simulate week by week
-    const testedSim = new Map();
-    analysis.forEach(a => testedSim.set(a.desc, a.testedN));
+    var H = tpPlanHorizon({
+        weeks: maxWeeks,
+        startDate: (typeof localToday === 'function') ? localToday() : '',
+        capacity: capacity,
+        // La simulación es un "¿cuántas semanas me toma?", no un calendario: marcar
+        // una semana como no disponible en Recuperación no debe deformar la curva.
+        respectAvailability: false,
+        selectOpts: { dryRun: true }
+    });
 
     const curve = [];
     let weeksTo100 = maxWeeks + 1;
+    var rolling = (tpState.testedList || []).slice();
 
-    for (let w = 1; w <= maxWeeks; w++) {
-        // Pick top-deficit configs
-        const scored = analysis.map(a => {
-            const n = testedSim.get(a.desc) || 0;
-            const rule = tpGetRule(a);
-            const req = tpCalcRequired(a, rule);
-            const deficit = Math.max(0, req - n);
-            return { ...a, simTested: n, simReq: req, simDeficit: deficit };
-        }).filter(c => c.simDeficit > 0 && c.total > 0).sort((a,b) => b.score - a.score);
-
-        let remaining = capacity;
-        const used = new Set();
-        for (const cfg of scored) {
-            if (remaining <= 0) break;
-            if (used.has(cfg.desc)) continue;
-            testedSim.set(cfg.desc, (testedSim.get(cfg.desc)||0) + 1);
-            used.add(cfg.desc);
-            remaining--;
-        }
-
-        // Calculate coverage at this point
-        let ok = 0;
-        analysis.forEach(a => {
-            const n = testedSim.get(a.desc) || 0;
-            const rule = tpGetRule(a);
-            const req = tpCalcRequired(a, rule);
-            if (n >= req) ok++;
-        });
-        const pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
-        curve.push({ week: w, pct, ok });
-        if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = w;
-    }
+    H.weeks.forEach(function(w, i) {
+        rolling = w.sel ? w.sel.tested : rolling;
+        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.testedN >= a.required : true; }).length;
+        var pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
+        curve.push({ week: i + 1, pct: pct, ok: ok, planned: w.items.length });
+        if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = i + 1;
+    });
 
     const coverageAtEnd = curve.length > 0 ? curve[curve.length - 1].pct : currentCoverage;
-
     return { totalTestsNeeded: totalDeficit, currentCoverage, coverageAtEnd, weeksTo100, curve };
 }
 
@@ -9472,6 +9730,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas vas a planear esta semana. No puede pasar del máximo físico (pares preacon→prueba × vehículos por par); bájala si hay festivos o mantenimiento.' },
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
+    'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
     'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
     'tp-aging-help': { title: 'Empuje por antigüedad', text: 'Puntos que gana una configuración por cada semana que lleva postergada, para que la cola no se estanque. El tope evita que lo viejo le gane siempre a lo urgente. En 0, la antigüedad deja de influir por completo.' },

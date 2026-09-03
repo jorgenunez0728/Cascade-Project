@@ -439,7 +439,8 @@ function invSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function') {
         a11yTablistSync(document.getElementById('inv-tabs-bar'), targetBtn || document.querySelector('#inv-tabs-bar .tp-tab.active'));
     }
-    invRender();
+    // keepCache solo al saltar de pestana — todo lo demas repinta (issue #110).
+    invRender({ keepCache: true });
 }
 function invRestoreTab() {
     var saved = localStorage.getItem('kia_inv_activeTab');
@@ -483,13 +484,13 @@ function _invGetRenderer(tabId) {
     return null;
 }
 
-function invRender() {
+function invRender(opts) {
     if (!document.getElementById('inv-content')) return;
     if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
     invCheckProactiveAlerts();
     var tab = invState.activeTab;
     var renderer = _invGetRenderer(tab);
-    if (renderer) tabCacheSwitch('inv', tab, renderer);
+    if (renderer) tabCacheSwitch('inv', tab, renderer, opts);
     // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('inv', tab);

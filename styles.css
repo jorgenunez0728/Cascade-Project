@@ -3188,17 +3188,46 @@ details.acc > summary {
     animation:v7SlideDown var(--dur-slow) var(--ease-out);
 }
 
-/* ── Next Step Floating Banner (D2) ── */
+/* ── Next Step Floating Banner (D2) ──
+   [v23.1 · issue #109] Estaba en `bottom: 0` con `z-index: 9000`, o sea POR ENCIMA
+   de la `.bottom-nav` (z 2000): en celular y tablet tapaba la navegación entera y
+   los botones de la última tarjeta. Ahora se apoya ENCIMA de la barra de abajo en
+   vez de montarse sobre ella, y queda por debajo de ella en el orden de apilado.
+   El `.has-next-step` en <body> reserva su altura (patrón del bug-fab). */
 #v7-next-step-banner {
-    position: fixed; bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 62px; left: 0; right: 0;
     background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-top: 1px solid var(--glass-border);
-    padding: var(--space-md) var(--space-lg); z-index: 9000;
+    padding: var(--space-md) var(--space-lg); z-index: 1990;
     display: flex; align-items: center; gap: var(--space-md);
-    transform: translateY(100%); transition:transform var(--dur-slow) ease;
+    transform: translateY(150%); transition:transform var(--dur-slow) ease;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    pointer-events: none;
 }
-#v7-next-step-banner.show { transform: translateY(0); }
+#v7-next-step-banner.show { transform: translateY(0); pointer-events: auto; }
+/* La página reserva la altura de la tira mientras se ve. */
+body.has-next-step .platform-section.active { padding-bottom: 76px; }
+.v7-next-step-off {
+    width: 32px; height: 32px; border-radius: var(--radius-full);
+    border: 1px solid var(--border); background: transparent; color: var(--text-dim, #64748b);
+    font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.v7-next-step-off:hover { background: var(--surface); color: var(--text); }
+.v7-next-step-off:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (min-width: 1025px) {
+    /* En escritorio no hay bottom-nav que esquivar. */
+    #v7-next-step-banner { bottom: 0; }
+    body.has-next-step .platform-section.active { padding-bottom: 72px; }
+}
+/* Los dos flotantes de las esquinas suben para no quedar encima de la tira.
+   El `!important` del soak es deliberado: ese badge trae `bottom:68px` en un
+   atributo `style` (index.html), inanulable de otro modo. */
+body.has-next-step .bug-fab { bottom: 128px; }
+body.has-next-step #soak-floating-badge { bottom: 128px !important; }
+@media (min-width: 1025px) {
+    body.has-next-step .bug-fab { bottom: 76px; }
+    body.has-next-step #soak-floating-badge { bottom: 76px !important; }
+}
 .v7-next-step-icon { font-size: 20px; }
 .v7-next-step-text { flex: 1; font-size: var(--font-sm); font-weight: var(--weight-bold); color: var(--text); }
 .v7-next-step-go {

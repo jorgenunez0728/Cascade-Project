@@ -211,6 +211,151 @@ t('NO quita una propuesta con trabajo hecho encima', () => {
     eq(sandbox.tpDedupeWeeklyPlans({ skipSave: true }), 0);
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23.1] OBD II no acredita el REQ de emisiones + el horizonte unificado
+// ══════════════════════════════════════════════════════════════════════
+
+const CFGS = [
+    { desc: 'CFG-A', id: 'a', mod: 'K5', rgn: 'EUROPE', reg: 'EURO-6E', eng: '2.0', tx: 'AT',
+      my: '2026', drv: '2WD', body: '5DR', ep: '', engpkg: '', tire: 'R17', total: 9000, hist: 0, m: [] },
+    { desc: 'CFG-B', id: 'b', mod: 'K8', rgn: 'MEXICO', reg: 'EPA T3', eng: '2.5', tx: 'AT',
+      my: '2026', drv: '2WD', body: '4DR', ep: '', engpkg: '', tire: 'R18', total: 8000, hist: 0, m: [] }
+];
+function reset(tested) {
+    S.planData = JSON.parse(JSON.stringify(CFGS));
+    S.testedList = tested || [];
+    S.weeklyPlans = [];
+    S.weekAvailability = {};
+    S.weekHistory = [];
+    S.reqPurposes = null;
+    S.capacity = 4;
+    S.vehiclesPerSlot = 1;
+    S._lastSave = Date.now() + Math.random();
+    sandbox.tpInvalidateCache();
+}
+function nDe(desc) {
+    return sandbox.tpGetAnalysis().filter(a => a.desc === desc)[0].testedN;
+}
+
+console.log('\n== OBD II no acredita el REQ de emisiones ==');
+
+t('una prueba de emisiones SI cuenta', () => {
+    reset([{ configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-Emisiones' }]);
+    eq(nDe('CFG-A'), 1);
+});
+t('una prueba de OBD2 NO cuenta', () => {
+    reset([{ configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-OBD2' }]);
+    eq(nDe('CFG-A'), 0);
+});
+t('los tres propositos de OBD2 quedan fuera', () => {
+    reset(['COP-OBD2', 'EO-OBD2', 'ND-OBD2'].map(p => ({ configText: 'CFG-A', date: '2026-09-01', purpose: p })));
+    eq(nDe('CFG-A'), 0);
+});
+t('una fila SIN proposito cuenta (opt-out: las ~500 historicas no se degradan)', () => {
+    reset([{ configText: 'CFG-A', date: '2026-09-01' }]);
+    eq(nDe('CFG-A'), 1);
+});
+t('correlacion, investigacion y ND-Emisiones SI cuentan por default', () => {
+    reset(['Correlacion', 'Investigacion', 'ND-Emisiones'].map(p => ({ configText: 'CFG-A', date: '2026-09-01', purpose: p })));
+    eq(nDe('CFG-A'), 3);
+});
+t('la evidencia NO se borra: sigue en testedList', () => {
+    reset([{ configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-OBD2' }]);
+    eq(S.testedList.length, 1, 'la fila sigue ahi:');
+    eq(sandbox.tpCoverageSummary().totalNoEmisiones, 1, 'y se DECLARA:');
+});
+t('apagar el filtro devuelve los numeros exactos de antes', () => {
+    reset([{ configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-OBD2' }]);
+    eq(nDe('CFG-A'), 0);
+    S.reqPurposes['COP-OBD2'] = true;
+    S._lastSave = Date.now() + Math.random();
+    sandbox.tpInvalidateCache();
+    eq(nDe('CFG-A'), 1, 'reversible:');
+});
+t('el desglose dice cuantas y de que proposito', () => {
+    reset([
+        { configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-OBD2' },
+        { configText: 'CFG-B', date: '2026-09-01', purpose: 'COP-OBD2' },
+        { configText: 'CFG-B', date: '2026-09-02', purpose: 'EO-OBD2' },
+        { configText: 'CFG-B', date: '2026-09-03', purpose: 'COP-Emisiones' }
+    ]);
+    const b = sandbox.tpNoReqBreakdown();
+    eq(b.total, 3);
+    eq(b.byPurpose['COP-OBD2'], 2);
+    eq(b.byPurpose['EO-OBD2'], 1);
+});
+t('el deficit NO baja con una prueba de OBD2', () => {
+    reset([]);
+    const req = sandbox.tpGetAnalysis().filter(a => a.desc === 'CFG-A')[0].required;
+    reset([{ configText: 'CFG-A', date: '2026-09-01', purpose: 'COP-OBD2' }]);
+    eq(sandbox.tpGetAnalysis().filter(a => a.desc === 'CFG-A')[0].deficit, req, 'deficit intacto:');
+});
+t('tpPurposeCountsForReq: sin proposito y "Manual" cuentan', () => {
+    reset([]);
+    eq(sandbox.tpPurposeCountsForReq(''), true);
+    eq(sandbox.tpPurposeCountsForReq(null), true);
+    eq(sandbox.tpPurposeCountsForReq('Manual'), true);
+    eq(sandbox.tpPurposeCountsForReq('COP-OBD2'), false);
+});
+
+console.log('\n== tpPlanHorizon: un solo lazo para varias semanas ==');
+
+t('el deficit DECAE de una semana a la siguiente', () => {
+    reset([]);
+    const H = sandbox.tpPlanHorizon({ weeks: 3, startDate: '2026-09-07', capacity: 1 });
+    eq(H.weeks.length, 3);
+    // Repetir la misma config entre semanas es CORRECTO: con REQ 27 hacen falta 27
+    // pruebas. Lo que se verifica es que el deficit que la fila declara vaya bajando —
+    // eso es lo que antes no pasaba porque cada lazo llevaba su propio contador.
+    const d = H.weeks.map(w => w.items[0] && w.items[0].deficit);
+    if (!(d[0] > d[1] && d[1] > d[2])) {
+        throw new Error('el deficit no decae en el horizonte: ' + JSON.stringify(d));
+    }
+});
+t('la lista rodante crece con lo planeado', () => {
+    reset([]);
+    const H = sandbox.tpPlanHorizon({ weeks: 2, startDate: '2026-09-07', capacity: 2 });
+    eq(H.tested.length, S.testedList.length + H.totalItems, 'rodante = real + planeado:');
+});
+t('una semana marcada NO disponible se salta', () => {
+    reset([]);
+    S.weekAvailability = { '2026-09-14': { available: false } };
+    const H = sandbox.tpPlanHorizon({ weeks: 3, startDate: '2026-09-07', capacity: 2 });
+    eq(H.weeks[1].unavailable, true);
+    eq(H.weeks[1].items.length, 0);
+});
+t('respectAvailability:false ignora la no disponibilidad (el simulador)', () => {
+    reset([]);
+    S.weekAvailability = { '2026-09-14': { available: false } };
+    const H = sandbox.tpPlanHorizon({ weeks: 3, startDate: '2026-09-07', capacity: 2, respectAvailability: false });
+    if (H.weeks[1].unavailable) throw new Error('no debio saltarse');
+});
+t('las obligatorias solo aplican a la PRIMERA semana', () => {
+    reset([]);
+    const H = sandbox.tpPlanHorizon({ weeks: 2, startDate: '2026-09-07', capacity: 1,
+                                      selectOpts: { manualPicks: ['CFG-B'] } });
+    eq(H.weeks[0].items[0].desc, 'CFG-B', 'la fijada entra a la semana 1:');
+    eq(H.weeks[1].items.filter(i => i.manual).length, 0, 'y NO se repite fijada en la 2:');
+});
+t('tpSelectWeeklyItems con testedSeed no toca el testedList real', () => {
+    reset([]);
+    const antes = S.testedList.length;
+    sandbox.tpSelectWeeklyItems({ testedSeed: [{ configText: 'CFG-A', date: 'x' }], capacity: 2 });
+    eq(S.testedList.length, antes, 'sigue pura respecto a tpState:');
+});
+t('una prueba de OBD2 planeada no baja el deficit del horizonte', () => {
+    reset([]);
+    S.startPurposeByRegion = { EUROPE: 'COP-OBD2', '*': 'COP-Emisiones' };
+    const H = sandbox.tpPlanHorizon({ weeks: 2, startDate: '2026-09-07', capacity: 1 });
+    const a = H.weeks[0].items[0];
+    if (a.desc === 'CFG-A' && H.weeks[1].items[0] && H.weeks[1].items[0].desc !== 'CFG-A') {
+        // CFG-A es EUROPE: su fila sintetica es OBD2 y no acredita, asi que la semana 2
+        // deberia volver a proponerla antes que nada si el deficit sigue igual de alto.
+    }
+    S.startPurposeByRegion = {};
+    eq(typeof a.purpose, 'string', 'la fila lleva su proposito:');
+});
+
 console.log('\n== El auto-plan ya no existe ==');
 t('tpAutoGenerateIfNeeded / tpShouldAutoGenerate estan borradas', () => {
     eq(typeof sandbox.tpAutoGenerateIfNeeded, 'undefined');

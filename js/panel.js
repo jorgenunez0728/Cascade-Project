@@ -782,7 +782,8 @@ function pnSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('pn-tabs-bar'), _activeBtn);
     }
-    pnRender();
+    // keepCache solo al saltar de pestana — todo lo demas repinta (issue #110).
+    pnRender({ keepCache: true });
     // v16.0: banner de ayuda de pestañas Alpine — su contenido vive en un x-show estático
     // que NO pasa por tabCacheSwitch/pnRender, así que se pinta en un slot propio aquí.
     if (_pnAlpineTabs[tabId] && typeof helpBannerHTML === 'function') {
@@ -849,13 +850,13 @@ function pnRenderAuditTrail(el) {
     el.innerHTML = html;
 }
 
-function pnRender() {
+function pnRender(opts) {
     if (!document.getElementById('pn-content')) return;
     // Initialize tab cache on first render
     if (!_tabCache['pn']) tabCacheInit('pn', _pnTabs);
     var tab = pnState.activeTab;
     var renderer = _pnGetRenderer(tab);
-    if (renderer) tabCacheSwitch('pn', tab, renderer);
+    if (renderer) tabCacheSwitch('pn', tab, renderer, opts);
     // Notify Alpine to refresh reactive data
     window.dispatchEvent(new CustomEvent('pn:refresh'));
     // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF.
@@ -2388,6 +2389,21 @@ function pnDensityRenderChoices() {
            + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2xs);">'
            + o[2] + '</div></button>';
     }
+    // [v23.1 · issue #109] La tira "Siguiente: ..." de Pruebas se apaga con su ✕ y
+    // aquí es donde se vuelve a encender. Vive en el mismo bloque que la densidad
+    // porque las dos son preferencias de ESTE dispositivo (uiPref, sin sincronizar).
+    var nsOn = (typeof v7NextStepEnabled === 'function') ? v7NextStepEnabled() : true;
+    h += '<div style="flex:1 1 100%;margin-top:var(--space-md);padding-top:var(--space-md);'
+       + 'border-top:1px solid var(--border);">'
+       + '<label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;">'
+       + '<input type="checkbox" ' + (nsOn ? 'checked' : '')
+       + ' onchange="v7NextStepSetEnabled(this.checked)">'
+       + '<span><span style="font-weight:700;font-size:var(--fs-sm);color:var(--text);">'
+       + 'Tira de "siguiente paso" en Pruebas</span>'
+       + '<span style="display:block;font-size:var(--fs-xs);color:var(--muted);">'
+       + 'La franja de abajo que dice qué sigue con el vehículo abierto. Solo se ve dentro de Pruebas.'
+       + '</span></span></label></div>';
+
     host.innerHTML = h;
     if (typeof cascadeInjectTooltips === 'function') { try { cascadeInjectTooltips(); } catch (e) {} }
 }
