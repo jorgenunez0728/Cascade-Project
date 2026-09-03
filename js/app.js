@@ -4494,7 +4494,7 @@ var _commandPaletteCommands = [
     { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
-    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'Acciones' }
+    { label: 'Armar la semana', icon: '🎛️', action: function(){ if(typeof tpOpenArmar==='function') tpOpenArmar(); else switchPlatform('testplan'); }, cat: 'Acciones' }
 ];
 
 // ══════════════════════════════════════════════════════════════════════
@@ -5346,7 +5346,7 @@ var TOURS = {
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
-        { target: '#tp-weekly-cap', title: 'Capacidad semanal', text: 'Define cuántas pruebas caben esta semana y usa ⚡ Generación Inteligente para repartirlas.', position: 'bottom', tab: 'tp-weekly' },
+        { target: '#tp-weekly-cap', title: 'Cuántas pruebas', text: 'Cuántas pruebas se planean esta semana. El máximo físico (pares preacon→prueba × vehículos por par) solo acota; este número es el que manda y se guarda.', position: 'bottom', tab: 'tp-myweek' },
         { target: '[data-help="tp-priority-help"]', title: 'Recuperación', text: 'Clasifica todo lo pendiente por prioridad (P1..P10) y reparte en las semanas disponibles.', position: 'top', tab: 'tp-recovery' },
         { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
     ],
