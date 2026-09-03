@@ -285,11 +285,22 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.7';
+var APP_VERSION = '23.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.0', date: '3 sep 2026', title: 'El plan de pruebas, de nuevo',
+      notes: [
+          'Se eliminó el auto-plan del viernes: generaba una propuesta en CADA dispositivo y el sync las acumulaba todas.',
+          'Aceptar, borrar y mover ya no usan la posición del plan en la lista, sino su identidad: el botón dejó de caer en otro plan.',
+          'La capacidad de la semana es un dato guardado (y no el máximo físico): se acabó el "40 pruebas en una semana".',
+          'Lo que se libera en Pruebas aparece solo en la semana, marcado "no planeada" si nadie lo había planeado.',
+          'Armar la semana vive dentro de Mi semana: cuatro decisiones, la propuesta en vivo y el tablero como resultado.',
+          'En el teléfono se mueve una prueba tocando el asa y el día — el arrastre no servía con las columnas apiladas.',
+          'HOY se puede ver por día o por semana, con proyectos y calibraciones que vencen; el plan aparece sólo una vez aceptado.',
+          'Se pueden planear actividades de OBD, nuevos modelos y los demás tipos de Cascade, no sólo emisiones.'
+      ] },
     { version: '22.7', date: '2 sep 2026', title: 'Toda la app pasó a la escala compartida', bullets: [
         'Los 2,256 espaciados y radios escritos a mano en los 12 módulos pasaron a la escala compartida: ahora la densidad Cómoda/Compacta/Amplia afecta a TODA la app, no solo a las pantallas ya migradas.',
         '335 colores grises escritos a mano pasaron a los del sistema, así que el texto secundario cumple contraste en todas partes.',

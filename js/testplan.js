@@ -851,6 +851,16 @@ function tpCoverageSummary() {
         totalTested: totalTested,
         deficit: deficit,
         totalDeclared: totalDeclared,
+        // [v23] Diagnóstico, NO un cambio de la matemática. Hoy los 8 propósitos de
+        // Cascade acreditan por igual el REQ de emisiones: `tpAutoFeedFromRelease`
+        // acepta los ocho y este cálculo cuenta toda fila con `configText === desc`
+        // sin mirar `purpose`. O sea que una prueba de OBD2 baja el déficit de
+        // EMISIONES, que casi seguro no es lo que la norma quiere — pero cambiarlo
+        // tira la cobertura del laboratorio de un día para otro y es una decisión de
+        // política, no un arreglo. Se EXPONE el número para poder decidirlo con dato.
+        totalNoEmisiones: (tpState.testedList || []).filter(function(t) {
+            return t && t.purpose && !/^(COP|EO)-Emisiones$/.test(t.purpose);
+        }).length,
         totalVerified: totalTested - totalDeclared,
         okVerified: okVerified,
         pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
@@ -2364,7 +2374,18 @@ function tpExportPlanJSON() {
 
 // ═══ TESTED TAB ═══
 function tpRenderTested(el) {
+    var _cs = tpCoverageSummary();
     el.innerHTML = `
+    ${_cs.totalNoEmisiones ? `<div class="tp-card" style="border-left:3px solid var(--warn-text);">
+        <div style="font-size: var(--fs-sm);color:var(--tp-text);">
+            🏷 <strong>${_cs.totalNoEmisiones}</strong> de las ${_cs.totalTested} pruebas registradas
+            <strong>no son de emisiones</strong> (OBD2, correlación, investigación, nuevos modelos)
+            y hoy bajan el déficit de emisiones igual que una prueba COP.
+            <br><span style="color:var(--tp-dim);">Es el comportamiento de siempre y no cambió en v23 —
+            se muestra el número para poder decidir si debe cambiar. Separarlos es una línea en
+            <code>tpGetAnalysis</code> cuando lo confirmes.</span>
+        </div>
+    </div>` : ''}
     <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">
         <button class="tp-btn ${window._tpTestedMode!=='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='manual';tpRender();">✏️ Captura Manual</button>
         <button class="tp-btn ${window._tpTestedMode==='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='json';tpRender();">📥 Importar JSON</button>
@@ -3960,6 +3981,7 @@ function tpWeekBoardRows(opts) {
             })(),
             done: !!item.completed, declared: !!item.declared,
             unplanned: !!item.unplanned, origin: item.origin || null,
+            purpose: item.purpose || null, actualPurpose: item.actualPurpose || null,
             substituted: !!item.substituted, substitution: item.substitution || null,
             carriedOver: !!item.carriedOver, manual: !!item.manual,
             vehicle: veh && veh.status !== 'archived' ? veh : null,
@@ -4242,6 +4264,9 @@ function _tpWeekCardHTML(row, workDays, opts) {
     // aviso era ruido en la pantalla que más se mira. El registro NO se pierde — sigue
     // en `moves[]` (append-only), en la auditoría, y a la vista en el menú ⋯ y en el
     // título del asa. El borde punteado de la tarjeta lo insinúa sin gritarlo.
+    if (row.purpose && !/^(COP|EO)-Emisiones$/.test(row.purpose)) {
+        marcas.push('<span class="tp-week-flag tp-week-flag--purpose" title="Tipo de actividad. Las de emisiones no llevan chip: son el caso normal.">🏷 ' + row.purpose + '</span>');
+    }
     if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
@@ -4726,7 +4751,7 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
     if (typeof undoPush === 'function') undoPush('testplan', 'Agregar prueba al plan');
     if (!Array.isArray(plan.items)) plan.items = [];
 
-    var item = _tpMakeItem(cfg, (tpState.testedList || []).slice(), { manual: true });
+    var item = _tpMakeItem(cfg, (tpState.testedList || []).slice(), { manual: true, purpose: opts.purpose });
     var soak = tpSoakHoursFor(cfg);
     item.soakHours = soak.hours; item.soakSource = soak.source;
 
@@ -4829,6 +4854,12 @@ function tpWeekAddMenu(weekIdx, day) {
     body += '<div class="tp-week-addpick">' +
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
+        '<label class="tp-armar-field" style="margin-top: var(--space-sm);"><span>Tipo de actividad</span>' +
+        '<select id="tp-week-add-purpose" class="tp-select">' +
+        TP_PURPOSES_VALID.map(function(pp) {
+            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' + pp + '</option>';
+        }).join('') +
+        '</select></label>' +
         '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
         '</div></div>';
 
@@ -4842,8 +4873,10 @@ function tpWeekDoAdd(weekIdx, desc, day) {
         desc = sel && sel.value;
         if (!desc) { showToast('Elige una configuración de la lista.', 'info'); return; }
     }
+    var _pp = document.getElementById('tp-week-add-purpose');
+    var purpose = (_pp && TP_PURPOSES_VALID.indexOf(_pp.value) !== -1) ? _pp.value : null;
     var m = document.getElementById('globalModal'); if (m) m.remove();
-    var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero' });
+    var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero', purpose: purpose });
     if (!r.ok) { showToast(r.reason, 'error'); return; }
     showToast('Agregada' + (r.unscheduled ? ' sin día libre — quedó declarada sin horario'
                                           : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')),
@@ -5241,7 +5274,9 @@ function tpStartTestFromPlan(weekIdx, itemIdx) {
         planId: tpPlanId(_n.plan),
         itemUid: item.uid || null,
         configCode: item.desc || '',
-        purpose: tpPurposeForRegion(item.rgn), // default por región (COP solo Europa); el usuario puede cambiarlo
+        // v23: el propósito de la FILA manda; `tpPurposeForRegion` solo es el default
+        // con el que nació. Si alguien planeó un EO-OBD2, el alta no debe proponer COP.
+        purpose: item.purpose || tpPurposeForRegion(item.rgn),
         planItem: {
             desc: item.desc,
             mod: item.mod || '', my: item.my || '', eng: item.eng || '',
@@ -5925,6 +5960,11 @@ function _tpMakeItem(cfg, testedCopy, flags) {
         tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg,
         tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: sc,
         completed: false, completedDate: null,
+        // [v23] El PROPÓSITO de la prueba: los mismos 8 de Cascade
+        // (TP_PURPOSES_VALID). Antes una fila del plan era implícitamente una prueba
+        // de emisiones y no había forma de planear OBD ni Nuevos Modelos. Opcional y
+        // retrocompatible: una fila sin `purpose` se comporta igual que antes.
+        purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn),
         manual: !!(flags && flags.manual), carriedOver: !!(flags && flags.carriedOver),
         _scoreDetail: tpBuildScoreDetail(cfg, n, req, sc)
     };
@@ -6864,6 +6904,9 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
                 if (opts && opts.vehicle) {
                     item.linkedVehicleId = opts.vehicle.id;
                     item.linkedVin = opts.vehicle.vin || '';
+                    // Con qué propósito se corrió DE VERDAD. Si difiere del planeado,
+                    // se ve — en vez de que el plan se reescriba solo y nadie se entere.
+                    if (opts.vehicle.purpose) item.actualPurpose = opts.vehicle.purpose;
                 }
                 if (typeof tpSyncWeekHistoryFor === 'function') tpSyncWeekHistoryFor(tpPlanId(plan));
                 if (!(opts && opts.skipSave)) tpSave();

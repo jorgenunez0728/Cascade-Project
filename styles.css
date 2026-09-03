@@ -5046,3 +5046,11 @@ body.cop-present .cop-toolbar    { display: none; }
 .tp-week-actico { font-size: 16px; line-height: 1; flex: 0 0 auto; }
 /* En solo lectura no hay asa ni acciones: la tarjeta puede respirar menos. */
 .tp-week-board--ro .tp-week-card { cursor: default; }
+
+/* [v23] El tipo de actividad (OBD, Nuevos Modelos, correlación…). Sólo se pinta
+   cuando NO es una prueba de emisiones: el caso normal no necesita etiqueta. */
+.tp-week-flag--purpose {
+    background: var(--accent-cop-bg, var(--surface));
+    color: var(--accent-cop, var(--text));
+    border-color: currentColor;
+}
