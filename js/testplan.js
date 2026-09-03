@@ -33,8 +33,11 @@ function tpAddManualPick() {
     tpRender();
 }
 function tpRemoveWeeklyItem(wk, idx) {
-    var _plan = tpState.weeklyPlans[wk];
-    var _lbl = (_plan && _plan.items[idx]) ? _plan.items[idx].desc : '';
+    var _n = _tpIdx(wk, idx);
+    if (!_n) return _tpRefLost();
+    wk = _n.weekIdx; idx = _n.itemIdx;
+    var _plan = _n.plan;
+    var _lbl = _n.item.desc || '';
     showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
         // Acción destructiva: se puede deshacer y queda en el control de cambios.
@@ -73,8 +76,11 @@ function tpAddToWeek(wk) {
     var sel = document.getElementById('tp-edit-add-' + wk);
     if (!sel || !sel.value) return;
     var cfg = tpState.planData.find(function(c) { return c.desc === sel.value; });
-    var plan = tpState.weeklyPlans[wk];
-    if (!cfg || !plan) return;
+    var _n = _tpIdx(wk);
+    if (!_n) return _tpRefLost();
+    wk = _n.weekIdx;
+    var plan = _n.plan;
+    if (!cfg) return;
 
     // _tpMakeItem calcula required/deficit/score Y el _scoreDetail que la insignia
     // de puntaje necesita — antes se armaba a mano y el item salía sin explicación.
@@ -101,8 +107,10 @@ function tpAddToWeek(wk) {
 // EXPORT WEEKLY PLAN (Share/Clipboard)
 // ======================================================================
 function tpExportWeeklyPlan(wk) {
-    const plan = tpState.weeklyPlans[wk];
-    if (!plan) return;
+    var _n = _tpIdx(wk);
+    if (!_n) return _tpRefLost();
+    wk = _n.weekIdx;
+    const plan = _n.plan;
     const dt = plan.weekDate ? new Date(plan.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(plan.created).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
     const done = plan.items.filter(i=>i.completed).length;
     const carryover = plan.items.filter(i=>i.status==='carryover').length;
@@ -127,7 +135,7 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');" style="margin-top: var(--space-md);">📅 Generar Plan Semanal</button></div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpOpenArmar();" style="margin-top: var(--space-md);">🎛️ Armar la semana</button></div>'; return; }
     const wData = plans.map((w,i) => {
         const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
         return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
@@ -189,7 +197,7 @@ function tpCarryOver() {
     if (inc.length===0) { showToast('Todo completado', 'success'); return; }
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
     inc.forEach(i => { if (!window._tpWeeklyManualPicks.includes(i.desc)) window._tpWeeklyManualPicks.push(i.desc); });
-    tpSwitchTab('tp-weekly');
+    tpOpenArmar();
     showToast(inc.length + ' pendientes agregadas como obligatorias.', 'info');
 }
 
@@ -289,6 +297,10 @@ function tpRenderPlanHistory(el) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 const TP_PURPOSES_VALID = ['Correlacion', 'Investigacion', 'COP-Emisiones', 'EO-Emisiones', 'COP-OBD2', 'EO-OBD2', 'ND-Emisiones', 'ND-OBD2'];
+// [v23.1] Los tres propósitos de OBD2. Va JUNTO a la lista de arriba y no más abajo:
+// `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+// una `var` declarada después estaría hoisted pero en `undefined` y la app no arrancaría.
+const TP_PURPOSES_OBD = ['COP-OBD2', 'EO-OBD2', 'ND-OBD2'];
 const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26']; // semilla por defecto; los meses reales viven en tpState.months (dinámicos)
 
 // ── Meses de producción dinámicos (etiquetas 'MMM-YY') ──
@@ -416,6 +428,7 @@ function _tpEnsureState() {
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
     if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {}; // guardas de migración
     if (typeof tpSoakCfg === 'function') tpSoakCfg();                            // v20: horas de reposo
+    if (typeof tpReqPurposes === 'function') tpReqPurposes();                    // v23.1: qué acredita el REQ
     // v20.8: la carrocería entró a la clave de familia — remapear claves guardadas
     try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     return tpState;
@@ -473,13 +486,7 @@ if (tpState.plannerCfg.carryoverMaxPct   === undefined) tpState.plannerCfg.carry
 if (tpState.plannerCfg.filtersOn         === undefined) tpState.plannerCfg.filtersOn = false;
 if (!tpState.plannerCfg.filters) tpState.plannerCfg.filters =
     { familyMatch:'', region:'', regulation:'', modelMatch:'', engMatch:'', bodyMatch:'', drvMatch:'' };
-// Guard del auto-plan: migra desde la clave de localStorage (que NO se sincronizaba,
-// y por eso cada dispositivo generaba y aceptaba su propia semana).
-if (tpState.autoPlanLastRun === undefined) {
-    var _tpLsRun = null;
-    try { _tpLsRun = localStorage.getItem('kia_autoplan_lastrun'); } catch (e) {}
-    tpState.autoPlanLastRun = _tpLsRun || null;
-}
+// [v23] `tpState.autoPlanLastRun` y `kia_autoplan_lastrun` se retiraron con el auto-plan.
 
 // ── v20: identidad estable de los planes (weekNum índice → planId) ──
 // Va envuelto porque corre al PARSEAR el archivo: un throw aquí se llevaría
@@ -502,6 +509,7 @@ function tpPlannerCfg() {
     if (p.carryoverTtlWeeks === undefined) p.carryoverTtlWeeks = 4;
     if (p.carryoverMaxPct   === undefined) p.carryoverMaxPct = 50;
     if (p.filtersOn         === undefined) p.filtersOn = false;
+    if (p.checkInventory    === undefined) p.checkInventory = true;   // v23.1: era `!== false` disperso
     if (!p.filters) p.filters = { familyMatch:'', region:'', regulation:'', modelMatch:'', engMatch:'', bodyMatch:'', drvMatch:'' };
     return p;
 }
@@ -547,6 +555,117 @@ function tpPurposeForRegion(rgn) {
     var p = map[_tpNorm(rgn)] || map['*'];
     return (p && TP_PURPOSES_VALID.indexOf(p) !== -1) ? p : 'COP-Emisiones';
 }
+// ══════════════════════════════════════════════════════════════════════
+// [v23.1] QUÉ ACREDITA EL REQ DE EMISIONES
+//
+// Hasta v23 los OCHO propósitos de Cascade acreditaban por igual: `tpGetAnalysis`
+// contaba toda fila con `configText === cfg.desc` sin mirar `purpose`, así que
+// **una prueba de OBD2 bajaba el déficit de EMISIONES**. v23 sólo expuso el número
+// (`tpCoverageSummary().totalNoEmisiones`) porque separarlo mueve la cobertura del
+// laboratorio de un día para otro y eso es una decisión de política, no un arreglo.
+// Confirmada, aquí está: OBD2 deja de acreditar.
+//
+// REGLAS QUE NO SE ROMPEN:
+//
+//  1. **La evidencia NO se toca.** Una prueba de OBD2 se sigue registrando en
+//     `testedList` — ocurrió. Lo que cambia es quién la CUENTA para el REQ. Filtrar
+//     en el conteo y no en la captura es lo que hace el cambio reversible: apagar
+//     el filtro devuelve exactamente los números de antes, sin recuperar nada.
+//  2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20):
+//     `purpose` sólo se escribe desde v23, así que las filas históricas no lo traen
+//     y degradarlas a "no acredita" borraría de golpe años de cobertura real.
+//  3. **`tpTestedCountsForReq(t)` es LA definición** — todo consumidor nuevo que
+//     cuente probadas contra el REQ la llama, en vez de filtrar por `configText`
+//     a secas. Ya migrados: `tpGetAnalysis`, `tpBuildFamilies` (conteo y VINes),
+//     la continuidad por MY, `tpBuildScoreDetail`, `_tpMakeItem`, el lazo de
+//     Recuperación y el snapshot del generador mensual.
+//  4. **El plan es otra cosa.** Palomear una fila de OBD2 en Mi semana la marca
+//     como hecha igual que siempre: el compromiso de la semana se cumplió. Lo que
+//     no baja es el déficit de emisiones de esa configuración.
+//
+// La lista es EDITABLE (Plan → Reglas) porque el criterio fino es del laboratorio:
+// `Correlacion`, `Investigacion` y `ND-Emisiones` SÍ acreditan por defecto — son
+// mediciones de emisiones sobre la configuración — pero si mañana se decide que
+// sólo `COP-Emisiones` cuenta para el CoP, es una casilla, no una ronda de código.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Default: acredita todo MENOS OBD2. */
+function _tpReqPurposeDefaults() {
+    var d = {};
+    TP_PURPOSES_VALID.forEach(function(p) { d[p] = (TP_PURPOSES_OBD.indexOf(p) === -1); });
+    return d;
+}
+
+/**
+ * LA forma de leer qué propósitos acreditan — nunca `tpState.reqPurposes.x` directo.
+ * Reaplica defaults en CADA lectura (patrón de `tpPlannerCfg`, v18.0): un pull de
+ * sync desde código anterior deja la clave en undefined y la migración de arranque
+ * ya no vuelve a correr.
+ */
+function tpReqPurposes() {
+    if (!tpState.reqPurposes || typeof tpState.reqPurposes !== 'object') tpState.reqPurposes = {};
+    var d = _tpReqPurposeDefaults();
+    for (var k in d) { if (tpState.reqPurposes[k] === undefined) tpState.reqPurposes[k] = d[k]; }
+    return tpState.reqPurposes;
+}
+
+/** ¿Este propósito acredita el REQ de emisiones? Sin propósito ⇒ sí (regla 2). */
+function tpPurposeCountsForReq(purpose) {
+    if (!purpose) return true;
+    var p = String(purpose).trim();
+    if (!p || p === 'Manual') return true;   // captura manual: el operador ya decidió
+    var map = tpReqPurposes();
+    return (map[p] === undefined) ? true : !!map[p];
+}
+
+/** ¿Esta fila de `testedList` acredita el REQ? */
+function tpTestedCountsForReq(t) {
+    return !!t && tpPurposeCountsForReq(t.purpose);
+}
+
+/**
+ * LA forma de listar las probadas de una configuración que acreditan el REQ.
+ * @param {string} desc  cfg.desc
+ * @param {Array}  [list] por defecto tpState.testedList (los generadores pasan su copia)
+ */
+function tpTestedForConfig(desc, list) {
+    var src = list || tpState.testedList || [];
+    return src.filter(function(t) { return t && t.configText === desc && tpTestedCountsForReq(t); });
+}
+
+/** Cuántas probadas de esa configuración acreditan el REQ. */
+function tpTestedCountFor(desc, list) {
+    return tpTestedForConfig(desc, list).length;
+}
+
+/** Diagnóstico: cuántas filas quedaron FUERA del REQ, por propósito. */
+function tpNoReqBreakdown() {
+    var out = { total: 0, byPurpose: {} };
+    (tpState.testedList || []).forEach(function(t) {
+        if (!t || tpTestedCountsForReq(t)) return;
+        out.total++;
+        var p = t.purpose || '(sin propósito)';
+        out.byPurpose[p] = (out.byPurpose[p] || 0) + 1;
+    });
+    return out;
+}
+
+/** Enciende/apaga un propósito. Cambia el REQ de todo el sistema: se audita. */
+function tpSetReqPurpose(purpose, on) {
+    if (TP_PURPOSES_VALID.indexOf(purpose) === -1) return false;
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar qué acredita el REQ')) return false;
+    var map = tpReqPurposes();
+    map[purpose] = !!on;
+    tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'req_purpose_changed', { type: 'config', label: purpose },
+                 (on ? 'ACREDITA' : 'ya NO acredita') + ' el REQ de emisiones');
+    }
+    tpRender();
+    if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+    return true;
+}
+
 function tpSetStartPurpose(regionKey, value) {
     if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = {};
     tpState.startPurposeByRegion[regionKey] = value;
@@ -759,9 +878,12 @@ function tpScoreReason(cfg, testedN) {
 
 // Detalle de score para mostrar el "por qué" en cada item del plan.
 function tpBuildScoreDetail(cfg, n, req, score) {
+    // [v23.1] Solo las que acreditan el REQ: una prueba de OBD2 no debe "refrescar"
+    // la antigüedad de emisiones de esa configuración ni bajarle el empuje.
     var lastTested = '';
     for (var i = tpState.testedList.length - 1; i >= 0; i--) {
-        if (tpState.testedList[i].configText === cfg.desc) { lastTested = tpState.testedList[i].date || ''; break; }
+        var _t = tpState.testedList[i];
+        if (_t && _t.configText === cfg.desc && tpTestedCountsForReq(_t)) { lastTested = _t.date || ''; break; }
     }
     return { deficit: Math.max(0, req - n), score: score, lastTested: lastTested, reason: tpScoreReason(cfg, n) };
 }
@@ -786,9 +908,37 @@ function tpGetAnalysis() {
                    ':' + (tpState._lastSave || 0);
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
-    var result = tpState.planData.map(cfg => {
+    var result = _tpAnalyze(tpState.testedList);
+
+    _tpAnalysisCache = { key: cacheKey, data: result };
+    return result;
+}
+
+/**
+ * [v23.1] El cálculo del análisis SOBRE UNA LISTA CUALQUIERA de probadas.
+ *
+ * Se extrajo de `tpGetAnalysis` (que queda como el envoltorio memoizado sobre
+ * `tpState.testedList`) para que los generadores de HORIZONTE — el mes y el
+ * simulador — puedan preguntar "¿cómo queda el déficit DESPUÉS de la semana 1?"
+ * en vez de reimplementar la resta a mano. Ése era el corazón de la deuda de los
+ * tres lazos greedy: cada uno llevaba su propio `Map` de conteo simulado y su
+ * propia fórmula de déficit, así que las mejoras del semanal (cuota de la cola,
+ * filtros, inventario, obligatorias) no llegaban nunca.
+ *
+ * PURA respecto a `tpState.testedList`: no lee ni escribe la lista global.
+ */
+function _tpAnalyze(list) {
+    var src = list || [];
+    var porDesc = {};
+    src.forEach(function(t) {
+        if (!t || !tpTestedCountsForReq(t)) return;
+        (porDesc[t.configText] || (porDesc[t.configText] = [])).push(t);
+    });
+    return tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
-        const filas = tpState.testedList.filter(t => t.configText === cfg.desc);
+        // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
+        // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
+        const filas = porDesc[cfg.desc] || [];
         const n = filas.length;
         // v20: aditivo. `testedN` NO cambia de significado — sigue contando todo, para
         // que la palomita manual sí baje el déficit (es justo su razón de ser). Al lado
@@ -805,9 +955,6 @@ function tpGetAnalysis() {
         return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
                  required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
-
-    _tpAnalysisCache = { key: cacheKey, data: result };
-    return result;
 }
 
 function tpInvalidateCache() {
@@ -818,6 +965,8 @@ function tpInvalidateCache() {
     _tpAgesCache = { key: '', data: null };
     // v20: el tablero de la semana también se deriva del plan y de db.vehicles.
     if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
+    // v23: y el plan vigente de cada semana (aceptar/desaceptar/borrar lo cambia).
+    if (typeof tpWeekPlanInvalidate === 'function') tpWeekPlanInvalidate();
 }
 
 // v16.2: LA definición única de "cobertura" en toda la plataforma — % de configuraciones
@@ -839,6 +988,7 @@ function tpCoverageSummary() {
     // ocultar, siempre declarar (el principio del semáforo del CoP).
     var totalDeclared = analysis.reduce(function(s, a) { return s + (a.testedDeclared || 0); }, 0);
     var okVerified = vigentes.filter(function(a) { return (a.testedVerified || 0) >= a.required; }).length;
+    var _noReq = tpNoReqBreakdown();
     return {
         vigentes: vigentes.length,
         ok: ok,
@@ -847,6 +997,13 @@ function tpCoverageSummary() {
         totalTested: totalTested,
         deficit: deficit,
         totalDeclared: totalDeclared,
+        // [v23.1] Ya NO es un diagnóstico: es lo que quedó FUERA del REQ. `totalTested`
+        // (y por tanto `pct`/`deficit`) cuenta solo lo que acredita — ver
+        // `tpTestedCountsForReq`. Lo excluido se declara aquí y se pinta en Probados:
+        // nunca se oculta, el principio del semáforo del CoP.
+        totalNoEmisiones: _noReq.total,
+        noReqPorProposito: _noReq.byPurpose,
+        totalRegistradas: (tpState.testedList || []).length,
         totalVerified: totalTested - totalDeclared,
         okVerified: okVerified,
         pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
@@ -855,6 +1012,11 @@ function tpCoverageSummary() {
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
+    // v23: migraciones de una sola vez, VERSIONADAS (ver _tpMigrPending). Van aquí y no
+    // al parsear el archivo porque necesitan `tpWeekCapacity`/`tpPlanId`, que se definen
+    // más abajo. Son derivaciones puras: repetirlas no cuesta nada.
+    try { tpMigrateCapacity(); } catch (e) { console.error('tpMigrateCapacity:', e); }
+    try { tpEnsureItemUids(); } catch (e) { console.error('tpEnsureItemUids:', e); }
     // v20: el módulo abre en "Mi semana" — lo primero que necesita ver alguien que
     // llega al laboratorio es qué se prueba hoy, no el dashboard de cobertura.
     tpState.activeTab = 'tp-myweek';
@@ -877,26 +1039,66 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 // ── Auto-feed from COP15 releases ──
 // opts.skipSave: el llamador (cascada de liberación) hace un único tpSave al final
 function tpAutoFeedFromRelease(vehicle, opts) {
-    if (!vehicle || !vehicle.configCode) return;
-    if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
-    // Las pruebas marcadas "Fuera de Plan" (v.adhoc) se excluyen a propósito del conteo del plan.
+    opts = opts || {};
+    if (!vehicle || !vehicle.configCode) return false;
+    if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return false;
+    // Las pruebas marcadas "Fuera de Plan" (v.adhoc) se excluyen a proposito del conteo del plan.
     if (vehicle.adhoc) {
         console.log('TP: se omite el auto-feed de una prueba fuera de plan', vehicle.vin || vehicle.id);
-        return;
+        return false;
     }
+
+    if (!Array.isArray(tpState.testedList)) tpState.testedList = [];
+
+    // v23: DEDUP POR VEHICULO. Rearchivar el mismo vehiculo (desarchivar y volver a
+    // aprobar, o correr el lote dos veces) empujaba una segunda fila y contaba la
+    // misma prueba dos veces en la cobertura. La identidad es el id del vehiculo;
+    // el VIN cubre las filas escritas antes de v23.
+    var yaEsta = tpState.testedList.some(function(t) {
+        if (!t || t.source === 'plan-manual') return false;
+        if (t.vehicleId != null && vehicle.id != null) return t.vehicleId === vehicle.id;
+        return !!vehicle.vin && tpTestedVin(t) === vehicle.vin;
+    });
+    if (yaEsta) {
+        console.log('TP: ese vehiculo ya estaba registrado como probado', vehicle.vin || vehicle.id);
+        return false;
+    }
+
+    // v23: la fecha es la de la PRUEBA, no la del dia en que se aprobo. Una prueba del
+    // viernes aprobada el lunes se contaba en la semana equivocada.
+    var fecha = opts.date || _tpVehicleTestDate(vehicle);
 
     const entry = {
         configText: vehicle.configCode,
-        date: localToday(),
+        date: fecha,
+        vin: vehicle.vin || '',
+        vehicleId: vehicle.id,
         note: `VIN: ${vehicle.vin} — Auto desde COP15`,
         source: 'cop15-release',
         purpose: vehicle.purpose,
     };
-    // v20: una declaración a mano es un MARCADOR de posición hasta que hay evidencia
-    // real. Al llegar la liberación de esa config, la más vieja se retira: si no, la
-    // misma prueba contaría dos veces (declarada + verificada) e inflaría la cobertura.
-    var _decl = (tpState.testedList || []).findIndex(function(t) {
-        return t && t.configText === vehicle.configCode && tpTestedIsDeclared(t);
+    // v20: una declaracion a mano es un MARCADOR de posicion hasta que hay evidencia
+    // real. Al llegar la liberacion de esa config, la mas vieja se retira: si no, la
+    // misma prueba contaria dos veces (declarada + verificada) e inflaria la cobertura.
+    //
+    // v23: acotada a la SEMANA de la prueba. Antes empataba solo por `configText`, asi
+    // que liberar una config borraba la primera declaracion de esa config en TODA la
+    // historia — incluida la de otra semana, que quedaba con `declared:true` y sin
+    // ninguna fila que la respaldara.
+    var semana = (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function')
+                 ? _tpFmtDate(_tpMonday(new Date(fecha + 'T12:00:00'))) : null;
+    var finSemana = null;
+    if (semana) {
+        var f = new Date(semana + 'T00:00:00'); f.setDate(f.getDate() + 6);
+        finSemana = _tpFmtDate(f);
+    }
+    // v23.1: solo una liberación que ACREDITA retira la declarada. Una prueba de OBD2
+    // no es la prueba de emisiones que esa declaración prometía: retirarla dejaría a la
+    // configuración sin nada que la respalde y le subiría el déficit sin avisar.
+    var _decl = !tpTestedCountsForReq(entry) ? -1 : tpState.testedList.findIndex(function(t) {
+        if (!t || t.configText !== vehicle.configCode || !tpTestedIsDeclared(t)) return false;
+        if (!semana) return true;
+        return t.date >= semana && t.date <= finSemana;
     });
     if (_decl >= 0) {
         entry.promotedFrom = 'plan-manual';
@@ -905,9 +1107,186 @@ function tpAutoFeedFromRelease(vehicle, opts) {
     }
     tpState.testedList.push(entry);
     if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
-    if (!(opts && opts.skipSave)) tpSave();
+    if (!opts.skipSave) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
+    return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v23] EL CREDITO DE UNA LIBERACION — una sola definicion
+//
+// Antes eran dos llamadas sueltas en dos sitios (`approveAndArchive` y
+// `v7BatchRelease`) que ya divergian: el lote descartaba el resultado del marcado
+// y por tanto no ofrecia sustitucion. Y faltaba lo principal: si ninguna fila del
+// plan empataba, el vehiculo liberado quedaba INVISIBLE en Mi semana. Sumaba a la
+// cobertura, pero la semana no lo mostraba — que es justo lo que el laboratorio
+// reportaba como "corri la prueba y el plan sigue en rojo".
+//
+// Reglas:
+//  · La semana es la de la PRUEBA, no la de hoy. Una prueba del viernes aprobada
+//    el lunes acredita la semana en que se corrio, o el avance de la semana miente.
+//  · Solo se toca el plan VIGENTE de esa semana (`tpWeekPlanFor`), nunca una
+//    propuesta sin aceptar ni una semana futura.
+//  · Si no hay fila que empate, se AGREGA una marcada `unplanned` — y se puede
+//    quitar del plan sin tocar la cobertura.
+//  · Si esa semana no tiene ningun plan, NO se inventa uno. Crear un plan como
+//    efecto secundario de archivar un vehiculo es exactamente la clase de bug que
+//    produjo el issue #126. La evidencia queda en `testedList` y el tablero lo
+//    declara en su estado vacio.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** La fecha en que se CORRIO la prueba (no la de aprobacion). Devuelve 'YYYY-MM-DD'. */
+function _tpVehicleTestDate(v) {
+    if (!v) return (typeof localToday === 'function') ? localToday() : '';
+    var td = v.testData || {};
+    var cand = td.testDatetime || (td.preconditioning && td.preconditioning.datetime) || v.archivedAt || v.registeredAt;
+    if (cand) {
+        var iso = String(cand).slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+    }
+    return (typeof localToday === 'function') ? localToday() : '';
+}
+
+/** El dia de la semana ('lun'…'dom') de una fecha 'YYYY-MM-DD'. */
+function _tpDayKeyOf(fecha) {
+    var d = new Date(fecha + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    return TP_DAY_ORDER[d.getDay()];
+}
+
+/**
+ * Agrega al plan una fila YA HECHA por una prueba que nadie habia planeado.
+ * El dia sale de las fechas REALES del vehiculo, no de un hueco libre: el punto
+ * es registrar lo que paso. Si eso deja el dia por encima del cupo, se marca —
+ * es cierto, y esconderlo seria mentir sobre la carga de la semana.
+ */
+function _tpAppendCreditedItem(plan, vehicle, fechaPrueba) {
+    var cfg = (tpState.planData || []).find(function(c) { return c.desc === vehicle.configCode; });
+    var item = cfg ? _tpMakeItem(cfg, (tpState.testedList || []).slice(), {})
+                   : { uid: _tpItemUid(), desc: vehicle.configCode, required: 0, deficit: 0, score: 0 };
+    if (!item.uid) item.uid = _tpItemUid();
+
+    item.origin = 'cascade';
+    item.unplanned = true;
+    item.completed = true;
+    item.completedDate = fechaPrueba;
+    item.declared = false;                   // hay vehiculo liberado: es evidencia real
+    item.linkedVehicleId = vehicle.id;
+    item.linkedVin = vehicle.vin || '';
+    item.addedAt = new Date().toISOString();
+    item.addedBy = 'auto';
+    if (vehicle.purpose) item.purpose = vehicle.purpose;
+
+    var soak = cfg ? tpSoakHoursFor(cfg) : { hours: tpSoakCfg().defaultHours, source: 'laboratorio' };
+    item.soakHours = soak.hours;
+    item.soakSource = soak.source;
+
+    var diaPrueba = _tpDayKeyOf(fechaPrueba);
+    var workDays = tpWorkDaysFor(plan);
+    var par = diaPrueba ? tpSlotsForSoak(soak.hours, workDays).filter(function(sl) { return sl.test === diaPrueba; })[0] : null;
+    if (par) {
+        item.testDay = par.test; item.preconDay = par.precon;
+        item.testLabel = par.testLabel; item.preconLabel = par.preconLabel;
+    } else {
+        // El dia real no forma un par legal con este reposo (p. ej. se corrio en
+        // sabado). Se respeta el dia REAL y se deja el preacon vacio: el dato es
+        // lo que ocurrio, no lo que el modelo permitiria.
+        item.testDay = diaPrueba || null;
+        item.preconDay = null;
+        item.testLabel = diaPrueba ? TP_DAY_LABELS[diaPrueba] : null;
+    }
+    item.plannedTestDay = item.testDay;      // no fue "movida": nacio en su dia
+
+    if (item.testDay) {
+        var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+        var ocupado = (plan.items || []).filter(function(it) { return it.testDay === item.testDay; }).length;
+        if (ocupado >= perSlot) item.overCapacity = true;
+    }
+
+    if (!Array.isArray(plan.items)) plan.items = [];
+    plan.items.push(item);
+    return item;
+}
+
+/**
+ * LA definicion del credito de una liberacion. La llaman `approveAndArchive` y
+ * `v7BatchRelease` — las dos, por aqui, para que no vuelvan a divergir.
+ *
+ * @returns {{evidence:boolean, matched:boolean, appended:object|null,
+ *            weekDate:string, planId:string|null, noPlan:boolean,
+ *            unknownConfig:boolean, substitutionCandidates:Array}}
+ */
+function tpCreditReleaseToWeek(vehicle, opts) {
+    opts = opts || {};
+    var out = { evidence: false, matched: false, appended: null, weekDate: null,
+                planId: null, noPlan: false, unknownConfig: false, substitutionCandidates: [] };
+    if (!vehicle) return out;
+
+    var fecha = _tpVehicleTestDate(vehicle);
+    out.weekDate = (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function')
+                   ? _tpFmtDate(_tpMonday(new Date(fecha + 'T12:00:00'))) : null;
+
+    // 1) Evidencia en testedList (con dedup por vehiculo: rearchivar no cuenta dos veces).
+    out.evidence = tpAutoFeedFromRelease(vehicle, { skipSave: true, date: fecha });
+
+    // Fuera de plan o proposito no contable: se registro (o no) y se termina.
+    if (vehicle.adhoc || !TP_PURPOSES_VALID.includes(vehicle.purpose)) return out;
+
+    // 2) Una configuracion que no existe en el plan de produccion no puede acreditar
+    //    nada, y hasta ahora eso pasaba EN SILENCIO. `configCode` es 'MANUAL' en toda
+    //    alta manual y tambien cuando la cascada resuelve 0 o mas de una fila.
+    var conocida = (tpState.planData || []).some(function(c) { return c.desc === vehicle.configCode; });
+    if (!conocida) out.unknownConfig = true;
+
+    if (!out.weekDate) return out;
+    var vig = tpWeekPlanFor(out.weekDate);
+    if (!vig) { out.noPlan = true; return out; }
+    out.planId = vig.planId;
+
+    // 3) Marcar la fila que empate, dentro del plan VIGENTE de esa semana.
+    // El propio marcado sella `linkedVehicleId` en la fila que acredito.
+    out.matched = !!tpAutoMarkWeeklyCompletionFromVehicle(vehicle, {
+        skipSave: true, weekDate: out.weekDate, date: fecha
+    });
+    if (out.matched) return out;
+
+    // 4) Sin empate exacto: si hay candidatas flexibles se ofrecen (el llamador decide),
+    //    y de todas formas la prueba entra a la semana marcada como no planeada.
+    if (typeof tpFindFlexibleMatches === 'function' && !out.unknownConfig) {
+        try { out.substitutionCandidates = tpFindFlexibleMatches(vehicle.configCode, vehicle.config) || []; }
+        catch (e) { out.substitutionCandidates = []; }
+    }
+    out.appended = _tpAppendCreditedItem(vig.plan, vehicle, fecha);
+    if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
+    if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_credited', { type: 'plan', label: vehicle.configCode },
+                 'Prueba no planeada agregada a la semana del ' + out.weekDate +
+                 ' · VIN ' + (vehicle.vin || '?'));
+    }
+    if (!(opts && opts.skipSave)) tpSave();
+    return out;
+}
+
+/**
+ * Quitar del plan una fila que se agrego sola. La evidencia NO se toca: sale de la
+ * semana, no de la cobertura. Es la valvula de escape del auto-agregado.
+ */
+function tpUnplanCreditedItem(weekIdx, itemIdx) {
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    if (!_n.item.unplanned) { showToast('Esa prueba si estaba planeada — usa "Quitar del plan".', 'info'); return; }
+    var lbl = _n.item.desc;
+    if (typeof undoPush === 'function') undoPush('testplan', 'Quitar prueba no planeada');
+    _n.plan.items.splice(_n.itemIdx, 1);
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_unplanned_removed', { type: 'plan', label: lbl }, 'Semana ' + (_n.plan.weekDate || '—'));
+    }
+    showToast('Fuera del plan. La prueba sigue contando en la cobertura: la evidencia no se borro.',
+              'success', null, (typeof undoPop === 'function') ? undoPop : null);
+    _tpBoardRepaint();
 }
 
 // ── CSV Import ──
@@ -1091,7 +1470,10 @@ function tpUpdateBadges() {
 // ║  [M17] TEST PLAN MANAGER — RENDERER                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var _tpTabs = ['tp-myweek','tp-dashboard','tp-recovery','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+// v23: fuera 'tp-weekly' (el armador vive dentro de Mi semana) y fuera
+// 'tp-planactual'/'tp-planhistory', declaradas desde hace rondas sin ningún botón
+// que las alcanzara.
+var _tpTabs = ['tp-myweek','tp-dashboard','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
@@ -1109,7 +1491,9 @@ function tpSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('tp-tabs-bar'), _activeBtn);
     }
-    tpRender();
+    // keepCache: el salto de pestana es el UNICO caso donde reusar lo ya pintado
+    // ayuda. Todo lo demas repinta (issue #110) — ver tabCacheSwitch en app.js.
+    tpRender({ keepCache: true });
 }
 
 function _tpGetRenderer(tabId) {
@@ -1118,14 +1502,14 @@ function _tpGetRenderer(tabId) {
         'tp-families': tpRenderFamilies, 'tp-planactual': tpRenderPlanActual,
         'tp-planhistory': tpRenderPlanHistory, 'tp-rules': tpRenderRules,
         'tp-myweek': tpRenderMyWeek,
-        'tp-weekly': tpRenderWeekly, 'tp-simulator': tpRenderSimulator,
+        'tp-simulator': tpRenderSimulator,
         'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
         'tp-weekhistory': tpRenderWeekHistory, 'tp-recovery': tpRenderRecovery
     };
     return map[tabId] || null;
 }
 
-function tpRender() {
+function tpRender(opts) {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
     // Keep the active tab button in sync with tpState.activeTab (covers programmatic
@@ -1137,7 +1521,7 @@ function tpRender() {
     }
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
-    if (renderer) tabCacheSwitch('tp', tab, renderer);
+    if (renderer) tabCacheSwitch('tp', tab, renderer, opts);
     // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('tp', tab);
@@ -2138,7 +2522,19 @@ function tpExportPlanJSON() {
 
 // ═══ TESTED TAB ═══
 function tpRenderTested(el) {
+    var _cs = tpCoverageSummary();
     el.innerHTML = `
+    ${_cs.totalNoEmisiones ? `<div class="tp-card" style="border-left:3px solid var(--warn-text);">
+        <div style="font-size: var(--fs-sm);color:var(--tp-text);">
+            🏷 <strong>${_cs.totalNoEmisiones}</strong> de las ${_cs.totalRegistradas} pruebas registradas
+            <strong>no acreditan el REQ de emisiones</strong> y quedan fuera de la cobertura:
+            ${Object.keys(_cs.noReqPorProposito || {}).map(k => `${k} (${_cs.noReqPorProposito[k]})`).join(' · ')}.
+            <br><span style="color:var(--tp-dim);">Siguen registradas como evidencia — se hicieron.
+            Lo que cambia es que ya no bajan el déficit. Qué propósito acredita se decide en
+            <button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);padding:var(--space-2xs) var(--space-sm);"
+                onclick="tpSwitchTab('tp-rules')">Reglas</button>.</span>
+        </div>
+    </div>` : ''}
     <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">
         <button class="tp-btn ${window._tpTestedMode!=='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='manual';tpRender();">✏️ Captura Manual</button>
         <button class="tp-btn ${window._tpTestedMode==='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='json';tpRender();">📥 Importar JSON</button>
@@ -2220,13 +2616,10 @@ function tpRenderTested(el) {
                         return true;
                     }).map((t,i) => {
                         const origIdx = tpState.testedList.indexOf(t);
-                        // v20: iba `\\s` dentro de un template literal, o sea una barra invertida
-                        // LITERAL obligatoria seguida de ceros-o-más 's'. Las notas son
-                        // "VIN: KNAxxx — Auto desde COP15", sin barra, así que NUNCA empataba y
-                        // la columna VIN salía siempre '—'. Es justo la columna que se necesita
-                        // para reconstruir una semana. La versión buena ya existía en :2138.
-                        const vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
-                        const vin = vinMatch ? vinMatch[1] : '';
+                        // v23: un solo lector, `tpTestedVin` — prefiere el campo `vin`
+                        // (que las filas nuevas ya traen) y solo cae al texto de la nota
+                        // para las viejas. Antes había DOS regex distintas conviviendo.
+                        const vin = tpTestedVin(t);
                         return `
                         <tr>
                             <td style="max-width:260px;">${tpConfigBadges({desc:t.configText},{fontSize:'var(--fs-sm)'})}</td>
@@ -2324,12 +2717,12 @@ function tpRecoverFromCOP15() {
         return;
     }
 
-    // Build set of existing entries by VIN to detect duplicates
-    var existingVINs = {};
+    // v23: la identidad sale de `tpTestedVin`/`tpTestedVehicleId`, no de una regex
+    // propia. Las filas nuevas traen `vin` y `vehicleId` como campos.
+    var existingVINs = {}, existingIds = {};
     (tpState.testedList || []).forEach(function(t) {
-        // Extract VIN from note field (format: "VIN: XXXXX" or "VIN: XXXXX — Auto desde COP15")
-        var vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
-        if (vinMatch) existingVINs[vinMatch[1]] = true;
+        var v = tpTestedVin(t); if (v) existingVINs[v] = true;
+        var id = tpTestedVehicleId(t); if (id != null) existingIds[id] = true;
     });
 
     // Also check by configText+date as secondary dedup
@@ -2342,8 +2735,8 @@ function tpRecoverFromCOP15() {
     if (!tpState.testedList) tpState.testedList = [];
 
     archived.forEach(function(v) {
-        // Skip if VIN already registered
-        if (existingVINs[v.vin]) { skipped++; return; }
+        // Ya registrado: por id del vehículo (fuerte) o por VIN (filas viejas).
+        if (existingIds[v.id] || existingVINs[v.vin]) { skipped++; return; }
 
         var tsArch = v.archivedAt || v.registeredAt;
         var date = tsArch ? localDateStr(new Date(tsArch)) : localToday();
@@ -2355,11 +2748,14 @@ function tpRecoverFromCOP15() {
         tpState.testedList.push({
             configText: v.configCode,
             date: date,
+            vin: v.vin || '',
+            vehicleId: v.id,
             note: 'VIN: ' + v.vin + ' — Recuperado de COP15',
             source: 'cop15-recovery',
             purpose: v.purpose
         });
         existingVINs[v.vin] = true;
+        existingIds[v.id] = true;
         existingKeys[key] = true;
         added++;
     });
@@ -2393,8 +2789,46 @@ function tpRenderRules(el) {
         if (c.reg && c.rgn && (rr._matchType === 'comodín' || rr._matchType === 'default')) _tpNoSpecificRule.push(c);
     });
 
+    // [v23.1] Qué propósitos acreditan el REQ de emisiones. Vive JUNTO a las reglas de
+    // ratio porque las dos deciden lo mismo: el denominador y el numerador de la
+    // cobertura. Ver `tpTestedCountsForReq` (testplan.js) — LA definición.
+    const _rq = tpReqPurposes();
+    const _rqNo = tpNoReqBreakdown();
+    const _rqHTML = `
+        <div class="tp-card">
+            <div class="tp-card-title" data-help="tp-reqpurpose-help">
+                <span>🏷 Qué acredita el REQ de emisiones</span>
+            </div>
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
+                Una prueba de <strong>OBD II no es una prueba de emisiones</strong>: se hace, se
+                registra y se ve en el historial, pero no baja el déficit ni sube la cobertura.
+                Desmarcar un propósito lo saca del conteo; la evidencia no se pierde ni se borra,
+                así que volver a marcarlo devuelve los números exactos de antes.
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">
+                ${TP_PURPOSES_VALID.map(function(pp) {
+                    var on = _rq[pp] !== false;
+                    var n = _rqNo.byPurpose[pp] || 0;
+                    return '<label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);'
+                         + 'flex:1 1 200px;cursor:pointer;padding:var(--space-sm) var(--space-md);'
+                         + 'border:1px solid ' + (on ? 'var(--tp-border)' : 'var(--warn-text)') + ';'
+                         + 'border-radius:var(--radius-lg);background:' + (on ? 'var(--surface)' : 'var(--warn-bg)') + ';">'
+                         + '<input type="checkbox" ' + (on ? 'checked' : '')
+                         + ' onchange="tpSetReqPurpose(\'' + pp + '\', this.checked)">'
+                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + pp + '</span>'
+                         + (n ? '<span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--tp-dim);">'
+                                + n + ' fuera</span>' : '')
+                         + '</label>';
+                }).join('')}
+            </div>
+            ${_rqNo.total ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
+                Hoy quedan <strong>${_rqNo.total}</strong> pruebas registradas fuera del REQ.
+            </p>` : ''}
+        </div>`;
+
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_rqHTML}
         <div class="tp-card">
             <div class="tp-card-title" data-help="tp-ratio-help">
                 <span>⚙️ Reglas de Ratio</span>
@@ -2652,6 +3086,67 @@ function tpWeekCapacity(workDays) {
         gapDays: tpSoakGapDays(soak.defaultHours),
         spill: todos.filter(function(s) { return s.spillsNextWeek; }).map(function(s) { return s.precon; })
     };
+}
+
+/**
+ * [v23] LA definición de cuántas pruebas se planean en una semana.
+ *
+ * Lo que estaba roto y produjo el "6/40" del issue #126: había TRES nociones de
+ * capacidad y el generador semanal usaba la peor de las tres.
+ *   · `tpWeekCapacity().max` = pares usables × `vehiclesPerSlot` — el tope FÍSICO.
+ *     Con 5 días, 24 h de reposo y 10 vehículos por par son 40.
+ *   · `tpState.capacity` (default 8) — la capacidad práctica… que el generador
+ *     semanal NO leía jamás. Solo la usaban el presupuesto anual y el simulador.
+ *   · El valor del input `#tp-weekly-cap`, que los TRES generadores leían del DOM.
+ *     Cuando la pestaña no estaba montada —justo el caso del auto-plan, que corría
+ *     3 s después de cargar la app— el elemento no existía, `parseInt` daba NaN,
+ *     el `||` caía al tope físico y la semana salía con 40 pruebas.
+ *
+ * Reglas de ahora en adelante:
+ *   · La capacidad es DATO PERSISTIDO (`tpState.capacity`, o el override de la
+ *     semana en `weekAvailability[lunes].capacity`), nunca el valor de un input.
+ *   · El tope físico solo ACOTA; no es un default. Un 0 no significa "el máximo".
+ *   · Ningún generador vuelve a llamar a `document.getElementById`.
+ *
+ * @param {string|null} weekDate lunes 'YYYY-MM-DD' (para el override de la semana)
+ * @param {object} workDays      días de asistencia
+ * @returns {{cap:number, practica:number, max:number, slots:number, perSlot:number,
+ *            soakHours:number, gapDays:number, spill:string[], acotada:boolean,
+ *            source:'semana'|'laboratorio'}}
+ */
+function tpWeeklyCapacityFor(weekDate, workDays) {
+    var fisica = tpWeekCapacity(workDays);
+    var practica = null, source = 'laboratorio';
+    var av = (tpState.weekAvailability || {})[weekDate];
+    if (av && av.capacity !== undefined && av.capacity !== null && av.capacity !== '') {
+        var n = parseInt(av.capacity, 10);
+        if (!isNaN(n) && n >= 0) { practica = n; source = 'semana'; }
+    }
+    if (practica === null) {
+        var c = parseInt(tpState.capacity, 10);
+        practica = (isNaN(c) || c < 0) ? 8 : c;
+    }
+    var cap = Math.max(1, Math.min(practica, fisica.max));
+    return {
+        cap: cap, practica: practica, max: fisica.max, acotada: practica > fisica.max,
+        slots: fisica.slots, perSlot: fisica.perSlot, soakHours: fisica.soakHours,
+        gapDays: fisica.gapDays, spill: fisica.spill, source: source
+    };
+}
+
+/** Capacidad práctica del laboratorio. Persiste y viaja por sync — no vive en un input. */
+function tpSetWeeklyCapacity(val) {
+    var n = parseInt(val, 10);
+    if (isNaN(n) || n < 1) return;
+    n = Math.min(n, 200);
+    var prev = parseInt(tpState.capacity, 10) || 8;
+    if (n === prev) return;
+    tpState.capacity = n;
+    tpInvalidateCache();
+    tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('testplan', 'capacity_changed', { type: 'plan', label: 'pruebas por semana' }, prev + ' → ' + n);
+    }
 }
 
 function tpSetVehiclesPerSlot(val) {
@@ -3278,10 +3773,18 @@ function tpUnexcludePreviewItem(desc) {
 /** Opciones que alimentan tanto la vista previa como el botón Generar. */
 function tpPlannerOpts(extra) {
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    // v23: el DOM es la ÚLTIMA opción, no la primera. Cuando la pestaña no estaba
+    // montada, `getElementById` daba null, `capacity` caía en undefined/0 y
+    // `tpSelectWeeklyItems` lo interpretaba como "usa el máximo físico" — de ahí las
+    // semanas de 40 pruebas del issue #126. Ahora el respaldo es la capacidad
+    // PERSISTIDA del laboratorio.
     var capEl = document.getElementById('tp-weekly-cap');
+    var capDom = capEl ? parseInt(capEl.value, 10) : NaN;
     var o = {
         workDays: workDays,
-        capacity: capEl ? parseInt(capEl.value, 10) : (window._tpWeekCap || undefined),
+        capacity: !isNaN(capDom) && capDom > 0 ? capDom
+                : (window._tpWeekCap > 0 ? window._tpWeekCap
+                : tpWeeklyCapacityFor(window._tpWeekDate || null, workDays).cap),
         manualPicks: (window._tpWeeklyManualPicks || []).slice(),
         exclude: (window._tpWeekExclude || []).slice()
     };
@@ -3568,11 +4071,16 @@ function tpWeekBoardRows(opts) {
     tpEnsurePlanIds();
     var planes = tpState.weeklyPlans || [];
     var planIdx = -1;
+    var _vig = null;
     if (opts.planId) planIdx = tpFindPlanIndexById(opts.planId);
     if (planIdx < 0) {
-        for (var i = planes.length - 1; i >= 0; i--) {
-            if (planes[i] && planes[i].weekDate === quiero) { planIdx = i; break; }
-        }
+        // v23: el plan de la semana es el VIGENTE (aceptado primero), no el ÚLTIMO del
+        // arreglo con esa fecha. Cada "Generar" empuja un plan nuevo, así que lo normal
+        // es el aceptado + N propuestas viejas: el tablero mostraba la propuesta más
+        // reciente mientras el Gantt (que sí resolvía bien desde v20.10) mostraba el
+        // aceptado. Dos pantallas, dos verdades, sobre el mismo lunes.
+        _vig = tpWeekPlanFor(quiero);
+        if (_vig) planIdx = _vig.planIdx;
     }
     var plan = planIdx >= 0 ? planes[planIdx] : null;
     var workDays = tpWorkDaysFor(plan);
@@ -3642,7 +4150,11 @@ function tpWeekBoardRows(opts) {
         var eta   = (veh && typeof cascadeVehicleETA === 'function') ? cascadeVehicleETA(veh) : null;
 
         var row = {
-            planIdx: planIdx, planId: plan ? tpPlanId(plan) : null, itemIdx: itemIdx, item: item,
+            // v23: `planIdx`/`itemIdx` siguen aquí para los consumidores viejos, pero
+            // TODO onclick generado usa `planId`/`uid` — un índice deja de ser válido
+            // en cuanto el arreglo cambia bajo los pies (issue #126).
+            planIdx: planIdx, planId: plan ? tpPlanId(plan) : null, itemIdx: itemIdx,
+            uid: item.uid || null, item: item,
             cfg: cfg, desc: item.desc,
             shortName: tpConfigShortName(cfg), variantTag: tpConfigVariantTag(cfg),
             rgn: cfg.rgn || item.rgn, reg: cfg.reg || item.reg,
@@ -3655,6 +4167,8 @@ function tpWeekBoardRows(opts) {
                 return (pi >= 0 && ti >= pi) ? TP_DAY_ORDER.slice(pi, ti + 1) : [];
             })(),
             done: !!item.completed, declared: !!item.declared,
+            unplanned: !!item.unplanned, origin: item.origin || null,
+            purpose: item.purpose || null, actualPurpose: item.actualPurpose || null,
             substituted: !!item.substituted, substitution: item.substitution || null,
             carriedOver: !!item.carriedOver, manual: !!item.manual,
             vehicle: veh && veh.status !== 'archived' ? veh : null,
@@ -3716,11 +4230,18 @@ function tpWeekBoardRows(opts) {
         isCurrentWeek: !!(weekDate && monHoy && weekDate === monHoy),
         weekIsPast: weekIsPast, weekIsFuture: weekIsFuture,
         accepted: !!(plan && plan.accepted),
+        // Propuestas de ESTA misma semana que no son la vigente. Se declaran para poder
+        // limpiarlas: hasta v22.7 se acumulaban sin que ninguna pantalla lo dijera.
+        otrosPlanes: (_vig && _vig.otros) ? _vig.otros.length : 0,
         workDays: workDays, perSlot: perSlot, todayIdx: todayIdx, ctx: ctx,
         days: dias, rows: rows,
         unscheduled: rows.filter(function(r) { return !r.testDay; }),
         kpis: {
-            planeadas: rows.length,
+            // v23: `planeadas` es el COMPROMISO — no incluye lo que entró solo al
+            // liberar. Sumarlas haría que el plan pareciera haber previsto algo que
+            // nadie previó, que es justo lo que un plan no debe decir.
+            planeadas: rows.filter(function(r) { return !r.unplanned; }).length,
+            noPlaneadas: rows.filter(function(r) { return r.unplanned; }).length,
             hechas: rows.filter(function(r) { return r.done; }).length,
             declaradas: rows.filter(function(r) { return r.done && r.declared; }).length,
             encurso: rows.filter(function(r) { return r.state === 'encurso'; }).length,
@@ -3748,9 +4269,11 @@ function tpWeekBoardRows(opts) {
  */
 function tpMoveItemToDay(weekIdx, itemIdx, day, opts) {
     opts = opts || {};
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return { ok: false, reason: 'No se encontró esa prueba.' };
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
     if (item.testDay === day) return { ok: false, reason: 'Ya está en ese día.' };
 
     var workDays = tpWorkDaysFor(plan);
@@ -3879,33 +4402,43 @@ function _tpWeekSpanHTML(row, workDays) {
     return h + '</div>';
 }
 
-function _tpWeekCardHTML(row, workDays) {
+function _tpWeekCardHTML(row, workDays, opts) {
+    opts = opts || {};
     var chip = TP_STATE_CHIP[row.state] || TP_STATE_CHIP.pendiente;
     var mods = [];
     if (row.done) mods.push('tp-week-card--done');
     if (row.risk.level === 'riesgo') mods.push('tp-week-card--risk');
     else if (row.risk.level === 'atencion') mods.push('tp-week-card--warn');
+    if (row.unplanned) mods.push('tp-week-card--unplanned');
     if (row.moved) mods.push('tp-week-card--moved');
     if (row.substituted) mods.push('tp-week-card--subst');
 
-    var h = '<div class="tp-week-card ' + mods.join(' ') + '" data-plan="' + row.planIdx + '" data-item="' + row.itemIdx + '">';
+    // v23: los atributos y los onclick llevan IDENTIDAD, no índices. `_tpRef` es
+    // literalmente lo que se interpola en cada handler generado.
+    var _p = row.planId || row.planIdx, _i = row.uid || row.itemIdx;
+    var _ref = "'" + _p + "','" + _i + "'";
+    var h = '<div class="tp-week-card ' + mods.join(' ') + '" data-plan="' + _p + '" data-item="' + _i + '">';
     h += '<div class="tp-week-card-top">';
     // El asa. La TARJETA no puede ser el <button> (contiene botones), así que el origen del
     // arrastre y del teclado es este elemento — el mismo patrón que conserva v17.8.
-    if (!row.done) {
+    if (!row.done && !opts.readOnly) {
         h += '<button type="button" class="tp-week-grip" ' +
-             'data-drag-id="' + row.planIdx + ':' + row.itemIdx + '" ' +
+             // Separador '::' y no ':' — un planId lleva fechas con guiones y un
+             // `Date.now()`, y partir por ':' rompería en cuanto cambie el formato.
+             'data-drag-id="' + _p + '::' + _i + '" ' +
              'data-drag-cell="' + (row.testDay || '_sin') + '" ' +
              'aria-label="Mover ' + (row.shortName || row.desc) + '. Enter para seleccionar y elegir otro día." ' +
              'title="' + (row.moved ? 'Planeada para ' + (TP_DAY_LABELS[row.plannedTestDay] || '—') + '. ' : '') +
              'Arrastra (mantén pulsado) o pulsa Enter para mover a otro día">⠿</button>';
     }
-    h += '<button class="tp-week-check" onclick="tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');_tpBoardRepaint();" ' +
+    h += '<button class="tp-week-check" onclick="tpToggleWeeklyItem(' + _ref + ');_tpBoardRepaint();" ' +
          'title="' + (row.done ? 'Quitar la palomita' : 'Marcar como hecha (queda registrada como declarada a mano)') + '" ' +
          'aria-pressed="' + (row.done ? 'true' : 'false') + '">' + chip.icon + '</button>';
+    var _nom = row.shortName || row.desc;
     h += '<div class="tp-week-card-id">' +
-         '<div class="tp-week-name">' + (row.shortName || row.desc) + '</div>' +
-         (row.variantTag ? '<div class="tp-week-variant">' + row.variantTag + '</div>' : '') +
+         // El nombre se recorta a una línea (v23), así que el completo va en el title.
+         '<div class="tp-week-name" title="' + _tpQ(row.desc || _nom) + '">' + _nom + '</div>' +
+         (row.variantTag ? '<div class="tp-week-variant" title="' + _tpQ(row.variantTag) + '">' + row.variantTag + '</div>' : '') +
          '</div>';
     if (row.rgn) h += '<span class="tp-week-rgn" style="--rgn:' + tpRegionColor(row.rgn) + '">' + row.rgn + '</span>';
     h += '</div>';
@@ -3918,6 +4451,10 @@ function _tpWeekCardHTML(row, workDays) {
     // aviso era ruido en la pantalla que más se mira. El registro NO se pierde — sigue
     // en `moves[]` (append-only), en la auditoría, y a la vista en el menú ⋯ y en el
     // título del asa. El borde punteado de la tarjeta lo insinúa sin gritarlo.
+    if (row.purpose && !/^(COP|EO)-Emisiones$/.test(row.purpose)) {
+        marcas.push('<span class="tp-week-flag tp-week-flag--purpose" title="Tipo de actividad. Las de emisiones no llevan chip: son el caso normal.">🏷 ' + row.purpose + '</span>');
+    }
+    if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
     if (row.substituted) marcas.push('<span class="tp-week-flag tp-week-flag--subst">🔄 sustituida</span>');
@@ -3938,17 +4475,315 @@ function _tpWeekCardHTML(row, workDays) {
     });
     if (marcas.length) h += '<div class="tp-week-flags">' + marcas.join('') + '</div>';
 
+    if (opts.readOnly) return h + '</div>';
+
     h += '<div class="tp-week-actions">';
     if (!row.done && !row.vehicle) {
-        h += '<button class="tp-week-act" onclick="tpStartTestFromPlan(' + row.planIdx + ',' + row.itemIdx + ')" title="Dar de alta el vehículo en Pruebas">▶ Iniciar</button>';
+        h += '<button class="tp-week-act" onclick="tpStartTestFromPlan(' + _ref + ')" title="Dar de alta el vehículo en Pruebas">▶ Iniciar</button>';
     } else if (row.vehicle) {
         h += '<button class="tp-week-act" onclick="tpOpenVehicleFromPlan(' + row.vehicle.id + ')" title="Abrir el vehículo en Pruebas">🔬 Abrir</button>';
     }
-    h += '<button class="tp-week-act" onclick="tpWeekMoveMenu(' + row.planIdx + ',' + row.itemIdx + ')" title="Mover a otro día">↪ Mover</button>';
-    h += '<button class="tp-week-act" onclick="tpLinkVehicleMenu(' + row.planIdx + ',' + row.itemIdx + ')" ' +
+    h += '<button class="tp-week-act" onclick="tpWeekMoveMenu(' + _ref + ')" title="Mover a otro día">↪ Mover</button>';
+    h += '<button class="tp-week-act" onclick="tpLinkVehicleMenu(' + _ref + ')" ' +
          'title="Vincular con una prueba ya liberada esta semana">🔗 Vincular</button>';
-    h += '<button class="tp-week-act tp-week-act--ghost" onclick="tpWeekCardMenu(' + row.planIdx + ',' + row.itemIdx + ')" title="Más acciones" aria-label="Más acciones">⋯</button>';
+    h += '<button class="tp-week-act tp-week-act--ghost" onclick="tpWeekCardMenu(' + _ref + ')" title="Más acciones" aria-label="Más acciones">⋯</button>';
     h += '</div>';
+    return h + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v23] ARMAR LA SEMANA — dentro de Mi semana, no en otra pestaña
+//
+// "Armar semana" era una pantalla aparte con ~40 controles: enfoque, tres botones
+// de generar distintos, días de asistencia, la cola, las descartadas, las
+// obligatorias, 21 deslizadores de ponderación, siete filtros y una vista previa en
+// una columna lateral. El usuario lo describió como "muy cluster", y el problema de
+// fondo era peor que la densidad: para ver el resultado había que cambiar de
+// pantalla, así que la propuesta y el plan nunca se miraban juntos.
+//
+// Ahora es una tarjeta plegable ENCIMA del tablero, en la misma pantalla. Se abre,
+// se mueven cuatro cosas, se ve la propuesta, se genera — y el tablero de abajo ya
+// es el resultado. La tarjeta se cierra sola al generar.
+//
+// Lo que se fue y a dónde:
+//  · Los 21 deslizadores de ranking → Reglas, donde ya vivían las de ratio. Una
+//    perilla que cambia el orden de TODAS las semanas futuras no va en la pantalla
+//    que se abre a diario. `tpBuildPriorityKnobsHTML` ya estaba montado allí.
+//  · "⚡ Smart" era `opts.checkInventory` y nada más: ahora es una casilla.
+//  · "📅 Generar Mes" escribía CUATRO propuestas de un clic sin preguntar — el
+//    segundo sospechoso de "planes que yo no hice". Queda detrás de un diálogo que
+//    dice exactamente qué va a crear.
+//
+// La vista previa sigue siendo `tpRenderPlannerPreview` SIN TOCAR: escribe solo en
+// `#tp-planner-preview`, se protege con `if (!host) return` y termina en
+// `cascadeInjectTooltipsDeferred`. Pintar la propuesta como un SEGUNDO tablero de
+// cinco columnas al lado del real es inusable en un teléfono, que es donde se opera.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** ¿Está abierta la tarjeta de armar? El colapso vive en uiPref('cards'), como todas. */
+function tpArmarAbierto() {
+    if (window._tpArmarForce) return true;
+    return (typeof uiCardOpen === 'function') ? uiCardOpen('tp-armar', false) : false;
+}
+
+/**
+ * Abrir el armador sobre una semana concreta. Es el punto de entrada desde HOY,
+ * desde el índice de semanas y desde el estado vacío del tablero.
+ */
+function tpOpenArmar(weekDate) {
+    window._tpArmarForce = true;
+    if (weekDate) { window._tpBoardWeek = weekDate; window._tpWeekDate = weekDate; }
+    if (typeof uiPref === 'function') {
+        var c = uiPref('cards') || {}; c['tp-armar'] = true; uiPref('cards', c);
+    }
+    if (typeof switchPlatform === 'function' && document.getElementById('platform-testplan') &&
+        document.getElementById('platform-testplan').style.display === 'none') {
+        switchPlatform('testplan');
+    }
+    if (tpState.activeTab !== 'tp-myweek') { tpSwitchTab('tp-myweek'); }
+    else { tpBoardInvalidate(); _tpBoardRepaint(); }
+    setTimeout(function() {
+        window._tpArmarForce = false;
+        var c = document.querySelector('.ui-card[data-armar]');
+        if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' });
+    }, 300);
+}
+
+/** El día de asistencia se guarda en la semana, no en una global que se pierde al recargar. */
+function tpSetWorkDay(weekDate, dia, on) {
+    if (!weekDate) return;
+    var av = _tpEnsureWeekAv(weekDate);
+    if (!av.workDays) av.workDays = Object.assign({}, tpWorkDaysFor(null));
+    av.workDays[dia] = !!on;
+    window._tpWorkDays = av.workDays;
+    tpInvalidateCache(); tpBoardInvalidate();
+    tpSave();
+    _tpBoardRepaint();
+}
+
+function tpSetPlannerInventory(on) {
+    tpPlannerCfg().checkInventory = !!on;
+    tpSave();
+    _tpDebouncedPreview();
+}
+
+/** El builder de la tarjeta. PURO respecto al DOM: devuelve HTML. */
+function tpBuildArmarCardHTML(b) {
+    var weekDate = (b && b.weekDate) || tpBoardWeekDate();
+    var workDays = (b && b.workDays) || tpWorkDaysFor(null);
+    window._tpWorkDays = workDays;
+    window._tpWeekDate = weekDate;
+
+    var cap = tpWeeklyCapacityFor(weekDate, workDays);
+    var pCfg = tpPlannerCfg();
+    var manualPicks = window._tpWeeklyManualPicks || [];
+    var backlog = (typeof tpBacklog === 'function') ? tpBacklog() : [];
+    var room = Math.max(0, cap.cap - manualPicks.length);
+
+    var body = '';
+    body += '<p class="tp-armar-lead">Decide <strong>qué semana</strong>, <strong>cuántas pruebas</strong> y ' +
+            '<strong>hacia dónde</strong>. Abajo ves en vivo lo que se propondría; al generar, el tablero de esta ' +
+            'pantalla ya es el resultado.</p>';
+
+    // ── 1) Las cuatro decisiones de la semana ──
+    body += '<div class="tp-armar-row">';
+    body += '<label class="tp-armar-field"><span>Semana del</span>' +
+            '<input type="date" id="tp-weekly-date" class="tp-select" value="' + (weekDate || '') + '" ' +
+            'onchange="window._tpWeekDate=this.value;window._tpBoardWeek=this.value;tpBoardInvalidate();_tpBoardRepaint();"></label>';
+    body += '<label class="tp-armar-field"><span>Pruebas</span>' +
+            '<input type="number" id="tp-weekly-cap" class="tp-select" min="1" max="' + cap.max + '" value="' + cap.cap + '" ' +
+            'onchange="tpSetWeeklyCapacity(this.value);_tpBoardRepaint();">' +
+            '<small>caben hasta ' + cap.max + '</small></label>';
+    body += '<label class="tp-armar-field"><span>Veh. por par</span>' +
+            '<input type="number" id="tp-veh-per-slot" class="tp-select" min="1" max="10" value="' + cap.perSlot + '" ' +
+            'onchange="tpSetVehiclesPerSlot(this.value);_tpBoardRepaint();"></label>';
+    body += '</div>';
+
+    body += tpBuildFocusChipsHTML();
+
+    // ── 2) Días de asistencia ──
+    var etiquetas = { dom:'Domingo', lun:'Lunes', mar:'Martes', mie:'Miércoles', jue:'Jueves', vie:'Viernes', sab:'Sábado' };
+    body += '<details class="tp-workdays"' + (window._tpWorkDaysOpen ? ' open' : '') + ' ontoggle="window._tpWorkDaysOpen=this.open;">' +
+            '<summary>🗓 Días de asistencia · <strong>' + cap.slots + ' par(es)</strong> · reposo ' + cap.soakHours + ' h</summary>' +
+            '<p class="tp-armar-hint">El hueco entre preacondicionar y probar sale de las horas de reposo reales ' +
+            '(' + cap.soakHours + ' h → ' + cap.gapDays + ' día(s)), no de un supuesto fijo.' +
+            (cap.spill && cap.spill.length ? ' Preacondicionar en ' + cap.spill.map(function(d){return TP_DAY_LABELS[d];}).join(' o ') +
+              ' deja la prueba para la semana siguiente.' : '') + '</p>' +
+            '<div class="tp-armar-days">';
+    TP_DAY_ORDER.forEach(function(d) {
+        body += '<label class="tp-armar-day u-hit' + (workDays[d] ? ' tp-armar-day--on' : '') + '">' +
+                '<input type="checkbox" ' + (workDays[d] ? 'checked' : '') +
+                ' onchange="tpSetWorkDay(\'' + weekDate + '\',\'' + d + '\',this.checked)"> ' + etiquetas[d] + '</label>';
+    });
+    body += '</div></details>';
+
+    // ── 3) Obligatorias y cola ──
+    var subBody = '';
+    if (backlog.length) {
+        subBody += '<div class="tp-armar-sub"><div class="tp-armar-subhead">🔄 Vienen de semanas anteriores (' + backlog.length + ')' +
+                   '<button class="tp-btn tp-btn-ghost" onclick="tpLoadCarryoverPicks();_tpBoardRepaint();"' +
+                   (room === 0 ? ' disabled' : '') + '>Incluir las que quepan (' + room + ')</button></div>';
+        subBody += '<div class="tp-armar-chips">';
+        backlog.slice(0, 6).forEach(function(bk) {
+            var esc = String(bk.desc).replace(/'/g, "\\'");
+            var puesta = manualPicks.indexOf(bk.desc) !== -1;
+            subBody += '<button class="tp-armar-chip' + (puesta ? ' tp-armar-chip--on' : '') + '" ' +
+                       'onclick="tpPinPreviewItem(\'' + esc + '\')" title="' + bk.weeksCarried + ' semana(s) en la cola">' +
+                       '🔄 ' + tpConfigShortName(bk.cfg || { desc: bk.desc }) + '</button>';
+        });
+        if (backlog.length > 6) subBody += '<span class="tp-armar-more">y ' + (backlog.length - 6) + ' más</span>';
+        subBody += '</div></div>';
+    }
+    subBody += '<div class="tp-armar-sub"><div class="tp-armar-subhead">📌 Fijar una prueba</div>' +
+               '<div class="tp-armar-row">' +
+               '<input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" ' +
+               'oninput="tpFilterPickOptions(this.value)">' +
+               '<select id="tp-manual-pick-select" class="tp-select"><option value="">Seleccionar…</option>' +
+               tpBuildPickOptgroupsHTML((tpState.planData || []).map(function(c) { return c.desc; }).sort()) +
+               '</select>' +
+               '<button class="tp-btn tp-btn-primary" onclick="tpAddManualPick();_tpBoardRepaint();">+</button>' +
+               '</div></div>';
+
+    body += (typeof uiCard === 'function')
+        ? uiCard({ id: 'tp-armar-picks', icon: '📌', title: 'Obligatorias y cola', accent: 'testplan',
+                   defaultOpen: false, body: subBody,
+                   count: { label: manualPicks.length ? manualPicks.length + ' fijada(s)' : (backlog.length + ' en cola'),
+                            tone: manualPicks.length ? 'ok' : 'neutral' } })
+        : '<div class="tp-card">' + subBody + '</div>';
+
+    body += tpBuildCarryoverPanelHTML();
+    body += tpBuildWeekFilterHTML();
+
+    // ── 4) La propuesta en vivo ──
+    body += '<div class="tp-armar-preview"><div class="tp-armar-subhead" data-help="tp-preview-help">🔮 Lo que se generaría ahora</div>' +
+            '<div id="tp-planner-preview"></div></div>';
+
+    // ── 5) Generar: UN botón ──
+    body += '<div class="tp-armar-actions">' +
+            '<label class="tp-armar-check u-hit"><input type="checkbox" ' + (pCfg.checkInventory !== false ? 'checked' : '') +
+            ' onchange="tpSetPlannerInventory(this.checked)"> Revisar inventario</label>' +
+            '<span class="tp-armar-spacer"></span>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-rules\')" title="Ponderación, peso por región y empuje por antigüedad">⚙️ Cómo se elige</button>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="tpGenerateMonthlyConfirm()">📅 Generar mes…</button>' +
+            '<button class="tp-btn tp-btn-primary tp-armar-go" onclick="tpGenerarSemana()">🚀 Generar</button>' +
+            '</div>';
+
+    var chip = { label: cap.cap + ' pruebas', tone: 'neutral' };
+    return (typeof uiCard === 'function')
+        ? uiCard({ id: 'tp-armar', icon: '🎛️', title: 'Armar la semana', accent: 'testplan',
+                   help: 'tp-armar-help', body: body, defaultOpen: false,
+                   open: window._tpArmarForce ? true : undefined, count: chip })
+        : '<div class="tp-card"><div class="tp-card-title"><span>🎛️ Armar la semana</span></div>' + body + '</div>';
+}
+
+/** Generar: un solo camino. La casilla de inventario es lo que distinguía a "Smart". */
+function tpGenerarSemana() {
+    if (!tpState.planData || tpState.planData.length === 0) { showToast('Importa el plan de producción primero', 'warning'); return; }
+    var antes = (tpState.weeklyPlans || []).length;
+    var weekDate = window._tpWeekDate || tpBoardWeekDate();
+    var workDays = window._tpWorkDays || tpWorkDaysFor(null);
+    var pCfg = tpPlannerCfg();
+    var R = tpSelectWeeklyItems(tpPlannerOpts({
+        workDays: workDays, weekDate: weekDate, checkInventory: pCfg.checkInventory !== false
+    }));
+    if (!R.items.length) { showToast('No hay configuraciones pendientes que quepan con estos ajustes.', 'info'); return; }
+
+    var scheduled = tpAssignSchedule(R.items, workDays);
+    tpState.weeklyPlans.push({
+        id: Date.now(), created: new Date().toISOString(), weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)), capacity: R.capacity,
+        items: scheduled, accepted: false,
+        skippedInventory: R.skippedInv || []
+    });
+    window._tpWeeklyManualPicks = [];
+    window._tpWeekExclude = [];
+    tpInvalidateCache(); tpBoardInvalidate(); tpWeekPlanInvalidate();
+    tpSave(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+
+    // La tarjeta se cierra: el resultado es el tablero de abajo, no el formulario.
+    if (typeof uiPref === 'function') { var c = uiPref('cards') || {}; c['tp-armar'] = false; uiPref('cards', c); }
+    window._tpBoardWeek = weekDate;
+    _tpBoardRepaint();
+
+    var msg = scheduled.length + ' prueba(s) propuestas para la semana del ' + weekDate + ' — revísalas y acéptalas.';
+    if (R.overflowManual && R.overflowManual.length) msg += ' ' + R.overflowManual.length + ' fijada(s) no cupieron.';
+    if (R.skippedInv && R.skippedInv.length) msg += ' ' + R.skippedInv.length + ' omitida(s) por inventario bajo.';
+    showToast(msg, 'success');
+    if ((tpState.weeklyPlans || []).length === antes) return;
+    if (typeof invGetPlanImpactWarning === 'function') {
+        var w = invGetPlanImpactWarning(scheduled);
+        if (w) setTimeout(function() { showToast('⚠️ ' + w, 'warning'); }, 1500);
+    }
+}
+
+/**
+ * "Generar mes" escribía CUATRO propuestas de un clic, sin preguntar nada. Es el
+ * segundo sospechoso más probable de "se guardaron un montón de planes que yo no
+ * hice". Ahora dice exactamente qué va a crear antes de crearlo.
+ */
+function tpGenerateMonthlyConfirm() {
+    var base = window._tpWeekDate || tpBoardWeekDate();
+    var fin = new Date(base + 'T12:00:00');
+    if (!isNaN(fin.getTime())) fin.setDate(fin.getDate() + 21);
+    var finStr = isNaN(fin.getTime()) ? '?' : _tpFmtDate(fin);
+    showConfirmDialog({
+        title: '📅 Generar el mes',
+        message: 'Se crearán CUATRO propuestas, una por semana, del ' + base + ' al ' + finStr + '.\n\n' +
+                 'Ninguna queda aceptada: hay que revisarlas una por una.\n\n' +
+                 'Usa las MISMAS reglas que "Generar" de una semana (cuota de la cola, filtros, ' +
+                 'inventario) y el déficit va bajando de una semana a la siguiente. Las semanas ' +
+                 'marcadas como no disponibles se saltan.',
+        type: 'warning', confirmText: 'Crear las 4 propuestas', cancelText: 'Cancelar'
+    }).then(function(ok) {
+        if (ok) { tpGenerateMonthly(base); _tpBoardRepaint(); }
+    });
+}
+
+/**
+ * [v23] Las columnas por día, extraídas para que HOY pinte la semana con EL MISMO
+ * marcado que Mi semana. Antes vivían dentro de `tpRenderMyWeek`; duplicarlas en
+ * HOY habría dado dos definiciones de "cómo se ve un día" que se desincronizarían
+ * a la primera ronda.
+ *
+ * @param {object} b     lo que devuelve `tpWeekBoardRows`
+ * @param {object} opts  `readOnly` (sin ＋, sin arrastre, sin acciones de tarjeta)
+ *                       `extraByDay` {dia: [htmlDeTarjeta]} — actividades que NO son
+ *                       pruebas (proyectos, calibraciones). Solo las pasa HOY: la
+ *                       pantalla del Plan muestra pruebas y nada más.
+ *                       `boardId` id del contenedor (default 'tp-myweek-board')
+ */
+function tpBuildDayColumnsHTML(b, opts) {
+    opts = opts || {};
+    var extra = opts.extraByDay || {};
+    var h = '<div class="tp-week-board' + (opts.readOnly ? ' tp-week-board--ro' : '') +
+            '" id="' + (opts.boardId || 'tp-myweek-board') + '">';
+    b.days.forEach(function(d) {
+        var cls = 'tp-week-col' + (d.isToday ? ' tp-week-col--today' : '') + (d.isPast && !d.isToday ? ' tp-week-col--past' : '');
+        var sueltas = extra[d.key] || [];
+        h += '<section class="' + cls + '" data-day="' + d.key + '">';
+        h += '<header class="tp-week-col-head">' +
+             '<span class="tp-week-col-day">' + d.label + (d.isToday ? ' · hoy' : '') + '</span>' +
+             (d.dayNum ? '<span class="tp-week-col-date">' + d.dayNum + '</span>' : '<span></span>') +
+             (opts.readOnly ? '<span></span>'
+                : '<button class="tp-week-coladd" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')" ' +
+                  'title="Agregar una prueba el ' + d.label + '" aria-label="Agregar una prueba el ' + d.label + '">＋</button>') +
+             '<span class="tp-week-col-load' + (d.rows.length > d.perSlot ? ' tp-week-col-load--over' : '') + '">' +
+               d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
+               (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
+               (sueltas.length ? ' · ' + sueltas.length + ' pendiente' + (sueltas.length === 1 ? '' : 's') : '') +
+             '</span></header>';
+        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
+        if (!d.rows.length && !sueltas.length) {
+            h += opts.readOnly
+                ? '<div class="tp-week-col-empty">Sin pendientes</div>'
+                : '<button class="tp-week-col-empty tp-week-col-empty--add" onclick="tpWeekAddMenu(\'' + b.planId + '\',\'' + d.key + '\')">＋ agregar</button>';
+        } else {
+            d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays, opts); });
+            sueltas.forEach(function(x) { h += x; });
+        }
+        h += '</div></section>';
+    });
     return h + '</div>';
 }
 
@@ -3974,21 +4809,48 @@ function tpRenderMyWeek(el) {
     if (b.plan) {
         h += b.accepted
             ? '<span class="tp-week-tag tp-week-tag--ok">✔ Aceptado</span>' +
-              '<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(' + b.planIdx + ')">↩️ Desaceptar</button>'
+              '<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(\'' + b.planId + '\')">↩️ Desaceptar</button>'
             : '<span class="tp-week-tag">Propuesta</span>' +
-              '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(' + b.planIdx + ')">✔ Aceptar</button>';
+              '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
     }
-    h += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-weekly\')">🎛️ Armar semana</button>' +
+    h += '<button class="tp-btn tp-btn-ghost" onclick="tpOpenArmar()">🎛️ Armar semana</button>' +
          '</div></div>';
 
+    // v23: el armador vive AQUÍ, encima del tablero. Se abre, se mueven cuatro cosas,
+    // se ve la propuesta, y al generar el tablero de abajo ya es el resultado.
+    h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+
     if (!b.plan) {
+        // v23: si esa semana SÍ tuvo pruebas, decirlo. Una semana sin plan pero con
+        // trabajo hecho no es una semana vacía, y hasta ahora se veía igual que una.
+        var _hechasSinPlan = 0;
+        try {
+            if (b.weekDate) {
+                var _f = new Date(b.weekDate + 'T00:00:00'); _f.setDate(_f.getDate() + 6);
+                var _fin = _tpFmtDate(_f);
+                _hechasSinPlan = (tpState.testedList || []).filter(function(t) {
+                    return t && !tpTestedIsDeclared(t) && t.date >= b.weekDate && t.date <= _fin;
+                }).length;
+            }
+        } catch (e) {}
         h += '<div class="tp-week-empty tp-card">' +
              '<div class="tp-week-empty-icon">📅</div>' +
              '<div><strong>No hay plan para esta semana.</strong></div>' +
+             (_hechasSinPlan
+                ? '<p><strong>' + _hechasSinPlan + ' prueba(s) se corrieron igual</strong> y cuentan en la cobertura. ' +
+                  'No se inventa un plan al liberar: si quieres registrarlas aquí, arma la semana y vincúlalas.</p>'
+                : '') +
              '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro.</p>' +
-             '<button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\')">🎛️ Armar esta semana</button>' +
-             '</div></div>';
+             '<button class="tp-btn tp-btn-primary" onclick="tpOpenArmar()">🎛️ Armar esta semana</button>' +
+             '</div>';
+        // Sin plan, el armador se muestra abierto: es lo único que hay que hacer aquí.
+        h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+        h += tpBuildWeekIndexHTML() + '</div>';
         el.innerHTML = h;
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() { if (typeof tpRenderPlannerPreview === 'function') tpRenderPlannerPreview(); });
+        });
+        if (typeof a11yClickables === 'function') a11yClickables(el);
         if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
         return;
     }
@@ -4000,7 +4862,9 @@ function tpRenderMyWeek(el) {
                '<div class="tp-week-kpi-n">' + v + '</div><div class="tp-week-kpi-l">' + lbl + '</div></div>';
     }
     h += '<div class="tp-week-kpis" data-help="tp_week_kpis">' +
-         kpi(k.planeadas, 'planeadas', '') +
+         kpi(k.planeadas, 'planeadas', '', 'Lo que la semana se comprometió a correr') +
+         (k.noPlaneadas ? kpi(k.noPlaneadas, 'no planeadas', 'tp-week-kpi--unplanned',
+             'Pruebas liberadas en Cascade que no tenían fila en el plan: entraron solas y ya cuentan como hechas') : '') +
          kpi(k.hechas, 'hechas', k.hechas ? 'tp-week-kpi--ok' : '',
              k.declaradas ? k.declaradas + ' declarada(s) a mano, sin vehículo liberado' : 'Con evidencia registrada') +
          kpi(k.encurso, 'en curso', k.encurso ? 'tp-week-kpi--live' : '') +
@@ -4013,27 +4877,7 @@ function tpRenderMyWeek(el) {
     }
 
     // ── El tablero ──
-    h += '<div class="tp-week-board" id="tp-myweek-board">';
-    b.days.forEach(function(d) {
-        var cls = 'tp-week-col' + (d.isToday ? ' tp-week-col--today' : '') + (d.isPast && !d.isToday ? ' tp-week-col--past' : '');
-        h += '<section class="' + cls + '" data-day="' + d.key + '">';
-        h += '<header class="tp-week-col-head">' +
-             '<span class="tp-week-col-day">' + d.label + (d.isToday ? ' · hoy' : '') + '</span>' +
-             (d.dayNum ? '<span class="tp-week-col-date">' + d.dayNum + '</span>' : '<span></span>') +
-             '<button class="tp-week-coladd" onclick="tpWeekAddMenu(' + b.planIdx + ',\'' + d.key + '\')" ' +
-               'title="Agregar una prueba el ' + d.label + '" aria-label="Agregar una prueba el ' + d.label + '">＋</button>' +
-             '<span class="tp-week-col-load' + (d.rows.length > d.perSlot ? ' tp-week-col-load--over' : '') + '">' +
-               d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
-               (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
-             '</span></header>';
-        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
-        if (!d.rows.length) {
-            h += '<button class="tp-week-col-empty tp-week-col-empty--add" onclick="tpWeekAddMenu(' + b.planIdx + ',\'' + d.key + '\')">＋ agregar</button>';
-        }
-        else d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays); });
-        h += '</div></section>';
-    });
-    h += '</div>';
+    h += tpBuildDayColumnsHTML(b);
 
     // ── Lo que no cupo: se DECLARA, nunca se esconde (principio del CoP) ──
     if (b.unscheduled.length) {
@@ -4044,11 +4888,20 @@ function tpRenderMyWeek(el) {
         h += '</div></div>';
     }
 
+    // v23: el índice de semanas vivía en la pestaña que se eliminó. Va al pie: es
+    // consulta e higiene (limpiar propuestas), no operación diaria.
+    h += tpBuildWeekIndexHTML();
+
     h += '</div>';
     el.innerHTML = h;
     // Arrastre + teclado. Se vuelve a montar en cada pintado porque el DOM es nuevo;
     // gridDragInit desmonta los listeners anteriores por su cuenta (ns 'tp-week').
     tpWeekBoardDragInit(el);
+    // La propuesta se pinta con doble RAF: tpRenderMyWeek corre dentro del
+    // requestAnimationFrame de tabCacheSwitch y el nodo aún no está en pantalla.
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() { if (typeof tpRenderPlannerPreview === 'function') tpRenderPlannerPreview(); });
+    });
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof a11yClickables === 'function') a11yClickables(el);
 }
@@ -4076,15 +4929,17 @@ function tpRenderMyWeek(el) {
  */
 function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
     opts = opts || {};
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan) return { ok: false, reason: 'No se encontró esa semana.' };
+    var _n = _tpIdx(weekIdx);
+    if (!_n) return { ok: false, reason: 'No se encontró esa semana (el plan cambió).' };
+    weekIdx = _n.weekIdx;
+    var plan = _n.plan;
     var cfg = (tpState.planData || []).find(function(c) { return c.desc === desc; });
     if (!cfg) return { ok: false, reason: 'Esa configuración no está en el plan de producción.' };
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Agregar prueba al plan');
     if (!Array.isArray(plan.items)) plan.items = [];
 
-    var item = _tpMakeItem(cfg, (tpState.testedList || []).slice(), { manual: true });
+    var item = _tpMakeItem(cfg, (tpState.testedList || []).slice(), { manual: true, purpose: opts.purpose });
     var soak = tpSoakHoursFor(cfg);
     item.soakHours = soak.hours; item.soakSource = soak.source;
 
@@ -4128,9 +4983,11 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
  * hay, la agrega sin día y lo DECLARA en vez de inventarse un hueco.
  */
 function tpDuplicateItem(weekIdx, itemIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
     var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
@@ -4154,8 +5011,11 @@ function tpDuplicateItem(weekIdx, itemIdx) {
 
 /** El selector para agregar al tablero. Reusa los optgroups por familia y el buscador. */
 function tpWeekAddMenu(weekIdx, day) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan) { showToast('Primero arma la semana.', 'info'); return; }
+    var _n = _tpIdx(weekIdx);
+    if (!_n) { showToast('Primero arma la semana.', 'info'); return; }
+    weekIdx = _n.weekIdx;
+    var plan = _n.plan;
+    var _pid = tpPlanId(plan);
     var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
     // Se sugiere lo que más falta hace y NO está ya en la semana; pero abajo el
     // desplegable ofrece TODO, incluido lo repetido, que es justo lo que faltaba.
@@ -4172,7 +5032,7 @@ function tpWeekAddMenu(weekIdx, day) {
     if (sug.length) {
         body += '<div class="tp-week-addsug"><strong>Las que más falta hacen</strong>';
         sug.forEach(function(a) {
-            body += '<button class="tp-week-movebtn" onclick="tpWeekDoAdd(' + weekIdx + ',\'' + _tpQ(a.desc) + '\',' + (day ? "'" + day + "'" : 'null') + ')">' +
+            body += '<button class="tp-week-movebtn" onclick="tpWeekDoAdd(\'' + _pid + '\',\'' + _tpQ(a.desc) + '\',' + (day ? "'" + day + "'" : 'null') + ')">' +
                     '<span class="tp-week-movebtn-day">' + tpConfigShortName(a) + '</span>' +
                     '<span class="tp-week-movebtn-sub">' + (tpConfigVariantTag(a) || '') + ' · faltan ' + a.deficit + ' de ' + a.required + '</span></button>';
         });
@@ -4182,7 +5042,13 @@ function tpWeekAddMenu(weekIdx, day) {
     body += '<div class="tp-week-addpick">' +
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
-        '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(' + weekIdx + ',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
+        '<label class="tp-armar-field" style="margin-top: var(--space-sm);"><span>Tipo de actividad</span>' +
+        '<select id="tp-week-add-purpose" class="tp-select">' +
+        TP_PURPOSES_VALID.map(function(pp) {
+            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' + pp + '</option>';
+        }).join('') +
+        '</select></label>' +
+        '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
         '</div></div>';
 
     showModal({ title: '➕ Agregar prueba a la semana', type: 'info', body: body, buttons: [{ label: 'Cerrar', cls: '' }] });
@@ -4195,8 +5061,10 @@ function tpWeekDoAdd(weekIdx, desc, day) {
         desc = sel && sel.value;
         if (!desc) { showToast('Elige una configuración de la lista.', 'info'); return; }
     }
+    var _pp = document.getElementById('tp-week-add-purpose');
+    var purpose = (_pp && TP_PURPOSES_VALID.indexOf(_pp.value) !== -1) ? _pp.value : null;
     var m = document.getElementById('globalModal'); if (m) m.remove();
-    var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero' });
+    var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero', purpose: purpose });
     if (!r.ok) { showToast(r.reason, 'error'); return; }
     showToast('Agregada' + (r.unscheduled ? ' sin día libre — quedó declarada sin horario'
                                           : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')),
@@ -4225,23 +5093,82 @@ function tpWeekBoardDragInit(host) {
         cellAttr: 'data-drag-cell',
         selectedClass: 'tp-week-grip--sel',
         ghostWidth: 44,
+        // [v23] Dos cosas que faltaban para poder operar el tablero con el pulgar:
+        //
+        //  · `tapToMove`: un TOQUE en el asa selecciona y un toque en un día mueve —
+        //    la misma máquina de estados del teclado (v17.8), que ya existía y solo se
+        //    alcanzaba con Enter. En un teléfono de 427 px el tablero se apila en una
+        //    columna por día; el arrastre hace `preventDefault` en `touchmove` (la
+        //    página no puede desplazarse mientras arrastras) y el destino se resuelve
+        //    con `elementFromPoint`, que solo ve lo que está en pantalla. Mover del
+        //    lunes al viernes con el dedo era imposible. Es la pantalla desde la que
+        //    se reportó el #126.
+        //  · `autoScroll`: para el arrastre de verdad, desplazar al llegar al borde.
+        //    Va detrás de una opción para NO tocar `invInitZoneDrag`, cuya rejilla no
+        //    se desplaza.
+        tapToMove: true,
+        autoScroll: true,
         label: function(id, el) { return (el && el.getAttribute('aria-label')) || 'La prueba'; },
         canDrop: function(id, from, to, el) {
             if (!to || to === from || to === '_sin') return false;
             if (el && el.getAttribute('data-drag-id')) return false;   // el destino es una columna, no otra asa
-            var p = String(id || '').split(':');
-            var plan = (tpState.weeklyPlans || [])[+p[0]];
-            var item = plan && plan.items ? plan.items[+p[1]] : null;
-            if (!item) return false;
+            // v23: 'planId::uid'. Se parte por '::' porque un planId lleva fechas con
+            // guiones y un Date.now(); partir por ':' rompería en cuanto cambie el formato.
+            var p = String(id || '').split('::');
+            var _n = _tpIdx(p[0], p[1]);
+            if (!_n) return false;
+            var plan = _n.plan, item = _n.item;
             var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
             var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
             // Sólo se pinta en verde y sólo se acepta lo que el reposo permite de verdad.
             return tpSlotsForSoak(horas, tpWorkDaysFor(plan)).some(function(sl) { return sl.test === to; });
         },
         onDrop: function(id, from, to) {
-            var p = String(id || '').split(':');
-            tpWeekDoMove(+p[0], +p[1], to, false);
+            var p = String(id || '').split('::');
+            tpWeekDoMove(p[0], p[1], to, false);
         }
+    });
+    _tpWireSelectionBar();
+}
+
+/**
+ * La barra de "estás moviendo algo".
+ *
+ * Se cablea UNA vez para toda la plataforma y NO repinta el tablero: repintar
+ * destruiría el elemento que el usuario acaba de tocar.
+ *
+ * Va `position: fixed` al pie de la ventana, FUERA del flujo, y colgada de <body>.
+ * La primera versión la insertaba antes del tablero y eso movía todo hacia abajo:
+ * el `click` que el navegador sintetiza después de un `touchend` llega a las mismas
+ * coordenadas de pantalla, que para entonces son de OTRO elemento — en la prueba a
+ * 427 px, tocar el asa terminaba abriendo el modal de "Agregar prueba". Una barra
+ * que aparece bajo el dedo no puede empujar lo que hay bajo el dedo. De paso, al
+ * pie es donde alcanza el pulgar.
+ */
+function _tpWireSelectionBar() {
+    if (window._tpSelBarWired) return;
+    window._tpSelBarWired = true;
+    document.addEventListener('grid:selection', function(e) {
+        var d = (e && e.detail) || {};
+        var bar = document.getElementById('tp-week-selbar');
+        var board = document.getElementById('tp-myweek-board');
+        if (d.ns !== 'tp-week' || !d.id) {
+            if (bar) bar.remove();
+            if (board) board.classList.remove('tp-week-board--picking');
+            return;
+        }
+        if (board) board.classList.add('tp-week-board--picking');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'tp-week-selbar';
+            bar.className = 'tp-week-selbar';
+            bar.setAttribute('role', 'status');
+            document.body.appendChild(bar);
+        }
+        bar.innerHTML = '<span class="tp-week-selbar-txt">Moviendo <strong>' +
+            String(d.label || 'la prueba').replace(/^Mover /, '').split('.')[0] +
+            '</strong> — toca el día donde va</span>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="gridKbdCancel()">Cancelar</button>';
     });
 }
 
@@ -4276,9 +5203,12 @@ function tpOpenVehicleFromPlan(vehicleId) {
  * imposibles salen deshabilitados CON EL MOTIVO ESCRITO, no simplemente ausentes.
  */
 function tpWeekMoveMenu(weekIdx, itemIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
+    var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     var workDays = tpWorkDaysFor(plan);
     var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
@@ -4301,7 +5231,7 @@ function tpWeekMoveMenu(weekIdx, itemIdx) {
         var lleno = s && ocupado >= perSlot;
         body += '<button class="tp-week-movebtn' + (actual ? ' tp-week-movebtn--now' : '') + (lleno ? ' tp-week-movebtn--full' : '') + '"' +
                 (motivo ? ' disabled title="' + motivo + '"' : '') +
-                (motivo ? '' : ' onclick="tpWeekDoMove(' + weekIdx + ',' + itemIdx + ',\'' + d + '\',' + (lleno ? 'true' : 'false') + ')"') + '>' +
+                (motivo ? '' : ' onclick="tpWeekDoMove(' + _ref + ',\'' + d + '\',' + (lleno ? 'true' : 'false') + ')"') + '>' +
                 '<span class="tp-week-movebtn-day">' + TP_DAY_LABELS[d] + '</span>' +
                 '<span class="tp-week-movebtn-sub">' +
                   (motivo ? motivo : 'preacon ' + TP_DAY_LABELS[s.precon] + ' · ' + ocupado + '/' + perSlot +
@@ -4347,23 +5277,31 @@ function tpWeekDoMove(weekIdx, itemIdx, day, lleno) {
 
 /** Acciones secundarias de la tarjeta. */
 function tpWeekCardMenu(weekIdx, itemIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
+    var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     var body = '<div class="tp-week-movebox">' +
         '<p class="tp-week-movehint">' + (item.desc || '') + '</p>' +
-        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpDuplicateItem(' + weekIdx + ',' + itemIdx + ')">' +
+        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpDuplicateItem(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">⧉ Otra unidad igual</span>' +
           '<span class="tp-week-movebtn-sub">Un SEGUNDO vehículo de esta misma configuración en la semana</span></button>' +
-        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpWeekMoveMenu(' + weekIdx + ',' + itemIdx + ')">' +
+        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpWeekMoveMenu(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">↪ Mover a otro día</span></button>' +
-        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpLinkVehicleMenu(' + weekIdx + ',' + itemIdx + ')">' +
+        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpLinkVehicleMenu(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">🔗 Vincular con una prueba</span>' +
           '<span class="tp-week-movebtn-sub">Las pruebas de la semana, por VIN</span></button>' +
-        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpOpenSubstituteModal(' + weekIdx + ',' + itemIdx + ')">' +
+        '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpOpenSubstituteModal(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">🔄 Sustituir</span>' +
           '<span class="tp-week-movebtn-sub">Misma familia, misma norma o misma región</span></button>' +
-        '<button class="tp-week-movebtn tp-week-movebtn--danger" onclick="document.getElementById(\'globalModal\').remove();tpRemoveWeeklyItem(' + weekIdx + ',' + itemIdx + ')">' +
+        (item.unplanned
+          ? '<button class="tp-week-movebtn tp-week-movebtn--danger" onclick="document.getElementById(\'globalModal\').remove();tpUnplanCreditedItem(' + _ref + ')">' +
+              '<span class="tp-week-movebtn-day">⚡ Quitar del plan (entró sola)</span>' +
+              '<span class="tp-week-movebtn-sub">Sale de la semana. La prueba sigue contando en la cobertura: la evidencia no se borra.</span></button>'
+          : '') +
+        '<button class="tp-week-movebtn tp-week-movebtn--danger" onclick="document.getElementById(\'globalModal\').remove();tpRemoveWeeklyItem(' + _ref + ')">' +
           '<span class="tp-week-movebtn-day">🗑 Quitar del plan</span></button>';
     if (Array.isArray(item.moves) && item.moves.length) {
         body += '<div class="tp-week-moves"><strong>Movimientos</strong>' +
@@ -4426,9 +5364,9 @@ function tpFilterPickOptions(q, selectId) {
 function tpBuildWeekIndexHTML() {
     var planes = (tpState.weeklyPlans || []).slice().reverse().slice(0, 8);
     if (!planes.length) return '';
-    var h = '<div class="tp-card"><div class="tp-card-title"><span>🗂 Semanas generadas</span>' +
-            '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-myweek\')" style="font-size: var(--fs-sm);">📅 Abrir Mi semana</button></div>' +
-            '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
+    // v23: el índice vive DENTRO de Mi semana, así que ya no lleva un botón para ir ahí.
+    var h = '<div class="tp-card"><div class="tp-card-title"><span>🗂 Semanas generadas</span></div>' +
+            '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Toca una para abrirla arriba en el tablero.</p>' +
             '<div class="tp-week-index">';
     // v20.10: cuántos planes hay por semana — "Generar" deja uno nuevo cada vez, así que
     // una semana puede acumular el aceptado + varias propuestas viejas. Se avisa y se
@@ -4440,7 +5378,7 @@ function tpBuildWeekIndexHTML() {
     });
 
     planes.forEach(function(w) {
-        var idx = tpState.weeklyPlans.indexOf(w);
+        var pid = tpPlanId(w);
         var items = w.items || [];
         var hechas = items.filter(function(i) { return i.completed; }).length;
         var pct = items.length ? Math.round(hechas / items.length * 100) : 0;
@@ -4456,7 +5394,7 @@ function tpBuildWeekIndexHTML() {
              (w.accepted ? '' :
                 '<button type="button" class="tp-week-index-del" title="Eliminar esta propuesta" ' +
                 'aria-label="Eliminar la propuesta del ' + (w.weekDate || '') + '" ' +
-                'onclick="event.stopPropagation();tpDeleteWeeklyPlan(' + idx + ')">🗑</button>') +
+                'onclick="event.stopPropagation();tpDeleteWeeklyPlan(\'' + pid + '\')">🗑</button>') +
              '</div>';
     });
     h += '</div>';
@@ -4464,8 +5402,13 @@ function tpBuildWeekIndexHTML() {
     var _dups = Object.keys(_porSemana).filter(function(k) { return _porSemana[k] > 1; });
     if (_dups.length) {
         h += '<p class="tp-week-index-note">⚠️ ' + _dups.length + ' semana(s) con más de un plan (cada "Generar" crea uno nuevo). ' +
-             'El tablero y el Gantt usan el aceptado — o la propuesta más reciente si no hay ninguno aceptado — ' +
-             'pero conviene borrar las propuestas que ya no sirven con 🗑.</p>';
+             'El tablero, HOY y el Gantt usan el <strong>plan vigente</strong>: el aceptado, o la propuesta más ' +
+             'reciente si no hay ninguno aceptado. Las de sobra se pueden quitar de un paso — las pruebas ya ' +
+             'realizadas siguen contando.</p>';
+        h += '<div class="tp-week-index-clean">' + _dups.map(function(wd) {
+            return '<button class="tp-btn tp-btn-ghost" onclick="tpClearProposalsFor(\'' + wd + '\')">' +
+                   '🧹 Limpiar ' + wd + ' (' + (_porSemana[wd] - 1) + ' de sobra)</button>';
+        }).join('') + '</div>';
     }
     if ((tpState.weeklyPlans || []).length > 8) {
         h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">Se muestran las 8 más recientes de ' +
@@ -4474,199 +5417,12 @@ function tpBuildWeekIndexHTML() {
     return h + '</div>';
 }
 
-/** Generar te lleva al tablero: generar no debe dejarte en el formulario. */
-function tpGenerateAndOpen() {
-    var antes = (tpState.weeklyPlans || []).length;
-    tpGenerateWeekly();
-    var nuevo = (tpState.weeklyPlans || [])[tpState.weeklyPlans.length - 1];
-    if ((tpState.weeklyPlans || []).length > antes && nuevo) {
-        window._tpBoardWeek = nuevo.weekDate || null;
-        tpBoardInvalidate();
-        tpSwitchTab('tp-myweek');
-    }
-}
-
-function tpRenderWeekly(el) {
-    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    const plans = tpState.weeklyPlans;
-    const manualPicks = window._tpWeeklyManualPicks || [];
-    const allConfigs = tpState.planData.map(c => c.desc).sort();
-
-    // Get top suggested configs (highest priority with deficit, excluding already picked)
-    const analysis = tpState.planData.length > 0 ? tpGetAnalysis() : [];
-    const pickedSet = new Set(manualPicks);
-    const suggested = analysis.filter(c => c.deficit > 0 && !pickedSet.has(c.desc)).slice(0, 3);
-    // Build the remaining list for the select (exclude suggested)
-    const suggestedSet = new Set(suggested.map(s => s.desc));
-    const restConfigs = allConfigs.filter(c => !suggestedSet.has(c));
-
-    // v16.4: el backlog ya no es "los pendientes del último plan aceptado" (una ventana de una
-    // semana, que además perdía el excedente) sino la cola real con antigüedad.
-    const backlog = tpBacklog();
-    const dismissedList = Object.keys(tpState.carryoverDismissed || {});
-    // Default week start to next Monday
-    const _defDate = new Date();
-    const _dow = _defDate.getDay();
-    const _nextMon = new Date(_defDate);
-    _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
-    const _defDateStr = localDateStr(_nextMon);
-    // Persisted working days or default (Mon-Fri)
-    const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
-    const _cap = tpWeekCapacity(_workDays);
-    const _room = Math.max(0, _cap.max - manualPicks.length);
-
-    el.innerHTML = `
-    ${tpBuildFocusChipsHTML()}
-    <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
-        <div class="tp-card-title"><span style="font-size:15px;">🎛️ Armar la semana</span></div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);">Decide CÓMO se elige; a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera — y te lleva directo al tablero de Mi semana.</p>
-
-        <div style="display:flex;gap: var(--space-sm);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-md);">
-            <div>
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Semana del</label>
-                <input type="date" id="tp-weekly-date" value="${window._tpWeekDate || _defDateStr}" class="tp-select" style="width:150px;font-size: var(--fs-sm);" onchange="window._tpWeekDate=this.value;">
-            </div>
-            <div>
-                <label for="tp-weekly-cap" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad</label>
-                <input type="number" id="tp-weekly-cap" value="${Math.min(window._tpWeekCap || _cap.max, _cap.max)}" min="1" max="${_cap.max}" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);tpRender();">
-            </div>
-            <div>
-                <label for="tp-veh-per-slot" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Veh. por par</label>
-                <input type="number" id="tp-veh-per-slot" value="${_cap.perSlot}" min="1" max="10" class="tp-select" style="width:65px;text-align:center;" onchange="tpSetVehiclesPerSlot(this.value);">
-            </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateAndOpen()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:var(--tp-amber);color:#000;font-weight:700;" title="Genera el plan y abre el tablero de Mi semana">🚀 Generar y abrir Mi semana</button>
-            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateMonthly()" style="font-size:12px;padding: var(--space-sm) var(--space-lg);background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;" title="Genera 4 semanas de una vez distribuyendo los déficits de mayor prioridad">📅 Generar Mes</button>
-        </div>
-
-        <details class="tp-workdays" ${window._tpWorkDaysOpen ? 'open' : ''} ontoggle="window._tpWorkDaysOpen=this.open;">
-            <summary>🗓 Días de asistencia · <strong>${_cap.slots} par(es)</strong> · máximo ${_cap.max} prueba(s) · reposo ${_cap.soakHours} h</summary>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:6px 0;">Selecciona los días que asistirás. El hueco entre preacondicionar y probar sale de las <strong>horas de reposo</strong> reales (${_cap.soakHours} h → ${_cap.gapDays} día(s)), no de un supuesto fijo.${_cap.spill && _cap.spill.length ? ' Con este reposo, preacondicionar en ' + _cap.spill.map(function(d){return TP_DAY_LABELS[d];}).join(' o ') + ' deja la prueba para la semana siguiente.' : ''}</p>
-            <div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">
-                ${['dom','lun','mar','mie','jue','vie','sab'].map((d,i) => {
-                    const labels = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
-                    const checked = _workDays[d] ? 'checked' : '';
-                    return `<label style="display:flex;align-items:center;gap: var(--space-2xs);font-size: var(--fs-sm);color:var(--tp-text);cursor:pointer;padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
-                        <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={dom:false,lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
-                        ${labels[i]}
-                    </label>`;
-                }).join('')}
-            </div>
-            <div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-schedule-preview">
-                ${tpBuildSchedulePreview(_workDays)}
-            </div>
-        </details>
-
-    </div>
-
-    <!-- [v20] La selección de configuraciones baja a la columna IZQUIERDA. Antes vivía
-         arriba, dentro del bloque de "Generar", y empujaba la propuesta en vivo hasta
-         y=1116 — fuera de pantalla en cualquier laptop. Ahora la propuesta arranca a la
-         altura de las perillas y, siendo sticky, ya no se pierde al bajar. -->
-    <div class="tp-planner-grid">
-        <div class="tp-planner-controls">
-        ${backlog.length > 0 ? `
-        <div style="padding: var(--space-sm) var(--space-md);background:rgba(139,92,246,0.05);border-radius: var(--radius-xl);border:1px solid rgba(139,92,246,0.3);margin-bottom: var(--space-md);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-2xs);flex-wrap:wrap;gap: var(--space-xs);">
-                <div style="font-size: var(--fs-sm);font-weight:700;color:#8b5cf6;" data-help="tpBacklog">🔄 Pendientes de semanas anteriores (${backlog.length})</div>
-                <div style="display:flex;gap: var(--space-xs);">
-                    <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size: var(--fs-sm);background:#8b5cf6;" ${_room === 0 ? 'disabled' : ''}>Incluir las que quepan (${_room})</button>
-                    ${typeof authCan === 'function' && authCan('plan.manage') ? '<button class="tp-btn tp-btn-ghost" onclick="tpClearCarryover()" style="font-size: var(--fs-sm);color:var(--tp-red);" title="Sacarlas de la cola sin tocar la cobertura">🧹 Limpiar</button>' : ''}
-                </div>
-            </div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:0 0 6px;">Caben <b>${_cap.max}</b> pruebas esta semana (${_cap.slots} par(es) × ${_cap.perSlot}). Lo que no entra se queda en la cola y sube de prioridad cada semana que pasa.</p>
-            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);">
-            ${backlog.slice(0, window._tpBacklogExpanded ? backlog.length : 8).map(b => {
-                const c = b.cfg;
-                const isAlreadyPicked = manualPicks.includes(b.desc);
-                const esc = b.desc.replace(/'/g,"\\'");
-                return `<div style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius: var(--radius-lg);flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
-                    <span style="font-size: var(--fs-xs);color:#8b5cf6;flex-shrink:0;" title="Semanas arrastrada">🔄 ${b.weeksCarried} sem</span>
-                    ${tpConfigBadges(c,{fontSize:'var(--fs-xs)'})}
-                    <span style="margin-left:auto;display:flex;gap: var(--space-xs);align-items:center;flex-shrink:0;">
-                    ${isAlreadyPicked ? '<span style="font-size: var(--fs-xs);color:var(--tp-green);">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${esc}'))window._tpWeeklyManualPicks.push('${esc}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:12px;" title="Agregar a esta semana">+</button>`}
-                    ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpDismissCarryover('${esc}')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size: var(--fs-sm);" title="Sacar de la cola (no cuenta como probada)">✕</button>` : ''}
-                    </span>
-                </div>`;
-            }).join('')}
-            </div>
-            ${backlog.length > 8 ? `<button class="tp-btn tp-btn-ghost" onclick="window._tpBacklogExpanded=${window._tpBacklogExpanded?'false':'true'};tpRender();" style="font-size: var(--fs-sm);margin-top: var(--space-xs);width:100%;">${window._tpBacklogExpanded ? 'Ver menos' : 'Ver las ' + backlog.length + ' →'}</button>` : ''}
-        </div>` : ''}
-        ${dismissedList.length > 0 ? `
-        <details style="margin-bottom: var(--space-md);">
-            <summary style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;padding:4px 0;">Descartadas (${dismissedList.length}) — siguen contando como déficit</summary>
-            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);margin-top: var(--space-xs);">
-            ${dismissedList.map(d => {
-                const info = tpState.carryoverDismissed[d] || {};
-                const esc = d.replace(/'/g,"\\'");
-                return `<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-lg);flex-wrap:wrap;">
-                    <span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${d}</span>
-                    <span style="font-size: var(--fs-xs);color:var(--tp-dim);">${info.by || '?'}${info.at ? ' · ' + new Date(info.at).toLocaleDateString('es-MX') : ''}</span>
-                    ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpRestoreCarryover('${esc}')" style="background:none;border:none;color:var(--tp-blue);cursor:pointer;font-size: var(--fs-sm);">restaurar</button>` : ''}
-                </div>`;
-            }).join('')}
-            </div>
-        </details>` : ''}
-        <div style="padding: var(--space-md);background:var(--tp-card);border-radius: var(--radius-xl);border:1px solid var(--tp-border);">
-            <div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);margin-bottom: var(--space-xs);">📌 Pruebas obligatorias</div>
-            ${suggested.length > 0 ? `
-            <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-xs);">⚡ Sugeridas (mayor prioridad):</div>
-            <div style="display:flex;flex-direction:column;gap: var(--space-2xs);margin-bottom: var(--space-sm);">
-                ${suggested.map(s => `
-                <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
-                    <span style="font-size: var(--fs-xs);flex-shrink:0;">⚡</span>
-                    ${tpConfigBadges(s,{fontSize:'var(--fs-xs)'})}
-                    <span style="font-size: var(--fs-xs);color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
-                    <span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">+</span>
-                </div>`).join('')}
-            </div>` : ''}
-            <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-bottom: var(--space-sm);">
-                <input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)"
-                       style="flex:1;min-width:150px;font-size: var(--fs-base);" oninput="tpFilterPickOptions(this.value)">
-                <select id="tp-manual-pick-select" class="tp-select" style="flex:2;min-width:200px;font-size: var(--fs-base);">
-                    <option value="">Seleccionar...</option>
-                    ${suggested.length > 0 ? `<optgroup label="⚡ Sugeridas">${suggested.map(s => `<option value="${s.desc}">${s.desc}</option>`).join('')}</optgroup>` : ''}
-                    ${tpBuildPickOptgroupsHTML(restConfigs)}
-                </select>
-                <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size: var(--fs-sm);">+</button>
-            </div>
-            ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap: var(--space-xs);">${manualPicks.map((p,i) => {
-                const _pc = tpState.planData.find(c => c.desc === p);
-                return `<div style="display:flex;align-items:center;gap: var(--space-xs);padding: var(--space-xs) var(--space-sm);background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius: var(--radius-lg);flex-wrap:wrap;">
-                    <span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">📌</span>
-                    ${_pc ? tpConfigBadges(_pc,{fontSize:'var(--fs-xs)'}) : '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
-                    <button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 2px;margin-left:auto;">×</button>
-                </div>`;
-            }).join('')}</div>` : '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
-        </div>
-
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedPreview()', openRegions: !!window._tpOpenRegions })}
-            ${tpBuildCarryoverPanelHTML()}
-            ${tpBuildWeekFilterHTML()}
-        </div>
-        <div class="tp-planner-side">
-            <div class="tp-card">
-                <div class="tp-card-title" data-help="tp-preview-help"><span>🔮 Propuesta en vivo</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Esto es exactamente lo que crearía "Generar" ahora mismo. Se actualiza al mover cualquier control.</p>
-                <div id="tp-planner-preview"></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-md);border-top:1px solid var(--tp-border);padding-top: var(--space-sm);">
-                    Nota: "📅 Mes" usa solo el déficit — no la cola ni estos filtros.</p>
-            </div>
-        </div>
-    </div>
-
-    ${tpBuildWeekIndexHTML()}`;
-
-    // v20.10: las filas del índice de semanas son <div onclick> (llevan el botón 🗑
-    // anidado), así que necesitan el rol y el teclado — mismo patrón que el tablero.
-    if (typeof a11yClickables === 'function') a11yClickables(el);
-
-    // Primer pintado de la propuesta: doble RAF porque tpRenderWeekly ya corre dentro
-    // del requestAnimationFrame de tabCacheSwitch — el nodo aún no está en pantalla.
-    requestAnimationFrame(function() {
-        requestAnimationFrame(function() { tpRenderPlannerPreview(); });
-    });
-}
+// [v23] `tpGenerateAndOpen` y `tpRenderWeekly` se ELIMINARON con la pestaña
+// "Armar semana". `tpRenderWeekly` era un solo `innerHTML` de ~140 líneas que hacía
+// cuatro trabajos —configurar, ponderar, previsualizar y listar semanas— en una
+// pantalla distinta de la que mostraba el resultado. Su contenido vive ahora en
+// `tpBuildArmarCardHTML`, dentro de Mi semana, reducido a cuatro decisiones; las
+// perillas de ranking se mudaron a Reglas y el índice de semanas al pie del tablero.
 
 function tpScoreBadge(item) {
     if (!item._scoreDetail) return '';
@@ -4681,7 +5437,7 @@ function tpScoreBadge(item) {
 // (hidden while the week is in edit mode or the item is already completed).
 function tpStartTestButton(weekIdx, itemIdx, item, isEdit) {
     if (isEdit || item.completed) return '';
-    return '<button onclick="tpStartTestFromPlan(' + weekIdx + ',' + itemIdx + ')" ' +
+    return '<button onclick="tpStartTestFromPlan(' + (typeof weekIdx === 'string' ? "'" + weekIdx + "'" : weekIdx) + ',' + (typeof itemIdx === 'string' ? "'" + itemIdx + "'" : itemIdx) + ')" ' +
         'class="tp-btn tp-btn-primary" ' +
         'style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);white-space:nowrap;" ' +
         'title="Abre Alta de COP15 con esta configuración precargada">' +
@@ -4691,16 +5447,24 @@ function tpStartTestButton(weekIdx, itemIdx, item, isEdit) {
 // Kick off a test for a planned configuration. Stores a preload payload
 // and jumps to COP15 → Alta, where cop15PreloadFromPlan() fills the form.
 function tpStartTestFromPlan(weekIdx, itemIdx) {
-    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    var item = tpState.weeklyPlans[weekIdx].items[itemIdx];
-    if (!item) return;
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var item = _n.item;
 
     window._pendingCop15Preload = {
         source: 'weekly-plan',
         weekIdx: weekIdx,
         itemIdx: itemIdx,
+        // v23: identidad estable del plan y del item. `weekIdx`/`itemIdx` viajan solo
+        // como respaldo — el vehículo puede tardar días en liberarse y para entonces
+        // los índices ya no significan lo mismo.
+        planId: tpPlanId(_n.plan),
+        itemUid: item.uid || null,
         configCode: item.desc || '',
-        purpose: tpPurposeForRegion(item.rgn), // default por región (COP solo Europa); el usuario puede cambiarlo
+        // v23: el propósito de la FILA manda; `tpPurposeForRegion` solo es el default
+        // con el que nació. Si alguien planeó un EO-OBD2, el alta no debe proponer COP.
+        purpose: item.purpose || tpPurposeForRegion(item.rgn),
         planItem: {
             desc: item.desc,
             mod: item.mod || '', my: item.my || '', eng: item.eng || '',
@@ -4763,19 +5527,35 @@ function _tpHasVerifiedInWeek(plan, desc) {
     });
 }
 
-/** Escribe la declaración. Idempotente por planId+itemIdx. */
+/**
+ * Escribe la declaración. Idempotente por planId + identidad del item.
+ *
+ * v23: se empata por `itemUid`, no por `itemIdx`. `itemIdx` es un índice dentro de
+ * `plan.items` y `tpRemoveWeeklyItem` hace `splice()`: al quitar una fila, TODAS las
+ * declaraciones posteriores quedaban apuntando en silencio a otro item. Con las filas
+ * auto-agregadas de Cascade (que se pueden quitar del plan) eso pasaría a diario.
+ * `itemIdx` se sigue escribiendo y leyendo como respaldo de las filas pre-v23.
+ */
 function _tpDeclareTested(plan, item, itemIdx) {
     if (!Array.isArray(tpState.testedList)) tpState.testedList = [];
     var pid = tpPlanId(plan);
+    var uid = item && item.uid;
     var ya = tpState.testedList.some(function(t) {
-        return t && t.planId === pid && t.itemIdx === itemIdx && tpTestedIsDeclared(t);
+        if (!t || t.planId !== pid || !tpTestedIsDeclared(t)) return false;
+        return uid ? (t.itemUid === uid || (!t.itemUid && t.itemIdx === itemIdx))
+                   : (t.itemIdx === itemIdx);
     });
     if (ya) return false;
     tpState.testedList.push({
+        itemUid: uid || null,
         configText: item.desc,
         date: (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10),
         note: TP_DECLARED_NOTE,
         source: 'plan-manual',
+        // [v23.1] La declaración hereda el propósito de la fila: palomear una prueba de
+        // OBD2 la marca como hecha (el compromiso de la semana se cumplió) pero no baja
+        // el déficit de emisiones. Sin este campo la declaración acreditaría por omisión.
+        purpose: (item && item.purpose) || null,
         verified: false,
         planId: pid,
         itemIdx: itemIdx,
@@ -4785,24 +5565,30 @@ function _tpDeclareTested(plan, item, itemIdx) {
 }
 
 /**
- * Retira la declaración. Empata por planId+itemIdx, NUNCA por `desc`: dos semanas
- * distintas comparten descripción y despalomear una borraría la otra.
+ * Retira la declaración. Empata por planId + identidad del item, NUNCA por `desc`:
+ * dos semanas distintas comparten descripción y despalomear una borraría la otra.
+ * v23: `itemUid` primero, `itemIdx` como respaldo para las filas pre-v23.
  */
-function _tpUndeclareTested(plan, itemIdx) {
+function _tpUndeclareTested(plan, itemIdx, item) {
     if (!Array.isArray(tpState.testedList)) return false;
     var pid = tpPlanId(plan);
+    var uid = item && item.uid;
     var antes = tpState.testedList.length;
     tpState.testedList = tpState.testedList.filter(function(t) {
-        return !(t && t.planId === pid && t.itemIdx === itemIdx && tpTestedIsDeclared(t));
+        if (!t || t.planId !== pid || !tpTestedIsDeclared(t)) return true;
+        var empata = uid ? (t.itemUid === uid || (!t.itemUid && t.itemIdx === itemIdx))
+                         : (t.itemIdx === itemIdx);
+        return !empata;
     });
     return tpState.testedList.length < antes;
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
-    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    const plan = tpState.weeklyPlans[weekIdx];
-    const item = plan.items[itemIdx];
-    if (!item) return;
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    const plan = _n.plan;
+    const item = _n.item;
     tpEnsurePlanIds();
     item.completed = !item.completed;
     item.completedDate = item.completed ? new Date().toISOString() : null;
@@ -4822,7 +5608,7 @@ function tpToggleWeeklyItem(weekIdx, itemIdx) {
                      'Semana del ' + (plan.weekDate || '—') + (item.declared ? ' · declarada a mano, sin vehículo liberado' : ''));
         }
     } else {
-        var quitada = _tpUndeclareTested(plan, itemIdx);
+        var quitada = _tpUndeclareTested(plan, itemIdx, item);
         delete item.declared;
         if (typeof auditLog === 'function') {
             auditLog('tp', 'week_item_unchecked', { type: 'plan', label: item.desc },
@@ -5178,13 +5964,17 @@ function tpMaterializeRecovery() {
     weeksWithItems.forEach(function(w) {
         var av = (tpState.weekAvailability || {})[w.monday] || {};
         var workDays = av.workDays || _TP_DEFAULT_WD;
-        var seen = {};
+        // [v23.1] La fila la construye `_tpMakeItem`, no una copia a mano de sus 20
+        // campos: era la tercera réplica del mismo objeto y se quedaba sin `purpose`
+        // ni `_scoreDetail`, así que una fila de recuperación no decía por qué estaba
+        // ahí y contaba como emisiones aunque el propósito de su región no lo fuera.
         var items = w.items.map(function(unit) {
             var cfg = tpState.planData.find(function(c) { return c.desc === unit.desc; }) || unit;
-            var n = tpState.testedList.filter(function(t) { return t.configText === unit.desc; }).length;
-            var rule = tpGetRule(cfg);
-            var req = tpCalcRequired(cfg, rule);
-            return { desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: unit.score, completed: false, completedDate: null, manual: false, carriedOver: false, recovery: true, tier: unit.tier };
+            var it = _tpMakeItem(cfg, tpState.testedList, {});
+            it.score = unit.score;
+            it.recovery = true;
+            it.tier = unit.tier;
+            return it;
         });
         var scheduled = tpAssignSchedule(items, workDays);
         tpState.weeklyPlans.push({
@@ -5200,8 +5990,8 @@ function tpMaterializeRecovery() {
         created++;
     });
     tpSave();
-    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas en Plan Semanal', 'success');
-    tpSwitchTab('tp-weekly');
+    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas — revísalas en Mi semana', 'success');
+    tpSwitchTab('tp-myweek');
 }
 
 // ── Render de la pestaña Recuperación ──
@@ -5357,14 +6147,20 @@ function tpRenderRecovery(el) {
 // lo que no cabe se REPORTA en vez de perderse.
 function _tpMakeItem(cfg, testedCopy, flags) {
     var rule = tpGetRule(cfg);
-    var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+    var n = tpTestedCountFor(cfg.desc, testedCopy);
     var req = tpCalcRequired(cfg, rule);
     var sc = tpPriorityScore(cfg, n);
     return {
+        uid: _tpItemUid(),
         desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
         tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg,
         tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: sc,
         completed: false, completedDate: null,
+        // [v23] El PROPÓSITO de la prueba: los mismos 8 de Cascade
+        // (TP_PURPOSES_VALID). Antes una fila del plan era implícitamente una prueba
+        // de emisiones y no había forma de planear OBD ni Nuevos Modelos. Opcional y
+        // retrocompatible: una fila sin `purpose` se comporta igual que antes.
+        purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn),
         manual: !!(flags && flags.manual), carriedOver: !!(flags && flags.carriedOver),
         _scoreDetail: tpBuildScoreDetail(cfg, n, req, sc)
     };
@@ -5374,10 +6170,20 @@ function tpSelectWeeklyItems(opts) {
     opts = opts || {};
     var workDays = opts.workDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
     var capReal = tpWeekCapacity(workDays);
-    // El tope duro es la capacidad física; el campo del formulario solo puede pedir MENOS.
-    var capacity = Math.max(1, Math.min(parseInt(opts.capacity, 10) || capReal.max, capReal.max));
+    // v23: el tope duro sigue siendo la capacidad física, pero el DEFAULT ya no es ese
+    // tope: es la capacidad práctica persistida (`tpWeeklyCapacityFor`). Un `opts.capacity`
+    // ausente o 0 significaba "el máximo" y por eso el auto-plan —que corría sin la
+    // pantalla montada— generaba 40 pruebas para una semana de 8 (issue #126).
+    var capPedida = parseInt(opts.capacity, 10);
+    if (isNaN(capPedida) || capPedida <= 0) capPedida = tpWeeklyCapacityFor(opts.weekDate || null, workDays).cap;
+    var capacity = Math.max(1, Math.min(capPedida, capReal.max));
     var manualPicks = opts.manualPicks || [];
-    var testedCopy = tpState.testedList.slice();
+    // [v23.1] `opts.testedSeed` es lo que abre esta función al HORIZONTE. Sin él, la
+    // semana siempre parte del `testedList` real; con él, parte de donde quedó la
+    // semana anterior de la simulación, y el déficit decae solo. Es lo que permite
+    // que el mes y el simulador dejen de llevar su propio lazo greedy.
+    var seeded = Array.isArray(opts.testedSeed);
+    var testedCopy = (seeded ? opts.testedSeed : tpState.testedList).slice();
     var items = [], used = new Set(), overflowManual = [], skippedInv = [], outOfFilter = [];
 
     var backlogDescs = new Set(tpBacklog().map(function(b) { return b.desc; }));
@@ -5388,7 +6194,18 @@ function tpSelectWeeklyItems(opts) {
     var excl = new Set(opts.exclude || []);
     var useFilter = !opts.ignoreFilters;
     var passes = function(cfg) { return !useFilter || tpPassesWeekFilter(cfg); };
+    // El análisis vigente de ESTA semana: el memoizado en el caso normal (la vista
+    // previa lo llama en cada tecla), o el recalculado sobre la semilla en horizonte.
+    var _ana = function() { return seeded ? _tpAnalyze(testedCopy) : tpGetAnalysis(); };
     var B = tpBacklogEligible();
+    if (seeded) {
+        // Una config de la cola cuyo déficit ya se cubrió en una semana anterior de la
+        // simulación deja de arrastrarse: si no, el mes la repetiría cuatro veces.
+        var _defNow = {};
+        _ana().forEach(function(a) { _defNow[a.desc] = a.deficit; });
+        B = { eligible: B.eligible.filter(function(b) { return (_defNow[b.desc] || 0) > 0; }),
+              expired: B.expired, filtered: B.filtered };
+    }
 
     // v20.1: `allowRepeat` sólo lo pasan las OBLIGATORIAS. El generador automático
     // (cola y déficit) sigue sin repetir por su cuenta: repetir gasta capacidad que el
@@ -5404,7 +6221,10 @@ function tpSelectWeeklyItems(opts) {
             if (!chk.ok) { skippedInv.push({ desc: cfg.desc, reason: chk.reason }); return false; }
         }
         items.push(_tpMakeItem(cfg, testedCopy, flags));
-        testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan' });
+        // [v23.1] El propósito viaja en la copia rodante: si la región tiene configurado
+        // un propósito que NO acredita, esta fila sintética tampoco debe bajar el déficit.
+        testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan',
+                          purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn) });
         used.add(cfg.desc);
         return true;
     }
@@ -5446,8 +6266,8 @@ function tpSelectWeeklyItems(opts) {
 
     // 3) Déficit fresco por puntaje — ahora SIEMPRE corre, porque el paso 2 no puede
     //    pasar de carryCap.
-    var pool = tpGetAnalysis().filter(function(c) { return c.deficit > 0 && passes(c); })
-                              .sort(function(a, b) { return b.score - a.score; });
+    var pool = _ana().filter(function(c) { return c.deficit > 0 && passes(c); })
+                     .sort(function(a, b) { return b.score - a.score; });
     for (var i = 0; i < pool.length && items.length < capacity; i++) {
         take(byDesc[pool[i].desc], {});
     }
@@ -5467,46 +6287,19 @@ function tpSelectWeeklyItems(opts) {
         outOfFilter: outOfFilter,
         expiredCount: B.expired.length, filteredCount: B.filtered.length,
         carryTaken: carryTaken, carryCap: carryCap,
-        freshTaken: items.length - carryTaken - manualTaken
+        freshTaken: items.length - carryTaken - manualTaken,
+        // [v23.1] La lista rodante DESPUÉS de esta semana — se pasa como `testedSeed`
+        // de la siguiente para encadenar un horizonte sin duplicar el lazo.
+        tested: testedCopy
     };
 }
 
-function tpGenerateWeekly() {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
-    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
-    const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
-    const R = tpSelectWeeklyItems({
-        capacity: parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || 0,
-        workDays: workDays,
-        manualPicks: window._tpWeeklyManualPicks || []
-    });
-
-    if (R.items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
-
-    // Assign precon/test schedule with randomization
-    const scheduled = tpAssignSchedule(R.items, workDays);
-
-    tpState.weeklyPlans.push({
-        id: Date.now(),
-        created: new Date().toISOString(),
-        weekDate: weekDate,
-        workDays: JSON.parse(JSON.stringify(workDays)),
-        capacity: R.capacity,
-        items: scheduled,
-        accepted: false
-    });
-    window._tpWeeklyManualPicks = [];
-    tpSave(); tpRender(); tpUpdateBadges();
-    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
-    if (R.overflowManual.length) {
-        showToast('⚠️ ' + R.overflowManual.length + ' obligatoria(s) no caben en la semana (tope ' + R.capacity + ') — siguen en la cola.', 'warning');
-    }
-}
-
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  SMART PLAN GENERATION — One-click with inventory validation        ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// [v23] Un solo generador: `tpGenerarSemana` (junto a la tarjeta de armar).
+// `tpGenerateWeekly` y `tpSmartGenerate` se conservan como ALIAS porque los llama
+// código de fuera del módulo (la paleta de comandos de app.js) y HTML ya pintado.
+// La diferencia entre ambos era `checkInventory` y nada más — ahora es una casilla.
+function tpGenerateWeekly() { return tpGenerarSemana(); }
+function tpSmartGenerate() { return tpGenerarSemana(); }
 
 function tpCheckInventoryForConfig(cfg) {
     if (typeof invState === 'undefined' || !invState.gases) return { ok: true, reason: '' };
@@ -5529,58 +6322,69 @@ function tpCheckInventoryForConfig(cfg) {
     return { ok: true, reason: '' };
 }
 
-function tpSmartGenerate() {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
-    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+// ══════════════════════════════════════════════════════════════════════
+// [v23.1] tpPlanHorizon — UN SOLO lazo para todo lo que planea VARIAS semanas
+//
+// Deuda anotada desde v18.0 y repetida en v20 y v23: `tpGenerateMonthly` y
+// `tpRunSimulation` eran copias cercanas del lazo de `tpSelectWeeklyItems` con su
+// propio `Map` de conteo simulado. Consecuencia real, no teórica: **ninguna de las
+// dos conocía la cuota de la cola (`carryoverMaxPct`) ni los filtros de la semana
+// (`tpPassesWeekFilter`)**, así que "Generar mes" podía escribir cuatro semanas de
+// puro arrastre y el simulador prometía una curva de cobertura que el generador
+// semanal nunca iba a producir. Tampoco veían las obligatorias, el inventario, la
+// caducidad de la cola ni la disponibilidad por semana.
+//
+// Ahora las dos entran por aquí, y aquí sólo hay UNA cosa nueva: encadenar la
+// lista rodante (`R.tested` → `testedSeed` de la siguiente). Toda la selección la
+// sigue haciendo `tpSelectWeeklyItems`, que es LA definición.
+//
+// `tpPlanHorizon` NO escribe nada: devuelve las semanas y quien llama decide si
+// las materializa (el mes) o sólo las mide (el simulador). Pura respecto a
+// `tpState` — testeable en Node.
+//
+// @param {{weeks?:number, startDate?:string, capacity?:number, workDays?:object,
+//          respectAvailability?:boolean, selectOpts?:object}} opts
+// @returns {{weeks:Array, tested:Array, totalItems:number}}
+//   weeks[i] = { weekDate, workDays, capacity, items, sel }
+// ══════════════════════════════════════════════════════════════════════
+function tpPlanHorizon(opts) {
+    opts = opts || {};
+    var n = Math.max(1, parseInt(opts.weeks, 10) || 4);
+    var baseStr = opts.startDate || (typeof localToday === 'function' ? localToday() : '');
+    var base = new Date(baseStr + 'T12:00:00');
+    if (isNaN(base.getTime())) base = new Date();
+    var wdDefault = opts.workDays || window._tpWorkDays || _TP_DEFAULT_WD;
+    var rolling = (tpState.testedList || []).slice();
+    var out = [];
 
-    var weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
-    var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+    for (var w = 0; w < n; w++) {
+        var d = new Date(base.getTime());
+        d.setDate(base.getDate() + w * 7);
+        var weekStr = (typeof localDateStr === 'function') ? localDateStr(d) : _tpFmtDate(d);
 
-    // Misma selección que el generador normal (backlog por antigüedad + déficit por puntaje,
-    // topada a la capacidad real); lo único propio del modo Smart es el filtro de inventario.
-    var R = tpSelectWeeklyItems({
-        capacity: parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || 0,
-        workDays: workDays,
-        manualPicks: window._tpWeeklyManualPicks || [],
-        checkInventory: true
-    });
-    var items = R.items, skippedInv = R.skippedInv;
-
-    if (items.length === 0) { showToast('Sin configuraciones pendientes con inventario disponible', 'info'); return; }
-
-    // Assign precon/test schedule
-    var scheduled = tpAssignSchedule(items, workDays);
-
-    tpState.weeklyPlans.push({
-        id: Date.now(),
-        created: new Date().toISOString(),
-        weekDate: weekDate,
-        workDays: JSON.parse(JSON.stringify(workDays)),
-        capacity: R.capacity,
-        items: scheduled,
-        accepted: false,
-        smartGenerated: true,
-        skippedInventory: skippedInv
-    });
-
-    window._tpWeeklyManualPicks = [];
-    tpSave(); tpRender(); tpUpdateBadges();
-    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
-
-    // Substitution predictions for generated plan
-    var subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(scheduled) : [];
-    var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
-    if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
-    if (subPreds.length > 0) msg += '. 🔮 ' + subPreds.length + ' con sustitucion probable.';
-    showToast(msg, 'success');
-
-    // Inventory impact warning (Mejora D)
-    if (typeof invGetPlanImpactWarning === 'function') {
-        var impactWarning = invGetPlanImpactWarning(scheduled);
-        if (impactWarning) {
-            setTimeout(function() { showToast('⚠️ ' + impactWarning, 'warning'); }, 1500);
+        // La disponibilidad por semana (festivos, capacidad reducida, días hábiles)
+        // ya vivía en `weekAvailability` y ninguno de los dos lazos la miraba.
+        var av = (tpState.weekAvailability || {})[weekStr] || {};
+        if (opts.respectAvailability !== false && av.available === false) {
+            out.push({ weekDate: weekStr, workDays: wdDefault, capacity: 0, items: [], sel: null, unavailable: true });
+            continue;
         }
+        var workDays = av.workDays || wdDefault;
+        var cap = opts.capacity || tpWeeklyCapacityFor(weekStr, workDays).cap;
+
+        // Las obligatorias son de UNA semana concreta: sólo la primera del horizonte
+        // las hereda, o el mes repetiría el mismo vehículo fijado cuatro veces.
+        var sel = tpSelectWeeklyItems(Object.assign({}, opts.selectOpts || {}, {
+            weekDate: weekStr, workDays: workDays, capacity: cap,
+            testedSeed: rolling,
+            manualPicks: (w === 0 ? ((opts.selectOpts || {}).manualPicks || []) : [])
+        }));
+        rolling = sel.tested;
+        out.push({ weekDate: weekStr, workDays: workDays, capacity: sel.capacity,
+                   items: sel.items, sel: sel });
     }
+    return { weeks: out, tested: rolling,
+             totalItems: out.reduce(function(s, x) { return s + x.items.length; }, 0) };
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -5589,60 +6393,45 @@ function tpSmartGenerate() {
 function tpGenerateMonthly(startDateStr) {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
-    // v16.4: el mes conserva su propia simulación (el déficit baja semana a semana), pero el
-    // tope por semana es el mismo de siempre — la capacidad física, no el número del campo.
-    var _capReal = tpWeekCapacity(workDays);
-    var capacity = Math.max(1, Math.min(parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || _capReal.max, _capReal.max));
-    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || localToday();
-    var base = new Date(baseStr + 'T12:00:00');
-    var numWeeks = 4;
+    var workDays = window._tpWorkDays || _TP_DEFAULT_WD;
+    var baseStr = startDateStr || window._tpWeekDate || (typeof localToday === 'function' ? localToday() : '');
 
-    var analysis = tpGetAnalysis();
-    // Déficit simulado por config: baja a lo largo de las semanas (igual que el simulador).
-    var testedSim = new Map();
-    analysis.forEach(function(a){ testedSim.set(a.desc, a.testedN); });
+    // [v23.1] El lazo greedy propio desapareció: el mes son cuatro llamadas a
+    // `tpSelectWeeklyItems` encadenadas por `tpPlanHorizon`. Gana de un golpe la cuota
+    // de la cola, los filtros de la semana, la caducidad, la revisión de inventario y
+    // la disponibilidad por semana — nada de eso lo conocía este generador.
+    var H = tpPlanHorizon({
+        weeks: 4, startDate: baseStr, workDays: workDays,
+        selectOpts: { checkInventory: tpPlannerCfg().checkInventory !== false }
+    });
 
     var monthBatch = Date.now();
-    var created = 0;
-    for (var wk = 0; wk < numWeeks; wk++) {
-        var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
-        var weekStr = localDateStr(weekDate);
-        var scored = analysis.map(function(a){
-            var n = testedSim.get(a.desc) || 0;
-            var rule = tpGetRule(a);
-            var req = tpCalcRequired(a, rule);
-            return Object.assign({}, a, { simTested:n, simReq:req, simDeficit:Math.max(0, req - n) });
-        }).filter(function(c){ return c.simDeficit > 0 && c.total > 0; }).sort(function(a,b){ return b.score - a.score; });
-
-        var items = []; var used = new Set();
-        for (var i = 0; i < scored.length && items.length < capacity; i++) {
-            var cfg = scored[i];
-            if (used.has(cfg.desc)) continue;
-            items.push({
-                desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg,
-                eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body,
-                ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire,
-                required:cfg.simReq, deficit:cfg.simDeficit, score:cfg.score,
-                completed:false, completedDate:null, manual:false, carriedOver:false,
-                _scoreDetail: tpBuildScoreDetail(cfg, cfg.simTested, cfg.simReq, cfg.score)
-            });
-            used.add(cfg.desc);
-            testedSim.set(cfg.desc, (testedSim.get(cfg.desc) || 0) + 1);
-        }
-        if (items.length === 0) break;
-        var scheduled = tpAssignSchedule(items, workDays);
+    var created = 0, saltadas = 0;
+    H.weeks.forEach(function(w, wk) {
+        if (w.unavailable) { saltadas++; return; }
+        if (!w.items.length) return;
+        var scheduled = tpAssignSchedule(w.items, w.workDays);
         tpState.weeklyPlans.push({
-            id: monthBatch + wk, created: new Date().toISOString(), weekDate: weekStr,
-            workDays: JSON.parse(JSON.stringify(workDays)), capacity: capacity,
+            id: monthBatch + wk, planId: 'W' + w.weekDate + '-' + (monthBatch + wk),
+            created: new Date().toISOString(), weekDate: w.weekDate,
+            workDays: JSON.parse(JSON.stringify(w.workDays)), capacity: w.capacity,
             items: scheduled, accepted: false, monthBatch: monthBatch
         });
         created++;
+    });
+    if (created === 0) {
+        showToast(saltadas ? 'Todas las semanas del mes están marcadas como no disponibles'
+                           : 'Sin configuraciones pendientes', 'info');
+        return;
     }
-    if (created === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'plan_mensual_generado', { type: 'plan', label: baseStr },
+                 created + ' propuestas · ' + H.totalItems + ' pruebas');
+    }
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(created);
-    showToast('📅 Plan mensual generado: ' + created + ' semanas. Revísalas y acéptalas.', 'success');
+    showToast('📅 Plan mensual generado: ' + created + ' semanas (' + H.totalItems +
+              ' pruebas). Revísalas y acéptalas.', 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -5675,6 +6464,323 @@ function tpEnsurePlanIds() {
 
 function tpFindPlanIndexById(planId) {
     return (tpState.weeklyPlans || []).findIndex(function(p) { return p && tpPlanId(p) === planId; });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v23] IDENTIDAD ESTABLE EN LA FRONTERA DE LA UI
+//
+// El issue #126 ("se aceptaron planes que yo no hice") no tenía un camino que
+// pusiera `accepted = true` solo: en todo el repo hay UNA sola asignación, detrás
+// de un botón. Lo que fallaba es a QUÉ plan apuntaba ese botón.
+//
+// Cada `onclick` generado llevaba un ÍNDICE de `tpState.weeklyPlans`. Entre que se
+// pinta la pantalla y el técnico toca el botón, el arreglo puede crecer o
+// reordenarse: un pull de sync, o —hasta v22.7— el auto-plan a los 3 s. El índice
+// pasa a apuntar a OTRO plan y el técnico acepta, borra o mueve algo que no estaba
+// mirando. Es la tercera vez que este repo paga la misma lección (`weekNum` en v20,
+// `w.week` en el merge de sync en v20).
+//
+// REGLA: la UI habla por IDENTIDAD, nunca por índice.
+//
+// Cómo, sin reescribir 25 funciones: los resolvedores aceptan AMBAS formas. Un
+// número se trata como índice (código viejo y, sobre todo, DOM ya pintado: v22
+// cachea las pestañas con `tabCacheSwitch`, así que un panel renderizado antes de
+// esta versión sigue vivo con sus onclick numéricos hasta que se repinte). Una
+// cadena se resuelve por identidad. Los emisores de HTML pasan a cadenas; las
+// firmas y la aridad no cambian.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Identificador de un item del plan. Corto, ordenable, único entre dispositivos. */
+function _tpItemUid() {
+    return 'I' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/**
+ * Resuelve una referencia de plan. Número → índice (compatibilidad). Cadena → planId.
+ * @returns {{plan:object, idx:number}|null}
+ */
+function _tpRefPlan(ref) {
+    var planes = tpState.weeklyPlans || [];
+    var idx = -1;
+    if (typeof ref === 'number') idx = ref;
+    else if (typeof ref === 'string' && ref !== '') {
+        idx = tpFindPlanIndexById(ref);
+        if (idx < 0) {
+            var n = parseInt(ref, 10);          // '3' desde un onclick viejo
+            if (!isNaN(n) && String(n) === ref.trim()) idx = n;
+        }
+    }
+    if (idx < 0 || idx >= planes.length || !planes[idx]) return null;
+    return { plan: planes[idx], idx: idx };
+}
+
+/**
+ * Resuelve un item dentro de un plan. Número → índice. Cadena → `item.uid`.
+ * @returns {{item:object, idx:number}|null}
+ */
+function _tpRefItem(plan, ref) {
+    var items = (plan && plan.items) || [];
+    var idx = -1;
+    if (typeof ref === 'number') idx = ref;
+    else if (typeof ref === 'string' && ref !== '') {
+        idx = items.findIndex(function(it) { return it && it.uid === ref; });
+        if (idx < 0) {
+            var n = parseInt(ref, 10);
+            if (!isNaN(n) && String(n) === ref.trim()) idx = n;
+        }
+    }
+    if (idx < 0 || idx >= items.length || !items[idx]) return null;
+    return { item: items[idx], idx: idx };
+}
+
+/** Aviso único cuando una referencia ya no existe: el plan cambió bajo los pies. */
+function _tpRefLost() {
+    if (typeof showToast === 'function') {
+        showToast('Ese plan cambió mientras lo mirabas (se sincronizó otro dispositivo). Se recargó la semana.', 'warning');
+    }
+    if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
+    return null;
+}
+
+// ── Guardas de migración VERSIONADAS ────────────────────────────────────────
+// `_fbPullSeed` hace `tpState = remoteData` y preserva `_migr`. O sea: un pull
+// desde un dispositivo con código viejo puede DESHACER los datos migrados y
+// conservar la guarda que dice "ya migré" — y la migración no vuelve a correr
+// jamás. Guardar un NÚMERO de versión en vez de `true` lo arregla: mientras la
+// guarda sea menor que la versión vigente, se repite. Todas estas migraciones son
+// derivaciones puras e idempotentes, así que repetirlas no cuesta nada.
+var TP_MIGR_VERSIONS = { itemUids: 1, capacity: 1, testedVins: 1 };
+function _tpMigrPending(key) {
+    if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {};
+    var v = tpState._migr[key];
+    if (v === true) v = 1;                      // guardas booleanas de v20
+    return (parseInt(v, 10) || 0) < (TP_MIGR_VERSIONS[key] || 1);
+}
+function _tpMigrDone(key) {
+    if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {};
+    tpState._migr[key] = TP_MIGR_VERSIONS[key] || 1;
+}
+
+/**
+ * Sella `uid` en todo item que no lo tenga y arrastra la referencia de las
+ * declaraciones de `testedList` (que hasta ahora empataban por `itemIdx`, un índice
+ * dentro de `plan.items` — y `tpRemoveWeeklyItem` hace `splice`, así que cada
+ * borrado reasignaba en silencio las declaraciones posteriores a OTRO item).
+ * Corre mientras los índices todavía son correctos.
+ */
+function tpEnsureItemUids() {
+    if (!_tpMigrPending('itemUids')) return 0;
+    tpEnsurePlanIds();
+    var tocados = 0;
+    var porRef = {};
+    (tpState.weeklyPlans || []).forEach(function(plan) {
+        var pid = tpPlanId(plan);
+        (plan.items || []).forEach(function(item, i) {
+            if (!item) return;
+            if (!item.uid) { item.uid = _tpItemUid(); tocados++; }
+            porRef[pid + '|' + i] = item.uid;
+        });
+    });
+    (tpState.testedList || []).forEach(function(t) {
+        if (!t || t.itemUid || !t.planId || typeof t.itemIdx !== 'number') return;
+        var uid = porRef[t.planId + '|' + t.itemIdx];
+        if (uid) t.itemUid = uid;
+    });
+    _tpMigrDone('itemUids');
+    if (tocados) tpSave();
+    return tocados;
+}
+
+/**
+ * [v23] LA definición de "el plan vigente de una semana".
+ *
+ * `tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`: cada
+ * "Generar" empuja uno nuevo, así que lo normal es el aceptado + N propuestas
+ * viejas. v20.10 resolvió esto en `tpFamilyWeeklyProgress` pero NO en
+ * `tpWeekBoardRows`, que CLAUDE.md declara "LA definición del estado de la semana"
+ * y que elegía el ÚLTIMO del arreglo con esa fecha — no el aceptado. Por eso el
+ * tablero podía estar mostrando una propuesta vieja mientras el Gantt mostraba
+ * el plan real.
+ *
+ * Criterio: aceptado primero (el de `acceptedDate` más reciente si hay varios);
+ * si no hay ninguno, la propuesta con `created` más reciente. `plans` expone
+ * TODOS los aceptados, porque una semana partida en dos planes aceptados es un
+ * caso legítimo que `tpFamilyWeeklyProgress` ya contemplaba.
+ *
+ * @returns {{plan, planIdx, planId, accepted, proposal, plans, otros}|null}
+ */
+var _tpWeekPlanCache = { key: '', data: null };
+function tpWeekPlanFor(weekDate) {
+    if (!weekDate) return null;
+    var clave = weekDate + '|' + (tpState._lastSave || 0) + '|' + (tpState.weeklyPlans || []).length;
+    if (_tpWeekPlanCache.key === clave) return _tpWeekPlanCache.data;
+
+    var planes = tpState.weeklyPlans || [];
+    var aceptados = [], propuestas = [];
+    planes.forEach(function(p, i) {
+        if (!p || p.weekDate !== weekDate) return;
+        (p.accepted ? aceptados : propuestas).push({ p: p, i: i });
+    });
+    var out = null;
+    if (aceptados.length) {
+        var elegido = aceptados.reduce(function(a, b) {
+            return String(b.p.acceptedDate || '') >= String(a.p.acceptedDate || '') ? b : a;
+        });
+        out = { plan: elegido.p, planIdx: elegido.i, planId: tpPlanId(elegido.p),
+                accepted: true, proposal: false,
+                plans: aceptados.map(function(x) { return x.p; }),
+                otros: propuestas.map(function(x) { return x.p; }) };
+    } else if (propuestas.length) {
+        var prop = propuestas.reduce(function(a, b) {
+            return String(b.p.created || '') >= String(a.p.created || '') ? b : a;
+        });
+        out = { plan: prop.p, planIdx: prop.i, planId: tpPlanId(prop.p),
+                accepted: false, proposal: true,
+                plans: [prop.p],
+                otros: propuestas.filter(function(x) { return x.p !== prop.p; }).map(function(x) { return x.p; }) };
+    }
+    _tpWeekPlanCache = { key: clave, data: out };
+    return out;
+}
+function tpWeekPlanInvalidate() { _tpWeekPlanCache = { key: '', data: null }; }
+
+/**
+ * Normaliza los dos argumentos que TODA la UI del tablero recibe. Acepta índices
+ * (código y DOM viejos) o identidades (`planId`, `item.uid`). Devuelve null cuando
+ * la referencia ya no existe — que es justo el caso que antes aceptaba el plan
+ * equivocado en silencio.
+ * @returns {{weekIdx:number, itemIdx:number, plan:object, item:object}|null}
+ */
+function _tpIdx(weekRef, itemRef) {
+    var r = _tpRefPlan(weekRef);
+    if (!r) return null;
+    var out = { weekIdx: r.idx, plan: r.plan, itemIdx: -1, item: null };
+    if (arguments.length < 2 || itemRef === undefined || itemRef === null) return out;
+    var it = _tpRefItem(r.plan, itemRef);
+    if (!it) return null;
+    out.itemIdx = it.idx; out.item = it.item;
+    return out;
+}
+
+/** La referencia estable de una fila del tablero, para los onclick generados. */
+/**
+ * Acota una vez la capacidad práctica al techo físico del laboratorio.
+ *
+ * `tpState.capacity` viene de fábrica en 8, pero con el default real de
+ * `vehiclesPerSlot` (=1), lunes-viernes y 24 h de reposo el tope físico son CUATRO
+ * pares. Sin esta migración el campo diría "8" y la semana saldría con 4 — que se lee
+ * como un bug nuevo justo en la ronda que arregla el de la capacidad.
+ */
+/**
+ * [v23] Quita las propuestas REDUNDANTES de una semana.
+ *
+ * Una propuesta es redundante cuando (a) no esta aceptada, (b) hay otro plan de la
+ * MISMA semana, y (c) su conjunto de configuraciones ya esta contenido en el plan
+ * vigente de esa semana. Es exactamente lo que producian el auto-plan y los "Generar"
+ * repetidos entre dispositivos: N copias del mismo contenido, cada una con su propio
+ * `id` (Date.now() por dispositivo), asi que el merge las conservaba todas.
+ *
+ * NUNCA toca un plan aceptado, ni uno con items completados, ni uno cuyo contenido
+ * difiera: eso seria tirar trabajo. Devuelve cuantas quito.
+ */
+function tpDedupeWeeklyPlans(opts) {
+    opts = opts || {};
+    var planes = tpState.weeklyPlans || [];
+    if (planes.length < 2) return 0;
+    tpEnsurePlanIds();
+
+    var firma = function(p) {
+        return (p.items || []).map(function(i) { return i.desc; }).sort().join('|');
+    };
+    var vigentePorSemana = {};
+    planes.forEach(function(p) {
+        if (!p || !p.weekDate) return;
+        if (vigentePorSemana[p.weekDate] === undefined) {
+            var v = tpWeekPlanFor(p.weekDate);
+            vigentePorSemana[p.weekDate] = v ? v.plan : null;
+        }
+    });
+
+    var quitados = [];
+    var conservados = planes.filter(function(p) {
+        if (!p || !p.weekDate) return true;
+        if (p.accepted) return true;
+        var vig = vigentePorSemana[p.weekDate];
+        if (!vig || vig === p) return true;
+        // Con trabajo hecho encima no se tira: es evidencia, aunque sea una propuesta.
+        if ((p.items || []).some(function(i) { return i.completed || i.linkedVehicleId != null; })) return true;
+        if (firma(p) !== firma(vig)) return true;
+        quitados.push(p);
+        return false;
+    });
+    if (!quitados.length) return 0;
+
+    tpState.weeklyPlans = conservados;
+    // La foto archivada de un plan que ya no existe se marca huerfana, no se borra
+    // (mismo criterio que tpMigrateWeekHistoryIds).
+    var ids = {};
+    quitados.forEach(function(p) { ids[tpPlanId(p)] = true; });
+    (tpState.weekHistory || []).forEach(function(w) { if (w && ids[w.planId]) w.orphan = true; });
+
+    if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+    if (!opts.skipSave) tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'weekplans_deduped', { type: 'plan', label: 'propuestas duplicadas' },
+                 quitados.length + ' propuesta(s) identica(s) al plan vigente de su semana');
+    }
+    return quitados.length;
+}
+
+/** Quita TODAS las propuestas de sobra de una semana. Accion de usuario, con deshacer. */
+function tpClearProposalsFor(weekDate) {
+    if (!weekDate) return;
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'limpiar propuestas')) return;
+    var vig = tpWeekPlanFor(weekDate);
+    var objetivo = (tpState.weeklyPlans || []).filter(function(p) {
+        if (!p || p.weekDate !== weekDate || p.accepted) return false;
+        if (vig && vig.plan === p && !vig.accepted) return false;   // la vigente se queda
+        return !(p.items || []).some(function(i) { return i.completed || i.linkedVehicleId != null; });
+    });
+    if (!objetivo.length) { showToast('No hay propuestas de sobra en esa semana.', 'info'); return; }
+    showConfirmDialog({
+        title: 'Limpiar propuestas',
+        message: 'Se quitaran ' + objetivo.length + ' propuesta(s) de la semana del ' + weekDate + '.\n\n' +
+                 'El plan vigente y las pruebas ya realizadas no se tocan: la cobertura no cambia.',
+        type: 'warning', confirmText: 'Limpiar', cancelText: 'Cancelar'
+    }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('testplan', 'Limpiar propuestas de la semana');
+        var fuera = objetivo;
+        tpState.weeklyPlans = (tpState.weeklyPlans || []).filter(function(p) { return fuera.indexOf(p) === -1; });
+        var ids = {};
+        objetivo.forEach(function(p) { ids[tpPlanId(p)] = true; });
+        (tpState.weekHistory || []).forEach(function(w) { if (w && ids[w.planId]) w.orphan = true; });
+        tpInvalidateCache(); tpSave(); tpRender(); tpUpdateBadges();
+        if (typeof auditLog === 'function') {
+            auditLog('tp', 'weekplans_cleared', { type: 'plan', label: weekDate }, objetivo.length + ' propuesta(s)');
+        }
+        showToast(objetivo.length + ' propuesta(s) quitada(s). La cobertura no cambio.', 'success',
+                  null, (typeof undoPop === 'function') ? undoPop : null);
+    });
+}
+
+function tpMigrateCapacity() {
+    if (!_tpMigrPending('capacity')) return false;
+    var wd = { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    var techo = tpWeekCapacity(wd).max;
+    var actual = parseInt(tpState.capacity, 10);
+    if (isNaN(actual) || actual < 1) actual = 8;
+    var nueva = Math.max(1, Math.min(actual, techo));
+    var cambio = nueva !== tpState.capacity;
+    tpState.capacity = nueva;
+    _tpMigrDone('capacity');
+    if (cambio) tpSave();
+    return cambio;
+}
+
+function tpItemRef(planIdOrPlan, item) {
+    var pid = (typeof planIdOrPlan === 'string') ? planIdOrPlan : tpPlanId(planIdOrPlan);
+    return { plan: pid, item: (item && item.uid) || '' };
 }
 
 /** La foto archivada de un plan, reconstruida desde el plan VIVO. */
@@ -5776,8 +6882,12 @@ function tpMigrateWeekHistoryIds() {
 
 /** Aceptar — ahora IDEMPOTENTE: aceptar dos veces no duplica el archivo. */
 function tpAcceptWeeklyPlan(weekIdx) {
-    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    const plan = tpState.weeklyPlans[weekIdx];
+    // v23: acepta índice (DOM viejo) o planId. Si la referencia ya no existe, se
+    // avisa en vez de aceptar el plan que quedó en esa posición — que es el bug #126.
+    var _n = _tpIdx(weekIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx;
+    const plan = _n.plan;
     tpEnsurePlanIds();
     var pid = tpPlanId(plan);
     if (!Array.isArray(tpState.weekHistory)) tpState.weekHistory = [];
@@ -5816,8 +6926,10 @@ function tpAcceptWeeklyPlan(weekIdx) {
  * a los pendientes de esa semana.
  */
 function tpUnacceptWeeklyPlan(weekIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan) return;
+    var _n = _tpIdx(weekIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx;
+    var plan = _n.plan;
     if (!plan.accepted) { showToast('Ese plan no está aceptado.', 'info'); return; }
     if (typeof authRequire === 'function' && !authRequire('plan.manage', 'desaceptar un plan')) return;
 
@@ -5854,8 +6966,10 @@ function tpUnacceptWeeklyPlan(weekIdx) {
  * además hace legible la auditoría.
  */
 function tpDeleteWeeklyPlan(weekIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan) return;
+    var _n = _tpIdx(weekIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx;
+    var plan = _n.plan;
     if (typeof authRequire === 'function' && !authRequire('plan.manage', 'eliminar un plan')) return;
 
     if (plan.accepted) {
@@ -5898,84 +7012,40 @@ function tpDeleteWeeklyPlan(weekIdx) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// AUTO-PLAN: Friday 14:00 deadline auto-generation
+// [v23] AUTO-PLAN — ELIMINADO
+//
+// `tpShouldAutoGenerate` / `tpAutoGenerateIfNeeded` corrían desde `initializeSystem`
+// (app.js) 3 s después de cargar la app, en CADA dispositivo, los viernes ≥14:00,
+// sábados y domingos. Dos cosas lo volvieron la causa raíz del issue #126:
+//
+//  · Su guard (`tpState.autoPlanLastRun`) se SINCRONIZA, y el sync es eventual: dos
+//    equipos abiertos a la vez pasaban los dos el guard. El merge de `weeklyPlans`
+//    empata por `tpPlanId()` = 'W'+weekDate+'-'+id, con `id = Date.now()` POR
+//    dispositivo, así que ninguno reconocía al otro como duplicado: sobrevivían todos.
+//  · Si `tpSmartGenerate()` salía temprano (sin planData, o sin items con inventario)
+//    NO empujaba nada, pero el código seguía y hacía
+//    `weeklyPlans[length-1].weekDate = próximoLunes` sobre un plan PREEXISTENTE —
+//    incluido uno ya ACEPTADO— sin pasar por `_tpTouchPlan`.
+//
+// No se reemplaza por una versión "con mejor guard": ningún guard sincronizado gana
+// una carrera entre dispositivos. Lo que queda es un AVISO pasivo en HOY
+// (`dashCollectActivities`, app.js): "la semana del X no tiene plan". Un aviso no
+// escribe estado, no se sincroniza y no se duplica.
 // ══════════════════════════════════════════════════════════════
 
-var AUTOPLAN_LS_KEY = 'kia_autoplan_lastrun';
-
-function tpShouldAutoGenerate() {
-    if (!tpState || !tpState.planData || tpState.planData.length === 0) return false;
-
-    var now = new Date();
-    var day = now.getDay(); // 0=dom, 5=vie, 6=sab
-    var isPastDeadline = (day === 5 && now.getHours() >= 14) || day === 6 || day === 0;
-    if (!isPastDeadline) return false;
-
-    // Calculate next Monday
-    var daysUntilMon = (8 - day) % 7;
-    if (daysUntilMon === 0) daysUntilMon = 7;
-    var nextMon = new Date(now);
-    nextMon.setDate(now.getDate() + daysUntilMon);
-    var nextMonISO = localDateStr(nextMon);
-
-    // ¿Ya hay un plan para esa semana? Antes solo se rechazaba si estaba ACEPTADO;
-    // ahora que el auto-plan deja una propuesta sin aceptar, hay que mirar cualquiera,
-    // o cada dispositivo agregaría la suya.
-    var plans = tpState.weeklyPlans || [];
-    if (plans.some(function (p) { return p.weekDate === nextMonISO; })) return false;
-
-    // ¿Ya corrió para esta semana? El guard vive en tpState (SINCRONIZADO); la clave
-    // de localStorage se conserva como respaldo offline del mismo dispositivo.
-    if (tpState.autoPlanLastRun === nextMonISO) return false;
-    var lastRun = null;
-    try { lastRun = localStorage.getItem(AUTOPLAN_LS_KEY); } catch (e) {}
-    if (lastRun === nextMonISO) return false;
-
-    return { nextMonday: nextMonISO };
-}
-
-function tpAutoGenerateIfNeeded() {
-    var check = tpShouldAutoGenerate();
-    if (!check) return;
-
-    // Set the date target before generating
-    var dateEl = document.getElementById('tp-weekly-date');
-    if (dateEl) dateEl.value = check.nextMonday;
-
-    if (typeof showToast === 'function') showToast('Generando plan semanal automatico (viernes 14:00+)...', 'info');
-
-    try {
-        tpSmartGenerate();
-        var lastIdx = tpState.weeklyPlans.length - 1;
-        if (lastIdx >= 0 && tpState.weeklyPlans[lastIdx].smartGenerated) {
-            tpState.weeklyPlans[lastIdx].weekDate = check.nextMonday;
-            tpState.weeklyPlans[lastIdx].autoGenerated = true;
-            // NO se acepta sola. Aceptar es justo lo que marca cada item incompleto como
-            // 'carryover' en weekHistory; hacerlo al cargar la página, en cada dispositivo,
-            // era la fábrica de arrastre. Queda como PROPUESTA para que alguien la revise.
-            tpState.autoPlanLastRun = check.nextMonday;
-            tpSave();
-            try { localStorage.setItem(AUTOPLAN_LS_KEY, check.nextMonday); } catch (e) {}
-            tpRender();
-
-            if (typeof showToast === 'function') showToast('Propuesta de la semana ' + check.nextMonday + ' lista — falta aceptarla', 'success');
-            if (typeof emitEvent === 'function') emitEvent('plan:autoGenerated', { weekDate: check.nextMonday, itemCount: tpState.weeklyPlans[lastIdx].items.length });
-        }
-    } catch (e) {
-        console.error('tpAutoGenerateIfNeeded error:', e);
-        if (typeof showToast === 'function') showToast('Error en auto-generacion: ' + e.message, 'error');
-    }
-}
-
 function tpCarryOverWeekly(weekIdx) {
-    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    var source = tpState.weeklyPlans[weekIdx];
+    var _n = _tpIdx(weekIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx;
+    var source = _n.plan;
     var pending = source.items.filter(function(i) { return !i.completed; });
     if (pending.length === 0) { showToast('No hay items pendientes para copiar', 'info'); return; }
     // Mark source items as carryover
     pending.forEach(function(i) { i.status = 'carryover'; });
     var newItems = pending.map(function(i) {
-        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true, previouslySubstituted:i.substituted||false, previousSubstitution:i.substitution||null };
+        // uid NUEVO: un item arrastrado es un compromiso nuevo, no el mismo de la
+        // semana pasada — compartir uid haría que una declaración apuntara a los dos.
+        return { uid:_tpItemUid(), desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true, previouslySubstituted:i.substituted||false, previousSubstitution:i.substitution||null };
     });
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
     tpSave(); tpRender();
@@ -6068,14 +7138,23 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
         if (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') hoyMon = _tpFmtDate(_tpMonday(new Date()));
     } catch (e) {}
 
-    var orden = tpState.weeklyPlans.map(function(p, i) { return { p: p, i: i }; });
-    orden.sort(function(a, b) {
-        var aH = (hoyMon && a.p && a.p.weekDate === hoyMon) ? 1 : 0;
-        var bH = (hoyMon && b.p && b.p.weekDate === hoyMon) ? 1 : 0;
-        if (aH !== bH) return bH - aH;                 // la semana en curso, primero
-        var aD = String((a.p && a.p.weekDate) || ''), bD = String((b.p && b.p.weekDate) || '');
-        if (aD !== bD) return bD < aD ? -1 : 1;        // luego, de la más reciente hacia atrás
-        return b.i - a.i;
+    // v23: se recorre UN plan por semana —el VIGENTE (`tpWeekPlanFor`)— y nunca una
+    // semana FUTURA. Antes se barrían todos los planes de todas las semanas y ganaba el
+    // primero que empatara: una liberación podía marcar como hecha una propuesta sin
+    // aceptar de la semana que entra, o resucitar una semana ya cerrada. La semana de
+    // referencia (`opts.weekDate`) es la de la PRUEBA, no la de hoy.
+    var _ref = (opts && opts.weekDate) || hoyMon;
+    var _semanas = [];
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (!p || !p.weekDate) return;
+        if (_ref && p.weekDate > _ref) return;         // nunca hacia el futuro
+        if (_semanas.indexOf(p.weekDate) === -1) _semanas.push(p.weekDate);
+    });
+    _semanas.sort().reverse();                          // de la más reciente hacia atrás
+    var orden = [];
+    _semanas.forEach(function(wd) {
+        var v = tpWeekPlanFor(wd);
+        if (v) orden.push({ p: v.plan, i: v.planIdx });
     });
 
     for (var k = 0; k < orden.length; k++) {
@@ -6085,7 +7164,16 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
             var item = plan.items[j];
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
-                item.completedDate = localToday();
+                item.completedDate = (opts && opts.date) || localToday();
+                // v23: dejar escrito QUÉ vehículo la acreditó. Sin esto el tablero
+                // tiene que readivinarlo por heurística en cada render (v20.1).
+                if (opts && opts.vehicle) {
+                    item.linkedVehicleId = opts.vehicle.id;
+                    item.linkedVin = opts.vehicle.vin || '';
+                    // Con qué propósito se corrió DE VERDAD. Si difiere del planeado,
+                    // se ve — en vez de que el plan se reescriba solo y nadie se entere.
+                    if (opts.vehicle.purpose) item.actualPurpose = opts.vehicle.purpose;
+                }
                 if (typeof tpSyncWeekHistoryFor === 'function') tpSyncWeekHistoryFor(tpPlanId(plan));
                 if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText, '· semana', plan.weekDate);
@@ -6102,7 +7190,7 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
 function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
-    if (link && typeof link.itemIdx === 'number') {
+    if (link && (link.itemUid || typeof link.itemIdx === 'number')) {
         // v20: el enlace se resuelve por planId (identidad estable). weekIdx queda como
         // respaldo para los vehículos registrados antes de esta versión — pero es un
         // índice de array, así que un borrado lo deja apuntando a otra semana.
@@ -6110,11 +7198,18 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
                  ? tpFindPlanIndexById(link.planId) : -1;
         if (wi < 0 && typeof link.weekIdx === 'number') wi = link.weekIdx;
         var plan = tpState.weeklyPlans[wi];
-        if (plan && plan.items && plan.items[link.itemIdx]) {
-            var item = plan.items[link.itemIdx];
+        // v23: `itemUid` primero. `itemIdx` es un índice dentro de `plan.items` y
+        // cualquier splice (quitar una fila, limpiar una no planeada) lo deja apuntando
+        // a otra prueba. Se conserva como respaldo para los vehículos dados de alta
+        // antes de v23.
+        var _ri = plan ? _tpRefItem(plan, link.itemUid || link.itemIdx) : null;
+        if (_ri) {
+            var item = _ri.item;
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
-                item.completedDate = localToday();
+                item.completedDate = (opts && opts.date) || localToday();
+                item.linkedVehicleId = vehicle.id;
+                item.linkedVin = vehicle.vin || '';
                 // La foto archivada se re-sincroniza SIEMPRE (antes se congelaba en
                 // completed:false para siempre); guardar respeta skipSave, porque la
                 // cascada de liberación hace un único tpSave al final.
@@ -6125,8 +7220,11 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
             }
         }
     }
-    // Fall back to the legacy description-based match
-    return tpAutoMarkWeeklyCompletion(vehicle.configCode, opts);
+    // Respaldo: empatar por descripción, dentro del plan vigente de la semana indicada.
+    var o = {};
+    for (var k in (opts || {})) o[k] = opts[k];
+    o.vehicle = vehicle;
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode, o);
 }
 
 // ── Flexible Substitution ──
@@ -6321,9 +7419,11 @@ function _tpFieldLabel(f) {
  */
 function tpSwapItemConfig(weekIdx, itemIdx, nuevoDesc, opts) {
     opts = opts || {};
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return { ok: false, reason: 'No se encontró esa prueba.' };
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
     if (item.completed) return { ok: false, reason: 'Esa prueba ya está marcada como hecha.' };
     var nueva = (tpState.planData || []).find(function(p) { return p.desc === nuevoDesc; });
     if (!nueva) return { ok: false, reason: 'Esa configuración ya no está en el plan de producción.' };
@@ -6384,9 +7484,12 @@ function tpSwapItemConfig(weekIdx, itemIdx, nuevoDesc, opts) {
  * no puede pasar en silencio.
  */
 function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
+    var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     scope = TP_SUBST_SCOPES[scope] ? scope : 'familia';
     var info = TP_SUBST_SCOPES[scope];
     var cands = tpSubstituteCandidatesFor(item, { scope: scope });
@@ -6400,7 +7503,7 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
     Object.keys(TP_SUBST_SCOPES).forEach(function(k) {
         var n = tpSubstituteCandidatesFor(item, { scope: k }).length;
         body += '<button class="tp-subst-scope' + (k === scope ? ' tp-subst-scope--on' : '') + '" ' +
-                'onclick="document.getElementById(\'globalModal\').remove();tpOpenSubstituteModal(' + weekIdx + ',' + itemIdx + ',\'' + k + '\')">' +
+                'onclick="document.getElementById(\'globalModal\').remove();tpOpenSubstituteModal(' + _ref + ',\'' + k + '\')">' +
                 TP_SUBST_SCOPES[k].label + ' <span class="tp-subst-scope-n">' + n + '</span></button>';
     });
     body += '</div>';
@@ -6413,7 +7516,7 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
         cands.slice(0, 15).forEach(function(c) {
             var titulo = c.breaksCore ? tpConfigShortName(c.cfg) : (tpConfigVariantTag(c.cfg) || tpConfigShortName(c.cfg));
             body += '<button class="tp-week-movebtn' + (c.breaksCore ? ' tp-week-movebtn--full' : '') + (c.paused ? ' tp-week-movebtn--danger' : '') + '" ' +
-                    'onclick="tpDoSwapItem(' + weekIdx + ',' + itemIdx + ',\'' + _tpQ(c.desc) + '\')">' +
+                    'onclick="tpDoSwapItem(' + _ref + ',\'' + _tpQ(c.desc) + '\')">' +
                     '<span class="tp-week-movebtn-day">' + (c.breaksCore ? '⚠️ ' : '') + titulo + '</span>' +
                     '<span class="tp-week-movebtn-sub">' +
                       c.diffs.map(function(d) { return d.label + ': ' + d.planned + ' → ' + d.actual; }).join(' · ') +
@@ -6520,9 +7623,11 @@ function tpLinkableVehiclesFor(item, opts) {
  */
 function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     opts = opts || {};
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return { ok: false, reason: 'No se encontró esa prueba.' };
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
     var v = (typeof db === 'object' && db && db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
     if (!v) return { ok: false, reason: 'Ese vehículo ya no existe.' };
 
@@ -6566,7 +7671,7 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     item.completedDate = v.archivedAt || new Date().toISOString();
     // Vincular es lo contrario de declarar: hay evidencia con VIN. Si la fila venía
     // declarada a mano, se ASCIENDE y su registro placeholder se retira.
-    if (item.declared) { _tpUndeclareTested(plan, itemIdx); delete item.declared; }
+    if (item.declared) { _tpUndeclareTested(plan, itemIdx, item); delete item.declared; }
     if (distinta) {
         item.substituted = true;
         item.substitution = { originalDesc: item.desc, testedDesc: v.configCode, testedVin: v.vin || null,
@@ -6605,9 +7710,11 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
 
 /** Deshacer el vínculo. La fila vuelve a pendiente; la evidencia en Probados se queda. */
 function tpUnlinkVehicleFromItem(weekIdx, itemIdx) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
     if (item.linkedVehicleId == null) return;
     if (typeof undoPush === 'function') undoPush('testplan', 'Quitar vínculo de prueba');
     var vin = item.linkedVin;
@@ -6627,9 +7734,12 @@ function tpUnlinkVehicleFromItem(weekIdx, itemIdx) {
 
 /** El menú: las pruebas de la semana, con VIN y configuración, para elegir a mano. */
 function tpLinkVehicleMenu(weekIdx, itemIdx, verTodas) {
-    var plan = (tpState.weeklyPlans || [])[weekIdx];
-    if (!plan || !plan.items || !plan.items[itemIdx]) return;
-    var item = plan.items[itemIdx];
+    var _n = _tpIdx(weekIdx, itemIdx);
+    if (!_n) return _tpRefLost();
+    weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
+    var plan = _n.plan;
+    var item = _n.item;
+    var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     var lista = tpLinkableVehiclesFor(item, { plan: plan, all: !!verTodas });
 
     var body = '<div class="tp-week-movebox">' +
@@ -6641,7 +7751,7 @@ function tpLinkVehicleMenu(weekIdx, itemIdx, verTodas) {
         body += '<div class="tp-link-current">Vinculada a <strong>' + (item.linkedVin || item.linkedVehicleId) + '</strong>' +
                 (item.linkedBy ? ' · por ' + item.linkedBy : '') +
                 '<button class="tp-week-movebtn tp-week-movebtn--danger" style="margin-top: var(--space-sm);" ' +
-                'onclick="document.getElementById(\'globalModal\').remove();tpUnlinkVehicleFromItem(' + weekIdx + ',' + itemIdx + ')">' +
+                'onclick="document.getElementById(\'globalModal\').remove();tpUnlinkVehicleFromItem(' + _ref + ')">' +
                 '<span class="tp-week-movebtn-day">✕ Quitar el vínculo</span></button></div>';
     }
 
@@ -6653,7 +7763,7 @@ function tpLinkVehicleMenu(weekIdx, itemIdx, verTodas) {
         lista.slice(0, 20).forEach(function(c) {
             var nivel = c.exact ? '' : (c.cercania === 1 ? '⚠️ misma familia, otra variante · ' : '⚠️ otra configuración · ');
             body += '<button class="tp-week-movebtn' + (c.exact ? '' : ' tp-week-movebtn--full') + '" ' +
-                    'onclick="tpDoLinkVehicle(' + weekIdx + ',' + itemIdx + ',' + JSON.stringify(c.id) + ')">' +
+                    'onclick="tpDoLinkVehicle(' + _ref + ',' + JSON.stringify(c.id) + ')">' +
                     '<span class="tp-week-movebtn-day">' + (c.released ? '✅ ' : '🔬 ') +
                       (c.vin ? c.vin : 'sin VIN') + '</span>' +
                     '<span class="tp-week-movebtn-sub">' + nivel + c.shortName +
@@ -6665,7 +7775,7 @@ function tpLinkVehicleMenu(weekIdx, itemIdx, verTodas) {
     }
 
     if (!verTodas) {
-        body += '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpLinkVehicleMenu(' + weekIdx + ',' + itemIdx + ',true)">' +
+        body += '<button class="tp-week-movebtn" onclick="document.getElementById(\'globalModal\').remove();tpLinkVehicleMenu(' + _ref + ',true)">' +
                 '<span class="tp-week-movebtn-day">🔎 Ver también los de otras semanas</span></button>';
     }
     body += '</div>';
@@ -6961,11 +8071,10 @@ function tpBuildFamilies() {
             families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0 };
         }
         const rule = tpGetRule(cfg);
-        const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
+        // [v23.1] Contra el REQ solo cuentan los propósitos que acreditan (OBD2 no).
+        const vins = tpTestedForConfig(cfg.desc);
+        const n = vins.length;
         const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
-
-        // Get VINs from testedList
-        const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
         families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
         // v15.8: fecha del ensayo más reciente de la familia (ISO 'YYYY-MM-DD' → max lexicográfico)
@@ -7076,7 +8185,7 @@ function tpBuildFamilies() {
             if (c.testedN > 0) return;
             var cont = continuityMap[c.desc];
             if (!cont || !cont.prevConfigDesc) return;
-            var prevTests = tpState.testedList.filter(function(t) { return t.configText === cont.prevConfigDesc; });
+            var prevTests = tpTestedForConfig(cont.prevConfigDesc);
             if (prevTests.length === 0) return;
             c.coveredByContinuity = {
                 prevMy: cont.prevMy || '',
@@ -7182,24 +8291,21 @@ function tpFamilyWeeklyProgress(familyKey) {
     //     es raro pero legítimo cuando se parte el plan de una semana en dos);
     //   · si no, la propuesta MÁS RECIENTE, marcada `proposal:true` para que la UI pueda
     //     distinguirla. Los borradores anteriores se descartan.
-    var porSemana = {};
+    // v23: el criterio de "plan vigente" salió de aquí a `tpWeekPlanFor`, que ahora es
+    // LA definición y la comparten el tablero, HOY, las alertas y esta vista. Era la
+    // única implementación correcta del repo y estaba encerrada en esta función.
+    var semanas = [];
     (tpState.weeklyPlans || []).forEach(function(p) {
-        if (!p || !p.weekDate) return;
-        var g = porSemana[p.weekDate] || (porSemana[p.weekDate] = { aceptados: [], propuestas: [] });
-        (p.accepted ? g.aceptados : g.propuestas).push(p);
+        if (p && p.weekDate && semanas.indexOf(p.weekDate) === -1) semanas.push(p.weekDate);
     });
 
-    var rows = Object.keys(porSemana).map(function(weekDate) {
-        var g = porSemana[weekDate];
-        var vigentes = g.aceptados;
-        var esPropuesta = false;
-        if (!vigentes.length) {
-            // La más reciente por fecha de creación (con el orden del arreglo como desempate).
-            vigentes = [g.propuestas.reduce(function(a, b) {
-                return String(b.created || '') >= String(a.created || '') ? b : a;
-            })];
-            esPropuesta = true;
-        }
+    var rows = semanas.map(function(weekDate) {
+        var v = tpWeekPlanFor(weekDate);
+        if (!v) return null;
+        // `plans` trae TODOS los aceptados a propósito: una semana partida en dos planes
+        // aceptados es un caso legítimo. Con propuesta, es una sola.
+        var vigentes = v.plans;
+        var esPropuesta = v.proposal;
 
         var done = 0, verified = 0, declared = 0, planned = 0, items = [];
         vigentes.forEach(function(plan) {
@@ -7217,7 +8323,7 @@ function tpFamilyWeeklyProgress(familyKey) {
         });
         if (!items.length) return null;
         return { weekDate: weekDate,
-                 planId: (typeof tpPlanId === 'function') ? tpPlanId(vigentes[0]) : null,
+                 planId: v.planId,
                  proposal: esPropuesta, plans: vigentes.length,
                  done: done, verified: verified, declared: declared, planned: planned, items: items };
     }).filter(Boolean);
@@ -7226,12 +8332,42 @@ function tpFamilyWeeklyProgress(familyKey) {
     return rows;
 }
 
+/**
+ * [v23] LA definicion de "que vehiculo respalda esta fila de `testedList`".
+ *
+ * Hasta v22.7 el VIN vivia SOLO dentro del texto libre de `note`, y se leia con
+ * DOS expresiones regulares distintas (`[^\s—-]+` en un sitio, `[^\s—]+` en otro)
+ * mas `note.includes('VIN: ' + vin)` en cop15.js — que es inseguro por prefijo:
+ * borrar el vehiculo `KNA123` se llevaba tambien la evidencia de `KNA1234`.
+ *
+ * Desde v23 las filas nuevas traen `vin` y `vehicleId` como campos propios. Este
+ * lector los prefiere y cae al texto solo para las filas viejas, asi que no hace
+ * falta migrar nada para que empiece a funcionar bien.
+ */
+function tpTestedVin(t) {
+    if (!t) return '';
+    if (t.vin) return String(t.vin);
+    return _tpExtractVin(t.note);
+}
+
+/** La identidad fuerte de la fila, cuando la hay: el id del vehiculo. */
+function tpTestedVehicleId(t) {
+    return (t && t.vehicleId != null) ? t.vehicleId : null;
+}
+
+/**
+ * Extrae el VIN del texto de una nota. PURA.
+ *
+ * v23: se le quito el "respaldo" que partia la nota por el guion largo y devolvia
+ * el primer trozo. Con `TP_DECLARED_NOTE` ("Declarada en el plan — sin vehiculo
+ * liberado") eso devolvia la cadena `Declarada en el plan` COMO SI FUERA UN VIN, y
+ * cualquier consumidor que comparara VINes la trataba como uno real. Si no hay un
+ * "VIN:" explicito, no hay VIN: se devuelve cadena vacia.
+ */
 function _tpExtractVin(note) {
     if (!note) return '';
-    var m = String(note).match(/VIN:\s*([^\s—]+)/);
-    if (m) return m[1];
-    var parts = String(note).split('—');
-    return (parts[0] || '').trim();
+    var m = String(note).match(/VIN:\s*([^\s,;—-]+)/);
+    return m ? m[1] : '';
 }
 
 // Force re-render of families tab (bypasses tabCache so filters/sort take effect immediately)
@@ -7491,7 +8627,7 @@ function tpRenderFamilies(el) {
                             var _vinId = 'tp-vins-' + fi + '-' + _ci;
                             vinHtml = `<div id="${_vinId}" style="display:none;padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xl);background:var(--tp-dark);border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
-                                const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
+                                const vin = tpTestedVin(v) || '—';
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-2xs) var(--space-xs);border-bottom:1px solid var(--tp-border);color:var(--tp-text);">
                                     <span style="font-family:monospace;font-size: var(--fs-sm);color:var(--tp-text);">${vin}</span>
                                     <span style="font-size: var(--fs-sm);color:var(--tp-dim);">${v.date || '?'}</span>
@@ -7634,6 +8770,18 @@ function tpRenderSimulator(el) {
     `;
 }
 
+/**
+ * [v23.1] El simulador dejó de tener su propio lazo greedy.
+ *
+ * Antes elegía "las de más déficit por score" y nada más: no conocía la cuota de la
+ * cola, ni los filtros de la semana, ni la caducidad, ni la disponibilidad. O sea que
+ * su curva prometía una cobertura que el generador real NO iba a producir — el peor
+ * tipo de simulador, el que miente con confianza. Ahora corre el MISMO
+ * `tpSelectWeeklyItems` semana a semana vía `tpPlanHorizon`.
+ *
+ * `capacity` sigue siendo el número que el usuario teclea en el Simulador (esa
+ * pantalla es un "¿y si tuviera N por semana?"), así que se pasa como override.
+ */
 function tpRunSimulation(capacity, maxWeeks) {
     const analysis = tpGetAnalysis();
     const totalConfigs = analysis.length;
@@ -7643,48 +8791,29 @@ function tpRunSimulation(capacity, maxWeeks) {
     const currentCoverage = totalConfigs > 0 ? Math.round((currentOk / totalConfigs) * 100) : 0;
     const totalDeficit = Math.max(0, totalRequired - currentTested);
 
-    // Simulate week by week
-    const testedSim = new Map();
-    analysis.forEach(a => testedSim.set(a.desc, a.testedN));
+    var H = tpPlanHorizon({
+        weeks: maxWeeks,
+        startDate: (typeof localToday === 'function') ? localToday() : '',
+        capacity: capacity,
+        // La simulación es un "¿cuántas semanas me toma?", no un calendario: marcar
+        // una semana como no disponible en Recuperación no debe deformar la curva.
+        respectAvailability: false,
+        selectOpts: { dryRun: true }
+    });
 
     const curve = [];
     let weeksTo100 = maxWeeks + 1;
+    var rolling = (tpState.testedList || []).slice();
 
-    for (let w = 1; w <= maxWeeks; w++) {
-        // Pick top-deficit configs
-        const scored = analysis.map(a => {
-            const n = testedSim.get(a.desc) || 0;
-            const rule = tpGetRule(a);
-            const req = tpCalcRequired(a, rule);
-            const deficit = Math.max(0, req - n);
-            return { ...a, simTested: n, simReq: req, simDeficit: deficit };
-        }).filter(c => c.simDeficit > 0 && c.total > 0).sort((a,b) => b.score - a.score);
-
-        let remaining = capacity;
-        const used = new Set();
-        for (const cfg of scored) {
-            if (remaining <= 0) break;
-            if (used.has(cfg.desc)) continue;
-            testedSim.set(cfg.desc, (testedSim.get(cfg.desc)||0) + 1);
-            used.add(cfg.desc);
-            remaining--;
-        }
-
-        // Calculate coverage at this point
-        let ok = 0;
-        analysis.forEach(a => {
-            const n = testedSim.get(a.desc) || 0;
-            const rule = tpGetRule(a);
-            const req = tpCalcRequired(a, rule);
-            if (n >= req) ok++;
-        });
-        const pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
-        curve.push({ week: w, pct, ok });
-        if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = w;
-    }
+    H.weeks.forEach(function(w, i) {
+        rolling = w.sel ? w.sel.tested : rolling;
+        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.testedN >= a.required : true; }).length;
+        var pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
+        curve.push({ week: i + 1, pct: pct, ok: ok, planned: w.items.length });
+        if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = i + 1;
+    });
 
     const coverageAtEnd = curve.length > 0 ? curve[curve.length - 1].pct : currentCoverage;
-
     return { totalTestsNeeded: totalDeficit, currentCoverage, coverageAtEnd, weeksTo100, curve };
 }
 
@@ -8525,18 +9654,10 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
             'Marcar ✅ a mano deja un registro permanente marcado como "declarada" — sobrevive aunque borres el plan, pero nunca se disfraza de liberación real.',
             'El semáforo (⚠️ / 🔴) es un aviso interno anticipado, no un juicio: dice qué mirar hoy, no qué va a fallar.',
             'El ＋ de cada día agrega configuraciones, incluidas las que YA están en la semana: dos vehículos idénticos son un caso normal y ahora se pueden planear (se numeran "1 de 2" y "2 de 2").',
-            '🔗 Vincular acredita una fila con una prueba real por VIN cuando el automático no la empató. Deja evidencia; palomear a mano solo declara.'
-        ]
-    },
-    'tp-weekly': {
-        title: 'Armar semana',
-        text: 'Todo en una pantalla: arriba el enfoque (Europa / USA / todo), a la izquierda CÓMO se elige (ponderación, cola de pendientes y filtros) y a la derecha, siempre visible, QUÉ se propondría. "Generar y abrir Mi semana" te deja en el tablero, no en el formulario.',
-        tips: [
-            'La propuesta de la derecha es exactamente lo que creará "🚀 Generar" — se actualiza al mover cualquier control.',
-            'La cola de pendientes tiene un tope (50% por defecto): el resto de los lugares queda reservado para las prioridades de hoy.',
-            'Si cambiaron las prioridades, baja la caducidad de la cola o apágala — lo viejo deja de proponerse sin tocar el déficit ni la cobertura.',
-            'Filtra por body type o regulación para dedicar la semana a un solo tipo de vehículo.',
-            '📌 fija una prueba (entra siempre) y 🚫 la saca solo de esta semana.'
+            '🔗 Vincular acredita una fila con una prueba real por VIN cuando el automático no la empató. Deja evidencia; palomear a mano solo declara.',
+            'En un teléfono, TOCA el asa ⠿ y luego el día: el arrastre necesita ver el destino en pantalla y en móvil no cabe. Funciona igual con el plan ya aceptado.',
+            '"🎛️ Armar semana" abre el generador AQUÍ MISMO: mueve los controles, mira la propuesta y genera — el tablero de abajo ya es el resultado.',
+            'Las pruebas marcadas "⚡ no planeada" se liberaron en Pruebas sin que hubiera una fila que las esperara: entraron solas. Se pueden quitar del plan sin perder la evidencia.'
         ]
     },
     'tp-recovery': {
@@ -8609,6 +9730,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas vas a planear esta semana. No puede pasar del máximo físico (pares preacon→prueba × vehículos por par); bájala si hay festivos o mantenimiento.' },
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
+    'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
     'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
     'tp-aging-help': { title: 'Empuje por antigüedad', text: 'Puntos que gana una configuración por cada semana que lleva postergada, para que la cola no se estanque. El tope evita que lo viejo le gane siempre a lo urgente. En 0, la antigüedad deja de influir por completo.' },

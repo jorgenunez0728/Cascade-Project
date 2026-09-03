@@ -782,7 +782,8 @@ function pnSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('pn-tabs-bar'), _activeBtn);
     }
-    pnRender();
+    // keepCache solo al saltar de pestana — todo lo demas repinta (issue #110).
+    pnRender({ keepCache: true });
     // v16.0: banner de ayuda de pestañas Alpine — su contenido vive en un x-show estático
     // que NO pasa por tabCacheSwitch/pnRender, así que se pinta en un slot propio aquí.
     if (_pnAlpineTabs[tabId] && typeof helpBannerHTML === 'function') {
@@ -849,13 +850,13 @@ function pnRenderAuditTrail(el) {
     el.innerHTML = html;
 }
 
-function pnRender() {
+function pnRender(opts) {
     if (!document.getElementById('pn-content')) return;
     // Initialize tab cache on first render
     if (!_tabCache['pn']) tabCacheInit('pn', _pnTabs);
     var tab = pnState.activeTab;
     var renderer = _pnGetRenderer(tab);
-    if (renderer) tabCacheSwitch('pn', tab, renderer);
+    if (renderer) tabCacheSwitch('pn', tab, renderer, opts);
     // Notify Alpine to refresh reactive data
     window.dispatchEvent(new CustomEvent('pn:refresh'));
     // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF.
@@ -2388,6 +2389,21 @@ function pnDensityRenderChoices() {
            + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2xs);">'
            + o[2] + '</div></button>';
     }
+    // [v23.1 · issue #109] La tira "Siguiente: ..." de Pruebas se apaga con su ✕ y
+    // aquí es donde se vuelve a encender. Vive en el mismo bloque que la densidad
+    // porque las dos son preferencias de ESTE dispositivo (uiPref, sin sincronizar).
+    var nsOn = (typeof v7NextStepEnabled === 'function') ? v7NextStepEnabled() : true;
+    h += '<div style="flex:1 1 100%;margin-top:var(--space-md);padding-top:var(--space-md);'
+       + 'border-top:1px solid var(--border);">'
+       + '<label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;">'
+       + '<input type="checkbox" ' + (nsOn ? 'checked' : '')
+       + ' onchange="v7NextStepSetEnabled(this.checked)">'
+       + '<span><span style="font-weight:700;font-size:var(--fs-sm);color:var(--text);">'
+       + 'Tira de "siguiente paso" en Pruebas</span>'
+       + '<span style="display:block;font-size:var(--fs-xs);color:var(--muted);">'
+       + 'La franja de abajo que dice qué sigue con el vehículo abierto. Solo se ve dentro de Pruebas.'
+       + '</span></span></label></div>';
+
     host.innerHTML = h;
     if (typeof cascadeInjectTooltips === 'function') { try { cascadeInjectTooltips(); } catch (e) {} }
 }
@@ -2624,7 +2640,6 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_ui_prefs',          label: 'Preferencias de interfaz', tier: 'cache',
       note: 'Densidad, "solo míos", alcance de búsqueda y tarjetas colapsadas. '
           + 'Al borrarla todo vuelve a sus valores por defecto.' },
-    { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
     { key: 'kia_last_module',       label: 'Última pestaña',           tier: 'cache' },
@@ -2913,7 +2928,10 @@ function _pnCollectCalendarEvents(year, month) {
     // Gas depletion predictions (approximate)
     if (typeof invState !== 'undefined' && invState.gases) {
         invState.gases.forEach(function(g) {
-            if (g.status !== 'active' || !g.readings || g.readings.length < 2) return;
+            // v23: filtraba `g.status !== 'active'`, un estado que la app NUNCA
+            // escribe — los reales son Stock / In use / Empty / Spare (CLAUDE.md v21).
+            // O sea: esta rama entera llevaba rondas sin producir un solo evento.
+            if (g.status === 'Empty' || !g.readings || g.readings.length < 2) return;
             var last2 = g.readings.slice(-2);
             var rate = (last2[0].psi || last2[0].value || 0) - (last2[1].psi || last2[1].value || 0);
             if (rate <= 0) return;
@@ -2935,29 +2953,44 @@ function _pnCollectCalendarEvents(year, month) {
         });
     }
 
-    // Test plan items
-    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
-        tpState.weeklyPlans.forEach(function(plan) {
-            if (!plan.weekStart) return;
-            var ws = parseLocalDate(plan.weekStart);
-            // Show each day of the week
-            for (var i = 0; i < 5; i++) {
-                var d = new Date(ws);
-                d.setDate(d.getDate() + i);
-                if (d >= monthStart && d <= monthEnd) {
-                    var dateStr = localDateStr(d);
-                    var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
-                    if (pending > 0) {
-                        events.push({
-                            date: dateStr,
-                            type: 'test_plan',
-                            color: '#3b82f6',
-                            label: '🧪 ' + pending + ' pruebas plan semanal',
-                            module: 'Test Plan'
-                        });
-                    }
-                }
-            }
+    // Pruebas del plan semanal.
+    //
+    // v23: esta rama estaba MUERTA. Leía `plan.weekStart`, un campo que NINGÚN
+    // generador escribe (todos escriben `weekDate`), así que el `return` de la
+    // primera línea salía siempre y el calendario de Datos nunca mostró una sola
+    // prueba planeada. Misma familia que `w.week` en el merge de sync (v20) y que
+    // `eq.nextCalibration` en las alertas (v16.4): un campo inventado que nadie
+    // verificó contra el que sí se escribe.
+    //
+    // Y se pinta el PLAN VIGENTE de cada semana (`tpWeekPlanFor`), no todos los
+    // planes: una semana con el aceptado más tres propuestas viejas mostraba
+    // cuatro veces las mismas pruebas.
+    if (typeof tpState !== 'undefined' && Array.isArray(tpState.weeklyPlans)) {
+        var _semanasVistas = {};
+        tpState.weeklyPlans.forEach(function(p) {
+            if (!p || !p.weekDate || _semanasVistas[p.weekDate]) return;
+            _semanasVistas[p.weekDate] = true;
+            var vig = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(p.weekDate) : null;
+            var plan = vig ? vig.plan : p;
+            var lunes = parseLocalDate(plan.weekDate);
+            if (!lunes || isNaN(lunes.getTime())) return;
+            var porDia = {};
+            (plan.items || []).forEach(function(it) {
+                if (it.completed || !it.testDay) return;
+                porDia[it.testDay] = (porDia[it.testDay] || 0) + 1;
+            });
+            ['lun', 'mar', 'mie', 'jue', 'vie'].forEach(function(dk, i) {
+                if (!porDia[dk]) return;
+                var d = new Date(lunes); d.setDate(lunes.getDate() + i);
+                if (d < monthStart || d > monthEnd) return;
+                events.push({
+                    date: localDateStr(d),
+                    type: 'test_plan',
+                    color: (vig && !vig.accepted) ? '#94a3b8' : '#3b82f6',
+                    label: '🧪 ' + porDia[dk] + ' prueba(s)' + ((vig && !vig.accepted) ? ' (propuesta)' : ''),
+                    module: 'Test Plan'
+                });
+            });
         });
     }
 

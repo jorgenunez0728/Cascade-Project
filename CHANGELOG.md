@@ -2,6 +2,360 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y tres reportes viejos (2026-09-03)
+
+Tres cosas pedidas juntas: *"arregla esos bugs y la prueba de OBD II no debería contar
+en emisiones, igual lo que dices de los lazos greedy"*.
+
+---
+
+### 1. Una prueba de OBD II ya no acredita el REQ de emisiones
+
+Hasta v23 los **ocho** propósitos de Cascade acreditaban por igual: `tpGetAnalysis`
+contaba toda fila con `configText === cfg.desc` **sin mirar `purpose`**, así que una
+prueba de OBD2 bajaba el déficit de emisiones exactamente igual que una COP. v23 sólo
+expuso el número (`totalNoEmisiones`) porque separarlo mueve la cobertura del
+laboratorio de un día para otro, y eso es una decisión de política, no un arreglo.
+Confirmada, aquí está.
+
+- **`tpTestedCountsForReq(t)` es LA definición** de "esta fila acredita el REQ" y
+  **`tpTestedForConfig(desc, [list])` / `tpTestedCountFor(desc, [list])`** la forma de
+  contar. Todo consumidor nuevo las llama en vez de filtrar por `configText` a secas.
+  Ya migrados: `tpGetAnalysis`, `tpBuildFamilies` (conteo **y** VINes), la continuidad
+  por MY, `tpBuildScoreDetail` (la fecha de "última prueba", de donde sale el empuje
+  por antigüedad), `_tpMakeItem`, el lazo de Recuperación y el snapshot del generador.
+- **Cuatro reglas que no se rompen:**
+  1. **La evidencia NO se toca.** La prueba de OBD2 se sigue registrando en
+     `testedList` — ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y
+     no en la captura es lo que hace el cambio **reversible**: volver a marcar el
+     propósito devuelve los números exactos de antes, sin recuperar nada.
+  2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20):
+     `purpose` sólo se escribe desde v23, así que degradar las filas históricas
+     borraría años de cobertura real de un golpe.
+  3. **El plan es otra cosa.** Palomear una fila de OBD2 en Mi semana la marca como
+     hecha igual que siempre: el compromiso de la semana se cumplió. Lo que no baja es
+     el déficit de emisiones de esa configuración.
+  4. **Lo excluido se declara, nunca se oculta** (principio del semáforo del CoP):
+     `tpCoverageSummary()` suma `totalNoEmisiones` + `noReqPorProposito` +
+     `totalRegistradas`, y Probados pinta el desglose por propósito.
+- **La lista es EDITABLE** (Plan → Reglas, tarjeta "🏷 Qué acredita el REQ de
+  emisiones", `tpSetReqPurpose`): `Correlacion`, `Investigacion` y `ND-Emisiones` SÍ
+  acreditan por default —son mediciones de emisiones sobre la configuración— pero si
+  mañana se decide que sólo `COP-Emisiones` cuenta para el CoP, es una casilla y no
+  una ronda de código. `tpReqPurposes()` es LA forma de leerla (reaplica defaults en
+  cada lectura, patrón `tpPlannerCfg` de v18.0); la clave se sumó a la lista de
+  preservación de `_fbPullSeed`.
+- **Dos efectos de borde arreglados de paso**: la declaración a mano hereda el
+  `purpose` de la fila del plan (sin eso acreditaba por omisión), y **sólo una
+  liberación que acredita retira la declarada** — una prueba de OBD2 no es la prueba
+  de emisiones que esa declaración prometía, y retirarla le subía el déficit a la
+  configuración sin avisar.
+- `const TP_PURPOSES_OBD` va **junto a `TP_PURPOSES_VALID`**, no más abajo:
+  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+  una `var` declarada después estaría *hoisted* pero en `undefined` y la app no
+  arrancaría. (Lo cazó la prueba de Node antes que el navegador.)
+
+### 2. `tpPlanHorizon` — un solo lazo para todo lo que planea varias semanas
+
+Deuda anotada en v18.0 y repetida en v20 y v23. `tpGenerateMonthly` y `tpRunSimulation`
+eran copias cercanas del lazo de `tpSelectWeeklyItems` con su propio `Map` de conteo
+simulado. Consecuencia **real, no teórica**: ninguna de las dos conocía la cuota de la
+cola (`carryoverMaxPct`) ni los filtros de la semana (`tpPassesWeekFilter`), así que
+"Generar mes" podía escribir cuatro semanas de puro arrastre y el simulador prometía
+una curva que el generador real nunca iba a producir — el peor tipo de simulador, el
+que miente con confianza. Tampoco veían las obligatorias, el inventario, la caducidad
+ni la disponibilidad por semana.
+
+- **`opts.testedSeed` es lo que abre `tpSelectWeeklyItems` al horizonte**: la semana
+  parte de donde quedó la anterior en vez del `testedList` real, y devuelve la lista
+  rodante en `R.tested`. Sigue siendo **pura respecto a `tpState`**.
+- **`_tpAnalyze(list)`** se extrajo de `tpGetAnalysis` (que queda como el envoltorio
+  memoizado sobre `tpState.testedList`) para poder preguntar "¿cómo queda el déficit
+  DESPUÉS de la semana 1?" sin reimplementar la resta a mano.
+- **`tpPlanHorizon(opts)` es LA definición del horizonte** y no escribe nada: devuelve
+  las semanas y quien llama decide si las materializa (el mes) o sólo las mide (el
+  simulador). Las **obligatorias sólo aplican a la primera semana** —son de una semana
+  concreta— o el mes repetiría el mismo vehículo fijado cuatro veces. Una semana
+  marcada no disponible se **salta y se declara**; el simulador pasa
+  `respectAvailability:false` porque su pregunta es "¿cuántas semanas me toma?", no un
+  calendario.
+- **Recuperación NO se metió a la fuerza**: explota el déficit en unidades y ordena por
+  tier P1..P10, no por score — es un empaquetado por prioridad, no el mismo lazo. Lo
+  que sí se unificó es la construcción de la fila: `tpMaterializeRecovery` ahora usa
+  `_tpMakeItem` en vez de la tercera réplica a mano de sus 20 campos (que se quedaba
+  sin `purpose` ni `_scoreDetail`).
+- El diálogo de "Generar mes" ya no advierte que el generador no conoce la cuota —
+  ahora sí la conoce.
+
+### 3. Los tres reportes abiertos
+
+**#110 — «En la pantalla de plan, editar semana no hace nada».** El ✏️ de esa pantalla
+desapareció con v23 (el armador vive dentro de Mi semana), pero **la causa seguía
+viva y era mucho más grande que ese botón**: `tabCacheSwitch` sólo repintaba si la
+pestaña estaba "sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo
+la vista** no guarda nada — no tiene por qué — así que toda esa familia estaba muerta:
+el filtro por estado del Dashboard del Plan, los 5 ajustes de su gráfica, Captura
+Manual / Importar JSON, los filtros de fecha de Probados, el año del Plan Maestro de
+Consumibles y sus 3 tipos de gráfica. De las 88 llamadas a `tpRender()` la mayoría no
+guarda. El síntoma es el peor posible: **no pasa nada, sin error**.
+Se **invierte el default**: se repinta siempre, y el caché se conserva sólo cuando el
+llamador lo pide — hoy únicamente el salto de pestaña
+(`xxSwitchTab` → `xxRender({keepCache:true})`), que es donde de verdad sirve.
+
+**#109 — «Esa tira de siguiente vehículo no sirve, tapa los botones de abajo».**
+Tres defectos: (1) no estaba atada a ninguna sección, así que con un vehículo abierto
+en Pruebas seguía ahí en Datos, Plan y HOY —la captura la muestra sobre los botones
+Editar/borrar de Regulaciones—; (2) `z-index: 9000` la ponía **por encima de la
+`.bottom-nav` (2000)**, o sea que en celular y tablet tapaba la navegación completa;
+(3) no se podía apagar. Ahora vive sólo dentro de Pruebas, se apoya *encima* de la
+barra de abajo (z 1990, `bottom: 62px`, y `body.has-next-step` reserva su altura y sube
+el 🐞 y el aviso de soak), y trae una **✕**. La preferencia es
+`uiPref('nextStep')` — nunca una clave propia (regla de v22.0) — y por eso **no se
+sincroniza**: que a un técnico le estorbe no debe apagársela a otro. Se vuelve a
+encender en Datos → Sistema, junto a la densidad.
+
+**#113 — «No funciona el modificar a los operadores».** Se reportó contra la **v18.2**
+y lo arregló **v18.5** (`_pnEnsureAdminExists` rompió el candado circular —todos nacen
+Técnico y cambiar un rol exige `users.manage`— y `_authNormalizeRole` dejó de dar cero
+permisos en silencio a `'SUPERVISOR'` o `' Supervisor'`). Verificado en navegador
+contra el código actual: partiendo de un laboratorio donde **nadie** tiene
+`users.manage`, alguien queda con el permiso, el cambio de rol se guarda,
+`'  TECNICO '` se normaliza a `'Técnico'` y un rol inventado se rechaza con aviso en
+vez de dejar al operador sin permisos. **No hacía falta código nuevo.**
+
+### Verificación
+
+`tests/plan.node.js` sube de 16 a **33 casos** (10 de OBD II, 7 del horizonte);
+`tests/credit.node.js` sigue en 12. `tests/v231.e2e.js` es un recorrido real en
+Chromium a 753×1132 —el dispositivo del #109— que comprueba las tres cosas de arriba.
+`tests/semana.e2e.js` sin regresiones (`mar → jue`, el plan sigue aceptado, HOY
+respeta la puerta del plan aceptado en los dos sentidos).
+
+---
+
+## v23.0 — El plan de pruebas, de nuevo (2026-09-03)
+
+Ronda disparada por el **issue #126**, reportado desde la app a las 20:20 del 2 de
+septiembre, desde un teléfono de 427 px:
+
+> "En armar plan se guardaron un montón de planes que yo no hice, se aceptaron por
+> ejemplo 6/40 unidades un número absurdo para una semana"
+
+No era un bug: eran **cinco**, y el que el reporte describía —"se aceptaron solos"—
+no existe. En todo el repo hay **UNA** asignación de `accepted = true` y está detrás
+de un botón. Lo que fallaba es a qué plan apuntaba ese botón.
+
+### Los cinco bugs
+
+**1. El auto-plan del viernes fabricaba un plan por dispositivo.**
+`js/app.js:4216` corría `tpAutoGenerateIfNeeded` 3 s después de cargar la app, en
+cada equipo, viernes ≥14:00, sábado y domingo. Su guard (`tpState.autoPlanLastRun`)
+se **sincroniza** — o sea, es eventual: dos equipos abiertos a la vez pasaban los
+dos. El merge empata por `tpPlanId()` = `'W'+weekDate+'-'+id`, y `id` es un
+`Date.now()` **por dispositivo**, así que ninguno reconocía al del otro como
+duplicado y sobrevivían todos.
+
+Se **eliminó**. No se reemplazó por una versión con mejor guard: ningún guard
+sincronizado gana una carrera entre dispositivos. Queda un aviso pasivo en HOY
+("Falta armar la semana del X"), que no escribe estado ni se duplica.
+
+**2. El auto-plan podía REESCRIBIR un plan existente, incluido uno aceptado.**
+Si `tpSmartGenerate()` salía temprano (sin `planData`, o sin items con inventario)
+no empujaba nada, pero el código seguía y hacía
+`weeklyPlans[length-1].weekDate = próximoLunes` sobre un plan **preexistente**, sin
+pasar por `_tpTouchPlan` (así que `weekHistory` quedaba mintiendo). Se va con el
+punto 1.
+
+**3. El "40": la capacidad práctica no existía; se usaba el máximo físico.**
+Había TRES nociones de capacidad y el generador usaba la peor:
+
+| | qué es | quién la usaba |
+|---|---|---|
+| `tpWeekCapacity().max` | tope FÍSICO: pares preacon→prueba × vehículos por par | el generador semanal |
+| `tpState.capacity` (8) | la capacidad práctica | el presupuesto anual y el simulador — **nunca** el generador semanal |
+| `#tp-weekly-cap` | el valor de un input | los TRES generadores, leyéndolo del DOM |
+
+Con 5 días, 24 h de reposo y 10 vehículos por par, el tope físico son **40**. Y
+cuando la pestaña no estaba montada —justo el caso del auto-plan— `getElementById`
+daba `null`, `capacity` caía en 0 y `tpSelectWeeklyItems` lo interpretaba como "usa
+el máximo". El propio input arrancaba en el máximo, así que nadie lo bajaba.
+
+**`tpWeeklyCapacityFor(weekDate, workDays)` es LA definición** de cuántas pruebas se
+planean: el override de la semana (`weekAvailability[lunes].capacity`), si no
+`tpState.capacity`, acotado por el tope físico. El tope solo ACOTA; un 0 nunca más
+significa "el máximo". Ningún generador vuelve a tocar el DOM.
+
+**4. Aceptar, borrar y mover trabajaban con ÍNDICES DE ARRAY.**
+Cada `onclick` generado llevaba un índice de `tpState.weeklyPlans`. Entre pintar la
+pantalla y tocar el botón el arreglo puede crecer o reordenarse: un pull de sync, o
+—hasta ayer— el auto-plan a los 3 s. **El índice pasa a apuntar a otro plan.** Ésa
+es, con mucho, la explicación de "se aceptaron planes que yo no hice".
+
+`tpPlanId()` existe desde v20 y se usaba internamente, pero no en la frontera de la
+UI. Es la tercera vez que el repo paga esta lección (`weekNum` en v20, `w.week` en
+el merge de sync en v20).
+
+Ahora **la UI habla por identidad**: `item.uid` nuevo, `_tpIdx(planRef, itemRef)`
+que acepta AMBAS formas (un número sigue siendo un índice, porque `tabCacheSwitch`
+conserva pestañas ya pintadas con sus onclick numéricos), y un aviso cuando la
+referencia ya no existe en vez de aceptar lo que quedó en esa posición.
+
+Las declaraciones de `testedList` empataban por `itemIdx`, un índice dentro de
+`plan.items` que cualquier `splice` invalida en silencio: ahora por `itemUid`.
+
+**5. `tpWeekBoardRows` no resolvía el plan vigente.**
+Elegía el ÚLTIMO elemento del arreglo con esa `weekDate`, no el aceptado. v20.10
+arregló esto en `tpFamilyWeeklyProgress` pero no aquí — y esta función es la que
+CLAUDE.md declara "LA definición del estado de la semana". El tablero mostraba una
+propuesta vieja mientras el Gantt mostraba el plan real: dos pantallas, dos
+verdades, sobre el mismo lunes.
+
+**`tpWeekPlanFor(weekDate)` es LA definición del plan vigente** (aceptado primero —
+el de `acceptedDate` más reciente si hay varios—, si no la propuesta más reciente).
+La adoptaron el tablero, `tpAutoMarkWeeklyCompletion` (que además marcaba en
+cualquier plan, incluidas propuestas y semanas futuras), `tpFamilyWeeklyProgress` y
+el calendario de Datos.
+
+Y `tpDedupeWeeklyPlans` quita al mergear las propuestas idénticas al plan vigente;
+`tpClearProposalsFor` limpia una semana de un paso. Ninguna toca un plan aceptado ni
+uno con trabajo encima.
+
+### Lo que se libera en Cascade aparece en el plan
+
+`tpCreditReleaseToWeek(vehicle)` es **LA definición del crédito** y la comparten los
+dos caminos de liberación, que ya divergían: el de lote **descartaba** el resultado
+del marcado, así que un vehículo que no empataba no ofrecía sustitución ni avisaba
+nada.
+
+1. Evidencia en `testedList`, con dedup por vehículo.
+2. Marca la fila del plan **vigente de la semana en que se corrió la prueba** — no
+   la de hoy: una prueba del viernes aprobada el lunes se contaba en la semana
+   siguiente y el avance de las dos mentía.
+3. Si no hay fila que empate, **la crea**: ya hecha, en el día real, marcada
+   **"⚡ no planeada"**. Eso era lo que faltaba — antes la prueba sumaba a la
+   cobertura y era invisible en Mi semana ("corrí la prueba y el plan sigue en rojo").
+4. **No inventa un plan** cuando la semana no tiene ninguno. Crear un plan como
+   efecto secundario de archivar un vehículo es la misma clase de bug del #126; el
+   tablero lo declara en su estado vacío.
+
+Los KPIs separan `planeadas` de `no planeadas`: el compromiso de la semana no es lo
+mismo que lo que ocurrió. Una fila auto-agregada se puede quitar del plan **sin
+tocar la cobertura**.
+
+De la misma familia:
+
+- El rollback de `approveAndArchive` restauraba el vehículo pero dejaba en memoria la
+  fila ya empujada a `testedList` y el `item.completed` ya volteado: el plan decía
+  "cumplida" con el vehículo sin archivar. El crédito se movió **debajo** de
+  `saveDB()`, así que los dos caminos de reversión quedan correctos por construcción.
+- `testedList` gana `vin` y `vehicleId`. El VIN vivía dentro del texto libre de
+  `note`, leído por **dos regex distintas** y por `note.includes('VIN: '+vin)` en
+  cop15 — inseguro por prefijo: borrar `KNA123` se llevaba la evidencia de `KNA1234`.
+- `_tpExtractVin` tenía un respaldo que partía la nota por el guion largo: con
+  "Declarada en el plan — sin vehículo liberado" devolvía **"Declarada en el plan"
+  como si fuera un VIN**.
+- La promoción de una declarada empataba solo por `configText` y podía borrar la de
+  **otra semana**. Ahora está acotada a la semana de la prueba.
+- El merge de `testedList` empataba por `configText|date`: con dos unidades de la
+  misma config el mismo día —justo la configuración que produjo el 40— la segunda se
+  descartaba como duplicada.
+- `cop15.js` llamaba `_tpInvalidateCache()` (con guion bajo), que solo tira el hash
+  del plan: borrar un vehículo dejaba la cobertura vieja en pantalla.
+
+### Una sola pantalla
+
+"La propuesta sigue viéndose como muy cluster". Era una pestaña aparte con ~40
+controles y, peor, en una pantalla **distinta** de la que mostraba el resultado.
+
+Ahora "Armar la semana" es una tarjeta plegable **encima del tablero**, en Mi
+semana: cuatro decisiones (semana, cuántas pruebas, enfoque, días), la propuesta en
+vivo, y al generar el tablero de abajo ya es el resultado. La tarjeta se cierra sola.
+
+- Los 21 deslizadores de ranking se mudan a **Reglas**, donde ya vivían las de ratio.
+  Una perilla que reordena todas las semanas futuras no va en la pantalla diaria.
+- "⚡ Smart" era `opts.checkInventory` y nada más: ahora es una casilla. **Un solo
+  botón Generar.**
+- "📅 Generar Mes" escribía **cuatro propuestas de un clic sin preguntar** — el
+  segundo sospechoso de "planes que yo no hice". Queda detrás de un diálogo.
+- Se eliminan `tp-weekly`, `tp-planactual` y `tp-planhistory` (las dos últimas
+  declaradas en `_tpTabs` desde hace rondas sin ningún botón que las alcanzara).
+
+### Que se pueda operar con el pulgar
+
+El reporte vino de un teléfono de 427 px, y ahí el arrastre era **imposible**: las
+columnas se apilan, `gridDragInit` hace `preventDefault` en `touchmove` (la página
+no puede desplazarse mientras arrastras) y el destino se resuelve con
+`elementFromPoint`, que solo ve lo que está en pantalla.
+
+- **Tocar para mover.** La máquina de estados existía desde v17.8 pero solo se
+  alcanzaba con Enter; `gridDragInit` ni siquiera pasaba el elemento a su propio
+  callback `onTap`. Va en `click`, no en `touchend`: en un contenedor que se desplaza
+  en X el navegador dispara `touchcancel` y el `touchend` no llega nunca (medido).
+- La barra "Moviendo X — toca el día" es `position: fixed`. La primera versión la
+  insertaba antes del tablero y eso empujaba todo: el `click` sintetizado tras el
+  `touchend` caía en otro elemento y tocar el asa **abría el modal de "Agregar
+  prueba"** (también medido).
+- Auto-scroll de borde para el arrastre real, detrás de `opts.autoScroll` para no
+  tocar el mapa de zonas de Consumibles.
+- De 400 a 900 px la semana se lee **como una semana**: una fila de columnas con
+  enganche en vez de cinco bloques apilados.
+
+Arrastrar y tocar funcionan igual con el plan **ya aceptado** — siempre fue así
+(`tpMoveItemToDay` nunca miró `accepted`), pero no se decía y no se podía.
+
+### HOY: el día, o la semana
+
+`dashCollectWeekActivities()` es LA definición de "qué hay esta semana y qué día":
+pruebas del plan vigente + hitos de proyectos + calibraciones y mantenimientos que
+vencen. El selector Hoy | Esta semana vive en `uiPref('dashRange')`.
+
+`tpBuildDayColumnsHTML(b, opts)` se extrajo de `tpRenderMyWeek` para que HOY pinte
+la semana con **el mismo marcado** que el Plan. Las actividades que no son pruebas
+se ven **sólo en HOY**; el Plan muestra pruebas y nada más.
+
+**El plan de pruebas aparece en HOY únicamente una vez aceptado.** Antes se listaban
+también las propuestas, rotuladas "⏳ sin aceptar" — y con el auto-plan generando en
+cada dispositivo, eso llenaba HOY de pruebas que nadie había decidido correr.
+
+Dos ramas **muertas** del calendario de Datos, encontradas al buscar de dónde sacar
+las fechas: leía `plan.weekStart`, un campo que **ningún generador escribe** (todos
+escriben `weekDate`), así que nunca mostró una sola prueba planeada; y filtraba los
+cilindros por `g.status !== 'active'`, un estado que la app tampoco escribe.
+
+### Actividades de todos los tipos
+
+`item.purpose` (opcional, retrocompatible): los mismos 8 propósitos de Cascade. El
+`＋` de cada día ofrece el tipo, y el chip solo se pinta cuando **no** es una prueba
+de emisiones — el caso normal no necesita etiqueta.
+
+> ⚠️ **Se expone, no se cambia.** Hoy los 8 propósitos acreditan por igual el REQ de
+> emisiones: `tpAutoFeedFromRelease` acepta los ocho y `tpGetAnalysis` cuenta toda
+> fila con `configText === desc` sin mirar `purpose`. Es decir, **una prueba de OBD2
+> baja el déficit de emisiones**, que casi seguro no es lo que la norma quiere. Pero
+> cambiarlo tira la cobertura del laboratorio de un día para otro y es una decisión
+> de política, no un arreglo. `tpCoverageSummary()` gana `totalNoEmisiones` y
+> Probados muestra el número para poder decidirlo con dato.
+
+### Deuda que esta ronda NO cierra
+
+`tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` siguen siendo copias
+cercanas del mismo lazo greedy y no conocen la cuota de la cola ni los filtros
+(anotada desde v18.0). **Sí** adoptan `tpWeeklyCapacityFor`, que es de donde salía
+el número absurdo, y "Generar mes" deja de escribir sin confirmar. Unificarlas es
+una ronda propia: `tpBuildRecoveryPlan` explota el déficit en unidades y ordena por
+tier, no por score, así que no es el mismo lazo aunque lo parezca.
+
+### Pruebas
+
+- `tests/plan.node.js` — 16 casos sin DOM: `tpWeekPlanFor`, la capacidad, `_tpIdx`,
+  el dedupe y que el auto-plan ya no existe.
+- `tests/credit.node.js` — 12 casos: el crédito completo, la semana correcta, el
+  dedup, los avisos y que `_tpExtractVin` ya no inventa VINes.
+- `tests/semana.e2e.js` — recorrido real en Chromium a 427×840, el dispositivo del
+  reporte: tocar el asa, tocar el día, el plan aceptado sigue aceptado, y la regla
+  nueva de HOY en sus dos sentidos.
+
+
 ## v22.7 — Etapa 3: el codemod de los 12 módulos (2026-09-02)
 
 Cierra la serie v22. `styles.css` ya había pasado en v22.0; faltaba el JS, que es donde vive

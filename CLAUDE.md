@@ -20,8 +20,8 @@ no-login operator picker, synced change history).
 
 | Root Tab | Contains | Internal Section IDs |
 |----------|----------|---------------------|
-| **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
-| **Plan** | **v20**: abre en **📅 Mi semana** (tablero por día) + **🎛️ Armar semana** (perillas + propuesta en vivo), **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
+| **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions. **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
+| **Plan** | **v23**: abre en **📅 Mi semana** — el tablero por día Y el armador (tarjeta plegable con la propuesta en vivo) en la MISMA pantalla; la pestaña "Armar semana" se eliminó. Más **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ gauge de la banda A(n)–B(n)), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
@@ -106,6 +106,7 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_homolog_v1` | Catálogo de homologación Europa (ICMS) + enlaces config→MC code + tolerancia CO₂ — synced |
 | `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
 | `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
+| `kia_ui_prefs` | Preferencias de interfaz por dispositivo (`uiPref`). **v23** suma `dashRange` (HOY: día o semana). NO se sincroniza |
 
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
 (editable P1..P10 classification for Recovery), `weekAvailability`, `maxTiers`, `recoveryUntil`.
@@ -1339,6 +1340,294 @@ las dos, no una:
 - `copBuildOverviewHTML` **sigue sin migrar a `uiCard`** a propósito: el CoP tiene su propio
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
+
+## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y la pestaña que no repintaba
+
+### 🏷 Qué acredita el REQ de emisiones
+
+La advertencia de v23 se resolvió: **una prueba de OBD II ya NO baja el déficit de
+emisiones**. Cuatro reglas que no se rompen:
+
+1. **La evidencia NO se toca.** La fila se sigue escribiendo en `testedList` — la
+   prueba ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y no en la
+   captura es lo que hace el cambio **reversible**: volver a marcar el propósito
+   devuelve los números exactos de antes, sin recuperar nada.
+2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20).
+   `purpose` sólo se escribe desde v23; degradar lo histórico borraría años de
+   cobertura real.
+3. **`tpTestedCountsForReq(t)` es LA definición**, y `tpTestedForConfig(desc[, list])`
+   / `tpTestedCountFor(desc[, list])` la forma de contar. Todo consumidor nuevo las
+   llama en vez de filtrar por `configText` a secas. Ya migrados: `tpGetAnalysis`,
+   `tpBuildFamilies` (conteo **y** VINes), la continuidad por MY, `tpBuildScoreDetail`,
+   `_tpMakeItem`, Recuperación y el snapshot del generador.
+4. **El plan es otra cosa.** Palomear una fila de OBD2 la marca como hecha: el
+   compromiso de la semana se cumplió. Lo que no baja es el déficit de emisiones.
+
+- **`tpReqPurposes()` es LA forma de leer la lista** — nunca `tpState.reqPurposes.x`
+  directo (reaplica defaults en cada lectura, patrón `tpPlannerCfg` de v18.0). Es
+  **editable** en Plan → Reglas (`tpSetReqPurpose`, se audita): `Correlacion`,
+  `Investigacion` y `ND-Emisiones` acreditan por default. `reqPurposes` está en la
+  lista de preservación de `_fbPullSeed`.
+- **`const TP_PURPOSES_OBD` va JUNTO a `TP_PURPOSES_VALID`**, no más abajo:
+  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+  una `var` posterior estaría hoisted pero en `undefined` y la app no arranca.
+- **Lo excluido se declara, nunca se oculta**: `tpCoverageSummary()` suma
+  `totalNoEmisiones`, `noReqPorProposito` y `totalRegistradas`; Probados pinta el
+  desglose. `totalTested`/`pct`/`deficit` **sí cambian de valor** (cuentan sólo lo que
+  acredita) — es el punto de la ronda.
+- Dos bordes: la declaración a mano hereda el `purpose` del item (sin eso acreditaba
+  por omisión), y **sólo una liberación que acredita retira la declarada** — una
+  prueba de OBD2 no es la de emisiones que esa declaración prometía.
+
+### `tpPlanHorizon` — el único lazo de varias semanas
+
+Cierra la deuda de v18.0/v20/v23. `tpGenerateMonthly` y `tpRunSimulation` tenían su
+propio `Map` de conteo simulado y **no conocían la cuota de la cola ni los filtros**,
+así que el mes podía escribir cuatro semanas de puro arrastre y el simulador prometía
+una curva que el generador real no iba a producir.
+
+- **`opts.testedSeed` abre `tpSelectWeeklyItems` al horizonte**: la semana parte de
+  donde quedó la anterior y devuelve la lista rodante en `R.tested`. Sigue **pura
+  respecto a `tpState`**.
+- **`_tpAnalyze(list)`** es el cálculo del análisis sobre una lista cualquiera;
+  `tpGetAnalysis()` queda como su envoltorio memoizado sobre `tpState.testedList`.
+- **`tpPlanHorizon(opts)` es LA definición del horizonte** y NO escribe nada. Las
+  **obligatorias sólo aplican a la primera semana** (son de una semana concreta, o el
+  mes repetiría el mismo vehículo fijado 4 veces). Una semana no disponible se salta y
+  se declara; el simulador pasa `respectAvailability:false`.
+- **Recuperación NO se unificó, a propósito**: explota el déficit en unidades y ordena
+  por tier P1..P10, no por score — es empaquetado por prioridad, no el mismo lazo.
+  Lo que sí comparte ahora es la fila: `tpMaterializeRecovery` usa `_tpMakeItem`.
+
+### `tabCacheSwitch` repinta por DEFECTO (issue #110)
+
+**El valor por defecto estaba invertido.** Sólo se repintaba si la pestaña estaba
+"sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo la vista** no
+guarda nada, así que toda esa familia estaba muerta —filtros del Dashboard del Plan,
+los 5 ajustes de su gráfica, Captura Manual / Importar JSON, filtros de Probados, el
+año del Plan Maestro de Consumibles, sus 3 tipos de gráfica— **sin ningún error**.
+
+- Ahora `tabCacheSwitch(moduleId, tabId, renderFn, opts)` repinta siempre y conserva el
+  caché sólo con `opts.keepCache`. **El único que lo pasa es el salto de pestaña**:
+  `tpSwitchTab`/`invSwitchTab`/`pnSwitchTab` → `xxRender({ keepCache: true })`.
+- `tpRender`/`invRender`/`pnRender` aceptan `opts` y lo reenvían. Código nuevo que
+  cambie sólo la vista llama `xxRender()` a secas y **ya funciona** — no hace falta
+  `tabCacheInvalidate` ni un `xxSave()` de mentira.
+
+### La tira "Siguiente: …" (issue #109)
+
+- **`v7UpdateNextStepBanner` sólo la muestra dentro de Pruebas** (`_v7InCop15()` lee
+  `.platform-section.active`). En `switchPlatform` se apaga **de inmediato** al salir
+  sin leer el DOM y se reevalúa a los 320 ms: la rama de swipe difiere el toggle de
+  `.active` 110 ms, así que leer ahí daría el estado viejo.
+- `z-index: 1990` y `bottom: 62px` — **por debajo** de `.bottom-nav` (2000) y apoyada
+  encima, no montada sobre ella. `body.has-next-step` reserva su altura y sube el 🐞 y
+  el badge de soak (el `!important` del soak es deliberado: trae `bottom:68px` en un
+  atributo `style` de index.html).
+- Se apaga con su ✕ y la preferencia es **`uiPref('nextStep')`** — nunca una clave
+  propia (v22.0) — y por eso **no se sincroniza**. Se vuelve a encender en
+  Datos → Sistema, junto a la densidad (`pnDensityRenderChoices`).
+
+### #113 (editar operadores) — ya estaba arreglado
+
+Reportado contra la **v18.2**; lo cerró **v18.5** (`_pnEnsureAdminExists` +
+`_authNormalizeRole`). Verificado en navegador contra el código actual y **sin código
+nuevo**. Al revisar un reporte viejo, comparar primero la versión del reporte con las
+rondas posteriores antes de tocar nada.
+
+### Pruebas
+
+`tests/plan.node.js` 16 → **33 casos**; `tests/credit.node.js` 12; **`tests/v231.e2e.js`**
+(Chromium 753×1132, el dispositivo del #109) cubre la tira, el repintado y OBD II.
+Los E2E necesitan `NODE_PATH` apuntando a un `node_modules` con playwright.
+
+## v23.0 — El plan de pruebas, de nuevo (`js/testplan.js`, `js/app.js`, `js/cop15.js`)
+
+Ronda del issue #126. **El bug que el reporte describía —"los planes se aceptan
+solos"— NO EXISTE**: en todo el repo hay UNA asignación de `accepted = true` y está
+detrás de un botón. Lo que fallaba es a QUÉ plan apuntaba ese botón.
+
+### REGLA NUEVA: la UI habla por IDENTIDAD, nunca por índice
+
+Cada `onclick` generado llevaba un índice de `tpState.weeklyPlans`. Entre pintar la
+pantalla y tocar el botón el arreglo puede crecer o reordenarse (un pull de sync), y
+el índice pasa a apuntar a **otro plan**. Es la TERCERA vez que el repo paga esta
+lección: `weekNum` (v20), `w.week` en el merge de sync (v20), y ahora la frontera de
+la UI.
+
+- **`item.uid`** es la identidad de una fila del plan. Lo sella `_tpMakeItem` y todos
+  los constructores de item; `tpEnsureItemUids()` rellena lo guardado (guard
+  `_migr.itemUids`) y arrastra la referencia de las declaraciones de `testedList`.
+- **`_tpIdx(planRef, itemRef)` es LA forma de resolver los dos argumentos que toda la
+  UI del tablero recibe.** Acepta AMBAS formas: un número es un índice
+  (compatibilidad — `tabCacheSwitch` conserva pestañas ya pintadas con onclick
+  numéricos), una cadena es `planId` / `item.uid`. Devuelve `null` cuando la
+  referencia ya no existe, y `_tpRefLost()` lo dice; **nunca** cae en lo que quedó en
+  esa posición. Todo mutador nuevo del plan empieza por aquí.
+- Las declaraciones de `testedList` empatan por **`itemUid`**, no por `itemIdx`: un
+  índice dentro de `plan.items` que cualquier `splice` invalida en silencio (y las
+  filas auto-agregadas de Cascade se quitan a diario).
+- El asa del arrastre lleva `data-drag-id="planId::uid"` y se parte por **`'::'`**,
+  no por `':'`: un planId lleva fechas con guiones y un `Date.now()`.
+
+### `tpWeekPlanFor(weekDate)` — LA definición del plan vigente
+
+Una semana puede tener VARIOS planes (cada "Generar" empuja uno). Criterio: aceptado
+primero (el de `acceptedDate` más reciente si hay varios), si no la propuesta con
+`created` más reciente. Devuelve `{plan, planIdx, planId, accepted, proposal, plans,
+otros}`; `plans` trae todos los aceptados porque una semana partida en dos es
+legítima. Memoizada (`tpWeekPlanInvalidate()`, encadenada a `tpInvalidateCache()`).
+
+**Todo consumidor que elija un plan por semana la llama.** Ya migrados:
+`tpWeekBoardRows` (que elegía el ÚLTIMO del arreglo, no el aceptado — el tablero y el
+Gantt mostraban semanas distintas), `tpAutoMarkWeeklyCompletion` (que marcaba en
+CUALQUIER plan, incluidas propuestas sin aceptar y semanas futuras),
+`tpFamilyWeeklyProgress` (de donde salió el criterio) y `_pnCollectCalendarEvents`.
+
+### `tpWeeklyCapacityFor(weekDate, workDays)` — LA definición de cuántas caben
+
+Había TRES nociones de capacidad y el generador usaba la peor. `tpState.capacity`
+(8) existía y el generador semanal **no la usaba jamás**; los tres generadores leían
+`#tp-weekly-cap` **del DOM**, y sin la pestaña montada eso daba 0 →
+`tpSelectWeeklyItems` lo tomaba como "usa el máximo físico" → 4 pares × 10 vehículos
+= **40**. De ahí el "6/40".
+
+Reglas: la capacidad es **dato persistido** (`weekAvailability[lunes].capacity`, si
+no `tpState.capacity`); el tope físico (`tpWeekCapacity().max`) **solo acota**, no es
+un default; **un 0 nunca significa "el máximo"**; y **ningún generador lee el DOM** —
+todos pasan por `tpPlannerOpts()`, donde el DOM es la última opción.
+`tpMigrateCapacity()` acota una vez el default de fábrica al techo real (con
+`vehiclesPerSlot=1` el tope son 4, no 8, y el campo diría 8 y daría 4).
+
+### `tpCreditReleaseToWeek(vehicle)` — LA definición del crédito de una liberación
+
+La comparten `approveAndArchive` y `v7BatchRelease` (que **descartaba** el resultado
+del marcado). Evidencia → marcar la fila del plan vigente → si no hay fila, **crearla**
+marcada `unplanned`.
+
+- **La semana es la de la PRUEBA** (`_tpVehicleTestDate`: `testData.testDatetime` →
+  `preconditioning.datetime` → `archivedAt`), no la de hoy. Una prueba del viernes
+  aprobada el lunes acreditaba la semana siguiente.
+- **NO se inventa un plan** si la semana no tiene ninguno: crear un plan como efecto
+  secundario de archivar es la clase de bug del #126. El tablero lo declara en su
+  estado vacío.
+- El crédito va **DEBAJO de `saveDB()`** en `approveAndArchive`. Antes iba dentro del
+  `try` y los dos caminos de reversión solo restauraban el vehículo: el plan quedaba
+  diciendo "cumplida" con el vehículo sin archivar.
+- `kpis.planeadas` cuenta **solo el compromiso**; lo auto-agregado va en
+  `kpis.noPlaneadas`. `tpUnplanCreditedItem(ref)` lo saca del plan **sin tocar
+  `testedList`**: sale de la semana, no de la cobertura.
+
+### La evidencia deja de vivir en un texto libre
+
+`testedList[]` tiene `vin` y `vehicleId`. **`tpTestedVin(t)` es LA forma de leer el
+VIN** (campo primero, texto de `note` como respaldo). Antes había dos regex distintas
+y un `note.includes('VIN: '+vin)` en cop15 **inseguro por prefijo** (borrar `KNA123`
+se llevaba `KNA1234`). `_tpExtractVin` tenía además un respaldo que partía la nota
+por el guion largo y devolvía **"Declarada en el plan" como si fuera un VIN**.
+
+- `tpAutoFeedFromRelease` **deduplica por `vehicleId`** — rearchivar contaba dos veces.
+- La promoción de una declarada está **acotada a la semana** de la prueba; empataba
+  solo por `configText` y podía borrar la declaración de otra semana.
+- El merge de `testedList` en `firebase-sync.js` incluye la identidad del vehículo en
+  la clave: con `configText|date` a secas, dos unidades de la misma config el mismo
+  día perdían la segunda.
+
+### Guardas de migración VERSIONADAS
+
+`_fbPullSeed` hace `tpState = remoteData` y **preserva `_migr`**: un pull desde
+código viejo puede DESHACER los datos migrados y conservar la guarda que dice "ya
+migré" — y la migración no vuelve a correr jamás. Por eso `_tpMigrPending(clave)` /
+`_tpMigrDone(clave)` guardan un **número de versión** (`TP_MIGR_VERSIONS`), no `true`.
+Toda migración nueva de `tpState` usa este par.
+
+### Una sola pantalla: `tp-weekly` ya no existe
+
+El armador vive **dentro de Mi semana** (`tpBuildArmarCardHTML`, `uiCard` plegable
+sobre el tablero) con cuatro decisiones; `tpOpenArmar(weekDate)` es el punto de
+entrada desde HOY, el índice de semanas y el estado vacío. `tpGenerarSemana()` es el
+**único** generador — "⚡ Smart" era `opts.checkInventory` y nada más, ahora es una
+casilla; "📅 Generar Mes" (que escribía CUATRO propuestas de un clic sin preguntar)
+queda tras `showConfirmDialog`. Los 21 deslizadores de ranking viven solo en Reglas.
+
+`tpRenderPlannerPreview` **no se tocó**: sigue escribiendo solo en
+`#tp-planner-preview`. Pintar la propuesta como un segundo tablero de cinco columnas
+junto al real es inusable en un teléfono, que es donde se opera.
+
+También salen `tp-planactual` y `tp-planhistory`, declaradas en `_tpTabs` sin botón.
+
+### `tpBuildDayColumnsHTML(b, opts)` — las columnas por día, compartidas
+
+Extraída de `tpRenderMyWeek` para que HOY pinte la semana con EL MISMO marcado.
+`opts.readOnly` quita asa, ＋ y acciones; `opts.extraByDay` inyecta actividades que
+no son pruebas — y **solo HOY se lo pasa**: la pantalla del Plan muestra pruebas y
+nada más.
+
+### `dashCollectWeekActivities()` — qué hay esta semana y qué día
+
+Lo que no existía: `dashCollectActivities` devuelve "lo de hoy" SIN FECHA. Compone
+hitos de proyectos (`pnProjectMilestones`, que está acotada al MES — se pide por cada
+mes que la semana toca), calibraciones (`equipment[].nextCalDate`), mantenimiento
+(`invMaintDueThisWeek`, que devuelve la SEMANA y no el día) y tareas con fecha.
+
+El selector Hoy | Esta semana vive en **`uiPref('dashRange')`**, nunca en una clave
+propia. **El plan de pruebas aparece en HOY sólo una vez ACEPTADO**; una propuesta es
+una sola línea, la de aceptarla.
+
+Dos ramas **muertas** del calendario de Datos, arregladas: leía `plan.weekStart`
+(campo que ningún generador escribe — todos escriben `weekDate`) y filtraba cilindros
+por `g.status !== 'active'` (los reales son Stock/In use/Empty/Spare).
+
+### Tocar para mover (`gridDragInit`, `js/app.js`)
+
+En un teléfono de 427 px las columnas se apilan, el arrastre hace `preventDefault` en
+`touchmove` (la página no se desplaza) y el destino se resuelve con
+`elementFromPoint`, que **solo ve lo que está en pantalla**: mover del lunes al
+viernes era imposible.
+
+- **`opts.tapToMove`**: un toque en el asa selecciona y un toque en el día mueve,
+  por el MISMO `canDrop`/`onDrop`. **Va en `click`, no en `touchend`**: en un
+  contenedor que se desplaza en X el navegador dispara `touchcancel` y el `touchend`
+  no llega nunca (medido a 427 px). `window._gridSuppressClick` evita que un arrastre
+  cuente además como toque.
+- **La barra de "moviendo" es `position: fixed` y cuelga de `<body>`.** Insertarla en
+  el flujo empujaba el contenido y el `click` sintetizado tras el `touchend` caía en
+  otro elemento — tocar el asa abría el modal de "Agregar prueba" (medido).
+- **`opts.autoScroll`** para el arrastre real. Va detrás de una opción para no tocar
+  `invInitZoneDrag`, cuya rejilla no se desplaza.
+- De 400 a 900 px `.tp-week-board` es una fila de columnas con enganche, no cinco
+  bloques apilados.
+- Mover funciona igual con el plan **ya aceptado** — siempre fue así
+  (`tpMoveItemToDay` nunca miró `accepted`), pero no se decía y no se podía.
+
+### `item.purpose` — actividades de todos los tipos
+
+Los 8 propósitos de Cascade (`TP_PURPOSES_VALID`) en una fila del plan, opcional y
+retrocompatible. El chip **solo se pinta cuando NO es una prueba de emisiones**: el
+caso normal no necesita etiqueta. `item.actualPurpose` guarda con cuál se corrió de
+verdad.
+
+> **✅ RESUELTO en v23.1: OBD II ya NO acredita el REQ de emisiones.**
+> Lo que v23 dejó anotado ("los 8 propósitos acreditan por igual") se confirmó y se
+> separó. Ver la sección **v23.1 → Qué acredita el REQ de emisiones**:
+> `tpTestedCountsForReq` es LA definición y la lista es editable en Plan → Reglas.
+
+### Pruebas en `tests/`
+
+`plan.node.js` (16) y `credit.node.js` (12) corren en Node sin DOM cargando
+`js/testplan.js` en un `vm` — `tpState` se declara con `let`, así que **no** queda en
+el objeto global del contexto y hace falta un epílogo que lo exponga. `semana.e2e.js`
+es un recorrido real en Chromium a 427×840, el dispositivo del reporte.
+
+### Deuda conocida (heredada de v18.0) — CERRADA en v23.1
+
+`tpGenerateMonthly` y `tpRunSimulation` eran copias del mismo lazo greedy y no
+conocían la cuota de la cola ni los filtros. **v23.1 las unificó sobre
+`tpPlanHorizon`** (ver esa sección). `tpBuildRecoveryPlan` se queda aparte a
+propósito: explota el déficit en unidades y ordena por tier P1..P10, no por score,
+así que no es el mismo lazo aunque lo parezca — lo que sí comparte ya es la
+construcción de la fila (`_tpMakeItem`).
+
 
 ## Working with this project
 

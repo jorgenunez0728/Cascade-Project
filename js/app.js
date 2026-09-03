@@ -285,11 +285,29 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.7';
+var APP_VERSION = '23.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.1', date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
+      notes: [
+          'Una prueba de OBD II ya NO baja el déficit de emisiones ni sube la cobertura: se registra igual, pero no acredita. Qué propósito cuenta se decide en Plan → Reglas.',
+          'Generar mes y el Simulador dejaron de tener su propio algoritmo: usan el mismo de "Generar" una semana, así que por fin conocen la cuota de la cola, los filtros y la disponibilidad.',
+          'Los controles que solo cambian la vista (filtros del Dashboard, Captura Manual/Importar JSON, el año del Plan Maestro, los tipos de gráfica) por fin repintan la pantalla — antes no pasaba nada (#110).',
+          'La tira "Siguiente: …" solo se ve dentro de Pruebas, ya no tapa la barra de abajo y se puede apagar con su ✕ (#109).'
+      ] },
+    { v: '23.0', date: '3 sep 2026', title: 'El plan de pruebas, de nuevo',
+      notes: [
+          'Se eliminó el auto-plan del viernes: generaba una propuesta en CADA dispositivo y el sync las acumulaba todas.',
+          'Aceptar, borrar y mover ya no usan la posición del plan en la lista, sino su identidad: el botón dejó de caer en otro plan.',
+          'La capacidad de la semana es un dato guardado (y no el máximo físico): se acabó el "40 pruebas en una semana".',
+          'Lo que se libera en Pruebas aparece solo en la semana, marcado "no planeada" si nadie lo había planeado.',
+          'Armar la semana vive dentro de Mi semana: cuatro decisiones, la propuesta en vivo y el tablero como resultado.',
+          'En el teléfono se mueve una prueba tocando el asa y el día — el arrastre no servía con las columnas apiladas.',
+          'HOY se puede ver por día o por semana, con proyectos y calibraciones que vencen; el plan aparece sólo una vez aceptado.',
+          'Se pueden planear actividades de OBD, nuevos modelos y los demás tipos de Cascade, no sólo emisiones.'
+      ] },
     { version: '22.7', date: '2 sep 2026', title: 'Toda la app pasó a la escala compartida', bullets: [
         'Los 2,256 espaciados y radios escritos a mano en los 12 módulos pasaron a la escala compartida: ahora la densidad Cómoda/Compacta/Amplia afecta a TODA la app, no solo a las pantallas ya migradas.',
         '335 colores grises escritos a mano pasaron a los del sistema, así que el texto secundario cumple contraste en todas partes.',
@@ -1071,7 +1089,11 @@ function themeInit() {
 // que un técnico prefiera vista compacta no debe cambiarle la pantalla a otro.
 // ======================================================================
 var UI_PREFS_KEY = 'kia_ui_prefs';
-var UI_PREFS_DEFAULTS = { density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {} };
+var UI_PREFS_DEFAULTS = {
+    density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
+    dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
+    nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+};
 
 function _uiPrefsRead() {
     try {
@@ -2330,12 +2352,26 @@ function tabCacheInit(moduleId, tabIds) {
 }
 
 /**
- * Switch to a tab with caching. Only re-renders if tab is dirty or never rendered.
+ * Muestra una pestana, repintandola salvo que quien llama pida conservar el cache.
+ *
+ * [v23.1 — issue #110] El valor por defecto estaba INVERTIDO: solo se repintaba si
+ * la pestana estaba "sucia", y quien la ensucia es `xxSave()`. Un control que cambia
+ * SOLO LA VISTA no guarda nada — no tiene por que — asi que toda esa familia estaba
+ * muerta: el filtro por estado del Dashboard del Plan, los 5 ajustes de su grafica,
+ * Captura Manual / Importar JSON y los filtros de fecha de Probados, el ano del Plan
+ * Maestro de Consumibles, sus 3 tipos de grafica... 88 llamadas a `tpRender()` de las
+ * que la mayoria no guarda. El sintoma es el peor posible: no pasa NADA, sin error.
+ *
+ * Ahora se repinta siempre y el cache se conserva solo cuando el llamador lo pide
+ * — hoy unicamente el salto de pestana (`xxSwitchTab` -> `xxRender({keepCache:true})`),
+ * que es el unico caso donde de verdad sirve.
+ *
  * @param {string} moduleId - Module prefix
  * @param {string} tabId - Target tab ID
  * @param {function} renderFn - Function(el) that renders content into the tab div
+ * @param {{keepCache?:boolean}} [opts] - keepCache: reusar lo ya pintado si no esta sucio
  */
-function tabCacheSwitch(moduleId, tabId, renderFn) {
+function tabCacheSwitch(moduleId, tabId, renderFn, opts) {
     var cache = _tabCache[moduleId];
     if (!cache) {
         var c = document.getElementById(moduleId + '-content');
@@ -2364,7 +2400,8 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
 
     var target = document.getElementById(tabId + '-cached');
     if (!target) return;
-    if (!cache.rendered[tabId] || cache.dirty[tabId]) {
+    var keep = !!(opts && opts.keepCache);
+    if (!cache.rendered[tabId] || cache.dirty[tabId] || !keep) {
         if (!cache.rendered[tabId]) target.innerHTML = _skeletonHTML();
         // Show skeleton one frame, then render. Wrap in try/catch so a failing
         // renderer shows a visible error instead of a silent blank ("dead") tab.
@@ -2529,6 +2566,15 @@ function switchPlatform(platform, swipeDir) {
 
     // Hide floating action bar when leaving COP15
     if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+    // [v23.1 · #109] La tira "Siguiente:" vive SOLO dentro de Pruebas.
+    // La rama de swipe difiere el toggle de `.active` 110 ms, así que leer el DOM
+    // aquí daría el estado VIEJO: se apaga de inmediato al salir (sin leer nada) y
+    // se reevalúa una vez que la sección ya cambió.
+    if (typeof v7UpdateNextStepBanner === 'function') {
+        var _nsb = document.getElementById('v7-next-step-banner');
+        if (_nsb && sectionId !== 'cop15') { _nsb.classList.remove('show'); document.body.classList.remove('has-next-step'); }
+        setTimeout(function() { try { v7UpdateNextStepBanner(); } catch (e) {} }, 320);
+    }
 
     // Theme — unified light theme for all modules
     document.body.style.background = 'var(--bg)';
@@ -2726,8 +2772,16 @@ function dailyDashRender() {
     // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
     // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
     // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
-    var acts = dashCollectActivities();
-    html += dashRenderBoard(acts, currentOp);
+    // [v23] Hoy o esta semana. El día es el default; la semana usa EL MISMO formato
+    // de calendario que el Plan (`tpBuildDayColumnsHTML`) para que no haya dos
+    // vocabularios distintos para la misma cosa.
+    html += dashRangeTabsHTML();
+    if (dashRange() === 'semana') {
+        html += dashRenderWeek();
+    } else {
+        var acts = dashCollectActivities();
+        html += dashRenderBoard(acts, currentOp);
+    }
 
     // ── Quick Actions ──
     html += '<div class="daily-dash-section">';
@@ -2807,6 +2861,234 @@ var DASH_CATS = {
 var DASH_CAT_ORDER = ['vehiculos', 'plan', 'inventario', 'calidad', 'proyectos', 'manuales'];
 var DASH_STATUS_LABEL = { pendiente: 'Pendiente', encurso: 'En curso', hecho: 'Hecho', atrasado: 'Atrasado' };
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23] HOY: el dia, o la semana, en el MISMO formato de calendario
+//
+// `dashCollectActivities` devuelve "lo de hoy" sin fecha, asi que no se puede
+// repartir por dias. `_pnCollectCalendarEvents` (panel.js) si tiene fechas, pero
+// dos de sus tres ramas estaban MUERTAS: leia `plan.weekStart`, un campo que
+// ningun generador escribe (todos escriben `weekDate`), y filtraba los cilindros
+// por `g.status !== 'active'`, un estado que la app tampoco escribe (los reales
+// son Stock/In use/Empty/Spare). Las dos se arreglan aparte.
+//
+// `dashCollectWeekActivities()` es LA definicion de "que hay esta semana, y que
+// dia": pruebas del plan vigente + hitos de proyectos + calibraciones y
+// mantenimientos que vencen. Se DERIVA en cada render, no guarda nada.
+//
+// Las actividades que NO son pruebas se ven SOLO aqui. La pantalla del Plan
+// muestra pruebas y nada mas — mezclar una calibracion en el tablero del plan
+// haria que "6/8 de la semana" dejara de significar pruebas.
+// ══════════════════════════════════════════════════════════════════════
+
+var DASH_RANGES = { hoy: 'Hoy', semana: 'Esta semana' };
+
+function dashRange() {
+    var v = (typeof uiPref === 'function') ? uiPref('dashRange') : 'hoy';
+    return DASH_RANGES[v] ? v : 'hoy';
+}
+function dashSetRange(v) {
+    if (!DASH_RANGES[v]) return;
+    if (typeof uiPref === 'function') uiPref('dashRange', v);
+    dailyDashRender();
+}
+
+/** El lunes de la semana en curso, 'YYYY-MM-DD'. */
+function _dashMonday() {
+    var d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return localDateStr(d);
+}
+
+/**
+ * Actividades CON FECHA de la semana en curso, agrupadas por dia de la semana.
+ * Todo con guarda `typeof`: HOY tiene que seguir pintando aunque falte un modulo.
+ * @returns {{porDia: {dia: Array}, total: number, lunes: string}}
+ */
+function dashCollectWeekActivities() {
+    var dias = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+    var lunes = _dashMonday();
+    var ini = new Date(lunes + 'T00:00:00');
+    var fin = new Date(ini); fin.setDate(ini.getDate() + 6);
+    var finStr = localDateStr(fin);
+    var porDia = {}; dias.forEach(function(d) { porDia[d] = []; });
+    var total = 0;
+
+    var mete = function(fecha, act) {
+        if (!fecha || fecha < lunes || fecha > finStr) return;
+        var d = new Date(fecha + 'T12:00:00');
+        if (isNaN(d.getTime())) return;
+        act.date = fecha;
+        porDia[dias[d.getDay()]].push(act);
+        total++;
+    };
+    var hoy = localToday();
+
+    // ── Hitos de proyectos: pasos con fecha objetivo ──
+    // `pnProjectMilestones(year, month)` está acotada al MES, y una semana puede
+    // cruzar dos meses: se pide por cada mes que la semana toca y se deduplica.
+    try {
+        if (typeof pnProjectMilestones === 'function') {
+            var meses = {}, vistos = {};
+            [ini, fin].forEach(function(d) { meses[d.getFullYear() + '-' + d.getMonth()] = d; });
+            Object.keys(meses).forEach(function(k) {
+                var d = meses[k];
+                (pnProjectMilestones(d.getFullYear(), d.getMonth()) || []).forEach(function(m) {
+                    if (!m || !m.date) return;
+                    var f = String(m.date).slice(0, 10);
+                    var clave = f + '|' + (m.label || '');
+                    if (vistos[clave]) return;
+                    vistos[clave] = true;
+                    mete(f, {
+                        cat: 'proyectos', icon: '🗂️',
+                        title: String(m.label || 'Paso de proyecto').replace(/^[✓⚠🗂️]+\s*/, ''),
+                        meta: 'Proyecto',
+                        vencido: f < hoy && String(m.label || '').indexOf('✓') !== 0,
+                        done: String(m.label || '').indexOf('✓') === 0,
+                        accion: { label: '🗂️ Abrir', js: "dashGo('panel','pn-projects')" }
+                    });
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/proyectos:', e); }
+
+    // ── Calibraciones que vencen esta semana ──
+    try {
+        if (typeof invState === 'object' && invState && Array.isArray(invState.equipment)) {
+            invState.equipment.forEach(function(eq) {
+                if (!eq || !eq.nextCalDate) return;
+                var f = String(eq.nextCalDate).slice(0, 10);
+                mete(f, {
+                    cat: 'inventario', icon: '🔧',
+                    title: 'Calibración: ' + (eq.name || eq.f11Id || eq.serialNo || '?'),
+                    meta: (eq.calPlace || '') + (eq.certNo ? ' · cert ' + eq.certNo : ''),
+                    vencido: f < hoy,
+                    accion: { label: '✅ Calibrado', js: "dashGo('inventory','inv-equipment')" }
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/calibracion:', e); }
+
+    // ── Mantenimiento preventivo programado para esta semana ──
+    // `invMaintDueThisWeek()` devuelve `{act, asset, week}` — la semana, no el día,
+    // porque el Plan Maestro del F11 se planea POR SEMANA. Va al lunes y lo dice.
+    try {
+        if (typeof invMaintDueThisWeek === 'function') {
+            (invMaintDueThisWeek() || []).forEach(function(m) {
+                if (!m) return;
+                var act = m.act || {}, asset = m.asset || {};
+                mete(lunes, {
+                    cat: 'inventario', icon: '🛠️',
+                    title: 'Mantenimiento: ' + (act.name || act.desc || act.id || '?'),
+                    meta: (asset.name || asset.id || '') + ' · esta semana',
+                    accion: { label: '✔ Hecho', js: "dashGo('inventory','inv-maint')" }
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/mtto:', e); }
+
+    // ── Tareas manuales con fecha ──
+    try {
+        if (typeof pnState === 'object' && pnState && Array.isArray(pnState.tasks)) {
+            pnState.tasks.forEach(function(t) {
+                if (!t || t.deleted || !t.due) return;
+                mete(String(t.due).slice(0, 10), {
+                    cat: 'manuales', icon: '📝',
+                    title: t.title || 'Actividad',
+                    meta: t.assignee || '',
+                    vencido: String(t.due).slice(0, 10) < hoy && !t.done,
+                    done: !!t.done
+                });
+            });
+        }
+    } catch (e) { console.warn('dashCollectWeekActivities/tareas:', e); }
+
+    return { porDia: porDia, total: total, lunes: lunes };
+}
+
+/** Una actividad no-prueba pintada con el MISMO vocabulario que una tarjeta del plan. */
+function _dashWeekCardHTML(a) {
+    var cls = 'tp-week-card tp-week-card--act'
+            + (a.done ? ' tp-week-card--done' : '')
+            + (a.vencido ? ' tp-week-card--risk' : '');
+    var h = '<div class="' + cls + '">';
+    h += '<div class="tp-week-card-top">' +
+         '<span class="tp-week-actico" aria-hidden="true">' + (a.icon || '•') + '</span>' +
+         '<div class="tp-week-card-id"><div class="tp-week-name" title="' + escapeHtml(a.title || '') + '">' +
+         escapeHtml(a.title || '') + '</div>' +
+         (a.meta ? '<div class="tp-week-variant" title="' + escapeHtml(a.meta) + '">' + escapeHtml(a.meta) + '</div>' : '') +
+         '</div></div>';
+    if (a.vencido) h += '<div class="tp-week-flags"><span class="tp-week-flag tp-week-flag--risk">🔴 vencida</span></div>';
+    if (a.accion) h += '<div class="tp-week-actions"><button class="tp-week-act" onclick="' + a.accion.js + '">' + a.accion.label + '</button></div>';
+    return h + '</div>';
+}
+
+/**
+ * La semana completa en HOY: las columnas por día del Plan (mismo marcado, en modo
+ * solo lectura) con las actividades que no son pruebas repartidas en su día.
+ */
+function dashRenderWeek() {
+    if (typeof tpWeekBoardRows !== 'function') {
+        return '<div class="dash-week-empty">El módulo del Plan no está disponible.</div>';
+    }
+    var b = null;
+    try { b = tpWeekBoardRows({}); } catch (e) { b = null; }
+    var W = dashCollectWeekActivities();
+
+    var extra = {};
+    Object.keys(W.porDia).forEach(function(d) {
+        extra[d] = W.porDia[d].map(_dashWeekCardHTML);
+    });
+
+    var h = '<div class="dash-week">';
+    h += '<div class="dash-week-head">' +
+         '<span class="dash-board-title">🗓 La semana del ' + W.lunes + '</span>' +
+         '<span class="dash-chip dash-chip--' + (W.total ? 'pendiente' : 'hecho') + '">' +
+         (W.total ? W.total + ' con fecha esta semana' : 'sin vencimientos') + '</span>' +
+         '</div>';
+
+    // El plan de pruebas SOLO cuando está aceptado (regla de v23).
+    if (!b || !b.plan) {
+        h += '<p class="dash-week-note">Esta semana no tiene plan de pruebas. ' +
+             '<button class="dash-row-action" onclick="tpOpenArmar()">🎛️ Armar la semana</button></p>';
+    } else if (!b.accepted) {
+        h += '<p class="dash-week-note">⏳ Hay una <strong>propuesta sin aceptar</strong> para esta semana: ' +
+             'las pruebas no se agendan hasta que alguien la acepte. ' +
+             '<button class="dash-row-action" onclick="dashGo(\'testplan\',\'tp-myweek\')">Revisarla</button></p>';
+    }
+
+    if (b && b.plan && b.accepted && typeof tpBuildDayColumnsHTML === 'function') {
+        h += tpBuildDayColumnsHTML(b, { readOnly: true, extraByDay: extra, boardId: 'dash-week-board' });
+    } else {
+        // Sin plan aceptado se pintan igual los días, con lo que sí vence esta semana.
+        var dias = ['lun', 'mar', 'mie', 'jue', 'vie'];
+        var labels = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes' };
+        var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
+        h += '<div class="tp-week-board tp-week-board--ro" id="dash-week-board">';
+        dias.forEach(function(d) {
+            h += '<section class="tp-week-col' + (d === hoyKey ? ' tp-week-col--today' : '') + '">' +
+                 '<header class="tp-week-col-head"><span class="tp-week-col-day">' + labels[d] +
+                 (d === hoyKey ? ' · hoy' : '') + '</span><span></span><span></span>' +
+                 '<span class="tp-week-col-load">' + (extra[d] || []).length + ' pendiente(s)</span></header>' +
+                 '<div class="tp-week-col-body">' +
+                 ((extra[d] || []).length ? extra[d].join('') : '<div class="tp-week-col-empty">Sin pendientes</div>') +
+                 '</div></section>';
+        });
+        h += '</div>';
+    }
+    return h + '</div>';
+}
+
+/** El selector Hoy | Esta semana. La preferencia vive en uiPref, no en una clave propia. */
+function dashRangeTabsHTML() {
+    var r = dashRange();
+    var h = '<div class="dash-range" role="tablist" aria-label="Qué mostrar">';
+    Object.keys(DASH_RANGES).forEach(function(k) {
+        h += '<button class="dash-range-tab' + (r === k ? ' dash-range-tab--on' : '') + '" role="tab" ' +
+             'aria-selected="' + (r === k) + '" onclick="dashSetRange(\'' + k + '\')">' + DASH_RANGES[k] + '</button>';
+    });
+    return h + '</div>';
+}
+
 function dashCollectActivities() {
     var acts = [];
     var hoy = localToday();
@@ -2853,37 +3135,77 @@ function dashCollectActivities() {
     if (typeof tpWeekBoardRows === 'function') {
         var _b = null;
         try { _b = tpWeekBoardRows({}); } catch (e) { _b = null; }
+
+        // [v23] El aviso que REEMPLAZA al auto-plan del viernes. Antes, a partir del
+        // viernes 14:00 la app generaba sola una propuesta en cada dispositivo (y el
+        // sync las acumulaba todas: issue #126). Ahora solo lo dice; armar la semana es
+        // una decision de alguien. Un aviso no escribe estado ni se sincroniza.
+        try {
+            var _ah = new Date();
+            var _dw = _ah.getDay();
+            var _finDeSemana = (_dw === 5 && _ah.getHours() >= 14) || _dw === 6 || _dw === 0;
+            if (_finDeSemana && typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') {
+                var _prox = new Date(_ah);
+                var _falta = (8 - _dw) % 7; if (_falta === 0) _falta = 7;
+                _prox.setDate(_ah.getDate() + _falta);
+                var _proxISO = _tpFmtDate(_prox);
+                var _yaHay = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(_proxISO) : null;
+                if (!_yaHay) {
+                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓',
+                        title: 'Falta armar la semana del ' + _proxISO,
+                        meta: 'La semana que entra no tiene plan. La app ya no lo genera sola: lo armas tu y decides que entra.',
+                        status: 'pendiente', urgency: 2,
+                        action: { label: '🎛️ Armar la semana',
+                                  js: "dashGo('testplan','tp-myweek');setTimeout(function(){if(typeof tpOpenArmar==='function')tpOpenArmar('" + _proxISO + "');},400)" } });
+                }
+            }
+        } catch (e) {}
+
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {
                 acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
                     title: 'No hay plan para esta semana',
-                    meta: 'El último plan es de otra semana — no se usa para decidir qué toca hoy.',
+                    meta: 'El ultimo plan es de otra semana — no se usa para decidir que toca hoy.',
                     status: 'pendiente', urgency: 1,
-                    action: { label: '🎛️ Armar semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-weekly');" } });
+                    action: { label: '🎛️ Armar semana', js: "dashGo('testplan','tp-myweek');setTimeout(function(){if(typeof tpOpenArmar==='function')tpOpenArmar();},400)" } });
             }
+        } else if (_b && _b.plan && !_b.accepted) {
+            // [v23] El plan de pruebas aparece en HOY SOLO una vez aceptado. Antes las
+            // propuestas se listaban prueba por prueba con la nota "propuesta sin
+            // aceptar", y con el auto-plan generando en cada dispositivo eso llenaba HOY
+            // de pruebas que nadie habia decidido correr. Una propuesta es una sola
+            // linea: la decision de aceptarla.
+            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳',
+                title: 'Hay una propuesta sin aceptar para esta semana',
+                meta: (_b.rows || []).length + ' prueba(s) propuestas. Hasta que se acepte, HOY no las agenda.' +
+                      (_b.otrosPlanes ? ' · ' + _b.otrosPlanes + ' propuesta(s) mas de la misma semana' : ''),
+                status: 'pendiente', urgency: 2,
+                action: { label: '📅 Revisarla', js: "dashGo('testplan','tp-myweek')" } });
         } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
             _b.rows.forEach(function(row) {
                 var isTest = row.testDay === hoyKey, isPre = row.preconDay === hoyKey;
                 if (!isTest && !isPre) return;
-                // El semáforo viene de `tpWeekItemRisk`, no se recalcula aquí: un solo
+                // El semaforo viene de `tpWeekItemRisk`, no se recalcula aqui: un solo
                 // criterio de riesgo en toda la plataforma.
                 var motivo = row.risk.reasons.length ? row.risk.reasons[0].text : '';
+                var _ref = "'" + (row.planId || row.planIdx) + "','" + (row.uid || row.itemIdx) + "'";
                 acts.push({
-                    id: 'act-plan-' + row.itemIdx + (isTest ? 't' : 'p'), cat: 'plan',
+                    id: 'act-plan-' + (row.uid || row.itemIdx) + (isTest ? 't' : 'p'), cat: 'plan',
                     icon: isTest ? '🏭' : '🔧',
                     title: (isTest ? 'Prueba' : 'Preacondicionamiento') + ': ' + (row.shortName || row.desc),
                     meta: (row.variantTag ? row.variantTag + ' · ' : '') +
                           (row.moved ? '↪ movida · ' : '') +
-                          // Un plan sin aceptar SÍ se muestra —el técnico necesita saber qué
-                          // hay agendado hoy— pero se dice que aún es propuesta.
-                          (_b.accepted ? '' : '⏳ propuesta sin aceptar · ') +
+                          (row.item && row.item.unplanned ? '⚡ no planeada · ' : '') +
                           (motivo || (row.soakHours + ' h de reposo')),
                     status: row.done ? 'hecho' : (row.risk.level === 'riesgo' ? 'atrasado' : row.state === 'encurso' ? 'encurso' : 'pendiente'),
                     urgency: row.done ? 0 : (row.risk.level === 'riesgo' ? 3 : 2),
-                    checkbox: { js: 'tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');dailyDashRender();', checked: row.done },
-                    action: { label: '📅 Mi semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-myweek');" },
-                    action2: { label: '↪ Mover', js: 'tpWeekMoveMenu(' + row.planIdx + ',' + row.itemIdx + ')' }
+                    // v23: identidad, no indices. HOY se pinta una vez y se queda en
+                    // pantalla; para cuando alguien toca la casilla, un pull de sync ya
+                    // pudo haber movido el plan de posicion (issue #126).
+                    checkbox: { js: 'tpToggleWeeklyItem(' + _ref + ');dailyDashRender();', checked: row.done },
+                    action: { label: '📅 Mi semana', js: "dashGo('testplan','tp-myweek')" },
+                    action2: { label: '↪ Mover', js: 'tpWeekMoveMenu(' + _ref + ')' }
                 });
             });
         }
@@ -4083,9 +4405,20 @@ function storageHousekeeping() {
         if (typeof fbMergePurgeOldSnapshots === 'function') freed += fbMergePurgeOldSnapshots();
     } catch(e) { console.warn('fbMergePurgeOldSnapshots:', e); }
 
+    // 4) [v23] Claves de funciones retiradas. `kia_autoplan_lastrun` era el guard del
+    //    auto-plan del viernes, eliminado en v23 (ver el bloque AUTO-PLAN en
+    //    testplan.js). Se borra una vez y deja de ocupar lugar en cada dispositivo.
+    try {
+        var _muertas = ['kia_autoplan_lastrun'];
+        _muertas.forEach(function(k) {
+            var raw = localStorage.getItem(k);
+            if (raw !== null) { localStorage.removeItem(k); freed += raw.length + k.length; }
+        });
+    } catch(e) {}
+
     if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
 
-    // 4) Avisar ANTES de que un guardado falle a media operación.
+    // 5) Avisar ANTES de que un guardado falle a media operación.
     try {
         if (typeof pnStorageScan === 'function') {
             var scan = pnStorageScan();
@@ -4211,12 +4544,14 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
         try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
-        // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
-        try {
-            if (typeof tpAutoGenerateIfNeeded === 'function') {
-                setTimeout(tpAutoGenerateIfNeeded, 3000);
-            }
-        } catch(e) { console.error('autoplan error:', e); }
+        // [v23] El auto-plan del viernes se ELIMINÓ. Corría 3 s después de cargar la app
+        // en CADA dispositivo (vie 14:00+, sáb y dom) y su guard vivía en
+        // `tpState.autoPlanLastRun`, que se SINCRONIZA — o sea, es eventual: dos equipos
+        // abiertos a la vez generaban los dos, y el merge los conservaba a ambos porque
+        // `tpPlanId` incluye un `Date.now()` por dispositivo. Ésa era la fábrica de los
+        // "planes que yo no hice" del issue #126. En su lugar, `dashCollectActivities`
+        // deja un AVISO pasivo cuando la semana que entra no tiene plan: un aviso no se
+        // sincroniza, no se duplica y no escribe nada.
 
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}
@@ -4441,7 +4776,7 @@ var _commandPaletteCommands = [
     { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
-    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'Acciones' }
+    { label: 'Armar la semana', icon: '🎛️', action: function(){ if(typeof tpOpenArmar==='function') tpOpenArmar(); else switchPlatform('testplan'); }, cat: 'Acciones' }
 ];
 
 // ══════════════════════════════════════════════════════════════════════
@@ -5293,7 +5628,7 @@ var TOURS = {
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
-        { target: '#tp-weekly-cap', title: 'Capacidad semanal', text: 'Define cuántas pruebas caben esta semana y usa ⚡ Generación Inteligente para repartirlas.', position: 'bottom', tab: 'tp-weekly' },
+        { target: '#tp-weekly-cap', title: 'Cuántas pruebas', text: 'Cuántas pruebas se planean esta semana. El máximo físico (pares preacon→prueba × vehículos por par) solo acota; este número es el que manda y se guarda.', position: 'bottom', tab: 'tp-myweek' },
         { target: '[data-help="tp-priority-help"]', title: 'Recuperación', text: 'Clasifica todo lo pendiente por prioridad (P1..P10) y reparte en las semanas disponibles.', position: 'top', tab: 'tp-recovery' },
         { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
     ],
@@ -6037,19 +6372,68 @@ function v7GoToVehicle(vehicleId, gotoSection) {
     }, 300);
 }
 
-// [V7-D2] Floating Next Step Banner
+// ══════════════════════════════════════════════════════════════════════
+// [V7-D2] Tira flotante "Siguiente: ..." — [v23.1] atada a Pruebas y apagable
+//
+// Issue #109 (Iván, tablet 753x1132): «Esa tira de siguiente vehículo no sirve,
+// me gustaría que no esté porque tapa los botones de abajo». Eran tres defectos:
+//
+//  1. No estaba atada a NINGUNA sección: bastaba con tener un vehículo abierto en
+//     Pruebas para que siguiera ahí en Datos, Plan y HOY, encima de lo que hubiera.
+//     La captura la muestra sobre los botones Editar/borrar de Regulaciones.
+//  2. `z-index: 9000` la ponía por encima de la `.bottom-nav` (2000), o sea que en
+//     celular y tablet tapaba la navegación COMPLETA.
+//  3. No se podía apagar.
+//
+// La preferencia vive en `uiPref('nextStep')` — NUNCA una clave propia de
+// localStorage (regla de v22.0) — y por eso NO se sincroniza: que a un técnico le
+// estorbe no debe apagársela a otro.
+// ══════════════════════════════════════════════════════════════════════
+
+/** ¿La sección de Pruebas (COP15) es la que está en pantalla? */
+function _v7InCop15() {
+    var sec = document.getElementById('platform-cop15');
+    return !!(sec && sec.classList.contains('active'));
+}
+
+function v7NextStepEnabled() {
+    return uiPref('nextStep') !== false;
+}
+
+/** La ✕ de la tira. Se vuelve a encender en Datos → Sistema. */
+function v7NextStepDismiss() {
+    uiPref('nextStep', false);
+    v7UpdateNextStepBanner();
+    if (typeof pnDensityRenderChoices === 'function') pnDensityRenderChoices();
+    if (typeof showToast === 'function') {
+        showToast('Tira de "siguiente paso" apagada. Datos → Sistema la vuelve a encender.', 'info');
+    }
+}
+
+function v7NextStepSetEnabled(on) {
+    uiPref('nextStep', !!on);
+    v7UpdateNextStepBanner();
+    if (typeof pnDensityRenderChoices === 'function') pnDensityRenderChoices();
+}
+
 function v7UpdateNextStepBanner() {
     var banner = document.getElementById('v7-next-step-banner');
     if (!banner) return;
-    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    var off = function() { banner.classList.remove('show'); document.body.classList.remove('has-next-step'); };
+    if (!v7NextStepEnabled()) { off(); return; }
+    if (!_v7InCop15()) { off(); return; }
+    if (!activeVehicleId) { off(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    if (!vehicle || vehicle.status === 'archived') { off(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
-    if (!step) { banner.classList.remove('show'); return; }
+    if (!step) { off(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
         '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
-        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')" aria-label="Ir al siguiente paso">&rarr;</button>' +
+        '<button class="v7-next-step-off" onclick="v7NextStepDismiss()" aria-label="No volver a mostrar esta tira" title="No volver a mostrarla">&times;</button>';
     banner.classList.add('show');
+    // La página reserva su altura: sin esto se monta sobre lo último del contenido.
+    document.body.classList.add('has-next-step');
 }
 
 function v7GoToVehicleStep(gotoSection) {
@@ -6125,6 +6509,19 @@ var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
 /** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
 function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
+/**
+ * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha
+ * quien quiera pintar el estado "moviendo…" sin repintar la pantalla entera.
+ * `detail.id` null significa que ya no hay selección.
+ */
+function _gridKbdNotify() {
+    try {
+        document.dispatchEvent(new CustomEvent('grid:selection', {
+            detail: { id: _gridKbd.id, from: _gridKbd.from, label: _gridKbd.label, ns: _gridKbd.ns }
+        }));
+    } catch (e) {}
+}
+
 function gridKbdCancel(silencioso) {
     var label = _gridKbd.label;
     // La clase de selección la elige cada rejilla, así que se recuerda con la selección
@@ -6132,6 +6529,7 @@ function gridKbdCancel(silencioso) {
     var cls = _gridKbd.cls || 'grid-drag-kbdsel';
     _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
     document.querySelectorAll('.' + cls).forEach(function(s) { s.classList.remove(cls); });
+    _gridKbdNotify();
     if (!silencioso && typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
 }
 
@@ -6212,6 +6610,11 @@ function gridDragInit(container, opts) {
         var pt = getXY(e);
         _gridDrag.startX = pt.x; _gridDrag.startY = pt.y; _gridDrag.committed = false;
         _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        // v23: el ELEMENTO del gesto, no solo su celda. `onTap` recibía siempre `null`
+        // como segundo argumento, así que un consumidor no podía hacer nada útil con un
+        // toque — y el toque es la única forma de mover con el pulgar en un tablero que
+        // en móvil se apila y no cabe en pantalla.
+        _gridDrag.el = slotEl;
         if (!slotEl.getAttribute(ID_ATTR)) {
             // Celda sin carga: no hay arrastre, pero el toque corto sigue valiendo.
             _gridDrag.timer = setTimeout(function() { _gridDrag.timer = null; }, LONG_PRESS_MS);
@@ -6223,6 +6626,35 @@ function gridDragInit(container, opts) {
             container.style.touchAction = 'none';
             startDragMode(slotEl, pt);
         }, LONG_PRESS_MS);
+    }
+
+    // Las opciones de la máquina de selección: las MISMAS para teclado y para toque,
+    // así que hay una sola regla de legalidad (`canDrop`) y un solo movimiento.
+    function kbdOpts() {
+        return { idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
+                 itemSelector: SEL, refocusSelector: opts.refocusSelector,
+                 label: labelOf, canDrop: canDrop, onDrop: onDrop };
+    }
+
+    /** Un toque corto que no llegó a arrastre. */
+    function _gridTap(cell, el) {
+        if (onTap) onTap(cell, el || null);
+    }
+
+    /**
+     * Desplaza la página cuando el arrastre llega al borde. Sin esto, `preventDefault`
+     * en `touchmove` deja la vista clavada y no se puede alcanzar un destino que quedó
+     * fuera de pantalla. Va detrás de `opts.autoScroll` para no tocar el mapa de zonas
+     * de Consumibles, cuya rejilla no se desplaza.
+     */
+    function _autoScroll(y) {
+        if (!opts.autoScroll) return;
+        var alto = window.innerHeight || 800;
+        var margen = Math.max(60, alto * 0.15);
+        var d = 0;
+        if (y < margen) d = -Math.ceil((margen - y) / 6);
+        else if (y > alto - margen) d = Math.ceil((y - (alto - margen)) / 6);
+        if (d) window.scrollBy(0, d);
     }
 
     function onPointerMove(e) {
@@ -6241,20 +6673,25 @@ function gridDragInit(container, opts) {
             _gridDrag.ghostEl.style.left = (pt.x - GHOST_W / 2) + 'px';
             _gridDrag.ghostEl.style.top  = (pt.y - GHOST_W / 2) + 'px';
         }
+        _autoScroll(pt.y);
     }
 
     function onPointerUp(e) {
         if (_gridDrag.timer) {
             clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
-            var tapCell = _gridDrag.from; _gridDrag.from = null;
-            if (tapCell && onTap) onTap(tapCell, null);
+            var tapCell = _gridDrag.from, tapEl = _gridDrag.el;
+            _gridDrag.from = null; _gridDrag.el = null;
+            if (tapCell) _gridTap(tapCell, tapEl);
             return;
         }
         if (!_gridDrag.active || _gridDrag.ns !== NS) return;
         var pt = getXY(e);
-        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from;
+        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from, el0 = _gridDrag.el;
         cancelDrag();
-        if (!comprometido) { if (from && onTap) onTap(from, null); return; }
+        // Un arrastre de verdad NO debe además contar como toque: algunos navegadores
+        // sintetizan un `click` al soltar.
+        if (comprometido) window._gridSuppressClick = true;
+        if (!comprometido) { if (from) _gridTap(from, el0); return; }
 
         var targetEl = document.elementFromPoint(pt.x, pt.y);
         if (targetEl) targetEl = targetEl.closest(SEL);
@@ -6273,15 +6710,25 @@ function gridDragInit(container, opts) {
         slot.addEventListener('touchstart', onPointerDown, { passive: true });
         slot.addEventListener('mousedown', onPointerDown);
         slot.addEventListener('click', function(e) {
-            if (e.detail !== 0) return;   // sólo Enter/Espacio; un clic real trae detail ≥ 1
-            // Mismo motivo que en onPointerDown: seleccionar el asa burbujeaba hasta su
-            // propia columna, que leía "misma celda" y cancelaba la selección al instante.
+            // Mismo motivo que en onPointerDown: seleccionar el asa burbujea hasta su
+            // propia columna, que leería "misma celda" y cancelaría la selección al instante.
+            if (e.detail === 0) {                 // Enter/Espacio
+                e.stopPropagation();
+                gridKbdSelect(slot, kbdOpts());
+                return;
+            }
+            if (!opts.tapToMove) return;
+            // [v23] TOCAR PARA MOVER, y va en `click` — NO en `touchend`.
+            //
+            // Se intentó primero en el toque (`onPointerUp`) y funcionaba… hasta que el
+            // tablero pasó a ser un carrusel horizontal con enganche. En un contenedor
+            // que se desplaza en X el navegador considera el gesto un posible barrido y
+            // dispara `touchcancel`: el `touchend` no llega nunca y la selección no
+            // ocurría. `click` llega siempre, incluso después de que el navegador
+            // descarte el barrido. Medido a 427 px, que es el caso que importa.
+            if (window._gridSuppressClick) { window._gridSuppressClick = false; return; }
             e.stopPropagation();
-            gridKbdSelect(slot, {
-                idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
-                itemSelector: SEL, refocusSelector: opts.refocusSelector,
-                label: labelOf, canDrop: canDrop, onDrop: onDrop
-            });
+            gridKbdSelect(slot, kbdOpts());
         });
     });
 
@@ -6324,6 +6771,7 @@ function gridKbdSelect(slotEl, o) {
             var movido = _gridKbd.label, origen = _gridKbd.from, quien = _gridKbd.id;
             _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
             document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+            _gridKbdNotify();
             o.onDrop(quien, origen, cell, slotEl);
             // onDrop repinta: el foco se perdería del todo sin volver a buscarlo.
             // OJO: `itemSelector` puede ser una LISTA separada por comas (el tablero de la
@@ -6351,6 +6799,7 @@ function gridKbdSelect(slotEl, o) {
     _gridKbd = { id: id, from: cell, label: label, ns: o.ns, cls: o.selectedClass };
     document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
     slotEl.classList.add(o.selectedClass);
+    _gridKbdNotify();
     if (typeof a11yAnnounce === 'function') {
         a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
     }
