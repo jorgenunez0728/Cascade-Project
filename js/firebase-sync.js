@@ -964,27 +964,6 @@ function fbRepairStationIfStray() {
     return saved;
 }
 
-// ── Station ID Management ──
-// El espacio de trabajo es UNO y compartido (FB_SHARED_WORKSPACE). fbSetStation
-// sigue existiendo porque es global y puede llamarse desde código viejo o desde
-// la consola, pero ya NO deja apuntar el dispositivo a otra ruta: hacerlo lo
-// desconectaba en silencio del dataset del laboratorio.
-function fbSetStation(id) {
-    var want = (id || '').trim().toUpperCase();
-    if (want && want !== FB_SHARED_WORKSPACE) {
-        showToast('El espacio de trabajo es compartido y siempre es ' + FB_SHARED_WORKSPACE
-                + '. Para nombrar este equipo usa "Nombre del dispositivo".', 'error');
-        return;
-    }
-    fbSync.stationId = FB_SHARED_WORKSPACE;
-    localStorage.setItem('kia_fb_station', fbSync.stationId);
-    fbUpdateIndicator();
-    if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
-    // Start live sync listeners now that we have a station ID (if already connected)
-    if (fbSync.status === 'connected' && !fbSync._liveSync) fbStartListening();
-    var modal = document.getElementById('fbModal');
-    if (modal && modal.style.display === 'block') fbShowSettings();
-}
 
 // ── Update station metadata document (makes station discoverable by other devices) ──
 var _fbStationMetaTimer = null;
@@ -1005,15 +984,23 @@ function fbUpdateStationMeta() {
             var url = 'https://firestore.googleapis.com/v1/projects/' +
                 FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
                 encodeURIComponent(fbSync.stationId) + '?key=' + FIREBASE_CONFIG.apiKey;
-            fetch(url, {
+            // [v23.2] Faltaba el `Authorization` — 403 silencioso (`.catch` sólo hacía
+            // console.warn), así que en modo REST el nombre del dispositivo y el
+            // `lastPush` no se actualizaban nunca y el selector de estaciones mostraba
+            // metadatos en blanco o viejos.
+            _fbIdTokenPromise().then(function(tok) {
+            var _h = { 'Content-Type': 'application/json' };
+            if (tok) _h['Authorization'] = 'Bearer ' + tok;
+            return fetch(url, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _h,
                 body: JSON.stringify({ fields: {
                     stationId: { stringValue: meta.stationId },
                     deviceName: { stringValue: meta.deviceName },
                     lastPush: { stringValue: meta.lastPush },
                     userAgent: { stringValue: meta.userAgent }
                 }})
+            });
             }).catch(function(e) { console.warn('Station meta REST error:', e); });
         } else if (fbSync.db) {
             fbSync.db.collection('stations').doc(fbSync.stationId).set(meta, { merge: true })
@@ -1030,7 +1017,7 @@ function fbPush(collection, data, onDone, opts) {
     // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
     // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
     if ((collection === 'cop15' || collection === 'testplan' || collection === 'inventory')
-        && typeof _fbPullLocalScore === 'function' && _fbPullLocalScore(collection) === 0) {
+        && typeof _fbPushDataScore === 'function' && _fbPushDataScore(collection) === 0) {
         console.warn('fbPush: omitido ' + collection + ' vacío (protección de datos)');
         if (onDone) onDone(false, 'Módulo vacío omitido');
         return;
@@ -1116,9 +1103,9 @@ function fbPushAll(showFeedback) {
     // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
     var skippedEmpty = [];
-    if (fbSyncModules.cop15) { if (_fbPullLocalScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
-    if (fbSyncModules.testplan) { if (_fbPullLocalScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
-    if (fbSyncModules.inventory) { if (_fbPullLocalScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
+    if (fbSyncModules.cop15) { if (_fbPushDataScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    if (fbSyncModules.testplan) { if (_fbPushDataScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
+    if (fbSyncModules.inventory) { if (_fbPushDataScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
     if (fbSyncModules.panel) {
         var _pnHasData = (typeof pnState !== 'undefined' && pnState && (pnState.operators || []).length > 0);
         if (_pnHasData) modules.push({col:'panel', data:pnState}); else skippedEmpty.push('panel');
@@ -1180,7 +1167,9 @@ function _fbTpUISync() {
 // ── [v15.6] ¿Este dispositivo está vacío? (sin datos de los módulos núcleo) ──
 // Gobierna la excepción de seed del pull, los reintentos y el guard del push.
 function _fbLocalIsEmpty() {
-    return (_fbPullLocalScore('cop15') + _fbPullLocalScore('testplan') + _fbPullLocalScore('inventory')) === 0;
+    // v23.2: dato REAL, no configuración — si no, un equipo recién configurado dejaría
+    // de pedir el seed inicial y se quedaría sin los datos del laboratorio.
+    return (_fbPushDataScore('cop15') + _fbPushDataScore('testplan') + _fbPushDataScore('inventory')) === 0;
 }
 
 // Reintentos del pull inicial en un dispositivo vacío: antes fallaba en
@@ -1272,20 +1261,101 @@ function fbPullAll(showFeedback) {
 // reemplazo por conteo: dos altas concurrentes o una edición sin cambio de conteo
 // ya no se pierden. Si el análisis falla, cae a la heurística previa por conteo.
 
-function _fbPullLocalScore(col) {
+/**
+ * [v23.2] `_fbPushDataScore(col)` responde "¿es SEGURO subir esto?" y es
+ * DELIBERADAMENTE ESTRICTA: cuenta sólo DATO REAL del laboratorio.
+ *
+ * Hay dos preguntas distintas y NO se pueden servir con el mismo número:
+ *   · PULL — "¿vale la pena preservar lo local?" → `_fbPullLocalScore`, que desde
+ *     v23.2 cuenta también la CONFIGURACIÓN, porque un equipo ya configurado que
+ *     todavía no importa el CSV no es un equipo desechable.
+ *   · PUSH — "¿es seguro subir esto?" → esta función. `fbPush` escribe el
+ *     documento ENTERO en `stations/KIA-EMLAB/{col}/current`, así que subir un
+ *     `tpState` con `planData` vacío REEMPLAZA el plan de todo el laboratorio.
+ *
+ * Contar la configuración aquí abriría exactamente el agujero que el cinturón
+ * anti-vaciado de v15.6 vino a tapar. Mantiene la semántica que ese guard tenía
+ * antes de v23.2, a propósito.
+ */
+function _fbPushDataScore(col) {
     if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
-    if (col === 'testplan') return (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData || []).length + (tpState.testedList || []).length + (tpState.weeklyPlans || []).length) : 0;
+    if (col === 'testplan') {
+        var t = (typeof tpState !== 'undefined' && tpState) ? tpState : null;
+        if (!t) return 0;
+        return (t.planData || []).length + (t.testedList || []).length + (t.weeklyPlans || []).length;
+    }
     if (col === 'inventory') {
         var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
-        if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
-        if (st && st.equipment) s += st.equipment.length;
-        if (st && st.assets) s += st.assets.length;
-        if (st && st.maintActivities) s += st.maintActivities.length;
-        if (st && st.maintLog) s += st.maintLog.length;
+        if (!st) return 0;
+        if (st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
+        if (st.equipment) s += st.equipment.length;
+        if (st.assets) s += st.assets.length;
+        if (st.maintActivities) s += st.maintActivities.length;
+        if (st.maintLog) s += st.maintLog.length;
+        if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
+        return s;
+    }
+    return 0;
+}
+
+function _fbPullLocalScore(col) {
+    var _n = function (x) { return (x && x.length) || 0; };
+    var _keys = function (o) { return (o && typeof o === 'object') ? Object.keys(o).length : 0; };
+
+    if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+
+    if (col === 'testplan') {
+        var t = (typeof tpState !== 'undefined' && tpState) ? tpState : null;
+        if (!t) return 0;
+        // v23.2: antes sólo contaba planData+testedList+weeklyPlans, así que TODA la
+        // configuración y el historial podían estar llenos y este dispositivo puntuaba
+        // CERO — con lo que `_fbPullSeed` lo reemplazaba entero. Un equipo ya
+        // configurado que aún no importa el CSV de producción es justo ese caso.
+        return _n(t.planData) + _n(t.testedList) + _n(t.weeklyPlans) +
+               _n(t.weekHistory) + _n(t.planHistory) + _n(t.rulePresets) +
+               _keys(t.familyOverrides) + _keys(t.configOverrides) + _keys(t.myContinuity) +
+               _keys(t.weekAvailability) + _keys(t.soak && t.soak.byFamily);
+    }
+
+    if (col === 'inventory') {
+        var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
+        if (!st) return 0;
+        if (st.gases) st.gases.forEach(function(g) { s += 1 + _n(g.readings); });
+        // v23.2: el historial de calibración cuenta. Un dispositivo que registró 40
+        // calibraciones pero no dio de alta ningún instrumento puntuaba igual que uno
+        // que no hizo nada.
+        if (st.equipment) st.equipment.forEach(function(e) { s += 1 + _n(e.calHistory); });
+        s += _n(st.assets) + _n(st.maintActivities) + _n(st.maintLog);
         // v21.1: el combustible NO se contaba. Un dispositivo cuyo único dato nuevo eran
         // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
-        if (st && st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
+        if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + _n(t.readings); });
+        // v23.2: el consumo por prueba y los catálogos editables tampoco se contaban.
+        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes);
         return s;
+    }
+
+    // v23.2: `panel`, `cop`, `homolog` y `audit` devolvían 0 A SECAS. Un dispositivo con
+    // todo el padrón de operadores, todos los juicios CoP y el catálogo de homologación
+    // —pero sin vehículos, plan ni inventario— se clasificaba como "vacío" y la
+    // maquinaria de seed lo trataba como desechable.
+    if (col === 'panel') {
+        var pn = (typeof pnState !== 'undefined' && pnState) ? pnState : null;
+        if (!pn) return 0;
+        return _n(pn.operators) + _n(pn.projects) + _n(pn.tasks) +
+               _n(pn.shiftLog) + _n(pn.shiftReports) + _n(pn.skillCatalog);
+    }
+    if (col === 'cop') {
+        var cp = (typeof copState !== 'undefined' && copState) ? copState : null;
+        if (!cp) return 0;
+        return _n(cp.saved) + _keys(cp.families);
+    }
+    if (col === 'homolog') {
+        var ho = (typeof homoState !== 'undefined' && homoState) ? homoState : null;
+        if (!ho) return 0;
+        return _n(ho.catalog) + _n(ho.ipFamilies) + _keys(ho.links);
+    }
+    if (col === 'audit') {
+        try { return _n(JSON.parse(localStorage.getItem('kia_audit_trail') || '[]')); } catch (e) { return 0; }
     }
     return 0;
 }
@@ -1319,9 +1389,23 @@ function _fbPullSeed(col, remoteData, pulled) {
         // v23.1 suma `reqPurposes` (qué propósitos acreditan el REQ de emisiones): un
         // pull desde código anterior no lo trae y sin preservarlo el laboratorio
         // volvería a contar las pruebas de OBD2 en la cobertura, en silencio.
+        // v23.2 suma la CONFIGURACIÓN y el HISTORIAL del laboratorio, que faltaban
+        // enteros. Esto no era un `undefined` benigno: `_fbTpUISync()` llama a
+        // `_tpEnsureState()` justo después, que RESIEMBRA `rules` con
+        // `tpDefaultRules()` y `weights`/`regionPriority` con los literales del
+        // código. O sea que un pull no los dejaba vacíos — los dejaba en VALORES DE
+        // FÁBRICA, sin error y sin aviso, y las reglas de ratio son justo lo que
+        // determina el REQ y la cobertura de todo el laboratorio.
+        // Se dispara cuando `_fbPullLocalScore('testplan') === 0`, y ese score sólo
+        // cuenta planData+testedList+weeklyPlans: un equipo ya configurado que
+        // todavía no importó el CSV de producción puntúa CERO. Es una secuencia de
+        // puesta en marcha perfectamente normal.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
          'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'capacity',
-         'soak', '_migr', 'reqPurposes'].forEach(function(k) {
+         'soak', '_migr', 'reqPurposes',
+         'rules', 'weights', 'regionPriority', 'rulePresets',
+         'familyOverrides', 'configOverrides', 'startPurposeByRegion', 'myContinuity',
+         'weekHistory', 'planHistory', 'weeks', 'fixedPlan', 'fixedWeeklyPlan', 'deadline'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -1333,7 +1417,13 @@ function _fbPullSeed(col, remoteData, pulled) {
         // por la nube, así que un pull de un equipo sin combustible borraba el de éste.
         var prevInv = (typeof invState !== 'undefined' && invState) ? invState : {};
         invState = remoteData;
-        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed'].forEach(function(k) {
+        // v23.2 suma `usageLog` (hasta 3.000 registros de consumo por prueba: es lo
+        // que alimenta el modelo de consumo aprendido y el conteo por VIN de COP15),
+        // `zones` y `gasTypes` (catálogos editables del cuarto de gases) y
+        // `lastReadingDate`. Ninguno viajaba, con la misma forma exacta del defecto de
+        // `fuelTanks` que se arregló en v21.1.
+        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed',
+         'usageLog', 'zones', 'gasTypes', 'lastReadingDate'].forEach(function(k) {
             if ((invState[k] === undefined || invState[k] === null ||
                  (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
                 invState[k] = prevInv[k];
@@ -1373,22 +1463,86 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     pulled.push({ cop15: 'COP15', testplan: 'Test Plan', inventory: 'Inventory' }[col]);
 }
 
-// Heurística previa por conteo — solo como fallback si el merge falla
+// Heurística previa por conteo — solo como fallback si el merge falla.
+//
+// [v23.2] Compara con `_fbPushDataScore`, NO con `_fbPullLocalScore`: el lado remoto
+// se mide contando dato real (planData/testedList/weeklyPlans, vehículos, cilindros),
+// así que el lado local tiene que medirse igual. Desde v23.2 `_fbPullLocalScore`
+// incluye además la configuración, y mezclarlos comparaba peras con manzanas: lo local
+// parecía sistemáticamente más grande y este fallback dejaba de adoptar un remoto que
+// sí traía más datos.
 function _fbPullAdoptByCount(col, remoteData, pulled) {
     if (col === 'cop15') {
-        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPullLocalScore('cop15')) _fbPullSeed(col, remoteData, pulled);
+        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPushDataScore('cop15')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'testplan') {
         var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
-        if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
+        if (_rTp >= _fbPushDataScore('testplan')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'inventory') {
         var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; if (s && s.assets) n += s.assets.length; if (s && s.maintActivities) n += s.maintActivities.length; if (s && s.maintLog) n += s.maintLog.length; return n; };
-        if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
+        if (_invScoreFn(remoteData) >= _fbPushDataScore('inventory')) _fbPullSeed(col, remoteData, pulled);
     }
 }
 
 // Unión de operadores por id+nombre; en colisión gana el updatedAt más reciente.
 // Los tombstones (deleted:true) sobreviven al merge para que un operador borrado
 // no resucite desde un remoto viejo.
+
+// [v23.2] Unión por `id` de una lista append-only, conservando las más nuevas.
+// La usan `shiftLog` (bitácora de turno) y `shiftReports`.
+//
+// POR QUÉ. La rama `panel` de `fbPullApply` hacía `Object.assign(pnState,
+// remoteData)` y sólo volvía a mezclar cuatro arrays. Todo lo demás se tomaba
+// ENTERO del remoto — incluida la bitácora. Una entrada escrita en este
+// dispositivo y aún no empujada (hay 2 s de debounce en `fbPush`) se
+// aniquilaba en cuanto llegaba un pull, y como después este dispositivo empuja
+// su copia ya truncada, la entrada desaparecía TAMBIÉN de la nube. Y `shiftLog`
+// siempre tuvo `id` (`sl_…`) y `timestamp`: era trivialmente mezclable.
+function _fbMergeByIdNewest(locales, remotas, cap) {
+    var map = {};
+    var stamp = function(x) { return x.timestamp || x.date || x.createdAt || ''; };
+    (locales || []).concat(remotas || []).forEach(function(x) {
+        if (!x) return;
+        var k = x.id || (stamp(x) + '|' + (x.operator || '') + '|' + (x.notes || ''));
+        var prev = map[k];
+        if (!prev || stamp(x) >= stamp(prev)) map[k] = x;
+    });
+    var out = Object.keys(map).map(function(k) { return map[k]; })
+        .sort(function(a, b) { return String(stamp(a)).localeCompare(String(stamp(b))); });
+    if (cap && out.length > cap) out = out.slice(-cap);
+    return out;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.2] `_fbEquipKey(e)` es LA DEFINICIÓN de la identidad de un instrumento
+// en el merge. Todo consumidor nuevo la llama; nunca volver a escribir
+// `e.serialNo || e.name` a mano.
+//
+// POR QUÉ. La clave era `serialNo || name`, y en la semilla real del F11 eso
+// COLISIONA: de 31 instrumentos, 11 (35%) caen en dos cubetas — `"-"` ×7 y
+// `"N/A"` ×4, porque muchos equipos no tienen número de serie. El mapa
+// `localEquip` sólo conservaba el ÚLTIMO de cada cubeta, así que:
+//   · los otros 3 `"N/A"` eran invisibles al merge y NUNCA se importaban a un
+//     dispositivo que no los tuviera, y
+//   · `_fbMergeEquipConflict` resolvía con `findIndex(...)`, que devuelve
+//     SIEMPRE el primero: las fechas y el `calHistory` del instrumento remoto
+//     #4 se escribían encima del instrumento local #1.
+// Para un laboratorio con trazabilidad ISO 17025 eso es un registro de
+// calibración atribuido al equipo equivocado, no un detalle de UI.
+//
+// Los equipos ya traen identidad estable: `id` (`"eq_th0033"`) y `f11Id`. Se
+// prefiere ésa; `serialNo`/`name` quedan sólo como último recurso para un
+// registro viejo sin id, y con prefijo para que no se confundan entre sí.
+function _fbEquipKey(e) {
+    if (!e) return '';
+    if (e.id) return 'id:' + e.id;
+    if (e.f11Id) return 'f11:' + e.f11Id;
+    var sn = String(e.serialNo || '').trim();
+    // '-' y 'N/A' son "no tiene serie", no una serie.
+    if (sn && sn !== '-' && sn !== 'N/A' && sn !== 'NA') return 'sn:' + sn.toUpperCase();
+    return 'nm:' + String(e.name || '').trim().toUpperCase();
+}
+
 function _fbMergeOperators(localOps, remoteOps) {
     var byKey = {};
     // La clave era `id|nombre`, pero _authFindOperator (auth.js) busca SOLO por id y
@@ -1603,7 +1757,33 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localTasksPn = (pnState.tasks || []).slice();
                 var _localCatPn = (pnState.skillCatalog || []).slice();
                 var _localProjectsPn = (pnState.projects || []).slice();
+                // [v23.2] Estado de UI POR DISPOSITIVO: gana SIEMPRE el local. Mismo
+                // criterio que la rama `cop` de abajo (v19.0). `activeTab` venía del
+                // remoto y `pnRender()` corre justo después, así que la pestaña que
+                // otro técnico tuviera abierta te movía la pantalla; `matrixCols` es
+                // el ancho/orden de columnas de la matriz de habilidades de ESTE
+                // equipo, y `opsSchema` es una guarda de migración de una sola vez
+                // (la misma trampa que `tpState._migr` ya tenía documentada).
+                var _localUiPn = {};
+                ['activeTab', 'matrixCols', 'opsSchema'].forEach(function(k) {
+                    if (pnState[k] !== undefined) _localUiPn[k] = pnState[k];
+                });
+                var _localShiftLog = (pnState.shiftLog || []).slice();
+                var _localShiftReports = (pnState.shiftReports || []).slice();
+                var _localSkillGroups = (pnState.skillGroups || []).slice();
+
                 Object.assign(pnState, remoteData);
+
+                Object.keys(_localUiPn).forEach(function(k) { pnState[k] = _localUiPn[k]; });
+                // La bitácora y los reportes de turno se UNEN por id (antes el remoto
+                // los reemplazaba enteros y se perdía lo escrito en este dispositivo).
+                pnState.shiftLog = _fbMergeByIdNewest(_localShiftLog, (remoteData && remoteData.shiftLog) || [], 500);
+                pnState.shiftReports = _fbMergeByIdNewest(_localShiftReports, (remoteData && remoteData.shiftReports) || [], 30).reverse();
+                // Los grupos de habilidades son una lista corta y editable: si el
+                // remoto no trae ninguno, no borrar los locales.
+                if (!(remoteData && (remoteData.skillGroups || []).length) && _localSkillGroups.length) {
+                    pnState.skillGroups = _localSkillGroups;
+                }
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
                 pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
@@ -1627,8 +1807,15 @@ function fbPullApply(collections, results, showFeedback) {
             // pantalla del CoP salte de vista y de familia porque otro técnico tocó la
             // suya, y en el peor caso pisa la mesa de trabajo local. Estos campos son
             // estado de UI POR DISPOSITIVO: siempre gana el local.
+            // [v23.2] `regulation`, `fuelType` y `activePolls` FALTABAN aquí, y no son
+            // cosméticos: `copRenderStats` lee los límites por
+            // `COP_FUEL_LIMITS[copState.fuelType]`. Como `vehicles` sí se conservaba,
+            // el técnico se quedaba con SUS filas evaluadas contra la norma y el juego
+            // de contaminantes de OTRO técnico — un veredicto de conformidad
+            // equivocado, no un salto de pantalla. Los tres son de la mesa de trabajo
+            // abierta (se guardan y restauran por familia), no ajustes del laboratorio.
             ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'ovHidden', 'spc',
-             'showTable', 'showFormula'].forEach(function(k) {
+             'showTable', 'showFormula', 'regulation', 'fuelType', 'activePolls'].forEach(function(k) {
                 if (_localCop[k] !== undefined) _mergedCop[k] = _localCop[k];
                 else delete _mergedCop[k];
             });
@@ -1805,16 +1992,40 @@ function fbHandleRemoteChange(col, docData, remoteSt) {
     if (fbSync._recentRemote[key] && (now - fbSync._recentRemote[key]) < 5000) return;
     fbSync._recentRemote[key] = now;
 
+    // ══════════════════════════════════════════════════════════════════
+    // [v23.2] EL LIVE-SYNC AUTOMÁTICO NUNCA HABÍA FUNCIONADO.
+    //
+    // Aquí se llamaba a `fbFromFirestoreValue(docData.data)`. Esa función
+    // (definida más arriba) sólo entiende el FORMATO DE CABLE REST
+    // (`stringValue`, `mapValue`, `arrayValue`…), y lo que llega por este camino
+    // NO viene en ese formato: `fbPush` escribe `data: data` —un objeto JS
+    // plano— y el listener recibe `change.doc.data()`, que el SDK compat ya
+    // devuelve DECODIFICADO. Un objeto plano no coincide con ninguna de las 8
+    // comprobaciones de esa función y caía a su `return null` final.
+    //
+    // Resultado: `parsedData` era SIEMPRE null, este `return` se tomaba siempre,
+    // y `fbAutoMerge` —cuyo único llamador es la línea de abajo— no se ejecutó
+    // jamás. Los tres listeners de collectionGroup se disparaban, gastaban cuota
+    // y descartaban en silencio cada cambio remoto. Como tampoco hay ningún pull
+    // periódico (sólo al conectar, al reconectar y el botón manual), dos
+    // técnicos con la app abierta NO se veían entre sí hasta recargar — mientras
+    // el indicador del topbar decía "Live sync active".
+    //
+    // Se acepta el objeto plano del SDK y se conserva la decodificación REST
+    // como respaldo por si alguna vez llega un documento en ese formato.
     var parsedData = null;
     try {
-        parsedData = (docData && docData.data)
-            ? fbFromFirestoreValue(docData.data)
-            : null;
+        var _raw = docData && docData.data;
+        if (_raw && typeof _raw === 'object') {
+            // El formato REST siempre envuelve en una de estas llaves.
+            var _esREST = ('mapValue' in _raw) || ('arrayValue' in _raw) || ('stringValue' in _raw);
+            parsedData = _esREST ? fbFromFirestoreValue(_raw) : _raw;
+        }
     } catch(e) {
         console.warn('fbHandleRemoteChange: parse error for ' + col, e);
         return;
     }
-    if (!parsedData) return;
+    if (!parsedData || typeof parsedData !== 'object') return;
     fbQuotaRecord('read');
     fbAutoMerge(col, parsedData, remoteSt);
 }
@@ -2125,7 +2336,15 @@ function fbMergeListStations(callback) {
         var url = 'https://firestore.googleapis.com/v1/projects/' +
             FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations?key=' +
             FIREBASE_CONFIG.apiKey;
-        fetch(url).then(function(resp) {
+        // [v23.2] Sin `Authorization` esto devolvía 403 SIEMPRE: `firestore.rules`
+        // exige `isLabUser()` (sesión con proveedor 'password') para tocar
+        // `stations/`. Las dos ramas REST escritas junto a las reglas
+        // (fbPushREST/fbPullREST) sí mandan el token; estas tres, más viejas,
+        // nunca se actualizaron.
+        _fbIdTokenPromise().then(function(tok) {
+        var headers = {};
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        fetch(url, { headers: headers }).then(function(resp) {
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             return resp.json();
         }).then(function(result) {
@@ -2145,6 +2364,7 @@ function fbMergeListStations(callback) {
             console.error('REST list stations error:', err);
             showToast('Error listando estaciones: ' + err.message, 'error');
             callback([]);
+        });
         });
         return;
     }
@@ -2184,7 +2404,14 @@ function fbMergeLoadStation(stationId, callback) {
             var url = 'https://firestore.googleapis.com/v1/projects/' +
                 FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
                 encodeURIComponent(stationId) + '/' + col + '/current?key=' + FIREBASE_CONFIG.apiKey;
-            fetch(url).then(function(resp) {
+            // [v23.2] Faltaba el `Authorization`: 403 seguro contra `firestore.rules`.
+            // Y aquí el fallo era SILENCIOSO — el `.catch` sólo hacía `console.warn` y
+            // dejaba `data[col] = null`, así que la fusión entre estaciones producía un
+            // análisis vacío en vez de un error. Un 403 ahora se anuncia.
+            _fbIdTokenPromise().then(function(tok) {
+            var headers = {};
+            if (tok) headers['Authorization'] = 'Bearer ' + tok;
+            return fetch(url, { headers: headers }).then(function(resp) {
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 return resp.json();
             }).then(function(doc) {
@@ -2199,7 +2426,12 @@ function fbMergeLoadStation(stationId, callback) {
                 }
             }).catch(function(err) {
                 console.warn('REST load ' + col + ' from ' + stationId + ':', err.message);
+                if (/HTTP 40[13]/.test(err.message) && typeof showToast === 'function') {
+                    showToast('Sin permiso para leer "' + col + '" de ' + stationId +
+                              '. Inicia sesión con la contraseña del laboratorio.', 'error');
+                }
                 data[col] = null;
+            });
             }).then(function() {
                 restPending--;
                 if (restPending === 0) callback(data);
@@ -2402,12 +2634,12 @@ function fbMergeAnalyze(remoteData) {
         });
 
         var localEquip = {};
-        ((invState.equipment || []).forEach(function(e) { localEquip[e.serialNo || e.name] = e; }));
+        ((invState.equipment || []).forEach(function(e) { localEquip[_fbEquipKey(e)] = e; }));
         var remoteEquip = remoteData.inventory.equipment || [];
         var newEquip = [], dupEquip = [], equipConflicts = [];
 
         remoteEquip.forEach(function(re) {
-            var key = re.serialNo || re.name;
+            var key = _fbEquipKey(re);
             var le = localEquip[key];
             if (!le) { newEquip.push(re); return; }
             // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
@@ -2709,7 +2941,7 @@ function fbMergeExecute(remoteData, analysis, choices) {
         // Fusiona el historial de calibración de un instrumento ya existente en ambos lados
         // (unión por fecha+certificado) y se queda con los campos del lado calibrado más recientemente.
         function _fbMergeEquipConflict(c) {
-            var idx = invState.equipment.findIndex(function(e) { return (e.serialNo || e.name) === c.key; });
+            var idx = invState.equipment.findIndex(function(e) { return _fbEquipKey(e) === c.key; });
             if (idx < 0) return;
             var newerSide = (c.local.lastCalDate || '') >= (c.remote.lastCalDate || '') ? c.local : c.remote;
             var mergedEq = Object.assign({}, c.local, newerSide);
@@ -3172,19 +3404,6 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     modal.innerHTML = html;
 }
 
-// Mask a webhook URL for display: keep host + last 8 chars of the path so user can identify
-// which webhook they would adopt without leaking the full secret URL into the UI.
-function _fbMaskWebhook(url) {
-    if (!url) return '(sin URL)';
-    try {
-        var u = new URL(url);
-        var path = u.pathname || '';
-        var tail = path.length > 8 ? path.slice(-8) : path;
-        return u.host + '/...' + tail;
-    } catch (e) {
-        return String(url).slice(0, 24) + '...' + String(url).slice(-8);
-    }
-}
 
 function fbMergeConfirmAndExecute() {
     var choices = {};
@@ -3797,9 +4016,6 @@ function fbPostPlanGenerated(count) {
 }
 function fbPostPlanAccepted(weekNum) {
     fbActivityPost('plan_accepted', 'Semana #' + weekNum);
-}
-function fbPostTestImported(count) {
-    fbActivityPost('test_imported', count + ' pruebas importadas');
 }
 function fbPostGasReading(gasName, psi) {
     fbActivityPost('gas_reading', gasName + ': ' + psi + ' PSI');

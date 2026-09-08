@@ -1,5 +1,27 @@
 // Verificacion en navegador de v23.1: #109 (tira), #110 (repintado), OBD II.
 const { chromium } = require('playwright');
+const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+// ── Aserciones ──────────────────────────────────────────────────────────────
+// Antes este archivo terminaba en un `console.log(JSON.stringify(r))` y nada
+// mas: 156 lineas que NO PODIAN FALLAR NUNCA.
+const fallos = [];
+function chk(nombre, cond, detalle) {
+    if (cond) { console.log('  ok  ' + nombre); return; }
+    fallos.push(nombre + (detalle ? ' — ' + detalle : ''));
+    console.log('  FALLA  ' + nombre + (detalle ? ' — ' + detalle : ''));
+}
+function reportar() {
+    console.log('');
+    if (fallos.length) {
+        console.log(fallos.length + ' fallo(s):');
+        fallos.forEach(f => console.log('   ✗ ' + f));
+        process.exitCode = 1;
+    } else {
+        console.log('todo paso');
+        process.exitCode = 0;
+    }
+}
 const path = require('path');
 const REPO = '/home/user/Cascade-Project';
 
@@ -48,7 +70,7 @@ const SEED = () => {
 };
 
 (async () => {
-    const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+    const browser = await chromium.launch({ executablePath: CHROME });
     const ctx = await browser.newContext({ viewport: { width: 753, height: 1132 }, hasTouch: true, isMobile: true });
     const page = await ctx.newPage();
     const errores = [];
@@ -153,4 +175,55 @@ const SEED = () => {
     r.errores = errores.slice(0, 8);
     console.log(JSON.stringify(r, null, 2));
     await browser.close();
+
+    console.log('\n== Aserciones (753x1132, el dispositivo del #109) ==');
+    // Los CDN no se alcanzan desde un sandbox sin salida: eso es del entorno,
+    // no de la app. Se descartan para que la prueba mida la app y no la red.
+    const relevantes = e => !/ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(e);
+    chk('la app arranca sin errores propios', r.errores.filter(relevantes).length === 0,
+        JSON.stringify(r.errores.filter(relevantes)));
+
+    // #109 — la tira "Siguiente:"
+    chk('la tira solo se ve dentro de Pruebas', r.tira_enPruebas === true && r.tira_enDatos === false,
+        'pruebas=' + r.tira_enPruebas + ' datos=' + r.tira_enDatos);
+    chk('la tira tiene su boton de cerrar', r.tieneX > 0, 'tieneX=' + r.tieneX);
+    chk('la ✕ apaga la tira', r.tira_trasX === false);
+    chk('apagarla queda guardado en uiPref', r.pref_guardada === false, 'pref=' + r.pref_guardada);
+    chk('la tira va por DEBAJO de la bottom-nav', Number(r.tira_z) < Number(r.nav_z),
+        'tira=' + r.tira_z + ' nav=' + r.nav_z);
+    chk('la tira no se encima con la bottom-nav', r.traslape === 'ok', 'traslape=' + r.traslape);
+
+    // #110 — tabCacheSwitch repinta por defecto
+    chk('un control que solo cambia la vista SI repinta', /^SI/.test(r.repinto), 'repinto=' + r.repinto);
+    chk('Captura Manual / Importar JSON alterna', r.jsonVisible === true);
+
+    // OBD II fuera del REQ
+    chk('hay pruebas registradas que NO acreditan el REQ', r.cobertura.fueraDelReq > 0,
+        JSON.stringify(r.cobertura));
+    chk('lo excluido se DECLARA, no se oculta', r.cobertura.totalRegistradas > r.cobertura.totalTested,
+        JSON.stringify(r.cobertura));
+    chk('Probados avisa de las que no acreditan', r.avisoProbados === true);
+    chk('la lista es editable en Plan → Reglas', r.tarjetaReglas === true && r.casillas > 0,
+        'tarjeta=' + r.tarjetaReglas + ' casillas=' + r.casillas);
+
+    // Un solo lazo greedy
+    chk('Generar Mes crea 4 semanas', r.mes.creados === 4, 'creados=' + r.mes.creados);
+    chk('Generar Mes NO acepta nada solo', r.mes.aceptados === 0, 'aceptados=' + r.mes.aceptados);
+    chk('ninguna semana del mes excede su capacidad',
+        r.mes.porSemana.every((n, k) => n <= (r.mes.capacidades[k] || 99)),
+        JSON.stringify(r.mes));
+    chk('la curva del simulador no retrocede',
+        r.simulador.curva.every((v, k) => k === 0 || v >= r.simulador.curva[k - 1]),
+        JSON.stringify(r.simulador.curva));
+
+    // #113 — editar operadores (lo cerro v18.5)
+    chk('quien administra tiene users.manage', r.usuarios.antes.puedeGestionar === true);
+    chk('se puede cambiar un rol', r.usuarios.cambio === true && r.usuarios.trasSupervisor === 'Supervisor',
+        JSON.stringify(r.usuarios));
+    chk('Supervisor puede liberar', r.usuarios.puedeLiberar === true);
+    chk('un rol con mayusculas/espacios se normaliza', r.usuarios.trasNormalizar === 'Tecnico' ||
+        /t.cnico/i.test(r.usuarios.trasNormalizar), 'rol=' + r.usuarios.trasNormalizar);
+    chk('un rol inventado se RECHAZA', r.usuarios.rolInventado === false, 'ok3=' + r.usuarios.rolInventado);
+    chk('la pestana Usuarios pinta la lista', r.usuariosUI.veIvan === true, JSON.stringify(r.usuariosUI));
+    reportar();
 })();

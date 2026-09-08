@@ -2,6 +2,32 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const REPO = require('path').resolve(__dirname, '..');
+const os = require('os');
+// El navegador se resuelve por env para no clavar una version de Chromium.
+const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+// ── Aserciones ──────────────────────────────────────────────────────────────
+// Antes este archivo terminaba en un `console.log(JSON.stringify(r))` y nada
+// mas: 150 lineas que NO PODIAN FALLAR NUNCA. Un recorrido instrumentado no es
+// una prueba mientras nadie compare el resultado contra lo esperado.
+const fallos = [];
+function chk(nombre, cond, detalle) {
+    if (cond) { console.log('  ok  ' + nombre); return; }
+    fallos.push(nombre + (detalle ? ' — ' + detalle : ''));
+    console.log('  FALLA  ' + nombre + (detalle ? ' — ' + detalle : ''));
+}
+function reportar() {
+    console.log('');
+    if (fallos.length) {
+        console.log(fallos.length + ' fallo(s):');
+        fallos.forEach(f => console.log('   ✗ ' + f));
+        process.exitCode = 1;
+    } else {
+        console.log('todo paso');
+        process.exitCode = 0;
+    }
+}
+
 
 const OP = { id: 'op-test', name: 'Jorge Nunez', role: 'Administrador', active: true };
 
@@ -50,7 +76,7 @@ const SEED = () => {
 };
 
 (async () => {
-    const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+    const browser = await chromium.launch({ executablePath: CHROME });
     const ctx = await browser.newContext({ viewport: { width: 427, height: 840 }, hasTouch: true, isMobile: true });
     const page = await ctx.newPage();
     const errores = [];
@@ -143,6 +169,31 @@ const SEED = () => {
 
     r.errores = errores.slice(0, 6);
     console.log(JSON.stringify(r, null, 2));
-    await page.screenshot({ path: '/tmp/claude-0/-home-user-Cascade-Project/8dec62b6-261d-58fb-8abd-b24d6c685647/scratchpad/semana-427.png', fullPage: true });
+    // Antes escribia a un scratchpad de una sesion MUERTA: reventaba con ENOENT
+    // antes siquiera de imprimir. Ahora va al temporal del sistema.
+    const shot = require('path').join(os.tmpdir(), 'semana-427.png');
+    await page.screenshot({ path: shot, fullPage: true });
+    console.log('captura: ' + shot);
     await browser.close();
+
+    console.log('\n== Aserciones (427x840, el dispositivo del #126) ==');
+    // Los CDN no se alcanzan desde un sandbox sin salida: eso es del entorno,
+    // no de la app. Se descartan para que la prueba mida la app y no la red.
+    const relevantes = e => !/ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(e);
+    chk('la app arranca sin errores propios', r.errores.filter(relevantes).length === 0,
+        JSON.stringify(r.errores.filter(relevantes)));
+    chk('el tablero pinta las 5 columnas de la semana', r.columnas >= 5, 'columnas=' + r.columnas);
+    chk('hay tarjetas de prueba en el tablero', r.tarjetas > 0, 'tarjetas=' + r.tarjetas);
+    chk('cada tarjeta tiene asa de arrastre', r.asas > 0, 'asas=' + r.asas);
+    chk('tocar el asa NO abre el modal de agregar', r.modalTrasToque === 'sin modal', r.modalTrasToque);
+    chk('tocar el asa arma la barra de "moviendo"', r.barra > 0, 'barra=' + r.barra);
+    chk('la prueba se movio de dia con un toque', /-> jue$/.test(r.movio), r.movio);
+    chk('mover NO desacepta el plan', r.aceptadoSigue === true, 'accepted=' + r.aceptadoSigue);
+    chk('el movimiento queda registrado en moves[]', r.moves >= 1, 'moves=' + r.moves);
+    chk('HOY lista las pruebas del plan ACEPTADO', r.hoyPlan.length > 0, JSON.stringify(r.hoyPlan));
+    // v23: una propuesta NO lista sus pruebas — deja UNA sola linea, la de aceptarla.
+    chk('una PROPUESTA no lista sus pruebas, solo invita a aceptarla',
+        r.hoyPropuesta.length === 1 && /propuesta sin aceptar/i.test(r.hoyPropuesta[0]),
+        JSON.stringify(r.hoyPropuesta));
+    reportar();
 })();

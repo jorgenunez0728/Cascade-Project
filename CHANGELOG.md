@@ -2,6 +2,183 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI (2026-09-08)
+
+Ronda salida de una auditoría exhaustiva del estado del proyecto. La pregunta era
+*"cuál es el área que necesita más trabajo"*; la respuesta resultó ser
+`js/firebase-sync.js`, y por un margen que no se veía desde fuera: una de sus
+funciones centrales **nunca se había ejecutado**.
+
+El contexto que lo explica todo: 142 commits y 63 rondas en dos meses. La superficie
+creció mucho más rápido que las defensas. El código está bien escrito — estaba poco
+protegido y casi sin verificar (cobertura real: ~2,5% de las funciones, y las dos
+pruebas E2E que existían **no podían fallar nunca**).
+
+---
+
+### 1. El live-sync automático nunca había funcionado
+
+`fbHandleRemoteChange` llamaba a `fbFromFirestoreValue(docData.data)`. Esa función sólo
+entiende el **formato de cable REST** (`stringValue`, `mapValue`, `arrayValue`…), y lo
+que llega por ese camino no viene en ese formato: `fbPush` escribe `data: data` —un
+objeto JS plano— y el listener recibe `change.doc.data()`, que el SDK compat ya devuelve
+**decodificado**. Un objeto plano no coincidía con ninguna de sus ocho comprobaciones y
+caía a su `return null` final.
+
+Resultado: `parsedData` era **siempre** null, y `fbAutoMerge` —cuyo único llamador es esa
+línea— **no se ejecutó jamás**. Los tres listeners de `collectionGroup` se disparaban,
+gastaban cuota y descartaban en silencio cada cambio remoto. Como tampoco hay ningún pull
+periódico (sólo al conectar, al reconectar y el botón manual), **dos técnicos con la app
+abierta no se veían entre sí hasta recargar** — mientras el indicador del topbar decía
+"Live sync active".
+
+El arreglo es de una línea. Pero **no se hizo primero**: enciende un camino de fusión que
+nunca se había ejercitado, así que se dejó para el final de la ronda, después de arreglar
+todo lo que ese camino iba a activar de golpe.
+
+### 2. La calibración podía quedar registrada en el equipo equivocado
+
+La clave de fusión de `equipment` era `serialNo || name`. Sobre la semilla real del F11
+eso **colisiona**: de 31 instrumentos, **11 (35%)** caían en dos cubetas —`"-"` ×7 y
+`"N/A"` ×4—, porque muchos equipos no tienen número de serie.
+
+- El mapa local sólo conservaba el **último** de cada cubeta, así que los otros tres
+  `"N/A"` eran invisibles a la fusión y nunca se importaban a un dispositivo que no los
+  tuviera.
+- Peor: `_fbMergeEquipConflict` resolvía con `findIndex(...)`, que devuelve **siempre el
+  primero**. Las fechas y el `calHistory` del instrumento remoto #4 se escribían encima
+  del instrumento local #1. Para un laboratorio con trazabilidad ISO 17025 eso es un
+  registro de calibración atribuido al equipo equivocado.
+
+**`_fbEquipKey(e)` es LA DEFINICIÓN** de la identidad de un instrumento en la fusión
+(`id` → `f11Id` → serie real → nombre; `'-'` y `'N/A'` dejan de contar como serie).
+Verificado contra la semilla: **0 colisiones sobre los 31 instrumentos.**
+
+### 3. Un pull ya no destruye datos del laboratorio
+
+- **La bitácora de turno.** La rama `panel` hacía `Object.assign(pnState, remoteData)` y
+  sólo volvía a mezclar cuatro arrays: `shiftLog` (500 entradas, con `id` estable —
+  trivialmente mezclable), `shiftReports` y `skillGroups` se tomaban **enteros del
+  remoto**. Una entrada escrita aquí y aún no empujada se aniquilaba al llegar un pull, y
+  como después este dispositivo empuja su copia truncada, desaparecía también de la nube.
+  Ahora se unen por id (`_fbMergeByIdNewest`).
+- **Las reglas del laboratorio.** `_fbPullSeed` preservaba 14 claves de `tpState` de ~36.
+  Y no era un `undefined` benigno: `_tpEnsureState()` corre justo después y **resiembra**
+  `rules` con `tpDefaultRules()` y `weights`/`regionPriority` con literales del código. Un
+  pull no las dejaba vacías: las dejaba en **valores de fábrica**, sin error y sin aviso —
+  y las reglas de ratio son justo lo que fija el REQ y la cobertura. Se sumaron 14 claves
+  más (configuración e historial), y ahora resembrar sobre un laboratorio que ya tiene
+  datos **avisa** (toast + auditoría) en vez de hacerlo en silencio.
+- **El inventario.** `usageLog` (hasta 3.000 registros de consumo por prueba), `zones`,
+  `gasTypes` y `lastReadingDate` tampoco viajaban — la misma forma exacta del defecto de
+  `fuelTanks` que se arregló en v21.1.
+- **`_fbPullLocalScore`** contaba tan poco que un dispositivo ya configurado podía
+  puntuar **cero** y ser tratado como desechable. Ahora cuenta la configuración, el
+  historial, el `calHistory` de cada instrumento, y da puntaje real a `panel`, `cop`,
+  `homolog` y `audit`, que devolvían `0` a secas.
+
+### 4. En el CoP viajaban tres campos que cambian la tabla de límites
+
+La lista de exclusión de estado de UI (v19.0) no incluía `regulation`, `fuelType` ni
+`activePolls`. Como `vehicles` **sí** se conservaba, el técnico se quedaba con sus filas
+**evaluadas contra la norma y el juego de contaminantes de otro técnico**
+(`copRenderStats` lee `COP_FUEL_LIMITS[copState.fuelType]`). Eso no es un salto de
+pantalla: es un veredicto de conformidad equivocado.
+
+### 5. Los tres 403 silenciosos del modo REST
+
+`fbMergeListStations`, `fbMergeLoadStation` y `fbUpdateStationMeta` mandaban sus peticiones
+REST **sin `Authorization`**, y `firestore.rules` exige `isLabUser()`: 403 seguro. El de
+`fbMergeLoadStation` era además **silencioso** (sólo `console.warn`, dejando `data[col] =
+null`), así que la fusión entre estaciones producía un análisis vacío en vez de un error.
+
+---
+
+### Tres bugs de usuario
+
+- **La cola de pendientes se podía enterrar sin vuelta atrás.** El único botón que existía
+  era "🧹 Vaciar la cola", que entierra el backlog **completo** — y tanto su diálogo como
+  la ayuda prometían que "puedes restaurarla desde Descartadas". `tpDismissCarryover` y
+  `tpRestoreCarryover` estaban escritas, completas, con permiso y auditoría, **y sin una
+  sola UI que las llamara**. El "✕" por fila que mencionaba la ayuda no existía. Y como
+  `carryoverDismissed` se sincroniza, el entierro se propagaba a todos los dispositivos.
+  Ahora existen la lista de vigentes con su ✕, la vista **🗃 Descartadas** con Restaurar
+  por fila, y `tpRestoreAllCarryover()` como inversa de la acción masiva.
+- **"Gases bajos" del reporte de turno decía 0 desde siempre.** Filtraba
+  `g.status !== 'active'`, un estado que la app nunca escribe (los reales son
+  `Stock | In use | Empty | Spare`). Es la **tercera** aparición de este mismo defecto:
+  v23 arregló las otras dos y dejó ésta.
+- **`g.status === 'Full'` no existe.** Aparecía una sola vez en todo el repo: la propia
+  comparación. La rama nunca se ejecutó, así que la presión disponible sub-contaba
+  cualquier cilindro que no estuviera `In use` — justo los de reserva.
+
+### Seis definiciones únicas que se estaban esquivando
+
+`invGasLevel`/`invGasIsLow` tenían **cinco** consumidores con umbrales de 10/15/25/30%
+más PSI absolutos de 200/500 (la unificación que v21.1 daba por hecha), e `invCalStatus`
+**tres**, uno de ellos con bug de zona horaria: `new Date('2026-01-15')` parsea UTC
+mientras `invCalStatus` parsea local, así que en UTC−6 el reporte F11 podía declarar
+vencido lo que la app mostraba vigente, con ventana de 30 días en vez de los 60 del
+formato y sin respetar `requiresCal === 'No'`. Todos ruteados. `_invLevelColor(pct)` se
+añadió para los tanques de combustible, que no son cilindros pero comparten umbrales.
+
+### El candado del doble ciego, ahora en la capa de datos
+
+`approveAndArchive()` estampaba `matchedLiberador: true` **hardcodeado** en el registro
+regulatorio, sin verificar nada. La comparación real vivía sólo dentro de un handler de
+`oninput` cuyo único efecto es habilitar `#approve-archive-btn`: la integridad del doble
+ciego descansaba entera en **un atributo `disabled` del DOM**. Contradecía un principio
+que el propio proyecto adoptó en v18.5 (*"el candado va en la capa de datos, no solo en la
+vista"*), aplicado entonces a `pnOp*` y nunca al flujo de más consecuencia. Y había una
+carrera concreta: no hay ninguna guarda que pause el sync durante una edición, y
+`_fbPullSeed` hace `db = remoteData`.
+
+**`_libVerifyApproverMatch(profile, aprobador, liberador)` es LA DEFINICIÓN** y es **pura**
+(se prueba en Node). La usan las dos rutas —el handler y `approveAndArchive`—, así que no
+se pueden desincronizar, y `matchedLiberador` pasa a ser el **resultado** de esa
+verificación, no una constante.
+
+### Las pruebas por fin corren solas
+
+- **`npm test`** existe y está en **los dos workflows, antes del deploy**. Antes el CI
+  construía y desplegaba sin ejecutar `tests/` ni una vez.
+- **`tests/sync.node.js`** (23 casos) y **`tests/cop15.node.js`** (30 casos) son nuevos.
+  `cop15.js` era el único módulo grande fuera del arnés `vm` porque lee `db` (`let` en
+  app.js); resulta que sí entra declarando los stubs. Total: **98 casos**.
+- **Los dos E2E tenían CERO aserciones** — 304 líneas que no podían fallar nunca. Ahora
+  llevan 11 y 23, con código de salida distinto de cero; `semana.e2e.js` además escribía
+  su captura a un scratchpad de una sesión muerta (ENOENT antes siquiera de imprimir) y el
+  navegador ya no está clavado a una versión de Chromium (`CHROME_PATH`).
+- **`tests/deadcode.node.js`** falla el build ante cualquier función de nivel superior sin
+  referencias. Encontró **13** en su primera corrida, incluidas dos —`tpAddToWeek` y
+  `fbSetStation`— cuyos comentarios **afirmaban falsamente** que alguien las llamaba.
+  Todas eliminadas. (No cuenta las menciones en comentarios, y salta las expresiones de
+  función con nombre: un IIFE como `setupAltaValidation` no es huérfano.)
+- **`PN_STORAGE_REGISTRY`**: siete claves en uso estaban sin registrar, entre ellas
+  `kia_config_csv_raw`, que guarda el CSV de producción completo. Es el defecto de v18.1
+  repitiéndose porque la regla no estaba mecanizada.
+
+### Nota pendiente
+
+**`signature_pad` sigue cargándose desde cdnjs.** La firma cierra `finishRelease()` **y**
+`approveAndArchive()`: si la red del laboratorio bloquea el CDN, no se puede liberar
+ningún vehículo. Alpine y jsPDF ya están en `vendor/` justo por esto. No se pudo
+vendorizar en esta ronda porque el entorno de desarrollo no tiene salida a cdnjs; mientras
+tanto **el fallo dejó de ser silencioso** (antes era un `console.warn` y un lienzo en
+blanco sin explicación). También salió de `sw.js` la entrada muerta que precacheaba el
+jsPDF del CDN, ya vendorizado.
+
+### Deuda que se decidió NO tocar
+
+- **Tombstones.** Todos los borrados son filtros duros y las dos rutas de fusión son
+  estrictamente aditivas: lo que un dispositivo borra, el siguiente pull lo devuelve. Es
+  una ronda propia y toca los cinco módulos.
+- **`panel.js` con dos paradigmas de render** (6 pestañas Alpine + 10 `innerHTML`, el hack
+  `_dataVersion`, `panelAlpineComponent` de 522 líneas). Es la mayor deuda estructural,
+  pero es riesgo alto sobre 16 pestañas que hoy funcionan.
+
+---
+
 ## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y tres reportes viejos (2026-09-03)
 
 Tres cosas pedidas juntas: *"arregla esos bugs y la prueba de OBD II no debería contar

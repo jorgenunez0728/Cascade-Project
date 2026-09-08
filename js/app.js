@@ -285,11 +285,22 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.1';
+var APP_VERSION = '23.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.2', date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
+      notes: [
+          'El sync automático entre dispositivos NUNCA había funcionado: los cambios de otro equipo se descartaban en silencio mientras el indicador decía "Live sync active". Ahora sí llegan sin recargar.',
+          'La calibración podía quedar registrada en el equipo equivocado: 11 de 31 instrumentos compartían clave de fusión por no tener número de serie. Ahora se identifican por su id.',
+          'Un pull ya no borra la bitácora de turno ni devuelve las reglas del laboratorio a valores de fábrica.',
+          'En el CoP, la norma y el tipo de combustible dejaron de viajar entre dispositivos: evaluaban tus vehículos contra los límites de otro técnico.',
+          'La cola de pendientes por fin se puede restaurar ("Descartadas"), como la app venía prometiendo.',
+          '"Gases bajos" del reporte de turno decía 0 desde siempre; ya cuenta de verdad.',
+          'Aprobar una prueba vuelve a verificar que los valores coincidan: el candado del doble ciego ya no depende de un botón.',
+          'Las pruebas ahora corren solas antes de cada despliegue: 98 casos, y una guardia que detecta código muerto.'
+      ] },
     { v: '23.1', date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
       notes: [
           'Una prueba de OBD II ya NO baja el déficit de emisiones ni sube la cobertura: se registra igual, pero no acredita. Qué propósito cuenta se decide en Plan → Reglas.',
@@ -4079,23 +4090,29 @@ function generateWeeklyStatusPDF(opts) {
         var gases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
         var equip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
 
+        // [v23.2] Este bloque tenía TRES números mal en un documento que se imprime.
+        //  · La presión baja usaba PSI absoluto (<500) en vez de `invGasIsLow`, que es
+        //    LA definición desde v21.1 (el nivel es un % contra la nominal, no un PSI).
+        //  · La calibración leía `nextCalDate` a pelo en vez de `invCalStatus`, que es
+        //    LA definición desde v16.4: ignoraba `requiresCal === 'No'` (equipos que no
+        //    se calibran salían como vencidos) y usaba una ventana de 7 días contra los
+        //    60 del formato F11.
+        //  · `new Date('2026-01-15')` parsea UTC mientras `invCalStatus` parsea local:
+        //    en UTC−6 eso da un día de diferencia. Por eso tampoco se compara a mano.
         var lowGas = gases.filter(function(g) {
-            if (!g.readings || g.readings.length === 0 || g.status !== 'In use') return false;
-            return g.readings[g.readings.length - 1].psi < 500;
+            if (g.status === 'Empty' || !g.readings || g.readings.length === 0) return false;
+            return (typeof invGasIsLow === 'function') ? invGasIsLow(g) : false;
         }).length;
         var expiredGas = gases.filter(function(g) {
             return g.validUntil && new Date(g.validUntil) < today;
         }).length;
-        var calExpired = equip.filter(function(e) {
-            return e.nextCalDate && new Date(e.nextCalDate) < today;
-        }).length;
-        var calWarning = equip.filter(function(e) {
-            if (!e.nextCalDate) return false;
-            var diff = (new Date(e.nextCalDate) - today) / (1000 * 60 * 60 * 24);
-            return diff > 0 && diff < 7;
-        }).length;
+        var _calSt = function(e) {
+            return (typeof invCalStatus === 'function') ? invCalStatus(e).code : '';
+        };
+        var calExpired = equip.filter(function(e) { return _calSt(e) === 'vencido'; }).length;
+        var calWarning = equip.filter(function(e) { return _calSt(e) === 'porvencer'; }).length;
 
-        y = addRow('Cilindros con presión baja (<500 psi)', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Cilindros con presión baja', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Gases vencidos', expiredGas, y, expiredGas > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Equipos calibración vencida', calExpired, y, calExpired > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);

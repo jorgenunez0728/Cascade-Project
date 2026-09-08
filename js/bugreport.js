@@ -330,7 +330,6 @@ function _bugQueueSave(q) {
     }
 }
 
-function bugQueueCount() { return bugQueueGet().length; }
 
 // ══════════════════════════════════════════════════════════════════════
 // ENVÍO
@@ -673,7 +672,6 @@ function bugGetSettings() {
     };
 }
 
-function bugSettingsConfigured() { return !!bugGetSettings().token; }
 
 function _bugCacheSettings(s) {
     try { localStorage.setItem(BUG_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}

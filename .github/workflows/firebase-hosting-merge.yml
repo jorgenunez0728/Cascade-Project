@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Unit tests (deben pasar antes de desplegar)
+        run: npm test
+
       - name: Build unified HTML and assemble dist/
         run: bash deploy.sh --dry
 
