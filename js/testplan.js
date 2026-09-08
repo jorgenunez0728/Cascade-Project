@@ -72,36 +72,6 @@ function tpAssignSlotForItem(plan, item) {
     return false;
 }
 
-function tpAddToWeek(wk) {
-    var sel = document.getElementById('tp-edit-add-' + wk);
-    if (!sel || !sel.value) return;
-    var cfg = tpState.planData.find(function(c) { return c.desc === sel.value; });
-    var _n = _tpIdx(wk);
-    if (!_n) return _tpRefLost();
-    wk = _n.weekIdx;
-    var plan = _n.plan;
-    if (!cfg) return;
-
-    // _tpMakeItem calcula required/deficit/score Y el _scoreDetail que la insignia
-    // de puntaje necesita — antes se armaba a mano y el item salía sin explicación.
-    var item = _tpMakeItem(cfg, tpState.testedList.slice(), { manual: true });
-    var cap = tpWeekCapacity(plan.workDays || window._tpWorkDays || {});
-
-    var push = function() {
-        tpAssignSlotForItem(plan, item);
-        plan.items.push(item);
-        tpSave(); tpRender();
-        if (item.unscheduled) showToast('Agregada, pero sin día libre — quedó fuera de horario.', 'warning');
-    };
-
-    if (plan.items.length >= cap.max) {
-        showConfirm('La semana ya tiene ' + plan.items.length + ' de ' + cap.max + ' lugares reales.\n\n' +
-                    'Se puede agregar igual, pero quedará sin día asignado.', push,
-                    { title: 'Excede la capacidad', type: 'warning', confirmText: 'Agregar de todos modos' });
-        return;
-    }
-    push();
-}
 
 // ======================================================================
 // EXPORT WEEKLY PLAN (Share/Clipboard)
@@ -414,13 +384,42 @@ function _tpEnsureState() {
     if (!Array.isArray(tpState.planHistory)) tpState.planHistory = [];
     if (!Array.isArray(tpState.weekHistory)) tpState.weekHistory = [];
     if (!Array.isArray(tpState.rulePresets)) tpState.rulePresets = [];
-    if (!Array.isArray(tpState.rules) || !tpState.rules.length) tpState.rules = tpDefaultRules();
+
+    // [v23.2] Resembrar la CONFIGURACIÓN nunca es silencioso en un laboratorio que ya
+    // tiene datos.
+    //
+    // En un dispositivo virgen resembrar es correcto y no hay nada que avisar. Pero
+    // `_tpEnsureState()` también corre después de cada pull (vía `_fbTpUISync`), y ahí
+    // resembrar significa que el remoto NO traía esas claves: hasta v23.2 eso devolvía
+    // en silencio las reglas de ratio y los pesos a VALORES DE FÁBRICA, que es
+    // exactamente lo que fija el REQ y la cobertura de todo el laboratorio. Nadie se
+    // enteraba: ni error, ni toast, ni entrada de auditoría.
+    // Ahora la lista de preservación de `_fbPullSeed` evita la pérdida, y este aviso es
+    // la red por si algún camino nuevo vuelve a caer aquí.
+    var _yaConfigurado = (tpState.planData && tpState.planData.length > 0);
+    var _resembrado = [];
+
+    if (!Array.isArray(tpState.rules) || !tpState.rules.length) {
+        if (_yaConfigurado) _resembrado.push('reglas de ratio');
+        tpState.rules = tpDefaultRules();
+    }
     if (!tpState.weights || typeof tpState.weights !== 'object') {
+        if (_yaConfigurado) _resembrado.push('pesos de prioridad');
         tpState.weights = { volume:35, compliance:25, region:20, newConfig:10, urgency:10 };
     }
     if (tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas viejas
     if (!tpState.regionPriority || typeof tpState.regionPriority !== 'object') {
+        if (_yaConfigurado) _resembrado.push('prioridad por región');
         tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
+    }
+
+    if (_resembrado.length) {
+        var _msg = 'Se restauraron a valores de fábrica: ' + _resembrado.join(', ') +
+                   '. Revisa Plan → Reglas antes de generar la semana.';
+        console.warn('TP: ' + _msg);
+        try { if (typeof showToast === 'function') showToast('⚠️ ' + _msg, 'warning'); } catch (e) {}
+        try { if (typeof auditLog === 'function') auditLog('testplan', 'config_resembrada',
+            { type: 'config', label: 'tpState' }, _resembrado.join(', ')); } catch (e) {}
     }
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
     if (!tpState.configOverrides) tpState.configOverrides = {};
@@ -533,20 +532,6 @@ function tpSave() {
     return true;
 }
 
-// ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
-function tpCompactOldPlans() {
-    if (!tpState || !tpState.planData) return;
-    var now = Date.now();
-    var sixMonths = 180 * 24 * 60 * 60 * 1000;
-    var before = tpState.planData.length;
-    tpState.planData = tpState.planData.filter(function(p) {
-        if (p.status === 'completed' && p.completedDate) {
-            return (now - new Date(p.completedDate).getTime()) < sixMonths;
-        }
-        return true;
-    });
-    if (tpState.planData.length < before) tpSave();
-}
 
 // ── Data helpers ──
 // Propósito precargado según región del plan (v15.8). Valida contra TP_PURPOSES_VALID.
@@ -3668,8 +3653,82 @@ function tpBuildCarryoverPanelHTML() {
              '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);color:var(--tp-red);" onclick="tpClearCarryover()">🧹 Vaciar la cola</button>' +
              '</div>';
     }
+
+    // [v23.2] La cola vigente, con su ✕ por fila.
+    //
+    // Hasta v23.2 el ÚNICO botón que existía era "🧹 Vaciar la cola", que entierra el
+    // backlog COMPLETO — y tanto su diálogo como la ayuda de `tpBacklog` prometían
+    // que "puedes restaurarla desde Descartadas". `tpDismissCarryover` y
+    // `tpRestoreCarryover` estaban escritas, completas, con permiso y auditoría… y
+    // sin una sola UI que las llamara. El "✕" por fila que menciona la ayuda no
+    // existía. Y como `carryoverDismissed` se sincroniza, el entierro se propagaba a
+    // todos los dispositivos sin vuelta atrás.
+    if (B.eligible.length) {
+        h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+             'Ver las ' + B.eligible.length + ' vigentes</summary>';
+        h += '<div class="inv-row-list-2col" style="margin-top: var(--space-sm);">';
+        B.eligible.forEach(function(b) {
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-md);">' +
+                 '<span style="flex:1;font-size: var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(b.desc) + '">' + escapeHtml(b.desc) + '</span>' +
+                 (b.deficit ? '<span class="tp-badge" style="font-size: var(--fs-2xs);">déficit ' + b.deficit + '</span>' : '') +
+                 '<button class="tp-btn tp-btn-ghost u-hit" style="font-size: var(--fs-sm);color:var(--tp-red);" ' +
+                 'title="Sacar de la cola (NO cuenta como probada)" aria-label="Sacar de la cola ' + escapeHtml(b.desc) + '" ' +
+                 'onclick="tpDismissCarryover(\'' + escapeHtml(String(b.desc).replace(/'/g, "\\'")) + '\')">✕</button>' +
+                 '</div>';
+        });
+        h += '</div></details>';
+    }
+
+    // Y la vista "Descartadas" propiamente dicha, con su botón de restaurar.
+    var dism = tpState.carryoverDismissed || {};
+    var dismKeys = Object.keys(dism);
+    if (dismKeys.length) {
+        dismKeys.sort(function(a, b) { return String((dism[b] || {}).at || '').localeCompare(String((dism[a] || {}).at || '')); });
+        h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+             '🗃 Descartadas (' + dismKeys.length + ') — se pueden restaurar</summary>';
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin: var(--space-xs) 0;">' +
+             'Sacarlas de la cola NO cuenta como probarlas: el déficit y la cobertura no cambiaron.</p>';
+        h += '<div class="inv-row-list-2col" style="margin-top: var(--space-sm);">';
+        dismKeys.forEach(function(desc) {
+            var d = dism[desc] || {};
+            var cuando = String(d.at || '').slice(0, 10);
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-md);">' +
+                 '<span style="flex:1;font-size: var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(desc) + '">' + escapeHtml(desc) + '</span>' +
+                 '<span style="font-size: var(--fs-2xs);color:var(--tp-dim);">' + escapeHtml(cuando + (d.by ? ' · ' + d.by : '')) + '</span>' +
+                 '<button class="tp-btn tp-btn-ghost u-hit" style="font-size: var(--fs-sm);" ' +
+                 'title="Devolver a la cola" aria-label="Devolver a la cola ' + escapeHtml(desc) + '" ' +
+                 'onclick="tpRestoreCarryover(\'' + escapeHtml(String(desc).replace(/'/g, "\\'")) + '\')">↩︎ Restaurar</button>' +
+                 '</div>';
+        });
+        h += '</div>';
+        h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);margin-top: var(--space-sm);" onclick="tpRestoreAllCarryover()">↩︎ Restaurar todas</button>';
+        h += '</details>';
+    }
+
     h += '</div>';
     return h;
+}
+
+/**
+ * Devuelve TODAS las descartadas a la cola. El acompañante de "🧹 Vaciar la cola":
+ * si una acción masiva puede enterrar el backlog entero de un clic, su inversa
+ * también tiene que ser de un clic.
+ */
+function tpRestoreAllCarryover() {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'restaurar el backlog')) return;
+    var n = Object.keys(tpState.carryoverDismissed || {}).length;
+    if (!n) { showToast('No hay descartadas', 'info'); return; }
+    showConfirm(
+        'Se devuelven ' + n + ' configuracion(es) a la cola de pendientes.',
+        function() {
+            tpState.carryoverDismissed = {};
+            tpBacklogInvalidate();
+            tpSave(); tpRender();
+            if (typeof auditLog === 'function') auditLog('testplan', 'carryover_restored_all', { type: 'plan', label: n + ' configs' }, 'Todas devueltas a la cola');
+            showToast(n + ' devueltas a la cola.', 'success');
+        },
+        { title: '↩︎ Restaurar todas', confirmText: 'Restaurar' }
+    );
 }
 
 /**
@@ -6310,9 +6369,10 @@ function tpCheckInventoryForConfig(cfg) {
     });
     if (gases.length === 0) return { ok: true, reason: 'sin datos inventario' };
 
+    // [v23.2] Antes: `lvl.pct < 10`, un sexto umbral distinto. `invGasIsLow` es LA
+    // definición de "está bajo" desde v21.1.
     var lowGases = gases.filter(function(g) {
-        var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 100 };
-        return lvl.pct < 10;
+        return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false;
     });
 
     // If more than half of the gases are critically low, warn

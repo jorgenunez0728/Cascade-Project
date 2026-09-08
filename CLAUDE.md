@@ -1341,6 +1341,132 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI
+
+Ronda salida de una auditoría del estado del proyecto. El área más necesitada resultó ser
+`firebase-sync.js`, y por un margen invisible desde fuera: **`fbAutoMerge` nunca se había
+ejecutado**.
+
+### `fbHandleRemoteChange` — el formato equivocado
+
+`fbPush` (SDK) escribe `data: data`, un **objeto JS plano**, y el listener recibe
+`change.doc.data()`, que el SDK compat ya devuelve **decodificado**.
+`fbFromFirestoreValue` sólo entiende el **formato de cable REST**, así que devolvía
+`null` y el `if (!parsedData) return` se tomaba SIEMPRE. Como tampoco hay pull periódico
+(sólo conectar, reconectar y el botón manual), **dos técnicos con la app abierta no se
+veían entre sí**. Al tocar este camino: es un merge que nunca se ejercitó, así que
+arreglarlo va **al final**, después de todo lo que activa.
+
+### Los DOS scores — no se pueden servir con el mismo número
+
+- **`_fbPullLocalScore(col)`** responde *"¿vale la pena preservar lo local?"* y desde
+  v23.2 cuenta también la CONFIGURACIÓN (reglas, pesos, soak, overrides, historial) y da
+  puntaje real a `panel`/`cop`/`homolog`/`audit`, que devolvían `0` a secas.
+- **`_fbPushDataScore(col)`** responde *"¿es SEGURO subir esto?"* y es **deliberadamente
+  estricta**: sólo dato real de los tres módulos núcleo. `fbPush` escribe el documento
+  ENTERO, así que subir un `tpState` con `planData` vacío **reemplaza el plan de todo el
+  laboratorio** — es el cinturón anti-vaciado de v15.6.
+
+**REGLA: el lado del PUSH (`fbPush`, `fbPushAll`, `_fbLocalIsEmpty`) y las comparaciones
+remoto-vs-local (`_fbPullAdoptByCount`) usan `_fbPushDataScore`. Sólo el lado del PULL
+(`_fbPullMergeModule`) usa `_fbPullLocalScore`.** Mezclarlos abre un agujero de pérdida de
+datos en una dirección y bloquea el seed en la otra. Fijado con pruebas en
+`tests/sync.node.js`.
+
+### `_fbEquipKey(e)` es LA definición de la identidad de un instrumento
+
+La clave era `serialNo || name` y sobre la semilla real del F11 **colisiona**: 11 de 31
+instrumentos (35%) en dos cubetas, `"-"` ×7 y `"N/A"` ×4. `_fbMergeEquipConflict` resuelve
+con `findIndex`, que devuelve siempre el primero → la calibración del instrumento remoto
+#4 se escribía sobre el local #1. Orden: `id` → `f11Id` → serie real → nombre; `'-'` y
+`'N/A'` **no son series**. Nunca volver a escribir `e.serialNo || e.name` a mano.
+
+### Estado de UI por dispositivo: la lista de exclusión
+
+La rama `panel` hacía `Object.assign(pnState, remoteData)`: `activeTab`, `matrixCols` y
+`opsSchema` (guarda de migración) venían del remoto. Y en `cop` faltaban **`regulation`,
+`fuelType` y `activePolls`** — que no son cosméticos: `copRenderStats` lee los límites por
+`COP_FUEL_LIMITS[copState.fuelType]`, así que con `vehicles` conservado el técnico
+evaluaba SUS filas contra la norma de otro. **Toda clave nueva de estado de pantalla va a
+la lista de exclusión de su rama.**
+
+### `_fbMergeByIdNewest(locales, remotas, cap)`
+
+Une listas append-only por `id` quedándose con la más nueva. `shiftLog` (500 entradas) y
+`shiftReports` se tomaban enteros del remoto y siempre tuvieron `id`: eran trivialmente
+mezclables. **Toda lista con `id` estable se mezcla; no se reemplaza.**
+
+### `_tpEnsureState` ya no revierte en silencio
+
+`_fbPullSeed` preservaba 14 claves de `tpState` de ~36. Y `_fbTpUISync()` llama a
+`_tpEnsureState()` justo después, que **resiembra** `rules` con `tpDefaultRules()` y
+`weights`/`regionPriority` con literales: un pull no las dejaba vacías, las dejaba en
+**valores de fábrica**. Se sumaron 14 claves (configuración e historial) y ahora resembrar
+sobre un `tpState` con `planData` **avisa** (toast + `auditLog`). En inventario se sumaron
+`usageLog`, `zones`, `gasTypes` y `lastReadingDate`.
+
+### `_libVerifyApproverMatch` — el candado del doble ciego, en la capa de datos
+
+`approveAndArchive()` estampaba `matchedLiberador: true` **hardcodeado**; la comparación
+vivía sólo en un handler de `oninput` que habilita `#approve-archive-btn`. La integridad
+del doble ciego descansaba en **un atributo `disabled`** — contra el principio de v18.5
+(*"el candado va en la capa de datos"*), aplicado entonces a `pnOp*` y nunca al flujo de
+más consecuencia. La función nueva es **pura** (se prueba en Node), la usan **las dos**
+rutas, y `matchedLiberador` pasa a ser el **resultado** de la verificación.
+
+### `npm test` existe y corre en CI
+
+`plan` (33) + `credit` (12) + **`sync` (28)** + **`cop15` (30)** + la guardia de código
+muerto, en **los dos workflows antes del deploy**.
+
+- **`tests/deadcode.node.js`** falla el build ante una función de nivel superior sin
+  referencias. Encontró **13**, dos de ellas (`tpAddToWeek`, `fbSetStation`) con
+  comentarios que **afirmaban falsamente** tener llamadores. No cuenta menciones en
+  comentarios; salta expresiones de función con nombre (un IIFE como `setupAltaValidation`
+  **no** es huérfano). Excepciones legítimas: `ALLOWLIST` o `// @entrypoint`.
+- **`cop15.js` SÍ entra al arnés `vm`** declarando los stubs de app.js (`db`, `tokenColor`,
+  `escapeHtml`, `isEmissionsPurpose`, `debounce`…). Era el único módulo grande fuera.
+- Los dos **E2E tenían CERO aserciones** — 304 líneas que no podían fallar. Ahora 11 y 23,
+  con `process.exitCode`. El navegador sale de `CHROME_PATH`, no de una ruta clavada.
+
+### Definiciones que se estaban esquivando (ruteadas)
+
+`invGasLevel`/`invGasIsLow` tenían **5** consumidores con umbrales de 10/15/25/30% y PSI
+absolutos de 200/500; `invCalStatus` **3**, uno con bug de zona horaria
+(`new Date('2026-01-15')` parsea UTC, `invCalStatus` parsea local: un día de desfase en
+UTC−6) más ventana de 30 días en vez de 60 y sin respetar `requiresCal === 'No'`.
+`_invLevelColor(pct)` es el equivalente para los tanques de combustible, que **no** son
+cilindros pero comparten umbrales.
+
+### Dos filtros sobre valores que la app nunca escribe
+
+`panel.js` filtraba gases por `g.status !== 'active'` (los reales son
+`Stock | In use | Empty | Spare`), así que **"Gases bajos" del reporte de turno decía 0
+desde siempre** — tercera aparición del mismo defecto. Y `g.status === 'Full'` aparecía
+**una sola vez en todo el repo**: la propia comparación.
+
+### "Descartadas" existe
+
+`tpDismissCarryover` y `tpRestoreCarryover` estaban escritas, completas, con permiso y
+auditoría, **y sin UI**, mientras el diálogo de "🧹 Vaciar la cola" y la ayuda prometían
+poder restaurar. **Si una acción masiva puede enterrar el backlog de un clic, su inversa
+también tiene que ser de un clic** (`tpRestoreAllCarryover`).
+
+### Pendiente declarado
+
+**`signature_pad` sigue en CDN** (`index.html`). La firma cierra `finishRelease()` **y**
+`approveAndArchive()`: con el CDN bloqueado no se libera nada. Alpine y jsPDF ya están en
+`vendor/` por lo mismo. No se pudo vendorizar (el entorno no alcanza cdnjs); el fallo al
+menos **dejó de ser silencioso**.
+
+### Deuda que NO se tocó, a propósito
+
+- **Tombstones**: los borrados son filtros duros y las dos rutas de merge son aditivas, así
+  que lo borrado resucita en el siguiente pull. Ronda propia, toca los cinco módulos.
+- **`panel.js` con dos paradigmas de render**: 16 pestañas (6 Alpine + 10 `innerHTML`), el
+  hack `_dataVersion`, `panelAlpineComponent` de 522 líneas. Mayor deuda estructural, pero
+  riesgo alto sobre pantallas que hoy funcionan.
+
 ## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y la pestaña que no repintaba
 
 ### 🏷 Qué acredita el REQ de emisiones

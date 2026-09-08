@@ -138,26 +138,7 @@ function homoVehicleData(vehicle) {
     return (vehicle && vehicle.homolog) ? vehicle.homolog : null;
 }
 
-/** ¿Le falta la ficha a este vehículo? (solo aplica a Europa) */
-function homoVehicleMissing(vehicle) {
-    if (!vehicle) return false;
-    if (!homoIsEurope(homoRegionOf(vehicle.config))) return false;
-    var h = homoVehicleData(vehicle);
-    return !h || h.f0 == null || h.f1 == null || h.f2 == null || h.tm == null;
-}
 
-/** Convierte una fila del catálogo en la ficha que se guarda en el vehículo. */
-function homoRowToVehicleData(row, source) {
-    return {
-        mcCode: row.mcCode || '', workOrder: row.workOrder || '', ocn: row.ocn || '',
-        wvta: row.wvta || '', variant: row.variant || '', version: row.version || '',
-        f0: row.f0, f1: row.f1, f2: row.f2, tm: row.tm,
-        co2Target: row.co2Combined, fcTarget: row.fcCombined,
-        source: source || 'catalogo',
-        by: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '',
-        at: new Date().toISOString()
-    };
-}
 
 // ─── CO₂: VEREDICTO ───────────────────────────────────────────────────────────
 

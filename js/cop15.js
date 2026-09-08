@@ -2513,6 +2513,41 @@ function _libValuesMatch(a, b) {
     return _libSigFig(na, 3) === _libSigFig(nb, 3);
 }
 
+/**
+ * [v23.2] LA definición de "¿los valores del aprobador coinciden con los del
+ * liberador?" — y es PURA (recibe el perfil y los dos juegos de valores; no toca
+ * el DOM, se prueba en Node).
+ *
+ * POR QUÉ EXISTE. La comparación vivía SOLO dentro de `libOnApproverGasChange`, un
+ * handler de `oninput` cuyo único efecto es habilitar o deshabilitar
+ * `#approve-archive-btn`. `approveAndArchive()` no verificaba nada: estampaba
+ * `matchedLiberador: true` HARDCODEADO en el registro regulatorio. O sea que la
+ * integridad del doble ciego —el control de calidad del laboratorio— descansaba
+ * entera en un atributo `disabled` del DOM.
+ *
+ * Eso contradice un principio que el propio proyecto adoptó en v18.5 ("el candado
+ * va en la capa de datos, no solo en la vista; ocultar el botón es UX, no
+ * seguridad"), aplicado entonces a `pnOp*` y nunca al flujo de más consecuencia.
+ * Y había una carrera concreta: no existe ninguna guarda que pause el sync durante
+ * una edición, y `_fbPullSeed` hace `db = remoteData`, así que un pull podía
+ * cambiar los valores del liberador con el botón ya habilitado.
+ *
+ * Devuelve `{ok, mismatches[], missing[], sinPerfil}`.
+ */
+function _libVerifyApproverMatch(profile, approverValues, liberadorValues) {
+    if (!profile || !profile.gases) return { ok: true, mismatches: [], missing: [], sinPerfil: true };
+    var av = approverValues || {}, lv = liberadorValues || {};
+    var mismatches = [], missing = [];
+    profile.gases.forEach(function(g) {
+        var a = av[g.field];
+        if (a === null || a === undefined) { missing.push(g.label || g.field); return; }
+        var l = lv[g.field];
+        if (l === null || l === undefined) return;   // el liberador no capturó ese gas
+        if (!_libValuesMatch(a, l)) mismatches.push(g.label || g.field);
+    });
+    return { ok: mismatches.length === 0 && missing.length === 0, mismatches: mismatches, missing: missing, sinPerfil: false };
+}
+
 // Tracks whether the approver mismatch alarm (toast) has already fired this episode.
 var _libMismatchAlarmKey = null;
 
@@ -2639,19 +2674,16 @@ function libOnApproverGasChange() {
     var matchStatus = document.getElementById('appr-match-status');
     var btn = document.getElementById('approve-archive-btn');
     if (!matchStatus || !btn) return;
-    var mismatches = [];
+    // [v23.2] La MISMA definición que usa `approveAndArchive` para decidir si deja
+    // firmar. Antes esta comparación estaba escrita aquí y sólo aquí; teniendo dos
+    // copias, la del botón y la del registro podían desincronizarse — y de hecho la
+    // del registro ni siquiera existía (estampaba `true` a secas).
+    var _v = _libVerifyApproverMatch(profile, approverValues, liberadorValues);
+    var mismatches = _v.mismatches;
+    var hasAllValues = _v.missing.length === 0;
     var mismatchFields = [];
-    var hasAllValues = true;
     profile.gases.forEach(function(g) {
-        var approverVal = approverValues[g.field];
-        var liberadorVal = liberadorValues[g.field];
-        if (approverVal === null) { hasAllValues = false; return; }
-        if (liberadorVal !== null && liberadorVal !== undefined) {
-            if (!_libValuesMatch(approverVal, liberadorVal)) {
-                mismatches.push(g.label);
-                mismatchFields.push(g.field);
-            }
-        }
+        if (mismatches.indexOf(g.label) !== -1) mismatchFields.push(g.field);
     });
     // Reset per-row mismatch cue (never reveals the liberador's value)
     profile.gases.forEach(function(g) {
@@ -2964,6 +2996,28 @@ function approveAndArchive() {
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
     var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
 
+    // [v23.2] EL CANDADO VA EN LA CAPA DE DATOS. Se re-verifica aquí, contra el `db`
+    // de ESTE instante, antes de abrir la firma: el botón pudo quedar habilitado con
+    // valores que un pull de sync cambió por debajo.
+    var _match = _libVerifyApproverMatch(profile, approverValues,
+        (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
+            ? vehicle.testData.gasResults.liberador.values : {});
+    if (!_match.sinPerfil && !_match.ok) {
+        if (_match.missing.length) {
+            showToast('Faltan valores por capturar: ' + _match.missing.join(', ') + '.', 'error');
+        } else {
+            showToast('No se puede aprobar: los valores de ' + _match.mismatches.join(', ') +
+                      ' no coinciden con los del liberador. Verifique su lectura o use "Devolver al liberador".', 'error');
+        }
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'approval_blocked_mismatch', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                     _match.missing.length ? ('Faltan: ' + _match.missing.join(', '))
+                                           : ('Desacuerdo en ' + _match.mismatches.join(', ')));
+        }
+        if (typeof libOnApproverGasChange === 'function') { try { libOnApproverGasChange(); } catch (e) {} }
+        return;
+    }
+
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
@@ -2988,7 +3042,12 @@ function approveAndArchive() {
                         values: approverValues,
                         capturedBy: sig.signerName,
                         capturedAt: new Date().toISOString(),
-                        matchedLiberador: true
+                        // v23.2: era `true` a secas — una AFIRMACIÓN sin comprobar en un
+                        // registro regulatorio firmado. Ahora es el RESULTADO de
+                        // `_libVerifyApproverMatch`, que corrió unas líneas arriba contra
+                        // los valores del liberador de este mismo instante.
+                        matchedLiberador: _match.ok,
+                        matchVerifiedAt: new Date().toISOString()
                     };
                     _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }

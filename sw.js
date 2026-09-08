@@ -11,7 +11,9 @@ var CACHE_NAME = 'kia-emlab-v' + CACHE_VERSION;
 
 var CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    // [v23.2] jsPDF salió de esta lista: ya vive en vendor/jspdf.umd.min.js y la
+    // app no lo pide al CDN, así que precachearlo era descargar 364 KB para nada
+    // en cada versión nueva (el SW borra toda la caché al activarse).
     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js',
     'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js',
     'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js',

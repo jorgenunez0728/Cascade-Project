@@ -1699,12 +1699,6 @@ function pnVerifyPinAsync(idx, pin) {
     return Promise.resolve(false);
 }
 
-// Compat: verificación sync solo contra el hash legacy (llamadores viejos)
-function pnVerifyPin(idx, pin) {
-    var op = pnState.operators[idx];
-    if (!op || !op.pinHash) return false;
-    return op.pinHash === pnHashPin(pin);
-}
 
 function pnSyncOperators() {
     // Update CONFIG.operators and repopulate dropdowns
@@ -2611,6 +2605,19 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
+    // [v23.2] Ocho claves que estaban EN USO y sin registrar. La regla del proyecto
+    // ("toda clave nueva de localStorage agrega su entrada aquí") existía desde v18.1
+    // pero nada la verificaba, así que derivó. Sin entrada, una clave cae en 'review'
+    // con su nombre crudo — y ése fue exactamente el defecto de v18.1, donde lo no
+    // registrado llegó a ser el 90% del uso cuando el laboratorio se quedó sin espacio.
+    // `kia_config_csv_raw` es la grave: guarda el CSV de producción COMPLETO.
+    { key: 'kia_config_csv_raw',    label: 'CSV de producción importado', tier: 'review' },
+    { key: 'kia_active_vehicle',    label: 'Vehículo abierto',         tier: 'cache' },
+    { key: 'kia_config_favorites',  label: 'Configuraciones favoritas', tier: 'cache' },
+    { key: 'kia_last_module',       label: 'Última pantalla abierta',  tier: 'cache' },
+    { key: 'kia_last_operator',     label: 'Último operador',          tier: 'cache' },
+    { key: 'kia_cop15_activeTab',   label: 'Pestaña abierta (Pruebas)', tier: 'cache' },
+    { key: 'kia_inv_activeTab',     label: 'Pestaña abierta (Consumibles)', tier: 'cache' },
     // v21: ronda de lecturas a medias. Es 'core' porque contiene trabajo del turno
     // que todavía no se ha guardado — borrarla pierde el recorrido caminado.
     { key: 'kia_inv_round',         label: 'Ronda de lecturas en curso', tier: 'core' },
@@ -2910,10 +2917,16 @@ function _pnCollectCalendarEvents(year, month) {
     if (typeof invState !== 'undefined' && invState.equipment) {
         invState.equipment.forEach(function(eq) {
             if (!eq.nextCalDate) return;
-            var d = new Date(eq.nextCalDate);
+            // [v23.2] `invCalStatus` es LA definición del semáforo: respeta
+            // `requiresCal === 'No'` y parsea la fecha en LOCAL. Aquí se comparaba
+            // `new Date(eq.nextCalDate) < new Date()`, que parsea UTC — un día de
+            // desfase en UTC−6 — y pintaba como pendientes equipos que no se calibran.
+            var _cal = (typeof invCalStatus === 'function') ? invCalStatus(eq) : null;
+            if (_cal && _cal.code === 'noaplica') return;
+            var d = new Date(eq.nextCalDate + 'T00:00:00');
             if (d >= monthStart && d <= monthEnd) {
                 var dateStr = eq.nextCalDate.slice(0, 10);
-                var isPast = d < new Date();
+                var isPast = _cal ? (_cal.code === 'vencido') : false;
                 events.push({
                     date: dateStr,
                     type: 'calibration',
@@ -3144,10 +3157,15 @@ function _pnCollectTurnoverData() {
 
     // Low gases
     if (typeof invState !== 'undefined' && invState.gases) {
+        // [v23.2] Este filtro nunca dejó pasar NADA: un cilindro nunca tiene
+        // `status === 'active'` (los reales son Stock | In use | Empty | Spare), así
+        // que "Gases bajos" del reporte de turno decía 0 desde siempre. Es la TERCERA
+        // aparición de este mismo defecto — v23 arregló las otras dos y dejó ésta.
+        // Y el umbral era PSI absoluto (<200), otra de las cinco definiciones en
+        // conflicto que v21.1 unificó en `invGasIsLow`, que es LA definición.
         data.gasesLow = invState.gases.filter(function(g) {
-            if (g.status !== 'active' || !g.readings || g.readings.length === 0) return false;
-            var last = g.readings[g.readings.length - 1];
-            return (last.psi || last.value || 999) < 200;
+            if (g.status === 'Empty' || !g.readings || g.readings.length === 0) return false;
+            return (typeof invGasIsLow === 'function') ? invGasIsLow(g) : false;
         }).map(function(g) {
             return { controlNo: g.controlNo, gasType: g.gasType, psi: g.readings[g.readings.length - 1].psi || g.readings[g.readings.length - 1].value };
         });

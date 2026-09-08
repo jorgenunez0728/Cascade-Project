@@ -629,6 +629,19 @@ function invGasIsLow(g) {
 }
 
 /**
+ * [v23.2] Color del semáforo a partir de un % de nivel, para lo que NO es un
+ * cilindro (los tanques de combustible: su % sale de capacidad/nivel, no de una
+ * presión nominal, así que `invGasLevel` no aplica). Los UMBRALES sí son los
+ * mismos y salen de las constantes — antes estaban escritos a mano como 15/30 en
+ * dos sitios más, que es como se llegó a tener cinco criterios en conflicto.
+ */
+function _invLevelColor(pct) {
+    if (pct < INV_LEVEL_CRITICAL_PCT) return '#ef4444';
+    if (pct < INV_LEVEL_LOW_PCT) return '#f59e0b';
+    return '#10b981';
+}
+
+/**
  * [v21.1] LA definición del ritmo de consumo de UN cilindro, calculada de sus lecturas.
  *
  * Los campos `weeklyPsi`/`dailyPsi`/`reposDays`/`limitPsi` venían en la semilla y **nunca
@@ -766,8 +779,10 @@ function invRenderDashboard(el) {
         var lvl = invGasLevel(g);
         if (exp.status === 'expired') alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' (' + g.zone + ') — ' + exp.text});
         else if (exp.status === 'warning') alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — ' + exp.text});
-        if (lvl.pct < 15 && lvl.pct >= 0) alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' — Nivel critico: ' + lvl.text});
-        else if (lvl.pct < 30) alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — Nivel bajo: ' + lvl.text});
+        // [v23.2] `invGasLevel` ya devuelve el status; volver a comparar el pct contra
+        // 15/30 era re-escribir los umbrales que `INV_LEVEL_*_PCT` ya define.
+        if (lvl.status === 'critico') alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' — Nivel critico: ' + lvl.text});
+        else if (lvl.status === 'bajo') alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — Nivel bajo: ' + lvl.text});
     });
     equip.forEach(function(e) {
         if (!e.nextCalDate) return;
@@ -2909,7 +2924,7 @@ function invRenderPredict(el) {
                 html += '<span style="color:var(--tp-amber);">Pruebas rest.: <strong>' + testsRemaining + '</strong></span>';
             }
             html += '</div>';
-            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + _invLevelColor(pct) + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -3027,12 +3042,15 @@ function invLogTestUsage(vehicle, opts) {
                     note: 'Auto-deducción por prueba (' + psiDeduct + ' psi ' + (learned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4),
                     auto: true
                 });
-                // Alert if below 25%
-                var maxPsi = g.initialPsi || 2200;
-                var pct = (newPsi / maxPsi) * 100;
-                if (pct < 25 && pct >= 0) {
-                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(pct) + '% - Considere reemplazo', 'warning');
-                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: pct });
+                // [v23.2] Antes: `g.initialPsi || 2200` (un 2200 mágico en vez de
+                // INV_PSI_NOMINAL_FALLBACK) y un umbral de 25% inventado aquí — una de
+                // las cinco definiciones de "está bajo" que convivían con 10/15/30% y
+                // con PSI absolutos. `invGasLevel`/`invGasIsLow` son LA definición y ya
+                // resuelven la nominal (declarada, o el máximo histórico).
+                var lvl = invGasLevel(g);
+                if (invGasIsLow(g)) {
+                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '% - Considere reemplazo', 'warning');
+                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: lvl.pct });
                 }
             }
         }
@@ -3408,7 +3426,7 @@ function invRenderFuel(el) {
     } else {
         tanks.forEach(function(t) {
             var pct = t.capacity > 0 ? Math.round((t.currentLevel / t.capacity) * 100) : 0;
-            var clr = pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981';
+            var clr = _invLevelColor(pct);
             html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><span style="font-weight:700;font-size:12px;">' + t.name + '</span>';
@@ -3676,17 +3694,24 @@ function invRenderReport(el) {
 
     // ── CALIBRATION SECTION ──
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">3. Equipment calibration status</h3>';
+    // [v23.2] Antes recalculaba los días a mano, con tres divergencias respecto a
+    // `invCalStatus`, que es LA definición del semáforo desde v16.4:
+    //   · `new Date('2026-01-15')` parsea UTC y `invCalStatus` parsea LOCAL
+    //     (`+'T00:00:00'`): en America/Mexico_City (UTC−6) eso da un día de diferencia,
+    //     así que el reporte podía declarar vencido lo que la app mostraba vigente;
+    //   · el ámbar caía a los 30 días, no a los 60 del formato F11;
+    //   · ignoraba `requiresCal === 'No'`, listando como pendientes equipos que no se
+    //     calibran.
     var eqAlerts = invState.equipment.filter(function(e) {
-        if (!e.nextCalDate) return false;
-        var days = Math.round((new Date(e.nextCalDate) - new Date())/(1000*60*60*24));
-        return days < 60;
+        var st = invCalStatus(e);
+        return st.code === 'vencido' || st.code === 'porvencer';
     });
     if (eqAlerts.length > 0) {
         html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
         eqAlerts.forEach(function(e) {
-            var days = Math.round((new Date(e.nextCalDate) - new Date())/(1000*60*60*24));
-            var clr = days < 0 ? '#ef4444' : days < 30 ? '#f59e0b' : '#22c55e';
+            var _st = invCalStatus(e);
+            var days = _st.days, clr = _st.color;
             html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding: var(--space-2xs) var(--space-sm);">' + e.name + '</td><td>' + (e.kmmId||e.serialNo||'') + '</td><td>' + e.nextCalDate + '</td><td style="color:' + clr + ';font-weight:700;">' + days + '</td><td style="color:' + clr + ';">' + (days<0?'VENCIDO':days+'d') + '</td></tr>';
         });
         html += '</tbody></table></div>';
@@ -3825,22 +3850,7 @@ function invInitZoneDrag(container) {
     });
 }
 
-/** Compatibilidad: el estado del teclado ahora vive en app.js (`_gridKbd`). */
-function invZoneKeySelect(slotEl) {
-    if (typeof gridKbdSelect !== 'function') return;
-    gridKbdSelect(slotEl, {
-        ns: 'inv-zone', itemSelector: '.inv-zone-slot',
-        idAttr: 'data-gas-id', cellAttr: 'data-zone-code', selectedClass: 'inv-zone-slot--kbdsel',
-        label: function(gasId) {
-            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
-            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
-        },
-        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
-        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); }
-    });
-}
 
-function invZoneKeyCancel() { if (typeof gridKbdCancel === 'function') gridKbdCancel(); }
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
@@ -4597,8 +4607,16 @@ function invForecastGasNeeds() {
             var avail = 0;
             (invState.gases || []).forEach(function(g) {
                 if (g.formula !== f) return;
-                if (g.status === 'In use' && g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
-                else if (g.status === 'Full') avail += g.initialPsi || 2200;
+                // [v23.2] `'Full'` NO EXISTE. El vocabulario real de un cilindro es
+                // `Stock | In use | Empty | Spare` (único escritor: el <select> del alta).
+                // `'Full'` aparecía una sola vez en todo el repo: esta comparación. La
+                // rama nunca se ejecutó, así que la presión disponible sub-contaba
+                // cualquier cilindro que no estuviera 'In use' — justo los de reserva,
+                // que son los que responden la pregunta "¿me alcanza para el plan?".
+                // `Empty` sí se excluye: está vacío.
+                if (g.status === 'Empty') return;
+                if (g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
+                else avail += g.initialPsi || INV_PSI_NOMINAL_FALLBACK;
             });
             if (avail >= req) return; // alcanza — sin alerta
             out.push({

@@ -63,7 +63,37 @@ function sigCaptureOpen(opts) {
         if (typeof SignaturePad !== 'undefined') {
             _sigPadInstance = new SignaturePad(canvas, { backgroundColor: '#ffffff', penColor: '#000000' });
         } else {
-            console.warn('SignaturePad library not available');
+            // [v23.2] Antes esto era un `console.warn` y nada más: el técnico veía un
+            // lienzo en blanco que no pintaba, y NADIE le decía por qué.
+            //
+            // No es un detalle cosmético. `signature_pad` se carga desde cdnjs
+            // (index.html), y la firma cierra `finishRelease()` **y**
+            // `approveAndArchive()`: si la red del trabajo bloquea el CDN, no se puede
+            // liberar ningún vehículo. Ya pasó dos veces con otras librerías —Alpine y
+            // jsPDF están en `vendor/` justo por esto.
+            //
+            // PENDIENTE: vendorizar `signature_pad` a `vendor/` como los otros dos.
+            // No se pudo hacer en esta ronda porque el entorno no tiene salida a cdnjs.
+            // Mientras tanto, el fallo al menos se declara en vez de fingir que el
+            // lienzo funciona.
+            console.error('SignaturePad no disponible — probablemente el CDN está bloqueado por la red.');
+            var aviso = document.getElementById('sig-capture-error');
+            if (!aviso && canvas.parentElement) {
+                aviso = document.createElement('div');
+                aviso.id = 'sig-capture-error';
+                aviso.setAttribute('role', 'alert');
+                aviso.style.cssText = 'margin-top: var(--space-sm);padding: var(--space-md);' +
+                    'border:1px solid var(--danger-border, #fecaca);background:var(--danger-bg, #fef2f2);' +
+                    'color:var(--danger-text, #991b1b);border-radius: var(--radius-md);font-size: var(--fs-sm);';
+                aviso.innerHTML = '<b>No se puede firmar en este dispositivo.</b><br>' +
+                    'No cargó la librería de firma (la red del laboratorio está bloqueando el CDN). ' +
+                    'Revisa la conexión y recarga la página: sin firma no se puede liberar ni aprobar.';
+                canvas.parentElement.appendChild(aviso);
+            }
+            canvas.style.opacity = '0.4';
+            if (typeof showToast === 'function') {
+                showToast('No cargó la librería de firma. Recarga la página con conexión.', 'error');
+            }
         }
     }
     if (typeof a11yDialog === 'function') {

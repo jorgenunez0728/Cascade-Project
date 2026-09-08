@@ -7866,15 +7866,26 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609031911';
+var APP_BUILD = '202609080516';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.1';
+var APP_VERSION = '23.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.2', date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
+      notes: [
+          'El sync automático entre dispositivos NUNCA había funcionado: los cambios de otro equipo se descartaban en silencio mientras el indicador decía "Live sync active". Ahora sí llegan sin recargar.',
+          'La calibración podía quedar registrada en el equipo equivocado: 11 de 31 instrumentos compartían clave de fusión por no tener número de serie. Ahora se identifican por su id.',
+          'Un pull ya no borra la bitácora de turno ni devuelve las reglas del laboratorio a valores de fábrica.',
+          'En el CoP, la norma y el tipo de combustible dejaron de viajar entre dispositivos: evaluaban tus vehículos contra los límites de otro técnico.',
+          'La cola de pendientes por fin se puede restaurar ("Descartadas"), como la app venía prometiendo.',
+          '"Gases bajos" del reporte de turno decía 0 desde siempre; ya cuenta de verdad.',
+          'Aprobar una prueba vuelve a verificar que los valores coincidan: el candado del doble ciego ya no depende de un botón.',
+          'Las pruebas ahora corren solas antes de cada despliegue: 98 casos, y una guardia que detecta código muerto.'
+      ] },
     { v: '23.1', date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
       notes: [
           'Una prueba de OBD II ya NO baja el déficit de emisiones ni sube la cobertura: se registra igual, pero no acredita. Qué propósito cuenta se decide en Plan → Reglas.',
@@ -8279,14 +8290,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609031911' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609080516' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609031911' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609080516' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8302,7 +8313,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609031911' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609080516' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11664,23 +11675,29 @@ function generateWeeklyStatusPDF(opts) {
         var gases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
         var equip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
 
+        // [v23.2] Este bloque tenía TRES números mal en un documento que se imprime.
+        //  · La presión baja usaba PSI absoluto (<500) en vez de `invGasIsLow`, que es
+        //    LA definición desde v21.1 (el nivel es un % contra la nominal, no un PSI).
+        //  · La calibración leía `nextCalDate` a pelo en vez de `invCalStatus`, que es
+        //    LA definición desde v16.4: ignoraba `requiresCal === 'No'` (equipos que no
+        //    se calibran salían como vencidos) y usaba una ventana de 7 días contra los
+        //    60 del formato F11.
+        //  · `new Date('2026-01-15')` parsea UTC mientras `invCalStatus` parsea local:
+        //    en UTC−6 eso da un día de diferencia. Por eso tampoco se compara a mano.
         var lowGas = gases.filter(function(g) {
-            if (!g.readings || g.readings.length === 0 || g.status !== 'In use') return false;
-            return g.readings[g.readings.length - 1].psi < 500;
+            if (g.status === 'Empty' || !g.readings || g.readings.length === 0) return false;
+            return (typeof invGasIsLow === 'function') ? invGasIsLow(g) : false;
         }).length;
         var expiredGas = gases.filter(function(g) {
             return g.validUntil && new Date(g.validUntil) < today;
         }).length;
-        var calExpired = equip.filter(function(e) {
-            return e.nextCalDate && new Date(e.nextCalDate) < today;
-        }).length;
-        var calWarning = equip.filter(function(e) {
-            if (!e.nextCalDate) return false;
-            var diff = (new Date(e.nextCalDate) - today) / (1000 * 60 * 60 * 24);
-            return diff > 0 && diff < 7;
-        }).length;
+        var _calSt = function(e) {
+            return (typeof invCalStatus === 'function') ? invCalStatus(e).code : '';
+        };
+        var calExpired = equip.filter(function(e) { return _calSt(e) === 'vencido'; }).length;
+        var calWarning = equip.filter(function(e) { return _calSt(e) === 'porvencer'; }).length;
 
-        y = addRow('Cilindros con presión baja (<500 psi)', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Cilindros con presión baja', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Gases vencidos', expiredGas, y, expiredGas > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Equipos calibración vencida', calExpired, y, calExpired > 0 ? [239, 68, 68] : [16, 185, 129]);
         y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);
@@ -16906,6 +16923,41 @@ function _libValuesMatch(a, b) {
     return _libSigFig(na, 3) === _libSigFig(nb, 3);
 }
 
+/**
+ * [v23.2] LA definición de "¿los valores del aprobador coinciden con los del
+ * liberador?" — y es PURA (recibe el perfil y los dos juegos de valores; no toca
+ * el DOM, se prueba en Node).
+ *
+ * POR QUÉ EXISTE. La comparación vivía SOLO dentro de `libOnApproverGasChange`, un
+ * handler de `oninput` cuyo único efecto es habilitar o deshabilitar
+ * `#approve-archive-btn`. `approveAndArchive()` no verificaba nada: estampaba
+ * `matchedLiberador: true` HARDCODEADO en el registro regulatorio. O sea que la
+ * integridad del doble ciego —el control de calidad del laboratorio— descansaba
+ * entera en un atributo `disabled` del DOM.
+ *
+ * Eso contradice un principio que el propio proyecto adoptó en v18.5 ("el candado
+ * va en la capa de datos, no solo en la vista; ocultar el botón es UX, no
+ * seguridad"), aplicado entonces a `pnOp*` y nunca al flujo de más consecuencia.
+ * Y había una carrera concreta: no existe ninguna guarda que pause el sync durante
+ * una edición, y `_fbPullSeed` hace `db = remoteData`, así que un pull podía
+ * cambiar los valores del liberador con el botón ya habilitado.
+ *
+ * Devuelve `{ok, mismatches[], missing[], sinPerfil}`.
+ */
+function _libVerifyApproverMatch(profile, approverValues, liberadorValues) {
+    if (!profile || !profile.gases) return { ok: true, mismatches: [], missing: [], sinPerfil: true };
+    var av = approverValues || {}, lv = liberadorValues || {};
+    var mismatches = [], missing = [];
+    profile.gases.forEach(function(g) {
+        var a = av[g.field];
+        if (a === null || a === undefined) { missing.push(g.label || g.field); return; }
+        var l = lv[g.field];
+        if (l === null || l === undefined) return;   // el liberador no capturó ese gas
+        if (!_libValuesMatch(a, l)) mismatches.push(g.label || g.field);
+    });
+    return { ok: mismatches.length === 0 && missing.length === 0, mismatches: mismatches, missing: missing, sinPerfil: false };
+}
+
 // Tracks whether the approver mismatch alarm (toast) has already fired this episode.
 var _libMismatchAlarmKey = null;
 
@@ -17032,19 +17084,16 @@ function libOnApproverGasChange() {
     var matchStatus = document.getElementById('appr-match-status');
     var btn = document.getElementById('approve-archive-btn');
     if (!matchStatus || !btn) return;
-    var mismatches = [];
+    // [v23.2] La MISMA definición que usa `approveAndArchive` para decidir si deja
+    // firmar. Antes esta comparación estaba escrita aquí y sólo aquí; teniendo dos
+    // copias, la del botón y la del registro podían desincronizarse — y de hecho la
+    // del registro ni siquiera existía (estampaba `true` a secas).
+    var _v = _libVerifyApproverMatch(profile, approverValues, liberadorValues);
+    var mismatches = _v.mismatches;
+    var hasAllValues = _v.missing.length === 0;
     var mismatchFields = [];
-    var hasAllValues = true;
     profile.gases.forEach(function(g) {
-        var approverVal = approverValues[g.field];
-        var liberadorVal = liberadorValues[g.field];
-        if (approverVal === null) { hasAllValues = false; return; }
-        if (liberadorVal !== null && liberadorVal !== undefined) {
-            if (!_libValuesMatch(approverVal, liberadorVal)) {
-                mismatches.push(g.label);
-                mismatchFields.push(g.field);
-            }
-        }
+        if (mismatches.indexOf(g.label) !== -1) mismatchFields.push(g.field);
     });
     // Reset per-row mismatch cue (never reveals the liberador's value)
     profile.gases.forEach(function(g) {
@@ -17357,6 +17406,28 @@ function approveAndArchive() {
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
     var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
 
+    // [v23.2] EL CANDADO VA EN LA CAPA DE DATOS. Se re-verifica aquí, contra el `db`
+    // de ESTE instante, antes de abrir la firma: el botón pudo quedar habilitado con
+    // valores que un pull de sync cambió por debajo.
+    var _match = _libVerifyApproverMatch(profile, approverValues,
+        (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
+            ? vehicle.testData.gasResults.liberador.values : {});
+    if (!_match.sinPerfil && !_match.ok) {
+        if (_match.missing.length) {
+            showToast('Faltan valores por capturar: ' + _match.missing.join(', ') + '.', 'error');
+        } else {
+            showToast('No se puede aprobar: los valores de ' + _match.mismatches.join(', ') +
+                      ' no coinciden con los del liberador. Verifique su lectura o use "Devolver al liberador".', 'error');
+        }
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'approval_blocked_mismatch', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                     _match.missing.length ? ('Faltan: ' + _match.missing.join(', '))
+                                           : ('Desacuerdo en ' + _match.mismatches.join(', ')));
+        }
+        if (typeof libOnApproverGasChange === 'function') { try { libOnApproverGasChange(); } catch (e) {} }
+        return;
+    }
+
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
@@ -17381,7 +17452,12 @@ function approveAndArchive() {
                         values: approverValues,
                         capturedBy: sig.signerName,
                         capturedAt: new Date().toISOString(),
-                        matchedLiberador: true
+                        // v23.2: era `true` a secas — una AFIRMACIÓN sin comprobar en un
+                        // registro regulatorio firmado. Ahora es el RESULTADO de
+                        // `_libVerifyApproverMatch`, que corrió unas líneas arriba contra
+                        // los valores del liberador de este mismo instante.
+                        matchedLiberador: _match.ok,
+                        matchVerifiedAt: new Date().toISOString()
                     };
                     _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }
@@ -22744,6 +22820,19 @@ function invGasIsLow(g) {
 }
 
 /**
+ * [v23.2] Color del semáforo a partir de un % de nivel, para lo que NO es un
+ * cilindro (los tanques de combustible: su % sale de capacidad/nivel, no de una
+ * presión nominal, así que `invGasLevel` no aplica). Los UMBRALES sí son los
+ * mismos y salen de las constantes — antes estaban escritos a mano como 15/30 en
+ * dos sitios más, que es como se llegó a tener cinco criterios en conflicto.
+ */
+function _invLevelColor(pct) {
+    if (pct < INV_LEVEL_CRITICAL_PCT) return '#ef4444';
+    if (pct < INV_LEVEL_LOW_PCT) return '#f59e0b';
+    return '#10b981';
+}
+
+/**
  * [v21.1] LA definición del ritmo de consumo de UN cilindro, calculada de sus lecturas.
  *
  * Los campos `weeklyPsi`/`dailyPsi`/`reposDays`/`limitPsi` venían en la semilla y **nunca
@@ -22881,8 +22970,10 @@ function invRenderDashboard(el) {
         var lvl = invGasLevel(g);
         if (exp.status === 'expired') alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' (' + g.zone + ') — ' + exp.text});
         else if (exp.status === 'warning') alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — ' + exp.text});
-        if (lvl.pct < 15 && lvl.pct >= 0) alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' — Nivel critico: ' + lvl.text});
-        else if (lvl.pct < 30) alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — Nivel bajo: ' + lvl.text});
+        // [v23.2] `invGasLevel` ya devuelve el status; volver a comparar el pct contra
+        // 15/30 era re-escribir los umbrales que `INV_LEVEL_*_PCT` ya define.
+        if (lvl.status === 'critico') alerts.push({sev:'red', msg: g.formula + ' #' + g.controlNo + ' — Nivel critico: ' + lvl.text});
+        else if (lvl.status === 'bajo') alerts.push({sev:'amber', msg: g.formula + ' #' + g.controlNo + ' — Nivel bajo: ' + lvl.text});
     });
     equip.forEach(function(e) {
         if (!e.nextCalDate) return;
@@ -25024,7 +25115,7 @@ function invRenderPredict(el) {
                 html += '<span style="color:var(--tp-amber);">Pruebas rest.: <strong>' + testsRemaining + '</strong></span>';
             }
             html += '</div>';
-            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top: var(--space-xs);height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + _invLevelColor(pct) + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -25142,12 +25233,15 @@ function invLogTestUsage(vehicle, opts) {
                     note: 'Auto-deducción por prueba (' + psiDeduct + ' psi ' + (learned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4),
                     auto: true
                 });
-                // Alert if below 25%
-                var maxPsi = g.initialPsi || 2200;
-                var pct = (newPsi / maxPsi) * 100;
-                if (pct < 25 && pct >= 0) {
-                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(pct) + '% - Considere reemplazo', 'warning');
-                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: pct });
+                // [v23.2] Antes: `g.initialPsi || 2200` (un 2200 mágico en vez de
+                // INV_PSI_NOMINAL_FALLBACK) y un umbral de 25% inventado aquí — una de
+                // las cinco definiciones de "está bajo" que convivían con 10/15/30% y
+                // con PSI absolutos. `invGasLevel`/`invGasIsLow` son LA definición y ya
+                // resuelven la nominal (declarada, o el máximo histórico).
+                var lvl = invGasLevel(g);
+                if (invGasIsLow(g)) {
+                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '% - Considere reemplazo', 'warning');
+                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: lvl.pct });
                 }
             }
         }
@@ -25523,7 +25617,7 @@ function invRenderFuel(el) {
     } else {
         tanks.forEach(function(t) {
             var pct = t.capacity > 0 ? Math.round((t.currentLevel / t.capacity) * 100) : 0;
-            var clr = pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981';
+            var clr = _invLevelColor(pct);
             html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><span style="font-weight:700;font-size:12px;">' + t.name + '</span>';
@@ -25791,17 +25885,24 @@ function invRenderReport(el) {
 
     // ── CALIBRATION SECTION ──
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">3. Equipment calibration status</h3>';
+    // [v23.2] Antes recalculaba los días a mano, con tres divergencias respecto a
+    // `invCalStatus`, que es LA definición del semáforo desde v16.4:
+    //   · `new Date('2026-01-15')` parsea UTC y `invCalStatus` parsea LOCAL
+    //     (`+'T00:00:00'`): en America/Mexico_City (UTC−6) eso da un día de diferencia,
+    //     así que el reporte podía declarar vencido lo que la app mostraba vigente;
+    //   · el ámbar caía a los 30 días, no a los 60 del formato F11;
+    //   · ignoraba `requiresCal === 'No'`, listando como pendientes equipos que no se
+    //     calibran.
     var eqAlerts = invState.equipment.filter(function(e) {
-        if (!e.nextCalDate) return false;
-        var days = Math.round((new Date(e.nextCalDate) - new Date())/(1000*60*60*24));
-        return days < 60;
+        var st = invCalStatus(e);
+        return st.code === 'vencido' || st.code === 'porvencer';
     });
     if (eqAlerts.length > 0) {
         html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
         eqAlerts.forEach(function(e) {
-            var days = Math.round((new Date(e.nextCalDate) - new Date())/(1000*60*60*24));
-            var clr = days < 0 ? '#ef4444' : days < 30 ? '#f59e0b' : '#22c55e';
+            var _st = invCalStatus(e);
+            var days = _st.days, clr = _st.color;
             html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding: var(--space-2xs) var(--space-sm);">' + e.name + '</td><td>' + (e.kmmId||e.serialNo||'') + '</td><td>' + e.nextCalDate + '</td><td style="color:' + clr + ';font-weight:700;">' + days + '</td><td style="color:' + clr + ';">' + (days<0?'VENCIDO':days+'d') + '</td></tr>';
         });
         html += '</tbody></table></div>';
@@ -25940,22 +26041,7 @@ function invInitZoneDrag(container) {
     });
 }
 
-/** Compatibilidad: el estado del teclado ahora vive en app.js (`_gridKbd`). */
-function invZoneKeySelect(slotEl) {
-    if (typeof gridKbdSelect !== 'function') return;
-    gridKbdSelect(slotEl, {
-        ns: 'inv-zone', itemSelector: '.inv-zone-slot',
-        idAttr: 'data-gas-id', cellAttr: 'data-zone-code', selectedClass: 'inv-zone-slot--kbdsel',
-        label: function(gasId) {
-            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
-            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
-        },
-        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
-        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); }
-    });
-}
 
-function invZoneKeyCancel() { if (typeof gridKbdCancel === 'function') gridKbdCancel(); }
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
@@ -26712,8 +26798,16 @@ function invForecastGasNeeds() {
             var avail = 0;
             (invState.gases || []).forEach(function(g) {
                 if (g.formula !== f) return;
-                if (g.status === 'In use' && g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
-                else if (g.status === 'Full') avail += g.initialPsi || 2200;
+                // [v23.2] `'Full'` NO EXISTE. El vocabulario real de un cilindro es
+                // `Stock | In use | Empty | Spare` (único escritor: el <select> del alta).
+                // `'Full'` aparecía una sola vez en todo el repo: esta comparación. La
+                // rama nunca se ejecutó, así que la presión disponible sub-contaba
+                // cualquier cilindro que no estuviera 'In use' — justo los de reserva,
+                // que son los que responden la pregunta "¿me alcanza para el plan?".
+                // `Empty` sí se excluye: está vacío.
+                if (g.status === 'Empty') return;
+                if (g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
+                else avail += g.initialPsi || INV_PSI_NOMINAL_FALLBACK;
             });
             if (avail >= req) return; // alcanza — sin alerta
             out.push({
@@ -27691,36 +27785,6 @@ function tpAssignSlotForItem(plan, item) {
     return false;
 }
 
-function tpAddToWeek(wk) {
-    var sel = document.getElementById('tp-edit-add-' + wk);
-    if (!sel || !sel.value) return;
-    var cfg = tpState.planData.find(function(c) { return c.desc === sel.value; });
-    var _n = _tpIdx(wk);
-    if (!_n) return _tpRefLost();
-    wk = _n.weekIdx;
-    var plan = _n.plan;
-    if (!cfg) return;
-
-    // _tpMakeItem calcula required/deficit/score Y el _scoreDetail que la insignia
-    // de puntaje necesita — antes se armaba a mano y el item salía sin explicación.
-    var item = _tpMakeItem(cfg, tpState.testedList.slice(), { manual: true });
-    var cap = tpWeekCapacity(plan.workDays || window._tpWorkDays || {});
-
-    var push = function() {
-        tpAssignSlotForItem(plan, item);
-        plan.items.push(item);
-        tpSave(); tpRender();
-        if (item.unscheduled) showToast('Agregada, pero sin día libre — quedó fuera de horario.', 'warning');
-    };
-
-    if (plan.items.length >= cap.max) {
-        showConfirm('La semana ya tiene ' + plan.items.length + ' de ' + cap.max + ' lugares reales.\n\n' +
-                    'Se puede agregar igual, pero quedará sin día asignado.', push,
-                    { title: 'Excede la capacidad', type: 'warning', confirmText: 'Agregar de todos modos' });
-        return;
-    }
-    push();
-}
 
 // ======================================================================
 // EXPORT WEEKLY PLAN (Share/Clipboard)
@@ -28033,13 +28097,42 @@ function _tpEnsureState() {
     if (!Array.isArray(tpState.planHistory)) tpState.planHistory = [];
     if (!Array.isArray(tpState.weekHistory)) tpState.weekHistory = [];
     if (!Array.isArray(tpState.rulePresets)) tpState.rulePresets = [];
-    if (!Array.isArray(tpState.rules) || !tpState.rules.length) tpState.rules = tpDefaultRules();
+
+    // [v23.2] Resembrar la CONFIGURACIÓN nunca es silencioso en un laboratorio que ya
+    // tiene datos.
+    //
+    // En un dispositivo virgen resembrar es correcto y no hay nada que avisar. Pero
+    // `_tpEnsureState()` también corre después de cada pull (vía `_fbTpUISync`), y ahí
+    // resembrar significa que el remoto NO traía esas claves: hasta v23.2 eso devolvía
+    // en silencio las reglas de ratio y los pesos a VALORES DE FÁBRICA, que es
+    // exactamente lo que fija el REQ y la cobertura de todo el laboratorio. Nadie se
+    // enteraba: ni error, ni toast, ni entrada de auditoría.
+    // Ahora la lista de preservación de `_fbPullSeed` evita la pérdida, y este aviso es
+    // la red por si algún camino nuevo vuelve a caer aquí.
+    var _yaConfigurado = (tpState.planData && tpState.planData.length > 0);
+    var _resembrado = [];
+
+    if (!Array.isArray(tpState.rules) || !tpState.rules.length) {
+        if (_yaConfigurado) _resembrado.push('reglas de ratio');
+        tpState.rules = tpDefaultRules();
+    }
     if (!tpState.weights || typeof tpState.weights !== 'object') {
+        if (_yaConfigurado) _resembrado.push('pesos de prioridad');
         tpState.weights = { volume:35, compliance:25, region:20, newConfig:10, urgency:10 };
     }
     if (tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas viejas
     if (!tpState.regionPriority || typeof tpState.regionPriority !== 'object') {
+        if (_yaConfigurado) _resembrado.push('prioridad por región');
         tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
+    }
+
+    if (_resembrado.length) {
+        var _msg = 'Se restauraron a valores de fábrica: ' + _resembrado.join(', ') +
+                   '. Revisa Plan → Reglas antes de generar la semana.';
+        void 0;
+        try { if (typeof showToast === 'function') showToast('⚠️ ' + _msg, 'warning'); } catch (e) {}
+        try { if (typeof auditLog === 'function') auditLog('testplan', 'config_resembrada',
+            { type: 'config', label: 'tpState' }, _resembrado.join(', ')); } catch (e) {}
     }
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
     if (!tpState.configOverrides) tpState.configOverrides = {};
@@ -28152,20 +28245,6 @@ function tpSave() {
     return true;
 }
 
-// ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
-function tpCompactOldPlans() {
-    if (!tpState || !tpState.planData) return;
-    var now = Date.now();
-    var sixMonths = 180 * 24 * 60 * 60 * 1000;
-    var before = tpState.planData.length;
-    tpState.planData = tpState.planData.filter(function(p) {
-        if (p.status === 'completed' && p.completedDate) {
-            return (now - new Date(p.completedDate).getTime()) < sixMonths;
-        }
-        return true;
-    });
-    if (tpState.planData.length < before) tpSave();
-}
 
 // ── Data helpers ──
 // Propósito precargado según región del plan (v15.8). Valida contra TP_PURPOSES_VALID.
@@ -31287,8 +31366,82 @@ function tpBuildCarryoverPanelHTML() {
              '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);color:var(--tp-red);" onclick="tpClearCarryover()">🧹 Vaciar la cola</button>' +
              '</div>';
     }
+
+    // [v23.2] La cola vigente, con su ✕ por fila.
+    //
+    // Hasta v23.2 el ÚNICO botón que existía era "🧹 Vaciar la cola", que entierra el
+    // backlog COMPLETO — y tanto su diálogo como la ayuda de `tpBacklog` prometían
+    // que "puedes restaurarla desde Descartadas". `tpDismissCarryover` y
+    // `tpRestoreCarryover` estaban escritas, completas, con permiso y auditoría… y
+    // sin una sola UI que las llamara. El "✕" por fila que menciona la ayuda no
+    // existía. Y como `carryoverDismissed` se sincroniza, el entierro se propagaba a
+    // todos los dispositivos sin vuelta atrás.
+    if (B.eligible.length) {
+        h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+             'Ver las ' + B.eligible.length + ' vigentes</summary>';
+        h += '<div class="inv-row-list-2col" style="margin-top: var(--space-sm);">';
+        B.eligible.forEach(function(b) {
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-md);">' +
+                 '<span style="flex:1;font-size: var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(b.desc) + '">' + escapeHtml(b.desc) + '</span>' +
+                 (b.deficit ? '<span class="tp-badge" style="font-size: var(--fs-2xs);">déficit ' + b.deficit + '</span>' : '') +
+                 '<button class="tp-btn tp-btn-ghost u-hit" style="font-size: var(--fs-sm);color:var(--tp-red);" ' +
+                 'title="Sacar de la cola (NO cuenta como probada)" aria-label="Sacar de la cola ' + escapeHtml(b.desc) + '" ' +
+                 'onclick="tpDismissCarryover(\'' + escapeHtml(String(b.desc).replace(/'/g, "\\'")) + '\')">✕</button>' +
+                 '</div>';
+        });
+        h += '</div></details>';
+    }
+
+    // Y la vista "Descartadas" propiamente dicha, con su botón de restaurar.
+    var dism = tpState.carryoverDismissed || {};
+    var dismKeys = Object.keys(dism);
+    if (dismKeys.length) {
+        dismKeys.sort(function(a, b) { return String((dism[b] || {}).at || '').localeCompare(String((dism[a] || {}).at || '')); });
+        h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+             '🗃 Descartadas (' + dismKeys.length + ') — se pueden restaurar</summary>';
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin: var(--space-xs) 0;">' +
+             'Sacarlas de la cola NO cuenta como probarlas: el déficit y la cobertura no cambiaron.</p>';
+        h += '<div class="inv-row-list-2col" style="margin-top: var(--space-sm);">';
+        dismKeys.forEach(function(desc) {
+            var d = dism[desc] || {};
+            var cuando = String(d.at || '').slice(0, 10);
+            h += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-md);">' +
+                 '<span style="flex:1;font-size: var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(desc) + '">' + escapeHtml(desc) + '</span>' +
+                 '<span style="font-size: var(--fs-2xs);color:var(--tp-dim);">' + escapeHtml(cuando + (d.by ? ' · ' + d.by : '')) + '</span>' +
+                 '<button class="tp-btn tp-btn-ghost u-hit" style="font-size: var(--fs-sm);" ' +
+                 'title="Devolver a la cola" aria-label="Devolver a la cola ' + escapeHtml(desc) + '" ' +
+                 'onclick="tpRestoreCarryover(\'' + escapeHtml(String(desc).replace(/'/g, "\\'")) + '\')">↩︎ Restaurar</button>' +
+                 '</div>';
+        });
+        h += '</div>';
+        h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);margin-top: var(--space-sm);" onclick="tpRestoreAllCarryover()">↩︎ Restaurar todas</button>';
+        h += '</details>';
+    }
+
     h += '</div>';
     return h;
+}
+
+/**
+ * Devuelve TODAS las descartadas a la cola. El acompañante de "🧹 Vaciar la cola":
+ * si una acción masiva puede enterrar el backlog entero de un clic, su inversa
+ * también tiene que ser de un clic.
+ */
+function tpRestoreAllCarryover() {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'restaurar el backlog')) return;
+    var n = Object.keys(tpState.carryoverDismissed || {}).length;
+    if (!n) { showToast('No hay descartadas', 'info'); return; }
+    showConfirm(
+        'Se devuelven ' + n + ' configuracion(es) a la cola de pendientes.',
+        function() {
+            tpState.carryoverDismissed = {};
+            tpBacklogInvalidate();
+            tpSave(); tpRender();
+            if (typeof auditLog === 'function') auditLog('testplan', 'carryover_restored_all', { type: 'plan', label: n + ' configs' }, 'Todas devueltas a la cola');
+            showToast(n + ' devueltas a la cola.', 'success');
+        },
+        { title: '↩︎ Restaurar todas', confirmText: 'Restaurar' }
+    );
 }
 
 /**
@@ -33929,9 +34082,10 @@ function tpCheckInventoryForConfig(cfg) {
     });
     if (gases.length === 0) return { ok: true, reason: 'sin datos inventario' };
 
+    // [v23.2] Antes: `lvl.pct < 10`, un sexto umbral distinto. `invGasIsLow` es LA
+    // definición de "está bajo" desde v21.1.
     var lowGases = gases.filter(function(g) {
-        var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 100 };
-        return lvl.pct < 10;
+        return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false;
     });
 
     // If more than half of the gases are critically low, warn
@@ -39072,12 +39226,6 @@ function pnVerifyPinAsync(idx, pin) {
     return Promise.resolve(false);
 }
 
-// Compat: verificación sync solo contra el hash legacy (llamadores viejos)
-function pnVerifyPin(idx, pin) {
-    var op = pnState.operators[idx];
-    if (!op || !op.pinHash) return false;
-    return op.pinHash === pnHashPin(pin);
-}
 
 function pnSyncOperators() {
     // Update CONFIG.operators and repopulate dropdowns
@@ -39984,6 +40132,19 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
+    // [v23.2] Ocho claves que estaban EN USO y sin registrar. La regla del proyecto
+    // ("toda clave nueva de localStorage agrega su entrada aquí") existía desde v18.1
+    // pero nada la verificaba, así que derivó. Sin entrada, una clave cae en 'review'
+    // con su nombre crudo — y ése fue exactamente el defecto de v18.1, donde lo no
+    // registrado llegó a ser el 90% del uso cuando el laboratorio se quedó sin espacio.
+    // `kia_config_csv_raw` es la grave: guarda el CSV de producción COMPLETO.
+    { key: 'kia_config_csv_raw',    label: 'CSV de producción importado', tier: 'review' },
+    { key: 'kia_active_vehicle',    label: 'Vehículo abierto',         tier: 'cache' },
+    { key: 'kia_config_favorites',  label: 'Configuraciones favoritas', tier: 'cache' },
+    { key: 'kia_last_module',       label: 'Última pantalla abierta',  tier: 'cache' },
+    { key: 'kia_last_operator',     label: 'Último operador',          tier: 'cache' },
+    { key: 'kia_cop15_activeTab',   label: 'Pestaña abierta (Pruebas)', tier: 'cache' },
+    { key: 'kia_inv_activeTab',     label: 'Pestaña abierta (Consumibles)', tier: 'cache' },
     // v21: ronda de lecturas a medias. Es 'core' porque contiene trabajo del turno
     // que todavía no se ha guardado — borrarla pierde el recorrido caminado.
     { key: 'kia_inv_round',         label: 'Ronda de lecturas en curso', tier: 'core' },
@@ -40283,10 +40444,16 @@ function _pnCollectCalendarEvents(year, month) {
     if (typeof invState !== 'undefined' && invState.equipment) {
         invState.equipment.forEach(function(eq) {
             if (!eq.nextCalDate) return;
-            var d = new Date(eq.nextCalDate);
+            // [v23.2] `invCalStatus` es LA definición del semáforo: respeta
+            // `requiresCal === 'No'` y parsea la fecha en LOCAL. Aquí se comparaba
+            // `new Date(eq.nextCalDate) < new Date()`, que parsea UTC — un día de
+            // desfase en UTC−6 — y pintaba como pendientes equipos que no se calibran.
+            var _cal = (typeof invCalStatus === 'function') ? invCalStatus(eq) : null;
+            if (_cal && _cal.code === 'noaplica') return;
+            var d = new Date(eq.nextCalDate + 'T00:00:00');
             if (d >= monthStart && d <= monthEnd) {
                 var dateStr = eq.nextCalDate.slice(0, 10);
-                var isPast = d < new Date();
+                var isPast = _cal ? (_cal.code === 'vencido') : false;
                 events.push({
                     date: dateStr,
                     type: 'calibration',
@@ -40517,10 +40684,15 @@ function _pnCollectTurnoverData() {
 
     // Low gases
     if (typeof invState !== 'undefined' && invState.gases) {
+        // [v23.2] Este filtro nunca dejó pasar NADA: un cilindro nunca tiene
+        // `status === 'active'` (los reales son Stock | In use | Empty | Spare), así
+        // que "Gases bajos" del reporte de turno decía 0 desde siempre. Es la TERCERA
+        // aparición de este mismo defecto — v23 arregló las otras dos y dejó ésta.
+        // Y el umbral era PSI absoluto (<200), otra de las cinco definiciones en
+        // conflicto que v21.1 unificó en `invGasIsLow`, que es LA definición.
         data.gasesLow = invState.gases.filter(function(g) {
-            if (g.status !== 'active' || !g.readings || g.readings.length === 0) return false;
-            var last = g.readings[g.readings.length - 1];
-            return (last.psi || last.value || 999) < 200;
+            if (g.status === 'Empty' || !g.readings || g.readings.length === 0) return false;
+            return (typeof invGasIsLow === 'function') ? invGasIsLow(g) : false;
         }).map(function(g) {
             return { controlNo: g.controlNo, gasType: g.gasType, psi: g.readings[g.readings.length - 1].psi || g.readings[g.readings.length - 1].value };
         });
@@ -44883,7 +45055,37 @@ function sigCaptureOpen(opts) {
         if (typeof SignaturePad !== 'undefined') {
             _sigPadInstance = new SignaturePad(canvas, { backgroundColor: '#ffffff', penColor: '#000000' });
         } else {
+            // [v23.2] Antes esto era un `console.warn` y nada más: el técnico veía un
+            // lienzo en blanco que no pintaba, y NADIE le decía por qué.
+            //
+            // No es un detalle cosmético. `signature_pad` se carga desde cdnjs
+            // (index.html), y la firma cierra `finishRelease()` **y**
+            // `approveAndArchive()`: si la red del trabajo bloquea el CDN, no se puede
+            // liberar ningún vehículo. Ya pasó dos veces con otras librerías —Alpine y
+            // jsPDF están en `vendor/` justo por esto.
+            //
+            // PENDIENTE: vendorizar `signature_pad` a `vendor/` como los otros dos.
+            // No se pudo hacer en esta ronda porque el entorno no tiene salida a cdnjs.
+            // Mientras tanto, el fallo al menos se declara en vez de fingir que el
+            // lienzo funciona.
             void 0;
+            var aviso = document.getElementById('sig-capture-error');
+            if (!aviso && canvas.parentElement) {
+                aviso = document.createElement('div');
+                aviso.id = 'sig-capture-error';
+                aviso.setAttribute('role', 'alert');
+                aviso.style.cssText = 'margin-top: var(--space-sm);padding: var(--space-md);' +
+                    'border:1px solid var(--danger-border, #fecaca);background:var(--danger-bg, #fef2f2);' +
+                    'color:var(--danger-text, #991b1b);border-radius: var(--radius-md);font-size: var(--fs-sm);';
+                aviso.innerHTML = '<b>No se puede firmar en este dispositivo.</b><br>' +
+                    'No cargó la librería de firma (la red del laboratorio está bloqueando el CDN). ' +
+                    'Revisa la conexión y recarga la página: sin firma no se puede liberar ni aprobar.';
+                canvas.parentElement.appendChild(aviso);
+            }
+            canvas.style.opacity = '0.4';
+            if (typeof showToast === 'function') {
+                showToast('No cargó la librería de firma. Recarga la página con conexión.', 'error');
+            }
         }
     }
     if (typeof a11yDialog === 'function') {
@@ -45958,27 +46160,6 @@ function fbRepairStationIfStray() {
     return saved;
 }
 
-// ── Station ID Management ──
-// El espacio de trabajo es UNO y compartido (FB_SHARED_WORKSPACE). fbSetStation
-// sigue existiendo porque es global y puede llamarse desde código viejo o desde
-// la consola, pero ya NO deja apuntar el dispositivo a otra ruta: hacerlo lo
-// desconectaba en silencio del dataset del laboratorio.
-function fbSetStation(id) {
-    var want = (id || '').trim().toUpperCase();
-    if (want && want !== FB_SHARED_WORKSPACE) {
-        showToast('El espacio de trabajo es compartido y siempre es ' + FB_SHARED_WORKSPACE
-                + '. Para nombrar este equipo usa "Nombre del dispositivo".', 'error');
-        return;
-    }
-    fbSync.stationId = FB_SHARED_WORKSPACE;
-    localStorage.setItem('kia_fb_station', fbSync.stationId);
-    fbUpdateIndicator();
-    if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
-    // Start live sync listeners now that we have a station ID (if already connected)
-    if (fbSync.status === 'connected' && !fbSync._liveSync) fbStartListening();
-    var modal = document.getElementById('fbModal');
-    if (modal && modal.style.display === 'block') fbShowSettings();
-}
 
 // ── Update station metadata document (makes station discoverable by other devices) ──
 var _fbStationMetaTimer = null;
@@ -45999,15 +46180,23 @@ function fbUpdateStationMeta() {
             var url = 'https://firestore.googleapis.com/v1/projects/' +
                 FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
                 encodeURIComponent(fbSync.stationId) + '?key=' + FIREBASE_CONFIG.apiKey;
-            fetch(url, {
+            // [v23.2] Faltaba el `Authorization` — 403 silencioso (`.catch` sólo hacía
+            // console.warn), así que en modo REST el nombre del dispositivo y el
+            // `lastPush` no se actualizaban nunca y el selector de estaciones mostraba
+            // metadatos en blanco o viejos.
+            _fbIdTokenPromise().then(function(tok) {
+            var _h = { 'Content-Type': 'application/json' };
+            if (tok) _h['Authorization'] = 'Bearer ' + tok;
+            return fetch(url, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _h,
                 body: JSON.stringify({ fields: {
                     stationId: { stringValue: meta.stationId },
                     deviceName: { stringValue: meta.deviceName },
                     lastPush: { stringValue: meta.lastPush },
                     userAgent: { stringValue: meta.userAgent }
                 }})
+            });
             }).catch(function(e) { void 0; });
         } else if (fbSync.db) {
             fbSync.db.collection('stations').doc(fbSync.stationId).set(meta, { merge: true })
@@ -46024,7 +46213,7 @@ function fbPush(collection, data, onDone, opts) {
     // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
     // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
     if ((collection === 'cop15' || collection === 'testplan' || collection === 'inventory')
-        && typeof _fbPullLocalScore === 'function' && _fbPullLocalScore(collection) === 0) {
+        && typeof _fbPushDataScore === 'function' && _fbPushDataScore(collection) === 0) {
         void 0;
         if (onDone) onDone(false, 'Módulo vacío omitido');
         return;
@@ -46110,9 +46299,9 @@ function fbPushAll(showFeedback) {
     // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
     var skippedEmpty = [];
-    if (fbSyncModules.cop15) { if (_fbPullLocalScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
-    if (fbSyncModules.testplan) { if (_fbPullLocalScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
-    if (fbSyncModules.inventory) { if (_fbPullLocalScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
+    if (fbSyncModules.cop15) { if (_fbPushDataScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    if (fbSyncModules.testplan) { if (_fbPushDataScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
+    if (fbSyncModules.inventory) { if (_fbPushDataScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
     if (fbSyncModules.panel) {
         var _pnHasData = (typeof pnState !== 'undefined' && pnState && (pnState.operators || []).length > 0);
         if (_pnHasData) modules.push({col:'panel', data:pnState}); else skippedEmpty.push('panel');
@@ -46174,7 +46363,9 @@ function _fbTpUISync() {
 // ── [v15.6] ¿Este dispositivo está vacío? (sin datos de los módulos núcleo) ──
 // Gobierna la excepción de seed del pull, los reintentos y el guard del push.
 function _fbLocalIsEmpty() {
-    return (_fbPullLocalScore('cop15') + _fbPullLocalScore('testplan') + _fbPullLocalScore('inventory')) === 0;
+    // v23.2: dato REAL, no configuración — si no, un equipo recién configurado dejaría
+    // de pedir el seed inicial y se quedaría sin los datos del laboratorio.
+    return (_fbPushDataScore('cop15') + _fbPushDataScore('testplan') + _fbPushDataScore('inventory')) === 0;
 }
 
 // Reintentos del pull inicial en un dispositivo vacío: antes fallaba en
@@ -46266,20 +46457,101 @@ function fbPullAll(showFeedback) {
 // reemplazo por conteo: dos altas concurrentes o una edición sin cambio de conteo
 // ya no se pierden. Si el análisis falla, cae a la heurística previa por conteo.
 
-function _fbPullLocalScore(col) {
+/**
+ * [v23.2] `_fbPushDataScore(col)` responde "¿es SEGURO subir esto?" y es
+ * DELIBERADAMENTE ESTRICTA: cuenta sólo DATO REAL del laboratorio.
+ *
+ * Hay dos preguntas distintas y NO se pueden servir con el mismo número:
+ *   · PULL — "¿vale la pena preservar lo local?" → `_fbPullLocalScore`, que desde
+ *     v23.2 cuenta también la CONFIGURACIÓN, porque un equipo ya configurado que
+ *     todavía no importa el CSV no es un equipo desechable.
+ *   · PUSH — "¿es seguro subir esto?" → esta función. `fbPush` escribe el
+ *     documento ENTERO en `stations/KIA-EMLAB/{col}/current`, así que subir un
+ *     `tpState` con `planData` vacío REEMPLAZA el plan de todo el laboratorio.
+ *
+ * Contar la configuración aquí abriría exactamente el agujero que el cinturón
+ * anti-vaciado de v15.6 vino a tapar. Mantiene la semántica que ese guard tenía
+ * antes de v23.2, a propósito.
+ */
+function _fbPushDataScore(col) {
     if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
-    if (col === 'testplan') return (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData || []).length + (tpState.testedList || []).length + (tpState.weeklyPlans || []).length) : 0;
+    if (col === 'testplan') {
+        var t = (typeof tpState !== 'undefined' && tpState) ? tpState : null;
+        if (!t) return 0;
+        return (t.planData || []).length + (t.testedList || []).length + (t.weeklyPlans || []).length;
+    }
     if (col === 'inventory') {
         var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
-        if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
-        if (st && st.equipment) s += st.equipment.length;
-        if (st && st.assets) s += st.assets.length;
-        if (st && st.maintActivities) s += st.maintActivities.length;
-        if (st && st.maintLog) s += st.maintLog.length;
+        if (!st) return 0;
+        if (st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
+        if (st.equipment) s += st.equipment.length;
+        if (st.assets) s += st.assets.length;
+        if (st.maintActivities) s += st.maintActivities.length;
+        if (st.maintLog) s += st.maintLog.length;
+        if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
+        return s;
+    }
+    return 0;
+}
+
+function _fbPullLocalScore(col) {
+    var _n = function (x) { return (x && x.length) || 0; };
+    var _keys = function (o) { return (o && typeof o === 'object') ? Object.keys(o).length : 0; };
+
+    if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+
+    if (col === 'testplan') {
+        var t = (typeof tpState !== 'undefined' && tpState) ? tpState : null;
+        if (!t) return 0;
+        // v23.2: antes sólo contaba planData+testedList+weeklyPlans, así que TODA la
+        // configuración y el historial podían estar llenos y este dispositivo puntuaba
+        // CERO — con lo que `_fbPullSeed` lo reemplazaba entero. Un equipo ya
+        // configurado que aún no importa el CSV de producción es justo ese caso.
+        return _n(t.planData) + _n(t.testedList) + _n(t.weeklyPlans) +
+               _n(t.weekHistory) + _n(t.planHistory) + _n(t.rulePresets) +
+               _keys(t.familyOverrides) + _keys(t.configOverrides) + _keys(t.myContinuity) +
+               _keys(t.weekAvailability) + _keys(t.soak && t.soak.byFamily);
+    }
+
+    if (col === 'inventory') {
+        var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
+        if (!st) return 0;
+        if (st.gases) st.gases.forEach(function(g) { s += 1 + _n(g.readings); });
+        // v23.2: el historial de calibración cuenta. Un dispositivo que registró 40
+        // calibraciones pero no dio de alta ningún instrumento puntuaba igual que uno
+        // que no hizo nada.
+        if (st.equipment) st.equipment.forEach(function(e) { s += 1 + _n(e.calHistory); });
+        s += _n(st.assets) + _n(st.maintActivities) + _n(st.maintLog);
         // v21.1: el combustible NO se contaba. Un dispositivo cuyo único dato nuevo eran
         // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
-        if (st && st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
+        if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + _n(t.readings); });
+        // v23.2: el consumo por prueba y los catálogos editables tampoco se contaban.
+        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes);
         return s;
+    }
+
+    // v23.2: `panel`, `cop`, `homolog` y `audit` devolvían 0 A SECAS. Un dispositivo con
+    // todo el padrón de operadores, todos los juicios CoP y el catálogo de homologación
+    // —pero sin vehículos, plan ni inventario— se clasificaba como "vacío" y la
+    // maquinaria de seed lo trataba como desechable.
+    if (col === 'panel') {
+        var pn = (typeof pnState !== 'undefined' && pnState) ? pnState : null;
+        if (!pn) return 0;
+        return _n(pn.operators) + _n(pn.projects) + _n(pn.tasks) +
+               _n(pn.shiftLog) + _n(pn.shiftReports) + _n(pn.skillCatalog);
+    }
+    if (col === 'cop') {
+        var cp = (typeof copState !== 'undefined' && copState) ? copState : null;
+        if (!cp) return 0;
+        return _n(cp.saved) + _keys(cp.families);
+    }
+    if (col === 'homolog') {
+        var ho = (typeof homoState !== 'undefined' && homoState) ? homoState : null;
+        if (!ho) return 0;
+        return _n(ho.catalog) + _n(ho.ipFamilies) + _keys(ho.links);
+    }
+    if (col === 'audit') {
+        try { return _n(JSON.parse(localStorage.getItem('kia_audit_trail') || '[]')); } catch (e) { return 0; }
     }
     return 0;
 }
@@ -46313,9 +46585,23 @@ function _fbPullSeed(col, remoteData, pulled) {
         // v23.1 suma `reqPurposes` (qué propósitos acreditan el REQ de emisiones): un
         // pull desde código anterior no lo trae y sin preservarlo el laboratorio
         // volvería a contar las pruebas de OBD2 en la cobertura, en silencio.
+        // v23.2 suma la CONFIGURACIÓN y el HISTORIAL del laboratorio, que faltaban
+        // enteros. Esto no era un `undefined` benigno: `_fbTpUISync()` llama a
+        // `_tpEnsureState()` justo después, que RESIEMBRA `rules` con
+        // `tpDefaultRules()` y `weights`/`regionPriority` con los literales del
+        // código. O sea que un pull no los dejaba vacíos — los dejaba en VALORES DE
+        // FÁBRICA, sin error y sin aviso, y las reglas de ratio son justo lo que
+        // determina el REQ y la cobertura de todo el laboratorio.
+        // Se dispara cuando `_fbPullLocalScore('testplan') === 0`, y ese score sólo
+        // cuenta planData+testedList+weeklyPlans: un equipo ya configurado que
+        // todavía no importó el CSV de producción puntúa CERO. Es una secuencia de
+        // puesta en marcha perfectamente normal.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
          'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'capacity',
-         'soak', '_migr', 'reqPurposes'].forEach(function(k) {
+         'soak', '_migr', 'reqPurposes',
+         'rules', 'weights', 'regionPriority', 'rulePresets',
+         'familyOverrides', 'configOverrides', 'startPurposeByRegion', 'myContinuity',
+         'weekHistory', 'planHistory', 'weeks', 'fixedPlan', 'fixedWeeklyPlan', 'deadline'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -46327,7 +46613,13 @@ function _fbPullSeed(col, remoteData, pulled) {
         // por la nube, así que un pull de un equipo sin combustible borraba el de éste.
         var prevInv = (typeof invState !== 'undefined' && invState) ? invState : {};
         invState = remoteData;
-        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed'].forEach(function(k) {
+        // v23.2 suma `usageLog` (hasta 3.000 registros de consumo por prueba: es lo
+        // que alimenta el modelo de consumo aprendido y el conteo por VIN de COP15),
+        // `zones` y `gasTypes` (catálogos editables del cuarto de gases) y
+        // `lastReadingDate`. Ninguno viajaba, con la misma forma exacta del defecto de
+        // `fuelTanks` que se arregló en v21.1.
+        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed',
+         'usageLog', 'zones', 'gasTypes', 'lastReadingDate'].forEach(function(k) {
             if ((invState[k] === undefined || invState[k] === null ||
                  (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
                 invState[k] = prevInv[k];
@@ -46367,22 +46659,86 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     pulled.push({ cop15: 'COP15', testplan: 'Test Plan', inventory: 'Inventory' }[col]);
 }
 
-// Heurística previa por conteo — solo como fallback si el merge falla
+// Heurística previa por conteo — solo como fallback si el merge falla.
+//
+// [v23.2] Compara con `_fbPushDataScore`, NO con `_fbPullLocalScore`: el lado remoto
+// se mide contando dato real (planData/testedList/weeklyPlans, vehículos, cilindros),
+// así que el lado local tiene que medirse igual. Desde v23.2 `_fbPullLocalScore`
+// incluye además la configuración, y mezclarlos comparaba peras con manzanas: lo local
+// parecía sistemáticamente más grande y este fallback dejaba de adoptar un remoto que
+// sí traía más datos.
 function _fbPullAdoptByCount(col, remoteData, pulled) {
     if (col === 'cop15') {
-        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPullLocalScore('cop15')) _fbPullSeed(col, remoteData, pulled);
+        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPushDataScore('cop15')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'testplan') {
         var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
-        if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
+        if (_rTp >= _fbPushDataScore('testplan')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'inventory') {
         var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; if (s && s.assets) n += s.assets.length; if (s && s.maintActivities) n += s.maintActivities.length; if (s && s.maintLog) n += s.maintLog.length; return n; };
-        if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
+        if (_invScoreFn(remoteData) >= _fbPushDataScore('inventory')) _fbPullSeed(col, remoteData, pulled);
     }
 }
 
 // Unión de operadores por id+nombre; en colisión gana el updatedAt más reciente.
 // Los tombstones (deleted:true) sobreviven al merge para que un operador borrado
 // no resucite desde un remoto viejo.
+
+// [v23.2] Unión por `id` de una lista append-only, conservando las más nuevas.
+// La usan `shiftLog` (bitácora de turno) y `shiftReports`.
+//
+// POR QUÉ. La rama `panel` de `fbPullApply` hacía `Object.assign(pnState,
+// remoteData)` y sólo volvía a mezclar cuatro arrays. Todo lo demás se tomaba
+// ENTERO del remoto — incluida la bitácora. Una entrada escrita en este
+// dispositivo y aún no empujada (hay 2 s de debounce en `fbPush`) se
+// aniquilaba en cuanto llegaba un pull, y como después este dispositivo empuja
+// su copia ya truncada, la entrada desaparecía TAMBIÉN de la nube. Y `shiftLog`
+// siempre tuvo `id` (`sl_…`) y `timestamp`: era trivialmente mezclable.
+function _fbMergeByIdNewest(locales, remotas, cap) {
+    var map = {};
+    var stamp = function(x) { return x.timestamp || x.date || x.createdAt || ''; };
+    (locales || []).concat(remotas || []).forEach(function(x) {
+        if (!x) return;
+        var k = x.id || (stamp(x) + '|' + (x.operator || '') + '|' + (x.notes || ''));
+        var prev = map[k];
+        if (!prev || stamp(x) >= stamp(prev)) map[k] = x;
+    });
+    var out = Object.keys(map).map(function(k) { return map[k]; })
+        .sort(function(a, b) { return String(stamp(a)).localeCompare(String(stamp(b))); });
+    if (cap && out.length > cap) out = out.slice(-cap);
+    return out;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.2] `_fbEquipKey(e)` es LA DEFINICIÓN de la identidad de un instrumento
+// en el merge. Todo consumidor nuevo la llama; nunca volver a escribir
+// `e.serialNo || e.name` a mano.
+//
+// POR QUÉ. La clave era `serialNo || name`, y en la semilla real del F11 eso
+// COLISIONA: de 31 instrumentos, 11 (35%) caen en dos cubetas — `"-"` ×7 y
+// `"N/A"` ×4, porque muchos equipos no tienen número de serie. El mapa
+// `localEquip` sólo conservaba el ÚLTIMO de cada cubeta, así que:
+//   · los otros 3 `"N/A"` eran invisibles al merge y NUNCA se importaban a un
+//     dispositivo que no los tuviera, y
+//   · `_fbMergeEquipConflict` resolvía con `findIndex(...)`, que devuelve
+//     SIEMPRE el primero: las fechas y el `calHistory` del instrumento remoto
+//     #4 se escribían encima del instrumento local #1.
+// Para un laboratorio con trazabilidad ISO 17025 eso es un registro de
+// calibración atribuido al equipo equivocado, no un detalle de UI.
+//
+// Los equipos ya traen identidad estable: `id` (`"eq_th0033"`) y `f11Id`. Se
+// prefiere ésa; `serialNo`/`name` quedan sólo como último recurso para un
+// registro viejo sin id, y con prefijo para que no se confundan entre sí.
+function _fbEquipKey(e) {
+    if (!e) return '';
+    if (e.id) return 'id:' + e.id;
+    if (e.f11Id) return 'f11:' + e.f11Id;
+    var sn = String(e.serialNo || '').trim();
+    // '-' y 'N/A' son "no tiene serie", no una serie.
+    if (sn && sn !== '-' && sn !== 'N/A' && sn !== 'NA') return 'sn:' + sn.toUpperCase();
+    return 'nm:' + String(e.name || '').trim().toUpperCase();
+}
+
 function _fbMergeOperators(localOps, remoteOps) {
     var byKey = {};
     // La clave era `id|nombre`, pero _authFindOperator (auth.js) busca SOLO por id y
@@ -46597,7 +46953,33 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localTasksPn = (pnState.tasks || []).slice();
                 var _localCatPn = (pnState.skillCatalog || []).slice();
                 var _localProjectsPn = (pnState.projects || []).slice();
+                // [v23.2] Estado de UI POR DISPOSITIVO: gana SIEMPRE el local. Mismo
+                // criterio que la rama `cop` de abajo (v19.0). `activeTab` venía del
+                // remoto y `pnRender()` corre justo después, así que la pestaña que
+                // otro técnico tuviera abierta te movía la pantalla; `matrixCols` es
+                // el ancho/orden de columnas de la matriz de habilidades de ESTE
+                // equipo, y `opsSchema` es una guarda de migración de una sola vez
+                // (la misma trampa que `tpState._migr` ya tenía documentada).
+                var _localUiPn = {};
+                ['activeTab', 'matrixCols', 'opsSchema'].forEach(function(k) {
+                    if (pnState[k] !== undefined) _localUiPn[k] = pnState[k];
+                });
+                var _localShiftLog = (pnState.shiftLog || []).slice();
+                var _localShiftReports = (pnState.shiftReports || []).slice();
+                var _localSkillGroups = (pnState.skillGroups || []).slice();
+
                 Object.assign(pnState, remoteData);
+
+                Object.keys(_localUiPn).forEach(function(k) { pnState[k] = _localUiPn[k]; });
+                // La bitácora y los reportes de turno se UNEN por id (antes el remoto
+                // los reemplazaba enteros y se perdía lo escrito en este dispositivo).
+                pnState.shiftLog = _fbMergeByIdNewest(_localShiftLog, (remoteData && remoteData.shiftLog) || [], 500);
+                pnState.shiftReports = _fbMergeByIdNewest(_localShiftReports, (remoteData && remoteData.shiftReports) || [], 30).reverse();
+                // Los grupos de habilidades son una lista corta y editable: si el
+                // remoto no trae ninguno, no borrar los locales.
+                if (!(remoteData && (remoteData.skillGroups || []).length) && _localSkillGroups.length) {
+                    pnState.skillGroups = _localSkillGroups;
+                }
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
                 pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
@@ -46621,8 +47003,15 @@ function fbPullApply(collections, results, showFeedback) {
             // pantalla del CoP salte de vista y de familia porque otro técnico tocó la
             // suya, y en el peor caso pisa la mesa de trabajo local. Estos campos son
             // estado de UI POR DISPOSITIVO: siempre gana el local.
+            // [v23.2] `regulation`, `fuelType` y `activePolls` FALTABAN aquí, y no son
+            // cosméticos: `copRenderStats` lee los límites por
+            // `COP_FUEL_LIMITS[copState.fuelType]`. Como `vehicles` sí se conservaba,
+            // el técnico se quedaba con SUS filas evaluadas contra la norma y el juego
+            // de contaminantes de OTRO técnico — un veredicto de conformidad
+            // equivocado, no un salto de pantalla. Los tres son de la mesa de trabajo
+            // abierta (se guardan y restauran por familia), no ajustes del laboratorio.
             ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'ovHidden', 'spc',
-             'showTable', 'showFormula'].forEach(function(k) {
+             'showTable', 'showFormula', 'regulation', 'fuelType', 'activePolls'].forEach(function(k) {
                 if (_localCop[k] !== undefined) _mergedCop[k] = _localCop[k];
                 else delete _mergedCop[k];
             });
@@ -46799,16 +47188,40 @@ function fbHandleRemoteChange(col, docData, remoteSt) {
     if (fbSync._recentRemote[key] && (now - fbSync._recentRemote[key]) < 5000) return;
     fbSync._recentRemote[key] = now;
 
+    // ══════════════════════════════════════════════════════════════════
+    // [v23.2] EL LIVE-SYNC AUTOMÁTICO NUNCA HABÍA FUNCIONADO.
+    //
+    // Aquí se llamaba a `fbFromFirestoreValue(docData.data)`. Esa función
+    // (definida más arriba) sólo entiende el FORMATO DE CABLE REST
+    // (`stringValue`, `mapValue`, `arrayValue`…), y lo que llega por este camino
+    // NO viene en ese formato: `fbPush` escribe `data: data` —un objeto JS
+    // plano— y el listener recibe `change.doc.data()`, que el SDK compat ya
+    // devuelve DECODIFICADO. Un objeto plano no coincide con ninguna de las 8
+    // comprobaciones de esa función y caía a su `return null` final.
+    //
+    // Resultado: `parsedData` era SIEMPRE null, este `return` se tomaba siempre,
+    // y `fbAutoMerge` —cuyo único llamador es la línea de abajo— no se ejecutó
+    // jamás. Los tres listeners de collectionGroup se disparaban, gastaban cuota
+    // y descartaban en silencio cada cambio remoto. Como tampoco hay ningún pull
+    // periódico (sólo al conectar, al reconectar y el botón manual), dos
+    // técnicos con la app abierta NO se veían entre sí hasta recargar — mientras
+    // el indicador del topbar decía "Live sync active".
+    //
+    // Se acepta el objeto plano del SDK y se conserva la decodificación REST
+    // como respaldo por si alguna vez llega un documento en ese formato.
     var parsedData = null;
     try {
-        parsedData = (docData && docData.data)
-            ? fbFromFirestoreValue(docData.data)
-            : null;
+        var _raw = docData && docData.data;
+        if (_raw && typeof _raw === 'object') {
+            // El formato REST siempre envuelve en una de estas llaves.
+            var _esREST = ('mapValue' in _raw) || ('arrayValue' in _raw) || ('stringValue' in _raw);
+            parsedData = _esREST ? fbFromFirestoreValue(_raw) : _raw;
+        }
     } catch(e) {
         void 0;
         return;
     }
-    if (!parsedData) return;
+    if (!parsedData || typeof parsedData !== 'object') return;
     fbQuotaRecord('read');
     fbAutoMerge(col, parsedData, remoteSt);
 }
@@ -47119,7 +47532,15 @@ function fbMergeListStations(callback) {
         var url = 'https://firestore.googleapis.com/v1/projects/' +
             FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations?key=' +
             FIREBASE_CONFIG.apiKey;
-        fetch(url).then(function(resp) {
+        // [v23.2] Sin `Authorization` esto devolvía 403 SIEMPRE: `firestore.rules`
+        // exige `isLabUser()` (sesión con proveedor 'password') para tocar
+        // `stations/`. Las dos ramas REST escritas junto a las reglas
+        // (fbPushREST/fbPullREST) sí mandan el token; estas tres, más viejas,
+        // nunca se actualizaron.
+        _fbIdTokenPromise().then(function(tok) {
+        var headers = {};
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        fetch(url, { headers: headers }).then(function(resp) {
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             return resp.json();
         }).then(function(result) {
@@ -47139,6 +47560,7 @@ function fbMergeListStations(callback) {
             void 0;
             showToast('Error listando estaciones: ' + err.message, 'error');
             callback([]);
+        });
         });
         return;
     }
@@ -47178,7 +47600,14 @@ function fbMergeLoadStation(stationId, callback) {
             var url = 'https://firestore.googleapis.com/v1/projects/' +
                 FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
                 encodeURIComponent(stationId) + '/' + col + '/current?key=' + FIREBASE_CONFIG.apiKey;
-            fetch(url).then(function(resp) {
+            // [v23.2] Faltaba el `Authorization`: 403 seguro contra `firestore.rules`.
+            // Y aquí el fallo era SILENCIOSO — el `.catch` sólo hacía `console.warn` y
+            // dejaba `data[col] = null`, así que la fusión entre estaciones producía un
+            // análisis vacío en vez de un error. Un 403 ahora se anuncia.
+            _fbIdTokenPromise().then(function(tok) {
+            var headers = {};
+            if (tok) headers['Authorization'] = 'Bearer ' + tok;
+            return fetch(url, { headers: headers }).then(function(resp) {
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 return resp.json();
             }).then(function(doc) {
@@ -47193,7 +47622,12 @@ function fbMergeLoadStation(stationId, callback) {
                 }
             }).catch(function(err) {
                 void 0;
+                if (/HTTP 40[13]/.test(err.message) && typeof showToast === 'function') {
+                    showToast('Sin permiso para leer "' + col + '" de ' + stationId +
+                              '. Inicia sesión con la contraseña del laboratorio.', 'error');
+                }
                 data[col] = null;
+            });
             }).then(function() {
                 restPending--;
                 if (restPending === 0) callback(data);
@@ -47396,12 +47830,12 @@ function fbMergeAnalyze(remoteData) {
         });
 
         var localEquip = {};
-        ((invState.equipment || []).forEach(function(e) { localEquip[e.serialNo || e.name] = e; }));
+        ((invState.equipment || []).forEach(function(e) { localEquip[_fbEquipKey(e)] = e; }));
         var remoteEquip = remoteData.inventory.equipment || [];
         var newEquip = [], dupEquip = [], equipConflicts = [];
 
         remoteEquip.forEach(function(re) {
-            var key = re.serialNo || re.name;
+            var key = _fbEquipKey(re);
             var le = localEquip[key];
             if (!le) { newEquip.push(re); return; }
             // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
@@ -47703,7 +48137,7 @@ function fbMergeExecute(remoteData, analysis, choices) {
         // Fusiona el historial de calibración de un instrumento ya existente en ambos lados
         // (unión por fecha+certificado) y se queda con los campos del lado calibrado más recientemente.
         function _fbMergeEquipConflict(c) {
-            var idx = invState.equipment.findIndex(function(e) { return (e.serialNo || e.name) === c.key; });
+            var idx = invState.equipment.findIndex(function(e) { return _fbEquipKey(e) === c.key; });
             if (idx < 0) return;
             var newerSide = (c.local.lastCalDate || '') >= (c.remote.lastCalDate || '') ? c.local : c.remote;
             var mergedEq = Object.assign({}, c.local, newerSide);
@@ -48166,19 +48600,6 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     modal.innerHTML = html;
 }
 
-// Mask a webhook URL for display: keep host + last 8 chars of the path so user can identify
-// which webhook they would adopt without leaking the full secret URL into the UI.
-function _fbMaskWebhook(url) {
-    if (!url) return '(sin URL)';
-    try {
-        var u = new URL(url);
-        var path = u.pathname || '';
-        var tail = path.length > 8 ? path.slice(-8) : path;
-        return u.host + '/...' + tail;
-    } catch (e) {
-        return String(url).slice(0, 24) + '...' + String(url).slice(-8);
-    }
-}
 
 function fbMergeConfirmAndExecute() {
     var choices = {};
@@ -48247,7 +48668,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609031911' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609080516' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -48791,9 +49212,6 @@ function fbPostPlanGenerated(count) {
 }
 function fbPostPlanAccepted(weekNum) {
     fbActivityPost('plan_accepted', 'Semana #' + weekNum);
-}
-function fbPostTestImported(count) {
-    fbActivityPost('test_imported', count + ' pruebas importadas');
 }
 function fbPostGasReading(gasName, psi) {
     fbActivityPost('gas_reading', gasName + ': ' + psi + ' PSI');
@@ -52940,26 +53358,7 @@ function homoVehicleData(vehicle) {
     return (vehicle && vehicle.homolog) ? vehicle.homolog : null;
 }
 
-/** ¿Le falta la ficha a este vehículo? (solo aplica a Europa) */
-function homoVehicleMissing(vehicle) {
-    if (!vehicle) return false;
-    if (!homoIsEurope(homoRegionOf(vehicle.config))) return false;
-    var h = homoVehicleData(vehicle);
-    return !h || h.f0 == null || h.f1 == null || h.f2 == null || h.tm == null;
-}
 
-/** Convierte una fila del catálogo en la ficha que se guarda en el vehículo. */
-function homoRowToVehicleData(row, source) {
-    return {
-        mcCode: row.mcCode || '', workOrder: row.workOrder || '', ocn: row.ocn || '',
-        wvta: row.wvta || '', variant: row.variant || '', version: row.version || '',
-        f0: row.f0, f1: row.f1, f2: row.f2, tm: row.tm,
-        co2Target: row.co2Combined, fcTarget: row.fcCombined,
-        source: source || 'catalogo',
-        by: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '',
-        at: new Date().toISOString()
-    };
-}
 
 // ─── CO₂: VEREDICTO ───────────────────────────────────────────────────────────
 
@@ -54371,7 +54770,6 @@ function _bugQueueSave(q) {
     }
 }
 
-function bugQueueCount() { return bugQueueGet().length; }
 
 // ══════════════════════════════════════════════════════════════════════
 // ENVÍO
@@ -54714,7 +55112,6 @@ function bugGetSettings() {
     };
 }
 
-function bugSettingsConfigured() { return !!bugGetSettings().token; }
 
 function _bugCacheSettings(s) {
     try { localStorage.setItem(BUG_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
