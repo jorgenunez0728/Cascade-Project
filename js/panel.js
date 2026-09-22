@@ -1755,7 +1755,7 @@ function pnRenderShiftLog(el) {
     html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Operador</label>';
     var currentUserName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
     html += '<select id="pn-shift-operator" class="tp-select" style="width:100%;">';
-    html += '<option value="">Seleccionar...</option>';
+    html += '<option value="">Seleccionar…</option>';
     activeOps.forEach(function(n) { html += '<option value="' + n + '"' + (n === currentUserName ? ' selected' : '') + '>' + n + '</option>'; });
     html += '</select></div>';
 
@@ -2602,7 +2602,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
-    { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
+    { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
     // [v23.2] Ocho claves que estaban EN USO y sin registrar. La regla del proyecto

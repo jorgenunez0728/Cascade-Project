@@ -184,16 +184,24 @@
             <div id="v7-quick-picks" style="display:none;"></div>
             <div class="form-group">
                 <label for="vehiclePurpose">Propósito de la Prueba</label>
-                <select id="vehiclePurpose" required aria-required="true">
+                <select id="vehiclePurpose" required aria-required="true" data-chips>
                     <option value="">Seleccione...</option>
-                    <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
-                    <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
-		    <option value="EO-Emisiones">Cambio de Ingeniería: Emisiones</option>
-		    <option value="EO-OBD2">Cambio de Ingeniería: OBD-II</option>
-                    <option value="ND-Emisiones">Nuevos Desarrollos: Emisiones</option>
-                    <option value="ND-OBD2">Nuevos Desarrollos: OBD-II</option>
-                    <option value="Correlacion">Correlación</option>
-                    <option value="Investigacion">Actividad de Investigación</option>
+                    <optgroup label="Conformidad de Producción (CoP)">
+                        <option value="COP-Emisiones">Emisiones</option>
+                        <option value="COP-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Cambio de Ingeniería (EO)">
+                        <option value="EO-Emisiones">Emisiones</option>
+                        <option value="EO-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Nuevos Desarrollos (ND)">
+                        <option value="ND-Emisiones">Emisiones</option>
+                        <option value="ND-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Otras actividades">
+                        <option value="Correlacion">Correlación</option>
+                        <option value="Investigacion">Investigación</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -230,7 +238,7 @@
                     <div class="form-group">
                         <label>MODELO</label>
                         <select id="cfg_model" onchange="cascadeFilter('Modelo')">
-                            <option value="">Seleccionar...</option>
+                            <option value="">Seleccionar…</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -299,7 +307,7 @@
                     Configuraciones disponibles: <span id="configCount">0</span>
                 </div>
 
-                <button class="btn-reset" onclick="resetCascadeTree()">🔄 REINICIAR FILTROS</button>
+                <button class="btn-reset" onclick="resetCascadeTree()">🔄 Reiniciar filtros</button>
 
                 <div id="cfg_result" class="config-result empty">
                     <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles
@@ -395,6 +403,11 @@
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
+      <label for="homo_mr">MR — masa rotativa (kg)</label>
+      <input type="number" step="any" id="homo_mr" placeholder="44.7" inputmode="decimal"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+    <div class="form-group">
       <label for="homo_co2">CO₂ declarado combinado (g/km)</label>
       <input type="number" step="any" id="homo_co2" placeholder="132"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
@@ -411,7 +424,7 @@
     <div class="form-group">
       <label>Seleccione el operador</label>
       <select id="reg_operator" data-chips required>
-        <option value="">Seleccionar...</option>
+        <option value="">Seleccionar…</option>
       </select>
     </div>
 
@@ -437,7 +450,7 @@
 </div><!-- ✅ cierre card -->
 
 <button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
-  REGISTRAR VEHÍCULO
+  Registrar vehículo
 </button>
 
 </div><!-- ✅ cierre panel-alta (ESTE cierre debe ir después del botón) -->
@@ -445,10 +458,11 @@
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
     <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
         <div id="help-banner-slot-cop15-seguimiento"></div>
-        <div class="form-group">
-            <label>Seleccionar Vehículo Activo</label>
+        <div id="op-veh-cards" class="veh-cards" aria-label="Vehículos en Operación"></div>
+        <div class="form-group veh-select-fallback">
+            <label for="activeVehSelect">O busca cualquier vehículo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
-                <option value="">-- Seleccionar Vehículo --</option>
+                <option value="">Elige un vehículo…</option>
             </select>
         </div>
         
@@ -470,7 +484,7 @@
     <div class="form-group">
       <label>Operador de Recepción</label>
       <select id="op_recep" data-chips>
-        <option value="">Seleccionar...</option>
+        <option value="">Seleccionar…</option>
       </select>
     </div>
 
@@ -511,18 +525,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -556,14 +570,14 @@
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
+      <input type="number" id="tire_pressure" data-num="step" data-num-path="testData.preconditioning.tirePressurePsi" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
   	<input
     	type="number"
-    	id="fuel_levelpre"
+    	id="fuel_levelpre" data-num="step" data-num-path="testData.preconditioning.fuelLevelLitersPre"
     	min="0"
     	step="1"
 	max="50"
@@ -695,7 +709,7 @@
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
+      <input type="number" id="etw" data-num="big" data-num-path="testData.etw" data-num-si="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -714,36 +728,36 @@
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tA" data-num="big" data-num-path="testData.targetA" data-num-si="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dA" data-num="big" data-num-path="testData.dynoA" data-num-si="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tB" data-num="big" data-num-path="testData.targetB" data-num-si="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dB" data-num="big" data-num-path="testData.dynoB" data-num-si="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tC" data-num="big" data-num-path="testData.targetC" data-num-si="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dC" data-num="big" data-num-path="testData.dynoC" data-num-si="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
@@ -806,11 +820,11 @@
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
-  <label>Flujo del ventilador (m³/min) (Solo México máx 150)</label>
+  <label>Flujo del ventilador (m³/min)</label>
   <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
 </div>
 
@@ -846,7 +860,7 @@
       <select id="test_hood" data-chips>
         <option value="">Seleccionar…</option>
         <option value="closed">Capó cerrado</option>
-        <option value="open">Abierto (Obligatorio México)</option>
+        <option value="open">Abierto</option>
       </select>
     </div>
 
@@ -879,7 +893,7 @@
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -900,7 +914,7 @@
         <div class="form-group">
           <label>Operador</label>
           <select id="simple_operator" data-chips>
-            <option value="">Seleccionar...</option>
+            <option value="">Seleccionar…</option>
           </select>
         </div>
 
@@ -917,20 +931,27 @@
     </div>
   </div>
 </details>
-            <div class="card">
-                <div class="card-title">📊 Estado de la Prueba</div>
-                <div class="form-group">
-                    <label>Cambiar estado del vehículo</label>
-			<select id="op_status" onchange="handleStatusChange(this)">
-                        <option value="in-progress">En Progreso</option>
-                        <option value="testing">En Prueba</option>
-                        <option value="ready-release">Listo para Liberación</option>
-                    </select>
+            <!-- [v23.4] Un botón que dice qué sigue (Hick): el select de estado queda como
+                 fuente de verdad, plegado en "Cambiar estado a mano" para correcciones. -->
+            <div class="card op-actions">
+                <div class="card-title" data-help="op-next-help">📊 Siguiente paso</div>
+                <div id="op-next-step"></div>
+                <div class="op-actions-row">
+                    <button class="btn-secondary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
+                    <button class="btn-secondary" onclick="generateCOP15PDF(activeVehicleId)">📄 PDF COP15-F05</button>
                 </div>
+                <details class="op-status-manual">
+                    <summary>Cambiar estado a mano</summary>
+                    <div class="form-group">
+                        <label for="op_status">Estado del vehículo</label>
+                        <select id="op_status" data-chips onchange="handleStatusChange(this)">
+                            <option value="in-progress">En progreso</option>
+                            <option value="testing">En prueba</option>
+                            <option value="ready-release">Listo para liberación</option>
+                        </select>
+                    </div>
+                </details>
             </div>
-
-            <button class="btn-primary" onclick="saveProgress()">💾 GUARDAR AVANCE</button>
-            <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:10px; background:var(--accent-results);">📄 GENERAR PDF COP15-F05</button>
         </div>
     </div>
 
@@ -953,10 +974,11 @@
         <div id="lib-panel-liberador">
             <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--info-text);">📋 <strong>Liberador:</strong> captura tus lecturas de gases. El aprobador las verificará por separado (doble ciego).</div>
             <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
-            <div class="form-group">
-                <label>Seleccionar Vehículo para Liberar</label>
+            <div id="lib-veh-cards" class="veh-cards" aria-label="Vehículos listos para liberar"></div>
+            <div class="form-group veh-select-fallback">
+                <label for="releaseVehSelect">O elige de la lista</label>
                 <select id="releaseVehSelect" onchange="loadRelease()">
-                    <option value="">-- Seleccionar --</option>
+                    <option value="">Elige un vehículo…</option>
                 </select>
             </div>
             <div id="lib-content" style="display:none;">
@@ -981,14 +1003,14 @@
                     <div class="card-title">✅ Acción</div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button class="btn-primary" id="release-archive-btn" onclick="submitToApproval()" style="flex:1;" disabled>
-                            📤 ENVIAR A APROBACIÓN
+                            📤 Enviar a aprobación
                         </button>
                         <button class="btn-secondary" onclick="requestRetest()" style="flex:1;">
-                            🔄 REPETIR PRUEBA (Retest)
+                            🔄 Repetir la prueba (Retest)
                         </button>
                     </div>
                     <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:12px;background:var(--accent-results);">
-                        📄 GENERAR PDF COP15-F05
+                        📄 Generar PDF COP15-F05
                     </button>
                 </div>
                 <div class="card">
@@ -1001,10 +1023,11 @@
         <!-- ── SUB-TAB B: APROBADOR ── -->
         <div id="lib-panel-aprobador" style="display:none;">
             <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
-            <div class="form-group">
-                <label>Seleccionar Vehículo Pendiente de Aprobación</label>
+            <div id="appr-veh-cards" class="veh-cards" aria-label="Vehículos pendientes de aprobación"></div>
+            <div class="form-group veh-select-fallback">
+                <label for="approvalVehSelect">O elige de la lista</label>
                 <select id="approvalVehSelect" onchange="loadApproval()">
-                    <option value="">-- Seleccionar --</option>
+                    <option value="">Elige un vehículo…</option>
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
@@ -1022,7 +1045,7 @@
                 <div class="card">
                     <div class="card-title">✅ Acción</div>
                     <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
-                        ✅ APROBAR Y ARCHIVAR
+                        ✅ Aprobar y archivar
                     </button>
                     <!-- Salida cuando los valores no coinciden: sin esto el aprobador
                          quedaba atorado con el botón de aprobar deshabilitado. -->
@@ -1604,7 +1627,7 @@
                     <div>
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>
                         <select x-model="shiftOperator" class="tp-select" style="width:100%;">
-                            <option value="">Seleccionar...</option>
+                            <option value="">Seleccionar…</option>
                             <template x-for="op in activeOperators()" :key="op.id"><option :value="op.name" x-text="op.name"></option></template>
                         </select>
                     </div>

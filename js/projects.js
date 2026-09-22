@@ -1418,11 +1418,6 @@ function _pnDayNum(iso) {
     var t = new Date(iso + 'T00:00:00').getTime();
     return isNaN(t) ? null : Math.round(t / 86400000);
 }
-function _pnDayISO(n) {
-    var d = new Date(n * 86400000);
-    return d.getUTCFullYear() + '-' + _pnPad2(d.getUTCMonth() + 1) + '-' + _pnPad2(d.getUTCDate());
-}
-
 // Duración en días de un paso. Explícita > derivada de fechas > 1 día.
 function pnStepDuration(s) {
     if (s.durationDays && +s.durationDays > 0) return Math.max(1, Math.round(+s.durationDays));

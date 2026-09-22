@@ -138,6 +138,24 @@ function homoVehicleData(vehicle) {
     return (vehicle && vehicle.homolog) ? vehicle.homolog : null;
 }
 
+// ─── INERCIA (ETW) ────────────────────────────────────────────────────────────
+// [v23.4] Inercia del dinamómetro = TM + MR, los dos del ICMS (MR = masa rotativa
+// equivalente). Verificado con una captura del software del dinamómetro del
+// laboratorio: TM 1568 + MR 44.7 = 1612.7 kg. NO es la TM sola.
+
+/**
+ * LA definición de la inercia (ETW) de un vehículo. PURA.
+ * d: {tm, mr} → {inertia, tm, mr} redondeado a 0.1 kg, o null si falta alguno.
+ */
+function homoWltpInertia(d) {
+    if (!d) return null;
+    var num = function(v) { return (v === null || v === undefined || v === '' || !isFinite(Number(v))) ? null : Number(v); };
+    var tm = num(d.tm), mr = num(d.mr);
+    if (tm === null || mr === null || !(tm > 0) || mr < 0) return null;
+    var r1 = function(x) { return Math.round(x * 10) / 10; };
+    return { inertia: r1(tm + mr), tm: tm, mr: mr };
+}
+
 
 
 // ─── CO₂: VEREDICTO ───────────────────────────────────────────────────────────
@@ -195,7 +213,9 @@ var HOMO_IMPORT_FIELDS = {
     f0:          { label: 'f0',           syn: ['f0', 'f0n', 'coefff0'] },
     f1:          { label: 'f1',           syn: ['f1', 'f1nkmh', 'coefff1'] },
     f2:          { label: 'f2',           syn: ['f2', 'f2nkmh2', 'coefff2'] },
-    tm:          { label: 'TM (masa)',    syn: ['tm', 'testmass', 'masadeensayo', 'masa'] },
+    tm:          { label: 'TM (masa)',    syn: ['tm', 'tmkg', 'testmass', 'testmasskg', 'masadeensayo', 'masa'] },
+    // [v23.4] MR: masa rotativa equivalente, la trae el ICMS. ETW (inercia) = TM + MR.
+    mr:          { label: 'MR (masa rotativa)', syn: ['mr', 'mrkg', 'rotatingmass', 'rotatingmasskg', 'equivalentrotatingmass', 'masarotativa', 'masarotativakg'] },
     co2Combined: { label: 'CO₂ combinado', syn: ['combined', 'co2combined', 'co2combinado', 'combinado', 'co2'] },
     fcCombined:  { label: 'Consumo comb.', syn: ['fuelconsumptioncombined', 'consumocombinado', 'fccombined'] }
 };
@@ -264,6 +284,7 @@ function homoImportApply(grid) {
             mcCode: txt('mcCode'), workOrder: txt('workOrder'), ocn: txt('ocn'), wvta: txt('wvta'),
             variant: txt('variant'), version: txt('version'),
             f0: _homoNum(get('f0')), f1: _homoNum(get('f1')), f2: _homoNum(get('f2')), tm: _homoNum(get('tm')),
+            mr: _homoNum(get('mr')),
             co2Combined: _homoNum(get('co2Combined')), fcCombined: _homoNum(get('fcCombined'))
         };
         var key = homoRowKey(incoming);
@@ -354,6 +375,7 @@ function homoAltaFill(row, auto) {
     set('homo_f1', row.f1);
     set('homo_f2', row.f2);
     set('homo_tm', row.tm);
+    set('homo_mr', row.mr);
     set('homo_co2', row.co2Combined);
     var st = document.getElementById('homo-alta-status');
     if (st) {
@@ -411,11 +433,14 @@ function homoAltaUpdateStatus() {
     if (d.f1 == null) missing.push('f1');
     if (d.f2 == null) missing.push('f2');
     if (d.tm == null) missing.push('TM');
+    if (d.mr == null) missing.push('MR (para la inercia)');
     if (d.co2Target == null) missing.push('CO₂ target');
-    warn.innerHTML = missing.length
+    var inr = homoWltpInertia(d);
+    var inrLine = inr ? '<div class="homo-inertia-line">⚙️ Inercia (ETW): <b>' + inr.inertia + ' kg</b> <span>= TM ' + inr.tm + ' + MR ' + inr.mr + '</span></div>' : '';
+    warn.innerHTML = inrLine + (missing.length
         ? '<span style="color:var(--warn-text,#92400e);">⚠️ Falta: ' + missing.join(', ') +
           '. Puedes registrar igual, pero el CoP no podrá comparar el CO₂ de este vehículo.</span>'
-        : '<span style="color:var(--ok-text,#166534);">✅ Ficha completa.</span>';
+        : '<span style="color:var(--ok-text,#166534);">✅ Ficha completa.</span>');
 }
 
 /** Lee los campos del Alta. Devuelve la ficha (o con nulls si están vacíos). */
@@ -431,6 +456,7 @@ function homoAltaCollect() {
     return {
         mcCode: txt('homo_mc'),
         f0: num('homo_f0'), f1: num('homo_f1'), f2: num('homo_f2'), tm: num('homo_tm'),
+        mr: num('homo_mr'),
         co2Target: num('homo_co2'),
         source: 'alta',
         by: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '',
@@ -440,7 +466,7 @@ function homoAltaCollect() {
 
 /** Limpia el bloque (tras registrar un vehículo). */
 function homoAltaReset() {
-    ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_co2'].forEach(function(id) {
+    ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -639,6 +665,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
 });
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    homo_mr: { title: 'MR (masa rotativa)', text: 'Masa rotativa equivalente, tal como viene en el ICMS. La inercia (ETW) que va al dinamómetro es TM + MR, y la app la calcula sola en Operación.' },
     'pn-homolog-help': { title: 'Catálogo del ICMS', text: 'Cada fila es un vehículo homologado, identificado por su MC code. De ahí salen los coeficientes con los que se carga el dinamómetro y el CO₂ declarado contra el que se compara lo medido.' },
     'homo_mc': { title: 'MC code', text: 'El código del ICMS que identifica la homologación del vehículo. Escribe unos caracteres y elige de la lista: se autollenan los coeficientes y el CO₂. La próxima vez que registres esta misma configuración se llenará solo.' },
     'homo_f0': { title: 'f0 (N)', text: 'Coeficiente constante de la resistencia al avance, del apartado WLTP Driving energy del ICMS. Es uno de los tres valores con los que se carga el dinamómetro.' },

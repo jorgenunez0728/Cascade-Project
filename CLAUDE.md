@@ -1341,6 +1341,40 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.4 — Cascade más simple (`js/cop15.js`, `js/app.js`)
+
+- **`saveProgress` FUSIONA `vehicle.testData`, nunca lo reemplaza**: `testData` también
+  guarda lo que no vive en el formulario (gases, firmas, checklist). Y **Operación no
+  escribe sobre un vehículo en `pending-approval`/`archived`** (`_opIsReadOnlyStatus`):
+  para corregir, el aprobador lo devuelve o se usa Historial → Completar.
+- **Vacío es `null`, nunca 0**, en todo número del dinamómetro (`_dynoParse`, `_siMul`,
+  `_dynoShow`). `null * k === 0` en JS: toda conversión de unidades pasa por `_siMul`.
+  `PDF_REQUIRED_FIELDS[].zeroIsBlank` solo en ETW y A (f1/f2 = 0 es legítimo).
+- **`uiNumEnhance(root)` (app.js) es LA forma de dar controles a un número**:
+  `data-num="step|pct|big"` + `data-num-path` (dato guardado) + `data-num-si` (clave para
+  `fromSI`). Las sugerencias las da `window.uiNumSuggestProvider` (cop15:
+  `cascadeNumSuggest` → `cascadeFrequentValues`, pura). El input sigue siendo la fuente de
+  verdad. En filas flex, un `<input>` necesita `width:0; flex:1` o desborda la cuadrícula.
+- **Derivar, sugerir, nunca imponer**: `cascadeSoakHours`/`cascadePrecondVerdict` (puras),
+  `cascadeDerivedRefresh` solo escribe en un campo vacío o que llenó el propio cálculo
+  (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **ETW ← `homoWltpInertia`**
+  (homolog.js, PURA, LA definición): **TM + MR**, los dos del ICMS. **El ETW NO es la TM**:
+  sin MR no se calcula. Verificada contra el software del dinamómetro (1568 + 44.7 = 1612.7).
+  `cascadeSetField(id, v)` escribe como si tecleara.
+- **Un solo indicador por concepto**: `opSectionsRender` (en vivo, definición del PDF) es
+  el estado de cada sección y reemplazó al contador `.smart-badge`; la tarjeta "Siguiente
+  paso" (`OP_NEXT_STEPS`, pasa por `handleStatusChange`) manda en Operación y ahí se
+  oculta la tira v7. No volver a sumar una segunda señal para lo mismo.
+- **`p.ok` se guarda `'yes'`/`'no'`**: compararlo con `_precondIsOk`, nunca contra `'Si'`
+  (cinco sitios lo hacían y nunca empataban).
+- **`showModal({buttons})` usa `{label, cls:'btn-primary', onclick: función}`** y para
+  cerrar desde fuera hay que QUITAR `#globalModal` del DOM, no solo ocultarlo (se apilan).
+- **La guardia de código muerto ya lee regex** (veía 713 de 1,150 funciones): una función
+  sin llamadores ahora sí falla CI. Una función que solo se llama a sí misma dentro de una
+  cadena sigue contando como "usada" — revisar a mano los subsistemas enteros.
+- Microcopy: el PDF imprime `cascadeValueLabel(kind, v)`, no el código guardado. La jerga
+  del laboratorio (ETW, Soak, Speed Follow, Target/Dyno) se queda por decisión suya.
+
 ## v23.3 — PDF COP15-F05: una hoja, `_pdfSafe` y checklist de liberación (`js/cop15.js`)
 
 - **El F05 tiene presupuesto vertical fijo** (carta horizontal, pie en `H - 10`). jsPDF no

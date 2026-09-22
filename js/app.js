@@ -285,11 +285,22 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.3';
+var APP_VERSION = '23.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.4', date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
+      notes: [
+          'Corregido: guardar Operación borraba los gases, la firma y el checklist, y un vehículo en aprobación regresaba a «En progreso». Ahora en aprobación Operación es solo lectura.',
+          'Corregido: ETW/Target vacíos se guardaban como 0 y el F05 podía decir «Completa» con esas casillas en blanco.',
+          'Números de un toque: − / + con los valores más usados en esa configuración, deslizador para el SOC y «Último de esta config» para ETW/Target.',
+          'La app llena lo que ya sabe: reposo calculado de las fechas, sugerencia de «Cumple», Target A/B/C desde la ficha ICMS (Europa) y botón «Ahora» en las fechas.',
+          'Europa: el ETW (inercia) se calcula solo: TM + MR, los dos del ICMS. El Alta pide el MR.',
+          'Un botón grande dice qué sigue (Iniciar prueba → Enviar a liberación); cada sección dice «faltan N» o «✓» y «faltan campos» te lleva a cada uno.',
+          'Vehículos en tarjetas por etapa, propósito del Alta en botones agrupados, Historial en tarjetas en el teléfono.',
+          'El PDF imprime nombres: «Premium Mexicana», «RON95 (1/8)», no códigos.'
+      ] },
     { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
       notes: [
           'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',
@@ -4339,16 +4350,6 @@ function tokenColor(name) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return (_tokenCache[name] = v || '#000000');
 }
-function tokenRGB(name) {
-    var h = tokenColor(name).replace('#', '');
-    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-function tokenAlpha(name, a) {
-    var c = tokenRGB(name);
-    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
-}
-
 // Hace alcanzables por teclado los `<div onclick>` que la app genera vía
 // template strings (patrón repetido en los 7 módulos: tarjetas, filas de
 // alerta, resultados de búsqueda). Idempotente — no toca elementos que ya
@@ -4517,7 +4518,7 @@ function storageFreeBytes() {
         var modelSelect = document.getElementById('cfg_model');
         var uniqueModels = [...new Set(allConfigurations.map(function(c){ return c.Modelo; }))].sort();
         if (modelSelect) {
-            modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+            modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
             uniqueModels.forEach(function(model) {
                 modelSelect.innerHTML += '<option value="' + model + '">' + model + '</option>';
             });
@@ -4687,6 +4688,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
+        try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
+        try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -5105,6 +5108,9 @@ function _uiChipsAttach(sel) {
     });
     try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
     sel.addEventListener('change', function() { _uiChipsRender(sel); });
+    // El <select> está oculto: enfocarlo desde código (p. ej. "ir al campo") manda el foco
+    // al botón elegido, o al primero.
+    sel.focus = function() { var b = group.querySelector('.ui-chip.is-on') || group.querySelector('button'); if (b) b.focus(); };
 
     group.addEventListener('click', function(ev) {
         var b = ev.target.closest ? ev.target.closest('button') : null;
@@ -5162,11 +5168,26 @@ function _uiChipsRender(sel) {
         sel.classList.add('chips-native'); sel.setAttribute('aria-hidden', 'true'); sel.setAttribute('tabindex', '-1');
         g.style.display = '';
         var dis = sel.disabled ? ' disabled' : '';
-        var html = opts.filter(function(o) { return !o.getAttribute('data-custom'); }).map(function(o) {
+        var chip = function(o) {
             var on = o.value === val;
             return '<button type="button" role="radio" class="ui-chip' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" data-v="' +
                    escapeHtml(o.value) + '"' + dis + '>' + escapeHtml(o.textContent.trim()) + '</button>';
-        }).join('');
+        };
+        var html;
+        if (sel.querySelector('optgroup')) {
+            // [v23.4] <optgroup> → un grupo con título por cada uno (p. ej. Programa → Tipo
+            // en el propósito): dos decisiones cortas en vez de una lista de 8.
+            html = Array.prototype.map.call(sel.children, function(node) {
+                if (node.tagName === 'OPTGROUP') {
+                    var inner = Array.prototype.filter.call(node.children, function(o) { return o.value !== ''; }).map(chip).join('');
+                    return inner ? '<div class="ui-chips-group" role="group" aria-label="' + escapeHtml(node.label) + '"><span class="ui-chips-glabel">' +
+                        escapeHtml(node.label) + '</span><div class="ui-chips-row">' + inner + '</div></div>' : '';
+                }
+                return (node.value !== '' && !node.getAttribute('data-custom')) ? chip(node) : '';
+            }).join('');
+        } else {
+            html = opts.filter(function(o) { return !o.getAttribute('data-custom'); }).map(chip).join('');
+        }
         if (sel.hasAttribute('data-chips-other')) {
             var custom = opts.find(function(o) { return o.getAttribute('data-custom') && o.value === val; });
             if (g._editing) {
@@ -5182,6 +5203,145 @@ function _uiChipsRender(sel) {
         }
         g.innerHTML = html;
     } finally { g._rendering = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] uiNumEnhance — números de un toque
+// Un <input data-num="step|pct|big"> gana controles sin dejar de ser un campo normal
+// (se puede seguir tecleando) y SIGUE siendo la fuente de verdad: guardar/cargar/
+// borradores leen `input.value` como siempre. Igual que uiChipsEnhance, `value` se
+// redefine en la instancia para repintar cuando el código lo asigna.
+//   step → [−] valor [+] (paso = atributo step, 1 si es "any") + chips sugeridos
+//   pct  → deslizador 0–100 + chips 25/50/75/100
+//   big  → teclado numérico (lo más rápido para 15234 o 131.6) + chip sugerido
+// Las sugerencias vienen de `uiNumSuggest(input)` → `window.uiNumSuggestProvider`,
+// que cop15.js registra con el historial de la misma configuración. No se usa un dial giratorio a propósito: en
+// tablet es impreciso y no sirve para números grandes.
+// ══════════════════════════════════════════════════════════════════════
+var _UI_INPUT_VALUE = (typeof HTMLInputElement !== 'undefined')
+    ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') : null;
+
+/** Sugerencias de un campo: [{value, label?, title?}]. El módulo dueño del formulario
+ *  registra su proveedor en `window.uiNumSuggestProvider` (cop15.js: cascadeNumSuggest). */
+function uiNumSuggest(input) {
+    try { return typeof window.uiNumSuggestProvider === 'function' ? (window.uiNumSuggestProvider(input) || []) : []; }
+    catch (e) { return []; }
+}
+
+function uiNumEnhance(root) {
+    if (!_UI_INPUT_VALUE || !root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(_uiNumAttach);
+}
+
+/** Repinta las sugerencias (p. ej. al cargar otro vehículo). */
+function uiNumRefresh(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(function(i) { if (i._num) _uiNumRender(i); });
+}
+
+function _uiNumStep(input) {
+    var st = parseFloat(input.getAttribute('step'));
+    return isFinite(st) && st > 0 ? st : 1;
+}
+
+function _uiNumFmt(n, step) {
+    var dec = (String(step).split('.')[1] || '').length;
+    return String(Number(n.toFixed(Math.min(dec, 6))));
+}
+
+function _uiNumSet(input, v) {
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function _uiNumAttach(input) {
+    if (input._num) { _uiNumRender(input); return; }
+    var mode = input.getAttribute('data-num') || 'step';
+    var wrap = document.createElement('div');
+    wrap.className = 'ui-num ui-num-' + mode;
+    input.parentNode.insertBefore(wrap, input);
+    var row = document.createElement('div');
+    row.className = 'ui-num-row';
+    wrap.appendChild(row);
+    if (mode === 'step') {
+        var minus = document.createElement('button');
+        minus.type = 'button'; minus.className = 'ui-num-btn'; minus.textContent = '−';
+        minus.setAttribute('aria-label', 'Restar'); minus.setAttribute('data-d', '-1');
+        var plus = document.createElement('button');
+        plus.type = 'button'; plus.className = 'ui-num-btn'; plus.textContent = '+';
+        plus.setAttribute('aria-label', 'Sumar'); plus.setAttribute('data-d', '1');
+        row.appendChild(minus); row.appendChild(input); row.appendChild(plus);
+    } else {
+        row.appendChild(input);
+    }
+    if (mode === 'pct') {
+        var rng = document.createElement('input');
+        rng.type = 'range'; rng.min = input.min || '0'; rng.max = input.max || '100'; rng.step = '1';
+        rng.className = 'ui-num-range'; rng.setAttribute('aria-hidden', 'true'); rng.tabIndex = -1;
+        rng.addEventListener('input', function() { _uiNumSet(input, rng.value); });
+        wrap.appendChild(rng);
+        input._numRange = rng;
+    }
+    var chips = document.createElement('div');
+    chips.className = 'ui-num-chips';
+    wrap.appendChild(chips);
+    input._num = { wrap: wrap, chips: chips, mode: mode };
+
+    Object.defineProperty(input, 'value', {
+        configurable: true,
+        get: function() { return _UI_INPUT_VALUE.get.call(this); },
+        set: function(v) { _UI_INPUT_VALUE.set.call(this, v); _uiNumRender(this); }
+    });
+    input.addEventListener('input', function() { _uiNumRender(input); });
+    try { new MutationObserver(function() { _uiNumRender(input); }).observe(input, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+
+    wrap.addEventListener('click', function(ev) {
+        var b = ev.target.closest ? ev.target.closest('button') : null;
+        if (!b || b.disabled || !wrap.contains(b)) return;
+        ev.preventDefault();
+        if (b.hasAttribute('data-d')) {
+            var step = _uiNumStep(input);
+            var cur = parseFloat(String(_UI_INPUT_VALUE.get.call(input)).replace(',', '.'));
+            if (!isFinite(cur)) {
+                // Vacío: el primer toque arranca en la sugerencia principal (o en el mínimo).
+                var sug = uiNumSuggest(input) || [];
+                cur = sug.length ? parseFloat(sug[0].value) : (isFinite(parseFloat(input.min)) ? parseFloat(input.min) : 0);
+                _uiNumSet(input, _uiNumFmt(cur, step));
+                return;
+            }
+            var next = cur + step * parseFloat(b.getAttribute('data-d'));
+            if (input.min !== '' && isFinite(parseFloat(input.min))) next = Math.max(parseFloat(input.min), next);
+            if (input.max !== '' && isFinite(parseFloat(input.max))) next = Math.min(parseFloat(input.max), next);
+            _uiNumSet(input, _uiNumFmt(next, step));
+        } else if (b.hasAttribute('data-v')) {
+            _uiNumSet(input, b.getAttribute('data-v'));
+        }
+    });
+    _uiNumRender(input);
+}
+
+function _uiNumRender(input) {
+    var n = input._num;
+    if (!n) return;
+    var val = String(_UI_INPUT_VALUE.get.call(input));
+    var dis = input.disabled;
+    n.wrap.querySelectorAll('.ui-num-btn').forEach(function(b) { b.disabled = dis; });
+    if (input._numRange) {
+        input._numRange.disabled = dis;
+        var pv = parseFloat(val);
+        input._numRange.value = isFinite(pv) ? pv : 0;
+        input._numRange.classList.toggle('is-empty', !isFinite(pv));
+    }
+    var list = n.mode === 'pct'
+        ? [25, 50, 75, 100].map(function(v) { return { value: String(v), label: v + '%' }; })
+        : (uiNumSuggest(input) || []);
+    n.chips.innerHTML = list.map(function(s) {
+        var on = String(s.value) === val || (isFinite(parseFloat(val)) && parseFloat(val) === parseFloat(s.value));
+        return '<button type="button" class="ui-chip ui-num-chip' + (on ? ' is-on' : '') + '" data-v="' + escapeHtml(String(s.value)) + '"' +
+               (s.title ? ' title="' + escapeHtml(s.title) + '"' : '') + (dis ? ' disabled' : '') + '>' + escapeHtml(s.label || String(s.value)) + '</button>';
+    }).join('');
+    n.chips.style.display = list.length ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -5993,12 +6153,6 @@ function helpBannerHTML(tabId) {
         '</span></div>';
 }
 
-/** Botón ℹ️ para poner junto al título de una pestaña: reabre la ayuda aunque el banner ya se haya descartado. */
-function helpTabButtonHTML(tabId) {
-    if (!HELP_TABS[tabId]) return '';
-    return '<button type="button" class="help-tab-btn" onclick="helpShowTab(\'' + tabId + '\')" aria-label="Ayuda de esta pestaña" title="Ayuda de esta pestaña">ℹ️</button>';
-}
-
 /**
  * v16.0 — Inserta el banner de ayuda como PRIMER elemento del contenedor cacheado de una
  * pestaña (tp-, inv-, pn- no-Alpine), sin tener que tocar cada función de render:
@@ -6178,85 +6332,10 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// [R5-M8] Templates & Quick Presets — Unified Template Engine
-// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Se retiró el motor de plantillas [R5-M8] (templateSave/Apply/Delete/GetAll/
+// RenderManager): nada lo abría — ni un botón ni una llamada — así que era inalcanzable.
+// El detector de código muerto no lo veía porque sus regex con comillas lo cegaban.
 
-var _templates = safeParse('kia_templates', { cop15: [], results: [], inventory: [] });
-
-function templateSave(module, name, data) {
-    if (!_templates[module]) _templates[module] = [];
-    // Check limit
-    if (_templates[module].length >= 20) {
-        // Remove least used
-        _templates[module].sort(function(a, b) { return (a.usageCount || 0) - (b.usageCount || 0); });
-        _templates[module].shift();
-    }
-    _templates[module].push({
-        id: 'tpl_' + Date.now(),
-        name: name,
-        data: data,
-        usageCount: 0,
-        createdAt: new Date().toISOString()
-    });
-    _templatesPersist();
-    showToast('Plantilla "' + name + '" guardada', 'success');
-}
-
-function templateApply(module, templateId) {
-    var tpl = (_templates[module] || []).find(function(t) { return t.id === templateId; });
-    if (!tpl) { showToast('Plantilla no encontrada', 'error'); return null; }
-    tpl.usageCount = (tpl.usageCount || 0) + 1;
-    _templatesPersist();
-    return tpl.data;
-}
-
-function templateDelete(module, templateId) {
-    if (!_templates[module]) return;
-    _templates[module] = _templates[module].filter(function(t) { return t.id !== templateId; });
-    _templatesPersist();
-    showToast('Plantilla eliminada', 'info');
-}
-
-function templateGetAll(module) {
-    return (_templates[module] || []).sort(function(a, b) { return (b.usageCount || 0) - (a.usageCount || 0); });
-}
-
-function _templatesPersist() {
-    localStorage.setItem('kia_templates', JSON.stringify(_templates));
-}
-
-/**
- * Render a template manager modal for a given module.
- */
-function templateRenderManager(module, applyCallback) {
-    var list = templateGetAll(module);
-    var html = '<div style="max-height:50vh;overflow-y:auto;">';
-    if (list.length === 0) {
-        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);font-size:12px;">No hay plantillas guardadas</div>';
-    } else {
-        list.forEach(function(tpl) {
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding: var(--space-sm) var(--space-md);border-bottom:1px solid var(--border);">';
-            html += '<div>';
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + escapeHtml(tpl.name) + '</div>';
-            html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
-            html += '</div>';
-            html += '<div style="display:flex;gap: var(--space-sm);">';
-            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);">Aplicar</button>';
-            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius: var(--radius-md);cursor:pointer;">✕</button>';
-            html += '</div></div>';
-        });
-    }
-    html += '</div>';
-    showModal(html, 'Plantillas — ' + module.toUpperCase());
-}
-
-/**
- * Render quick-access preset buttons for a module.
- * @param {string} module - Module name
- * @param {string} containerId - Element to insert buttons into
- * @param {string} applyCallback - Function name to call with template data
- */
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M1] Immersive Mode — App-like fullscreen experience
 // ══════════════════════════════════════════════════════════════════════
@@ -6593,6 +6672,11 @@ function v7UpdateNextStepBanner() {
     if (!activeVehicleId) { off(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status === 'archived') { off(); return; }
+    // [v23.4] En Operación manda la tarjeta "Siguiente paso": dos indicaciones de qué
+    // sigue, y a veces distintas, es peor que una.
+    var opPanel = document.getElementById('panel-seguimiento');
+    var opNext = document.getElementById('op-next-step');
+    if (opPanel && opPanel.classList.contains('active') && opNext && opNext.innerHTML.trim()) { off(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
     if (!step) { off(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
@@ -6623,10 +6707,13 @@ function v7GoToVehicleStep(gotoSection) {
             if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadRelease === 'function') loadRelease(); }
         }, 200);
     } else if (gotoSection === 'soak-section') {
-        var soakEl = document.getElementById('soak-section') || document.getElementById('acc-soak');
+        // [v23.4] Los ids 'soak-section'/'acc-soak' nunca existieron: la flecha no hacía
+        // nada. El timer vive en #soak-timer-panel, dentro del acordeón de precond.
+        var soakEl = document.getElementById('soak-timer-panel');
         if (soakEl) {
-            if (soakEl.tagName === 'DETAILS') soakEl.open = true;
-            soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            var dd = soakEl.closest('details');
+            if (dd) { dd.classList.remove('smart-locked'); dd.open = true; }
+            setTimeout(function() { soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
         }
     } else {
         var acc = document.getElementById(gotoSection);
@@ -6673,9 +6760,6 @@ function v7GoToVehicleStep(gotoSection) {
 
 var _gridDrag = { active:false, id:null, from:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false, ns:null };
 var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
-
-/** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
-function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
 /**
  * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha

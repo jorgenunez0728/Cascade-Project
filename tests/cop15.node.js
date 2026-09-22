@@ -52,7 +52,9 @@ const ctx = {
     // Vive en app.js; cop15 la usa dentro de validatePdfCompleteness.
     isEmissionsPurpose: p => /emisiones/i.test(String(p || '')),
     getRegulationProfile: () => null, localDateStr: d => new Date(d || Date.now()).toISOString().slice(0, 10),
-    db: { vehicles: [], lastId: 0 }
+    db: { vehicles: [], lastId: 0 },
+    // Vive en app.js; toSI/fromSI la usan.
+    UNIT_CONVERSION: { lb_to_kg: 0.45359237, kg_to_lb: 2.20462262, lbf_to_N: 4.4482216153, N_to_lbf: 0.2248089431, mph_to_kmh: 1.609344, kmh_to_mph: 0.6213711922 }
 };
 ctx.window = ctx;
 ctx.globalThis = ctx;
@@ -242,6 +244,70 @@ console.log('\n== releaseChecklistRows ==');
 
     const forzado = rows(veh('CANADA', { docs: { obfcm: 'ok' } }));
     ok('una regla automática gana sobre un valor guardado a mano', byKey(forzado, 'obfcm').value === 'na');
+}
+
+// ── v23.4: vacío ≠ 0 en el dinamómetro ────────────────────────────────────
+console.log('\n== dinamómetro: vacío no es 0 ==');
+{
+    const si = ctx.toSI({ etw: null, tA: 100, dA: null, tB: 0, dB: null, tC: null, dC: null }, 'EN');
+    ok('toSI conserva null (antes null*k daba 0)', si.etw === null && si.dA === null);
+    ok('toSI convierte los números', Math.abs(si.tA - 100 * 4.4482216) < 0.01);
+    ok('toSI conserva un 0 real de Target B (f1 = 0 es legítimo)', si.tB === 0);
+
+    const base = () => { const v = { purpose: 'COP-Emisiones', status: 'ready-release', config: {}, testData: {} };
+        ctx.PDF_REQUIRED_FIELDS.forEach(f => ctx._histSetPath(v, f.path, f.num ? 1 : 'x'));
+        v.testData.testVerification.fanMode = 'speed_follow'; return v; };
+    const nuevo = base(); nuevo.testData.etw = 0;
+    ok('ETW = 0 en una prueba nueva es FALTANTE (bloquea)', ctx.validatePdfCompleteness(nuevo).missing.some(m => m.label === 'ETW'));
+    const viejo = base(); viejo.testData.etw = 0; viejo.status = 'archived'; viejo.archivedAt = '2026-09-01T10:00:00';
+    const cv = ctx.validatePdfCompleteness(viejo);
+    ok('ETW = 0 en una prueba vieja es pendiente SUAVE (no bloquea su PDF)',
+        !cv.missing.some(m => m.label === 'ETW') && cv.soft.some(m => m.label === 'ETW'));
+    const b0 = base(); b0.testData.targetB = 0;
+    ok('Target B = 0 NO se toma como vacío', !ctx.validatePdfCompleteness(b0).missing.some(m => m.label === 'Target B'));
+}
+
+// ── v23.4: cascadeFrequentValues ─────────────────────────────────────────
+console.log('\n== cascadeFrequentValues ==');
+{
+    const f = ctx.cascadeFrequentValues;
+    const A = (id, cfg, tank, at, status) => ({ id, configCode: cfg, status: status || 'archived', archivedAt: at, testData: { preconditioning: { tankCapacityL: tank } } });
+    const vs = [A(1, 'C1', 42, '2026-09-01'), A(2, 'C1', 42, '2026-09-02'), A(3, 'C1', 50, '2026-09-10'),
+                A(4, 'C2', 60, '2026-09-11'), A(5, 'C1', 99, '2026-09-12', 'testing'), A(6, 'C1', 0, '2026-09-13'), A(7, 'C1', '', '2026-09-14')];
+    const r = f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { skipZero: true });
+    ok('el más repetido va primero', r[0].value === 42 && r[0].count === 2);
+    ok('solo la misma configuración y solo archivados', !r.some(x => x.value === 60 || x.value === 99));
+    ok('ignora vacíos y, con skipZero, los ceros', !r.some(x => x.value === 0) && r.length === 2);
+    const last = f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { mode: 'last', skipZero: true });
+    ok('mode last = el archivado más reciente con dato', last.length === 1 && last[0].value === 50);
+    ok('excludeId saca al vehículo actual', !f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { excludeId: 3 }).some(x => x.value === 50));
+    ok('sin configuración → nada', f(vs, '', 'x').length === 0);
+}
+
+// ── v23.4: reposo derivado ────────────────────────────────────────────────
+console.log('\n== cascadeSoakHours / cascadePrecondVerdict ==');
+{
+    const h = ctx.cascadeSoakHours;
+    ok('20 h entre 08:00 y 04:00 del día siguiente', h('2026-09-20T08:00', '2026-09-21T04:00') === 20);
+    ok('redondea a un decimal', h('2026-09-20T08:00', '2026-09-20T20:20') === 12.3);
+    ok('falta una fecha → null', h('', '2026-09-21T04:00') === null && h('2026-09-20T08:00', null) === null);
+    ok('prueba ANTES del precond → null (no se inventa un número)', h('2026-09-21T08:00', '2026-09-20T08:00') === null);
+    const v = ctx.cascadePrecondVerdict;
+    ok('20 h ≥ 12 h → Sí cumple', v(20, { hours: 12, label: 'x' }).value === 'yes');
+    ok('10 h < 12 h → No cumple', v(10, { hours: 12, label: 'x' }).value === 'no');
+    ok('justo en el límite cumple', v(12, { hours: 12, label: 'x' }).value === 'yes');
+    ok('sin reposo o sin regla → sin sugerencia', v(null, { hours: 12 }) === null && v(20, null) === null);
+}
+
+// ── v23.4: el PDF imprime nombres, no códigos ──────────────────────────────
+console.log('\n== cascadeValueLabel ==');
+{
+    const L = ctx.cascadeValueLabel;
+    ok('PemexPremium → Premium Mexicana', L('fuel', 'PemexPremium') === 'Premium Mexicana');
+    ok('UDDS → FTP Fase 1 y 2', L('cycle', 'UDDS') === 'FTP Fase 1 y 2');
+    ok('0.125 → 1/8 (la foto del F05 decía "(0.125)")', L('fraction', 0.125) === '1/8' && L('fraction', '0.125') === '1/8');
+    ok('un valor de "Otro…" sale tal cual', L('fuel', 'Gasolina E5 prueba') === 'Gasolina E5 prueba');
+    ok('vacío → vacío', L('fuel', '') === '' && L('fuel', null) === '');
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

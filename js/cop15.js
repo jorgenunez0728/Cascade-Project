@@ -14,6 +14,18 @@ function markUnsaved() {
         btn.classList.add('btn-unsaved');
         btn.textContent = '💾 Guardar *';
     }
+    opSaveStateRender();
+}
+
+/** [v23.4] Estado de guardado a la vista, junto al vehículo (no solo el punto rojo). */
+function opSaveStateRender() {
+    var el = document.getElementById('op-save-state');
+    if (!el) return;
+    if (_unsavedChanges) { el.className = 'op-save-state is-dirty'; el.textContent = '● Cambios sin guardar'; return; }
+    var v = activeVehicleId && db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+    var ago = v && v.lastModified && typeof _vehAgo === 'function' ? _vehAgo(v.lastModified) : '';
+    el.className = 'op-save-state is-saved';
+    el.textContent = ago ? '✓ Guardado ' + ago : '✓ Sin cambios';
 }
 
 function clearUnsaved() {
@@ -25,6 +37,7 @@ function clearUnsaved() {
         btn.classList.remove('btn-unsaved');
         btn.textContent = '💾 Guardar';
     }
+    opSaveStateRender();
 }
 
 /** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
@@ -44,6 +57,10 @@ function setupUnsavedTracking() {
     if (!container) return;
     container.addEventListener('input', markUnsaved);
     container.addEventListener('change', markUnsaved);
+    // [v23.4] El indicador de cada sección ("faltan N" / ✓) sigue lo que se va capturando.
+    var _badgesSoon = debounce(function() { smartFormUpdateBadges(); }, 250);
+    container.addEventListener('input', _badgesSoon);
+    container.addEventListener('change', _badgesSoon);
     // [R5-M2] Register auto-save on blur/visibility change
     autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
 
@@ -935,7 +952,7 @@ function initCascadeTree() {
         const operators = _operatorSelectIds.map(function(id) { return document.getElementById(id); });
         operators.forEach(select => {
             if(select) {
-                select.innerHTML = '<option value="">Seleccionar...</option>';
+                select.innerHTML = '<option value="">Seleccionar…</option>';
                 CONFIG.operators.forEach(op => {
                     select.innerHTML += `<option value="${op}">${op}</option>`;
                 });
@@ -977,8 +994,12 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
   if (!def || !accs.includes(def)) def = accs[0];
   def.setAttribute('open', '');
 
-  // 3) Regla: solo uno abierto durante uso
+  // 3) Regla: solo uno abierto durante uso. [v23.4] Una sola vez por acordeón: esto
+  // se llama en cada carga de vehículo y antes apilaba un listener (y un scroll) más
+  // cada vez.
   accs.forEach(d => {
+    if (d.dataset.singleOpen) return;
+    d.dataset.singleOpen = '1';
     d.addEventListener('toggle', () => {
       if (!d.open) return;
       accs.forEach(other => {
@@ -1397,10 +1418,18 @@ function loadVehicle() {
     <strong>Propósito:</strong> ${vehicle.purpose} |
     <strong>Config:</strong> ${vehicle.configCode} |
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
+    <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
   `;
+  opSaveStateRender();
 
   document.getElementById('op_status').value =
     (vehicle.status === 'registered') ? 'in-progress' : vehicle.status;
+  _opSetReadOnly(false);
+  if (_opIsReadOnlyStatus(vehicle.status)) {
+    document.getElementById('vehicleInfo').insertAdjacentHTML('beforeend',
+      '<div class="op-readonly-note">🔒 ' + escapeHtml(_opReadOnlyMessage(vehicle)) + '</div>');
+    _opSetReadOnly(true);
+  }
 
   updateTestVerificationVisibility();
   initStatusPrevValue();
@@ -1412,6 +1441,7 @@ function loadVehicle() {
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
     autoFillOperators();
+    opNextStepRender();
     return;
   }
 
@@ -1473,19 +1503,20 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('test_mex_waitcheck').value = tv.mexWaitCheck ?? '';
   document.getElementById('test_verify_notes').value  = tv.notes ?? '';
 
+  // Vacío sigue vacío (?? null, no || 0): un 0 real de f1/f2 se muestra, un hueco no.
   const storedSI = {
-    etw: td.etw || 0, tA: td.targetA || 0, dA: td.dynoA || 0,
-    tB: td.targetB || 0, dB: td.dynoB || 0, tC: td.targetC || 0, dC: td.dynoC || 0
+    etw: td.etw ?? null, tA: td.targetA ?? null, dA: td.dynoA ?? null,
+    tB: td.targetB ?? null, dB: td.dynoB ?? null, tC: td.targetC ?? null, dC: td.dynoC ?? null
   };
 
   const show = fromSI(storedSI, currentUnitSystem);
-  document.getElementById('etw').value = show.etw ? round(show.etw, 2) : '';
-  document.getElementById('tA').value  = show.tA  ? round(show.tA, 4) : '';
-  document.getElementById('dA').value  = show.dA  ? round(show.dA, 4) : '';
-  document.getElementById('tB').value  = show.tB  ? round(show.tB, 6) : '';
-  document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
-  document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
-  document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(show.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(show.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(show.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(show.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(show.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(show.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(show.dC, 8);
 
   // Auto-fill empty operator fields with last used
   autoFillOperators();
@@ -1498,6 +1529,23 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // [v23.4] Derivados: Target desde el ICMS (Europa), reposo calculado y sugerencia de cumple
+  var _soakEl = document.getElementById('soak_time');
+  if (_soakEl) _soakEl.removeAttribute('data-auto');
+  if (cascadePrefillTargetsFromHomolog(vehicle) && typeof markUnsaved === 'function') markUnsaved();
+  cascadeDerivedRefresh();
+  // [v23.4] M5: lo que antes iba metido en la etiqueta ("Obligatorio México", "Solo
+  // México máx 150") ahora es ayuda bajo el campo, y solo aparece si el vehículo es de México.
+  var _mx = String((vehicle.config && vehicle.config['REGION']) || '').toUpperCase() === 'MEXICO';
+  _cascadeHint('test_hood', 'hint-mx', _mx ? '🇲🇽 En pruebas de México el capó va abierto.' : '');
+  _cascadeHint('test_fan_flow', 'hint-mx', _mx ? '🇲🇽 En México el flujo máximo es 150 m³/min.' : '');
+
+  opNextStepRender();
+  opSectionsRender(vehicle, true);
+
+  // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 
   // v16.0: re-inyectar tooltips de ayuda (acordeones/campos recién poblados)
   if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -1514,8 +1562,14 @@ function updateTestVerificationVisibility() {
 
 function initStatusPrevValue() {
   const st = document.getElementById('op_status');
-  if (st && !st.dataset.prev) st.dataset.prev = st.value || 'in-progress';
+  // [v23.4] Siempre, no solo la primera vez: si no, un cambio rechazado devolvía el
+  // select al estado del vehículo ANTERIOR.
+  if (st) st.dataset.prev = st.value || 'in-progress';
 }
+
+// [v23.4] El select guarda 'yes'/'no'; cinco sitios comparaban contra 'Si' y nunca
+// empataban (stepper, auto-avance, checklist). 'Si'/'Sí' se aceptan por datos viejos.
+function _precondIsOk(v) { return v === 'yes' || v === 'Si' || v === 'Sí'; }
 
 function handleStatusChange(selectEl) {
   if (!selectEl) return;
@@ -1557,6 +1611,7 @@ function handleStatusChange(selectEl) {
   if (typeof emitEvent === 'function') emitEvent('vehicle:statusChanged', { vehicleId: activeVehicleId, from: prev, to: next });
   // [V7-D2] Update floating next step banner
   if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+  opNextStepRender();
 }
 
 
@@ -1564,6 +1619,11 @@ function handleStatusChange(selectEl) {
 // [M06] CONVERSIÓN DE UNIDADES SI / EN]
 // ======================================================================
 
+
+// [v23.4] Un campo vacío es null y SIGUE siendo null al convertir: `null * k` da 0
+// en JS, y un 0 cuenta como "lleno" para validatePdfCompleteness (el F05 decía Completa
+// con ETW en blanco).
+function _siMul(v, k) { return (v === null || v === undefined || v === '' || !isFinite(v)) ? null : v * k; }
 
 function toSI(values, system) {
   if (system === 'SI') return values;
@@ -1573,13 +1633,13 @@ function toSI(values, system) {
   const kV = UNIT_CONVERSION.mph_to_kmh;
 
   return {
-    etw: values.etw * UNIT_CONVERSION.lb_to_kg,
-    tA: values.tA * kF,
-    dA: values.dA * kF,
-    tB: values.tB * (kF / kV),
-    dB: values.dB * (kF / kV),
-    tC: values.tC * (kF / (kV * kV)),
-    dC: values.dC * (kF / (kV * kV))
+    etw: _siMul(values.etw, UNIT_CONVERSION.lb_to_kg),
+    tA: _siMul(values.tA, kF),
+    dA: _siMul(values.dA, kF),
+    tB: _siMul(values.tB, (kF / kV)),
+    dB: _siMul(values.dB, (kF / kV)),
+    tC: _siMul(values.tC, (kF / (kV * kV))),
+    dC: _siMul(values.dC, (kF / (kV * kV)))
   };
 }
 
@@ -1591,16 +1651,26 @@ function fromSI(values, system) {
   const kV = UNIT_CONVERSION.kmh_to_mph;
 
   return {
-    etw: values.etw * UNIT_CONVERSION.kg_to_lb,
-    tA: values.tA * kF,
-    dA: values.dA * kF,
-    tB: values.tB * (kF / kV),
-    dB: values.dB * (kF / kV),
-    tC: values.tC * (kF / (kV * kV)),
-    dC: values.dC * (kF / (kV * kV))
+    etw: _siMul(values.etw, UNIT_CONVERSION.kg_to_lb),
+    tA: _siMul(values.tA, kF),
+    dA: _siMul(values.dA, kF),
+    tB: _siMul(values.tB, (kF / kV)),
+    dB: _siMul(values.dB, (kF / kV)),
+    tC: _siMul(values.tC, (kF / (kV * kV))),
+    dC: _siMul(values.dC, (kF / (kV * kV)))
   };
 }
 
+
+// [v23.4] Lee un campo del dinamómetro: vacío → null (nunca 0).
+function _dynoParse(id) {
+  var el = document.getElementById(id);
+  var r = String(el ? el.value : '').trim().replace(',', '.');
+  var n = parseFloat(r);
+  return (r === '' || !isFinite(n)) ? null : n;
+}
+// [v23.4] null/undefined → vacío, pero un 0 real (f1 = 0 existe) se MUESTRA como 0.
+function _dynoShow(v, dec) { return (v === null || v === undefined || v === '' || !isFinite(v)) ? '' : round(v, dec); }
 
 function toggleUnits() {
   // A) sistema viejo (antes de cambiar)
@@ -1612,13 +1682,13 @@ function toggleUnits() {
 
   // C) leer lo que está actualmente en pantalla (en el sistema viejo)
   const currentDisplay = {
-    etw: parseFloat(document.getElementById('etw').value) || 0,
-    tA:  parseFloat(document.getElementById('tA').value) || 0,
-    dA:  parseFloat(document.getElementById('dA').value) || 0,
-    tB:  parseFloat(document.getElementById('tB').value) || 0,
-    dB:  parseFloat(document.getElementById('dB').value) || 0,
-    tC:  parseFloat(document.getElementById('tC').value) || 0,
-    dC:  parseFloat(document.getElementById('dC').value) || 0
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   // D) convertir: old -> SI -> new
@@ -1650,13 +1720,14 @@ function toggleUnits() {
   });
 
   // H) (la parte que te faltaba) actualizar NÚMEROS en pantalla
-  document.getElementById('etw').value = asNew.etw ? round(asNew.etw, 2) : '';
-  document.getElementById('tA').value  = asNew.tA  ? round(asNew.tA, 4) : '';
-  document.getElementById('dA').value  = asNew.dA  ? round(asNew.dA, 4) : '';
-  document.getElementById('tB').value  = asNew.tB  ? round(asNew.tB, 6) : '';
-  document.getElementById('dB').value  = asNew.dB  ? round(asNew.dB, 6) : '';
-  document.getElementById('tC').value  = asNew.tC  ? round(asNew.tC, 8) : '';
-  document.getElementById('dC').value  = asNew.dC  ? round(asNew.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(asNew.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(asNew.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(asNew.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(asNew.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(asNew.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(asNew.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(asNew.dC, 8);
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 }
 
 
@@ -1890,15 +1961,50 @@ function validateReadyForReleaseSimple() {
   return missing;
 }
 
-function showMissingPopup(missing) {
-  showToast('Faltan ' + missing.length + ' campos para Liberación. Se marcaron en rojo.', 'error');
+/**
+ * [v23.4] Lleva a un campo aunque esté en una sección plegada: abre sus <details>,
+ * hace scroll y lo enfoca (en un campo con botones, el foco va al botón elegido).
+ */
+function cascadeGoToField(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var d = el.closest('details');
+  while (d) { d.classList.remove('smart-locked'); d.open = true; d = d.parentElement && d.parentElement.closest('details'); }
+  var target = (el._chips && el._chips.offsetParent) ? el._chips : (el._num ? el._num.wrap : el);
+  setTimeout(function() {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function() { try { el.focus(); } catch (e) {} }, 350);
+  }, 60);
+}
 
-  // Scroll y focus al primero
-  const first = document.getElementById(missing[0].id);
-  if (first) {
-    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => { try { first.focus(); } catch(e){} }, 250);
-  }
+function showMissingPopup(missing) {
+  // [v23.4] Antes: un toast y scroll al primero — si estaba en una sección plegada no
+  // pasaba nada visible. Ahora la lista completa, agrupada por sección, y cada renglón
+  // lleva al campo.
+  var bySec = {};
+  missing.forEach(function(m) {
+    var el = document.getElementById(m.id);
+    var d = el && el.closest('details');
+    var sec = d && d.querySelector('summary') ? d.querySelector('summary').childNodes[0].textContent.trim() : 'Otros';
+    (bySec[sec] = bySec[sec] || []).push(m);
+  });
+  var html = '<p class="miss-intro">Para enviarlo a liberación faltan estos campos. Toca uno para ir directo:</p>';
+  Object.keys(bySec).forEach(function(sec) {
+    html += '<div class="miss-sec"><div class="miss-sec-title">' + escapeHtml(sec) + '</div>';
+    bySec[sec].forEach(function(m) {
+      html += '<button type="button" class="miss-link" onclick="cascadeMissingGo(\'' + m.id + '\')">' + escapeHtml(m.label) + ' →</button>';
+    });
+    html += '</div>';
+  });
+  showModal({ title: 'Faltan ' + missing.length + ' campo' + (missing.length === 1 ? '' : 's'), body: html,
+              buttons: [{ label: 'Ir al primero', cls: 'btn-primary', onclick: function() { cascadeMissingGo(missing[0].id); } }] });
+}
+
+/** Cierra el modal de faltantes (quitándolo del DOM, no solo ocultándolo) y va al campo. */
+function cascadeMissingGo(id) {
+  var m = document.getElementById('globalModal');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
+  cascadeGoToField(id);
 }
 
 
@@ -1908,10 +2014,305 @@ function showMissingPopup(missing) {
 
 
 
+/**
+ * [v23.4] LA definición de "valores que suelen capturarse" para un campo, sacada del
+ * historial de la MISMA configuración. PURA (recibe la lista de vehículos).
+ * opts: {mode:'freq'|'last', n, excludeId, skipZero}
+ *   freq → los n valores más repetidos (empate: el más reciente primero)
+ *   last → solo el valor del archivado más reciente
+ * Devuelve [{value:Number, count, at}].
+ */
+function cascadeFrequentValues(vehicles, configCode, path, opts) {
+  opts = opts || {};
+  if (!configCode || !path) return [];
+  var rows = (vehicles || []).filter(function(v) {
+    return v && v.status === 'archived' && v.configCode === configCode && v.id !== opts.excludeId;
+  }).map(function(v) {
+    return { val: _histGetPath(v, path), at: v.archivedAt || v.lastModified || '' };
+  }).filter(function(r) {
+    if (r.val === null || r.val === undefined || r.val === '') return false;
+    var n = parseFloat(r.val);
+    return isFinite(n) && !(opts.skipZero && n === 0);
+  });
+  if (!rows.length) return [];
+  rows.sort(function(a, b) { return String(b.at).localeCompare(String(a.at)); });
+  if (opts.mode === 'last') return [{ value: parseFloat(rows[0].val), count: 1, at: rows[0].at }];
+  var by = {};
+  rows.forEach(function(r) {
+    var k = String(parseFloat(r.val));
+    if (!by[k]) by[k] = { value: parseFloat(r.val), count: 0, at: r.at };
+    by[k].count++;
+  });
+  return Object.keys(by).map(function(k) { return by[k]; })
+    .sort(function(a, b) { return (b.count - a.count) || String(b.at).localeCompare(String(a.at)); })
+    .slice(0, opts.n || 3);
+}
+
+/** Proveedor de sugerencias de uiNumEnhance para Operación (campo con data-num-path). */
+function cascadeNumSuggest(input) {
+  var path = input && input.getAttribute('data-num-path');
+  if (!path || !activeVehicleId) return [];
+  var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+  if (!v || !v.configCode) return [];
+  var big = input.getAttribute('data-num') === 'big';
+  var res = cascadeFrequentValues(db.vehicles, v.configCode, path, { mode: big ? 'last' : 'freq', excludeId: v.id, skipZero: true });
+  var siKey = input.getAttribute('data-num-si');
+  return res.map(function(r) {
+    var val = r.value;
+    // Lo guardado está en SI; si el formulario se captura en EN se convierte igual que al cargar.
+    if (siKey && typeof currentUnitSystem !== 'undefined' && currentUnitSystem !== 'SI') {
+      var o = {}; o[siKey] = val; val = fromSI(o, currentUnitSystem)[siKey];
+    }
+    val = Number(Number(val).toPrecision(6));
+    return big
+      ? { value: val, label: 'Último de esta config: ' + val, title: 'Valor del vehículo archivado más reciente con la misma configuración' }
+      : { value: val, label: String(val), title: r.count + ' vehículo(s) de esta configuración' };
+  });
+}
+if (typeof window !== 'undefined') window.uiNumSuggestProvider = cascadeNumSuggest;
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Siguiente paso (ley de Hick): UN botón que dice qué sigue, en vez de un
+// select de estados + "Guardar". Pasa por handleStatusChange, así que la validación
+// de siempre (validateReadyForRelease) sigue siendo la que decide.
+// ══════════════════════════════════════════════════════════════════════
+var OP_NEXT_STEPS = {
+  'registered':    { to: 'testing',       label: '▶ Iniciar prueba',        hint: 'Guarda y pasa el vehículo a «En prueba»: se abre la verificación en el dinamómetro.' },
+  'in-progress':   { to: 'testing',       label: '▶ Iniciar prueba',        hint: 'Guarda y pasa el vehículo a «En prueba»: se abre la verificación en el dinamómetro.' },
+  'testing':       { to: 'ready-release', label: '📤 Enviar a liberación',  hint: 'Revisa que no falte ningún campo y lo manda a la pestaña Liberación.' },
+  'ready-release': { go: 'liberacion',    label: '➡ Ir a Liberación',       hint: 'Ya está listo: captura los gases y firma en Liberación.' }
+};
+
+function opNextStepRender() {
+  var host = document.getElementById('op-next-step');
+  if (!host) return;
+  var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  if (!vehicle || _opIsReadOnlyStatus(vehicle.status)) { host.innerHTML = ''; return; }
+  var cur = (document.getElementById('op_status') || {}).value || vehicle.status;
+  var step = OP_NEXT_STEPS[cur];
+  if (!step) { host.innerHTML = ''; return; }
+  host.innerHTML = '<button type="button" class="btn-primary op-next-btn" onclick="opAdvance()">' + escapeHtml(step.label) + '</button>' +
+                   '<div class="op-next-hint">' + escapeHtml(step.hint) + '</div>';
+}
+
+function opAdvance() {
+  var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  var sel = document.getElementById('op_status');
+  if (!vehicle || !sel) return;
+  var step = OP_NEXT_STEPS[sel.value || vehicle.status];
+  if (!step) return;
+  if (step.go === 'liberacion') {
+    if (_unsavedChanges) saveProgress({ silent: true });
+    var tab = document.querySelector('.tab[data-tab="liberacion"]');
+    if (tab) tab.click();
+    var rs = document.getElementById('releaseVehSelect');
+    if (rs) { rs.value = vehicle.id; if (typeof loadRelease === 'function') loadRelease(); }
+    return;
+  }
+  var fromStatus = vehicle.status;
+  sel.value = step.to;
+  handleStatusChange(sel);           // valida; si falta algo, regresa el select y muestra qué
+  if (sel.value !== step.to) return; // rechazado: no se guarda nada
+  saveProgress({ silent: true });
+  opNextStepRender();
+  var label = (CONFIG.statusLabels && CONFIG.statusLabels[step.to]) || step.to;
+  // [v23.4] Un toque equivocado en el botón grande se deshace desde el mismo aviso.
+  showToast('Guardado. Ahora está en «' + label + '».', 'success', null, function() {
+    var v = db.vehicles.find(function(x) { return x.id == vehicle.id; });
+    if (!v || v.status !== step.to) return;
+    v.status = fromStatus;
+    (v.timeline = v.timeline || []).push({ timestamp: new Date().toISOString(), user: (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '') || 'Sistema',
+      action: 'Cambio de estado deshecho → ' + ((CONFIG.statusLabels && CONFIG.statusLabels[fromStatus]) || fromStatus), data: { status: fromStatus } });
+    auditLog('cop15', 'status_undo', { type: 'vehicle', id: v.id, label: v.vin }, step.to + ' → ' + fromStatus);
+    saveDB();
+    if (activeVehicleId == v.id) loadVehicle();
+    refreshAllLists();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Secciones de Operación con su estado a la vista (Hick): cada encabezado dice
+// si está completa y un resumen de una línea, y al abrir un vehículo se abre la
+// primera que tenga faltantes. Lo "completo" sale de PDF_REQUIRED_FIELDS, la misma
+// definición del PDF.
+// ══════════════════════════════════════════════════════════════════════
+var OP_SECTION_ACC = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación de Prueba': 'test-verify-card' };
+
+/**
+ * Faltantes por sección. PURA si se le pasa `getVal(f)`; sin él lee lo GUARDADO en el
+ * vehículo. La pantalla le pasa el valor en vivo del campo (f.refId), así el indicador
+ * cambia mientras se escribe y usa la MISMA definición que el PDF.
+ */
+function opSectionMissing(vehicle, getVal) {
+  var td = (vehicle && vehicle.testData) || {};
+  var out = {};
+  PDF_REQUIRED_FIELDS.forEach(function(f) {
+    if (!OP_SECTION_ACC[f.section]) return;
+    if (f.when && !f.when(td, vehicle)) return;
+    if (!out[f.section]) out[f.section] = { total: 0, missing: 0 };
+    out[f.section].total++;
+    var v = getVal ? getVal(f) : _histGetPath(vehicle, f.path);
+    var blank = v === null || v === undefined || String(v).trim() === '' || (f.zeroIsBlank && Number(v) === 0);
+    if (blank && !(f.soft && f.soft(td, vehicle))) out[f.section].missing++;
+  });
+  return out;
+}
+
+function _opSectionSummary(section, vehicle) {
+  var td = vehicle.testData || {}, p = td.preconditioning || {}, tv = td.testVerification || {};
+  var bits = [];
+  if (section === 'Recepción') {
+    if (td.odometer != null && td.odometer !== '') bits.push(td.odometer + ' km');
+    if (p.fuelTypeIn) bits.push(p.fuelTypeIn);
+    if (p.tirePressureInPsi) bits.push(p.tirePressureInPsi + ' psi');
+  } else if (section === 'Preacondicionamiento') {
+    if (p.cycle) bits.push(p.cycle);
+    if (p.soakTimeH) bits.push('reposo ' + p.soakTimeH + ' h');
+    if (p.ok) bits.push(_precondIsOk(p.ok) ? 'cumple' : 'no cumple');
+  } else if (section === 'Dinamómetro') {
+    if (td.etw) bits.push('ETW ' + td.etw + ' kg');
+  } else if (section === 'Verificación de Prueba') {
+    if (tv.tunnel) bits.push(tv.tunnel);
+    if (tv.fanMode) bits.push(tv.fanMode === 'speed_follow' ? 'Speed Follow' : 'ventilador por velocidad');
+  }
+  return bits.join(' · ');
+}
+
+function _opLiveVal(f) {
+  var el = f.refId && document.getElementById(f.refId);
+  return el ? el.value : null;
+}
+
+function opSectionsRender(vehicle, openFirst) {
+  if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) return;
+  var st = opSectionMissing(vehicle, _opLiveVal);
+  var firstIncomplete = null;
+  Object.keys(OP_SECTION_ACC).forEach(function(sec) {
+    var acc = document.getElementById(OP_SECTION_ACC[sec]);
+    var sum = acc && acc.querySelector('summary');
+    if (!sum) return;
+    var old = sum.querySelector('.op-sum');
+    if (old) old.remove();
+    var legacy = sum.querySelector('.smart-badge'); // el contador viejo (otra lista de campos)
+    if (legacy) legacy.remove();
+    var info = st[sec];
+    if (!info) return;
+    var span = document.createElement('span');
+    if (info.missing) {
+      span.className = 'op-sum op-sum-missing';
+      span.textContent = 'faltan ' + info.missing;
+      if (!firstIncomplete && acc.style.display !== 'none') firstIncomplete = acc;
+    } else {
+      span.className = 'op-sum op-sum-ok';
+      var r = _opSectionSummary(sec, vehicle);
+      span.textContent = '✓' + (r ? ' ' + r : ' completa');
+    }
+    sum.appendChild(span);
+  });
+  if (openFirst && firstIncomplete && !firstIncomplete.classList.contains('smart-locked')) {
+    firstIncomplete.setAttribute('open', '');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Elegir vehículo con tarjetas (Hick): en vez de un desplegable de líneas
+// "VIN | propósito | config [estado]", las tarjetas de los vehículos de ESA etapa con
+// lo que importa a la vista. El <select> sigue siendo la fuente de verdad (y sirve para
+// buscar entre todos); tocar una tarjeta lo fija y dispara su onchange de siempre.
+// ══════════════════════════════════════════════════════════════════════
+var VEH_CARDS_MAX = 8;
+
+function _vehAgo(iso) {
+  if (!iso) return '';
+  var t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  var m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'justo ahora';
+  if (m < 60) return 'hace ' + m + ' min';
+  var h = Math.round(m / 60);
+  if (h < 24) return 'hace ' + h + ' h';
+  var d = Math.round(h / 24);
+  return 'hace ' + d + (d === 1 ? ' día' : ' días');
+}
+
+function cascadeVehicleCardsRender(hostId, selectId, list) {
+  var host = document.getElementById(hostId);
+  if (!host) return;
+  if (!list || !list.length) {
+    host.innerHTML = '<div class="veh-cards-empty">No hay vehículos en esta etapa.</div>';
+    return;
+  }
+  var sel = document.getElementById(selectId);
+  var cur = sel ? sel.value : '';
+  var shown = list.slice().sort(function(a, b) {
+    return String(b.lastModified || b.registeredAt || '').localeCompare(String(a.lastModified || a.registeredAt || ''));
+  }).slice(0, VEH_CARDS_MAX);
+  var html = shown.map(function(v) {
+    var st = typeof cascadeVehicleStage === 'function' ? cascadeVehicleStage(v) : null;
+    var vin = String(v.vin || '');
+    var on = String(v.id) === String(cur);
+    return '<button type="button" class="veh-card' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" ' +
+      'onclick="cascadeVehicleCardPick(\'' + selectId + '\',\'' + String(v.id).replace(/'/g, '') + '\')">' +
+      '<span class="veh-card-vin">…' + escapeHtml(vin.slice(-6)) + '</span>' +
+      '<span class="veh-card-full">' + escapeHtml(vin) + '</span>' +
+      '<span class="veh-card-cfg">' + escapeHtml(truncateMiddle(v.configCode || '', 40)) + '</span>' +
+      '<span class="veh-card-meta">' + (st ? 'Etapa ' + st.index + '/' + st.total + ' · ' + escapeHtml(st.label) : '') +
+        (v.lastModified ? ' · ' + _vehAgo(v.lastModified) : '') + '</span>' +
+      '</button>';
+  }).join('');
+  if (list.length > VEH_CARDS_MAX) html += '<div class="veh-cards-more">+' + (list.length - VEH_CARDS_MAX) + ' más: búscalos en la lista de abajo.</div>';
+  host.innerHTML = html;
+}
+
+/** Si la etapa tiene UN solo vehículo y no hay nada abierto, lo abre (un toque menos). */
+function cascadeAutoOpenSingle(selectId, filterFn) {
+  var sel = document.getElementById(selectId);
+  if (!sel || sel.value) return;
+  var list = db.vehicles.filter(filterFn);
+  if (list.length === 1) cascadeVehicleCardPick(selectId, String(list[0].id));
+}
+
+function cascadeVehicleCardPick(selectId, id) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.value = id;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  var host = sel.closest('.tab-panel');
+  if (host) host.querySelectorAll('.veh-card').forEach(function(c) {
+    var on = (c.getAttribute('onclick') || '').indexOf("'" + id + "'") >= 0 && (c.getAttribute('onclick') || '').indexOf(selectId) >= 0;
+    c.classList.toggle('is-on', on); c.setAttribute('aria-pressed', on);
+  });
+}
+
+// Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
+// está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
+// Historial → 📝 Completar.
+function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived'; }
+function _opReadOnlyMessage(vehicle) {
+  return vehicle.status === 'archived'
+    ? 'Este vehículo ya está archivado. Para agregar datos usa Historial → 📝 Completar.'
+    : 'Este vehículo está en aprobación, así que no se puede editar aquí. Si hay que corregir algo, el aprobador lo devuelve al liberador.';
+}
+/** Deshabilita (o rehabilita) todos los controles de captura de Operación. */
+function _opSetReadOnly(on) {
+  ['op-emissions-block', 'op-simple-block'].forEach(function(id) {
+    var root = document.getElementById(id);
+    if (!root) return;
+    root.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+      if (on) { if (!el.disabled) { el.disabled = true; el.setAttribute('data-ro', '1'); } }
+      else if (el.getAttribute('data-ro')) { el.disabled = false; el.removeAttribute('data-ro'); }
+    });
+  });
+  var save = document.getElementById('btn-save');
+  if (save) save.disabled = !!on;
+  var st = document.getElementById('op_status');
+  if (st) st.disabled = !!on;
+}
+
 function saveProgress(opts) {
   var silent = opts && opts.silent;
   if (!activeVehicleId) {
-    if (!silent) showToast('No hay vehículo seleccionado', 'error');
+    if (!silent) showToast('Primero elige un vehículo en la parte de arriba.', 'warning');
     return;
   }
 
@@ -1923,6 +2324,16 @@ function saveProgress(opts) {
   if (!vehicle) {
     if (saveBtn && !silent) setBtnLoading(saveBtn, false);
     if (!silent) showToast('No hay un vehículo válido seleccionado — no se guardó nada.', 'error');
+    return;
+  }
+  // [v23.4] Operación NO escribe sobre un vehículo que ya salió de sus manos. Antes un
+  // vehículo en aprobación se podía abrir aquí, y al guardar (o con el autoguardado de
+  // cualquier toque) regresaba a "En progreso" SIN gases, firma ni checklist.
+  if (_opIsReadOnlyStatus(vehicle.status)) {
+    if (saveBtn && !silent) setBtnLoading(saveBtn, false);
+    if (saveBtn) saveBtn.disabled = true; // setBtnLoading lo rehabilita
+    if (!silent) showToast(_opReadOnlyMessage(vehicle), 'warning');
+    clearUnsaved();
     return;
   }
   vehicle.lastModified = new Date().toISOString();
@@ -1939,7 +2350,8 @@ function saveProgress(opts) {
       lastUpdated: new Date().toISOString()
     };
 
-    const newStatus = document.getElementById('op_status')?.value || 'in-progress';
+    // Un valor vacío (estado que el select no representa) conserva el estado actual.
+    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
     if (newStatus !== vehicle.status) {
       vehicle.status = newStatus;
       vehicle.timeline = vehicle.timeline || [];
@@ -2028,19 +2440,23 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     }
   };
 
+  // Vacío = null (no 0): ver _siMul.
   const rawValues = {
-    etw: parseFloat(document.getElementById('etw')?.value) || 0,
-    tA:  parseFloat(document.getElementById('tA')?.value)  || 0,
-    dA:  parseFloat(document.getElementById('dA')?.value)  || 0,
-    tB:  parseFloat(document.getElementById('tB')?.value)  || 0,
-    dB:  parseFloat(document.getElementById('dB')?.value)  || 0,
-    tC:  parseFloat(document.getElementById('tC')?.value)  || 0,
-    dC:  parseFloat(document.getElementById('dC')?.value)  || 0
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   const siValues = toSI(rawValues, currentUnitSystem);
 
-  vehicle.testData = {
+  // [v23.4] FUSIONAR, no reemplazar: testData también guarda lo que NO vive en este
+  // formulario (gasResults, signatures, releaseChecklist, scannedReportCaptured,
+  // retroSignatures…). Reemplazarlo entero lo borraba en cada guardado.
+  vehicle.testData = Object.assign({}, vehicle.testData || {}, {
     operator: document.getElementById('op_recep')?.value || '',
     testResponsible: document.getElementById('test_responsible')?.value || '',
     testDatetime: document.getElementById('test_datetime')?.value || '',
@@ -2059,10 +2475,11 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     targetC: siValues.tC,
     dynoC: siValues.dC,
     lastUpdated: new Date().toISOString()
-  };
+  });
 
   vehicle.timeline = vehicle.timeline || [];
-  const newStatus = document.getElementById('op_status')?.value || 'in-progress';
+  // Un valor vacío (estado que el select no representa) conserva el estado actual.
+    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
   if (newStatus !== vehicle.status) {
     vehicle.status = newStatus;
     vehicle.timeline.push({
@@ -2090,6 +2507,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   // Update readiness checklist after save
   updateReadinessChecklist();
+  opSectionsRender(vehicle, false);
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') { vclUpdate(); if (_vclOpen) vclRender(); }
@@ -2171,7 +2589,7 @@ function checkAutoAdvance(vehicle) {
     var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
     missingCount = precondFields.length - filled;
 
-    if (filled === precondFields.length && p.ok === 'Si') {
+    if (filled === precondFields.length && _precondIsOk(p.ok)) {
       // Check soak timer
       var soakData = null;
       try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
@@ -2379,7 +2797,7 @@ function libRegPickerToggle() {
 // valores contra un perfil concreto y cambiarlo invalidaría la doble verificación.
 function libApplyComparisonRegulation() {
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!vehicle) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     if (vehicle.status !== 'ready-release') {
         showToast('La regulación de comparación solo puede cambiarse durante la liberación.', 'warning');
         return;
@@ -3066,7 +3484,7 @@ function loadApproval() {
 
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     // La firma del liberador es un PNG en base64: se comprueba el espacio antes de
     // pedirla, no después de que el técnico ya firmó.
     if (!_releasePreflightStorage('enviar este vehículo a aprobación')) return;
@@ -3146,7 +3564,7 @@ function submitToApproval() {
 }
 
 function approveAndArchive() {
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'pending-approval') return;
 
@@ -3331,7 +3749,7 @@ function approveAndArchive() {
 // Devolver regresa el vehículo a 'ready-release' y BORRA los valores y la firma
 // del liberador, para que los vuelva a capturar y a firmar.
 function returnToReleaser() {
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'pending-approval') {
         showToast('Este vehículo ya no está pendiente de aprobación', 'error');
@@ -3810,9 +4228,9 @@ function closeSubstitutionModal() {
                         const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
                         return `
                         <tr>
-                            <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
-                            <td>
+                            <td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
+                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
+                            <td data-label="Configuración">
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">
                                     ${motor ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
@@ -3820,10 +4238,10 @@ function closeSubstitutionModal() {
                                 </div>
                                 <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);margin-top: var(--space-2xs);">${safeConfigCode}</div>
                             </td>
-                            <td>${safePurpose}</td>
-                            <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
-                            <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
-                            <td>${(function(){
+                            <td data-label="Propósito">${safePurpose}</td>
+                            <td data-label="Estado"><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
+                            <td data-label="Fecha">${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td data-label="Emisiones">${(function(){
                                 var gr = v.testData && v.testData.gasResults;
                                 if (!gr || !gr.liberador) return '<span style="color:var(--muted);font-size: var(--fs-xs);">—</span>';
                                 var libVals = gr.liberador.values || {};
@@ -3831,7 +4249,7 @@ function closeSubstitutionModal() {
                                 var appr = gr.aprobador ? '<span style="color:var(--ok-text);font-size: var(--fs-xs);" title="Doble verificación completada">✓✓</span>' : '<span style="color:var(--warn-text);font-size: var(--fs-xs);" title="Solo liberador">✓</span>';
                                 return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
                             })()}</td>
-                            <td>
+                            <td class="hist-td-actions">
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
@@ -3845,12 +4263,7 @@ function closeSubstitutionModal() {
                                     var _hard = _c.missing.length > 0;
                                     return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;' + (_hard ? 'background:#fef3c7;color:#92400e;' : '') + 'margin-left: var(--space-xs);" title="' + (_hard ? 'Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + _n + ' dato(s) opcionales por revisar') + '" aria-label="Completar datos retroactivos (' + _n + ' campos)">📝 Completar (' + _n + ')</button>';
                                 })()}
-                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;margin-left: var(--space-xs);" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
-                                    🕘
-                                </button>
-                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left: var(--space-xs);" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
-                                    🗑
-                                </button>
+                                <button class="btn-secondary hist-more-btn" onclick="histRowMenu(${parseInt(v.id)})" title="Más acciones: historial de cambios, eliminar" aria-label="Más acciones">⋯</button>
                             </td>
                         </tr>
                     `}).join('')}
@@ -4020,10 +4433,13 @@ function refreshAllLists() {
     var approvalSelect = document.getElementById('approvalVehSelect');
 
     if (!activeSelect || !releaseSelect) return;
+    // [v23.4] Reconstruir las opciones borraba la selección: después de guardar, el
+    // selector decía "Seleccionar" con el vehículo todavía abierto debajo.
+    var _prevSel = { a: activeSelect.value, r: releaseSelect.value, p: approvalSelect ? approvalSelect.value : '' };
 
-    activeSelect.innerHTML = '<option value="">-- Seleccionar Vehículo --</option>';
-    releaseSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-    if (approvalSelect) approvalSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
+    activeSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
+    releaseSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
+    if (approvalSelect) approvalSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
 
     var activeVehicles = db.vehicles.filter(function(v) { return v.status !== 'archived'; });
     var readyVehicles  = db.vehicles.filter(function(v) { return v.status === 'ready-release'; });
@@ -4064,6 +4480,15 @@ function refreshAllLists() {
             approvalSelect.appendChild(opt);
         });
     }
+
+    activeSelect.value = _prevSel.a;
+    releaseSelect.value = _prevSel.r;
+    if (approvalSelect) approvalSelect.value = _prevSel.p;
+
+    // [v23.4] Tarjetas: solo los vehículos de ESA etapa (Hick). El select queda para buscar.
+    cascadeVehicleCardsRender('op-veh-cards', 'activeVehSelect', activeVehicles.filter(function(v) { return !_opIsReadOnlyStatus(v.status); }));
+    cascadeVehicleCardsRender('lib-veh-cards', 'releaseVehSelect', readyVehicles);
+    cascadeVehicleCardsRender('appr-veh-cards', 'approvalVehSelect', pendingVehicles);
 
     // Update sub-tab counters
     var readyCount = document.getElementById('lib-ready-count');
@@ -4399,9 +4824,9 @@ var PDF_REQUIRED_FIELDS = [
   { path: 'testData.preconditioning.dtc.confirmedBefore',   label: 'DTC Confirmado (antes)',             section: 'Preacondicionamiento', refId: 'dtc_confirmed_before' },
   { path: 'testData.preconditioning.dtc.permanentBefore',   label: 'DTC Permanente (antes)',             section: 'Preacondicionamiento', refId: 'dtc_permanent_before' },
   // Dinamómetro (almacenado en SI; el modal captura directo en SI)
-  { path: 'testData.etw',     label: 'ETW',        section: 'Dinamómetro', refId: 'etw', num: true, si: true, unitLabel: 'kg' },
-  { path: 'testData.targetA', label: 'Target A',   section: 'Dinamómetro', refId: 'tA',  num: true, si: true, unitLabel: 'N' },
-  { path: 'testData.dynoA',   label: 'Dyno Set A', section: 'Dinamómetro', refId: 'dA',  num: true, si: true, unitLabel: 'N' },
+  { path: 'testData.etw',     label: 'ETW',        section: 'Dinamómetro', refId: 'etw', num: true, si: true, unitLabel: 'kg' , zeroIsBlank: true },
+  { path: 'testData.targetA', label: 'Target A',   section: 'Dinamómetro', refId: 'tA',  num: true, si: true, unitLabel: 'N' , zeroIsBlank: true },
+  { path: 'testData.dynoA',   label: 'Dyno Set A', section: 'Dinamómetro', refId: 'dA',  num: true, si: true, unitLabel: 'N' , zeroIsBlank: true },
   { path: 'testData.targetB', label: 'Target B',   section: 'Dinamómetro', refId: 'tB',  num: true, si: true, unitLabel: 'N/(km/h)' },
   { path: 'testData.dynoB',   label: 'Dyno Set B', section: 'Dinamómetro', refId: 'dB',  num: true, si: true, unitLabel: 'N/(km/h)' },
   { path: 'testData.targetC', label: 'Target C',   section: 'Dinamómetro', refId: 'tC',  num: true, si: true, unitLabel: 'N/(km/h)²' },
@@ -4476,7 +4901,14 @@ function validatePdfCompleteness(vehicle) {
   // Campos estáticos — descriptor único (mismo orden/labels que la versión anterior)
   PDF_REQUIRED_FIELDS.forEach(function(f) {
     if (f.when && !f.when(td, vehicle)) return;
-    req(_histGetPath(vehicle, f.path), f.label, f.section, !!(f.soft && f.soft(td, vehicle)));
+    var val = _histGetPath(vehicle, f.path);
+    // [v23.4] ETW / A en 0 = vacío guardado por el bug del `|| 0` (un ETW de 0 kg no existe).
+    // En pruebas anteriores al arreglo cuenta como pendiente suave para no bloquear de
+    // golpe sus PDF; en las nuevas ya no puede pasar (se guarda null).
+    var zeroGap = f.zeroIsBlank && val !== null && val !== undefined && val !== '' && Number(val) === 0;
+    if (zeroGap) val = null;
+    var isSoft = !!(f.soft && f.soft(td, vehicle)) || (zeroGap && releaseIsBeforeChecklist(vehicle));
+    req(val, f.label, f.section, isSoft);
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
@@ -4554,7 +4986,7 @@ function _histBuildInput(f, idx, value, disabled) {
 
 function histOpenCompleteModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
-  if (!vehicle) { showToast('Vehículo no encontrado', 'error'); return; }
+  if (!vehicle) { showToast('No encontré ese vehículo: puede que otro dispositivo lo haya archivado o borrado. La lista ya se actualizó.', 'warning'); return; }
   var td = vehicle.testData || {};
   _histCompleteState = { vehicleId: vehicleId, unlockReasons: {}, sigCaptured: {} };
 
@@ -4584,7 +5016,7 @@ function histOpenCompleteModal(vehicleId) {
   });
   Object.keys(bySection).forEach(function(sec) {
     var items = bySection[sec];
-    var missingN = items.filter(function(it) { return _histBlank(_histGetPath(vehicle, it.f.path)); }).length;
+    var missingN = items.filter(function(it) { var c = _histGetPath(vehicle, it.f.path); return _histBlank(c) || (it.f.zeroIsBlank && Number(c) === 0); }).length;
     html += '<details class="hist-section" ' + (missingN ? 'open' : '') + '>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">' + escapeHtml(sec) +
             (missingN ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + missingN + ' faltante' + (missingN === 1 ? '' : 's') + '</span>' : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
@@ -4592,6 +5024,7 @@ function histOpenCompleteModal(vehicleId) {
     items.forEach(function(it) {
       var f = it.f, idx = it.idx;
       var cur = _histGetPath(vehicle, f.path);
+      if (f.zeroIsBlank && !_histBlank(cur) && Number(cur) === 0) cur = null; // 0 guardado por error = faltante
       var isMissing = _histBlank(cur);
       var unitTag = f.unitLabel ? ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + f.unitLabel + ')</span>' : '';
       html += '<tr class="' + (isMissing ? 'hist-field-missing' : 'hist-field-locked') + '" id="hist-row-' + idx + '">';
@@ -4806,6 +5239,7 @@ function histSaveCompleteModal() {
     var input = document.getElementById('hist-f-' + idx);
     if (!input) return;
     var cur = _histGetPath(vehicle, f.path);
+    if (f.zeroIsBlank && !_histBlank(cur) && Number(cur) === 0) cur = null;
     var isMissing = _histBlank(cur);
     var raw = String(input.value).trim();
     var newVal = raw === '' ? null : (f.num ? _libNormalizeVal(raw) : raw);
@@ -4934,6 +5368,20 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   showToast(comp.ok ? '✓ Datos completados — el PDF ya se puede generar' : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
 }
 
+// [v23.4] Menú ⋯ de una fila del Historial: agrupa las acciones poco frecuentes y aleja
+// "Eliminar" del botón PDF, que es el que se toca a diario.
+function histRowMenu(vehicleId) {
+  var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+  if (!v) return;
+  var id = parseInt(vehicleId);
+  var close = function() { var m = document.getElementById('globalModal'); if (m) m.style.display = 'none'; };
+  showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
+    buttons: [
+      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } },
+      { label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }
+    ] });
+}
+
 // Historial y control de cambios de un vehículo (visible también para archivados).
 function histShowTimelineModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
@@ -5003,6 +5451,24 @@ function _pdfSafe(s) {
         else out += '?';
     }
     return out;
+}
+
+/**
+ * [v23.4] Lo que se IMPRIME de un código guardado (microcopy): el PDF decía
+ * "PemexPremium", "UDDS" o "(0.125)". Mismo texto que los botones de Operación.
+ * Un valor que no está aquí (p. ej. uno capturado con "Otro…") sale tal cual.
+ */
+var CASCADE_VALUE_LABELS = {
+  fuel: { PemexPremium: 'Premium Mexicana', Regular: 'Regular', RON95: 'RON95', Magna: 'Magna Mexicana',
+          Euro6: 'Euro 6', CARBReg: 'CARB LEV III Regular', CARBPre: 'CARB LEV III High Octane',
+          CARBRVP: 'CARB LEV III High RVP', indolene: 'EPA Tier II', EPACert: 'EPA Tier III' },
+  cycle: { WLTP: 'WLTP', UDDS: 'FTP Fase 1 y 2', NEDC: 'NEDC' },
+  fraction: { '0': 'Vacío', '0.125': '1/8', '0.25': '1/4', '0.5': '1/2', '0.75': '3/4', '1': 'Lleno' }
+};
+function cascadeValueLabel(kind, v) {
+  if (v === null || v === undefined || v === '') return '';
+  var m = CASCADE_VALUE_LABELS[kind] || {};
+  return m[String(v)] || String(v);
 }
 
 function generateCOP15PDF(vehicleId, opts) {
@@ -5213,7 +5679,8 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     cell(lx+plW+pvW,   rowY(2), puW, spanH(2), 'km/mi', { align:'center', sz:5.5, fill: GRAY_BG });
 
     // r4-r5: Combustible
-    const fuelDesc = (pre.fuelTypeIn || '') + (pre.fuelLevelFractionIn ? ` (${pre.fuelLevelFractionIn})` : '');
+    const fuelDesc = cascadeValueLabel('fuel', pre.fuelTypeIn) +
+      ((pre.fuelLevelFractionIn !== null && pre.fuelLevelFractionIn !== undefined && pre.fuelLevelFractionIn !== '') ? ` (${cascadeValueLabel('fraction', pre.fuelLevelFractionIn)})` : '');
     cell(lx,         rowY(4), plW,     spanH(2), 'Nivel y tipo de combustible', { font:'bold', sz:6.2 });
     cell(lx+plW,     rowY(4), pvW+puW, spanH(2), fuelDesc, { align:'center', sz:6 });
 
@@ -5256,10 +5723,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       cell(x + cLW+cVW,rowY(1), cUW, spanH(2), 'psi', { align:'center', sz:5.3, fill: GRAY_BG });
 
       cell(x,     rowY(3), cLW,     spanH(2), 'Nivel y tipo de combustible', { font:'bold', sz:5.8 });
-      cell(x+cLW, rowY(3), cVW+cUW, spanH(2), pre.fuelTypePre || '', { align:'center', sz:6.0, font:'bold' });
+      cell(x+cLW, rowY(3), cVW+cUW, spanH(2), cascadeValueLabel('fuel', pre.fuelTypePre), { align:'center', sz:6.0, font:'bold' });
 
       cell(x,     rowY(5), cLW,     spanH(2), 'Ciclo de Preacondicionamiento', { font:'bold', sz:5.3 });
-      cell(x+cLW, rowY(5), cVW+cUW, spanH(2), pre.cycle || '', { align:'center', sz:7, font:'bold' });
+      cell(x+cLW, rowY(5), cVW+cUW, spanH(2), cascadeValueLabel('cycle', pre.cycle), { align:'center', sz:7, font:'bold' });
 
       cell(x, rowY(7), w, spanH(1), 'Validación Precon para Prueba',
            { fill: GRAY_BG, font:'bold', sz:5.3, align:'center' });
@@ -5655,7 +6122,7 @@ function handleConfigCSVImport(event) {
             const modelSelect = document.getElementById('cfg_model');
             if (modelSelect) {
                 const uniqueModels = [...new Set(allConfigurations.map(c => c.Modelo))].sort();
-                modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+                modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
                 uniqueModels.forEach(m => { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
             }
             document.getElementById('configCount').textContent = allConfigurations.length;
@@ -5814,7 +6281,7 @@ function _doSaveManualConfig(newConfig, editIdx) {
     var modelSelect = document.getElementById('cfg_model');
     if (modelSelect) {
         var uniqueModels = [].concat(Array.from(new Set(allConfigurations.map(function(c){return c.Modelo;}))).sort());
-        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
         uniqueModels.forEach(function(m) { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
     }
 }
@@ -6190,10 +6657,153 @@ function autoSuggestDates() {
 function _renderDateSuggestion(inputEl, suggestedDate, label) {
     var hint = document.createElement('div');
     hint.className = 'date-suggestion';
+    // [v23.4] Se aplica por id (antes por previousElementSibling, que dependía del orden
+    // del DOM) y dispara input/change para que el guardado se entere.
     hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
-        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
-        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+        '<button type="button" class="date-sug-apply" onclick="cascadeSetField(\'' + inputEl.id + '\',\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\');this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
     inputEl.parentElement.appendChild(hint);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Campos que la app ya sabe: se derivan o se sugieren, nunca se imponen.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Escribe un campo del formulario como si lo hubiera tecleado el técnico. */
+function cascadeSetField(id, value) {
+    var el = document.getElementById(id);
+    if (!el || el.disabled) return;
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * LA definición del tiempo de reposo a partir de las dos fechas. PURA.
+ * Devuelve horas con un decimal, o null si falta una fecha o la prueba es antes que
+ * el preacondicionamiento (dato mal capturado: no se inventa un número).
+ */
+function cascadeSoakHours(precondLocal, testLocal) {
+    if (!precondLocal || !testLocal) return null;
+    var a = new Date(precondLocal), b = new Date(testLocal);
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+    var h = (b.getTime() - a.getTime()) / 3600000;
+    if (!(h > 0)) return null;
+    return Math.round(h * 10) / 10;
+}
+
+/** Reposo requerido para un vehículo, con su procedencia (regla del Plan → tpSoakHoursFor). */
+function cascadeSoakRequired(vehicle) {
+    if (!vehicle || typeof tpSoakCfg !== 'function') return null;
+    var cfg = vehicle.config || {};
+    var s = tpSoakCfg();
+    var fk = typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey(vehicle) : null;
+    if (fk && s.byFamily && typeof s.byFamily[fk] === 'number' && s.byFamily[fk] > 0) {
+        return { hours: s.byFamily[fk], label: 'definido para esta familia' };
+    }
+    return typeof tpSoakHoursFor === 'function' ? tpSoakHoursFor({ reg: cfg['EMISSION REGULATION'] || '' }) : null;
+}
+
+/** Sugerencia de "Cumple preacondicionamiento": {value:'yes'|'no', text} o null. PURA. */
+function cascadePrecondVerdict(soakH, required) {
+    if (soakH === null || soakH === undefined || !required || !(required.hours > 0)) return null;
+    var ok = soakH >= required.hours;
+    return { value: ok ? 'yes' : 'no',
+             text: 'Reposo ' + soakH + ' h ' + (ok ? '≥' : '<') + ' ' + required.hours + ' h requeridas (' + required.label + ')' };
+}
+
+function _cascadeHint(anchorId, cls, html) {
+    var el = document.getElementById(anchorId);
+    if (!el) return;
+    // En un campo con uiNumEnhance el padre es la fila flex (− input +): la pista va al
+    // contenedor del control, debajo, no apretada dentro de la fila.
+    var fg = el.closest('.form-group') || el.closest('.ui-num') || el.parentElement;
+    var h = fg.querySelector('.' + cls);
+    if (!html) { if (h) h.remove(); return; }
+    if (!h) { h = document.createElement('div'); h.className = 'cascade-hint ' + cls; fg.appendChild(h); }
+    h.innerHTML = html;
+}
+
+/** Recalcula reposo y sugerencia de cumplimiento con lo que hay en pantalla. */
+function cascadeDerivedRefresh() {
+    var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var soakEl = document.getElementById('soak_time');
+    if (!vehicle || !soakEl || !isEmissionsPurpose(vehicle.purpose)) return;
+    var calc = cascadeSoakHours((document.getElementById('precond_datetime') || {}).value, (document.getElementById('test_datetime') || {}).value);
+    // Solo se escribe si el campo está vacío o lo había llenado este cálculo: lo que el
+    // técnico teclea a mano no se pisa.
+    if (calc !== null && !soakEl.disabled && (soakEl.value === '' || soakEl.getAttribute('data-auto') === '1') && String(soakEl.value) !== String(calc)) {
+        cascadeSetField('soak_time', calc);
+        soakEl.setAttribute('data-auto', '1');
+    }
+    _cascadeHint('soak_time', 'hint-soak', calc !== null && soakEl.getAttribute('data-auto') === '1'
+        ? '⏱ Calculado: fecha de prueba − fecha de preacondicionamiento.'
+        : (calc !== null && String(soakEl.value) !== String(calc) ? '⚠ Las fechas dan ' + calc + ' h. Revisa cuál es la correcta.' : ''));
+
+    var soakH = parseFloat(String(soakEl.value).replace(',', '.'));
+    var verdict = cascadePrecondVerdict(isFinite(soakH) ? soakH : null, cascadeSoakRequired(vehicle));
+    var okEl = document.getElementById('precond_ok');
+    if (!verdict || !okEl) { _cascadeHint('precond_ok', 'hint-precond', ''); return; }
+    var label = verdict.value === 'yes' ? 'Sí cumple' : 'No cumple';
+    var html;
+    if (okEl.value === verdict.value) html = '✓ ' + escapeHtml(verdict.text) + '.';
+    else if (!okEl.value) html = escapeHtml(verdict.text) + '. <button type="button" class="cascade-hint-apply" onclick="cascadeSetField(\'precond_ok\',\'' + verdict.value + '\');cascadeDerivedRefresh();">Usar: ' + label + '</button>';
+    else html = '⚠ ' + escapeHtml(verdict.text) + ': la regla sugiere <b>' + label + '</b>.';
+    _cascadeHint('precond_ok', 'hint-precond', html);
+}
+
+/**
+ * Europa: desde la ficha ICMS del Alta (solo campos vacíos, editables):
+ *   Target A/B/C = f0/f1/f2
+ *   ETW (inercia) = homoWltpInertia: TM + MR (los dos del ICMS)
+ */
+function cascadePrefillTargetsFromHomolog(vehicle) {
+    var h = vehicle && vehicle.homolog;
+    var region = vehicle && vehicle.config ? (vehicle.config['REGION'] || '') : '';
+    if (!h || (typeof homoIsEurope === 'function' && !homoIsEurope(region))) return false;
+    var inr = typeof homoWltpInertia === 'function' ? homoWltpInertia(h) : null;
+    var src = { etw: inr ? inr.inertia : null, tA: h.f0, tB: h.f1, tC: h.f2 };
+    var conv = fromSI(src, currentUnitSystem);
+    var dec = { etw: 2, tA: 4, tB: 6, tC: 8 }, filled = [];
+    ['etw', 'tA', 'tB', 'tC'].forEach(function(k) {
+        var el = document.getElementById(k);
+        if (!el || el.disabled || el.value !== '' || src[k] === null || src[k] === undefined || !isFinite(src[k])) return;
+        cascadeSetField(k, _dynoShow(conv[k], dec[k]));
+        filled.push(k);
+    });
+    var tgt = filled.filter(function(k) { return k !== 'etw'; });
+    _cascadeHint('tA', 'hint-icms', tgt.length
+        ? '📄 Target ' + tgt.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
+        : '');
+    _cascadeHint('etw', 'hint-icms', filled.indexOf('etw') >= 0
+        ? '⚙️ Inercia calculada de la ficha ICMS: TM ' + inr.tm + ' + MR ' + inr.mr + ' = ' + inr.inertia + ' kg. Revísala antes de guardar.'
+        : '');
+    return filled.length > 0;
+}
+
+/** Botón "Ahora" junto a cada fecha/hora de Operación. */
+function cascadeNowButtonsInit() {
+    ['op_datetime', 'precond_datetime', 'test_datetime'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._nowBtn) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ui-chip cascade-now-btn'; b.textContent = 'Ahora';
+        b.setAttribute('aria-label', 'Poner la fecha y hora actual');
+        b.addEventListener('click', function() { cascadeSetField(id, nowLocalDatetimeValue()); cascadeDerivedRefresh(); });
+        var row = document.createElement('div'); row.className = 'cascade-dt-row';
+        el.parentNode.insertBefore(row, el); row.appendChild(el); row.appendChild(b);
+        el._nowBtn = b;
+        try { new MutationObserver(function() { b.disabled = el.disabled; }).observe(el, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    });
+    ['precond_datetime', 'test_datetime', 'soak_time', 'precond_ok'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._derivedHook) return;
+        el._derivedHook = true;
+        el.addEventListener('change', cascadeDerivedRefresh);
+    });
+    var soak = document.getElementById('soak_time');
+    // Teclear a mano el reposo lo "adueña": el cálculo ya no lo vuelve a escribir.
+    if (soak && !soak._manualHook) { soak._manualHook = true; soak.addEventListener('input', function(e) { if (e.isTrusted) soak.removeAttribute('data-auto'); }); }
 }
 
 // ======================================================================
@@ -6376,7 +6986,7 @@ function soakTimerTick() {
         soakUpdateBadge(true, 'LISTO');
         setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
 
-        showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
+        showToast('Soak completado: el vehículo ya está listo para la prueba.', 'success');
 
         // [V7-D3] Show soak complete modal with action
         v7ShowSoakCompleteModal();
@@ -6693,7 +7303,7 @@ function renderPrecondBatchView() {
         var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
         var total = precondFields.length;
         var precondPct = Math.round((filled / total) * 100);
-        var precondOk = isEm ? (p.ok === 'Si') : (filled === total);
+        var precondOk = isEm ? (_precondIsOk(p.ok)) : (filled === total);
 
         // Soak status
         var soakStatus = '—';
@@ -6782,7 +7392,7 @@ function batchAdvanceToTesting(vehicleId) {
 
 function batchScheduleTests() {
     var checked = document.querySelectorAll('.batch-check:checked');
-    if (checked.length === 0) { showToast('Selecciona al menos un vehiculo', 'warning'); return; }
+    if (checked.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
 
     var ids = [];
     checked.forEach(function(cb) { ids.push(cb.value); });
@@ -6799,7 +7409,7 @@ function batchScheduleTests() {
         if (!vehicle) return;
 
         var p = vehicle.testData?.preconditioning || {};
-        var precondOk = p.ok === 'Si';
+        var precondOk = _precondIsOk(p.ok);
         if (!precondOk) return; // Only advance precond-complete vehicles
 
         var hour = 8 + (idx * 2); // 8, 10, 12, 14...
@@ -6823,7 +7433,7 @@ function batchScheduleTests() {
         renderPrecondBatchView();
         showToast(advancedCount + ' vehiculos programados para testing', 'success');
     } else {
-        showToast('Ningun vehiculo seleccionado tiene precond completo', 'warning');
+        showToast('Ninguno de los vehículos seleccionados tiene el preacondicionamiento completo.', 'warning');
     }
 }
 
@@ -6885,7 +7495,7 @@ function smartFormApplyByStatus(status) {
         el.classList.add('smart-locked');
         var hint = document.createElement('div');
         hint.className = 'smart-lock-hint';
-        hint.innerHTML = '🔒 Se desbloquea en: ' + sec.unlockAt;
+        hint.innerHTML = '🔒 Se habilita cuando el vehículo esté «' + ((CONFIG.statusLabels && CONFIG.statusLabels[sec.unlockAt]) || sec.unlockAt) + '».';
         el.appendChild(hint);
     });
 
@@ -6897,36 +7507,11 @@ function smartFormApplyByStatus(status) {
  * Update completion badges on accordion section headers.
  */
 function smartFormUpdateBadges() {
-    if (!_reviewSections) return;
-    _reviewSections.forEach(function(sec) {
-        var total = 0, filled = 0;
-        sec.fields.forEach(function(f) {
-            var el = document.getElementById(f.id);
-            if (!el) return;
-            total++;
-            if (el.value && el.value !== '') filled++;
-        });
-        // Find the section's accordion summary
-        var accIds = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación': 'test-verify-card' };
-        var accId = accIds[sec.title];
-        if (!accId) return;
-        var accEl = document.getElementById(accId);
-        if (!accEl) return;
-        var summary = accEl.querySelector('summary');
-        if (!summary) return;
-
-        var badge = summary.querySelector('.smart-badge');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'smart-badge';
-            summary.appendChild(badge);
-        }
-
-        badge.textContent = filled + '/' + total;
-        badge.classList.toggle('smart-badge-complete', filled === total && total > 0);
-        badge.classList.toggle('smart-badge-partial', filled > 0 && filled < total);
-        badge.classList.toggle('smart-badge-empty', filled === 0);
-    });
+    // [v23.4] Un solo indicador por sección: antes había dos (este "N/M" con su propia
+    // lista de campos y el de opSectionsRender) y no coincidían. Ahora manda la
+    // definición del PDF, leída en vivo.
+    var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (vehicle) opSectionsRender(vehicle, false);
 }
 
 /**
@@ -7297,6 +7882,7 @@ var CASCADE_TOOLTIPS = {
     'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
     test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
+    'op-next-help': { title: 'Siguiente paso', text: 'El botón grande hace lo que sigue para este vehículo: iniciar la prueba, enviarlo a liberación o ir a Liberación. Antes de avanzar revisa que no falte nada y, si falta, te dice qué. «Guardar» guarda sin cambiar de etapa. «Cambiar estado a mano» es solo para corregir (por ejemplo, regresar un vehículo a «En progreso»).' },
     'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco.' },
     man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
     man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
@@ -7493,31 +8079,31 @@ function getNextStep(vehicle) {
     } catch(e) {}
     if (td.soakCompleted) soakDone = true;
 
-    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var precondComplete = _precondIsOk(p.ok) && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
     var tv = td.testVerification || {};
     var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
 
     if (status === 'registered') {
-        return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
+        return { action: 'Iniciar el preacondicionamiento', goto: 'acc-precond', icon: '🔧' };
     }
     if (status === 'in-progress' && precondComplete && !soakStarted && !soakDone) {
-        return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
+        return { action: 'Iniciar el timer de soak', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
-        return { action: 'Soak en curso...', goto: 'soak-section', icon: '⏱️' };
+        return { action: 'Soak en curso…', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && soakDone && !testStarted) {
-        return { action: 'Iniciar Prueba de Emisiones', goto: 'acc-dyno', icon: '🏭' };
+        return { action: 'Iniciar la prueba de emisiones', goto: 'acc-dyno', icon: '🏭' };
     }
     if (status === 'testing' && !testComplete) {
-        return { action: 'Completar Verificacion de Prueba', goto: 'acc-testverify', icon: '🏭' };
+        return { action: 'Completar la verificación en prueba', goto: 'test-verify-card', icon: '🏭' };
     }
     if (status === 'testing' && testComplete) {
-        return { action: 'Verificar y Liberar', goto: 'release-tab', icon: '✅' };
+        return { action: 'Verificar y liberar', goto: 'release-tab', icon: '✅' };
     }
     if (status === 'ready-release') {
-        return { action: 'Liberar Vehiculo', goto: 'release-action', icon: '🚗' };
+        return { action: 'Liberar el vehículo', goto: 'release-action', icon: '🚗' };
     }
     if (status === 'pending-approval') {
         return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
@@ -7548,7 +8134,7 @@ function cascadeVehicleStage(vehicle) {
         if (mine && sd.endTime) { soakStarted = true; if (sd.endTime <= Date.now()) soakDone = true; }
     } catch (e) {}
     var recepcionOk = td.operator && td.odometer && td.datetime;
-    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var precondComplete = _precondIsOk(p.ok) && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
     var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
 
@@ -7784,6 +8370,10 @@ function v7TrackPurposeUsage(purpose) {
 function v7RenderQuickPicks() {
     var container = document.getElementById('v7-quick-picks');
     if (!container) return;
+    // [v23.4] Con el propósito ya en botones agrupados, los "recientes" repetían las
+    // mismas opciones (y con el código crudo, "COP-Emisiones"): una fila menos que leer.
+    var _ps = document.getElementById('vehiclePurpose');
+    if (_ps && _ps._chips) { container.style.display = 'none'; return; }
     try {
         var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
         if (history.length === 0) { container.style.display = 'none'; return; }
@@ -7849,7 +8439,7 @@ function _escapeHtml(str) {
 function v7ApplySmartConfig(configCode) {
     // Find matching configuration and auto-fill cascade
     var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
-    if (!match) { showToast('Configuracion no encontrada en catálogo', 'warning'); return; }
+    if (!match) { showToast('Esa configuración ya no está en el catálogo.', 'warning'); return; }
     // Reset and apply all filters
     currentFilters = {};
     Object.keys(fieldMapping).forEach(function(csvField) {
@@ -7866,7 +8456,7 @@ function v7ApplySmartConfig(configCode) {
     updateSelectOptions(filtered);
     document.getElementById('configCount').textContent = filtered.length;
     displayConfigResult(filtered);
-    showToast('Configuracion aplicada: ' + configCode, 'success');
+    showToast('Configuración aplicada: ' + configCode, 'success');
 }
 
 function v7RenderFavorites() {
@@ -7937,7 +8527,7 @@ function v7CopyArchivedConfig(vin) {
     var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
     if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
     v7ApplySmartConfig(archived.configCode);
-    showToast('Configuracion copiada del vehiculo anterior', 'success');
+    showToast('Configuración copiada del vehículo anterior', 'success');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -7985,7 +8575,7 @@ function v7BatchRelease() {
         showToast('Omitidos ' + blocked.length + ' vehiculo(s) sin foto de resultados: ' + blockedVins, 'warning');
     }
 
-    if (ready.length === 0) { showToast('Ningun vehiculo cumple los requisitos para liberar', 'error'); return; }
+    if (ready.length === 0) { showToast('Ningún vehículo cumple los requisitos para liberar', 'error'); return; }
 
     // Un lote escribe N firmas + N timelines de golpe: el margen escala con el lote.
     if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
@@ -8071,52 +8661,9 @@ function v7BatchRelease() {
 // ║  [V7-E6] ONE-TAP PRECOND FIELDS                                     ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-function v7RenderOneTapPrecond() {
-    if (!activeVehicleId) return;
-    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || !vehicle.configCode) return;
-
-    // Calculate most frequent values from archived vehicles with same configCode
-    var archived = (db.vehicles || []).filter(function(v) {
-        return v.status === 'archived' && v.configCode === vehicle.configCode && v.testData && v.testData.preconditioning;
-    });
-    if (archived.length < 2) return;
-
-    var freqMap = {};
-    var fieldsToCheck = ['tire_pressure_front', 'tire_pressure_rear', 'fuel_type', 'precond_cycle'];
-    fieldsToCheck.forEach(function(fid) {
-        freqMap[fid] = {};
-        archived.forEach(function(v) {
-            var val = v.testData.preconditioning[fid];
-            if (val) {
-                freqMap[fid][val] = (freqMap[fid][val] || 0) + 1;
-            }
-        });
-    });
-
-    fieldsToCheck.forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (!el || el.value) return; // Don't override existing values
-        var freqs = freqMap[fid];
-        var topVal = null;
-        var topCount = 0;
-        Object.keys(freqs).forEach(function(val) {
-            if (freqs[val] > topCount) { topCount = freqs[val]; topVal = val; }
-        });
-        if (!topVal || topCount < 2) return;
-
-        var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'v7-onetap-chip';
-        chip.textContent = topVal + ' ⭐';
-        chip.onclick = function() {
-            el.value = topVal;
-            el.dispatchEvent(new Event('change'));
-            chip.remove();
-        };
-        if (el.parentNode) el.parentNode.insertBefore(chip, el.nextSibling);
-    });
-}
+// [v23.4] v7RenderOneTapPrecond se retiró: buscaba los ids tire_pressure_front/rear y
+// fuel_type, que nunca existieron, así que jamás pintó nada. Lo reemplazan los chips de
+// valores frecuentes de uiNumEnhance (cascadeFrequentValues / cascadeNumSuggest).
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] INITIALIZATION HOOKS                                           ║
@@ -8131,17 +8678,28 @@ function v7RenderOneTapPrecond() {
         if (!tab) return;
         var tabName = tab.dataset.tab;
         setTimeout(function() {
+            // La tira de "siguiente paso" depende de la pestaña (en Operación la reemplaza la tarjeta).
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
             if (tabName === 'alta') {
                 v7RenderQuickPicks();
                 v7RenderSmartConfigs();
                 v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
-                v7RenderOneTapPrecond();
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+                cascadeAutoOpenSingle('activeVehSelect', function(v) { return !_opIsReadOnlyStatus(v.status); });
             }
             if (tabName === 'liberacion') {
                 v7RenderBatchRelease();
+                // [v23.4] H5: abre en la sub-pestaña que tiene trabajo.
+                var nReady = db.vehicles.filter(function(v) { return v.status === 'ready-release'; }).length;
+                var nPend = db.vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
+                var rs = document.getElementById('releaseVehSelect');
+                if (!nReady && nPend && !(rs && rs.value) && typeof libSwitchSubtab === 'function') libSwitchSubtab('aprobador');
+                else if (nReady && !nPend && typeof libSwitchSubtab === 'function') libSwitchSubtab('liberador');
+                var inAppr = (document.getElementById('lib-panel-aprobador') || {}).style;
+                if (inAppr && inAppr.display !== 'none') cascadeAutoOpenSingle('approvalVehSelect', function(v) { return v.status === 'pending-approval'; });
+                else cascadeAutoOpenSingle('releaseVehSelect', function(v) { return v.status === 'ready-release'; });
             }
         }, 100);
     });

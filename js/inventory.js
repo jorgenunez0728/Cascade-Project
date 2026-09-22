@@ -5054,23 +5054,6 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 // [R5-M8] Templates — Inventory Quick Actions
 // ══════════════════════════════════════════════════════════════════════
 
-/** Duplicate a gas cylinder with new auto-incremented control number. */
-/** Batch add multiple gas cylinders of the same type. */
-function _invFindLeastFullZone() {
-    var zones = invState.zones || [];
-    if (zones.length === 0) return '';
-    var counts = {};
-    zones.forEach(function(z) { counts[z.name] = 0; });
-    invState.gases.forEach(function(g) {
-        if (g.zone && counts[g.zone] !== undefined) counts[g.zone]++;
-    });
-    var minZone = zones[0].name;
-    zones.forEach(function(z) {
-        if ((counts[z.name] || 0) < (counts[minZone] || 0)) minZone = z.name;
-    });
-    return minZone;
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
 // ══════════════════════════════════════════════════════════════════════
