@@ -5132,3 +5132,12 @@ body.cop-present .cop-toolbar    { display: none; }
 .ui-num-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .ui-num-chip { min-height: 36px; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); font-weight: 600; }
 @media (pointer: coarse) { .ui-num-chip { min-height: var(--target-min); } }
+
+/* ── Campos derivados y sugerencias (cop15.js: cascadeDerivedRefresh) ── */
+.cascade-hint { font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+.cascade-hint b { color: var(--text); }
+.cascade-hint-apply { min-height: 36px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--kia-red); border-radius: var(--radius-md); background: var(--surface); color: var(--kia-red); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; }
+@media (pointer: coarse) { .cascade-hint-apply { min-height: var(--target-min); } }
+.cascade-dt-row { display: flex; gap: var(--space-xs); align-items: stretch; }
+.cascade-dt-row > input { flex: 1; min-width: 0; }
+.cascade-now-btn { flex-shrink: 0; }

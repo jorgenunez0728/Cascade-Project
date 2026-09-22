@@ -5573,6 +5573,15 @@ body.cop-present .cop-toolbar    { display: none; }
 .ui-num-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .ui-num-chip { min-height: 36px; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); font-weight: 600; }
 @media (pointer: coarse) { .ui-num-chip { min-height: var(--target-min); } }
+
+/* ── Campos derivados y sugerencias (cop15.js: cascadeDerivedRefresh) ── */
+.cascade-hint { font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+.cascade-hint b { color: var(--text); }
+.cascade-hint-apply { min-height: 36px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--kia-red); border-radius: var(--radius-md); background: var(--surface); color: var(--kia-red); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; }
+@media (pointer: coarse) { .cascade-hint-apply { min-height: var(--target-min); } }
+.cascade-dt-row { display: flex; gap: var(--space-xs); align-items: stretch; }
+.cascade-dt-row > input { flex: 1; min-width: 0; }
+.cascade-now-btn { flex-shrink: 0; }
     </style>
 </head>
 
@@ -7925,7 +7934,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609221955';
+var APP_BUILD = '202609222002';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8360,14 +8369,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609221955' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609222002' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609221955' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609222002' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8383,7 +8392,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609221955' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609222002' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11983,16 +11992,6 @@ function tokenColor(name) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return (_tokenCache[name] = v || '#000000');
 }
-function tokenRGB(name) {
-    var h = tokenColor(name).replace('#', '');
-    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-function tokenAlpha(name, a) {
-    var c = tokenRGB(name);
-    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
-}
-
 // Hace alcanzables por teclado los `<div onclick>` que la app genera vía
 // template strings (patrón repetido en los 7 módulos: tarjetas, filas de
 // alerta, resultados de búsqueda). Idempotente — no toca elementos que ya
@@ -12332,6 +12331,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { void 0; }
         try { uiNumEnhance(document); } catch(numErr) { void 0; }
+        try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { void 0; }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -13777,12 +13777,6 @@ function helpBannerHTML(tabId) {
         '</span></div>';
 }
 
-/** Botón ℹ️ para poner junto al título de una pestaña: reabre la ayuda aunque el banner ya se haya descartado. */
-function helpTabButtonHTML(tabId) {
-    if (!HELP_TABS[tabId]) return '';
-    return '<button type="button" class="help-tab-btn" onclick="helpShowTab(\'' + tabId + '\')" aria-label="Ayuda de esta pestaña" title="Ayuda de esta pestaña">ℹ️</button>';
-}
-
 /**
  * v16.0 — Inserta el banner de ayuda como PRIMER elemento del contenedor cacheado de una
  * pestaña (tp-, inv-, pn- no-Alpine), sin tener que tocar cada función de render:
@@ -13962,85 +13956,10 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// [R5-M8] Templates & Quick Presets — Unified Template Engine
-// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Se retiró el motor de plantillas [R5-M8] (templateSave/Apply/Delete/GetAll/
+// RenderManager): nada lo abría — ni un botón ni una llamada — así que era inalcanzable.
+// El detector de código muerto no lo veía porque sus regex con comillas lo cegaban.
 
-var _templates = safeParse('kia_templates', { cop15: [], results: [], inventory: [] });
-
-function templateSave(module, name, data) {
-    if (!_templates[module]) _templates[module] = [];
-    // Check limit
-    if (_templates[module].length >= 20) {
-        // Remove least used
-        _templates[module].sort(function(a, b) { return (a.usageCount || 0) - (b.usageCount || 0); });
-        _templates[module].shift();
-    }
-    _templates[module].push({
-        id: 'tpl_' + Date.now(),
-        name: name,
-        data: data,
-        usageCount: 0,
-        createdAt: new Date().toISOString()
-    });
-    _templatesPersist();
-    showToast('Plantilla "' + name + '" guardada', 'success');
-}
-
-function templateApply(module, templateId) {
-    var tpl = (_templates[module] || []).find(function(t) { return t.id === templateId; });
-    if (!tpl) { showToast('Plantilla no encontrada', 'error'); return null; }
-    tpl.usageCount = (tpl.usageCount || 0) + 1;
-    _templatesPersist();
-    return tpl.data;
-}
-
-function templateDelete(module, templateId) {
-    if (!_templates[module]) return;
-    _templates[module] = _templates[module].filter(function(t) { return t.id !== templateId; });
-    _templatesPersist();
-    showToast('Plantilla eliminada', 'info');
-}
-
-function templateGetAll(module) {
-    return (_templates[module] || []).sort(function(a, b) { return (b.usageCount || 0) - (a.usageCount || 0); });
-}
-
-function _templatesPersist() {
-    localStorage.setItem('kia_templates', JSON.stringify(_templates));
-}
-
-/**
- * Render a template manager modal for a given module.
- */
-function templateRenderManager(module, applyCallback) {
-    var list = templateGetAll(module);
-    var html = '<div style="max-height:50vh;overflow-y:auto;">';
-    if (list.length === 0) {
-        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);font-size:12px;">No hay plantillas guardadas</div>';
-    } else {
-        list.forEach(function(tpl) {
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding: var(--space-sm) var(--space-md);border-bottom:1px solid var(--border);">';
-            html += '<div>';
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + escapeHtml(tpl.name) + '</div>';
-            html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
-            html += '</div>';
-            html += '<div style="display:flex;gap: var(--space-sm);">';
-            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);">Aplicar</button>';
-            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius: var(--radius-md);cursor:pointer;">✕</button>';
-            html += '</div></div>';
-        });
-    }
-    html += '</div>';
-    showModal(html, 'Plantillas — ' + module.toUpperCase());
-}
-
-/**
- * Render quick-access preset buttons for a module.
- * @param {string} module - Module name
- * @param {string} containerId - Element to insert buttons into
- * @param {string} applyCallback - Function name to call with template data
- */
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M1] Immersive Mode — App-like fullscreen experience
 // ══════════════════════════════════════════════════════════════════════
@@ -14457,9 +14376,6 @@ function v7GoToVehicleStep(gotoSection) {
 
 var _gridDrag = { active:false, id:null, from:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false, ns:null };
 var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
-
-/** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
-function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
 /**
  * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha
@@ -16265,6 +16181,12 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // [v23.4] Derivados: Target desde el ICMS (Europa), reposo calculado y sugerencia de cumple
+  var _soakEl = document.getElementById('soak_time');
+  if (_soakEl) _soakEl.removeAttribute('data-auto');
+  if (cascadePrefillTargetsFromHomolog(vehicle) && typeof markUnsaved === 'function') markUnsaved();
+  cascadeDerivedRefresh();
 
   // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
   if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
@@ -21083,10 +21005,143 @@ function autoSuggestDates() {
 function _renderDateSuggestion(inputEl, suggestedDate, label) {
     var hint = document.createElement('div');
     hint.className = 'date-suggestion';
+    // [v23.4] Se aplica por id (antes por previousElementSibling, que dependía del orden
+    // del DOM) y dispara input/change para que el guardado se entere.
     hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
-        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
-        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+        '<button type="button" class="date-sug-apply" onclick="cascadeSetField(\'' + inputEl.id + '\',\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\');this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
     inputEl.parentElement.appendChild(hint);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Campos que la app ya sabe: se derivan o se sugieren, nunca se imponen.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Escribe un campo del formulario como si lo hubiera tecleado el técnico. */
+function cascadeSetField(id, value) {
+    var el = document.getElementById(id);
+    if (!el || el.disabled) return;
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * LA definición del tiempo de reposo a partir de las dos fechas. PURA.
+ * Devuelve horas con un decimal, o null si falta una fecha o la prueba es antes que
+ * el preacondicionamiento (dato mal capturado: no se inventa un número).
+ */
+function cascadeSoakHours(precondLocal, testLocal) {
+    if (!precondLocal || !testLocal) return null;
+    var a = new Date(precondLocal), b = new Date(testLocal);
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+    var h = (b.getTime() - a.getTime()) / 3600000;
+    if (!(h > 0)) return null;
+    return Math.round(h * 10) / 10;
+}
+
+/** Reposo requerido para un vehículo, con su procedencia (regla del Plan → tpSoakHoursFor). */
+function cascadeSoakRequired(vehicle) {
+    if (!vehicle || typeof tpSoakCfg !== 'function') return null;
+    var cfg = vehicle.config || {};
+    var s = tpSoakCfg();
+    var fk = typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey(vehicle) : null;
+    if (fk && s.byFamily && typeof s.byFamily[fk] === 'number' && s.byFamily[fk] > 0) {
+        return { hours: s.byFamily[fk], label: 'definido para esta familia' };
+    }
+    return typeof tpSoakHoursFor === 'function' ? tpSoakHoursFor({ reg: cfg['EMISSION REGULATION'] || '' }) : null;
+}
+
+/** Sugerencia de "Cumple preacondicionamiento": {value:'yes'|'no', text} o null. PURA. */
+function cascadePrecondVerdict(soakH, required) {
+    if (soakH === null || soakH === undefined || !required || !(required.hours > 0)) return null;
+    var ok = soakH >= required.hours;
+    return { value: ok ? 'yes' : 'no',
+             text: 'Reposo ' + soakH + ' h ' + (ok ? '≥' : '<') + ' ' + required.hours + ' h requeridas (' + required.label + ')' };
+}
+
+function _cascadeHint(anchorId, cls, html) {
+    var el = document.getElementById(anchorId);
+    if (!el) return;
+    var fg = el.closest('.form-group') || el.parentElement;
+    var h = fg.querySelector('.' + cls);
+    if (!html) { if (h) h.remove(); return; }
+    if (!h) { h = document.createElement('div'); h.className = 'cascade-hint ' + cls; fg.appendChild(h); }
+    h.innerHTML = html;
+}
+
+/** Recalcula reposo y sugerencia de cumplimiento con lo que hay en pantalla. */
+function cascadeDerivedRefresh() {
+    var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var soakEl = document.getElementById('soak_time');
+    if (!vehicle || !soakEl || !isEmissionsPurpose(vehicle.purpose)) return;
+    var calc = cascadeSoakHours((document.getElementById('precond_datetime') || {}).value, (document.getElementById('test_datetime') || {}).value);
+    // Solo se escribe si el campo está vacío o lo había llenado este cálculo: lo que el
+    // técnico teclea a mano no se pisa.
+    if (calc !== null && !soakEl.disabled && (soakEl.value === '' || soakEl.getAttribute('data-auto') === '1') && String(soakEl.value) !== String(calc)) {
+        cascadeSetField('soak_time', calc);
+        soakEl.setAttribute('data-auto', '1');
+    }
+    _cascadeHint('soak_time', 'hint-soak', calc !== null && soakEl.getAttribute('data-auto') === '1'
+        ? '⏱ Calculado: fecha de prueba − fecha de preacondicionamiento.'
+        : (calc !== null && String(soakEl.value) !== String(calc) ? '⚠ Las fechas dan ' + calc + ' h. Revisa cuál es la correcta.' : ''));
+
+    var soakH = parseFloat(String(soakEl.value).replace(',', '.'));
+    var verdict = cascadePrecondVerdict(isFinite(soakH) ? soakH : null, cascadeSoakRequired(vehicle));
+    var okEl = document.getElementById('precond_ok');
+    if (!verdict || !okEl) { _cascadeHint('precond_ok', 'hint-precond', ''); return; }
+    var label = verdict.value === 'yes' ? 'Sí cumple' : 'No cumple';
+    var html;
+    if (okEl.value === verdict.value) html = '✓ ' + escapeHtml(verdict.text) + '.';
+    else if (!okEl.value) html = escapeHtml(verdict.text) + '. <button type="button" class="cascade-hint-apply" onclick="cascadeSetField(\'precond_ok\',\'' + verdict.value + '\');cascadeDerivedRefresh();">Usar: ' + label + '</button>';
+    else html = '⚠ ' + escapeHtml(verdict.text) + ': la regla sugiere <b>' + label + '</b>.';
+    _cascadeHint('precond_ok', 'hint-precond', html);
+}
+
+/** Europa: Target A/B/C desde f0/f1/f2 de la ficha ICMS (solo si están vacíos). */
+function cascadePrefillTargetsFromHomolog(vehicle) {
+    var h = vehicle && vehicle.homolog;
+    var region = vehicle && vehicle.config ? (vehicle.config['REGION'] || '') : '';
+    if (!h || (typeof homoIsEurope === 'function' && !homoIsEurope(region))) return false;
+    var src = { tA: h.f0, tB: h.f1, tC: h.f2 };
+    var conv = fromSI({ tA: src.tA, tB: src.tB, tC: src.tC }, currentUnitSystem);
+    var dec = { tA: 4, tB: 6, tC: 8 }, filled = [];
+    ['tA', 'tB', 'tC'].forEach(function(k) {
+        var el = document.getElementById(k);
+        if (!el || el.disabled || el.value !== '' || src[k] === null || src[k] === undefined || !isFinite(src[k])) return;
+        cascadeSetField(k, _dynoShow(conv[k], dec[k]));
+        filled.push(k);
+    });
+    _cascadeHint('tA', 'hint-icms', filled.length
+        ? '📄 Target ' + filled.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
+        : '');
+    // El ETW NO se toma de la TM: el laboratorio lo calcula con otra fórmula.
+    return filled.length > 0;
+}
+
+/** Botón "Ahora" junto a cada fecha/hora de Operación. */
+function cascadeNowButtonsInit() {
+    ['op_datetime', 'precond_datetime', 'test_datetime'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._nowBtn) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ui-chip cascade-now-btn'; b.textContent = 'Ahora';
+        b.setAttribute('aria-label', 'Poner la fecha y hora actual');
+        b.addEventListener('click', function() { cascadeSetField(id, nowLocalDatetimeValue()); cascadeDerivedRefresh(); });
+        var row = document.createElement('div'); row.className = 'cascade-dt-row';
+        el.parentNode.insertBefore(row, el); row.appendChild(el); row.appendChild(b);
+        el._nowBtn = b;
+        try { new MutationObserver(function() { b.disabled = el.disabled; }).observe(el, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    });
+    ['precond_datetime', 'test_datetime', 'soak_time', 'precond_ok'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._derivedHook) return;
+        el._derivedHook = true;
+        el.addEventListener('change', cascadeDerivedRefresh);
+    });
+    var soak = document.getElementById('soak_time');
+    // Teclear a mano el reposo lo "adueña": el cálculo ya no lo vuelve a escribir.
+    if (soak && !soak._manualHook) { soak._manualHook = true; soak.addEventListener('input', function(e) { if (e.isTrusted) soak.removeAttribute('data-auto'); }); }
 }
 
 // ======================================================================
@@ -28052,23 +28107,6 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M8] Templates — Inventory Quick Actions
 // ══════════════════════════════════════════════════════════════════════
-
-/** Duplicate a gas cylinder with new auto-incremented control number. */
-/** Batch add multiple gas cylinders of the same type. */
-function _invFindLeastFullZone() {
-    var zones = invState.zones || [];
-    if (zones.length === 0) return '';
-    var counts = {};
-    zones.forEach(function(z) { counts[z.name] = 0; });
-    invState.gases.forEach(function(g) {
-        if (g.zone && counts[g.zone] !== undefined) counts[g.zone]++;
-    });
-    var minZone = zones[0].name;
-    zones.forEach(function(z) {
-        if ((counts[z.name] || 0) < (counts[minZone] || 0)) minZone = z.name;
-    });
-    return minZone;
-}
 
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
@@ -40937,7 +40975,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
-    { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
+    { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
     // [v23.2] Ocho claves que estaban EN USO y sin registrar. La regla del proyecto
@@ -44220,11 +44258,6 @@ function _pnDayNum(iso) {
     var t = new Date(iso + 'T00:00:00').getTime();
     return isNaN(t) ? null : Math.round(t / 86400000);
 }
-function _pnDayISO(n) {
-    var d = new Date(n * 86400000);
-    return d.getUTCFullYear() + '-' + _pnPad2(d.getUTCMonth() + 1) + '-' + _pnPad2(d.getUTCDate());
-}
-
 // Duración en días de un paso. Explícita > derivada de fechas > 1 día.
 function pnStepDuration(s) {
     if (s.durationDays && +s.durationDays > 0) return Math.max(1, Math.round(+s.durationDays));
@@ -49476,7 +49509,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609221955' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609222002' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -51976,12 +52009,6 @@ function copTogglePresent() {
     copPersist();
     copRender();
 }
-function copSpcToggleAllScopes(el) {
-    copState.spc.allScopes = !!(el && el.checked);
-    copPersist();
-    copRender();
-}
-
 function copSetFuel(fuel) {
     copState.fuelType = fuel;
     var newLimits = COP_FUEL_LIMITS[fuel] || COP_PI_LIMITS;
@@ -52087,13 +52114,6 @@ function _copDecClass(decision) {
 function _copDecLabel(decision) {
     return { PASS: '✓ PASS', FAIL: '✗ FAIL', CONTINUE: '⧗ CONTINUAR' }[decision] || decision;
 }
-function _copDecBorderColor(decision) {
-    return { PASS: 'rgba(16,185,129,0.4)', FAIL: 'rgba(239,68,68,0.4)', CONTINUE: 'rgba(245,158,11,0.4)' }[decision] || 'var(--border)';
-}
-function _copDecBgColor(decision) {
-    return { PASS: 'rgba(16,185,129,0.06)', FAIL: 'rgba(239,68,68,0.06)', CONTINUE: 'rgba(245,158,11,0.06)' }[decision] || 'transparent';
-}
-
 /**
  * [v19.0] Un renglón del gauge: la banda A(n)…B(n) con U marcado encima.
  *

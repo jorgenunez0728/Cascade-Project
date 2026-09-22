@@ -57,6 +57,8 @@ const SEED = () => {
 
     // ── A: guardar un vehículo en prueba conserva lo que no vive en el formulario ──
     await open('vT'); await page.waitForTimeout(300);
+    const icms1 = await page.evaluate(() => ({ hint: !!document.querySelector('.hint-icms'), tA: document.getElementById('tA').value }));
+    chk('Europa: al abrir, Target A viene de la ficha ICMS con su aviso', icms1.hint && icms1.tA === '120.5', JSON.stringify(icms1));
     const t = await page.evaluate(() => { saveProgress({ silent: true }); const v = db.vehicles.find(x => x.id === 'vT');
         return { scanned: v.testData.scannedReportCaptured === true, editable: !document.getElementById('btn-save').disabled, etw: v.testData.etw }; });
     chk('guardar conserva scannedReportCaptured (antes se borraba)', t.scanned);
@@ -90,6 +92,36 @@ const SEED = () => {
     chk('SOC: el deslizador escribe en el campo', n.soc === '80', n.soc);
     chk('asignar el valor desde código ilumina su chip', n.tireOn.includes('35'), JSON.stringify(n.tireOn));
     await page.locator('#tank_capacity').locator('xpath=ancestor::div[contains(@class,"form-grid")][1]').screenshot({ path: process.env.SHOTS ? process.env.SHOTS + '/num-recepcion.png' : '/dev/null' }).catch(() => {});
+
+    // ── Bloque 3: derivados ──
+    await open('vT'); await page.waitForTimeout(300);
+    const d = await page.evaluate(() => {
+        const r = {};
+        r.tA = document.getElementById('tA').value; r.tB = document.getElementById('tB').value; r.tC = document.getElementById('tC').value;
+        r.etw = document.getElementById('etw').value;
+        r.icmsHint = !!document.querySelector('.hint-icms');
+        cascadeSetField('precond_datetime', '2026-09-20T08:00'); cascadeSetField('test_datetime', '2026-09-21T04:00');
+        cascadeDerivedRefresh();
+        r.soak = document.getElementById('soak_time').value;
+        const hint = document.querySelector('.hint-precond');
+        r.hint = hint ? hint.textContent : '';
+        const apply = hint && hint.querySelector('.cascade-hint-apply'); if (apply) apply.click();
+        r.ok = document.getElementById('precond_ok').value;
+        return r;
+    });
+    chk('Europa: Target A/B/C = f0/f1/f2 del ICMS (guardados, ya sin aviso)', d.tA === '120.5' && d.tB === '0.35' && d.tC === '0.031' && !d.icmsHint, JSON.stringify(d));
+    chk('el ETW NO se prellena con la TM', d.etw === '', d.etw);
+    chk('reposo calculado de las dos fechas (08:00 → 04:00 del día siguiente = 20 h)', d.soak === '20', d.soak);
+    chk('sugiere "Cumple" con la regla y un toque la aplica', /20 h ≥ 24 h|20 h < 24 h|20 h/.test(d.hint) && (d.ok === 'yes' || d.ok === 'no'), d.hint + ' → ' + d.ok);
+    const nowOk = await page.evaluate(() => { const b = document.getElementById('op_datetime').parentElement.querySelector('.cascade-now-btn');
+        document.getElementById('op_datetime').value = ''; b.click(); return /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(document.getElementById('op_datetime').value); });
+    chk('botón "Ahora" pone la fecha y hora actual', nowOk);
+    // Teclear el reposo a mano lo "adueña": cambiar una fecha ya no lo reescribe.
+    await page.evaluate(() => { const a = document.getElementById('acc-precond'); a.open = true; a.classList.remove('smart-locked'); });
+    await page.fill('#soak_time', '30');
+    const manual = await page.evaluate(() => { cascadeSetField('test_datetime', '2026-09-21T10:00'); cascadeDerivedRefresh();
+        return { v: document.getElementById('soak_time').value, warn: (document.querySelector('.hint-soak') || {}).textContent || '' }; });
+    chk('un reposo tecleado a mano no se pisa, y se avisa si no cuadra con las fechas', manual.v === '30' && /26 h/.test(manual.warn), JSON.stringify(manual));
 
     // @@MORE@@
 

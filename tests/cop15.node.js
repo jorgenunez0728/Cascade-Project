@@ -284,5 +284,20 @@ console.log('\n== cascadeFrequentValues ==');
     ok('sin configuración → nada', f(vs, '', 'x').length === 0);
 }
 
+// ── v23.4: reposo derivado ────────────────────────────────────────────────
+console.log('\n== cascadeSoakHours / cascadePrecondVerdict ==');
+{
+    const h = ctx.cascadeSoakHours;
+    ok('20 h entre 08:00 y 04:00 del día siguiente', h('2026-09-20T08:00', '2026-09-21T04:00') === 20);
+    ok('redondea a un decimal', h('2026-09-20T08:00', '2026-09-20T20:20') === 12.3);
+    ok('falta una fecha → null', h('', '2026-09-21T04:00') === null && h('2026-09-20T08:00', null) === null);
+    ok('prueba ANTES del precond → null (no se inventa un número)', h('2026-09-21T08:00', '2026-09-20T08:00') === null);
+    const v = ctx.cascadePrecondVerdict;
+    ok('20 h ≥ 12 h → Sí cumple', v(20, { hours: 12, label: 'x' }).value === 'yes');
+    ok('10 h < 12 h → No cumple', v(10, { hours: 12, label: 'x' }).value === 'no');
+    ok('justo en el límite cumple', v(12, { hours: 12, label: 'x' }).value === 'yes');
+    ok('sin reposo o sin regla → sin sugerencia', v(null, { hours: 12 }) === null && v(20, null) === null);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

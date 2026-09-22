@@ -1506,6 +1506,12 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
 
+  // [v23.4] Derivados: Target desde el ICMS (Europa), reposo calculado y sugerencia de cumple
+  var _soakEl = document.getElementById('soak_time');
+  if (_soakEl) _soakEl.removeAttribute('data-auto');
+  if (cascadePrefillTargetsFromHomolog(vehicle) && typeof markUnsaved === 'function') markUnsaved();
+  cascadeDerivedRefresh();
+
   // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
   if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 
@@ -6323,10 +6329,143 @@ function autoSuggestDates() {
 function _renderDateSuggestion(inputEl, suggestedDate, label) {
     var hint = document.createElement('div');
     hint.className = 'date-suggestion';
+    // [v23.4] Se aplica por id (antes por previousElementSibling, que dependía del orden
+    // del DOM) y dispara input/change para que el guardado se entere.
     hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
-        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
-        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+        '<button type="button" class="date-sug-apply" onclick="cascadeSetField(\'' + inputEl.id + '\',\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\');this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
     inputEl.parentElement.appendChild(hint);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Campos que la app ya sabe: se derivan o se sugieren, nunca se imponen.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Escribe un campo del formulario como si lo hubiera tecleado el técnico. */
+function cascadeSetField(id, value) {
+    var el = document.getElementById(id);
+    if (!el || el.disabled) return;
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * LA definición del tiempo de reposo a partir de las dos fechas. PURA.
+ * Devuelve horas con un decimal, o null si falta una fecha o la prueba es antes que
+ * el preacondicionamiento (dato mal capturado: no se inventa un número).
+ */
+function cascadeSoakHours(precondLocal, testLocal) {
+    if (!precondLocal || !testLocal) return null;
+    var a = new Date(precondLocal), b = new Date(testLocal);
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+    var h = (b.getTime() - a.getTime()) / 3600000;
+    if (!(h > 0)) return null;
+    return Math.round(h * 10) / 10;
+}
+
+/** Reposo requerido para un vehículo, con su procedencia (regla del Plan → tpSoakHoursFor). */
+function cascadeSoakRequired(vehicle) {
+    if (!vehicle || typeof tpSoakCfg !== 'function') return null;
+    var cfg = vehicle.config || {};
+    var s = tpSoakCfg();
+    var fk = typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey(vehicle) : null;
+    if (fk && s.byFamily && typeof s.byFamily[fk] === 'number' && s.byFamily[fk] > 0) {
+        return { hours: s.byFamily[fk], label: 'definido para esta familia' };
+    }
+    return typeof tpSoakHoursFor === 'function' ? tpSoakHoursFor({ reg: cfg['EMISSION REGULATION'] || '' }) : null;
+}
+
+/** Sugerencia de "Cumple preacondicionamiento": {value:'yes'|'no', text} o null. PURA. */
+function cascadePrecondVerdict(soakH, required) {
+    if (soakH === null || soakH === undefined || !required || !(required.hours > 0)) return null;
+    var ok = soakH >= required.hours;
+    return { value: ok ? 'yes' : 'no',
+             text: 'Reposo ' + soakH + ' h ' + (ok ? '≥' : '<') + ' ' + required.hours + ' h requeridas (' + required.label + ')' };
+}
+
+function _cascadeHint(anchorId, cls, html) {
+    var el = document.getElementById(anchorId);
+    if (!el) return;
+    var fg = el.closest('.form-group') || el.parentElement;
+    var h = fg.querySelector('.' + cls);
+    if (!html) { if (h) h.remove(); return; }
+    if (!h) { h = document.createElement('div'); h.className = 'cascade-hint ' + cls; fg.appendChild(h); }
+    h.innerHTML = html;
+}
+
+/** Recalcula reposo y sugerencia de cumplimiento con lo que hay en pantalla. */
+function cascadeDerivedRefresh() {
+    var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var soakEl = document.getElementById('soak_time');
+    if (!vehicle || !soakEl || !isEmissionsPurpose(vehicle.purpose)) return;
+    var calc = cascadeSoakHours((document.getElementById('precond_datetime') || {}).value, (document.getElementById('test_datetime') || {}).value);
+    // Solo se escribe si el campo está vacío o lo había llenado este cálculo: lo que el
+    // técnico teclea a mano no se pisa.
+    if (calc !== null && !soakEl.disabled && (soakEl.value === '' || soakEl.getAttribute('data-auto') === '1') && String(soakEl.value) !== String(calc)) {
+        cascadeSetField('soak_time', calc);
+        soakEl.setAttribute('data-auto', '1');
+    }
+    _cascadeHint('soak_time', 'hint-soak', calc !== null && soakEl.getAttribute('data-auto') === '1'
+        ? '⏱ Calculado: fecha de prueba − fecha de preacondicionamiento.'
+        : (calc !== null && String(soakEl.value) !== String(calc) ? '⚠ Las fechas dan ' + calc + ' h. Revisa cuál es la correcta.' : ''));
+
+    var soakH = parseFloat(String(soakEl.value).replace(',', '.'));
+    var verdict = cascadePrecondVerdict(isFinite(soakH) ? soakH : null, cascadeSoakRequired(vehicle));
+    var okEl = document.getElementById('precond_ok');
+    if (!verdict || !okEl) { _cascadeHint('precond_ok', 'hint-precond', ''); return; }
+    var label = verdict.value === 'yes' ? 'Sí cumple' : 'No cumple';
+    var html;
+    if (okEl.value === verdict.value) html = '✓ ' + escapeHtml(verdict.text) + '.';
+    else if (!okEl.value) html = escapeHtml(verdict.text) + '. <button type="button" class="cascade-hint-apply" onclick="cascadeSetField(\'precond_ok\',\'' + verdict.value + '\');cascadeDerivedRefresh();">Usar: ' + label + '</button>';
+    else html = '⚠ ' + escapeHtml(verdict.text) + ': la regla sugiere <b>' + label + '</b>.';
+    _cascadeHint('precond_ok', 'hint-precond', html);
+}
+
+/** Europa: Target A/B/C desde f0/f1/f2 de la ficha ICMS (solo si están vacíos). */
+function cascadePrefillTargetsFromHomolog(vehicle) {
+    var h = vehicle && vehicle.homolog;
+    var region = vehicle && vehicle.config ? (vehicle.config['REGION'] || '') : '';
+    if (!h || (typeof homoIsEurope === 'function' && !homoIsEurope(region))) return false;
+    var src = { tA: h.f0, tB: h.f1, tC: h.f2 };
+    var conv = fromSI({ tA: src.tA, tB: src.tB, tC: src.tC }, currentUnitSystem);
+    var dec = { tA: 4, tB: 6, tC: 8 }, filled = [];
+    ['tA', 'tB', 'tC'].forEach(function(k) {
+        var el = document.getElementById(k);
+        if (!el || el.disabled || el.value !== '' || src[k] === null || src[k] === undefined || !isFinite(src[k])) return;
+        cascadeSetField(k, _dynoShow(conv[k], dec[k]));
+        filled.push(k);
+    });
+    _cascadeHint('tA', 'hint-icms', filled.length
+        ? '📄 Target ' + filled.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
+        : '');
+    // El ETW NO se toma de la TM: el laboratorio lo calcula con otra fórmula.
+    return filled.length > 0;
+}
+
+/** Botón "Ahora" junto a cada fecha/hora de Operación. */
+function cascadeNowButtonsInit() {
+    ['op_datetime', 'precond_datetime', 'test_datetime'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._nowBtn) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ui-chip cascade-now-btn'; b.textContent = 'Ahora';
+        b.setAttribute('aria-label', 'Poner la fecha y hora actual');
+        b.addEventListener('click', function() { cascadeSetField(id, nowLocalDatetimeValue()); cascadeDerivedRefresh(); });
+        var row = document.createElement('div'); row.className = 'cascade-dt-row';
+        el.parentNode.insertBefore(row, el); row.appendChild(el); row.appendChild(b);
+        el._nowBtn = b;
+        try { new MutationObserver(function() { b.disabled = el.disabled; }).observe(el, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    });
+    ['precond_datetime', 'test_datetime', 'soak_time', 'precond_ok'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el._derivedHook) return;
+        el._derivedHook = true;
+        el.addEventListener('change', cascadeDerivedRefresh);
+    });
+    var soak = document.getElementById('soak_time');
+    // Teclear a mano el reposo lo "adueña": el cálculo ya no lo vuelve a escribir.
+    if (soak && !soak._manualHook) { soak._manualHook = true; soak.addEventListener('input', function(e) { if (e.isTrusted) soak.removeAttribute('data-auto'); }); }
 }
 
 // ======================================================================
