@@ -1401,6 +1401,12 @@ function loadVehicle() {
 
   document.getElementById('op_status').value =
     (vehicle.status === 'registered') ? 'in-progress' : vehicle.status;
+  _opSetReadOnly(false);
+  if (_opIsReadOnlyStatus(vehicle.status)) {
+    document.getElementById('vehicleInfo').insertAdjacentHTML('beforeend',
+      '<div class="op-readonly-note">🔒 ' + escapeHtml(_opReadOnlyMessage(vehicle)) + '</div>');
+    _opSetReadOnly(true);
+  }
 
   updateTestVerificationVisibility();
   initStatusPrevValue();
@@ -1565,6 +1571,11 @@ function handleStatusChange(selectEl) {
 // ======================================================================
 
 
+// [v23.4] Un campo vacío es null y SIGUE siendo null al convertir: `null * k` da 0
+// en JS, y un 0 cuenta como "lleno" para validatePdfCompleteness (el F05 decía Completa
+// con ETW en blanco).
+function _siMul(v, k) { return (v === null || v === undefined || v === '' || !isFinite(v)) ? null : v * k; }
+
 function toSI(values, system) {
   if (system === 'SI') return values;
 
@@ -1573,13 +1584,13 @@ function toSI(values, system) {
   const kV = UNIT_CONVERSION.mph_to_kmh;
 
   return {
-    etw: values.etw * UNIT_CONVERSION.lb_to_kg,
-    tA: values.tA * kF,
-    dA: values.dA * kF,
-    tB: values.tB * (kF / kV),
-    dB: values.dB * (kF / kV),
-    tC: values.tC * (kF / (kV * kV)),
-    dC: values.dC * (kF / (kV * kV))
+    etw: _siMul(values.etw, UNIT_CONVERSION.lb_to_kg),
+    tA: _siMul(values.tA, kF),
+    dA: _siMul(values.dA, kF),
+    tB: _siMul(values.tB, (kF / kV)),
+    dB: _siMul(values.dB, (kF / kV)),
+    tC: _siMul(values.tC, (kF / (kV * kV))),
+    dC: _siMul(values.dC, (kF / (kV * kV)))
   };
 }
 
@@ -1591,13 +1602,13 @@ function fromSI(values, system) {
   const kV = UNIT_CONVERSION.kmh_to_mph;
 
   return {
-    etw: values.etw * UNIT_CONVERSION.kg_to_lb,
-    tA: values.tA * kF,
-    dA: values.dA * kF,
-    tB: values.tB * (kF / kV),
-    dB: values.dB * (kF / kV),
-    tC: values.tC * (kF / (kV * kV)),
-    dC: values.dC * (kF / (kV * kV))
+    etw: _siMul(values.etw, UNIT_CONVERSION.kg_to_lb),
+    tA: _siMul(values.tA, kF),
+    dA: _siMul(values.dA, kF),
+    tB: _siMul(values.tB, (kF / kV)),
+    dB: _siMul(values.dB, (kF / kV)),
+    tC: _siMul(values.tC, (kF / (kV * kV))),
+    dC: _siMul(values.dC, (kF / (kV * kV)))
   };
 }
 
@@ -1908,6 +1919,31 @@ function showMissingPopup(missing) {
 
 
 
+// Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
+// está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
+// Historial → 📝 Completar.
+function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived'; }
+function _opReadOnlyMessage(vehicle) {
+  return vehicle.status === 'archived'
+    ? 'Este vehículo ya está archivado. Para agregar datos usa Historial → 📝 Completar.'
+    : 'Este vehículo está en aprobación, así que no se puede editar aquí. Si hay que corregir algo, el aprobador lo devuelve al liberador.';
+}
+/** Deshabilita (o rehabilita) todos los controles de captura de Operación. */
+function _opSetReadOnly(on) {
+  ['op-emissions-block', 'op-simple-block'].forEach(function(id) {
+    var root = document.getElementById(id);
+    if (!root) return;
+    root.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+      if (on) { if (!el.disabled) { el.disabled = true; el.setAttribute('data-ro', '1'); } }
+      else if (el.getAttribute('data-ro')) { el.disabled = false; el.removeAttribute('data-ro'); }
+    });
+  });
+  var save = document.getElementById('btn-save');
+  if (save) save.disabled = !!on;
+  var st = document.getElementById('op_status');
+  if (st) st.disabled = !!on;
+}
+
 function saveProgress(opts) {
   var silent = opts && opts.silent;
   if (!activeVehicleId) {
@@ -1925,6 +1961,16 @@ function saveProgress(opts) {
     if (!silent) showToast('No hay un vehículo válido seleccionado — no se guardó nada.', 'error');
     return;
   }
+  // [v23.4] Operación NO escribe sobre un vehículo que ya salió de sus manos. Antes un
+  // vehículo en aprobación se podía abrir aquí, y al guardar (o con el autoguardado de
+  // cualquier toque) regresaba a "En progreso" SIN gases, firma ni checklist.
+  if (_opIsReadOnlyStatus(vehicle.status)) {
+    if (saveBtn && !silent) setBtnLoading(saveBtn, false);
+    if (saveBtn) saveBtn.disabled = true; // setBtnLoading lo rehabilita
+    if (!silent) showToast(_opReadOnlyMessage(vehicle), 'warning');
+    clearUnsaved();
+    return;
+  }
   vehicle.lastModified = new Date().toISOString();
 
   const isEm = isEmissionsPurpose(vehicle.purpose);
@@ -1939,7 +1985,8 @@ function saveProgress(opts) {
       lastUpdated: new Date().toISOString()
     };
 
-    const newStatus = document.getElementById('op_status')?.value || 'in-progress';
+    // Un valor vacío (estado que el select no representa) conserva el estado actual.
+    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
     if (newStatus !== vehicle.status) {
       vehicle.status = newStatus;
       vehicle.timeline = vehicle.timeline || [];
@@ -2028,19 +2075,24 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     }
   };
 
+  // Vacío = null (no 0): ver _siMul.
+  const _dynoNum = id => { const r = String(document.getElementById(id)?.value ?? '').trim().replace(',', '.'); const n = parseFloat(r); return r === '' || !isFinite(n) ? null : n; };
   const rawValues = {
-    etw: parseFloat(document.getElementById('etw')?.value) || 0,
-    tA:  parseFloat(document.getElementById('tA')?.value)  || 0,
-    dA:  parseFloat(document.getElementById('dA')?.value)  || 0,
-    tB:  parseFloat(document.getElementById('tB')?.value)  || 0,
-    dB:  parseFloat(document.getElementById('dB')?.value)  || 0,
-    tC:  parseFloat(document.getElementById('tC')?.value)  || 0,
-    dC:  parseFloat(document.getElementById('dC')?.value)  || 0
+    etw: _dynoNum('etw'),
+    tA:  _dynoNum('tA'),
+    dA:  _dynoNum('dA'),
+    tB:  _dynoNum('tB'),
+    dB:  _dynoNum('dB'),
+    tC:  _dynoNum('tC'),
+    dC:  _dynoNum('dC')
   };
 
   const siValues = toSI(rawValues, currentUnitSystem);
 
-  vehicle.testData = {
+  // [v23.4] FUSIONAR, no reemplazar: testData también guarda lo que NO vive en este
+  // formulario (gasResults, signatures, releaseChecklist, scannedReportCaptured,
+  // retroSignatures…). Reemplazarlo entero lo borraba en cada guardado.
+  vehicle.testData = Object.assign({}, vehicle.testData || {}, {
     operator: document.getElementById('op_recep')?.value || '',
     testResponsible: document.getElementById('test_responsible')?.value || '',
     testDatetime: document.getElementById('test_datetime')?.value || '',
@@ -2059,10 +2111,11 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     targetC: siValues.tC,
     dynoC: siValues.dC,
     lastUpdated: new Date().toISOString()
-  };
+  });
 
   vehicle.timeline = vehicle.timeline || [];
-  const newStatus = document.getElementById('op_status')?.value || 'in-progress';
+  // Un valor vacío (estado que el select no representa) conserva el estado actual.
+    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
   if (newStatus !== vehicle.status) {
     vehicle.status = newStatus;
     vehicle.timeline.push({
@@ -4399,9 +4452,9 @@ var PDF_REQUIRED_FIELDS = [
   { path: 'testData.preconditioning.dtc.confirmedBefore',   label: 'DTC Confirmado (antes)',             section: 'Preacondicionamiento', refId: 'dtc_confirmed_before' },
   { path: 'testData.preconditioning.dtc.permanentBefore',   label: 'DTC Permanente (antes)',             section: 'Preacondicionamiento', refId: 'dtc_permanent_before' },
   // Dinamómetro (almacenado en SI; el modal captura directo en SI)
-  { path: 'testData.etw',     label: 'ETW',        section: 'Dinamómetro', refId: 'etw', num: true, si: true, unitLabel: 'kg' },
-  { path: 'testData.targetA', label: 'Target A',   section: 'Dinamómetro', refId: 'tA',  num: true, si: true, unitLabel: 'N' },
-  { path: 'testData.dynoA',   label: 'Dyno Set A', section: 'Dinamómetro', refId: 'dA',  num: true, si: true, unitLabel: 'N' },
+  { path: 'testData.etw',     label: 'ETW',        section: 'Dinamómetro', refId: 'etw', num: true, si: true, unitLabel: 'kg' , zeroIsBlank: true },
+  { path: 'testData.targetA', label: 'Target A',   section: 'Dinamómetro', refId: 'tA',  num: true, si: true, unitLabel: 'N' , zeroIsBlank: true },
+  { path: 'testData.dynoA',   label: 'Dyno Set A', section: 'Dinamómetro', refId: 'dA',  num: true, si: true, unitLabel: 'N' , zeroIsBlank: true },
   { path: 'testData.targetB', label: 'Target B',   section: 'Dinamómetro', refId: 'tB',  num: true, si: true, unitLabel: 'N/(km/h)' },
   { path: 'testData.dynoB',   label: 'Dyno Set B', section: 'Dinamómetro', refId: 'dB',  num: true, si: true, unitLabel: 'N/(km/h)' },
   { path: 'testData.targetC', label: 'Target C',   section: 'Dinamómetro', refId: 'tC',  num: true, si: true, unitLabel: 'N/(km/h)²' },
@@ -4476,7 +4529,14 @@ function validatePdfCompleteness(vehicle) {
   // Campos estáticos — descriptor único (mismo orden/labels que la versión anterior)
   PDF_REQUIRED_FIELDS.forEach(function(f) {
     if (f.when && !f.when(td, vehicle)) return;
-    req(_histGetPath(vehicle, f.path), f.label, f.section, !!(f.soft && f.soft(td, vehicle)));
+    var val = _histGetPath(vehicle, f.path);
+    // [v23.4] ETW / A en 0 = vacío guardado por el bug del `|| 0` (un ETW de 0 kg no existe).
+    // En pruebas anteriores al arreglo cuenta como pendiente suave para no bloquear de
+    // golpe sus PDF; en las nuevas ya no puede pasar (se guarda null).
+    var zeroGap = f.zeroIsBlank && val !== null && val !== undefined && val !== '' && Number(val) === 0;
+    if (zeroGap) val = null;
+    var isSoft = !!(f.soft && f.soft(td, vehicle)) || (zeroGap && releaseIsBeforeChecklist(vehicle));
+    req(val, f.label, f.section, isSoft);
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
@@ -4584,7 +4644,7 @@ function histOpenCompleteModal(vehicleId) {
   });
   Object.keys(bySection).forEach(function(sec) {
     var items = bySection[sec];
-    var missingN = items.filter(function(it) { return _histBlank(_histGetPath(vehicle, it.f.path)); }).length;
+    var missingN = items.filter(function(it) { var c = _histGetPath(vehicle, it.f.path); return _histBlank(c) || (it.f.zeroIsBlank && Number(c) === 0); }).length;
     html += '<details class="hist-section" ' + (missingN ? 'open' : '') + '>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">' + escapeHtml(sec) +
             (missingN ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + missingN + ' faltante' + (missingN === 1 ? '' : 's') + '</span>' : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
@@ -4592,6 +4652,7 @@ function histOpenCompleteModal(vehicleId) {
     items.forEach(function(it) {
       var f = it.f, idx = it.idx;
       var cur = _histGetPath(vehicle, f.path);
+      if (f.zeroIsBlank && !_histBlank(cur) && Number(cur) === 0) cur = null; // 0 guardado por error = faltante
       var isMissing = _histBlank(cur);
       var unitTag = f.unitLabel ? ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + f.unitLabel + ')</span>' : '';
       html += '<tr class="' + (isMissing ? 'hist-field-missing' : 'hist-field-locked') + '" id="hist-row-' + idx + '">';
@@ -4806,6 +4867,7 @@ function histSaveCompleteModal() {
     var input = document.getElementById('hist-f-' + idx);
     if (!input) return;
     var cur = _histGetPath(vehicle, f.path);
+    if (f.zeroIsBlank && !_histBlank(cur) && Number(cur) === 0) cur = null;
     var isMissing = _histBlank(cur);
     var raw = String(input.value).trim();
     var newVal = raw === '' ? null : (f.num ? _libNormalizeVal(raw) : raw);

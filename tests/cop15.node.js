@@ -52,7 +52,9 @@ const ctx = {
     // Vive en app.js; cop15 la usa dentro de validatePdfCompleteness.
     isEmissionsPurpose: p => /emisiones/i.test(String(p || '')),
     getRegulationProfile: () => null, localDateStr: d => new Date(d || Date.now()).toISOString().slice(0, 10),
-    db: { vehicles: [], lastId: 0 }
+    db: { vehicles: [], lastId: 0 },
+    // Vive en app.js; toSI/fromSI la usan.
+    UNIT_CONVERSION: { lb_to_kg: 0.45359237, kg_to_lb: 2.20462262, lbf_to_N: 4.4482216153, N_to_lbf: 0.2248089431, mph_to_kmh: 1.609344, kmh_to_mph: 0.6213711922 }
 };
 ctx.window = ctx;
 ctx.globalThis = ctx;
@@ -242,6 +244,27 @@ console.log('\n== releaseChecklistRows ==');
 
     const forzado = rows(veh('CANADA', { docs: { obfcm: 'ok' } }));
     ok('una regla automática gana sobre un valor guardado a mano', byKey(forzado, 'obfcm').value === 'na');
+}
+
+// ── v23.4: vacío ≠ 0 en el dinamómetro ────────────────────────────────────
+console.log('\n== dinamómetro: vacío no es 0 ==');
+{
+    const si = ctx.toSI({ etw: null, tA: 100, dA: null, tB: 0, dB: null, tC: null, dC: null }, 'EN');
+    ok('toSI conserva null (antes null*k daba 0)', si.etw === null && si.dA === null);
+    ok('toSI convierte los números', Math.abs(si.tA - 100 * 4.4482216) < 0.01);
+    ok('toSI conserva un 0 real de Target B (f1 = 0 es legítimo)', si.tB === 0);
+
+    const base = () => { const v = { purpose: 'COP-Emisiones', status: 'ready-release', config: {}, testData: {} };
+        ctx.PDF_REQUIRED_FIELDS.forEach(f => ctx._histSetPath(v, f.path, f.num ? 1 : 'x'));
+        v.testData.testVerification.fanMode = 'speed_follow'; return v; };
+    const nuevo = base(); nuevo.testData.etw = 0;
+    ok('ETW = 0 en una prueba nueva es FALTANTE (bloquea)', ctx.validatePdfCompleteness(nuevo).missing.some(m => m.label === 'ETW'));
+    const viejo = base(); viejo.testData.etw = 0; viejo.status = 'archived'; viejo.archivedAt = '2026-09-01T10:00:00';
+    const cv = ctx.validatePdfCompleteness(viejo);
+    ok('ETW = 0 en una prueba vieja es pendiente SUAVE (no bloquea su PDF)',
+        !cv.missing.some(m => m.label === 'ETW') && cv.soft.some(m => m.label === 'ETW'));
+    const b0 = base(); b0.testData.targetB = 0;
+    ok('Target B = 0 NO se toma como vacío', !ctx.validatePdfCompleteness(b0).missing.some(m => m.label === 'Target B'));
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

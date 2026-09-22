@@ -5114,3 +5114,6 @@ body.cop-present .cop-toolbar    { display: none; }
 .ui-chip-other { display: inline-flex; gap: var(--space-xs); align-items: center; flex-wrap: wrap; }
 .ui-chip-input { min-height: var(--target-min); font-size: var(--fs-base); padding: var(--space-xs) var(--space-sm); border: 1px solid var(--kia-red); border-radius: var(--radius-md); min-width: 160px; }
 .chips-native.field-missing + .ui-chips .ui-chip { border-color: var(--warn-fill); background: var(--warn-tint); }
+
+/* [v23.4] Operación en solo lectura (vehículo en aprobación o archivado) */
+.op-readonly-note { margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); background: var(--warn-bg); color: var(--warn-text); font-weight: 600; }
