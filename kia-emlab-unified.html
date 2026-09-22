@@ -8016,15 +8016,25 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609222015';
+var APP_BUILD = '202609222017';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.3';
+var APP_VERSION = '23.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.4', date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
+      notes: [
+          'Corregido: guardar Operación borraba los gases, la firma y el checklist, y un vehículo en aprobación regresaba a «En progreso». Ahora en aprobación Operación es solo lectura.',
+          'Corregido: ETW/Target vacíos se guardaban como 0 y el F05 podía decir «Completa» con esas casillas en blanco.',
+          'Números de un toque: − / + con los valores más usados en esa configuración, deslizador para el SOC y «Último de esta config» para ETW/Target.',
+          'La app llena lo que ya sabe: reposo calculado de las fechas, sugerencia de «Cumple», Target A/B/C desde la ficha ICMS (Europa) y botón «Ahora» en las fechas.',
+          'Un botón grande dice qué sigue (Iniciar prueba → Enviar a liberación); cada sección dice «faltan N» o «✓» y «faltan campos» te lleva a cada uno.',
+          'Vehículos en tarjetas por etapa, propósito del Alta en botones agrupados, Historial en tarjetas en el teléfono.',
+          'El PDF imprime nombres: «Premium Mexicana», «RON95 (1/8)», no códigos.'
+      ] },
     { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
       notes: [
           'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',
@@ -8451,14 +8461,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609222015' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609222017' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609222015' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609222017' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8474,7 +8484,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609222015' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609222017' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -49937,7 +49947,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609222015' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609222017' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

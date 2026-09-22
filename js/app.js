@@ -285,11 +285,21 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.3';
+var APP_VERSION = '23.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.4', date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
+      notes: [
+          'Corregido: guardar Operación borraba los gases, la firma y el checklist, y un vehículo en aprobación regresaba a «En progreso». Ahora en aprobación Operación es solo lectura.',
+          'Corregido: ETW/Target vacíos se guardaban como 0 y el F05 podía decir «Completa» con esas casillas en blanco.',
+          'Números de un toque: − / + con los valores más usados en esa configuración, deslizador para el SOC y «Último de esta config» para ETW/Target.',
+          'La app llena lo que ya sabe: reposo calculado de las fechas, sugerencia de «Cumple», Target A/B/C desde la ficha ICMS (Europa) y botón «Ahora» en las fechas.',
+          'Un botón grande dice qué sigue (Iniciar prueba → Enviar a liberación); cada sección dice «faltan N» o «✓» y «faltan campos» te lleva a cada uno.',
+          'Vehículos en tarjetas por etapa, propósito del Alta en botones agrupados, Historial en tarjetas en el teléfono.',
+          'El PDF imprime nombres: «Premium Mexicana», «RON95 (1/8)», no códigos.'
+      ] },
     { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
       notes: [
           'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',

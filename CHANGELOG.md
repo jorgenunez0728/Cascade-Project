@@ -2,6 +2,98 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.4 — Cascade más simple: bugs de datos, números de un toque, menos captura y ronda UX (2026-09-22)
+
+Ronda pedida por el laboratorio tras v23.3 ("los botones me gustaron mucho; ¿algo igual
+para los números? y revisa qué más se puede simplificar"). La revisión encontró primero
+**dos bugs de pérdida o falsificación de datos** en el mismo flujo, así que se arreglaron
+antes que cualquier comodidad. Commits por bloque en la rama.
+
+### 1. Operación borraba gases y firmas (crítico)
+
+- `saveProgress` hacía `vehicle.testData = {…}` con **solo** los campos del formulario:
+  cada guardado tiraba `gasResults`, `signatures`, `releaseChecklist`,
+  `scannedReportCaptured` y `retroSignatures`. Ahora **fusiona**.
+- Un vehículo en `pending-approval` aparecía en el selector de Operación; `op_status` no
+  tiene esa opción, su valor quedaba vacío y `|| 'in-progress'` lo **regresaba a En
+  progreso**. Reproducido en navegador antes de arreglar. Ahora Operación es **solo
+  lectura** en aprobación/archivado (`_opIsReadOnlyStatus`, aviso con qué hacer) y un
+  estado que el select no representa se conserva.
+
+### 2. Vacío ≠ 0 en el dinamómetro
+
+`parseFloat(x) || 0` al guardar, `td.etw || 0` al cargar, `|| 0` en `toggleUnits` y
+`null * k = 0` en `toSI`: un ETW vacío se guardaba 0 y `validatePdfCompleteness` lo daba
+por lleno. Ahora `null` en todo el camino (`_dynoParse`, `_siMul`, `_dynoShow`), y un 0
+**real** de Target B/C (f1 = 0 existe) se muestra en vez de desaparecer. ETW/A en 0 ya
+guardados (`zeroIsBlank`) cuentan como faltantes; suave en pruebas anteriores.
+
+### 3. `uiNumEnhance` — números de un toque
+
+`data-num="step"` (− / + y chips de los valores más usados en **esa configuración**),
+`"pct"` (deslizador 0–100 para SOC) y `"big"` (teclado + chip "Último de esta config" para
+ETW/Target/Dyno). El `<input>` sigue siendo la fuente de verdad. Sin dial giratorio a
+propósito: impreciso en tablet e inútil para números grandes. `cascadeFrequentValues`
+(pura) sale del historial; se retiró `v7RenderOneTapPrecond`, que buscaba ids que nunca
+existieron.
+
+### 4. Lo que la app ya sabe
+
+- Reposo = fecha de prueba − fecha de precond (`cascadeSoakHours`, pura); lo tecleado a
+  mano no se pisa y, si no cuadra, se avisa.
+- "Cumple" se **sugiere** con la regla del Plan (`cascadePrecondVerdict`, pura); se confirma
+  con un toque.
+- Europa: Target A/B/C = f0/f1/f2 de la ficha ICMS (confirmado por el laboratorio). **El
+  ETW NO se toma de la TM**: se calcula con otra fórmula que no está en la app.
+- Botón "Ahora" en las tres fechas.
+
+### 5. Ley de Hick
+
+Botón "Siguiente paso" en lugar de select + Guardar; cada sección dice "faltan N" o "✓
+resumen" en vivo con la definición del PDF (reemplaza al contador viejo, que no
+coincidía); tarjetas de vehículo por etapa; Liberación abre donde hay trabajo; propósito en
+4 grupos de botones. En Operación se oculta la tira flotante de "siguiente paso" (daba otra
+indicación).
+
+### 6. Interacción, microcopy y responsive
+
+"Faltan campos" lleva a cada campo; estado de guardado visible; 🗑 del Historial en un menú
+⋯; "Deshacer" tras avanzar de etapa. El PDF imprime nombres, no códigos. Textos con verbo,
+acentos y qué hacer. La jerga técnica del laboratorio **se queda**. Historial en tarjetas y
+modal Completar apilado en teléfono.
+
+### Bugs de paso
+
+- Cinco comparaciones `p.ok === 'Si'` contra un valor guardado `'yes'`: stepper,
+  auto-avance y checklist nunca veían el precond completo (`_precondIsOk`).
+- Un cambio de estado rechazado regresaba al estado del vehículo **anterior**.
+- `refreshAllLists` borraba la selección de los selectores.
+- `setupAccordionSingleOpen` apilaba un listener por cada vehículo abierto.
+- La tira de "siguiente paso" mandaba a `acc-testverify`/`soak-section`, que no existen.
+- "Aplicar" de las fechas sugeridas dependía de `previousElementSibling`.
+- Filas flex con `<input>` desbordaban la pantalla a 390 px.
+
+### La guardia de código muerto veía 713 de 1,150 funciones
+
+`stripCode` tomaba un regex con comillas (`/"/g`) como inicio de cadena y perdía la cuenta
+de llaves: desde v23.2 no revisaba ~38% de las funciones. Ahora salta regex y conserva los
+números de línea. Destapó 10 funciones sin llamadores, retiradas tras verificarlas una por
+una, entre ellas el motor de plantillas [R5-M8] entero (no tenía punto de entrada).
+
+### Pendiente declarado
+
+- "Recientes" del Alta (sugerencias + favoritos en una sola fila) no se tocó.
+- `copState.spc.allScopes` sigue guardándose sin que nada lo lea (su toggle se retiró por
+  no tener UI).
+- La fórmula del ETW: cuando el laboratorio la comparta, se agrega como derivado con prueba.
+
+### Pruebas
+
+`tests/cop15.node.js` 61 → **86**; **`tests/v234.e2e.js`** nuevo (bugs A/B reproducidos,
+números, derivados, Hick, interacción y 390 px sin desbordes).
+
+---
+
 ## v23.3 — El PDF COP15-F05 cabe en una hoja y se llena completo (2026-09-22)
 
 Ronda salida de una foto del F05 impreso. Tres defectos a la vista y uno que no se veía.
