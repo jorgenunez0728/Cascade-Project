@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "bash build.sh",
-    "test": "node tests/plan.node.js && node tests/credit.node.js && node tests/sync.node.js && node tests/cop15.node.js && node tests/homolog.node.js && node tests/deadcode.node.js",
+    "test": "node tests/plan.node.js && node tests/credit.node.js && node tests/sync.node.js && node tests/livesync.node.js && node tests/cop15.node.js && node tests/homolog.node.js && node tests/deadcode.node.js",
     "test:e2e": "node tests/semana.e2e.js && node tests/v231.e2e.js"
   },
   "repository": {

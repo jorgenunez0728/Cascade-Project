@@ -40,6 +40,111 @@ function clearUnsaved() {
     opSaveStateRender();
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23.5] DOS EQUIPOS SOBRE EL MISMO VEHÍCULO (issue #131)
+//
+// Operación guardaba TODOS los campos del formulario, tocados o no. Si otro equipo
+// cambiaba la hora de recepción mientras este tenía el vehículo abierto, el primer
+// guardado de aquí (o el autoguardado al salir de cualquier campo) la regresaba al
+// valor viejo que el formulario seguía mostrando — y como era la edición más
+// reciente, ganaba también en la nube. Ahora se fusiona a tres bandas contra lo que
+// había guardado cuando se llenó el formulario (`_opLoadedBase`).
+// ══════════════════════════════════════════════════════════════════════
+var _opLoadedBase = null;
+
+function _opSetLoadedBase(vehicle) {
+    _opLoadedBase = vehicle ? {
+        id: vehicle.id,
+        status: vehicle.status,
+        td: JSON.parse(JSON.stringify(vehicle.testData || {}))
+    } : null;
+}
+
+function _cascadeEmpty(v) { return v === undefined || v === null || v === ''; }
+function _cascadeSame(a, b) {
+    if (_cascadeEmpty(a) && _cascadeEmpty(b)) return true;
+    return stableStringify(a) === stableStringify(b);
+}
+function _cascadePlain(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+
+/**
+ * LA fusión a tres bandas del formulario. PURA.
+ *   base   = lo guardado cuando se llenó el formulario
+ *   mine   = lo que el formulario va a guardar
+ *   theirs = lo guardado AHORA (puede traer cambios de otro equipo)
+ * Una hoja que el técnico no cambió (mine == base) toma el valor de `theirs`; una que
+ * sí cambió conserva la suya. Vacío/null/'' cuentan como lo mismo. Las rutas que se
+ * quedaron con el valor de otro equipo se agregan a `kept`.
+ */
+function cascadeThreeWay(base, mine, theirs, path, kept) {
+    kept = kept || [];
+    if (_cascadePlain(mine) && _cascadePlain(theirs)) {
+        var out = {};
+        var keys = {};
+        Object.keys(mine).forEach(function(k) { keys[k] = true; });
+        Object.keys(theirs).forEach(function(k) { keys[k] = true; });
+        Object.keys(keys).forEach(function(k) {
+            var p = path ? path + '.' + k : k;
+            if (!(k in mine)) out[k] = theirs[k];
+            else if (!(k in theirs)) out[k] = mine[k];
+            else out[k] = cascadeThreeWay(_cascadePlain(base) ? base[k] : undefined, mine[k], theirs[k], p, kept);
+        });
+        return out;
+    }
+    if (_cascadeSame(mine, base)) {
+        if (!_cascadeSame(theirs, base)) kept.push(path);
+        return theirs;
+    }
+    return mine;
+}
+
+/** Aplica cascadeThreeWay al vehículo que se está guardando. Devuelve las rutas conservadas. */
+function _opThreeWayApply(vehicle, theirsTd) {
+    if (!_opLoadedBase || String(_opLoadedBase.id) !== String(vehicle.id)) return [];
+    var kept = [];
+    var merged = cascadeThreeWay(_opLoadedBase.td, vehicle.testData, theirsTd, '', kept);
+    // Marcas de guardado: siempre las de este guardado.
+    merged.lastUpdated = vehicle.testData.lastUpdated;
+    kept = kept.filter(function(p) { return p !== 'lastUpdated'; });
+    vehicle.testData = merged;
+    return kept;
+}
+
+/**
+ * Estado que resulta del formulario. Vacío (estado que el select no representa)
+ * conserva el actual; y si el técnico NO movió el selector pero otro equipo cambió
+ * el estado mientras tanto, se conserva el de ese equipo.
+ */
+function _opStatusFromForm(vehicle) {
+    var formVal = document.getElementById('op_status')?.value || '';
+    if (!formVal) return vehicle.status || 'in-progress';
+    if (_opLoadedBase && String(_opLoadedBase.id) === String(vehicle.id)) {
+        var shown = (_opLoadedBase.status === 'registered') ? 'in-progress' : _opLoadedBase.status;
+        if (formVal === shown && vehicle.status !== _opLoadedBase.status) return vehicle.status;
+    }
+    return formVal;
+}
+
+/**
+ * La llama el sync cuando llegan vehículos de otro equipo. Si el vehículo abierto en
+ * Operación cambió y aquí no hay nada sin guardar, se repinta el formulario; si hay
+ * cambios sin guardar, no se toca nada (la fusión a tres bandas protege al guardar).
+ */
+function cascadeOnRemoteVehicleChange() {
+    if (!activeVehicleId || !_opLoadedBase || String(_opLoadedBase.id) !== String(activeVehicleId)) return;
+    var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+    if (!v) return;
+    var sameTd = stableStringify(v.testData || {}) === stableStringify(_opLoadedBase.td || {});
+    if (sameTd && v.status === _opLoadedBase.status) return;
+    if (_unsavedChanges) {
+        showToast('Otro dispositivo actualizó este vehículo. Al guardar se conservan sus datos en los campos que no tocaste.', 'info', 6000);
+        return;
+    }
+    var sel = document.getElementById('activeVehSelect');
+    if (sel && String(sel.value) !== String(activeVehicleId)) sel.value = activeVehicleId;
+    loadVehicle();
+}
+
 /** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
 function _autoSaveSilent() {
     if (!activeVehicleId || !_unsavedChanges) return;
@@ -1403,6 +1508,10 @@ function loadVehicle() {
     return;
   }
 
+  // [v23.5] Lo que había guardado cuando se llenó el formulario: es la BASE de la
+  // fusión a tres bandas de saveProgress (ver cascadeThreeWay).
+  _opSetLoadedBase(vehicle);
+
   // [V7-C1] Save active vehicle context
   if (typeof saveActiveVehicleContext === 'function') saveActiveVehicleContext(activeVehicleId);
 
@@ -1461,6 +1570,12 @@ if (!document.getElementById('precond_datetime').value) {
   document.getElementById('test_responsible').value = td.testResponsible ?? '';
   document.getElementById('test_datetime').value    = td.testDatetime ?? '';
 
+  // [v23.5] Recepción: operador, fecha/hora y notas se GUARDABAN pero nunca se cargaban
+  // (issue #131). Al reabrir el vehículo —en este equipo o en otro— salían vacíos, y el
+  // siguiente guardado (o el autoguardado al salir de cualquier campo) escribía '' encima.
+  document.getElementById('op_recep').value         = td.operator ?? '';
+  document.getElementById('op_datetime').value      = td.datetime ?? '';
+  document.getElementById('op_notes').value         = td.notes ?? '';
   document.getElementById('op_odo').value           = td.odometer ?? '';
   document.getElementById('tire_pressure').value    = p.tirePressurePsi ?? '';
 
@@ -2350,8 +2465,8 @@ function saveProgress(opts) {
       lastUpdated: new Date().toISOString()
     };
 
-    // Un valor vacío (estado que el select no representa) conserva el estado actual.
-    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
+      // Un valor vacío (estado que el select no representa) conserva el estado actual.
+    const newStatus = _opStatusFromForm(vehicle);
     if (newStatus !== vehicle.status) {
       vehicle.status = newStatus;
       vehicle.timeline = vehicle.timeline || [];
@@ -2372,6 +2487,7 @@ function saveProgress(opts) {
     });
 
     saveDB();
+    _opSetLoadedBase(vehicle);
     if (!silent) auditLog('cop15', 'operation_saved', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Simple — status: ' + (CONFIG.statusLabels[vehicle.status] || vehicle.status));
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
@@ -2456,6 +2572,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   // [v23.4] FUSIONAR, no reemplazar: testData también guarda lo que NO vive en este
   // formulario (gasResults, signatures, releaseChecklist, scannedReportCaptured,
   // retroSignatures…). Reemplazarlo entero lo borraba en cada guardado.
+  const _tdTheirs = vehicle.testData || {};
   vehicle.testData = Object.assign({}, vehicle.testData || {}, {
     operator: document.getElementById('op_recep')?.value || '',
     testResponsible: document.getElementById('test_responsible')?.value || '',
@@ -2476,10 +2593,12 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     dynoC: siValues.dC,
     lastUpdated: new Date().toISOString()
   });
+  // [v23.5] Lo que el técnico NO tocó no pisa lo que otro equipo cambió mientras tanto.
+  const _kept = _opThreeWayApply(vehicle, _tdTheirs);
 
   vehicle.timeline = vehicle.timeline || [];
   // Un valor vacío (estado que el select no representa) conserva el estado actual.
-    const newStatus = document.getElementById('op_status')?.value || vehicle.status || 'in-progress';
+    const newStatus = _opStatusFromForm(vehicle);
   if (newStatus !== vehicle.status) {
     vehicle.status = newStatus;
     vehicle.timeline.push({
@@ -2498,8 +2617,15 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
+  _opSetLoadedBase(vehicle);
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   clearUnsaved();
+  if (_kept.length) {
+    // Se conservó algo que llegó de otro equipo: repintar para que el formulario lo muestre.
+    showToast('Se conservaron ' + _kept.length + ' dato(s) que otro dispositivo guardó en campos que no tocaste.', 'info', 5000);
+    loadVehicle();
+    return;
+  }
   if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
   if (!silent) showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
@@ -6662,7 +6788,13 @@ function _renderDateSuggestion(inputEl, suggestedDate, label) {
     hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
         '<button type="button" class="date-sug-apply" onclick="cascadeSetField(\'' + inputEl.id + '\',\'' +
         _toLocalDatetimeStr(suggestedDate) + '\');this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
-    inputEl.parentElement.appendChild(hint);
+    // [v23.5] Debajo del campo, nunca DENTRO de su fila: desde v23.4 el padre directo es
+    // `.cascade-dt-row` (campo + "Ahora"), y agregarle la sugerencia la metía como tercer
+    // hijo flex y aplastaba el campo a una tira que no abre el calendario.
+    var host = inputEl.closest('.form-group') || inputEl.parentElement;
+    var prev = host.querySelector(':scope > .date-suggestion');
+    if (prev) prev.remove();
+    host.appendChild(hint);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -7522,40 +7654,11 @@ function smartFormSuggestDefaults(vehicle) {
     var isEm = isEmissionsPurpose(vehicle.purpose);
     if (!isEm) return;
 
-    // Precond datetime quick buttons
-    var precondEl = document.getElementById('precond_datetime');
-    if (precondEl && !precondEl.value) {
-        var container = precondEl.parentElement;
-        if (container && !container.querySelector('.smart-quick-btns')) {
-            var wrapper = document.createElement('div');
-            wrapper.className = 'smart-quick-btns';
-
-            var btnYesterday = document.createElement('button');
-            btnYesterday.type = 'button';
-            btnYesterday.className = 'smart-quick-btn';
-            btnYesterday.textContent = 'Ayer 6AM';
-            btnYesterday.onclick = function() {
-                var d = new Date(); d.setDate(d.getDate() - 1); d.setHours(6, 0, 0, 0);
-                precondEl.value = d.toISOString().slice(0, 16);
-                markUnsaved();
-                wrapper.remove();
-            };
-
-            var btnNow = document.createElement('button');
-            btnNow.type = 'button';
-            btnNow.className = 'smart-quick-btn';
-            btnNow.textContent = 'Ahora';
-            btnNow.onclick = function() {
-                precondEl.value = new Date().toISOString().slice(0, 16);
-                markUnsaved();
-                wrapper.remove();
-            };
-
-            wrapper.appendChild(btnYesterday);
-            wrapper.appendChild(btnNow);
-            container.appendChild(wrapper);
-        }
-    }
+    // [v23.5] Aquí vivían los botones "Ayer 6AM" / "Ahora" del preacondicionamiento.
+    // Se quitaron: (1) duplicaban el "Ahora" de cascadeNowButtonsInit y la sugerencia de
+    // autoSuggestDates, y los tres se metían en la MISMA fila flex que el campo, que
+    // quedaba de 20 px y no se podía abrir en computadora; (2) escribían con
+    // `toISOString().slice(0,16)`, que es hora UTC: en México ponían la fecha 6 h adelante.
 
     // Auto-fill from CSV_CONFIGURATIONS if unique values exist
     if (vehicle.config) {
