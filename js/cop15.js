@@ -1479,19 +1479,20 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('test_mex_waitcheck').value = tv.mexWaitCheck ?? '';
   document.getElementById('test_verify_notes').value  = tv.notes ?? '';
 
+  // Vacío sigue vacío (?? null, no || 0): un 0 real de f1/f2 se muestra, un hueco no.
   const storedSI = {
-    etw: td.etw || 0, tA: td.targetA || 0, dA: td.dynoA || 0,
-    tB: td.targetB || 0, dB: td.dynoB || 0, tC: td.targetC || 0, dC: td.dynoC || 0
+    etw: td.etw ?? null, tA: td.targetA ?? null, dA: td.dynoA ?? null,
+    tB: td.targetB ?? null, dB: td.dynoB ?? null, tC: td.targetC ?? null, dC: td.dynoC ?? null
   };
 
   const show = fromSI(storedSI, currentUnitSystem);
-  document.getElementById('etw').value = show.etw ? round(show.etw, 2) : '';
-  document.getElementById('tA').value  = show.tA  ? round(show.tA, 4) : '';
-  document.getElementById('dA').value  = show.dA  ? round(show.dA, 4) : '';
-  document.getElementById('tB').value  = show.tB  ? round(show.tB, 6) : '';
-  document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
-  document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
-  document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(show.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(show.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(show.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(show.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(show.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(show.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(show.dC, 8);
 
   // Auto-fill empty operator fields with last used
   autoFillOperators();
@@ -1504,6 +1505,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 
   // v16.0: re-inyectar tooltips de ayuda (acordeones/campos recién poblados)
   if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -1613,6 +1617,16 @@ function fromSI(values, system) {
 }
 
 
+// [v23.4] Lee un campo del dinamómetro: vacío → null (nunca 0).
+function _dynoParse(id) {
+  var el = document.getElementById(id);
+  var r = String(el ? el.value : '').trim().replace(',', '.');
+  var n = parseFloat(r);
+  return (r === '' || !isFinite(n)) ? null : n;
+}
+// [v23.4] null/undefined → vacío, pero un 0 real (f1 = 0 existe) se MUESTRA como 0.
+function _dynoShow(v, dec) { return (v === null || v === undefined || v === '' || !isFinite(v)) ? '' : round(v, dec); }
+
 function toggleUnits() {
   // A) sistema viejo (antes de cambiar)
   const oldSystem = currentUnitSystem;
@@ -1623,13 +1637,13 @@ function toggleUnits() {
 
   // C) leer lo que está actualmente en pantalla (en el sistema viejo)
   const currentDisplay = {
-    etw: parseFloat(document.getElementById('etw').value) || 0,
-    tA:  parseFloat(document.getElementById('tA').value) || 0,
-    dA:  parseFloat(document.getElementById('dA').value) || 0,
-    tB:  parseFloat(document.getElementById('tB').value) || 0,
-    dB:  parseFloat(document.getElementById('dB').value) || 0,
-    tC:  parseFloat(document.getElementById('tC').value) || 0,
-    dC:  parseFloat(document.getElementById('dC').value) || 0
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   // D) convertir: old -> SI -> new
@@ -1661,13 +1675,14 @@ function toggleUnits() {
   });
 
   // H) (la parte que te faltaba) actualizar NÚMEROS en pantalla
-  document.getElementById('etw').value = asNew.etw ? round(asNew.etw, 2) : '';
-  document.getElementById('tA').value  = asNew.tA  ? round(asNew.tA, 4) : '';
-  document.getElementById('dA').value  = asNew.dA  ? round(asNew.dA, 4) : '';
-  document.getElementById('tB').value  = asNew.tB  ? round(asNew.tB, 6) : '';
-  document.getElementById('dB').value  = asNew.dB  ? round(asNew.dB, 6) : '';
-  document.getElementById('tC').value  = asNew.tC  ? round(asNew.tC, 8) : '';
-  document.getElementById('dC').value  = asNew.dC  ? round(asNew.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(asNew.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(asNew.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(asNew.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(asNew.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(asNew.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(asNew.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(asNew.dC, 8);
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 }
 
 
@@ -1919,6 +1934,63 @@ function showMissingPopup(missing) {
 
 
 
+/**
+ * [v23.4] LA definición de "valores que suelen capturarse" para un campo, sacada del
+ * historial de la MISMA configuración. PURA (recibe la lista de vehículos).
+ * opts: {mode:'freq'|'last', n, excludeId, skipZero}
+ *   freq → los n valores más repetidos (empate: el más reciente primero)
+ *   last → solo el valor del archivado más reciente
+ * Devuelve [{value:Number, count, at}].
+ */
+function cascadeFrequentValues(vehicles, configCode, path, opts) {
+  opts = opts || {};
+  if (!configCode || !path) return [];
+  var rows = (vehicles || []).filter(function(v) {
+    return v && v.status === 'archived' && v.configCode === configCode && v.id !== opts.excludeId;
+  }).map(function(v) {
+    return { val: _histGetPath(v, path), at: v.archivedAt || v.lastModified || '' };
+  }).filter(function(r) {
+    if (r.val === null || r.val === undefined || r.val === '') return false;
+    var n = parseFloat(r.val);
+    return isFinite(n) && !(opts.skipZero && n === 0);
+  });
+  if (!rows.length) return [];
+  rows.sort(function(a, b) { return String(b.at).localeCompare(String(a.at)); });
+  if (opts.mode === 'last') return [{ value: parseFloat(rows[0].val), count: 1, at: rows[0].at }];
+  var by = {};
+  rows.forEach(function(r) {
+    var k = String(parseFloat(r.val));
+    if (!by[k]) by[k] = { value: parseFloat(r.val), count: 0, at: r.at };
+    by[k].count++;
+  });
+  return Object.keys(by).map(function(k) { return by[k]; })
+    .sort(function(a, b) { return (b.count - a.count) || String(b.at).localeCompare(String(a.at)); })
+    .slice(0, opts.n || 3);
+}
+
+/** Proveedor de sugerencias de uiNumEnhance para Operación (campo con data-num-path). */
+function cascadeNumSuggest(input) {
+  var path = input && input.getAttribute('data-num-path');
+  if (!path || !activeVehicleId) return [];
+  var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+  if (!v || !v.configCode) return [];
+  var big = input.getAttribute('data-num') === 'big';
+  var res = cascadeFrequentValues(db.vehicles, v.configCode, path, { mode: big ? 'last' : 'freq', excludeId: v.id, skipZero: true });
+  var siKey = input.getAttribute('data-num-si');
+  return res.map(function(r) {
+    var val = r.value;
+    // Lo guardado está en SI; si el formulario se captura en EN se convierte igual que al cargar.
+    if (siKey && typeof currentUnitSystem !== 'undefined' && currentUnitSystem !== 'SI') {
+      var o = {}; o[siKey] = val; val = fromSI(o, currentUnitSystem)[siKey];
+    }
+    val = Number(Number(val).toPrecision(6));
+    return big
+      ? { value: val, label: 'Último de esta config: ' + val, title: 'Valor del vehículo archivado más reciente con la misma configuración' }
+      : { value: val, label: String(val), title: r.count + ' vehículo(s) de esta configuración' };
+  });
+}
+if (typeof window !== 'undefined') window.uiNumSuggestProvider = cascadeNumSuggest;
+
 // Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
 // está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
 // Historial → 📝 Completar.
@@ -2076,15 +2148,14 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   };
 
   // Vacío = null (no 0): ver _siMul.
-  const _dynoNum = id => { const r = String(document.getElementById(id)?.value ?? '').trim().replace(',', '.'); const n = parseFloat(r); return r === '' || !isFinite(n) ? null : n; };
   const rawValues = {
-    etw: _dynoNum('etw'),
-    tA:  _dynoNum('tA'),
-    dA:  _dynoNum('dA'),
-    tB:  _dynoNum('tB'),
-    dB:  _dynoNum('dB'),
-    tC:  _dynoNum('tC'),
-    dC:  _dynoNum('dC')
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   const siValues = toSI(rawValues, currentUnitSystem);
@@ -8133,52 +8204,9 @@ function v7BatchRelease() {
 // ║  [V7-E6] ONE-TAP PRECOND FIELDS                                     ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-function v7RenderOneTapPrecond() {
-    if (!activeVehicleId) return;
-    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || !vehicle.configCode) return;
-
-    // Calculate most frequent values from archived vehicles with same configCode
-    var archived = (db.vehicles || []).filter(function(v) {
-        return v.status === 'archived' && v.configCode === vehicle.configCode && v.testData && v.testData.preconditioning;
-    });
-    if (archived.length < 2) return;
-
-    var freqMap = {};
-    var fieldsToCheck = ['tire_pressure_front', 'tire_pressure_rear', 'fuel_type', 'precond_cycle'];
-    fieldsToCheck.forEach(function(fid) {
-        freqMap[fid] = {};
-        archived.forEach(function(v) {
-            var val = v.testData.preconditioning[fid];
-            if (val) {
-                freqMap[fid][val] = (freqMap[fid][val] || 0) + 1;
-            }
-        });
-    });
-
-    fieldsToCheck.forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (!el || el.value) return; // Don't override existing values
-        var freqs = freqMap[fid];
-        var topVal = null;
-        var topCount = 0;
-        Object.keys(freqs).forEach(function(val) {
-            if (freqs[val] > topCount) { topCount = freqs[val]; topVal = val; }
-        });
-        if (!topVal || topCount < 2) return;
-
-        var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'v7-onetap-chip';
-        chip.textContent = topVal + ' ⭐';
-        chip.onclick = function() {
-            el.value = topVal;
-            el.dispatchEvent(new Event('change'));
-            chip.remove();
-        };
-        if (el.parentNode) el.parentNode.insertBefore(chip, el.nextSibling);
-    });
-}
+// [v23.4] v7RenderOneTapPrecond se retiró: buscaba los ids tire_pressure_front/rear y
+// fuel_type, que nunca existieron, así que jamás pintó nada. Lo reemplazan los chips de
+// valores frecuentes de uiNumEnhance (cascadeFrequentValues / cascadeNumSuggest).
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] INITIALIZATION HOOKS                                           ║
@@ -8199,7 +8227,6 @@ function v7RenderOneTapPrecond() {
                 v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
-                v7RenderOneTapPrecond();
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
             }
             if (tabName === 'liberacion') {

@@ -63,7 +63,34 @@ const SEED = () => {
     chk('un vehículo en prueba sigue siendo editable', t.editable);
     chk('B: ETW vacío se guarda como null, no 0', t.etw === null, String(t.etw));
 
-    // (los bloques siguientes agregan sus comprobaciones aquí)
+    // ── Bloque 2: números de un toque ──
+    await open('vT'); await page.waitForTimeout(300);
+    await page.evaluate(() => { document.querySelectorAll('#op-content details').forEach(d => { d.open = true; d.classList.remove('smart-locked'); }); });
+    const n = await page.evaluate(() => {
+        const tank = document.getElementById('tank_capacity');
+        const chips = [...tank.closest('.ui-num').querySelectorAll('.ui-num-chip')].map(b => b.textContent);
+        const plus = tank.closest('.ui-num').querySelector('.ui-num-btn[data-d="1"]');
+        let changes = 0; tank.addEventListener('change', () => changes++);
+        plus.click(); const first = tank.value; plus.click(); const second = tank.value;
+        tank.closest('.ui-num').querySelector('.ui-num-btn[data-d="-1"]').click(); const back = tank.value;
+        const etwChip = document.getElementById('etw').closest('.ui-num').querySelector('.ui-num-chip');
+        etwChip && etwChip.click();
+        const soc = document.getElementById('battery_soc'); const rng = soc.closest('.ui-num').querySelector('.ui-num-range');
+        rng.value = 80; rng.dispatchEvent(new Event('input', { bubbles: true }));
+        const tire = document.getElementById('tire_pressure'); tire.value = '35';
+        const tireOn = [...tire.closest('.ui-num').querySelectorAll('.ui-num-chip.is-on')].map(b => b.textContent);
+        return { chips, first, second, back, changes, etw: document.getElementById('etw').value, etwLabel: etwChip && etwChip.textContent,
+                 soc: soc.value, tireOn, unsaved: typeof _unsavedChanges !== 'undefined' ? _unsavedChanges : null };
+    });
+    chk('chips de valores frecuentes de la misma config (el más usado primero)', n.chips[0] === '42' && n.chips.includes('50'), JSON.stringify(n.chips));
+    chk('+ sobre un campo vacío arranca en el valor más usado', n.first === '42', n.first);
+    chk('+ y − cambian de uno en uno', n.second === '43' && n.back === '42', n.second + '/' + n.back);
+    chk('cada toque dispara change (el guardado se entera)', n.changes === 3 && n.unsaved === true, n.changes + ' ' + n.unsaved);
+    chk('ETW: chip "Último de esta config" llena el valor', n.etw === '1664.36' && /Último de esta config/.test(n.etwLabel || ''), n.etw + ' / ' + n.etwLabel);
+    chk('SOC: el deslizador escribe en el campo', n.soc === '80', n.soc);
+    chk('asignar el valor desde código ilumina su chip', n.tireOn.includes('35'), JSON.stringify(n.tireOn));
+    await page.locator('#tank_capacity').locator('xpath=ancestor::div[contains(@class,"form-grid")][1]').screenshot({ path: process.env.SHOTS ? process.env.SHOTS + '/num-recepcion.png' : '/dev/null' }).catch(() => {});
+
     // @@MORE@@
 
     chk('sin errores de página', errs.length === 0, errs.join(' | '));

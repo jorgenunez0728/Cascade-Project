@@ -511,18 +511,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -556,14 +556,14 @@
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
+      <input type="number" id="tire_pressure" data-num="step" data-num-path="testData.preconditioning.tirePressurePsi" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
   	<input
     	type="number"
-    	id="fuel_levelpre"
+    	id="fuel_levelpre" data-num="step" data-num-path="testData.preconditioning.fuelLevelLitersPre"
     	min="0"
     	step="1"
 	max="50"
@@ -695,7 +695,7 @@
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
+      <input type="number" id="etw" data-num="big" data-num-path="testData.etw" data-num-si="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -714,36 +714,36 @@
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tA" data-num="big" data-num-path="testData.targetA" data-num-si="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dA" data-num="big" data-num-path="testData.dynoA" data-num-si="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tB" data-num="big" data-num-path="testData.targetB" data-num-si="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dB" data-num="big" data-num-path="testData.dynoB" data-num-si="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tC" data-num="big" data-num-path="testData.targetC" data-num-si="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dC" data-num="big" data-num-path="testData.dynoC" data-num-si="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
@@ -806,7 +806,7 @@
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
@@ -879,7 +879,7 @@
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
   </div>
 

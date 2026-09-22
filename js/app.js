@@ -4687,6 +4687,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
+        try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -5182,6 +5183,145 @@ function _uiChipsRender(sel) {
         }
         g.innerHTML = html;
     } finally { g._rendering = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] uiNumEnhance — números de un toque
+// Un <input data-num="step|pct|big"> gana controles sin dejar de ser un campo normal
+// (se puede seguir tecleando) y SIGUE siendo la fuente de verdad: guardar/cargar/
+// borradores leen `input.value` como siempre. Igual que uiChipsEnhance, `value` se
+// redefine en la instancia para repintar cuando el código lo asigna.
+//   step → [−] valor [+] (paso = atributo step, 1 si es "any") + chips sugeridos
+//   pct  → deslizador 0–100 + chips 25/50/75/100
+//   big  → teclado numérico (lo más rápido para 15234 o 131.6) + chip sugerido
+// Las sugerencias vienen de `uiNumSuggest(input)` → `window.uiNumSuggestProvider`,
+// que cop15.js registra con el historial de la misma configuración. No se usa un dial giratorio a propósito: en
+// tablet es impreciso y no sirve para números grandes.
+// ══════════════════════════════════════════════════════════════════════
+var _UI_INPUT_VALUE = (typeof HTMLInputElement !== 'undefined')
+    ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') : null;
+
+/** Sugerencias de un campo: [{value, label?, title?}]. El módulo dueño del formulario
+ *  registra su proveedor en `window.uiNumSuggestProvider` (cop15.js: cascadeNumSuggest). */
+function uiNumSuggest(input) {
+    try { return typeof window.uiNumSuggestProvider === 'function' ? (window.uiNumSuggestProvider(input) || []) : []; }
+    catch (e) { return []; }
+}
+
+function uiNumEnhance(root) {
+    if (!_UI_INPUT_VALUE || !root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(_uiNumAttach);
+}
+
+/** Repinta las sugerencias (p. ej. al cargar otro vehículo). */
+function uiNumRefresh(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(function(i) { if (i._num) _uiNumRender(i); });
+}
+
+function _uiNumStep(input) {
+    var st = parseFloat(input.getAttribute('step'));
+    return isFinite(st) && st > 0 ? st : 1;
+}
+
+function _uiNumFmt(n, step) {
+    var dec = (String(step).split('.')[1] || '').length;
+    return String(Number(n.toFixed(Math.min(dec, 6))));
+}
+
+function _uiNumSet(input, v) {
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function _uiNumAttach(input) {
+    if (input._num) { _uiNumRender(input); return; }
+    var mode = input.getAttribute('data-num') || 'step';
+    var wrap = document.createElement('div');
+    wrap.className = 'ui-num ui-num-' + mode;
+    input.parentNode.insertBefore(wrap, input);
+    var row = document.createElement('div');
+    row.className = 'ui-num-row';
+    wrap.appendChild(row);
+    if (mode === 'step') {
+        var minus = document.createElement('button');
+        minus.type = 'button'; minus.className = 'ui-num-btn'; minus.textContent = '−';
+        minus.setAttribute('aria-label', 'Restar'); minus.setAttribute('data-d', '-1');
+        var plus = document.createElement('button');
+        plus.type = 'button'; plus.className = 'ui-num-btn'; plus.textContent = '+';
+        plus.setAttribute('aria-label', 'Sumar'); plus.setAttribute('data-d', '1');
+        row.appendChild(minus); row.appendChild(input); row.appendChild(plus);
+    } else {
+        row.appendChild(input);
+    }
+    if (mode === 'pct') {
+        var rng = document.createElement('input');
+        rng.type = 'range'; rng.min = input.min || '0'; rng.max = input.max || '100'; rng.step = '1';
+        rng.className = 'ui-num-range'; rng.setAttribute('aria-hidden', 'true'); rng.tabIndex = -1;
+        rng.addEventListener('input', function() { _uiNumSet(input, rng.value); });
+        wrap.appendChild(rng);
+        input._numRange = rng;
+    }
+    var chips = document.createElement('div');
+    chips.className = 'ui-num-chips';
+    wrap.appendChild(chips);
+    input._num = { wrap: wrap, chips: chips, mode: mode };
+
+    Object.defineProperty(input, 'value', {
+        configurable: true,
+        get: function() { return _UI_INPUT_VALUE.get.call(this); },
+        set: function(v) { _UI_INPUT_VALUE.set.call(this, v); _uiNumRender(this); }
+    });
+    input.addEventListener('input', function() { _uiNumRender(input); });
+    try { new MutationObserver(function() { _uiNumRender(input); }).observe(input, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+
+    wrap.addEventListener('click', function(ev) {
+        var b = ev.target.closest ? ev.target.closest('button') : null;
+        if (!b || b.disabled || !wrap.contains(b)) return;
+        ev.preventDefault();
+        if (b.hasAttribute('data-d')) {
+            var step = _uiNumStep(input);
+            var cur = parseFloat(String(_UI_INPUT_VALUE.get.call(input)).replace(',', '.'));
+            if (!isFinite(cur)) {
+                // Vacío: el primer toque arranca en la sugerencia principal (o en el mínimo).
+                var sug = uiNumSuggest(input) || [];
+                cur = sug.length ? parseFloat(sug[0].value) : (isFinite(parseFloat(input.min)) ? parseFloat(input.min) : 0);
+                _uiNumSet(input, _uiNumFmt(cur, step));
+                return;
+            }
+            var next = cur + step * parseFloat(b.getAttribute('data-d'));
+            if (input.min !== '' && isFinite(parseFloat(input.min))) next = Math.max(parseFloat(input.min), next);
+            if (input.max !== '' && isFinite(parseFloat(input.max))) next = Math.min(parseFloat(input.max), next);
+            _uiNumSet(input, _uiNumFmt(next, step));
+        } else if (b.hasAttribute('data-v')) {
+            _uiNumSet(input, b.getAttribute('data-v'));
+        }
+    });
+    _uiNumRender(input);
+}
+
+function _uiNumRender(input) {
+    var n = input._num;
+    if (!n) return;
+    var val = String(_UI_INPUT_VALUE.get.call(input));
+    var dis = input.disabled;
+    n.wrap.querySelectorAll('.ui-num-btn').forEach(function(b) { b.disabled = dis; });
+    if (input._numRange) {
+        input._numRange.disabled = dis;
+        var pv = parseFloat(val);
+        input._numRange.value = isFinite(pv) ? pv : 0;
+        input._numRange.classList.toggle('is-empty', !isFinite(pv));
+    }
+    var list = n.mode === 'pct'
+        ? [25, 50, 75, 100].map(function(v) { return { value: String(v), label: v + '%' }; })
+        : (uiNumSuggest(input) || []);
+    n.chips.innerHTML = list.map(function(s) {
+        var on = String(s.value) === val || (isFinite(parseFloat(val)) && parseFloat(val) === parseFloat(s.value));
+        return '<button type="button" class="ui-chip ui-num-chip' + (on ? ' is-on' : '') + '" data-v="' + escapeHtml(String(s.value)) + '"' +
+               (s.title ? ' title="' + escapeHtml(s.title) + '"' : '') + (dis ? ' disabled' : '') + '>' + escapeHtml(s.label || String(s.value)) + '</button>';
+    }).join('');
+    n.chips.style.display = list.length ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════════════════════════════

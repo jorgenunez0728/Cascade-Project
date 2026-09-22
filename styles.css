@@ -5117,3 +5117,18 @@ body.cop-present .cop-toolbar    { display: none; }
 
 /* [v23.4] Operación en solo lectura (vehículo en aprobación o archivado) */
 .op-readonly-note { margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); background: var(--warn-bg); color: var(--warn-text); font-weight: 600; }
+
+/* ── Números de un toque (app.js: uiNumEnhance) ── */
+.ui-num { display: flex; flex-direction: column; gap: var(--space-xs); }
+.ui-num-row { display: flex; align-items: stretch; gap: var(--space-xs); }
+.ui-num-row > input { flex: 1; min-width: 0; text-align: center; font-size: var(--fs-base); font-weight: 700; }
+.ui-num-big .ui-num-row > input { text-align: left; }
+.ui-num-btn { min-width: var(--target-min); min-height: var(--target-min); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: 1.4rem; font-weight: 700; line-height: 1; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast); }
+.ui-num-btn:hover:not(:disabled) { border-color: var(--kia-red); }
+.ui-num-btn:active:not(:disabled) { background: var(--surface-alt); }
+.ui-num-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-num-range { width: 100%; min-height: var(--target-min); accent-color: var(--kia-red); }
+.ui-num-range.is-empty { opacity: 0.45; }
+.ui-num-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ui-num-chip { min-height: 36px; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); font-weight: 600; }
+@media (pointer: coarse) { .ui-num-chip { min-height: var(--target-min); } }

@@ -267,5 +267,22 @@ console.log('\n== dinamómetro: vacío no es 0 ==');
     ok('Target B = 0 NO se toma como vacío', !ctx.validatePdfCompleteness(b0).missing.some(m => m.label === 'Target B'));
 }
 
+// ── v23.4: cascadeFrequentValues ─────────────────────────────────────────
+console.log('\n== cascadeFrequentValues ==');
+{
+    const f = ctx.cascadeFrequentValues;
+    const A = (id, cfg, tank, at, status) => ({ id, configCode: cfg, status: status || 'archived', archivedAt: at, testData: { preconditioning: { tankCapacityL: tank } } });
+    const vs = [A(1, 'C1', 42, '2026-09-01'), A(2, 'C1', 42, '2026-09-02'), A(3, 'C1', 50, '2026-09-10'),
+                A(4, 'C2', 60, '2026-09-11'), A(5, 'C1', 99, '2026-09-12', 'testing'), A(6, 'C1', 0, '2026-09-13'), A(7, 'C1', '', '2026-09-14')];
+    const r = f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { skipZero: true });
+    ok('el más repetido va primero', r[0].value === 42 && r[0].count === 2);
+    ok('solo la misma configuración y solo archivados', !r.some(x => x.value === 60 || x.value === 99));
+    ok('ignora vacíos y, con skipZero, los ceros', !r.some(x => x.value === 0) && r.length === 2);
+    const last = f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { mode: 'last', skipZero: true });
+    ok('mode last = el archivado más reciente con dato', last.length === 1 && last[0].value === 50);
+    ok('excludeId saca al vehículo actual', !f(vs, 'C1', 'testData.preconditioning.tankCapacityL', { excludeId: 3 }).some(x => x.value === 50));
+    ok('sin configuración → nada', f(vs, '', 'x').length === 0);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

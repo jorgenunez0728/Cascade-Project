@@ -5558,6 +5558,21 @@ body.cop-present .cop-toolbar    { display: none; }
 
 /* [v23.4] Operación en solo lectura (vehículo en aprobación o archivado) */
 .op-readonly-note { margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); background: var(--warn-bg); color: var(--warn-text); font-weight: 600; }
+
+/* ── Números de un toque (app.js: uiNumEnhance) ── */
+.ui-num { display: flex; flex-direction: column; gap: var(--space-xs); }
+.ui-num-row { display: flex; align-items: stretch; gap: var(--space-xs); }
+.ui-num-row > input { flex: 1; min-width: 0; text-align: center; font-size: var(--fs-base); font-weight: 700; }
+.ui-num-big .ui-num-row > input { text-align: left; }
+.ui-num-btn { min-width: var(--target-min); min-height: var(--target-min); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: 1.4rem; font-weight: 700; line-height: 1; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast); }
+.ui-num-btn:hover:not(:disabled) { border-color: var(--kia-red); }
+.ui-num-btn:active:not(:disabled) { background: var(--surface-alt); }
+.ui-num-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-num-range { width: 100%; min-height: var(--target-min); accent-color: var(--kia-red); }
+.ui-num-range.is-empty { opacity: 0.45; }
+.ui-num-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ui-num-chip { min-height: 36px; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); font-weight: 600; }
+@media (pointer: coarse) { .ui-num-chip { min-height: var(--target-min); } }
     </style>
 </head>
 
@@ -6032,18 +6047,18 @@ body.cop-present .cop-toolbar    { display: none; }
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -6077,14 +6092,14 @@ body.cop-present .cop-toolbar    { display: none; }
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
+      <input type="number" id="tire_pressure" data-num="step" data-num-path="testData.preconditioning.tirePressurePsi" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
   	<input
     	type="number"
-    	id="fuel_levelpre"
+    	id="fuel_levelpre" data-num="step" data-num-path="testData.preconditioning.fuelLevelLitersPre"
     	min="0"
     	step="1"
 	max="50"
@@ -6216,7 +6231,7 @@ body.cop-present .cop-toolbar    { display: none; }
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
+      <input type="number" id="etw" data-num="big" data-num-path="testData.etw" data-num-si="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -6235,36 +6250,36 @@ body.cop-present .cop-toolbar    { display: none; }
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tA" data-num="big" data-num-path="testData.targetA" data-num-si="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dA" data-num="big" data-num-path="testData.dynoA" data-num-si="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tB" data-num="big" data-num-path="testData.targetB" data-num-si="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dB" data-num="big" data-num-path="testData.dynoB" data-num-si="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="tC" data-num="big" data-num-path="testData.targetC" data-num-si="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
+        <input type="number" id="dC" data-num="big" data-num-path="testData.dynoC" data-num-si="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
@@ -6327,7 +6342,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
@@ -6400,7 +6415,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -7910,7 +7925,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609221950';
+var APP_BUILD = '202609221955';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8345,14 +8360,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609221950' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609221955' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609221950' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609221955' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8368,7 +8383,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609221950' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609221955' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -12316,6 +12331,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { void 0; }
+        try { uiNumEnhance(document); } catch(numErr) { void 0; }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -12811,6 +12827,145 @@ function _uiChipsRender(sel) {
         }
         g.innerHTML = html;
     } finally { g._rendering = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] uiNumEnhance — números de un toque
+// Un <input data-num="step|pct|big"> gana controles sin dejar de ser un campo normal
+// (se puede seguir tecleando) y SIGUE siendo la fuente de verdad: guardar/cargar/
+// borradores leen `input.value` como siempre. Igual que uiChipsEnhance, `value` se
+// redefine en la instancia para repintar cuando el código lo asigna.
+//   step → [−] valor [+] (paso = atributo step, 1 si es "any") + chips sugeridos
+//   pct  → deslizador 0–100 + chips 25/50/75/100
+//   big  → teclado numérico (lo más rápido para 15234 o 131.6) + chip sugerido
+// Las sugerencias vienen de `uiNumSuggest(input)` → `window.uiNumSuggestProvider`,
+// que cop15.js registra con el historial de la misma configuración. No se usa un dial giratorio a propósito: en
+// tablet es impreciso y no sirve para números grandes.
+// ══════════════════════════════════════════════════════════════════════
+var _UI_INPUT_VALUE = (typeof HTMLInputElement !== 'undefined')
+    ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') : null;
+
+/** Sugerencias de un campo: [{value, label?, title?}]. El módulo dueño del formulario
+ *  registra su proveedor en `window.uiNumSuggestProvider` (cop15.js: cascadeNumSuggest). */
+function uiNumSuggest(input) {
+    try { return typeof window.uiNumSuggestProvider === 'function' ? (window.uiNumSuggestProvider(input) || []) : []; }
+    catch (e) { return []; }
+}
+
+function uiNumEnhance(root) {
+    if (!_UI_INPUT_VALUE || !root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(_uiNumAttach);
+}
+
+/** Repinta las sugerencias (p. ej. al cargar otro vehículo). */
+function uiNumRefresh(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('input[data-num]').forEach(function(i) { if (i._num) _uiNumRender(i); });
+}
+
+function _uiNumStep(input) {
+    var st = parseFloat(input.getAttribute('step'));
+    return isFinite(st) && st > 0 ? st : 1;
+}
+
+function _uiNumFmt(n, step) {
+    var dec = (String(step).split('.')[1] || '').length;
+    return String(Number(n.toFixed(Math.min(dec, 6))));
+}
+
+function _uiNumSet(input, v) {
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function _uiNumAttach(input) {
+    if (input._num) { _uiNumRender(input); return; }
+    var mode = input.getAttribute('data-num') || 'step';
+    var wrap = document.createElement('div');
+    wrap.className = 'ui-num ui-num-' + mode;
+    input.parentNode.insertBefore(wrap, input);
+    var row = document.createElement('div');
+    row.className = 'ui-num-row';
+    wrap.appendChild(row);
+    if (mode === 'step') {
+        var minus = document.createElement('button');
+        minus.type = 'button'; minus.className = 'ui-num-btn'; minus.textContent = '−';
+        minus.setAttribute('aria-label', 'Restar'); minus.setAttribute('data-d', '-1');
+        var plus = document.createElement('button');
+        plus.type = 'button'; plus.className = 'ui-num-btn'; plus.textContent = '+';
+        plus.setAttribute('aria-label', 'Sumar'); plus.setAttribute('data-d', '1');
+        row.appendChild(minus); row.appendChild(input); row.appendChild(plus);
+    } else {
+        row.appendChild(input);
+    }
+    if (mode === 'pct') {
+        var rng = document.createElement('input');
+        rng.type = 'range'; rng.min = input.min || '0'; rng.max = input.max || '100'; rng.step = '1';
+        rng.className = 'ui-num-range'; rng.setAttribute('aria-hidden', 'true'); rng.tabIndex = -1;
+        rng.addEventListener('input', function() { _uiNumSet(input, rng.value); });
+        wrap.appendChild(rng);
+        input._numRange = rng;
+    }
+    var chips = document.createElement('div');
+    chips.className = 'ui-num-chips';
+    wrap.appendChild(chips);
+    input._num = { wrap: wrap, chips: chips, mode: mode };
+
+    Object.defineProperty(input, 'value', {
+        configurable: true,
+        get: function() { return _UI_INPUT_VALUE.get.call(this); },
+        set: function(v) { _UI_INPUT_VALUE.set.call(this, v); _uiNumRender(this); }
+    });
+    input.addEventListener('input', function() { _uiNumRender(input); });
+    try { new MutationObserver(function() { _uiNumRender(input); }).observe(input, { attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+
+    wrap.addEventListener('click', function(ev) {
+        var b = ev.target.closest ? ev.target.closest('button') : null;
+        if (!b || b.disabled || !wrap.contains(b)) return;
+        ev.preventDefault();
+        if (b.hasAttribute('data-d')) {
+            var step = _uiNumStep(input);
+            var cur = parseFloat(String(_UI_INPUT_VALUE.get.call(input)).replace(',', '.'));
+            if (!isFinite(cur)) {
+                // Vacío: el primer toque arranca en la sugerencia principal (o en el mínimo).
+                var sug = uiNumSuggest(input) || [];
+                cur = sug.length ? parseFloat(sug[0].value) : (isFinite(parseFloat(input.min)) ? parseFloat(input.min) : 0);
+                _uiNumSet(input, _uiNumFmt(cur, step));
+                return;
+            }
+            var next = cur + step * parseFloat(b.getAttribute('data-d'));
+            if (input.min !== '' && isFinite(parseFloat(input.min))) next = Math.max(parseFloat(input.min), next);
+            if (input.max !== '' && isFinite(parseFloat(input.max))) next = Math.min(parseFloat(input.max), next);
+            _uiNumSet(input, _uiNumFmt(next, step));
+        } else if (b.hasAttribute('data-v')) {
+            _uiNumSet(input, b.getAttribute('data-v'));
+        }
+    });
+    _uiNumRender(input);
+}
+
+function _uiNumRender(input) {
+    var n = input._num;
+    if (!n) return;
+    var val = String(_UI_INPUT_VALUE.get.call(input));
+    var dis = input.disabled;
+    n.wrap.querySelectorAll('.ui-num-btn').forEach(function(b) { b.disabled = dis; });
+    if (input._numRange) {
+        input._numRange.disabled = dis;
+        var pv = parseFloat(val);
+        input._numRange.value = isFinite(pv) ? pv : 0;
+        input._numRange.classList.toggle('is-empty', !isFinite(pv));
+    }
+    var list = n.mode === 'pct'
+        ? [25, 50, 75, 100].map(function(v) { return { value: String(v), label: v + '%' }; })
+        : (uiNumSuggest(input) || []);
+    n.chips.innerHTML = list.map(function(s) {
+        var on = String(s.value) === val || (isFinite(parseFloat(val)) && parseFloat(val) === parseFloat(s.value));
+        return '<button type="button" class="ui-chip ui-num-chip' + (on ? ' is-on' : '') + '" data-v="' + escapeHtml(String(s.value)) + '"' +
+               (s.title ? ' title="' + escapeHtml(s.title) + '"' : '') + (dis ? ' disabled' : '') + '>' + escapeHtml(s.label || String(s.value)) + '</button>';
+    }).join('');
+    n.chips.style.display = list.length ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -16084,19 +16239,20 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('test_mex_waitcheck').value = tv.mexWaitCheck ?? '';
   document.getElementById('test_verify_notes').value  = tv.notes ?? '';
 
+  // Vacío sigue vacío (?? null, no || 0): un 0 real de f1/f2 se muestra, un hueco no.
   const storedSI = {
-    etw: td.etw || 0, tA: td.targetA || 0, dA: td.dynoA || 0,
-    tB: td.targetB || 0, dB: td.dynoB || 0, tC: td.targetC || 0, dC: td.dynoC || 0
+    etw: td.etw ?? null, tA: td.targetA ?? null, dA: td.dynoA ?? null,
+    tB: td.targetB ?? null, dB: td.dynoB ?? null, tC: td.targetC ?? null, dC: td.dynoC ?? null
   };
 
   const show = fromSI(storedSI, currentUnitSystem);
-  document.getElementById('etw').value = show.etw ? round(show.etw, 2) : '';
-  document.getElementById('tA').value  = show.tA  ? round(show.tA, 4) : '';
-  document.getElementById('dA').value  = show.dA  ? round(show.dA, 4) : '';
-  document.getElementById('tB').value  = show.tB  ? round(show.tB, 6) : '';
-  document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
-  document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
-  document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(show.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(show.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(show.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(show.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(show.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(show.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(show.dC, 8);
 
   // Auto-fill empty operator fields with last used
   autoFillOperators();
@@ -16109,6 +16265,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 
   // v16.0: re-inyectar tooltips de ayuda (acordeones/campos recién poblados)
   if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -16218,6 +16377,16 @@ function fromSI(values, system) {
 }
 
 
+// [v23.4] Lee un campo del dinamómetro: vacío → null (nunca 0).
+function _dynoParse(id) {
+  var el = document.getElementById(id);
+  var r = String(el ? el.value : '').trim().replace(',', '.');
+  var n = parseFloat(r);
+  return (r === '' || !isFinite(n)) ? null : n;
+}
+// [v23.4] null/undefined → vacío, pero un 0 real (f1 = 0 existe) se MUESTRA como 0.
+function _dynoShow(v, dec) { return (v === null || v === undefined || v === '' || !isFinite(v)) ? '' : round(v, dec); }
+
 function toggleUnits() {
   // A) sistema viejo (antes de cambiar)
   const oldSystem = currentUnitSystem;
@@ -16228,13 +16397,13 @@ function toggleUnits() {
 
   // C) leer lo que está actualmente en pantalla (en el sistema viejo)
   const currentDisplay = {
-    etw: parseFloat(document.getElementById('etw').value) || 0,
-    tA:  parseFloat(document.getElementById('tA').value) || 0,
-    dA:  parseFloat(document.getElementById('dA').value) || 0,
-    tB:  parseFloat(document.getElementById('tB').value) || 0,
-    dB:  parseFloat(document.getElementById('dB').value) || 0,
-    tC:  parseFloat(document.getElementById('tC').value) || 0,
-    dC:  parseFloat(document.getElementById('dC').value) || 0
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   // D) convertir: old -> SI -> new
@@ -16266,13 +16435,14 @@ function toggleUnits() {
   });
 
   // H) (la parte que te faltaba) actualizar NÚMEROS en pantalla
-  document.getElementById('etw').value = asNew.etw ? round(asNew.etw, 2) : '';
-  document.getElementById('tA').value  = asNew.tA  ? round(asNew.tA, 4) : '';
-  document.getElementById('dA').value  = asNew.dA  ? round(asNew.dA, 4) : '';
-  document.getElementById('tB').value  = asNew.tB  ? round(asNew.tB, 6) : '';
-  document.getElementById('dB').value  = asNew.dB  ? round(asNew.dB, 6) : '';
-  document.getElementById('tC').value  = asNew.tC  ? round(asNew.tC, 8) : '';
-  document.getElementById('dC').value  = asNew.dC  ? round(asNew.dC, 8) : '';
+  document.getElementById('etw').value  = _dynoShow(asNew.etw, 2);
+  document.getElementById('tA').value  = _dynoShow(asNew.tA, 4);
+  document.getElementById('dA').value  = _dynoShow(asNew.dA, 4);
+  document.getElementById('tB').value  = _dynoShow(asNew.tB, 6);
+  document.getElementById('dB').value  = _dynoShow(asNew.dB, 6);
+  document.getElementById('tC').value  = _dynoShow(asNew.tC, 8);
+  document.getElementById('dC').value  = _dynoShow(asNew.dC, 8);
+  if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 }
 
 
@@ -16524,6 +16694,63 @@ function showMissingPopup(missing) {
 
 
 
+/**
+ * [v23.4] LA definición de "valores que suelen capturarse" para un campo, sacada del
+ * historial de la MISMA configuración. PURA (recibe la lista de vehículos).
+ * opts: {mode:'freq'|'last', n, excludeId, skipZero}
+ *   freq → los n valores más repetidos (empate: el más reciente primero)
+ *   last → solo el valor del archivado más reciente
+ * Devuelve [{value:Number, count, at}].
+ */
+function cascadeFrequentValues(vehicles, configCode, path, opts) {
+  opts = opts || {};
+  if (!configCode || !path) return [];
+  var rows = (vehicles || []).filter(function(v) {
+    return v && v.status === 'archived' && v.configCode === configCode && v.id !== opts.excludeId;
+  }).map(function(v) {
+    return { val: _histGetPath(v, path), at: v.archivedAt || v.lastModified || '' };
+  }).filter(function(r) {
+    if (r.val === null || r.val === undefined || r.val === '') return false;
+    var n = parseFloat(r.val);
+    return isFinite(n) && !(opts.skipZero && n === 0);
+  });
+  if (!rows.length) return [];
+  rows.sort(function(a, b) { return String(b.at).localeCompare(String(a.at)); });
+  if (opts.mode === 'last') return [{ value: parseFloat(rows[0].val), count: 1, at: rows[0].at }];
+  var by = {};
+  rows.forEach(function(r) {
+    var k = String(parseFloat(r.val));
+    if (!by[k]) by[k] = { value: parseFloat(r.val), count: 0, at: r.at };
+    by[k].count++;
+  });
+  return Object.keys(by).map(function(k) { return by[k]; })
+    .sort(function(a, b) { return (b.count - a.count) || String(b.at).localeCompare(String(a.at)); })
+    .slice(0, opts.n || 3);
+}
+
+/** Proveedor de sugerencias de uiNumEnhance para Operación (campo con data-num-path). */
+function cascadeNumSuggest(input) {
+  var path = input && input.getAttribute('data-num-path');
+  if (!path || !activeVehicleId) return [];
+  var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+  if (!v || !v.configCode) return [];
+  var big = input.getAttribute('data-num') === 'big';
+  var res = cascadeFrequentValues(db.vehicles, v.configCode, path, { mode: big ? 'last' : 'freq', excludeId: v.id, skipZero: true });
+  var siKey = input.getAttribute('data-num-si');
+  return res.map(function(r) {
+    var val = r.value;
+    // Lo guardado está en SI; si el formulario se captura en EN se convierte igual que al cargar.
+    if (siKey && typeof currentUnitSystem !== 'undefined' && currentUnitSystem !== 'SI') {
+      var o = {}; o[siKey] = val; val = fromSI(o, currentUnitSystem)[siKey];
+    }
+    val = Number(Number(val).toPrecision(6));
+    return big
+      ? { value: val, label: 'Último de esta config: ' + val, title: 'Valor del vehículo archivado más reciente con la misma configuración' }
+      : { value: val, label: String(val), title: r.count + ' vehículo(s) de esta configuración' };
+  });
+}
+if (typeof window !== 'undefined') window.uiNumSuggestProvider = cascadeNumSuggest;
+
 // Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
 // está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
 // Historial → 📝 Completar.
@@ -16681,15 +16908,14 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   };
 
   // Vacío = null (no 0): ver _siMul.
-  const _dynoNum = id => { const r = String(document.getElementById(id)?.value ?? '').trim().replace(',', '.'); const n = parseFloat(r); return r === '' || !isFinite(n) ? null : n; };
   const rawValues = {
-    etw: _dynoNum('etw'),
-    tA:  _dynoNum('tA'),
-    dA:  _dynoNum('dA'),
-    tB:  _dynoNum('tB'),
-    dB:  _dynoNum('dB'),
-    tC:  _dynoNum('tC'),
-    dC:  _dynoNum('dC')
+    etw: _dynoParse('etw'),
+    tA:  _dynoParse('tA'),
+    dA:  _dynoParse('dA'),
+    tB:  _dynoParse('tB'),
+    dB:  _dynoParse('dB'),
+    tC:  _dynoParse('tC'),
+    dC:  _dynoParse('dC')
   };
 
   const siValues = toSI(rawValues, currentUnitSystem);
@@ -22738,52 +22964,9 @@ function v7BatchRelease() {
 // ║  [V7-E6] ONE-TAP PRECOND FIELDS                                     ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-function v7RenderOneTapPrecond() {
-    if (!activeVehicleId) return;
-    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || !vehicle.configCode) return;
-
-    // Calculate most frequent values from archived vehicles with same configCode
-    var archived = (db.vehicles || []).filter(function(v) {
-        return v.status === 'archived' && v.configCode === vehicle.configCode && v.testData && v.testData.preconditioning;
-    });
-    if (archived.length < 2) return;
-
-    var freqMap = {};
-    var fieldsToCheck = ['tire_pressure_front', 'tire_pressure_rear', 'fuel_type', 'precond_cycle'];
-    fieldsToCheck.forEach(function(fid) {
-        freqMap[fid] = {};
-        archived.forEach(function(v) {
-            var val = v.testData.preconditioning[fid];
-            if (val) {
-                freqMap[fid][val] = (freqMap[fid][val] || 0) + 1;
-            }
-        });
-    });
-
-    fieldsToCheck.forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (!el || el.value) return; // Don't override existing values
-        var freqs = freqMap[fid];
-        var topVal = null;
-        var topCount = 0;
-        Object.keys(freqs).forEach(function(val) {
-            if (freqs[val] > topCount) { topCount = freqs[val]; topVal = val; }
-        });
-        if (!topVal || topCount < 2) return;
-
-        var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'v7-onetap-chip';
-        chip.textContent = topVal + ' ⭐';
-        chip.onclick = function() {
-            el.value = topVal;
-            el.dispatchEvent(new Event('change'));
-            chip.remove();
-        };
-        if (el.parentNode) el.parentNode.insertBefore(chip, el.nextSibling);
-    });
-}
+// [v23.4] v7RenderOneTapPrecond se retiró: buscaba los ids tire_pressure_front/rear y
+// fuel_type, que nunca existieron, así que jamás pintó nada. Lo reemplazan los chips de
+// valores frecuentes de uiNumEnhance (cascadeFrequentValues / cascadeNumSuggest).
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] INITIALIZATION HOOKS                                           ║
@@ -22804,7 +22987,6 @@ function v7RenderOneTapPrecond() {
                 v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
-                v7RenderOneTapPrecond();
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
             }
             if (tabName === 'liberacion') {
@@ -49294,7 +49476,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609221950' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609221955' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
