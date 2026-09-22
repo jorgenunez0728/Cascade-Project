@@ -2769,6 +2769,24 @@ var RELEASE_CHECKLIST = {
         { key: 'f03',   label: 'Cotización COP15-F03 (Solo Cert. MX)', rule: 'mexico' }
     ]
 };
+// Día en que el checklist empezó a capturarse. Las pruebas liberadas ANTES no
+// tuvieron dónde registrarlo, así que para ellas las filas sin respuesta se asientan
+// solas (decisión explícita del laboratorio, para no dejar el F05 histórico en
+// blanco). Se DERIVA al leer, nunca se escribe en el vehículo: lo que se corrija a
+// mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
+var RELEASE_CHECKLIST_SINCE = '2026-09-22';
+
+/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+function releaseIsBeforeChecklist(vehicle) {
+    if (!vehicle) return false;
+    var td = vehicle.testData || {};
+    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
+    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    var d = new Date(ref);
+    if (isNaN(d.getTime())) return vehicle.status === 'archived';
+    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+}
+
 var RELEASE_CHECKLIST_TEXT = {
     objects: { ok: 'Retirado', na: 'No se instaló' },
     docs:    { ok: 'Adjunto',  na: 'No aplica' }
@@ -2789,6 +2807,8 @@ function releaseChecklistRows(vehicle) {
     var region = String((vehicle && vehicle.config && (vehicle.config['REGION'] || vehicle.config.rgn)) || '').trim().toUpperCase();
     var isEu = typeof homoIsEurope === 'function' ? homoIsEurope(region) : (region === 'EUROPE' || region === 'EUROPA');
     var isMx = region === 'MEXICO' || region === 'MÉXICO';
+    var legacy = releaseIsBeforeChecklist(vehicle);
+    var anyLegacy = false;
     function build(group) {
         var store = saved[group] || {};
         return RELEASE_CHECKLIST[group].map(function(it) {
@@ -2809,13 +2829,21 @@ function releaseChecklistRows(vehicle) {
                     : comp.missing.length ? 'Se marca Completa al quedar firmas y resultados'
                     : 'Sin campos pendientes';
             }
+            else if (!row.value && legacy) {
+                // Prueba anterior al checklist: se asienta sola. "Solo Cert. MX" en México
+                // queda No aplica (esas pruebas eran CoP, no certificación).
+                row.value = it.rule === 'mexico' ? 'na' : 'ok';
+                row.legacy = true;
+                row.reason = 'Asentado automáticamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')';
+                anyLegacy = true;
+            }
             return row;
         });
     }
     var objects = build('objects'), docs = build('docs');
     // La fila F05 solo cuenta como faltante por campos de formulario (ver arriba).
     var missing = objects.concat(docs).filter(function(r) { return !r.value && r.blocking !== false; });
-    return { objects: objects, docs: docs, missing: missing };
+    return { objects: objects, docs: docs, missing: missing, legacy: anyLegacy };
 }
 
 function releaseChecklistSet(group, key, val) {
@@ -3810,8 +3838,12 @@ function closeSubstitutionModal() {
                                 ${(function(){
                                     if (!isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
-                                    if (_c.ok) return '';
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left: var(--space-xs);" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
+                                    var _n = _c.missing.length + (_c.soft ? _c.soft.length : 0);
+                                    if (!_n) return '';
+                                    // Solo pendientes suaves (p. ej. SOC de prueba en una liberada antes de
+                                    // existir el campo): el PDF ya sale, el botón va en gris, no en ámbar.
+                                    var _hard = _c.missing.length > 0;
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;' + (_hard ? 'background:#fef3c7;color:#92400e;' : '') + 'margin-left: var(--space-xs);" title="' + (_hard ? 'Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + _n + ' dato(s) opcionales por revisar') + '" aria-label="Completar datos retroactivos (' + _n + ' campos)">📝 Completar (' + _n + ')</button>';
                                 })()}
                                 <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;margin-left: var(--space-xs);" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
                                     🕘
@@ -4391,11 +4423,12 @@ var PDF_REQUIRED_FIELDS = [
   { path: 'testData.testVerification.rearRollers',          label: 'Rodillos traseros',                  section: 'Verificación de Prueba', refId: 'test_rear_rollers' },
   { path: 'testData.testVerification.screen',               label: 'Pantalla',                           section: 'Verificación de Prueba', refId: 'test_screen' },
   { path: 'testData.testVerification.mexWaitCheck',         label: 'Verificación FTP75-HWY (MX)',        section: 'Verificación de Prueba', refId: 'test_mex_waitcheck' },
-  // SOC al iniciar la prueba (el de Recepción es al llegar el vehículo). Los
-  // archivados antes de que existiera el campo no lo exigen: pedirlo bloquearía
-  // regenerar su PDF por un dato que nunca se pudo capturar.
+  // SOC al iniciar la prueba (el de Recepción es al llegar el vehículo). En una
+  // prueba liberada antes de que existiera el campo es un pendiente SUAVE: aparece
+  // en Historial → 📝 Completar para llenarlo si se tiene el dato, pero no bloquea
+  // regenerar su PDF (sería bloquearlo por algo que nunca se pudo capturar).
   { path: 'testData.testVerification.batterySocPct',        label: 'SOC de batería al iniciar prueba',   section: 'Verificación de Prueba', refId: 'test_battery_soc', num: true,
-    when: function(td, v) { return !(v && v.status === 'archived') || (td.testVerification && td.testVerification.batterySocPct != null); } }
+    soft: function(td, v) { return releaseIsBeforeChecklist(v); } }
 ];
 
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
@@ -4425,7 +4458,11 @@ function validatePdfCompleteness(vehicle) {
   var td = vehicle.testData || {};
   var status = vehicle.status;
   function blank(v) { return v === null || v === undefined || String(v).trim() === ''; }
-  function req(value, label, section) { if (blank(value)) missing.push({ label: label, section: section }); }
+  // `soft`: pendiente que se muestra (Historial → Completar) pero NO bloquea ni
+  // cuenta para "Completa". `missing` sigue siendo solo lo que bloquea, así que
+  // los consumidores de siempre no cambian.
+  var soft = [];
+  function req(value, label, section, isSoft) { if (blank(value)) (isSoft ? soft : missing).push({ label: label, section: section, soft: !!isSoft }); }
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
@@ -4433,13 +4470,13 @@ function validatePdfCompleteness(vehicle) {
     req(sp.operator, 'Operador', 'Recepción');
     req(sp.datetime, 'Fecha/Hora', 'Recepción');
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
-    return { ok: missing.length === 0, missing: missing };
+    return { ok: missing.length === 0, missing: missing, soft: soft };
   }
 
   // Campos estáticos — descriptor único (mismo orden/labels que la versión anterior)
   PDF_REQUIRED_FIELDS.forEach(function(f) {
     if (f.when && !f.when(td, vehicle)) return;
-    req(_histGetPath(vehicle, f.path), f.label, f.section);
+    req(_histGetPath(vehicle, f.path), f.label, f.section, !!(f.soft && f.soft(td, vehicle)));
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
@@ -4458,7 +4495,7 @@ function validatePdfCompleteness(vehicle) {
   if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
   if (status === 'archived') req(td.signatures && td.signatures.approver && td.signatures.approver.dataUrl, 'Firma del Aprobador', 'Firmas');
 
-  return { ok: missing.length === 0, missing: missing };
+  return { ok: missing.length === 0, missing: missing, soft: soft };
 }
 
 // Popup que lista los campos faltantes agrupados por sección.
@@ -4505,7 +4542,9 @@ function _histBuildInput(f, idx, value, disabled) {
     // Quitar 'selected' heredado del form activo y anteponer opción vacía: un campo
     // faltante debe arrancar vacío, no con la selección de otro vehículo.
     var opts = ref.innerHTML.replace(/\sselected(="[^"]*")?/g, '');
-    return '<select' + common + ' data-value="' + escapeHtml(val) + '"><option value="">— selecciona —</option>' + opts + '</select>';
+    // Mismos botones que en Operación (uiChipsEnhance) si el campo real los usa.
+    var chipAttrs = (ref.hasAttribute('data-chips') ? ' data-chips' : '') + (ref.hasAttribute('data-chips-other') ? ' data-chips-other' : '');
+    return '<select' + common + chipAttrs + ' data-value="' + escapeHtml(val) + '"><option value="">— selecciona —</option>' + opts + '</select>';
   }
   var type = ref ? (ref.type || 'text') : 'text';
   if (type === 'checkbox' || type === 'radio') type = 'text';
@@ -4532,7 +4571,10 @@ function histOpenCompleteModal(vehicleId) {
   html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom: var(--space-xs);"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">' +
-          'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
+          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. ' : 'El PDF ya se puede generar. ') +
+          (comp.soft && comp.soft.length ? '<b>' + comp.soft.length + '</b> dato(s) no existían cuando se liberó esta prueba: llénalos solo si tienes el dato. ' : '') +
+          'Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
+  _histCompleteState.checklist = {};
 
   // Campos del descriptor, agrupados por sección
   var bySection = {};
@@ -4561,7 +4603,9 @@ function histOpenCompleteModal(vehicleId) {
       }
       html += '</td>';
       html += '<td style="padding: var(--space-xs) var(--space-sm);width:88px;text-align:center;">' +
-              (isMissing ? '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>'
+              (isMissing ? (f.soft && f.soft(td, vehicle)
+                              ? '<span style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;" title="No existía cuando se liberó esta prueba; no bloquea el PDF">Opcional</span>'
+                              : '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>')
                          : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size: var(--fs-sm);" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
       html += '</tr>';
     });
@@ -4585,6 +4629,22 @@ function histOpenCompleteModal(vehicleId) {
       });
       html += '</table></details>';
     }
+  }
+
+  // Checklist de liberación (objetos retirados + evidencia). Lo que capturó el
+  // liberador al liberar queda 🔒 (lo firmó). Lo asentado automáticamente en una
+  // prueba anterior al checklist, y lo vacío, se puede fijar aquí.
+  if (isEmissionsPurpose(vehicle.purpose) && typeof releaseChecklistRows === 'function' &&
+      (status === 'archived' || status === 'pending-approval')) {
+    var _cl = releaseChecklistRows(vehicle);
+    var _clPend = _cl.objects.concat(_cl.docs).filter(function(r) { return !r.auto && (r.legacy || !r.value); }).length;
+    html += '<details class="hist-section" ' + (_cl.missing.length ? 'open' : '') + '>';
+    html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Checklist de liberación' +
+            (_cl.missing.length ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + _cl.missing.length + ' faltantes</span>'
+             : _cl.legacy ? ' <span style="color:var(--muted);">· asentado automáticamente (' + _clPend + ' filas)</span>'
+             : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
+    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Corrige las que no correspondan; lo que fijes aquí manda sobre lo automático.</div>';
+    html += '<div id="hist-checklist">' + _histChecklistRowsHTML(vehicle) + '</div></details>';
   }
 
   // Firmas faltantes
@@ -4611,6 +4671,9 @@ function histOpenCompleteModal(vehicleId) {
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   // Aplicar valores a los selects clonados (no se pueden fijar por atributo)
+  // Botones ANTES de fijar valores: así un valor "Otro" guardado (que no está en
+  // las opciones) entra por el setter de uiChips en vez de perderse.
+  if (typeof uiChipsEnhance === 'function') uiChipsEnhance(wrap);
   wrap.querySelectorAll('select.hist-input').forEach(function(sel) {
     var v = sel.getAttribute('data-value');
     if (v) sel.value = v;
@@ -4625,6 +4688,52 @@ function histOpenCompleteModal(vehicleId) {
       _histCompleteState = null;
     }});
   }
+}
+
+// Filas del checklist dentro del modal Completar. El estado de lo tocado vive en
+// _histCompleteState.checklist ('objects:kds' → 'ok'|'na') hasta Guardar.
+function _histChecklistRowsHTML(vehicle) {
+  var st = releaseChecklistRows(vehicle);
+  var pend = (_histCompleteState && _histCompleteState.checklist) || {};
+  function rowHTML(group, r) {
+    var txt = RELEASE_CHECKLIST_TEXT[group];
+    var k = group + ':' + r.key;
+    var cur = pend[k] || r.value;
+    var locked = r.auto || (r.value && !r.legacy);
+    var right;
+    if (locked) {
+      right = '<span class="relcl-auto relcl-' + (r.value || 'pending') + '">' +
+              (r.value ? escapeHtml((r.value === 'ok' && r.okText) || txt[r.value]) : '⚠️ Pendiente') + (r.auto ? '' : ' 🔒') + '</span>';
+    } else {
+      right = ['ok', 'na'].map(function(v) {
+        return '<button type="button" class="relcl-opt' + (cur === v ? ' is-on relcl-' + v : '') + '" aria-pressed="' + (cur === v) + '" ' +
+               'onclick="histChecklistSet(\'' + group + '\',\'' + r.key + '\',\'' + v + '\')">' +
+               (v === 'ok' ? '✔ ' : '— ') + escapeHtml(txt[v]) + '</button>';
+      }).join('');
+    }
+    var tag = pend[k] ? '<small>Se guardará al confirmar</small>'
+            : r.legacy ? '<small>auto · anterior al checklist</small>'
+            : r.auto ? '<small>Automático · ' + escapeHtml(r.reason) + '</small>'
+            : (r.value ? '<small>Capturado por el liberador</small>' : '');
+    return '<div class="relcl-row' + (cur ? '' : ' is-missing') + '"><div class="relcl-label">' + escapeHtml(r.label) + tag + '</div>' +
+           '<div class="relcl-opts">' + right + '</div></div>';
+  }
+  return '<div class="relcl-head"><b>Objetos a retirar</b></div>' + st.objects.map(function(r) { return rowHTML('objects', r); }).join('') +
+         '<div class="relcl-head" style="margin-top: var(--space-sm);"><b>Evidencia documental</b></div>' + st.docs.map(function(r) { return rowHTML('docs', r); }).join('');
+}
+
+function histChecklistSet(group, key, val) {
+  if (!_histCompleteState) return;
+  var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
+  if (!vehicle) return;
+  var k = group + ':' + key;
+  var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
+  var row = releaseChecklistRows(vehicle)[group].find(function(r) { return r.key === key; });
+  // Volver a elegir lo que ya vale (derivado o guardado) no es un cambio.
+  if (row && row.value === val && !pend[k]) return;
+  if (pend[k] === val || (row && row.value === val)) delete pend[k]; else pend[k] = val;
+  var host = document.getElementById('hist-checklist');
+  if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
 }
 
 function histCloseCompleteModal() {
@@ -4727,7 +4836,8 @@ function histSaveCompleteModal() {
   });
 
   var sigCaptured = _histCompleteState.sigCaptured || {};
-  if (!added.length && !modified.length && !Object.keys(addedGases).length && !Object.keys(sigCaptured).length) {
+  var checklistChanges = Object.assign({}, _histCompleteState.checklist || {});
+  if (!added.length && !modified.length && !Object.keys(addedGases).length && !Object.keys(sigCaptured).length && !Object.keys(checklistChanges).length) {
     showToast('No hay cambios que guardar', 'info');
     return;
   }
@@ -4739,15 +4849,15 @@ function histSaveCompleteModal() {
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
       lockName: true,
-      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig); },
+      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig, checklistChanges); },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });
   } else {
-    _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, null);
+    _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, null, checklistChanges);
   }
 }
 
-function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, changeSig) {
+function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, changeSig, checklistChanges) {
   undoPush('cop15', 'Completar datos retroactivos: ' + (vehicle.vin || vehicle.id));
   if (!vehicle.testData) vehicle.testData = {};
   var userName = changeSig ? changeSig.signerName : _histCurrentUserName();
@@ -4773,6 +4883,18 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
     _libAuditImplausibleValues(vehicle, addedGases, 'retroactivo');
   }
 
+  var clChanges = checklistChanges || {};
+  var clLabels = [];
+  Object.keys(clChanges).forEach(function(k) {
+    var parts = k.split(':'), group = parts[0], key = parts[1];
+    if (!RELEASE_CHECKLIST[group]) return;
+    var cl = vehicle.testData.releaseChecklist || (vehicle.testData.releaseChecklist = {});
+    (cl[group] = cl[group] || {})[key] = clChanges[k];
+    cl.retro = true; cl.by = userName; cl.at = nowIso;
+    var it = RELEASE_CHECKLIST[group].find(function(x) { return x.key === key; });
+    clLabels.push((it ? it.label : key) + ': ' + RELEASE_CHECKLIST_TEXT[group][clChanges[k]]);
+  });
+
   ['releaser', 'approver'].forEach(function(which) {
     if (sigCaptured[which]) {
       if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
@@ -4792,14 +4914,14 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
     user: userName,
     action: 'Datos completados retroactivamente',
     data: {
-      added: added.map(function(a) { return a.label; }).concat(gasFields.map(function(f) { return 'Resultado de ' + f; })).concat(sigNames.map(function(s) { return 'Firma ' + (s === 'releaser' ? 'Liberador' : 'Aprobador'); })),
+      added: added.map(function(a) { return a.label; }).concat(gasFields.map(function(f) { return 'Resultado de ' + f; })).concat(sigNames.map(function(s) { return 'Firma ' + (s === 'releaser' ? 'Liberador' : 'Aprobador'); })).concat(clLabels.map(function(l) { return 'Checklist · ' + l; })),
       modified: modified.map(function(m) { return { campo: m.label, antes: m.old, despues: m.value, razon: m.reason }; }),
       signature: changeSig ? { signerName: changeSig.signerName, signedAt: changeSig.signedAt } : null
     }
   });
   vehicle.lastModified = nowIso;
 
-  var detail = added.length + gasFields.length + ' campo(s) añadidos' +
+  var detail = added.length + gasFields.length + clLabels.length + ' campo(s) añadidos' +
       (modified.length ? '; ' + modified.length + ' modificados con razón: ' + modified.map(function(m) { return m.label + ' (' + m.reason + ')'; }).join('; ') : '') +
       (sigNames.length ? '; firmas capturadas: ' + sigNames.join(', ') : '');
   auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail);
@@ -5246,7 +5368,8 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ['Rodillos Traseros', 'Asegurados', tv.rearRollers==='secured'?'OK':tv.rearRollers||'N/A'],
     ['Pantalla', 'Asegurada', tv.screen==='secured'?'OK':tv.screen||'N/A'],
     ['FTP75-HWY espera', 'Capó cerrado (MX)', (tv.mexWaitCheck==='ok'||tv.mexWaitCheck==='fan_off')?'OK':tv.mexWaitCheck||'N/A'],
-    ['Estado de batería (SOC)', 'Al iniciar prueba', (tv.batterySocPct != null && tv.batterySocPct !== '') ? tv.batterySocPct + ' %' : ''],
+    ['Estado de batería (SOC)', 'Al iniciar prueba', (tv.batterySocPct != null && tv.batterySocPct !== '') ? tv.batterySocPct + ' %'
+        : (releaseIsBeforeChecklist(vehicle) ? 'No registrado' : '')],
   ];
 
   // Layout: 3 sets x 3 cols (Param, Cond, Conf) in 4 rows
@@ -5467,7 +5590,8 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     doc.setTextColor(...RED); setF('bold', 5.5);
     doc.text(_footTxt, ML+CW/2, fY+3.5, {align:'center'});
     doc.setTextColor(150,150,150); setF('normal', 4.5);
-    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
+    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX') +
+        (_cl.legacy ? ' | Checklist de liberación asentado retroactivamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')' : ''), ML+2, fY+7);
     if (_nPages > 1) doc.text('Página ' + pg + ' de ' + _nPages, ML+CW-2, fY+7, {align:'right'});
   }
   doc.setPage(1);
@@ -7820,9 +7944,17 @@ function v7CopyArchivedConfig(vin) {
 // ║  [V7-E5] BATCH RELEASE                                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [v23.3] EN PAUSA (decisión del laboratorio, probablemente para retirarla): el lote
+// archivaba directo, sin checklist de liberación, sin firmas y sin el doble ciego
+// liberador/aprobador — una vía para archivar emisiones sin verificar los gases.
+// El código se conserva hasta decidir; con el flag en true no hay botón y la
+// función se niega aunque alguien la llame a mano.
+var V7_BATCH_RELEASE_ON_HOLD = true;
+
 function v7RenderBatchRelease() {
     var container = document.getElementById('v7-batch-release');
     if (!container) return;
+    if (V7_BATCH_RELEASE_ON_HOLD) { container.style.display = 'none'; container.innerHTML = ''; return; }
     var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
     if (ready.length < 2) { container.style.display = 'none'; return; }
     container.style.display = 'block';
@@ -7831,6 +7963,10 @@ function v7RenderBatchRelease() {
 }
 
 function v7BatchRelease() {
+    if (V7_BATCH_RELEASE_ON_HOLD) {
+        showToast('La liberación por lote está en pausa: libera cada vehículo con su checklist, firma y aprobación.', 'warning');
+        return;
+    }
     var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
     if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
 

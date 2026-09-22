@@ -54,11 +54,58 @@ quedaba libre de Verificación en Prueba del PDF. Entra a `PDF_REQUIRED_FIELDS` 
 `when(td, vehicle)` — el `when` ahora recibe también el vehículo — para **no** exigirlo
 a archivados anteriores al campo (bloquearía regenerar su PDF por un dato imposible).
 
-### Pendiente declarado
+### 5. Pruebas anteriores al checklist: asentado automático (decisión del laboratorio)
 
-- `v7BatchRelease` archiva sin pasar por `submitToApproval`, así que tampoco pasa por el
-  checklist (ni por firmas ni doble ciego). Es preexistente y no se tocó en esta ronda.
-- Los archivados anteriores imprimen el checklist en blanco salvo las filas automáticas.
+Sin esto, todo F05 histórico saldría con las confirmaciones en blanco. El laboratorio
+decidió asentarlas solas, sabiendo que no es lo ideal, para no dejar documentación
+incompleta sin forma de regresar.
+
+- **`releaseIsBeforeChecklist(vehicle)`**: liberado (firma del liberador, si no
+  `archivedAt`) antes de `RELEASE_CHECKLIST_SINCE` (2026-09-22). Un archivado sin fechas
+  cuenta como anterior.
+- En esas pruebas, las filas sin respuesta salen **Retirado / Adjunto** ("Solo Cert. MX"
+  en México sale No aplica: eran CoP). **Se DERIVA al leer, no se escribe en el vehículo**,
+  así que lo corregido a mano manda, y el cambio es reversible. La fila F05 **no** se
+  asienta: sigue dependiendo del formulario real.
+- **El PDF lo declara** en la línea gris del pie ("Checklist de liberación asentado
+  retroactivamente"). El SOC de prueba sale "No registrado".
+
+### 6. Historial → 📝 Completar: checklist + pendientes suaves
+
+- El modal suma la sección **Checklist de liberación**: lo asentado automáticamente y lo
+  vacío se fija con los mismos botones; lo que capturó el liberador queda 🔒. Se guarda en
+  `releaseChecklist` con `retro:true`, en el timeline y en la auditoría (`retro_edit`).
+- **`validatePdfCompleteness` devuelve `soft[]` además de `missing[]`.** Un pendiente suave
+  (`PDF_REQUIRED_FIELDS[].soft(td, v)`) aparece en Completar como **Opcional** pero no
+  bloquea el PDF ni la palabra "Completa". El SOC de prueba es suave en las pruebas
+  anteriores (antes estaba exento y no había forma de llenarlo). `missing` sigue siendo
+  solo lo que bloquea, así que los consumidores existentes no cambian.
+- El botón 📝 aparece también con solo pendientes suaves (en gris, no en ámbar).
+
+### 7. `uiChipsEnhance` — botones en lugar de listas desplegables
+
+Petición del laboratorio: en Operación, lo que tiene opciones fijas se elige con un toque.
+
+- `<select data-chips>` se pinta como fila de botones; el `<select>` queda **oculto como
+  fuente de verdad**, así que guardar/cargar/borradores/autollenar operador no cambiaron.
+  `value` se redefine en la instancia (toda asignación desde código repinta) y un
+  MutationObserver repinta cuando se reescriben las opciones (operadores).
+- **`data-chips-other`** agrega "Otro…": lo tecleado se guarda tal cual como valor
+  (`<option data-custom>`), así que el reporte imprime lo escrito, no "Otro". Combustible
+  (recepción y preacondicionamiento) y ciclo lo llevan.
+- 23 listas de Operación/Alta convertidas; también el modal Completar.
+- Más de `UI_CHIPS_MAX_OPTS` (16) opciones → se queda la lista nativa.
+
+### 8. Liberación por lote en pausa
+
+`V7_BATCH_RELEASE_ON_HOLD = true`: sin botón, y `v7BatchRelease` se niega aunque la llamen.
+Archivaba sin checklist, sin firmas y sin doble ciego. El código se conserva hasta decidir
+si se retira.
+
+### Pruebas
+
+`tests/cop15.node.js` 30 → **61**; **`tests/v233.e2e.js`** (Chromium, 15 comprobaciones:
+botones, "Otro…", checklist, Completar, lote en pausa).
 
 ---
 

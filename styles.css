@@ -5100,3 +5100,17 @@ body.cop-present .cop-toolbar    { display: none; }
 .relcl-auto.relcl-na { background: var(--surface-alt); color: var(--muted); }
 .relcl-auto.relcl-pending { background: var(--warn-bg); color: var(--warn-text); }
 .relcl-foot { font-size: var(--fs-sm); color: var(--muted); }
+
+/* ── Botones de opción en lugar de <select> (app.js: uiChipsEnhance) ──
+   El <select> queda oculto pero en el DOM (es la fuente de verdad); no se usa
+   display:none para que siga siendo validable y enfocable por el código. */
+.chips-native { position: absolute !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; clip: rect(0 0 0 0); }
+.ui-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ui-chip { min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--fs-sm); font-weight: 600; line-height: 1.2; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast); }
+.ui-chip:hover:not(:disabled) { border-color: var(--kia-red); }
+.ui-chip.is-on { background: var(--kia-red); border-color: var(--kia-red); color: #fff; }
+.ui-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-chip-more { border-style: dashed; color: var(--muted); }
+.ui-chip-other { display: inline-flex; gap: var(--space-xs); align-items: center; flex-wrap: wrap; }
+.ui-chip-input { min-height: var(--target-min); font-size: var(--fs-base); padding: var(--space-xs) var(--space-sm); border: 1px solid var(--kia-red); border-radius: var(--radius-md); min-width: 160px; }
+.chips-native.field-missing + .ui-chips .ui-chip { border-color: var(--warn-fill); background: var(--warn-tint); }

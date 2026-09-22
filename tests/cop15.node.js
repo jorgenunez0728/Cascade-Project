@@ -210,11 +210,35 @@ console.log('\n== releaseChecklistRows ==');
     ctx.validatePdfCompleteness = _vpc;
     ok('F05 sin ningún pendiente = Completa', f05Ok.value === 'ok' && f05Ok.okText === 'Completa');
 
-    // SOC al iniciar prueba: exigido en curso, no en archivados viejos
+    // SOC al iniciar prueba: obligatorio en curso; pendiente SUAVE en lo liberado antes
     const soc = ctx.PDF_REQUIRED_FIELDS.find(f => f.path === 'testData.testVerification.batterySocPct');
     ok('SOC de prueba está en el descriptor de obligatorios', !!soc);
-    ok('SOC de prueba se exige a un vehículo en curso', soc.when({ testVerification: {} }, { status: 'ready-release' }) === true);
-    ok('un archivado sin el campo no lo exige (no bloquea regenerar su PDF)', soc.when({ testVerification: {} }, { status: 'archived' }) === false);
+    ok('SOC de prueba es obligatorio en un vehículo sin liberar', soc.soft({}, { status: 'ready-release', testData: {} }) === false);
+    const viejo = { status: 'archived', archivedAt: '2026-09-10T12:00:00', testData: { signatures: { releaser: { signedAt: '2026-09-10T11:00:00' } } } };
+    ok('en una prueba liberada antes del checklist el SOC es pendiente suave', soc.soft({}, viejo) === true);
+    const _vp = ctx.validatePdfCompleteness(Object.assign({ purpose: 'COP-Emisiones', config: {} }, viejo));
+    ok('un pendiente suave no bloquea (va en soft, no en missing)',
+        _vp.soft.some(m => /SOC de batería al iniciar/.test(m.label)) && !_vp.missing.some(m => /SOC de batería al iniciar/.test(m.label)));
+
+    // Pruebas anteriores al checklist: se asienta solo (derivado, no escrito)
+    ok('liberado antes del ' + ctx.RELEASE_CHECKLIST_SINCE + ' = anterior al checklist', ctx.releaseIsBeforeChecklist(viejo) === true);
+    const hoy = { status: 'pending-approval', testData: { signatures: { releaser: { signedAt: new Date().toISOString() } } } };
+    ok('liberado hoy NO es anterior al checklist', ctx.releaseIsBeforeChecklist(hoy) === false);
+    ok('sin liberar NO es anterior al checklist', ctx.releaseIsBeforeChecklist({ status: 'ready-release', testData: {} }) === false);
+    ok('archivado muy viejo sin fechas SÍ es anterior', ctx.releaseIsBeforeChecklist({ status: 'archived', testData: {} }) === true);
+    const vMx = Object.assign({ purpose: 'COP-Emisiones', config: { REGION: 'MEXICO' } }, JSON.parse(JSON.stringify(viejo)));
+    const stMx = rows(vMx);
+    ok('prueba vieja: objetos asentados como Retirado y marcados legacy',
+        stMx.objects.every(r => r.value === 'ok' && r.legacy) && stMx.legacy === true);
+    ok('prueba vieja en México: Cert. MX queda No aplica', byKey(stMx, 'f02').value === 'na');
+    // La fila F05 NO se asienta sola: depende de que el formulario esté lleno de verdad.
+    ok('prueba vieja: solo queda pendiente la F05 (si faltan campos reales)',
+        stMx.missing.length === 1 && stMx.missing[0].key === 'f05' && !byKey(stMx, 'f05').legacy);
+    ok('el derivado NO se escribe en el vehículo', !vMx.testData.releaseChecklist);
+    vMx.testData.releaseChecklist = { objects: { cardaq: 'na' } };
+    const stMx2 = rows(vMx);
+    ok('lo corregido a mano manda sobre lo automático',
+        byKey(stMx2, 'cardaq').value === 'na' && !byKey(stMx2, 'cardaq').legacy && byKey(stMx2, 'kds').legacy);
 
     const forzado = rows(veh('CANADA', { docs: { obfcm: 'ok' } }));
     ok('una regla automática gana sobre un valor guardado a mano', byKey(forzado, 'obfcm').value === 'na');
