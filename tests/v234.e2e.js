@@ -123,7 +123,55 @@ const SEED = () => {
         return { v: document.getElementById('soak_time').value, warn: (document.querySelector('.hint-soak') || {}).textContent || '' }; });
     chk('un reposo tecleado a mano no se pisa, y se avisa si no cuadra con las fechas', manual.v === '30' && /26 h/.test(manual.warn), JSON.stringify(manual));
 
+    // ── Bloque 4: Hick ──
+    const h = await page.evaluate(() => {
+        const r = {};
+        switchPlatform('cop15'); document.querySelector('.tab[data-tab="seguimiento"]').click();
+        r.cards = [...document.querySelectorAll('#op-veh-cards .veh-card')].map(c => c.querySelector('.veh-card-vin').textContent);
+        r.noPending = !r.cards.some(t => t.indexOf('000001') >= 0 && t.indexOf('PEND') >= 0);
+        const card = [...document.querySelectorAll('#op-veh-cards .veh-card')].find(c => c.textContent.indexOf('KNATEST000002') >= 0);
+        card.click();
+        r.loaded = activeVehicleId === 'vT';
+        r.selKept = document.getElementById('activeVehSelect').value === 'vT';
+        r.nextLabel = (document.querySelector('#op-next-step .op-next-btn') || {}).textContent || '';
+        r.sums = [...document.querySelectorAll('#op-emissions-block summary .op-sum')].map(x => x.textContent);
+        r.openFirst = (document.querySelector('#op-emissions-block details[open] .op-sum') || {}).textContent || '';
+        // Enviar a liberación con faltantes: se niega y el vehículo sigue "en prueba"
+        document.getElementById('op_status').value = 'testing'; initStatusPrevValue(); opNextStepRender();
+        r.nextLabel2 = (document.querySelector('#op-next-step .op-next-btn') || {}).textContent || '';
+        document.querySelector('#op-next-step .op-next-btn').click();
+        r.statusAfter = db.vehicles.find(v => v.id === 'vT').status;
+        r.popup = !!document.querySelector('.missing-popup, #missingPopup, .custom-modal-box');
+        // Propósito en botones agrupados
+        r.purposeGroups = document.querySelectorAll('#vehiclePurpose + .ui-chips .ui-chips-group').length;
+        return r;
+    });
+    chk('Operación: tarjetas solo de vehículos editables (el que está en aprobación no aparece)', h.cards.length >= 1 && !h.cards.some(t => /000001/.test(t)), JSON.stringify(h.cards));
+    chk('tocar una tarjeta abre el vehículo y el selector lo conserva', h.loaded && h.selKept);
+    chk('el botón de siguiente paso dice qué sigue', /Enviar a liberación|Iniciar prueba/.test(h.nextLabel), h.nextLabel);
+    chk('cada sección muestra su estado (faltan N / ✓)', h.sums.length >= 3 && h.sums.some(x => /faltan/.test(x)), JSON.stringify(h.sums));
+    chk('se abre la primera sección con faltantes', /faltan/.test(h.openFirst), h.openFirst);
+    chk('"Enviar a liberación" con faltantes se niega y no cambia el estado', /Enviar a liberación/.test(h.nextLabel2) && h.statusAfter !== 'ready-release', h.statusAfter);
+    chk('propósito del Alta en 4 grupos de botones', h.purposeGroups === 4, h.purposeGroups);
+    await page.evaluate(() => { document.querySelectorAll('.custom-modal-overlay, #globalModal').forEach(m => m.style.display = 'none'); });
+
     // @@MORE@@
+
+    // ── Responsive: nada se sale de la pantalla a 390 px (teléfono) ──
+    const phone = await (await browser.newContext({ viewport: { width: 390, height: 900 } })).newPage();
+    phone.on('pageerror', e => errs.push('phone: ' + e.message));
+    await phone.addInitScript(SEED);
+    await phone.goto('file://' + path.join(REPO, 'index.html'));
+    await phone.waitForTimeout(2500);
+    const ov = await phone.evaluate(() => {
+        switchPlatform('cop15'); document.querySelector('.tab[data-tab="seguimiento"]').click();
+        const s = document.getElementById('activeVehSelect'); s.value = 'vT'; loadVehicle();
+        document.querySelectorAll('#op-content details').forEach(d => { d.style.display = ''; d.open = true; });
+        const vw = document.documentElement.clientWidth; const out = [];
+        document.querySelectorAll('#panel-seguimiento *').forEach(el => { const r = el.getBoundingClientRect(); if (r.width > 0 && r.right > vw + 1) out.push((el.id || el.className || el.tagName).toString().slice(0, 30)); });
+        return out;
+    });
+    chk('Operación a 390 px: ningún elemento se sale de la pantalla', ov.length === 0, ov.slice(0, 5).join(', '));
 
     chk('sin errores de página', errs.length === 0, errs.join(' | '));
     await browser.close();

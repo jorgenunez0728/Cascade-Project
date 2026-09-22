@@ -44,6 +44,10 @@ function setupUnsavedTracking() {
     if (!container) return;
     container.addEventListener('input', markUnsaved);
     container.addEventListener('change', markUnsaved);
+    // [v23.4] El indicador de cada sección ("faltan N" / ✓) sigue lo que se va capturando.
+    var _badgesSoon = debounce(function() { smartFormUpdateBadges(); }, 250);
+    container.addEventListener('input', _badgesSoon);
+    container.addEventListener('change', _badgesSoon);
     // [R5-M2] Register auto-save on blur/visibility change
     autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
 
@@ -977,8 +981,12 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
   if (!def || !accs.includes(def)) def = accs[0];
   def.setAttribute('open', '');
 
-  // 3) Regla: solo uno abierto durante uso
+  // 3) Regla: solo uno abierto durante uso. [v23.4] Una sola vez por acordeón: esto
+  // se llama en cada carga de vehículo y antes apilaba un listener (y un scroll) más
+  // cada vez.
   accs.forEach(d => {
+    if (d.dataset.singleOpen) return;
+    d.dataset.singleOpen = '1';
     d.addEventListener('toggle', () => {
       if (!d.open) return;
       accs.forEach(other => {
@@ -1418,6 +1426,7 @@ function loadVehicle() {
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
     autoFillOperators();
+    opNextStepRender();
     return;
   }
 
@@ -1512,6 +1521,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   if (cascadePrefillTargetsFromHomolog(vehicle) && typeof markUnsaved === 'function') markUnsaved();
   cascadeDerivedRefresh();
 
+  opNextStepRender();
+  opSectionsRender(vehicle, true);
+
   // [v23.4] Sugerencias de los campos numéricos para ESTE vehículo (su configuración)
   if (typeof uiNumRefresh === 'function') uiNumRefresh(document.getElementById('op-content'));
 
@@ -1530,8 +1542,14 @@ function updateTestVerificationVisibility() {
 
 function initStatusPrevValue() {
   const st = document.getElementById('op_status');
-  if (st && !st.dataset.prev) st.dataset.prev = st.value || 'in-progress';
+  // [v23.4] Siempre, no solo la primera vez: si no, un cambio rechazado devolvía el
+  // select al estado del vehículo ANTERIOR.
+  if (st) st.dataset.prev = st.value || 'in-progress';
 }
+
+// [v23.4] El select guarda 'yes'/'no'; cinco sitios comparaban contra 'Si' y nunca
+// empataban (stepper, auto-avance, checklist). 'Si'/'Sí' se aceptan por datos viejos.
+function _precondIsOk(v) { return v === 'yes' || v === 'Si' || v === 'Sí'; }
 
 function handleStatusChange(selectEl) {
   if (!selectEl) return;
@@ -1573,6 +1591,7 @@ function handleStatusChange(selectEl) {
   if (typeof emitEvent === 'function') emitEvent('vehicle:statusChanged', { vehicleId: activeVehicleId, from: prev, to: next });
   // [V7-D2] Update floating next step banner
   if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+  opNextStepRender();
 }
 
 
@@ -1997,6 +2016,205 @@ function cascadeNumSuggest(input) {
 }
 if (typeof window !== 'undefined') window.uiNumSuggestProvider = cascadeNumSuggest;
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Siguiente paso (ley de Hick): UN botón que dice qué sigue, en vez de un
+// select de estados + "Guardar". Pasa por handleStatusChange, así que la validación
+// de siempre (validateReadyForRelease) sigue siendo la que decide.
+// ══════════════════════════════════════════════════════════════════════
+var OP_NEXT_STEPS = {
+  'registered':    { to: 'testing',       label: '▶ Iniciar prueba',        hint: 'Guarda y pasa el vehículo a «En prueba»: se abre la verificación en el dinamómetro.' },
+  'in-progress':   { to: 'testing',       label: '▶ Iniciar prueba',        hint: 'Guarda y pasa el vehículo a «En prueba»: se abre la verificación en el dinamómetro.' },
+  'testing':       { to: 'ready-release', label: '📤 Enviar a liberación',  hint: 'Revisa que no falte ningún campo y lo manda a la pestaña Liberación.' },
+  'ready-release': { go: 'liberacion',    label: '➡ Ir a Liberación',       hint: 'Ya está listo: captura los gases y firma en Liberación.' }
+};
+
+function opNextStepRender() {
+  var host = document.getElementById('op-next-step');
+  if (!host) return;
+  var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  if (!vehicle || _opIsReadOnlyStatus(vehicle.status)) { host.innerHTML = ''; return; }
+  var cur = (document.getElementById('op_status') || {}).value || vehicle.status;
+  var step = OP_NEXT_STEPS[cur];
+  if (!step) { host.innerHTML = ''; return; }
+  host.innerHTML = '<button type="button" class="btn-primary op-next-btn" onclick="opAdvance()">' + escapeHtml(step.label) + '</button>' +
+                   '<div class="op-next-hint">' + escapeHtml(step.hint) + '</div>';
+}
+
+function opAdvance() {
+  var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  var sel = document.getElementById('op_status');
+  if (!vehicle || !sel) return;
+  var step = OP_NEXT_STEPS[sel.value || vehicle.status];
+  if (!step) return;
+  if (step.go === 'liberacion') {
+    if (_unsavedChanges) saveProgress({ silent: true });
+    var tab = document.querySelector('.tab[data-tab="liberacion"]');
+    if (tab) tab.click();
+    var rs = document.getElementById('releaseVehSelect');
+    if (rs) { rs.value = vehicle.id; if (typeof loadRelease === 'function') loadRelease(); }
+    return;
+  }
+  sel.value = step.to;
+  handleStatusChange(sel);           // valida; si falta algo, regresa el select y muestra qué
+  if (sel.value !== step.to) return; // rechazado: no se guarda nada
+  saveProgress();
+  opNextStepRender();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Secciones de Operación con su estado a la vista (Hick): cada encabezado dice
+// si está completa y un resumen de una línea, y al abrir un vehículo se abre la
+// primera que tenga faltantes. Lo "completo" sale de PDF_REQUIRED_FIELDS, la misma
+// definición del PDF.
+// ══════════════════════════════════════════════════════════════════════
+var OP_SECTION_ACC = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación de Prueba': 'test-verify-card' };
+
+/**
+ * Faltantes por sección. PURA si se le pasa `getVal(f)`; sin él lee lo GUARDADO en el
+ * vehículo. La pantalla le pasa el valor en vivo del campo (f.refId), así el indicador
+ * cambia mientras se escribe y usa la MISMA definición que el PDF.
+ */
+function opSectionMissing(vehicle, getVal) {
+  var td = (vehicle && vehicle.testData) || {};
+  var out = {};
+  PDF_REQUIRED_FIELDS.forEach(function(f) {
+    if (!OP_SECTION_ACC[f.section]) return;
+    if (f.when && !f.when(td, vehicle)) return;
+    if (!out[f.section]) out[f.section] = { total: 0, missing: 0 };
+    out[f.section].total++;
+    var v = getVal ? getVal(f) : _histGetPath(vehicle, f.path);
+    var blank = v === null || v === undefined || String(v).trim() === '' || (f.zeroIsBlank && Number(v) === 0);
+    if (blank && !(f.soft && f.soft(td, vehicle))) out[f.section].missing++;
+  });
+  return out;
+}
+
+function _opSectionSummary(section, vehicle) {
+  var td = vehicle.testData || {}, p = td.preconditioning || {}, tv = td.testVerification || {};
+  var bits = [];
+  if (section === 'Recepción') {
+    if (td.odometer != null && td.odometer !== '') bits.push(td.odometer + ' km');
+    if (p.fuelTypeIn) bits.push(p.fuelTypeIn);
+    if (p.tirePressureInPsi) bits.push(p.tirePressureInPsi + ' psi');
+  } else if (section === 'Preacondicionamiento') {
+    if (p.cycle) bits.push(p.cycle);
+    if (p.soakTimeH) bits.push('reposo ' + p.soakTimeH + ' h');
+    if (p.ok) bits.push(_precondIsOk(p.ok) ? 'cumple' : 'no cumple');
+  } else if (section === 'Dinamómetro') {
+    if (td.etw) bits.push('ETW ' + td.etw + ' kg');
+  } else if (section === 'Verificación de Prueba') {
+    if (tv.tunnel) bits.push(tv.tunnel);
+    if (tv.fanMode) bits.push(tv.fanMode === 'speed_follow' ? 'Speed Follow' : 'ventilador por velocidad');
+  }
+  return bits.join(' · ');
+}
+
+function _opLiveVal(f) {
+  var el = f.refId && document.getElementById(f.refId);
+  return el ? el.value : null;
+}
+
+function opSectionsRender(vehicle, openFirst) {
+  if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) return;
+  var st = opSectionMissing(vehicle, _opLiveVal);
+  var firstIncomplete = null;
+  Object.keys(OP_SECTION_ACC).forEach(function(sec) {
+    var acc = document.getElementById(OP_SECTION_ACC[sec]);
+    var sum = acc && acc.querySelector('summary');
+    if (!sum) return;
+    var old = sum.querySelector('.op-sum');
+    if (old) old.remove();
+    var legacy = sum.querySelector('.smart-badge'); // el contador viejo (otra lista de campos)
+    if (legacy) legacy.remove();
+    var info = st[sec];
+    if (!info) return;
+    var span = document.createElement('span');
+    if (info.missing) {
+      span.className = 'op-sum op-sum-missing';
+      span.textContent = 'faltan ' + info.missing;
+      if (!firstIncomplete && acc.style.display !== 'none') firstIncomplete = acc;
+    } else {
+      span.className = 'op-sum op-sum-ok';
+      var r = _opSectionSummary(sec, vehicle);
+      span.textContent = '✓' + (r ? ' ' + r : ' completa');
+    }
+    sum.appendChild(span);
+  });
+  if (openFirst && firstIncomplete && !firstIncomplete.classList.contains('smart-locked')) {
+    firstIncomplete.setAttribute('open', '');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Elegir vehículo con tarjetas (Hick): en vez de un desplegable de líneas
+// "VIN | propósito | config [estado]", las tarjetas de los vehículos de ESA etapa con
+// lo que importa a la vista. El <select> sigue siendo la fuente de verdad (y sirve para
+// buscar entre todos); tocar una tarjeta lo fija y dispara su onchange de siempre.
+// ══════════════════════════════════════════════════════════════════════
+var VEH_CARDS_MAX = 8;
+
+function _vehAgo(iso) {
+  if (!iso) return '';
+  var t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  var m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'justo ahora';
+  if (m < 60) return 'hace ' + m + ' min';
+  var h = Math.round(m / 60);
+  if (h < 24) return 'hace ' + h + ' h';
+  var d = Math.round(h / 24);
+  return 'hace ' + d + (d === 1 ? ' día' : ' días');
+}
+
+function cascadeVehicleCardsRender(hostId, selectId, list) {
+  var host = document.getElementById(hostId);
+  if (!host) return;
+  if (!list || !list.length) {
+    host.innerHTML = '<div class="veh-cards-empty">No hay vehículos en esta etapa.</div>';
+    return;
+  }
+  var sel = document.getElementById(selectId);
+  var cur = sel ? sel.value : '';
+  var shown = list.slice().sort(function(a, b) {
+    return String(b.lastModified || b.registeredAt || '').localeCompare(String(a.lastModified || a.registeredAt || ''));
+  }).slice(0, VEH_CARDS_MAX);
+  var html = shown.map(function(v) {
+    var st = typeof cascadeVehicleStage === 'function' ? cascadeVehicleStage(v) : null;
+    var vin = String(v.vin || '');
+    var on = String(v.id) === String(cur);
+    return '<button type="button" class="veh-card' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" ' +
+      'onclick="cascadeVehicleCardPick(\'' + selectId + '\',\'' + String(v.id).replace(/'/g, '') + '\')">' +
+      '<span class="veh-card-vin">…' + escapeHtml(vin.slice(-6)) + '</span>' +
+      '<span class="veh-card-full">' + escapeHtml(vin) + '</span>' +
+      '<span class="veh-card-cfg">' + escapeHtml(truncateMiddle(v.configCode || '', 40)) + '</span>' +
+      '<span class="veh-card-meta">' + (st ? 'Etapa ' + st.index + '/' + st.total + ' · ' + escapeHtml(st.label) : '') +
+        (v.lastModified ? ' · ' + _vehAgo(v.lastModified) : '') + '</span>' +
+      '</button>';
+  }).join('');
+  if (list.length > VEH_CARDS_MAX) html += '<div class="veh-cards-more">+' + (list.length - VEH_CARDS_MAX) + ' más: búscalos en la lista de abajo.</div>';
+  host.innerHTML = html;
+}
+
+/** Si la etapa tiene UN solo vehículo y no hay nada abierto, lo abre (un toque menos). */
+function cascadeAutoOpenSingle(selectId, filterFn) {
+  var sel = document.getElementById(selectId);
+  if (!sel || sel.value) return;
+  var list = db.vehicles.filter(filterFn);
+  if (list.length === 1) cascadeVehicleCardPick(selectId, String(list[0].id));
+}
+
+function cascadeVehicleCardPick(selectId, id) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.value = id;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  var host = sel.closest('.tab-panel');
+  if (host) host.querySelectorAll('.veh-card').forEach(function(c) {
+    var on = (c.getAttribute('onclick') || '').indexOf("'" + id + "'") >= 0 && (c.getAttribute('onclick') || '').indexOf(selectId) >= 0;
+    c.classList.toggle('is-on', on); c.setAttribute('aria-pressed', on);
+  });
+}
+
 // Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
 // está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
 // Historial → 📝 Completar.
@@ -2220,6 +2438,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   // Update readiness checklist after save
   updateReadinessChecklist();
+  opSectionsRender(vehicle, false);
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') { vclUpdate(); if (_vclOpen) vclRender(); }
@@ -2301,7 +2520,7 @@ function checkAutoAdvance(vehicle) {
     var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
     missingCount = precondFields.length - filled;
 
-    if (filled === precondFields.length && p.ok === 'Si') {
+    if (filled === precondFields.length && _precondIsOk(p.ok)) {
       // Check soak timer
       var soakData = null;
       try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
@@ -4150,6 +4369,9 @@ function refreshAllLists() {
     var approvalSelect = document.getElementById('approvalVehSelect');
 
     if (!activeSelect || !releaseSelect) return;
+    // [v23.4] Reconstruir las opciones borraba la selección: después de guardar, el
+    // selector decía "Seleccionar" con el vehículo todavía abierto debajo.
+    var _prevSel = { a: activeSelect.value, r: releaseSelect.value, p: approvalSelect ? approvalSelect.value : '' };
 
     activeSelect.innerHTML = '<option value="">-- Seleccionar Vehículo --</option>';
     releaseSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
@@ -4194,6 +4416,15 @@ function refreshAllLists() {
             approvalSelect.appendChild(opt);
         });
     }
+
+    activeSelect.value = _prevSel.a;
+    releaseSelect.value = _prevSel.r;
+    if (approvalSelect) approvalSelect.value = _prevSel.p;
+
+    // [v23.4] Tarjetas: solo los vehículos de ESA etapa (Hick). El select queda para buscar.
+    cascadeVehicleCardsRender('op-veh-cards', 'activeVehSelect', activeVehicles.filter(function(v) { return !_opIsReadOnlyStatus(v.status); }));
+    cascadeVehicleCardsRender('lib-veh-cards', 'releaseVehSelect', readyVehicles);
+    cascadeVehicleCardsRender('appr-veh-cards', 'approvalVehSelect', pendingVehicles);
 
     // Update sub-tab counters
     var readyCount = document.getElementById('lib-ready-count');
@@ -6965,7 +7196,7 @@ function renderPrecondBatchView() {
         var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
         var total = precondFields.length;
         var precondPct = Math.round((filled / total) * 100);
-        var precondOk = isEm ? (p.ok === 'Si') : (filled === total);
+        var precondOk = isEm ? (_precondIsOk(p.ok)) : (filled === total);
 
         // Soak status
         var soakStatus = '—';
@@ -7071,7 +7302,7 @@ function batchScheduleTests() {
         if (!vehicle) return;
 
         var p = vehicle.testData?.preconditioning || {};
-        var precondOk = p.ok === 'Si';
+        var precondOk = _precondIsOk(p.ok);
         if (!precondOk) return; // Only advance precond-complete vehicles
 
         var hour = 8 + (idx * 2); // 8, 10, 12, 14...
@@ -7169,36 +7400,11 @@ function smartFormApplyByStatus(status) {
  * Update completion badges on accordion section headers.
  */
 function smartFormUpdateBadges() {
-    if (!_reviewSections) return;
-    _reviewSections.forEach(function(sec) {
-        var total = 0, filled = 0;
-        sec.fields.forEach(function(f) {
-            var el = document.getElementById(f.id);
-            if (!el) return;
-            total++;
-            if (el.value && el.value !== '') filled++;
-        });
-        // Find the section's accordion summary
-        var accIds = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación': 'test-verify-card' };
-        var accId = accIds[sec.title];
-        if (!accId) return;
-        var accEl = document.getElementById(accId);
-        if (!accEl) return;
-        var summary = accEl.querySelector('summary');
-        if (!summary) return;
-
-        var badge = summary.querySelector('.smart-badge');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'smart-badge';
-            summary.appendChild(badge);
-        }
-
-        badge.textContent = filled + '/' + total;
-        badge.classList.toggle('smart-badge-complete', filled === total && total > 0);
-        badge.classList.toggle('smart-badge-partial', filled > 0 && filled < total);
-        badge.classList.toggle('smart-badge-empty', filled === 0);
-    });
+    // [v23.4] Un solo indicador por sección: antes había dos (este "N/M" con su propia
+    // lista de campos y el de opSectionsRender) y no coincidían. Ahora manda la
+    // definición del PDF, leída en vivo.
+    var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (vehicle) opSectionsRender(vehicle, false);
 }
 
 /**
@@ -7569,6 +7775,7 @@ var CASCADE_TOOLTIPS = {
     'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
     test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
+    'op-next-help': { title: 'Siguiente paso', text: 'El botón grande hace lo que sigue para este vehículo: iniciar la prueba, enviarlo a liberación o ir a Liberación. Antes de avanzar revisa que no falte nada y, si falta, te dice qué. «Guardar» guarda sin cambiar de etapa. «Cambiar estado a mano» es solo para corregir (por ejemplo, regresar un vehículo a «En progreso»).' },
     'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco.' },
     man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
     man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
@@ -7765,7 +7972,7 @@ function getNextStep(vehicle) {
     } catch(e) {}
     if (td.soakCompleted) soakDone = true;
 
-    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var precondComplete = _precondIsOk(p.ok) && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
     var tv = td.testVerification || {};
     var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
@@ -7820,7 +8027,7 @@ function cascadeVehicleStage(vehicle) {
         if (mine && sd.endTime) { soakStarted = true; if (sd.endTime <= Date.now()) soakDone = true; }
     } catch (e) {}
     var recepcionOk = td.operator && td.odometer && td.datetime;
-    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var precondComplete = _precondIsOk(p.ok) && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
     var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
 
@@ -8056,6 +8263,10 @@ function v7TrackPurposeUsage(purpose) {
 function v7RenderQuickPicks() {
     var container = document.getElementById('v7-quick-picks');
     if (!container) return;
+    // [v23.4] Con el propósito ya en botones agrupados, los "recientes" repetían las
+    // mismas opciones (y con el código crudo, "COP-Emisiones"): una fila menos que leer.
+    var _ps = document.getElementById('vehiclePurpose');
+    if (_ps && _ps._chips) { container.style.display = 'none'; return; }
     try {
         var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
         if (history.length === 0) { container.style.display = 'none'; return; }
@@ -8360,6 +8571,8 @@ function v7BatchRelease() {
         if (!tab) return;
         var tabName = tab.dataset.tab;
         setTimeout(function() {
+            // La tira de "siguiente paso" depende de la pestaña (en Operación la reemplaza la tarjeta).
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
             if (tabName === 'alta') {
                 v7RenderQuickPicks();
                 v7RenderSmartConfigs();
@@ -8367,9 +8580,19 @@ function v7BatchRelease() {
             }
             if (tabName === 'seguimiento') {
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+                cascadeAutoOpenSingle('activeVehSelect', function(v) { return !_opIsReadOnlyStatus(v.status); });
             }
             if (tabName === 'liberacion') {
                 v7RenderBatchRelease();
+                // [v23.4] H5: abre en la sub-pestaña que tiene trabajo.
+                var nReady = db.vehicles.filter(function(v) { return v.status === 'ready-release'; }).length;
+                var nPend = db.vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
+                var rs = document.getElementById('releaseVehSelect');
+                if (!nReady && nPend && !(rs && rs.value) && typeof libSwitchSubtab === 'function') libSwitchSubtab('aprobador');
+                else if (nReady && !nPend && typeof libSwitchSubtab === 'function') libSwitchSubtab('liberador');
+                var inAppr = (document.getElementById('lib-panel-aprobador') || {}).style;
+                if (inAppr && inAppr.display !== 'none') cascadeAutoOpenSingle('approvalVehSelect', function(v) { return v.status === 'pending-approval'; });
+                else cascadeAutoOpenSingle('releaseVehSelect', function(v) { return v.status === 'ready-release'; });
             }
         }, 100);
     });

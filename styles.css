@@ -5141,3 +5141,37 @@ body.cop-present .cop-toolbar    { display: none; }
 .cascade-dt-row { display: flex; gap: var(--space-xs); align-items: stretch; }
 .cascade-dt-row > input { flex: 1; min-width: 0; }
 .cascade-now-btn { flex-shrink: 0; }
+
+/* ── Siguiente paso de Operación (cop15.js: opNextStepRender) ── */
+.op-actions { display: flex; flex-direction: column; gap: var(--space-sm); }
+.op-next-btn { width: 100%; font-size: var(--fs-base); }
+.op-next-hint { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-xs); }
+.op-actions-row { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.op-actions-row > button { flex: 1 1 160px; }
+.op-status-manual > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); padding: var(--space-xs) 0; }
+
+/* ── Estado por sección en Operación (cop15.js: opSectionsRender) ── */
+.op-sum { margin-left: var(--space-sm); font-size: var(--fs-sm); font-weight: 600; padding: 2px var(--space-sm); border-radius: var(--radius-full); white-space: nowrap; }
+.op-sum-ok { background: var(--ok-bg); color: var(--ok-text); white-space: normal; }
+.op-sum-missing { background: var(--warn-bg); color: var(--warn-text); }
+
+/* ── Tarjetas de vehículo (cop15.js: cascadeVehicleCardsRender) ── */
+.veh-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-md); }
+.veh-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: var(--space-sm) var(--space-md); min-height: var(--target-min); border: 1.5px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
+.veh-card:hover { border-color: var(--kia-red); }
+.veh-card.is-on { border-color: var(--kia-red); background: var(--surface-alt); box-shadow: inset 3px 0 0 var(--kia-red); }
+.veh-card-vin { font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.02em; }
+.veh-card-full { font-family: ui-monospace, monospace; font-size: var(--fs-2xs); color: var(--muted); }
+.veh-card-cfg { font-size: var(--fs-sm); font-weight: 600; word-break: break-word; }
+.veh-card-meta { font-size: var(--fs-sm); color: var(--muted); }
+.veh-cards-empty, .veh-cards-more { font-size: var(--fs-sm); color: var(--muted); grid-column: 1 / -1; }
+.veh-select-fallback label { font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.ui-chips-group { display: flex; flex-direction: column; gap: var(--space-xs); width: 100%; }
+.ui-chips-glabel { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.ui-chips-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+
+/* [v23.4] Un <input> en una fila flex aporta su ancho intrínseco (~20ch) al mínimo de
+   la columna de la cuadrícula, aunque tenga min-width:0: a 390 px las filas − / + y
+   fecha + "Ahora" desbordaban la tarjeta. width:0 + flex-grow lo deja encoger. */
+.ui-num-row > input, .cascade-dt-row > input { width: 0; flex: 1 1 0; min-width: 0; }
+.form-grid > .form-group { min-width: 0; }

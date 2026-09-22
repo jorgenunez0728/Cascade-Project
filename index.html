@@ -184,16 +184,24 @@
             <div id="v7-quick-picks" style="display:none;"></div>
             <div class="form-group">
                 <label for="vehiclePurpose">Propósito de la Prueba</label>
-                <select id="vehiclePurpose" required aria-required="true">
+                <select id="vehiclePurpose" required aria-required="true" data-chips>
                     <option value="">Seleccione...</option>
-                    <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
-                    <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
-		    <option value="EO-Emisiones">Cambio de Ingeniería: Emisiones</option>
-		    <option value="EO-OBD2">Cambio de Ingeniería: OBD-II</option>
-                    <option value="ND-Emisiones">Nuevos Desarrollos: Emisiones</option>
-                    <option value="ND-OBD2">Nuevos Desarrollos: OBD-II</option>
-                    <option value="Correlacion">Correlación</option>
-                    <option value="Investigacion">Actividad de Investigación</option>
+                    <optgroup label="Conformidad de Producción (CoP)">
+                        <option value="COP-Emisiones">Emisiones</option>
+                        <option value="COP-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Cambio de Ingeniería (EO)">
+                        <option value="EO-Emisiones">Emisiones</option>
+                        <option value="EO-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Nuevos Desarrollos (ND)">
+                        <option value="ND-Emisiones">Emisiones</option>
+                        <option value="ND-OBD2">OBD-II</option>
+                    </optgroup>
+                    <optgroup label="Otras actividades">
+                        <option value="Correlacion">Correlación</option>
+                        <option value="Investigacion">Investigación</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -445,8 +453,9 @@
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
     <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
         <div id="help-banner-slot-cop15-seguimiento"></div>
-        <div class="form-group">
-            <label>Seleccionar Vehículo Activo</label>
+        <div id="op-veh-cards" class="veh-cards" aria-label="Vehículos en Operación"></div>
+        <div class="form-group veh-select-fallback">
+            <label for="activeVehSelect">O busca cualquier vehículo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
                 <option value="">-- Seleccionar Vehículo --</option>
             </select>
@@ -917,20 +926,27 @@
     </div>
   </div>
 </details>
-            <div class="card">
-                <div class="card-title">📊 Estado de la Prueba</div>
-                <div class="form-group">
-                    <label>Cambiar estado del vehículo</label>
-			<select id="op_status" onchange="handleStatusChange(this)">
-                        <option value="in-progress">En Progreso</option>
-                        <option value="testing">En Prueba</option>
-                        <option value="ready-release">Listo para Liberación</option>
-                    </select>
+            <!-- [v23.4] Un botón que dice qué sigue (Hick): el select de estado queda como
+                 fuente de verdad, plegado en "Cambiar estado a mano" para correcciones. -->
+            <div class="card op-actions">
+                <div class="card-title" data-help="op-next-help">📊 Siguiente paso</div>
+                <div id="op-next-step"></div>
+                <div class="op-actions-row">
+                    <button class="btn-secondary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
+                    <button class="btn-secondary" onclick="generateCOP15PDF(activeVehicleId)">📄 PDF COP15-F05</button>
                 </div>
+                <details class="op-status-manual">
+                    <summary>Cambiar estado a mano</summary>
+                    <div class="form-group">
+                        <label for="op_status">Estado del vehículo</label>
+                        <select id="op_status" data-chips onchange="handleStatusChange(this)">
+                            <option value="in-progress">En progreso</option>
+                            <option value="testing">En prueba</option>
+                            <option value="ready-release">Listo para liberación</option>
+                        </select>
+                    </div>
+                </details>
             </div>
-
-            <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
-            <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:10px; background:var(--accent-results);">📄 GENERAR PDF COP15-F05</button>
         </div>
     </div>
 
@@ -953,8 +969,9 @@
         <div id="lib-panel-liberador">
             <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--info-text);">📋 <strong>Liberador:</strong> captura tus lecturas de gases. El aprobador las verificará por separado (doble ciego).</div>
             <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
-            <div class="form-group">
-                <label>Seleccionar Vehículo para Liberar</label>
+            <div id="lib-veh-cards" class="veh-cards" aria-label="Vehículos listos para liberar"></div>
+            <div class="form-group veh-select-fallback">
+                <label for="releaseVehSelect">O elige de la lista</label>
                 <select id="releaseVehSelect" onchange="loadRelease()">
                     <option value="">-- Seleccionar --</option>
                 </select>
@@ -1001,8 +1018,9 @@
         <!-- ── SUB-TAB B: APROBADOR ── -->
         <div id="lib-panel-aprobador" style="display:none;">
             <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
-            <div class="form-group">
-                <label>Seleccionar Vehículo Pendiente de Aprobación</label>
+            <div id="appr-veh-cards" class="veh-cards" aria-label="Vehículos pendientes de aprobación"></div>
+            <div class="form-group veh-select-fallback">
+                <label for="approvalVehSelect">O elige de la lista</label>
                 <select id="approvalVehSelect" onchange="loadApproval()">
                     <option value="">-- Seleccionar --</option>
                 </select>

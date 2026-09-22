@@ -5097,6 +5097,9 @@ function _uiChipsAttach(sel) {
     });
     try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
     sel.addEventListener('change', function() { _uiChipsRender(sel); });
+    // El <select> está oculto: enfocarlo desde código (p. ej. "ir al campo") manda el foco
+    // al botón elegido, o al primero.
+    sel.focus = function() { var b = group.querySelector('.ui-chip.is-on') || group.querySelector('button'); if (b) b.focus(); };
 
     group.addEventListener('click', function(ev) {
         var b = ev.target.closest ? ev.target.closest('button') : null;
@@ -5154,11 +5157,26 @@ function _uiChipsRender(sel) {
         sel.classList.add('chips-native'); sel.setAttribute('aria-hidden', 'true'); sel.setAttribute('tabindex', '-1');
         g.style.display = '';
         var dis = sel.disabled ? ' disabled' : '';
-        var html = opts.filter(function(o) { return !o.getAttribute('data-custom'); }).map(function(o) {
+        var chip = function(o) {
             var on = o.value === val;
             return '<button type="button" role="radio" class="ui-chip' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" data-v="' +
                    escapeHtml(o.value) + '"' + dis + '>' + escapeHtml(o.textContent.trim()) + '</button>';
-        }).join('');
+        };
+        var html;
+        if (sel.querySelector('optgroup')) {
+            // [v23.4] <optgroup> → un grupo con título por cada uno (p. ej. Programa → Tipo
+            // en el propósito): dos decisiones cortas en vez de una lista de 8.
+            html = Array.prototype.map.call(sel.children, function(node) {
+                if (node.tagName === 'OPTGROUP') {
+                    var inner = Array.prototype.filter.call(node.children, function(o) { return o.value !== ''; }).map(chip).join('');
+                    return inner ? '<div class="ui-chips-group" role="group" aria-label="' + escapeHtml(node.label) + '"><span class="ui-chips-glabel">' +
+                        escapeHtml(node.label) + '</span><div class="ui-chips-row">' + inner + '</div></div>' : '';
+                }
+                return (node.value !== '' && !node.getAttribute('data-custom')) ? chip(node) : '';
+            }).join('');
+        } else {
+            html = opts.filter(function(o) { return !o.getAttribute('data-custom'); }).map(chip).join('');
+        }
         if (sel.hasAttribute('data-chips-other')) {
             var custom = opts.find(function(o) { return o.getAttribute('data-custom') && o.value === val; });
             if (g._editing) {
@@ -6643,6 +6661,11 @@ function v7UpdateNextStepBanner() {
     if (!activeVehicleId) { off(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status === 'archived') { off(); return; }
+    // [v23.4] En Operación manda la tarjeta "Siguiente paso": dos indicaciones de qué
+    // sigue, y a veces distintas, es peor que una.
+    var opPanel = document.getElementById('panel-seguimiento');
+    var opNext = document.getElementById('op-next-step');
+    if (opPanel && opPanel.classList.contains('active') && opNext && opNext.innerHTML.trim()) { off(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
     if (!step) { off(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
