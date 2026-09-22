@@ -1755,7 +1755,7 @@ function pnRenderShiftLog(el) {
     html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Operador</label>';
     var currentUserName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
     html += '<select id="pn-shift-operator" class="tp-select" style="width:100%;">';
-    html += '<option value="">Seleccionar...</option>';
+    html += '<option value="">Seleccionar…</option>';
     activeOps.forEach(function(n) { html += '<option value="' + n + '"' + (n === currentUserName ? ' selected' : '') + '>' + n + '</option>'; });
     html += '</select></div>';
 

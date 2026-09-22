@@ -238,7 +238,7 @@
                     <div class="form-group">
                         <label>MODELO</label>
                         <select id="cfg_model" onchange="cascadeFilter('Modelo')">
-                            <option value="">Seleccionar...</option>
+                            <option value="">Seleccionar…</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -307,7 +307,7 @@
                     Configuraciones disponibles: <span id="configCount">0</span>
                 </div>
 
-                <button class="btn-reset" onclick="resetCascadeTree()">🔄 REINICIAR FILTROS</button>
+                <button class="btn-reset" onclick="resetCascadeTree()">🔄 Reiniciar filtros</button>
 
                 <div id="cfg_result" class="config-result empty">
                     <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles
@@ -419,7 +419,7 @@
     <div class="form-group">
       <label>Seleccione el operador</label>
       <select id="reg_operator" data-chips required>
-        <option value="">Seleccionar...</option>
+        <option value="">Seleccionar…</option>
       </select>
     </div>
 
@@ -445,7 +445,7 @@
 </div><!-- ✅ cierre card -->
 
 <button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
-  REGISTRAR VEHÍCULO
+  Registrar vehículo
 </button>
 
 </div><!-- ✅ cierre panel-alta (ESTE cierre debe ir después del botón) -->
@@ -457,7 +457,7 @@
         <div class="form-group veh-select-fallback">
             <label for="activeVehSelect">O busca cualquier vehículo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
-                <option value="">-- Seleccionar Vehículo --</option>
+                <option value="">Elige un vehículo…</option>
             </select>
         </div>
         
@@ -479,7 +479,7 @@
     <div class="form-group">
       <label>Operador de Recepción</label>
       <select id="op_recep" data-chips>
-        <option value="">Seleccionar...</option>
+        <option value="">Seleccionar…</option>
       </select>
     </div>
 
@@ -819,7 +819,7 @@
 </div>
 
 <div class="form-group">
-  <label>Flujo del ventilador (m³/min) (Solo México máx 150)</label>
+  <label>Flujo del ventilador (m³/min)</label>
   <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
 </div>
 
@@ -855,7 +855,7 @@
       <select id="test_hood" data-chips>
         <option value="">Seleccionar…</option>
         <option value="closed">Capó cerrado</option>
-        <option value="open">Abierto (Obligatorio México)</option>
+        <option value="open">Abierto</option>
       </select>
     </div>
 
@@ -909,7 +909,7 @@
         <div class="form-group">
           <label>Operador</label>
           <select id="simple_operator" data-chips>
-            <option value="">Seleccionar...</option>
+            <option value="">Seleccionar…</option>
           </select>
         </div>
 
@@ -973,7 +973,7 @@
             <div class="form-group veh-select-fallback">
                 <label for="releaseVehSelect">O elige de la lista</label>
                 <select id="releaseVehSelect" onchange="loadRelease()">
-                    <option value="">-- Seleccionar --</option>
+                    <option value="">Elige un vehículo…</option>
                 </select>
             </div>
             <div id="lib-content" style="display:none;">
@@ -998,14 +998,14 @@
                     <div class="card-title">✅ Acción</div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button class="btn-primary" id="release-archive-btn" onclick="submitToApproval()" style="flex:1;" disabled>
-                            📤 ENVIAR A APROBACIÓN
+                            📤 Enviar a aprobación
                         </button>
                         <button class="btn-secondary" onclick="requestRetest()" style="flex:1;">
-                            🔄 REPETIR PRUEBA (Retest)
+                            🔄 Repetir la prueba (Retest)
                         </button>
                     </div>
                     <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:12px;background:var(--accent-results);">
-                        📄 GENERAR PDF COP15-F05
+                        📄 Generar PDF COP15-F05
                     </button>
                 </div>
                 <div class="card">
@@ -1022,7 +1022,7 @@
             <div class="form-group veh-select-fallback">
                 <label for="approvalVehSelect">O elige de la lista</label>
                 <select id="approvalVehSelect" onchange="loadApproval()">
-                    <option value="">-- Seleccionar --</option>
+                    <option value="">Elige un vehículo…</option>
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
@@ -1040,7 +1040,7 @@
                 <div class="card">
                     <div class="card-title">✅ Acción</div>
                     <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
-                        ✅ APROBAR Y ARCHIVAR
+                        ✅ Aprobar y archivar
                     </button>
                     <!-- Salida cuando los valores no coinciden: sin esto el aprobador
                          quedaba atorado con el botón de aprobar deshabilitado. -->
@@ -1622,7 +1622,7 @@
                     <div>
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>
                         <select x-model="shiftOperator" class="tp-select" style="width:100%;">
-                            <option value="">Seleccionar...</option>
+                            <option value="">Seleccionar…</option>
                             <template x-for="op in activeOperators()" :key="op.id"><option :value="op.name" x-text="op.name"></option></template>
                         </select>
                     </div>

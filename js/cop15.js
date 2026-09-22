@@ -14,6 +14,18 @@ function markUnsaved() {
         btn.classList.add('btn-unsaved');
         btn.textContent = '💾 Guardar *';
     }
+    opSaveStateRender();
+}
+
+/** [v23.4] Estado de guardado a la vista, junto al vehículo (no solo el punto rojo). */
+function opSaveStateRender() {
+    var el = document.getElementById('op-save-state');
+    if (!el) return;
+    if (_unsavedChanges) { el.className = 'op-save-state is-dirty'; el.textContent = '● Cambios sin guardar'; return; }
+    var v = activeVehicleId && db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+    var ago = v && v.lastModified && typeof _vehAgo === 'function' ? _vehAgo(v.lastModified) : '';
+    el.className = 'op-save-state is-saved';
+    el.textContent = ago ? '✓ Guardado ' + ago : '✓ Sin cambios';
 }
 
 function clearUnsaved() {
@@ -25,6 +37,7 @@ function clearUnsaved() {
         btn.classList.remove('btn-unsaved');
         btn.textContent = '💾 Guardar';
     }
+    opSaveStateRender();
 }
 
 /** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
@@ -939,7 +952,7 @@ function initCascadeTree() {
         const operators = _operatorSelectIds.map(function(id) { return document.getElementById(id); });
         operators.forEach(select => {
             if(select) {
-                select.innerHTML = '<option value="">Seleccionar...</option>';
+                select.innerHTML = '<option value="">Seleccionar…</option>';
                 CONFIG.operators.forEach(op => {
                     select.innerHTML += `<option value="${op}">${op}</option>`;
                 });
@@ -1405,7 +1418,9 @@ function loadVehicle() {
     <strong>Propósito:</strong> ${vehicle.purpose} |
     <strong>Config:</strong> ${vehicle.configCode} |
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
+    <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
   `;
+  opSaveStateRender();
 
   document.getElementById('op_status').value =
     (vehicle.status === 'registered') ? 'in-progress' : vehicle.status;
@@ -1520,6 +1535,11 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   if (_soakEl) _soakEl.removeAttribute('data-auto');
   if (cascadePrefillTargetsFromHomolog(vehicle) && typeof markUnsaved === 'function') markUnsaved();
   cascadeDerivedRefresh();
+  // [v23.4] M5: lo que antes iba metido en la etiqueta ("Obligatorio México", "Solo
+  // México máx 150") ahora es ayuda bajo el campo, y solo aparece si el vehículo es de México.
+  var _mx = String((vehicle.config && vehicle.config['REGION']) || '').toUpperCase() === 'MEXICO';
+  _cascadeHint('test_hood', 'hint-mx', _mx ? '🇲🇽 En pruebas de México el capó va abierto.' : '');
+  _cascadeHint('test_fan_flow', 'hint-mx', _mx ? '🇲🇽 En México el flujo máximo es 150 m³/min.' : '');
 
   opNextStepRender();
   opSectionsRender(vehicle, true);
@@ -1941,15 +1961,50 @@ function validateReadyForReleaseSimple() {
   return missing;
 }
 
-function showMissingPopup(missing) {
-  showToast('Faltan ' + missing.length + ' campos para Liberación. Se marcaron en rojo.', 'error');
+/**
+ * [v23.4] Lleva a un campo aunque esté en una sección plegada: abre sus <details>,
+ * hace scroll y lo enfoca (en un campo con botones, el foco va al botón elegido).
+ */
+function cascadeGoToField(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var d = el.closest('details');
+  while (d) { d.classList.remove('smart-locked'); d.open = true; d = d.parentElement && d.parentElement.closest('details'); }
+  var target = (el._chips && el._chips.offsetParent) ? el._chips : (el._num ? el._num.wrap : el);
+  setTimeout(function() {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function() { try { el.focus(); } catch (e) {} }, 350);
+  }, 60);
+}
 
-  // Scroll y focus al primero
-  const first = document.getElementById(missing[0].id);
-  if (first) {
-    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => { try { first.focus(); } catch(e){} }, 250);
-  }
+function showMissingPopup(missing) {
+  // [v23.4] Antes: un toast y scroll al primero — si estaba en una sección plegada no
+  // pasaba nada visible. Ahora la lista completa, agrupada por sección, y cada renglón
+  // lleva al campo.
+  var bySec = {};
+  missing.forEach(function(m) {
+    var el = document.getElementById(m.id);
+    var d = el && el.closest('details');
+    var sec = d && d.querySelector('summary') ? d.querySelector('summary').childNodes[0].textContent.trim() : 'Otros';
+    (bySec[sec] = bySec[sec] || []).push(m);
+  });
+  var html = '<p class="miss-intro">Para enviarlo a liberación faltan estos campos. Toca uno para ir directo:</p>';
+  Object.keys(bySec).forEach(function(sec) {
+    html += '<div class="miss-sec"><div class="miss-sec-title">' + escapeHtml(sec) + '</div>';
+    bySec[sec].forEach(function(m) {
+      html += '<button type="button" class="miss-link" onclick="cascadeMissingGo(\'' + m.id + '\')">' + escapeHtml(m.label) + ' →</button>';
+    });
+    html += '</div>';
+  });
+  showModal({ title: 'Faltan ' + missing.length + ' campo' + (missing.length === 1 ? '' : 's'), body: html,
+              buttons: [{ label: 'Ir al primero', cls: 'btn-primary', onclick: function() { cascadeMissingGo(missing[0].id); } }] });
+}
+
+/** Cierra el modal de faltantes (quitándolo del DOM, no solo ocultándolo) y va al campo. */
+function cascadeMissingGo(id) {
+  var m = document.getElementById('globalModal');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
+  cascadeGoToField(id);
 }
 
 
@@ -2054,11 +2109,25 @@ function opAdvance() {
     if (rs) { rs.value = vehicle.id; if (typeof loadRelease === 'function') loadRelease(); }
     return;
   }
+  var fromStatus = vehicle.status;
   sel.value = step.to;
   handleStatusChange(sel);           // valida; si falta algo, regresa el select y muestra qué
   if (sel.value !== step.to) return; // rechazado: no se guarda nada
-  saveProgress();
+  saveProgress({ silent: true });
   opNextStepRender();
+  var label = (CONFIG.statusLabels && CONFIG.statusLabels[step.to]) || step.to;
+  // [v23.4] Un toque equivocado en el botón grande se deshace desde el mismo aviso.
+  showToast('Guardado. Ahora está en «' + label + '».', 'success', null, function() {
+    var v = db.vehicles.find(function(x) { return x.id == vehicle.id; });
+    if (!v || v.status !== step.to) return;
+    v.status = fromStatus;
+    (v.timeline = v.timeline || []).push({ timestamp: new Date().toISOString(), user: (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '') || 'Sistema',
+      action: 'Cambio de estado deshecho → ' + ((CONFIG.statusLabels && CONFIG.statusLabels[fromStatus]) || fromStatus), data: { status: fromStatus } });
+    auditLog('cop15', 'status_undo', { type: 'vehicle', id: v.id, label: v.vin }, step.to + ' → ' + fromStatus);
+    saveDB();
+    if (activeVehicleId == v.id) loadVehicle();
+    refreshAllLists();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -2243,7 +2312,7 @@ function _opSetReadOnly(on) {
 function saveProgress(opts) {
   var silent = opts && opts.silent;
   if (!activeVehicleId) {
-    if (!silent) showToast('No hay vehículo seleccionado', 'error');
+    if (!silent) showToast('Primero elige un vehículo en la parte de arriba.', 'warning');
     return;
   }
 
@@ -2728,7 +2797,7 @@ function libRegPickerToggle() {
 // valores contra un perfil concreto y cambiarlo invalidaría la doble verificación.
 function libApplyComparisonRegulation() {
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!vehicle) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     if (vehicle.status !== 'ready-release') {
         showToast('La regulación de comparación solo puede cambiarse durante la liberación.', 'warning');
         return;
@@ -3415,7 +3484,7 @@ function loadApproval() {
 
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     // La firma del liberador es un PNG en base64: se comprueba el espacio antes de
     // pedirla, no después de que el técnico ya firmó.
     if (!_releasePreflightStorage('enviar este vehículo a aprobación')) return;
@@ -3495,7 +3564,7 @@ function submitToApproval() {
 }
 
 function approveAndArchive() {
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'pending-approval') return;
 
@@ -3680,7 +3749,7 @@ function approveAndArchive() {
 // Devolver regresa el vehículo a 'ready-release' y BORRA los valores y la firma
 // del liberador, para que los vuelva a capturar y a firmar.
 function returnToReleaser() {
-    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'pending-approval') {
         showToast('Este vehículo ya no está pendiente de aprobación', 'error');
@@ -4159,9 +4228,9 @@ function closeSubstitutionModal() {
                         const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
                         return `
                         <tr>
-                            <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
-                            <td>
+                            <td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
+                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
+                            <td data-label="Configuración">
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">
                                     ${motor ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
@@ -4169,10 +4238,10 @@ function closeSubstitutionModal() {
                                 </div>
                                 <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);margin-top: var(--space-2xs);">${safeConfigCode}</div>
                             </td>
-                            <td>${safePurpose}</td>
-                            <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
-                            <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
-                            <td>${(function(){
+                            <td data-label="Propósito">${safePurpose}</td>
+                            <td data-label="Estado"><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
+                            <td data-label="Fecha">${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td data-label="Emisiones">${(function(){
                                 var gr = v.testData && v.testData.gasResults;
                                 if (!gr || !gr.liberador) return '<span style="color:var(--muted);font-size: var(--fs-xs);">—</span>';
                                 var libVals = gr.liberador.values || {};
@@ -4180,7 +4249,7 @@ function closeSubstitutionModal() {
                                 var appr = gr.aprobador ? '<span style="color:var(--ok-text);font-size: var(--fs-xs);" title="Doble verificación completada">✓✓</span>' : '<span style="color:var(--warn-text);font-size: var(--fs-xs);" title="Solo liberador">✓</span>';
                                 return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
                             })()}</td>
-                            <td>
+                            <td class="hist-td-actions">
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
@@ -4194,12 +4263,7 @@ function closeSubstitutionModal() {
                                     var _hard = _c.missing.length > 0;
                                     return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;' + (_hard ? 'background:#fef3c7;color:#92400e;' : '') + 'margin-left: var(--space-xs);" title="' + (_hard ? 'Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + _n + ' dato(s) opcionales por revisar') + '" aria-label="Completar datos retroactivos (' + _n + ' campos)">📝 Completar (' + _n + ')</button>';
                                 })()}
-                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;margin-left: var(--space-xs);" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
-                                    🕘
-                                </button>
-                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left: var(--space-xs);" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
-                                    🗑
-                                </button>
+                                <button class="btn-secondary hist-more-btn" onclick="histRowMenu(${parseInt(v.id)})" title="Más acciones: historial de cambios, eliminar" aria-label="Más acciones">⋯</button>
                             </td>
                         </tr>
                     `}).join('')}
@@ -4373,9 +4437,9 @@ function refreshAllLists() {
     // selector decía "Seleccionar" con el vehículo todavía abierto debajo.
     var _prevSel = { a: activeSelect.value, r: releaseSelect.value, p: approvalSelect ? approvalSelect.value : '' };
 
-    activeSelect.innerHTML = '<option value="">-- Seleccionar Vehículo --</option>';
-    releaseSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-    if (approvalSelect) approvalSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
+    activeSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
+    releaseSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
+    if (approvalSelect) approvalSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
 
     var activeVehicles = db.vehicles.filter(function(v) { return v.status !== 'archived'; });
     var readyVehicles  = db.vehicles.filter(function(v) { return v.status === 'ready-release'; });
@@ -4922,7 +4986,7 @@ function _histBuildInput(f, idx, value, disabled) {
 
 function histOpenCompleteModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
-  if (!vehicle) { showToast('Vehículo no encontrado', 'error'); return; }
+  if (!vehicle) { showToast('No encontré ese vehículo: puede que otro dispositivo lo haya archivado o borrado. La lista ya se actualizó.', 'warning'); return; }
   var td = vehicle.testData || {};
   _histCompleteState = { vehicleId: vehicleId, unlockReasons: {}, sigCaptured: {} };
 
@@ -5304,6 +5368,20 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   showToast(comp.ok ? '✓ Datos completados — el PDF ya se puede generar' : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
 }
 
+// [v23.4] Menú ⋯ de una fila del Historial: agrupa las acciones poco frecuentes y aleja
+// "Eliminar" del botón PDF, que es el que se toca a diario.
+function histRowMenu(vehicleId) {
+  var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+  if (!v) return;
+  var id = parseInt(vehicleId);
+  var close = function() { var m = document.getElementById('globalModal'); if (m) m.style.display = 'none'; };
+  showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
+    buttons: [
+      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } },
+      { label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }
+    ] });
+}
+
 // Historial y control de cambios de un vehículo (visible también para archivados).
 function histShowTimelineModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
@@ -5373,6 +5451,24 @@ function _pdfSafe(s) {
         else out += '?';
     }
     return out;
+}
+
+/**
+ * [v23.4] Lo que se IMPRIME de un código guardado (microcopy): el PDF decía
+ * "PemexPremium", "UDDS" o "(0.125)". Mismo texto que los botones de Operación.
+ * Un valor que no está aquí (p. ej. uno capturado con "Otro…") sale tal cual.
+ */
+var CASCADE_VALUE_LABELS = {
+  fuel: { PemexPremium: 'Premium Mexicana', Regular: 'Regular', RON95: 'RON95', Magna: 'Magna Mexicana',
+          Euro6: 'Euro 6', CARBReg: 'CARB LEV III Regular', CARBPre: 'CARB LEV III High Octane',
+          CARBRVP: 'CARB LEV III High RVP', indolene: 'EPA Tier II', EPACert: 'EPA Tier III' },
+  cycle: { WLTP: 'WLTP', UDDS: 'FTP Fase 1 y 2', NEDC: 'NEDC' },
+  fraction: { '0': 'Vacío', '0.125': '1/8', '0.25': '1/4', '0.5': '1/2', '0.75': '3/4', '1': 'Lleno' }
+};
+function cascadeValueLabel(kind, v) {
+  if (v === null || v === undefined || v === '') return '';
+  var m = CASCADE_VALUE_LABELS[kind] || {};
+  return m[String(v)] || String(v);
 }
 
 function generateCOP15PDF(vehicleId, opts) {
@@ -5583,7 +5679,8 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     cell(lx+plW+pvW,   rowY(2), puW, spanH(2), 'km/mi', { align:'center', sz:5.5, fill: GRAY_BG });
 
     // r4-r5: Combustible
-    const fuelDesc = (pre.fuelTypeIn || '') + (pre.fuelLevelFractionIn ? ` (${pre.fuelLevelFractionIn})` : '');
+    const fuelDesc = cascadeValueLabel('fuel', pre.fuelTypeIn) +
+      ((pre.fuelLevelFractionIn !== null && pre.fuelLevelFractionIn !== undefined && pre.fuelLevelFractionIn !== '') ? ` (${cascadeValueLabel('fraction', pre.fuelLevelFractionIn)})` : '');
     cell(lx,         rowY(4), plW,     spanH(2), 'Nivel y tipo de combustible', { font:'bold', sz:6.2 });
     cell(lx+plW,     rowY(4), pvW+puW, spanH(2), fuelDesc, { align:'center', sz:6 });
 
@@ -5626,10 +5723,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       cell(x + cLW+cVW,rowY(1), cUW, spanH(2), 'psi', { align:'center', sz:5.3, fill: GRAY_BG });
 
       cell(x,     rowY(3), cLW,     spanH(2), 'Nivel y tipo de combustible', { font:'bold', sz:5.8 });
-      cell(x+cLW, rowY(3), cVW+cUW, spanH(2), pre.fuelTypePre || '', { align:'center', sz:6.0, font:'bold' });
+      cell(x+cLW, rowY(3), cVW+cUW, spanH(2), cascadeValueLabel('fuel', pre.fuelTypePre), { align:'center', sz:6.0, font:'bold' });
 
       cell(x,     rowY(5), cLW,     spanH(2), 'Ciclo de Preacondicionamiento', { font:'bold', sz:5.3 });
-      cell(x+cLW, rowY(5), cVW+cUW, spanH(2), pre.cycle || '', { align:'center', sz:7, font:'bold' });
+      cell(x+cLW, rowY(5), cVW+cUW, spanH(2), cascadeValueLabel('cycle', pre.cycle), { align:'center', sz:7, font:'bold' });
 
       cell(x, rowY(7), w, spanH(1), 'Validación Precon para Prueba',
            { fill: GRAY_BG, font:'bold', sz:5.3, align:'center' });
@@ -6025,7 +6122,7 @@ function handleConfigCSVImport(event) {
             const modelSelect = document.getElementById('cfg_model');
             if (modelSelect) {
                 const uniqueModels = [...new Set(allConfigurations.map(c => c.Modelo))].sort();
-                modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+                modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
                 uniqueModels.forEach(m => { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
             }
             document.getElementById('configCount').textContent = allConfigurations.length;
@@ -6184,7 +6281,7 @@ function _doSaveManualConfig(newConfig, editIdx) {
     var modelSelect = document.getElementById('cfg_model');
     if (modelSelect) {
         var uniqueModels = [].concat(Array.from(new Set(allConfigurations.map(function(c){return c.Modelo;}))).sort());
-        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
         uniqueModels.forEach(function(m) { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
     }
 }
@@ -6879,7 +6976,7 @@ function soakTimerTick() {
         soakUpdateBadge(true, 'LISTO');
         setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
 
-        showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
+        showToast('Soak completado: el vehículo ya está listo para la prueba.', 'success');
 
         // [V7-D3] Show soak complete modal with action
         v7ShowSoakCompleteModal();
@@ -7285,7 +7382,7 @@ function batchAdvanceToTesting(vehicleId) {
 
 function batchScheduleTests() {
     var checked = document.querySelectorAll('.batch-check:checked');
-    if (checked.length === 0) { showToast('Selecciona al menos un vehiculo', 'warning'); return; }
+    if (checked.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
 
     var ids = [];
     checked.forEach(function(cb) { ids.push(cb.value); });
@@ -7326,7 +7423,7 @@ function batchScheduleTests() {
         renderPrecondBatchView();
         showToast(advancedCount + ' vehiculos programados para testing', 'success');
     } else {
-        showToast('Ningun vehiculo seleccionado tiene precond completo', 'warning');
+        showToast('Ninguno de los vehículos seleccionados tiene el preacondicionamiento completo.', 'warning');
     }
 }
 
@@ -7388,7 +7485,7 @@ function smartFormApplyByStatus(status) {
         el.classList.add('smart-locked');
         var hint = document.createElement('div');
         hint.className = 'smart-lock-hint';
-        hint.innerHTML = '🔒 Se desbloquea en: ' + sec.unlockAt;
+        hint.innerHTML = '🔒 Se habilita cuando el vehículo esté «' + ((CONFIG.statusLabels && CONFIG.statusLabels[sec.unlockAt]) || sec.unlockAt) + '».';
         el.appendChild(hint);
     });
 
@@ -7978,25 +8075,25 @@ function getNextStep(vehicle) {
     var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
 
     if (status === 'registered') {
-        return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
+        return { action: 'Iniciar el preacondicionamiento', goto: 'acc-precond', icon: '🔧' };
     }
     if (status === 'in-progress' && precondComplete && !soakStarted && !soakDone) {
-        return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
+        return { action: 'Iniciar el timer de soak', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
-        return { action: 'Soak en curso...', goto: 'soak-section', icon: '⏱️' };
+        return { action: 'Soak en curso…', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && soakDone && !testStarted) {
-        return { action: 'Iniciar Prueba de Emisiones', goto: 'acc-dyno', icon: '🏭' };
+        return { action: 'Iniciar la prueba de emisiones', goto: 'acc-dyno', icon: '🏭' };
     }
     if (status === 'testing' && !testComplete) {
-        return { action: 'Completar Verificacion de Prueba', goto: 'acc-testverify', icon: '🏭' };
+        return { action: 'Completar la verificación en prueba', goto: 'test-verify-card', icon: '🏭' };
     }
     if (status === 'testing' && testComplete) {
-        return { action: 'Verificar y Liberar', goto: 'release-tab', icon: '✅' };
+        return { action: 'Verificar y liberar', goto: 'release-tab', icon: '✅' };
     }
     if (status === 'ready-release') {
-        return { action: 'Liberar Vehiculo', goto: 'release-action', icon: '🚗' };
+        return { action: 'Liberar el vehículo', goto: 'release-action', icon: '🚗' };
     }
     if (status === 'pending-approval') {
         return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
@@ -8332,7 +8429,7 @@ function _escapeHtml(str) {
 function v7ApplySmartConfig(configCode) {
     // Find matching configuration and auto-fill cascade
     var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
-    if (!match) { showToast('Configuracion no encontrada en catálogo', 'warning'); return; }
+    if (!match) { showToast('Esa configuración ya no está en el catálogo.', 'warning'); return; }
     // Reset and apply all filters
     currentFilters = {};
     Object.keys(fieldMapping).forEach(function(csvField) {
@@ -8349,7 +8446,7 @@ function v7ApplySmartConfig(configCode) {
     updateSelectOptions(filtered);
     document.getElementById('configCount').textContent = filtered.length;
     displayConfigResult(filtered);
-    showToast('Configuracion aplicada: ' + configCode, 'success');
+    showToast('Configuración aplicada: ' + configCode, 'success');
 }
 
 function v7RenderFavorites() {
@@ -8420,7 +8517,7 @@ function v7CopyArchivedConfig(vin) {
     var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
     if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
     v7ApplySmartConfig(archived.configCode);
-    showToast('Configuracion copiada del vehiculo anterior', 'success');
+    showToast('Configuración copiada del vehículo anterior', 'success');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -8468,7 +8565,7 @@ function v7BatchRelease() {
         showToast('Omitidos ' + blocked.length + ' vehiculo(s) sin foto de resultados: ' + blockedVins, 'warning');
     }
 
-    if (ready.length === 0) { showToast('Ningun vehiculo cumple los requisitos para liberar', 'error'); return; }
+    if (ready.length === 0) { showToast('Ningún vehículo cumple los requisitos para liberar', 'error'); return; }
 
     // Un lote escribe N firmas + N timelines de golpe: el margen escala con el lote.
     if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',

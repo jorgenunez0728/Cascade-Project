@@ -4507,7 +4507,7 @@ function storageFreeBytes() {
         var modelSelect = document.getElementById('cfg_model');
         var uniqueModels = [...new Set(allConfigurations.map(function(c){ return c.Modelo; }))].sort();
         if (modelSelect) {
-            modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+            modelSelect.innerHTML = '<option value="">Seleccionar…</option>';
             uniqueModels.forEach(function(model) {
                 modelSelect.innerHTML += '<option value="' + model + '">' + model + '</option>';
             });
@@ -6696,10 +6696,13 @@ function v7GoToVehicleStep(gotoSection) {
             if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadRelease === 'function') loadRelease(); }
         }, 200);
     } else if (gotoSection === 'soak-section') {
-        var soakEl = document.getElementById('soak-section') || document.getElementById('acc-soak');
+        // [v23.4] Los ids 'soak-section'/'acc-soak' nunca existieron: la flecha no hacía
+        // nada. El timer vive en #soak-timer-panel, dentro del acordeón de precond.
+        var soakEl = document.getElementById('soak-timer-panel');
         if (soakEl) {
-            if (soakEl.tagName === 'DETAILS') soakEl.open = true;
-            soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            var dd = soakEl.closest('details');
+            if (dd) { dd.classList.remove('smart-locked'); dd.open = true; }
+            setTimeout(function() { soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
         }
     } else {
         var acc = document.getElementById(gotoSection);

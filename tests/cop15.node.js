@@ -299,5 +299,16 @@ console.log('\n== cascadeSoakHours / cascadePrecondVerdict ==');
     ok('sin reposo o sin regla → sin sugerencia', v(null, { hours: 12 }) === null && v(20, null) === null);
 }
 
+// ── v23.4: el PDF imprime nombres, no códigos ──────────────────────────────
+console.log('\n== cascadeValueLabel ==');
+{
+    const L = ctx.cascadeValueLabel;
+    ok('PemexPremium → Premium Mexicana', L('fuel', 'PemexPremium') === 'Premium Mexicana');
+    ok('UDDS → FTP Fase 1 y 2', L('cycle', 'UDDS') === 'FTP Fase 1 y 2');
+    ok('0.125 → 1/8 (la foto del F05 decía "(0.125)")', L('fraction', 0.125) === '1/8' && L('fraction', '0.125') === '1/8');
+    ok('un valor de "Otro…" sale tal cual', L('fuel', 'Gasolina E5 prueba') === 'Gasolina E5 prueba');
+    ok('vacío → vacío', L('fuel', '') === '' && L('fuel', null) === '');
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

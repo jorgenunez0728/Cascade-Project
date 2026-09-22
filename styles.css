@@ -5175,3 +5175,33 @@ body.cop-present .cop-toolbar    { display: none; }
    fecha + "Ahora" desbordaban la tarjeta. width:0 + flex-grow lo deja encoger. */
 .ui-num-row > input, .cascade-dt-row > input { width: 0; flex: 1 1 0; min-width: 0; }
 .form-grid > .form-group { min-width: 0; }
+
+/* ── Faltantes que llevan al campo (cop15.js: showMissingPopup) ── */
+.miss-intro { margin: 0 0 var(--space-sm); font-size: var(--fs-sm); }
+.miss-sec { margin-bottom: var(--space-sm); }
+.miss-sec-title { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
+.miss-link { display: block; width: 100%; text-align: left; min-height: var(--target-min); padding: var(--space-xs) var(--space-md); margin-bottom: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.miss-link:hover { border-color: var(--warn-fill); }
+/* ── Estado de guardado junto al vehículo ── */
+.op-save-state { display: inline-block; margin-left: var(--space-sm); font-size: var(--fs-sm); font-weight: 700; }
+.op-save-state.is-dirty { color: var(--warn-text); }
+.op-save-state.is-saved { color: var(--ok-text); }
+
+/* ── R1: Historial como tarjetas en teléfono (la tabla de 8 columnas no cabía) ── */
+@media (max-width: 767px) {
+  .history-table, .history-table tbody, .history-table tr, .history-table td { display: block; width: 100%; }
+  .history-table thead { display: none; }
+  .history-table tr { position: relative; margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+  .history-table td { border: none; padding: var(--space-xs) 0; }
+  .history-table td[data-label]::before { content: attr(data-label); display: block; font-size: var(--fs-2xs); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .history-table td.hist-td-chk { position: absolute; top: var(--space-sm); right: var(--space-md); width: auto; padding: 0; }
+  .history-table td.hist-td-vin strong { font-size: 1.05rem; }
+  .history-table td.hist-td-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-top: var(--space-sm); }
+  .history-table td.hist-td-actions > button { flex: 1 1 auto; min-height: var(--target-min); margin-left: 0 !important; }
+}
+/* R2: modal Completar apilado en teléfono (la etiqueta ocupaba 42% del ancho) */
+@media (max-width: 600px) {
+  .hist-complete-box table, .hist-complete-box tbody, .hist-complete-box tr, .hist-complete-box td { display: block; width: 100% !important; }
+  .hist-complete-box td { padding: var(--space-2xs) var(--space-sm) !important; text-align: left !important; }
+  .hist-complete-box tr { padding: var(--space-xs) 0; border-bottom: 1px solid var(--border); }
+}

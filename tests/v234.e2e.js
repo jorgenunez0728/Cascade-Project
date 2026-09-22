@@ -153,7 +153,40 @@ const SEED = () => {
     chk('se abre la primera sección con faltantes', /faltan/.test(h.openFirst), h.openFirst);
     chk('"Enviar a liberación" con faltantes se niega y no cambia el estado', /Enviar a liberación/.test(h.nextLabel2) && h.statusAfter !== 'ready-release', h.statusAfter);
     chk('propósito del Alta en 4 grupos de botones', h.purposeGroups === 4, h.purposeGroups);
-    await page.evaluate(() => { document.querySelectorAll('.custom-modal-overlay, #globalModal').forEach(m => m.style.display = 'none'); });
+    await page.evaluate(() => { document.querySelectorAll('.custom-modal-overlay, #globalModal').forEach(m => m.remove()); });
+
+    // ── Bloques 5-7: interacción, microcopy, responsive ──
+    await open('vT'); await page.waitForTimeout(300);
+    const ix = await page.evaluate(() => {
+        const r = {};
+        document.querySelectorAll('#op-content details').forEach(d => d.removeAttribute('open'));
+        showMissingPopup([{ id: 'test_tunnel', label: 'Túnel' }, { id: 'tire_pressure', label: 'Presión de llantas' }]);
+        r.links = document.querySelectorAll('#globalModal .miss-link').length;
+        [...document.querySelectorAll('#globalModal .miss-link')].find(b => /Presión/.test(b.textContent)).click();
+        r.modalGone = !document.getElementById('globalModal');
+        r.precondOpen = document.getElementById('acc-precond').open;
+        cascadeSetField('tire_pressure', '34');
+        r.dirty = (document.getElementById('op-save-state') || {}).textContent || '';
+        saveProgress({ silent: true });
+        r.saved = (document.getElementById('op-save-state') || {}).textContent || '';
+        r.lockHint = [...document.querySelectorAll('.smart-lock-hint')].map(x => x.textContent).join(' | ');
+        // Todos los destinos de la tira "siguiente paso" existen
+        r.gotos = ['acc-precond', 'soak-timer-panel', 'acc-dyno', 'test-verify-card'].filter(id => !document.getElementById(id));
+        return r;
+    });
+    chk('faltantes: la lista trae un enlace por campo', ix.links === 2, ix.links);
+    chk('un enlace cierra el modal (lo quita del DOM) y abre la sección plegada', ix.modalGone && ix.precondOpen, JSON.stringify(ix));
+    chk('estado de guardado visible: "Cambios sin guardar" → "Guardado"', /sin guardar/.test(ix.dirty) && /Guardado/.test(ix.saved), ix.dirty + ' → ' + ix.saved);
+    chk('ningún texto muestra un código de estado crudo (in-progress)', !/in-progress|testing|ready-release/.test(ix.lockHint), ix.lockHint);
+    chk('los destinos de la tira "siguiente paso" existen', ix.gotos.length === 0, ix.gotos.join(','));
+    const hist = await page.evaluate(() => {
+        document.querySelector('.tab[data-tab="dashboard"]').click();
+        return new Promise(res => setTimeout(() => {
+            const row = document.querySelector('.history-table tbody tr');
+            res({ more: !!(row && row.querySelector('.hist-more-btn')), trash: !!(row && [...row.querySelectorAll('button')].some(b => b.textContent.trim() === '🗑')) });
+        }, 300));
+    });
+    chk('Historial: 🗑 ya no está en la fila, vive en el menú ⋯', hist.more && !hist.trash, JSON.stringify(hist));
 
     // @@MORE@@
 
@@ -172,6 +205,13 @@ const SEED = () => {
         return out;
     });
     chk('Operación a 390 px: ningún elemento se sale de la pantalla', ov.length === 0, ov.slice(0, 5).join(', '));
+    const ovH = await phone.evaluate(() => new Promise(res => {
+        document.querySelector('.tab[data-tab="dashboard"]').click();
+        setTimeout(() => { const vw = document.documentElement.clientWidth; const out = [];
+            document.querySelectorAll('#panel-dashboard .history-table *').forEach(el => { const r = el.getBoundingClientRect(); if (r.width > 0 && r.right > vw + 1) out.push((el.className || el.tagName).toString().slice(0, 30)); });
+            res(out); }, 400);
+    }));
+    chk('Historial a 390 px: en tarjetas, nada se sale de la pantalla', ovH.length === 0, ovH.slice(0, 5).join(', '));
 
     chk('sin errores de página', errs.length === 0, errs.join(' | '));
     await browser.close();
