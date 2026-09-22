@@ -6715,7 +6715,9 @@ function cascadePrecondVerdict(soakH, required) {
 function _cascadeHint(anchorId, cls, html) {
     var el = document.getElementById(anchorId);
     if (!el) return;
-    var fg = el.closest('.form-group') || el.parentElement;
+    // En un campo con uiNumEnhance el padre es la fila flex (− input +): la pista va al
+    // contenedor del control, debajo, no apretada dentro de la fila.
+    var fg = el.closest('.form-group') || el.closest('.ui-num') || el.parentElement;
     var h = fg.querySelector('.' + cls);
     if (!html) { if (h) h.remove(); return; }
     if (!h) { h = document.createElement('div'); h.className = 'cascade-hint ' + cls; fg.appendChild(h); }
@@ -6750,24 +6752,33 @@ function cascadeDerivedRefresh() {
     _cascadeHint('precond_ok', 'hint-precond', html);
 }
 
-/** Europa: Target A/B/C desde f0/f1/f2 de la ficha ICMS (solo si están vacíos). */
+/**
+ * Europa: desde la ficha ICMS del Alta (solo campos vacíos, editables):
+ *   Target A/B/C = f0/f1/f2
+ *   ETW (inercia) = homoWltpInertia: TM + (m_r,del % + m_r,tras %) × (MRO + 25), MRO = curb + 75
+ */
 function cascadePrefillTargetsFromHomolog(vehicle) {
     var h = vehicle && vehicle.homolog;
     var region = vehicle && vehicle.config ? (vehicle.config['REGION'] || '') : '';
     if (!h || (typeof homoIsEurope === 'function' && !homoIsEurope(region))) return false;
-    var src = { tA: h.f0, tB: h.f1, tC: h.f2 };
-    var conv = fromSI({ tA: src.tA, tB: src.tB, tC: src.tC }, currentUnitSystem);
-    var dec = { tA: 4, tB: 6, tC: 8 }, filled = [];
-    ['tA', 'tB', 'tC'].forEach(function(k) {
+    var inr = typeof homoWltpInertia === 'function' ? homoWltpInertia(h) : null;
+    var src = { etw: inr ? inr.inertia : null, tA: h.f0, tB: h.f1, tC: h.f2 };
+    var conv = fromSI(src, currentUnitSystem);
+    var dec = { etw: 2, tA: 4, tB: 6, tC: 8 }, filled = [];
+    ['etw', 'tA', 'tB', 'tC'].forEach(function(k) {
         var el = document.getElementById(k);
         if (!el || el.disabled || el.value !== '' || src[k] === null || src[k] === undefined || !isFinite(src[k])) return;
         cascadeSetField(k, _dynoShow(conv[k], dec[k]));
         filled.push(k);
     });
-    _cascadeHint('tA', 'hint-icms', filled.length
-        ? '📄 Target ' + filled.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
+    var tgt = filled.filter(function(k) { return k !== 'etw'; });
+    _cascadeHint('tA', 'hint-icms', tgt.length
+        ? '📄 Target ' + tgt.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
         : '');
-    // El ETW NO se toma de la TM: el laboratorio lo calcula con otra fórmula.
+    _cascadeHint('etw', 'hint-icms', filled.indexOf('etw') >= 0
+        ? '⚙️ Inercia WLTP calculada: TM ' + inr.tm + ' + ' + inr.mrPct + ' % × (MRO ' + inr.mro + ' + 25) = ' + inr.inertia + ' kg' +
+          (inr.mroFromCurb ? ' (MRO = curb weight + 75)' : '') + '. Revísala antes de guardar.'
+        : '');
     return filled.length > 0;
 }
 

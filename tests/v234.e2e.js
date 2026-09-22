@@ -27,6 +27,8 @@ const SEED = () => {
         { id: 'vT', vin: 'KNATEST000002', status: 'testing', configCode: 'CFG1', purpose: 'COP-Emisiones', timeline: [], config: cfg,
           homolog: { f0: 120.5, f1: 0.35, f2: 0.031, tm: 1600 },
           testData: { scannedReportCaptured: true, preconditioning: {} } },
+        { id: 'vE', vin: 'KNAETW0000003', status: 'testing', configCode: 'CFG2', purpose: 'COP-Emisiones', timeline: [], config: cfg,
+          homolog: { f0: 110.7, f1: 0.764, f2: 0.0261, tm: 1568, curbWeight: 1390 }, testData: { preconditioning: {} } },
         arch('vA1', 'KNAARCH000001', 42, 33), arch('vA2', 'KNAARCH000002', 42, 33), arch('vA3', 'KNAARCH000003', 50, 35)
     ] }));
 };
@@ -187,6 +189,18 @@ const SEED = () => {
         }, 300));
     });
     chk('Historial: 🗑 ya no está en la fila, vive en el menú ⋯', hist.more && !hist.trash, JSON.stringify(hist));
+
+    // ── ETW (inercia) WLTP desde la ficha ICMS ──
+    await open('vE'); await page.waitForTimeout(300);
+    const e = await page.evaluate(() => ({ etw: document.getElementById('etw').value, hint: ((document.getElementById('etw').closest('.form-group, .etw-box') || document.body).querySelector('.hint-icms') || {}).textContent || '' }));
+    chk('ETW = inercia WLTP de la ficha (1568 + 3 % × (1465 + 25) = 1612.7)', e.etw === '1612.7', e.etw);
+    chk('se muestra la cuenta de la inercia', /1568/.test(e.hint) && /1465/.test(e.hint) && /1612\.7/.test(e.hint), e.hint);
+    const alta = await page.evaluate(() => {
+        [['homo_tm', '1568'], ['homo_curb', '1390']].forEach(([id, v]) => { document.getElementById(id).value = v; });
+        homoAltaUpdateStatus();
+        return (document.querySelector('#homo-alta-warn .homo-inertia-line') || {}).textContent || '';
+    });
+    chk('el Alta muestra la inercia calculada al capturar TM y curb weight', /1612\.7 kg/.test(alta), alta);
 
     // @@MORE@@
 

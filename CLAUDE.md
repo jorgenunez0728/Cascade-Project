@@ -1357,8 +1357,11 @@ las dos, no una:
   verdad. En filas flex, un `<input>` necesita `width:0; flex:1` o desborda la cuadrícula.
 - **Derivar, sugerir, nunca imponer**: `cascadeSoakHours`/`cascadePrecondVerdict` (puras),
   `cascadeDerivedRefresh` solo escribe en un campo vacío o que llenó el propio cálculo
-  (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **el ETW NO es la TM** (fórmula
-  del laboratorio, aún no en la app). `cascadeSetField(id, v)` escribe como si tecleara.
+  (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **ETW ← `homoWltpInertia`**
+  (homolog.js, PURA, LA definición): `TM + (m_r,del% + m_r,tras%) × (MRO + 25)`, MRO =
+  curb weight + 75 (o el MRO del ICMS). **El ETW NO es la TM**: la TM no incluye la masa
+  rotativa. Verificada contra el software del dinamómetro (1568/1465 → 1612.7).
+  `cascadeSetField(id, v)` escribe como si tecleara.
 - **Un solo indicador por concepto**: `opSectionsRender` (en vivo, definición del PDF) es
   el estado de cada sección y reemplazó al contador `.smart-badge`; la tarjeta "Siguiente
   paso" (`OP_NEXT_STEPS`, pasa por `handleStatusChange`) manda en Operación y ahí se
