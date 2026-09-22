@@ -285,11 +285,22 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.2';
+var APP_VERSION = '23.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
+      notes: [
+          'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',
+          'Adiós a la basura tipo "d 1 P A S A" y "C O ,": los símbolos que el PDF no sabe dibujar (≤, ₂) se traducen.',
+          'Nuevo checklist de liberación: objetos retirados y evidencia adjunta se confirman en Liberación y se imprimen en el F05. Lo que la app ya sabe (Solo Europa / Solo Cert. MX fuera de región) se llena solo.',
+          '"Hoja COP15-F05" dice Completa solo cuando no queda ningún campo pendiente, firmas incluidas.',
+          'Nuevo campo: SOC de la batería al iniciar la prueba (Operación → Verificación en Prueba).',
+          'Operación: las listas de opciones fijas ahora son botones de un toque; combustible y ciclo traen "Otro…" y el reporte imprime lo que escribiste.',
+          'Las pruebas liberadas antes de hoy traen el checklist asentado solo (y se puede corregir en Historial → 📝 Completar, donde también se llena el SOC).',
+          'La liberación por lote queda en pausa.'
+      ] },
     { v: '23.2', date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
       notes: [
           'El sync automático entre dispositivos NUNCA había funcionado: los cambios de otro equipo se descartaban en silencio mientras el indicador decía "Live sync active". Ahora sí llegan sin recargar.',
@@ -4674,6 +4685,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (typeof dailyDashRender === 'function') dailyDashRender();
         } catch(dashErr) { console.error('dailyDashRender error:', dashErr); }
 
+        // ═══ [v23.3] Listas de opciones fijas → botones ═══
+        try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
+
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
             if (typeof bugFabInit === 'function') bugFabInit();
@@ -5031,6 +5045,143 @@ function uiCreateAnotherChecked(id) {
     m[id] = on;
     uiPref('createAnother', m);
     return on;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.3] uiChipsEnhance — botones en lugar de listas desplegables
+// Un <select data-chips> se pinta como una fila de botones (uno por opción) y el
+// <select> queda oculto como FUENTE DE VERDAD: todo el código que ya lee o escribe
+// `select.value` (guardar, cargar un vehículo, borradores, autollenar operador)
+// sigue igual. Por eso los botones se resincronizan solos:
+//   - `value` se redefine en la instancia: toda asignación desde código repinta;
+//   - un MutationObserver repinta cuando alguien reescribe las opciones
+//     (populateOperators / pnSyncOperators hacen innerHTML).
+// `data-chips-other` agrega "Otro…": lo tecleado se guarda TAL CUAL como valor
+// (se inserta como <option data-custom>), así que el reporte imprime lo escrito,
+// nunca la palabra "Otro".
+// Con más de UI_CHIPS_MAX_OPTS opciones se queda la lista nativa: una pared de
+// botones es peor que un desplegable.
+// ══════════════════════════════════════════════════════════════════════
+var UI_CHIPS_MAX_OPTS = 16;
+var _UI_SELECT_VALUE = (typeof HTMLSelectElement !== 'undefined')
+    ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value') : null;
+
+function uiChipsEnhance(root) {
+    if (!_UI_SELECT_VALUE || !root || !root.querySelectorAll) return;
+    root.querySelectorAll('select[data-chips]').forEach(_uiChipsAttach);
+}
+
+function _uiChipsVal(sel) { return _UI_SELECT_VALUE.get.call(sel); }
+
+function _uiChipsEnsureOption(sel, v) {
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) return;
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v; o.setAttribute('data-custom', '1');
+    sel.appendChild(o);
+}
+
+function _uiChipsAttach(sel) {
+    if (sel._chips) { _uiChipsRender(sel); return; }
+    var group = document.createElement('div');
+    group.className = 'ui-chips';
+    group.setAttribute('role', 'radiogroup');
+    var fg = sel.closest ? sel.closest('.form-group') : null;
+    var lab = fg ? fg.querySelector('label') : null;
+    if (lab) group.setAttribute('aria-label', lab.textContent.trim());
+    sel.classList.add('chips-native');
+    sel.setAttribute('tabindex', '-1');
+    sel.setAttribute('aria-hidden', 'true');
+    sel.parentNode.insertBefore(group, sel.nextSibling);
+    sel._chips = group;
+
+    Object.defineProperty(sel, 'value', {
+        configurable: true,
+        get: function() { return _UI_SELECT_VALUE.get.call(this); },
+        set: function(v) {
+            if (v != null && v !== '' && this.hasAttribute('data-chips-other')) _uiChipsEnsureOption(this, String(v));
+            _UI_SELECT_VALUE.set.call(this, v);
+            _uiChipsRender(this);
+        }
+    });
+    try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    sel.addEventListener('change', function() { _uiChipsRender(sel); });
+
+    group.addEventListener('click', function(ev) {
+        var b = ev.target.closest ? ev.target.closest('button') : null;
+        if (!b || b.disabled || !group.contains(b)) return;
+        ev.preventDefault();
+        if (b.hasAttribute('data-other-open')) { group._editing = true; _uiChipsRender(sel); var i = group.querySelector('input'); if (i) i.focus(); return; }
+        if (b.hasAttribute('data-other-ok')) { _uiChipsCommitOther(sel); return; }
+        if (b.hasAttribute('data-other-cancel')) { group._editing = false; _uiChipsRender(sel); return; }
+        var v = b.getAttribute('data-v');
+        if (v === null) return;
+        // Tocar el botón ya elegido lo quita, pero solo si la lista admite "vacío"
+        // (los DTC arrancan en "No" y no tienen opción vacía).
+        var hasEmpty = Array.prototype.some.call(sel.options, function(o) { return o.value === ''; });
+        _uiChipsPick(sel, (_uiChipsVal(sel) === v && hasEmpty) ? '' : v);
+    });
+    group.addEventListener('keydown', function(ev) {
+        if (ev.target.tagName !== 'INPUT') return;
+        if (ev.key === 'Enter') { ev.preventDefault(); _uiChipsCommitOther(sel); }
+        else if (ev.key === 'Escape') { group._editing = false; _uiChipsRender(sel); }
+    });
+    _uiChipsRender(sel);
+}
+
+function _uiChipsPick(sel, v) {
+    sel.value = v; // pasa por el setter: agrega la opción custom si hace falta y repinta
+    sel.classList.remove('field-missing');
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function _uiChipsCommitOther(sel) {
+    var g = sel._chips;
+    var inp = g && g.querySelector('input');
+    var txt = inp ? inp.value.trim() : '';
+    g._editing = false;
+    if (!txt) { _uiChipsRender(sel); return; }
+    _uiChipsPick(sel, txt);
+}
+
+function _uiChipsRender(sel) {
+    var g = sel._chips;
+    if (!g || g._rendering) return;
+    g._rendering = true;
+    try {
+        var val = _uiChipsVal(sel);
+        var opts = Array.prototype.filter.call(sel.options, function(o) { return o.value !== ''; });
+        // Un "Otro" que ya no es el valor vigente sobra (cambiaron de vehículo).
+        opts.forEach(function(o) { if (o.getAttribute('data-custom') && o.value !== val) o.remove(); });
+        opts = Array.prototype.filter.call(sel.options, function(o) { return o.value !== ''; });
+        if (opts.length > UI_CHIPS_MAX_OPTS) {
+            sel.classList.remove('chips-native'); sel.removeAttribute('aria-hidden'); sel.removeAttribute('tabindex');
+            g.style.display = 'none';
+            return;
+        }
+        sel.classList.add('chips-native'); sel.setAttribute('aria-hidden', 'true'); sel.setAttribute('tabindex', '-1');
+        g.style.display = '';
+        var dis = sel.disabled ? ' disabled' : '';
+        var html = opts.filter(function(o) { return !o.getAttribute('data-custom'); }).map(function(o) {
+            var on = o.value === val;
+            return '<button type="button" role="radio" class="ui-chip' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" data-v="' +
+                   escapeHtml(o.value) + '"' + dis + '>' + escapeHtml(o.textContent.trim()) + '</button>';
+        }).join('');
+        if (sel.hasAttribute('data-chips-other')) {
+            var custom = opts.find(function(o) { return o.getAttribute('data-custom') && o.value === val; });
+            if (g._editing) {
+                html += '<span class="ui-chip-other"><input type="text" class="ui-chip-input" maxlength="60" placeholder="Escribe cuál" value="' +
+                        escapeHtml(custom ? custom.value : '') + '"><button type="button" class="ui-chip is-on" data-other-ok>✓</button>' +
+                        '<button type="button" class="ui-chip" data-other-cancel aria-label="Cancelar">✕</button></span>';
+            } else if (custom) {
+                html += '<button type="button" role="radio" class="ui-chip is-on" aria-checked="true" data-other-open title="Cambiar">' +
+                        escapeHtml(custom.value) + ' ✎</button>';
+            } else {
+                html += '<button type="button" class="ui-chip ui-chip-more" data-other-open' + dis + '>Otro…</button>';
+            }
+        }
+        g.innerHTML = html;
+    } finally { g._rendering = false; }
 }
 
 // ══════════════════════════════════════════════════════════════════════

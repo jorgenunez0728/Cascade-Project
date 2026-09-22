@@ -410,7 +410,7 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Seleccione el operador</label>
-      <select id="reg_operator" required>
+      <select id="reg_operator" data-chips required>
         <option value="">Seleccionar...</option>
       </select>
     </div>
@@ -469,7 +469,7 @@
     <!-- Fila 1 -->
     <div class="form-group">
       <label>Operador de Recepción</label>
-      <select id="op_recep">
+      <select id="op_recep" data-chips>
         <option value="">Seleccionar...</option>
       </select>
     </div>
@@ -487,7 +487,7 @@
     <!-- Fila 2 -->
     <div class="form-group">
       <label>Tipo de combustible</label>
-      <select id="fuel_typein">
+      <select id="fuel_typein" data-chips data-chips-other>
         <option value="">Seleccionar…</option>
         <option value="PemexPremium">Premium Mexicana</option>
         <option value="Regular">Gasolina de línea, regular</option>
@@ -498,7 +498,7 @@
 
     <div class="form-group">
       <label>Nivel de combustible (fracción)</label>
-      <select id="fuel_levelin">
+      <select id="fuel_levelin" data-chips>
         <option value="">Seleccionar…</option>
         <option value="0">Vacío</option>
         <option value="0.125">1/8</option>
@@ -546,7 +546,7 @@
   <div class="form-grid">
     <div class="form-group">
 <label>Persona a cargo (Preacondicionamiento)</label>
-  <select id="precond_responsible">
+  <select id="precond_responsible" data-chips>
     <option value="">Seleccionar…</option>
   </select>
 </div>
@@ -574,7 +574,7 @@
 
     <div class="form-group">
       <label>Tipo de Combustible</label>
-      <select id="fuel_typepre">
+      <select id="fuel_typepre" data-chips data-chips-other>
         <option value="">Seleccionar…</option>
         <option value="PemexPremium">Premium Mexicana</option>
         <option value="Euro6">Euro 6</option>
@@ -588,7 +588,7 @@
 
     <div class="form-group">
       <label>Ciclo de preacondicionamiento</label>
-      <select id="precond_cycle">
+      <select id="precond_cycle" data-chips data-chips-other>
         <option value="">Seleccionar…</option>
         <option value="WLTP">WLTP</option>
         <option value="UDDS">FTP Fase 1 y 2</option>
@@ -642,7 +642,7 @@
 
     <div class="form-group">
       <label>Cumple preacondicionamiento</label>
-      <select id="precond_ok">
+      <select id="precond_ok" data-chips>
         <option value="">Seleccionar…</option>
         <option value="yes">Sí</option>
         <option value="no">No</option>
@@ -655,7 +655,7 @@
   <div class="form-grid">
     <div class="form-group">
       <label>DTC Pendiente (antes)</label>
-      <select id="dtc_pending_before">
+      <select id="dtc_pending_before" data-chips>
         <option value="no">No</option>
         <option value="yes">Sí</option>
       </select>
@@ -663,7 +663,7 @@
 
     <div class="form-group">
       <label>DTC Confirmado (antes)</label>
-      <select id="dtc_confirmed_before">
+      <select id="dtc_confirmed_before" data-chips>
         <option value="no">No</option>
         <option value="yes">Sí</option>
       </select>
@@ -671,7 +671,7 @@
 
     <div class="form-group">
       <label>DTC Permanente (antes)</label>
-      <select id="dtc_permanent_before">
+      <select id="dtc_permanent_before" data-chips>
         <option value="no">No</option>
         <option value="yes">Sí</option>
       </select>
@@ -765,7 +765,7 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Persona a cargo de la prueba</label>
-      <select id="test_responsible">
+      <select id="test_responsible" data-chips>
         <option value="">Seleccionar…</option>
       </select>
     </div>
@@ -779,7 +779,7 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Túnel</label>
-      <select id="test_tunnel">
+      <select id="test_tunnel" data-chips>
         <option value="">Seleccionar…</option>
         <option value="RMT1">RMT1</option>
         <option value="RMT2">RMT2</option>
@@ -788,7 +788,7 @@
 
     <div class="form-group">
       <label>Dinamómetro</label>
-      <select id="test_dyno_on">
+      <select id="test_dyno_on" data-chips>
         <option value="">Seleccionar…</option>
         <option value="on">Encendido</option>
         <option value="off">Apagado</option>
@@ -797,7 +797,7 @@
 
     <div class="form-group">
       <label>Ventilador (modo)</label>
-      <select id="test_fan_mode" onchange="updateFanFieldsByMode()">
+      <select id="test_fan_mode" data-chips onchange="updateFanFieldsByMode()">
         <option value="">Seleccionar…</option>
         <option value="speed">Velocidad (km/h)</option>
         <option value="speed_follow">Speed Follow</option>
@@ -816,7 +816,7 @@
 
     <div class="form-group">
       <label>Parámetros de Inercia</label>
-      <select id="test_inertia_ok">
+      <select id="test_inertia_ok" data-chips>
         <option value="">Seleccionar…</option>
         <option value="ok">Confirmar</option>
         <option value="not_ok">No conforme</option>
@@ -825,7 +825,7 @@
 
     <div class="form-group">
       <label>Cadenas de amarre 1 y 2</label>
-      <select id="test_chains">
+      <select id="test_chains" data-chips>
         <option value="">Seleccionar…</option>
         <option value="tight">Tensadas</option>
         <option value="loose">Flojas</option>
@@ -834,7 +834,7 @@
 
     <div class="form-group">
       <label>Eslinga 1 y 2</label>
-      <select id="test_slings">
+      <select id="test_slings" data-chips>
         <option value="">Seleccionar…</option>
         <option value="secured">Aseguradas</option>
         <option value="not_secured">No aseguradas</option>
@@ -843,7 +843,7 @@
 
     <div class="form-group">
       <label>Capó del vehículo</label>
-      <select id="test_hood">
+      <select id="test_hood" data-chips>
         <option value="">Seleccionar…</option>
         <option value="closed">Capó cerrado</option>
         <option value="open">Abierto (Obligatorio México)</option>
@@ -852,7 +852,7 @@
 
     <div class="form-group">
       <label>Rodillos traseros</label>
-      <select id="test_rear_rollers">
+      <select id="test_rear_rollers" data-chips>
         <option value="">Seleccionar…</option>
         <option value="secured">Asegurados</option>
         <option value="not_secured">No asegurados</option>
@@ -861,7 +861,7 @@
 
     <div class="form-group">
       <label>Pantalla</label>
-      <select id="test_screen">
+      <select id="test_screen" data-chips>
         <option value="">Seleccionar…</option>
         <option value="secured">Asegurada</option>
         <option value="not_secured">No asegurada</option>
@@ -870,11 +870,16 @@
 
     <div class="form-group">
       <label>Verificación FTP75–HWY (México)</label>
-      <select id="test_mex_waitcheck">
+      <select id="test_mex_waitcheck" data-chips>
         <option value="">Seleccionar…</option>
         <option value="fan_off">Ventilador apagado</option>
         <option value="ok">OK</option>
       </select>
+    </div>
+
+    <div class="form-group">
+      <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
+      <input type="number" id="test_battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -894,7 +899,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label>Operador</label>
-          <select id="simple_operator">
+          <select id="simple_operator" data-chips>
             <option value="">Seleccionar...</option>
           </select>
         </div>
@@ -966,6 +971,11 @@
                         <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div id="lib-gas-entry-content"></div>
                     </div>
+                </div>
+                <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
+                <div id="lib-checklist-card" class="card" style="display:none;">
+                    <div class="card-title" data-help="lib-checklist-help">🧾 Checklist de Liberación (COP15-F05)</div>
+                    <div id="lib-checklist-content"></div>
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>

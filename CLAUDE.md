@@ -1341,6 +1341,36 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.3 — PDF COP15-F05: una hoja, `_pdfSafe` y checklist de liberación (`js/cop15.js`)
+
+- **El F05 tiene presupuesto vertical fijo** (carta horizontal, pie en `H - 10`). jsPDF no
+  avisa al escribir fuera de la hoja: antes de agregar una fila, sumar alturas. Liberación
+  va en tres columnas a la misma altura (inspección+objetos | evidencia | gases).
+- **`_pdfSafe(s)` es LA forma de meter texto al PDF** (PURA). Helvetica de jsPDF solo trae
+  WinAnsi; un `≤` o `₂` no solo sale como basura, espacia letra por letra la cadena entera.
+  `generateCOP15PDF` la aplica en `cell()` y envolviendo `doc.text`.
+- **`releaseChecklistRows(vehicle)` es LA definición del checklist de liberación**
+  (`vehicle.testData.releaseChecklist`, `RELEASE_CHECKLIST`). **Nunca autollenar un
+  "Retirado"/"Adjunto"**: lo afirma el liberador con su firma. Solo se derivan los "No aplica"
+  por región y la fila F05, que dice **Completa** únicamente con `validatePdfCompleteness`
+  sin ningún pendiente. `submitToApproval` bloquea con confirmaciones en blanco.
+- **`PDF_REQUIRED_FIELDS[].when(td, vehicle)` y `.soft(td, vehicle)`** reciben el
+  vehículo. Un campo obligatorio NUEVO debe ser **suave** para lo liberado antes de que
+  existiera (patrón del SOC de prueba): `validatePdfCompleteness` lo devuelve en `soft[]`
+  (se muestra en Completar como Opcional) y no en `missing[]` (lo que bloquea). Exentarlo
+  con `when` lo esconde también de Completar y ya no hay forma de llenarlo.
+- **Pruebas anteriores al checklist** (`releaseIsBeforeChecklist`, corte
+  `RELEASE_CHECKLIST_SINCE`): sus filas vacías se **derivan** Retirado/Adjunto al leer —
+  decisión explícita del laboratorio — nunca se escriben; el PDF lo declara en el pie y se
+  corrigen en Historial → 📝 Completar. La fila F05 nunca se asienta sola.
+- **`uiChipsEnhance(root)` (app.js) es LA forma de mostrar un `<select>` de opciones fijas
+  como botones**: marcar el `<select>` con `data-chips` (+ `data-chips-other` para
+  "Otro…" con texto libre que se guarda tal cual). El `<select>` sigue siendo la fuente
+  de verdad: leer/escribir `select.value` como siempre; nunca leer el estado de los botones.
+  Un modal que clone selects debe llamar `uiChipsEnhance(wrap)` **antes** de fijar valores.
+- **`V7_BATCH_RELEASE_ON_HOLD`**: la liberación por lote está en pausa (archivaba sin
+  checklist, firmas ni doble ciego). No reactivarla sin esas tres cosas.
+
 ## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI
 
 Ronda salida de una auditoría del estado del proyecto. El área más necesitada resultó ser

@@ -158,5 +158,91 @@ console.log('\n== _libValueImplausible ==');
     }
 }
 
+// ── _pdfSafe: el PDF COP15-F05 solo sabe WinAnsi ─────────────────────────
+// "≤ 1  PASA" salía como `"d 1 P A S A` y "CO₂" como "C O ,": un carácter fuera
+// de WinAnsi hace que jsPDF espacie la cadena entera.
+console.log('\n== _pdfSafe ==');
+{
+    const f = ctx._pdfSafe;
+    ok('≤ se vuelve <=', f('≤ 1  PASA') === '<= 1  PASA');
+    ok('subíndices a dígitos (CO₂, NOₓ)', f('CO₂') === 'CO2' && f('NOₓ') === 'NOx');
+    ok('acentos y ñ se conservan (Latin-1)', f('Liberación Núñez') === 'Liberación Núñez');
+    ok('guion largo, ³ y · se conservan (sí están en WinAnsi)', f('— m³/min · x') === '— m³/min · x');
+    ok('lo que no tiene equivalente sale como ? visible, no desaparece', f('ok 🚗') === 'ok ?');
+    ok('null/undefined dan cadena vacía', f(null) === '' && f(undefined) === '');
+}
+
+// ── releaseChecklistRows: checklist de liberación del F05 ─────────────────
+console.log('\n== releaseChecklistRows ==');
+{
+    const rows = ctx.releaseChecklistRows;
+    const veh = (region, cl) => ({ purpose: 'COP-Emisiones', config: { REGION: region }, testData: cl ? { releaseChecklist: cl } : {} });
+    const byKey = (st, k) => st.objects.concat(st.docs).find(r => r.key === k);
+
+    const mx = rows(veh('MEXICO'));
+    ok('Solo Europa fuera de Europa = No aplica automático',
+        byKey(mx, 'obfcm').value === 'na' && byKey(mx, 'obfcm').auto && byKey(mx, 'coast').value === 'na');
+    ok('Solo Cert. MX en México NO se autollena (región MX no implica certificación)',
+        byKey(mx, 'f02').value === '' && !byKey(mx, 'f02').auto);
+
+    const eu = rows(veh('EUROPE'));
+    ok('Solo Cert. MX fuera de México = No aplica automático', byKey(eu, 'f03').value === 'na' && byKey(eu, 'f03').auto);
+    ok('Solo Europa en Europa se pide al liberador', byKey(eu, 'obfcm').value === '' && !byKey(eu, 'obfcm').auto);
+    ok('los objetos NUNCA se autollenan como retirados', eu.objects.every(r => r.value === '' && !r.auto));
+    ok('Hoja F05 completa la decide el validador, no el técnico', byKey(eu, 'f05').auto === true);
+
+    const hecho = rows(veh('EUROPE', { objects: { kds: 'ok', cardaq: 'na' }, docs: { vets: 'ok' } }));
+    ok('lo capturado se lee', byKey(hecho, 'kds').value === 'ok' && byKey(hecho, 'cardaq').value === 'na' && byKey(hecho, 'vets').value === 'ok');
+    ok('missing lista lo que falta', hecho.missing.some(r => r.key === 'remote') && !hecho.missing.some(r => r.key === 'kds'));
+
+    // F05 "Completa" solo sin NINGÚN pendiente
+    const lleno = { purpose: 'COP-Emisiones', status: 'ready-release', config: { REGION: 'EUROPE' }, testData: {} };
+    ctx.PDF_REQUIRED_FIELDS.forEach(f => ctx._histSetPath(lleno, f.path, f.num ? 1 : 'x'));
+    lleno.testData.testVerification.fanMode = 'speed_follow';
+    const f05SinFirma = byKey(rows(lleno), 'f05');
+    ok('F05 con solo firmas/gases pendientes: no dice Completa pero no bloquea el envío',
+        f05SinFirma.value === '' && f05SinFirma.blocking === false && !rows(lleno).missing.some(r => r.key === 'f05'));
+    const f05Falta = byKey(rows(veh('EUROPE')), 'f05');
+    ok('F05 con campos de formulario vacíos bloquea', f05Falta.value === '' && f05Falta.blocking === true);
+    const _vpc = ctx.validatePdfCompleteness;
+    ctx.validatePdfCompleteness = () => ({ ok: true, missing: [] });
+    const f05Ok = byKey(rows(lleno), 'f05');
+    ctx.validatePdfCompleteness = _vpc;
+    ok('F05 sin ningún pendiente = Completa', f05Ok.value === 'ok' && f05Ok.okText === 'Completa');
+
+    // SOC al iniciar prueba: obligatorio en curso; pendiente SUAVE en lo liberado antes
+    const soc = ctx.PDF_REQUIRED_FIELDS.find(f => f.path === 'testData.testVerification.batterySocPct');
+    ok('SOC de prueba está en el descriptor de obligatorios', !!soc);
+    ok('SOC de prueba es obligatorio en un vehículo sin liberar', soc.soft({}, { status: 'ready-release', testData: {} }) === false);
+    const viejo = { status: 'archived', archivedAt: '2026-09-10T12:00:00', testData: { signatures: { releaser: { signedAt: '2026-09-10T11:00:00' } } } };
+    ok('en una prueba liberada antes del checklist el SOC es pendiente suave', soc.soft({}, viejo) === true);
+    const _vp = ctx.validatePdfCompleteness(Object.assign({ purpose: 'COP-Emisiones', config: {} }, viejo));
+    ok('un pendiente suave no bloquea (va en soft, no en missing)',
+        _vp.soft.some(m => /SOC de batería al iniciar/.test(m.label)) && !_vp.missing.some(m => /SOC de batería al iniciar/.test(m.label)));
+
+    // Pruebas anteriores al checklist: se asienta solo (derivado, no escrito)
+    ok('liberado antes del ' + ctx.RELEASE_CHECKLIST_SINCE + ' = anterior al checklist', ctx.releaseIsBeforeChecklist(viejo) === true);
+    const hoy = { status: 'pending-approval', testData: { signatures: { releaser: { signedAt: new Date().toISOString() } } } };
+    ok('liberado hoy NO es anterior al checklist', ctx.releaseIsBeforeChecklist(hoy) === false);
+    ok('sin liberar NO es anterior al checklist', ctx.releaseIsBeforeChecklist({ status: 'ready-release', testData: {} }) === false);
+    ok('archivado muy viejo sin fechas SÍ es anterior', ctx.releaseIsBeforeChecklist({ status: 'archived', testData: {} }) === true);
+    const vMx = Object.assign({ purpose: 'COP-Emisiones', config: { REGION: 'MEXICO' } }, JSON.parse(JSON.stringify(viejo)));
+    const stMx = rows(vMx);
+    ok('prueba vieja: objetos asentados como Retirado y marcados legacy',
+        stMx.objects.every(r => r.value === 'ok' && r.legacy) && stMx.legacy === true);
+    ok('prueba vieja en México: Cert. MX queda No aplica', byKey(stMx, 'f02').value === 'na');
+    // La fila F05 NO se asienta sola: depende de que el formulario esté lleno de verdad.
+    ok('prueba vieja: solo queda pendiente la F05 (si faltan campos reales)',
+        stMx.missing.length === 1 && stMx.missing[0].key === 'f05' && !byKey(stMx, 'f05').legacy);
+    ok('el derivado NO se escribe en el vehículo', !vMx.testData.releaseChecklist);
+    vMx.testData.releaseChecklist = { objects: { cardaq: 'na' } };
+    const stMx2 = rows(vMx);
+    ok('lo corregido a mano manda sobre lo automático',
+        byKey(stMx2, 'cardaq').value === 'na' && !byKey(stMx2, 'cardaq').legacy && byKey(stMx2, 'kds').legacy);
+
+    const forzado = rows(veh('CANADA', { docs: { obfcm: 'ok' } }));
+    ok('una regla automática gana sobre un valor guardado a mano', byKey(forzado, 'obfcm').value === 'na');
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

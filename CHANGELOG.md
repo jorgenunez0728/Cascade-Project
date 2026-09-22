@@ -2,6 +2,113 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.3 — El PDF COP15-F05 cabe en una hoja y se llena completo (2026-09-22)
+
+Ronda salida de una foto del F05 impreso. Tres defectos a la vista y uno que no se veía.
+
+### 1. Media hoja fuera de la página
+
+Sumando alturas, el contenido terminaba **~40 mm por debajo del borde** de la carta
+horizontal: el pie (`H - 10`) se dibujaba encima de las filas CO₂/THC, y NOx, PM, PN y
+**los dos bloques de firma nunca se imprimían**. Nadie lo notó porque jsPDF no avisa
+cuando se escribe fuera de la página.
+
+- Preacondicionamiento a filas de 3,7 mm (antes 4) y Verificación a 4,5 mm (antes 5,5).
+- Un solo encabezado en Detalles de Prueba (el título suelto + la banda "Verificación en
+  Prueba" decían lo mismo).
+- Liberación en **tres columnas a la misma altura**: Inspección final + objetos |
+  Evidencia | Resultados de emisiones. Debajo, Comentarios + firmas.
+- Red de seguridad: si unas observaciones muy largas empujan las firmas, van a una
+  segunda página (con pie en cada una y "Page: 1 of N" calculado al final).
+- El pie ya no afirma "Archivado con doble firma" en una vista previa: dice
+  PRELIMINAR mientras no haya las dos firmas.
+
+### 2. `_pdfSafe` — Helvetica de jsPDF solo sabe WinAnsi
+
+`≤` salía como `"d` y `CO₂` como `C O ,` — y un solo carácter fuera de WinAnsi hace que
+jsPDF espacie **toda la cadena** letra por letra ("P A S A"). `_pdfSafe(s)` (cop15.js,
+PURA) traduce `≤ ≥ ≈ → ✓` y sub/superíndices; lo que no tiene equivalente sale como `?`
+visible, nunca desaparece. Se aplica en `cell()` y envolviendo `doc.text` del documento.
+PN se imprime en notación científica.
+
+### 3. Checklist de liberación (`releaseChecklistRows`)
+
+Las columnas de Confirmación de "Objetos a retirar" y "Evidencia documental" salían
+**vacías siempre**: el dato no se capturaba en ningún lado. Ahora hay una tarjeta en
+Liberación y el envío a aprobación se bloquea con confirmaciones en blanco.
+
+- **`releaseChecklistRows(vehicle)` es LA definición** (pura respecto al DOM); el PDF y
+  la tarjeta la consumen. Se guarda en `vehicle.testData.releaseChecklist`.
+- **Nunca se autollena un "Retirado" o "Adjunto"**: eso lo afirma el liberador con su
+  firma debajo. Se decidió explícitamente no clavar un "OK" fijo.
+- Automático: "Solo Europa" fuera de Europa y "Solo Cert. MX" fuera de México → No aplica.
+  En México "Cert. MX" se elige a mano: región MEXICO no implica certificación.
+- "Hoja COP15-F05" imprime **Completa** solo con `validatePdfCompleteness` sin NINGÚN
+  pendiente (firmas y gases incluidos); si no, **Pendiente**. Mientras solo falten
+  firmas/gases la fila no bloquea el envío (tienen su propio candado).
+
+### 4. SOC al iniciar prueba
+
+Campo nuevo `testVerification.batterySocPct` (`#test_battery_soc`), en el hueco que
+quedaba libre de Verificación en Prueba del PDF. Entra a `PDF_REQUIRED_FIELDS` con
+`when(td, vehicle)` — el `when` ahora recibe también el vehículo — para **no** exigirlo
+a archivados anteriores al campo (bloquearía regenerar su PDF por un dato imposible).
+
+### 5. Pruebas anteriores al checklist: asentado automático (decisión del laboratorio)
+
+Sin esto, todo F05 histórico saldría con las confirmaciones en blanco. El laboratorio
+decidió asentarlas solas, sabiendo que no es lo ideal, para no dejar documentación
+incompleta sin forma de regresar.
+
+- **`releaseIsBeforeChecklist(vehicle)`**: liberado (firma del liberador, si no
+  `archivedAt`) antes de `RELEASE_CHECKLIST_SINCE` (2026-09-22). Un archivado sin fechas
+  cuenta como anterior.
+- En esas pruebas, las filas sin respuesta salen **Retirado / Adjunto** ("Solo Cert. MX"
+  en México sale No aplica: eran CoP). **Se DERIVA al leer, no se escribe en el vehículo**,
+  así que lo corregido a mano manda, y el cambio es reversible. La fila F05 **no** se
+  asienta: sigue dependiendo del formulario real.
+- **El PDF lo declara** en la línea gris del pie ("Checklist de liberación asentado
+  retroactivamente"). El SOC de prueba sale "No registrado".
+
+### 6. Historial → 📝 Completar: checklist + pendientes suaves
+
+- El modal suma la sección **Checklist de liberación**: lo asentado automáticamente y lo
+  vacío se fija con los mismos botones; lo que capturó el liberador queda 🔒. Se guarda en
+  `releaseChecklist` con `retro:true`, en el timeline y en la auditoría (`retro_edit`).
+- **`validatePdfCompleteness` devuelve `soft[]` además de `missing[]`.** Un pendiente suave
+  (`PDF_REQUIRED_FIELDS[].soft(td, v)`) aparece en Completar como **Opcional** pero no
+  bloquea el PDF ni la palabra "Completa". El SOC de prueba es suave en las pruebas
+  anteriores (antes estaba exento y no había forma de llenarlo). `missing` sigue siendo
+  solo lo que bloquea, así que los consumidores existentes no cambian.
+- El botón 📝 aparece también con solo pendientes suaves (en gris, no en ámbar).
+
+### 7. `uiChipsEnhance` — botones en lugar de listas desplegables
+
+Petición del laboratorio: en Operación, lo que tiene opciones fijas se elige con un toque.
+
+- `<select data-chips>` se pinta como fila de botones; el `<select>` queda **oculto como
+  fuente de verdad**, así que guardar/cargar/borradores/autollenar operador no cambiaron.
+  `value` se redefine en la instancia (toda asignación desde código repinta) y un
+  MutationObserver repinta cuando se reescriben las opciones (operadores).
+- **`data-chips-other`** agrega "Otro…": lo tecleado se guarda tal cual como valor
+  (`<option data-custom>`), así que el reporte imprime lo escrito, no "Otro". Combustible
+  (recepción y preacondicionamiento) y ciclo lo llevan.
+- 23 listas de Operación/Alta convertidas; también el modal Completar.
+- Más de `UI_CHIPS_MAX_OPTS` (16) opciones → se queda la lista nativa.
+
+### 8. Liberación por lote en pausa
+
+`V7_BATCH_RELEASE_ON_HOLD = true`: sin botón, y `v7BatchRelease` se niega aunque la llamen.
+Archivaba sin checklist, sin firmas y sin doble ciego. El código se conserva hasta decidir
+si se retira.
+
+### Pruebas
+
+`tests/cop15.node.js` 30 → **61**; **`tests/v233.e2e.js`** (Chromium, 15 comprobaciones:
+botones, "Otro…", checklist, Completar, lote en pausa).
+
+---
+
 ## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI (2026-09-08)
 
 Ronda salida de una auditoría exhaustiva del estado del proyecto. La pregunta era

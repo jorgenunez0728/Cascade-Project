@@ -1468,6 +1468,7 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('test_slings').value      = tv.slings ?? '';
   document.getElementById('test_hood').value        = tv.hood ?? '';
   document.getElementById('test_rear_rollers').value= tv.rearRollers ?? '';
+  { const _ts = document.getElementById('test_battery_soc'); if (_ts) _ts.value = tv.batterySocPct ?? ''; }
   document.getElementById('test_screen').value      = tv.screen ?? '';
   document.getElementById('test_mex_waitcheck').value = tv.mexWaitCheck ?? '';
   document.getElementById('test_verify_notes').value  = tv.notes ?? '';
@@ -1997,6 +1998,8 @@ const precondDatetime = document.getElementById('precond_datetime')?.value || ''
         rearRollers: document.getElementById('test_rear_rollers')?.value || '',
         screen: document.getElementById('test_screen')?.value || '',
         mexWaitCheck: document.getElementById('test_mex_waitcheck')?.value || '',
+        batterySocPct: (String(document.getElementById('test_battery_soc')?.value ?? '').trim() !== '')
+          ? parseInt(document.getElementById('test_battery_soc').value, 10) : null,
         notes: document.getElementById('test_verify_notes')?.value || ''
       }
     : (vehicle.testData?.testVerification || null); // ← PRESERVE existing data when not in testing mode
@@ -2742,6 +2745,163 @@ function libOnApproverGasChange() {
     }
 }
 
+// ─── Checklist de liberación (COP15-F05: objetos a retirar + evidencia) ───────
+// Antes el PDF imprimía estas dos tablas con la columna de Confirmación VACÍA:
+// el dato no se capturaba en ningún lado. Se capturan en Liberación y lo que la
+// app ya sabe se resuelve solo. NUNCA se autollena un "Retirado" o "Adjunto":
+// eso lo afirma el liberador con su firma debajo.
+//
+// Valor guardado por fila: 'ok' | 'na'  (vehicle.testData.releaseChecklist)
+var RELEASE_CHECKLIST = {
+    objects: [
+        { key: 'kds',    label: 'KDS con VCI' },
+        { key: 'cardaq', label: 'CARDAQ' },
+        { key: 'remote', label: 'Control Remoto' },
+        { key: 'radio',  label: 'Radio' },
+        { key: 'gsi',    label: 'GSI' }
+    ],
+    docs: [
+        { key: 'f05',   label: 'Hoja de Inspección COP15-F05 Completa', rule: 'f05' },
+        { key: 'vets',  label: 'Reporte STARS VETS COP15-F31' },
+        { key: 'obfcm', label: 'Reporte OBFCM (Solo Europa)', rule: 'europe' },
+        { key: 'coast', label: 'Reporte Coast/Down Quick Check (Solo Europa)', rule: 'europe' },
+        { key: 'f02',   label: 'Solicitud de Ensayo COP15-F02 (Solo Cert. MX)', rule: 'mexico' },
+        { key: 'f03',   label: 'Cotización COP15-F03 (Solo Cert. MX)', rule: 'mexico' }
+    ]
+};
+// Día en que el checklist empezó a capturarse. Las pruebas liberadas ANTES no
+// tuvieron dónde registrarlo, así que para ellas las filas sin respuesta se asientan
+// solas (decisión explícita del laboratorio, para no dejar el F05 histórico en
+// blanco). Se DERIVA al leer, nunca se escribe en el vehículo: lo que se corrija a
+// mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
+var RELEASE_CHECKLIST_SINCE = '2026-09-22';
+
+/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+function releaseIsBeforeChecklist(vehicle) {
+    if (!vehicle) return false;
+    var td = vehicle.testData || {};
+    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
+    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    var d = new Date(ref);
+    if (isNaN(d.getTime())) return vehicle.status === 'archived';
+    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+}
+
+var RELEASE_CHECKLIST_TEXT = {
+    objects: { ok: 'Retirado', na: 'No se instaló' },
+    docs:    { ok: 'Adjunto',  na: 'No aplica' }
+};
+
+/**
+ * LA definición del estado del checklist de liberación de un vehículo. PURA
+ * respecto al DOM. Cada fila: {key, label, value:'ok'|'na'|'', auto, reason}.
+ * `auto` = lo resolvió la app y no se edita:
+ *   - "Solo Europa" fuera de Europa → No aplica.
+ *   - "Solo Cert. MX" fuera de México → No aplica. En México se elige a mano:
+ *     región MEXICO no implica certificación (la mayoría son CoP).
+ *   - Hoja F05 completa → la decide validatePdfCompleteness (sin contar gases y
+ *     firmas, que tienen su propio candado), nunca el técnico.
+ */
+function releaseChecklistRows(vehicle) {
+    var saved = (vehicle && vehicle.testData && vehicle.testData.releaseChecklist) || {};
+    var region = String((vehicle && vehicle.config && (vehicle.config['REGION'] || vehicle.config.rgn)) || '').trim().toUpperCase();
+    var isEu = typeof homoIsEurope === 'function' ? homoIsEurope(region) : (region === 'EUROPE' || region === 'EUROPA');
+    var isMx = region === 'MEXICO' || region === 'MÉXICO';
+    var legacy = releaseIsBeforeChecklist(vehicle);
+    var anyLegacy = false;
+    function build(group) {
+        var store = saved[group] || {};
+        return RELEASE_CHECKLIST[group].map(function(it) {
+            var row = { key: it.key, label: it.label, value: store[it.key] || '', auto: false, reason: '' };
+            if (it.rule === 'europe' && !isEu) { row.value = 'na'; row.auto = true; row.reason = 'Región ' + (region || 'sin dato') + ' (no Europa)'; }
+            else if (it.rule === 'mexico' && !isMx) { row.value = 'na'; row.auto = true; row.reason = 'Región ' + (region || 'sin dato') + ' (no México)'; }
+            else if (it.rule === 'f05' && typeof validatePdfCompleteness === 'function') {
+                // "Completa" = NINGÚN pendiente, firmas y gases incluidos. Mientras solo
+                // falten gases/firmas (que tienen su propio candado y llegan al enviar
+                // y al aprobar) la fila no bloquea el envío, pero tampoco dice Completa.
+                var comp = validatePdfCompleteness(vehicle);
+                var faltanForm = comp.missing.filter(function(m) { return m.section !== 'Firmas' && m.section !== 'Resultados de Emisiones'; }).length;
+                row.auto = true;
+                row.value = comp.missing.length ? '' : 'ok';
+                row.okText = 'Completa';
+                row.blocking = faltanForm > 0;
+                row.reason = faltanForm ? 'Faltan ' + faltanForm + ' campos en Operación'
+                    : comp.missing.length ? 'Se marca Completa al quedar firmas y resultados'
+                    : 'Sin campos pendientes';
+            }
+            else if (!row.value && legacy) {
+                // Prueba anterior al checklist: se asienta sola. "Solo Cert. MX" en México
+                // queda No aplica (esas pruebas eran CoP, no certificación).
+                row.value = it.rule === 'mexico' ? 'na' : 'ok';
+                row.legacy = true;
+                row.reason = 'Asentado automáticamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')';
+                anyLegacy = true;
+            }
+            return row;
+        });
+    }
+    var objects = build('objects'), docs = build('docs');
+    // La fila F05 solo cuenta como faltante por campos de formulario (ver arriba).
+    var missing = objects.concat(docs).filter(function(r) { return !r.value && r.blocking !== false; });
+    return { objects: objects, docs: docs, missing: missing, legacy: anyLegacy };
+}
+
+function releaseChecklistSet(group, key, val) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== 'ready-release') return;
+    if (!RELEASE_CHECKLIST[group]) return;
+    if (!vehicle.testData) vehicle.testData = {};
+    var cl = vehicle.testData.releaseChecklist || (vehicle.testData.releaseChecklist = {});
+    var st = cl[group] || (cl[group] = {});
+    var keys = key === '*' ? RELEASE_CHECKLIST[group].map(function(it) { return it.key; }) : [key];
+    keys.forEach(function(k) {
+        if (st[k] === val && key !== '*') delete st[k]; // tocar la opción ya elegida la quita
+        else st[k] = val;
+    });
+    cl.by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    cl.at = new Date().toISOString();
+    saveDB();
+    releaseChecklistRender(vehicle);
+}
+
+function releaseChecklistRender(vehicle) {
+    var host = document.getElementById('lib-checklist-content');
+    var card = document.getElementById('lib-checklist-card');
+    if (!host || !card) return;
+    if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    var st = releaseChecklistRows(vehicle);
+    function rowHTML(group, r) {
+        var txt = RELEASE_CHECKLIST_TEXT[group];
+        var right;
+        if (r.auto) {
+            right = '<span class="relcl-auto relcl-' + (r.value || 'pending') + '">' +
+                (r.value ? escapeHtml((r.value === 'ok' && r.okText) || txt[r.value]) : (r.blocking === false ? '⏳ Al firmar' : '⚠️ Pendiente')) + '</span>';
+        } else {
+            right = ['ok', 'na'].map(function(v) {
+                return '<button type="button" class="relcl-opt' + (r.value === v ? ' is-on relcl-' + v : '') + '" ' +
+                    'aria-pressed="' + (r.value === v) + '" ' +
+                    'onclick="releaseChecklistSet(\'' + group + '\',\'' + r.key + '\',\'' + v + '\')">' +
+                    (v === 'ok' ? '✔ ' : '— ') + escapeHtml(txt[v]) + '</button>';
+            }).join('');
+        }
+        return '<div class="relcl-row' + (r.value || r.blocking === false ? '' : ' is-missing') + '">' +
+            '<div class="relcl-label">' + escapeHtml(r.label) +
+            (r.auto ? '<small>Automático · ' + escapeHtml(r.reason) + '</small>' : '') + '</div>' +
+            '<div class="relcl-opts">' + right + '</div></div>';
+    }
+    var html = '';
+    html += '<div class="relcl-group"><div class="relcl-head"><b>Objetos a retirar del vehículo</b>' +
+        '<button type="button" class="relcl-all" onclick="releaseChecklistSet(\'objects\',\'*\',\'ok\')">✔ Todo retirado</button></div>' +
+        st.objects.map(function(r) { return rowHTML('objects', r); }).join('') + '</div>';
+    html += '<div class="relcl-group"><div class="relcl-head"><b>Evidencia documental</b></div>' +
+        st.docs.map(function(r) { return rowHTML('docs', r); }).join('') + '</div>';
+    html += '<div class="relcl-foot">' + (st.missing.length
+        ? '⚠️ Faltan <b>' + st.missing.length + '</b> confirmaciones para enviar a aprobación.'
+        : '✅ Checklist completo — se imprime en el PDF COP15-F05.') + '</div>';
+    host.innerHTML = html;
+}
+
 function loadRelease() {
     activeVehicleId = document.getElementById('releaseVehSelect').value;
     var content = document.getElementById('lib-content');
@@ -2793,6 +2953,7 @@ function loadRelease() {
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
         document.getElementById('release-archive-btn').disabled = false;
+        releaseChecklistRender(vehicle);
         _renderUsedCylinders(vehicle);
         renderTimeline(vehicle);
         return;
@@ -2848,6 +3009,7 @@ function loadRelease() {
         libOnGasChange();
     }
 
+    releaseChecklistRender(vehicle);
     _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -2919,6 +3081,18 @@ function submitToApproval() {
     if (_blockers.length > 0) { _showPdfMissingPopup(_blockers); return; }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
+    // El checklist de liberación se imprime en el F05 con la firma del liberador
+    // debajo: no se envía con confirmaciones en blanco.
+    if (isEm) {
+        var _cl = releaseChecklistRows(vehicle);
+        if (_cl.missing.length) {
+            showToast('Faltan ' + _cl.missing.length + ' confirmaciones del checklist de liberación: ' +
+                _cl.missing.map(function(r) { return r.label; }).join(', '), 'warning');
+            var _clCard = document.getElementById('lib-checklist-card');
+            if (_clCard && _clCard.scrollIntoView) _clCard.scrollIntoView({ block: 'center' });
+            return;
+        }
+    }
     var regName = _libGetVehicleRegulation(vehicle);
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
     var gasValues = profile ? _libCollectGasValues(profile, 'lib-gas-entry-content') : {};
@@ -2952,7 +3126,8 @@ function submitToApproval() {
                 timestamp: new Date().toISOString(),
                 user: sig.signerName || 'Liberador',
                 action: _wasReturn ? 'Reenviado a Aprobación (corregido)' : 'Enviado a Aprobación',
-                data: { status: 'pending-approval', gasValues: gasValues }
+                data: { status: 'pending-approval', gasValues: gasValues,
+                        releaseChecklist: vehicle.testData.releaseChecklist || null }
             });
             auditLog('cop15', _wasReturn ? 'vehicle_resubmitted' : 'vehicle_pending_approval', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
                 (_wasReturn ? 'Reenviado tras devolución por ' : 'Enviado a aprobación por ') + (sig.signerName || ''));
@@ -3663,8 +3838,12 @@ function closeSubstitutionModal() {
                                 ${(function(){
                                     if (!isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
-                                    if (_c.ok) return '';
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left: var(--space-xs);" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
+                                    var _n = _c.missing.length + (_c.soft ? _c.soft.length : 0);
+                                    if (!_n) return '';
+                                    // Solo pendientes suaves (p. ej. SOC de prueba en una liberada antes de
+                                    // existir el campo): el PDF ya sale, el botón va en gris, no en ámbar.
+                                    var _hard = _c.missing.length > 0;
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;' + (_hard ? 'background:#fef3c7;color:#92400e;' : '') + 'margin-left: var(--space-xs);" title="' + (_hard ? 'Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + _n + ' dato(s) opcionales por revisar') + '" aria-label="Completar datos retroactivos (' + _n + ' campos)">📝 Completar (' + _n + ')</button>';
                                 })()}
                                 <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;margin-left: var(--space-xs);" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
                                     🕘
@@ -4243,7 +4422,13 @@ var PDF_REQUIRED_FIELDS = [
   { path: 'testData.testVerification.hood',                 label: 'Capó',                               section: 'Verificación de Prueba', refId: 'test_hood' },
   { path: 'testData.testVerification.rearRollers',          label: 'Rodillos traseros',                  section: 'Verificación de Prueba', refId: 'test_rear_rollers' },
   { path: 'testData.testVerification.screen',               label: 'Pantalla',                           section: 'Verificación de Prueba', refId: 'test_screen' },
-  { path: 'testData.testVerification.mexWaitCheck',         label: 'Verificación FTP75-HWY (MX)',        section: 'Verificación de Prueba', refId: 'test_mex_waitcheck' }
+  { path: 'testData.testVerification.mexWaitCheck',         label: 'Verificación FTP75-HWY (MX)',        section: 'Verificación de Prueba', refId: 'test_mex_waitcheck' },
+  // SOC al iniciar la prueba (el de Recepción es al llegar el vehículo). En una
+  // prueba liberada antes de que existiera el campo es un pendiente SUAVE: aparece
+  // en Historial → 📝 Completar para llenarlo si se tiene el dato, pero no bloquea
+  // regenerar su PDF (sería bloquearlo por algo que nunca se pudo capturar).
+  { path: 'testData.testVerification.batterySocPct',        label: 'SOC de batería al iniciar prueba',   section: 'Verificación de Prueba', refId: 'test_battery_soc', num: true,
+    soft: function(td, v) { return releaseIsBeforeChecklist(v); } }
 ];
 
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
@@ -4273,7 +4458,11 @@ function validatePdfCompleteness(vehicle) {
   var td = vehicle.testData || {};
   var status = vehicle.status;
   function blank(v) { return v === null || v === undefined || String(v).trim() === ''; }
-  function req(value, label, section) { if (blank(value)) missing.push({ label: label, section: section }); }
+  // `soft`: pendiente que se muestra (Historial → Completar) pero NO bloquea ni
+  // cuenta para "Completa". `missing` sigue siendo solo lo que bloquea, así que
+  // los consumidores de siempre no cambian.
+  var soft = [];
+  function req(value, label, section, isSoft) { if (blank(value)) (isSoft ? soft : missing).push({ label: label, section: section, soft: !!isSoft }); }
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
@@ -4281,13 +4470,13 @@ function validatePdfCompleteness(vehicle) {
     req(sp.operator, 'Operador', 'Recepción');
     req(sp.datetime, 'Fecha/Hora', 'Recepción');
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
-    return { ok: missing.length === 0, missing: missing };
+    return { ok: missing.length === 0, missing: missing, soft: soft };
   }
 
   // Campos estáticos — descriptor único (mismo orden/labels que la versión anterior)
   PDF_REQUIRED_FIELDS.forEach(function(f) {
-    if (f.when && !f.when(td)) return;
-    req(_histGetPath(vehicle, f.path), f.label, f.section);
+    if (f.when && !f.when(td, vehicle)) return;
+    req(_histGetPath(vehicle, f.path), f.label, f.section, !!(f.soft && f.soft(td, vehicle)));
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
@@ -4306,7 +4495,7 @@ function validatePdfCompleteness(vehicle) {
   if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
   if (status === 'archived') req(td.signatures && td.signatures.approver && td.signatures.approver.dataUrl, 'Firma del Aprobador', 'Firmas');
 
-  return { ok: missing.length === 0, missing: missing };
+  return { ok: missing.length === 0, missing: missing, soft: soft };
 }
 
 // Popup que lista los campos faltantes agrupados por sección.
@@ -4353,7 +4542,9 @@ function _histBuildInput(f, idx, value, disabled) {
     // Quitar 'selected' heredado del form activo y anteponer opción vacía: un campo
     // faltante debe arrancar vacío, no con la selección de otro vehículo.
     var opts = ref.innerHTML.replace(/\sselected(="[^"]*")?/g, '');
-    return '<select' + common + ' data-value="' + escapeHtml(val) + '"><option value="">— selecciona —</option>' + opts + '</select>';
+    // Mismos botones que en Operación (uiChipsEnhance) si el campo real los usa.
+    var chipAttrs = (ref.hasAttribute('data-chips') ? ' data-chips' : '') + (ref.hasAttribute('data-chips-other') ? ' data-chips-other' : '');
+    return '<select' + common + chipAttrs + ' data-value="' + escapeHtml(val) + '"><option value="">— selecciona —</option>' + opts + '</select>';
   }
   var type = ref ? (ref.type || 'text') : 'text';
   if (type === 'checkbox' || type === 'radio') type = 'text';
@@ -4380,12 +4571,15 @@ function histOpenCompleteModal(vehicleId) {
   html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom: var(--space-xs);"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">' +
-          'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
+          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. ' : 'El PDF ya se puede generar. ') +
+          (comp.soft && comp.soft.length ? '<b>' + comp.soft.length + '</b> dato(s) no existían cuando se liberó esta prueba: llénalos solo si tienes el dato. ' : '') +
+          'Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
+  _histCompleteState.checklist = {};
 
   // Campos del descriptor, agrupados por sección
   var bySection = {};
   PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
-    if (f.when && !f.when(td)) return;
+    if (f.when && !f.when(td, vehicle)) return;
     (bySection[f.section] = bySection[f.section] || []).push({ f: f, idx: idx });
   });
   Object.keys(bySection).forEach(function(sec) {
@@ -4409,7 +4603,9 @@ function histOpenCompleteModal(vehicleId) {
       }
       html += '</td>';
       html += '<td style="padding: var(--space-xs) var(--space-sm);width:88px;text-align:center;">' +
-              (isMissing ? '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>'
+              (isMissing ? (f.soft && f.soft(td, vehicle)
+                              ? '<span style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;" title="No existía cuando se liberó esta prueba; no bloquea el PDF">Opcional</span>'
+                              : '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>')
                          : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size: var(--fs-sm);" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
       html += '</tr>';
     });
@@ -4433,6 +4629,22 @@ function histOpenCompleteModal(vehicleId) {
       });
       html += '</table></details>';
     }
+  }
+
+  // Checklist de liberación (objetos retirados + evidencia). Lo que capturó el
+  // liberador al liberar queda 🔒 (lo firmó). Lo asentado automáticamente en una
+  // prueba anterior al checklist, y lo vacío, se puede fijar aquí.
+  if (isEmissionsPurpose(vehicle.purpose) && typeof releaseChecklistRows === 'function' &&
+      (status === 'archived' || status === 'pending-approval')) {
+    var _cl = releaseChecklistRows(vehicle);
+    var _clPend = _cl.objects.concat(_cl.docs).filter(function(r) { return !r.auto && (r.legacy || !r.value); }).length;
+    html += '<details class="hist-section" ' + (_cl.missing.length ? 'open' : '') + '>';
+    html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Checklist de liberación' +
+            (_cl.missing.length ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + _cl.missing.length + ' faltantes</span>'
+             : _cl.legacy ? ' <span style="color:var(--muted);">· asentado automáticamente (' + _clPend + ' filas)</span>'
+             : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
+    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Corrige las que no correspondan; lo que fijes aquí manda sobre lo automático.</div>';
+    html += '<div id="hist-checklist">' + _histChecklistRowsHTML(vehicle) + '</div></details>';
   }
 
   // Firmas faltantes
@@ -4459,6 +4671,9 @@ function histOpenCompleteModal(vehicleId) {
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   // Aplicar valores a los selects clonados (no se pueden fijar por atributo)
+  // Botones ANTES de fijar valores: así un valor "Otro" guardado (que no está en
+  // las opciones) entra por el setter de uiChips en vez de perderse.
+  if (typeof uiChipsEnhance === 'function') uiChipsEnhance(wrap);
   wrap.querySelectorAll('select.hist-input').forEach(function(sel) {
     var v = sel.getAttribute('data-value');
     if (v) sel.value = v;
@@ -4473,6 +4688,52 @@ function histOpenCompleteModal(vehicleId) {
       _histCompleteState = null;
     }});
   }
+}
+
+// Filas del checklist dentro del modal Completar. El estado de lo tocado vive en
+// _histCompleteState.checklist ('objects:kds' → 'ok'|'na') hasta Guardar.
+function _histChecklistRowsHTML(vehicle) {
+  var st = releaseChecklistRows(vehicle);
+  var pend = (_histCompleteState && _histCompleteState.checklist) || {};
+  function rowHTML(group, r) {
+    var txt = RELEASE_CHECKLIST_TEXT[group];
+    var k = group + ':' + r.key;
+    var cur = pend[k] || r.value;
+    var locked = r.auto || (r.value && !r.legacy);
+    var right;
+    if (locked) {
+      right = '<span class="relcl-auto relcl-' + (r.value || 'pending') + '">' +
+              (r.value ? escapeHtml((r.value === 'ok' && r.okText) || txt[r.value]) : '⚠️ Pendiente') + (r.auto ? '' : ' 🔒') + '</span>';
+    } else {
+      right = ['ok', 'na'].map(function(v) {
+        return '<button type="button" class="relcl-opt' + (cur === v ? ' is-on relcl-' + v : '') + '" aria-pressed="' + (cur === v) + '" ' +
+               'onclick="histChecklistSet(\'' + group + '\',\'' + r.key + '\',\'' + v + '\')">' +
+               (v === 'ok' ? '✔ ' : '— ') + escapeHtml(txt[v]) + '</button>';
+      }).join('');
+    }
+    var tag = pend[k] ? '<small>Se guardará al confirmar</small>'
+            : r.legacy ? '<small>auto · anterior al checklist</small>'
+            : r.auto ? '<small>Automático · ' + escapeHtml(r.reason) + '</small>'
+            : (r.value ? '<small>Capturado por el liberador</small>' : '');
+    return '<div class="relcl-row' + (cur ? '' : ' is-missing') + '"><div class="relcl-label">' + escapeHtml(r.label) + tag + '</div>' +
+           '<div class="relcl-opts">' + right + '</div></div>';
+  }
+  return '<div class="relcl-head"><b>Objetos a retirar</b></div>' + st.objects.map(function(r) { return rowHTML('objects', r); }).join('') +
+         '<div class="relcl-head" style="margin-top: var(--space-sm);"><b>Evidencia documental</b></div>' + st.docs.map(function(r) { return rowHTML('docs', r); }).join('');
+}
+
+function histChecklistSet(group, key, val) {
+  if (!_histCompleteState) return;
+  var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
+  if (!vehicle) return;
+  var k = group + ':' + key;
+  var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
+  var row = releaseChecklistRows(vehicle)[group].find(function(r) { return r.key === key; });
+  // Volver a elegir lo que ya vale (derivado o guardado) no es un cambio.
+  if (row && row.value === val && !pend[k]) return;
+  if (pend[k] === val || (row && row.value === val)) delete pend[k]; else pend[k] = val;
+  var host = document.getElementById('hist-checklist');
+  if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
 }
 
 function histCloseCompleteModal() {
@@ -4575,7 +4836,8 @@ function histSaveCompleteModal() {
   });
 
   var sigCaptured = _histCompleteState.sigCaptured || {};
-  if (!added.length && !modified.length && !Object.keys(addedGases).length && !Object.keys(sigCaptured).length) {
+  var checklistChanges = Object.assign({}, _histCompleteState.checklist || {});
+  if (!added.length && !modified.length && !Object.keys(addedGases).length && !Object.keys(sigCaptured).length && !Object.keys(checklistChanges).length) {
     showToast('No hay cambios que guardar', 'info');
     return;
   }
@@ -4587,15 +4849,15 @@ function histSaveCompleteModal() {
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
       lockName: true,
-      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig); },
+      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig, checklistChanges); },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });
   } else {
-    _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, null);
+    _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, null, checklistChanges);
   }
 }
 
-function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, changeSig) {
+function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, changeSig, checklistChanges) {
   undoPush('cop15', 'Completar datos retroactivos: ' + (vehicle.vin || vehicle.id));
   if (!vehicle.testData) vehicle.testData = {};
   var userName = changeSig ? changeSig.signerName : _histCurrentUserName();
@@ -4621,6 +4883,18 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
     _libAuditImplausibleValues(vehicle, addedGases, 'retroactivo');
   }
 
+  var clChanges = checklistChanges || {};
+  var clLabels = [];
+  Object.keys(clChanges).forEach(function(k) {
+    var parts = k.split(':'), group = parts[0], key = parts[1];
+    if (!RELEASE_CHECKLIST[group]) return;
+    var cl = vehicle.testData.releaseChecklist || (vehicle.testData.releaseChecklist = {});
+    (cl[group] = cl[group] || {})[key] = clChanges[k];
+    cl.retro = true; cl.by = userName; cl.at = nowIso;
+    var it = RELEASE_CHECKLIST[group].find(function(x) { return x.key === key; });
+    clLabels.push((it ? it.label : key) + ': ' + RELEASE_CHECKLIST_TEXT[group][clChanges[k]]);
+  });
+
   ['releaser', 'approver'].forEach(function(which) {
     if (sigCaptured[which]) {
       if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
@@ -4640,14 +4914,14 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
     user: userName,
     action: 'Datos completados retroactivamente',
     data: {
-      added: added.map(function(a) { return a.label; }).concat(gasFields.map(function(f) { return 'Resultado de ' + f; })).concat(sigNames.map(function(s) { return 'Firma ' + (s === 'releaser' ? 'Liberador' : 'Aprobador'); })),
+      added: added.map(function(a) { return a.label; }).concat(gasFields.map(function(f) { return 'Resultado de ' + f; })).concat(sigNames.map(function(s) { return 'Firma ' + (s === 'releaser' ? 'Liberador' : 'Aprobador'); })).concat(clLabels.map(function(l) { return 'Checklist · ' + l; })),
       modified: modified.map(function(m) { return { campo: m.label, antes: m.old, despues: m.value, razon: m.reason }; }),
       signature: changeSig ? { signerName: changeSig.signerName, signedAt: changeSig.signedAt } : null
     }
   });
   vehicle.lastModified = nowIso;
 
-  var detail = added.length + gasFields.length + ' campo(s) añadidos' +
+  var detail = added.length + gasFields.length + clLabels.length + ' campo(s) añadidos' +
       (modified.length ? '; ' + modified.length + ' modificados con razón: ' + modified.map(function(m) { return m.label + ' (' + m.reason + ')'; }).join('; ') : '') +
       (sigNames.length ? '; firmas capturadas: ' + sigNames.join(', ') : '');
   auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail);
@@ -4705,6 +4979,30 @@ function histShowTimelineModal(vehicleId) {
     showCancel: false,
     type: 'info'
   });
+}
+
+/**
+ * Deja un texto dentro de WinAnsi, el único juego de caracteres que trae la
+ * Helvetica estándar de jsPDF. PURA (testeable en Node). Un carácter fuera de
+ * WinAnsi no solo sale como basura ("≤" → `"d`): hace que jsPDF espacie letra
+ * por letra la cadena entera. Lo que no tiene equivalente sale como "?", visible
+ * a propósito — perderlo en silencio escondería un dato.
+ */
+var _PDF_SUB = { '₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9','ₓ':'x',
+    '⁰':'0','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9',
+    '≤':'<=','≥':'>=','≈':'~','≠':'!=','→':'->','←':'<-','✓':'OK','✔':'OK','✗':'X','✘':'X','−':'-',' ':' ' };
+var _PDF_WINANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+function _pdfSafe(s) {
+    if (s == null) return '';
+    var out = '';
+    for (var ch of String(s)) {
+        if (_PDF_SUB[ch] !== undefined) { out += _PDF_SUB[ch]; continue; }
+        var c = ch.codePointAt(0);
+        if (c === 10 || c === 13 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || _PDF_WINANSI_EXTRA.indexOf(ch) >= 0) out += ch;
+        else if (c >= 0xFE00 && c <= 0xFE0F) continue; // selectores de variación de emoji
+        else out += '?';
+    }
+    return out;
 }
 
 function generateCOP15PDF(vehicleId, opts) {
@@ -4774,6 +5072,17 @@ function generateCOP15PDF(vehicleId, opts) {
   // ---------- Helpers ----------
   function setF(s, sz) { doc.setFontSize(sz); doc.setFont('helvetica', s); }
 
+  // Helvetica de jsPDF solo trae WinAnsi: un "≤" o un "₂" no se dibujan y, peor,
+  // hacen que jsPDF espacie letra por letra TODA la cadena ("P A S A", "C O ,").
+  // Todo texto de este documento pasa por _pdfSafe, incluido el que escriben
+  // las llamadas directas a doc.text.
+  const _rawText = doc.text.bind(doc);
+  doc.text = function(t) {
+    const args = Array.prototype.slice.call(arguments);
+    args[0] = Array.isArray(t) ? t.map(_pdfSafe) : _pdfSafe(t);
+    return _rawText.apply(null, args);
+  };
+
   // cell() — el bloque fundamental del PDF
   // x,y = posición; w,h = tamaño; text = contenido
   // opts: fill, stroke, font, sz, align, color, valign, pad
@@ -4785,7 +5094,7 @@ function generateCOP15PDF(vehicleId, opts) {
     if (text == null || String(text).trim() === '') return;
     doc.setTextColor(...color); setF(font, sz);
     let tx = align==='center' ? x+w/2 : align==='right' ? x+w-pad : x+pad;
-    const lines = doc.splitTextToSize(String(text), w - pad*2);
+    const lines = doc.splitTextToSize(_pdfSafe(text), w - pad*2);
     const lH = sz * 0.38;
     const totH = lines.length * lH;
     let ty = valign==='middle' ? yy+(h-totH)/2+lH*0.8 : valign==='top' ? yy+pad+sz*0.35 : yy+h-pad;
@@ -4819,7 +5128,7 @@ function generateCOP15PDF(vehicleId, opts) {
   doc.text('Document#: COP15-F05', ix+2, y+4.5);
   doc.text('Revisión: 7', ix+2, y+7.5);
   doc.text('Emission date: 28-11-2025', ix+2, y+10.5);
-  doc.text('Page: 1 of 1    Dept: QA', ix+2, y+13.5);
+  const _pageLineY = y + 13.5; // se escribe al final, cuando ya se sabe cuántas páginas hay
   y += 18;
 
   // =====================================================
@@ -4867,9 +5176,11 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =========================
   // GRID COMÚN (misma altura para izq y der)
   // =========================
-  const ROW_H = 4;     // alto de fila
+  // 3.7 (antes 4): el presupuesto vertical de la hoja carta no alcanzaba para
+  // gases + firmas, que quedaban FUERA de la página.
+  const ROW_H = 3.7;   // alto de fila
   const ROWS  = 12;    // 0..11
-  const gridH = ROW_H * ROWS;      // 48mm
+  const gridH = ROW_H * ROWS;      // 44.4mm
   const bottomY = blockY + gridH;
 
   const rowY  = (r) => blockY + r * ROW_H;
@@ -5032,13 +5343,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   //  DETALLES DE PRUEBA EN REPORTE DE VETS ADJUNTO
   // =====================================================
-  doc.setTextColor(...DARK); setF('bold', 10);
-  doc.text('Detalles de Prueba en Reporte de VETS Adjunto', ML+CW/2, y+5, {align:'center'});
-  y += 7;
-
-  // ---- VERIFICACIÓN EN PRUEBA (HORIZONTAL FULL WIDTH) ----
-  cell(ML, y, CW, 5, 'Verificación en Prueba', {fill:LT_BLUE, font:'bold', sz:8, align:'center'});
-  y += 5;
+  // Un solo encabezado (antes el título suelto + una banda "Verificación en Prueba"
+  // decían lo mismo dos veces).
+  cell(ML, y + 0.5, CW, 6, 'Detalles de Prueba en Reporte de VETS Adjunto', {fill:LT_BLUE, font:'bold', sz:9, align:'center'});
+  y += 6.5;
 
   // 3 sets of 3 columns = 9 columns, 4+ rows
   const _fanConf = tv.fanMode==='speed'
@@ -5060,13 +5368,15 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ['Rodillos Traseros', 'Asegurados', tv.rearRollers==='secured'?'OK':tv.rearRollers||'N/A'],
     ['Pantalla', 'Asegurada', tv.screen==='secured'?'OK':tv.screen||'N/A'],
     ['FTP75-HWY espera', 'Capó cerrado (MX)', (tv.mexWaitCheck==='ok'||tv.mexWaitCheck==='fan_off')?'OK':tv.mexWaitCheck||'N/A'],
+    ['Estado de batería (SOC)', 'Al iniciar prueba', (tv.batterySocPct != null && tv.batterySocPct !== '') ? tv.batterySocPct + ' %'
+        : (releaseIsBeforeChecklist(vehicle) ? 'No registrado' : '')],
   ];
 
   // Layout: 3 sets x 3 cols (Param, Cond, Conf) in 4 rows
   const vCols = 3; // sets across
   const vSetW = CW / vCols;
   const vpW2 = vSetW * 0.38, vcW2 = vSetW * 0.35, vfW2 = vSetW * 0.27;
-  const vRowH = 5.5;
+  const vRowH = 4.5;
   const vItemsPerCol = Math.ceil(vItems.length / vCols);
 
   // Headers for each set
@@ -5097,108 +5407,139 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   y += 1;
   doc.setDrawColor(...BLACK); doc.setLineWidth(1); doc.line(ML, y, ML+CW, y); y += 1.5;
 
-  // ---- LIBERACIÓN (HORIZONTAL FULL WIDTH) ----
-  const rH = 5.5; // row height for document items
+  // ---- LIBERACIÓN ----
+  // Tres columnas a la MISMA altura: Inspección final + objetos | Evidencia |
+  // Resultados de emisiones; debajo Comentarios + las dos firmas. Antes los gases
+  // iban a lo ancho debajo de todo y, sumando las firmas, el contenido terminaba
+  // ~40 mm por debajo del borde de la hoja: el pie se encimaba sobre CO₂/THC y
+  // NOx, PM y las firmas no se imprimían.
+  const fY = H - 10; // línea del pie de página
   cell(ML, y, CW, 5, 'Liberación', {fill:LT_GREEN, font:'bold', sz:8, align:'center'});
   y += 5;
 
-  // Left: Inspección Final + Objetos a retirar | Right: Documentos + Firma
-  const libLW = CW * 0.5;
-  const libRW = CW - libLW;
-  const libStartY = y;
+  const c1W = CW * 0.30, c2W = CW * 0.30, c3W = CW - c1W - c2W;
+  const c1X = ML, c2X = ML + c1W, c3X = ML + c1W + c2W;
 
-  // == LEFT SIDE: Inspección Final ==
-  cell(ML, y, libLW, 6, 'Inspección Final del Vehículo', {fill:GRAY_BG, font:'bold', sz:5.5, align:'center'});
-  y += 6;
+  // -- Datos de gases (se miden antes de dibujar para fijar la altura del bloque)
+  const gasResults = (vehicle.testData && vehicle.testData.gasResults) || {};
+  const liberadorGas = gasResults.liberador;
+  const hasGas = !!(liberadorGas && liberadorGas.values);
+  // [v17.10] La regulación del PDF es la MISMA contra la que se validó en pantalla
+  // (_libGetVehicleRegulation respeta la elegida a mano por el liberador); antes se
+  // releía el dato del alta y el documento podía citar una norma distinta.
+  const regName = (typeof _libGetVehicleRegulation === 'function')
+      ? (_libGetVehicleRegulation(vehicle) || '')
+      : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
+  const regProfile = hasGas && typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
+  const gasEntries = !hasGas ? [] : regProfile ? regProfile.gases
+      : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
+  const _co2Entry = gasEntries.find(function(g) { return g.field === 'CO2'; });
+  const _feEst = hasGas && _co2Entry && typeof _libFuelEconomyFromCO2 === 'function'
+      ? _libFuelEconomyFromCO2(liberadorGas.values.CO2, _co2Entry.unit) : null;
+  const gRowH = 3.8, gTitleH = 4, gHeadH = 3.5, gFeH = _feEst ? 3.2 : 0;
+  const gasBlockH = gTitleH + gHeadH + Math.max(gasEntries.length, 1) * gRowH + gFeH;
 
+  // -- Observaciones de la inspección final (pueden ser largas)
   const inspNotes = tvNotes.trim()
     ? 'Observaciones: ' + tvNotes
     : 'El vehículo no presentó ningún detalle físico en la inspección final.';
-  cell(ML, y, libLW, 7, inspNotes, {sz:4.5, font:'italic', color:[80,80,80], align:'center'});
-  y += 7;
+  setF('italic', 4.5);
+  const _inspLines = doc.splitTextToSize(_pdfSafe(inspNotes), c1W - 3).length;
+  const inspH = Math.max(5, _inspLines * 4.5 * 0.38 + 1.6);
 
-  // Objects to remove
-  cell(ML, y, libLW*0.65, 4.9, 'Objetos a retirar del vehículo', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
-  cell(ML+libLW*0.65, y, libLW*0.35, 4.9, 'Confirmación', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
-  y += 4.9;
+  // Checklist capturado en Liberación (releaseChecklistRows es LA definición).
+  // Una fila sin respuesta sale en blanco, nunca con un "OK" inventado.
+  const _cl = releaseChecklistRows(vehicle);
+  const OBJ = _cl.objects, DOCS = _cl.docs;
+  const _clCell = (group, r) => r.value
+      ? { txt: (r.value === 'ok' && r.okText) || RELEASE_CHECKLIST_TEXT[group][r.value], clr: r.value === 'ok' ? [4,120,87] : [100,116,139] }
+      : r.key === 'f05' ? { txt: 'Pendiente', clr: [180,83,9] } : { txt: '', clr: BLACK };
+  const blockH = Math.max(30, gasBlockH, 4 + inspH + 3.5 + OBJ.length * 3.2, 7.5 + DOCS.length * 3.2);
+  const blockY = y;
 
-  ['KDS con VCI','CARDAQ','Control Remoto','Radio','GSI'].forEach(item => {
-    cell(ML, y, libLW*0.65, 4.5, item, {font:'bold', sz:5});
-    cell(ML+libLW*0.65, y, libLW*0.35, 4.5, '', {});
-    y += 4.5;
-  });
-
-  // == RIGHT SIDE: Evidencia documental ==
-  let ry = libStartY;
-  const rx = ML + libLW;
-  cell(rx, ry, libRW, 4, 'Evidencia documental necesaria por prueba', {fill:LT_GREEN, font:'bold', sz:5.5, align:'center'});
-  ry += 4;
-  cell(rx, ry, libRW*0.72, 3.5, '', {fill:GRAY_BG});
-  cell(rx+libRW*0.72, ry, libRW*0.28, 3.5, 'Confirmación', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
-  ry += 3.5;
-
-  const docLW2 = libRW*0.72, docCW2 = libRW*0.28;
-  ['Hoja de Inspección COP15-F05 Completa',
-   'Reporte STARS VETS COP15-F31',
-   'Reporte OBFCM (Solo Europa)',
-   'Reporte Coast/Down Quick Check (Solo Europa)',
-   'Solicitud de Ensayo COP15-F02 (Solo Cert. MX)',
-   'Cotización COP15-F03 (Solo Cert. MX)'
-  ].forEach(item => {
-    cell(rx, ry, docLW2, rH, item, {sz:4.5, align:'center'});
-    cell(rx+docLW2, ry, docCW2, rH, '', {});
-    ry += rH;
-  });
-
-  // Gas Results section
-  const gasResults = (vehicle.testData && vehicle.testData.gasResults) || {};
-  const liberadorGas = gasResults.liberador;
-  if (liberadorGas && liberadorGas.values) {
-      // [v17.10] La regulación del PDF es la MISMA contra la que se validó en pantalla
-      // (_libGetVehicleRegulation respeta la elegida a mano por el liberador); antes se
-      // releía el dato del alta y el documento podía citar una norma distinta.
-      const regName = (typeof _libGetVehicleRegulation === 'function')
-          ? (_libGetVehicleRegulation(vehicle) || '')
-          : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
-      const regProfile = typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
-      y += 1;
-      cell(ML, y, CW, 5, 'Resultados de Emisiones' + (regName ? ' — ' + regName : ''), {fill:LT_GREEN, font:'bold', sz:8, align:'center'});
-      y += 5;
-      const gasColW = CW / 4;
-      cell(ML, y, gasColW, 4, 'Gas', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
-      cell(ML+gasColW, y, gasColW, 4, 'Unidad', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
-      cell(ML+gasColW*2, y, gasColW, 4, 'Valor', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
-      cell(ML+gasColW*3, y, gasColW, 4, 'Límite / Estado', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
-      y += 4;
-      var gasEntries = regProfile ? regProfile.gases : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
-      gasEntries.forEach(function(g) {
-          var val = liberadorGas.values[g.field];
-          var hasVal = val !== null && val !== undefined;
-          var passStr = (g.limit !== null && g.limit !== undefined && hasVal)
-              ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA')
-              : '—';
-          var passClr = passStr === 'PASA' ? [16,185,129] : passStr === 'FALLA' ? [239,68,68] : [100,116,139];
-          cell(ML, y, gasColW, 4.5, g.label, {font:'bold', sz:6, align:'center'});
-          cell(ML+gasColW, y, gasColW, 4.5, g.unit || '', {sz:6, align:'center'});
-          cell(ML+gasColW*2, y, gasColW, 4.5, hasVal ? String(val) : '—', {font:'bold', sz:7, align:'center'});
-          var pctStr = (passStr !== '—' && typeof _libPctOfLimitStr === 'function') ? _libPctOfLimitStr(parseFloat(val), g.limit) : null;
-          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
-          cell(ML+gasColW*3, y, gasColW, 4.5, limitStr, {font:'bold', sz:5.5, align:'center', color: passClr});
-          y += 4.5;
-      });
-      var _co2Entry = gasEntries.find(function(g) { return g.field === 'CO2'; });
-      var _feEst = _co2Entry && typeof _libFuelEconomyFromCO2 === 'function'
-          ? _libFuelEconomyFromCO2(liberadorGas.values.CO2, _co2Entry.unit) : null;
-      if (_feEst) {
-          cell(ML, y, CW, 3.5, 'FE estimada por balance de carbono (informativa, no certificada): ≈ ' + _feEst.l100.toFixed(1) + ' L/100 km · ' + _feEst.mpg.toFixed(1) + ' mpg', {sz:5, align:'center', color:[100,116,139]});
-          y += 3.5;
-      }
-      y += 1;
+  // == Col 1: Inspección final + objetos a retirar ==
+  {
+    let cy = blockY;
+    cell(c1X, cy, c1W, 4, 'Inspección Final del Vehículo', {fill:GRAY_BG, font:'bold', sz:5.5, align:'center'});
+    cy += 4;
+    cell(c1X, cy, c1W, inspH, inspNotes, {sz:4.5, font:'italic', color:[80,80,80], align:'center'});
+    cy += inspH;
+    cell(c1X, cy, c1W*0.65, 3.5, 'Objetos a retirar del vehículo', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
+    cell(c1X+c1W*0.65, cy, c1W*0.35, 3.5, 'Confirmación', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
+    cy += 3.5;
+    const oH = (blockY + blockH - cy) / OBJ.length; // las filas estiran hasta el fondo del bloque
+    OBJ.forEach(r => {
+      const c = _clCell('objects', r);
+      cell(c1X, cy, c1W*0.65, oH, r.label, {font:'bold', sz:5});
+      cell(c1X+c1W*0.65, cy, c1W*0.35, oH, c.txt, {font:'bold', sz:5, align:'center', color:c.clr});
+      cy += oH;
+    });
   }
 
+  // == Col 2: Evidencia documental ==
+  {
+    let cy = blockY;
+    cell(c2X, cy, c2W, 4, 'Evidencia documental necesaria por prueba', {fill:LT_GREEN, font:'bold', sz:5.5, align:'center'});
+    cy += 4;
+    cell(c2X, cy, c2W*0.72, 3.5, '', {fill:GRAY_BG});
+    cell(c2X+c2W*0.72, cy, c2W*0.28, 3.5, 'Confirmación', {fill:GRAY_BG, font:'bold', sz:4.5, align:'center'});
+    cy += 3.5;
+    const dH = (blockY + blockH - cy) / DOCS.length;
+    DOCS.forEach(r => {
+      const c = _clCell('docs', r);
+      cell(c2X, cy, c2W*0.72, dH, r.label, {sz:4.5, align:'center'});
+      cell(c2X+c2W*0.72, cy, c2W*0.28, dH, c.txt, {font:'bold', sz:5, align:'center', color:c.clr});
+      cy += dH;
+    });
+  }
+
+  // == Col 3: Resultados de emisiones ==
+  {
+    let cy = blockY;
+    cell(c3X, cy, c3W, gTitleH, 'Resultados de Emisiones' + (regName ? ' — ' + regName : ''), {fill:LT_GREEN, font:'bold', sz:6.5, align:'center'});
+    cy += gTitleH;
+    const gw = [c3W*0.16, c3W*0.16, c3W*0.24, c3W*0.44];
+    const gx = [c3X, c3X+gw[0], c3X+gw[0]+gw[1], c3X+gw[0]+gw[1]+gw[2]];
+    ['Gas','Unidad','Valor','Límite / Estado'].forEach(function(h, i) {
+      cell(gx[i], cy, gw[i], gHeadH, h, {fill:GRAY_BG, font:'bold', sz:5, align:'center'});
+    });
+    cy += gHeadH;
+    if (!gasEntries.length) {
+      cell(c3X, cy, c3W, gRowH, 'Sin resultados del liberador capturados', {sz:5, font:'italic', color:[120,120,120], align:'center'});
+      cy += gRowH;
+    }
+    gasEntries.forEach(function(g) {
+      const val = liberadorGas.values[g.field];
+      const hasVal = val !== null && val !== undefined && val !== '';
+      const hasLim = g.limit !== null && g.limit !== undefined;
+      const passStr = (hasLim && hasVal) ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA') : '';
+      const passClr = passStr === 'PASA' ? [4,120,87] : passStr === 'FALLA' ? [200,30,30] : [100,116,139];
+      const pctStr = (passStr && typeof _libPctOfLimitStr === 'function') ? _libPctOfLimitStr(parseFloat(val), g.limit) : null;
+      // PN vive en 1e10–1e11: sin notación científica sale "600000000000".
+      const fmtN = n => (Math.abs(n) >= 1e6 ? Number(n).toExponential(2) : String(n));
+      const limitStr = !hasLim ? 'Sin límite (informativo)'
+          : '<= ' + fmtN(g.limit) + '   ' + (passStr || '—') + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
+      cell(gx[0], cy, gw[0], gRowH, g.label, {font:'bold', sz:5.5, align:'center'});
+      cell(gx[1], cy, gw[1], gRowH, g.unit || '', {sz:5, align:'center'});
+      cell(gx[2], cy, gw[2], gRowH, hasVal ? (isFinite(parseFloat(val)) ? fmtN(val) : String(val)) : '—', {font:'bold', sz:6, align:'center'});
+      cell(gx[3], cy, gw[3], gRowH, limitStr, {font: hasLim ? 'bold' : 'italic', sz:5, align:'center', color: passClr});
+      cy += gRowH;
+    });
+    if (_feEst) {
+      cell(c3X, cy, c3W, gFeH, 'FE estimada por balance de carbono (informativa, no certificada): ~' + _feEst.l100.toFixed(1) + ' L/100 km · ' + _feEst.mpg.toFixed(1) + ' mpg', {sz:4.3, align:'center', color:[100,116,139]});
+      cy += gFeH;
+    }
+    // Relleno hasta el fondo del bloque para que las tres columnas cierren parejas
+    if (cy < blockY + blockH - 0.1) cell(c3X, cy, c3W, blockY + blockH - cy, '', {});
+  }
+  y = blockY + blockH + 1;
+
   // Bottom: Comentarios (left) + Firmas digitales (right)
-  const bottomLibY = Math.max(y, ry) + 1;
   const _sigH = 22;
+  // Red de seguridad: si unas observaciones muy largas empujan las firmas por
+  // debajo del pie, van a una segunda página en vez de encimarse.
+  if (y + _sigH > fY - 1) { doc.addPage(); y = 10; }
+  const bottomLibY = y;
   cell(ML, bottomLibY, CW*0.4, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
 
   const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
@@ -5236,12 +5577,26 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   //  FOOTER
   // =====================================================
-  const fY = H - 10;
-  doc.setDrawColor(...RED); doc.setLineWidth(0.5); doc.line(ML, fY, ML+CW, fY);
-  doc.setTextColor(...RED); setF('bold', 5.5);
-  doc.text('Documento generado por KIA EmLab — Archivado con doble firma (Liberador + Aprobador)', ML+CW/2, fY+3.5, {align:'center'});
-  doc.setTextColor(150,150,150); setF('normal', 4.5);
-  doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
+  // El pie solo afirma la doble firma cuando de verdad existe: el mismo PDF se
+  // genera como vista previa antes de aprobar.
+  const _dual = vehicle.status === 'archived' && _sigs.releaser && _sigs.approver;
+  const _footTxt = _dual
+      ? 'Documento generado por KIA EmLab — Archivado con doble firma (Liberador + Aprobador)'
+      : 'Documento generado por KIA EmLab — PRELIMINAR: pendiente de aprobación';
+  const _nPages = doc.getNumberOfPages();
+  for (let pg = 1; pg <= _nPages; pg++) {
+    doc.setPage(pg);
+    doc.setDrawColor(...RED); doc.setLineWidth(0.5); doc.line(ML, fY, ML+CW, fY);
+    doc.setTextColor(...RED); setF('bold', 5.5);
+    doc.text(_footTxt, ML+CW/2, fY+3.5, {align:'center'});
+    doc.setTextColor(150,150,150); setF('normal', 4.5);
+    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX') +
+        (_cl.legacy ? ' | Checklist de liberación asentado retroactivamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')' : ''), ML+2, fY+7);
+    if (_nPages > 1) doc.text('Página ' + pg + ' de ' + _nPages, ML+CW-2, fY+7, {align:'right'});
+  }
+  doc.setPage(1);
+  doc.setTextColor(...BLACK); setF('normal', 5.5);
+  doc.text('Page: 1 of ' + _nPages + '    Dept: QA', ix+2, _pageLineY);
 
   // =====================================================
   //  GUARDAR
@@ -6941,6 +7296,8 @@ var CASCADE_TOOLTIPS = {
     approvalVehSelect: { title: 'Veh\u00edculo pendiente de aprobaci\u00f3n', text: 'Elige el veh\u00edculo que vas a verificar como Aprobador. NO ver\u00e1s los valores que captur\u00f3 el Liberador \u2014 as\u00ed se garantiza el doble ciego.' },
     'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
+    test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
+    'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco.' },
     man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
     man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
     man_transmission: { title: 'Transmisi\u00f3n (alta manual)', text: 'Opcional: transmisi\u00f3n del veh\u00edculo (6DCT, 8AT, 6MT\u2026). Es solo un dato descriptivo \u2014 NO es la regulaci\u00f3n de emisiones, que se captura en el campo siguiente.' },
@@ -7587,9 +7944,17 @@ function v7CopyArchivedConfig(vin) {
 // ║  [V7-E5] BATCH RELEASE                                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [v23.3] EN PAUSA (decisión del laboratorio, probablemente para retirarla): el lote
+// archivaba directo, sin checklist de liberación, sin firmas y sin el doble ciego
+// liberador/aprobador — una vía para archivar emisiones sin verificar los gases.
+// El código se conserva hasta decidir; con el flag en true no hay botón y la
+// función se niega aunque alguien la llame a mano.
+var V7_BATCH_RELEASE_ON_HOLD = true;
+
 function v7RenderBatchRelease() {
     var container = document.getElementById('v7-batch-release');
     if (!container) return;
+    if (V7_BATCH_RELEASE_ON_HOLD) { container.style.display = 'none'; container.innerHTML = ''; return; }
     var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
     if (ready.length < 2) { container.style.display = 'none'; return; }
     container.style.display = 'block';
@@ -7598,6 +7963,10 @@ function v7RenderBatchRelease() {
 }
 
 function v7BatchRelease() {
+    if (V7_BATCH_RELEASE_ON_HOLD) {
+        showToast('La liberación por lote está en pausa: libera cada vehículo con su checklist, firma y aprobación.', 'warning');
+        return;
+    }
     var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
     if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
 
