@@ -4339,16 +4339,6 @@ function tokenColor(name) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return (_tokenCache[name] = v || '#000000');
 }
-function tokenRGB(name) {
-    var h = tokenColor(name).replace('#', '');
-    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-function tokenAlpha(name, a) {
-    var c = tokenRGB(name);
-    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
-}
-
 // Hace alcanzables por teclado los `<div onclick>` que la app genera vía
 // template strings (patrón repetido en los 7 módulos: tarjetas, filas de
 // alerta, resultados de búsqueda). Idempotente — no toca elementos que ya
@@ -4688,6 +4678,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
         try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
+        try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -6133,12 +6124,6 @@ function helpBannerHTML(tabId) {
         '</span></div>';
 }
 
-/** Botón ℹ️ para poner junto al título de una pestaña: reabre la ayuda aunque el banner ya se haya descartado. */
-function helpTabButtonHTML(tabId) {
-    if (!HELP_TABS[tabId]) return '';
-    return '<button type="button" class="help-tab-btn" onclick="helpShowTab(\'' + tabId + '\')" aria-label="Ayuda de esta pestaña" title="Ayuda de esta pestaña">ℹ️</button>';
-}
-
 /**
  * v16.0 — Inserta el banner de ayuda como PRIMER elemento del contenedor cacheado de una
  * pestaña (tp-, inv-, pn- no-Alpine), sin tener que tocar cada función de render:
@@ -6318,85 +6303,10 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// [R5-M8] Templates & Quick Presets — Unified Template Engine
-// ══════════════════════════════════════════════════════════════════════
+// [v23.4] Se retiró el motor de plantillas [R5-M8] (templateSave/Apply/Delete/GetAll/
+// RenderManager): nada lo abría — ni un botón ni una llamada — así que era inalcanzable.
+// El detector de código muerto no lo veía porque sus regex con comillas lo cegaban.
 
-var _templates = safeParse('kia_templates', { cop15: [], results: [], inventory: [] });
-
-function templateSave(module, name, data) {
-    if (!_templates[module]) _templates[module] = [];
-    // Check limit
-    if (_templates[module].length >= 20) {
-        // Remove least used
-        _templates[module].sort(function(a, b) { return (a.usageCount || 0) - (b.usageCount || 0); });
-        _templates[module].shift();
-    }
-    _templates[module].push({
-        id: 'tpl_' + Date.now(),
-        name: name,
-        data: data,
-        usageCount: 0,
-        createdAt: new Date().toISOString()
-    });
-    _templatesPersist();
-    showToast('Plantilla "' + name + '" guardada', 'success');
-}
-
-function templateApply(module, templateId) {
-    var tpl = (_templates[module] || []).find(function(t) { return t.id === templateId; });
-    if (!tpl) { showToast('Plantilla no encontrada', 'error'); return null; }
-    tpl.usageCount = (tpl.usageCount || 0) + 1;
-    _templatesPersist();
-    return tpl.data;
-}
-
-function templateDelete(module, templateId) {
-    if (!_templates[module]) return;
-    _templates[module] = _templates[module].filter(function(t) { return t.id !== templateId; });
-    _templatesPersist();
-    showToast('Plantilla eliminada', 'info');
-}
-
-function templateGetAll(module) {
-    return (_templates[module] || []).sort(function(a, b) { return (b.usageCount || 0) - (a.usageCount || 0); });
-}
-
-function _templatesPersist() {
-    localStorage.setItem('kia_templates', JSON.stringify(_templates));
-}
-
-/**
- * Render a template manager modal for a given module.
- */
-function templateRenderManager(module, applyCallback) {
-    var list = templateGetAll(module);
-    var html = '<div style="max-height:50vh;overflow-y:auto;">';
-    if (list.length === 0) {
-        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);font-size:12px;">No hay plantillas guardadas</div>';
-    } else {
-        list.forEach(function(tpl) {
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding: var(--space-sm) var(--space-md);border-bottom:1px solid var(--border);">';
-            html += '<div>';
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + escapeHtml(tpl.name) + '</div>';
-            html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
-            html += '</div>';
-            html += '<div style="display:flex;gap: var(--space-sm);">';
-            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);">Aplicar</button>';
-            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius: var(--radius-md);cursor:pointer;">✕</button>';
-            html += '</div></div>';
-        });
-    }
-    html += '</div>';
-    showModal(html, 'Plantillas — ' + module.toUpperCase());
-}
-
-/**
- * Render quick-access preset buttons for a module.
- * @param {string} module - Module name
- * @param {string} containerId - Element to insert buttons into
- * @param {string} applyCallback - Function name to call with template data
- */
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M1] Immersive Mode — App-like fullscreen experience
 // ══════════════════════════════════════════════════════════════════════
@@ -6813,9 +6723,6 @@ function v7GoToVehicleStep(gotoSection) {
 
 var _gridDrag = { active:false, id:null, from:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false, ns:null };
 var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
-
-/** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
-function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
 
 /**
  * [v23] Aviso único de que hay (o dejó de haber) una selección en curso. Lo escucha

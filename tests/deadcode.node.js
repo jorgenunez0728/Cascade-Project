@@ -55,15 +55,46 @@ function stripComments(src) {
 }
 
 /** Quita cadenas y comentarios para que un nombre citado no cuente como definición. */
+/** Salta un literal de regex que empieza en src[i] === '/'; devuelve el índice
+ *  tras las banderas. Respeta clases [..] y escapes: `/"/g` o `/[{}]/` NO deben
+ *  confundirse con el inicio de una cadena o con una llave de bloque. */
+function skipRegex(src, i) {
+    let inClass = false; i++;
+    while (i < src.length) {
+        const c = src[i];
+        if (c === '\\') { i += 2; continue; }
+        if (c === '\n') return i;                // no era regex: no se come la línea
+        if (inClass) { if (c === ']') inClass = false; }
+        else if (c === '[') inClass = true;
+        else if (c === '/') { i++; while (i < src.length && /[a-z]/i.test(src[i])) i++; return i; }
+        i++;
+    }
+    return i;
+}
+
+/** ¿Un '/' en esta posición abre un regex (y no es una división)? Heurística clásica:
+ *  depende del último carácter significativo antes de él. */
+function regexCanStart(out) {
+    let k = out.length - 1;
+    while (k >= 0 && /\s/.test(out[k])) k--;
+    if (k < 0) return true;
+    const p = out[k];
+    if ('(,=:[!&|?{};+-*%<>~^'.includes(p)) return true;
+    const w = /([A-Za-z_$]+)$/.exec(out.slice(Math.max(0, k - 10), k + 1));
+    return !!(w && /^(return|typeof|case|in|of|void|delete|throw|new)$/.test(w[1]));
+}
+
+/** Quita cadenas, regex y comentarios para que un nombre citado no cuente como definición. */
 function stripCode(src) {
     let out = '', i = 0, n = src.length;
     while (i < n) {
         const c = src[i], c2 = src[i + 1];
         if (c === '/' && c2 === '/') { while (i < n && src[i] !== '\n') i++; continue; }
-        if (c === '/' && c2 === '*') { i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++; i += 2; continue; }
+        if (c === '/' && c2 === '*') { i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) { if (src[i] === '\n') out += '\n'; i++; } i += 2; continue; }
+        if (c === '/' && regexCanStart(out)) { i = skipRegex(src, i); out += ' '; continue; }
         if (c === '"' || c === "'" || c === '`') {
             const q = c; i++;
-            while (i < n && src[i] !== q) { if (src[i] === '\\') i++; i++; }
+            while (i < n && src[i] !== q) { if (src[i] === '\\') i++; else if (src[i] === '\n') out += '\n'; i++; }
             i++; out += ' '; continue;
         }
         out += c; i++;

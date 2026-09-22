@@ -1367,12 +1367,6 @@ function copTogglePresent() {
     copPersist();
     copRender();
 }
-function copSpcToggleAllScopes(el) {
-    copState.spc.allScopes = !!(el && el.checked);
-    copPersist();
-    copRender();
-}
-
 function copSetFuel(fuel) {
     copState.fuelType = fuel;
     var newLimits = COP_FUEL_LIMITS[fuel] || COP_PI_LIMITS;
@@ -1478,13 +1472,6 @@ function _copDecClass(decision) {
 function _copDecLabel(decision) {
     return { PASS: '✓ PASS', FAIL: '✗ FAIL', CONTINUE: '⧗ CONTINUAR' }[decision] || decision;
 }
-function _copDecBorderColor(decision) {
-    return { PASS: 'rgba(16,185,129,0.4)', FAIL: 'rgba(239,68,68,0.4)', CONTINUE: 'rgba(245,158,11,0.4)' }[decision] || 'var(--border)';
-}
-function _copDecBgColor(decision) {
-    return { PASS: 'rgba(16,185,129,0.06)', FAIL: 'rgba(239,68,68,0.06)', CONTINUE: 'rgba(245,158,11,0.06)' }[decision] || 'transparent';
-}
-
 /**
  * [v19.0] Un renglón del gauge: la banda A(n)…B(n) con U marcado encima.
  *
