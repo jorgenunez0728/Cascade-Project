@@ -876,6 +876,11 @@
         <option value="ok">OK</option>
       </select>
     </div>
+
+    <div class="form-group">
+      <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
+      <input type="number" id="test_battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+    </div>
   </div>
 
   <div class="form-group">
@@ -966,6 +971,11 @@
                         <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div id="lib-gas-entry-content"></div>
                     </div>
+                </div>
+                <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
+                <div id="lib-checklist-card" class="card" style="display:none;">
+                    <div class="card-title" data-help="lib-checklist-help">🧾 Checklist de Liberación (COP15-F05)</div>
+                    <div id="lib-checklist-content"></div>
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>

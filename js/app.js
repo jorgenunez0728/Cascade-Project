@@ -285,11 +285,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.2';
+var APP_VERSION = '23.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
+      notes: [
+          'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',
+          'Adiós a la basura tipo "d 1 P A S A" y "C O ,": los símbolos que el PDF no sabe dibujar (≤, ₂) se traducen.',
+          'Nuevo checklist de liberación: objetos retirados y evidencia adjunta se confirman en Liberación y se imprimen en el F05. Lo que la app ya sabe (Solo Europa / Solo Cert. MX fuera de región) se llena solo.',
+          '"Hoja COP15-F05" dice Completa solo cuando no queda ningún campo pendiente, firmas incluidas.',
+          'Nuevo campo: SOC de la batería al iniciar la prueba (Operación → Verificación en Prueba).'
+      ] },
     { v: '23.2', date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
       notes: [
           'El sync automático entre dispositivos NUNCA había funcionado: los cambios de otro equipo se descartaban en silencio mientras el indicador decía "Live sync active". Ahora sí llegan sin recargar.',

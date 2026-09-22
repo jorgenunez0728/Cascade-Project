@@ -1341,6 +1341,23 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.3 — PDF COP15-F05: una hoja, `_pdfSafe` y checklist de liberación (`js/cop15.js`)
+
+- **El F05 tiene presupuesto vertical fijo** (carta horizontal, pie en `H - 10`). jsPDF no
+  avisa al escribir fuera de la hoja: antes de agregar una fila, sumar alturas. Liberación
+  va en tres columnas a la misma altura (inspección+objetos | evidencia | gases).
+- **`_pdfSafe(s)` es LA forma de meter texto al PDF** (PURA). Helvetica de jsPDF solo trae
+  WinAnsi; un `≤` o `₂` no solo sale como basura, espacia letra por letra la cadena entera.
+  `generateCOP15PDF` la aplica en `cell()` y envolviendo `doc.text`.
+- **`releaseChecklistRows(vehicle)` es LA definición del checklist de liberación**
+  (`vehicle.testData.releaseChecklist`, `RELEASE_CHECKLIST`). **Nunca autollenar un
+  "Retirado"/"Adjunto"**: lo afirma el liberador con su firma. Solo se derivan los "No aplica"
+  por región y la fila F05, que dice **Completa** únicamente con `validatePdfCompleteness`
+  sin ningún pendiente. `submitToApproval` bloquea con confirmaciones en blanco.
+- **`PDF_REQUIRED_FIELDS[].when(td, vehicle)`** recibe ahora el vehículo. Un campo
+  obligatorio NUEVO debe exentar a los archivados que no lo tienen (patrón del SOC de
+  prueba), o su PDF deja de poder regenerarse.
+
 ## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI
 
 Ronda salida de una auditoría del estado del proyecto. El área más necesitada resultó ser

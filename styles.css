@@ -5083,3 +5083,20 @@ body.cop-present .cop-toolbar    { display: none; }
     color: var(--accent-cop, var(--text));
     border-color: currentColor;
 }
+
+/* ── Checklist de Liberación COP15-F05 (cop15.js: releaseChecklistRender) ── */
+.relcl-group { margin-bottom: var(--space-md); }
+.relcl-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-xs); font-size: var(--fs-sm); }
+.relcl-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); }
+.relcl-row.is-missing { background: var(--warn-tint); }
+.relcl-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.relcl-label small { display: block; font-size: var(--fs-2xs); font-weight: 400; color: var(--muted); }
+.relcl-opts { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.relcl-opt, .relcl-all { min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--fs-sm); cursor: pointer; }
+.relcl-opt.is-on.relcl-ok { background: var(--ok-bg); border-color: var(--ok-fill); color: var(--ok-text); font-weight: 700; }
+.relcl-opt.is-on.relcl-na { background: var(--surface-alt); border-color: var(--muted); color: var(--text); font-weight: 700; }
+.relcl-auto { font-size: var(--fs-sm); font-weight: 700; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); }
+.relcl-auto.relcl-ok { background: var(--ok-bg); color: var(--ok-text); }
+.relcl-auto.relcl-na { background: var(--surface-alt); color: var(--muted); }
+.relcl-auto.relcl-pending { background: var(--warn-bg); color: var(--warn-text); }
+.relcl-foot { font-size: var(--fs-sm); color: var(--muted); }
