@@ -47,25 +47,17 @@ existieron.
   ETW NO se toma de la TM**: se calcula con otra fórmula que no está en la app.
 - Botón "Ahora" en las tres fechas.
 
-### 4b. ETW (inercia) WLTP calculado desde el ICMS
+### 4b. ETW (inercia) calculado desde el ICMS
 
-El laboratorio calcula la inercia así en el software del dinamómetro, y lo confirmé con
-una captura suya (TM 1568, MRO 1465, m_r 1.5 % + 1.5 % → **1612.7 kg**, exacto):
+**ETW = TM + MR**, los dos del ICMS (MR = masa rotativa equivalente). Verificado con una
+captura del software del dinamómetro del laboratorio: TM 1568 + MR 44.7 = **1612.7 kg**.
 
-    MRO     = curb weight (ICMS) + 75 kg      (si el ICMS trae MRO, manda ése)
-    m_r     = (m_r,del % + m_r,tras %) × (MRO + 25 kg)
-    inercia = TM + m_r
-
-El 3 % de (MRO + 25 kg) es la estimación WLTP de la masa rotativa equivalente. Una
-lectura distinta que circula ("3 % × MRO + 25") da 1636.95 con esos mismos datos: no es.
-
-- **`homoWltpInertia(d)` (homolog.js, PURA) es LA definición.** Devuelve la cuenta
-  desglosada (`tm`, `mro`, `mr`, `mrPct`, `mroFromCurb`) para poder mostrarla.
-- El importador reconoce **Curb weight** y **MRO** (varios sinónimos, con y sin "kg"); el
-  Alta los pide junto a TM, con m_r por eje (default 1.5 % + 1.5 %, editable por vehículo)
-  y muestra la inercia calculada al vuelo.
+- **`homoWltpInertia(d)` (homolog.js, PURA) es LA definición.** Sin MR devuelve `null`: la
+  TM sola NO es la inercia.
+- El importador reconoce la columna **MR** (sinónimos con y sin "kg"); el Alta la pide
+  junto a TM y muestra la inercia al vuelo.
 - Operación prellena el ETW **solo si está vacío**, editable, con la cuenta a la vista.
-- `tests/homolog.node.js` nuevo (el caso real del laboratorio + bordes), en `npm test`.
+- `tests/homolog.node.js` nuevo, en `npm test`.
 
 ### 5. Ley de Hick
 

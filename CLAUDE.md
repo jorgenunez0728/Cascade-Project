@@ -1358,9 +1358,8 @@ las dos, no una:
 - **Derivar, sugerir, nunca imponer**: `cascadeSoakHours`/`cascadePrecondVerdict` (puras),
   `cascadeDerivedRefresh` solo escribe en un campo vacío o que llenó el propio cálculo
   (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **ETW ← `homoWltpInertia`**
-  (homolog.js, PURA, LA definición): `TM + (m_r,del% + m_r,tras%) × (MRO + 25)`, MRO =
-  curb weight + 75 (o el MRO del ICMS). **El ETW NO es la TM**: la TM no incluye la masa
-  rotativa. Verificada contra el software del dinamómetro (1568/1465 → 1612.7).
+  (homolog.js, PURA, LA definición): **TM + MR**, los dos del ICMS. **El ETW NO es la TM**:
+  sin MR no se calcula. Verificada contra el software del dinamómetro (1568 + 44.7 = 1612.7).
   `cascadeSetField(id, v)` escribe como si tecleara.
 - **Un solo indicador por concepto**: `opSectionsRender` (en vivo, definición del PDF) es
   el estado de cada sección y reemplazó al contador `.smart-badge`; la tarjeta "Siguiente

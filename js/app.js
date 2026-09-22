@@ -296,7 +296,7 @@ var APP_VERSION_HISTORY = [
           'Corregido: ETW/Target vacíos se guardaban como 0 y el F05 podía decir «Completa» con esas casillas en blanco.',
           'Números de un toque: − / + con los valores más usados en esa configuración, deslizador para el SOC y «Último de esta config» para ETW/Target.',
           'La app llena lo que ya sabe: reposo calculado de las fechas, sugerencia de «Cumple», Target A/B/C desde la ficha ICMS (Europa) y botón «Ahora» en las fechas.',
-          'Europa: el ETW (inercia) se calcula solo con la fórmula WLTP del dinamómetro — TM + 3 % × (MRO + 25), MRO = curb weight + 75. El Alta pide el curb weight del ICMS.',
+          'Europa: el ETW (inercia) se calcula solo: TM + MR, los dos del ICMS. El Alta pide el MR.',
           'Un botón grande dice qué sigue (Iniciar prueba → Enviar a liberación); cada sección dice «faltan N» o «✓» y «faltan campos» te lleva a cada uno.',
           'Vehículos en tarjetas por etapa, propósito del Alta en botones agrupados, Historial en tarjetas en el teléfono.',
           'El PDF imprime nombres: «Premium Mexicana», «RON95 (1/8)», no códigos.'

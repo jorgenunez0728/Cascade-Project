@@ -6755,7 +6755,7 @@ function cascadeDerivedRefresh() {
 /**
  * Europa: desde la ficha ICMS del Alta (solo campos vacíos, editables):
  *   Target A/B/C = f0/f1/f2
- *   ETW (inercia) = homoWltpInertia: TM + (m_r,del % + m_r,tras %) × (MRO + 25), MRO = curb + 75
+ *   ETW (inercia) = homoWltpInertia: TM + MR (los dos del ICMS)
  */
 function cascadePrefillTargetsFromHomolog(vehicle) {
     var h = vehicle && vehicle.homolog;
@@ -6776,8 +6776,7 @@ function cascadePrefillTargetsFromHomolog(vehicle) {
         ? '📄 Target ' + tgt.map(function(k) { return k.slice(1); }).join('/') + ' tomados de la ficha ICMS del Alta (f0/f1/f2). Revísalos antes de guardar.'
         : '');
     _cascadeHint('etw', 'hint-icms', filled.indexOf('etw') >= 0
-        ? '⚙️ Inercia WLTP calculada: TM ' + inr.tm + ' + ' + inr.mrPct + ' % × (MRO ' + inr.mro + ' + 25) = ' + inr.inertia + ' kg' +
-          (inr.mroFromCurb ? ' (MRO = curb weight + 75)' : '') + '. Revísala antes de guardar.'
+        ? '⚙️ Inercia calculada de la ficha ICMS: TM ' + inr.tm + ' + MR ' + inr.mr + ' = ' + inr.inertia + ' kg. Revísala antes de guardar.'
         : '');
     return filled.length > 0;
 }
