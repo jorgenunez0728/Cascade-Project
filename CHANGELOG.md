@@ -2,6 +2,77 @@
 
 All notable changes to this project, organized by development round.
 
+## v23.5 — El sync entre equipos, de verdad (2026-09-22)
+
+Ronda de los issues **#131** ("guardé una hora en otro equipo y aquí no persistió") y
+**#132** ("unos toast se ciclan cada que me muevo: choque de sync y merge de planes de
+producción"), más el campo de fecha que no abría en computadora.
+
+### #131 tenía DOS causas, y la primera no era de sync
+
+- **`loadVehicle` nunca cargaba `op_recep`, `op_datetime` ni `op_notes`.** Se guardaban
+  (`saveProgress`) pero al reabrir el vehículo —en ese equipo o en cualquier otro— salían
+  vacíos, y el siguiente guardado o el autoguardado al salir de cualquier campo escribía
+  `''` encima. Encontrado con un diff mecánico de ids guardados vs cargados; eran
+  exactamente esos tres. Era así desde antes de v23.4.
+- **El sync nunca aplicaba la edición de un vehículo que ya existía en los dos lados.**
+  En live-sync era un "conflicto" que solo avisaba; en el pull ganaba el timeline más
+  largo con empate a favor de lo local — y corregir una fecha no agrega timeline.
+
+### #132: el bucle
+
+v23.2 hizo que `fbAutoMerge` corriera por primera vez, y ahí apareció: cada fusión
+automática terminaba en `fbPushAll()` (los tres módulos) y guardaba una copia completa
+de db+tpState+invState en la bitácora. El otro equipo lo recibía, comparaba
+`weeklyPlans`/`rules` con `JSON.stringify` crudo contra un documento de **Firestore,
+que devuelve las llaves en otro orden** → siempre "distinto" → fusionaba y empujaba de
+vuelta. Un aviso de conflicto + uno de "Plan de producción actualizado" + uno de "Merge
+completado" por vuelta, para siempre.
+
+### Lo nuevo
+
+- **`stableStringify` / `strHash` (app.js)** — comparar sin depender del orden de llaves.
+- **`stampRevisions(list, nowIso)` (app.js)** sella `updatedAt` + `_rev` (huella del
+  contenido) en cada `saveDB()` (vehículos) y `tpSave()` (planes semanales). Un registro
+  llegado de la nube trae su `_rev` y NO se re-sella; uno viejo se inicializa sin
+  inventar fecha.
+- **`_fbMergeVehicle(local, remote)`** — gana la edición más reciente; timeline y
+  `returnHistory` se unen. **Pura y simétrica**: los dos equipos eligen lo mismo.
+- **`fbAutoMerge`** aplica todo con `merge_all` en silencio (`fbMergeExecute(…, {quiet,
+  noHistory, noPush})`), avisa una vez por minuto por módulo y solo si algo cambió aquí,
+  y **re-empuja solo ese módulo y solo si `_fbLocalHasExtras`**. Disyuntor:
+  `FB_PUSHBACK_MAX` re-empujes por ventana de 2 min.
+- Plan semanal: las filas empatan por **`uid`** (con desc+día, mover una fila la
+  duplicaba) y el plan con `updatedAt` más nuevo manda en sus filas; una palomita nunca
+  se pierde.
+- **`cascadeThreeWay` (cop15.js)** — Operación fusiona a tres bandas contra lo guardado
+  al abrir el formulario: lo que el técnico no tocó no pisa lo que otro equipo cambió.
+  `cascadeOnRemoteVehicleChange` repinta el formulario si no hay cambios sin guardar.
+- `saveDB` (envoltorio de autoBackup en app.js) **devolvía siempre `undefined`**: las
+  guardas `saveDB() === false` de v18.1 nunca podían dispararse. Ahora devuelve el valor.
+
+### Fecha/hora que no abría (foto)
+
+`_renderDateSuggestion` agregaba la sugerencia al padre del campo, que desde v23.4 es la
+fila flex `.cascade-dt-row` → el campo quedaba de ~20 px. Además `smartFormSuggestDefaults`
+metía **otros** "Ayer 6AM"/"Ahora" en la misma fila, que escribían con
+`toISOString().slice(0,16)` — **hora UTC, 6 h adelante** en México. Se quitaron; la
+sugerencia va debajo y el `datetime-local` tiene `min-width: 11rem` con `flex-wrap`.
+
+### Pruebas
+
+`tests/livesync.node.js` (38): dos equipos en dos `vm` con una nube que reordena llaves
+y reloj falso — la conversación termina, converge, y ninguna palomita se pierde.
+`tests/v235.e2e.js`: campo de fecha a 1366 y 390 px, recepción cargada, fusión a tres
+bandas en navegador.
+
+### Deuda que NO se tocó
+
+- **Inventario** sigue resolviendo campos de un cilindro con "gana el remoto" (las
+  lecturas sí se unen). Mismo patrón que vehículos si hace falta.
+- **Tombstones**: lo borrado en un equipo puede volver desde otro (ya declarado en v23.2).
+- Un equipo con el **reloj mal puesto** pierde sus ediciones (gana `updatedAt` más reciente).
+
 ## v23.4 — Cascade más simple: bugs de datos, números de un toque, menos captura y ronda UX (2026-09-22)
 
 Ronda pedida por el laboratorio tras v23.3 ("los botones me gustaron mucho; ¿algo igual

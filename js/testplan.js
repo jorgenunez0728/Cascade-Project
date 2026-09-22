@@ -520,6 +520,11 @@ function tpSave() {
                           // volumen o pausar una config sin cambiar el conteo de configs/
                           // probadas dejaba el análisis (REQ/déficit/cobertura) obsoleto.
     tpState._lastSave = Date.now();
+    // [v23.5] Sella `updatedAt` en cada plan semanal que cambió aquí: es lo que deja
+    // que un "mover al jueves" o un aceptar gane en el sync (ver stampRevisions, app.js).
+    if (typeof stampRevisions === 'function') {
+        try { stampRevisions(tpState.weeklyPlans, new Date().toISOString()); } catch (e) { console.warn('stampRevisions:', e); }
+    }
     try {
         localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState));
     } catch(e) {

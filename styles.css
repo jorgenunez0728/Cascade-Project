@@ -1936,20 +1936,6 @@ body{ overflow-x: hidden; }
 .smart-badge-partial { background: rgba(245,158,11,0.2); color: #f59e0b; }
 .smart-badge-empty { background: rgba(148,163,184,0.15); color: #94a3b8; }
 
-/* ── Quick date buttons ── */
-.smart-quick-btns {
-    display: flex; gap: var(--space-sm); margin-top: var(--space-xs);
-}
-.smart-quick-btn {
-    padding: var(--space-2xs) var(--space-md); font-size: var(--fs-xs); font-weight: 700;
-    background: rgba(59,130,246,0.1); color: #3b82f6;
-    border: 1px solid rgba(59,130,246,0.3); border-radius: var(--radius-lg);
-    cursor: pointer; transition:background-color var(--dur-fast), transform var(--dur-fast);
-}
-.smart-quick-btn:hover {
-    background: rgba(59,130,246,0.2);
-}
-
 /* ── Copy banner ── */
 .smart-copy-banner {
     display: flex; align-items: center; justify-content: space-between;
@@ -5174,6 +5160,11 @@ body.cop-present .cop-toolbar    { display: none; }
    la columna de la cuadrícula, aunque tenga min-width:0: a 390 px las filas − / + y
    fecha + "Ahora" desbordaban la tarjeta. width:0 + flex-grow lo deja encoger. */
 .ui-num-row > input, .cascade-dt-row > input { width: 0; flex: 1 1 0; min-width: 0; }
+/* [v23.5] …pero un datetime-local sin ancho mínimo se aplasta hasta no poder abrirse
+   (el ícono del calendario queda fuera de la caja). 11rem muestra fecha + hora; si no
+   cabe junto a "Ahora", el botón baja de renglón en vez de estrujar el campo. */
+.cascade-dt-row { flex-wrap: wrap; }
+.cascade-dt-row > input[type="datetime-local"] { min-width: 11rem; }
 .form-grid > .form-group { min-width: 0; }
 
 /* ── Faltantes que llevan al campo (cop15.js: showMissingPopup) ── */

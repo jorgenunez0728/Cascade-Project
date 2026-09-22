@@ -285,11 +285,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.4';
+var APP_VERSION = '23.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '23.5', date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
+      notes: [
+          'Corregido (#131): la fecha/hora de recepción, el operador de recepción y las notas se guardaban pero nunca se cargaban — al reabrir salían vacíos y el siguiente guardado los borraba.',
+          'Corregido (#131): un cambio a un vehículo hecho en otro equipo ya llega; gana la edición más reciente, no la de timeline más largo.',
+          'Corregido (#132): los avisos de sync ya no se ciclan. Cada fusión automática re-empujaba todo y el otro equipo la veía «distinta» por el orden de las llaves.',
+          'Operación ya no pisa lo que otro equipo guardó en campos que tú no tocaste.',
+          'Corregido: el campo de fecha/hora del preacondicionamiento se aplastaba y no abría en computadora; los botones «Ayer 6AM/Ahora» viejos (que ponían la hora UTC, 6 h adelante) se quitaron.'
+      ] },
     { v: '23.4', date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
       notes: [
           'Corregido: guardar Operación borraba los gases, la firma y el checklist, y un vehículo en aprobación regresaba a «En progreso». Ahora en aprobación Operación es solo lectura.',
@@ -1456,6 +1464,9 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 // ======================================================================
 
     function saveDB() {
+        // [v23.5] Sella la revisión de cada vehículo que cambió (ver stampRevisions).
+        try { stampRevisions(db && db.vehicles, new Date().toISOString()); }
+        catch (e) { console.warn('stampRevisions:', e); }
         try {
             localStorage.setItem('kia_db_v11', JSON.stringify(db));
         } catch(e) {
@@ -1467,6 +1478,79 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
         window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
         return true;
     }
+
+// ══════════════════════════════════════════════════════════════════════
+// [v23.5] COMPARAR SIN IMPORTAR EL ORDEN DE LAS LLAVES + REVISIÓN POR VEHÍCULO
+//
+// `JSON.stringify(a) !== JSON.stringify(b)` NO sirve para saber si dos copias de
+// un mismo dato son distintas cuando una viene de Firestore: el SDK devuelve los
+// mapas con las llaves en otro orden. El sync comparaba así los planes semanales y
+// las reglas, así que SIEMPRE los veía distintos — y cada fusión automática
+// empujaba todo de vuelta, el otro equipo la recibía, la veía "distinta"… (issue
+// #132: los avisos de sync en bucle). `stableStringify` es LA forma de comparar.
+// ══════════════════════════════════════════════════════════════════════
+function stableStringify(v) {
+    if (v === undefined || typeof v === 'function') return undefined;
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (typeof v.toJSON === 'function') return stableStringify(v.toJSON());
+    if (Array.isArray(v)) {
+        return '[' + v.map(function(x) { var s = stableStringify(x); return s === undefined ? 'null' : s; }).join(',') + ']';
+    }
+    var out = [];
+    Object.keys(v).sort().forEach(function(k) {
+        var s = stableStringify(v[k]);
+        if (s !== undefined) out.push(JSON.stringify(k) + ':' + s);
+    });
+    return '{' + out.join(',') + '}';
+}
+
+/** Hash corto (djb2, base 36) de una cadena. No es criptográfico: solo detecta cambios. */
+function strHash(s) {
+    var h = 5381;
+    s = String(s || '');
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36) + '.' + s.length.toString(36);
+}
+
+/** Huella del CONTENIDO de un registro (vehículo, plan): excluye su propia marca de revisión. */
+function revContentHash(v) {
+    if (!v) return '';
+    var c = Object.assign({}, v);
+    delete c._rev; delete c.updatedAt;
+    return strHash(stableStringify(c));
+}
+
+/**
+ * LA definición de "este registro cambió en ESTE equipo". Corre en cada saveDB()
+ * (vehículos) y en cada tpSave() (planes semanales).
+ *
+ * Por qué hace falta: el sync resolvía dos copias de un mismo VIN quedándose con la
+ * de timeline más largo, y si empataban, con la LOCAL. Corregir una fecha no agrega
+ * timeline, así que el cambio hecho en otro equipo perdía siempre (issue #131: "guardé
+ * una hora en otra plataforma y aquí no persistió"). Con `updatedAt` gana la edición
+ * más reciente.
+ *
+ * `_rev` es la huella del contenido cuando se selló. Si la huella actual difiere, el
+ * vehículo se editó aquí → se sella `updatedAt = ahora`. Un vehículo que llega de la
+ * nube trae su `_rev` y su huella coincide, así que NO se re-sella (si se re-sellara,
+ * recibir un cambio lo haría parecer una edición local más nueva). Un vehículo viejo
+ * sin `_rev` se inicializa sin inventar fecha: toma `lastModified`/`registeredAt`.
+ * Devuelve cuántos se sellaron. PURA respecto al DOM.
+ */
+function stampRevisions(list, nowIso) {
+    var n = 0;
+    (list || []).forEach(function(v) {
+        if (!v || typeof v !== 'object') return;
+        var h = revContentHash(v);
+        if (!v._rev) {
+            v._rev = h;
+            if (!v.updatedAt) v.updatedAt = v.lastModified || v.registeredAt || v.createdAt || v.acceptedDate || v.created || '';
+            return;
+        }
+        if (v._rev !== h) { v._rev = h; v.updatedAt = nowIso; n++; }
+    });
+    return n;
+}
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
@@ -5748,8 +5832,12 @@ function autoBackup() {
 // Hook into saveDB to auto-backup
 var _origSaveDB = saveDB;
 saveDB = function() {
-    _origSaveDB();
-    autoBackup();
+    // [v23.5] Devolver el resultado: este envoltorio lo tiraba, así que `saveDB()`
+    // devolvía SIEMPRE undefined y ninguna de las guardas de v18.1
+    // ("si saveDB() devuelve false, abortar la cascada") podía dispararse jamás.
+    var ok = _origSaveDB();
+    if (ok !== false) autoBackup();
+    return ok;
 };
 
 function _formatBytes(bytes) {

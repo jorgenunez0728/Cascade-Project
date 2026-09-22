@@ -1341,6 +1341,34 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v23.5 — El sync entre equipos (`js/firebase-sync.js`, `js/app.js`, `js/cop15.js`)
+
+- **`stableStringify(v)` (app.js) es LA forma de comparar dos copias de un dato** cuando una
+  puede venir de Firestore (devuelve las llaves en otro orden). `JSON.stringify(a) !==
+  JSON.stringify(b)` contra un documento de la nube es SIEMPRE true — así nació el bucle del
+  #132. Nunca volver a comparar con JSON.stringify crudo en el sync.
+- **`stampRevisions(list, nowIso)` (app.js) sella `updatedAt` + `_rev`** en cada `saveDB()`
+  (vehículos) y `tpSave()` (planes semanales). `_rev` = huella del contenido cuando se selló:
+  lo que llega de la nube NO se re-sella. **Toda fusión que construya un objeto nuevo debe
+  recalcular `_rev = revContentHash(obj)` sin tocar `updatedAt`**, o el próximo guardado lo
+  tomará por una edición local más nueva.
+- **`_fbMergeVehicle(local, remote)` es LA resolución de dos copias de un VIN** — edición más
+  reciente gana; timeline/returnHistory se unen. **PURA y SIMÉTRICA**: si dos equipos
+  eligieran distinto, se re-empujarían para siempre. Todo desempate nuevo debe ser
+  determinista (nunca "gana lo local").
+- **Live-sync (`fbAutoMerge`)**: `merge_all` silencioso (`fbMergeExecute(…, {quiet,
+  noHistory, noPush})`), aviso ≤1/min/módulo solo si cambió la huella
+  (`_fbModuleFingerprint`), y **re-empuje de UN módulo solo si `_fbLocalHasExtras`**.
+  **Nunca `fbPushAll()` desde una fusión automática.** `_fbPushBack` tiene disyuntor.
+- Filas del plan: empatan con **`_fbPlanItemKey`** (`uid`, respaldo desc+día).
+- **Operación fusiona a tres bandas** (`cascadeThreeWay`, PURA) contra `_opLoadedBase` (lo
+  guardado al llenar el formulario): lo que el técnico no tocó no pisa lo remoto. Todo
+  campo nuevo del formulario debe **cargarse en `loadVehicle`** además de guardarse en
+  `saveProgress`: `op_recep`/`op_datetime`/`op_notes` se guardaban y nunca se cargaban
+  (#131), y el siguiente guardado los borraba.
+- `saveDB()` **devuelve** el resultado (el envoltorio de autoBackup lo tiraba).
+- `_renderDateSuggestion` escribe en el `.form-group`, nunca dentro de `.cascade-dt-row`.
+
 ## v23.4 — Cascade más simple (`js/cop15.js`, `js/app.js`)
 
 - **`saveProgress` FUSIONA `vehicle.testData`, nunca lo reemplaza**: `testData` también

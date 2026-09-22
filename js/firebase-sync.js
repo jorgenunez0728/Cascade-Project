@@ -1459,7 +1459,14 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     // lectura remota propaga PSI/estado).
     var choices = {};
     choices[col] = 'merge_all';
-    fbMergeExecute(synth, analysis, choices);
+    // [v23.5] Sin toast ni fbPushAll: solo se re-empuja ESTE módulo y solo si aquí hay
+    // algo que la nube no tiene (mismo criterio que el live-sync). La bitácora sí se
+    // conserva: el pull es poco frecuente y su "deshacer" es la red de seguridad.
+    fbMergeExecute(synth, analysis, choices, { quiet: true, noPush: true });
+    if (col === 'cop15' && typeof cascadeOnRemoteVehicleChange === 'function') {
+        try { cascadeOnRemoteVehicleChange(); } catch (e) {}
+    }
+    if (_fbLocalHasExtras(col, remoteData)) _fbPushBack(col);
     pulled.push({ cop15: 'COP15', testplan: 'Test Plan', inventory: 'Inventory' }[col]);
 }
 
@@ -2030,6 +2037,259 @@ function fbHandleRemoteChange(col, docData, remoteSt) {
     fbAutoMerge(col, parsedData, remoteSt);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v23.5] LIVE-SYNC QUE CONVERGE (issues #131 y #132)
+//
+// v23.2 hizo que `fbAutoMerge` corriera por primera vez, y al correr destapó dos
+// defectos que nunca se habían ejercitado:
+//
+//  #132 — BUCLE. Cada fusión automática terminaba en `fbPushAll()` (los tres
+//  módulos). El otro equipo lo recibía como cambio remoto, lo comparaba con
+//  `JSON.stringify` crudo contra un documento de Firestore (llaves en otro orden →
+//  SIEMPRE distinto), fusionaba, y empujaba todo de vuelta. Cada vuelta: un toast de
+//  "conflicto", otro de "Plan de producción actualizado", otro de "Merge completado"
+//  y una copia completa de db+tpState+invState en la bitácora de fusiones.
+//
+//  #131 — LAS EDICIONES NO VIAJABAN. Un vehículo que existe en los dos equipos con
+//  datos distintos era un "conflicto", y el live-sync solo avisaba: nunca lo
+//  aplicaba. Y en el pull, el desempate era "timeline más largo, y si empatan, lo
+//  local": corregir una hora no agrega timeline, así que lo local ganaba siempre.
+//
+// Reglas nuevas:
+//  1. Se aplica todo lo que la fusión sabe resolver (`merge_all`), en silencio: sin
+//     bitácora, sin fbPushAll. Un solo aviso por módulo por minuto, y solo si algo
+//     CAMBIÓ de verdad aquí (huella antes/después).
+//  2. Un vehículo en los dos lados: gana la edición más reciente (`updatedAt`,
+//     sellado por `stampRevisions` en saveDB). El desempate es DETERMINISTA
+//     — los dos equipos eligen el mismo — o nunca convergerían.
+//  3. Se re-empuja SOLO el módulo, y SOLO si aquí hay algo que la nube no tiene
+//     (`_fbLocalHasExtras`). Tras un re-empuje el otro lado ya no tiene extras, así
+//     que la conversación termina. Además hay un disyuntor por si acaso.
+// ══════════════════════════════════════════════════════════════════════
+
+var FB_LIVE_TOAST_MS = 60000;      // un aviso por módulo por minuto
+var FB_PUSHBACK_DELAY_MS = 1500;
+var FB_PUSHBACK_WINDOW_MS = 120000;
+var FB_PUSHBACK_MAX = 4;           // re-empujes por módulo por ventana: más es un bucle
+var _fbLive = { toastAt: {}, pushBack: {} };
+
+/** Identidad de una fila de `testedList` (compartida por el análisis y los extras). */
+function _fbTestedKey(t) {
+    if (!t) return '';
+    var ident = t.vehicleId || t.vin || t.itemUid ||
+                ((typeof _tpExtractVin === 'function') ? (_tpExtractVin(t.note) || '') : '');
+    return t.configText + '|' + (t.date || '') + '|' + ident;
+}
+
+/** Identidad de un plan semanal. */
+function _fbPlanKey(w) {
+    if (!w) return '';
+    if (typeof tpPlanId === 'function') return tpPlanId(w);
+    return w.planId || w.week || w.weekDate || String(w.created || w.id || '');
+}
+
+/** Identidad de una fila del plan: `uid` (v23) y, en filas viejas, desc + día. */
+function _fbPlanItemKey(item) {
+    if (!item) return '';
+    return item.uid ? 'u:' + item.uid : 'd:' + item.desc + '|' + (item.testDay || '');
+}
+
+/** Unión de dos paStatus: "sent=true" siempre gana (recibos de envío). */
+function _fbMergePaStatus(localPa, remotePa) {
+    if (!localPa && !remotePa) return undefined;
+    if (!localPa) return remotePa;
+    if (!remotePa) return localPa;
+    var out = {};
+    var keys = {};
+    Object.keys(localPa).forEach(function(k){ keys[k] = true; });
+    Object.keys(remotePa).forEach(function(k){ keys[k] = true; });
+    Object.keys(keys).sort().forEach(function(k) {
+        var lv = localPa[k] || {};
+        var rv = remotePa[k] || {};
+        var lvSent = !!lv.sent, rvSent = !!rv.sent;
+        if (lvSent && rvSent) {
+            var pick = (String(lv.sentAt || '') >= String(rv.sentAt || '')) ? lv : rv;
+            out[k] = Object.assign({}, pick, { resendCount: Math.max(lv.resendCount || 0, rv.resendCount || 0) });
+        } else if (lvSent) {
+            out[k] = lv;
+        } else if (rvSent) {
+            out[k] = rv;
+        } else {
+            out[k] = (String(lv.sentAt || '') >= String(rv.sentAt || '')) ? lv : rv;
+        }
+    });
+    return out;
+}
+
+/** Unión sin duplicados de dos listas append-only, en orden determinista. */
+function _fbUnionLog(a, b, stampKeys) {
+    var seen = {}, out = [];
+    (a || []).concat(b || []).forEach(function(x) {
+        if (!x) return;
+        var k = stableStringify(x);
+        if (seen[k]) return;
+        seen[k] = true;
+        out.push({ k: k, x: x });
+    });
+    var stamp = function(o) {
+        for (var i = 0; i < stampKeys.length; i++) if (o[stampKeys[i]]) return String(o[stampKeys[i]]);
+        return '';
+    };
+    out.sort(function(p, q) {
+        var sp = stamp(p.x), sq = stamp(q.x);
+        if (sp !== sq) return sp < sq ? -1 : 1;
+        return p.k < q.k ? -1 : (p.k > q.k ? 1 : 0);
+    });
+    return out.map(function(o) { return o.x; });
+}
+
+function _fbVehTime(v) { return String((v && (v.updatedAt || v.lastModified || v.registeredAt)) || ''); }
+
+/**
+ * LA definición de cómo se resuelven dos copias del MISMO vehículo (mismo VIN).
+ * PURA y SIMÉTRICA: _fbMergeVehicle(a, b) y _fbMergeVehicle(b, a) dan el mismo
+ * contenido — si no, dos equipos se quedarían cada uno con "su" versión y se
+ * re-empujarían para siempre.
+ *
+ * Gana la edición más reciente (`updatedAt`); empate → timeline más largo; empate →
+ * orden del contenido (arbitrario pero igual en los dos lados). Del perdedor se
+ * conserva lo que es bitácora (timeline, returnHistory) y los recibos de envío.
+ * Devuelve {vehicle, from: 'local'|'remote'|'equal'}.
+ */
+function _fbMergeVehicle(local, remote) {
+    var sl = stableStringify(local), sr = stableStringify(remote);
+    if (sl === sr) return { vehicle: local, from: 'equal' };
+    var tl = _fbVehTime(local), tr = _fbVehTime(remote);
+    var localWins;
+    if (tl !== tr) localWins = tl > tr;
+    else {
+        var nl = (local.timeline || []).length, nr = (remote.timeline || []).length;
+        localWins = (nl !== nr) ? nl > nr : sl > sr;
+    }
+    var winner = localWins ? local : remote;
+    var out = JSON.parse(JSON.stringify(winner));
+    if (local.timeline || remote.timeline) out.timeline = _fbUnionLog(local.timeline, remote.timeline, ['timestamp', 'at']);
+    if (local.returnHistory || remote.returnHistory) out.returnHistory = _fbUnionLog(local.returnHistory, remote.returnHistory, ['at', 'timestamp', 'date']);
+    var pa = _fbMergePaStatus(local.paStatus, remote.paStatus);
+    if (pa) out.paStatus = JSON.parse(JSON.stringify(pa));
+    out.updatedAt = winner.updatedAt || out.updatedAt;
+    if (typeof revContentHash === 'function') out._rev = revContentHash(out);
+    return { vehicle: out, from: localWins ? 'local' : 'remote' };
+}
+
+/** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
+function _fbModuleFingerprint(col) {
+    try {
+        if (col === 'cop15') return strHash(stableStringify((db && db.vehicles) || []));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months]));
+        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog]));
+    } catch (e) {}
+    return '';
+}
+
+/**
+ * ¿Hay aquí algo que la copia remota NO tiene? Es la ÚNICA condición para
+ * re-empujar tras una fusión automática. Se evalúa DESPUÉS de fusionar.
+ */
+function _fbLocalHasExtras(col, remote) {
+    remote = remote || {};
+    if (col === 'cop15') {
+        var rByVin = {};
+        (remote.vehicles || []).forEach(function(v) { if (v) rByVin[v.vin] = v; });
+        return ((db && db.vehicles) || []).some(function(v) {
+            var r = rByVin[v.vin];
+            return !r || stableStringify(r) !== stableStringify(v);
+        });
+    }
+    if (col === 'testplan') {
+        var rt = {};
+        (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
+        if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
+        var lImp = tpState.planImportDate ? new Date(tpState.planImportDate).getTime() : 0;
+        var rImp = remote.planImportDate ? new Date(remote.planImportDate).getTime() : 0;
+        if (lImp > rImp) return true;
+        var rp = {};
+        (remote.weeklyPlans || []).forEach(function(w) { rp[_fbPlanKey(w)] = w; });
+        return (tpState.weeklyPlans || []).some(function(lw) {
+            var rw = rp[_fbPlanKey(lw)];
+            if (!rw) return true;
+            if (lw.updatedAt && (!rw.updatedAt || lw.updatedAt > rw.updatedAt)) return true;
+            var ri = {};
+            (rw.items || []).forEach(function(it) { ri[_fbPlanItemKey(it)] = it; });
+            return (lw.items || []).some(function(it) {
+                var r = ri[_fbPlanItemKey(it)];
+                return !r || (it.completed && !r.completed);
+            });
+        });
+    }
+    if (col === 'inventory') {
+        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[r.date + '|' + (r.auto ? 'a' : 'h')] = true; }); return m; };
+        var faltaLectura = function(loc, rem) {
+            var rf = fechas(rem && rem.readings);
+            return (loc.readings || []).some(function(r) { return r && r.date && !rf[r.date + '|' + (r.auto ? 'a' : 'h')]; });
+        };
+        var rg = {};
+        (remote.gases || []).forEach(function(g) { rg[g.controlNo || g.name] = g; });
+        if ((invState.gases || []).some(function(g) { var r = rg[g.controlNo || g.name]; return !r || faltaLectura(g, r); })) return true;
+        var re = {};
+        (remote.equipment || []).forEach(function(e) { re[_fbEquipKey(e)] = e; });
+        if ((invState.equipment || []).some(function(e) {
+            var r = re[_fbEquipKey(e)];
+            if (!r) return true;
+            var rc = {};
+            (r.calHistory || []).forEach(function(h) { rc[h.date + '|' + h.certNo] = true; });
+            return (e.calHistory || []).some(function(h) { return !rc[h.date + '|' + h.certNo]; });
+        })) return true;
+        var rtk = {};
+        (remote.fuelTanks || []).forEach(function(t) { rtk[t.id || t.name] = t; });
+        return (invState.fuelTanks || []).some(function(t) { var r = rtk[t.id || t.name]; return !r || faltaLectura(t, r); });
+    }
+    return false;
+}
+
+/** Re-empuje de UN módulo, diferido y con disyuntor anti-bucle. */
+function _fbPushBack(col) {
+    var st = _fbLive.pushBack[col] || (_fbLive.pushBack[col] = { times: [], timer: null, tripped: false });
+    var now = Date.now();
+    st.times = st.times.filter(function(t) { return now - t < FB_PUSHBACK_WINDOW_MS; });
+    if (st.times.length >= FB_PUSHBACK_MAX) {
+        if (!st.tripped) {
+            st.tripped = true;
+            console.warn('Firebase: re-empuje de ' + col + ' suspendido — ' + FB_PUSHBACK_MAX +
+                ' en ' + (FB_PUSHBACK_WINDOW_MS / 1000) + ' s parece un bucle. Se reanuda solo.');
+        }
+        return false;
+    }
+    st.tripped = false;
+    if (st.timer) return true;
+    st.timer = setTimeout(function() {
+        st.timer = null;
+        st.times.push(Date.now());
+        var state = col === 'cop15' ? db : col === 'testplan' ? tpState : col === 'inventory' ? invState : null;
+        if (state && fbSyncModules[col]) fbPush(col, state);
+    }, FB_PUSHBACK_DELAY_MS);
+    return true;
+}
+
+function _fbLiveToast(col) {
+    var now = Date.now();
+    if (_fbLive.toastAt[col] && now - _fbLive.toastAt[col] < FB_LIVE_TOAST_MS) return;
+    _fbLive.toastAt[col] = now;
+    var label = { cop15: 'Pruebas', testplan: 'Plan', inventory: 'Consumibles' }[col] || col;
+    if (typeof showToast === 'function') showToast('↻ ' + label + ': actualizado desde otro dispositivo', 'info', 3000);
+}
+
+function _fbAfterAutoMerge(col) {
+    try {
+        if (col === 'cop15') {
+            refreshAllLists(); updateProgressBar();
+            if (typeof cascadeOnRemoteVehicleChange === 'function') cascadeOnRemoteVehicleChange();
+        }
+        if (col === 'testplan')  { _fbTpUISync(); }
+        if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
+    } catch (uiErr) { /* UI refresh is best-effort */ }
+}
+
 function fbAutoMerge(col, parsedData, remoteSt) {
     // Build synthetic envelope so we can reuse fbMergeAnalyze
     var synth = { cop15: null, testplan: null, inventory: null };
@@ -2038,52 +2298,22 @@ function fbAutoMerge(col, parsedData, remoteSt) {
     var analysis;
     try { analysis = fbMergeAnalyze(synth); }
     catch(e) { console.warn('fbAutoMerge analyze error (' + col + '):', e); return; }
+    if (!analysis[col]) return;
 
-    var a = analysis[col];
-    if (!a) return;
-
-    var newCount    = (a.newItems  || []).length;
-    var conflictCnt = (a.conflicts || []).length;
-    var label       = remoteSt.slice(0, 14);
-
-    // [v15.6] El plan de producción también es trabajo: un CSV re-importado en
-    // otra estación cambia planData/months/weeklyPlans sin agregar testedList —
-    // antes este return lo descartaba y las demás estaciones nunca lo recibían.
-    var planWork = col === 'testplan' && (a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged);
-
-    if (newCount === 0 && conflictCnt === 0 && !planWork) return; // Nothing to do
-
-    // Conflicts: warn but do NOT auto-apply — technician must review manually
-    if (conflictCnt > 0) {
-        showToast('⚠️ ' + conflictCnt + ' conflicto(s) en ' + col +
-            ' de ' + label + ' — revisar en Sincronización', 'warning', 8000);
-        if (newCount === 0 && !planWork) return;
-    }
-
-    // Additive new items apply automatically; para testplan con cambios de plan
-    // se usa merge_all (adopta el import más nuevo por planImportDate, si no
-    // hace merge aditivo por desc — nunca borra datos locales)
+    var before = _fbModuleFingerprint(col);
     var choices = {};
-    choices[col] = planWork ? 'merge_all' : 'new';
-    try { fbMergeExecute(synth, analysis, choices); }
+    choices[col] = 'merge_all';
+    try { fbMergeExecute(synth, analysis, choices, { quiet: true, noHistory: true, noPush: true }); }
     catch(e) {
         console.warn('fbAutoMerge execute error (' + col + '):', e);
-        showToast('Error al sincronizar ' + col + ' de ' + label, 'error');
         return;
     }
 
-    if (planWork) {
-        showToast('📦 Plan de producción actualizado desde otra estación', 'success', 5000);
-    } else {
-        showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    if (_fbModuleFingerprint(col) !== before) {
+        _fbLiveToast(col);
+        _fbAfterAutoMerge(col);
     }
-
-    // Refresh relevant module UI (best-effort)
-    try {
-        if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
-        if (col === 'testplan')  { _fbTpUISync(); }
-        if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
-    } catch(uiErr) { /* UI refresh is best-effort */ }
+    if (_fbLocalHasExtras(col, parsedData)) _fbPushBack(col);
 }
 
 // ── UI Indicator ──
@@ -2483,17 +2713,16 @@ function fbMergeAnalyze(remoteData) {
             } else {
                 var lv = localVINs[rv.vin];
                 // Detect paStatus differences (sent flag, sentAt, resendCount)
-                var paDiff = JSON.stringify(lv.paStatus || {}) !== JSON.stringify(rv.paStatus || {});
+                var paDiff = stableStringify(lv.paStatus || {}) !== stableStringify(rv.paStatus || {});
                 if (paDiff) {
                     var lvSent = !!(lv.paStatus && lv.paStatus.vehicle_released && lv.paStatus.vehicle_released.sent);
                     var rvSent = !!(rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent);
                     if (rvSent && !lvSent) paStatusGains++;
                 }
-                // Check if different (compare status, timeline length, testData, paStatus)
-                var isDiff = lv.status !== rv.status ||
-                    (lv.timeline || []).length !== (rv.timeline || []).length ||
-                    JSON.stringify(lv.testData || {}) !== JSON.stringify(rv.testData || {}) ||
-                    paDiff;
+                // [v23.5] Cualquier diferencia de contenido, comparada SIN depender del
+                // orden de las llaves (Firestore las devuelve en otro orden). Antes solo
+                // miraba status/timeline/testData/paStatus con JSON.stringify crudo.
+                var isDiff = stableStringify(lv) !== stableStringify(rv);
                 if (isDiff) {
                     conflicts.push({ vin: rv.vin, local: lv, remote: rv });
                 } else {
@@ -2524,12 +2753,7 @@ function fbMergeAnalyze(remoteData) {
     // de `note`) es lo que las distingue. Las declaraciones a mano se distinguen por
     // `itemUid`, que también es único.
     if (remoteData.testplan) {
-        var _tKey = function(t) {
-            if (!t) return '';
-            var ident = t.vehicleId || t.vin || t.itemUid ||
-                        ((typeof _tpExtractVin === 'function') ? (_tpExtractVin(t.note) || '') : '');
-            return t.configText + '|' + (t.date || '') + '|' + ident;
-        };
+        var _tKey = _fbTestedKey;
         var localTested = {};
         (tpState.testedList || []).forEach(function(t) { localTested[_tKey(t)] = t; });
         var remoteTested = (remoteData.testplan.testedList || []);
@@ -2542,8 +2766,8 @@ function fbMergeAnalyze(remoteData) {
         });
 
         // Compare rules
-        var localRulesJSON = JSON.stringify(tpState.rules || []);
-        var remoteRulesJSON = JSON.stringify(remoteData.testplan.rules || []);
+        var localRulesJSON = stableStringify(tpState.rules || []);
+        var remoteRulesJSON = stableStringify(remoteData.testplan.rules || []);
         var rulesChanged = localRulesJSON !== remoteRulesJSON;
 
         // Compare planData (production plan configurations)
@@ -2575,7 +2799,10 @@ function fbMergeAnalyze(remoteData) {
         var remoteWeeklyLen = (remoteData.testplan.weeklyPlans || []).length;
         var weeklyPlansDiff = localWeeklyLen !== remoteWeeklyLen;
         if (!weeklyPlansDiff && remoteWeeklyLen > 0) {
-            weeklyPlansDiff = JSON.stringify(tpState.weeklyPlans || []) !== JSON.stringify(remoteData.testplan.weeklyPlans || []);
+            // [v23.5] stableStringify: con JSON.stringify crudo esto era SIEMPRE true
+            // contra un documento de Firestore (otro orden de llaves) → cada cambio de
+            // cualquier equipo se leía como "plan de producción actualizado" (#132).
+            weeklyPlansDiff = stableStringify(tpState.weeklyPlans || []) !== stableStringify(remoteData.testplan.weeklyPlans || []);
         }
 
         analysis.testplan = {
@@ -2718,10 +2945,16 @@ function fbMergeAnalyze(remoteData) {
 }
 
 // ── Execute merge for selected modules ──
-function fbMergeExecute(remoteData, analysis, choices) {
+function fbMergeExecute(remoteData, analysis, choices, opts) {
+    // [v23.5] opts = {quiet, noHistory, noPush}. El live-sync y el pull automático
+    // llaman con las tres: antes CADA cambio remoto (1) copiaba db+tpState+invState
+    // enteros para el "deshacer", (2) los escribía a la bitácora de fusiones, (3)
+    // mostraba "Merge completado" y (4) hacía fbPushAll() de los TRES módulos — que el
+    // otro equipo recibía como cambio remoto y repetía. Ese era el bucle del #132.
+    opts = opts || {};
     // Save snapshot for undo BEFORE merging
     // (v15.6: se quitó raState del snapshot — no estaba definido y crasheaba el merge manual)
-    var snapshot = {
+    var snapshot = opts.noHistory ? null : {
         cop15: JSON.parse(JSON.stringify(db)),
         testplan: JSON.parse(JSON.stringify(tpState)),
         inventory: JSON.parse(JSON.stringify(invState))
@@ -2733,33 +2966,7 @@ function fbMergeExecute(remoteData, analysis, choices) {
     if (choices.cop15 && analysis.cop15) {
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
-        function _mergePaStatus(localPa, remotePa) {
-            if (!localPa && !remotePa) return undefined;
-            if (!localPa) return remotePa;
-            if (!remotePa) return localPa;
-            var out = {};
-            var keys = {};
-            Object.keys(localPa).forEach(function(k){ keys[k] = true; });
-            Object.keys(remotePa).forEach(function(k){ keys[k] = true; });
-            Object.keys(keys).forEach(function(k) {
-                var lv = localPa[k] || {};
-                var rv = remotePa[k] || {};
-                var lvSent = !!lv.sent, rvSent = !!rv.sent;
-                if (lvSent && rvSent) {
-                    var lvAt = lv.sentAt || '';
-                    var rvAt = rv.sentAt || '';
-                    out[k] = (lvAt >= rvAt) ? lv : rv;
-                    out[k].resendCount = Math.max(lv.resendCount || 0, rv.resendCount || 0);
-                } else if (lvSent) {
-                    out[k] = lv;
-                } else if (rvSent) {
-                    out[k] = rv;
-                } else {
-                    out[k] = (lv.sentAt || '') >= (rv.sentAt || '') ? lv : rv;
-                }
-            });
-            return out;
-        }
+        function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
 
         if (choices.cop15 === 'new') {
             // Add only new vehicles
@@ -2786,18 +2993,16 @@ function fbMergeExecute(remoteData, analysis, choices) {
             // Add new + for conflicts keep the richer record but always preserve PA send receipts
             analysis.cop15.newItems.forEach(function(v) { db.vehicles.push(v); });
             var paPreserved = 0;
+            // [v23.5] Gana la EDICIÓN más reciente (`updatedAt`, ver _fbMergeVehicle),
+            // no el timeline más largo con empate a favor de lo local.
             analysis.cop15.conflicts.forEach(function(c) {
                 var idx = db.vehicles.findIndex(function(v) { return v.vin === c.vin; });
                 if (idx >= 0) {
-                    var localTL = (c.local.timeline || []).length;
-                    var remoteTL = (c.remote.timeline || []).length;
-                    var winner = (remoteTL > localTL) ? c.remote : c.local;
-                    var mergedPa = _mergePaStatus(c.local.paStatus, c.remote.paStatus);
                     var localSent = !!(c.local.paStatus && c.local.paStatus.vehicle_released && c.local.paStatus.vehicle_released.sent);
-                    var winnerSent = !!(winner.paStatus && winner.paStatus.vehicle_released && winner.paStatus.vehicle_released.sent);
-                    if (localSent && !winnerSent) paPreserved++;
-                    if (mergedPa) winner.paStatus = mergedPa;
-                    db.vehicles[idx] = winner;
+                    var res = _fbMergeVehicle(db.vehicles[idx], c.remote);
+                    var winnerSent = !!(res.vehicle.paStatus && res.vehicle.paStatus.vehicle_released && res.vehicle.paStatus.vehicle_released.sent);
+                    if (localSent && winnerSent && res.from === 'remote') paPreserved++;
+                    db.vehicles[idx] = res.vehicle;
                 }
             });
             var summary = 'COP15: +' + analysis.cop15.newItems.length + ' nuevos, ' + analysis.cop15.conflicts.length + ' conflictos resueltos';
@@ -2895,18 +3100,38 @@ function fbMergeExecute(remoteData, analysis, choices) {
                         } else {
                             var lw = tpState.weeklyPlans[localWeekMap[k]];
                             if (!lw.items) lw.items = [];
-                            // Empatar por desc + día de prueba: la misma config puede estar dos
-                            // veces en la semana en días distintos y no son el mismo item.
+                            // [v23.5] Si el plan remoto se editó DESPUÉS (`updatedAt`, lo sella
+                            // stampRevisions en tpSave), sus campos de plan y sus versiones de cada fila
+                            // mandan: así viaja un "mover al jueves" o un aceptar. Sin fechas
+                            // (planes viejos) se conserva lo local, como antes.
+                            var remoteNewer = !!(rw.updatedAt && (!lw.updatedAt || rw.updatedAt > lw.updatedAt));
+                            if (remoteNewer) {
+                                Object.keys(rw).forEach(function(f) { if (f !== 'items') lw[f] = rw[f]; });
+                            }
+                            // Empatar por identidad (`uid`, v23) y, en filas viejas, por
+                            // desc + día: con desc + día, MOVER una fila la duplicaba.
                             var idxByKey = {};
-                            lw.items.forEach(function(item, i) { idxByKey[item.desc + '|' + (item.testDay || '')] = i; });
+                            lw.items.forEach(function(item, i) { idxByKey[_fbPlanItemKey(item)] = i; });
                             (rw.items || []).forEach(function(item) {
-                                var ik = item.desc + '|' + (item.testDay || '');
+                                var ik = _fbPlanItemKey(item);
                                 if (idxByKey[ik] === undefined) { lw.items.push(item); idxByKey[ik] = lw.items.length - 1; return; }
-                                // Ya existe en ambos lados: gana el que registre la prueba HECHA.
-                                // Perder una palomita en un merge es justo lo que no puede pasar.
                                 var mine = lw.items[idxByKey[ik]];
-                                if (item.completed && !mine.completed) lw.items[idxByKey[ik]] = item;
+                                if (remoteNewer) {
+                                    var nuevo = Object.assign({}, item);
+                                    // Perder una palomita en un merge es justo lo que no puede pasar.
+                                    if (mine.completed && !nuevo.completed) {
+                                        nuevo.completed = true;
+                                        if (mine.completedDate && !nuevo.completedDate) nuevo.completedDate = mine.completedDate;
+                                    }
+                                    lw.items[idxByKey[ik]] = nuevo;
+                                } else if (item.completed && !mine.completed) {
+                                    lw.items[idxByKey[ik]] = item;
+                                }
                             });
+                            // La fusión NO es una edición de este equipo: re-sellar la huella
+                            // sin mover `updatedAt`, o el próximo tpSave la tomaría por una
+                            // edición local "más nueva" y la re-empujaría.
+                            if (typeof revContentHash === 'function') lw._rev = revContentHash(lw);
                         }
                     });
                 }
@@ -3020,7 +3245,7 @@ function fbMergeExecute(remoteData, analysis, choices) {
     }
 
     // Record in merge history
-    if (merged.length > 0) {
+    if (merged.length > 0 && !opts.noHistory) {
         var record = {
             id: 'merge_' + Date.now(),
             timestamp: new Date().toISOString(),
@@ -3041,10 +3266,11 @@ function fbMergeExecute(remoteData, analysis, choices) {
             try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify([record])); } catch(e2) {}
         }
 
-        showToast('Merge completado: ' + merged.join(' | '), 'success');
-
+    }
+    if (merged.length > 0) {
+        if (!opts.quiet) showToast('Merge completado: ' + merged.join(' | '), 'success');
         // Push merged data to Firebase
-        fbPushAll();
+        if (!opts.noPush) fbPushAll();
     }
 
     return merged;
