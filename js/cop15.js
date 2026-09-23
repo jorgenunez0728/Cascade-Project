@@ -1191,7 +1191,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
                 warning.style.background = 'rgba(239,68,68,0.1)';
                 warning.style.color = tokenColor('--danger-text');
                 warning.style.border = '1px solid rgba(239,68,68,0.3)';
-                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+                warning.textContent = '⚠️ VIN ya existe como vehículo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
             } else if (dupArchived) {
                 warning.style.display = 'block';
                 warning.style.background = 'rgba(245,158,11,0.1)';
@@ -1219,7 +1219,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const isExternal = document.getElementById('modeToggle').checked;
         
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            showToast('VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)', 'error');
+            showToast('El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Revisa si falta o sobra uno.', 'error');
             return false;
         }
 
@@ -2743,7 +2743,7 @@ function checkAutoAdvance(vehicle) {
     missingCount = testFields.length - filledTest;
 
     if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
-      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      suggestion = 'Verificación de prueba completa. ¿Avanzar a "Listo para Liberación"?';
       nextStatus = 'ready-release';
     }
   }
@@ -2785,7 +2785,7 @@ function applyAutoAdvance(nextStatus) {
   if (nextStatus === 'ready-release') {
     var missing = validateReadyForRelease();
     if (missing.length > 0) {
-      showToast('Faltan campos para liberacion', 'warning');
+      showToast('Faltan campos para liberación', 'warning');
       showMissingPopup(missing);
       return;
     }
@@ -3102,7 +3102,7 @@ var _libMismatchAlarmKey = null;
 function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallback) {
     var el = document.getElementById(containerId);
     if (!el) return;
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    var html = '<table class="u-cards u-cards-grid" style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
     html += '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Gas</th>';
     html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Unidad</th>';
@@ -3124,7 +3124,7 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
              +  (converted ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '')
              +  '</td>';
         html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
-        html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" inputmode="decimal" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
         html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" id="lib-gas-status-' + g.field + '">—</td>';
         html += '</tr>';
     });
@@ -3898,7 +3898,7 @@ function returnToReleaser() {
                 : '') +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Motivo (mínimo 5 caracteres) *</label>' +
             '<textarea id="return-reason" class="form-control" rows="3" style="width:100%;box-sizing:border-box;font-size:13px;" ' +
-            'placeholder="Ej: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
+            'placeholder="Ej.: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
             // El doble ciego solo sirve si el liberador vuelve a leer del reporte,
             // no si el aprobador le dicta el número correcto.
             '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
@@ -4219,7 +4219,7 @@ function closeSubstitutionModal() {
         var purposeSet = {};
         (db.vehicles || []).forEach(function(v) { if (v.purpose) purposeSet[v.purpose] = true; });
         var purposeOpts = '<option value="">Todos</option>' + Object.keys(purposeSet).sort().map(function(pp) {
-            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(pp) + '</option>';
+            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(uiLabel('purpose', pp)) + '</option>';
         }).join('');
 
         var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -4246,7 +4246,7 @@ function closeSubstitutionModal() {
         bar.innerHTML = '<div class="hist-filter-bar">' +
             '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
             '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
-            '<div><label>Propósito</label><select onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
+            '<div><label>Propósito</label><select data-chips onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
@@ -5183,7 +5183,7 @@ function histOpenCompleteModal(vehicleId) {
       missingGases.forEach(function(g) {
         html += '<tr class="hist-field-missing"><td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(g.label) +
                 ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
-        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
         html += '<td style="padding: var(--space-xs) var(--space-sm);width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
       });
       html += '</table></details>';
@@ -6256,7 +6256,7 @@ function handleConfigCSVImport(event) {
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
             var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
-            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
+            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehículos ya registrados no se afectan.</span>';
         } catch(err) {
             // [Fase 5.4] Rollback on failure
             if (typeof undoPop === 'function') undoPop();
@@ -7096,7 +7096,7 @@ function soakTimerTick() {
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('KIA EmLab - Soak Completado', {
-                body: 'El tiempo de reposo ha terminado. El vehiculo esta listo para prueba.',
+                body: 'El tiempo de reposo ha terminado. El vehículo está listo para prueba.',
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">✅</text></svg>'
             });
         }
@@ -7239,7 +7239,7 @@ function renderKanban() {
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
-    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehículos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
@@ -7251,15 +7251,15 @@ function renderKanban() {
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;align-items:center;">';
     html += '<input type="text" aria-label="Buscar VIN, modelo u operador" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding: var(--space-sm) var(--space-md);border:1px solid var(--border);border-radius: var(--radius-lg);font-size:13px;">';
-    html += '<select aria-label="Ordenar por" onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
-    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
-    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
+    html += '<select aria-label="Ordenar por" data-chips onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
+    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Más reciente</option>';
+    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Más antiguo</option>';
     html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
     html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
     html += '</select>';
     if (opList.length > 0) {
-        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
-        html += '<option value="">Todos ops</option>';
+        html += '<select aria-label="Operador" data-chips onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
+        html += '<option value="">Todos</option>';
         opList.forEach(function(op) {
             html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
         });
@@ -7286,7 +7286,7 @@ function renderKanban() {
         html += '</div>';
 
         if (colVehicles.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehiculos</div>';
+            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehículos</div>';
         } else {
             colVehicles.forEach(function(v) {
                 var td = v.testData || {};
@@ -7393,7 +7393,7 @@ function renderPrecondBatchView() {
     });
 
     if (vehicles.length === 0) {
-        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        showToast('No hay vehículos en preacondicionamiento', 'info');
         return;
     }
 
@@ -7481,7 +7481,7 @@ function renderPrecondBatchView() {
         if (precondOk) {
             html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
         } else {
-            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehículo">Editar</button>';
         }
         html += '</td></tr>';
     });
@@ -7563,7 +7563,7 @@ function batchScheduleTests() {
     if (advancedCount > 0) {
         saveDB();
         renderPrecondBatchView();
-        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+        showToast(advancedCount + ' vehículos pasaron a prueba', 'success');
     } else {
         showToast('Ninguno de los vehículos seleccionados tiene el preacondicionamiento completo.', 'warning');
     }
@@ -8324,10 +8324,10 @@ function v7ShowSoakCompleteModal() {
     modal.innerHTML =
         '<div class="v7-soak-modal-icon">⏱️</div>' +
         '<div class="v7-soak-modal-title">Soak Completado!</div>' +
-        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' esta listo para prueba.</div>' +
+        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' está listo para prueba.</div>' +
         '<div class="v7-soak-modal-actions">' +
         '<button class="btn btn-primary" onclick="v7GoToTestForm()">Ir a Formulario de Prueba</button>' +
-        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Despues</button>' +
+        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Después</button>' +
         '</div>';
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
@@ -8510,25 +8510,36 @@ function v7TrackConfigUsage(configCode, config) {
         if (!ranking[configCode]) ranking[configCode] = { count: 0, config: config, label: configCode };
         ranking[configCode].count++;
         ranking[configCode].config = config;
+        ranking[configCode].lastUsed = Date.now();
         localStorage.setItem('kia_config_ranking', JSON.stringify(ranking));
     } catch(e) {}
 }
 
+/**
+ * [v24] UNA sola fila "Recientes" (máx. 4) en lugar de "Configuraciones frecuentes" +
+ * "Favoritos": los favoritos nunca se guardaban (nadie escribía kia_config_favorites) y
+ * salían del mismo ranking, así que la misma config aparecía dos veces. Se ordena por uso
+ * reciente y luego por frecuencia, y se lee como Modelo · Año · Motor · Región en vez del
+ * código cortado a 35 caracteres.
+ */
 function v7RenderSmartConfigs() {
     var container = document.getElementById('v7-smart-configs');
     if (!container) return;
     try {
         var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
         var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-            .sort(function(a, b) { return b.count - a.count; });
+            .filter(function(it) { return it && it.label && allConfigurations.some(function(c) { return c.codigo_config_text === it.label; }); })
+            .sort(function(a, b) { return ((b.lastUsed || 0) - (a.lastUsed || 0)) || (b.count - a.count); });
         if (sorted.length === 0) { container.style.display = 'none'; return; }
         container.style.display = 'block';
-        var html = '<div class="v7-smart-configs-title">Configuraciones frecuentes:</div><div class="v7-smart-configs-list">';
-        sorted.slice(0, 5).forEach(function(item) {
-            var label = item.label;
-            if (label.length > 35) label = label.substring(0, 35) + '...';
-            html += '<button type="button" class="v7-config-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
-                label + ' <span class="v7-config-count">(' + item.count + ')</span></button>';
+        var html = '<div class="v7-smart-configs-title">Recientes</div><div class="v7-smart-configs-list">';
+        sorted.slice(0, 4).forEach(function(item) {
+            var c = allConfigurations.find(function(x) { return x.codigo_config_text === item.label; }) || item.config || {};
+            var partes = [c['Modelo'], c['MODEL YEAR (VIN)'], c['ENGINE CAPACITY'], (typeof uiLabel === 'function' ? uiLabel('region', c['REGION']) : c['REGION'])]
+                .filter(function(x) { return x != null && String(x).trim() !== ''; });
+            var legible = partes.length ? partes.join(' · ') : item.label;
+            html += '<button type="button" class="v7-config-chip" title="' + _escapeHtml(item.label) + '" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
+                _escapeHtml(legible) + ' <span class="v7-config-count">×' + item.count + '</span></button>';
         });
         html += '</div>';
         container.innerHTML = html;
@@ -8540,53 +8551,12 @@ function _escapeHtml(str) {
 }
 
 function v7ApplySmartConfig(configCode) {
-    // Find matching configuration and auto-fill cascade
     var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
     if (!match) { showToast('Esa configuración ya no está en el catálogo.', 'warning'); return; }
-    // Reset and apply all filters
-    currentFilters = {};
-    Object.keys(fieldMapping).forEach(function(csvField) {
-        if (match[csvField]) {
-            currentFilters[csvField] = match[csvField];
-            var sel = document.getElementById(fieldMapping[csvField]);
-            if (sel) { sel.value = match[csvField]; sel.classList.add('selected'); }
-        }
-    });
-    var filtered = allConfigurations.filter(function(c) {
-        for (var f in currentFilters) { if (c[f] !== currentFilters[f]) return false; }
-        return true;
-    });
-    updateSelectOptions(filtered);
-    document.getElementById('configCount').textContent = filtered.length;
-    displayConfigResult(filtered);
-    showToast('Configuración aplicada: ' + configCode, 'success');
-}
-
-function v7RenderFavorites() {
-    var container = document.getElementById('v7-favorites');
-    if (!container) return;
-    try {
-        var favs = JSON.parse(localStorage.getItem('kia_config_favorites') || '[]');
-        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
-        // Auto-detect favorites from ranking (top 3 with 3+ uses)
-        if (favs.length === 0) {
-            var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-                .filter(function(item) { return item.count >= 3; })
-                .sort(function(a, b) { return b.count - a.count; });
-            favs = sorted.slice(0, 3).map(function(item) { return item.label; });
-        }
-        if (favs.length === 0) { container.style.display = 'none'; return; }
-        container.style.display = 'block';
-        var html = '<div class="v7-favorites-title">Favoritos</div><div class="v7-favorites-list">';
-        favs.forEach(function(code) {
-            var count = ranking[code] ? ranking[code].count : 0;
-            var label = code.length > 40 ? code.substring(0, 40) + '...' : code;
-            html += '<button type="button" class="v7-fav-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(code) + '\')">' +
-                '⭐ ' + label + (count ? ' (' + count + ' usos)' : '') + '</button>';
-        });
-        html += '</div>';
-        container.innerHTML = html;
-    } catch(e) {}
+    // [v24] Delegar a LA forma de elegir una config. Antes esto llenaba `currentFilters` y
+    // los selects ocultos pero no `cascadeSelections` ni el árbol: la migaja y el árbol
+    // seguían en el estado viejo mientras el resultado mostraba la config nueva.
+    cascadePickConfig(match);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -8600,7 +8570,7 @@ function v7CheckVinDuplicate(vin) {
     var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
     if (active) {
         if (!hint) hint = _v7CreateVinHint();
-        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehiculo</button>';
+        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehículo</button>';
         hint.className = 'v7-vin-hint warning';
         return;
     }
@@ -8661,7 +8631,7 @@ function v7BatchRelease() {
         return;
     }
     var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
-    if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+    if (allReady.length === 0) { showToast('No hay vehículos listos', 'info'); return; }
 
     // Filter out emissions vehicles missing scanned-report photo (mandatory)
     var ready = [];
@@ -8684,7 +8654,7 @@ function v7BatchRelease() {
     if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
                                   RELEASE_MIN_FREE_BYTES * Math.min(ready.length, 4))) return;
 
-    if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
+    if (typeof undoPush === 'function') undoPush('cop15', 'Liberación por lote de ' + ready.length + ' vehículos');
 
     var count = 0;
     var errors = 0;
@@ -8698,7 +8668,7 @@ function v7BatchRelease() {
             vehicle.timeline.push({
                 timestamp: new Date().toISOString(),
                 user: 'Sistema',
-                action: 'Vehiculo Liberado (Batch Release)',
+                action: 'Vehículo liberado (liberación por lote)',
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
@@ -8786,7 +8756,6 @@ function v7BatchRelease() {
             if (tabName === 'alta') {
                 v7RenderQuickPicks();
                 v7RenderSmartConfigs();
-                v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();

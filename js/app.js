@@ -285,11 +285,20 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.5';
+var APP_VERSION = '24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.0', date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
+      notes: [
+          'Las pestañas de Plan, Consumibles y Datos se agrupan en 3–4 secciones; se ven solo las de la sección abierta y cada una recuerda la última que usaste.',
+          'Botones de un toque en ~25 listas (estado del cilindro, región, categoría, propósito…) y − / + en capacidades, ratios y horas.',
+          'Borrar pregunta qué se borra y ofrece «Deshacer» unos segundos. El «Deshacer» nunca había funcionado en ningún aviso de la app.',
+          'Reglas en tarjetas plegables; los pesos se reparten solos para sumar 100. CoP: primero la familia. Alta: una sola fila de «Recientes».',
+          'En teléfono, las tablas anchas se leen como tarjetas; la captura de lecturas deja el Guardar siempre abajo.',
+          'Textos: acentos, sin inglés ni MAYÚSCULAS, y errores que dicen qué hacer.'
+      ] },
     { v: '23.5', date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
       notes: [
           'Corregido (#131): la fecha/hora de recepción, el operador de recepción y las notas se guardaban pero nunca se cargaban — al reabrir salían vacíos y el siguiente guardado los borraba.',
@@ -1131,6 +1140,7 @@ function themeInit() {
 // ======================================================================
 var UI_PREFS_KEY = 'kia_ui_prefs';
 var UI_PREFS_DEFAULTS = {
+    tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
@@ -1884,18 +1894,11 @@ function showModal(opts) {
     }
 
     // [R3-M2] Focus trap — Tab/Shift+Tab cycle within modal
-    var focusableEls = box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    var firstFocusable = focusableEls[0];
-    var lastFocusable = focusableEls[focusableEls.length - 1];
-    overlay.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { close(); if(onCancel) onCancel(); return; }
-        if (e.key !== 'Tab') return;
-        if (e.shiftKey) {
-            if (document.activeElement === firstFocusable) { e.preventDefault(); lastFocusable.focus(); }
-        } else {
-            if (document.activeElement === lastFocusable) { e.preventDefault(); firstFocusable.focus(); }
-        }
-    });
+    // [v24] Los focusables se buscan en cada tecla (antes una sola vez al abrir: un campo
+    // que aparecía después quedaba fuera del ciclo).
+    _uiDialogKeys(overlay, box, function() { close(); if (onCancel) onCancel(); });
+    // [v24] Botones de un toque también dentro de los modales de formulario.
+    if (typeof uiEnhance === 'function') { try { uiEnhance(box); } catch (e) {} }
 
     if (customBtns) {
         box.querySelectorAll('[data-modal-btn]').forEach(function(el) {
@@ -1951,6 +1954,17 @@ function copyToClipboard(text, btnEl) {
 }
 
 // ── Toast Notification System ──
+// [v24] showToast(msg, type[, durMs][, undoFn])
+//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR según lo que hay que leer
+//    (mín. 8 s, ~70 ms por carácter): un error que se va en 4 s no se alcanza a leer y los
+//    de sync/importación son largos. No se dejan fijos: muchos "error" son validaciones
+//    ("El nombre es requerido") y obligar a cerrar cada una a mano sería peor.
+//    Un número explícito como 3er argumento manda — ~20 llamadores ya lo pasaban y se
+//    ignoraba. 0 explícito = fijo hasta cerrarlo.
+//  - Todos llevan ✕. Máximo UI_TOAST_MAX a la vez: el más viejo se va.
+//  - Los errores se anuncian con role="alert" (interrumpen al lector de pantalla).
+var UI_TOAST_MAX = 3;
+var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 8000 };
 function showToast(msg, type) {
     type = type || 'info';
     var container = document.getElementById('toast-container');
@@ -1963,56 +1977,103 @@ function showToast(msg, type) {
     }
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
-    toast.textContent = msg;
+    if (type === 'error') { toast.setAttribute('role', 'alert'); toast.setAttribute('aria-live', 'assertive'); }
+    var txt = document.createElement('span');
+    txt.className = 'toast-text';
+    txt.textContent = msg;
+    toast.appendChild(txt);
 
-    var hasUndo = arguments.length >= 4 && typeof arguments[3] === 'function';
-    if (hasUndo) {
+    var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
+    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] >= 0) ? arguments[2] : null;
+    if (undoFn) {
         var undoBtn = document.createElement('button');
-        undoBtn.textContent = ' Deshacer';
-        undoBtn.style.cssText = 'margin-left: var(--space-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid currentColor;border-radius: var(--radius-md);background:transparent;color:inherit;cursor:pointer;font-size: var(--fs-sm);font-weight:700;';
-        var undoFn = arguments[3];
-        undoBtn.onclick = function() { undoFn(); dismiss(); };
+        undoBtn.type = 'button';
+        undoBtn.className = 'toast-undo';
+        undoBtn.textContent = 'Deshacer';
+        undoBtn.onclick = function() { try { undoFn(); } finally { dismiss(); } };
         toast.appendChild(undoBtn);
     }
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Cerrar aviso');
+    closeBtn.textContent = '✕';
+    closeBtn.onclick = function() { dismiss(); };
+    toast.appendChild(closeBtn);
 
-    // Progress bar with CSS animation
-    var dur = hasUndo ? 8000 : 4000;
-    var durSec = (dur / 1000) + 's';
-    toast.style.setProperty('--toast-duration', durSec);
-
-    var progressBar = document.createElement('div');
-    progressBar.className = 'toast-progress';
-    toast.appendChild(progressBar);
+    var dur = explicitDur != null ? explicitDur
+            : undoFn ? 8000
+            : type === 'error' ? Math.max(UI_TOAST_DUR.error, String(msg || '').length * 70)
+            : (UI_TOAST_DUR[type] || 4000);
+    if (dur) {
+        toast.style.setProperty('--toast-duration', (dur / 1000) + 's');
+        var progressBar = document.createElement('div');
+        progressBar.className = 'toast-progress';
+        toast.appendChild(progressBar);
+    } else {
+        toast.classList.add('toast-sticky');
+    }
 
     container.appendChild(toast);
+    while (container.children.length > UI_TOAST_MAX) {
+        var old = container.firstChild;
+        if (old && old._dismiss) old._dismiss(); else if (old) container.removeChild(old);
+    }
 
-    // Timer with pause on hover/touch
-    var remaining = dur;
-    var startTime = Date.now();
-    var timer = setTimeout(dismiss, dur);
-
+    var remaining = dur, startTime = Date.now();
+    var timer = dur ? setTimeout(dismiss, dur) : null;
     function pause() {
+        if (!dur) return;
         clearTimeout(timer);
         remaining -= (Date.now() - startTime);
         if (remaining < 0) remaining = 0;
         toast.classList.add('toast-paused');
     }
-
     function resume() {
+        if (!dur) return;
         toast.classList.remove('toast-paused');
         startTime = Date.now();
         timer = setTimeout(dismiss, remaining);
     }
-
     function dismiss() {
         clearTimeout(timer);
         if (toast.parentNode) toast.parentNode.removeChild(toast);
     }
-
+    toast._dismiss = dismiss;
     toast.addEventListener('mouseenter', pause);
     toast.addEventListener('mouseleave', resume);
     toast.addEventListener('touchstart', pause, { passive: true });
     toast.addEventListener('touchend', resume);
+    return toast;
+}
+
+/**
+ * [v24] LA forma de ofrecer "Deshacer" tras una acción. `restoreFn` devuelve el estado
+ * anterior (normalmente un snapshot tomado ANTES de mutar, o `undoPop(módulo)`).
+ */
+function toastUndo(msg, restoreFn) {
+    return showToast(msg, 'info', 8000, function() {
+        restoreFn();
+        showToast('Deshecho.', 'success', 2500);
+    });
+}
+
+/**
+ * [v24] Teclado de un diálogo: Escape cierra y Tab da vueltas DENTRO. Los focusables se
+ * buscan en cada tecla (no una sola vez al abrir): un campo que aparece después —un
+ * "Otro…" que despliega texto libre— también entra al ciclo.
+ */
+function _uiDialogKeys(overlay, box, onEscape) {
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { e.stopPropagation(); onEscape(); return; }
+        if (e.key !== 'Tab') return;
+        var f = [].filter.call(box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+            function(el) { return !el.disabled && el.offsetParent !== null; });
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
 }
 
 // ── Custom Confirm Dialog (replaces native confirm()) ──
@@ -2027,13 +2088,15 @@ function showConfirmDialog(opts) {
     return new Promise(function(resolve) {
         var overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
+        // [v24] Escape, trampa de foco y foco de regreso — como showModal. 32 llamadores.
+        var _prevFocus = document.activeElement;
 
         var typeColor = type === 'danger' ? 'modal-type-danger' : type === 'warning' ? 'modal-type-warning' : 'modal-type-info';
 
         overlay.innerHTML =
-            '<div class="custom-modal-box modal-light" role="dialog" aria-modal="true">' +
-                '<div class="custom-modal-title">' + title + '</div>' +
-                '<div class="custom-modal-message">' + message.replace(/\n/g, '<br>') + '</div>' +
+            '<div class="custom-modal-box modal-light" role="alertdialog" aria-modal="true" aria-labelledby="_cfm_title" aria-describedby="_cfm_msg">' +
+                '<div class="custom-modal-title" id="_cfm_title">' + title + '</div>' +
+                '<div class="custom-modal-message" id="_cfm_msg">' + message.replace(/\n/g, '<br>') + '</div>' +
                 '<div class="custom-modal-actions">' +
                     '<button class="modal-btn modal-btn-cancel" data-action="cancel">' + cancelText + '</button>' +
                     '<button class="modal-btn modal-btn-confirm ' + typeColor + '" data-action="confirm">' + confirmText + '</button>' +
@@ -2046,6 +2109,7 @@ function showConfirmDialog(opts) {
                 overlay.style.transition = 'opacity 0.15s var(--ease-out)';
                 setTimeout(function() {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch (e) {}
                 }, 150);
             }
             resolve(result);
@@ -2057,8 +2121,49 @@ function showConfirmDialog(opts) {
         overlay.querySelector('[data-action="cancel"]').addEventListener('click', function() { close(false); });
         overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
 
+        _uiDialogKeys(overlay, overlay.firstChild, function() { close(false); });
         document.body.appendChild(overlay);
         overlay.querySelector('[data-action="cancel"]').focus();
+    });
+}
+
+/**
+ * [v24] Reemplazo de prompt(): no bloquea, admite varias líneas, se ve igual que el resto
+ * de la app. Devuelve Promise<string|null> (null = cancelado).
+ * opts: {title, label, value, placeholder, multiline, confirmText, required}
+ */
+function uiPrompt(opts) {
+    opts = opts || {};
+    return new Promise(function(resolve) {
+        var done = false;
+        var field = opts.multiline
+            ? '<textarea id="_ui_prompt" class="form-control" rows="4" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '">' + escapeHtml(opts.value || '') + '</textarea>'
+            : '<input id="_ui_prompt" class="form-control" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '" value="' + escapeHtml(opts.value || '') + '">';
+        var finish = function(v) {
+            if (done) return;
+            done = true;
+            var m = document.getElementById('globalModal');
+            if (m) m.style.display = 'none';
+            resolve(v);
+        };
+        var accept = function() {
+            var el = document.getElementById('_ui_prompt');
+            var v = el ? el.value.trim() : '';
+            if (opts.required && !v) { showToast('Escribe ' + (opts.label || 'un valor').toLowerCase() + ' para continuar.', 'warning'); if (el) el.focus(); return; }
+            finish(v);
+        };
+        showModal({
+            title: opts.title || '',
+            type: 'info',
+            body: (opts.label ? '<label for="_ui_prompt" style="display:block;font-weight:600;margin-bottom: var(--space-xs);">' + escapeHtml(opts.label) + '</label>' : '') + field,
+            buttons: [
+                { label: 'Cancelar', cls: '', onclick: function() { finish(null); } },
+                { label: opts.confirmText || 'Aceptar', cls: 'btn-primary', onclick: accept }
+            ],
+            onCancel: function() { finish(null); }
+        });
+        var el = document.getElementById('_ui_prompt');
+        if (el && !opts.multiline) el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); accept(); } });
     });
 }
 
@@ -2107,7 +2212,7 @@ function chartConfigSet(chartId, key, val) {
 function chartConfigReset(chartId) {
     delete _chartConfigs[chartId];
     chartConfigSave();
-    showToast('Configuracion del grafico restaurada', 'success');
+    showToast('Configuración del grafico restaurada', 'success');
 }
 
 function chartConfigApply(chartId, instanceVar) {
@@ -2306,6 +2411,8 @@ function undoPush(module, actionLabel) {
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
 
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
+        // [v24] Datos/Proyectos también se pueden deshacer.
+        if (module === 'panel' || module === 'all') snapshot.panel = typeof pnState !== 'undefined' ? JSON.stringify(pnState) : null;
     } catch(e) { console.error('Undo snapshot failed:', e); return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
     if (_undoStack.length > UNDO_MAX) _undoStack.shift();
@@ -2313,19 +2420,43 @@ function undoPush(module, actionLabel) {
 
 function undoPop() {
     if (_undoStack.length === 0) { showToast('No hay acciones para deshacer', 'info'); return; }
-    var entry = _undoStack.pop();
+    _undoRestore(_undoStack.pop());
+}
+
+/**
+ * [v24] LA forma de hacer una acción deshacible desde la pantalla: toma la foto del
+ * módulo, ejecuta `fn` y ofrece "Deshacer" en un toast. El botón restaura ESA foto —
+ * no la última de la pila, que podría ser de otra acción hecha mientras tanto.
+ * module: 'cop15' | 'testplan' | 'inventory' | 'panel'. Devuelve lo que devuelva fn.
+ */
+function undoableAction(module, label, fn) {
+    undoPush(module, label);
+    var entry = _undoStack[_undoStack.length - 1];
+    var r = fn();
+    if (r === false) { var k = _undoStack.indexOf(entry); if (k >= 0) _undoStack.splice(k, 1); return r; }
+    toastUndo(label, function() {
+        var i = _undoStack.indexOf(entry);
+        if (i >= 0) _undoStack.splice(i, 1);
+        _undoRestore(entry, true);
+    });
+    return r;
+}
+
+function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
-    } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
+        if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }
+    } catch(e) { console.error('Undo restore failed:', e); showToast('No se pudo deshacer. Recarga la página y revisa el dato.', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
 
     if (entry.data.inventory && typeof invRender === 'function') invRender();
-    showToast('Deshecho: ' + entry.label, 'success');
+    if (entry.data.panel && typeof pnRender === 'function') pnRender();
+    if (!quiet) showToast('Deshecho: ' + entry.label, 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -3662,7 +3793,7 @@ function dashTaskModalOpen() {
                 '<select id="dash-task-project" onchange="dashTaskProjectChanged()">' +
                 '<option value="">— ninguno (tarea suelta) —</option>' + projOpts + '</select></label>';
     }
-    html += '<label class="dash-task-field" id="dash-task-cat-wrap">Categoría<select id="dash-task-cat">' +
+    html += '<label class="dash-task-field" id="dash-task-cat-wrap">Categoría<select id="dash-task-cat" data-chips>' +
             DASH_CAT_ORDER.map(function(c) { return '<option value="' + c + '"' + (c === 'manuales' ? ' selected' : '') + '>' + DASH_CATS[c].label + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
@@ -4091,7 +4222,7 @@ var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }
 // ── Weekly Status PDF Report ──
 function generateWeeklyStatusPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
     if (!(opts && opts.silent)) showOverlayLoading('Generando PDF semanal...');
@@ -4773,6 +4904,10 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
         try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
+        // [v24] Y todo lo que se pinte después (renders, repintados parciales, modales).
+        try { uiEnhanceObserve(); } catch(obsErr) { console.error('uiEnhanceObserve error:', obsErr); }
+        // [v24] Pestañas por grupos en Plan, Consumibles y Datos.
+        ['tp', 'inv', 'pn'].forEach(function(m) { try { uiTabGroupsInit(m); } catch (tgErr) { console.error('uiTabGroupsInit ' + m + ':', tgErr); } });
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
@@ -4802,9 +4937,13 @@ var _notifMaxItems = 50;
 // Wrap showToast to also log notifications
 (function() {
     var _origShowToast = showToast;
+    // [v24] Pasar TODOS los argumentos: este envoltorio solo reenviaba (msg, type), así
+    // que la duración (3er arg) y el "Deshacer" (4º) se perdían en toda la app — el único
+    // Deshacer que funcionaba era el de un llamador que quedó antes de este envoltorio.
     showToast = function(msg, type) {
-        _origShowToast(msg, type);
+        var t = _origShowToast.apply(this, arguments);
         addNotification(msg, type);
+        return t;
     };
 })();
 
@@ -4891,7 +5030,7 @@ document.addEventListener('click', function(e) {
 var _commandPaletteCommands = [
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Deshacer Última Acción', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
     { label: 'Armar la semana', icon: '🎛️', action: function(){ if(typeof tpOpenArmar==='function') tpOpenArmar(); else switchPlatform('testplan'); }, cat: 'Acciones' }
@@ -5153,6 +5292,243 @@ var UI_CHIPS_MAX_OPTS = 16;
 var _UI_SELECT_VALUE = (typeof HTMLSelectElement !== 'undefined')
     ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value') : null;
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24] PRIMITIVAS DE INTERACCIÓN COMPARTIDAS
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * LA forma de dar botones de un toque (`data-chips`) y controles numéricos (`data-num`)
+ * a lo que se acaba de pintar. Idempotente. Antes solo corría al arrancar y en cop15:
+ * `data-chips` en Plan, Consumibles, Datos o CoP no hacía NADA porque su HTML se arma
+ * después, en cada render. Todo render que pinte campos debe terminar llamándola.
+ */
+function uiEnhance(root) {
+    root = root || document;
+    try { uiChipsEnhance(root); } catch (e) { console.warn('uiChipsEnhance:', e); }
+    try { uiNumEnhance(root); } catch (e) { console.warn('uiNumEnhance:', e); }
+    try { uiTableCards(root); } catch (e) { console.warn('uiTableCards:', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] PESTAÑAS POR GRUPOS (Ley de Hick)
+//
+// Datos tenía 16 destinos (4 a la vista + 12 bajo "⋯ Más"), Consumibles 12 y Plan 10.
+// Ahora cada barra muestra 3–4 GRUPOS y, debajo, solo las pestañas del grupo abierto.
+// Nada se borra ni cambia de id: los botones son los mismos (mismo onclick, mismo
+// id de pestaña), solo se ocultan los de los otros grupos. Por eso siguen funcionando
+// `xxSwitchTab`, los enlaces profundos (`dashGo`) y el lanzador (`uiNavRegistry` lee los
+// botones sin mirar si están visibles). Cada grupo recuerda su última pestaña.
+// ══════════════════════════════════════════════════════════════════════
+var UI_TAB_GROUPS = {
+    tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
+          groups: [
+            { id: 'semana', label: '📅 Semana', tabs: ['tp-myweek', 'tp-calendar', 'tp-weekhistory'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
+    inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
+          groups: [
+            { id: 'diario', label: '📏 Día a día', tabs: ['inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
+            { id: 'equipos', label: '🔧 Equipos', tabs: ['inv-equipment', 'inv-maint'] },
+            { id: 'analisis', label: '📈 Análisis', tabs: ['inv-predict', 'inv-charts', 'inv-report', 'inv-trace'] },
+            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-zonemap', 'inv-config'] } ] },
+    pn: { bar: 'pn-tabs-bar', sw: 'pnSwitchTab', state: function() { return typeof pnState !== 'undefined' && pnState.activeTab; },
+          groups: [
+            { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
+            { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+};
+// Etiquetas en español claro (solo botones sin insignias adentro).
+var UI_TAB_RELABEL = {
+    'tp-dashboard': '📊 Cobertura', 'tp-weekhistory': '📋 Semanas pasadas',
+    'inv-dashboard': '📊 Resumen', 'inv-maint': '🛠️ Mantenimiento', 'inv-charts': '📈 Gráficas', 'inv-config': '⚙️ Tipos y zonas',
+    'pn-dashboard': '📊 Resumen', 'pn-turnaround': '⏱ Tiempos', 'pn-bugs': '🐞 Fallas reportadas'
+};
+
+function _uiTabIdOf(btn) {
+    var m = /SwitchTab\('([^']+)'\)/.exec(btn.getAttribute('onclick') || '');
+    return m ? m[1] : null;
+}
+
+function uiTabGroupsInit(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || bar.getAttribute('data-grouped')) return;
+    var btns = [].slice.call(bar.querySelectorAll('.tp-tab')).filter(function(b) { return _uiTabIdOf(b); });
+    var byId = {};
+    btns.forEach(function(b) {
+        // Los del menú "⋯ Más" traían `this.closest('.tp-tab-more-wrap')…` en el onclick;
+        // sin el menú, closest() da null y el clic truena.
+        b.setAttribute('onclick', b.getAttribute('onclick').replace(/;?\s*this\.closest\('\.tp-tab-more-wrap'\)\.classList\.remove\('open'\)/, ''));
+        var id = _uiTabIdOf(b);
+        if (UI_TAB_RELABEL[id] && !b.children.length) b.textContent = UI_TAB_RELABEL[id];
+        byId[id] = b;
+    });
+    var more = bar.querySelector('.tp-tab-more-wrap'); if (more) more.remove();
+    var assigned = {};
+    cfg.groups.forEach(function(g) {
+        g.tabs.forEach(function(t) { if (byId[t]) { byId[t].setAttribute('data-tabgroup', g.id); bar.appendChild(byId[t]); assigned[t] = 1; } });
+    });
+    var last = cfg.groups[cfg.groups.length - 1];
+    btns.forEach(function(b) { var id = _uiTabIdOf(b); if (!assigned[id]) { b.setAttribute('data-tabgroup', last.id); bar.appendChild(b); } });
+
+    var row = document.createElement('div');
+    row.className = 'ui-tabgroups';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Secciones');
+    cfg.groups.forEach(function(g) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ui-tabgroup';
+        b.setAttribute('data-group', g.id);
+        b.textContent = g.label;
+        b.addEventListener('click', function() { uiTabGroupsGo(mod, g.id); });
+        row.appendChild(b);
+    });
+    bar.parentNode.insertBefore(row, bar);
+    bar.setAttribute('data-grouped', '1');
+
+    // Mantener el grupo al día sin importar quién cambie de pestaña (un clic, dashGo,
+    // un render que restaura la pestaña guardada).
+    var fn = window[cfg.sw];
+    if (typeof fn === 'function' && !fn._grouped) {
+        var wrapped = function() { var r = fn.apply(this, arguments); try { uiTabGroupsSync(mod); } catch (e) {} return r; };
+        wrapped._grouped = true;
+        window[cfg.sw] = wrapped;
+    }
+    uiTabGroupsSync(mod);
+}
+
+function _uiTabGroupOf(mod, tab) {
+    var cfg = UI_TAB_GROUPS[mod];
+    for (var i = 0; i < cfg.groups.length; i++) if (cfg.groups[i].tabs.indexOf(tab) !== -1) return cfg.groups[i];
+    return cfg.groups[cfg.groups.length - 1];
+}
+
+function uiTabGroupsSync(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || !bar.getAttribute('data-grouped')) return;
+    var tab = cfg.state() || cfg.groups[0].tabs[0];
+    var g = _uiTabGroupOf(mod, tab);
+    [].forEach.call(bar.querySelectorAll('.tp-tab[data-tabgroup]'), function(b) {
+        b.classList.toggle('ui-tg-hidden', b.getAttribute('data-tabgroup') !== g.id);
+    });
+    var row = bar.previousElementSibling;
+    if (row && row.classList.contains('ui-tabgroups')) {
+        [].forEach.call(row.children, function(b) {
+            var on = b.getAttribute('data-group') === g.id;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+    var mem = Object.assign({}, uiPref('tabGroups') || {});
+    mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
+    uiPref('tabGroups', mem);
+}
+
+function uiTabGroupsGo(mod, groupId) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var g = cfg.groups.filter(function(x) { return x.id === groupId; })[0]; if (!g) return;
+    var mem = (uiPref('tabGroups') || {})[mod] || {};
+    var tab = mem[groupId] && g.tabs.indexOf(mem[groupId]) !== -1 ? mem[groupId] : g.tabs[0];
+    if (typeof window[cfg.sw] === 'function') window[cfg.sw](tab);
+}
+
+/**
+ * [v24] Observa el DOM y mejora SOLO lo nuevo que aún no tiene controles. Es lo que hace
+ * que `data-chips`/`data-num`/`u-cards` funcionen en cualquier pantalla sin que cada
+ * render (y cada repintado parcial: el tablero, la vista previa, los modales) tenga que
+ * acordarse de llamar a uiEnhance. Filtra por `_chips`/`_num` para no re-procesar lo ya
+ * mejorado — si no, repintar las fichas dispararía otra mutación, y así sin fin.
+ */
+function uiEnhanceObserve() {
+    if (window._uiEnhanceMO || typeof MutationObserver === 'undefined' || !document.body) return;
+    var pending = false;
+    var run = function() {
+        pending = false;
+        document.querySelectorAll('select[data-chips]').forEach(function(sel) {
+            if (!sel._chips) { try { _uiChipsAttach(sel); } catch (e) { console.warn('chips:', e); } }
+        });
+        document.querySelectorAll('input[data-num]').forEach(function(inp) {
+            if (!inp._num) { try { _uiNumAttach(inp); } catch (e) { console.warn('num:', e); } }
+        });
+        try { uiTableCards(document); } catch (e) {}
+    };
+    window._uiEnhanceMO = new MutationObserver(function(muts) {
+        if (pending) return;
+        for (var i = 0; i < muts.length; i++) {
+            if (muts[i].addedNodes && muts[i].addedNodes.length) {
+                pending = true;
+                (window.requestAnimationFrame || setTimeout)(run);
+                return;
+            }
+        }
+    });
+    window._uiEnhanceMO.observe(document.body, { childList: true, subtree: true });
+}
+
+/**
+ * LA forma de mostrar un código guardado con palabras. El VALOR guardado no cambia (hay
+ * filtros sobre `status === 'In use'` en ~20 sitios, y `purpose` identifica evidencia):
+ * solo lo que se lee. Para lo del formulario de Cascade sigue `cascadeValueLabel`.
+ */
+var UI_LABELS = {
+    gasStatus: { 'In use': 'En uso', 'Stock': 'En almacén', 'Empty': 'Vacío', 'Spare': 'Reserva' },
+    purpose: {
+        'Correlacion': 'Correlación', 'Investigacion': 'Investigación',
+        'COP-Emisiones': 'CoP · Emisiones', 'EO-Emisiones': 'EO · Emisiones', 'ND-Emisiones': 'Nuevo desarrollo · Emisiones',
+        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II'
+    },
+    region: {
+        'EUROPE': 'Europa', 'EUROPA': 'Europa', 'MIDDLE EAST': 'Medio Oriente', 'USA': 'EE. UU.', 'MEXICO': 'México',
+        'CANADA': 'Canadá', 'BRAZIL': 'Brasil', 'RUSSIA': 'Rusia', 'AUSTRALIA': 'Australia', 'GENERAL': 'General',
+        'TODAS': 'Todas', '*': 'Todas'
+    }
+};
+function uiLabel(kind, code) {
+    if (code === null || code === undefined || code === '') return '';
+    var m = UI_LABELS[kind];
+    if (m && Object.prototype.hasOwnProperty.call(m, String(code))) return m[String(code)];
+    if (typeof cascadeValueLabel === 'function') return cascadeValueLabel(kind, code);
+    return String(code);
+}
+
+/**
+ * [v24] Tablas anchas → tarjetas en teléfono. Marca una tabla con class="u-cards" y esto
+ * copia el texto de cada <th> al `data-label` de su columna; el CSS (bajo 640 px) apila
+ * cada fila como tarjeta con la etiqueta encima de cada dato. Generaliza el patrón que ya
+ * funcionaba en Historial, sin tener que escribir data-label en cada plantilla.
+ * Una celda puede traer su propio data-label (se respeta) o data-label="" (sin etiqueta).
+ */
+function uiTableCards(root) {
+    if (!root || !root.querySelectorAll) return;
+    var tables = root.matches && root.matches('table.u-cards') ? [root] : [];
+    tables = tables.concat([].slice.call(root.querySelectorAll('table.u-cards')));
+    tables.forEach(function(t) {
+        var head = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1]
+                 : (t.rows[0] && t.rows[0].querySelector('th') ? t.rows[0] : null);
+        if (!head) return;
+        var labels = [], col = 0;
+        [].forEach.call(head.cells, function(th) {
+            var span = th.colSpan || 1;
+            // Un encabezado con varias piezas ("CO" + "L=1.0 g/km") se lee separado por " · ".
+            var parts = [].map.call(th.childNodes, function(n) { return (n.textContent || '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+            var lbl = parts.join(' · ');
+            for (var k = 0; k < span; k++) labels[col++] = lbl;
+        });
+        [].forEach.call(t.tBodies, function(tb) {
+            [].forEach.call(tb.rows, function(tr) {
+                if (tr === head) return;
+                var c = 0;
+                [].forEach.call(tr.cells, function(td) {
+                    if (!td.hasAttribute('data-label') && labels[c]) td.setAttribute('data-label', labels[c]);
+                    c += td.colSpan || 1;
+                });
+            });
+        });
+    });
+}
+
 function uiChipsEnhance(root) {
     if (!_UI_SELECT_VALUE || !root || !root.querySelectorAll) return;
     root.querySelectorAll('select[data-chips]').forEach(_uiChipsAttach);
@@ -5190,7 +5566,7 @@ function _uiChipsAttach(sel) {
             _uiChipsRender(this);
         }
     });
-    try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'selected'] }); } catch (e) {}
     sel.addEventListener('change', function() { _uiChipsRender(sel); });
     // El <select> está oculto: enfocarlo desde código (p. ej. "ir al campo") manda el foco
     // al botón elegido, o al primero.
@@ -5597,9 +5973,10 @@ document.addEventListener('keydown', function(e) {
         var nc = document.getElementById('notification-center');
         if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
     }
-    // Ctrl+1-4: Switch platform (4 root tabs)
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
-        var platforms = ['plan', 'pruebas', 'datos', 'today'];
+    // Ctrl+1-5: las 5 plataformas EN EL ORDEN EN QUE SE VEN (v24: antes era
+    // plan/pruebas/datos/hoy — otro orden que el de la barra — y CoP no tenía atajo).
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+        var platforms = ['today', 'plan', 'pruebas', 'datos', 'cop'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
     }
     // Ctrl+Z: Undo
@@ -5649,7 +6026,7 @@ function renderLabDashboard(container) {
     }
     if (active.length > 10) {
         alerts.push({ level: 'ALTO', color: tokenColor('--warn-fill'), module: 'COP15',
-            message: active.length + ' vehiculos activos — considerar agilizar liberaciones',
+            message: active.length + ' vehículos activos — considerar agilizar liberaciones',
             action: 'cop15' });
     }
 

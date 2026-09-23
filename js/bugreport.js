@@ -211,7 +211,7 @@ function bugModalOpen(dataUrl) {
             '<div class="form-group">' +
                 '<label for="bug-comment">¿Qué pasó? <span style="font-weight:400;color:var(--tp-dim);">(entre más detalle, más rápido se arregla)</span></label>' +
                 '<textarea id="bug-comment" class="form-control" rows="4" ' +
-                    'placeholder="Ej: piqué &quot;Liberar&quot; y no guardó nada / la pantalla se quedó en blanco / el número de CO2 sale mal…"></textarea>' +
+                    'placeholder="Ej.: piqué &quot;Liberar&quot; y no guardó nada / la pantalla se quedó en blanco / el número de CO2 sale mal…"></textarea>' +
             '</div>' +
         '</div>' +
         // Fuera del área con scroll: lo que se adjunta debe verse SIEMPRE antes de enviar.

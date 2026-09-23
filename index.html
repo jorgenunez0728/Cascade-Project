@@ -70,7 +70,7 @@
         <span id="pn-alerts-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" class="pt-badge">ok</span>
     </button>
     <button type="button" class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" role="tab" aria-selected="false" tabindex="-1" aria-controls="platform-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
-        📋 CoP
+        📐 CoP
     </button>
     <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
          La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
@@ -116,7 +116,7 @@
      campo real vive dentro del overlay, y duplicarlo obligaría a sincronizar dos
      estados de texto para nada. ══════════════════════════════════════════════ -->
 <div class="ui-bar" id="uiActionBar" role="toolbar" aria-label="Acciones rápidas">
-    <button type="button" class="ui-bar-btn" onclick="openCommandPalette('launcher')"
+    <button type="button" class="ui-bar-btn ui-bar-btn--go" onclick="openCommandPalette('launcher')"
             title="Ir a cualquier pantalla (Ctrl+K)" aria-label="Ir a cualquier pantalla">
         <span class="ui-bar-ico" aria-hidden="true">🧭</span><span class="ui-bar-label">Ir a…</span>
     </button>
@@ -217,7 +217,6 @@
             <!-- [V7-E2] Smart Config Suggestion -->
             <div id="v7-smart-configs" style="display:none;"></div>
             <!-- [V7-E3] Favorites -->
-            <div id="v7-favorites" style="display:none;"></div>
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
@@ -323,15 +322,15 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Modelo Manual</label>
-                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025" autocomplete="off">
+                        <input type="text" id="man_model" placeholder="Ej.: Sportage 2025" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Motor Manual</label>
-                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
+                        <input type="text" id="man_engine" placeholder="Ej.: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_transmission">Transmisión Manual <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
-                        <input type="text" id="man_transmission" placeholder="Ej: 6DCT / 8AT / 6MT" autocomplete="off">
+                        <input type="text" id="man_transmission" placeholder="Ej.: 6DCT / 8AT / 6MT" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_regulation">Regulación Manual</label>
@@ -351,19 +350,20 @@
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <label for="vin">VIN</label>
                 <input
                     type="text"
                     id="vin"
                     autocomplete="off"
                     aria-required="true"
-                    placeholder="Ejemplo: KNDJP3A59K7123456"
+                    placeholder="Ej.: KNDJP3A59K7123456"
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
                     oninput="validateVIN(this)"
                     onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: var(--muted); text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
+                <small style="color: var(--muted); text-align: center; display: block;">Letras y números, sin I, O ni Q.</small>
             </div>
         </div>
 
@@ -375,7 +375,7 @@
 
   <div class="form-group">
     <label for="homo_mc">MC code / Work Order del ICMS</label>
-    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej: 8GS6K5G17"
+    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej.: 8GS6K5G17"
            oninput="if(typeof homoAltaSearchFromInput==='function')homoAltaSearchFromInput()">
     <div id="homo-alta-results" style="margin-top:4px;"></div>
     <div id="homo-alta-status" style="font-size: var(--fs-sm);margin-top:4px;"></div>
@@ -384,22 +384,22 @@
   <div class="form-grid">
     <div class="form-group">
       <label for="homo_f0">f0 (N)</label>
-      <input type="number" step="any" id="homo_f0" placeholder="102.5"
+      <input type="number" step="any" id="homo_f0" placeholder="102.5" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f1">f1 (N/(km/h))</label>
-      <input type="number" step="any" id="homo_f1" placeholder="0.147"
+      <input type="number" step="any" id="homo_f1" placeholder="0.147" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f2">f2 (N/(km/h)²)</label>
-      <input type="number" step="any" id="homo_f2" placeholder="0.03544"
+      <input type="number" step="any" id="homo_f2" placeholder="0.03544" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_tm">TM — masa de ensayo (kg)</label>
-      <input type="number" step="any" id="homo_tm" placeholder="1507"
+      <input type="number" step="any" id="homo_tm" placeholder="1507" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
@@ -409,7 +409,7 @@
     </div>
     <div class="form-group">
       <label for="homo_co2">CO₂ declarado combinado (g/km)</label>
-      <input type="number" step="any" id="homo_co2" placeholder="132"
+      <input type="number" step="any" id="homo_co2" placeholder="132" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
   </div>
@@ -490,7 +490,7 @@
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej.: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -525,18 +525,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej.: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej.: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -820,12 +820,12 @@
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej.: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
   <label>Flujo del ventilador (m³/min)</label>
-  <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
+  <input type="text" id="test_fan_flow" placeholder="Ej.: 120" disabled readonly>
 </div>
 
     <div class="form-group">
@@ -893,7 +893,7 @@
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -1107,8 +1107,8 @@
     <div class="modal-content">
         <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
         <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
-        <button class="btn-primary" onclick="saveNewVehicle()">CONFIRMAR REGISTRO</button>
-        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">CANCELAR</button>
+        <button class="btn-primary" onclick="saveNewVehicle()">Confirmar registro</button>
+        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">Cancelar</button>
     </div>
 </div>
 
@@ -1207,7 +1207,7 @@
             <div style="display:flex;align-items:center;gap:10px;">
                 <div>
                     <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Dashboard, operadores, bitácora, alertas y regulaciones</p>
+                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Resumen, operadores, bitácora, alertas y regulaciones</p>
                 </div>
             </div>
         </div>
@@ -1459,7 +1459,7 @@
                             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
                                 <div>
                                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol (permisos)</label>
-                                    <select class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
+                                    <select data-chips class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
                                             @change="setProfileRole(profileOp().id, $event.target.value)">
                                         <template x-for="r in roles" :key="r">
                                             <option :value="r" :selected="profileOp().role === r" x-text="r"></option>
@@ -1540,7 +1540,7 @@
                     </div>
                     <div style="min-width:120px;">
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>
-                        <select x-model="newOpRole" class="tp-select" style="width:100%;">
+                        <select data-chips x-model="newOpRole" class="tp-select" style="width:100%;">
                             <template x-for="role in roles" :key="role"><option :value="role" x-text="role"></option></template>
                         </select>
                     </div>
@@ -1633,7 +1633,7 @@
                     </div>
                     <div>
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Categoría</label>
-                        <select x-model="shiftCategory" class="tp-select" style="width:100%;">
+                        <select data-chips x-model="shiftCategory" class="tp-select" style="width:100%;">
                             <template x-for="cat in categories" :key="cat"><option :value="cat" x-text="cat"></option></template>
                         </select>
                     </div>
@@ -2119,7 +2119,7 @@
         <span>Datos</span>
     </button>
     <button type="button" class="bottom-nav-item" onclick="switchPlatform('cop')" id="bnav-cop">
-        <span class="bnav-icon" aria-hidden="true">📋</span>
+        <span class="bnav-icon" aria-hidden="true">📐</span>
         <span>CoP</span>
     </button>
 </nav>

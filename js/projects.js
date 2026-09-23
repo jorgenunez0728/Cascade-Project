@@ -231,12 +231,26 @@ function _pnRenderProjectDetail(el, p) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.blockedN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.blockedN + '</div><div class="tp-metric-label">Bloqueados</div></div>';
     html += '</div>';
 
+    // [v24] Dos vistas de trabajo a la vista (Tabla, Kanban) y las cuatro de análisis
+    // detrás de UNA opción: seis pestañas del mismo peso eran demasiadas decisiones en un
+    // teléfono. Dentro de Análisis se recuerda la última vista usada.
+    var _anal = [['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['timeline', '🕒 Línea de tiempo'], ['workload', '👥 Carga']];
+    var _isAnal = _anal.some(function(v) { return v[0] === view; });
+    if (_isAnal) window._pnProjLastAnal = view;
+    var _goAnal = window._pnProjLastAnal || 'gantt';
     html += '<div class="pn-proj-viewtabs">';
-    [['table', '📋 Tabla'], ['kanban', '📌 Kanban'], ['timeline', '🕒 Línea de tiempo'],
-     ['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['workload', '👥 Carga']].forEach(function(v) {
+    [['table', '📋 Tabla'], ['kanban', '📌 Kanban']].forEach(function(v) {
         html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
     });
+    html += '<button class="pn-proj-viewtab' + (_isAnal ? ' active' : '') + '" onclick="window._pnProjectView=\'' + _goAnal + '\';_pnProjNav();">📈 Análisis</button>';
     html += '</div>';
+    if (_isAnal) {
+        html += '<div class="pn-proj-viewtabs pn-proj-viewtabs--sub">';
+        _anal.forEach(function(v) {
+            html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
+        });
+        html += '</div>';
+    }
 
     // v22.5 — "Solo míos" (uiPref('onlyMine'), el MISMO de HOY, así que el filtro
     // viaja entre pantallas). Se ofrece solo en Tabla y Kanban: en las vistas
@@ -315,7 +329,7 @@ function pnProjStepsFor(p) {
 function _pnProjectTableHTML(p) {
     var steps = pnProjStepsFor(p);
     var today = localToday();
-    var html = '<div style="overflow-x:auto;"><table class="pn-proj-table"><thead><tr>' +
+    var html = '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
         '</tr></thead><tbody>';
     if (steps.length === 0) {
@@ -823,7 +837,7 @@ function _pnPortfolioHTML() {
     });
     html += '</div>';
 
-    html += '<div style="overflow-x:auto;"><table class="pn-proj-table pn-portfolio-table"><thead><tr>' +
+    html += '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table pn-portfolio-table"><thead><tr>' +
         '<th>Estado</th><th>Proyecto</th><th>Responsable</th><th>Avance</th><th>Vencidos</th><th>Bloqueados</th><th>Próximo hito</th></tr></thead><tbody>';
     rows.forEach(function(r) {
         var p = r.project;
@@ -945,7 +959,7 @@ function pnAddProject(editId) {
         '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
         '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Descripción</label><input id="pn-proj-desc" value="' + escapeHtml(p ? (p.desc || '') : '') + '" style="' + fieldStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" data-chips style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '</div></details>' +
         (isEdit ? '<button type="button" onclick="pnDeleteProjectPrompt(\'' + editId + '\')" style="align-self:flex-start;background:none;border:none;color:var(--danger-text);font-size: var(--fs-sm);cursor:pointer;padding:2px 0;">🗑️ Eliminar proyecto</button>' : '') +
         '</div>';
@@ -981,14 +995,17 @@ function pnDeleteProjectPrompt(id) {
     var p = (pnState.projects || []).find(function(x) { return x.id === id; });
     if (!p) return;
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el proyecto "' + p.name + '" y todos sus pasos/notas?', function() {
-        pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
-        if (window._pnSelectedProject === id) window._pnSelectedProject = null;
-        pnSave();
-        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
-        showToast('Proyecto eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar proyecto', type: 'danger', confirmText: 'Eliminar' });
+    var nPasos = (p.steps || []).length;
+    showConfirm('Se borran también sus ' + nPasos + ' paso(s) y sus notas. Podrás deshacerlo unos segundos.', function() {
+        // [v24] Deshacer: un proyecto entero con su bitácora se perdía de un toque.
+        undoableAction('panel', 'Se eliminó el proyecto «' + p.name + '»', function() {
+            pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
+            if (window._pnSelectedProject === id) window._pnSelectedProject = null;
+            pnSave();
+            if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el proyecto «' + escapeHtml(p.name) + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // Todo lo que depende de stepId, directa o indirectamente ({id: true}).
@@ -1027,11 +1044,14 @@ function pnAddProjectStep(projectId, stepId) {
     if (others.length) {
         var blocked = s ? _pnProjDescendants(p, s.id) : {};
         var cur = (s && s.dependsOn) || [];
+        // [v24] Casillas en lugar de <select multiple>: el "Ctrl+clic para varios" no existe
+        // en una tablet, que es donde se captura.
         var opts = others.filter(function(x) { return !blocked[x.id]; }).map(function(x) {
-            return '<option value="' + x.id + '"' + (cur.indexOf(x.id) !== -1 ? ' selected' : '') + '>' + escapeHtml(x.title.slice(0, 60)) + '</option>';
+            return '<label class="pn-dep-chip u-hit"><input type="checkbox" name="pn-step-dep" value="' + x.id + '"' +
+                   (cur.indexOf(x.id) !== -1 ? ' checked' : '') + '> ' + escapeHtml(x.title.slice(0, 60)) + '</label>';
         }).join('');
-        depsHTML = '<div><label style="' + lblStyle + '" data-help="pn-proj-depends">Depende de (Ctrl+clic para varios)</label>' +
-            '<select id="pn-step-deps" multiple size="' + Math.min(5, Math.max(2, others.length)) + '" style="' + fieldStyle + 'height:auto;">' + opts + '</select>' +
+        depsHTML = '<div><span style="' + lblStyle + '" data-help="pn-proj-depends">Depende de</span>' +
+            '<div id="pn-step-deps" class="pn-dep-list" role="group" aria-label="Depende de">' + opts + '</div>' +
             '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
     }
 
@@ -1039,7 +1059,7 @@ function pnAddProjectStep(projectId, stepId) {
         '<div><label style="' + lblStyle + '">Paso *</label><input id="pn-step-title" value="' + escapeHtml(s ? s.title : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-step-resp" value="' + escapeHtml(s ? (s.responsible || '') : defaultResp) + '" style="' + fieldStyle + '"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" data-chips style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Fecha objetivo</label><input type="date" id="pn-step-target" value="' + (s ? (s.targetDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
         '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
@@ -1074,7 +1094,7 @@ function pnAddProjectStep(projectId, stepId) {
             var startDate = (document.getElementById('pn-step-start') || {}).value || '';
             var isMilestone = !!(document.getElementById('pn-step-milestone') || {}).checked;
             var depsEl = document.getElementById('pn-step-deps');
-            var dependsOn = depsEl ? Array.prototype.slice.call(depsEl.selectedOptions).map(function(o) { return o.value; }) : (s ? (s.dependsOn || []) : []);
+            var dependsOn = depsEl ? [].map.call(depsEl.querySelectorAll('input[name="pn-step-dep"]:checked'), function(o) { return o.value; }) : (s ? (s.dependsOn || []) : []);
             var now = new Date().toISOString();
             if (status === 'completado' && !doneDate) doneDate = localToday();
             if (startDate && targetDate && startDate > targetDate) { showToast('La fecha de inicio no puede ser posterior a la objetivo', 'error'); return; }
@@ -1107,13 +1127,14 @@ function pnDeleteProjectStepPrompt(projectId, stepId) {
     if (!p) return;
     var s = (p.steps || []).find(function(x) { return x.id === stepId; });
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el paso "' + (s ? s.title : '') + '"?', function() {
-        p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
-        p.updatedAt = new Date().toISOString();
-        pnSave();
-        showToast('Paso eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar paso', type: 'danger', confirmText: 'Eliminar' });
+    showConfirm('Podrás deshacerlo unos segundos.', function() {
+        undoableAction('panel', 'Se eliminó el paso «' + (s ? s.title : '') + '»', function() {
+            p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
+            p.updatedAt = new Date().toISOString();
+            pnSave();
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el paso «' + escapeHtml(s ? s.title : '') + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // ── Notas libres (línea de tiempo) ──
@@ -1774,7 +1795,7 @@ function _pnProjImportStep2HTML() {
 
     // Vista previa de lo que se va a guardar (no del archivo crudo)
     h += '<div class="pn-import-maptitle">Vista previa — ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + ' detectado' + (steps.length === 1 ? '' : 's') + '</div>';
-    h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
+    h += '<div class="pn-import-preview"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
     if (!steps.length) {
         h += '<tr><td colspan="7" style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';

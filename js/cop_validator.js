@@ -757,9 +757,21 @@ function copAddManualRow() {
     copPersist(); copRender();
 }
 function copRemoveRow(id) {
-    _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
-    if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
-    copPersist(); copRender();
+    var fila = copState.vehicles.find(function(v) { return v.id === id; }); if (!fila) return;
+    var conDatos = fila.values && Object.keys(fila.values).some(function(k) { return fila.values[k] !== '' && fila.values[k] != null; });
+    var quitar = function() {
+        // [v24] Una fila con valores se iba de un toque y sin deshacer. `undoPush('cop')` es
+        // no-op (CLAUDE.md v19.0), así que la foto se toma aquí.
+        var antes = JSON.parse(JSON.stringify(copState.vehicles));
+        _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
+        if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
+        copPersist(); copRender();
+        toastUndo('Se quitó el VIN ' + (fila.vin || '(sin VIN)'), function() { _copSetVehicles(antes); copPersist(); copRender(); });
+    };
+    if (!conDatos) { quitar(); return; }  // una fila vacía no amerita pregunta
+    showConfirmDialog({ title: '¿Quitar el VIN ' + _copEsc(fila.vin || '(sin VIN)') + '?',
+        message: 'Se pierden los valores capturados en esa fila. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Quitar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) quitar(); });
 }
 function copSetVin(el) {
     var id = parseInt(el.dataset.vid);
@@ -1394,10 +1406,22 @@ function copHandleInput(el) {
 }
 
 function copClearData() {
-    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
-    copState._lastDecision = null;
-    copPersist();
-    copRender();
+    // [v24] Borraba TODOS los valores capturados de un toque, sin preguntar ni deshacer.
+    var conValor = copState.vehicles.filter(function(v) { return v.values && Object.keys(v.values).length; }).length;
+    if (!conValor) { showToast('No hay valores que limpiar.', 'info'); return; }
+    var hacer = function() {
+        var antes = JSON.parse(JSON.stringify(copState.vehicles));
+        _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
+        copState._lastDecision = null;
+        copPersist();
+        copRender();
+        toastUndo('Valores de ' + conValor + ' VIN(es) borrados', function() {
+            _copSetVehicles(antes); copPersist(); copRender();
+        });
+    };
+    showConfirmDialog({ title: '¿Limpiar los valores de ' + conValor + ' VIN(es)?', type: 'warning',
+        message: 'Se borran los gases capturados de esta familia; los VINes se quedan. Podrás deshacerlo unos segundos.',
+        confirmText: 'Limpiar' }).then(function(ok) { if (ok) hacer(); });
 }
 
 function copToggleTable() {
@@ -1687,11 +1711,11 @@ function copBuildOverviewHTML() {
     rows.forEach(function(r) { (r.regionsArr || []).forEach(function(x) { if (x) regions[x] = true; }); });
     html += '<div class="cop-toolbar">';
     html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
-    html += '<select aria-label="Filtrar por región" class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
+    html += '<select aria-label="Filtrar por región" data-chips class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
             'style="padding: var(--space-sm) var(--space-md);font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
     html += '<option value="">Todas</option>';
     Object.keys(regions).sort().forEach(function(r) {
-        html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(r) + '</option>';
+        html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>';
     });
     html += '</select></div>';
 
@@ -2141,61 +2165,20 @@ function copBuildValidatorHTML() {
             copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')' +
             (_famReg ? ' · Norma de emisiones <b>' + _copEsc(_famReg) + '</b>' : '') + '</p>';
 
-    html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xl);align-items:flex-start;">';
-
-    // Reglamento
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Reglamento</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);">';
-    ['R154', 'R83'].forEach(function(r) {
-        var active = copState.regulation === r;
-        html += '<button onclick="copSetRegulation(\'' + r + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + r + '</button>';
-    });
-    html += '</div></div>';
-
-    // Tipo de combustible
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Tipo de Combustible</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
-    ['PI', 'CI', 'Híbrido PI', 'Híbrido CI'].forEach(function(f) {
-        var active = copState.fuelType === f;
-        html += '<button onclick="copSetFuel(\'' + f + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + f + '</button>';
-    });
-    html += '</div></div>';
-
-    // Contaminantes activos
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Contaminantes Activos</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
-    limits.forEach(function(p) {
-        var active = !!copState.activePolls[p.id];
-        var label = p.label + (p.note ? ' <span style="font-size: var(--fs-xs);opacity:0.65;">(' + p.note + ')</span>' : '');
-        html += '<button onclick="copTogglePoll(\'' + p.id + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + label + '</button>';
-    });
-    html += '</div></div>';
-
-    html += '</div>'; // config row
-    html += '</div>'; // header card
 
     // ── Selección de familia (filtrable por región) ───────────────────────────
-    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<div class="card-title" data-help="cop-family-help" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
+    // [v24] La FAMILIA va primero: es la entrada principal. Antes había que pasar por
+    // reglamento, combustible y contaminantes (que salen de la familia) antes de elegirla.
+    html += '<p class="label-title" data-help="cop-family-help" style="margin-bottom: var(--space-sm);font-weight:700;color:var(--text);">👪 Familia a evaluar</p>';
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
-    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
-    html += '<select aria-label="Región" onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
-    html += '<option value="">Todas</option>';
-    _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(r) + '</option>'; });
-    html += '</select></div>';
+    if (_copRegs.length) html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
+    if (_copRegs.length) html += '<select aria-label="Región" data-chips onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    if (_copRegs.length) {
+        html += '<option value="">Todas</option>';
+        _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>'; });
+        html += '</select></div>';
+    }
     // v19.0: la lista sale del Panorama (unión de plan + vehículos ya probados). Antes
     // solo leía tpState.planData, así que una familia con ensayos pero sin plan
     // importado salía como "Familia (0)" aunque estuviera abierta y con datos en pantalla.
@@ -2212,13 +2195,62 @@ function copBuildValidatorHTML() {
     html += '</select></div>';
     html += '</div>';
     if (!_copFams.length) {
-        html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
+        html += '<p style="margin-top: var(--space-md);color:var(--warn-text);font-size: var(--fs-sm);font-weight:600;">No hay familias en el alcance CoP todavía. ' +
                 'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
                 '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
-    html += '</div>'; // family card
+    var _nPolls = Object.keys(copState.activePolls || {}).filter(function(k) { return copState.activePolls[k]; }).length;
+    var cfgHtml = '';
+    cfgHtml += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xl);align-items:flex-start;">';
+
+    // Reglamento
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Reglamento</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);">';
+    ['R154', 'R83'].forEach(function(r) {
+        var active = copState.regulation === r;
+        cfgHtml += '<button onclick="copSetRegulation(\'' + r + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + r + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    // Tipo de combustible
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Tipo de Combustible</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
+    ['PI', 'CI', 'Híbrido PI', 'Híbrido CI'].forEach(function(f) {
+        var active = copState.fuelType === f;
+        cfgHtml += '<button onclick="copSetFuel(\'' + f + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + f + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    // Contaminantes activos
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Contaminantes Activos</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
+    limits.forEach(function(p) {
+        var active = !!copState.activePolls[p.id];
+        var label = p.label + (p.note ? ' <span style="font-size: var(--fs-xs);opacity:0.65;">(' + p.note + ')</span>' : '');
+        cfgHtml += '<button onclick="copTogglePoll(\'' + p.id + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + label + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    cfgHtml += '</div>'; // config row
+    html += '<details class="cop-cfg-details" style="margin-top: var(--space-lg);">' +
+            '<summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--muted);padding: var(--space-xs) 0;">' +
+            '⚙️ Procedimiento <b>' + _copEsc(copState.regulation) + '</b> · Combustible <b>' + _copEsc(copState.fuelType) + '</b> · <b>' + _nPolls + '</b> contaminantes — <u>Cambiar</u></summary>' +
+            '<div style="padding-top: var(--space-md);">' + cfgHtml + '</div></details>';
+    html += '</div>'; // header card (familia + ajustes)
 
     // ── Tabla de datos de vehículos ───────────────────────────────────────────
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';
@@ -2249,7 +2281,7 @@ function copBuildValidatorHTML() {
         }
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
-        html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
+        html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
         html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
@@ -2271,7 +2303,7 @@ function copBuildValidatorHTML() {
             html += '</td>';
             activeLimits.forEach(function(p) {
                 html += '<td style="' + _copTd() + 'padding: var(--space-sm) var(--space-sm);">';
-                html += '<input type="number" step="any" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
+                html += '<input type="number" step="any" inputmode="decimal" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
                 html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
@@ -2926,8 +2958,8 @@ function _copBuildCo2HTML() {
 
     // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
     html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
-    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
-    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
+    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
+    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
     html += '<button class="tp-btn tp-btn-primary" onclick="copSetCo2Factors(document.getElementById(\'cop-co2-fcf\').value, document.getElementById(\'cop-co2-evc\').value)">Guardar</button>';
     if (!factors.set) html += '<span class="cop-co2-settings-hint">sin ajustar = 1 (sin corrección)</span>';
     html += '</div>';
@@ -2941,7 +2973,7 @@ function _copBuildCo2HTML() {
     }
 
     // Tabla por vehículo
-    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
         ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
@@ -3223,7 +3255,7 @@ function copFamilyPDF(familyKey) {
     if (row.limitsCheck && row.limitsCheck.mismatches && row.limitsCheck.mismatches.length) {
         doc.setTextColor(179, 38, 30); doc.setFontSize(7);
         doc.splitTextToSize('ATENCION: el limite aplicado no coincide con el perfil de la norma ' + (row.emissionReg || '') +
-            '. El veredicto de esta familia no es valido hasta corregirlo.', CW - 4)
+            '. El veredicto de esta familia no es válido hasta corregirlo.', CW - 4)
             .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.4; });
         doc.setTextColor(0); y += 2;
     }
@@ -3257,7 +3289,7 @@ function copFamilyPDF(familyKey) {
     });
     y += 2;
     doc.setFontSize(7); doc.setTextColor(110);
-    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehiculo', ML + 2, y);
+    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehículo', ML + 2, y);
     doc.setTextColor(0); y += 6;
 
     // ── 6. Evidencia: VINes ───────────────────────────────────────────────────

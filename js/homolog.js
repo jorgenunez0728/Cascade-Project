@@ -500,7 +500,8 @@ function pnRenderHomolog(el) {
         '<textarea id="homo-paste" class="form-control" rows="3" placeholder="Pega aquí incluyendo la fila de encabezados"></textarea>' +
         '<button class="tp-btn tp-btn-primary" style="margin-top: var(--space-sm);" onclick="homoImportPaste()">Importar lo pegado</button></div>';
     html += '</div>';
-    html += '<div id="homo-import-status" style="font-size: var(--fs-sm);margin-bottom: var(--space-md);"></div>';
+    html += '<div id="homo-import-status" role="status" style="font-size: var(--fs-sm);margin-bottom: var(--space-md);">' +
+        (window._homoLastImport ? '<span style="color:var(--ok-text,#166534);">' + escapeHtml(window._homoLastImport) + '</span>' : '') + '</div>';
 
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;font-size: var(--fs-sm);color:var(--tp-dim);">' +
         '<span><b style="color:var(--tp-text);font-size:18px;">' + cat.length + '</b> vehículos en catálogo</span>' +
@@ -533,7 +534,7 @@ function pnRenderHomolog(el) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">' +
             'Todavía no hay nada importado. Sube el archivo del ICMS arriba.</div>';
     } else {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr>' +
             ['MC code', 'Work Order', 'Variant/Version', 'f0', 'f1', 'f2', 'TM', 'CO₂ comb.', ''].map(function(h) {
                 return '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);border-bottom:1.5px solid var(--tp-border);white-space:nowrap;">' + h + '</th>';
@@ -565,13 +566,14 @@ function pnRenderHomolog(el) {
 
 
 function homoDeleteRow(id) {
-    showConfirm('¿Quitar este vehículo del catálogo? No afecta a los vehículos ya registrados.', function() {
+    showConfirm('No afecta a los vehículos ya registrados. Podrás deshacerlo unos segundos.', function() {
         homoInit();
+        var antes = JSON.parse(JSON.stringify(homoState.catalog));
         homoState.catalog = homoState.catalog.filter(function(r) { return r.id !== id; });
         homoSave();
         if (typeof pnRender === 'function') pnRender();
-        showToast('Fila eliminada.', 'success');
-    }, { type: 'danger' });
+        toastUndo('Fila del catálogo eliminada', function() { homoState.catalog = antes; homoSave(); if (typeof pnRender === 'function') pnRender(); });
+    }, { type: 'danger', title: '¿Quitar este vehículo del catálogo ICMS?', confirmText: 'Quitar' });
 }
 
 function _homoImportReport(res) {
@@ -581,9 +583,12 @@ function _homoImportReport(res) {
         st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(res.error) + '</span>';
         return;
     }
-    st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ ' + res.nuevas + ' nuevas, ' +
-        res.actualizadas + ' actualizadas' + (res.ignoradas ? ', ' + res.ignoradas + ' ignoradas (sin MC code)' : '') + '.</span>';
-    if (typeof pnRender === 'function') setTimeout(pnRender, 900);
+    // [v24] El resumen se guarda y lo vuelve a pintar el render: antes se escribía aquí y a
+    // los 0.9 s `pnRender()` repintaba el panel entero y lo borraba antes de poder leerlo.
+    window._homoLastImport = '✅ ' + res.nuevas + ' nuevas, ' + res.actualizadas + ' actualizadas' +
+        (res.ignoradas ? ', ' + res.ignoradas + ' ignoradas (sin MC code)' : '') + ' · ' +
+        new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    if (typeof pnRender === 'function') pnRender();
 }
 
 function homoImportPaste() {
@@ -603,11 +608,15 @@ function homoImportFile(ev) {
 
     var isCsv = /\.csv$/i.test(file.name);
     var reader = new FileReader();
+    // [v24] Estado de carga a la vista: un .xlsx grande tarda y antes no se veía nada.
+    var st = document.getElementById('homo-import-status');
+    if (st) st.innerHTML = '<span style="color:var(--muted);">⏳ Leyendo «' + escapeHtml(file.name) + '»…</span>';
+    var fallo = function(msg) { if (st) st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(msg) + '</span>'; showToast(msg, 'error'); };
 
     if (isCsv) {
         reader.onload = function() {
             var grid = (typeof _pnProjParseDelimited === 'function') ? _pnProjParseDelimited(reader.result) : null;
-            if (!grid) { showToast('No se pudo leer el CSV.', 'error'); return; }
+            if (!grid) { fallo('No se pudo leer el CSV. Revisa que tenga una fila de encabezados.'); return; }
             _homoImportReport(homoImportApply(grid));
         };
         reader.readAsText(file);
@@ -616,10 +625,9 @@ function homoImportFile(ev) {
 
     // .xlsx/.xls — SheetJS se carga diferido (mismo patrón que el importador de Proyectos)
     if (typeof _pnProjLoadXLSX !== 'function') { showToast('Importador no disponible.', 'error'); return; }
-    showToast('Cargando lector de Excel…', 'info');
     _pnProjLoadXLSX(function(ok) {
         if (!ok) {
-            showToast('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.', 'error');
+            fallo('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.');
             return;
         }
         reader.onload = function() {
@@ -630,7 +638,7 @@ function homoImportFile(ev) {
                 _homoImportReport(homoImportApply(grid));
             } catch (e) {
                 console.error('homoImportFile:', e);
-                showToast('No se pudo leer el archivo: ' + e.message, 'error');
+                fallo('No se pudo leer el archivo. Ábrelo en Excel, guárdalo de nuevo como .xlsx o .csv e inténtalo otra vez.');
             }
         };
         reader.readAsArrayBuffer(file);
@@ -1134,9 +1142,13 @@ function homoIpCancelPending() {
 function homoIpConfirmDelete(id) {
     var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
     if (!f) return;
-    var go = function() { homoIpDelete(id); _homoIpRepaint(); };
-    if (typeof showConfirm === 'function') showConfirm('¿Borrar la familia ' + f.code + '?', go);
-    else if (confirm('¿Borrar la familia ' + f.code + '?')) go();
+    var go = function() {
+        var antes = JSON.parse(JSON.stringify(homoState.ipFamilies || []));
+        homoIpDelete(id); _homoIpRepaint();
+        toastUndo('Familia ' + f.code + ' eliminada', function() { homoState.ipFamilies = antes; homoSave(); _homoIpRepaint(); });
+    };
+    showConfirm('Los vehículos ligados a ella quedan sin familia de interpolación. Podrás deshacerlo unos segundos.', go,
+        { type: 'danger', title: '¿Borrar la familia ' + _homoEsc(f.code) + '?', confirmText: 'Borrar' });
 }
 
 /** Alta/edición a mano (para un certificado que no se pueda copiar como texto). */

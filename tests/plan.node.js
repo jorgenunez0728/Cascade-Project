@@ -362,5 +362,22 @@ t('tpAutoGenerateIfNeeded / tpShouldAutoGenerate estan borradas', () => {
     eq(typeof sandbox.tpShouldAutoGenerate, 'undefined');
 });
 
+console.log('\n== v24: los pesos siempre suman 100 ==');
+t('mover un peso reparte la diferencia entre los demas', () => {
+    const r = sandbox.tpWeightsRebalance({ compliance: 25, volume: 35, region: 20, newConfig: 10, urgency: 10 }, 'compliance', 50);
+    eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
+    eq(r.compliance, 50, 'el que se movio:');
+    eq(r.volume > r.region, true, 'se respeta la proporcion:');
+});
+t('con los demas en 0, se reparte parejo', () => {
+    const r = sandbox.tpWeightsRebalance({ compliance: 100, volume: 0, region: 0, newConfig: 0, urgency: 0 }, 'compliance', 40);
+    eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
+    eq(r.volume, 15);
+});
+t('valores fuera de rango se acotan a 0..100 en pasos de 5', () => {
+    const r = sandbox.tpWeightsRebalance({ compliance: 20, volume: 20, region: 20, newConfig: 20, urgency: 20 }, 'region', 133);
+    eq(r.region, 100); eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

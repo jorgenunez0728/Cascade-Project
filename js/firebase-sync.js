@@ -62,7 +62,7 @@ function fbToggleSyncModule(key, enabled) {
         if (dep && dep.requires) {
             var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
             if (missing.length > 0) {
-                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
+                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar también ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
                     if (ok) { missing.forEach(function(m) { fbSyncModules[m] = true; }); }
                     fbSyncModules[key] = true;
                     fbSaveSyncModules();
@@ -375,7 +375,7 @@ function fbInit() {
 
     if (typeof firebase === 'undefined') {
         fbSync.status = 'error';
-        fbSync.lastError = 'Firebase SDK no cargado. Verifica conexion a internet.';
+        fbSync.lastError = 'Firebase SDK no cargado. Verifica conexión a internet.';
         fbUpdateIndicator();
         return;
     }
@@ -716,7 +716,7 @@ function fbTestConnection(callback) {
         } else if (err.code === 'not-found') {
             if (callback) { callback(true); return; }
         } else {
-            fbSync.lastError = 'Error de conexion (' + (err.code || '?') + '): ' + (err.message || 'desconocido');
+            fbSync.lastError = 'Error de conexión (' + (err.code || '?') + '): ' + (err.message || 'desconocido');
         }
 
         fbUpdateIndicator();
@@ -889,7 +889,7 @@ function fbFromFirestoreValue(v) {
 }
 
 function fbTestConnectionUI() {
-    showToast('Probando conexion...', 'info');
+    showToast('Probando conexión...', 'info');
 
     // If Firebase not initialized yet, run full init first
     if (!fbSync.db || !fbSync.enabled) {
@@ -1012,7 +1012,7 @@ function fbUpdateStationMeta() {
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
 function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
-    if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
+    if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estación configurado'); return; }
 
     // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
     // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
@@ -1096,7 +1096,7 @@ function fbPush(collection, data, onDone, opts) {
 // ── Push all modules ──
 function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
-    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
+    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estación', 'error'); return; }
 
     // [v15.6] Guard anti-vaciado: un módulo local VACÍO nunca se sube — si el
     // pull inicial falló, empujar {vehicles:[]} sobrescribiría los datos del
@@ -1194,7 +1194,7 @@ function _fbScheduleSeedRetry(reason) {
 // ── Pull data from Firestore (rate-limited, with REST fallback) ──
 function fbPullAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
-    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
+    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estación', 'error'); return; }
 
     // Rate limit check (una lectura por colección). EXCEPCIÓN de seed: un
     // dispositivo vacío siempre puede intentar su primera descarga — antes el
@@ -1913,7 +1913,7 @@ function fbPullApply(collections, results, showFeedback) {
         if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
         if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
     } else {
-        if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
+        if (showFeedback) showToast('No hay datos en la nube para esta estación', 'info');
     }
 }
 
@@ -2392,7 +2392,7 @@ function fbShowSettings() {
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size: var(--fs-sm);">Estado:</span>' +
         '<span style="font-size: var(--fs-sm);font-weight:700;color:' + statusColor + ';">' + statusText + '</span></div>' +
-        (fbSync.lastSync ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
+        (fbSync.lastSync ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);">Última sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
         (fbSync.lastError ? '<div style="font-size: var(--fs-xs);color:#ef4444;margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:rgba(239,68,68,0.1);border-radius: var(--radius-md);white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
 
@@ -2441,7 +2441,7 @@ function fbShowSettings() {
         })() : '') +
 
         // Connection test
-        (hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbTestConnectionUI()" style="width:100%;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Probar conexion a Firestore</button></div>' : '') +
+        (hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbTestConnectionUI()" style="width:100%;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Probar conexión a Firestore</button></div>' : '') +
 
         // Espacio de trabajo — SOLO LECTURA.
         // Antes esto era un campo libre rotulado "ID de Estacion (identifica este
@@ -2523,24 +2523,24 @@ function fbShowSettings() {
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom: var(--space-md);padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;">' +
-        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Smart Merge (fusionar desde otra estacion)</div>' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Smart Merge (fusionar desde otra estación)</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Detecta duplicados, muestra diferencias, y te deja elegir que fusionar por modulo.</div>' +
         '<button onclick="fbMergeShowPanel()" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#000;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;">Abrir Smart Merge</button>' +
         (mergeHist.length > 0 ? '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-sm);">' +
         '<button onclick="fbMergeShowHistory()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Historial (' + mergeHist.length + ')</button>' +
-        '<button onclick="fbMergeUndo()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Deshacer ultima</button>' +
+        '<button onclick="fbMergeUndo()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Deshacer última</button>' +
         '<button onclick="fbMergeExportCSV()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Exportar CSV</button>' +
         '</div>' : '') +
         '</div>' : '') +
 
         // Retry — show when status is 'error' OR 'off' (No configurado) with config present
-        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexion') + '</button></div>' : '') +
+        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexión') + '</button></div>' : '') +
 
         // Setup instructions
         (!hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;"><div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Setup necesario</div><div style="font-size: var(--fs-xs);color:var(--muted);line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +
 
         // Rules
-        (hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;margin-top: var(--space-md);"><div style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);margin-bottom: var(--space-xs);">Configuracion requerida en Firebase Console:</div>' +
+        (hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;margin-top: var(--space-md);"><div style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);margin-bottom: var(--space-xs);">Configuración requerida en Firebase Console:</div>' +
         '<div style="font-size: var(--fs-xs);color:#f59e0b;margin-bottom: var(--space-sm);line-height:1.5;">1. <strong>Authentication > Sign-in method > Anonymous</strong> → Habilitar<br>2. <strong>Firestore Database > Rules</strong> → Copiar las reglas de abajo:</div>' +
         '<pre style="font-size: var(--fs-xs);color:var(--muted);margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size: var(--fs-xs);color:#10b981;margin-top: var(--space-xs);">Firestore > Rules > Editar > Publicar</div></div>' : '') +
 
@@ -2971,7 +2971,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (choices.cop15 === 'new') {
             // Add only new vehicles
             analysis.cop15.newItems.forEach(function(v) { db.vehicles.push(v); });
-            merged.push('COP15: +' + analysis.cop15.newItems.length + ' vehiculos nuevos');
+            merged.push('COP15: +' + analysis.cop15.newItems.length + ' vehículos nuevos');
         } else if (choices.cop15 === 'replace') {
             // Even when fully replacing, preserve any local "sent to PA" receipts so we don't
             // accidentally re-send vehicles that were already pushed from this station.
@@ -3441,7 +3441,7 @@ function fbMergeShowPanel() {
     modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">' +
         '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>' +
         '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>' +
-        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estacion a la tuya (' + fbSync.stationId + ')</div>' +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estación a la tuya (' + fbSync.stationId + ')</div>' +
         '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);"><div style="font-size:24px;margin-bottom: var(--space-sm);">Cargando estaciones...</div></div>' +
         '</div>';
 
@@ -3451,7 +3451,7 @@ function fbMergeShowPanel() {
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">';
         html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
         html += '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estacion a <strong>' + fbSync.stationId + '</strong></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estación a <strong>' + fbSync.stationId + '</strong></div>';
 
         // Show all stations info
         if (stations.length > 0) {
@@ -3461,7 +3461,7 @@ function fbMergeShowPanel() {
         if (others.length === 0) {
             html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay otras estaciones en Firebase. Sube datos desde otro dispositivo primero.</div>';
         } else {
-            html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-sm);">Selecciona la estacion de origen:</div>';
+            html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-sm);">Selecciona la estación de origen:</div>';
             others.forEach(function(s) {
                 var lastPushLabel = '';
                 if (s.lastPush) {
@@ -3477,7 +3477,7 @@ function fbMergeShowPanel() {
                     '<span><span style="color:#f59e0b;margin-right: var(--space-sm);">\u25B6</span><strong>' + s.id + '</strong></span>' +
                     (deviceLabel ? '<span style="background:#334155;color:#94a3b8;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);font-size: var(--fs-xs);font-weight:400;">' + deviceLabel + '</span>' : '') +
                     '</div>' +
-                    (lastPushLabel ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);margin-left: var(--space-xl);">Ultima sync: ' + lastPushLabel + '</div>' : '') +
+                    (lastPushLabel ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);margin-left: var(--space-xl);">Última sync: ' + lastPushLabel + '</div>' : '') +
                     '</button>';
             });
         }
@@ -3546,7 +3546,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
             html += '<div style="font-size: var(--fs-xs);margin-bottom: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius: var(--radius-lg);color:#fbbf24;">';
             html += '<span style="font-weight:700;">Power Automate:</span>';
             if (c.paStatusGains > 0) html += ' &nbsp; <span title="Vehiculos con receipt de envio PA que aun no estaba en local">+' + c.paStatusGains + ' envio(s) heredados</span>';
-            if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estacion origen</span>';
+            if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estación origen</span>';
             html += '</div>';
         }
         if (hasChanges) {
@@ -3959,7 +3959,7 @@ function fbBackupRestoreSelectModules(backupId) {
     });
 
     html += '<div style="padding: var(--space-sm);margin-top: var(--space-sm);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius: var(--radius-xl);font-size: var(--fs-xs);color:#f59e0b;">';
-    html += 'Se guardara un snapshot previo. Puedes deshacer la restauracion si es necesario.</div>';
+    html += 'Se guardara un snapshot previo. Puedes deshacer la restauración si es necesario.</div>';
 
     html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-md);">';
     html += '<button onclick="fbBackupShowList()" style="flex:1;padding: var(--space-md);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-xl);cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
@@ -3984,7 +3984,7 @@ function fbBackupUndoRestore() {
     var snapshot = null;
     try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
     if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
-    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la ultima restauracion y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
         if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
@@ -4008,7 +4008,7 @@ function fbBackupShowList() {
         html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Backups Disponibles (' + list.length + ')</h3>';
 
         if (list.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay backups guardados aun.</div>';
+            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay backups guardados aún.</div>';
         } else {
             list.forEach(function(b) {
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid #1e293b;border-radius: var(--radius-lg);background:#1e293b;">';
@@ -4026,7 +4026,7 @@ function fbBackupShowList() {
         html += '<button onclick="fbShowSettings()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
         html += '<button onclick="fbBackupManual()" style="flex:1;padding: var(--space-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Crear Backup Ahora</button>';
         if (hasSnapshot) {
-            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Ultima Restauracion</button>';
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Última Restauracion</button>';
         }
         html += '</div></div>';
 
@@ -4133,7 +4133,7 @@ function fbActivityShowFeed() {
         html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Eventos recientes de todas las estaciones</div>';
 
         if (events.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);">No hay actividad registrada aun.</div>';
+            html += '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);">No hay actividad registrada aún.</div>';
         } else {
             // Station color map
             var stationColors = {};
@@ -4189,16 +4189,16 @@ function fbActivityShowFeed() {
 
 function fbActivityLabel(action) {
     var labels = {
-        'vehicle_registered': 'Vehiculo registrado',
+        'vehicle_registered': 'Vehículo registrado',
         'test_started': 'Prueba iniciada',
         'test_completed': 'Prueba completada',
-        'vehicle_released': 'Vehiculo liberado',
+        'vehicle_released': 'Vehículo liberado',
         'soak_started': 'Soak timer iniciado',
         'plan_generated': 'Plan semanal generado',
         'plan_accepted': 'Plan semanal aceptado',
         'test_imported': 'Resultados importados',
         'gas_reading': 'Lectura de gas registrada',
-        'calibration': 'Calibracion registrada',
+        'calibration': 'Calibración registrada',
         'sync_push': 'Datos subidos a nube',
         'sync_pull': 'Datos descargados de nube',
         'backup_created': 'Backup creado'

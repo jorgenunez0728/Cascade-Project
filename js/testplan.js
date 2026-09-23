@@ -346,7 +346,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
         {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
         {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
         {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
-        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
+        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Por defecto (todo lo demás)"},
     ],
     weights: { volume:35, compliance:25, region:20, newConfig:10, urgency:10 },
     regionPriority: { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 },
@@ -447,7 +447,7 @@ function tpDefaultRules() {
         {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
         {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
         {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
-        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
+        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Por defecto (todo lo demás)"},
     ];
 }
 
@@ -1050,7 +1050,7 @@ function tpAutoFeedFromRelease(vehicle, opts) {
         return !!vehicle.vin && tpTestedVin(t) === vehicle.vin;
     });
     if (yaEsta) {
-        console.log('TP: ese vehiculo ya estaba registrado como probado', vehicle.vin || vehicle.id);
+        console.log('TP: ese vehículo ya estaba registrado como probado', vehicle.vin || vehicle.id);
         return false;
     }
 
@@ -1595,7 +1595,7 @@ function tpRenderExecSummary() {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label" title="Pruebas realizadas ÷ pruebas requeridas (por volumen) — no confundir con el % de configs al día del badge">Pruebas cumplidas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+highRisk+'</div><div class="tp-metric-label">Familias riesgo alto</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+critFams+'</div><div class="tp-metric-label">Críticas/Altas</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Deadline ≤14d</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Fecha límite ≤ 14 días</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+etaColor+'">'+etaTxt+'</div><div class="tp-metric-label">ETA ritmo actual</div></div>';
     html += '</div>';
     if (etaWeeks!==null && gdWeeks!==null) {
@@ -1814,7 +1814,7 @@ function tpRenderDashboard(el) {
             <div style="display:flex;gap: var(--space-md);flex-wrap:wrap;align-items:flex-end;">
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Agrupar por</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
                         <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
                         <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
@@ -1823,7 +1823,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Metrica Y</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
                         <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
                         <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
                         <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
@@ -1831,7 +1831,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Tipo de grafica</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
                         <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
@@ -1853,9 +1853,9 @@ function tpRenderDashboard(el) {
     <!-- Burndown chart -->
     <div class="tp-card">
         <details ${window._tpBurndownOpen ? 'open' : ''}>
-            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Cuánto falta y cuándo se termina (déficit semana a semana)</summary>
             <div style="display:flex;align-items:center;gap: var(--space-sm);margin:10px 0 6px;flex-wrap:wrap;">
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);">Deadline:</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);">Fecha límite:</label>
                 <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);">
                 ${tpState.deadline ? "<button class=\"tp-btn tp-btn-ghost\" onclick=\"tpState.deadline=&#39;&#39;;tpSave();document.getElementById(&#39;tp-deadline-input&#39;).value=&#39;&#39;;document.getElementById(&#39;tp-burndown-container&#39;).innerHTML=tpRenderBurndownChart(tpGetAnalysis());\" style=\"font-size: var(--fs-sm);\">Quitar deadline</button>" : ''}
             </div>
@@ -1867,14 +1867,14 @@ function tpRenderDashboard(el) {
     <div class="tp-card" style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
         <button class="tp-btn tp-btn-ghost" onclick="tpExportGapCSV()" style="font-size: var(--fs-sm);">Exportar CSV</button>
-        <span style="font-size: var(--fs-sm);color:var(--tp-dim);">Guarda un snapshot del plan actual con fecha para referencia</span>
+        <span style="font-size: var(--fs-sm);color:var(--tp-dim);">Guarda una foto del plan actual, con fecha, para compararla después</span>
         ${tpState.fixedPlan ? `<button class="tp-btn tp-btn-ghost" onclick="tpState.fixedPlan=null;tpSave();tpRender();" style="margin-left:auto;">Desfijar</button>` : ''}
     </div>
 
     <!-- Config table -->
     <div class="tp-card">
         <div class="tp-card-title">
-            <span>🔍 Análisis de Gap — Configuraciones</span>
+            <span>🔍 Qué falta — por configuración</span>
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
         <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">
@@ -2014,7 +2014,7 @@ function tpRenderBurndownChart(stats) {
         html += '<div style="padding: var(--space-md) var(--space-lg);background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius: var(--radius-xl);margin-bottom: var(--space-md);display:flex;align-items:center;gap: var(--space-md);">' +
             '<span style="font-size:18px;">' + riskIcon + '</span>' +
             '<div><div style="font-size:12px;font-weight:700;color:' + riskColor + ';">' + riskMsg + '</div>';
-        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
+        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Fecha límite: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
         html += '</div></div>';
     }
 
@@ -2022,7 +2022,7 @@ function tpRenderBurndownChart(stats) {
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
-        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Déficit Actual</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
     '</div>';
@@ -2072,7 +2072,7 @@ function tpRenderBurndownChart(stats) {
         }
 
         datasets.push(
-            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
+            { label: 'Déficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
         );
         if (forecastPts.length > 0) {
             var forecastData = [];
@@ -2149,7 +2149,7 @@ function tpRenderDashChart(analysis) {
     const hStyle = chartH > 0 ? `height:${chartH}px;` : '';
     const autoMax = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
     const maxVal = userYMax > 0 ? userYMax : autoMax;
-    const legend = metric === 'qty' ? '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">■ Requeridas</span><span style="font-size: var(--fs-xs);color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size: var(--fs-xs);color:var(--tp-red);">■ Deficit</span>';
+    const legend = metric === 'qty' ? '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">■ Requeridas</span><span style="font-size: var(--fs-xs);color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size: var(--fs-xs);color:var(--tp-red);">■ Déficit</span>';
 
     // Horizontal bars
     if (chartType === 'hbar') {
@@ -2260,7 +2260,7 @@ function tpRenderDashTable() {
     document.getElementById('tp-dash-count').textContent = `${filtered.length} de ${analysis.length}`;
 
     container.innerHTML = `
-    <table class="tp-table">
+    <table class="u-cards tp-table">
         <thead><tr>
             <th></th><th>Config Text</th><th>Mod</th><th>Región</th><th>Reg.</th><th>Motor</th><th>TX</th>
             <th style="text-align:right">Vol.Plan</th><th style="text-align:right">Hist</th>
@@ -2537,7 +2537,7 @@ function tpRenderTested(el) {
         <div style="display:flex;gap: var(--space-md);align-items:flex-start;flex-wrap:wrap;">
             <div style="flex:1;min-width:250px;position:relative;">
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Config Text (escribe para buscar)</label>
-                <input class="tp-input" id="tp-manual-config" placeholder="Ej: BL7m-27 MODEL-6AT..." oninput="tpShowSuggestions()">
+                <input class="tp-input" id="tp-manual-config" placeholder="Ej.: BL7m-27 MODEL-6AT..." oninput="tpShowSuggestions()">
                 <div id="tp-suggestions" class="tp-suggestions" style="display:none;"></div>
             </div>
             <div style="width:130px;">
@@ -2595,7 +2595,7 @@ function tpRenderTested(el) {
             })()}</span>
         </div>
         <div style="max-height:350px;overflow-y:auto;">
-            <table class="tp-table">
+            <table class="u-cards tp-table">
                 <thead><tr><th>Config</th><th>VIN</th><th>Fecha</th><th>Fuente</th><th>Proposito</th><th></th></tr></thead>
                 <tbody>
                     ${tpState.testedList.filter(t => {
@@ -2692,7 +2692,7 @@ function tpImportJSON() {
 // ── Recover tested vehicles from COP15 history (archived vehicles) ──
 function tpRecoverFromCOP15() {
     if (typeof db === 'undefined' || !db.vehicles || db.vehicles.length === 0) {
-        showToast('No hay vehiculos en COP15', 'error');
+        showToast('No hay vehículos en COP15', 'error');
         return;
     }
 
@@ -2703,7 +2703,7 @@ function tpRecoverFromCOP15() {
     });
 
     if (archived.length === 0) {
-        showToast('No hay vehiculos liberados con proposito valido en COP15', 'info');
+        showToast('No hay vehículos liberados con propósito válido en COP15', 'info');
         return;
     }
 
@@ -2756,7 +2756,7 @@ function tpRecoverFromCOP15() {
         tpUpdateBadges();
     }
 
-    var msg = added + ' vehiculos recuperados de COP15';
+    var msg = added + ' vehículos recuperados de COP15';
     if (skipped > 0) msg += ', ' + skipped + ' duplicados omitidos';
     showToast(msg, added > 0 ? 'success' : 'info');
 }
@@ -2784,11 +2784,10 @@ function tpRenderRules(el) {
     // cobertura. Ver `tpTestedCountsForReq` (testplan.js) — LA definición.
     const _rq = tpReqPurposes();
     const _rqNo = tpNoReqBreakdown();
-    const _rqHTML = `
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-reqpurpose-help">
-                <span>🏷 Qué acredita el REQ de emisiones</span>
-            </div>
+    // [v24] Las cuatro tarjetas de Reglas son uiCard plegables con su dato clave en el
+    // encabezado: era la pantalla con más controles de la app (>110), todo abierto a la vez.
+    const _rqOn = TP_PURPOSES_VALID.filter(function(pp) { return _rq[pp] !== false; }).length;
+    const _rqBody = `
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
                 Una prueba de <strong>OBD II no es una prueba de emisiones</strong>: se hace, se
                 registra y se ve en el historial, pero no baja el déficit ni sube la cobertura.
@@ -2805,7 +2804,7 @@ function tpRenderRules(el) {
                          + 'border-radius:var(--radius-lg);background:' + (on ? 'var(--surface)' : 'var(--warn-bg)') + ';">'
                          + '<input type="checkbox" ' + (on ? 'checked' : '')
                          + ' onchange="tpSetReqPurpose(\'' + pp + '\', this.checked)">'
-                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + pp + '</span>'
+                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + uiLabel('purpose', pp) + '</span>'
                          + (n ? '<span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--tp-dim);">'
                                 + n + ' fuera</span>' : '')
                          + '</label>';
@@ -2813,34 +2812,29 @@ function tpRenderRules(el) {
             </div>
             ${_rqNo.total ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
                 Hoy quedan <strong>${_rqNo.total}</strong> pruebas registradas fuera del REQ.
-            </p>` : ''}
-        </div>`;
+            </p>` : ''}`;
+    const _rqHTML = uiCard({ id: 'tp-rules-req', icon: '🏷', title: 'Qué acredita el REQ de emisiones', accent: 'testplan',
+        help: 'tp-reqpurpose-help', body: _rqBody, defaultOpen: false,
+        count: { label: _rqOn + ' de ' + TP_PURPOSES_VALID.length + ' cuentan' } });
 
-    el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
-        ${_rqHTML}
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-ratio-help">
-                <span>⚙️ Reglas de Ratio</span>
-                <div style="display:flex;gap: var(--space-sm);">
+    const _ratioActions = `<div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Reset</button>
-                </div>
-            </div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
-            <div style="max-height:380px;overflow-y:auto;">
-                <table class="tp-table">
-                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Label</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
+                </div>`;
+    const _ratioBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
+            <div>
+                <table class="u-cards tp-table">
+                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Nombre</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><input class="tp-input" type="number" min="1" value="${r.ratio}" style="width:45px;text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
-                                <td><input class="tp-input" type="number" min="100" step="100" value="${r.per}" style="width:55px;text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
+                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="1" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
+                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
-                                <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
+                                <td><button type="button" onclick="tpDeleteRatioRule(${i})" aria-label="Eliminar regla" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;min-width:32px;min-height:32px;">×</button></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2854,27 +2848,19 @@ function tpRenderRules(el) {
                     ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
                 </div>
             </details>` : ''}
-        </div>
-        <div>
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
+        `;
+    const _spBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-sm);">
                         <span style="font-size: var(--fs-sm);font-weight:600;">${label}</span>
-                        <select class="tp-select" style="font-size: var(--fs-base);max-width:170px;" onchange="tpSetStartPurpose('${key}', this.value)">
-                            ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${p}</option>`).join('')}
+                        <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="tpSetStartPurpose('${key}', this.value)">
+                            ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${uiLabel('purpose', p)}</option>`).join('')}
                         </select>
                     </div>
                 `).join('')}
-            </div>
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title">
-                    <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
-                    <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>
-                </div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+            `;
+    const _prActions = `<button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>`;
+    const _prBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rápidamente.</p>
                 ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">No hay plantillas guardadas.</div>' :
                 (tpState.rulePresets||[]).map((p,i) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm);margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);">
@@ -2888,7 +2874,21 @@ function tpRenderRules(el) {
                         </div>
                     </div>
                 `).join('')}
-            </div>
+            `;
+
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_rqHTML}
+        ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
+            count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' sin regla propia' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
+            actions: _ratioActions, body: _ratioBody })}
+        <div>
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
+            ${uiCard({ id: 'tp-rules-startpurpose', icon: '🎯', title: 'Propósito al iniciar prueba desde el plan', accent: 'testplan',
+                help: 'tp-purpose-region-help', defaultOpen: false, body: _spBody,
+                count: { label: 'Europa: ' + uiLabel('purpose', (tpState.startPurposeByRegion || {}).EUROPE || 'COP-Emisiones') } })}
+            ${uiCard({ id: 'tp-rules-presets', icon: '💾', title: 'Plantillas de reglas', accent: 'testplan', defaultOpen: false,
+                count: { label: (tpState.rulePresets || []).length + ' de 5' }, actions: _prActions, body: _prBody })}
         </div>
     </div>
     `;
@@ -2903,9 +2903,13 @@ function tpAddRule() {
 
 function tpSaveRulePreset() {
     if (!tpState.rulePresets) tpState.rulePresets = [];
-    if (tpState.rulePresets.length >= 5) { showToast('Maximo 5 plantillas. Elimina una primero.', 'warning'); return; }
-    var name = prompt('Nombre de la plantilla:');
-    if (!name) return;
+    if (tpState.rulePresets.length >= 5) { showToast('Máximo 5 plantillas. Elimina una primero.', 'warning'); return; }
+    var _sug = 'Reglas ' + new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    uiPrompt({ title: '💾 Guardar plantilla', label: 'Nombre de la plantilla', value: _sug, required: true, confirmText: 'Guardar' })
+    .then(function(name) { if (name) _tpSaveRulePresetNamed(name); });
+}
+
+function _tpSaveRulePresetNamed(name) {
     tpState.rulePresets.push({
         id: Date.now(),
         name: name,
@@ -2921,7 +2925,7 @@ function tpSaveRulePreset() {
 
 function tpLoadRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazará las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
         var preset = tpState.rulePresets[idx];
         tpState.rules = JSON.parse(JSON.stringify(preset.rules));
@@ -2936,9 +2940,10 @@ function tpDeleteRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
     showConfirmDialog({ title: '⚠️ Eliminar plantilla', message: '¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        tpState.rulePresets.splice(idx, 1);
-        tpSave(); tpRender();
-        showToast('Plantilla eliminada', 'success');
+        undoableAction('testplan', 'Plantilla eliminada', function() {
+            tpState.rulePresets.splice(idx, 1);
+            tpSave(); tpRender();
+        });
     });
 }
 
@@ -2960,7 +2965,7 @@ function tpDeleteRulePreset(idx) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 var TP_DAY_ORDER  = ['dom','lun','mar','mie','jue','vie','sab'];
-var TP_DAY_LABELS = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+var TP_DAY_LABELS = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado'};
 // Dos letras: 'M' sola no distingue martes de miércoles en la tira de la tarjeta.
 var TP_DAY_SHORT  = {dom:'Do',lun:'Lu',mar:'Ma',mie:'Mi',jue:'Ju',vie:'Vi',sab:'Sa'};
 var TP_SOAK_DEFAULT_H = 24;   // el mismo default que el <select> de soak de la app
@@ -3150,11 +3155,11 @@ function tpSetVehiclesPerSlot(val) {
 
 function tpBuildSchedulePreview(workDays) {
     const slots = tpBuildTestSlots(workDays);
-    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
+    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos días.</span>';
     const cap = tpWeekCapacity(workDays);
     let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
     html += slots.map(s => `<span style="padding: var(--space-2xs) var(--space-xs);background:rgba(59,130,246,0.1);border-radius: var(--radius-md);margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
-    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
+    html += `<br><span style="font-weight:700;">Máximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
     return html;
 }
 
@@ -3423,6 +3428,34 @@ function tpAssignSchedule(items, workDays, opts) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
+/**
+ * [v24] Mover un peso reparte la diferencia entre los otros cuatro, en proporción a lo
+ * que ya pesaban (en pasos de 5), para que el total SIEMPRE sea 100. Antes había que
+ * cuadrar cinco deslizadores a mano y la tarjeta decía "— ajustar".
+ * Pura respecto al DOM; devuelve el objeto de pesos nuevo.
+ */
+var TP_WEIGHT_KEYS = ['compliance', 'volume', 'region', 'newConfig', 'urgency'];
+function tpWeightsRebalance(weights, key, value) {
+    var w = {};
+    TP_WEIGHT_KEYS.forEach(function(k) { w[k] = Math.max(0, +weights[k] || 0); });
+    value = Math.max(0, Math.min(100, Math.round((+value || 0) / 5) * 5));
+    w[key] = value;
+    var others = TP_WEIGHT_KEYS.filter(function(k) { return k !== key; });
+    var rest = 100 - value;
+    var base = others.reduce(function(a, k) { return a + w[k]; }, 0);
+    others.forEach(function(k) { w[k] = base > 0 ? Math.floor((w[k] / base) * rest / 5) * 5 : Math.floor(rest / others.length / 5) * 5; });
+    // Lo que sobra por redondear va al que más pesa (o al primero).
+    var diff = 100 - TP_WEIGHT_KEYS.reduce(function(a, k) { return a + w[k]; }, 0);
+    if (diff !== 0) {
+        var target = others.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
+        w[target] = Math.max(0, w[target] + diff);
+    }
+    return w;
+}
+function tpSetWeightBalanced(key, value) {
+    tpState.weights = Object.assign({}, tpState.weights || {}, tpWeightsRebalance(tpState.weights || {}, key, value));
+}
+
 function _tpSliderHTML(o) {
     return '<div style="margin-bottom: var(--space-md);">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom: var(--space-2xs);">' +
@@ -3559,16 +3592,16 @@ function tpBuildPriorityKnobsHTML(opts) {
     var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Al mover uno, los demás se reparten solos para que siempre sumen 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
             bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-                set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+                set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
         });
     bWeights += '<details style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top: var(--space-sm);">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
         bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-            set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+            set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
     });
     bWeights += '</div></details>';
 
@@ -4655,11 +4688,11 @@ function tpBuildArmarCardHTML(b) {
             '<input type="date" id="tp-weekly-date" class="tp-select" value="' + (weekDate || '') + '" ' +
             'onchange="window._tpWeekDate=this.value;window._tpBoardWeek=this.value;tpBoardInvalidate();_tpBoardRepaint();"></label>';
     body += '<label class="tp-armar-field"><span>Pruebas</span>' +
-            '<input type="number" id="tp-weekly-cap" class="tp-select" min="1" max="' + cap.max + '" value="' + cap.cap + '" ' +
+             '<input type="number" id="tp-weekly-cap" data-num="step" inputmode="numeric" class="tp-select" min="1" max="' + cap.max + '" value="' + cap.cap + '" ' +
             'onchange="tpSetWeeklyCapacity(this.value);_tpBoardRepaint();">' +
             '<small>caben hasta ' + cap.max + '</small></label>';
     body += '<label class="tp-armar-field"><span>Veh. por par</span>' +
-            '<input type="number" id="tp-veh-per-slot" class="tp-select" min="1" max="10" value="' + cap.perSlot + '" ' +
+             '<input type="number" id="tp-veh-per-slot" data-num="step" inputmode="numeric" class="tp-select" min="1" max="10" value="' + cap.perSlot + '" ' +
             'onchange="tpSetVehiclesPerSlot(this.value);_tpBoardRepaint();"></label>';
     body += '</div>';
 
@@ -4736,7 +4769,7 @@ function tpBuildArmarCardHTML(b) {
     return (typeof uiCard === 'function')
         ? uiCard({ id: 'tp-armar', icon: '🎛️', title: 'Armar la semana', accent: 'testplan',
                    help: 'tp-armar-help', body: body, defaultOpen: false,
-                   open: window._tpArmarForce ? true : undefined, count: chip })
+                   open: (window._tpArmarForce || (b && b.weekDate && !b.plan)) ? true : undefined, count: chip })
         : '<div class="tp-card"><div class="tp-card-title"><span>🎛️ Armar la semana</span></div>' + body + '</div>';
 }
 
@@ -4877,12 +4910,17 @@ function tpRenderMyWeek(el) {
             : '<span class="tp-week-tag">Propuesta</span>' +
               '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
     }
-    h += '<button class="tp-btn tp-btn-ghost" onclick="tpOpenArmar()">🎛️ Armar semana</button>' +
-         '</div></div>';
+    // [v24] Sin plan el armador ya se muestra abierto abajo: un segundo botón que lleva
+    // al mismo sitio es una decisión de más.
+    if (b.plan) h += '<button class="tp-btn tp-btn-ghost" onclick="tpOpenArmar()">🎛️ Armar semana</button>';
+    h += '</div></div>';
 
     // v23: el armador vive AQUÍ, encima del tablero. Se abre, se mueven cuatro cosas,
     // se ve la propuesta, y al generar el tablero de abajo ya es el resultado.
-    h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+    // [v24] Solo cuando hay plan: sin plan se pinta UNA vez, abajo del aviso. Antes se
+    // pintaba dos veces y los ids (`tp-weekly-date`, `tp-planner-preview`…) se duplicaban:
+    // getElementById leía la primera copia y la vista previa llenaba solo una.
+    if (b.plan) h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
 
     if (!b.plan) {
         // v23: si esa semana SÍ tuvo pruebas, decirlo. Una semana sin plan pero con
@@ -4904,8 +4942,8 @@ function tpRenderMyWeek(el) {
                 ? '<p><strong>' + _hechasSinPlan + ' prueba(s) se corrieron igual</strong> y cuentan en la cobertura. ' +
                   'No se inventa un plan al liberar: si quieres registrarlas aquí, arma la semana y vincúlalas.</p>'
                 : '') +
-             '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro.</p>' +
-             '<button class="tp-btn tp-btn-primary" onclick="tpOpenArmar()">🎛️ Armar esta semana</button>' +
+             '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro. ' +
+             'Ármala aquí abajo.</p>' +
              '</div>';
         // Sin plan, el armador se muestra abierto: es lo único que hay que hacer aquí.
         h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
@@ -5093,6 +5131,17 @@ function tpWeekAddMenu(weekIdx, day) {
         ' de la semana del ' + (plan.weekDate || '—') + '.<br>' +
         'Puedes agregar una configuración <strong>que ya esté en la semana</strong>: son dos vehículos distintos de la misma configuración.</p>';
 
+    // [v24] El tipo de actividad va PRIMERO: los botones de "las que más falta hacen"
+    // lo leen al tocarse, y antes estaba debajo de ellos — se agregaba como
+    // COP-Emisiones sin que el técnico viera que había algo que elegir.
+    body += '<label class="tp-armar-field"><span>Tipo de actividad</span>' +
+        '<select id="tp-week-add-purpose" class="tp-select" data-chips>' +
+        TP_PURPOSES_VALID.map(function(pp) {
+            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' +
+                   (typeof uiLabel === 'function' ? uiLabel('purpose', pp) : pp) + '</option>';
+        }).join('') +
+        '</select></label>';
+
     if (sug.length) {
         body += '<div class="tp-week-addsug"><strong>Las que más falta hacen</strong>';
         sug.forEach(function(a) {
@@ -5106,12 +5155,6 @@ function tpWeekAddMenu(weekIdx, day) {
     body += '<div class="tp-week-addpick">' +
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
-        '<label class="tp-armar-field" style="margin-top: var(--space-sm);"><span>Tipo de actividad</span>' +
-        '<select id="tp-week-add-purpose" class="tp-select">' +
-        TP_PURPOSES_VALID.map(function(pp) {
-            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' + pp + '</option>';
-        }).join('') +
-        '</select></label>' +
         '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
         '</div></div>';
 
@@ -6001,9 +6044,31 @@ function tpAddPriorityRule() {
     tpState.priorityRules.push({ id: 'r' + Date.now(), tier: 3, region: '*', regulation: '*', modelMatch: '', engMatch: '', label: 'Nueva regla' });
     tpSave(); tpRender();
 }
+// [v24] Las reglas de ratio y de prioridad se borraban de un toque, sin preguntar ni
+// deshacer — y una regla de ratio cambia el REQ y la cobertura de todo el laboratorio.
+function tpDeleteRatioRule(i) {
+    var r = (tpState.rules || [])[i]; if (!r) return;
+    var nombre = r.label || ((r.region || '*') + ' / ' + (r.regulation || '*'));
+    showConfirmDialog({ title: '¿Eliminar la regla «' + escapeHtml(nombre) + '»?',
+        message: 'Cambia el REQ de las configuraciones que cubría. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.rules.splice(i, 1); tpSave(); tpRender();
+        });
+    });
+}
 function tpDeletePriorityRule(id) {
-    tpState.priorityRules = (tpState.priorityRules || []).filter(function(r) { return r.id !== id; });
-    tpSave(); tpRender();
+    var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; }); if (!r) return;
+    var nombre = r.label || ('P' + (r.tier || ''));
+    showConfirmDialog({ title: '¿Eliminar la regla de prioridad «' + escapeHtml(nombre) + '»?',
+        message: 'Podrás deshacerlo unos segundos.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.priorityRules = (tpState.priorityRules || []).filter(function(x) { return x.id !== id; });
+            tpSave(); tpRender();
+        });
+    });
 }
 function tpSetPriorityRule(id, field, val) {
     var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; });
@@ -6012,17 +6077,36 @@ function tpSetPriorityRule(id, field, val) {
     tpSave(); tpRender();
 }
 function tpResetPriorityRules() {
-    tpState.priorityRules = tpDefaultPriorityRules();
-    tpSave(); tpRender();
-    if (typeof showToast === 'function') showToast('Reglas de prioridad restauradas', 'info');
+    var n = (tpState.priorityRules || []).length;
+    showConfirmDialog({ title: '¿Volver a las reglas de prioridad de fábrica?',
+        message: 'Se reemplazan tus ' + n + ' regla(s) por las predeterminadas. Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Restaurar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Reglas de prioridad restauradas', function() {
+            tpState.priorityRules = tpDefaultPriorityRules();
+            tpSave(); tpRender();
+        });
+    });
 }
 
 // Materializa el cronograma en planes semanales reales (reúsa la forma de item + tpAssignSchedule).
+// [v24] Acción masiva: dice cuántas semanas y pruebas va a escribir antes de hacerlo, y
+// deja deshacer. Antes escribía N planes de un toque (el "Generar mes", que solo escribe
+// 4, sí preguntaba).
 function tpMaterializeRecovery() {
     var plan = tpBuildRecoveryPlan();
     var weeksWithItems = plan.schedule.filter(function(w) { return w.available && w.items.length > 0; });
-    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en semanas disponibles', 'warning'); return; }
-    if (typeof undoPush === 'function') undoPush('testplan', 'Plan de recuperación');
+    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en las semanas disponibles. Marca más semanas como disponibles o sube su capacidad.', 'warning'); return; }
+    var nItems = weeksWithItems.reduce(function(a, w) { return a + w.items.length; }, 0);
+    showConfirmDialog({ title: '¿Crear ' + weeksWithItems.length + ' semana(s) de recuperación?',
+        message: 'Se agregan ' + nItems + ' prueba(s) como propuestas en Mi semana (no se aceptan solas). Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Crear', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', weeksWithItems.length + ' semana(s) de recuperación creadas', function() { _tpMaterializeRecoveryDo(plan, weeksWithItems); });
+    });
+}
+
+function _tpMaterializeRecoveryDo(plan, weeksWithItems) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var created = 0;
     weeksWithItems.forEach(function(w) {
@@ -6054,14 +6138,13 @@ function tpMaterializeRecovery() {
         created++;
     });
     tpSave();
-    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas — revísalas en Mi semana', 'success');
     tpSwitchTab('tp-myweek');
 }
 
 // ── Render de la pestaña Recuperación ──
 function tpRenderRecovery(el) {
     if (!tpState.planData || tpState.planData.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Para calcular la recuperación hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>';
         return;
     }
     var R = tpBuildRecoveryPlan();
@@ -6114,14 +6197,18 @@ function tpRenderRecovery(el) {
         html += '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
         html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
-        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
+        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" inputmode="numeric" style="width:4rem;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">días: ' + w.attendDays + ' · capacidad: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong>/sem</span>';
-        html += '</div><div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
+        // [v24] Los 7 días de cada semana van plegados: ~15 semanas × 7 casillas eran más de
+        // cien controles a la vista. El resumen dice qué días se trabajan.
+        var _diasOn = dayOrder.filter(function(d) { return w.workDays[d]; }).map(function(d) { return dayLabels[d]; }).join(' ');
+        html += '</div><details class="tp-rec-days" style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);padding: var(--space-2xs) 0;">Días: <b>' + (_diasOn || 'ninguno') + '</b> — cambiar</summary>' +
+                '<div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
         dayOrder.forEach(function(d) {
             var on = w.workDays[d];
             html += '<label style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
-        html += '</div>';
+        html += '</div></details>';
         // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
         if (w.available && typeof invMaintPlannedForWeek === 'function') {
             var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
@@ -6139,7 +6226,7 @@ function tpRenderRecovery(el) {
     // Priority rules
     html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size: var(--fs-sm);">Restaurar default</button></span></div>';
     html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th>Manejo</th><th></th></tr>';
+    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Carrocería</th><th>Manejo</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
         function sel(field, cur, w) {
             var opts = tpRuleFieldOptions(r, field);
@@ -6154,7 +6241,7 @@ function tpRenderRecovery(el) {
         }
         html += '<tr style="border-top:1px solid var(--tp-border);">';
         var _topts = ''; for (var _tt = 1; _tt <= Math.max(tpMaxTiers(), r.tier || 1); _tt++) _topts += '<option value="' + _tt + '" ' + (r.tier === _tt ? 'selected' : '') + '>P' + _tt + '</option>';
-        html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);font-size: var(--fs-base);">' + _topts + '</select></td>';
+        html += '<td><select data-chips onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);font-size: var(--fs-base);">' + _topts + '</select></td>';
         html += '<td>' + sel('familyMatch', r.familyMatch, 170) + '</td>';
         html += '<td>' + sel('region', r.region) + '</td><td>' + sel('regulation', r.regulation) + '</td><td>' + sel('modelMatch', r.modelMatch) + '</td><td>' + sel('engMatch', r.engMatch) + '</td><td>' + sel('bodyMatch', r.bodyMatch) + '</td><td>' + sel('drvMatch', r.drvMatch) + '</td>';
         html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">✕</button></td></tr>';
@@ -6382,7 +6469,7 @@ function tpCheckInventoryForConfig(cfg) {
 
     // If more than half of the gases are critically low, warn
     if (lowGases.length > gases.length * 0.5) {
-        return { ok: false, reason: lowGases.length + ' cilindros nivel critico (<10%)' };
+        return { ok: false, reason: lowGases.length + ' cilindros nivel crítico (<10%)' };
     }
     return { ok: true, reason: '' };
 }
@@ -6456,7 +6543,7 @@ function tpPlanHorizon(opts) {
 // ║  MONTHLY PLAN GENERATION — genera 4 semanas de una vez               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 function tpGenerateMonthly(startDateStr) {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (tpState.planData.length === 0) { showToast('Primero importa el plan de producción (Plan → Producción).', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var workDays = window._tpWorkDays || _TP_DEFAULT_WD;
     var baseStr = startDateStr || window._tpWeekDate || (typeof localToday === 'function' ? localToday() : '');
@@ -7126,7 +7213,7 @@ function tpRenderWeekHistory(el) {
         return;
     }
     const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
-    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado'};
     // Summary metrics
     const totalWeeks = hist.length;
     const totalCompleted = hist.reduce((s,h) => s + h.completed, 0);
@@ -7992,9 +8079,9 @@ function tpRenderProduction(el) {
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">${tpMonths().length} mes(es) cargados: ${tpMonths()[0]} — ${tpMonths()[tpMonths().length-1]}</span>
         </div>
         <div style="max-height:400px;overflow:auto;">
-            <table class="tp-table">
+            <table class="u-cards tp-table">
                 <thead><tr>
-                    <th>Config Text</th><th>Mod</th><th>MY</th><th>Reg</th><th>Rgn</th><th>Motor</th><th>TX</th><th>Body</th>
+                    <th>Configuración</th><th>Modelo</th><th>MY</th><th>Norma</th><th>Región</th><th>Motor</th><th>Trans.</th><th>Carrocería</th>
                     <th style="text-align:right">Hist</th>
                     ${tpMonths().map(m => `<th style="text-align:right">${m}</th>`).join('')}
                     <th style="text-align:right" title="Total anual (columna Total_Calc del CSV) — puede no coincidir con la suma de los meses visibles si el CSV trae el total sin desglose mensual">Total</th>
@@ -8486,7 +8573,7 @@ function tpFamilyFlagBadge(f) {
 }
 
 function tpRenderFamilies(el) {
-    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
+    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>'; return; }
     const families = tpBuildFamilies();
     const sortBy        = window._tpFamSort    || 'risk';
     const regionFilter  = window._tpFamRegion  || 'ALL';
@@ -8549,7 +8636,7 @@ function tpRenderFamilies(el) {
     }
     function getDiffFields(configs) {
         const fields = ['body','rgn','drv','tire','ep','engpkg'];
-        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Carrocería',rgn:'Región'};
+        const lbls = {tire:'Llanta',ep:'Paquete ambiental',engpkg:'Paquete de motor',drv:'Tracción',body:'Carrocería',rgn:'Región'};
         return fields.filter(f => {
             const vals = [...new Set(configs.map(c => c[f]||''))];
             return vals.length > 1;
@@ -8656,13 +8743,13 @@ function tpRenderFamilies(el) {
                     <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
                         <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Criticidad
-                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
+                            <select class="tp-select" data-chips style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
                                 <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
-                                <option value="high" ${f.criticality==='high'?'selected':''}>Alto</option>
+                                <option value="high" ${f.criticality==='high'?'selected':''}>Alta</option>
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Deadline familia
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Fecha límite de la familia
                             <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
                         </label>
                         ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);color:var(--tp-red);">Quitar deadline</button>`:''}
@@ -8717,9 +8804,9 @@ function tpRenderFamilies(el) {
                             var _cd = c.daysToDeadline;
                             var _cc = _cd < 7 ? '#ef4444' : _cd < 14 ? '#f59e0b' : '#06b6d4';
                             var _ct = _cd < 0 ? 'vencido' : _cd + 'd';
-                            _cDeadBadge = '<span style="font-size: var(--fs-sm);font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
+                            _cDeadBadge = '<span style="font-size: var(--fs-sm);font-weight:700;color:' + _cc + ';" title="Fecha límite ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
                         }
-                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);width:132px;">'
+                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Fecha límite de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);width:132px;">'
                             + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size: var(--fs-sm);padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
@@ -8766,19 +8853,19 @@ function tpRenderSimulator(el) {
 
     el.innerHTML = `
     <div class="tp-card">
-        <div class="tp-card-title"><span>🔮 Simulador What-If</span></div>
+        <div class="tp-card-title"><span>🔮 Simulador: ¿qué pasaría si…?</span></div>
         <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-lg);">Simula escenarios ajustando la capacidad semanal para ver en cuánto tiempo alcanzas cobertura completa.</p>
         <div style="display:flex;gap: var(--space-lg);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-lg);">
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad Semanal</label>
-                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:200px;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;">
+                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:100%;max-width:20rem;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;" onchange="window._tpSimCap=+this.value;tpRender();">
                 <span id="tp-sim-cap-val" style="font-weight:800;color:var(--tp-amber);font-size:14px;margin-left: var(--space-sm);">${simCap}</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">pruebas/semana</span>
             </div>
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Horizonte (semanas)</label>
-                <input class="tp-input" type="number" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="width:70px;text-align:center;">
+                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;" onchange="window._tpSimWeeks=+this.value||26;tpRender();">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="window._tpSimCap=+document.getElementById('tp-sim-cap').value;window._tpSimWeeks=+document.getElementById('tp-sim-weeks').value;tpRender();">🔄 Simular</button>
+            <!-- [v24] Sin botón "Simular": el resultado se recalcula al soltar el deslizador o cambiar el horizonte. -->
         </div>
     </div>
 
@@ -8811,7 +8898,7 @@ function tpRenderSimulator(el) {
     <div class="tp-card">
         <div class="tp-card-title"><span>📊 Comparación de Escenarios</span></div>
         <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Para presentar a gerencia: qué capacidad necesitas para alcanzar cobertura en diferentes plazos.</p>
-        <table class="tp-table">
+        <table class="u-cards tp-table">
             <thead><tr><th>Capacidad</th><th>Semanas a 100%</th><th>Pruebas Total</th><th>Cobertura Sem 8</th><th>Cobertura Sem 16</th><th>Cobertura Sem 26</th></tr></thead>
             <tbody>
                 ${[4, 6, 8, 10, 12, 15, 20].map(cap => {
@@ -8984,6 +9071,10 @@ function tpRenderCalendar(el) {
     html += '</div>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">▶</button>';
     html += '</div>';
+    // [v24] Volver al mes actual de un toque (antes: tocar ◀/▶ las veces que hiciera falta).
+    if (year !== now.getFullYear() || month !== now.getMonth()) {
+        html += '<div style="text-align:center;margin: calc(-1 * var(--space-sm)) 0 var(--space-md);"><button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button></div>';
+    }
 
     // Metrics row
     html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);">';
@@ -9092,6 +9183,8 @@ function tpCalendarDayDetail(dateKey) {
 
     if (dayEvents.length === 0) {
         detailEl.innerHTML = '<div class="tp-card" style="margin-top: var(--space-sm);text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
+        // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+        try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
         return;
     }
 
@@ -9108,6 +9201,8 @@ function tpCalendarDayDetail(dateKey) {
     html += '</div>';
 
     detailEl.innerHTML = html;
+    // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+    try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
 }
 
 
@@ -9354,7 +9449,7 @@ function tpOpenContinuityModal(configDesc, currentMy) {
     });
     html += '</select>';
     html += '<label style="display:block;font-weight:700;margin-top: var(--space-md);margin-bottom: var(--space-xs);">Nota (opcional)</label>';
-    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
+    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);" placeholder="Ej.: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
     if (existing) {
         html += '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:#f3f4f6;border-radius: var(--radius-lg);font-size: var(--fs-xs);color:var(--muted);">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
     }
