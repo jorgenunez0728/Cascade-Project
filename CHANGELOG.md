@@ -2,6 +2,25 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.1 — El checklist de liberación "no dejaba hacer clic" (2026-09-23)
+
+Reporte del laboratorio (foto): en Liberación, los botones ✔ Retirado / ✔ Adjunto no
+registraban nada y por eso no se podía enviar a aprobación ("Faltan 8 confirmaciones").
+
+- **Causa reproducida**: `stampRevisions` inicializaba la huella (`_rev`) de un vehículo
+  sin ella **en el primer `saveDB()`**, es decir, CON la edición ya adentro, y le dejaba
+  `updatedAt = registeredAt`. Esa primera edición nunca se sellaba como nueva, así que la
+  siguiente fusión del sync en vivo la empataba contra la copia vieja de la nube y podía
+  quedarse con la vieja: la marca aparecía y se borraba. Afecta a todo vehículo registrado
+  antes de v23.5 (los que están hoy en curso), no solo al checklist.
+- **Arreglo**: `revInitMissing(list)` (app.js) fija la huella base **al cargar**. La llama
+  `dedupeVehicleIds()`, que ya corre al arrancar y tras cada escritura de `db` venida de
+  la nube. `stampRevisions` la reusa para su caso sin `_rev`.
+- `releaseChecklistSet` ya no regresa en silencio: si no hay vehículo abierto o ya no está
+  en «Listo para liberación», lo dice.
+- Prueba nueva en `tests/livesync.node.js` (42 casos): la primera edición de un vehículo
+  sin `_rev` le gana a la copia vieja de la nube.
+
 ## v24.0 — Auditoría UX de toda la plataforma (2026-09-23)
 
 Pedido del laboratorio: "revisa toda la plataforma con los criterios de diseño (Hick,

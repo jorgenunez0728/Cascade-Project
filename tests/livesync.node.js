@@ -39,7 +39,7 @@ function constante(src, nombre) {
     return m[0];
 }
 
-const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions'];
+const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
@@ -169,6 +169,23 @@ console.log('\n== stableStringify y revisiones ==');
     const llegado = comoFirestore(JSON.parse(JSON.stringify(v)));
     const n2 = B.stampRevisions([llegado], '2026-09-22T03:00:00.000Z');
     ok('un vehículo llegado de la nube (otro orden de llaves) NO se re-sella', n2 === 0 && llegado.updatedAt === '2026-09-22T02:00:00.000Z');
+}
+
+// ── La primera edición de un vehículo sin _rev (checklist de Liberación) ────
+console.log('\n== primera edición de un vehículo anterior a v23.5 ==');
+{
+    arrancar();
+    // Lo que hacía el bug: la huella se tomaba en el PRIMER saveDB, ya con la
+    // edición adentro, así que esa edición nunca se sellaba como nueva.
+    const nube = vehiculoBase(); delete nube._rev; delete nube.updatedAt;
+    const aqui = JSON.parse(JSON.stringify(nube));
+    ok('al cargar se fija la huella base', A.revInitMissing([aqui]) === 1 && !!aqui._rev && aqui.updatedAt === '2026-09-20T10:00:00.000Z');
+    ok('una segunda carga no la vuelve a tocar', A.revInitMissing([aqui]) === 0);
+    aqui.testData.releaseChecklist = { objects: { kds: 'ok' } };
+    const n = A.stampRevisions([aqui], '2026-09-23T18:00:00.000Z');
+    ok('el primer toque se sella como edición nueva', n === 1 && aqui.updatedAt === '2026-09-23T18:00:00.000Z');
+    const r = A._fbMergeVehicle(aqui, nube);
+    ok('y le gana a la copia vieja de la nube (no se borra la marca)', r.from === 'local' && !!r.vehicle.testData.releaseChecklist);
 }
 
 // ── _fbMergeVehicle ────────────────────────────────────────────────────────

@@ -285,11 +285,16 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.0';
+var APP_VERSION = '24.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.1', date: '23 sep 2026', title: 'El checklist de liberación ya no se borra solo',
+      notes: [
+          'En un vehículo registrado antes de la v23.5, la primera marca del checklist (Retirado / Adjunto) se borraba al llegar la sincronización con la copia vieja de la nube. Ahora cada vehículo toma su huella al cargarse y la primera edición cuenta como la más reciente.',
+          'Si un botón del checklist no puede registrar la marca (el vehículo ya cambió de etapa o no hay uno abierto), ahora lo dice en vez de no hacer nada.'
+      ] },
     { v: '24.0', date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
       notes: [
           'Las pestañas de Plan, Consumibles y Datos se agrupan en 3–4 secciones; se ven solo las de la sección abierta y cada una recuerda la última que usaste.',
@@ -1552,12 +1557,29 @@ function stampRevisions(list, nowIso) {
     (list || []).forEach(function(v) {
         if (!v || typeof v !== 'object') return;
         var h = revContentHash(v);
-        if (!v._rev) {
-            v._rev = h;
-            if (!v.updatedAt) v.updatedAt = v.lastModified || v.registeredAt || v.createdAt || v.acceptedDate || v.created || '';
-            return;
-        }
+        if (!v._rev) { revInitMissing([v]); return; }
         if (v._rev !== h) { v._rev = h; v.updatedAt = nowIso; n++; }
+    });
+    return n;
+}
+
+/**
+ * Da `_rev` (y una `updatedAt` de respaldo, sin inventar fecha) a los registros que
+ * no la tienen. Tiene que correr al CARGAR, no al guardar: si la huella se toma
+ * recién en el primer saveDB(), se toma CON la edición adentro y esa edición nunca
+ * se sella como nueva — la siguiente fusión la empata contra la copia vieja de la
+ * nube y puede perderla (checklist de Liberación que "no dejaba hacer clic": el
+ * primer toque sobre un vehículo anterior a v23.5 se borraba al llegar el sync).
+ * La llama dedupeVehicleIds(), que ya corre al arrancar y tras CADA escritura de
+ * `db` venida de la nube. Devuelve cuántos inicializó.
+ */
+function revInitMissing(list) {
+    var n = 0;
+    (list || []).forEach(function(v) {
+        if (!v || typeof v !== 'object' || v._rev) return;
+        v._rev = revContentHash(v);
+        if (!v.updatedAt) v.updatedAt = v.lastModified || v.registeredAt || v.createdAt || v.acceptedDate || v.created || '';
+        n++;
     });
     return n;
 }
@@ -1629,6 +1651,8 @@ function _vehicleIdRepairRefs(vin, oldId, newId) {
  */
 function dedupeVehicleIds() {
     if (!db || !Array.isArray(db.vehicles)) return 0;
+    // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing).
+    try { revInitMissing(db.vehicles); } catch (e) { console.warn('revInitMissing:', e); }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
