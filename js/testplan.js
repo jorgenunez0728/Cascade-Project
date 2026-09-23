@@ -2840,7 +2840,7 @@ function tpRenderRules(el) {
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
-                                <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
+                                <td><button type="button" onclick="tpDeleteRatioRule(${i})" aria-label="Eliminar regla" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;min-width:32px;min-height:32px;">×</button></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2940,9 +2940,10 @@ function tpDeleteRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
     showConfirmDialog({ title: '⚠️ Eliminar plantilla', message: '¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        tpState.rulePresets.splice(idx, 1);
-        tpSave(); tpRender();
-        showToast('Plantilla eliminada', 'success');
+        undoableAction('testplan', 'Plantilla eliminada', function() {
+            tpState.rulePresets.splice(idx, 1);
+            tpSave(); tpRender();
+        });
     });
 }
 
@@ -6015,9 +6016,31 @@ function tpAddPriorityRule() {
     tpState.priorityRules.push({ id: 'r' + Date.now(), tier: 3, region: '*', regulation: '*', modelMatch: '', engMatch: '', label: 'Nueva regla' });
     tpSave(); tpRender();
 }
+// [v24] Las reglas de ratio y de prioridad se borraban de un toque, sin preguntar ni
+// deshacer — y una regla de ratio cambia el REQ y la cobertura de todo el laboratorio.
+function tpDeleteRatioRule(i) {
+    var r = (tpState.rules || [])[i]; if (!r) return;
+    var nombre = r.label || ((r.region || '*') + ' / ' + (r.regulation || '*'));
+    showConfirmDialog({ title: '¿Eliminar la regla «' + escapeHtml(nombre) + '»?',
+        message: 'Cambia el REQ de las configuraciones que cubría. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.rules.splice(i, 1); tpSave(); tpRender();
+        });
+    });
+}
 function tpDeletePriorityRule(id) {
-    tpState.priorityRules = (tpState.priorityRules || []).filter(function(r) { return r.id !== id; });
-    tpSave(); tpRender();
+    var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; }); if (!r) return;
+    var nombre = r.label || ('P' + (r.tier || ''));
+    showConfirmDialog({ title: '¿Eliminar la regla de prioridad «' + escapeHtml(nombre) + '»?',
+        message: 'Podrás deshacerlo unos segundos.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.priorityRules = (tpState.priorityRules || []).filter(function(x) { return x.id !== id; });
+            tpSave(); tpRender();
+        });
+    });
 }
 function tpSetPriorityRule(id, field, val) {
     var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; });
@@ -6026,17 +6049,36 @@ function tpSetPriorityRule(id, field, val) {
     tpSave(); tpRender();
 }
 function tpResetPriorityRules() {
-    tpState.priorityRules = tpDefaultPriorityRules();
-    tpSave(); tpRender();
-    if (typeof showToast === 'function') showToast('Reglas de prioridad restauradas', 'info');
+    var n = (tpState.priorityRules || []).length;
+    showConfirmDialog({ title: '¿Volver a las reglas de prioridad de fábrica?',
+        message: 'Se reemplazan tus ' + n + ' regla(s) por las predeterminadas. Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Restaurar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Reglas de prioridad restauradas', function() {
+            tpState.priorityRules = tpDefaultPriorityRules();
+            tpSave(); tpRender();
+        });
+    });
 }
 
 // Materializa el cronograma en planes semanales reales (reúsa la forma de item + tpAssignSchedule).
+// [v24] Acción masiva: dice cuántas semanas y pruebas va a escribir antes de hacerlo, y
+// deja deshacer. Antes escribía N planes de un toque (el "Generar mes", que solo escribe
+// 4, sí preguntaba).
 function tpMaterializeRecovery() {
     var plan = tpBuildRecoveryPlan();
     var weeksWithItems = plan.schedule.filter(function(w) { return w.available && w.items.length > 0; });
-    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en semanas disponibles', 'warning'); return; }
-    if (typeof undoPush === 'function') undoPush('testplan', 'Plan de recuperación');
+    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en las semanas disponibles. Marca más semanas como disponibles o sube su capacidad.', 'warning'); return; }
+    var nItems = weeksWithItems.reduce(function(a, w) { return a + w.items.length; }, 0);
+    showConfirmDialog({ title: '¿Crear ' + weeksWithItems.length + ' semana(s) de recuperación?',
+        message: 'Se agregan ' + nItems + ' prueba(s) como propuestas en Mi semana (no se aceptan solas). Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Crear', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', weeksWithItems.length + ' semana(s) de recuperación creadas', function() { _tpMaterializeRecoveryDo(plan, weeksWithItems); });
+    });
+}
+
+function _tpMaterializeRecoveryDo(plan, weeksWithItems) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var created = 0;
     weeksWithItems.forEach(function(w) {
@@ -6068,14 +6110,13 @@ function tpMaterializeRecovery() {
         created++;
     });
     tpSave();
-    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas — revísalas en Mi semana', 'success');
     tpSwitchTab('tp-myweek');
 }
 
 // ── Render de la pestaña Recuperación ──
 function tpRenderRecovery(el) {
     if (!tpState.planData || tpState.planData.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Para calcular la recuperación hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>';
         return;
     }
     var R = tpBuildRecoveryPlan();
@@ -6470,7 +6511,7 @@ function tpPlanHorizon(opts) {
 // ║  MONTHLY PLAN GENERATION — genera 4 semanas de una vez               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 function tpGenerateMonthly(startDateStr) {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (tpState.planData.length === 0) { showToast('Primero importa el plan de producción (Plan → Producción).', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var workDays = window._tpWorkDays || _TP_DEFAULT_WD;
     var baseStr = startDateStr || window._tpWeekDate || (typeof localToday === 'function' ? localToday() : '');
@@ -8500,7 +8541,7 @@ function tpFamilyFlagBadge(f) {
 }
 
 function tpRenderFamilies(el) {
-    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
+    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>'; return; }
     const families = tpBuildFamilies();
     const sortBy        = window._tpFamSort    || 'risk';
     const regionFilter  = window._tpFamRegion  || 'ALL';
@@ -8780,19 +8821,19 @@ function tpRenderSimulator(el) {
 
     el.innerHTML = `
     <div class="tp-card">
-        <div class="tp-card-title"><span>🔮 Simulador What-If</span></div>
+        <div class="tp-card-title"><span>🔮 Simulador: ¿qué pasaría si…?</span></div>
         <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-lg);">Simula escenarios ajustando la capacidad semanal para ver en cuánto tiempo alcanzas cobertura completa.</p>
         <div style="display:flex;gap: var(--space-lg);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-lg);">
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad Semanal</label>
-                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:200px;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;">
+                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:100%;max-width:20rem;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;" onchange="window._tpSimCap=+this.value;tpRender();">
                 <span id="tp-sim-cap-val" style="font-weight:800;color:var(--tp-amber);font-size:14px;margin-left: var(--space-sm);">${simCap}</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">pruebas/semana</span>
             </div>
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Horizonte (semanas)</label>
-                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;">
+                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;" onchange="window._tpSimWeeks=+this.value||26;tpRender();">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="window._tpSimCap=+document.getElementById('tp-sim-cap').value;window._tpSimWeeks=+document.getElementById('tp-sim-weeks').value;tpRender();">🔄 Simular</button>
+            <!-- [v24] Sin botón "Simular": el resultado se recalcula al soltar el deslizador o cambiar el horizonte. -->
         </div>
     </div>
 
@@ -8998,6 +9039,10 @@ function tpRenderCalendar(el) {
     html += '</div>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">▶</button>';
     html += '</div>';
+    // [v24] Volver al mes actual de un toque (antes: tocar ◀/▶ las veces que hiciera falta).
+    if (year !== now.getFullYear() || month !== now.getMonth()) {
+        html += '<div style="text-align:center;margin: calc(-1 * var(--space-sm)) 0 var(--space-md);"><button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button></div>';
+    }
 
     // Metrics row
     html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);">';
@@ -9106,6 +9151,8 @@ function tpCalendarDayDetail(dateKey) {
 
     if (dayEvents.length === 0) {
         detailEl.innerHTML = '<div class="tp-card" style="margin-top: var(--space-sm);text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
+        // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+        try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
         return;
     }
 
@@ -9122,6 +9169,8 @@ function tpCalendarDayDetail(dateKey) {
     html += '</div>';
 
     detailEl.innerHTML = html;
+    // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+    try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
 }
 
 

@@ -566,13 +566,14 @@ function pnRenderHomolog(el) {
 
 
 function homoDeleteRow(id) {
-    showConfirm('¿Quitar este vehículo del catálogo? No afecta a los vehículos ya registrados.', function() {
+    showConfirm('No afecta a los vehículos ya registrados. Podrás deshacerlo unos segundos.', function() {
         homoInit();
+        var antes = JSON.parse(JSON.stringify(homoState.catalog));
         homoState.catalog = homoState.catalog.filter(function(r) { return r.id !== id; });
         homoSave();
         if (typeof pnRender === 'function') pnRender();
-        showToast('Fila eliminada.', 'success');
-    }, { type: 'danger' });
+        toastUndo('Fila del catálogo eliminada', function() { homoState.catalog = antes; homoSave(); if (typeof pnRender === 'function') pnRender(); });
+    }, { type: 'danger', title: '¿Quitar este vehículo del catálogo ICMS?', confirmText: 'Quitar' });
 }
 
 function _homoImportReport(res) {
@@ -607,11 +608,15 @@ function homoImportFile(ev) {
 
     var isCsv = /\.csv$/i.test(file.name);
     var reader = new FileReader();
+    // [v24] Estado de carga a la vista: un .xlsx grande tarda y antes no se veía nada.
+    var st = document.getElementById('homo-import-status');
+    if (st) st.innerHTML = '<span style="color:var(--muted);">⏳ Leyendo «' + escapeHtml(file.name) + '»…</span>';
+    var fallo = function(msg) { if (st) st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(msg) + '</span>'; showToast(msg, 'error'); };
 
     if (isCsv) {
         reader.onload = function() {
             var grid = (typeof _pnProjParseDelimited === 'function') ? _pnProjParseDelimited(reader.result) : null;
-            if (!grid) { showToast('No se pudo leer el CSV.', 'error'); return; }
+            if (!grid) { fallo('No se pudo leer el CSV. Revisa que tenga una fila de encabezados.'); return; }
             _homoImportReport(homoImportApply(grid));
         };
         reader.readAsText(file);
@@ -620,10 +625,9 @@ function homoImportFile(ev) {
 
     // .xlsx/.xls — SheetJS se carga diferido (mismo patrón que el importador de Proyectos)
     if (typeof _pnProjLoadXLSX !== 'function') { showToast('Importador no disponible.', 'error'); return; }
-    showToast('Cargando lector de Excel…', 'info');
     _pnProjLoadXLSX(function(ok) {
         if (!ok) {
-            showToast('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.', 'error');
+            fallo('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.');
             return;
         }
         reader.onload = function() {
@@ -634,7 +638,7 @@ function homoImportFile(ev) {
                 _homoImportReport(homoImportApply(grid));
             } catch (e) {
                 console.error('homoImportFile:', e);
-                showToast('No se pudo leer el archivo: ' + e.message, 'error');
+                fallo('No se pudo leer el archivo. Ábrelo en Excel, guárdalo de nuevo como .xlsx o .csv e inténtalo otra vez.');
             }
         };
         reader.readAsArrayBuffer(file);
@@ -1138,9 +1142,13 @@ function homoIpCancelPending() {
 function homoIpConfirmDelete(id) {
     var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
     if (!f) return;
-    var go = function() { homoIpDelete(id); _homoIpRepaint(); };
-    if (typeof showConfirm === 'function') showConfirm('¿Borrar la familia ' + f.code + '?', go);
-    else if (confirm('¿Borrar la familia ' + f.code + '?')) go();
+    var go = function() {
+        var antes = JSON.parse(JSON.stringify(homoState.ipFamilies || []));
+        homoIpDelete(id); _homoIpRepaint();
+        toastUndo('Familia ' + f.code + ' eliminada', function() { homoState.ipFamilies = antes; homoSave(); _homoIpRepaint(); });
+    };
+    showConfirm('Los vehículos ligados a ella quedan sin familia de interpolación. Podrás deshacerlo unos segundos.', go,
+        { type: 'danger', title: '¿Borrar la familia ' + _homoEsc(f.code) + '?', confirmText: 'Borrar' });
 }
 
 /** Alta/edición a mano (para un certificado que no se pueda copiar como texto). */

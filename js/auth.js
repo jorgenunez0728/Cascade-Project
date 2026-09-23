@@ -443,7 +443,7 @@ function authSelectOperator(idx) {
     }
     html += '</div>';
 
-    html += '<div id="auth-pin-error" class="auth-pin-error"></div>';
+    html += '<div id="auth-pin-error" class="auth-pin-error" role="alert" aria-live="assertive"></div>';
 
     // Teclado en pantalla: en tablet el teclado del sistema tapa los campos, y
     // los técnicos trabajan con guantes. `readonly` en los inputs evita que se
@@ -452,7 +452,8 @@ function authSelectOperator(idx) {
     ['1','2','3','4','5','6','7','8','9'].forEach(function(k) {
         html += '<button type="button" class="auth-key" onclick="authKeyPress(\'' + k + '\')">' + k + '</button>';
     });
-    html += '<button type="button" class="auth-key auth-key--ghost" onclick="authShowLogin()" title="Cambiar usuario">←</button>';
+    // [v24] Aquí había un segundo "←" que hacía lo mismo que "Cambiar usuario" de abajo.
+    html += '<span class="auth-key auth-key--ghost" aria-hidden="true"></span>';
     html += '<button type="button" class="auth-key" onclick="authKeyPress(\'0\')">0</button>';
     html += '<button type="button" class="auth-key auth-key--wide" onclick="authKeyBackspace()" title="Borrar">⌫</button>';
     html += '</div>';
@@ -468,6 +469,8 @@ function authSelectOperator(idx) {
     html += '</div>';
 
     area.innerHTML = html;
+    // [v24] En un teléfono con varios operadores el teclado quedaba abajo, fuera de la vista.
+    try { area.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
 
     setTimeout(function() {
         var first = document.getElementById('auth-pin-0');
@@ -582,8 +585,7 @@ function authVerifyAndLogin(pin) {
     // ¿Bloqueado?
     var lock = _authLockoutGet(op.id);
     if (lock.until && lock.until > Date.now()) {
-        var secs = Math.ceil((lock.until - Date.now()) / 1000);
-        if (err) { err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + ' s.'; err.classList.add('lock'); }
+        _authLockCountdown(err, lock.until);
         return;
     }
 
@@ -618,11 +620,7 @@ function authVerifyAndLogin(pin) {
         }
 
         if (rec.until && rec.until > Date.now()) {
-            var mins = Math.round((rec.until - Date.now()) / 60000);
-            if (err) err.classList.add('lock');
-            if (err) err.textContent = mins >= 1
-                ? ('Demasiados intentos. Bloqueado ' + mins + ' min.')
-                : 'Demasiados intentos. Bloqueado 60 segundos.';
+            _authLockCountdown(err, rec.until);
         } else if (err) {
             err.classList.remove('lock');
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
@@ -963,4 +961,26 @@ function authFirebaseSignIn() {
     if (typeof fbEnsureAuth === 'function') {
         try { fbEnsureAuth(); } catch(e) { console.warn('authFirebaseSignIn:', e); }
     }
+}
+
+/**
+ * [v24] Cuenta regresiva real del bloqueo por intentos: antes decía "Bloqueado 2 min"
+ * (Math.round de 90 s) y no cambiaba — no había forma de saber cuándo reintentar.
+ */
+function _authLockCountdown(err, until) {
+    if (!err) return;
+    clearInterval(window._authLockTimer);
+    var pinta = function() {
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0 || !document.body.contains(err)) {
+            clearInterval(window._authLockTimer);
+            if (document.body.contains(err)) { err.classList.remove('lock'); err.textContent = 'Ya puedes volver a intentar.'; }
+            return;
+        }
+        var t = left >= 60 ? Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) + ' min' : left + ' s';
+        err.classList.add('lock');
+        err.textContent = 'Demasiados intentos. Reintenta en ' + t + '.';
+    };
+    pinta();
+    window._authLockTimer = setInterval(pinta, 1000);
 }

@@ -2401,6 +2401,8 @@ function undoPush(module, actionLabel) {
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
 
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
+        // [v24] Datos/Proyectos también se pueden deshacer.
+        if (module === 'panel' || module === 'all') snapshot.panel = typeof pnState !== 'undefined' ? JSON.stringify(pnState) : null;
     } catch(e) { console.error('Undo snapshot failed:', e); return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
     if (_undoStack.length > UNDO_MAX) _undoStack.shift();
@@ -2408,19 +2410,43 @@ function undoPush(module, actionLabel) {
 
 function undoPop() {
     if (_undoStack.length === 0) { showToast('No hay acciones para deshacer', 'info'); return; }
-    var entry = _undoStack.pop();
+    _undoRestore(_undoStack.pop());
+}
+
+/**
+ * [v24] LA forma de hacer una acción deshacible desde la pantalla: toma la foto del
+ * módulo, ejecuta `fn` y ofrece "Deshacer" en un toast. El botón restaura ESA foto —
+ * no la última de la pila, que podría ser de otra acción hecha mientras tanto.
+ * module: 'cop15' | 'testplan' | 'inventory' | 'panel'. Devuelve lo que devuelva fn.
+ */
+function undoableAction(module, label, fn) {
+    undoPush(module, label);
+    var entry = _undoStack[_undoStack.length - 1];
+    var r = fn();
+    if (r === false) { var k = _undoStack.indexOf(entry); if (k >= 0) _undoStack.splice(k, 1); return r; }
+    toastUndo(label, function() {
+        var i = _undoStack.indexOf(entry);
+        if (i >= 0) _undoStack.splice(i, 1);
+        _undoRestore(entry, true);
+    });
+    return r;
+}
+
+function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
-    } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
+        if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }
+    } catch(e) { console.error('Undo restore failed:', e); showToast('No se pudo deshacer. Recarga la página y revisa el dato.', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
 
     if (entry.data.inventory && typeof invRender === 'function') invRender();
-    showToast('Deshecho: ' + entry.label, 'success');
+    if (entry.data.panel && typeof pnRender === 'function') pnRender();
+    if (!quiet) showToast('Deshecho: ' + entry.label, 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════════

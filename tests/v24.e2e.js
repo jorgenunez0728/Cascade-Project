@@ -119,7 +119,45 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
         await page.waitForTimeout(200);
         const ed = await page.evaluate(() => ({ modal: !!document.getElementById('pn-edit-op-role'), native: window._nativeDialogs }));
         chk('B0: editar operador abre el modal con selector de rol', ed.modal && ed.native === 0, JSON.stringify(ed));
-        await page.evaluate(() => { const m = document.getElementById('globalModal'); if (m) m.remove(); });
+        await page.evaluate(() => { document.querySelectorAll('.custom-modal-overlay').forEach(m => m.remove()); });
+
+        // ── Bloque 4: confirmar Y deshacer ──
+        const del = await page.evaluate(async () => {
+            switchPlatform('inventory'); invSwitchTab('inv-gases');
+            const g = invState.gases[0]; const n0 = invState.gases.length;
+            invConfirmDelete('gas', g.id);
+            await new Promise(r => setTimeout(r, 80));
+            const ov = [...document.querySelectorAll('.custom-modal-overlay')].pop();
+            const title = (ov.querySelector('.custom-modal-title') || {}).textContent || '';
+            ov.querySelector('[data-action="confirm"]').click();
+            await new Promise(r => setTimeout(r, 200));
+            const n1 = invState.gases.length;
+            [...document.querySelectorAll('.toast-undo')].pop().click();
+            await new Promise(r => setTimeout(r, 200));
+            return { title, n0, n1, n2: invState.gases.length, back: invState.gases.some(x => x.id === g.id) };
+        });
+        chk('B4: borrar cilindro pregunta con su nombre', /¿Eliminar el cilindro «.+»\?/.test(del.title), del.title);
+        chk('B4: …lo borra y Deshacer lo devuelve', del.n1 === del.n0 - 1 && del.n2 === del.n0 && del.back, JSON.stringify(del));
+
+        const cap = await page.evaluate(async () => {
+            invSwitchTab('inv-readings'); await new Promise(r => setTimeout(r, 300));
+            const c = document.getElementById('inv-content');
+            return { save: c.querySelectorAll('.inv-capture-savebar').length, headSave: [...c.querySelectorAll('.tp-card-title button')].filter(b => /Guardar/.test(b.textContent)).length,
+                     reserva: !!c.querySelector('details summary') && /reserva/i.test(c.querySelector('details summary').textContent),
+                     invisible: [...c.querySelectorAll('strong')].filter(x => x.style.color === 'rgb(255, 255, 255)' || x.style.color === '#fff').length };
+        });
+        chk('B4: captura con UN Guardar abajo (fijo) y reserva plegada', cap.save === 1 && cap.headSave === 0 && cap.reserva, JSON.stringify(cap));
+        chk('B4: sin números en blanco sobre blanco en la captura', cap.invisible === 0, JSON.stringify(cap));
+
+        const rule = await page.evaluate(async () => {
+            const n0 = tpState.rules.length; tpDeleteRatioRule(0);
+            await new Promise(r => setTimeout(r, 80));
+            const asked = !!document.querySelector('.custom-modal-overlay [data-action="confirm"]');
+            document.querySelector('.custom-modal-overlay [data-action="cancel"]').click();
+            await new Promise(r => setTimeout(r, 200));
+            return { asked, same: tpState.rules.length === n0 };
+        });
+        chk('B4: borrar una regla de ratio pregunta (y cancelar no borra)', rule.asked && rule.same, JSON.stringify(rule));
 
         chk('computadora: sin diálogos nativos', await page.evaluate(() => window._nativeDialogs) === 0);
         chk('computadora: sin errores de página', errs.length === 0, errs.join(' | '));

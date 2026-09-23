@@ -5664,13 +5664,19 @@ body.cop-present .cop-toolbar    { display: none; }
 }
 
 /* Botón de borrar como enlace discreto a la izquierda de un modal, no entre Guardar y Cancelar. */
-.u-danger-link { margin-right: auto; background: none; border: none; color: var(--danger-text, #b91c1c); text-decoration: underline; cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; min-height: 32px; }
+.u-danger-link { order: -1; margin-right: auto; background: none; border: none; color: var(--danger-text, #b91c1c); text-decoration: underline; cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; min-height: 32px; }
 @media (pointer: coarse) { .u-danger-link { min-height: var(--target-min); } }
 
 /* [v24] Dependencias de un paso de proyecto: casillas, no <select multiple>. */
 .pn-dep-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); max-height: 12rem; overflow-y: auto; }
 .pn-dep-chip { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-xs) var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); font-size: var(--fs-sm); cursor: pointer; position: relative; }
 .pn-dep-chip:has(input:checked) { border-color: var(--accent, #bb162b); background: var(--info-tint, #eff6ff); font-weight: 600; }
+
+/* [v24] Captura de lecturas: Guardar siempre al alcance, encima de la barra inferior. */
+.inv-capture-savebar { position: sticky; bottom: calc(62px + var(--space-sm)); z-index: 5; display: flex; justify-content: flex-end; padding: var(--space-sm) 0; margin-bottom: var(--space-md); }
+.inv-capture-savebar .tp-btn { min-height: var(--target-min); padding: var(--space-sm) var(--space-xl); box-shadow: var(--shadow-md); }
+@media (min-width: 1025px) { .inv-capture-savebar { bottom: var(--space-sm); } }
+@media (max-width: 640px) { .inv-capture-savebar .tp-btn { width: 100%; } }
     </style>
 </head>
 
@@ -8046,7 +8052,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609230051';
+var APP_BUILD = '202609230059';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8500,14 +8506,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609230051' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609230059' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609230051' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609230059' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8523,7 +8529,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609230051' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609230059' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9710,14 +9716,16 @@ function copyToClipboard(text, btnEl) {
 
 // ── Toast Notification System ──
 // [v24] showToast(msg, type[, durMs][, undoFn])
-//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR se queda hasta cerrarlo
-//    (un error que se va en 4 s no se alcanza a leer; los de sync/importación son largos).
+//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR según lo que hay que leer
+//    (mín. 8 s, ~70 ms por carácter): un error que se va en 4 s no se alcanza a leer y los
+//    de sync/importación son largos. No se dejan fijos: muchos "error" son validaciones
+//    ("El nombre es requerido") y obligar a cerrar cada una a mano sería peor.
 //    Un número explícito como 3er argumento manda — ~20 llamadores ya lo pasaban y se
-//    ignoraba.
+//    ignoraba. 0 explícito = fijo hasta cerrarlo.
 //  - Todos llevan ✕. Máximo UI_TOAST_MAX a la vez: el más viejo se va.
 //  - Los errores se anuncian con role="alert" (interrumpen al lector de pantalla).
 var UI_TOAST_MAX = 3;
-var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 0 };
+var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 8000 };
 function showToast(msg, type) {
     type = type || 'info';
     var container = document.getElementById('toast-container');
@@ -9737,7 +9745,7 @@ function showToast(msg, type) {
     toast.appendChild(txt);
 
     var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
-    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] > 0) ? arguments[2] : null;
+    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] >= 0) ? arguments[2] : null;
     if (undoFn) {
         var undoBtn = document.createElement('button');
         undoBtn.type = 'button';
@@ -9754,7 +9762,10 @@ function showToast(msg, type) {
     closeBtn.onclick = function() { dismiss(); };
     toast.appendChild(closeBtn);
 
-    var dur = explicitDur || (undoFn ? 8000 : (UI_TOAST_DUR[type] != null ? UI_TOAST_DUR[type] : 4000));
+    var dur = explicitDur != null ? explicitDur
+            : undoFn ? 8000
+            : type === 'error' ? Math.max(UI_TOAST_DUR.error, String(msg || '').length * 70)
+            : (UI_TOAST_DUR[type] || 4000);
     if (dur) {
         toast.style.setProperty('--toast-duration', (dur / 1000) + 's');
         var progressBar = document.createElement('div');
@@ -10161,6 +10172,8 @@ function undoPush(module, actionLabel) {
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
 
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
+        // [v24] Datos/Proyectos también se pueden deshacer.
+        if (module === 'panel' || module === 'all') snapshot.panel = typeof pnState !== 'undefined' ? JSON.stringify(pnState) : null;
     } catch(e) { void 0; return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
     if (_undoStack.length > UNDO_MAX) _undoStack.shift();
@@ -10168,19 +10181,43 @@ function undoPush(module, actionLabel) {
 
 function undoPop() {
     if (_undoStack.length === 0) { showToast('No hay acciones para deshacer', 'info'); return; }
-    var entry = _undoStack.pop();
+    _undoRestore(_undoStack.pop());
+}
+
+/**
+ * [v24] LA forma de hacer una acción deshacible desde la pantalla: toma la foto del
+ * módulo, ejecuta `fn` y ofrece "Deshacer" en un toast. El botón restaura ESA foto —
+ * no la última de la pila, que podría ser de otra acción hecha mientras tanto.
+ * module: 'cop15' | 'testplan' | 'inventory' | 'panel'. Devuelve lo que devuelva fn.
+ */
+function undoableAction(module, label, fn) {
+    undoPush(module, label);
+    var entry = _undoStack[_undoStack.length - 1];
+    var r = fn();
+    if (r === false) { var k = _undoStack.indexOf(entry); if (k >= 0) _undoStack.splice(k, 1); return r; }
+    toastUndo(label, function() {
+        var i = _undoStack.indexOf(entry);
+        if (i >= 0) _undoStack.splice(i, 1);
+        _undoRestore(entry, true);
+    });
+    return r;
+}
+
+function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
-    } catch(e) { void 0; showToast('Error al deshacer', 'error'); return; }
+        if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }
+    } catch(e) { void 0; showToast('No se pudo deshacer. Recarga la página y revisa el dato.', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
 
     if (entry.data.inventory && typeof invRender === 'function') invRender();
-    showToast('Deshecho: ' + entry.label, 'success');
+    if (entry.data.panel && typeof pnRender === 'function') pnRender();
+    if (!quiet) showToast('Deshecho: ' + entry.label, 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -24379,7 +24416,7 @@ function invCheckProactiveAlerts() {
         if (diff < 0) criticals.push(e.name + ' calibracion vencida');
     });
     if (criticals.length > 0) {
-        showToast(criticals.length + ' alertas criticas en inventario', 'error');
+        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
     }
 }
 
@@ -24869,7 +24906,7 @@ function invShowAddGas(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('gas', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27gas\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
@@ -25570,7 +25607,6 @@ function invRenderReadings(el) {
     html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="invStartReadingRound()" style="font-size: var(--fs-sm);">🔄 Hacer la ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-sm);">📷 Escanear</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="invSaveDailyCapture()" style="font-size: var(--fs-sm);">💾 Guardar lo capturado</button>';
     html += '</div></div>';
     // v21: los dos modos reales del laboratorio, dichos con todas sus letras — la
     // ronda para el recorrido con el celular, esta retícula para pasar la libreta.
@@ -25587,24 +25623,36 @@ function invRenderReadings(el) {
     if (invState.gases.length === 0) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">🔴 Dar de alta un cilindro →</button></div>';
     } else if (gases.length === 0) {
-        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin cilindros en uso.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Todos los cilindros están marcados como vacíos.</div>';
     } else {
-        html += '<div style="max-height:500px;overflow-y:auto;">';
-        gases.forEach(function(g) {
+        // [v24] Primero los que están EN USO (los que se leen a diario); los de almacén y
+        // reserva van plegados abajo. Antes salían todos revueltos en una caja de 500 px
+        // con scroll propio — un scroll dentro de otro en el teléfono.
+        var enUso = gases.filter(function(g) { return !g.status || g.status === 'In use'; });
+        var reserva = gases.filter(function(g) { return g.status && g.status !== 'In use'; });
+        var _row = function(g) {
+            var r = '';
             var lastR = g.readings.length > 0 ? g.readings[g.readings.length-1] : null;
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
-            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
-            html += '<div style="flex:1;min-width:180px;display:flex;gap: var(--space-2xs);flex-wrap:wrap;">';
+            r += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
+            r += '<div style="min-width:100px;"><div style="font-weight:700;font-size: var(--fs-sm);">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' · ' + (g.zone||'?') + (g.status && g.status !== 'In use' ? ' · ' + uiLabel('gasStatus', g.status) : '') + '</div></div>';
+            r += '<div style="flex:1;min-width:180px;display:flex;gap: var(--space-2xs);flex-wrap:wrap;">';
             var last5 = (g.readings||[]).slice(-5);
             if (last5.length > 0) {
-                last5.forEach(function(r){ html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
-            } else { html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
-            html += '</div>';
-            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:100px;text-align:center;font-weight:700;">';
-            html += '</div>';
-        });
-        html += '</div>';
+                // Restos del tema oscuro: `color:#fff` sobre fondo claro = el número de la
+                // última lectura era INVISIBLE.
+                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
+            } else { r += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
+            r += '</div>';
+            r += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
+            r += '</div>';
+            return r;
+        };
+        html += enUso.length ? enUso.map(_row).join('') : '<div style="color:var(--tp-dim);padding: var(--space-sm);">Ningún cilindro marcado en uso.</div>';
+        if (reserva.length) {
+            html += '<details style="margin-top: var(--space-sm);"><summary style="cursor:pointer;font-weight:700;padding: var(--space-sm) 0;">En almacén o reserva (' + reserva.length + ')</summary>' +
+                    reserva.map(_row).join('') + '</details>';
+        }
     }
     html += '</div>';
 
@@ -25619,14 +25667,19 @@ function invRenderReadings(el) {
             var lastR = (t.readings && t.readings.length) ? t.readings[t.readings.length-1] : null;
             html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
             html += '<div style="min-width:120px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + (t.name||'Tanque') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: ' + (t.currentLevel!=null?t.currentLevel:'?') + ' ' + (t.unit||'L') + (lastR?(' | '+lastR.date.slice(5)):'') + '</div></div>';
-            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:110px;text-align:center;font-weight:700;">';
+            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
             html += '</div>';
         });
     }
     html += '</div>';
+    // [v24] Un solo "Guardar", pegado abajo mientras se captura (antes estaba arriba, lejos
+    // de los campos, y había que subir para encontrarlo después de la última lectura).
+    if (invState.gases.length || tanks.length) {
+        html += '<div class="inv-capture-savebar"><button class="tp-btn tp-btn-primary" onclick="invSaveDailyCapture()">💾 Guardar lo capturado</button></div>';
+    }
 
     // Recent readings history
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Ultimas lecturas</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Últimas lecturas</span></div>';
     var allReadings = [];
     invState.gases.forEach(function(g) {
         (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, psi:r.psi, zone:g.zone}); });
@@ -26142,7 +26195,7 @@ function invAddEquipment(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('equipment', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27equipment\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -26232,7 +26285,7 @@ function invAddAsset(editId) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveAsset(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo? Sus instrumentos quedaran sin equipo padre.\',function(){invState.assets=invState.assets.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27asset\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -26472,7 +26525,7 @@ function invAddMaintActivity(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('maint', 'Crear otra al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27activity\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -27431,7 +27484,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invDeleteFuelTank(\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -28067,10 +28120,9 @@ function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
     if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
-    showConfirmDialog({ title: '⚠️ Eliminar zona', message: 'Eliminar zona ' + z.id + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '¿Eliminar la zona ' + z.id + '?', message: 'Podrás deshacerlo unos segundos.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        invState.zones.splice(idx, 1);
-        invSave(); invRender();
+        undoableAction('inventory', 'Se eliminó la zona ' + z.id, function() { invState.zones.splice(idx, 1); invSave(); invRender(); });
     });
 }
 
@@ -28099,7 +28151,7 @@ function invShowGasTypeModal(idx) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27gasType\x27,' + idx + ')">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -28127,11 +28179,49 @@ function invSaveGasTypeModal(idx) {
     document.getElementById('invModal').style.display = 'none';
 }
 
-function invDeleteGasType(idx) {
-    showConfirmDialog({ title: '⚠️ Eliminar tipo', message: 'Eliminar tipo ' + invState.gasTypes[idx].name + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+function invDeleteGasType(idx) { invConfirmDelete('gasType', idx); }
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] LA forma de borrar UNA cosa de Consumibles: dice qué se borra, confirma
+// (decisión del laboratorio: preguntar Y ofrecer deshacer) y deja "Deshacer" unos
+// segundos. Antes había cinco caminos en línea dentro de `onclick`, sin deshacer, con
+// "Eliminar cilindro?" sin nombre ni signo de apertura.
+// ══════════════════════════════════════════════════════════════════════
+function invConfirmDelete(kind, ref) {
+    var name = '', what = '', extra = '', run = null;
+    if (kind === 'gas') {
+        var g = invState.gases.find(function(x) { return x.id === ref; }); if (!g) return;
+        what = 'el cilindro'; name = (g.controlNo || '') + (g.formula ? ' · ' + g.formula : '');
+        run = function() { invDeleteGas(ref); };
+    } else if (kind === 'equipment') {
+        var e = invState.equipment.find(function(x) { return x.id === ref; }); if (!e) return;
+        what = 'el instrumento'; name = e.name || e.f11Id || '';
+        run = function() { invState.equipment = invState.equipment.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'asset') {
+        var a = (invState.assets || []).find(function(x) { return x.id === ref; }); if (!a) return;
+        var hijos = (invState.equipment || []).filter(function(x) { return x.assetId === ref; }).length;
+        what = 'el equipo'; name = a.name || '';
+        extra = hijos ? 'Sus ' + hijos + ' instrumento(s) quedarán sin equipo padre.' : '';
+        run = function() { invState.assets = invState.assets.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'activity') {
+        var m = (invState.maintActivities || []).find(function(x) { return x.id === ref; }); if (!m) return;
+        what = 'la actividad'; name = m.activity || m.name || '';
+        run = function() { invState.maintActivities = invState.maintActivities.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'gasType') {
+        var t = (invState.gasTypes || [])[ref]; if (!t) return;
+        what = 'el tipo de gas'; name = t.name || '';
+        run = function() { invState.gasTypes.splice(ref, 1); invSave(); invRender(); };
+    } else return;
+    var label = 'Se eliminó ' + what + (name ? ' ' + name : '');
+    showConfirmDialog({
+        title: '¿Eliminar ' + what + (name ? ' «' + escapeHtml(name) + '»' : '') + '?',
+        message: (extra ? extra + '\n' : '') + 'Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar'
+    }).then(function(ok) {
         if (!ok) return;
-        invState.gasTypes.splice(idx, 1);
-        invSave(); invRender();
+        var modal = document.getElementById('invModal');
+        if (modal) modal.style.display = 'none';
+        undoableAction('inventory', label, run);
     });
 }
 
@@ -32264,7 +32354,7 @@ function tpRenderRules(el) {
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
-                                <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
+                                <td><button type="button" onclick="tpDeleteRatioRule(${i})" aria-label="Eliminar regla" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;min-width:32px;min-height:32px;">×</button></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -32364,9 +32454,10 @@ function tpDeleteRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
     showConfirmDialog({ title: '⚠️ Eliminar plantilla', message: '¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        tpState.rulePresets.splice(idx, 1);
-        tpSave(); tpRender();
-        showToast('Plantilla eliminada', 'success');
+        undoableAction('testplan', 'Plantilla eliminada', function() {
+            tpState.rulePresets.splice(idx, 1);
+            tpSave(); tpRender();
+        });
     });
 }
 
@@ -35439,9 +35530,31 @@ function tpAddPriorityRule() {
     tpState.priorityRules.push({ id: 'r' + Date.now(), tier: 3, region: '*', regulation: '*', modelMatch: '', engMatch: '', label: 'Nueva regla' });
     tpSave(); tpRender();
 }
+// [v24] Las reglas de ratio y de prioridad se borraban de un toque, sin preguntar ni
+// deshacer — y una regla de ratio cambia el REQ y la cobertura de todo el laboratorio.
+function tpDeleteRatioRule(i) {
+    var r = (tpState.rules || [])[i]; if (!r) return;
+    var nombre = r.label || ((r.region || '*') + ' / ' + (r.regulation || '*'));
+    showConfirmDialog({ title: '¿Eliminar la regla «' + escapeHtml(nombre) + '»?',
+        message: 'Cambia el REQ de las configuraciones que cubría. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.rules.splice(i, 1); tpSave(); tpRender();
+        });
+    });
+}
 function tpDeletePriorityRule(id) {
-    tpState.priorityRules = (tpState.priorityRules || []).filter(function(r) { return r.id !== id; });
-    tpSave(); tpRender();
+    var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; }); if (!r) return;
+    var nombre = r.label || ('P' + (r.tier || ''));
+    showConfirmDialog({ title: '¿Eliminar la regla de prioridad «' + escapeHtml(nombre) + '»?',
+        message: 'Podrás deshacerlo unos segundos.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Se eliminó la regla «' + nombre + '»', function() {
+            tpState.priorityRules = (tpState.priorityRules || []).filter(function(x) { return x.id !== id; });
+            tpSave(); tpRender();
+        });
+    });
 }
 function tpSetPriorityRule(id, field, val) {
     var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; });
@@ -35450,17 +35563,36 @@ function tpSetPriorityRule(id, field, val) {
     tpSave(); tpRender();
 }
 function tpResetPriorityRules() {
-    tpState.priorityRules = tpDefaultPriorityRules();
-    tpSave(); tpRender();
-    if (typeof showToast === 'function') showToast('Reglas de prioridad restauradas', 'info');
+    var n = (tpState.priorityRules || []).length;
+    showConfirmDialog({ title: '¿Volver a las reglas de prioridad de fábrica?',
+        message: 'Se reemplazan tus ' + n + ' regla(s) por las predeterminadas. Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Restaurar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', 'Reglas de prioridad restauradas', function() {
+            tpState.priorityRules = tpDefaultPriorityRules();
+            tpSave(); tpRender();
+        });
+    });
 }
 
 // Materializa el cronograma en planes semanales reales (reúsa la forma de item + tpAssignSchedule).
+// [v24] Acción masiva: dice cuántas semanas y pruebas va a escribir antes de hacerlo, y
+// deja deshacer. Antes escribía N planes de un toque (el "Generar mes", que solo escribe
+// 4, sí preguntaba).
 function tpMaterializeRecovery() {
     var plan = tpBuildRecoveryPlan();
     var weeksWithItems = plan.schedule.filter(function(w) { return w.available && w.items.length > 0; });
-    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en semanas disponibles', 'warning'); return; }
-    if (typeof undoPush === 'function') undoPush('testplan', 'Plan de recuperación');
+    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en las semanas disponibles. Marca más semanas como disponibles o sube su capacidad.', 'warning'); return; }
+    var nItems = weeksWithItems.reduce(function(a, w) { return a + w.items.length; }, 0);
+    showConfirmDialog({ title: '¿Crear ' + weeksWithItems.length + ' semana(s) de recuperación?',
+        message: 'Se agregan ' + nItems + ' prueba(s) como propuestas en Mi semana (no se aceptan solas). Podrás deshacerlo unos segundos.',
+        type: 'warning', confirmText: 'Crear', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        undoableAction('testplan', weeksWithItems.length + ' semana(s) de recuperación creadas', function() { _tpMaterializeRecoveryDo(plan, weeksWithItems); });
+    });
+}
+
+function _tpMaterializeRecoveryDo(plan, weeksWithItems) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var created = 0;
     weeksWithItems.forEach(function(w) {
@@ -35492,14 +35624,13 @@ function tpMaterializeRecovery() {
         created++;
     });
     tpSave();
-    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas — revísalas en Mi semana', 'success');
     tpSwitchTab('tp-myweek');
 }
 
 // ── Render de la pestaña Recuperación ──
 function tpRenderRecovery(el) {
     if (!tpState.planData || tpState.planData.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Para calcular la recuperación hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>';
         return;
     }
     var R = tpBuildRecoveryPlan();
@@ -35894,7 +36025,7 @@ function tpPlanHorizon(opts) {
 // ║  MONTHLY PLAN GENERATION — genera 4 semanas de una vez               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 function tpGenerateMonthly(startDateStr) {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (tpState.planData.length === 0) { showToast('Primero importa el plan de producción (Plan → Producción).', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var workDays = window._tpWorkDays || _TP_DEFAULT_WD;
     var baseStr = startDateStr || window._tpWeekDate || (typeof localToday === 'function' ? localToday() : '');
@@ -37924,7 +38055,7 @@ function tpFamilyFlagBadge(f) {
 }
 
 function tpRenderFamilies(el) {
-    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
+    if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--tp-dim);">Hace falta el plan de producción.<p style="margin-top: var(--space-md);"><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-production\')">📥 Ir a Producción para importarlo</button></p></div>'; return; }
     const families = tpBuildFamilies();
     const sortBy        = window._tpFamSort    || 'risk';
     const regionFilter  = window._tpFamRegion  || 'ALL';
@@ -38204,19 +38335,19 @@ function tpRenderSimulator(el) {
 
     el.innerHTML = `
     <div class="tp-card">
-        <div class="tp-card-title"><span>🔮 Simulador What-If</span></div>
+        <div class="tp-card-title"><span>🔮 Simulador: ¿qué pasaría si…?</span></div>
         <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-lg);">Simula escenarios ajustando la capacidad semanal para ver en cuánto tiempo alcanzas cobertura completa.</p>
         <div style="display:flex;gap: var(--space-lg);align-items:flex-end;flex-wrap:wrap;margin-bottom: var(--space-lg);">
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Capacidad Semanal</label>
-                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:200px;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;">
+                <input class="tp-input" type="range" min="1" max="30" value="${simCap}" id="tp-sim-cap" style="width:100%;max-width:20rem;accent-color:var(--tp-amber);" oninput="document.getElementById('tp-sim-cap-val').textContent=this.value;" onchange="window._tpSimCap=+this.value;tpRender();">
                 <span id="tp-sim-cap-val" style="font-weight:800;color:var(--tp-amber);font-size:14px;margin-left: var(--space-sm);">${simCap}</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">pruebas/semana</span>
             </div>
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Horizonte (semanas)</label>
-                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;">
+                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;" onchange="window._tpSimWeeks=+this.value||26;tpRender();">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="window._tpSimCap=+document.getElementById('tp-sim-cap').value;window._tpSimWeeks=+document.getElementById('tp-sim-weeks').value;tpRender();">🔄 Simular</button>
+            <!-- [v24] Sin botón "Simular": el resultado se recalcula al soltar el deslizador o cambiar el horizonte. -->
         </div>
     </div>
 
@@ -38422,6 +38553,10 @@ function tpRenderCalendar(el) {
     html += '</div>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">▶</button>';
     html += '</div>';
+    // [v24] Volver al mes actual de un toque (antes: tocar ◀/▶ las veces que hiciera falta).
+    if (year !== now.getFullYear() || month !== now.getMonth()) {
+        html += '<div style="text-align:center;margin: calc(-1 * var(--space-sm)) 0 var(--space-md);"><button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button></div>';
+    }
 
     // Metrics row
     html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);">';
@@ -38530,6 +38665,8 @@ function tpCalendarDayDetail(dateKey) {
 
     if (dayEvents.length === 0) {
         detailEl.innerHTML = '<div class="tp-card" style="margin-top: var(--space-sm);text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
+        // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+        try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
         return;
     }
 
@@ -38546,6 +38683,8 @@ function tpCalendarDayDetail(dateKey) {
     html += '</div>';
 
     detailEl.innerHTML = html;
+    // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
+    try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
 }
 
 
@@ -44694,14 +44833,17 @@ function pnDeleteProjectPrompt(id) {
     var p = (pnState.projects || []).find(function(x) { return x.id === id; });
     if (!p) return;
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el proyecto "' + p.name + '" y todos sus pasos/notas?', function() {
-        pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
-        if (window._pnSelectedProject === id) window._pnSelectedProject = null;
-        pnSave();
-        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
-        showToast('Proyecto eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar proyecto', type: 'danger', confirmText: 'Eliminar' });
+    var nPasos = (p.steps || []).length;
+    showConfirm('Se borran también sus ' + nPasos + ' paso(s) y sus notas. Podrás deshacerlo unos segundos.', function() {
+        // [v24] Deshacer: un proyecto entero con su bitácora se perdía de un toque.
+        undoableAction('panel', 'Se eliminó el proyecto «' + p.name + '»', function() {
+            pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
+            if (window._pnSelectedProject === id) window._pnSelectedProject = null;
+            pnSave();
+            if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el proyecto «' + escapeHtml(p.name) + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // Todo lo que depende de stepId, directa o indirectamente ({id: true}).
@@ -44823,13 +44965,14 @@ function pnDeleteProjectStepPrompt(projectId, stepId) {
     if (!p) return;
     var s = (p.steps || []).find(function(x) { return x.id === stepId; });
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el paso "' + (s ? s.title : '') + '"?', function() {
-        p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
-        p.updatedAt = new Date().toISOString();
-        pnSave();
-        showToast('Paso eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar paso', type: 'danger', confirmText: 'Eliminar' });
+    showConfirm('Podrás deshacerlo unos segundos.', function() {
+        undoableAction('panel', 'Se eliminó el paso «' + (s ? s.title : '') + '»', function() {
+            p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
+            p.updatedAt = new Date().toISOString();
+            pnSave();
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el paso «' + escapeHtml(s ? s.title : '') + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // ── Notas libres (línea de tiempo) ──
@@ -46184,7 +46327,7 @@ function authSelectOperator(idx) {
     }
     html += '</div>';
 
-    html += '<div id="auth-pin-error" class="auth-pin-error"></div>';
+    html += '<div id="auth-pin-error" class="auth-pin-error" role="alert" aria-live="assertive"></div>';
 
     // Teclado en pantalla: en tablet el teclado del sistema tapa los campos, y
     // los técnicos trabajan con guantes. `readonly` en los inputs evita que se
@@ -46193,7 +46336,8 @@ function authSelectOperator(idx) {
     ['1','2','3','4','5','6','7','8','9'].forEach(function(k) {
         html += '<button type="button" class="auth-key" onclick="authKeyPress(\'' + k + '\')">' + k + '</button>';
     });
-    html += '<button type="button" class="auth-key auth-key--ghost" onclick="authShowLogin()" title="Cambiar usuario">←</button>';
+    // [v24] Aquí había un segundo "←" que hacía lo mismo que "Cambiar usuario" de abajo.
+    html += '<span class="auth-key auth-key--ghost" aria-hidden="true"></span>';
     html += '<button type="button" class="auth-key" onclick="authKeyPress(\'0\')">0</button>';
     html += '<button type="button" class="auth-key auth-key--wide" onclick="authKeyBackspace()" title="Borrar">⌫</button>';
     html += '</div>';
@@ -46209,6 +46353,8 @@ function authSelectOperator(idx) {
     html += '</div>';
 
     area.innerHTML = html;
+    // [v24] En un teléfono con varios operadores el teclado quedaba abajo, fuera de la vista.
+    try { area.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
 
     setTimeout(function() {
         var first = document.getElementById('auth-pin-0');
@@ -46323,8 +46469,7 @@ function authVerifyAndLogin(pin) {
     // ¿Bloqueado?
     var lock = _authLockoutGet(op.id);
     if (lock.until && lock.until > Date.now()) {
-        var secs = Math.ceil((lock.until - Date.now()) / 1000);
-        if (err) { err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + ' s.'; err.classList.add('lock'); }
+        _authLockCountdown(err, lock.until);
         return;
     }
 
@@ -46359,11 +46504,7 @@ function authVerifyAndLogin(pin) {
         }
 
         if (rec.until && rec.until > Date.now()) {
-            var mins = Math.round((rec.until - Date.now()) / 60000);
-            if (err) err.classList.add('lock');
-            if (err) err.textContent = mins >= 1
-                ? ('Demasiados intentos. Bloqueado ' + mins + ' min.')
-                : 'Demasiados intentos. Bloqueado 60 segundos.';
+            _authLockCountdown(err, rec.until);
         } else if (err) {
             err.classList.remove('lock');
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
@@ -46704,6 +46845,28 @@ function authFirebaseSignIn() {
     if (typeof fbEnsureAuth === 'function') {
         try { fbEnsureAuth(); } catch(e) { void 0; }
     }
+}
+
+/**
+ * [v24] Cuenta regresiva real del bloqueo por intentos: antes decía "Bloqueado 2 min"
+ * (Math.round de 90 s) y no cambiaba — no había forma de saber cuándo reintentar.
+ */
+function _authLockCountdown(err, until) {
+    if (!err) return;
+    clearInterval(window._authLockTimer);
+    var pinta = function() {
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0 || !document.body.contains(err)) {
+            clearInterval(window._authLockTimer);
+            if (document.body.contains(err)) { err.classList.remove('lock'); err.textContent = 'Ya puedes volver a intentar.'; }
+            return;
+        }
+        var t = left >= 60 ? Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) + ' min' : left + ' s';
+        err.classList.add('lock');
+        err.textContent = 'Demasiados intentos. Reintenta en ' + t + '.';
+    };
+    pinta();
+    window._authLockTimer = setInterval(pinta, 1000);
 }
 
 
@@ -50610,7 +50773,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609230051' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609230059' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -52500,9 +52663,21 @@ function copAddManualRow() {
     copPersist(); copRender();
 }
 function copRemoveRow(id) {
-    _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
-    if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
-    copPersist(); copRender();
+    var fila = copState.vehicles.find(function(v) { return v.id === id; }); if (!fila) return;
+    var conDatos = fila.values && Object.keys(fila.values).some(function(k) { return fila.values[k] !== '' && fila.values[k] != null; });
+    var quitar = function() {
+        // [v24] Una fila con valores se iba de un toque y sin deshacer. `undoPush('cop')` es
+        // no-op (CLAUDE.md v19.0), así que la foto se toma aquí.
+        var antes = JSON.parse(JSON.stringify(copState.vehicles));
+        _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
+        if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
+        copPersist(); copRender();
+        toastUndo('Se quitó el VIN ' + (fila.vin || '(sin VIN)'), function() { _copSetVehicles(antes); copPersist(); copRender(); });
+    };
+    if (!conDatos) { quitar(); return; }  // una fila vacía no amerita pregunta
+    showConfirmDialog({ title: '¿Quitar el VIN ' + _copEsc(fila.vin || '(sin VIN)') + '?',
+        message: 'Se pierden los valores capturados en esa fila. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Quitar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) quitar(); });
 }
 function copSetVin(el) {
     var id = parseInt(el.dataset.vid);
@@ -55727,13 +55902,14 @@ function pnRenderHomolog(el) {
 
 
 function homoDeleteRow(id) {
-    showConfirm('¿Quitar este vehículo del catálogo? No afecta a los vehículos ya registrados.', function() {
+    showConfirm('No afecta a los vehículos ya registrados. Podrás deshacerlo unos segundos.', function() {
         homoInit();
+        var antes = JSON.parse(JSON.stringify(homoState.catalog));
         homoState.catalog = homoState.catalog.filter(function(r) { return r.id !== id; });
         homoSave();
         if (typeof pnRender === 'function') pnRender();
-        showToast('Fila eliminada.', 'success');
-    }, { type: 'danger' });
+        toastUndo('Fila del catálogo eliminada', function() { homoState.catalog = antes; homoSave(); if (typeof pnRender === 'function') pnRender(); });
+    }, { type: 'danger', title: '¿Quitar este vehículo del catálogo ICMS?', confirmText: 'Quitar' });
 }
 
 function _homoImportReport(res) {
@@ -55768,11 +55944,15 @@ function homoImportFile(ev) {
 
     var isCsv = /\.csv$/i.test(file.name);
     var reader = new FileReader();
+    // [v24] Estado de carga a la vista: un .xlsx grande tarda y antes no se veía nada.
+    var st = document.getElementById('homo-import-status');
+    if (st) st.innerHTML = '<span style="color:var(--muted);">⏳ Leyendo «' + escapeHtml(file.name) + '»…</span>';
+    var fallo = function(msg) { if (st) st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(msg) + '</span>'; showToast(msg, 'error'); };
 
     if (isCsv) {
         reader.onload = function() {
             var grid = (typeof _pnProjParseDelimited === 'function') ? _pnProjParseDelimited(reader.result) : null;
-            if (!grid) { showToast('No se pudo leer el CSV.', 'error'); return; }
+            if (!grid) { fallo('No se pudo leer el CSV. Revisa que tenga una fila de encabezados.'); return; }
             _homoImportReport(homoImportApply(grid));
         };
         reader.readAsText(file);
@@ -55781,10 +55961,9 @@ function homoImportFile(ev) {
 
     // .xlsx/.xls — SheetJS se carga diferido (mismo patrón que el importador de Proyectos)
     if (typeof _pnProjLoadXLSX !== 'function') { showToast('Importador no disponible.', 'error'); return; }
-    showToast('Cargando lector de Excel…', 'info');
     _pnProjLoadXLSX(function(ok) {
         if (!ok) {
-            showToast('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.', 'error');
+            fallo('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.');
             return;
         }
         reader.onload = function() {
@@ -55795,7 +55974,7 @@ function homoImportFile(ev) {
                 _homoImportReport(homoImportApply(grid));
             } catch (e) {
                 void 0;
-                showToast('No se pudo leer el archivo: ' + e.message, 'error');
+                fallo('No se pudo leer el archivo. Ábrelo en Excel, guárdalo de nuevo como .xlsx o .csv e inténtalo otra vez.');
             }
         };
         reader.readAsArrayBuffer(file);
@@ -56299,9 +56478,13 @@ function homoIpCancelPending() {
 function homoIpConfirmDelete(id) {
     var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
     if (!f) return;
-    var go = function() { homoIpDelete(id); _homoIpRepaint(); };
-    if (typeof showConfirm === 'function') showConfirm('¿Borrar la familia ' + f.code + '?', go);
-    else if (confirm('¿Borrar la familia ' + f.code + '?')) go();
+    var go = function() {
+        var antes = JSON.parse(JSON.stringify(homoState.ipFamilies || []));
+        homoIpDelete(id); _homoIpRepaint();
+        toastUndo('Familia ' + f.code + ' eliminada', function() { homoState.ipFamilies = antes; homoSave(); _homoIpRepaint(); });
+    };
+    showConfirm('Los vehículos ligados a ella quedan sin familia de interpolación. Podrás deshacerlo unos segundos.', go,
+        { type: 'danger', title: '¿Borrar la familia ' + _homoEsc(f.code) + '?', confirmText: 'Borrar' });
 }
 
 /** Alta/edición a mano (para un certificado que no se pueda copiar como texto). */

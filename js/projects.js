@@ -981,14 +981,17 @@ function pnDeleteProjectPrompt(id) {
     var p = (pnState.projects || []).find(function(x) { return x.id === id; });
     if (!p) return;
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el proyecto "' + p.name + '" y todos sus pasos/notas?', function() {
-        pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
-        if (window._pnSelectedProject === id) window._pnSelectedProject = null;
-        pnSave();
-        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
-        showToast('Proyecto eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar proyecto', type: 'danger', confirmText: 'Eliminar' });
+    var nPasos = (p.steps || []).length;
+    showConfirm('Se borran también sus ' + nPasos + ' paso(s) y sus notas. Podrás deshacerlo unos segundos.', function() {
+        // [v24] Deshacer: un proyecto entero con su bitácora se perdía de un toque.
+        undoableAction('panel', 'Se eliminó el proyecto «' + p.name + '»', function() {
+            pnState.projects = pnState.projects.filter(function(x) { return x.id !== id; });
+            if (window._pnSelectedProject === id) window._pnSelectedProject = null;
+            pnSave();
+            if (typeof auditLog === 'function') auditLog('panel', 'proyecto_eliminado', { type: 'project', id: id, label: p.name }, '');
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el proyecto «' + escapeHtml(p.name) + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // Todo lo que depende de stepId, directa o indirectamente ({id: true}).
@@ -1110,13 +1113,14 @@ function pnDeleteProjectStepPrompt(projectId, stepId) {
     if (!p) return;
     var s = (p.steps || []).find(function(x) { return x.id === stepId; });
     var ov = document.querySelector('.custom-modal-overlay'); if (ov) ov.remove();
-    showConfirm('¿Eliminar el paso "' + (s ? s.title : '') + '"?', function() {
-        p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
-        p.updatedAt = new Date().toISOString();
-        pnSave();
-        showToast('Paso eliminado', 'success');
-        _pnProjNav();
-    }, { title: 'Eliminar paso', type: 'danger', confirmText: 'Eliminar' });
+    showConfirm('Podrás deshacerlo unos segundos.', function() {
+        undoableAction('panel', 'Se eliminó el paso «' + (s ? s.title : '') + '»', function() {
+            p.steps = (p.steps || []).filter(function(x) { return x.id !== stepId; });
+            p.updatedAt = new Date().toISOString();
+            pnSave();
+            _pnProjNav();
+        });
+    }, { title: '¿Eliminar el paso «' + escapeHtml(s ? s.title : '') + '»?', type: 'danger', confirmText: 'Eliminar' });
 }
 
 // ── Notas libres (línea de tiempo) ──

@@ -757,9 +757,21 @@ function copAddManualRow() {
     copPersist(); copRender();
 }
 function copRemoveRow(id) {
-    _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
-    if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
-    copPersist(); copRender();
+    var fila = copState.vehicles.find(function(v) { return v.id === id; }); if (!fila) return;
+    var conDatos = fila.values && Object.keys(fila.values).some(function(k) { return fila.values[k] !== '' && fila.values[k] != null; });
+    var quitar = function() {
+        // [v24] Una fila con valores se iba de un toque y sin deshacer. `undoPush('cop')` es
+        // no-op (CLAUDE.md v19.0), así que la foto se toma aquí.
+        var antes = JSON.parse(JSON.stringify(copState.vehicles));
+        _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
+        if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
+        copPersist(); copRender();
+        toastUndo('Se quitó el VIN ' + (fila.vin || '(sin VIN)'), function() { _copSetVehicles(antes); copPersist(); copRender(); });
+    };
+    if (!conDatos) { quitar(); return; }  // una fila vacía no amerita pregunta
+    showConfirmDialog({ title: '¿Quitar el VIN ' + _copEsc(fila.vin || '(sin VIN)') + '?',
+        message: 'Se pierden los valores capturados en esa fila. Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Quitar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) quitar(); });
 }
 function copSetVin(el) {
     var id = parseInt(el.dataset.vid);

@@ -954,7 +954,7 @@ function invShowAddGas(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('gas', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27gas\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
@@ -1655,7 +1655,6 @@ function invRenderReadings(el) {
     html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="invStartReadingRound()" style="font-size: var(--fs-sm);">🔄 Hacer la ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-sm);">📷 Escanear</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="invSaveDailyCapture()" style="font-size: var(--fs-sm);">💾 Guardar lo capturado</button>';
     html += '</div></div>';
     // v21: los dos modos reales del laboratorio, dichos con todas sus letras — la
     // ronda para el recorrido con el celular, esta retícula para pasar la libreta.
@@ -1672,24 +1671,36 @@ function invRenderReadings(el) {
     if (invState.gases.length === 0) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">🔴 Dar de alta un cilindro →</button></div>';
     } else if (gases.length === 0) {
-        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin cilindros en uso.</div>';
+        html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Todos los cilindros están marcados como vacíos.</div>';
     } else {
-        html += '<div style="max-height:500px;overflow-y:auto;">';
-        gases.forEach(function(g) {
+        // [v24] Primero los que están EN USO (los que se leen a diario); los de almacén y
+        // reserva van plegados abajo. Antes salían todos revueltos en una caja de 500 px
+        // con scroll propio — un scroll dentro de otro en el teléfono.
+        var enUso = gases.filter(function(g) { return !g.status || g.status === 'In use'; });
+        var reserva = gases.filter(function(g) { return g.status && g.status !== 'In use'; });
+        var _row = function(g) {
+            var r = '';
             var lastR = g.readings.length > 0 ? g.readings[g.readings.length-1] : null;
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
-            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
-            html += '<div style="flex:1;min-width:180px;display:flex;gap: var(--space-2xs);flex-wrap:wrap;">';
+            r += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
+            r += '<div style="min-width:100px;"><div style="font-weight:700;font-size: var(--fs-sm);">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' · ' + (g.zone||'?') + (g.status && g.status !== 'In use' ? ' · ' + uiLabel('gasStatus', g.status) : '') + '</div></div>';
+            r += '<div style="flex:1;min-width:180px;display:flex;gap: var(--space-2xs);flex-wrap:wrap;">';
             var last5 = (g.readings||[]).slice(-5);
             if (last5.length > 0) {
-                last5.forEach(function(r){ html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
-            } else { html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
-            html += '</div>';
-            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:100px;text-align:center;font-weight:700;">';
-            html += '</div>';
-        });
-        html += '</div>';
+                // Restos del tema oscuro: `color:#fff` sobre fondo claro = el número de la
+                // última lectura era INVISIBLE.
+                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
+            } else { r += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
+            r += '</div>';
+            r += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
+            r += '</div>';
+            return r;
+        };
+        html += enUso.length ? enUso.map(_row).join('') : '<div style="color:var(--tp-dim);padding: var(--space-sm);">Ningún cilindro marcado en uso.</div>';
+        if (reserva.length) {
+            html += '<details style="margin-top: var(--space-sm);"><summary style="cursor:pointer;font-weight:700;padding: var(--space-sm) 0;">En almacén o reserva (' + reserva.length + ')</summary>' +
+                    reserva.map(_row).join('') + '</details>';
+        }
     }
     html += '</div>';
 
@@ -1704,14 +1715,19 @@ function invRenderReadings(el) {
             var lastR = (t.readings && t.readings.length) ? t.readings[t.readings.length-1] : null;
             html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);flex-wrap:wrap;">';
             html += '<div style="min-width:120px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + (t.name||'Tanque') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: ' + (t.currentLevel!=null?t.currentLevel:'?') + ' ' + (t.unit||'L') + (lastR?(' | '+lastR.date.slice(5)):'') + '</div></div>';
-            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:110px;text-align:center;font-weight:700;">';
+            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
             html += '</div>';
         });
     }
     html += '</div>';
+    // [v24] Un solo "Guardar", pegado abajo mientras se captura (antes estaba arriba, lejos
+    // de los campos, y había que subir para encontrarlo después de la última lectura).
+    if (invState.gases.length || tanks.length) {
+        html += '<div class="inv-capture-savebar"><button class="tp-btn tp-btn-primary" onclick="invSaveDailyCapture()">💾 Guardar lo capturado</button></div>';
+    }
 
     // Recent readings history
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Ultimas lecturas</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Últimas lecturas</span></div>';
     var allReadings = [];
     invState.gases.forEach(function(g) {
         (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, psi:r.psi, zone:g.zone}); });
@@ -2227,7 +2243,7 @@ function invAddEquipment(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('equipment', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27equipment\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -2317,7 +2333,7 @@ function invAddAsset(editId) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveAsset(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo? Sus instrumentos quedaran sin equipo padre.\',function(){invState.assets=invState.assets.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27asset\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -2557,7 +2573,7 @@ function invAddMaintActivity(editId) {
             '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('maint', 'Crear otra al guardar') + '</div>') +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27activity\x27,\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -3516,7 +3532,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invDeleteFuelTank(\x27' + editId + '\x27)">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -4152,10 +4168,9 @@ function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
     if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
-    showConfirmDialog({ title: '⚠️ Eliminar zona', message: 'Eliminar zona ' + z.id + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '¿Eliminar la zona ' + z.id + '?', message: 'Podrás deshacerlo unos segundos.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        invState.zones.splice(idx, 1);
-        invSave(); invRender();
+        undoableAction('inventory', 'Se eliminó la zona ' + z.id, function() { invState.zones.splice(idx, 1); invSave(); invRender(); });
     });
 }
 
@@ -4184,7 +4199,7 @@ function invShowGasTypeModal(idx) {
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding: var(--space-md);background:var(--danger-fill);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button type="button" class="u-danger-link" onclick="invConfirmDelete(\x27gasType\x27,' + idx + ')">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -4212,11 +4227,49 @@ function invSaveGasTypeModal(idx) {
     document.getElementById('invModal').style.display = 'none';
 }
 
-function invDeleteGasType(idx) {
-    showConfirmDialog({ title: '⚠️ Eliminar tipo', message: 'Eliminar tipo ' + invState.gasTypes[idx].name + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+function invDeleteGasType(idx) { invConfirmDelete('gasType', idx); }
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] LA forma de borrar UNA cosa de Consumibles: dice qué se borra, confirma
+// (decisión del laboratorio: preguntar Y ofrecer deshacer) y deja "Deshacer" unos
+// segundos. Antes había cinco caminos en línea dentro de `onclick`, sin deshacer, con
+// "Eliminar cilindro?" sin nombre ni signo de apertura.
+// ══════════════════════════════════════════════════════════════════════
+function invConfirmDelete(kind, ref) {
+    var name = '', what = '', extra = '', run = null;
+    if (kind === 'gas') {
+        var g = invState.gases.find(function(x) { return x.id === ref; }); if (!g) return;
+        what = 'el cilindro'; name = (g.controlNo || '') + (g.formula ? ' · ' + g.formula : '');
+        run = function() { invDeleteGas(ref); };
+    } else if (kind === 'equipment') {
+        var e = invState.equipment.find(function(x) { return x.id === ref; }); if (!e) return;
+        what = 'el instrumento'; name = e.name || e.f11Id || '';
+        run = function() { invState.equipment = invState.equipment.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'asset') {
+        var a = (invState.assets || []).find(function(x) { return x.id === ref; }); if (!a) return;
+        var hijos = (invState.equipment || []).filter(function(x) { return x.assetId === ref; }).length;
+        what = 'el equipo'; name = a.name || '';
+        extra = hijos ? 'Sus ' + hijos + ' instrumento(s) quedarán sin equipo padre.' : '';
+        run = function() { invState.assets = invState.assets.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'activity') {
+        var m = (invState.maintActivities || []).find(function(x) { return x.id === ref; }); if (!m) return;
+        what = 'la actividad'; name = m.activity || m.name || '';
+        run = function() { invState.maintActivities = invState.maintActivities.filter(function(x) { return x.id !== ref; }); invSave(); invRender(); };
+    } else if (kind === 'gasType') {
+        var t = (invState.gasTypes || [])[ref]; if (!t) return;
+        what = 'el tipo de gas'; name = t.name || '';
+        run = function() { invState.gasTypes.splice(ref, 1); invSave(); invRender(); };
+    } else return;
+    var label = 'Se eliminó ' + what + (name ? ' ' + name : '');
+    showConfirmDialog({
+        title: '¿Eliminar ' + what + (name ? ' «' + escapeHtml(name) + '»' : '') + '?',
+        message: (extra ? extra + '\n' : '') + 'Podrás deshacerlo unos segundos.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar'
+    }).then(function(ok) {
         if (!ok) return;
-        invState.gasTypes.splice(idx, 1);
-        invSave(); invRender();
+        var modal = document.getElementById('invModal');
+        if (modal) modal.style.display = 'none';
+        undoableAction('inventory', label, run);
     });
 }
 
