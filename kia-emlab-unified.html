@@ -8084,15 +8084,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609231846';
+var APP_BUILD = '202609231901';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.1';
+var APP_VERSION = '24.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
+      notes: [
+          'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',
+          'Si se vuelve a dar de alta el mismo VIN (una prueba nueva), el alta nueva se conserva: la marca solo aplica al registro que se borró.',
+          'Cada borrado queda en la auditoría (Datos → Auditoría) con quién y en qué estado estaba.'
+      ] },
     { v: '24.1', date: '23 sep 2026', title: 'El checklist de liberación ya no se borra solo',
       notes: [
           'En un vehículo registrado antes de la v23.5, la primera marca del checklist (Retirado / Adjunto) se borraba al llegar la sincronización con la copia vieja de la nube. Ahora cada vehículo toma su huella al cargarse y la primera edición cuenta como la más reciente.',
@@ -8552,14 +8558,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609231846' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609231846' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8575,7 +8581,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609231846' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609231901' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9447,6 +9453,66 @@ function _vehicleIdRepairRefs(vin, oldId, newId) {
     try { localStorage.removeItem('kia_cop15_draft_' + oldId); } catch(e) {}
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.2] BORRADO DE VEHÍCULOS QUE SOBREVIVE AL SYNC (tombstones)
+//
+// La fusión de vehículos es ADITIVA: un VIN que falta aquí pero existe en otro
+// equipo (o en la nube) se vuelve a agregar. Así que borrar un vehículo en
+// Historial duraba hasta el siguiente sync y reaparecía en Liberación. Ahora el
+// borrado deja una marca en `db.deletedVehicles` que viaja con el mismo documento
+// de cop15; cada equipo la une con la suya y retira el vehículo.
+//
+// Identidad de la marca: id + VIN, o VIN + registeredAt (el sync empata por VIN y
+// conserva el id de origen). NUNCA el VIN solo: un VIN re-ensayado tiene otros
+// registros legítimos que no deben irse con éste. Un alta NUEVA del mismo VIN
+// (registeredAt posterior) tampoco empata, así que se puede volver a registrar.
+// ══════════════════════════════════════════════════════════════════════
+var VEHICLE_TOMBSTONE_MAX = 500;
+
+function _vehTombKey(t) { return String(t.id) + '|' + (t.vin || '') + '|' + (t.registeredAt || ''); }
+
+/** ¿Este vehículo está marcado como borrado en `list`? PURA. */
+function vehicleIsTombstoned(v, list) {
+    if (!v || !list || !list.length) return false;
+    return list.some(function(t) {
+        if (!t || !v.vin || t.vin !== v.vin) return false;
+        if (t.id != null && v.id != null && String(t.id) === String(v.id)) return true;
+        return !!t.registeredAt && t.registeredAt === v.registeredAt;
+    });
+}
+
+/** Une dos listas de marcas sin repetir y con tope (se quedan las más recientes). PURA. */
+function vehicleTombstonesUnion(a, b) {
+    var byKey = {};
+    (a || []).concat(b || []).forEach(function(t) {
+        if (!t || !t.vin) return;
+        var k = _vehTombKey(t);
+        if (!byKey[k] || (t.deletedAt || '') > (byKey[k].deletedAt || '')) byKey[k] = t;
+    });
+    var out = Object.keys(byKey).map(function(k) { return byKey[k]; });
+    out.sort(function(x, y) { return String(y.deletedAt || '').localeCompare(String(x.deletedAt || '')); });
+    return out.slice(0, VEHICLE_TOMBSTONE_MAX);
+}
+
+/** Marca un vehículo como borrado. Llamar ANTES de quitarlo de db.vehicles. */
+function vehicleTombstone(v) {
+    if (!v || !db) return;
+    var by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    db.deletedVehicles = vehicleTombstonesUnion(db.deletedVehicles,
+        [{ id: v.id, vin: v.vin || '', registeredAt: v.registeredAt || '', status: v.status || '', deletedAt: new Date().toISOString(), by: by }]);
+}
+
+/** Retira de db.vehicles lo que tenga marca de borrado. Devuelve cuántos retiró. */
+function vehicleTombstonesApply() {
+    if (!db || !Array.isArray(db.vehicles) || !Array.isArray(db.deletedVehicles) || !db.deletedVehicles.length) return 0;
+    var before = db.vehicles.length;
+    db.vehicles = db.vehicles.filter(function(v) { return !vehicleIsTombstoned(v, db.deletedVehicles); });
+    var n = before - db.vehicles.length;
+    if (n > 0 && typeof activeVehicleId !== 'undefined' && activeVehicleId != null &&
+        !db.vehicles.some(function(v) { return v.id == activeVehicleId; })) activeVehicleId = null;
+    return n;
+}
+
 /**
  * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
@@ -9454,8 +9520,10 @@ function _vehicleIdRepairRefs(vin, oldId, newId) {
  */
 function dedupeVehicleIds() {
     if (!db || !Array.isArray(db.vehicles)) return 0;
-    // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing).
+    // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing)
+    // y de retirar lo que otro equipo borró (ver vehicleTombstonesApply).
     try { revInitMissing(db.vehicles); } catch (e) { void 0; }
+    try { vehicleTombstonesApply(); } catch (e) { void 0; }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
@@ -20183,9 +20251,12 @@ function deleteVehicleCascade(vehicleId) {
         '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size:12px;line-height:1.9;">' + lines.join('<br>') + '</div>' +
         '<p style="margin-top: var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
         function() {
-            // 1. COP15
+            // 1. COP15 — con marca de borrado, o el sync lo vuelve a traer (v24.2)
+            if (typeof vehicleTombstone === 'function') vehicleTombstone(v);
             db.vehicles = db.vehicles.filter(x => x !== v);
+            if (activeVehicleId == v.id) activeVehicleId = null;
             saveDB();
+            auditLog('cop15', 'vehicle_deleted', { type: 'vehicle', id: v.id, label: v.vin }, 'Eliminado desde Historial (estado: ' + (v.status || '?') + ')');
             // 2. Test Plan testedList
             if (typeof tpState !== 'undefined' && tpState.testedList) {
                 tpState.testedList = tpState.testedList.filter(t => !_esDeEsteVeh(t));
@@ -20232,7 +20303,10 @@ function batchDeleteVehicles() {
             ids.forEach(function(id) {
                 var veh = db.vehicles.find(function(x){return x.id==id;});
                 if (!veh) return;
+                if (typeof vehicleTombstone === 'function') vehicleTombstone(veh);
                 db.vehicles = db.vehicles.filter(function(x){return x.id!=id;});
+                if (activeVehicleId == id) activeVehicleId = null;
+                auditLog('cop15', 'vehicle_deleted', { type: 'vehicle', id: veh.id, label: veh.vin }, 'Eliminado desde Historial en lote (estado: ' + (veh.status || '?') + ')');
                 if (typeof tpState !== 'undefined' && tpState.testedList)
                     tpState.testedList = tpState.testedList.filter(function(t){
                         if (typeof tpTestedVin !== 'function') return !(t.note && t.note.includes('VIN: '+veh.vin));
@@ -48670,7 +48744,12 @@ function _fbPullLocalScore(col) {
 // Local vacío → adoptar el remoto completo (seed inicial del dispositivo)
 function _fbPullSeed(col, remoteData, pulled) {
     if (col === 'cop15') {
+        // [v24.2] Las marcas de borrado locales sobreviven al reemplazo (si no, lo
+        // borrado aquí vuelve con la copia remota).
+        var _seedTombs = (db && db.deletedVehicles) || [];
         db = remoteData;
+        if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
+            db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
@@ -48752,7 +48831,8 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     if (!a) return;
 
     var hasWork = false;
-    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
+    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0 ||
+        _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []);
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
@@ -49494,6 +49574,14 @@ function _fbModuleFingerprint(col) {
     return '';
 }
 
+/** ¿`incoming` trae alguna marca de borrado de vehículo que `base` no tenga? PURA. */
+function _fbTombsNewTo(base, incoming) {
+    if (!incoming || !incoming.length || typeof _vehTombKey !== 'function') return false;
+    var have = {};
+    (base || []).forEach(function(t) { if (t) have[_vehTombKey(t)] = true; });
+    return incoming.some(function(t) { return t && !have[_vehTombKey(t)]; });
+}
+
 /**
  * ¿Hay aquí algo que la copia remota NO tiene? Es la ÚNICA condición para
  * re-empujar tras una fusión automática. Se evalúa DESPUÉS de fusionar.
@@ -49501,6 +49589,10 @@ function _fbModuleFingerprint(col) {
 function _fbLocalHasExtras(col, remote) {
     remote = remote || {};
     if (col === 'cop15') {
+        // [v24.2] Una marca de borrado que la nube no tiene también hay que subirla: si
+        // no, un equipo con código viejo que re-empuje el documento la borra y el
+        // vehículo resucita en los demás.
+        if (_fbTombsNewTo(remote.deletedVehicles || [], (db && db.deletedVehicles) || [])) return true;
         var rByVin = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByVin[v.vin] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -50011,7 +50103,11 @@ function fbMergeAnalyze(remoteData) {
         var paStatusGains = 0; // remote-only PA sends we'll inherit
         var paPhotoOnlyRemote = 0; // remote claims photo captured but local lacks the file (we can't auto-fetch)
 
+        // [v24.2] Un vehículo borrado (aquí o allá) no es "nuevo": no se ofrece ni se agrega.
+        var _tombs = typeof vehicleTombstonesUnion === 'function'
+            ? vehicleTombstonesUnion(db.deletedVehicles, remoteData.cop15.deletedVehicles) : [];
         remoteVehicles.forEach(function(rv) {
+            if (_tombs.length && vehicleIsTombstoned(rv, _tombs)) return;
             if (!localVINs[rv.vin]) {
                 newVehicles.push(rv);
                 if (rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent) paStatusGains++;
@@ -50270,6 +50366,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
 
     // COP15
     if (choices.cop15 && analysis.cop15) {
+        // [v24.2] Las marcas de borrado de los dos lados se unen SIEMPRE, sea cual sea la
+        // opción ('replace' reasigna db y perdería las locales).
+        var _localTombs = (db && db.deletedVehicles) || [];
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -50316,8 +50415,14 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             if (analysis.cop15.paStatusGains > 0) summary += ', ' + analysis.cop15.paStatusGains + ' envío(s) PA heredados';
             merged.push(summary);
         }
+        if (typeof vehicleTombstonesUnion === 'function') {
+            var _remoteTombs = (remoteData.cop15 && remoteData.cop15.deletedVehicles) || [];
+            var _tombs = vehicleTombstonesUnion(_localTombs, _remoteTombs);
+            if (_tombs.length) db.deletedVehicles = _tombs;
+        }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        // (v24.2: también retira lo marcado como borrado — vehicleTombstonesApply.)
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
@@ -51004,7 +51109,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609231846' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609231901' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

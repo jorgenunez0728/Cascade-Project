@@ -1363,7 +1363,12 @@ function _fbPullLocalScore(col) {
 // Local vacío → adoptar el remoto completo (seed inicial del dispositivo)
 function _fbPullSeed(col, remoteData, pulled) {
     if (col === 'cop15') {
+        // [v24.2] Las marcas de borrado locales sobreviven al reemplazo (si no, lo
+        // borrado aquí vuelve con la copia remota).
+        var _seedTombs = (db && db.deletedVehicles) || [];
         db = remoteData;
+        if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
+            db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
@@ -1445,7 +1450,8 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     if (!a) return;
 
     var hasWork = false;
-    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
+    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0 ||
+        _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []);
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
@@ -2187,6 +2193,14 @@ function _fbModuleFingerprint(col) {
     return '';
 }
 
+/** ¿`incoming` trae alguna marca de borrado de vehículo que `base` no tenga? PURA. */
+function _fbTombsNewTo(base, incoming) {
+    if (!incoming || !incoming.length || typeof _vehTombKey !== 'function') return false;
+    var have = {};
+    (base || []).forEach(function(t) { if (t) have[_vehTombKey(t)] = true; });
+    return incoming.some(function(t) { return t && !have[_vehTombKey(t)]; });
+}
+
 /**
  * ¿Hay aquí algo que la copia remota NO tiene? Es la ÚNICA condición para
  * re-empujar tras una fusión automática. Se evalúa DESPUÉS de fusionar.
@@ -2194,6 +2208,10 @@ function _fbModuleFingerprint(col) {
 function _fbLocalHasExtras(col, remote) {
     remote = remote || {};
     if (col === 'cop15') {
+        // [v24.2] Una marca de borrado que la nube no tiene también hay que subirla: si
+        // no, un equipo con código viejo que re-empuje el documento la borra y el
+        // vehículo resucita en los demás.
+        if (_fbTombsNewTo(remote.deletedVehicles || [], (db && db.deletedVehicles) || [])) return true;
         var rByVin = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByVin[v.vin] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -2705,7 +2723,11 @@ function fbMergeAnalyze(remoteData) {
         var paStatusGains = 0; // remote-only PA sends we'll inherit
         var paPhotoOnlyRemote = 0; // remote claims photo captured but local lacks the file (we can't auto-fetch)
 
+        // [v24.2] Un vehículo borrado (aquí o allá) no es "nuevo": no se ofrece ni se agrega.
+        var _tombs = typeof vehicleTombstonesUnion === 'function'
+            ? vehicleTombstonesUnion(db.deletedVehicles, remoteData.cop15.deletedVehicles) : [];
         remoteVehicles.forEach(function(rv) {
+            if (_tombs.length && vehicleIsTombstoned(rv, _tombs)) return;
             if (!localVINs[rv.vin]) {
                 newVehicles.push(rv);
                 if (rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent) paStatusGains++;
@@ -2964,6 +2986,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
 
     // COP15
     if (choices.cop15 && analysis.cop15) {
+        // [v24.2] Las marcas de borrado de los dos lados se unen SIEMPRE, sea cual sea la
+        // opción ('replace' reasigna db y perdería las locales).
+        var _localTombs = (db && db.deletedVehicles) || [];
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -3010,8 +3035,14 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             if (analysis.cop15.paStatusGains > 0) summary += ', ' + analysis.cop15.paStatusGains + ' envío(s) PA heredados';
             merged.push(summary);
         }
+        if (typeof vehicleTombstonesUnion === 'function') {
+            var _remoteTombs = (remoteData.cop15 && remoteData.cop15.deletedVehicles) || [];
+            var _tombs = vehicleTombstonesUnion(_localTombs, _remoteTombs);
+            if (_tombs.length) db.deletedVehicles = _tombs;
+        }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        // (v24.2: también retira lo marcado como borrado — vehicleTombstonesApply.)
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();

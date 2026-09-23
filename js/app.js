@@ -285,11 +285,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.1';
+var APP_VERSION = '24.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
+      notes: [
+          'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',
+          'Si se vuelve a dar de alta el mismo VIN (una prueba nueva), el alta nueva se conserva: la marca solo aplica al registro que se borró.',
+          'Cada borrado queda en la auditoría (Datos → Auditoría) con quién y en qué estado estaba.'
+      ] },
     { v: '24.1', date: '23 sep 2026', title: 'El checklist de liberación ya no se borra solo',
       notes: [
           'En un vehículo registrado antes de la v23.5, la primera marca del checklist (Retirado / Adjunto) se borraba al llegar la sincronización con la copia vieja de la nube. Ahora cada vehículo toma su huella al cargarse y la primera edición cuenta como la más reciente.',
@@ -1644,6 +1650,66 @@ function _vehicleIdRepairRefs(vin, oldId, newId) {
     try { localStorage.removeItem('kia_cop15_draft_' + oldId); } catch(e) {}
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.2] BORRADO DE VEHÍCULOS QUE SOBREVIVE AL SYNC (tombstones)
+//
+// La fusión de vehículos es ADITIVA: un VIN que falta aquí pero existe en otro
+// equipo (o en la nube) se vuelve a agregar. Así que borrar un vehículo en
+// Historial duraba hasta el siguiente sync y reaparecía en Liberación. Ahora el
+// borrado deja una marca en `db.deletedVehicles` que viaja con el mismo documento
+// de cop15; cada equipo la une con la suya y retira el vehículo.
+//
+// Identidad de la marca: id + VIN, o VIN + registeredAt (el sync empata por VIN y
+// conserva el id de origen). NUNCA el VIN solo: un VIN re-ensayado tiene otros
+// registros legítimos que no deben irse con éste. Un alta NUEVA del mismo VIN
+// (registeredAt posterior) tampoco empata, así que se puede volver a registrar.
+// ══════════════════════════════════════════════════════════════════════
+var VEHICLE_TOMBSTONE_MAX = 500;
+
+function _vehTombKey(t) { return String(t.id) + '|' + (t.vin || '') + '|' + (t.registeredAt || ''); }
+
+/** ¿Este vehículo está marcado como borrado en `list`? PURA. */
+function vehicleIsTombstoned(v, list) {
+    if (!v || !list || !list.length) return false;
+    return list.some(function(t) {
+        if (!t || !v.vin || t.vin !== v.vin) return false;
+        if (t.id != null && v.id != null && String(t.id) === String(v.id)) return true;
+        return !!t.registeredAt && t.registeredAt === v.registeredAt;
+    });
+}
+
+/** Une dos listas de marcas sin repetir y con tope (se quedan las más recientes). PURA. */
+function vehicleTombstonesUnion(a, b) {
+    var byKey = {};
+    (a || []).concat(b || []).forEach(function(t) {
+        if (!t || !t.vin) return;
+        var k = _vehTombKey(t);
+        if (!byKey[k] || (t.deletedAt || '') > (byKey[k].deletedAt || '')) byKey[k] = t;
+    });
+    var out = Object.keys(byKey).map(function(k) { return byKey[k]; });
+    out.sort(function(x, y) { return String(y.deletedAt || '').localeCompare(String(x.deletedAt || '')); });
+    return out.slice(0, VEHICLE_TOMBSTONE_MAX);
+}
+
+/** Marca un vehículo como borrado. Llamar ANTES de quitarlo de db.vehicles. */
+function vehicleTombstone(v) {
+    if (!v || !db) return;
+    var by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    db.deletedVehicles = vehicleTombstonesUnion(db.deletedVehicles,
+        [{ id: v.id, vin: v.vin || '', registeredAt: v.registeredAt || '', status: v.status || '', deletedAt: new Date().toISOString(), by: by }]);
+}
+
+/** Retira de db.vehicles lo que tenga marca de borrado. Devuelve cuántos retiró. */
+function vehicleTombstonesApply() {
+    if (!db || !Array.isArray(db.vehicles) || !Array.isArray(db.deletedVehicles) || !db.deletedVehicles.length) return 0;
+    var before = db.vehicles.length;
+    db.vehicles = db.vehicles.filter(function(v) { return !vehicleIsTombstoned(v, db.deletedVehicles); });
+    var n = before - db.vehicles.length;
+    if (n > 0 && typeof activeVehicleId !== 'undefined' && activeVehicleId != null &&
+        !db.vehicles.some(function(v) { return v.id == activeVehicleId; })) activeVehicleId = null;
+    return n;
+}
+
 /**
  * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
@@ -1651,8 +1717,10 @@ function _vehicleIdRepairRefs(vin, oldId, newId) {
  */
 function dedupeVehicleIds() {
     if (!db || !Array.isArray(db.vehicles)) return 0;
-    // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing).
+    // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing)
+    // y de retirar lo que otro equipo borró (ver vehicleTombstonesApply).
     try { revInitMissing(db.vehicles); } catch (e) { console.warn('revInitMissing:', e); }
+    try { vehicleTombstonesApply(); } catch (e) { console.warn('vehicleTombstonesApply:', e); }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
