@@ -3392,7 +3392,12 @@ function releaseChecklistRows(vehicle) {
 
 function releaseChecklistSet(group, key, val) {
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || vehicle.status !== 'ready-release') return;
+    // Un toque que no registra nada tiene que decir por qué: si no, el botón "no sirve".
+    if (!vehicle) { showToast('No hay un vehículo abierto en Liberación. Elígelo de nuevo en la lista.', 'warning'); return; }
+    if (vehicle.status !== 'ready-release') {
+        showToast('Este vehículo ya no está en «Listo para liberación» (ahora: ' + ((CONFIG.statusLabels && CONFIG.statusLabels[vehicle.status]) || vehicle.status) + '). Recarga la lista.', 'warning');
+        return;
+    }
     if (!RELEASE_CHECKLIST[group]) return;
     if (!vehicle.testData) vehicle.testData = {};
     var cl = vehicle.testData.releaseChecklist || (vehicle.testData.releaseChecklist = {});

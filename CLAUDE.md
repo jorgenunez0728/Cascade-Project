@@ -1372,6 +1372,18 @@ las dos, no una:
 - Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
   dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
 
+## v24.1 — La huella de revisión se fija al CARGAR (`revInitMissing`)
+
+- **`revInitMissing(list)` (app.js)** da `_rev` a los registros que no la tienen, sin
+  inventar fecha. **Tiene que correr al cargar, nunca en el primer guardado**: si la huella
+  se toma en `saveDB()`, se toma con la edición adentro y esa edición no se sella como
+  nueva — la siguiente fusión puede quedarse con la copia vieja de la nube (el checklist de
+  Liberación "no dejaba hacer clic"). La llama `dedupeVehicleIds()`, que ya es el paso
+  obligatorio tras toda carga de `db`. Toda lista nueva sellada con `stampRevisions` debe
+  inicializarse igual al cargarse.
+- Un botón que no puede registrar nada **lo dice** (`releaseChecklistSet`): un regreso
+  silencioso se lee como "el botón no sirve".
+
 ## v23.5 — El sync entre equipos (`js/firebase-sync.js`, `js/app.js`, `js/cop15.js`)
 
 - **`stableStringify(v)` (app.js) es LA forma de comparar dos copias de un dato** cuando una
