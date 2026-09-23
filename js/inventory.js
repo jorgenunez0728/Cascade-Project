@@ -464,7 +464,7 @@ function invCheckProactiveAlerts() {
         if (diff < 0) criticals.push(e.name + ' calibracion vencida');
     });
     if (criticals.length > 0) {
-        showToast(criticals.length + ' alertas criticas en inventario', 'error');
+        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
     }
 }
 
@@ -935,10 +935,14 @@ function invShowAddGas(editId) {
         '<details style="margin-top: var(--space-md);"><summary style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (control, estatus, lote, trazabilidad\u2026)</summary>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-top: var(--space-sm);">' +
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Control <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size: var(--fs-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-md);padding: var(--space-2xs) var(--space-sm);cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-g-status" style="' + inpStyle + '"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + ((g&&g.status==='In use')||!isEdit?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-g-status" data-chips style="' + inpStyle + '">' + ['In use', 'Stock', 'Spare', 'Empty'].map(function(st) {
+            // [v24] El valor guardado sigue en inglés (lo filtran ~20 sitios); se lee en español.
+            var on = g ? g.status === st : st === 'In use';
+            return '<option value="' + st + '"' + (on ? ' selected' : '') + '>' + uiLabel('gasStatus', st) + '</option>';
+        }).join('') + '</select></div>' +
         '<div><label style="' + lblStyle + '">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
+        '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" data-chips style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="' + lblStyle + '">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Presión nominal (psi)</label><input id="inv-g-initpsi" type="number" inputmode="numeric" min="0" value="' + (g && g.initialPsi ? g.initialPsi : '') + '" placeholder="' + INV_PSI_NOMINAL_FALLBACK + ' (lleno de fábrica)" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
@@ -1295,7 +1299,7 @@ function invShowTimeline(id) {
     // Status badges
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     var statusClr = g.status==='In use'?'#dcfce7;color:#16a34a':g.status==='Empty'?'#fef2f2;color:var(--danger-text)':'#fef9c3;color:#ca8a04';
-    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-2xl);background:' + statusClr + ';">' + g.status + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-2xl);background:' + statusClr + ';">' + uiLabel('gasStatus', g.status) + '</span>';
     html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-2xl);background:' + exp.color + '20;color:' + exp.color + ';">' + exp.text + '</span>';
     html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-full);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
     html += '</div>';
@@ -2198,12 +2202,12 @@ function invAddEquipment(editId) {
 
         '<details style="margin-top: var(--space-sm);"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);padding-top: var(--space-sm);">' +
-        '<div><label style="' + lblStyle + '" data-help="inv-eq-requires">¿Requiere calibración?</label><select id="inv-eq-requires" style="' + inpStyle + '">' + reqOpts + '</select></div>' +
-        '<div><label style="' + lblStyle + '" data-help="inv-eq-caltype">Tipo</label><select id="inv-eq-caltype" style="' + inpStyle + '">' + typeOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-requires">¿Requiere calibración?</label><select id="inv-eq-requires" data-chips style="' + inpStyle + '">' + reqOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-caltype">Tipo</label><select id="inv-eq-caltype" data-chips style="' + inpStyle + '">' + typeOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-freq">Frecuencia</label><select id="inv-eq-freq" onchange="invEqRecalcNext()" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-eq-callab" value="' + escapeHtml(v('calLab')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-trace">Trazabilidad</label><input id="inv-eq-trace" value="' + escapeHtml(v('traceability', 'EMA')) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '" data-help="inv-eq-place">Lugar</label><select id="inv-eq-place" style="' + inpStyle + '">' + placeOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-place">Lugar</label><select id="inv-eq-place" data-chips style="' + inpStyle + '">' + placeOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Última Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" onchange="invEqRecalcNext()" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Próxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="' + inpStyle + '"></div>' +
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Certificado</label><input id="inv-eq-cert" value="' + escapeHtml(v('calCertNo')) + '" style="' + inpStyle + '"></div>' +
@@ -2215,7 +2219,7 @@ function invAddEquipment(editId) {
         '<div><label style="' + lblStyle + '">Rango de uso</label><input id="inv-eq-rangeuse" value="' + escapeHtml(v('rangeUse')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-maxerror">Error máx. permitido</label><input id="inv-eq-maxerror" value="' + escapeHtml(v('maxError')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Ubicación física</label><input id="inv-eq-loc" value="' + escapeHtml(v('location')) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '" data-help="inv-eq-critical">Crítico NMX</label><select id="inv-eq-critical" style="' + inpStyle + '">' + critOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-critical">Crítico NMX</label><select id="inv-eq-critical" data-chips style="' + inpStyle + '">' + critOpts + '</select></div>' +
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Comentarios</label><input id="inv-eq-comments" value="' + escapeHtml(v('comments')) + '" style="' + inpStyle + '"></div>' +
         '</div></details>' +
 
@@ -2307,7 +2311,7 @@ function invAddAsset(editId) {
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);"><div><label style="' + lblStyle + '">Marca</label><input id="inv-asset-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-asset-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div></div>' +
         '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-asset-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-asset-status" style="' + inpStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-asset-status" data-chips style="' + inpStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap: var(--space-sm);"><input type="checkbox" id="inv-asset-blocks" ' + (v('blocksTesting') ? 'checked' : '') + '> Si está en mantenimiento, bloquea pruebas</label></div>' +
         '<div><label style="' + lblStyle + '">Notas</label><input id="inv-asset-notes" value="' + escapeHtml(v('notes')) + '" style="' + inpStyle + '"></div>' +
         '</div>' +
@@ -2504,7 +2508,7 @@ function invShowMaintDetailModal(activityId) {
         '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-lg);">' + escapeHtml(act.desc) + '</div>' +
         '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label><input id="inv-mdet-date" type="date" value="' + localToday() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Horas</label><input id="inv-mdet-hours" type="number" step="0.5" min="0" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Horas</label><input id="inv-mdet-hours" type="number" data-num="step" inputmode="decimal" step="0.5" min="0" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Comentarios</label><input id="inv-mdet-comments" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
@@ -2545,7 +2549,7 @@ function invAddMaintActivity(editId) {
         '</div>' +
         '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Más detalles (semana, responsable…)</summary>' +
         '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
-        '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" min="1" max="52" value="' + v('startWeek', isEdit ? 1 : invWeekOfYear(localToday())) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" data-num="step" inputmode="numeric" min="1" max="52" value="' + v('startWeek', isEdit ? 1 : invWeekOfYear(localToday())) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible', (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap: var(--space-sm);"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
         '</div></details>' +
@@ -3141,7 +3145,7 @@ function invRenderTrace(el) {
         '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;align-items:flex-end;">' +
         '<div style="flex:1;min-width:140px;">' +
         '<label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;display:block;margin-bottom: var(--space-2xs);">Buscar por</label>' +
-        '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
+        '<select id="inv-trace-mode" data-chips onchange="invTraceSearch()" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
         '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
         '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
         '<label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;display:block;margin-bottom: var(--space-2xs);">Valor</label>' +
@@ -3504,11 +3508,11 @@ function invAddFuelTank(editId) {
         '<div><label for="inv-ft-reg" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Regulación</label>' + _invRegulationSelectHTML('inv-ft-reg', v('regulation')) + '</div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" inputmode="decimal" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" inputmode="decimal" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -4100,14 +4104,14 @@ function invShowZoneModal(idx) {
         '<div style="display:grid;gap: var(--space-md);">' +
         (!isEdit ? '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">ID</label><input id="inv-zone-id" maxlength="2" value="' + _invNextFreeZoneId() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size:16px;text-transform:uppercase;"></div>' : '') +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" data-num="step" inputmode="numeric" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '</div>' +
         '<details style="margin-top: var(--space-md);"><summary style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (tipo de zona)</summary>' +
-        '<div style="padding-top: var(--space-sm);"><select id="inv-zone-type" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
-        '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
-        '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
-        '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
-        '<option value="fuel"' + (v('type')==='fuel'?' selected':'') + '>Fuel</option>' +
+        '<div style="padding-top: var(--space-sm);"><select id="inv-zone-type" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' +
+        '<option value="online"' + (v('type')==='online'?' selected':'') + '>En línea</option>' +
+        '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Fuera de línea</option>' +
+        '<option value="special"' + (v('type')==='special'?' selected':'') + '>Especial</option>' +
+        '<option value="fuel"' + (v('type')==='fuel'?' selected':'') + '>Combustible</option>' +
         '</select></div></details>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveZoneModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +

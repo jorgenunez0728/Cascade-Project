@@ -1756,7 +1756,7 @@ function pnRenderShiftLog(el) {
     html += '</select></div>';
 
     html += '<div><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Categoria</label>';
-    html += '<select id="pn-shift-category" class="tp-select" style="width:100%;">';
+    html += '<select id="pn-shift-category" data-chips class="tp-select" style="width:100%;">';
     categories.forEach(function(c) { html += '<option value="' + c + '">' + c + '</option>'; });
     html += '</select></div>';
     html += '</div>';
@@ -4168,7 +4168,7 @@ function _pnRegGasRowHtml(i, g) {
         '<td style="padding: var(--space-2xs);"><input class="form-control reg-gas-label" value="' + escapeHtml(g.label||'') + '" placeholder="CO" style="width:65px;font-size: var(--fs-base);"></td>' +
         '<td style="padding: var(--space-2xs);"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:56px;font-size: var(--fs-base);"></td>' +
         '<td style="padding: var(--space-2xs);"><select class="form-control reg-gas-capture" style="width:72px;font-size: var(--fs-base);">' + opts + '</select></td>' +
-        '<td style="padding: var(--space-2xs);text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-base);text-align:center;"></td>' +
+        '<td style="padding: var(--space-2xs);text-align:center;"><input class="form-control reg-gas-limit" inputmode="decimal" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-base);text-align:center;"></td>' +
         '<td style="padding: var(--space-2xs);"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-sm);color:var(--danger-text);">✕</button></td>' +
         '</tr>';
 }

@@ -1699,11 +1699,11 @@ function copBuildOverviewHTML() {
     rows.forEach(function(r) { (r.regionsArr || []).forEach(function(x) { if (x) regions[x] = true; }); });
     html += '<div class="cop-toolbar">';
     html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
-    html += '<select aria-label="Filtrar por región" class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
+    html += '<select aria-label="Filtrar por región" data-chips class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
             'style="padding: var(--space-sm) var(--space-md);font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
     html += '<option value="">Todas</option>';
     Object.keys(regions).sort().forEach(function(r) {
-        html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(r) + '</option>';
+        html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>';
     });
     html += '</select></div>';
 
@@ -2204,9 +2204,9 @@ function copBuildValidatorHTML() {
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
     html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
-    html += '<select aria-label="Región" onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<select aria-label="Región" data-chips onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     html += '<option value="">Todas</option>';
-    _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(r) + '</option>'; });
+    _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>'; });
     html += '</select></div>';
     // v19.0: la lista sale del Panorama (unión de plan + vehículos ya probados). Antes
     // solo leía tpState.planData, así que una familia con ensayos pero sin plan
@@ -2283,7 +2283,7 @@ function copBuildValidatorHTML() {
             html += '</td>';
             activeLimits.forEach(function(p) {
                 html += '<td style="' + _copTd() + 'padding: var(--space-sm) var(--space-sm);">';
-                html += '<input type="number" step="any" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
+                html += '<input type="number" step="any" inputmode="decimal" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
                 html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
@@ -2938,8 +2938,8 @@ function _copBuildCo2HTML() {
 
     // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
     html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
-    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
-    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
+    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
+    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
     html += '<button class="tp-btn tp-btn-primary" onclick="copSetCo2Factors(document.getElementById(\'cop-co2-fcf\').value, document.getElementById(\'cop-co2-evc\').value)">Guardar</button>';
     if (!factors.set) html += '<span class="cop-co2-settings-hint">sin ajustar = 1 (sin corrección)</span>';
     html += '</div>';

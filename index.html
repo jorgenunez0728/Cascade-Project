@@ -384,22 +384,22 @@
   <div class="form-grid">
     <div class="form-group">
       <label for="homo_f0">f0 (N)</label>
-      <input type="number" step="any" id="homo_f0" placeholder="102.5"
+      <input type="number" step="any" id="homo_f0" placeholder="102.5" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f1">f1 (N/(km/h))</label>
-      <input type="number" step="any" id="homo_f1" placeholder="0.147"
+      <input type="number" step="any" id="homo_f1" placeholder="0.147" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f2">f2 (N/(km/h)²)</label>
-      <input type="number" step="any" id="homo_f2" placeholder="0.03544"
+      <input type="number" step="any" id="homo_f2" placeholder="0.03544" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_tm">TM — masa de ensayo (kg)</label>
-      <input type="number" step="any" id="homo_tm" placeholder="1507"
+      <input type="number" step="any" id="homo_tm" placeholder="1507" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
@@ -409,7 +409,7 @@
     </div>
     <div class="form-group">
       <label for="homo_co2">CO₂ declarado combinado (g/km)</label>
-      <input type="number" step="any" id="homo_co2" placeholder="132"
+      <input type="number" step="any" id="homo_co2" placeholder="132" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
   </div>
@@ -1459,7 +1459,7 @@
                             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
                                 <div>
                                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol (permisos)</label>
-                                    <select class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
+                                    <select data-chips class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
                                             @change="setProfileRole(profileOp().id, $event.target.value)">
                                         <template x-for="r in roles" :key="r">
                                             <option :value="r" :selected="profileOp().role === r" x-text="r"></option>
@@ -1540,7 +1540,7 @@
                     </div>
                     <div style="min-width:120px;">
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>
-                        <select x-model="newOpRole" class="tp-select" style="width:100%;">
+                        <select data-chips x-model="newOpRole" class="tp-select" style="width:100%;">
                             <template x-for="role in roles" :key="role"><option :value="role" x-text="role"></option></template>
                         </select>
                     </div>
@@ -1633,7 +1633,7 @@
                     </div>
                     <div>
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Categoría</label>
-                        <select x-model="shiftCategory" class="tp-select" style="width:100%;">
+                        <select data-chips x-model="shiftCategory" class="tp-select" style="width:100%;">
                             <template x-for="cat in categories" :key="cat"><option :value="cat" x-text="cat"></option></template>
                         </select>
                     </div>

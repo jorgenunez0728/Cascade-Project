@@ -65,13 +65,14 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
         const t = await page.evaluate(async () => {
             document.getElementById('toast-container') && (document.getElementById('toast-container').innerHTML = '');
             showToast('e1', 'error');
-            const sticky = document.querySelector('.toast-error').classList.contains('toast-sticky');
+            const el = document.querySelector('.toast-error');
+            const sticky = parseFloat(el.style.getPropertyValue('--toast-duration')) >= 8;
             const role = document.querySelector('.toast-error').getAttribute('role');
             showToast('a', 'info'); showToast('b', 'info'); showToast('c', 'info');
             const n = document.getElementById('toast-container').children.length;
             return { sticky, role, n, close: !!document.querySelector('.toast .toast-close') };
         });
-        chk('B1: toast de error persiste, es role=alert y tiene ✕', t.sticky && t.role === 'alert' && t.close, JSON.stringify(t));
+        chk('B1: toast de error dura ≥ 8 s, es role=alert y tiene ✕', t.sticky && t.role === 'alert' && t.close, JSON.stringify(t));
         chk('B1: máximo 3 toasts a la vez', t.n === 3, JSON.stringify(t));
 
         // toastUndo restaura.
@@ -122,6 +123,57 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
 
         chk('computadora: sin diálogos nativos', await page.evaluate(() => window._nativeDialogs) === 0);
         chk('computadora: sin errores de página', errs.length === 0, errs.join(' | '));
+        await page.close();
+    }
+
+    // ── Barrido: cada pestaña de cada plataforma, en teléfono y computadora ──
+    for (const width of [390, 1366]) {
+        const { page, errs } = await abrir(browser, width);
+        const tabs = await page.evaluate(() => ({
+            tp: (typeof _tpTabs !== 'undefined' ? _tpTabs : []).filter(t => document.querySelector('#tp-tabs-bar [onclick*="' + t + '"], [onclick*="tpSwitchTab(\'' + t + '\')"]')),
+            inv: (typeof _invTabs !== 'undefined' ? _invTabs : []).filter(t => document.querySelector('[onclick*="invSwitchTab(\'' + t + '\')"]')),
+            pn: (typeof _pnTabs !== 'undefined' ? _pnTabs : []).filter(t => document.querySelector('[onclick*="pnSwitchTab(\'' + t + '\')"]')),
+            cop: ['overview', 'validator', 'spc', 'dossier'],
+            cop15: [...document.querySelectorAll('.tab[data-tab]')].map(b => b.dataset.tab)
+        }));
+        const visitar = {
+            tp: t => { switchPlatform('testplan'); tpSwitchTab(t); },
+            inv: t => { switchPlatform('inventory'); invSwitchTab(t); },
+            pn: t => { switchPlatform('panel'); pnSwitchTab(t); },
+            cop: t => { switchPlatform('cop'); copSetView(t); },
+            cop15: t => { switchPlatform('cop15'); document.querySelector('.tab[data-tab="' + t + '"]').click(); }
+        };
+        const malos = [], anchos = [];
+        for (const mod of Object.keys(tabs)) {
+            for (const t of tabs[mod]) {
+                await page.evaluate(([m, tab, src]) => { (new Function('t', 'return (' + src + ')(t)'))(tab); }, [mod, t, visitar[mod].toString()]);
+                await page.waitForTimeout(350);
+                const r = await page.evaluate(() => {
+                    const sinChips = [...document.querySelectorAll('select[data-chips]')].filter(s => s.offsetParent !== null || (s.closest('.platform-section.active') && !s._chips))
+                        .filter(s => !s._chips).map(s => s.id || s.getAttribute('aria-label') || s.outerHTML.slice(0, 60));
+                    return { sinChips, over: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+                });
+                if (r.sinChips.length) malos.push(mod + ':' + t + ' → ' + r.sinChips.join(','));
+                if (r.over > 1) anchos.push(mod + ':' + t + ' (+' + r.over + 'px)');
+            }
+        }
+        const n = Object.values(tabs).reduce((a, b) => a + b.length, 0);
+        chk(width + 'px: todas las pestañas (' + n + ') — ningún data-chips sin sus botones', malos.length === 0, malos.join(' | '));
+        chk(width + 'px: ninguna pestaña con scroll horizontal de página', anchos.length === 0, anchos.join(' | '));
+        chk(width + 'px: sin diálogos nativos en el barrido', await page.evaluate(() => window._nativeDialogs) === 0);
+        chk(width + 'px: sin errores de página en el barrido', errs.length === 0, errs.slice(0, 3).join(' | '));
+
+        if (width === 390) {
+            // Alta de cilindro: estado en botones y en español, valor guardado intacto.
+            await page.evaluate(() => { switchPlatform('inventory'); invShowAddGas(); });
+            await page.waitForTimeout(300);
+            const g = await page.evaluate(() => {
+                const s = document.getElementById('inv-g-status');
+                const chips = s && s._chips ? [...s._chips.querySelectorAll('.ui-chip')].map(b => b.textContent.trim()) : [];
+                return { chips, value: s && s.value };
+            });
+            chk('B2: estado de cilindro en botones y en español', g.chips.join('|') === 'En uso|En almacén|Reserva|Vacío' && g.value === 'In use', JSON.stringify(g));
+        }
         await page.close();
     }
 

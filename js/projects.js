@@ -945,7 +945,7 @@ function pnAddProject(editId) {
         '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
         '<div style="display:flex;flex-direction:column;gap: var(--space-md);padding-top: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Descripción</label><input id="pn-proj-desc" value="' + escapeHtml(p ? (p.desc || '') : '') + '" style="' + fieldStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" data-chips style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '</div></details>' +
         (isEdit ? '<button type="button" onclick="pnDeleteProjectPrompt(\'' + editId + '\')" style="align-self:flex-start;background:none;border:none;color:var(--danger-text);font-size: var(--fs-sm);cursor:pointer;padding:2px 0;">🗑️ Eliminar proyecto</button>' : '') +
         '</div>';
@@ -1027,11 +1027,14 @@ function pnAddProjectStep(projectId, stepId) {
     if (others.length) {
         var blocked = s ? _pnProjDescendants(p, s.id) : {};
         var cur = (s && s.dependsOn) || [];
+        // [v24] Casillas en lugar de <select multiple>: el "Ctrl+clic para varios" no existe
+        // en una tablet, que es donde se captura.
         var opts = others.filter(function(x) { return !blocked[x.id]; }).map(function(x) {
-            return '<option value="' + x.id + '"' + (cur.indexOf(x.id) !== -1 ? ' selected' : '') + '>' + escapeHtml(x.title.slice(0, 60)) + '</option>';
+            return '<label class="pn-dep-chip u-hit"><input type="checkbox" name="pn-step-dep" value="' + x.id + '"' +
+                   (cur.indexOf(x.id) !== -1 ? ' checked' : '') + '> ' + escapeHtml(x.title.slice(0, 60)) + '</label>';
         }).join('');
-        depsHTML = '<div><label style="' + lblStyle + '" data-help="pn-proj-depends">Depende de (Ctrl+clic para varios)</label>' +
-            '<select id="pn-step-deps" multiple size="' + Math.min(5, Math.max(2, others.length)) + '" style="' + fieldStyle + 'height:auto;">' + opts + '</select>' +
+        depsHTML = '<div><span style="' + lblStyle + '" data-help="pn-proj-depends">Depende de</span>' +
+            '<div id="pn-step-deps" class="pn-dep-list" role="group" aria-label="Depende de">' + opts + '</div>' +
             '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
     }
 
@@ -1039,7 +1042,7 @@ function pnAddProjectStep(projectId, stepId) {
         '<div><label style="' + lblStyle + '">Paso *</label><input id="pn-step-title" value="' + escapeHtml(s ? s.title : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-step-resp" value="' + escapeHtml(s ? (s.responsible || '') : defaultResp) + '" style="' + fieldStyle + '"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
-        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" data-chips style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Fecha objetivo</label><input type="date" id="pn-step-target" value="' + (s ? (s.targetDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
         '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:var(--muted);padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
@@ -1074,7 +1077,7 @@ function pnAddProjectStep(projectId, stepId) {
             var startDate = (document.getElementById('pn-step-start') || {}).value || '';
             var isMilestone = !!(document.getElementById('pn-step-milestone') || {}).checked;
             var depsEl = document.getElementById('pn-step-deps');
-            var dependsOn = depsEl ? Array.prototype.slice.call(depsEl.selectedOptions).map(function(o) { return o.value; }) : (s ? (s.dependsOn || []) : []);
+            var dependsOn = depsEl ? [].map.call(depsEl.querySelectorAll('input[name="pn-step-dep"]:checked'), function(o) { return o.value; }) : (s ? (s.dependsOn || []) : []);
             var now = new Date().toISOString();
             if (status === 'completado' && !doneDate) doneDate = localToday();
             if (startDate && targetDate && startDate > targetDate) { showToast('La fecha de inicio no puede ser posterior a la objetivo', 'error'); return; }

@@ -3124,7 +3124,7 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
              +  (converted ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '')
              +  '</td>';
         html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
-        html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
+        html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" inputmode="decimal" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
         html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" id="lib-gas-status-' + g.field + '">—</td>';
         html += '</tr>';
     });
@@ -4219,7 +4219,7 @@ function closeSubstitutionModal() {
         var purposeSet = {};
         (db.vehicles || []).forEach(function(v) { if (v.purpose) purposeSet[v.purpose] = true; });
         var purposeOpts = '<option value="">Todos</option>' + Object.keys(purposeSet).sort().map(function(pp) {
-            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(pp) + '</option>';
+            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(uiLabel('purpose', pp)) + '</option>';
         }).join('');
 
         var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -4246,7 +4246,7 @@ function closeSubstitutionModal() {
         bar.innerHTML = '<div class="hist-filter-bar">' +
             '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
             '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
-            '<div><label>Propósito</label><select onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
+            '<div><label>Propósito</label><select data-chips onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
@@ -5183,7 +5183,7 @@ function histOpenCompleteModal(vehicleId) {
       missingGases.forEach(function(g) {
         html += '<tr class="hist-field-missing"><td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(g.label) +
                 ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
-        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
         html += '<td style="padding: var(--space-xs) var(--space-sm);width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
       });
       html += '</table></details>';
@@ -7251,15 +7251,15 @@ function renderKanban() {
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;align-items:center;">';
     html += '<input type="text" aria-label="Buscar VIN, modelo u operador" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding: var(--space-sm) var(--space-md);border:1px solid var(--border);border-radius: var(--radius-lg);font-size:13px;">';
-    html += '<select aria-label="Ordenar por" onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
-    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
-    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
+    html += '<select aria-label="Ordenar por" data-chips onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
+    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Más reciente</option>';
+    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Más antiguo</option>';
     html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
     html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
     html += '</select>';
     if (opList.length > 0) {
-        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
-        html += '<option value="">Todos ops</option>';
+        html += '<select aria-label="Operador" data-chips onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-base);background:#fff;">';
+        html += '<option value="">Todos</option>';
         opList.forEach(function(op) {
             html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
         });

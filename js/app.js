@@ -1945,14 +1945,16 @@ function copyToClipboard(text, btnEl) {
 
 // ── Toast Notification System ──
 // [v24] showToast(msg, type[, durMs][, undoFn])
-//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR se queda hasta cerrarlo
-//    (un error que se va en 4 s no se alcanza a leer; los de sync/importación son largos).
+//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR según lo que hay que leer
+//    (mín. 8 s, ~70 ms por carácter): un error que se va en 4 s no se alcanza a leer y los
+//    de sync/importación son largos. No se dejan fijos: muchos "error" son validaciones
+//    ("El nombre es requerido") y obligar a cerrar cada una a mano sería peor.
 //    Un número explícito como 3er argumento manda — ~20 llamadores ya lo pasaban y se
-//    ignoraba.
+//    ignoraba. 0 explícito = fijo hasta cerrarlo.
 //  - Todos llevan ✕. Máximo UI_TOAST_MAX a la vez: el más viejo se va.
 //  - Los errores se anuncian con role="alert" (interrumpen al lector de pantalla).
 var UI_TOAST_MAX = 3;
-var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 0 };
+var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 8000 };
 function showToast(msg, type) {
     type = type || 'info';
     var container = document.getElementById('toast-container');
@@ -1972,7 +1974,7 @@ function showToast(msg, type) {
     toast.appendChild(txt);
 
     var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
-    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] > 0) ? arguments[2] : null;
+    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] >= 0) ? arguments[2] : null;
     if (undoFn) {
         var undoBtn = document.createElement('button');
         undoBtn.type = 'button';
@@ -1989,7 +1991,10 @@ function showToast(msg, type) {
     closeBtn.onclick = function() { dismiss(); };
     toast.appendChild(closeBtn);
 
-    var dur = explicitDur || (undoFn ? 8000 : (UI_TOAST_DUR[type] != null ? UI_TOAST_DUR[type] : 4000));
+    var dur = explicitDur != null ? explicitDur
+            : undoFn ? 8000
+            : type === 'error' ? Math.max(UI_TOAST_DUR.error, String(msg || '').length * 70)
+            : (UI_TOAST_DUR[type] || 4000);
     if (dur) {
         toast.style.setProperty('--toast-duration', (dur / 1000) + 's');
         var progressBar = document.createElement('div');
@@ -3752,7 +3757,7 @@ function dashTaskModalOpen() {
                 '<select id="dash-task-project" onchange="dashTaskProjectChanged()">' +
                 '<option value="">— ninguno (tarea suelta) —</option>' + projOpts + '</select></label>';
     }
-    html += '<label class="dash-task-field" id="dash-task-cat-wrap">Categoría<select id="dash-task-cat">' +
+    html += '<label class="dash-task-field" id="dash-task-cat-wrap">Categoría<select id="dash-task-cat" data-chips>' +
             DASH_CAT_ORDER.map(function(c) { return '<option value="' + c + '"' + (c === 'manuales' ? ' selected' : '') + '>' + DASH_CATS[c].label + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
@@ -5395,7 +5400,7 @@ function _uiChipsAttach(sel) {
             _uiChipsRender(this);
         }
     });
-    try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] }); } catch (e) {}
+    try { new MutationObserver(function() { _uiChipsRender(sel); }).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'selected'] }); } catch (e) {}
     sel.addEventListener('change', function() { _uiChipsRender(sel); });
     // El <select> está oculto: enfocarlo desde código (p. ej. "ir al campo") manda el foco
     // al botón elegido, o al primero.

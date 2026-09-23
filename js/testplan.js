@@ -1814,7 +1814,7 @@ function tpRenderDashboard(el) {
             <div style="display:flex;gap: var(--space-md);flex-wrap:wrap;align-items:flex-end;">
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Agrupar por</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
                         <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
                         <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
@@ -1823,7 +1823,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Metrica Y</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
                         <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
                         <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
                         <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
@@ -1831,7 +1831,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Tipo de grafica</label>
-                    <select class="tp-select" style="font-size: var(--fs-base);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
+                    <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
                         <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
@@ -2836,8 +2836,8 @@ function tpRenderRules(el) {
                             <tr>
                                 <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
                                 <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><input class="tp-input" type="number" min="1" value="${r.ratio}" style="width:45px;text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
-                                <td><input class="tp-input" type="number" min="100" step="100" value="${r.per}" style="width:55px;text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
+                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="1" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
+                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
                                 <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
@@ -2863,8 +2863,8 @@ function tpRenderRules(el) {
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-sm);">
                         <span style="font-size: var(--fs-sm);font-weight:600;">${label}</span>
-                        <select class="tp-select" style="font-size: var(--fs-base);max-width:170px;" onchange="tpSetStartPurpose('${key}', this.value)">
-                            ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${p}</option>`).join('')}
+                        <select class="tp-select" data-chips style="font-size: var(--fs-base);" onchange="tpSetStartPurpose('${key}', this.value)">
+                            ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${uiLabel('purpose', p)}</option>`).join('')}
                         </select>
                     </div>
                 `).join('')}
@@ -4659,11 +4659,11 @@ function tpBuildArmarCardHTML(b) {
             '<input type="date" id="tp-weekly-date" class="tp-select" value="' + (weekDate || '') + '" ' +
             'onchange="window._tpWeekDate=this.value;window._tpBoardWeek=this.value;tpBoardInvalidate();_tpBoardRepaint();"></label>';
     body += '<label class="tp-armar-field"><span>Pruebas</span>' +
-            '<input type="number" id="tp-weekly-cap" class="tp-select" min="1" max="' + cap.max + '" value="' + cap.cap + '" ' +
+             '<input type="number" id="tp-weekly-cap" data-num="step" inputmode="numeric" class="tp-select" min="1" max="' + cap.max + '" value="' + cap.cap + '" ' +
             'onchange="tpSetWeeklyCapacity(this.value);_tpBoardRepaint();">' +
             '<small>caben hasta ' + cap.max + '</small></label>';
     body += '<label class="tp-armar-field"><span>Veh. por par</span>' +
-            '<input type="number" id="tp-veh-per-slot" class="tp-select" min="1" max="10" value="' + cap.perSlot + '" ' +
+             '<input type="number" id="tp-veh-per-slot" data-num="step" inputmode="numeric" class="tp-select" min="1" max="10" value="' + cap.perSlot + '" ' +
             'onchange="tpSetVehiclesPerSlot(this.value);_tpBoardRepaint();"></label>';
     body += '</div>';
 
@@ -6168,7 +6168,7 @@ function tpRenderRecovery(el) {
         }
         html += '<tr style="border-top:1px solid var(--tp-border);">';
         var _topts = ''; for (var _tt = 1; _tt <= Math.max(tpMaxTiers(), r.tier || 1); _tt++) _topts += '<option value="' + _tt + '" ' + (r.tier === _tt ? 'selected' : '') + '>P' + _tt + '</option>';
-        html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);font-size: var(--fs-base);">' + _topts + '</select></td>';
+        html += '<td><select data-chips onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);font-size: var(--fs-base);">' + _topts + '</select></td>';
         html += '<td>' + sel('familyMatch', r.familyMatch, 170) + '</td>';
         html += '<td>' + sel('region', r.region) + '</td><td>' + sel('regulation', r.regulation) + '</td><td>' + sel('modelMatch', r.modelMatch) + '</td><td>' + sel('engMatch', r.engMatch) + '</td><td>' + sel('bodyMatch', r.bodyMatch) + '</td><td>' + sel('drvMatch', r.drvMatch) + '</td>';
         html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">✕</button></td></tr>';
@@ -8670,9 +8670,9 @@ function tpRenderFamilies(el) {
                     <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
                         <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Criticidad
-                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
+                            <select class="tp-select" data-chips style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
                                 <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
-                                <option value="high" ${f.criticality==='high'?'selected':''}>Alto</option>
+                                <option value="high" ${f.criticality==='high'?'selected':''}>Alta</option>
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
@@ -8790,7 +8790,7 @@ function tpRenderSimulator(el) {
             </div>
             <div>
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Horizonte (semanas)</label>
-                <input class="tp-input" type="number" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="width:70px;text-align:center;">
+                <input class="tp-input" type="number" data-num="step" inputmode="numeric" min="4" max="52" value="${simWeeks}" id="tp-sim-weeks" style="text-align:center;">
             </div>
             <button class="tp-btn tp-btn-primary" onclick="window._tpSimCap=+document.getElementById('tp-sim-cap').value;window._tpSimWeeks=+document.getElementById('tp-sim-weeks').value;tpRender();">🔄 Simular</button>
         </div>
