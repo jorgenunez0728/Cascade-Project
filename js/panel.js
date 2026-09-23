@@ -1479,14 +1479,10 @@ function pnOpEditModal(opId) {
 }
 
 function pnEditOperator(idx) {
+    // [v24] Este ✏️ seguía pidiendo el ROL TECLEADO con dos prompt(); el modal con
+    // selector (pnOpEditModal) ya existía y solo lo usaba la vista Alpine.
     var op = pnState.operators[idx];
-    if (!op) return;
-    var newName = prompt('Nombre:', op.name);
-    if (newName === null) return;
-    var newRole = prompt('Rol (' + PN_ROLES.join(', ') + '):', op.role || 'Técnico');
-    if (pnOpUpdate(op.id, { name: newName, role: newRole || undefined })) {
-        showToast('Operador actualizado', 'success');
-    }
+    if (op) pnOpEditModal(op.id);
 }
 
 function pnToggleOperator(idx) {
@@ -3103,19 +3099,19 @@ function pnGenerateShiftReport() {
     report.timestamp = new Date().toISOString();
     report.operator = pnState.currentOperator || 'Sistema';
 
-    // Prompt for notes
-    var notes = prompt('Notas del turno (opcional):');
-    report.notes = notes || '';
-
-    // Save
-    if (!pnState.shiftReports) pnState.shiftReports = [];
-    pnState.shiftReports.unshift(report);
-    if (pnState.shiftReports.length > 30) pnState.shiftReports = pnState.shiftReports.slice(0, 30);
-    pnSave();
-
-    // Show report
-    pnRenderShiftReport(report);
-    showToast('Reporte de turno generado', 'success');
+    // [v24] Antes: prompt() nativo, de una sola línea y que bloquea la tablet.
+    uiPrompt({ title: '📝 Cerrar turno', label: 'Notas para el siguiente turno (opcional)', multiline: true,
+               placeholder: 'Ej.: el dinamómetro 2 quedó en calibración; falta liberar KNA…', confirmText: 'Generar reporte' })
+    .then(function(notes) {
+        if (notes === null) return;
+        report.notes = notes || '';
+        if (!pnState.shiftReports) pnState.shiftReports = [];
+        pnState.shiftReports.unshift(report);
+        if (pnState.shiftReports.length > 30) pnState.shiftReports = pnState.shiftReports.slice(0, 30);
+        pnSave();
+        pnRenderShiftReport(report);
+        showToast('Reporte de turno generado', 'success');
+    });
 }
 
 function _pnCollectTurnoverData() {
@@ -3537,14 +3533,7 @@ function panelAlpineComponent() {
             var op = this.operators[idx];
             if (!op) return;
             // Modal con selector de rol; antes eran dos prompt() y el rol se tecleaba.
-            if (typeof pnOpEditModal === 'function') { pnOpEditModal(op.id); return; }
-            var newName = prompt('Nombre:', op.name);
-            if (newName === null) return;
-            var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
-            if (pnOpUpdate(op.id, { name: newName, role: newRole || undefined })) {
-                this._syncAndSave();
-                showToast('Operador actualizado', 'success');
-            }
+            pnOpEditModal(op.id);
         },
         toggleOperator: function(idx) {
             var op = this.operators[idx];

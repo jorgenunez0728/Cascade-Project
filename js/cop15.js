@@ -8540,26 +8540,12 @@ function _escapeHtml(str) {
 }
 
 function v7ApplySmartConfig(configCode) {
-    // Find matching configuration and auto-fill cascade
     var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
     if (!match) { showToast('Esa configuración ya no está en el catálogo.', 'warning'); return; }
-    // Reset and apply all filters
-    currentFilters = {};
-    Object.keys(fieldMapping).forEach(function(csvField) {
-        if (match[csvField]) {
-            currentFilters[csvField] = match[csvField];
-            var sel = document.getElementById(fieldMapping[csvField]);
-            if (sel) { sel.value = match[csvField]; sel.classList.add('selected'); }
-        }
-    });
-    var filtered = allConfigurations.filter(function(c) {
-        for (var f in currentFilters) { if (c[f] !== currentFilters[f]) return false; }
-        return true;
-    });
-    updateSelectOptions(filtered);
-    document.getElementById('configCount').textContent = filtered.length;
-    displayConfigResult(filtered);
-    showToast('Configuración aplicada: ' + configCode, 'success');
+    // [v24] Delegar a LA forma de elegir una config. Antes esto llenaba `currentFilters` y
+    // los selects ocultos pero no `cascadeSelections` ni el árbol: la migaja y el árbol
+    // seguían en el estado viejo mientras el resultado mostraba la config nueva.
+    cascadePickConfig(match);
 }
 
 function v7RenderFavorites() {

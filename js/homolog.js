@@ -500,7 +500,8 @@ function pnRenderHomolog(el) {
         '<textarea id="homo-paste" class="form-control" rows="3" placeholder="Pega aquí incluyendo la fila de encabezados"></textarea>' +
         '<button class="tp-btn tp-btn-primary" style="margin-top: var(--space-sm);" onclick="homoImportPaste()">Importar lo pegado</button></div>';
     html += '</div>';
-    html += '<div id="homo-import-status" style="font-size: var(--fs-sm);margin-bottom: var(--space-md);"></div>';
+    html += '<div id="homo-import-status" role="status" style="font-size: var(--fs-sm);margin-bottom: var(--space-md);">' +
+        (window._homoLastImport ? '<span style="color:var(--ok-text,#166534);">' + escapeHtml(window._homoLastImport) + '</span>' : '') + '</div>';
 
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;font-size: var(--fs-sm);color:var(--tp-dim);">' +
         '<span><b style="color:var(--tp-text);font-size:18px;">' + cat.length + '</b> vehículos en catálogo</span>' +
@@ -581,9 +582,12 @@ function _homoImportReport(res) {
         st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(res.error) + '</span>';
         return;
     }
-    st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ ' + res.nuevas + ' nuevas, ' +
-        res.actualizadas + ' actualizadas' + (res.ignoradas ? ', ' + res.ignoradas + ' ignoradas (sin MC code)' : '') + '.</span>';
-    if (typeof pnRender === 'function') setTimeout(pnRender, 900);
+    // [v24] El resumen se guarda y lo vuelve a pintar el render: antes se escribía aquí y a
+    // los 0.9 s `pnRender()` repintaba el panel entero y lo borraba antes de poder leerlo.
+    window._homoLastImport = '✅ ' + res.nuevas + ' nuevas, ' + res.actualizadas + ' actualizadas' +
+        (res.ignoradas ? ', ' + res.ignoradas + ' ignoradas (sin MC code)' : '') + ' · ' +
+        new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    if (typeof pnRender === 'function') pnRender();
 }
 
 function homoImportPaste() {

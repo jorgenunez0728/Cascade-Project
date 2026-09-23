@@ -1394,10 +1394,22 @@ function copHandleInput(el) {
 }
 
 function copClearData() {
-    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
-    copState._lastDecision = null;
-    copPersist();
-    copRender();
+    // [v24] Borraba TODOS los valores capturados de un toque, sin preguntar ni deshacer.
+    var conValor = copState.vehicles.filter(function(v) { return v.values && Object.keys(v.values).length; }).length;
+    if (!conValor) { showToast('No hay valores que limpiar.', 'info'); return; }
+    var hacer = function() {
+        var antes = JSON.parse(JSON.stringify(copState.vehicles));
+        _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
+        copState._lastDecision = null;
+        copPersist();
+        copRender();
+        toastUndo('Valores de ' + conValor + ' VIN(es) borrados', function() {
+            _copSetVehicles(antes); copPersist(); copRender();
+        });
+    };
+    showConfirmDialog({ title: '¿Limpiar los valores de ' + conValor + ' VIN(es)?', type: 'warning',
+        message: 'Se borran los gases capturados de esta familia; los VINes se quedan. Podrás deshacerlo unos segundos.',
+        confirmText: 'Limpiar' }).then(function(ok) { if (ok) hacer(); });
 }
 
 function copToggleTable() {

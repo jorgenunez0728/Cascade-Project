@@ -1884,18 +1884,11 @@ function showModal(opts) {
     }
 
     // [R3-M2] Focus trap — Tab/Shift+Tab cycle within modal
-    var focusableEls = box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    var firstFocusable = focusableEls[0];
-    var lastFocusable = focusableEls[focusableEls.length - 1];
-    overlay.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { close(); if(onCancel) onCancel(); return; }
-        if (e.key !== 'Tab') return;
-        if (e.shiftKey) {
-            if (document.activeElement === firstFocusable) { e.preventDefault(); lastFocusable.focus(); }
-        } else {
-            if (document.activeElement === lastFocusable) { e.preventDefault(); firstFocusable.focus(); }
-        }
-    });
+    // [v24] Los focusables se buscan en cada tecla (antes una sola vez al abrir: un campo
+    // que aparecía después quedaba fuera del ciclo).
+    _uiDialogKeys(overlay, box, function() { close(); if (onCancel) onCancel(); });
+    // [v24] Botones de un toque también dentro de los modales de formulario.
+    if (typeof uiEnhance === 'function') { try { uiEnhance(box); } catch (e) {} }
 
     if (customBtns) {
         box.querySelectorAll('[data-modal-btn]').forEach(function(el) {
@@ -1951,6 +1944,15 @@ function copyToClipboard(text, btnEl) {
 }
 
 // ── Toast Notification System ──
+// [v24] showToast(msg, type[, durMs][, undoFn])
+//  - Duración por tipo: info/success 4 s, warning 7 s, ERROR se queda hasta cerrarlo
+//    (un error que se va en 4 s no se alcanza a leer; los de sync/importación son largos).
+//    Un número explícito como 3er argumento manda — ~20 llamadores ya lo pasaban y se
+//    ignoraba.
+//  - Todos llevan ✕. Máximo UI_TOAST_MAX a la vez: el más viejo se va.
+//  - Los errores se anuncian con role="alert" (interrumpen al lector de pantalla).
+var UI_TOAST_MAX = 3;
+var UI_TOAST_DUR = { info: 4000, success: 4000, warning: 7000, error: 0 };
 function showToast(msg, type) {
     type = type || 'info';
     var container = document.getElementById('toast-container');
@@ -1963,56 +1965,100 @@ function showToast(msg, type) {
     }
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
-    toast.textContent = msg;
+    if (type === 'error') { toast.setAttribute('role', 'alert'); toast.setAttribute('aria-live', 'assertive'); }
+    var txt = document.createElement('span');
+    txt.className = 'toast-text';
+    txt.textContent = msg;
+    toast.appendChild(txt);
 
-    var hasUndo = arguments.length >= 4 && typeof arguments[3] === 'function';
-    if (hasUndo) {
+    var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
+    var explicitDur = (typeof arguments[2] === 'number' && arguments[2] > 0) ? arguments[2] : null;
+    if (undoFn) {
         var undoBtn = document.createElement('button');
-        undoBtn.textContent = ' Deshacer';
-        undoBtn.style.cssText = 'margin-left: var(--space-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid currentColor;border-radius: var(--radius-md);background:transparent;color:inherit;cursor:pointer;font-size: var(--fs-sm);font-weight:700;';
-        var undoFn = arguments[3];
-        undoBtn.onclick = function() { undoFn(); dismiss(); };
+        undoBtn.type = 'button';
+        undoBtn.className = 'toast-undo';
+        undoBtn.textContent = 'Deshacer';
+        undoBtn.onclick = function() { try { undoFn(); } finally { dismiss(); } };
         toast.appendChild(undoBtn);
     }
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Cerrar aviso');
+    closeBtn.textContent = '✕';
+    closeBtn.onclick = function() { dismiss(); };
+    toast.appendChild(closeBtn);
 
-    // Progress bar with CSS animation
-    var dur = hasUndo ? 8000 : 4000;
-    var durSec = (dur / 1000) + 's';
-    toast.style.setProperty('--toast-duration', durSec);
-
-    var progressBar = document.createElement('div');
-    progressBar.className = 'toast-progress';
-    toast.appendChild(progressBar);
+    var dur = explicitDur || (undoFn ? 8000 : (UI_TOAST_DUR[type] != null ? UI_TOAST_DUR[type] : 4000));
+    if (dur) {
+        toast.style.setProperty('--toast-duration', (dur / 1000) + 's');
+        var progressBar = document.createElement('div');
+        progressBar.className = 'toast-progress';
+        toast.appendChild(progressBar);
+    } else {
+        toast.classList.add('toast-sticky');
+    }
 
     container.appendChild(toast);
+    while (container.children.length > UI_TOAST_MAX) {
+        var old = container.firstChild;
+        if (old && old._dismiss) old._dismiss(); else if (old) container.removeChild(old);
+    }
 
-    // Timer with pause on hover/touch
-    var remaining = dur;
-    var startTime = Date.now();
-    var timer = setTimeout(dismiss, dur);
-
+    var remaining = dur, startTime = Date.now();
+    var timer = dur ? setTimeout(dismiss, dur) : null;
     function pause() {
+        if (!dur) return;
         clearTimeout(timer);
         remaining -= (Date.now() - startTime);
         if (remaining < 0) remaining = 0;
         toast.classList.add('toast-paused');
     }
-
     function resume() {
+        if (!dur) return;
         toast.classList.remove('toast-paused');
         startTime = Date.now();
         timer = setTimeout(dismiss, remaining);
     }
-
     function dismiss() {
         clearTimeout(timer);
         if (toast.parentNode) toast.parentNode.removeChild(toast);
     }
-
+    toast._dismiss = dismiss;
     toast.addEventListener('mouseenter', pause);
     toast.addEventListener('mouseleave', resume);
     toast.addEventListener('touchstart', pause, { passive: true });
     toast.addEventListener('touchend', resume);
+    return toast;
+}
+
+/**
+ * [v24] LA forma de ofrecer "Deshacer" tras una acción. `restoreFn` devuelve el estado
+ * anterior (normalmente un snapshot tomado ANTES de mutar, o `undoPop(módulo)`).
+ */
+function toastUndo(msg, restoreFn) {
+    return showToast(msg, 'info', 8000, function() {
+        restoreFn();
+        showToast('Deshecho.', 'success', 2500);
+    });
+}
+
+/**
+ * [v24] Teclado de un diálogo: Escape cierra y Tab da vueltas DENTRO. Los focusables se
+ * buscan en cada tecla (no una sola vez al abrir): un campo que aparece después —un
+ * "Otro…" que despliega texto libre— también entra al ciclo.
+ */
+function _uiDialogKeys(overlay, box, onEscape) {
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { e.stopPropagation(); onEscape(); return; }
+        if (e.key !== 'Tab') return;
+        var f = [].filter.call(box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+            function(el) { return !el.disabled && el.offsetParent !== null; });
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
 }
 
 // ── Custom Confirm Dialog (replaces native confirm()) ──
@@ -2027,13 +2073,15 @@ function showConfirmDialog(opts) {
     return new Promise(function(resolve) {
         var overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
+        // [v24] Escape, trampa de foco y foco de regreso — como showModal. 32 llamadores.
+        var _prevFocus = document.activeElement;
 
         var typeColor = type === 'danger' ? 'modal-type-danger' : type === 'warning' ? 'modal-type-warning' : 'modal-type-info';
 
         overlay.innerHTML =
-            '<div class="custom-modal-box modal-light" role="dialog" aria-modal="true">' +
-                '<div class="custom-modal-title">' + title + '</div>' +
-                '<div class="custom-modal-message">' + message.replace(/\n/g, '<br>') + '</div>' +
+            '<div class="custom-modal-box modal-light" role="alertdialog" aria-modal="true" aria-labelledby="_cfm_title" aria-describedby="_cfm_msg">' +
+                '<div class="custom-modal-title" id="_cfm_title">' + title + '</div>' +
+                '<div class="custom-modal-message" id="_cfm_msg">' + message.replace(/\n/g, '<br>') + '</div>' +
                 '<div class="custom-modal-actions">' +
                     '<button class="modal-btn modal-btn-cancel" data-action="cancel">' + cancelText + '</button>' +
                     '<button class="modal-btn modal-btn-confirm ' + typeColor + '" data-action="confirm">' + confirmText + '</button>' +
@@ -2046,6 +2094,7 @@ function showConfirmDialog(opts) {
                 overlay.style.transition = 'opacity 0.15s var(--ease-out)';
                 setTimeout(function() {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch (e) {}
                 }, 150);
             }
             resolve(result);
@@ -2057,8 +2106,49 @@ function showConfirmDialog(opts) {
         overlay.querySelector('[data-action="cancel"]').addEventListener('click', function() { close(false); });
         overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
 
+        _uiDialogKeys(overlay, overlay.firstChild, function() { close(false); });
         document.body.appendChild(overlay);
         overlay.querySelector('[data-action="cancel"]').focus();
+    });
+}
+
+/**
+ * [v24] Reemplazo de prompt(): no bloquea, admite varias líneas, se ve igual que el resto
+ * de la app. Devuelve Promise<string|null> (null = cancelado).
+ * opts: {title, label, value, placeholder, multiline, confirmText, required}
+ */
+function uiPrompt(opts) {
+    opts = opts || {};
+    return new Promise(function(resolve) {
+        var done = false;
+        var field = opts.multiline
+            ? '<textarea id="_ui_prompt" class="form-control" rows="4" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '">' + escapeHtml(opts.value || '') + '</textarea>'
+            : '<input id="_ui_prompt" class="form-control" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '" value="' + escapeHtml(opts.value || '') + '">';
+        var finish = function(v) {
+            if (done) return;
+            done = true;
+            var m = document.getElementById('globalModal');
+            if (m) m.style.display = 'none';
+            resolve(v);
+        };
+        var accept = function() {
+            var el = document.getElementById('_ui_prompt');
+            var v = el ? el.value.trim() : '';
+            if (opts.required && !v) { showToast('Escribe ' + (opts.label || 'un valor').toLowerCase() + ' para continuar.', 'warning'); if (el) el.focus(); return; }
+            finish(v);
+        };
+        showModal({
+            title: opts.title || '',
+            type: 'info',
+            body: (opts.label ? '<label for="_ui_prompt" style="display:block;font-weight:600;margin-bottom: var(--space-xs);">' + escapeHtml(opts.label) + '</label>' : '') + field,
+            buttons: [
+                { label: 'Cancelar', cls: '', onclick: function() { finish(null); } },
+                { label: opts.confirmText || 'Aceptar', cls: 'btn-primary', onclick: accept }
+            ],
+            onCancel: function() { finish(null); }
+        });
+        var el = document.getElementById('_ui_prompt');
+        if (el && !opts.multiline) el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); accept(); } });
     });
 }
 
@@ -4773,6 +4863,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
         try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
+        // [v24] Y todo lo que se pinte después (renders, repintados parciales, modales).
+        try { uiEnhanceObserve(); } catch(obsErr) { console.error('uiEnhanceObserve error:', obsErr); }
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
@@ -4802,9 +4894,13 @@ var _notifMaxItems = 50;
 // Wrap showToast to also log notifications
 (function() {
     var _origShowToast = showToast;
+    // [v24] Pasar TODOS los argumentos: este envoltorio solo reenviaba (msg, type), así
+    // que la duración (3er arg) y el "Deshacer" (4º) se perdían en toda la app — el único
+    // Deshacer que funcionaba era el de un llamador que quedó antes de este envoltorio.
     showToast = function(msg, type) {
-        _origShowToast(msg, type);
+        var t = _origShowToast.apply(this, arguments);
         addNotification(msg, type);
+        return t;
     };
 })();
 
@@ -5152,6 +5248,115 @@ function uiCreateAnotherChecked(id) {
 var UI_CHIPS_MAX_OPTS = 16;
 var _UI_SELECT_VALUE = (typeof HTMLSelectElement !== 'undefined')
     ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value') : null;
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] PRIMITIVAS DE INTERACCIÓN COMPARTIDAS
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * LA forma de dar botones de un toque (`data-chips`) y controles numéricos (`data-num`)
+ * a lo que se acaba de pintar. Idempotente. Antes solo corría al arrancar y en cop15:
+ * `data-chips` en Plan, Consumibles, Datos o CoP no hacía NADA porque su HTML se arma
+ * después, en cada render. Todo render que pinte campos debe terminar llamándola.
+ */
+function uiEnhance(root) {
+    root = root || document;
+    try { uiChipsEnhance(root); } catch (e) { console.warn('uiChipsEnhance:', e); }
+    try { uiNumEnhance(root); } catch (e) { console.warn('uiNumEnhance:', e); }
+    try { uiTableCards(root); } catch (e) { console.warn('uiTableCards:', e); }
+}
+
+/**
+ * [v24] Observa el DOM y mejora SOLO lo nuevo que aún no tiene controles. Es lo que hace
+ * que `data-chips`/`data-num`/`u-cards` funcionen en cualquier pantalla sin que cada
+ * render (y cada repintado parcial: el tablero, la vista previa, los modales) tenga que
+ * acordarse de llamar a uiEnhance. Filtra por `_chips`/`_num` para no re-procesar lo ya
+ * mejorado — si no, repintar las fichas dispararía otra mutación, y así sin fin.
+ */
+function uiEnhanceObserve() {
+    if (window._uiEnhanceMO || typeof MutationObserver === 'undefined' || !document.body) return;
+    var pending = false;
+    var run = function() {
+        pending = false;
+        document.querySelectorAll('select[data-chips]').forEach(function(sel) {
+            if (!sel._chips) { try { _uiChipsAttach(sel); } catch (e) { console.warn('chips:', e); } }
+        });
+        document.querySelectorAll('input[data-num]').forEach(function(inp) {
+            if (!inp._num) { try { _uiNumAttach(inp); } catch (e) { console.warn('num:', e); } }
+        });
+        try { uiTableCards(document); } catch (e) {}
+    };
+    window._uiEnhanceMO = new MutationObserver(function(muts) {
+        if (pending) return;
+        for (var i = 0; i < muts.length; i++) {
+            if (muts[i].addedNodes && muts[i].addedNodes.length) {
+                pending = true;
+                (window.requestAnimationFrame || setTimeout)(run);
+                return;
+            }
+        }
+    });
+    window._uiEnhanceMO.observe(document.body, { childList: true, subtree: true });
+}
+
+/**
+ * LA forma de mostrar un código guardado con palabras. El VALOR guardado no cambia (hay
+ * filtros sobre `status === 'In use'` en ~20 sitios, y `purpose` identifica evidencia):
+ * solo lo que se lee. Para lo del formulario de Cascade sigue `cascadeValueLabel`.
+ */
+var UI_LABELS = {
+    gasStatus: { 'In use': 'En uso', 'Stock': 'En almacén', 'Empty': 'Vacío', 'Spare': 'Reserva' },
+    purpose: {
+        'Correlacion': 'Correlación', 'Investigacion': 'Investigación',
+        'COP-Emisiones': 'CoP · Emisiones', 'EO-Emisiones': 'EO · Emisiones', 'ND-Emisiones': 'Nuevo desarrollo · Emisiones',
+        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II'
+    },
+    region: {
+        'EUROPE': 'Europa', 'EUROPA': 'Europa', 'MIDDLE EAST': 'Medio Oriente', 'USA': 'EE. UU.', 'MEXICO': 'México',
+        'CANADA': 'Canadá', 'BRAZIL': 'Brasil', 'RUSSIA': 'Rusia', 'AUSTRALIA': 'Australia', 'GENERAL': 'General',
+        'TODAS': 'Todas', '*': 'Todas'
+    }
+};
+function uiLabel(kind, code) {
+    if (code === null || code === undefined || code === '') return '';
+    var m = UI_LABELS[kind];
+    if (m && Object.prototype.hasOwnProperty.call(m, String(code))) return m[String(code)];
+    if (typeof cascadeValueLabel === 'function') return cascadeValueLabel(kind, code);
+    return String(code);
+}
+
+/**
+ * [v24] Tablas anchas → tarjetas en teléfono. Marca una tabla con class="u-cards" y esto
+ * copia el texto de cada <th> al `data-label` de su columna; el CSS (bajo 640 px) apila
+ * cada fila como tarjeta con la etiqueta encima de cada dato. Generaliza el patrón que ya
+ * funcionaba en Historial, sin tener que escribir data-label en cada plantilla.
+ * Una celda puede traer su propio data-label (se respeta) o data-label="" (sin etiqueta).
+ */
+function uiTableCards(root) {
+    if (!root || !root.querySelectorAll) return;
+    var tables = root.matches && root.matches('table.u-cards') ? [root] : [];
+    tables = tables.concat([].slice.call(root.querySelectorAll('table.u-cards')));
+    tables.forEach(function(t) {
+        var head = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1]
+                 : (t.rows[0] && t.rows[0].querySelector('th') ? t.rows[0] : null);
+        if (!head) return;
+        var labels = [], col = 0;
+        [].forEach.call(head.cells, function(th) {
+            var span = th.colSpan || 1;
+            for (var k = 0; k < span; k++) labels[col++] = th.textContent.replace(/\s+/g, ' ').trim();
+        });
+        [].forEach.call(t.tBodies, function(tb) {
+            [].forEach.call(tb.rows, function(tr) {
+                if (tr === head) return;
+                var c = 0;
+                [].forEach.call(tr.cells, function(td) {
+                    if (!td.hasAttribute('data-label') && labels[c]) td.setAttribute('data-label', labels[c]);
+                    c += td.colSpan || 1;
+                });
+            });
+        });
+    });
+}
 
 function uiChipsEnhance(root) {
     if (!_UI_SELECT_VALUE || !root || !root.querySelectorAll) return;

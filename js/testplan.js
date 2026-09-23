@@ -2903,9 +2903,13 @@ function tpAddRule() {
 
 function tpSaveRulePreset() {
     if (!tpState.rulePresets) tpState.rulePresets = [];
-    if (tpState.rulePresets.length >= 5) { showToast('Maximo 5 plantillas. Elimina una primero.', 'warning'); return; }
-    var name = prompt('Nombre de la plantilla:');
-    if (!name) return;
+    if (tpState.rulePresets.length >= 5) { showToast('Máximo 5 plantillas. Elimina una primero.', 'warning'); return; }
+    var _sug = 'Reglas ' + new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    uiPrompt({ title: '💾 Guardar plantilla', label: 'Nombre de la plantilla', value: _sug, required: true, confirmText: 'Guardar' })
+    .then(function(name) { if (name) _tpSaveRulePresetNamed(name); });
+}
+
+function _tpSaveRulePresetNamed(name) {
     tpState.rulePresets.push({
         id: Date.now(),
         name: name,
@@ -2921,7 +2925,7 @@ function tpSaveRulePreset() {
 
 function tpLoadRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazará las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
         var preset = tpState.rulePresets[idx];
         tpState.rules = JSON.parse(JSON.stringify(preset.rules));
@@ -2960,7 +2964,7 @@ function tpDeleteRulePreset(idx) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 var TP_DAY_ORDER  = ['dom','lun','mar','mie','jue','vie','sab'];
-var TP_DAY_LABELS = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+var TP_DAY_LABELS = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado'};
 // Dos letras: 'M' sola no distingue martes de miércoles en la tira de la tarjeta.
 var TP_DAY_SHORT  = {dom:'Do',lun:'Lu',mar:'Ma',mie:'Mi',jue:'Ju',vie:'Vi',sab:'Sa'};
 var TP_SOAK_DEFAULT_H = 24;   // el mismo default que el <select> de soak de la app
@@ -4736,7 +4740,7 @@ function tpBuildArmarCardHTML(b) {
     return (typeof uiCard === 'function')
         ? uiCard({ id: 'tp-armar', icon: '🎛️', title: 'Armar la semana', accent: 'testplan',
                    help: 'tp-armar-help', body: body, defaultOpen: false,
-                   open: window._tpArmarForce ? true : undefined, count: chip })
+                   open: (window._tpArmarForce || (b && b.weekDate && !b.plan)) ? true : undefined, count: chip })
         : '<div class="tp-card"><div class="tp-card-title"><span>🎛️ Armar la semana</span></div>' + body + '</div>';
 }
 
@@ -4877,12 +4881,17 @@ function tpRenderMyWeek(el) {
             : '<span class="tp-week-tag">Propuesta</span>' +
               '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
     }
-    h += '<button class="tp-btn tp-btn-ghost" onclick="tpOpenArmar()">🎛️ Armar semana</button>' +
-         '</div></div>';
+    // [v24] Sin plan el armador ya se muestra abierto abajo: un segundo botón que lleva
+    // al mismo sitio es una decisión de más.
+    if (b.plan) h += '<button class="tp-btn tp-btn-ghost" onclick="tpOpenArmar()">🎛️ Armar semana</button>';
+    h += '</div></div>';
 
     // v23: el armador vive AQUÍ, encima del tablero. Se abre, se mueven cuatro cosas,
     // se ve la propuesta, y al generar el tablero de abajo ya es el resultado.
-    h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+    // [v24] Solo cuando hay plan: sin plan se pinta UNA vez, abajo del aviso. Antes se
+    // pintaba dos veces y los ids (`tp-weekly-date`, `tp-planner-preview`…) se duplicaban:
+    // getElementById leía la primera copia y la vista previa llenaba solo una.
+    if (b.plan) h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
 
     if (!b.plan) {
         // v23: si esa semana SÍ tuvo pruebas, decirlo. Una semana sin plan pero con
@@ -4904,8 +4913,8 @@ function tpRenderMyWeek(el) {
                 ? '<p><strong>' + _hechasSinPlan + ' prueba(s) se corrieron igual</strong> y cuentan en la cobertura. ' +
                   'No se inventa un plan al liberar: si quieres registrarlas aquí, arma la semana y vincúlalas.</p>'
                 : '') +
-             '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro.</p>' +
-             '<button class="tp-btn tp-btn-primary" onclick="tpOpenArmar()">🎛️ Armar esta semana</button>' +
+             '<p>Las pruebas ya liberadas siguen contando en la cobertura — un plan es la agenda, no el registro. ' +
+             'Ármala aquí abajo.</p>' +
              '</div>';
         // Sin plan, el armador se muestra abierto: es lo único que hay que hacer aquí.
         h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
@@ -5093,6 +5102,17 @@ function tpWeekAddMenu(weekIdx, day) {
         ' de la semana del ' + (plan.weekDate || '—') + '.<br>' +
         'Puedes agregar una configuración <strong>que ya esté en la semana</strong>: son dos vehículos distintos de la misma configuración.</p>';
 
+    // [v24] El tipo de actividad va PRIMERO: los botones de "las que más falta hacen"
+    // lo leen al tocarse, y antes estaba debajo de ellos — se agregaba como
+    // COP-Emisiones sin que el técnico viera que había algo que elegir.
+    body += '<label class="tp-armar-field"><span>Tipo de actividad</span>' +
+        '<select id="tp-week-add-purpose" class="tp-select" data-chips>' +
+        TP_PURPOSES_VALID.map(function(pp) {
+            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' +
+                   (typeof uiLabel === 'function' ? uiLabel('purpose', pp) : pp) + '</option>';
+        }).join('') +
+        '</select></label>';
+
     if (sug.length) {
         body += '<div class="tp-week-addsug"><strong>Las que más falta hacen</strong>';
         sug.forEach(function(a) {
@@ -5106,12 +5126,6 @@ function tpWeekAddMenu(weekIdx, day) {
     body += '<div class="tp-week-addpick">' +
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
-        '<label class="tp-armar-field" style="margin-top: var(--space-sm);"><span>Tipo de actividad</span>' +
-        '<select id="tp-week-add-purpose" class="tp-select">' +
-        TP_PURPOSES_VALID.map(function(pp) {
-            return '<option value="' + pp + '"' + (pp === 'COP-Emisiones' ? ' selected' : '') + '>' + pp + '</option>';
-        }).join('') +
-        '</select></label>' +
         '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
         '</div></div>';
 
@@ -7126,7 +7140,7 @@ function tpRenderWeekHistory(el) {
         return;
     }
     const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
-    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado'};
     // Summary metrics
     const totalWeeks = hist.length;
     const totalCompleted = hist.reduce((s,h) => s + h.completed, 0);

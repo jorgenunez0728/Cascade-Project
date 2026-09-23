@@ -2866,7 +2866,7 @@ function invRenderPredict(el) {
             html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + borderClr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
             html += '<div><span style="font-weight:700;font-size: var(--fs-sm);">' + g.formula + ' ' + (g.concNominal || '') + '</span> <span style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone || '?') + ')</span></div>';
-            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + borderClr + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
+            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + borderClr + ';">' + (p.daysLeft > 365 ? '>1 año' : '~' + p.daysLeft + ' días') + '</span>';
             html += '</div>';
             html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap: var(--space-xs);margin-top: var(--space-sm);">';
             html += '<div style="font-size: var(--fs-xs);"><span style="color:var(--tp-dim);">Actual:</span> <strong>' + p.lastPsi + ' psi</strong></div>';
