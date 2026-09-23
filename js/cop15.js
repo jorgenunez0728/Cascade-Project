@@ -1191,7 +1191,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
                 warning.style.background = 'rgba(239,68,68,0.1)';
                 warning.style.color = tokenColor('--danger-text');
                 warning.style.border = '1px solid rgba(239,68,68,0.3)';
-                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+                warning.textContent = '⚠️ VIN ya existe como vehículo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
             } else if (dupArchived) {
                 warning.style.display = 'block';
                 warning.style.background = 'rgba(245,158,11,0.1)';
@@ -1219,7 +1219,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const isExternal = document.getElementById('modeToggle').checked;
         
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            showToast('VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)', 'error');
+            showToast('El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Revisa si falta o sobra uno.', 'error');
             return false;
         }
 
@@ -2743,7 +2743,7 @@ function checkAutoAdvance(vehicle) {
     missingCount = testFields.length - filledTest;
 
     if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
-      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      suggestion = 'Verificación de prueba completa. ¿Avanzar a "Listo para Liberación"?';
       nextStatus = 'ready-release';
     }
   }
@@ -2785,7 +2785,7 @@ function applyAutoAdvance(nextStatus) {
   if (nextStatus === 'ready-release') {
     var missing = validateReadyForRelease();
     if (missing.length > 0) {
-      showToast('Faltan campos para liberacion', 'warning');
+      showToast('Faltan campos para liberación', 'warning');
       showMissingPopup(missing);
       return;
     }
@@ -3102,7 +3102,7 @@ var _libMismatchAlarmKey = null;
 function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallback) {
     var el = document.getElementById(containerId);
     if (!el) return;
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    var html = '<table class="u-cards u-cards-grid" style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
     html += '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Gas</th>';
     html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Unidad</th>';
@@ -3898,7 +3898,7 @@ function returnToReleaser() {
                 : '') +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Motivo (mínimo 5 caracteres) *</label>' +
             '<textarea id="return-reason" class="form-control" rows="3" style="width:100%;box-sizing:border-box;font-size:13px;" ' +
-            'placeholder="Ej: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
+            'placeholder="Ej.: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
             // El doble ciego solo sirve si el liberador vuelve a leer del reporte,
             // no si el aprobador le dicta el número correcto.
             '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
@@ -6256,7 +6256,7 @@ function handleConfigCSVImport(event) {
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
             var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
-            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
+            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehículos ya registrados no se afectan.</span>';
         } catch(err) {
             // [Fase 5.4] Rollback on failure
             if (typeof undoPop === 'function') undoPop();
@@ -7096,7 +7096,7 @@ function soakTimerTick() {
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('KIA EmLab - Soak Completado', {
-                body: 'El tiempo de reposo ha terminado. El vehiculo esta listo para prueba.',
+                body: 'El tiempo de reposo ha terminado. El vehículo está listo para prueba.',
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">✅</text></svg>'
             });
         }
@@ -7239,7 +7239,7 @@ function renderKanban() {
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
-    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehículos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
@@ -7286,7 +7286,7 @@ function renderKanban() {
         html += '</div>';
 
         if (colVehicles.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehiculos</div>';
+            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehículos</div>';
         } else {
             colVehicles.forEach(function(v) {
                 var td = v.testData || {};
@@ -7393,7 +7393,7 @@ function renderPrecondBatchView() {
     });
 
     if (vehicles.length === 0) {
-        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        showToast('No hay vehículos en preacondicionamiento', 'info');
         return;
     }
 
@@ -7481,7 +7481,7 @@ function renderPrecondBatchView() {
         if (precondOk) {
             html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
         } else {
-            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehículo">Editar</button>';
         }
         html += '</td></tr>';
     });
@@ -7563,7 +7563,7 @@ function batchScheduleTests() {
     if (advancedCount > 0) {
         saveDB();
         renderPrecondBatchView();
-        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+        showToast(advancedCount + ' vehículos pasaron a prueba', 'success');
     } else {
         showToast('Ninguno de los vehículos seleccionados tiene el preacondicionamiento completo.', 'warning');
     }
@@ -8324,10 +8324,10 @@ function v7ShowSoakCompleteModal() {
     modal.innerHTML =
         '<div class="v7-soak-modal-icon">⏱️</div>' +
         '<div class="v7-soak-modal-title">Soak Completado!</div>' +
-        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' esta listo para prueba.</div>' +
+        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' está listo para prueba.</div>' +
         '<div class="v7-soak-modal-actions">' +
         '<button class="btn btn-primary" onclick="v7GoToTestForm()">Ir a Formulario de Prueba</button>' +
-        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Despues</button>' +
+        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Después</button>' +
         '</div>';
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
@@ -8586,7 +8586,7 @@ function v7CheckVinDuplicate(vin) {
     var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
     if (active) {
         if (!hint) hint = _v7CreateVinHint();
-        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehiculo</button>';
+        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehículo</button>';
         hint.className = 'v7-vin-hint warning';
         return;
     }
@@ -8647,7 +8647,7 @@ function v7BatchRelease() {
         return;
     }
     var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
-    if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+    if (allReady.length === 0) { showToast('No hay vehículos listos', 'info'); return; }
 
     // Filter out emissions vehicles missing scanned-report photo (mandatory)
     var ready = [];
@@ -8670,7 +8670,7 @@ function v7BatchRelease() {
     if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
                                   RELEASE_MIN_FREE_BYTES * Math.min(ready.length, 4))) return;
 
-    if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
+    if (typeof undoPush === 'function') undoPush('cop15', 'Liberación por lote de ' + ready.length + ' vehículos');
 
     var count = 0;
     var errors = 0;
@@ -8684,7 +8684,7 @@ function v7BatchRelease() {
             vehicle.timeline.push({
                 timestamp: new Date().toISOString(),
                 user: 'Sistema',
-                action: 'Vehiculo Liberado (Batch Release)',
+                action: 'Vehículo liberado (liberación por lote)',
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);

@@ -534,7 +534,7 @@ function pnRenderHomolog(el) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">' +
             'Todavía no hay nada importado. Sube el archivo del ICMS arriba.</div>';
     } else {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr>' +
             ['MC code', 'Work Order', 'Variant/Version', 'f0', 'f1', 'f2', 'TM', 'CO₂ comb.', ''].map(function(h) {
                 return '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);border-bottom:1.5px solid var(--tp-border);white-space:nowrap;">' + h + '</th>';

@@ -456,12 +456,12 @@ function invCheckProactiveAlerts() {
     var criticals = [];
     invState.gases.forEach(function(g) {
         if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
-        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel crítico');
     });
     invState.equipment.forEach(function(e) {
         if (!e.nextCalDate) return;
         var diff = Math.round((new Date(e.nextCalDate) - new Date()) / (1000*60*60*24));
-        if (diff < 0) criticals.push(e.name + ' calibracion vencida');
+        if (diff < 0) criticals.push(e.name + ' calibración vencida');
     });
     if (criticals.length > 0) {
         showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
@@ -849,7 +849,7 @@ function invRenderGases(el) {
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
     var _invGasCompact = getViewMode('inv-gases') === 'compact';
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestion de Cilindros (' + gases.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestión de Cilindros (' + gases.length + ')</span>';
     html += '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + renderViewModeToggle('inv-gases', false);
     html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size: var(--fs-sm);">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size: var(--fs-sm);">Exportar</button>';
@@ -1099,7 +1099,7 @@ function invShowBarcode(id) {
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom: var(--space-md);border-bottom:2px solid #0f172a;padding-bottom: var(--space-sm);">';
     html += '<div>';
     html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Ficha de Recepcion de Cilindro de Gas</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Ficha de Recepción de Cilindro de Gas</div>';
     html += '</div>';
     html += '<div style="text-align:right;font-size: var(--fs-sm);color:var(--muted);font-weight:600;">';
     html += '<div>Fecha recepcion: <strong style="color:var(--text);font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
@@ -1136,17 +1136,17 @@ function invShowBarcode(id) {
     html += '</table>';
 
     // Checklist de recepcion
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">2. Checklist de Recepcion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">2. Checklist de Recepción</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
-    html += '<thead><tr style="background:var(--surface-alt);"><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;width:60%;">Verificacion</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">OK</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">N/A</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;">Observaciones</th></tr></thead><tbody>';
+    html += '<thead><tr style="background:var(--surface-alt);"><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;width:60%;">Verificación</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">OK</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">N/A</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;">Observaciones</th></tr></thead><tbody>';
     var checks = [
         'Cilindro sin dano visible (golpes, corrosion, abolladuras)',
         'Valvula en buenas condiciones y cierra correctamente',
         'Etiqueta del proveedor legible y coincide con certificado',
         'Certificado de analisis recibido y archivado',
         'Concentracion real dentro de tolerancia vs nominal',
-        'Fecha de vigencia vigente al momento de recepcion',
-        'Presion inicial registrada (ver seccion 3)',
+        'Fecha de vigencia vigente al momento de recepción',
+        'Presión inicial registrada (ver sección 3)',
         'Regulador/adaptador compatible verificado',
         'Zona de almacenamiento asignada y etiquetada'
     ];
@@ -1159,17 +1159,17 @@ function invShowBarcode(id) {
     html += '</tbody></table>';
 
     // Presion inicial
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">3. Presion Inicial</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">3. Presión Inicial</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
     html += '<tr>';
-    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:30%;background:var(--surface-alt);">Presion al recibir (psi):</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:30%;background:var(--surface-alt);">Presión al recibir (psi):</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;background:var(--surface-alt);">Fecha de lectura:</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;">' + (g.regDate || '') + '</td>';
     html += '</tr></table>';
 
     // Bitacora de lecturas (blank rows to fill by hand)
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">4. Bitacora de Lecturas de Presion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">4. Bitácora de Lecturas de Presión</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
     html += '<thead><tr style="background:var(--surface-alt);">';
     html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:18%;">Fecha</th>';
@@ -1190,7 +1190,7 @@ function invShowBarcode(id) {
     html += '</tbody></table>';
 
     // Firmas
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-sm);color:var(--text);">5. Firmas de Recepcion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-sm);color:var(--text);">5. Firmas de Recepción</div>';
     html += '<div style="display:flex;gap: var(--space-xl);margin-bottom: var(--space-lg);">';
     html += '<div style="flex:1;border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm);text-align:center;">';
     html += '<div style="height:50px;"></div>';
@@ -1324,7 +1324,7 @@ function invShowTimeline(id) {
     }
     // Last 5 readings
     if (g.readings && g.readings.length > 0) {
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin:10px 0 6px;">Ultimas Lecturas</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin:10px 0 6px;">Últimas Lecturas</div>';
         g.readings.slice(-5).reverse().forEach(function(r) {
             html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size: var(--fs-xs);color:var(--text);border-bottom:1px solid #f8fafc;">';
             html += '<span>' + r.date + '</span><span style="font-weight:700;">' + r.psi + ' psi</span>';
@@ -1358,7 +1358,7 @@ function invMapQuickRead(gasId) {
 function invMapQuickReadSave(gasId) {
     var inp = document.getElementById('inv-map-psi');
     var dateInp = document.getElementById('inv-map-date');
-    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+    if (!inp || !inp.value) { showToast('Ingresa la presión', 'error'); return; }
 
     var psi = parseFloat(inp.value);
     var date = dateInp ? dateInp.value : localToday();
@@ -1792,7 +1792,7 @@ function invScanBarcode() {
     if (hasCamera && hasLib) {
         html += '<div id="inv-scan-area" style="position:relative;margin-bottom: var(--space-md);">';
         html += '<div id="inv-scan-reader" style="width:100%;border-radius: var(--radius-xl);overflow:hidden;"></div>';
-        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top: var(--space-sm);">Apunta al codigo de barras...</div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top: var(--space-sm);">Apunta al código de barras...</div>';
         html += '</div>';
     } else if (!hasLib) {
         html += '<div style="padding: var(--space-md);background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom: var(--space-md);font-size: var(--fs-xs);color:var(--warn-text);">Librería de escaneo no cargada. Usa la búsqueda rápida de abajo.</div>';
@@ -2000,7 +2000,7 @@ function invQuickReadPopup(g) {
 function invQuickReadSave(gasId) {
     var inp = document.getElementById('inv-quick-psi');
     var dateInp = document.getElementById('inv-quick-date');
-    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+    if (!inp || !inp.value) { showToast('Ingresa la presión', 'error'); return; }
 
     var psi = parseFloat(inp.value);
     var date = dateInp ? dateInp.value : localToday();
@@ -2652,11 +2652,11 @@ function invRenderPredict(el) {
     var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
 
     html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
-    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Prediccion Activa de Consumo</span>';
+    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Predicción Activa de Consumo</span>';
     html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Modelo adaptativo: aprende del consumo real por regulación. Se actualiza con cada lectura y liberación de vehículo.</div>';
     if (!hasAdaptiveData) {
-        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📏 Ir a Capturar →</button></div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Aún no hay suficientes lecturas para predecir. La predicción aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📏 Ir a Capturar →</button></div>';
     }
 
     // Regulation test count badges
@@ -2681,7 +2681,7 @@ function invRenderPredict(el) {
 
     if (Object.keys(allRegs).length > 0) {
         html += '<div class="tp-card" style="border-left:3px solid #8b5cf6;">';
-        html += '<div class="tp-card-title"><span>Consumo por Regulacion (EWMA)</span></div>';
+        html += '<div class="tp-card-title"><span>Consumo por Regulación (EWMA)</span></div>';
 
         Object.keys(allRegs).sort().forEach(function(reg) {
             var pending = pendingByReg[reg] || 0;
@@ -2776,8 +2776,8 @@ function invRenderPredict(el) {
         }
         html += '</div>';
     } else if (totalPending > 0 && !hasAdaptiveData) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding: var(--space-md);">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyección Plan (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding: var(--space-md);">El modelo aún no tiene suficientes datos. Conforme se liberen vehículos y se registren lecturas, las predicciones por regulación apareceran aquí.</div></div>';
     }
 
     // ═══════════════════════════════════════════════
@@ -2914,7 +2914,7 @@ function invRenderPredict(el) {
     var fuelTanks = invState.fuelTanks || [];
     var fuelWithReadings = fuelTanks.filter(function(t) { return t.readings && t.readings.length >= 1; });
     if (fuelWithReadings.length > 0) {
-        html += '<div class="tp-card"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Predicción Combustible</span></div>';
         fuelWithReadings.forEach(function(t) {
             var rdgs = t.readings;
             var last = rdgs[rdgs.length - 1];
@@ -3527,7 +3527,7 @@ function invAddFuelTank(editId) {
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" inputmode="decimal" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" inputmode="decimal" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepción</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
@@ -3649,7 +3649,7 @@ function invRenderReport(el) {
         html += '<div style="display:flex;align-items:center;gap: var(--space-md);">';
         // Chart
         html += '<div style="width:200px;height:120px;border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-sm);background:var(--tp-card);position:relative;">';
-        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Fuel Status ' + (t.regulation||t.name) + '</div>';
+        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Combustible ' + (t.regulation||t.name) + '</div>';
         html += '<div style="display:flex;height:80px;align-items:flex-end;justify-content:center;gap:0;">';
         var barH = 70;
         html += '<div style="width:80px;height:' + barH + 'px;display:flex;flex-direction:column;">';
@@ -3676,14 +3676,14 @@ function invRenderReport(el) {
 
     // ── GAS SECTION ──
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">2. Reference gas consumption status</h3>';
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr style="background:#0e7490;color:#fff;">';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Tipo</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Consumible</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Inventario (PSI)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Sem (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Dia (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (dias)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Día (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (días)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Limite Inf (PSI)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Status</th>';
     html += '</tr></thead><tbody>';
@@ -3727,8 +3727,8 @@ function invRenderReport(el) {
         return st.code === 'vencido' || st.code === 'porvencer';
     });
     if (eqAlerts.length > 0) {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
-        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Días</th><th>Estatus</th></tr></thead><tbody>';
         eqAlerts.forEach(function(e) {
             var _st = invCalStatus(e);
             var days = _st.days, clr = _st.color;
@@ -3736,7 +3736,7 @@ function invRenderReport(el) {
         });
         html += '</tbody></table></div>';
     } else {
-        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 dias)</div>';
+        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 días)</div>';
     }
 
     html += '</div>';
@@ -3924,7 +3924,7 @@ function invUndoLastMove() {
 function invRenderCharts(el) {
     var chartType = window._invChartType || 'gas_psi';
 
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Graficas de Consumo</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Gráficas de Consumo</span></div>';
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
         '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size: var(--fs-sm);">PSI por Cilindro</button>';
@@ -4042,7 +4042,7 @@ function invDrawMainChart() {
 }
 
 function invRenderConfig(el) {
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuracion de Zonas</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuración de Zonas</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddZone()" style="font-size: var(--fs-sm);">+ Agregar Zona</button></div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Edita el layout de tu cuarto de gases. Cada zona tiene un ID, nombre, slots y tipo.</div>';
 
@@ -4302,7 +4302,7 @@ function invShowTrendChart(gasId) {
 function invDrawTrendChart(g) {
     var canvas = document.getElementById('inv-trend-canvas');
     if (!canvas || typeof Chart === 'undefined') {
-        showToast('Chart.js no disponible', 'error');
+        showToast('No se pudo cargar la librería de gráficas. Recarga la página; si sigue, avisa que la red la bloquea.', 'error');
         return;
     }
 
@@ -4405,7 +4405,7 @@ function invDrawTrendChart(g) {
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI actual</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + dailyDrop.toFixed(1) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/dia</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + weeklyDrop.toFixed(0) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/semana</div></div>' +
-            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">dias restantes</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">días restantes</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">fecha vacio</div></div>' +
             '</div>';
     }
@@ -4977,7 +4977,7 @@ function invHandleF11Import(event) {
 // Plan Maestro (52 semanas) + Dashboard de cumplimiento en PDF, formato COP15-F11.
 function invMaintPlanPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
     var year = window._invMaintYear || new Date().getFullYear();

@@ -5236,3 +5236,17 @@ body.cop-present .cop-toolbar    { display: none; }
 .inv-capture-savebar .tp-btn { min-height: var(--target-min); padding: var(--space-sm) var(--space-xl); box-shadow: var(--shadow-md); }
 @media (min-width: 1025px) { .inv-capture-savebar { bottom: var(--space-sm); } }
 @media (max-width: 640px) { .inv-capture-savebar .tp-btn { width: 100%; } }
+@media (max-width: 640px) {
+  /* Tablas sin <thead>: la fila de encabezados también se esconde en modo tarjeta. */
+  table.u-cards tr:has(> th):not(:has(> td)) { display: none; }
+  /* Sin scroll horizontal de la tabla: en tarjetas ya no hace falta. */
+  div:has(> table.u-cards) { overflow-x: visible !important; }
+}
+
+@media (max-width: 640px) {
+  /* Variante en retícula: la primera celda (gas o VIN) a lo ancho, el resto en dos
+     columnas. Para tablas de gases: 5 renglones por gas no caben en un teléfono. */
+  table.u-cards.u-cards-grid tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-md); }
+  table.u-cards.u-cards-grid td:first-child { grid-column: 1 / -1; font-weight: 700; }
+  table.u-cards.u-cards-grid td:last-child:not(:first-child):nth-child(even) { grid-column: 1 / -1; }
+}

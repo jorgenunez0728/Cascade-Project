@@ -834,7 +834,7 @@ function authOfferBiometricRegistration(operatorId) {
 
 function authRegisterBiometric(operatorId) {
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible en este dispositivo', 'error'); return; }
-    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado válido', 'error'); return; }
 
     var user = authState.currentUser;
     if (!user) return;
@@ -887,7 +887,7 @@ function authVerifyBiometric() {
     if (!op) return;
 
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible', 'error'); return; }
-    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado válido', 'error'); return; }
 
     var creds = {};
     try { creds = JSON.parse(localStorage.getItem(AUTH_WEBAUTHN_LS) || '{}'); } catch(e) {}
@@ -945,7 +945,7 @@ function authVerifyBiometric() {
     }).catch(function(err) {
         console.warn('WebAuthn verification failed:', err);
         var errEl = document.getElementById('auth-pin-error');
-        if (errEl) errEl.textContent = 'Verificacion biometrica fallida. Usa tu PIN.';
+        if (errEl) errEl.textContent = 'Verificación biometrica fallida. Usa tu PIN.';
     });
 }
 

@@ -5677,6 +5677,20 @@ body.cop-present .cop-toolbar    { display: none; }
 .inv-capture-savebar .tp-btn { min-height: var(--target-min); padding: var(--space-sm) var(--space-xl); box-shadow: var(--shadow-md); }
 @media (min-width: 1025px) { .inv-capture-savebar { bottom: var(--space-sm); } }
 @media (max-width: 640px) { .inv-capture-savebar .tp-btn { width: 100%; } }
+@media (max-width: 640px) {
+  /* Tablas sin <thead>: la fila de encabezados también se esconde en modo tarjeta. */
+  table.u-cards tr:has(> th):not(:has(> td)) { display: none; }
+  /* Sin scroll horizontal de la tabla: en tarjetas ya no hace falta. */
+  div:has(> table.u-cards) { overflow-x: visible !important; }
+}
+
+@media (max-width: 640px) {
+  /* Variante en retícula: la primera celda (gas o VIN) a lo ancho, el resto en dos
+     columnas. Para tablas de gases: 5 renglones por gas no caben en un teléfono. */
+  table.u-cards.u-cards-grid tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-md); }
+  table.u-cards.u-cards-grid td:first-child { grid-column: 1 / -1; font-weight: 700; }
+  table.u-cards.u-cards-grid td:last-child:not(:first-child):nth-child(even) { grid-column: 1 / -1; }
+}
     </style>
 </head>
 
@@ -5963,15 +5977,15 @@ body.cop-present .cop-toolbar    { display: none; }
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Modelo Manual</label>
-                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025" autocomplete="off">
+                        <input type="text" id="man_model" placeholder="Ej.: Sportage 2025" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Motor Manual</label>
-                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
+                        <input type="text" id="man_engine" placeholder="Ej.: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_transmission">Transmisión Manual <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
-                        <input type="text" id="man_transmission" placeholder="Ej: 6DCT / 8AT / 6MT" autocomplete="off">
+                        <input type="text" id="man_transmission" placeholder="Ej.: 6DCT / 8AT / 6MT" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_regulation">Regulación Manual</label>
@@ -5991,19 +6005,20 @@ body.cop-present .cop-toolbar    { display: none; }
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <label for="vin">VIN</label>
                 <input
                     type="text"
                     id="vin"
                     autocomplete="off"
                     aria-required="true"
-                    placeholder="Ejemplo: KNDJP3A59K7123456"
+                    placeholder="Ej.: KNDJP3A59K7123456"
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
                     oninput="validateVIN(this)"
                     onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: var(--muted); text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
+                <small style="color: var(--muted); text-align: center; display: block;">Letras y números, sin I, O ni Q.</small>
             </div>
         </div>
 
@@ -6015,7 +6030,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
   <div class="form-group">
     <label for="homo_mc">MC code / Work Order del ICMS</label>
-    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej: 8GS6K5G17"
+    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej.: 8GS6K5G17"
            oninput="if(typeof homoAltaSearchFromInput==='function')homoAltaSearchFromInput()">
     <div id="homo-alta-results" style="margin-top:4px;"></div>
     <div id="homo-alta-status" style="font-size: var(--fs-sm);margin-top:4px;"></div>
@@ -6130,7 +6145,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej.: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -6165,18 +6180,18 @@ body.cop-present .cop-toolbar    { display: none; }
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej.: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej.: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -6460,12 +6475,12 @@ body.cop-present .cop-toolbar    { display: none; }
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej.: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
   <label>Flujo del ventilador (m³/min)</label>
-  <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
+  <input type="text" id="test_fan_flow" placeholder="Ej.: 120" disabled readonly>
 </div>
 
     <div class="form-group">
@@ -6533,7 +6548,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -6747,8 +6762,8 @@ body.cop-present .cop-toolbar    { display: none; }
     <div class="modal-content">
         <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
         <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
-        <button class="btn-primary" onclick="saveNewVehicle()">CONFIRMAR REGISTRO</button>
-        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">CANCELAR</button>
+        <button class="btn-primary" onclick="saveNewVehicle()">Confirmar registro</button>
+        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">Cancelar</button>
     </div>
 </div>
 
@@ -8052,7 +8067,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609230059';
+var APP_BUILD = '202609230106';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8506,14 +8521,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609230059' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609230106' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609230059' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609230106' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8529,7 +8544,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609230059' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609230106' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9973,7 +9988,7 @@ function chartConfigSet(chartId, key, val) {
 function chartConfigReset(chartId) {
     delete _chartConfigs[chartId];
     chartConfigSave();
-    showToast('Configuracion del grafico restaurada', 'success');
+    showToast('Configuración del grafico restaurada', 'success');
 }
 
 function chartConfigApply(chartId, instanceVar) {
@@ -11983,7 +11998,7 @@ var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }
 // ── Weekly Status PDF Report ──
 function generateWeeklyStatusPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
     if (!(opts && opts.silent)) showOverlayLoading('Generando PDF semanal...');
@@ -12789,7 +12804,7 @@ document.addEventListener('click', function(e) {
 var _commandPaletteCommands = [
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Deshacer Última Acción', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
     { label: 'Armar la semana', icon: '🎛️', action: function(){ if(typeof tpOpenArmar==='function') tpOpenArmar(); else switchPlatform('testplan'); }, cat: 'Acciones' }
@@ -13145,7 +13160,10 @@ function uiTableCards(root) {
         var labels = [], col = 0;
         [].forEach.call(head.cells, function(th) {
             var span = th.colSpan || 1;
-            for (var k = 0; k < span; k++) labels[col++] = th.textContent.replace(/\s+/g, ' ').trim();
+            // Un encabezado con varias piezas ("CO" + "L=1.0 g/km") se lee separado por " · ".
+            var parts = [].map.call(th.childNodes, function(n) { return (n.textContent || '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+            var lbl = parts.join(' · ');
+            for (var k = 0; k < span; k++) labels[col++] = lbl;
         });
         [].forEach.call(t.tBodies, function(tb) {
             [].forEach.call(tb.rows, function(tr) {
@@ -13656,7 +13674,7 @@ function renderLabDashboard(container) {
     }
     if (active.length > 10) {
         alerts.push({ level: 'ALTO', color: tokenColor('--warn-fill'), module: 'COP15',
-            message: active.length + ' vehiculos activos — considerar agilizar liberaciones',
+            message: active.length + ' vehículos activos — considerar agilizar liberaciones',
             action: 'cop15' });
     }
 
@@ -16346,7 +16364,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
                 warning.style.background = 'rgba(239,68,68,0.1)';
                 warning.style.color = tokenColor('--danger-text');
                 warning.style.border = '1px solid rgba(239,68,68,0.3)';
-                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+                warning.textContent = '⚠️ VIN ya existe como vehículo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
             } else if (dupArchived) {
                 warning.style.display = 'block';
                 warning.style.background = 'rgba(245,158,11,0.1)';
@@ -16374,7 +16392,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const isExternal = document.getElementById('modeToggle').checked;
         
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            showToast('VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)', 'error');
+            showToast('El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Revisa si falta o sobra uno.', 'error');
             return false;
         }
 
@@ -17898,7 +17916,7 @@ function checkAutoAdvance(vehicle) {
     missingCount = testFields.length - filledTest;
 
     if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
-      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      suggestion = 'Verificación de prueba completa. ¿Avanzar a "Listo para Liberación"?';
       nextStatus = 'ready-release';
     }
   }
@@ -17940,7 +17958,7 @@ function applyAutoAdvance(nextStatus) {
   if (nextStatus === 'ready-release') {
     var missing = validateReadyForRelease();
     if (missing.length > 0) {
-      showToast('Faltan campos para liberacion', 'warning');
+      showToast('Faltan campos para liberación', 'warning');
       showMissingPopup(missing);
       return;
     }
@@ -18257,7 +18275,7 @@ var _libMismatchAlarmKey = null;
 function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallback) {
     var el = document.getElementById(containerId);
     if (!el) return;
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    var html = '<table class="u-cards u-cards-grid" style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
     html += '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Gas</th>';
     html += '<th style="text-align:center;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Unidad</th>';
@@ -19053,7 +19071,7 @@ function returnToReleaser() {
                 : '') +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom: var(--space-xs);">Motivo (mínimo 5 caracteres) *</label>' +
             '<textarea id="return-reason" class="form-control" rows="3" style="width:100%;box-sizing:border-box;font-size:13px;" ' +
-            'placeholder="Ej: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
+            'placeholder="Ej.: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
             // El doble ciego solo sirve si el liberador vuelve a leer del reporte,
             // no si el aprobador le dicta el número correcto.
             '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-md);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
@@ -21411,7 +21429,7 @@ function handleConfigCSVImport(event) {
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
             var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:var(--warn-text);">CSV importado</span>';
-            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
+            st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehículos ya registrados no se afectan.</span>';
         } catch(err) {
             // [Fase 5.4] Rollback on failure
             if (typeof undoPop === 'function') undoPop();
@@ -22251,7 +22269,7 @@ function soakTimerTick() {
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('KIA EmLab - Soak Completado', {
-                body: 'El tiempo de reposo ha terminado. El vehiculo esta listo para prueba.',
+                body: 'El tiempo de reposo ha terminado. El vehículo está listo para prueba.',
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">✅</text></svg>'
             });
         }
@@ -22394,7 +22412,7 @@ function renderKanban() {
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
-    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehículos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
@@ -22441,7 +22459,7 @@ function renderKanban() {
         html += '</div>';
 
         if (colVehicles.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehiculos</div>';
+            html += '<div style="text-align:center;padding: var(--space-lg);color:var(--muted);font-size: var(--fs-xs);">Sin vehículos</div>';
         } else {
             colVehicles.forEach(function(v) {
                 var td = v.testData || {};
@@ -22548,7 +22566,7 @@ function renderPrecondBatchView() {
     });
 
     if (vehicles.length === 0) {
-        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        showToast('No hay vehículos en preacondicionamiento', 'info');
         return;
     }
 
@@ -22636,7 +22654,7 @@ function renderPrecondBatchView() {
         if (precondOk) {
             html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
         } else {
-            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding: var(--space-xs) var(--space-md);border-radius: var(--radius-lg);font-size: var(--fs-sm);cursor:pointer;" title="Editar vehículo">Editar</button>';
         }
         html += '</td></tr>';
     });
@@ -22718,7 +22736,7 @@ function batchScheduleTests() {
     if (advancedCount > 0) {
         saveDB();
         renderPrecondBatchView();
-        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+        showToast(advancedCount + ' vehículos pasaron a prueba', 'success');
     } else {
         showToast('Ninguno de los vehículos seleccionados tiene el preacondicionamiento completo.', 'warning');
     }
@@ -23479,10 +23497,10 @@ function v7ShowSoakCompleteModal() {
     modal.innerHTML =
         '<div class="v7-soak-modal-icon">⏱️</div>' +
         '<div class="v7-soak-modal-title">Soak Completado!</div>' +
-        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' esta listo para prueba.</div>' +
+        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' está listo para prueba.</div>' +
         '<div class="v7-soak-modal-actions">' +
         '<button class="btn btn-primary" onclick="v7GoToTestForm()">Ir a Formulario de Prueba</button>' +
-        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Despues</button>' +
+        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Después</button>' +
         '</div>';
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
@@ -23741,7 +23759,7 @@ function v7CheckVinDuplicate(vin) {
     var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
     if (active) {
         if (!hint) hint = _v7CreateVinHint();
-        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehiculo</button>';
+        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehículo</button>';
         hint.className = 'v7-vin-hint warning';
         return;
     }
@@ -23802,7 +23820,7 @@ function v7BatchRelease() {
         return;
     }
     var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
-    if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+    if (allReady.length === 0) { showToast('No hay vehículos listos', 'info'); return; }
 
     // Filter out emissions vehicles missing scanned-report photo (mandatory)
     var ready = [];
@@ -23825,7 +23843,7 @@ function v7BatchRelease() {
     if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
                                   RELEASE_MIN_FREE_BYTES * Math.min(ready.length, 4))) return;
 
-    if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
+    if (typeof undoPush === 'function') undoPush('cop15', 'Liberación por lote de ' + ready.length + ' vehículos');
 
     var count = 0;
     var errors = 0;
@@ -23839,7 +23857,7 @@ function v7BatchRelease() {
             vehicle.timeline.push({
                 timestamp: new Date().toISOString(),
                 user: 'Sistema',
-                action: 'Vehiculo Liberado (Batch Release)',
+                action: 'Vehículo liberado (liberación por lote)',
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
@@ -24408,12 +24426,12 @@ function invCheckProactiveAlerts() {
     var criticals = [];
     invState.gases.forEach(function(g) {
         if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
-        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel crítico');
     });
     invState.equipment.forEach(function(e) {
         if (!e.nextCalDate) return;
         var diff = Math.round((new Date(e.nextCalDate) - new Date()) / (1000*60*60*24));
-        if (diff < 0) criticals.push(e.name + ' calibracion vencida');
+        if (diff < 0) criticals.push(e.name + ' calibración vencida');
     });
     if (criticals.length > 0) {
         showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
@@ -24801,7 +24819,7 @@ function invRenderGases(el) {
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
     var _invGasCompact = getViewMode('inv-gases') === 'compact';
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestion de Cilindros (' + gases.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestión de Cilindros (' + gases.length + ')</span>';
     html += '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + renderViewModeToggle('inv-gases', false);
     html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size: var(--fs-sm);">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size: var(--fs-sm);">Exportar</button>';
@@ -25051,7 +25069,7 @@ function invShowBarcode(id) {
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom: var(--space-md);border-bottom:2px solid #0f172a;padding-bottom: var(--space-sm);">';
     html += '<div>';
     html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Ficha de Recepcion de Cilindro de Gas</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Ficha de Recepción de Cilindro de Gas</div>';
     html += '</div>';
     html += '<div style="text-align:right;font-size: var(--fs-sm);color:var(--muted);font-weight:600;">';
     html += '<div>Fecha recepcion: <strong style="color:var(--text);font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
@@ -25088,17 +25106,17 @@ function invShowBarcode(id) {
     html += '</table>';
 
     // Checklist de recepcion
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">2. Checklist de Recepcion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">2. Checklist de Recepción</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
-    html += '<thead><tr style="background:var(--surface-alt);"><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;width:60%;">Verificacion</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">OK</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">N/A</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;">Observaciones</th></tr></thead><tbody>';
+    html += '<thead><tr style="background:var(--surface-alt);"><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;width:60%;">Verificación</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">OK</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:10%;">N/A</th><th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);text-align:left;">Observaciones</th></tr></thead><tbody>';
     var checks = [
         'Cilindro sin dano visible (golpes, corrosion, abolladuras)',
         'Valvula en buenas condiciones y cierra correctamente',
         'Etiqueta del proveedor legible y coincide con certificado',
         'Certificado de analisis recibido y archivado',
         'Concentracion real dentro de tolerancia vs nominal',
-        'Fecha de vigencia vigente al momento de recepcion',
-        'Presion inicial registrada (ver seccion 3)',
+        'Fecha de vigencia vigente al momento de recepción',
+        'Presión inicial registrada (ver sección 3)',
         'Regulador/adaptador compatible verificado',
         'Zona de almacenamiento asignada y etiquetada'
     ];
@@ -25111,17 +25129,17 @@ function invShowBarcode(id) {
     html += '</tbody></table>';
 
     // Presion inicial
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">3. Presion Inicial</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">3. Presión Inicial</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
     html += '<tr>';
-    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:30%;background:var(--surface-alt);">Presion al recibir (psi):</td>';
+    html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:30%;background:var(--surface-alt);">Presión al recibir (psi):</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;background:var(--surface-alt);">Fecha de lectura:</td>';
     html += '<td style="padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);width:25%;">' + (g.regDate || '') + '</td>';
     html += '</tr></table>';
 
     // Bitacora de lecturas (blank rows to fill by hand)
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">4. Bitacora de Lecturas de Presion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);color:var(--text);">4. Bitácora de Lecturas de Presión</div>';
     html += '<table style="width:100%;border-collapse:collapse;margin-bottom: var(--space-md);border:1px solid var(--border);font-size: var(--fs-xs);">';
     html += '<thead><tr style="background:var(--surface-alt);">';
     html += '<th style="padding: var(--space-2xs) var(--space-sm);border:1px solid var(--border);width:18%;">Fecha</th>';
@@ -25142,7 +25160,7 @@ function invShowBarcode(id) {
     html += '</tbody></table>';
 
     // Firmas
-    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-sm);color:var(--text);">5. Firmas de Recepcion</div>';
+    html += '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-sm);color:var(--text);">5. Firmas de Recepción</div>';
     html += '<div style="display:flex;gap: var(--space-xl);margin-bottom: var(--space-lg);">';
     html += '<div style="flex:1;border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm);text-align:center;">';
     html += '<div style="height:50px;"></div>';
@@ -25276,7 +25294,7 @@ function invShowTimeline(id) {
     }
     // Last 5 readings
     if (g.readings && g.readings.length > 0) {
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin:10px 0 6px;">Ultimas Lecturas</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin:10px 0 6px;">Últimas Lecturas</div>';
         g.readings.slice(-5).reverse().forEach(function(r) {
             html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size: var(--fs-xs);color:var(--text);border-bottom:1px solid #f8fafc;">';
             html += '<span>' + r.date + '</span><span style="font-weight:700;">' + r.psi + ' psi</span>';
@@ -25310,7 +25328,7 @@ function invMapQuickRead(gasId) {
 function invMapQuickReadSave(gasId) {
     var inp = document.getElementById('inv-map-psi');
     var dateInp = document.getElementById('inv-map-date');
-    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+    if (!inp || !inp.value) { showToast('Ingresa la presión', 'error'); return; }
 
     var psi = parseFloat(inp.value);
     var date = dateInp ? dateInp.value : localToday();
@@ -25744,7 +25762,7 @@ function invScanBarcode() {
     if (hasCamera && hasLib) {
         html += '<div id="inv-scan-area" style="position:relative;margin-bottom: var(--space-md);">';
         html += '<div id="inv-scan-reader" style="width:100%;border-radius: var(--radius-xl);overflow:hidden;"></div>';
-        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top: var(--space-sm);">Apunta al codigo de barras...</div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top: var(--space-sm);">Apunta al código de barras...</div>';
         html += '</div>';
     } else if (!hasLib) {
         html += '<div style="padding: var(--space-md);background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom: var(--space-md);font-size: var(--fs-xs);color:var(--warn-text);">Librería de escaneo no cargada. Usa la búsqueda rápida de abajo.</div>';
@@ -25952,7 +25970,7 @@ function invQuickReadPopup(g) {
 function invQuickReadSave(gasId) {
     var inp = document.getElementById('inv-quick-psi');
     var dateInp = document.getElementById('inv-quick-date');
-    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+    if (!inp || !inp.value) { showToast('Ingresa la presión', 'error'); return; }
 
     var psi = parseFloat(inp.value);
     var date = dateInp ? dateInp.value : localToday();
@@ -26604,11 +26622,11 @@ function invRenderPredict(el) {
     var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
 
     html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
-    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Prediccion Activa de Consumo</span>';
+    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Predicción Activa de Consumo</span>';
     html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Modelo adaptativo: aprende del consumo real por regulación. Se actualiza con cada lectura y liberación de vehículo.</div>';
     if (!hasAdaptiveData) {
-        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📏 Ir a Capturar →</button></div>';
+        html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">Aún no hay suficientes lecturas para predecir. La predicción aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📏 Ir a Capturar →</button></div>';
     }
 
     // Regulation test count badges
@@ -26633,7 +26651,7 @@ function invRenderPredict(el) {
 
     if (Object.keys(allRegs).length > 0) {
         html += '<div class="tp-card" style="border-left:3px solid #8b5cf6;">';
-        html += '<div class="tp-card-title"><span>Consumo por Regulacion (EWMA)</span></div>';
+        html += '<div class="tp-card-title"><span>Consumo por Regulación (EWMA)</span></div>';
 
         Object.keys(allRegs).sort().forEach(function(reg) {
             var pending = pendingByReg[reg] || 0;
@@ -26728,8 +26746,8 @@ function invRenderPredict(el) {
         }
         html += '</div>';
     } else if (totalPending > 0 && !hasAdaptiveData) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding: var(--space-md);">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyección Plan (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding: var(--space-md);">El modelo aún no tiene suficientes datos. Conforme se liberen vehículos y se registren lecturas, las predicciones por regulación apareceran aquí.</div></div>';
     }
 
     // ═══════════════════════════════════════════════
@@ -26866,7 +26884,7 @@ function invRenderPredict(el) {
     var fuelTanks = invState.fuelTanks || [];
     var fuelWithReadings = fuelTanks.filter(function(t) { return t.readings && t.readings.length >= 1; });
     if (fuelWithReadings.length > 0) {
-        html += '<div class="tp-card"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Predicción Combustible</span></div>';
         fuelWithReadings.forEach(function(t) {
             var rdgs = t.readings;
             var last = rdgs[rdgs.length - 1];
@@ -27479,7 +27497,7 @@ function invAddFuelTank(editId) {
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" inputmode="decimal" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" inputmode="decimal" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepción</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
@@ -27601,7 +27619,7 @@ function invRenderReport(el) {
         html += '<div style="display:flex;align-items:center;gap: var(--space-md);">';
         // Chart
         html += '<div style="width:200px;height:120px;border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-sm);background:var(--tp-card);position:relative;">';
-        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Fuel Status ' + (t.regulation||t.name) + '</div>';
+        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Combustible ' + (t.regulation||t.name) + '</div>';
         html += '<div style="display:flex;height:80px;align-items:flex-end;justify-content:center;gap:0;">';
         var barH = 70;
         html += '<div style="width:80px;height:' + barH + 'px;display:flex;flex-direction:column;">';
@@ -27628,14 +27646,14 @@ function invRenderReport(el) {
 
     // ── GAS SECTION ──
     html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">2. Reference gas consumption status</h3>';
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr style="background:#0e7490;color:#fff;">';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Tipo</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Consumible</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Inventario (PSI)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Sem (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Dia (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (dias)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Día (PSI)</th>';
+    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (días)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Limite Inf (PSI)</th>';
     html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Status</th>';
     html += '</tr></thead><tbody>';
@@ -27679,8 +27697,8 @@ function invRenderReport(el) {
         return st.code === 'vencido' || st.code === 'porvencer';
     });
     if (eqAlerts.length > 0) {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
-        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Dias</th><th>Status</th></tr></thead><tbody>';
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Días</th><th>Estatus</th></tr></thead><tbody>';
         eqAlerts.forEach(function(e) {
             var _st = invCalStatus(e);
             var days = _st.days, clr = _st.color;
@@ -27688,7 +27706,7 @@ function invRenderReport(el) {
         });
         html += '</tbody></table></div>';
     } else {
-        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 dias)</div>';
+        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 días)</div>';
     }
 
     html += '</div>';
@@ -27876,7 +27894,7 @@ function invUndoLastMove() {
 function invRenderCharts(el) {
     var chartType = window._invChartType || 'gas_psi';
 
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Graficas de Consumo</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Gráficas de Consumo</span></div>';
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
         '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size: var(--fs-sm);">PSI por Cilindro</button>';
@@ -27994,7 +28012,7 @@ function invDrawMainChart() {
 }
 
 function invRenderConfig(el) {
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuracion de Zonas</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuración de Zonas</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddZone()" style="font-size: var(--fs-sm);">+ Agregar Zona</button></div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Edita el layout de tu cuarto de gases. Cada zona tiene un ID, nombre, slots y tipo.</div>';
 
@@ -28254,7 +28272,7 @@ function invShowTrendChart(gasId) {
 function invDrawTrendChart(g) {
     var canvas = document.getElementById('inv-trend-canvas');
     if (!canvas || typeof Chart === 'undefined') {
-        showToast('Chart.js no disponible', 'error');
+        showToast('No se pudo cargar la librería de gráficas. Recarga la página; si sigue, avisa que la red la bloquea.', 'error');
         return;
     }
 
@@ -28357,7 +28375,7 @@ function invDrawTrendChart(g) {
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI actual</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + dailyDrop.toFixed(1) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/dia</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--warn-text);">' + weeklyDrop.toFixed(0) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">PSI/semana</div></div>' +
-            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">dias restantes</div></div>' +
+            '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">días restantes</div></div>' +
             '<div style="padding: var(--space-sm);border:1px solid #1e293b;border-radius: var(--radius-lg);text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size: var(--fs-xs);color:var(--muted);">fecha vacio</div></div>' +
             '</div>';
     }
@@ -28929,7 +28947,7 @@ function invHandleF11Import(event) {
 // Plan Maestro (52 semanas) + Dashboard de cumplimiento en PDF, formato COP15-F11.
 function invMaintPlanPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
     var year = window._invMaintYear || new Date().getFullYear();
@@ -29860,7 +29878,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
         {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
         {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
         {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
-        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
+        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Por defecto (todo lo demás)"},
     ],
     weights: { volume:35, compliance:25, region:20, newConfig:10, urgency:10 },
     regionPriority: { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 },
@@ -29961,7 +29979,7 @@ function tpDefaultRules() {
         {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
         {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
         {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
-        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
+        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Por defecto (todo lo demás)"},
     ];
 }
 
@@ -31109,7 +31127,7 @@ function tpRenderExecSummary() {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label" title="Pruebas realizadas ÷ pruebas requeridas (por volumen) — no confundir con el % de configs al día del badge">Pruebas cumplidas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+highRisk+'</div><div class="tp-metric-label">Familias riesgo alto</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+critFams+'</div><div class="tp-metric-label">Críticas/Altas</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Deadline ≤14d</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Fecha límite ≤ 14 días</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+etaColor+'">'+etaTxt+'</div><div class="tp-metric-label">ETA ritmo actual</div></div>';
     html += '</div>';
     if (etaWeeks!==null && gdWeeks!==null) {
@@ -31367,9 +31385,9 @@ function tpRenderDashboard(el) {
     <!-- Burndown chart -->
     <div class="tp-card">
         <details ${window._tpBurndownOpen ? 'open' : ''}>
-            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Cuánto falta y cuándo se termina (déficit semana a semana)</summary>
             <div style="display:flex;align-items:center;gap: var(--space-sm);margin:10px 0 6px;flex-wrap:wrap;">
-                <label style="font-size: var(--fs-xs);color:var(--tp-dim);">Deadline:</label>
+                <label style="font-size: var(--fs-xs);color:var(--tp-dim);">Fecha límite:</label>
                 <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);">
                 ${tpState.deadline ? "<button class=\"tp-btn tp-btn-ghost\" onclick=\"tpState.deadline=&#39;&#39;;tpSave();document.getElementById(&#39;tp-deadline-input&#39;).value=&#39;&#39;;document.getElementById(&#39;tp-burndown-container&#39;).innerHTML=tpRenderBurndownChart(tpGetAnalysis());\" style=\"font-size: var(--fs-sm);\">Quitar deadline</button>" : ''}
             </div>
@@ -31381,14 +31399,14 @@ function tpRenderDashboard(el) {
     <div class="tp-card" style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
         <button class="tp-btn tp-btn-ghost" onclick="tpExportGapCSV()" style="font-size: var(--fs-sm);">Exportar CSV</button>
-        <span style="font-size: var(--fs-sm);color:var(--tp-dim);">Guarda un snapshot del plan actual con fecha para referencia</span>
+        <span style="font-size: var(--fs-sm);color:var(--tp-dim);">Guarda una foto del plan actual, con fecha, para compararla después</span>
         ${tpState.fixedPlan ? `<button class="tp-btn tp-btn-ghost" onclick="tpState.fixedPlan=null;tpSave();tpRender();" style="margin-left:auto;">Desfijar</button>` : ''}
     </div>
 
     <!-- Config table -->
     <div class="tp-card">
         <div class="tp-card-title">
-            <span>🔍 Análisis de Gap — Configuraciones</span>
+            <span>🔍 Qué falta — por configuración</span>
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
         <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">
@@ -31528,7 +31546,7 @@ function tpRenderBurndownChart(stats) {
         html += '<div style="padding: var(--space-md) var(--space-lg);background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius: var(--radius-xl);margin-bottom: var(--space-md);display:flex;align-items:center;gap: var(--space-md);">' +
             '<span style="font-size:18px;">' + riskIcon + '</span>' +
             '<div><div style="font-size:12px;font-weight:700;color:' + riskColor + ';">' + riskMsg + '</div>';
-        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
+        if (deadline) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-2xs);">Fecha límite: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
         html += '</div></div>';
     }
 
@@ -31536,7 +31554,7 @@ function tpRenderBurndownChart(stats) {
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
-        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Déficit Actual</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
     '</div>';
@@ -31586,7 +31604,7 @@ function tpRenderBurndownChart(stats) {
         }
 
         datasets.push(
-            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
+            { label: 'Déficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
         );
         if (forecastPts.length > 0) {
             var forecastData = [];
@@ -31663,7 +31681,7 @@ function tpRenderDashChart(analysis) {
     const hStyle = chartH > 0 ? `height:${chartH}px;` : '';
     const autoMax = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
     const maxVal = userYMax > 0 ? userYMax : autoMax;
-    const legend = metric === 'qty' ? '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">■ Requeridas</span><span style="font-size: var(--fs-xs);color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size: var(--fs-xs);color:var(--tp-red);">■ Deficit</span>';
+    const legend = metric === 'qty' ? '<span style="font-size: var(--fs-xs);color:var(--tp-amber);">■ Requeridas</span><span style="font-size: var(--fs-xs);color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size: var(--fs-xs);color:var(--tp-red);">■ Déficit</span>';
 
     // Horizontal bars
     if (chartType === 'hbar') {
@@ -31774,7 +31792,7 @@ function tpRenderDashTable() {
     document.getElementById('tp-dash-count').textContent = `${filtered.length} de ${analysis.length}`;
 
     container.innerHTML = `
-    <table class="tp-table">
+    <table class="u-cards tp-table">
         <thead><tr>
             <th></th><th>Config Text</th><th>Mod</th><th>Región</th><th>Reg.</th><th>Motor</th><th>TX</th>
             <th style="text-align:right">Vol.Plan</th><th style="text-align:right">Hist</th>
@@ -32051,7 +32069,7 @@ function tpRenderTested(el) {
         <div style="display:flex;gap: var(--space-md);align-items:flex-start;flex-wrap:wrap;">
             <div style="flex:1;min-width:250px;position:relative;">
                 <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Config Text (escribe para buscar)</label>
-                <input class="tp-input" id="tp-manual-config" placeholder="Ej: BL7m-27 MODEL-6AT..." oninput="tpShowSuggestions()">
+                <input class="tp-input" id="tp-manual-config" placeholder="Ej.: BL7m-27 MODEL-6AT..." oninput="tpShowSuggestions()">
                 <div id="tp-suggestions" class="tp-suggestions" style="display:none;"></div>
             </div>
             <div style="width:130px;">
@@ -32109,7 +32127,7 @@ function tpRenderTested(el) {
             })()}</span>
         </div>
         <div style="max-height:350px;overflow-y:auto;">
-            <table class="tp-table">
+            <table class="u-cards tp-table">
                 <thead><tr><th>Config</th><th>VIN</th><th>Fecha</th><th>Fuente</th><th>Proposito</th><th></th></tr></thead>
                 <tbody>
                     ${tpState.testedList.filter(t => {
@@ -32206,7 +32224,7 @@ function tpImportJSON() {
 // ── Recover tested vehicles from COP15 history (archived vehicles) ──
 function tpRecoverFromCOP15() {
     if (typeof db === 'undefined' || !db.vehicles || db.vehicles.length === 0) {
-        showToast('No hay vehiculos en COP15', 'error');
+        showToast('No hay vehículos en COP15', 'error');
         return;
     }
 
@@ -32217,7 +32235,7 @@ function tpRecoverFromCOP15() {
     });
 
     if (archived.length === 0) {
-        showToast('No hay vehiculos liberados con proposito valido en COP15', 'info');
+        showToast('No hay vehículos liberados con propósito válido en COP15', 'info');
         return;
     }
 
@@ -32270,7 +32288,7 @@ function tpRecoverFromCOP15() {
         tpUpdateBadges();
     }
 
-    var msg = added + ' vehiculos recuperados de COP15';
+    var msg = added + ' vehículos recuperados de COP15';
     if (skipped > 0) msg += ', ' + skipped + ' duplicados omitidos';
     showToast(msg, added > 0 ? 'success' : 'info');
 }
@@ -32338,13 +32356,13 @@ function tpRenderRules(el) {
                 <span>⚙️ Reglas de Ratio</span>
                 <div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Reset</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
                 </div>
             </div>
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
             <div style="max-height:380px;overflow-y:auto;">
-                <table class="tp-table">
-                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Label</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
+                <table class="u-cards tp-table">
+                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Nombre</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
@@ -32669,11 +32687,11 @@ function tpSetVehiclesPerSlot(val) {
 
 function tpBuildSchedulePreview(workDays) {
     const slots = tpBuildTestSlots(workDays);
-    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
+    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos días.</span>';
     const cap = tpWeekCapacity(workDays);
     let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
     html += slots.map(s => `<span style="padding: var(--space-2xs) var(--space-xs);background:rgba(59,130,246,0.1);border-radius: var(--radius-md);margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
-    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
+    html += `<br><span style="font-weight:700;">Máximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
     return html;
 }
 
@@ -35708,7 +35726,7 @@ function tpRenderRecovery(el) {
     // Priority rules
     html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size: var(--fs-sm);">Restaurar default</button></span></div>';
     html += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th>Manejo</th><th></th></tr>';
+    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Carrocería</th><th>Manejo</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
         function sel(field, cur, w) {
             var opts = tpRuleFieldOptions(r, field);
@@ -35951,7 +35969,7 @@ function tpCheckInventoryForConfig(cfg) {
 
     // If more than half of the gases are critically low, warn
     if (lowGases.length > gases.length * 0.5) {
-        return { ok: false, reason: lowGases.length + ' cilindros nivel critico (<10%)' };
+        return { ok: false, reason: lowGases.length + ' cilindros nivel crítico (<10%)' };
     }
     return { ok: true, reason: '' };
 }
@@ -37561,9 +37579,9 @@ function tpRenderProduction(el) {
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);font-weight:400;">${tpMonths().length} mes(es) cargados: ${tpMonths()[0]} — ${tpMonths()[tpMonths().length-1]}</span>
         </div>
         <div style="max-height:400px;overflow:auto;">
-            <table class="tp-table">
+            <table class="u-cards tp-table">
                 <thead><tr>
-                    <th>Config Text</th><th>Mod</th><th>MY</th><th>Reg</th><th>Rgn</th><th>Motor</th><th>TX</th><th>Body</th>
+                    <th>Configuración</th><th>Modelo</th><th>MY</th><th>Norma</th><th>Región</th><th>Motor</th><th>Trans.</th><th>Carrocería</th>
                     <th style="text-align:right">Hist</th>
                     ${tpMonths().map(m => `<th style="text-align:right">${m}</th>`).join('')}
                     <th style="text-align:right" title="Total anual (columna Total_Calc del CSV) — puede no coincidir con la suma de los meses visibles si el CSV trae el total sin desglose mensual">Total</th>
@@ -38118,7 +38136,7 @@ function tpRenderFamilies(el) {
     }
     function getDiffFields(configs) {
         const fields = ['body','rgn','drv','tire','ep','engpkg'];
-        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Carrocería',rgn:'Región'};
+        const lbls = {tire:'Llanta',ep:'Paquete ambiental',engpkg:'Paquete de motor',drv:'Tracción',body:'Carrocería',rgn:'Región'};
         return fields.filter(f => {
             const vals = [...new Set(configs.map(c => c[f]||''))];
             return vals.length > 1;
@@ -38231,7 +38249,7 @@ function tpRenderFamilies(el) {
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Deadline familia
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Fecha límite de la familia
                             <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
                         </label>
                         ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);color:var(--tp-red);">Quitar deadline</button>`:''}
@@ -38286,9 +38304,9 @@ function tpRenderFamilies(el) {
                             var _cd = c.daysToDeadline;
                             var _cc = _cd < 7 ? '#ef4444' : _cd < 14 ? '#f59e0b' : '#06b6d4';
                             var _ct = _cd < 0 ? 'vencido' : _cd + 'd';
-                            _cDeadBadge = '<span style="font-size: var(--fs-sm);font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
+                            _cDeadBadge = '<span style="font-size: var(--fs-sm);font-weight:700;color:' + _cc + ';" title="Fecha límite ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
                         }
-                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);width:132px;">'
+                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Fecha límite de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);width:132px;">'
                             + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size: var(--fs-sm);padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
@@ -38380,7 +38398,7 @@ function tpRenderSimulator(el) {
     <div class="tp-card">
         <div class="tp-card-title"><span>📊 Comparación de Escenarios</span></div>
         <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Para presentar a gerencia: qué capacidad necesitas para alcanzar cobertura en diferentes plazos.</p>
-        <table class="tp-table">
+        <table class="u-cards tp-table">
             <thead><tr><th>Capacidad</th><th>Semanas a 100%</th><th>Pruebas Total</th><th>Cobertura Sem 8</th><th>Cobertura Sem 16</th><th>Cobertura Sem 26</th></tr></thead>
             <tbody>
                 ${[4, 6, 8, 10, 12, 15, 20].map(cap => {
@@ -38931,7 +38949,7 @@ function tpOpenContinuityModal(configDesc, currentMy) {
     });
     html += '</select>';
     html += '<label style="display:block;font-weight:700;margin-top: var(--space-md);margin-bottom: var(--space-xs);">Nota (opcional)</label>';
-    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
+    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);font-size: var(--fs-sm);" placeholder="Ej.: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
     if (existing) {
         html += '<div style="margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:#f3f4f6;border-radius: var(--radius-lg);font-size: var(--fs-xs);color:var(--muted);">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
     }
@@ -40574,7 +40592,7 @@ function pnRenderDashboard(el) {
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap: var(--space-md);">';
     html += '<div>';
     var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Lab Dashboard</div>';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Resumen del laboratorio</div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);text-transform:capitalize;">' + todayStr + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-amber);margin-top: var(--space-xs);">' + shiftLabel + '</div>';
     if (authUser) {
@@ -40625,7 +40643,7 @@ function pnRenderDashboard(el) {
         if (predictions.length > 0) {
             predictions.sort(function(a, b) { return a.pred.daysLeft - b.pred.daysLeft; });
             html += '<div class="tp-card">';
-            html += '<div class="tp-card-title"><span>⏳ Prediccion de Agotamiento</span></div>';
+            html += '<div class="tp-card-title"><span>⏳ Predicción de Agotamiento</span></div>';
             predictions.slice(0, 5).forEach(function(p) {
                 var urgClr = p.pred.daysLeft < 14 ? '#ef4444' : p.pred.daysLeft < 30 ? '#f59e0b' : '#3b82f6';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);">';
@@ -41157,7 +41175,7 @@ function pnRenderShiftLog(el) {
     html += '</select></div>';
     html += '</div>';
 
-    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Notas / Descripcion</label>';
+    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Notas / Descripción</label>';
     html += '<textarea id="pn-shift-notes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea></div>';
 
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddShiftEntry()" style="width:100%;padding: var(--space-md);font-size:12px;">+ Registrar en Bitácora</button>';
@@ -41349,11 +41367,11 @@ function pnGetActiveAlerts() {
         invEquip.forEach(function(eq) {
             var st = invCalStatus(eq);
             if (st.code === 'vencido') {
-                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibración de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
             } else if (st.code === 'porvencer' && st.days <= 7) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
             } else if (st.code === 'porvencer') {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
             }
         });
     }
@@ -41475,7 +41493,7 @@ function pnRenderAlerts(el) {
 
     // Notification settings
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title"><span>🔔 Configuracion de Alertas</span></div>';
+    html += '<div class="tp-card-title"><span>🔔 Configuración de Alertas</span></div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Las alertas se generan automaticamente al abrir este panel.</div>';
     html += '<div style="display:flex;gap: var(--space-sm);">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRender()" style="flex:1;font-size: var(--fs-sm);">🔄 Actualizar Alertas</button>';
@@ -43229,7 +43247,7 @@ function pnRenderExecutive(el) {
     html += '</div></div>';
 
     // [V7-B3] Predictive Resource Planner
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyección de Recursos</span></div>';
     if (typeof invState !== 'undefined' && invState.gases) {
         var predictions = [];
         invState.gases.filter(function(g) { return g.status === 'In use'; }).forEach(function(g) {
@@ -43259,7 +43277,7 @@ function pnRenderExecutive(el) {
                 var urgency = p.daysLeft < 7 ? 'var(--danger)' : p.daysLeft < 14 ? 'var(--warning)' : 'var(--info)';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
                 html += '<span>' + p.formula + ' #' + p.controlNo + '</span>';
-                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' dias restantes (' + p.dailyRate + ' PSI/dia)</span>';
+                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' días restantes (' + p.dailyRate + ' PSI/dia)</span>';
                 html += '</div>';
             });
         } else {
@@ -43305,7 +43323,7 @@ function pnRenderTurnaround(el) {
     var archived = vehicles.filter(function(v) { return v.status === 'archived' && v.timeline && v.timeline.length >= 2; });
 
     if (archived.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--muted);">No hay vehículos archivados para analizar.</div>';
         return;
     }
 
@@ -43354,7 +43372,7 @@ function pnRenderTurnaround(el) {
 
     var html = '';
     html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-turnaround-help"><span>Tiempo Promedio por Etapa</span></div>';
-    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom: var(--space-md);">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom: var(--space-md);">Basado en ultimos ' + Math.min(100, archived.length) + ' vehículos archivados</div>';
 
     var stages = [
         { label: 'Registro → Precond', data: stageStats.registration_to_precond, color: '#3b82f6' },
@@ -43379,7 +43397,7 @@ function pnRenderTurnaround(el) {
     html += '</div>';
 
     // Throughput over time (daily counts for last 14 days)
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Vehículos liberados por día (14 días)</span></div>';
     var dailyCounts = {};
     for (var d = 13; d >= 0; d--) {
         var dateStr = localDateStr(new Date(Date.now() - d * 86400000));
@@ -43439,7 +43457,7 @@ function pnRenderRegulations(el) {
             html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);color:var(--danger-text);">🗑️</button>';
             html += '</div></div>';
             if (p.gases.length > 0) {
-                html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
+                html += '<div style="overflow-x:auto;"><table class="u-cards u-cards-grid" style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
                 html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(0,0,0,0.08);"><th style="text-align:left;padding: var(--space-2xs) var(--space-sm);">Gas</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Unidad</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Límite</th></tr>';
                 p.gases.forEach(function(g) {
                     html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">';
@@ -43491,7 +43509,7 @@ function _pnRegShowModal(profile) {
     var bodyHtml =
         '<div style="margin-bottom: var(--space-md);">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;display:block;margin-bottom: var(--space-xs);">Nombre de la Regulación *</label>' +
-        '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
+        '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej.: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
         '</div>' +
         '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom: var(--space-sm);gap: var(--space-sm);flex-wrap:wrap;">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;">Gases a medir</label>' +
@@ -43503,7 +43521,7 @@ function _pnRegShowModal(profile) {
         '<b>Unidad</b> es la del límite regulatorio y en la que se <b>guarda</b> el dato. ' +
         '<b>Captura</b> es solo cómo se teclea y se muestra: si el reporte del banco trae 24.3 mg/km, ' +
         'pon mg/km y se teclea 24.3 en vez de 0.0243. La conversión es automática y no cambia nada de lo ya guardado.</p>' +
-        '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
+        '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
         '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding: var(--space-2xs);">Campo</th><th style="text-align:left;padding: var(--space-2xs);">Etiqueta</th><th style="text-align:left;padding: var(--space-2xs);">Unidad</th><th style="text-align:left;padding: var(--space-2xs);">Captura</th><th style="text-align:center;padding: var(--space-2xs);">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
         '<tbody id="reg-gas-rows">' + gasRowsHtml + '</tbody>' +
         '</table></div></div>';
@@ -44167,7 +44185,7 @@ function pnProjStepsFor(p) {
 function _pnProjectTableHTML(p) {
     var steps = pnProjStepsFor(p);
     var today = localToday();
-    var html = '<div style="overflow-x:auto;"><table class="pn-proj-table"><thead><tr>' +
+    var html = '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
         '</tr></thead><tbody>';
     if (steps.length === 0) {
@@ -44675,7 +44693,7 @@ function _pnPortfolioHTML() {
     });
     html += '</div>';
 
-    html += '<div style="overflow-x:auto;"><table class="pn-proj-table pn-portfolio-table"><thead><tr>' +
+    html += '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table pn-portfolio-table"><thead><tr>' +
         '<th>Estado</th><th>Proyecto</th><th>Responsable</th><th>Avance</th><th>Vencidos</th><th>Bloqueados</th><th>Próximo hito</th></tr></thead><tbody>';
     rows.forEach(function(r) {
         var p = r.project;
@@ -45633,7 +45651,7 @@ function _pnProjImportStep2HTML() {
 
     // Vista previa de lo que se va a guardar (no del archivo crudo)
     h += '<div class="pn-import-maptitle">Vista previa — ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + ' detectado' + (steps.length === 1 ? '' : 's') + '</div>';
-    h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
+    h += '<div class="pn-import-preview"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
     if (!steps.length) {
         h += '<tr><td colspan="7" style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
@@ -46718,7 +46736,7 @@ function authOfferBiometricRegistration(operatorId) {
 
 function authRegisterBiometric(operatorId) {
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible en este dispositivo', 'error'); return; }
-    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado válido', 'error'); return; }
 
     var user = authState.currentUser;
     if (!user) return;
@@ -46771,7 +46789,7 @@ function authVerifyBiometric() {
     if (!op) return;
 
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible', 'error'); return; }
-    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado válido', 'error'); return; }
 
     var creds = {};
     try { creds = JSON.parse(localStorage.getItem(AUTH_WEBAUTHN_LS) || '{}'); } catch(e) {}
@@ -46829,7 +46847,7 @@ function authVerifyBiometric() {
     }).catch(function(err) {
         void 0;
         var errEl = document.getElementById('auth-pin-error');
-        if (errEl) errEl.textContent = 'Verificacion biometrica fallida. Usa tu PIN.';
+        if (errEl) errEl.textContent = 'Verificación biometrica fallida. Usa tu PIN.';
     });
 }
 
@@ -47138,7 +47156,7 @@ function fbToggleSyncModule(key, enabled) {
         if (dep && dep.requires) {
             var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
             if (missing.length > 0) {
-                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
+                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar también ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
                     if (ok) { missing.forEach(function(m) { fbSyncModules[m] = true; }); }
                     fbSyncModules[key] = true;
                     fbSaveSyncModules();
@@ -47451,7 +47469,7 @@ function fbInit() {
 
     if (typeof firebase === 'undefined') {
         fbSync.status = 'error';
-        fbSync.lastError = 'Firebase SDK no cargado. Verifica conexion a internet.';
+        fbSync.lastError = 'Firebase SDK no cargado. Verifica conexión a internet.';
         fbUpdateIndicator();
         return;
     }
@@ -47792,7 +47810,7 @@ function fbTestConnection(callback) {
         } else if (err.code === 'not-found') {
             if (callback) { callback(true); return; }
         } else {
-            fbSync.lastError = 'Error de conexion (' + (err.code || '?') + '): ' + (err.message || 'desconocido');
+            fbSync.lastError = 'Error de conexión (' + (err.code || '?') + '): ' + (err.message || 'desconocido');
         }
 
         fbUpdateIndicator();
@@ -47965,7 +47983,7 @@ function fbFromFirestoreValue(v) {
 }
 
 function fbTestConnectionUI() {
-    showToast('Probando conexion...', 'info');
+    showToast('Probando conexión...', 'info');
 
     // If Firebase not initialized yet, run full init first
     if (!fbSync.db || !fbSync.enabled) {
@@ -48088,7 +48106,7 @@ function fbUpdateStationMeta() {
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
 function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
-    if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
+    if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estación configurado'); return; }
 
     // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
     // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
@@ -48172,7 +48190,7 @@ function fbPush(collection, data, onDone, opts) {
 // ── Push all modules ──
 function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
-    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
+    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estación', 'error'); return; }
 
     // [v15.6] Guard anti-vaciado: un módulo local VACÍO nunca se sube — si el
     // pull inicial falló, empujar {vehicles:[]} sobrescribiría los datos del
@@ -48270,7 +48288,7 @@ function _fbScheduleSeedRetry(reason) {
 // ── Pull data from Firestore (rate-limited, with REST fallback) ──
 function fbPullAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
-    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
+    if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estación', 'error'); return; }
 
     // Rate limit check (una lectura por colección). EXCEPCIÓN de seed: un
     // dispositivo vacío siempre puede intentar su primera descarga — antes el
@@ -48989,7 +49007,7 @@ function fbPullApply(collections, results, showFeedback) {
         if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
         if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
     } else {
-        if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
+        if (showFeedback) showToast('No hay datos en la nube para esta estación', 'info');
     }
 }
 
@@ -49467,7 +49485,7 @@ function fbShowSettings() {
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size: var(--fs-sm);">Estado:</span>' +
         '<span style="font-size: var(--fs-sm);font-weight:700;color:' + statusColor + ';">' + statusText + '</span></div>' +
-        (fbSync.lastSync ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
+        (fbSync.lastSync ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);">Última sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
         (fbSync.lastError ? '<div style="font-size: var(--fs-xs);color:#ef4444;margin-top: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:rgba(239,68,68,0.1);border-radius: var(--radius-md);white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
 
@@ -49516,7 +49534,7 @@ function fbShowSettings() {
         })() : '') +
 
         // Connection test
-        (hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbTestConnectionUI()" style="width:100%;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Probar conexion a Firestore</button></div>' : '') +
+        (hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbTestConnectionUI()" style="width:100%;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Probar conexión a Firestore</button></div>' : '') +
 
         // Espacio de trabajo — SOLO LECTURA.
         // Antes esto era un campo libre rotulado "ID de Estacion (identifica este
@@ -49598,24 +49616,24 @@ function fbShowSettings() {
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom: var(--space-md);padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;">' +
-        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Smart Merge (fusionar desde otra estacion)</div>' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Smart Merge (fusionar desde otra estación)</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Detecta duplicados, muestra diferencias, y te deja elegir que fusionar por modulo.</div>' +
         '<button onclick="fbMergeShowPanel()" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#000;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;">Abrir Smart Merge</button>' +
         (mergeHist.length > 0 ? '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-sm);">' +
         '<button onclick="fbMergeShowHistory()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Historial (' + mergeHist.length + ')</button>' +
-        '<button onclick="fbMergeUndo()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Deshacer ultima</button>' +
+        '<button onclick="fbMergeUndo()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Deshacer última</button>' +
         '<button onclick="fbMergeExportCSV()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Exportar CSV</button>' +
         '</div>' : '') +
         '</div>' : '') +
 
         // Retry — show when status is 'error' OR 'off' (No configurado) with config present
-        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexion') + '</button></div>' : '') +
+        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom: var(--space-md);"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding: var(--space-md);background:#f59e0b;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexión') + '</button></div>' : '') +
 
         // Setup instructions
         (!hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;"><div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom: var(--space-sm);">Setup necesario</div><div style="font-size: var(--fs-xs);color:var(--muted);line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +
 
         // Rules
-        (hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;margin-top: var(--space-md);"><div style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);margin-bottom: var(--space-xs);">Configuracion requerida en Firebase Console:</div>' +
+        (hasConfig ? '<div style="padding: var(--space-md);background:#1e293b;border-radius: var(--radius-xl);border:1px solid #334155;margin-top: var(--space-md);"><div style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);margin-bottom: var(--space-xs);">Configuración requerida en Firebase Console:</div>' +
         '<div style="font-size: var(--fs-xs);color:#f59e0b;margin-bottom: var(--space-sm);line-height:1.5;">1. <strong>Authentication > Sign-in method > Anonymous</strong> → Habilitar<br>2. <strong>Firestore Database > Rules</strong> → Copiar las reglas de abajo:</div>' +
         '<pre style="font-size: var(--fs-xs);color:var(--muted);margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size: var(--fs-xs);color:#10b981;margin-top: var(--space-xs);">Firestore > Rules > Editar > Publicar</div></div>' : '') +
 
@@ -50046,7 +50064,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (choices.cop15 === 'new') {
             // Add only new vehicles
             analysis.cop15.newItems.forEach(function(v) { db.vehicles.push(v); });
-            merged.push('COP15: +' + analysis.cop15.newItems.length + ' vehiculos nuevos');
+            merged.push('COP15: +' + analysis.cop15.newItems.length + ' vehículos nuevos');
         } else if (choices.cop15 === 'replace') {
             // Even when fully replacing, preserve any local "sent to PA" receipts so we don't
             // accidentally re-send vehicles that were already pushed from this station.
@@ -50516,7 +50534,7 @@ function fbMergeShowPanel() {
     modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">' +
         '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>' +
         '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>' +
-        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estacion a la tuya (' + fbSync.stationId + ')</div>' +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estación a la tuya (' + fbSync.stationId + ')</div>' +
         '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);"><div style="font-size:24px;margin-bottom: var(--space-sm);">Cargando estaciones...</div></div>' +
         '</div>';
 
@@ -50526,7 +50544,7 @@ function fbMergeShowPanel() {
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">';
         html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
         html += '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estacion a <strong>' + fbSync.stationId + '</strong></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Fusiona datos de otra estación a <strong>' + fbSync.stationId + '</strong></div>';
 
         // Show all stations info
         if (stations.length > 0) {
@@ -50536,7 +50554,7 @@ function fbMergeShowPanel() {
         if (others.length === 0) {
             html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay otras estaciones en Firebase. Sube datos desde otro dispositivo primero.</div>';
         } else {
-            html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-sm);">Selecciona la estacion de origen:</div>';
+            html += '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-sm);">Selecciona la estación de origen:</div>';
             others.forEach(function(s) {
                 var lastPushLabel = '';
                 if (s.lastPush) {
@@ -50552,7 +50570,7 @@ function fbMergeShowPanel() {
                     '<span><span style="color:#f59e0b;margin-right: var(--space-sm);">\u25B6</span><strong>' + s.id + '</strong></span>' +
                     (deviceLabel ? '<span style="background:#334155;color:#94a3b8;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);font-size: var(--fs-xs);font-weight:400;">' + deviceLabel + '</span>' : '') +
                     '</div>' +
-                    (lastPushLabel ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);margin-left: var(--space-xl);">Ultima sync: ' + lastPushLabel + '</div>' : '') +
+                    (lastPushLabel ? '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-xs);margin-left: var(--space-xl);">Última sync: ' + lastPushLabel + '</div>' : '') +
                     '</button>';
             });
         }
@@ -50621,7 +50639,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
             html += '<div style="font-size: var(--fs-xs);margin-bottom: var(--space-sm);padding: var(--space-sm) var(--space-sm);background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius: var(--radius-lg);color:#fbbf24;">';
             html += '<span style="font-weight:700;">Power Automate:</span>';
             if (c.paStatusGains > 0) html += ' &nbsp; <span title="Vehiculos con receipt de envio PA que aun no estaba en local">+' + c.paStatusGains + ' envio(s) heredados</span>';
-            if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estacion origen</span>';
+            if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estación origen</span>';
             html += '</div>';
         }
         if (hasChanges) {
@@ -50773,7 +50791,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609230059' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609230106' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -51034,7 +51052,7 @@ function fbBackupRestoreSelectModules(backupId) {
     });
 
     html += '<div style="padding: var(--space-sm);margin-top: var(--space-sm);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius: var(--radius-xl);font-size: var(--fs-xs);color:#f59e0b;">';
-    html += 'Se guardara un snapshot previo. Puedes deshacer la restauracion si es necesario.</div>';
+    html += 'Se guardara un snapshot previo. Puedes deshacer la restauración si es necesario.</div>';
 
     html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-md);">';
     html += '<button onclick="fbBackupShowList()" style="flex:1;padding: var(--space-md);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-xl);cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
@@ -51059,7 +51077,7 @@ function fbBackupUndoRestore() {
     var snapshot = null;
     try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
     if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
-    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la ultima restauracion y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
         if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
@@ -51083,7 +51101,7 @@ function fbBackupShowList() {
         html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Backups Disponibles (' + list.length + ')</h3>';
 
         if (list.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay backups guardados aun.</div>';
+            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay backups guardados aún.</div>';
         } else {
             list.forEach(function(b) {
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid #1e293b;border-radius: var(--radius-lg);background:#1e293b;">';
@@ -51101,7 +51119,7 @@ function fbBackupShowList() {
         html += '<button onclick="fbShowSettings()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
         html += '<button onclick="fbBackupManual()" style="flex:1;padding: var(--space-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Crear Backup Ahora</button>';
         if (hasSnapshot) {
-            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Ultima Restauracion</button>';
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Última Restauracion</button>';
         }
         html += '</div></div>';
 
@@ -51208,7 +51226,7 @@ function fbActivityShowFeed() {
         html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-lg);">Eventos recientes de todas las estaciones</div>';
 
         if (events.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);">No hay actividad registrada aun.</div>';
+            html += '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);">No hay actividad registrada aún.</div>';
         } else {
             // Station color map
             var stationColors = {};
@@ -51264,16 +51282,16 @@ function fbActivityShowFeed() {
 
 function fbActivityLabel(action) {
     var labels = {
-        'vehicle_registered': 'Vehiculo registrado',
+        'vehicle_registered': 'Vehículo registrado',
         'test_started': 'Prueba iniciada',
         'test_completed': 'Prueba completada',
-        'vehicle_released': 'Vehiculo liberado',
+        'vehicle_released': 'Vehículo liberado',
         'soak_started': 'Soak timer iniciado',
         'plan_generated': 'Plan semanal generado',
         'plan_accepted': 'Plan semanal aceptado',
         'test_imported': 'Resultados importados',
         'gas_reading': 'Lectura de gas registrada',
-        'calibration': 'Calibracion registrada',
+        'calibration': 'Calibración registrada',
         'sync_push': 'Datos subidos a nube',
         'sync_pull': 'Datos descargados de nube',
         'backup_created': 'Backup creado'
@@ -54179,7 +54197,7 @@ function copBuildValidatorHTML() {
         }
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
-        html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
+        html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
         html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
@@ -54871,7 +54889,7 @@ function _copBuildCo2HTML() {
     }
 
     // Tabla por vehículo
-    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
         ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
@@ -55153,7 +55171,7 @@ function copFamilyPDF(familyKey) {
     if (row.limitsCheck && row.limitsCheck.mismatches && row.limitsCheck.mismatches.length) {
         doc.setTextColor(179, 38, 30); doc.setFontSize(7);
         doc.splitTextToSize('ATENCION: el limite aplicado no coincide con el perfil de la norma ' + (row.emissionReg || '') +
-            '. El veredicto de esta familia no es valido hasta corregirlo.', CW - 4)
+            '. El veredicto de esta familia no es válido hasta corregirlo.', CW - 4)
             .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.4; });
         doc.setTextColor(0); y += 2;
     }
@@ -55187,7 +55205,7 @@ function copFamilyPDF(familyKey) {
     });
     y += 2;
     doc.setFontSize(7); doc.setTextColor(110);
-    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehiculo', ML + 2, y);
+    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehículo', ML + 2, y);
     doc.setTextColor(0); y += 6;
 
     // ── 6. Evidencia: VINes ───────────────────────────────────────────────────
@@ -55870,7 +55888,7 @@ function pnRenderHomolog(el) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">' +
             'Todavía no hay nada importado. Sube el archivo del ICMS arriba.</div>';
     } else {
-        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
         html += '<thead><tr>' +
             ['MC code', 'Work Order', 'Variant/Version', 'f0', 'f1', 'f2', 'TM', 'CO₂ comb.', ''].map(function(h) {
                 return '<th style="text-align:left;padding: var(--space-sm) var(--space-sm);border-bottom:1.5px solid var(--tp-border);white-space:nowrap;">' + h + '</th>';
@@ -56806,7 +56824,7 @@ function bugModalOpen(dataUrl) {
             '<div class="form-group">' +
                 '<label for="bug-comment">¿Qué pasó? <span style="font-weight:400;color:var(--tp-dim);">(entre más detalle, más rápido se arregla)</span></label>' +
                 '<textarea id="bug-comment" class="form-control" rows="4" ' +
-                    'placeholder="Ej: piqué &quot;Liberar&quot; y no guardó nada / la pantalla se quedó en blanco / el número de CO2 sale mal…"></textarea>' +
+                    'placeholder="Ej.: piqué &quot;Liberar&quot; y no guardó nada / la pantalla se quedó en blanco / el número de CO2 sale mal…"></textarea>' +
             '</div>' +
         '</div>' +
         // Fuera del área con scroll: lo que se adjunta debe verse SIEMPRE antes de enviar.

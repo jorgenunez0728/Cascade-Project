@@ -2202,7 +2202,7 @@ function chartConfigSet(chartId, key, val) {
 function chartConfigReset(chartId) {
     delete _chartConfigs[chartId];
     chartConfigSave();
-    showToast('Configuracion del grafico restaurada', 'success');
+    showToast('Configuración del grafico restaurada', 'success');
 }
 
 function chartConfigApply(chartId, instanceVar) {
@@ -4212,7 +4212,7 @@ var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }
 // ── Weekly Status PDF Report ──
 function generateWeeklyStatusPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
     if (!(opts && opts.silent)) showOverlayLoading('Generando PDF semanal...');
@@ -5018,7 +5018,7 @@ document.addEventListener('click', function(e) {
 var _commandPaletteCommands = [
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Deshacer Última Acción', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
     { label: 'Armar la semana', icon: '🎛️', action: function(){ if(typeof tpOpenArmar==='function') tpOpenArmar(); else switchPlatform('testplan'); }, cat: 'Acciones' }
@@ -5374,7 +5374,10 @@ function uiTableCards(root) {
         var labels = [], col = 0;
         [].forEach.call(head.cells, function(th) {
             var span = th.colSpan || 1;
-            for (var k = 0; k < span; k++) labels[col++] = th.textContent.replace(/\s+/g, ' ').trim();
+            // Un encabezado con varias piezas ("CO" + "L=1.0 g/km") se lee separado por " · ".
+            var parts = [].map.call(th.childNodes, function(n) { return (n.textContent || '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+            var lbl = parts.join(' · ');
+            for (var k = 0; k < span; k++) labels[col++] = lbl;
         });
         [].forEach.call(t.tBodies, function(tb) {
             [].forEach.call(tb.rows, function(tr) {
@@ -5885,7 +5888,7 @@ function renderLabDashboard(container) {
     }
     if (active.length > 10) {
         alerts.push({ level: 'ALTO', color: tokenColor('--warn-fill'), module: 'COP15',
-            message: active.length + ' vehiculos activos — considerar agilizar liberaciones',
+            message: active.length + ' vehículos activos — considerar agilizar liberaciones',
             action: 'cop15' });
     }
 

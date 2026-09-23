@@ -323,15 +323,15 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Modelo Manual</label>
-                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025" autocomplete="off">
+                        <input type="text" id="man_model" placeholder="Ej.: Sportage 2025" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Motor Manual</label>
-                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
+                        <input type="text" id="man_engine" placeholder="Ej.: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_transmission">Transmisión Manual <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
-                        <input type="text" id="man_transmission" placeholder="Ej: 6DCT / 8AT / 6MT" autocomplete="off">
+                        <input type="text" id="man_transmission" placeholder="Ej.: 6DCT / 8AT / 6MT" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="man_regulation">Regulación Manual</label>
@@ -351,19 +351,20 @@
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <label for="vin">VIN</label>
                 <input
                     type="text"
                     id="vin"
                     autocomplete="off"
                     aria-required="true"
-                    placeholder="Ejemplo: KNDJP3A59K7123456"
+                    placeholder="Ej.: KNDJP3A59K7123456"
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
                     oninput="validateVIN(this)"
                     onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: var(--muted); text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
+                <small style="color: var(--muted); text-align: center; display: block;">Letras y números, sin I, O ni Q.</small>
             </div>
         </div>
 
@@ -375,7 +376,7 @@
 
   <div class="form-group">
     <label for="homo_mc">MC code / Work Order del ICMS</label>
-    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej: 8GS6K5G17"
+    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej.: 8GS6K5G17"
            oninput="if(typeof homoAltaSearchFromInput==='function')homoAltaSearchFromInput()">
     <div id="homo-alta-results" style="margin-top:4px;"></div>
     <div id="homo-alta-status" style="font-size: var(--fs-sm);margin-top:4px;"></div>
@@ -490,7 +491,7 @@
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej.: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -525,18 +526,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
+      <input type="number" id="tank_capacity" data-num="step" data-num-path="testData.preconditioning.tankCapacityL" min="0" max="120" step="1" placeholder="Ej.: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej: 33" inputmode="numeric">
+      <input type="number" id="tire_pressure_in" data-num="step" data-num-path="testData.preconditioning.tirePressureInPsi" step="1" placeholder="Ej.: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -820,12 +821,12 @@
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
+  <input type="text" id="test_fan_speed" data-num="step" data-num-path="testData.testVerification.fanSpeedKmh" inputmode="decimal" placeholder="Ej.: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
   <label>Flujo del ventilador (m³/min)</label>
-  <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
+  <input type="text" id="test_fan_flow" placeholder="Ej.: 120" disabled readonly>
 </div>
 
     <div class="form-group">
@@ -893,7 +894,7 @@
 
     <div class="form-group">
       <label for="test_battery_soc">Estado de la batería al iniciar prueba (SOC %)</label>
-      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
+      <input type="number" id="test_battery_soc" data-num="pct" min="0" max="100" step="1" placeholder="Ej.: 80" inputmode="numeric">
     </div>
   </div>
 
@@ -1107,8 +1108,8 @@
     <div class="modal-content">
         <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
         <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
-        <button class="btn-primary" onclick="saveNewVehicle()">CONFIRMAR REGISTRO</button>
-        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">CANCELAR</button>
+        <button class="btn-primary" onclick="saveNewVehicle()">Confirmar registro</button>
+        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">Cancelar</button>
     </div>
 </div>
 

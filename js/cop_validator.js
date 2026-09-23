@@ -2273,7 +2273,7 @@ function copBuildValidatorHTML() {
         }
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
-        html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
+        html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
         html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
@@ -2965,7 +2965,7 @@ function _copBuildCo2HTML() {
     }
 
     // Tabla por vehículo
-    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
         ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
@@ -3247,7 +3247,7 @@ function copFamilyPDF(familyKey) {
     if (row.limitsCheck && row.limitsCheck.mismatches && row.limitsCheck.mismatches.length) {
         doc.setTextColor(179, 38, 30); doc.setFontSize(7);
         doc.splitTextToSize('ATENCION: el limite aplicado no coincide con el perfil de la norma ' + (row.emissionReg || '') +
-            '. El veredicto de esta familia no es valido hasta corregirlo.', CW - 4)
+            '. El veredicto de esta familia no es válido hasta corregirlo.', CW - 4)
             .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.4; });
         doc.setTextColor(0); y += 2;
     }
@@ -3281,7 +3281,7 @@ function copFamilyPDF(familyKey) {
     });
     y += 2;
     doc.setFontSize(7); doc.setTextColor(110);
-    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehiculo', ML + 2, y);
+    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehículo', ML + 2, y);
     doc.setTextColor(0); y += 6;
 
     // ── 6. Evidencia: VINes ───────────────────────────────────────────────────

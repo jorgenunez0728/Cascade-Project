@@ -1178,7 +1178,7 @@ function pnRenderDashboard(el) {
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap: var(--space-md);">';
     html += '<div>';
     var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Lab Dashboard</div>';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Resumen del laboratorio</div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);text-transform:capitalize;">' + todayStr + '</div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-amber);margin-top: var(--space-xs);">' + shiftLabel + '</div>';
     if (authUser) {
@@ -1229,7 +1229,7 @@ function pnRenderDashboard(el) {
         if (predictions.length > 0) {
             predictions.sort(function(a, b) { return a.pred.daysLeft - b.pred.daysLeft; });
             html += '<div class="tp-card">';
-            html += '<div class="tp-card-title"><span>⏳ Prediccion de Agotamiento</span></div>';
+            html += '<div class="tp-card-title"><span>⏳ Predicción de Agotamiento</span></div>';
             predictions.slice(0, 5).forEach(function(p) {
                 var urgClr = p.pred.daysLeft < 14 ? '#ef4444' : p.pred.daysLeft < 30 ? '#f59e0b' : '#3b82f6';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);font-size: var(--fs-xs);">';
@@ -1761,7 +1761,7 @@ function pnRenderShiftLog(el) {
     html += '</select></div>';
     html += '</div>';
 
-    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Notas / Descripcion</label>';
+    html += '<div style="margin-bottom: var(--space-sm);"><label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom: var(--space-2xs);">Notas / Descripción</label>';
     html += '<textarea id="pn-shift-notes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea></div>';
 
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddShiftEntry()" style="width:100%;padding: var(--space-md);font-size:12px;">+ Registrar en Bitácora</button>';
@@ -1953,11 +1953,11 @@ function pnGetActiveAlerts() {
         invEquip.forEach(function(eq) {
             var st = invCalStatus(eq);
             if (st.code === 'vencido') {
-                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibración de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
             } else if (st.code === 'porvencer' && st.days <= 7) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
             } else if (st.code === 'porvencer') {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
             }
         });
     }
@@ -2079,7 +2079,7 @@ function pnRenderAlerts(el) {
 
     // Notification settings
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title"><span>🔔 Configuracion de Alertas</span></div>';
+    html += '<div class="tp-card-title"><span>🔔 Configuración de Alertas</span></div>';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Las alertas se generan automaticamente al abrir este panel.</div>';
     html += '<div style="display:flex;gap: var(--space-sm);">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRender()" style="flex:1;font-size: var(--fs-sm);">🔄 Actualizar Alertas</button>';
@@ -3833,7 +3833,7 @@ function pnRenderExecutive(el) {
     html += '</div></div>';
 
     // [V7-B3] Predictive Resource Planner
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyección de Recursos</span></div>';
     if (typeof invState !== 'undefined' && invState.gases) {
         var predictions = [];
         invState.gases.filter(function(g) { return g.status === 'In use'; }).forEach(function(g) {
@@ -3863,7 +3863,7 @@ function pnRenderExecutive(el) {
                 var urgency = p.daysLeft < 7 ? 'var(--danger)' : p.daysLeft < 14 ? 'var(--warning)' : 'var(--info)';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
                 html += '<span>' + p.formula + ' #' + p.controlNo + '</span>';
-                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' dias restantes (' + p.dailyRate + ' PSI/dia)</span>';
+                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' días restantes (' + p.dailyRate + ' PSI/dia)</span>';
                 html += '</div>';
             });
         } else {
@@ -3909,7 +3909,7 @@ function pnRenderTurnaround(el) {
     var archived = vehicles.filter(function(v) { return v.status === 'archived' && v.timeline && v.timeline.length >= 2; });
 
     if (archived.length === 0) {
-        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);color:var(--muted);">No hay vehículos archivados para analizar.</div>';
         return;
     }
 
@@ -3958,7 +3958,7 @@ function pnRenderTurnaround(el) {
 
     var html = '';
     html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-turnaround-help"><span>Tiempo Promedio por Etapa</span></div>';
-    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom: var(--space-md);">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom: var(--space-md);">Basado en ultimos ' + Math.min(100, archived.length) + ' vehículos archivados</div>';
 
     var stages = [
         { label: 'Registro → Precond', data: stageStats.registration_to_precond, color: '#3b82f6' },
@@ -3983,7 +3983,7 @@ function pnRenderTurnaround(el) {
     html += '</div>';
 
     // Throughput over time (daily counts for last 14 days)
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Vehículos liberados por día (14 días)</span></div>';
     var dailyCounts = {};
     for (var d = 13; d >= 0; d--) {
         var dateStr = localDateStr(new Date(Date.now() - d * 86400000));
@@ -4043,7 +4043,7 @@ function pnRenderRegulations(el) {
             html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-md);color:var(--danger-text);">🗑️</button>';
             html += '</div></div>';
             if (p.gases.length > 0) {
-                html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
+                html += '<div style="overflow-x:auto;"><table class="u-cards u-cards-grid" style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
                 html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(0,0,0,0.08);"><th style="text-align:left;padding: var(--space-2xs) var(--space-sm);">Gas</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Unidad</th><th style="text-align:center;padding: var(--space-2xs) var(--space-sm);">Límite</th></tr>';
                 p.gases.forEach(function(g) {
                     html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">';
@@ -4095,7 +4095,7 @@ function _pnRegShowModal(profile) {
     var bodyHtml =
         '<div style="margin-bottom: var(--space-md);">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;display:block;margin-bottom: var(--space-xs);">Nombre de la Regulación *</label>' +
-        '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
+        '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej.: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
         '</div>' +
         '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom: var(--space-sm);gap: var(--space-sm);flex-wrap:wrap;">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;">Gases a medir</label>' +
@@ -4107,7 +4107,7 @@ function _pnRegShowModal(profile) {
         '<b>Unidad</b> es la del límite regulatorio y en la que se <b>guarda</b> el dato. ' +
         '<b>Captura</b> es solo cómo se teclea y se muestra: si el reporte del banco trae 24.3 mg/km, ' +
         'pon mg/km y se teclea 24.3 en vez de 0.0243. La conversión es automática y no cambia nada de lo ya guardado.</p>' +
-        '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
+        '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
         '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding: var(--space-2xs);">Campo</th><th style="text-align:left;padding: var(--space-2xs);">Etiqueta</th><th style="text-align:left;padding: var(--space-2xs);">Unidad</th><th style="text-align:left;padding: var(--space-2xs);">Captura</th><th style="text-align:center;padding: var(--space-2xs);">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
         '<tbody id="reg-gas-rows">' + gasRowsHtml + '</tbody>' +
         '</table></div></div>';

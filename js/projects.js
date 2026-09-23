@@ -315,7 +315,7 @@ function pnProjStepsFor(p) {
 function _pnProjectTableHTML(p) {
     var steps = pnProjStepsFor(p);
     var today = localToday();
-    var html = '<div style="overflow-x:auto;"><table class="pn-proj-table"><thead><tr>' +
+    var html = '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
         '</tr></thead><tbody>';
     if (steps.length === 0) {
@@ -823,7 +823,7 @@ function _pnPortfolioHTML() {
     });
     html += '</div>';
 
-    html += '<div style="overflow-x:auto;"><table class="pn-proj-table pn-portfolio-table"><thead><tr>' +
+    html += '<div style="overflow-x:auto;"><table class="u-cards pn-proj-table pn-portfolio-table"><thead><tr>' +
         '<th>Estado</th><th>Proyecto</th><th>Responsable</th><th>Avance</th><th>Vencidos</th><th>Bloqueados</th><th>Próximo hito</th></tr></thead><tbody>';
     rows.forEach(function(r) {
         var p = r.project;
@@ -1781,7 +1781,7 @@ function _pnProjImportStep2HTML() {
 
     // Vista previa de lo que se va a guardar (no del archivo crudo)
     h += '<div class="pn-import-maptitle">Vista previa — ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + ' detectado' + (steps.length === 1 ? '' : 's') + '</div>';
-    h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
+    h += '<div class="pn-import-preview"><table class="u-cards pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
     if (!steps.length) {
         h += '<tr><td colspan="7" style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
