@@ -2,6 +2,29 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.2 — Un vehículo borrado ya no resucita con el sync (2026-09-23)
+
+Reporte del laboratorio (foto): un vehículo viejo borrado en Historial seguía apareciendo en
+Liberación → Aprobador ("Etapa 8/8 · Aprobación · hace 33 días").
+
+- **Causa**: la fusión de vehículos es aditiva — un VIN que falta aquí pero existe en otro
+  equipo o en la nube se vuelve a agregar. Era la deuda de "tombstones" anotada en v23.2.
+  Reproducido en navegador: borrar + llegar la copia de otro equipo → el vehículo vuelve.
+- **Arreglo, solo para vehículos**: `db.deletedVehicles` (marca `{id, vin, registeredAt,
+  status, deletedAt, by}`) viaja en el mismo documento de cop15. `vehicleTombstone` la
+  escribe al borrar (Historial, individual y en lote); `fbMergeExecute` une las marcas de
+  los dos lados y `dedupeVehicleIds` → `vehicleTombstonesApply` retira lo marcado en cada
+  carga de `db`. `fbMergeAnalyze` no ofrece un borrado como "nuevo"; `_fbLocalHasExtras`
+  re-sube una marca que la nube perdió (un equipo sin actualizar re-empuja sin ella) y
+  `_fbPullSeed` la conserva al reemplazar.
+- **Identidad de la marca**: id + VIN, o VIN + registeredAt — nunca el VIN solo, para no
+  llevarse otros ensayos del mismo VIN; un alta posterior del mismo VIN sobrevive.
+- Borrar ahora se audita (`vehicle_deleted`).
+- `tests/livesync.node.js` (50): borrado entre dos equipos, equipo viejo que re-empuja,
+  re-alta del mismo VIN.
+- Fuera de alcance, a propósito: la purga de archivados y la de datos viejos del Panel son
+  limpieza de almacenamiento LOCAL y no dejan marca.
+
 ## v24.1 — El checklist de liberación "no dejaba hacer clic" (2026-09-23)
 
 Reporte del laboratorio (foto): en Liberación, los botones ✔ Retirado / ✔ Adjunto no

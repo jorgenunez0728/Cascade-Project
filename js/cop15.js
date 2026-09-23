@@ -4831,9 +4831,12 @@ function deleteVehicleCascade(vehicleId) {
         '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);font-size:12px;line-height:1.9;">' + lines.join('<br>') + '</div>' +
         '<p style="margin-top: var(--space-sm);font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
         function() {
-            // 1. COP15
+            // 1. COP15 — con marca de borrado, o el sync lo vuelve a traer (v24.2)
+            if (typeof vehicleTombstone === 'function') vehicleTombstone(v);
             db.vehicles = db.vehicles.filter(x => x !== v);
+            if (activeVehicleId == v.id) activeVehicleId = null;
             saveDB();
+            auditLog('cop15', 'vehicle_deleted', { type: 'vehicle', id: v.id, label: v.vin }, 'Eliminado desde Historial (estado: ' + (v.status || '?') + ')');
             // 2. Test Plan testedList
             if (typeof tpState !== 'undefined' && tpState.testedList) {
                 tpState.testedList = tpState.testedList.filter(t => !_esDeEsteVeh(t));
@@ -4880,7 +4883,10 @@ function batchDeleteVehicles() {
             ids.forEach(function(id) {
                 var veh = db.vehicles.find(function(x){return x.id==id;});
                 if (!veh) return;
+                if (typeof vehicleTombstone === 'function') vehicleTombstone(veh);
                 db.vehicles = db.vehicles.filter(function(x){return x.id!=id;});
+                if (activeVehicleId == id) activeVehicleId = null;
+                auditLog('cop15', 'vehicle_deleted', { type: 'vehicle', id: veh.id, label: veh.vin }, 'Eliminado desde Historial en lote (estado: ' + (veh.status || '?') + ')');
                 if (typeof tpState !== 'undefined' && tpState.testedList)
                     tpState.testedList = tpState.testedList.filter(function(t){
                         if (typeof tpTestedVin !== 'function') return !(t.note && t.note.includes('VIN: '+veh.vin));

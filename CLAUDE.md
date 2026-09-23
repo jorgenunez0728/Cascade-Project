@@ -1372,6 +1372,18 @@ las dos, no una:
 - Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
   dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
 
+## v24.2 — Borrar un vehículo deja marca (`db.deletedVehicles`)
+
+- **La fusión de vehículos es aditiva**: sin marca, lo borrado vuelve en el siguiente sync.
+  **Todo borrado de un vehículo que deba ser del laboratorio llama `vehicleTombstone(v)`
+  ANTES de quitarlo de `db.vehicles`.** Las purgas de almacenamiento local no la llaman a
+  propósito.
+- `vehicleIsTombstoned` / `vehicleTombstonesUnion` son PURAS. Identidad: id + VIN, o VIN +
+  `registeredAt` — **nunca el VIN solo** (un VIN re-ensayado tiene registros legítimos).
+- `vehicleTombstonesApply()` corre dentro de `dedupeVehicleIds()`, que ya es el paso
+  obligatorio tras toda carga de `db`: por eso cubre arranque, fusión, seed y restauración.
+- Solo vehículos. Planes, inventario y tpState siguen sin tombstones (deuda de v23.2).
+
 ## v24.1 — La huella de revisión se fija al CARGAR (`revInitMissing`)
 
 - **`revInitMissing(list)` (app.js)** da `_rev` a los registros que no la tienen, sin

@@ -39,11 +39,13 @@ function constante(src, nombre) {
     return m[0];
 }
 
-const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing'];
+const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing',
+    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply'];
+const APP_VARS = ['VEHICLE_TOMBSTONE_MAX'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
-    '_fbEquipKey', '_fbMergeReadings'];
+    '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo'];
 const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
 const COP_FNS = ['_cascadeEmpty', '_cascadeSame', '_cascadePlain', 'cascadeThreeWay'];
 
@@ -99,6 +101,9 @@ function equipo(nombre) {
     };
     vm.createContext(ctx);
     APP_FNS.forEach(n => vm.runInContext(extraer(SRC.app, n), ctx));
+    APP_VARS.forEach(n => vm.runInContext(constante(SRC.app, n), ctx));
+    // El real (app.js) retira lo borrado en cada carga de db; aquí basta con eso.
+    vm.runInContext('function dedupeVehicleIds() { vehicleTombstonesApply(); return 0; }', ctx);
     FB_FNS.forEach(n => vm.runInContext(extraer(SRC.fb, n), ctx));
     FB_VARS.forEach(n => vm.runInContext(constante(SRC.fb, n), ctx));
     COP_FNS.forEach(n => vm.runInContext(extraer(SRC.cop15, n), ctx));
@@ -186,6 +191,35 @@ console.log('\n== primera edición de un vehículo anterior a v23.5 ==');
     ok('el primer toque se sella como edición nueva', n === 1 && aqui.updatedAt === '2026-09-23T18:00:00.000Z');
     const r = A._fbMergeVehicle(aqui, nube);
     ok('y le gana a la copia vieja de la nube (no se borra la marca)', r.from === 'local' && !!r.vehicle.testData.releaseChecklist);
+}
+
+// ── Borrar un vehículo: no resucita con el sync (v24.2) ───────────────────
+console.log('\n== borrar un vehículo sobrevive al sync ==');
+{
+    arrancar();
+    reloj += 60000;
+    const v = A.db.vehicles[0];
+    A.vehicleTombstone(v);
+    A.db.vehicles = A.db.vehicles.filter(x => x !== v);
+    guardar(A);
+    correr();
+    ok('B también lo retira', B.db.vehicles.length === 0, JSON.stringify(B.db.vehicles.map(x => x.vin)));
+    ok('B recibe la marca de borrado', (B.db.deletedVehicles || []).length === 1);
+    ok('y no lo re-empuja de vuelta a A', A.db.vehicles.length === 0);
+
+    // Un equipo con código viejo re-empuja el documento CON el vehículo y SIN marcas.
+    A.pushes.length = 0;
+    nube('B', 'cop15', comoFirestore({ vehicles: [vehiculoBase()], lastId: 3 }));
+    correr();
+    ok('A no lo vuelve a agregar', A.db.vehicles.length === 0);
+    ok('A sube su marca otra vez (la nube la había perdido)', A.pushes.includes('cop15'));
+
+    // Un alta NUEVA del mismo VIN (re-ensayo) sí se conserva.
+    const otra = vehiculoBase(); otra.id = 'v9'; otra.registeredAt = '2026-09-25T09:00:00.000Z';
+    ok('un alta posterior del mismo VIN NO empata con la marca', !A.vehicleIsTombstoned(otra, A.db.deletedVehicles));
+    const mismoRegistro = vehiculoBase(); mismoRegistro.id = 'otro-id';
+    ok('el mismo registro con otro id (VIN + registeredAt) SÍ empata', A.vehicleIsTombstoned(mismoRegistro, A.db.deletedVehicles));
+    ok('la unión no repite marcas', A.vehicleTombstonesUnion(A.db.deletedVehicles, B.db.deletedVehicles).length === 1);
 }
 
 // ── _fbMergeVehicle ────────────────────────────────────────────────────────
