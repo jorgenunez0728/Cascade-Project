@@ -1341,6 +1341,37 @@ las dos, no una:
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
 
+## v24.0 — Auditoría UX: primitivas de interacción (`js/app.js`)
+
+- **`uiEnhanceObserve()` hace que `data-chips` / `data-num` / `table.u-cards` funcionen en
+  CUALQUIER HTML pintado después del arranque** (renders, repintados parciales, modales).
+  Antes solo corrían al arrancar: marcar un select en Plan o Datos no hacía nada. Filtra por
+  `_chips`/`_num` para no re-procesar (si no, repintar las fichas se dispararía en bucle).
+- **`showToast(msg, type[, durMs][, undoFn])`**: el envoltorio de notificaciones reenvía
+  TODOS los argumentos (antes tiraba el 3º y 4º: ningún "Deshacer" funcionó nunca). Error ≥ 8 s
+  según largo — NO fijo: muchos "error" son validaciones. **`toastUndo(msg, fn)`** y
+  **`undoableAction(módulo, etiqueta, fn)`** son LA forma de ofrecer deshacer; la segunda
+  restaura ESA foto, no la última de la pila. `undoPush` ya cubre `'panel'`.
+- **Borrar = confirmar Y deshacer** (decisión del laboratorio), nombrando lo que se borra.
+  Consumibles tiene un solo camino: **`invConfirmDelete(kind, ref)`**.
+- **`uiPrompt(opts)` reemplaza a `prompt()`** (Promise). No quedan `prompt()`/`alert()` en la app;
+  el E2E v24 los intercepta y falla si aparece uno.
+- **`uiLabel(kind, code)`** (`gasStatus`, `purpose`, `region`) — el VALOR guardado no cambia
+  (hay ~20 filtros sobre `status === 'In use'`), solo lo que se lee.
+- **`table.u-cards`** → tarjetas bajo 640 px; `uiTableCards` copia cada `<th>` a `data-label`.
+  **`u-cards-grid`** para tablas de gases (primera celda a lo ancho, valores en 2 columnas).
+- **Pestañas por grupos (`UI_TAB_GROUPS`, `uiTabGroupsInit/Sync/Go`)** en Plan, Consumibles y
+  Datos. Los botones son LOS MISMOS (mismo id y onclick), solo se ocultan los de otros grupos:
+  `xxSwitchTab`, `dashGo` y `uiNavRegistry` no cambian. **Toda pestaña nueva se agrega a un
+  grupo en `UI_TAB_GROUPS`** (si no, cae en el último). `xxSwitchTab` queda envuelta para
+  sincronizar el grupo; la última pestaña por grupo vive en `uiPref('tabGroups')`.
+- **`tpWeightsRebalance(weights, key, value)`** (testplan.js, PURA): mover un peso reparte la
+  diferencia para sumar 100. `tpSetWeightBalanced` es su mutador.
+- Un `− / +` dentro de una `<td>` necesita `min-width` en el input (`td .ui-num-row > input`)
+  o el número se corta en silencio ("1000" se veía "10").
+- Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
+  dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
+
 ## v23.5 — El sync entre equipos (`js/firebase-sync.js`, `js/app.js`, `js/cop15.js`)
 
 - **`stableStringify(v)` (app.js) es LA forma de comparar dos copias de un dato** cuando una

@@ -464,7 +464,7 @@ function invCheckProactiveAlerts() {
         if (diff < 0) criticals.push(e.name + ' calibración vencida');
     });
     if (criticals.length > 0) {
-        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
+        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en Día a día → Resumen.', 'warning');
     }
 }
 

@@ -2,6 +2,61 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.0 — Auditoría UX de toda la plataforma (2026-09-23)
+
+Pedido del laboratorio: "revisa toda la plataforma con los criterios de diseño (Hick,
+interacción, microcopy, responsive) y haz mejoras como los botones de Cascade". Tres
+auditorías (HOY+Plan, Consumibles+Datos, CoP+chrome) y siete bloques, un commit cada uno.
+
+### Bugs encontrados en el camino
+- **El "Deshacer" de los avisos nunca funcionó**: un envoltorio de `showToast` (para el
+  centro de notificaciones) solo reenviaba `(msg, type)`; la duración y el botón se
+  perdían en toda la app.
+- **Nada con `data-chips`/`data-num` fuera de Cascade habría funcionado**: los helpers
+  solo corrían al arrancar. `uiEnhanceObserve` mejora lo que se pinta después.
+- Mi semana pintaba "Armar la semana" **dos veces** sin plan (ids duplicados).
+- Recientes/favoritos del Alta **no sincronizaban el árbol**.
+- ＋ de la semana: el tipo de actividad estaba **debajo** de los botones que lo leían.
+- El resumen de importación ICMS **se borraba a los 0.9 s**.
+- ✏️ de operadores pedía el **rol tecleado** con `prompt()`.
+- CoP "Limpiar valores" y las reglas de ratio/prioridad **se borraban de un toque**.
+- Captura de lecturas: la última lectura era **blanco sobre blanco** (resto del tema oscuro).
+
+### Primitivas nuevas (app.js)
+`uiEnhance`/`uiEnhanceObserve`, `uiLabel`, `uiTableCards` (+ `.u-cards`,
+`.u-cards-grid`), `uiPrompt`, `toastUndo`, `undoableAction`, `uiTabGroups*`,
+`tpWeightsRebalance` (testplan). Toasts por tipo (error ≥ 8 s según largo, ✕, máx. 3,
+`role=alert`); `showConfirmDialog` con Escape, trampa de foco y foco de regreso.
+
+### Hick
+Pestañas por grupos (Datos 16 → 3 grupos, Consumibles 12 → 4, Plan 10 → 3; mismos ids,
+el lanzador y los enlaces profundos siguen igual). Reglas en `uiCard` plegables con el dato
+clave en el encabezado; pesos auto-repartidos a 100. Recuperación con los días plegados.
+CoP: familia primero, procedimiento/combustible/contaminantes en una línea "Cambiar".
+Alta: una fila "Recientes" legible. Proyectos: Tabla · Kanban · Análisis. Chrome: sin 🧭
+duplicado en teléfono, 📐 para CoP, Ctrl+1..5 en el orden visual.
+
+### Interacción
+Confirmar **y** deshacer al borrar (decisión del laboratorio), nombrando lo que se borra;
+"Eliminar" como enlace a la izquierda. Materializar Recuperación dice cuántas semanas crea.
+Captura: en uso primero, reserva plegada, Guardar fijo abajo. Simulador sin botón. PIN con
+cuenta regresiva. Calendario con "Ir a este mes". Importación ICMS con estado de carga.
+
+### Microcopy y teléfono
+~120 acentos en texto visible (solo fuera de etiquetas y selectores), inglés → español,
+MAYÚSCULAS → frase, placeholders "Ej.: …", errores accionables. Tablas anchas → tarjetas.
+
+### Pruebas
+`tests/v24.e2e.js`: barrido de las 48 pestañas a 390 y 1366 px (sin `data-chips`
+huérfanos, sin scroll horizontal, sin diálogos nativos, sin errores) + casos de cada
+bloque. `tests/plan.node.js` +3 (pesos). E2E previos verdes.
+
+### No se hizo (a propósito)
+- Fusionar el contenido de pestañas (p. ej. Resumen dentro de Captura): se agrupó en vez
+  de fusionar — mismo efecto de Hick con mucho menos riesgo.
+- Calendario en puntos bajo 640 px y recorte de insignias de familia en teléfono.
+- Los dos paradigmas de render de `panel.js` (deuda de v23.2).
+
 ## v23.5 — El sync entre equipos, de verdad (2026-09-22)
 
 Ronda de los issues **#131** ("guardé una hora en otro equipo y aquí no persistió") y

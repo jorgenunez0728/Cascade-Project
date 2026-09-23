@@ -231,12 +231,26 @@ function _pnRenderProjectDetail(el, p) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.blockedN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.blockedN + '</div><div class="tp-metric-label">Bloqueados</div></div>';
     html += '</div>';
 
+    // [v24] Dos vistas de trabajo a la vista (Tabla, Kanban) y las cuatro de análisis
+    // detrás de UNA opción: seis pestañas del mismo peso eran demasiadas decisiones en un
+    // teléfono. Dentro de Análisis se recuerda la última vista usada.
+    var _anal = [['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['timeline', '🕒 Línea de tiempo'], ['workload', '👥 Carga']];
+    var _isAnal = _anal.some(function(v) { return v[0] === view; });
+    if (_isAnal) window._pnProjLastAnal = view;
+    var _goAnal = window._pnProjLastAnal || 'gantt';
     html += '<div class="pn-proj-viewtabs">';
-    [['table', '📋 Tabla'], ['kanban', '📌 Kanban'], ['timeline', '🕒 Línea de tiempo'],
-     ['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['workload', '👥 Carga']].forEach(function(v) {
+    [['table', '📋 Tabla'], ['kanban', '📌 Kanban']].forEach(function(v) {
         html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
     });
+    html += '<button class="pn-proj-viewtab' + (_isAnal ? ' active' : '') + '" onclick="window._pnProjectView=\'' + _goAnal + '\';_pnProjNav();">📈 Análisis</button>';
     html += '</div>';
+    if (_isAnal) {
+        html += '<div class="pn-proj-viewtabs pn-proj-viewtabs--sub">';
+        _anal.forEach(function(v) {
+            html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
+        });
+        html += '</div>';
+    }
 
     // v22.5 — "Solo míos" (uiPref('onlyMine'), el MISMO de HOY, así que el filtro
     // viaja entre pantallas). Se ofrece solo en Tabla y Kanban: en las vistas

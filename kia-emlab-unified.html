@@ -2548,6 +2548,8 @@ body{ overflow-x: hidden; }
        y el campo se queda con el ancho que sobre. */
     .ui-bar { padding: var(--space-sm) var(--space-md); }
     .ui-bar-label, .ui-bar-kbd { display: none; }
+    /* [v24] Sin etiquetas, 🧭 y 🔍 eran dos botones para lo mismo: queda la búsqueda. */
+    .ui-bar-btn--go { display: none; }
     .ui-bar-btn { padding: var(--space-sm); min-width: var(--target-min); justify-content: center; }
     .ui-bar-ph { font-size: var(--fs-xs); }
 }
@@ -5691,6 +5693,22 @@ body.cop-present .cop-toolbar    { display: none; }
   table.u-cards.u-cards-grid td:first-child { grid-column: 1 / -1; font-weight: 700; }
   table.u-cards.u-cards-grid td:last-child:not(:first-child):nth-child(even) { grid-column: 1 / -1; }
 }
+
+/* [v24] Pestañas por grupos: una fila de 3–4 grupos y debajo solo las del grupo abierto. */
+.ui-tabgroups { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-sm); padding: var(--space-2xs); background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.ui-tabgroup { flex: 1 1 auto; min-height: var(--target-min, 44px); padding: var(--space-xs) var(--space-md); border: none; border-radius: var(--radius-md); background: transparent; color: var(--muted); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.ui-tabgroup:hover { color: var(--text); }
+.ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
+.tp-tab.ui-tg-hidden { display: none !important; }
+@media (max-width: 480px) {
+  .ui-tabgroup { flex: 1 0 auto; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); }
+}
+/* [v24] Un − / + dentro de una celda de tabla: el número no puede encogerse a nada. */
+td .ui-num-row > input { min-width: 5rem; }
+
+/* [v24] Sub-vistas de "Análisis" de un proyecto: más discretas que las principales. */
+.pn-proj-viewtabs--sub { margin-top: var(--space-xs); }
+.pn-proj-viewtabs--sub .pn-proj-viewtab { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); }
     </style>
 </head>
 
@@ -5724,7 +5742,7 @@ body.cop-present .cop-toolbar    { display: none; }
         <span id="pn-alerts-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" class="pt-badge">ok</span>
     </button>
     <button type="button" class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" role="tab" aria-selected="false" tabindex="-1" aria-controls="platform-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
-        📋 CoP
+        📐 CoP
     </button>
     <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
          La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
@@ -5770,7 +5788,7 @@ body.cop-present .cop-toolbar    { display: none; }
      campo real vive dentro del overlay, y duplicarlo obligaría a sincronizar dos
      estados de texto para nada. ══════════════════════════════════════════════ -->
 <div class="ui-bar" id="uiActionBar" role="toolbar" aria-label="Acciones rápidas">
-    <button type="button" class="ui-bar-btn" onclick="openCommandPalette('launcher')"
+    <button type="button" class="ui-bar-btn ui-bar-btn--go" onclick="openCommandPalette('launcher')"
             title="Ir a cualquier pantalla (Ctrl+K)" aria-label="Ir a cualquier pantalla">
         <span class="ui-bar-ico" aria-hidden="true">🧭</span><span class="ui-bar-label">Ir a…</span>
     </button>
@@ -5871,7 +5889,6 @@ body.cop-present .cop-toolbar    { display: none; }
             <!-- [V7-E2] Smart Config Suggestion -->
             <div id="v7-smart-configs" style="display:none;"></div>
             <!-- [V7-E3] Favorites -->
-            <div id="v7-favorites" style="display:none;"></div>
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
@@ -6862,7 +6879,7 @@ body.cop-present .cop-toolbar    { display: none; }
             <div style="display:flex;align-items:center;gap:10px;">
                 <div>
                     <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Dashboard, operadores, bitácora, alertas y regulaciones</p>
+                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Resumen, operadores, bitácora, alertas y regulaciones</p>
                 </div>
             </div>
         </div>
@@ -7774,7 +7791,7 @@ body.cop-present .cop-toolbar    { display: none; }
         <span>Datos</span>
     </button>
     <button type="button" class="bottom-nav-item" onclick="switchPlatform('cop')" id="bnav-cop">
-        <span class="bnav-icon" aria-hidden="true">📋</span>
+        <span class="bnav-icon" aria-hidden="true">📐</span>
         <span>CoP</span>
     </button>
 </nav>
@@ -8067,15 +8084,24 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609230106';
+var APP_BUILD = '202609230120';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.5';
+var APP_VERSION = '24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.0', date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
+      notes: [
+          'Las pestañas de Plan, Consumibles y Datos se agrupan en 3–4 secciones; se ven solo las de la sección abierta y cada una recuerda la última que usaste.',
+          'Botones de un toque en ~25 listas (estado del cilindro, región, categoría, propósito…) y − / + en capacidades, ratios y horas.',
+          'Borrar pregunta qué se borra y ofrece «Deshacer» unos segundos. El «Deshacer» nunca había funcionado en ningún aviso de la app.',
+          'Reglas en tarjetas plegables; los pesos se reparten solos para sumar 100. CoP: primero la familia. Alta: una sola fila de «Recientes».',
+          'En teléfono, las tablas anchas se leen como tarjetas; la captura de lecturas deja el Guardar siempre abajo.',
+          'Textos: acentos, sin inglés ni MAYÚSCULAS, y errores que dicen qué hacer.'
+      ] },
     { v: '23.5', date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
       notes: [
           'Corregido (#131): la fecha/hora de recepción, el operador de recepción y las notas se guardaban pero nunca se cargaban — al reabrir salían vacíos y el siguiente guardado los borraba.',
@@ -8521,14 +8547,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609230106' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609230120' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609230106' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609230120' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8544,7 +8570,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609230106' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609230120' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -8917,6 +8943,7 @@ function themeInit() {
 // ======================================================================
 var UI_PREFS_KEY = 'kia_ui_prefs';
 var UI_PREFS_DEFAULTS = {
+    tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
@@ -12682,6 +12709,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { uiNumEnhance(document); } catch(numErr) { void 0; }
         // [v24] Y todo lo que se pinte después (renders, repintados parciales, modales).
         try { uiEnhanceObserve(); } catch(obsErr) { void 0; }
+        // [v24] Pestañas por grupos en Plan, Consumibles y Datos.
+        ['tp', 'inv', 'pn'].forEach(function(m) { try { uiTabGroupsInit(m); } catch (tgErr) { void 0; } });
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { void 0; }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
@@ -13081,6 +13110,131 @@ function uiEnhance(root) {
     try { uiChipsEnhance(root); } catch (e) { void 0; }
     try { uiNumEnhance(root); } catch (e) { void 0; }
     try { uiTableCards(root); } catch (e) { void 0; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] PESTAÑAS POR GRUPOS (Ley de Hick)
+//
+// Datos tenía 16 destinos (4 a la vista + 12 bajo "⋯ Más"), Consumibles 12 y Plan 10.
+// Ahora cada barra muestra 3–4 GRUPOS y, debajo, solo las pestañas del grupo abierto.
+// Nada se borra ni cambia de id: los botones son los mismos (mismo onclick, mismo
+// id de pestaña), solo se ocultan los de los otros grupos. Por eso siguen funcionando
+// `xxSwitchTab`, los enlaces profundos (`dashGo`) y el lanzador (`uiNavRegistry` lee los
+// botones sin mirar si están visibles). Cada grupo recuerda su última pestaña.
+// ══════════════════════════════════════════════════════════════════════
+var UI_TAB_GROUPS = {
+    tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
+          groups: [
+            { id: 'semana', label: '📅 Semana', tabs: ['tp-myweek', 'tp-calendar', 'tp-weekhistory'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
+    inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
+          groups: [
+            { id: 'diario', label: '📏 Día a día', tabs: ['inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
+            { id: 'equipos', label: '🔧 Equipos', tabs: ['inv-equipment', 'inv-maint'] },
+            { id: 'analisis', label: '📈 Análisis', tabs: ['inv-predict', 'inv-charts', 'inv-report', 'inv-trace'] },
+            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-zonemap', 'inv-config'] } ] },
+    pn: { bar: 'pn-tabs-bar', sw: 'pnSwitchTab', state: function() { return typeof pnState !== 'undefined' && pnState.activeTab; },
+          groups: [
+            { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
+            { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+};
+// Etiquetas en español claro (solo botones sin insignias adentro).
+var UI_TAB_RELABEL = {
+    'tp-dashboard': '📊 Cobertura', 'tp-weekhistory': '📋 Semanas pasadas',
+    'inv-dashboard': '📊 Resumen', 'inv-maint': '🛠️ Mantenimiento', 'inv-charts': '📈 Gráficas', 'inv-config': '⚙️ Tipos y zonas',
+    'pn-dashboard': '📊 Resumen', 'pn-turnaround': '⏱ Tiempos', 'pn-bugs': '🐞 Fallas reportadas'
+};
+
+function _uiTabIdOf(btn) {
+    var m = /SwitchTab\('([^']+)'\)/.exec(btn.getAttribute('onclick') || '');
+    return m ? m[1] : null;
+}
+
+function uiTabGroupsInit(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || bar.getAttribute('data-grouped')) return;
+    var btns = [].slice.call(bar.querySelectorAll('.tp-tab')).filter(function(b) { return _uiTabIdOf(b); });
+    var byId = {};
+    btns.forEach(function(b) {
+        // Los del menú "⋯ Más" traían `this.closest('.tp-tab-more-wrap')…` en el onclick;
+        // sin el menú, closest() da null y el clic truena.
+        b.setAttribute('onclick', b.getAttribute('onclick').replace(/;?\s*this\.closest\('\.tp-tab-more-wrap'\)\.classList\.remove\('open'\)/, ''));
+        var id = _uiTabIdOf(b);
+        if (UI_TAB_RELABEL[id] && !b.children.length) b.textContent = UI_TAB_RELABEL[id];
+        byId[id] = b;
+    });
+    var more = bar.querySelector('.tp-tab-more-wrap'); if (more) more.remove();
+    var assigned = {};
+    cfg.groups.forEach(function(g) {
+        g.tabs.forEach(function(t) { if (byId[t]) { byId[t].setAttribute('data-tabgroup', g.id); bar.appendChild(byId[t]); assigned[t] = 1; } });
+    });
+    var last = cfg.groups[cfg.groups.length - 1];
+    btns.forEach(function(b) { var id = _uiTabIdOf(b); if (!assigned[id]) { b.setAttribute('data-tabgroup', last.id); bar.appendChild(b); } });
+
+    var row = document.createElement('div');
+    row.className = 'ui-tabgroups';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Secciones');
+    cfg.groups.forEach(function(g) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ui-tabgroup';
+        b.setAttribute('data-group', g.id);
+        b.textContent = g.label;
+        b.addEventListener('click', function() { uiTabGroupsGo(mod, g.id); });
+        row.appendChild(b);
+    });
+    bar.parentNode.insertBefore(row, bar);
+    bar.setAttribute('data-grouped', '1');
+
+    // Mantener el grupo al día sin importar quién cambie de pestaña (un clic, dashGo,
+    // un render que restaura la pestaña guardada).
+    var fn = window[cfg.sw];
+    if (typeof fn === 'function' && !fn._grouped) {
+        var wrapped = function() { var r = fn.apply(this, arguments); try { uiTabGroupsSync(mod); } catch (e) {} return r; };
+        wrapped._grouped = true;
+        window[cfg.sw] = wrapped;
+    }
+    uiTabGroupsSync(mod);
+}
+
+function _uiTabGroupOf(mod, tab) {
+    var cfg = UI_TAB_GROUPS[mod];
+    for (var i = 0; i < cfg.groups.length; i++) if (cfg.groups[i].tabs.indexOf(tab) !== -1) return cfg.groups[i];
+    return cfg.groups[cfg.groups.length - 1];
+}
+
+function uiTabGroupsSync(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || !bar.getAttribute('data-grouped')) return;
+    var tab = cfg.state() || cfg.groups[0].tabs[0];
+    var g = _uiTabGroupOf(mod, tab);
+    [].forEach.call(bar.querySelectorAll('.tp-tab[data-tabgroup]'), function(b) {
+        b.classList.toggle('ui-tg-hidden', b.getAttribute('data-tabgroup') !== g.id);
+    });
+    var row = bar.previousElementSibling;
+    if (row && row.classList.contains('ui-tabgroups')) {
+        [].forEach.call(row.children, function(b) {
+            var on = b.getAttribute('data-group') === g.id;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+    var mem = Object.assign({}, uiPref('tabGroups') || {});
+    mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
+    uiPref('tabGroups', mem);
+}
+
+function uiTabGroupsGo(mod, groupId) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var g = cfg.groups.filter(function(x) { return x.id === groupId; })[0]; if (!g) return;
+    var mem = (uiPref('tabGroups') || {})[mod] || {};
+    var tab = mem[groupId] && g.tabs.indexOf(mem[groupId]) !== -1 ? mem[groupId] : g.tabs[0];
+    if (typeof window[cfg.sw] === 'function') window[cfg.sw](tab);
 }
 
 /**
@@ -13622,9 +13776,10 @@ document.addEventListener('keydown', function(e) {
         var nc = document.getElementById('notification-center');
         if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
     }
-    // Ctrl+1-4: Switch platform (4 root tabs)
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
-        var platforms = ['plan', 'pruebas', 'datos', 'today'];
+    // Ctrl+1-5: las 5 plataformas EN EL ORDEN EN QUE SE VEN (v24: antes era
+    // plan/pruebas/datos/hoy — otro orden que el de la barra — y CoP no tenía atajo).
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+        var platforms = ['today', 'plan', 'pruebas', 'datos', 'cop'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
     }
     // Ctrl+Z: Undo
@@ -23683,25 +23838,36 @@ function v7TrackConfigUsage(configCode, config) {
         if (!ranking[configCode]) ranking[configCode] = { count: 0, config: config, label: configCode };
         ranking[configCode].count++;
         ranking[configCode].config = config;
+        ranking[configCode].lastUsed = Date.now();
         localStorage.setItem('kia_config_ranking', JSON.stringify(ranking));
     } catch(e) {}
 }
 
+/**
+ * [v24] UNA sola fila "Recientes" (máx. 4) en lugar de "Configuraciones frecuentes" +
+ * "Favoritos": los favoritos nunca se guardaban (nadie escribía kia_config_favorites) y
+ * salían del mismo ranking, así que la misma config aparecía dos veces. Se ordena por uso
+ * reciente y luego por frecuencia, y se lee como Modelo · Año · Motor · Región en vez del
+ * código cortado a 35 caracteres.
+ */
 function v7RenderSmartConfigs() {
     var container = document.getElementById('v7-smart-configs');
     if (!container) return;
     try {
         var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
         var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-            .sort(function(a, b) { return b.count - a.count; });
+            .filter(function(it) { return it && it.label && allConfigurations.some(function(c) { return c.codigo_config_text === it.label; }); })
+            .sort(function(a, b) { return ((b.lastUsed || 0) - (a.lastUsed || 0)) || (b.count - a.count); });
         if (sorted.length === 0) { container.style.display = 'none'; return; }
         container.style.display = 'block';
-        var html = '<div class="v7-smart-configs-title">Configuraciones frecuentes:</div><div class="v7-smart-configs-list">';
-        sorted.slice(0, 5).forEach(function(item) {
-            var label = item.label;
-            if (label.length > 35) label = label.substring(0, 35) + '...';
-            html += '<button type="button" class="v7-config-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
-                label + ' <span class="v7-config-count">(' + item.count + ')</span></button>';
+        var html = '<div class="v7-smart-configs-title">Recientes</div><div class="v7-smart-configs-list">';
+        sorted.slice(0, 4).forEach(function(item) {
+            var c = allConfigurations.find(function(x) { return x.codigo_config_text === item.label; }) || item.config || {};
+            var partes = [c['Modelo'], c['MODEL YEAR (VIN)'], c['ENGINE CAPACITY'], (typeof uiLabel === 'function' ? uiLabel('region', c['REGION']) : c['REGION'])]
+                .filter(function(x) { return x != null && String(x).trim() !== ''; });
+            var legible = partes.length ? partes.join(' · ') : item.label;
+            html += '<button type="button" class="v7-config-chip" title="' + _escapeHtml(item.label) + '" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
+                _escapeHtml(legible) + ' <span class="v7-config-count">×' + item.count + '</span></button>';
         });
         html += '</div>';
         container.innerHTML = html;
@@ -23719,33 +23885,6 @@ function v7ApplySmartConfig(configCode) {
     // los selects ocultos pero no `cascadeSelections` ni el árbol: la migaja y el árbol
     // seguían en el estado viejo mientras el resultado mostraba la config nueva.
     cascadePickConfig(match);
-}
-
-function v7RenderFavorites() {
-    var container = document.getElementById('v7-favorites');
-    if (!container) return;
-    try {
-        var favs = JSON.parse(localStorage.getItem('kia_config_favorites') || '[]');
-        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
-        // Auto-detect favorites from ranking (top 3 with 3+ uses)
-        if (favs.length === 0) {
-            var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-                .filter(function(item) { return item.count >= 3; })
-                .sort(function(a, b) { return b.count - a.count; });
-            favs = sorted.slice(0, 3).map(function(item) { return item.label; });
-        }
-        if (favs.length === 0) { container.style.display = 'none'; return; }
-        container.style.display = 'block';
-        var html = '<div class="v7-favorites-title">Favoritos</div><div class="v7-favorites-list">';
-        favs.forEach(function(code) {
-            var count = ranking[code] ? ranking[code].count : 0;
-            var label = code.length > 40 ? code.substring(0, 40) + '...' : code;
-            html += '<button type="button" class="v7-fav-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(code) + '\')">' +
-                '⭐ ' + label + (count ? ' (' + count + ' usos)' : '') + '</button>';
-        });
-        html += '</div>';
-        container.innerHTML = html;
-    } catch(e) {}
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -23945,7 +24084,6 @@ function v7BatchRelease() {
             if (tabName === 'alta') {
                 v7RenderQuickPicks();
                 v7RenderSmartConfigs();
-                v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
@@ -24434,7 +24572,7 @@ function invCheckProactiveAlerts() {
         if (diff < 0) criticals.push(e.name + ' calibración vencida');
     });
     if (criticals.length > 0) {
-        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en su Dashboard.', 'warning');
+        showToast(criticals.length + ' alertas críticas en Consumibles — revísalas en Día a día → Resumen.', 'warning');
     }
 }
 
@@ -32316,11 +32454,10 @@ function tpRenderRules(el) {
     // cobertura. Ver `tpTestedCountsForReq` (testplan.js) — LA definición.
     const _rq = tpReqPurposes();
     const _rqNo = tpNoReqBreakdown();
-    const _rqHTML = `
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-reqpurpose-help">
-                <span>🏷 Qué acredita el REQ de emisiones</span>
-            </div>
+    // [v24] Las cuatro tarjetas de Reglas son uiCard plegables con su dato clave en el
+    // encabezado: era la pantalla con más controles de la app (>110), todo abierto a la vez.
+    const _rqOn = TP_PURPOSES_VALID.filter(function(pp) { return _rq[pp] !== false; }).length;
+    const _rqBody = `
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
                 Una prueba de <strong>OBD II no es una prueba de emisiones</strong>: se hace, se
                 registra y se ve en el historial, pero no baja el déficit ni sube la cobertura.
@@ -32337,7 +32474,7 @@ function tpRenderRules(el) {
                          + 'border-radius:var(--radius-lg);background:' + (on ? 'var(--surface)' : 'var(--warn-bg)') + ';">'
                          + '<input type="checkbox" ' + (on ? 'checked' : '')
                          + ' onchange="tpSetReqPurpose(\'' + pp + '\', this.checked)">'
-                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + pp + '</span>'
+                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + uiLabel('purpose', pp) + '</span>'
                          + (n ? '<span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--tp-dim);">'
                                 + n + ' fuera</span>' : '')
                          + '</label>';
@@ -32345,29 +32482,24 @@ function tpRenderRules(el) {
             </div>
             ${_rqNo.total ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
                 Hoy quedan <strong>${_rqNo.total}</strong> pruebas registradas fuera del REQ.
-            </p>` : ''}
-        </div>`;
+            </p>` : ''}`;
+    const _rqHTML = uiCard({ id: 'tp-rules-req', icon: '🏷', title: 'Qué acredita el REQ de emisiones', accent: 'testplan',
+        help: 'tp-reqpurpose-help', body: _rqBody, defaultOpen: false,
+        count: { label: _rqOn + ' de ' + TP_PURPOSES_VALID.length + ' cuentan' } });
 
-    el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
-        ${_rqHTML}
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-ratio-help">
-                <span>⚙️ Reglas de Ratio</span>
-                <div style="display:flex;gap: var(--space-sm);">
+    const _ratioActions = `<div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
                     <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
-                </div>
-            </div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
-            <div style="max-height:380px;overflow-y:auto;">
+                </div>`;
+    const _ratioBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
+            <div>
                 <table class="u-cards tp-table">
                     <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Nombre</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="1" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
@@ -32386,12 +32518,8 @@ function tpRenderRules(el) {
                     ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
                 </div>
             </details>` : ''}
-        </div>
-        <div>
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
+        `;
+    const _spBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-sm);">
                         <span style="font-size: var(--fs-sm);font-weight:600;">${label}</span>
@@ -32400,13 +32528,9 @@ function tpRenderRules(el) {
                         </select>
                     </div>
                 `).join('')}
-            </div>
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title">
-                    <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
-                    <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>
-                </div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+            `;
+    const _prActions = `<button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>`;
+    const _prBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rápidamente.</p>
                 ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">No hay plantillas guardadas.</div>' :
                 (tpState.rulePresets||[]).map((p,i) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm);margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);">
@@ -32420,7 +32544,21 @@ function tpRenderRules(el) {
                         </div>
                     </div>
                 `).join('')}
-            </div>
+            `;
+
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_rqHTML}
+        ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
+            count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' sin regla propia' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
+            actions: _ratioActions, body: _ratioBody })}
+        <div>
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
+            ${uiCard({ id: 'tp-rules-startpurpose', icon: '🎯', title: 'Propósito al iniciar prueba desde el plan', accent: 'testplan',
+                help: 'tp-purpose-region-help', defaultOpen: false, body: _spBody,
+                count: { label: 'Europa: ' + uiLabel('purpose', (tpState.startPurposeByRegion || {}).EUROPE || 'COP-Emisiones') } })}
+            ${uiCard({ id: 'tp-rules-presets', icon: '💾', title: 'Plantillas de reglas', accent: 'testplan', defaultOpen: false,
+                count: { label: (tpState.rulePresets || []).length + ' de 5' }, actions: _prActions, body: _prBody })}
         </div>
     </div>
     `;
@@ -32960,6 +33098,34 @@ function tpAssignSchedule(items, workDays, opts) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
+/**
+ * [v24] Mover un peso reparte la diferencia entre los otros cuatro, en proporción a lo
+ * que ya pesaban (en pasos de 5), para que el total SIEMPRE sea 100. Antes había que
+ * cuadrar cinco deslizadores a mano y la tarjeta decía "— ajustar".
+ * Pura respecto al DOM; devuelve el objeto de pesos nuevo.
+ */
+var TP_WEIGHT_KEYS = ['compliance', 'volume', 'region', 'newConfig', 'urgency'];
+function tpWeightsRebalance(weights, key, value) {
+    var w = {};
+    TP_WEIGHT_KEYS.forEach(function(k) { w[k] = Math.max(0, +weights[k] || 0); });
+    value = Math.max(0, Math.min(100, Math.round((+value || 0) / 5) * 5));
+    w[key] = value;
+    var others = TP_WEIGHT_KEYS.filter(function(k) { return k !== key; });
+    var rest = 100 - value;
+    var base = others.reduce(function(a, k) { return a + w[k]; }, 0);
+    others.forEach(function(k) { w[k] = base > 0 ? Math.floor((w[k] / base) * rest / 5) * 5 : Math.floor(rest / others.length / 5) * 5; });
+    // Lo que sobra por redondear va al que más pesa (o al primero).
+    var diff = 100 - TP_WEIGHT_KEYS.reduce(function(a, k) { return a + w[k]; }, 0);
+    if (diff !== 0) {
+        var target = others.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
+        w[target] = Math.max(0, w[target] + diff);
+    }
+    return w;
+}
+function tpSetWeightBalanced(key, value) {
+    tpState.weights = Object.assign({}, tpState.weights || {}, tpWeightsRebalance(tpState.weights || {}, key, value));
+}
+
 function _tpSliderHTML(o) {
     return '<div style="margin-bottom: var(--space-md);">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom: var(--space-2xs);">' +
@@ -33096,16 +33262,16 @@ function tpBuildPriorityKnobsHTML(opts) {
     var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Al mover uno, los demás se reparten solos para que siempre sumen 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
             bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-                set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+                set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
         });
     bWeights += '<details style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top: var(--space-sm);">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
         bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-            set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+            set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
     });
     bWeights += '</div></details>';
 
@@ -35701,14 +35867,18 @@ function tpRenderRecovery(el) {
         html += '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
         html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
-        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
+        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" inputmode="numeric" style="width:4rem;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">días: ' + w.attendDays + ' · capacidad: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong>/sem</span>';
-        html += '</div><div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
+        // [v24] Los 7 días de cada semana van plegados: ~15 semanas × 7 casillas eran más de
+        // cien controles a la vista. El resumen dice qué días se trabajan.
+        var _diasOn = dayOrder.filter(function(d) { return w.workDays[d]; }).map(function(d) { return dayLabels[d]; }).join(' ');
+        html += '</div><details class="tp-rec-days" style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);padding: var(--space-2xs) 0;">Días: <b>' + (_diasOn || 'ninguno') + '</b> — cambiar</summary>' +
+                '<div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
         dayOrder.forEach(function(d) {
             var on = w.workDays[d];
             html += '<label style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
-        html += '</div>';
+        html += '</div></details>';
         // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
         if (w.available && typeof invMaintPlannedForWeek === 'function') {
             var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
@@ -44101,12 +44271,26 @@ function _pnRenderProjectDetail(el, p) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.blockedN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.blockedN + '</div><div class="tp-metric-label">Bloqueados</div></div>';
     html += '</div>';
 
+    // [v24] Dos vistas de trabajo a la vista (Tabla, Kanban) y las cuatro de análisis
+    // detrás de UNA opción: seis pestañas del mismo peso eran demasiadas decisiones en un
+    // teléfono. Dentro de Análisis se recuerda la última vista usada.
+    var _anal = [['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['timeline', '🕒 Línea de tiempo'], ['workload', '👥 Carga']];
+    var _isAnal = _anal.some(function(v) { return v[0] === view; });
+    if (_isAnal) window._pnProjLastAnal = view;
+    var _goAnal = window._pnProjLastAnal || 'gantt';
     html += '<div class="pn-proj-viewtabs">';
-    [['table', '📋 Tabla'], ['kanban', '📌 Kanban'], ['timeline', '🕒 Línea de tiempo'],
-     ['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['workload', '👥 Carga']].forEach(function(v) {
+    [['table', '📋 Tabla'], ['kanban', '📌 Kanban']].forEach(function(v) {
         html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
     });
+    html += '<button class="pn-proj-viewtab' + (_isAnal ? ' active' : '') + '" onclick="window._pnProjectView=\'' + _goAnal + '\';_pnProjNav();">📈 Análisis</button>';
     html += '</div>';
+    if (_isAnal) {
+        html += '<div class="pn-proj-viewtabs pn-proj-viewtabs--sub">';
+        _anal.forEach(function(v) {
+            html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
+        });
+        html += '</div>';
+    }
 
     // v22.5 — "Solo míos" (uiPref('onlyMine'), el MISMO de HOY, así que el filtro
     // viaja entre pantallas). Se ofrece solo en Tabla y Kanban: en las vistas
@@ -50791,7 +50975,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609230106' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609230120' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -54089,61 +54273,20 @@ function copBuildValidatorHTML() {
             copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')' +
             (_famReg ? ' · Norma de emisiones <b>' + _copEsc(_famReg) + '</b>' : '') + '</p>';
 
-    html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xl);align-items:flex-start;">';
-
-    // Reglamento
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Reglamento</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);">';
-    ['R154', 'R83'].forEach(function(r) {
-        var active = copState.regulation === r;
-        html += '<button onclick="copSetRegulation(\'' + r + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + r + '</button>';
-    });
-    html += '</div></div>';
-
-    // Tipo de combustible
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Tipo de Combustible</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
-    ['PI', 'CI', 'Híbrido PI', 'Híbrido CI'].forEach(function(f) {
-        var active = copState.fuelType === f;
-        html += '<button onclick="copSetFuel(\'' + f + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + f + '</button>';
-    });
-    html += '</div></div>';
-
-    // Contaminantes activos
-    html += '<div>';
-    html += '<p class="label-title" style="margin-bottom: var(--space-sm);">Contaminantes Activos</p>';
-    html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
-    limits.forEach(function(p) {
-        var active = !!copState.activePolls[p.id];
-        var label = p.label + (p.note ? ' <span style="font-size: var(--fs-xs);opacity:0.65;">(' + p.note + ')</span>' : '');
-        html += '<button onclick="copTogglePoll(\'' + p.id + '\')" class="btn btn-sm ' +
-                (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
-                '>' + label + '</button>';
-    });
-    html += '</div></div>';
-
-    html += '</div>'; // config row
-    html += '</div>'; // header card
 
     // ── Selección de familia (filtrable por región) ───────────────────────────
-    html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<div class="card-title" data-help="cop-family-help" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
+    // [v24] La FAMILIA va primero: es la entrada principal. Antes había que pasar por
+    // reglamento, combustible y contaminantes (que salen de la familia) antes de elegirla.
+    html += '<p class="label-title" data-help="cop-family-help" style="margin-bottom: var(--space-sm);font-weight:700;color:var(--text);">👪 Familia a evaluar</p>';
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
-    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
-    html += '<select aria-label="Región" data-chips onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
-    html += '<option value="">Todas</option>';
-    _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>'; });
-    html += '</select></div>';
+    if (_copRegs.length) html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
+    if (_copRegs.length) html += '<select aria-label="Región" data-chips onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    if (_copRegs.length) {
+        html += '<option value="">Todas</option>';
+        _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(uiLabel('region', r)) + '</option>'; });
+        html += '</select></div>';
+    }
     // v19.0: la lista sale del Panorama (unión de plan + vehículos ya probados). Antes
     // solo leía tpState.planData, así que una familia con ensayos pero sin plan
     // importado salía como "Familia (0)" aunque estuviera abierta y con datos en pantalla.
@@ -54160,13 +54303,62 @@ function copBuildValidatorHTML() {
     html += '</select></div>';
     html += '</div>';
     if (!_copFams.length) {
-        html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
+        html += '<p style="margin-top: var(--space-md);color:var(--warn-text);font-size: var(--fs-sm);font-weight:600;">No hay familias en el alcance CoP todavía. ' +
                 'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
                 '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
-    html += '</div>'; // family card
+    var _nPolls = Object.keys(copState.activePolls || {}).filter(function(k) { return copState.activePolls[k]; }).length;
+    var cfgHtml = '';
+    cfgHtml += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xl);align-items:flex-start;">';
+
+    // Reglamento
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Reglamento</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);">';
+    ['R154', 'R83'].forEach(function(r) {
+        var active = copState.regulation === r;
+        cfgHtml += '<button onclick="copSetRegulation(\'' + r + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + r + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    // Tipo de combustible
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Tipo de Combustible</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
+    ['PI', 'CI', 'Híbrido PI', 'Híbrido CI'].forEach(function(f) {
+        var active = copState.fuelType === f;
+        cfgHtml += '<button onclick="copSetFuel(\'' + f + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + f + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    // Contaminantes activos
+    cfgHtml += '<div>';
+    cfgHtml += '<p class="label-title" style="margin-bottom: var(--space-sm);">Contaminantes Activos</p>';
+    cfgHtml += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
+    limits.forEach(function(p) {
+        var active = !!copState.activePolls[p.id];
+        var label = p.label + (p.note ? ' <span style="font-size: var(--fs-xs);opacity:0.65;">(' + p.note + ')</span>' : '');
+        cfgHtml += '<button onclick="copTogglePoll(\'' + p.id + '\')" class="btn btn-sm ' +
+                (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') +
+                '>' + label + '</button>';
+    });
+    cfgHtml += '</div></div>';
+
+    cfgHtml += '</div>'; // config row
+    html += '<details class="cop-cfg-details" style="margin-top: var(--space-lg);">' +
+            '<summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--muted);padding: var(--space-xs) 0;">' +
+            '⚙️ Procedimiento <b>' + _copEsc(copState.regulation) + '</b> · Combustible <b>' + _copEsc(copState.fuelType) + '</b> · <b>' + _nPolls + '</b> contaminantes — <u>Cambiar</u></summary>' +
+            '<div style="padding-top: var(--space-md);">' + cfgHtml + '</div></details>';
+    html += '</div>'; // header card (familia + ajustes)
 
     // ── Tabla de datos de vehículos ───────────────────────────────────────────
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';

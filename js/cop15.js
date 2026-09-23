@@ -8510,25 +8510,36 @@ function v7TrackConfigUsage(configCode, config) {
         if (!ranking[configCode]) ranking[configCode] = { count: 0, config: config, label: configCode };
         ranking[configCode].count++;
         ranking[configCode].config = config;
+        ranking[configCode].lastUsed = Date.now();
         localStorage.setItem('kia_config_ranking', JSON.stringify(ranking));
     } catch(e) {}
 }
 
+/**
+ * [v24] UNA sola fila "Recientes" (máx. 4) en lugar de "Configuraciones frecuentes" +
+ * "Favoritos": los favoritos nunca se guardaban (nadie escribía kia_config_favorites) y
+ * salían del mismo ranking, así que la misma config aparecía dos veces. Se ordena por uso
+ * reciente y luego por frecuencia, y se lee como Modelo · Año · Motor · Región en vez del
+ * código cortado a 35 caracteres.
+ */
 function v7RenderSmartConfigs() {
     var container = document.getElementById('v7-smart-configs');
     if (!container) return;
     try {
         var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
         var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-            .sort(function(a, b) { return b.count - a.count; });
+            .filter(function(it) { return it && it.label && allConfigurations.some(function(c) { return c.codigo_config_text === it.label; }); })
+            .sort(function(a, b) { return ((b.lastUsed || 0) - (a.lastUsed || 0)) || (b.count - a.count); });
         if (sorted.length === 0) { container.style.display = 'none'; return; }
         container.style.display = 'block';
-        var html = '<div class="v7-smart-configs-title">Configuraciones frecuentes:</div><div class="v7-smart-configs-list">';
-        sorted.slice(0, 5).forEach(function(item) {
-            var label = item.label;
-            if (label.length > 35) label = label.substring(0, 35) + '...';
-            html += '<button type="button" class="v7-config-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
-                label + ' <span class="v7-config-count">(' + item.count + ')</span></button>';
+        var html = '<div class="v7-smart-configs-title">Recientes</div><div class="v7-smart-configs-list">';
+        sorted.slice(0, 4).forEach(function(item) {
+            var c = allConfigurations.find(function(x) { return x.codigo_config_text === item.label; }) || item.config || {};
+            var partes = [c['Modelo'], c['MODEL YEAR (VIN)'], c['ENGINE CAPACITY'], (typeof uiLabel === 'function' ? uiLabel('region', c['REGION']) : c['REGION'])]
+                .filter(function(x) { return x != null && String(x).trim() !== ''; });
+            var legible = partes.length ? partes.join(' · ') : item.label;
+            html += '<button type="button" class="v7-config-chip" title="' + _escapeHtml(item.label) + '" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
+                _escapeHtml(legible) + ' <span class="v7-config-count">×' + item.count + '</span></button>';
         });
         html += '</div>';
         container.innerHTML = html;
@@ -8546,33 +8557,6 @@ function v7ApplySmartConfig(configCode) {
     // los selects ocultos pero no `cascadeSelections` ni el árbol: la migaja y el árbol
     // seguían en el estado viejo mientras el resultado mostraba la config nueva.
     cascadePickConfig(match);
-}
-
-function v7RenderFavorites() {
-    var container = document.getElementById('v7-favorites');
-    if (!container) return;
-    try {
-        var favs = JSON.parse(localStorage.getItem('kia_config_favorites') || '[]');
-        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
-        // Auto-detect favorites from ranking (top 3 with 3+ uses)
-        if (favs.length === 0) {
-            var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
-                .filter(function(item) { return item.count >= 3; })
-                .sort(function(a, b) { return b.count - a.count; });
-            favs = sorted.slice(0, 3).map(function(item) { return item.label; });
-        }
-        if (favs.length === 0) { container.style.display = 'none'; return; }
-        container.style.display = 'block';
-        var html = '<div class="v7-favorites-title">Favoritos</div><div class="v7-favorites-list">';
-        favs.forEach(function(code) {
-            var count = ranking[code] ? ranking[code].count : 0;
-            var label = code.length > 40 ? code.substring(0, 40) + '...' : code;
-            html += '<button type="button" class="v7-fav-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(code) + '\')">' +
-                '⭐ ' + label + (count ? ' (' + count + ' usos)' : '') + '</button>';
-        });
-        html += '</div>';
-        container.innerHTML = html;
-    } catch(e) {}
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -8772,7 +8756,6 @@ function v7BatchRelease() {
             if (tabName === 'alta') {
                 v7RenderQuickPicks();
                 v7RenderSmartConfigs();
-                v7RenderFavorites();
             }
             if (tabName === 'seguimiento') {
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();

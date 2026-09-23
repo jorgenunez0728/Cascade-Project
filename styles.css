@@ -2107,6 +2107,8 @@ body{ overflow-x: hidden; }
        y el campo se queda con el ancho que sobre. */
     .ui-bar { padding: var(--space-sm) var(--space-md); }
     .ui-bar-label, .ui-bar-kbd { display: none; }
+    /* [v24] Sin etiquetas, 🧭 y 🔍 eran dos botones para lo mismo: queda la búsqueda. */
+    .ui-bar-btn--go { display: none; }
     .ui-bar-btn { padding: var(--space-sm); min-width: var(--target-min); justify-content: center; }
     .ui-bar-ph { font-size: var(--fs-xs); }
 }
@@ -5250,3 +5252,19 @@ body.cop-present .cop-toolbar    { display: none; }
   table.u-cards.u-cards-grid td:first-child { grid-column: 1 / -1; font-weight: 700; }
   table.u-cards.u-cards-grid td:last-child:not(:first-child):nth-child(even) { grid-column: 1 / -1; }
 }
+
+/* [v24] Pestañas por grupos: una fila de 3–4 grupos y debajo solo las del grupo abierto. */
+.ui-tabgroups { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-sm); padding: var(--space-2xs); background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.ui-tabgroup { flex: 1 1 auto; min-height: var(--target-min, 44px); padding: var(--space-xs) var(--space-md); border: none; border-radius: var(--radius-md); background: transparent; color: var(--muted); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.ui-tabgroup:hover { color: var(--text); }
+.ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
+.tp-tab.ui-tg-hidden { display: none !important; }
+@media (max-width: 480px) {
+  .ui-tabgroup { flex: 1 0 auto; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); }
+}
+/* [v24] Un − / + dentro de una celda de tabla: el número no puede encogerse a nada. */
+td .ui-num-row > input { min-width: 5rem; }
+
+/* [v24] Sub-vistas de "Análisis" de un proyecto: más discretas que las principales. */
+.pn-proj-viewtabs--sub { margin-top: var(--space-xs); }
+.pn-proj-viewtabs--sub .pn-proj-viewtab { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); }

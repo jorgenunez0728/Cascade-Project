@@ -285,11 +285,20 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '23.5';
+var APP_VERSION = '24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.0', date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
+      notes: [
+          'Las pestañas de Plan, Consumibles y Datos se agrupan en 3–4 secciones; se ven solo las de la sección abierta y cada una recuerda la última que usaste.',
+          'Botones de un toque en ~25 listas (estado del cilindro, región, categoría, propósito…) y − / + en capacidades, ratios y horas.',
+          'Borrar pregunta qué se borra y ofrece «Deshacer» unos segundos. El «Deshacer» nunca había funcionado en ningún aviso de la app.',
+          'Reglas en tarjetas plegables; los pesos se reparten solos para sumar 100. CoP: primero la familia. Alta: una sola fila de «Recientes».',
+          'En teléfono, las tablas anchas se leen como tarjetas; la captura de lecturas deja el Guardar siempre abajo.',
+          'Textos: acentos, sin inglés ni MAYÚSCULAS, y errores que dicen qué hacer.'
+      ] },
     { v: '23.5', date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
       notes: [
           'Corregido (#131): la fecha/hora de recepción, el operador de recepción y las notas se guardaban pero nunca se cargaban — al reabrir salían vacíos y el siguiente guardado los borraba.',
@@ -1131,6 +1140,7 @@ function themeInit() {
 // ======================================================================
 var UI_PREFS_KEY = 'kia_ui_prefs';
 var UI_PREFS_DEFAULTS = {
+    tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
@@ -4896,6 +4906,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { uiNumEnhance(document); } catch(numErr) { console.error('uiNumEnhance error:', numErr); }
         // [v24] Y todo lo que se pinte después (renders, repintados parciales, modales).
         try { uiEnhanceObserve(); } catch(obsErr) { console.error('uiEnhanceObserve error:', obsErr); }
+        // [v24] Pestañas por grupos en Plan, Consumibles y Datos.
+        ['tp', 'inv', 'pn'].forEach(function(m) { try { uiTabGroupsInit(m); } catch (tgErr) { console.error('uiTabGroupsInit ' + m + ':', tgErr); } });
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
@@ -5295,6 +5307,131 @@ function uiEnhance(root) {
     try { uiChipsEnhance(root); } catch (e) { console.warn('uiChipsEnhance:', e); }
     try { uiNumEnhance(root); } catch (e) { console.warn('uiNumEnhance:', e); }
     try { uiTableCards(root); } catch (e) { console.warn('uiTableCards:', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24] PESTAÑAS POR GRUPOS (Ley de Hick)
+//
+// Datos tenía 16 destinos (4 a la vista + 12 bajo "⋯ Más"), Consumibles 12 y Plan 10.
+// Ahora cada barra muestra 3–4 GRUPOS y, debajo, solo las pestañas del grupo abierto.
+// Nada se borra ni cambia de id: los botones son los mismos (mismo onclick, mismo
+// id de pestaña), solo se ocultan los de los otros grupos. Por eso siguen funcionando
+// `xxSwitchTab`, los enlaces profundos (`dashGo`) y el lanzador (`uiNavRegistry` lee los
+// botones sin mirar si están visibles). Cada grupo recuerda su última pestaña.
+// ══════════════════════════════════════════════════════════════════════
+var UI_TAB_GROUPS = {
+    tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
+          groups: [
+            { id: 'semana', label: '📅 Semana', tabs: ['tp-myweek', 'tp-calendar', 'tp-weekhistory'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
+    inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
+          groups: [
+            { id: 'diario', label: '📏 Día a día', tabs: ['inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
+            { id: 'equipos', label: '🔧 Equipos', tabs: ['inv-equipment', 'inv-maint'] },
+            { id: 'analisis', label: '📈 Análisis', tabs: ['inv-predict', 'inv-charts', 'inv-report', 'inv-trace'] },
+            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-zonemap', 'inv-config'] } ] },
+    pn: { bar: 'pn-tabs-bar', sw: 'pnSwitchTab', state: function() { return typeof pnState !== 'undefined' && pnState.activeTab; },
+          groups: [
+            { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
+            { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+};
+// Etiquetas en español claro (solo botones sin insignias adentro).
+var UI_TAB_RELABEL = {
+    'tp-dashboard': '📊 Cobertura', 'tp-weekhistory': '📋 Semanas pasadas',
+    'inv-dashboard': '📊 Resumen', 'inv-maint': '🛠️ Mantenimiento', 'inv-charts': '📈 Gráficas', 'inv-config': '⚙️ Tipos y zonas',
+    'pn-dashboard': '📊 Resumen', 'pn-turnaround': '⏱ Tiempos', 'pn-bugs': '🐞 Fallas reportadas'
+};
+
+function _uiTabIdOf(btn) {
+    var m = /SwitchTab\('([^']+)'\)/.exec(btn.getAttribute('onclick') || '');
+    return m ? m[1] : null;
+}
+
+function uiTabGroupsInit(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || bar.getAttribute('data-grouped')) return;
+    var btns = [].slice.call(bar.querySelectorAll('.tp-tab')).filter(function(b) { return _uiTabIdOf(b); });
+    var byId = {};
+    btns.forEach(function(b) {
+        // Los del menú "⋯ Más" traían `this.closest('.tp-tab-more-wrap')…` en el onclick;
+        // sin el menú, closest() da null y el clic truena.
+        b.setAttribute('onclick', b.getAttribute('onclick').replace(/;?\s*this\.closest\('\.tp-tab-more-wrap'\)\.classList\.remove\('open'\)/, ''));
+        var id = _uiTabIdOf(b);
+        if (UI_TAB_RELABEL[id] && !b.children.length) b.textContent = UI_TAB_RELABEL[id];
+        byId[id] = b;
+    });
+    var more = bar.querySelector('.tp-tab-more-wrap'); if (more) more.remove();
+    var assigned = {};
+    cfg.groups.forEach(function(g) {
+        g.tabs.forEach(function(t) { if (byId[t]) { byId[t].setAttribute('data-tabgroup', g.id); bar.appendChild(byId[t]); assigned[t] = 1; } });
+    });
+    var last = cfg.groups[cfg.groups.length - 1];
+    btns.forEach(function(b) { var id = _uiTabIdOf(b); if (!assigned[id]) { b.setAttribute('data-tabgroup', last.id); bar.appendChild(b); } });
+
+    var row = document.createElement('div');
+    row.className = 'ui-tabgroups';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Secciones');
+    cfg.groups.forEach(function(g) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ui-tabgroup';
+        b.setAttribute('data-group', g.id);
+        b.textContent = g.label;
+        b.addEventListener('click', function() { uiTabGroupsGo(mod, g.id); });
+        row.appendChild(b);
+    });
+    bar.parentNode.insertBefore(row, bar);
+    bar.setAttribute('data-grouped', '1');
+
+    // Mantener el grupo al día sin importar quién cambie de pestaña (un clic, dashGo,
+    // un render que restaura la pestaña guardada).
+    var fn = window[cfg.sw];
+    if (typeof fn === 'function' && !fn._grouped) {
+        var wrapped = function() { var r = fn.apply(this, arguments); try { uiTabGroupsSync(mod); } catch (e) {} return r; };
+        wrapped._grouped = true;
+        window[cfg.sw] = wrapped;
+    }
+    uiTabGroupsSync(mod);
+}
+
+function _uiTabGroupOf(mod, tab) {
+    var cfg = UI_TAB_GROUPS[mod];
+    for (var i = 0; i < cfg.groups.length; i++) if (cfg.groups[i].tabs.indexOf(tab) !== -1) return cfg.groups[i];
+    return cfg.groups[cfg.groups.length - 1];
+}
+
+function uiTabGroupsSync(mod) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar);
+    if (!bar || !bar.getAttribute('data-grouped')) return;
+    var tab = cfg.state() || cfg.groups[0].tabs[0];
+    var g = _uiTabGroupOf(mod, tab);
+    [].forEach.call(bar.querySelectorAll('.tp-tab[data-tabgroup]'), function(b) {
+        b.classList.toggle('ui-tg-hidden', b.getAttribute('data-tabgroup') !== g.id);
+    });
+    var row = bar.previousElementSibling;
+    if (row && row.classList.contains('ui-tabgroups')) {
+        [].forEach.call(row.children, function(b) {
+            var on = b.getAttribute('data-group') === g.id;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+    var mem = Object.assign({}, uiPref('tabGroups') || {});
+    mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
+    uiPref('tabGroups', mem);
+}
+
+function uiTabGroupsGo(mod, groupId) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var g = cfg.groups.filter(function(x) { return x.id === groupId; })[0]; if (!g) return;
+    var mem = (uiPref('tabGroups') || {})[mod] || {};
+    var tab = mem[groupId] && g.tabs.indexOf(mem[groupId]) !== -1 ? mem[groupId] : g.tabs[0];
+    if (typeof window[cfg.sw] === 'function') window[cfg.sw](tab);
 }
 
 /**
@@ -5836,9 +5973,10 @@ document.addEventListener('keydown', function(e) {
         var nc = document.getElementById('notification-center');
         if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
     }
-    // Ctrl+1-4: Switch platform (4 root tabs)
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
-        var platforms = ['plan', 'pruebas', 'datos', 'today'];
+    // Ctrl+1-5: las 5 plataformas EN EL ORDEN EN QUE SE VEN (v24: antes era
+    // plan/pruebas/datos/hoy — otro orden que el de la barra — y CoP no tenía atajo).
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+        var platforms = ['today', 'plan', 'pruebas', 'datos', 'cop'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
     }
     // Ctrl+Z: Undo

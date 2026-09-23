@@ -159,6 +159,39 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
         });
         chk('B4: borrar una regla de ratio pregunta (y cancelar no borra)', rule.asked && rule.same, JSON.stringify(rule));
 
+        // ── Bloque 3: pestañas por grupos ──
+        const tg = await page.evaluate(async () => {
+            switchPlatform('panel'); pnSwitchTab('pn-audit');
+            await new Promise(r => setTimeout(r, 300));
+            const vis = [...document.querySelectorAll('#pn-tabs-bar .tp-tab')].filter(b => b.offsetParent).map(b => b.textContent.trim());
+            const row = document.getElementById('pn-tabs-bar').previousElementSibling;
+            const grp = (row.querySelector('.ui-tabgroup.active') || {}).textContent;
+            const total = document.querySelectorAll('#pn-tabs-bar .tp-tab').length;
+            const more = document.querySelectorAll('#pn-tabs-bar .tp-tab-more-wrap').length;
+            // Cambiar de grupo lleva a su primera pestaña (o la última usada).
+            [...row.querySelectorAll('.ui-tabgroup')].find(b => /Operación/.test(b.textContent)).click();
+            await new Promise(r => setTimeout(r, 300));
+            const tabOp = pnState.activeTab;
+            // Y volver recuerda la última del grupo.
+            [...row.querySelectorAll('.ui-tabgroup')].find(b => /Configuración/.test(b.textContent)).click();
+            await new Promise(r => setTimeout(r, 300));
+            return { vis, grp, total, more, tabOp, back: pnState.activeTab,
+                     launcher: typeof uiNavRegistry === 'function' ? uiNavRegistry().filter(d => /Auditor/i.test(d.label || d.title || '')).length : 1 };
+        });
+        chk('B3: Datos muestra solo las pestañas del grupo abierto (Configuración)', tg.grp && /Configuración/.test(tg.grp) && tg.vis.length <= 7 && tg.vis.some(t => /Auditor/.test(t)), JSON.stringify(tg));
+        chk('B3: ninguna pestaña se perdió (16) y ya no hay menú "Más"', tg.total === 16 && tg.more === 0, JSON.stringify(tg));
+        chk('B3: tocar un grupo abre su primera pestaña y al volver recuerda la última', tg.tabOp === 'pn-dashboard' && tg.back === 'pn-audit', JSON.stringify(tg));
+        chk('B3: el lanzador sigue encontrando pestañas ocultas por grupo', tg.launcher >= 1, JSON.stringify(tg));
+
+        const w = await page.evaluate(async () => {
+            switchPlatform('testplan'); tpSwitchTab('tp-rules');
+            await new Promise(r => setTimeout(r, 300));
+            tpSetWeightBalanced('compliance', 60);
+            const W = tpState.weights;
+            return ['compliance', 'volume', 'region', 'newConfig', 'urgency'].reduce((a, k) => a + (+W[k] || 0), 0);
+        });
+        chk('B3: mover un peso deja el total en 100', w === 100, String(w));
+
         chk('computadora: sin diálogos nativos', await page.evaluate(() => window._nativeDialogs) === 0);
         chk('computadora: sin errores de página', errs.length === 0, errs.join(' | '));
         await page.close();

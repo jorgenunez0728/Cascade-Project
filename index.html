@@ -70,7 +70,7 @@
         <span id="pn-alerts-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" class="pt-badge">ok</span>
     </button>
     <button type="button" class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" role="tab" aria-selected="false" tabindex="-1" aria-controls="platform-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
-        📋 CoP
+        📐 CoP
     </button>
     <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
          La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
@@ -116,7 +116,7 @@
      campo real vive dentro del overlay, y duplicarlo obligaría a sincronizar dos
      estados de texto para nada. ══════════════════════════════════════════════ -->
 <div class="ui-bar" id="uiActionBar" role="toolbar" aria-label="Acciones rápidas">
-    <button type="button" class="ui-bar-btn" onclick="openCommandPalette('launcher')"
+    <button type="button" class="ui-bar-btn ui-bar-btn--go" onclick="openCommandPalette('launcher')"
             title="Ir a cualquier pantalla (Ctrl+K)" aria-label="Ir a cualquier pantalla">
         <span class="ui-bar-ico" aria-hidden="true">🧭</span><span class="ui-bar-label">Ir a…</span>
     </button>
@@ -217,7 +217,6 @@
             <!-- [V7-E2] Smart Config Suggestion -->
             <div id="v7-smart-configs" style="display:none;"></div>
             <!-- [V7-E3] Favorites -->
-            <div id="v7-favorites" style="display:none;"></div>
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
@@ -1208,7 +1207,7 @@
             <div style="display:flex;align-items:center;gap:10px;">
                 <div>
                     <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Dashboard, operadores, bitácora, alertas y regulaciones</p>
+                    <p style="margin:4px 0 0;font-size: var(--fs-sm);color:var(--muted);">Resumen, operadores, bitácora, alertas y regulaciones</p>
                 </div>
             </div>
         </div>
@@ -2120,7 +2119,7 @@
         <span>Datos</span>
     </button>
     <button type="button" class="bottom-nav-item" onclick="switchPlatform('cop')" id="bnav-cop">
-        <span class="bnav-icon" aria-hidden="true">📋</span>
+        <span class="bnav-icon" aria-hidden="true">📐</span>
         <span>CoP</span>
     </button>
 </nav>

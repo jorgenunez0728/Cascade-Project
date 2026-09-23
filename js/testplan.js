@@ -2784,11 +2784,10 @@ function tpRenderRules(el) {
     // cobertura. Ver `tpTestedCountsForReq` (testplan.js) — LA definición.
     const _rq = tpReqPurposes();
     const _rqNo = tpNoReqBreakdown();
-    const _rqHTML = `
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-reqpurpose-help">
-                <span>🏷 Qué acredita el REQ de emisiones</span>
-            </div>
+    // [v24] Las cuatro tarjetas de Reglas son uiCard plegables con su dato clave en el
+    // encabezado: era la pantalla con más controles de la app (>110), todo abierto a la vez.
+    const _rqOn = TP_PURPOSES_VALID.filter(function(pp) { return _rq[pp] !== false; }).length;
+    const _rqBody = `
             <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
                 Una prueba de <strong>OBD II no es una prueba de emisiones</strong>: se hace, se
                 registra y se ve en el historial, pero no baja el déficit ni sube la cobertura.
@@ -2805,7 +2804,7 @@ function tpRenderRules(el) {
                          + 'border-radius:var(--radius-lg);background:' + (on ? 'var(--surface)' : 'var(--warn-bg)') + ';">'
                          + '<input type="checkbox" ' + (on ? 'checked' : '')
                          + ' onchange="tpSetReqPurpose(\'' + pp + '\', this.checked)">'
-                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + pp + '</span>'
+                         + '<span style="font-size:var(--fs-sm);color:var(--tp-text);font-weight:700;">' + uiLabel('purpose', pp) + '</span>'
                          + (n ? '<span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--tp-dim);">'
                                 + n + ' fuera</span>' : '')
                          + '</label>';
@@ -2813,29 +2812,24 @@ function tpRenderRules(el) {
             </div>
             ${_rqNo.total ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
                 Hoy quedan <strong>${_rqNo.total}</strong> pruebas registradas fuera del REQ.
-            </p>` : ''}
-        </div>`;
+            </p>` : ''}`;
+    const _rqHTML = uiCard({ id: 'tp-rules-req', icon: '🏷', title: 'Qué acredita el REQ de emisiones', accent: 'testplan',
+        help: 'tp-reqpurpose-help', body: _rqBody, defaultOpen: false,
+        count: { label: _rqOn + ' de ' + TP_PURPOSES_VALID.length + ' cuentan' } });
 
-    el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
-        ${_rqHTML}
-        <div class="tp-card">
-            <div class="tp-card-title" data-help="tp-ratio-help">
-                <span>⚙️ Reglas de Ratio</span>
-                <div style="display:flex;gap: var(--space-sm);">
+    const _ratioActions = `<div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
                     <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
-                </div>
-            </div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
-            <div style="max-height:380px;overflow-y:auto;">
+                </div>`;
+    const _ratioBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
+            <div>
                 <table class="u-cards tp-table">
                     <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Nombre</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
-                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${o==='*'?'TODAS':o}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
+                                <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="1" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
@@ -2854,12 +2848,8 @@ function tpRenderRules(el) {
                     ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
                 </div>
             </details>` : ''}
-        </div>
-        <div>
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
+        `;
+    const _spBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-sm);">
                         <span style="font-size: var(--fs-sm);font-weight:600;">${label}</span>
@@ -2868,13 +2858,9 @@ function tpRenderRules(el) {
                         </select>
                     </div>
                 `).join('')}
-            </div>
-            <div class="tp-card" style="margin-top: var(--space-lg);">
-                <div class="tp-card-title">
-                    <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
-                    <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>
-                </div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+            `;
+    const _prActions = `<button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size: var(--fs-sm);">+ Guardar Actual</button>`;
+    const _prBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Guarda hasta 5 combinaciones de reglas+pesos para cargar rápidamente.</p>
                 ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);font-size: var(--fs-sm);">No hay plantillas guardadas.</div>' :
                 (tpState.rulePresets||[]).map((p,i) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm);margin-bottom: var(--space-xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);">
@@ -2888,7 +2874,21 @@ function tpRenderRules(el) {
                         </div>
                     </div>
                 `).join('')}
-            </div>
+            `;
+
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_rqHTML}
+        ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
+            count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' sin regla propia' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
+            actions: _ratioActions, body: _ratioBody })}
+        <div>
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
+            ${uiCard({ id: 'tp-rules-startpurpose', icon: '🎯', title: 'Propósito al iniciar prueba desde el plan', accent: 'testplan',
+                help: 'tp-purpose-region-help', defaultOpen: false, body: _spBody,
+                count: { label: 'Europa: ' + uiLabel('purpose', (tpState.startPurposeByRegion || {}).EUROPE || 'COP-Emisiones') } })}
+            ${uiCard({ id: 'tp-rules-presets', icon: '💾', title: 'Plantillas de reglas', accent: 'testplan', defaultOpen: false,
+                count: { label: (tpState.rulePresets || []).length + ' de 5' }, actions: _prActions, body: _prBody })}
         </div>
     </div>
     `;
@@ -3428,6 +3428,34 @@ function tpAssignSchedule(items, workDays, opts) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
+/**
+ * [v24] Mover un peso reparte la diferencia entre los otros cuatro, en proporción a lo
+ * que ya pesaban (en pasos de 5), para que el total SIEMPRE sea 100. Antes había que
+ * cuadrar cinco deslizadores a mano y la tarjeta decía "— ajustar".
+ * Pura respecto al DOM; devuelve el objeto de pesos nuevo.
+ */
+var TP_WEIGHT_KEYS = ['compliance', 'volume', 'region', 'newConfig', 'urgency'];
+function tpWeightsRebalance(weights, key, value) {
+    var w = {};
+    TP_WEIGHT_KEYS.forEach(function(k) { w[k] = Math.max(0, +weights[k] || 0); });
+    value = Math.max(0, Math.min(100, Math.round((+value || 0) / 5) * 5));
+    w[key] = value;
+    var others = TP_WEIGHT_KEYS.filter(function(k) { return k !== key; });
+    var rest = 100 - value;
+    var base = others.reduce(function(a, k) { return a + w[k]; }, 0);
+    others.forEach(function(k) { w[k] = base > 0 ? Math.floor((w[k] / base) * rest / 5) * 5 : Math.floor(rest / others.length / 5) * 5; });
+    // Lo que sobra por redondear va al que más pesa (o al primero).
+    var diff = 100 - TP_WEIGHT_KEYS.reduce(function(a, k) { return a + w[k]; }, 0);
+    if (diff !== 0) {
+        var target = others.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
+        w[target] = Math.max(0, w[target] + diff);
+    }
+    return w;
+}
+function tpSetWeightBalanced(key, value) {
+    tpState.weights = Object.assign({}, tpState.weights || {}, tpWeightsRebalance(tpState.weights || {}, key, value));
+}
+
 function _tpSliderHTML(o) {
     return '<div style="margin-bottom: var(--space-md);">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom: var(--space-2xs);">' +
@@ -3564,16 +3592,16 @@ function tpBuildPriorityKnobsHTML(opts) {
     var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Al mover uno, los demás se reparten solos para que siempre sumen 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
             bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-                set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+                set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
         });
     bWeights += '<details style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top: var(--space-sm);">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
         bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-            set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+            set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
     });
     bWeights += '</div></details>';
 
@@ -6169,14 +6197,18 @@ function tpRenderRecovery(el) {
         html += '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">';
         html += '<div style="font-size: var(--fs-sm);font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
         html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
-        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
+        html += '<label style="font-size: var(--fs-xs);color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" inputmode="numeric" style="width:4rem;background:var(--tp-card);border:1px solid var(--tp-border);border-radius: var(--radius-md);color:var(--tp-text);padding: var(--space-2xs) var(--space-xs);"></label>';
         html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">días: ' + w.attendDays + ' · capacidad: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong>/sem</span>';
-        html += '</div><div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
+        // [v24] Los 7 días de cada semana van plegados: ~15 semanas × 7 casillas eran más de
+        // cien controles a la vista. El resumen dice qué días se trabajan.
+        var _diasOn = dayOrder.filter(function(d) { return w.workDays[d]; }).map(function(d) { return dayLabels[d]; }).join(' ');
+        html += '</div><details class="tp-rec-days" style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);padding: var(--space-2xs) 0;">Días: <b>' + (_diasOn || 'ninguno') + '</b> — cambiar</summary>' +
+                '<div style="display:flex;gap: var(--space-xs);margin-top: var(--space-sm);flex-wrap:wrap;">';
         dayOrder.forEach(function(d) {
             var on = w.workDays[d];
             html += '<label style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
-        html += '</div>';
+        html += '</div></details>';
         // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
         if (w.available && typeof invMaintPlannedForWeek === 'function') {
             var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
