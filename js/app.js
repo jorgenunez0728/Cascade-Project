@@ -3724,7 +3724,9 @@ function dashCollectActivities() {
 }
 
 function dashRenderRow(a) {
-    var h = '<div class="dash-row dash-row--' + a.status + '">';
+    // v24.3: .dash-row es el contenedor (container query) y el grid vive en
+    // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
+    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -3768,7 +3770,7 @@ function dashRenderRow(a) {
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
-    h += '</div></div>';
+    h += '</div></div></div>';
     return h;
 }
 
@@ -6508,7 +6510,7 @@ var TOURS = {
     today: [
         { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
         { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
         { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
     ],
     testplan: [

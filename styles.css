@@ -3771,34 +3771,28 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 }
 .dash-board-title { font-size: var(--fs-base); font-weight: 800; color: var(--text); }
 .dash-board-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); color: var(--muted); cursor: pointer; user-select: none; }
-.dash-group {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
-    margin-bottom: var(--space-sm); overflow: hidden;
-}
-.dash-group--vehiculos  { border-left: 4px solid var(--accent-cascade); }
-.dash-group--plan       { border-left: 4px solid var(--accent-testplan); }
-.dash-group--inventario { border-left: 4px solid var(--accent-inventory); }
-.dash-group--calidad    { border-left: 4px solid var(--accent-cop); }
-.dash-group--manuales   { border-left: 4px solid var(--accent-panel); }
-.dash-group > summary {
-    display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md);
-    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: var(--fs-sm);
-    background: var(--surface-alt); min-height: var(--target-abs);
-}
-.dash-group > summary::-webkit-details-marker { display: none; }
-.dash-group > summary::after { content: '▾'; margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
-.dash-group:not([open]) > summary::after { content: '▸'; }
-.dash-group-icon { font-size: var(--fs-base); }
-.dash-group-count { font-size: var(--fs-xs); font-weight: 700; color: var(--warn-text); background: var(--warn-bg); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); }
-.dash-group-count.ok { color: var(--ok-text); background: var(--ok-bg); }
+/* v24.3: la fila se acomoda según el ancho de SU CELDA, no el de la ventana.
+   Con `@media (min-width:640px)` la fila ponía las acciones a la derecha en cuanto
+   la ventana medía 640px, aunque la celda de la retícula (.dash-group-rows) midiera
+   460px: la columna de acciones es `auto` y todo en ella es `nowrap`, el stepper N/8
+   no envolvía y `.dash-row-main` no tenía `min-width:0`, así que la fila pedía más
+   ancho que su celda y se encimaba sobre la columna vecina (tarjetas de vehículos
+   de HOY a 1440–1500px). Ahora la fila es un contenedor y su grid vive en
+   `.dash-row-in`: angosta = acciones debajo del título; ≥560px = a la derecha.
+   Sin soporte de container queries queda el acomodo apilado, que es correcto. */
 .dash-row {
-    display: grid; grid-template-columns: auto 1fr; gap: var(--space-xs) var(--space-md);
-    align-items: center; padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--border);
+    container-type: inline-size; min-width: 0;
+    border-top: 1px solid var(--border);
 }
-.dash-row-side { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; padding-left: var(--space-2xl); }
-@media (min-width: 640px) {
-    .dash-row { grid-template-columns: auto 1fr auto; }
-    .dash-row-side { grid-column: auto; padding-left: 0; justify-content: flex-end; }
+.dash-row-in {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-xs) var(--space-md);
+    align-items: center; padding: var(--space-sm) var(--space-md);
+}
+.dash-row-main { min-width: 0; }
+.dash-row-side { grid-column: 2; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+@container (min-width: 560px) {
+    .dash-row-in { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .dash-row-side { grid-column: auto; justify-content: flex-end; max-width: 22rem; }
 }
 /* v16.5: en pantallas anchas, las actividades se acomodan en 2 columnas en vez de
    dejar el ancho sobrante vacío — cada fila conserva su propio grid interno.
@@ -3809,9 +3803,10 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    380px original y la tipografía de v22 el título de una fila envolvía a cuatro
    líneas a 1280px: se le había dado más letra sin darle más ancho, así que el
    modo cómodo se veía PEOR que el compacto justo donde debía verse mejor.
-   Más aire tiene que traer más ancho de columna, o no es más aire. */
+   Más aire tiene que traer más ancho de columna, o no es más aire.
+   v24.3: `min(…, 100%)` para que una columna nunca pida más que el contenedor. */
 @media (min-width: 1024px) {
-    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--dash-col-min), 1fr)); align-content: start; }
+    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--dash-col-min), 100%), 1fr)); align-content: start; }
     .dash-group-rows > .dash-row { border-left: 1px solid var(--border); }
 }
 .dash-row--hecho .dash-row-title { text-decoration: line-through; color: var(--muted); }
@@ -3822,7 +3817,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    mínimo WCAG 2.2 (24px), en la pantalla de arranque y en tablet. */
 .dash-check-wrap { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .dash-row-check { width: 20px; height: 20px; accent-color: var(--ok-fill); cursor: pointer; margin: 0; }
-.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
 .dash-row-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-2xs); }
 .dash-chip {
     font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl); white-space: nowrap;
@@ -3831,7 +3826,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-chip--encurso   { background: var(--info-bg); color: var(--info-text); }
 .dash-chip--hecho     { background: var(--ok-bg); color: var(--ok-text); }
 .dash-chip--atrasado  { background: var(--danger-bg); color: var(--danger-text); }
-.dash-stepper { display: flex; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
+.dash-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
 .dash-step { width: 16px; height: 5px; border-radius: var(--radius-md); background: var(--border); }
 .dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
 .dash-step.now { background: var(--accent-cascade); animation:dash-pulse 1.6s var(--ease-in-out) infinite; }

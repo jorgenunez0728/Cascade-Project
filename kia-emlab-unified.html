@@ -4212,34 +4212,28 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 }
 .dash-board-title { font-size: var(--fs-base); font-weight: 800; color: var(--text); }
 .dash-board-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); color: var(--muted); cursor: pointer; user-select: none; }
-.dash-group {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
-    margin-bottom: var(--space-sm); overflow: hidden;
-}
-.dash-group--vehiculos  { border-left: 4px solid var(--accent-cascade); }
-.dash-group--plan       { border-left: 4px solid var(--accent-testplan); }
-.dash-group--inventario { border-left: 4px solid var(--accent-inventory); }
-.dash-group--calidad    { border-left: 4px solid var(--accent-cop); }
-.dash-group--manuales   { border-left: 4px solid var(--accent-panel); }
-.dash-group > summary {
-    display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md);
-    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: var(--fs-sm);
-    background: var(--surface-alt); min-height: var(--target-abs);
-}
-.dash-group > summary::-webkit-details-marker { display: none; }
-.dash-group > summary::after { content: '▾'; margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
-.dash-group:not([open]) > summary::after { content: '▸'; }
-.dash-group-icon { font-size: var(--fs-base); }
-.dash-group-count { font-size: var(--fs-xs); font-weight: 700; color: var(--warn-text); background: var(--warn-bg); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); }
-.dash-group-count.ok { color: var(--ok-text); background: var(--ok-bg); }
+/* v24.3: la fila se acomoda según el ancho de SU CELDA, no el de la ventana.
+   Con `@media (min-width:640px)` la fila ponía las acciones a la derecha en cuanto
+   la ventana medía 640px, aunque la celda de la retícula (.dash-group-rows) midiera
+   460px: la columna de acciones es `auto` y todo en ella es `nowrap`, el stepper N/8
+   no envolvía y `.dash-row-main` no tenía `min-width:0`, así que la fila pedía más
+   ancho que su celda y se encimaba sobre la columna vecina (tarjetas de vehículos
+   de HOY a 1440–1500px). Ahora la fila es un contenedor y su grid vive en
+   `.dash-row-in`: angosta = acciones debajo del título; ≥560px = a la derecha.
+   Sin soporte de container queries queda el acomodo apilado, que es correcto. */
 .dash-row {
-    display: grid; grid-template-columns: auto 1fr; gap: var(--space-xs) var(--space-md);
-    align-items: center; padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--border);
+    container-type: inline-size; min-width: 0;
+    border-top: 1px solid var(--border);
 }
-.dash-row-side { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; padding-left: var(--space-2xl); }
-@media (min-width: 640px) {
-    .dash-row { grid-template-columns: auto 1fr auto; }
-    .dash-row-side { grid-column: auto; padding-left: 0; justify-content: flex-end; }
+.dash-row-in {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-xs) var(--space-md);
+    align-items: center; padding: var(--space-sm) var(--space-md);
+}
+.dash-row-main { min-width: 0; }
+.dash-row-side { grid-column: 2; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+@container (min-width: 560px) {
+    .dash-row-in { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .dash-row-side { grid-column: auto; justify-content: flex-end; max-width: 22rem; }
 }
 /* v16.5: en pantallas anchas, las actividades se acomodan en 2 columnas en vez de
    dejar el ancho sobrante vacío — cada fila conserva su propio grid interno.
@@ -4250,9 +4244,10 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    380px original y la tipografía de v22 el título de una fila envolvía a cuatro
    líneas a 1280px: se le había dado más letra sin darle más ancho, así que el
    modo cómodo se veía PEOR que el compacto justo donde debía verse mejor.
-   Más aire tiene que traer más ancho de columna, o no es más aire. */
+   Más aire tiene que traer más ancho de columna, o no es más aire.
+   v24.3: `min(…, 100%)` para que una columna nunca pida más que el contenedor. */
 @media (min-width: 1024px) {
-    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--dash-col-min), 1fr)); align-content: start; }
+    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--dash-col-min), 100%), 1fr)); align-content: start; }
     .dash-group-rows > .dash-row { border-left: 1px solid var(--border); }
 }
 .dash-row--hecho .dash-row-title { text-decoration: line-through; color: var(--muted); }
@@ -4263,7 +4258,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    mínimo WCAG 2.2 (24px), en la pantalla de arranque y en tablet. */
 .dash-check-wrap { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .dash-row-check { width: 20px; height: 20px; accent-color: var(--ok-fill); cursor: pointer; margin: 0; }
-.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
 .dash-row-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-2xs); }
 .dash-chip {
     font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl); white-space: nowrap;
@@ -4272,7 +4267,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-chip--encurso   { background: var(--info-bg); color: var(--info-text); }
 .dash-chip--hecho     { background: var(--ok-bg); color: var(--ok-text); }
 .dash-chip--atrasado  { background: var(--danger-bg); color: var(--danger-text); }
-.dash-stepper { display: flex; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
+.dash-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
 .dash-step { width: 16px; height: 5px; border-radius: var(--radius-md); background: var(--border); }
 .dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
 .dash-step.now { background: var(--accent-cascade); animation:dash-pulse 1.6s var(--ease-in-out) infinite; }
@@ -8084,7 +8079,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609231901';
+var APP_BUILD = '202609242010';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -8558,14 +8553,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609242010' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609242010' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8581,7 +8576,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609231901' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609242010' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11527,7 +11522,9 @@ function dashCollectActivities() {
 }
 
 function dashRenderRow(a) {
-    var h = '<div class="dash-row dash-row--' + a.status + '">';
+    // v24.3: .dash-row es el contenedor (container query) y el grid vive en
+    // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
+    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -11571,7 +11568,7 @@ function dashRenderRow(a) {
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
-    h += '</div></div>';
+    h += '</div></div></div>';
     return h;
 }
 
@@ -14311,7 +14308,7 @@ var TOURS = {
     today: [
         { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
         { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
         { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
     ],
     testplan: [
@@ -51109,7 +51106,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609231901' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609242010' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
