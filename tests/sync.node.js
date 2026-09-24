@@ -36,7 +36,7 @@ function extraer(nombre) {
 const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat };
 vm.createContext(ctx);
 ['_fbEquipKey', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
- '_fbPushDataScore', '_fbPullLocalScore']
+ '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem']
     .forEach(n => vm.runInContext(extraer(n), ctx, { filename: 'firebase-sync.js' }));
 
 let pasaron = 0, fallaron = 0;
@@ -187,6 +187,46 @@ console.log('\n== _fbPushDataScore vs _fbPullLocalScore ==');
 
     ok('el score de subir NO cuenta panel/cop/homolog (solo los tres nucleo)',
         ctx._fbPushDataScore('panel') === 0 && ctx._fbPushDataScore('cop') === 0);
+}
+
+// ── v24.3: cilindros y tanques ──────────────────────────────────────────────
+console.log('\n== v24.3: fusión de cilindros y tanques ==');
+{
+    // stableStringify vive en app.js; se trae con el mismo extractor.
+    const APP = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
+    const m = /\nfunction stableStringify\s*\(/.exec(APP);
+    let i = APP.indexOf('{', m.index), d = 0;
+    for (; i < APP.length; i++) { if (APP[i] === '{') d++; else if (APP[i] === '}') { d--; if (d === 0) break; } }
+    vm.runInContext(APP.slice(m.index + 1, i + 1), ctx, { filename: 'app.js' });
+
+    ok('_fbMergeReadings es de NIVEL SUPERIOR (fbMergeExecute la llama desde otra función)',
+        /\nfunction _fbMergeReadings\s*\(/.test(SRC));
+
+    const base = { controlNo: 'CH4-20', formula: 'CH4/Air', status: 'In use', readings: [{ date: '2026-09-14', psi: 1100 }] };
+    const remoto = Object.assign({}, base, { readings: base.readings.concat([{ date: '2026-09-21', psi: 1000 }]) });
+    ok('una lectura nueva en el otro equipo SÍ es diferencia (antes: currentPsi undefined === undefined)',
+        ctx._fbInvItemDiffers(base, remoto));
+    ok('mismo contenido con llaves en otro orden NO es diferencia',
+        !ctx._fbInvItemDiffers({ a: 1, b: { c: 2, d: 3 } }, { b: { d: 3, c: 2 }, a: 1 }));
+    ok('cambiar solo los días de reposición SÍ es diferencia',
+        ctx._fbInvItemDiffers(base, Object.assign({}, base, { leadDays: 21 })));
+
+    const loc = Object.assign({}, base, { leadDays: 44, zone: 'A01', updatedAt: '2026-09-20T10:00:00Z',
+        readings: [{ date: '2026-09-14', psi: 1100 }, { date: '2026-09-18', psi: 1050 }] });
+    const rem = Object.assign({}, base, { leadDays: 21, zone: 'B03', updatedAt: '2026-09-22T10:00:00Z',
+        readings: [{ date: '2026-09-14', psi: 1100 }, { date: '2026-09-21', psi: 1000 }] });
+    const a = ctx._fbMergeInvItem(loc, rem), b = ctx._fbMergeInvItem(rem, loc);
+    ok('campos: gana la edición más reciente (updatedAt)', a.leadDays === 21 && a.zone === 'B03', JSON.stringify({ l: a.leadDays, z: a.zone }));
+    ok('lecturas: se UNEN (3 fechas, ninguna perdida)', a.readings.map(r => r.date).join(',') === '2026-09-14,2026-09-18,2026-09-21');
+    ok('SIMÉTRICA: los dos equipos llegan a los mismos campos', a.leadDays === b.leadDays && a.zone === b.zone && a.updatedAt === b.updatedAt);
+    const x = Object.assign({}, base, { leadDays: 30 }), y = Object.assign({}, base, { leadDays: 40 });
+    const xy = ctx._fbMergeInvItem(x, y), yx = ctx._fbMergeInvItem(y, x);
+    ok('sin updatedAt: desempate determinista (no "gana lo local")', xy.leadDays === yx.leadDays, xy.leadDays + ' vs ' + yx.leadDays);
+    const t1 = { id: 't1', capacity: 400, currentLevel: 226.5, readings: [{ date: '2026-09-21', level: 240 }, { date: '2026-09-25', level: 226.5 }] };
+    const t2 = Object.assign({}, t1, { reorderLevel: 200, updatedAt: '2026-09-25T12:00:00Z' });
+    ok('tanque: poner el nivel de reorden SÍ es diferencia (antes: mismas lecturas y nivel → ignorado)', ctx._fbInvItemDiffers(t1, t2));
+    ok('tanque: el nivel de reorden viaja', ctx._fbMergeInvItem(t1, t2).reorderLevel === 200);
+    ok('initialPsi del otro lado no se pierde', ctx._fbMergeInvItem(Object.assign({}, base, { initialPsi: 2200, updatedAt: '1' }), Object.assign({}, base, { updatedAt: '2' })).initialPsi === 2200);
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

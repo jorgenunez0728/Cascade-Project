@@ -1331,8 +1331,8 @@ function _pnProjLoadXLSX(cb) {
 
 // Texto pegado o .csv → retícula 2D. Detecta el separador solo: si la primera
 // línea trae tabuladores es TSV (lo que entrega el portapapeles de Excel),
-// si no se parsea como CSV con comillas (reusa la misma lógica de comillas
-// que _invParseCsvLine del F11).
+// si no se parsea como CSV con comillas. También la usa el importador del F11
+// (invCalImportFile, inventory.js).
 function _pnProjParseDelimited(text) {
     var t = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     if (!t.trim()) return [];
@@ -1358,7 +1358,10 @@ function _pnProjParseDelimited(text) {
 // Primera fila que parece encabezado: ≥2 celdas con texto y, de preferencia,
 // al menos un sinónimo conocido. Si nada empata, se toma la primera fila con
 // contenido (y el usuario puede corregir el mapeo de todos modos).
-function _pnProjDetectHeader(grid) {
+// v24.3: `fields` opcional (default PN_IMPORT_FIELDS) — el importador del F11
+// (inventory.js) lo reusa con su propio catálogo de sinónimos.
+function _pnProjDetectHeader(grid, fields) {
+    var F = fields || PN_IMPORT_FIELDS;
     var best = -1;
     for (var i = 0; i < Math.min(grid.length, 12); i++) {
         var cells = (grid[i] || []).filter(function(c) { return String(c == null ? '' : c).trim() !== ''; });
@@ -1366,7 +1369,7 @@ function _pnProjDetectHeader(grid) {
         if (best === -1) best = i;
         var hit = cells.some(function(c) {
             var k = _pnNormKey(c);
-            return Object.keys(PN_IMPORT_FIELDS).some(function(f) { return PN_IMPORT_FIELDS[f].syn.indexOf(k) !== -1; });
+            return Object.keys(F).some(function(f) { return F[f].syn.indexOf(k) !== -1; });
         });
         if (hit) return i;
     }
@@ -1376,11 +1379,15 @@ function _pnProjDetectHeader(grid) {
 // Encabezados → { campo: índiceDeColumna }. Empate exacto primero; si no,
 // "contiene" (para "Fecha objetivo (compromiso)"). Una columna no se asigna
 // dos veces, y el primer campo de PN_IMPORT_FIELDS gana en caso de empate.
-function _pnProjAutoMap(headers) {
+// v24.3: `fields` opcional (default PN_IMPORT_FIELDS). Y la contención inversa
+// (el encabezado cabe dentro de un sinónimo) exige ≥3 letras: un encabezado "No"
+// (número de fila) se leía como "notas" porque "no" está dentro de "notas".
+function _pnProjAutoMap(headers, fields) {
+    var F = fields || PN_IMPORT_FIELDS;
     var map = {}, used = {};
     var keys = (headers || []).map(_pnNormKey);
-    Object.keys(PN_IMPORT_FIELDS).forEach(function(f) {
-        var syn = PN_IMPORT_FIELDS[f].syn;
+    Object.keys(F).forEach(function(f) {
+        var syn = F[f].syn;
         for (var i = 0; i < keys.length; i++) {
             if (used[i] || !keys[i]) continue;
             if (syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
@@ -1388,7 +1395,7 @@ function _pnProjAutoMap(headers) {
         for (var j = 0; j < keys.length; j++) {
             if (used[j] || !keys[j]) continue;
             for (var s = 0; s < syn.length; s++) {
-                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || syn[s].indexOf(keys[j]) !== -1)) {
+                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || (keys[j].length >= 3 && syn[s].indexOf(keys[j]) !== -1))) {
                     map[f] = j; used[j] = true; return;
                 }
             }

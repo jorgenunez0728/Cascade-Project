@@ -1434,6 +1434,7 @@ function _fbPullSeed(col, remoteData, pulled) {
                 invState[k] = prevInv[k];
             }
         });
+        if (typeof _invRevInit === 'function') _invRevInit();
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
         pulled.push('Inventory');
@@ -2710,6 +2711,60 @@ function fbMergeLoadStation(stationId, callback) {
     });
 }
 
+// [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
+// sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
+// entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
+// Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
+// tirando a la basura las lecturas capturadas aquí.
+// [v24.3] A NIVEL SUPERIOR: vivía declarada DENTRO de fbMergeAnalyze pero la llama
+// fbMergeExecute (otra función), así que toda fusión de un cilindro o un tanque en
+// conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
+// así que fallaba callada.
+function _fbMergeReadings(locales, remotas, campo) {
+    var porFecha = {};
+    (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+    (locales || []).forEach(function(r) {
+        if (!r || !r.date) return;
+        var otra = porFecha[r.date];
+        if (!otra) { porFecha[r.date] = r; return; }
+        if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
+        else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+    });
+    return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+}
+
+// [v24.3] ¿Difieren dos copias de un cilindro/tanque? Por CONTENIDO (stableStringify,
+// Firestore devuelve las llaves en otro orden). Antes se comparaba `currentPsi`, campo
+// que un cilindro NO tiene (undefined === undefined), así que una lectura nueva, un
+// cambio de zona o de días de reposición en otro equipo se tomaban por "duplicado" y
+// nunca se fusionaban; en los tanques solo contaba el número de lecturas y el nivel.
+function _fbInvItemDiffers(l, r) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    return ss(l) !== ss(r);
+}
+
+// [v24.3] Fusión de dos copias de un cilindro/tanque. PURA y SIMÉTRICA (patrón de
+// _fbMergeVehicle, v23.5): los campos vienen de la copia editada más recientemente
+// (`updatedAt`); sin fecha o empatadas, de la que ordena mayor por contenido — así los
+// dos equipos eligen lo mismo y no se re-empujan. Las lecturas SIEMPRE se unen.
+function _fbMergeInvItem(local, remote) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var sinSerie = function(o) { var c = Object.assign({}, o); delete c.readings; return c; };
+    var lu = (local && local.updatedAt) || '', ru = (remote && remote.updatedAt) || '';
+    var base;
+    if (lu !== ru) base = lu > ru ? local : remote;
+    else base = ss(sinSerie(local)) >= ss(sinSerie(remote)) ? local : remote;
+    var otro = base === local ? remote : local;
+    var mezcla = Object.assign({}, otro, base);
+    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings);
+    // Un equipo con código viejo no conoce `initialPsi`: no se pierde por venir del otro.
+    if (!mezcla.initialPsi && otro && otro.initialPsi) mezcla.initialPsi = otro.initialPsi;
+    // Objeto nuevo → huella nueva SIN tocar updatedAt (regla de v23.5): si no, el próximo
+    // invSave lo tomaría por una edición local y ganaría a todos con la hora de ahora.
+    if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
+    return mezcla;
+}
+
 // ── Analyze differences between local and remote ──
 function fbMergeAnalyze(remoteData) {
     var analysis = { cop15: null, testplan: null, inventory: null };
@@ -2847,23 +2902,6 @@ function fbMergeAnalyze(remoteData) {
     }
 
     // ── Inventory: compare gases by controlNo, equipment by name ──
-    // [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
-    // sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
-    // entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
-    // Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
-    // tirando a la basura las lecturas capturadas aquí.
-    function _fbMergeReadings(locales, remotas, campo) {
-        var porFecha = {};
-        (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
-        (locales || []).forEach(function(r) {
-            if (!r || !r.date) return;
-            var otra = porFecha[r.date];
-            if (!otra) { porFecha[r.date] = r; return; }
-            if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
-            else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
-        });
-        return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
-    }
 
     if (remoteData.inventory) {
         var localGases = {};
@@ -2876,8 +2914,7 @@ function fbMergeAnalyze(remoteData) {
             if (!localGases[key]) newGases.push(rg);
             else {
                 var lg = localGases[key];
-                var isDiff = lg.currentPsi !== rg.currentPsi || lg.status !== rg.status;
-                if (isDiff) gasConflicts.push({ key: key, local: lg, remote: rg });
+                if (_fbInvItemDiffers(lg, rg)) gasConflicts.push({ key: key, local: lg, remote: rg });
                 else dupGases.push(key);
             }
         });
@@ -2937,8 +2974,7 @@ function fbMergeAnalyze(remoteData) {
             var lt = localTanks[rt.id || rt.name];
             if (!lt) { newFuelTanks.push(rt); return; }
             // Hay conflicto si difieren las series o el nivel: se resuelve uniendo lecturas.
-            var nLocal = (lt.readings || []).length, nRemoto = (rt.readings || []).length;
-            if (nLocal !== nRemoto || lt.currentLevel !== rt.currentLevel) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
+            if (_fbInvItemDiffers(lt, rt)) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
         });
 
         analysis.inventory = {
@@ -3236,11 +3272,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
                 if (idx < 0) return;
-                var local = invState.gases[idx];
-                var mezcla = Object.assign({}, local, c.remote);
-                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
-                if (local.initialPsi && !mezcla.initialPsi) mezcla.initialPsi = local.initialPsi;
-                invState.gases[idx] = mezcla;
+                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {});
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -3260,17 +3292,17 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.fuelUpdates || []).forEach(function(c) {
                 var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
                 if (idx < 0) return;
-                var local = invState.fuelTanks[idx];
-                var mezcla = Object.assign({}, local, c.remote);
-                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {});
                 // El nivel autoritativo sale de la última lectura de la serie ya unida:
                 // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
                 var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
                 if (ult && typeof ult.level === 'number') mezcla.currentLevel = ult.level;
+                if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
                 invState.fuelTanks[idx] = mezcla;
             });
             merged.push('Inventory: merge completo');
         }
+        if (typeof _invRevInit === 'function') _invRevInit();
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
     }

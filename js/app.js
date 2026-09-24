@@ -285,11 +285,26 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.2';
+var APP_VERSION = '24.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
+      notes: [
+          '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
+          'Cada fila se identifica aunque dos instrumentos compartan KMM o serie (p. ej. temperatura y humedad del mismo termohigrómetro).',
+          'Fechas dudosas ya no se aplican a ciegas: "08/11/26" se resuelve con la fecha de vencimiento y una calibración futura se rechaza.',
+          'Si la fecha de la app venía de la semilla original, el Excel la corrige; una calibración registrada en la app nunca se retrocede.'
+      ] },
+    { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
+      notes: [
+          'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',
+          'Consumibles → Reporte: ahora calcula el "Comprar" igual que el correo (consumo por día hábil × días de reposición × 1.3) y "📋 Copiar para correo" pega las tablas en Outlook.',
+          '"📥 Importar reporte": carga el Excel, la tabla copiada del correo o una captura de pantalla (OCR, menos exacto). Solo guarda el inventario y los días de reposición.',
+          'HOY: las tarjetas de vehículos y del plan ya no se enciman en pantallas anchas; los botones bajan debajo del título cuando no caben.',
+          'Sincronización: las lecturas de gases y gasolina capturadas en otro equipo ya se fusionan (antes fallaba en silencio).'
+      ] },
     { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
       notes: [
           'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',
@@ -3724,7 +3739,9 @@ function dashCollectActivities() {
 }
 
 function dashRenderRow(a) {
-    var h = '<div class="dash-row dash-row--' + a.status + '">';
+    // v24.3: .dash-row es el contenedor (container query) y el grid vive en
+    // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
+    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -3768,7 +3785,7 @@ function dashRenderRow(a) {
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
-    h += '</div></div>';
+    h += '</div></div></div>';
     return h;
 }
 
@@ -6508,7 +6525,7 @@ var TOURS = {
     today: [
         { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
         { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
         { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
     ],
     testplan: [
@@ -6521,7 +6538,7 @@ var TOURS = {
         { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
-        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha.', position: 'bottom', tab: 'inv-equipment' },
+        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha. "📥 Actualizar desde Excel" carga el COP15-F11 completo.', position: 'bottom', tab: 'inv-equipment' },
         { target: '[data-help="inv-maint-help"]', title: 'Mantenimiento', text: 'Vencidos y de esta semana arriba, con "✔ Hecho" de un toque. El Plan Maestro de 52 semanas queda plegado abajo para consulta.', position: 'bottom', tab: 'inv-maint' },
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],

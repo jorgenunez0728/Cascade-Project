@@ -3976,6 +3976,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
 /* ══════════════════════════════════════════════════════════════════════ */
 .u-flex-between { display: flex; justify-content: space-between; align-items: center; }
 .u-muted-xs { font-size: var(--fs-xs); color: var(--tp-dim, #64748b); }
+.u-muted { color: var(--muted); }
 .badge { display: inline-block; font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); white-space: nowrap; }
 .avatar-circle { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
 .empty-state { text-align: center; padding: var(--space-xl) var(--space-lg); color: var(--tp-dim, #64748b); font-size: var(--fs-xs, 12px); }
@@ -4212,34 +4213,28 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 }
 .dash-board-title { font-size: var(--fs-base); font-weight: 800; color: var(--text); }
 .dash-board-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); color: var(--muted); cursor: pointer; user-select: none; }
-.dash-group {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
-    margin-bottom: var(--space-sm); overflow: hidden;
-}
-.dash-group--vehiculos  { border-left: 4px solid var(--accent-cascade); }
-.dash-group--plan       { border-left: 4px solid var(--accent-testplan); }
-.dash-group--inventario { border-left: 4px solid var(--accent-inventory); }
-.dash-group--calidad    { border-left: 4px solid var(--accent-cop); }
-.dash-group--manuales   { border-left: 4px solid var(--accent-panel); }
-.dash-group > summary {
-    display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md);
-    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: var(--fs-sm);
-    background: var(--surface-alt); min-height: var(--target-abs);
-}
-.dash-group > summary::-webkit-details-marker { display: none; }
-.dash-group > summary::after { content: '▾'; margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
-.dash-group:not([open]) > summary::after { content: '▸'; }
-.dash-group-icon { font-size: var(--fs-base); }
-.dash-group-count { font-size: var(--fs-xs); font-weight: 700; color: var(--warn-text); background: var(--warn-bg); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); }
-.dash-group-count.ok { color: var(--ok-text); background: var(--ok-bg); }
+/* v24.3: la fila se acomoda según el ancho de SU CELDA, no el de la ventana.
+   Con `@media (min-width:640px)` la fila ponía las acciones a la derecha en cuanto
+   la ventana medía 640px, aunque la celda de la retícula (.dash-group-rows) midiera
+   460px: la columna de acciones es `auto` y todo en ella es `nowrap`, el stepper N/8
+   no envolvía y `.dash-row-main` no tenía `min-width:0`, así que la fila pedía más
+   ancho que su celda y se encimaba sobre la columna vecina (tarjetas de vehículos
+   de HOY a 1440–1500px). Ahora la fila es un contenedor y su grid vive en
+   `.dash-row-in`: angosta = acciones debajo del título; ≥560px = a la derecha.
+   Sin soporte de container queries queda el acomodo apilado, que es correcto. */
 .dash-row {
-    display: grid; grid-template-columns: auto 1fr; gap: var(--space-xs) var(--space-md);
-    align-items: center; padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--border);
+    container-type: inline-size; min-width: 0;
+    border-top: 1px solid var(--border);
 }
-.dash-row-side { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; padding-left: var(--space-2xl); }
-@media (min-width: 640px) {
-    .dash-row { grid-template-columns: auto 1fr auto; }
-    .dash-row-side { grid-column: auto; padding-left: 0; justify-content: flex-end; }
+.dash-row-in {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-xs) var(--space-md);
+    align-items: center; padding: var(--space-sm) var(--space-md);
+}
+.dash-row-main { min-width: 0; }
+.dash-row-side { grid-column: 2; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+@container (min-width: 560px) {
+    .dash-row-in { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .dash-row-side { grid-column: auto; justify-content: flex-end; max-width: 22rem; }
 }
 /* v16.5: en pantallas anchas, las actividades se acomodan en 2 columnas en vez de
    dejar el ancho sobrante vacío — cada fila conserva su propio grid interno.
@@ -4250,9 +4245,10 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    380px original y la tipografía de v22 el título de una fila envolvía a cuatro
    líneas a 1280px: se le había dado más letra sin darle más ancho, así que el
    modo cómodo se veía PEOR que el compacto justo donde debía verse mejor.
-   Más aire tiene que traer más ancho de columna, o no es más aire. */
+   Más aire tiene que traer más ancho de columna, o no es más aire.
+   v24.3: `min(…, 100%)` para que una columna nunca pida más que el contenedor. */
 @media (min-width: 1024px) {
-    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--dash-col-min), 1fr)); align-content: start; }
+    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--dash-col-min), 100%), 1fr)); align-content: start; }
     .dash-group-rows > .dash-row { border-left: 1px solid var(--border); }
 }
 .dash-row--hecho .dash-row-title { text-decoration: line-through; color: var(--muted); }
@@ -4263,7 +4259,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    mínimo WCAG 2.2 (24px), en la pantalla de arranque y en tablet. */
 .dash-check-wrap { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .dash-row-check { width: 20px; height: 20px; accent-color: var(--ok-fill); cursor: pointer; margin: 0; }
-.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
 .dash-row-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-2xs); }
 .dash-chip {
     font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl); white-space: nowrap;
@@ -4272,7 +4268,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-chip--encurso   { background: var(--info-bg); color: var(--info-text); }
 .dash-chip--hecho     { background: var(--ok-bg); color: var(--ok-text); }
 .dash-chip--atrasado  { background: var(--danger-bg); color: var(--danger-text); }
-.dash-stepper { display: flex; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
+.dash-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
 .dash-step { width: 16px; height: 5px; border-radius: var(--radius-md); background: var(--border); }
 .dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
 .dash-step.now { background: var(--accent-cascade); animation:dash-pulse 1.6s var(--ease-in-out) infinite; }
@@ -8084,15 +8080,30 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609231901';
+var APP_BUILD = '202609242058';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.2';
+var APP_VERSION = '24.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
+      notes: [
+          '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
+          'Cada fila se identifica aunque dos instrumentos compartan KMM o serie (p. ej. temperatura y humedad del mismo termohigrómetro).',
+          'Fechas dudosas ya no se aplican a ciegas: "08/11/26" se resuelve con la fecha de vencimiento y una calibración futura se rechaza.',
+          'Si la fecha de la app venía de la semilla original, el Excel la corrige; una calibración registrada en la app nunca se retrocede.'
+      ] },
+    { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
+      notes: [
+          'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',
+          'Consumibles → Reporte: ahora calcula el "Comprar" igual que el correo (consumo por día hábil × días de reposición × 1.3) y "📋 Copiar para correo" pega las tablas en Outlook.',
+          '"📥 Importar reporte": carga el Excel, la tabla copiada del correo o una captura de pantalla (OCR, menos exacto). Solo guarda el inventario y los días de reposición.',
+          'HOY: las tarjetas de vehículos y del plan ya no se enciman en pantallas anchas; los botones bajan debajo del título cuando no caben.',
+          'Sincronización: las lecturas de gases y gasolina capturadas en otro equipo ya se fusionan (antes fallaba en silencio).'
+      ] },
     { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
       notes: [
           'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',
@@ -8558,14 +8569,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609231901' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8581,7 +8592,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609231901' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609242058' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11527,7 +11538,9 @@ function dashCollectActivities() {
 }
 
 function dashRenderRow(a) {
-    var h = '<div class="dash-row dash-row--' + a.status + '">';
+    // v24.3: .dash-row es el contenedor (container query) y el grid vive en
+    // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
+    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -11571,7 +11584,7 @@ function dashRenderRow(a) {
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
-    h += '</div></div>';
+    h += '</div></div></div>';
     return h;
 }
 
@@ -14311,7 +14324,7 @@ var TOURS = {
     today: [
         { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
         { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
         { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
     ],
     testplan: [
@@ -14324,7 +14337,7 @@ var TOURS = {
         { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
-        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha.', position: 'bottom', tab: 'inv-equipment' },
+        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha. "📥 Actualizar desde Excel" carga el COP15-F11 completo.', position: 'bottom', tab: 'inv-equipment' },
         { target: '[data-help="inv-maint-help"]', title: 'Mantenimiento', text: 'Vencidos y de esta semana arriba, con "✔ Hecho" de un toque. El Plan Maestro de 52 semanas queda plegado abajo para consulta.', position: 'bottom', tab: 'inv-maint' },
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],
@@ -24276,6 +24289,15 @@ var _invUndoStack = [];
 var _invUndoMaxSize = 5;
 
 function invSave() {
+    // [v24.3] Sella `updatedAt` en los cilindros y tanques editados AQUÍ (patrón de
+    // saveDB/tpSave, v23.5): desde v24.3 el sync detecta y resuelve sus conflictos por
+    // `updatedAt` (_fbMergeInvItem), así que una edición sin sello —mover de zona, marcar
+    // vacío— perdería contra la copia vieja del otro equipo.
+    if (typeof stampRevisions === 'function') {
+        var _now = new Date().toISOString();
+        stampRevisions(invState.gases, _now);
+        stampRevisions(invState.fuelTanks, _now);
+    }
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
     catch(e) {
         void 0;
@@ -24311,7 +24333,17 @@ function invCompactReadings() {
 }
 
 
+// [v24.3] Huella de revisión de cilindros y tanques. Tiene que tomarse al CARGAR (v24.1):
+// si se toma en el primer guardado, se toma con la edición adentro y esa edición no se
+// sella. La llaman invPreloadData (arranque) y el sync tras reemplazar/fusionar invState.
+function _invRevInit() {
+    if (typeof revInitMissing !== 'function' || !invState) return;
+    revInitMissing(invState.gases);
+    revInitMissing(invState.fuelTanks);
+}
+
 function invPreloadData() {
+    _invRevInit();
     if (invState.gases.length === 0) {
         invState.gases = [{"id": "g_ch420", "controlNo": "CH4-20", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-20*", "readings": [{"date": "2026-02-01", "psi": 1266}, {"date": "2026-02-06", "psi": 1250}, {"date": "2026-02-13", "psi": 1233}, {"date": "2026-02-20", "psi": 1216}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 16.7, "dailyPsi": 3.3, "reposDays": 44, "limitPsi": 190.67}, {"id": "g_ch410", "controlNo": "CH4-10", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-10*", "readings": [{"date": "2026-02-01", "psi": 2505}, {"date": "2026-02-06", "psi": 2492}, {"date": "2026-02-13", "psi": 2478}, {"date": "2026-02-20", "psi": 2464}, {"date": "2026-02-27", "psi": 2450}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_ch405", "controlNo": "CH4-05", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-05*", "readings": [{"date": "2026-02-01", "psi": 1479}, {"date": "2026-02-06", "psi": 1472}, {"date": "2026-02-13", "psi": 1465}, {"date": "2026-02-20", "psi": 1457}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_ch402", "controlNo": "CH4-02", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-02*", "readings": [{"date": "2026-02-01", "psi": 1400}, {"date": "2026-02-06", "psi": 1400}, {"date": "2026-02-13", "psi": 1400}, {"date": "2026-02-20", "psi": 1400}, {"date": "2026-02-27", "psi": 1400}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_c3h81666", "controlNo": "C3H8-1666", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "16.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-1666*", "readings": [{"date": "2026-02-01", "psi": 2929}, {"date": "2026-02-06", "psi": 2922}, {"date": "2026-02-13", "psi": 2915}, {"date": "2026-02-20", "psi": 2907}, {"date": "2026-02-27", "psi": 2900}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8333", "controlNo": "C3H8-333", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "3.33 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-333*", "readings": [{"date": "2026-02-01", "psi": 2429}, {"date": "2026-02-06", "psi": 2422}, {"date": "2026-02-13", "psi": 2415}, {"date": "2026-02-20", "psi": 2407}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8166", "controlNo": "C3H8-166", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "1.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-166*", "readings": [{"date": "2026-02-01", "psi": 1234}, {"date": "2026-02-06", "psi": 1226}, {"date": "2026-02-13", "psi": 1217}, {"date": "2026-02-20", "psi": 1209}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_c3h8066", "controlNo": "C3H8-066", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "0.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-066*", "readings": [{"date": "2026-02-01", "psi": 1462}, {"date": "2026-02-06", "psi": 1459}, {"date": "2026-02-13", "psi": 1456}, {"date": "2026-02-20", "psi": 1453}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co100", "controlNo": "CO-100", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "100 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-100*", "readings": [{"date": "2026-02-01", "psi": 3321}, {"date": "2026-02-06", "psi": 3316}, {"date": "2026-02-13", "psi": 3311}, {"date": "2026-02-20", "psi": 3306}, {"date": "2026-02-27", "psi": 3300}], "weeklyPsi": 5.3, "dailyPsi": 1.1, "reposDays": 44, "limitPsi": 60.85}, {"id": "g_co50", "controlNo": "CO-50", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-50*", "readings": [{"date": "2026-02-01", "psi": 3146}, {"date": "2026-02-06", "psi": 3135}, {"date": "2026-02-13", "psi": 3123}, {"date": "2026-02-20", "psi": 3111}, {"date": "2026-02-27", "psi": 3100}], "weeklyPsi": 11.7, "dailyPsi": 2.3, "reposDays": 44, "limitPsi": 133.87}, {"id": "g_co20", "controlNo": "CO-20", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-20*", "readings": [{"date": "2026-02-01", "psi": 1105}, {"date": "2026-02-06", "psi": 1092}, {"date": "2026-02-13", "psi": 1078}, {"date": "2026-02-20", "psi": 1064}, {"date": "2026-02-27", "psi": 1050}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_co10", "controlNo": "CO-10", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-10*", "readings": [{"date": "2026-02-01", "psi": 3500}, {"date": "2026-02-06", "psi": 3500}, {"date": "2026-02-13", "psi": 3500}, {"date": "2026-02-20", "psi": 3500}, {"date": "2026-02-27", "psi": 3500}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no02", "controlNo": "NO-02", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C05", "position": 5, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-02*", "readings": [{"date": "2026-02-01", "psi": 2000}, {"date": "2026-02-06", "psi": 2000}, {"date": "2026-02-13", "psi": 2000}, {"date": "2026-02-20", "psi": 2000}, {"date": "2026-02-27", "psi": 2000}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no05", "controlNo": "NO-05", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-05*", "readings": [{"date": "2026-02-01", "psi": 1388}, {"date": "2026-02-06", "psi": 1379}, {"date": "2026-02-13", "psi": 1369}, {"date": "2026-02-20", "psi": 1360}, {"date": "2026-02-27", "psi": 1350}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no10", "controlNo": "NO-10", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C07", "position": 7, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-10*", "readings": [{"date": "2026-02-01", "psi": 2588}, {"date": "2026-02-06", "psi": 2579}, {"date": "2026-02-13", "psi": 2569}, {"date": "2026-02-20", "psi": 2560}, {"date": "2026-02-27", "psi": 2550}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no50", "controlNo": "NO-50", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C08", "position": 8, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-50*", "readings": [{"date": "2026-02-01", "psi": 1612}, {"date": "2026-02-06", "psi": 1609}, {"date": "2026-02-13", "psi": 1606}, {"date": "2026-02-20", "psi": 1603}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co205p", "controlNo": "CO2-05p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "0.5 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C09", "position": 9, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-05p*", "readings": [{"date": "2026-02-01", "psi": 1600}, {"date": "2026-02-06", "psi": 1600}, {"date": "2026-02-13", "psi": 1600}, {"date": "2026-02-20", "psi": 1600}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_co21p", "controlNo": "CO2-1p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "1 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C10", "position": 10, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-1p*", "readings": [{"date": "2026-02-01", "psi": 684}, {"date": "2026-02-06", "psi": 676}, {"date": "2026-02-13", "psi": 667}, {"date": "2026-02-20", "psi": 659}, {"date": "2026-02-27", "psi": 650}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_co22p", "controlNo": "CO2-2p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "2 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C11", "position": 11, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-2p*", "readings": [{"date": "2026-02-01", "psi": 2888}, {"date": "2026-02-06", "psi": 2879}, {"date": "2026-02-13", "psi": 2869}, {"date": "2026-02-20", "psi": 2860}, {"date": "2026-02-27", "psi": 2850}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_n2o05", "controlNo": "N2O-05", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "0.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C12", "position": 12, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-05*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 44, "limitPsi": 12.17}, {"id": "g_n2o25", "controlNo": "N2O-25", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "2.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D01", "position": 1, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-25*", "readings": [{"date": "2026-02-01", "psi": 1750}, {"date": "2026-02-06", "psi": 1750}, {"date": "2026-02-13", "psi": 1750}, {"date": "2026-02-20", "psi": 1750}, {"date": "2026-02-27", "psi": 1750}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_n2o5", "controlNo": "N2O-5", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-5*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 21, "limitPsi": 5.81}, {"id": "g_n255", "controlNo": "N2-55", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 5.5", "concNominal": "99.9995%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-55*", "readings": [{"date": "2026-02-01", "psi": 3987}, {"date": "2026-02-06", "psi": 3941}, {"date": "2026-02-13", "psi": 3894}, {"date": "2026-02-20", "psi": 3847}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 46.8, "dailyPsi": 9.4, "reposDays": 21, "limitPsi": 255.57}, {"id": "g_n248", "controlNo": "N2-48", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 4.8", "concNominal": "99.998%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-48*", "readings": [{"date": "2026-02-01", "psi": 3825}, {"date": "2026-02-06", "psi": 3819}, {"date": "2026-02-13", "psi": 3813}, {"date": "2026-02-20", "psi": 3806}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 6.4, "dailyPsi": 1.3, "reposDays": 21, "limitPsi": 34.85}, {"id": "g_zeroair", "controlNo": "ZERO-AIR", "cylinderNo": "", "formula": "ZERO", "gasType": "Aire Cero Emision Vehicular", "concNominal": "AIR O2 rojo", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-AIR*", "readings": [{"date": "2026-02-01", "psi": 4219}, {"date": "2026-02-06", "psi": 4190}, {"date": "2026-02-13", "psi": 4160}, {"date": "2026-02-20", "psi": 4130}, {"date": "2026-02-27", "psi": 4100}], "weeklyPsi": 29.8, "dailyPsi": 6.0, "reposDays": 21, "limitPsi": 162.64}, {"id": "g_zeron219", "controlNo": "ZERO-N2-19", "cylinderNo": "", "formula": "ZERO", "gasType": "Balance Nitrogeno con Impurezas", "concNominal": "O 19-12%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-N2-19*", "readings": [{"date": "2026-02-01", "psi": 3998}, {"date": "2026-02-06", "psi": 3974}, {"date": "2026-02-13", "psi": 3949}, {"date": "2026-02-20", "psi": 3925}, {"date": "2026-02-27", "psi": 3900}], "weeklyPsi": 24.5, "dailyPsi": 4.9, "reposDays": 44, "limitPsi": 279.91}, {"id": "g_o243", "controlNo": "O2-43", "cylinderNo": "", "formula": "O2/N2", "gasType": "Oxigeno Ultra Alta Pureza", "concNominal": "4.3", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E05", "position": 5, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*O2-43*", "readings": [{"date": "2026-02-01", "psi": 2468}, {"date": "2026-02-06", "psi": 2451}, {"date": "2026-02-13", "psi": 2434}, {"date": "2026-02-20", "psi": 2417}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 17.0, "dailyPsi": 3.4, "reposDays": 21, "limitPsi": 92.94}, {"id": "g_h2he", "controlNo": "H2-He", "cylinderNo": "", "formula": "H2/He", "gasType": "Mezcla FID Hidrogeno/Helio", "concNominal": "40%v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*H2-He*", "readings": [{"date": "2026-02-01", "psi": 3944}, {"date": "2026-02-06", "psi": 3908}, {"date": "2026-02-13", "psi": 3872}, {"date": "2026-02-20", "psi": 3836}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 36.2, "dailyPsi": 7.2, "reposDays": 21, "limitPsi": 197.49}];
         void 0;
@@ -24587,12 +24619,11 @@ function invCalRegister(eqId, opts) {
     var date = opts.date || localToday();
     var certNo = opts.certNo || '';
     var provider = opts.provider || eq.calLab || '';
-    eq.lastCalDate = date;
+    // v24.3: un solo escritor de calibraciones, compartido con la importación del F11.
+    // El certificado se asigna tal cual (vacío incluido): dos toques = fecha + certificado.
     eq.calCertNo = certNo;
-    if (provider) eq.calLab = provider;
-    eq.nextCalDate = invCalNextDate(date, eq.calFreq);
-    if (!eq.calHistory) eq.calHistory = [];
-    eq.calHistory.push({ date: date, certNo: certNo, provider: provider, by: (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Laboratorio', at: new Date().toISOString() });
+    _invApplyCalibration(eq, { date: date, certNo: certNo, provider: provider,
+        by: (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Laboratorio' });
     invSave();
     if (typeof auditLog === 'function') auditLog('inv', 'calibracion_registrada', { type: 'equipment', id: eqId, label: eq.name }, 'Cert: ' + (certNo || '-') + ' · próxima: ' + eq.nextCalDate);
     if (typeof fbPostCalibration === 'function') fbPostCalibration(eq.name);
@@ -24891,6 +24922,136 @@ function invGasBurnRate(g) {
              lowPsi: lowPsi, n: rs.length, span: dias };
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.3] Punto de reorden — el criterio con el que el laboratorio COMPRA
+//
+// El reporte semanal por correo decide "Comprar" con:
+//     Límite inferior = consumo diario × tiempo de reposición × 1.3
+// donde "consumo diario" es el SEMANAL entre 5 días hábiles (8.33/5 = 1.7) y el
+// tiempo de reposición es lo que tarda el PROVEEDOR (44 días; 21 para N₂O 5 ppm y
+// N₂). Verificado contra la tabla del correo: Metano 20 ppm 8.33/5×44×1.3 = 95.33,
+// N₂ 175/5×21×1.3 = 955.5. La semilla de la app traía `reposDays`/`limitPsi` con esa
+// fórmula, pero v21.1 los dejó de usar y el reporte pasó a poner "días hasta nivel
+// bajo" en la columna de reposición y el 30% de la nominal en la de límite — por eso
+// la app nunca coincidía con el correo.
+//
+// Son DOS preguntas y se quedan separadas:
+//   · invGasIsLow   — ¿el cilindro está físicamente bajo? (% de la nominal)
+//   · invGasReorder — ¿hay que pedirlo YA, dado lo que tarda en llegar?
+// ══════════════════════════════════════════════════════════════════════
+var INV_REORDER_SAFETY = 1.3;       // margen del laboratorio sobre el tiempo de entrega
+var INV_LEAD_DAYS_DEFAULT = 44;     // días del proveedor cuando el cilindro no dice otra cosa
+var INV_WORKDAYS_PER_WEEK = 5;      // el "consumo diario" del correo es por día hábil
+
+/** Días de reposición del proveedor para un cilindro: el capturado, el de la semilla, o 44. */
+function invGasLeadDays(g) {
+    var d = parseFloat(g && g.leadDays);
+    if (d > 0) return d;
+    var r = parseFloat(g && g.reposDays);     // semilla (formato del correo)
+    if (r > 0) return r;
+    return INV_LEAD_DAYS_DEFAULT;
+}
+
+/**
+ * [v24.3] LA definición del punto de reorden de UN cilindro. Se construye sobre
+ * invGasBurnRate (ritmo) e invGasLevel (PSI actual) sin cambiarlos.
+ * @returns {{psi, weeklyPsi, workDayPsi, leadDays, reorderPsi, needsPurchase, status:'sinlecturas'|'sinritmo'|'comprar'|'ok'}}
+ *   Sin al menos dos lecturas humanas con caída no hay ritmo: 'sinritmo', NUNCA 'ok'.
+ */
+function invGasReorder(g) {
+    var lvl = invGasLevel(g);
+    var br = invGasBurnRate(g);
+    var lead = invGasLeadDays(g);
+    var weekly = br.weeklyPsi || 0;
+    var workDay = weekly / INV_WORKDAYS_PER_WEEK;
+    var reorderPsi = workDay * lead * INV_REORDER_SAFETY;
+    var out = { psi: lvl.psi, weeklyPsi: weekly, workDayPsi: workDay, leadDays: lead,
+                reorderPsi: reorderPsi, needsPurchase: false, status: 'ok' };
+    if (lvl.psi === null || lvl.psi === undefined) { out.status = 'sinlecturas'; return out; }
+    if (!(weekly > 0)) { out.status = 'sinritmo'; return out; }
+    out.needsPurchase = lvl.psi <= reorderPsi;
+    out.status = out.needsPurchase ? 'comprar' : 'ok';
+    return out;
+}
+
+/** Nombre del consumible como lo escribe el correo ("METANO 20 PPM BALANCE AIRE").
+ *  Si el cilindro ya se empató con una fila importada, se usa ESE texto. */
+function invGasReportLabel(g) {
+    if (!g) return '';
+    if (g.importAlias) return g.importAlias;
+    var parts = String(g.gasType || g.formula || 'Gas').split('/');
+    var lbl = parts[0].trim().toUpperCase() + ' ' + String(g.concNominal || '').toUpperCase();
+    if (parts[1]) lbl += ' BALANCE ' + parts[1].trim().toUpperCase();
+    return lbl.replace(/\s+/g, ' ').trim();
+}
+
+// Lunes (ISO local) de la semana de una fecha 'YYYY-MM-DD'.
+function _invMondayOf(iso) {
+    var d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/**
+ * [v24.3] Litros consumidos por semana de un tanque. PURA.
+ * Solo lecturas humanas; una SUBIDA es una recarga y no cuenta como consumo (antes el
+ * reporte restaba primera − última lectura aunque en medio se hubiera rellenado). La
+ * caída entre dos lecturas se asigna a la semana de la lectura posterior.
+ * @returns {{weeks:[{monday, liters}], avgWeekly:number, n:number}}  (las últimas `weeks` semanas con lectura)
+ */
+function invFuelWeeklyUsage(tank, weeks) {
+    var max = weeks || 8;
+    var rs = ((tank && tank.readings) || []).filter(function(r) { return r && !r.auto && r.date && typeof r.level === 'number'; })
+        .sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var by = {};
+    for (var i = 1; i < rs.length; i++) {
+        var drop = rs[i - 1].level - rs[i].level;
+        var wk = _invMondayOf(rs[i].date);
+        if (!(wk in by)) by[wk] = 0;
+        if (drop > 0) by[wk] += drop;
+    }
+    var keys = Object.keys(by).sort().slice(-max);
+    var list = keys.map(function(k) { return { monday: k, liters: Math.round(by[k] * 10) / 10 }; });
+    var total = list.reduce(function(s, w) { return s + w.liters; }, 0);
+    return { weeks: list, avgWeekly: list.length ? total / list.length : 0, n: list.length };
+}
+
+/** Nivel de reorden de un tanque (L). Solo si está capturado — no se inventa. */
+function invFuelReorder(t) {
+    var lvl = parseFloat(t && t.currentLevel);
+    var ro = parseFloat(t && t.reorderLevel);
+    var has = ro > 0;
+    return { level: isFinite(lvl) ? lvl : null, reorderLevel: has ? ro : null,
+             needsPurchase: has && isFinite(lvl) && lvl <= ro };
+}
+
+/**
+ * [v24.3] LA definición de los DATOS del reporte semanal de consumibles. Sin HTML: la
+ * pantalla (invRenderReport) y el correo (invConsumablesEmailHTML) son dos maneras de
+ * pintar lo mismo, así que no pueden contradecirse.
+ */
+function invConsumablesReportRows() {
+    var gases = (invState.gases || []).filter(function(g) { return g && g.status !== 'Empty'; }).map(function(g) {
+        var ro = invGasReorder(g);
+        return { gas: g, label: invGasReportLabel(g), category: g.gasCategory || 'Referencia',
+                 psi: ro.psi, weeklyPsi: ro.weeklyPsi, workDayPsi: ro.workDayPsi, leadDays: ro.leadDays,
+                 reorderPsi: ro.reorderPsi, status: ro.status, spare: g.status === 'Spare' };
+    });
+    var fuel = (invState.fuelTanks || []).map(function(t) {
+        var cap = parseFloat(t.capacity) || 0;
+        var fr = invFuelReorder(t);
+        var level = fr.level === null ? 0 : fr.level;
+        return { tank: t, label: t.regulation || t.name || 'Combustible', unit: t.unit || 'L',
+                 capacity: cap, level: level, used: Math.max(0, Math.round((cap - level) * 10) / 10),
+                 reorderLevel: fr.reorderLevel, needsPurchase: fr.needsPurchase,
+                 usage: invFuelWeeklyUsage(t, 8) };
+    });
+    var cal = (invState.equipment || []).map(function(e) { return { eq: e, st: invCalStatus(e) }; })
+        .filter(function(x) { return x.st.code === 'vencido' || x.st.code === 'porvencer'; })
+        .sort(function(a, b) { return (a.st.days || 0) - (b.st.days || 0); });
+    return { gases: gases, fuel: fuel, calibration: cal };
+}
+
 // Daily reading status for the reception dashboard ("Hoy").
 // Returns { inUseTotal, capturedToday, daysSinceLast } — null-safe even if
 // the inventory module / localStorage has not been initialized yet.
@@ -25156,6 +25317,7 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" data-chips style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="' + lblStyle + '">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Presión nominal (psi)</label><input id="inv-g-initpsi" type="number" inputmode="numeric" min="0" value="' + (g && g.initialPsi ? g.initialPsi : '') + '" placeholder="' + INV_PSI_NOMINAL_FALLBACK + ' (lleno de fábrica)" style="' + inpStyle + '"></div>' +
+        '<div><label for="inv-g-lead" style="' + lblStyle + '">Días de reposición</label><input id="inv-g-lead" type="number" inputmode="numeric" min="1" value="' + (g && g.leadDays ? g.leadDays : '') + '" placeholder="' + (g ? invGasLeadDays(g) : INV_LEAD_DAYS_DEFAULT) + ' (lo que tarda el proveedor)" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
@@ -25215,6 +25377,12 @@ function invSaveGas(editId) {
     // capturados. Se guarda sólo si trae número, para no sembrar ceros.
     var _initPsi = parseFloat((document.getElementById('inv-g-initpsi') || {}).value);
     if (isFinite(_initPsi) && _initPsi > 0) obj.initialPsi = Math.round(_initPsi);
+    // v24.3: tiempo de entrega del proveedor — entra al límite inferior (invGasReorder).
+    // Opcional: vacío = el de la semilla o INV_LEAD_DAYS_DEFAULT.
+    var _lead = parseFloat((document.getElementById('inv-g-lead') || {}).value);
+    if (isFinite(_lead) && _lead > 0) obj.leadDays = Math.round(_lead);
+    else if (document.getElementById('inv-g-lead')) obj.leadDays = null;   // vaciar = volver al default
+    obj.updatedAt = new Date().toISOString();
 
     if (editId) {
         var idx = invState.gases.findIndex(function(g){ return g.id === editId; });
@@ -25866,6 +26034,7 @@ function invRenderReadings(el) {
     html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="invStartReadingRound()" style="font-size: var(--fs-sm);">🔄 Hacer la ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-sm);">📷 Escanear</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invConsImportOpen()" style="font-size: var(--fs-sm);" title="Cargar el reporte semanal (Excel, tabla copiada del correo o imagen)">📥 Importar reporte</button>';
     html += '</div></div>';
     // v21: los dos modos reales del laboratorio, dichos con todas sus letras — la
     // ronda para el recorrido con el celular, esta retícula para pasar la libreta.
@@ -26244,7 +26413,9 @@ function invRenderEquipment(el) {
     var search = (window._invEqSearch || '').toLowerCase();
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>🔧 Equipos y Calibración (' + equip.length + ')</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size: var(--fs-sm);">+ Instrumento</button></div>';
+    html += '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">'
+          + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv): fechas, certificados y próxima calibración">📥 Actualizar desde Excel</button>'
+          + '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size: var(--fs-sm);">+ Instrumento</button></span></div>';
 
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap: var(--space-sm);margin-bottom: var(--space-md);">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--ok-text)">' + summary.vigentes + '</div><div class="tp-metric-label">Vigentes</div></div>';
@@ -26586,8 +26757,7 @@ function invRenderMaint(el) {
     var curWeek = invWeekOfYear(localToday());
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-maint-help"><span>🛠️ Mantenimiento</span>'
-        + '<button class="tp-btn tp-btn-ghost" onclick="invImportF11()" style="font-size: var(--fs-sm);" title="Actualizar en bloque desde el CSV de Calibración del formato COP15-F11">📥 Importar F11</button></div>'
-        + '<input type="file" id="inv-f11-import-file" accept=".csv" style="display:none;" onchange="invHandleF11Import(event)"></div>';
+        + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv)">📥 Calibraciones desde Excel</button></div></div>';
 
     // v16.6: banner de proyecto abierto ligado a un equipo (ej. "Reparación del Dinamómetro")
     if (typeof pnActiveProjectForAsset === 'function') {
@@ -27737,6 +27907,7 @@ function invAddFuelTank(editId) {
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" inputmode="decimal" value="' + v('capacity','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" inputmode="decimal" value="' + v('currentLevel','400') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label for="inv-ft-reorder" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel de reorden</label><input id="inv-ft-reorder" type="number" inputmode="decimal" min="0" value="' + v('reorderLevel','') + '" placeholder="Ej.: 200" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepción</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
@@ -27760,7 +27931,10 @@ function invSaveFuelTank(editId) {
         currentLevel: parseFloat(document.getElementById('inv-ft-level').value) || 0,
         unit: document.getElementById('inv-ft-unit').value,
         regDate: document.getElementById('inv-ft-date').value,
-        fuelStatus: document.getElementById('inv-ft-status').value
+        fuelStatus: document.getElementById('inv-ft-status').value,
+        // v24.3: por debajo de este nivel el reporte dice "Comprar" (opcional)
+        reorderLevel: parseFloat((document.getElementById('inv-ft-reorder') || {}).value) || null,
+        updatedAt: new Date().toISOString()
     };
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     var nivelCambio = false, nivelNuevo = obj.currentLevel;
@@ -27835,137 +28009,878 @@ function invSaveFuelReading(tankId) {
 // ══════════════════════════════════════════════════
 // INVENTORY: WEEKLY REPORT (email-style)
 // ══════════════════════════════════════════════════
+// [v24.3] Semana del reporte (lunes–viernes de hoy), en inglés como el correo.
+function _invReportWeekLabel() {
+    var mon = new Date(_invMondayOf(localToday()) + 'T12:00:00');
+    var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    var m1 = mon.toLocaleDateString('en-US', { month: 'long' }), m2 = fri.toLocaleDateString('en-US', { month: 'long' });
+    return m1 + ' ' + mon.getDate() + ' - ' + (m2 !== m1 ? m2 + ' ' : '') + fri.getDate() + ', ' + fri.getFullYear();
+}
+function _invWeekShort(mondayIso) {
+    var mon = new Date(mondayIso + 'T12:00:00'), fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    var m = mon.toLocaleDateString('en-US', { month: 'short' });
+    return m + ' ' + mon.getDate() + '-' + (fri.getMonth() !== mon.getMonth() ? fri.toLocaleDateString('en-US', { month: 'short' }) + ' ' : '') + fri.getDate();
+}
+function _invFmtNum(v, dec) {
+    if (v === null || v === undefined || !isFinite(v)) return '—';
+    return (Math.round(v * Math.pow(10, dec)) / Math.pow(10, dec)).toFixed(dec);
+}
+var INV_REPORT_STATUS = {
+    ok:          { txt: 'OK',        cls: 'u-chip--ok',      mail: '#92d050' },
+    comprar:     { txt: 'Comprar',   cls: 'u-chip--warn',    mail: '#ffff00' },
+    sinritmo:    { txt: 'Sin ritmo', cls: 'u-chip--neutral', mail: '#e5e7eb' },
+    sinlecturas: { txt: 'Sin lecturas', cls: 'u-chip--neutral', mail: '#e5e7eb' }
+};
+
 function invRenderReport(el) {
-    var today = new Date();
-    var monday = new Date(today); monday.setDate(today.getDate() - today.getDay() + 1);
-    var friday = new Date(monday); friday.setDate(monday.getDate() + 4);
-    var fmt = function(d){ return d.toLocaleDateString('en-US',{month:'long',day:'numeric'}); };
-    var weekLabel = fmt(monday) + ' - ' + fmt(friday) + ', ' + today.getFullYear();
+    var R = invConsumablesReportRows();
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-report-help"><span>Reporte Semanal de Consumibles</span>'
+        + '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">'
+        + '<button class="tp-btn tp-btn-ghost" onclick="invConsImportOpen()" style="font-size: var(--fs-sm);">📥 Importar reporte</button>'
+        + '<button class="tp-btn tp-btn-primary" onclick="invCopyConsumablesEmail()" style="font-size: var(--fs-sm);" title="Copia las tablas para pegarlas en Outlook">📋 Copiar para correo</button>'
+        + '<button class="tp-btn tp-btn-ghost" onclick="invExportReport()" style="font-size: var(--fs-sm);">⬇ HTML</button>'
+        + '</span></div>';
+    html += '<div class="u-muted" style="font-size: var(--fs-xs);margin-bottom: var(--space-sm);">Semana: ' + _invReportWeekLabel()
+        + ' · Límite inferior = consumo por día hábil × días de reposición × ' + INV_REORDER_SAFETY + '</div>';
 
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-report-help"><span>Reporte Semanal de Consumibles</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invExportReport()" style="font-size: var(--fs-sm);">Copiar HTML</button></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Semana: ' + weekLabel + '</div>';
-
-    // ── FUEL SECTION ──
-    html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">1. Reference fuel consumption status</h3>';
-    var tanks = invState.fuelTanks || [];
-    tanks.forEach(function(t) {
-        var used = t.capacity - t.currentLevel;
-        var remaining = t.currentLevel;
-        var pctUsed = t.capacity > 0 ? Math.round((used / t.capacity) * 100) : 0;
-        var pctRemaining = 100 - pctUsed;
-        // Stacked bar chart (CSS)
-        html += '<div style="margin-bottom: var(--space-md);">';
-        html += '<div style="font-weight:700;font-size: var(--fs-sm);color:var(--tp-amber);margin-bottom: var(--space-xs);">' + (t.regulation||t.name) + '</div>';
-        html += '<div style="display:flex;align-items:center;gap: var(--space-md);">';
-        // Chart
-        html += '<div style="width:200px;height:120px;border:1px solid var(--tp-border);border-radius: var(--radius-lg);padding: var(--space-sm);background:var(--tp-card);position:relative;">';
-        html += '<div style="font-size: var(--fs-xs);text-align:center;margin-bottom: var(--space-xs);">Combustible ' + (t.regulation||t.name) + '</div>';
-        html += '<div style="display:flex;height:80px;align-items:flex-end;justify-content:center;gap:0;">';
-        var barH = 70;
-        html += '<div style="width:80px;height:' + barH + 'px;display:flex;flex-direction:column;">';
-        html += '<div style="height:' + (pctRemaining * barH / 100) + 'px;background:#22c55e;display:flex;align-items:center;justify-content:center;color:#fff;font-size: var(--fs-sm);font-weight:700;">' + remaining + '</div>';
-        html += '<div style="height:' + (pctUsed * barH / 100) + 'px;background:#c2410c;display:flex;align-items:center;justify-content:center;color:#fff;font-size: var(--fs-sm);font-weight:700;">' + (used > 0 ? used : '') + '</div>';
-        html += '</div></div></div>';
-        // Stats
-        html += '<div style="font-size: var(--fs-xs);">';
-        html += '<div>Capacidad: <strong>' + t.capacity + ' ' + (t.unit||'L') + '</strong></div>';
-        html += '<div>Restante: <strong style="color:#22c55e;">' + remaining + ' ' + (t.unit||'L') + '</strong></div>';
-        html += '<div>Usado: <strong style="color:#c2410c;">' + used + ' ' + (t.unit||'L') + '</strong></div>';
-        // Prediction
-        if (t.readings && t.readings.length >= 2) {
-            var r0 = t.readings[0]; var rn = t.readings[t.readings.length-1];
-            var days = Math.max(1, Math.round((new Date(rn.date) - new Date(r0.date))/(1000*60*60*24)));
-            var drop = r0.level - rn.level;
-            var dailyRate = drop / days;
-            var daysLeft = dailyRate > 0 ? Math.round(rn.level / dailyRate) : 999;
-            html += '<div style="margin-top: var(--space-xs);color:var(--tp-amber);">Consumo/sem: <strong>' + (dailyRate*7).toFixed(1) + ' ' + (t.unit||'L') + '</strong></div>';
-            if (daysLeft < 365) html += '<div>Vacio en: <strong>~' + daysLeft + ' dias</strong></div>';
+    // ── 1. Combustible ──
+    html += '<h3 style="margin: var(--space-md) 0 var(--space-xs);font-size: var(--fs-sm);">1. Reference fuel consumption status</h3>';
+    if (!R.fuel.length) html += '<div class="u-muted">Sin tanques registrados.</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap: var(--space-md);">';
+    R.fuel.forEach(function(f) {
+        var cap = f.capacity || 1, H = 120;
+        var hRem = Math.max(0, Math.min(H, f.level / cap * H)), hUsed = H - hRem;
+        var roY = f.reorderLevel ? H - Math.min(H, f.reorderLevel / cap * H) : null;
+        html += '<div style="border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);">'
+            + '<div style="display:flex;align-items:center;gap: var(--space-xs);font-weight:700;">⛽ ' + escapeHtml(f.label)
+            + (f.needsPurchase ? '<span class="u-chip u-chip--warn">Comprar</span>' : '') + '</div>'
+            + '<div style="display:flex;gap: var(--space-md);align-items:flex-end;margin-top: var(--space-xs);">'
+            + '<div style="position:relative;width:64px;height:' + H + 'px;border:1px solid var(--border);border-radius: var(--radius-sm);overflow:hidden;flex-shrink:0;" title="Restante / usado">'
+            + '<div style="height:' + hUsed + 'px;background:var(--danger-fill);"></div>'
+            + '<div style="height:' + hRem + 'px;background:var(--ok-fill);"></div>'
+            + (roY !== null ? '<div style="position:absolute;left:0;right:0;top:' + roY + 'px;border-top:2px dashed var(--warn-fill);" title="Nivel de reorden"></div>' : '')
+            + '</div>'
+            + '<div style="font-size: var(--fs-sm);line-height:1.6;">'
+            + 'Restante: <strong>' + _invFmtNum(f.level, 1) + ' ' + f.unit + '</strong><br>'
+            + 'Usado: <strong>' + _invFmtNum(f.used, 1) + ' ' + f.unit + '</strong> de ' + f.capacity + '<br>'
+            + 'Reorden: <strong>' + (f.reorderLevel ? f.reorderLevel + ' ' + f.unit : '<span class="u-muted">sin definir</span>') + '</strong><br>'
+            + 'Consumo/sem: <strong>' + (f.usage.n ? _invFmtNum(f.usage.avgWeekly, 1) + ' ' + f.unit : '—') + '</strong>'
+            + '</div></div>';
+        if (f.usage.n) {
+            var mx = Math.max.apply(null, f.usage.weeks.map(function(w) { return w.liters; }).concat([1]));
+            html += '<div style="display:flex;align-items:flex-end;gap: var(--space-2xs);height:70px;margin-top: var(--space-sm);" title="Litros consumidos por semana">'
+                + f.usage.weeks.map(function(w) {
+                    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;">'
+                        + '<span style="font-size: var(--fs-2xs);">' + _invFmtNum(w.liters, 0) + '</span>'
+                        + '<div style="width:100%;background:var(--danger-fill);height:' + Math.max(2, w.liters / mx * 44) + 'px;border-radius:2px 2px 0 0;"></div>'
+                        + '<span class="u-muted" style="font-size: var(--fs-2xs);white-space:nowrap;overflow:hidden;max-width:100%;">' + _invWeekShort(w.monday) + '</span></div>';
+                }).join('') + '</div>';
+        } else {
+            html += '<div class="u-muted" style="font-size: var(--fs-xs);margin-top: var(--space-xs);">Las barras semanales aparecen desde la segunda lectura.</div>';
         }
-        html += '</div></div></div>';
+        html += '</div>';
     });
+    html += '</div>';
 
-    // ── GAS SECTION ──
-    html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">2. Reference gas consumption status</h3>';
-    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
-    html += '<thead><tr style="background:#0e7490;color:#fff;">';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Tipo</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:left;">Consumible</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Inventario (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Sem (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Consumo Día (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Repos. (días)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Limite Inf (PSI)</th>';
-    html += '<th style="padding: var(--space-xs) var(--space-sm);text-align:center;">Status</th>';
-    html += '</tr></thead><tbody>';
-
-    invState.gases.forEach(function(g) {
-        // v21.1: calculado de las lecturas reales. Antes salía de campos de la semilla
-        // que nunca se recalculaban, así que todo cilindro creado en la app mostraba 0.0.
-        var lastPsi = g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : 0;
-        var br = invGasBurnRate(g);
-        var weekly = br.weeklyPsi;
-        var daily = br.dailyPsi;
-        var repos = br.daysToLow === null ? '—' : br.daysToLow;
-        var limit = br.lowPsi;
-        var isOk = !invGasIsLow(g);
-        var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
-        html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);">' + g.gasType.toUpperCase().slice(0,20) + ' ' + g.concNominal + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;font-weight:700;">' + lastPsi + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + weekly.toFixed(1) + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + daily.toFixed(1) + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;">' + repos + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;color:var(--warn-text);">' + limit.toFixed(0) + '</td>';
-        html += '<td style="padding: var(--space-2xs) var(--space-sm);text-align:center;font-weight:700;color:' + (isOk?'#22c55e':'#ef4444') + ';">' + (isOk?'OK':'BAJO') + '</td>';
-        html += '</tr>';
+    // ── 2. Gases de referencia ──
+    html += '<h3 style="margin: var(--space-lg) 0 var(--space-xs);font-size: var(--fs-sm);">2. Reference gas consumption status</h3>';
+    html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">'
+        + '<thead><tr style="text-align:center;"><th style="text-align:left;">Consumible</th><th>Inventario (PSI)</th><th>Consumo semanal (PSI)</th>'
+        + '<th>Consumo diario (PSI)</th><th>Reposición (días)</th><th>Límite inferior (PSI)</th><th>Status</th></tr></thead><tbody>';
+    R.gases.forEach(function(r) {
+        var st = INV_REPORT_STATUS[r.status] || INV_REPORT_STATUS.ok;
+        var ritmo = r.status === 'ok' || r.status === 'comprar';
+        html += '<tr style="border-top:1px solid var(--border);text-align:center;">'
+            + '<td style="text-align:left;">' + escapeHtml(r.label) + '<div class="u-muted" style="font-size: var(--fs-xs);">#' + escapeHtml(r.gas.controlNo || '') + (r.spare ? ' · reserva' : '') + '</div></td>'
+            + '<td style="font-weight:700;">' + _invFmtNum(r.psi, 0) + '</td>'
+            + '<td>' + (ritmo ? _invFmtNum(r.weeklyPsi, 1) : '—') + '</td>'
+            + '<td>' + (ritmo ? _invFmtNum(r.workDayPsi, 1) : '—') + '</td>'
+            + '<td>' + r.leadDays + '</td>'
+            + '<td>' + (ritmo ? _invFmtNum(r.reorderPsi, 2) : '—') + '</td>'
+            + '<td><span class="u-chip ' + st.cls + '">' + st.txt + '</span></td></tr>';
     });
     html += '</tbody></table></div>';
+    if (R.gases.some(function(r) { return r.status === 'sinritmo'; })) {
+        html += '<div class="u-muted" style="font-size: var(--fs-xs);margin-top: var(--space-xs);">"Sin ritmo": hacen falta dos lecturas con caída para calcular el consumo — no se da por OK.</div>';
+    }
 
-    // ── CALIBRATION SECTION ──
-    html += '<h3 style="margin:12px 0 6px;font-size:13px;color:var(--tp-text);">3. Equipment calibration status</h3>';
-    // [v23.2] Antes recalculaba los días a mano, con tres divergencias respecto a
-    // `invCalStatus`, que es LA definición del semáforo desde v16.4:
-    //   · `new Date('2026-01-15')` parsea UTC y `invCalStatus` parsea LOCAL
-    //     (`+'T00:00:00'`): en America/Mexico_City (UTC−6) eso da un día de diferencia,
-    //     así que el reporte podía declarar vencido lo que la app mostraba vigente;
-    //   · el ámbar caía a los 30 días, no a los 60 del formato F11;
-    //   · ignoraba `requiresCal === 'No'`, listando como pendientes equipos que no se
-    //     calibran.
-    var eqAlerts = invState.equipment.filter(function(e) {
-        var st = invCalStatus(e);
-        return st.code === 'vencido' || st.code === 'porvencer';
-    });
-    if (eqAlerts.length > 0) {
-        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
-        html += '<thead><tr style="background:#7c3aed;color:#fff;"><th style="padding: var(--space-xs);">Equipo</th><th>ID</th><th>Vencimiento</th><th>Días</th><th>Estatus</th></tr></thead><tbody>';
-        eqAlerts.forEach(function(e) {
-            var _st = invCalStatus(e);
-            var days = _st.days, clr = _st.color;
-            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding: var(--space-2xs) var(--space-sm);">' + e.name + '</td><td>' + (e.kmmId||e.serialNo||'') + '</td><td>' + e.nextCalDate + '</td><td style="color:' + clr + ';font-weight:700;">' + days + '</td><td style="color:' + clr + ';">' + (days<0?'VENCIDO':days+'d') + '</td></tr>';
+    // ── 3. Calibración ── (invCalStatus es LA definición del semáforo)
+    html += '<h3 style="margin: var(--space-lg) 0 var(--space-xs);font-size: var(--fs-sm);">3. Equipment calibration status</h3>';
+    if (R.calibration.length) {
+        html += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">'
+            + '<thead><tr><th style="text-align:left;">Equipo</th><th>ID</th><th>Vencimiento</th><th>Estatus</th></tr></thead><tbody>';
+        R.calibration.forEach(function(c) {
+            html += '<tr style="border-top:1px solid var(--border);"><td>' + escapeHtml(c.eq.name || '') + '</td><td>' + escapeHtml(c.eq.f11Id || c.eq.kmmId || c.eq.serialNo || '') + '</td>'
+                + '<td>' + escapeHtml(c.eq.nextCalDate || '') + '</td><td style="color:' + c.st.color + ';font-weight:700;">' + escapeHtml(c.st.label) + '</td></tr>';
         });
         html += '</tbody></table></div>';
     } else {
-        html += '<div style="text-align:center;padding: var(--space-md);color:var(--tp-green);font-size: var(--fs-sm);">Todas las calibraciones vigentes (>60 días)</div>';
+        html += '<div style="padding: var(--space-md);color:var(--ok-text);">Todas las calibraciones vigentes (más de 60 días).</div>';
     }
-
     html += '</div>';
     el.innerHTML = html;
 }
 
+/**
+ * [v24.3] El reporte como HTML para correo: tablas con estilos LITERALES. Outlook no
+ * entiende variables CSS ni flex, y el exportador anterior mandaba `var(--space-xl)`
+ * dentro de un HTML suelto donde esas variables no existen.
+ */
+function invConsumablesEmailHTML() {
+    var R = invConsumablesReportRows();
+    var TD = 'border:1px solid #000;padding:3px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;';
+    var TH = TD + 'background:#bdd7ee;font-weight:bold;text-align:center;';
+    var h = '<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;">';
+    h += '<p><b>KMX Emissions Laboratory Consumables Status ' + escapeHtml(_invReportWeekLabel()) + '</b></p>';
+    h += '<p><b>1. Reference fuel consumption status</b></p>';
+    h += '<table style="border-collapse:collapse;"><tr><th style="' + TH + '">Fuel</th><th style="' + TH + '">Capacity</th><th style="' + TH + '">Used</th><th style="' + TH + '">Remaining</th><th style="' + TH + '">Reorder level</th><th style="' + TH + '">Weekly avg.</th><th style="' + TH + '">Status</th></tr>';
+    R.fuel.forEach(function(f) {
+        var st = f.reorderLevel ? (f.needsPurchase ? INV_REPORT_STATUS.comprar : INV_REPORT_STATUS.ok) : null;
+        h += '<tr><td style="' + TD + '">' + escapeHtml(f.label) + '</td><td style="' + TD + 'text-align:center;">' + f.capacity + ' ' + f.unit + '</td>'
+           + '<td style="' + TD + 'text-align:center;">' + _invFmtNum(f.used, 1) + '</td><td style="' + TD + 'text-align:center;"><b>' + _invFmtNum(f.level, 1) + '</b></td>'
+           + '<td style="' + TD + 'text-align:center;">' + (f.reorderLevel || '—') + '</td><td style="' + TD + 'text-align:center;">' + (f.usage.n ? _invFmtNum(f.usage.avgWeekly, 1) : '—') + '</td>'
+           + '<td style="' + TD + 'text-align:center;background:' + (st ? st.mail : '#fff') + ';">' + (st ? st.txt : '—') + '</td></tr>';
+    });
+    h += '</table>';
+    R.fuel.forEach(function(f) {
+        if (!f.usage.n) return;
+        h += '<p style="margin:10px 0 2px;">Liters consumed (' + escapeHtml(f.label) + ')</p><table style="border-collapse:collapse;"><tr>'
+           + f.usage.weeks.map(function(w) { return '<th style="' + TH + '">' + _invWeekShort(w.monday) + '</th>'; }).join('') + '</tr><tr>'
+           + f.usage.weeks.map(function(w) { return '<td style="' + TD + 'text-align:center;">' + _invFmtNum(w.liters, 0) + '</td>'; }).join('') + '</tr></table>';
+    });
+    h += '<p><b>2. Reference gas consumption status</b></p>';
+    h += '<table style="border-collapse:collapse;"><tr><th style="' + TH + '">Consumible</th><th style="' + TH + '">Actual Inventory</th><th style="' + TH + '">Consumo semanal promedio (PSI)</th><th style="' + TH + '">Consumo diario promedio (PSI)</th><th style="' + TH + '">Tiempo de reposición (días)</th><th style="' + TH + '">Límite inferior (PSI)</th><th style="' + TH + '">Status</th></tr>';
+    R.gases.forEach(function(r) {
+        // Una reserva se omite solo si ya hay otro cilindro activo del mismo gas y
+        // concentración: el correo reporta un renglón por consumible. Si la reserva es
+        // el ÚNICO de ese consumible, sí va (si no, el consumible desaparece del correo).
+        if (r.spare && R.gases.some(function(o) { return !o.spare && o.gas.formula === r.gas.formula && o.gas.concNominal === r.gas.concNominal; })) return;
+        var st = INV_REPORT_STATUS[r.status] || INV_REPORT_STATUS.ok;
+        var ritmo = r.status === 'ok' || r.status === 'comprar';
+        h += '<tr><td style="' + TD + 'font-style:italic;">' + escapeHtml(r.label) + '</td><td style="' + TD + 'text-align:center;"><b>' + _invFmtNum(r.psi, 0) + '</b></td>'
+           + '<td style="' + TD + 'text-align:center;">' + (ritmo ? _invFmtNum(r.weeklyPsi, 1) : '—') + '</td><td style="' + TD + 'text-align:center;">' + (ritmo ? _invFmtNum(r.workDayPsi, 1) : '—') + '</td>'
+           + '<td style="' + TD + 'text-align:center;">' + r.leadDays + '</td><td style="' + TD + 'text-align:center;">' + (ritmo ? _invFmtNum(r.reorderPsi, 2) : '—') + '</td>'
+           + '<td style="' + TD + 'text-align:center;background:' + st.mail + ';">' + st.txt + '</td></tr>';
+    });
+    h += '</table>';
+    h += '<p><b>3. Equipment calibration status</b></p>';
+    if (R.calibration.length) {
+        h += '<table style="border-collapse:collapse;"><tr><th style="' + TH + '">Equipment</th><th style="' + TH + '">ID</th><th style="' + TH + '">Due date</th><th style="' + TH + '">Status</th></tr>';
+        R.calibration.forEach(function(c) {
+            h += '<tr><td style="' + TD + '">' + escapeHtml(c.eq.name || '') + '</td><td style="' + TD + '">' + escapeHtml(c.eq.f11Id || c.eq.kmmId || '') + '</td><td style="' + TD + '">' + escapeHtml(c.eq.nextCalDate || '') + '</td>'
+               + '<td style="' + TD + 'background:' + (c.st.code === 'vencido' ? '#ff7c80' : '#ffff00') + ';">' + (c.st.code === 'vencido' ? 'Overdue ' + Math.abs(c.st.days) + 'd' : 'Due in ' + c.st.days + 'd') + '</td></tr>';
+        });
+        h += '</table>';
+    } else {
+        h += '<p>All calibrations current (&gt; 60 days).</p>';
+    }
+    return h + '</div>';
+}
+
+/** Copia el reporte como tabla HTML (se pega como tabla en Outlook); sin permiso de portapapeles, lo descarga. */
+function invCopyConsumablesEmail() {
+    var html = invConsumablesEmailHTML();
+    var tmp = document.createElement('div'); tmp.innerHTML = html;
+    var text = tmp.innerText || tmp.textContent || '';
+    var fallback = function() { invExportReport(); showToast('No se pudo copiar: se descargó el HTML (ábrelo y cópialo desde el navegador).', 'warning'); };
+    try {
+        if (navigator.clipboard && window.ClipboardItem) {
+            navigator.clipboard.write([new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([text], { type: 'text/plain' })
+            })]).then(function() { showToast('Reporte copiado — pégalo en el correo (Ctrl+V).', 'success'); }, fallback);
+            return;
+        }
+    } catch (e) {}
+    fallback();
+}
+
 function invExportReport() {
-    var content = document.getElementById('inv-content').innerHTML;
-    var blob = new Blob([
-        '<html><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial;background:#fff;color:#333;padding: var(--space-xl);}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding: var(--space-xs) var(--space-sm);font-size: var(--fs-sm);}th{background:#0e7490;color:#fff;}</style></head><body>' +
-        '<h2>KMX Emissions Laboratory Consumables Status ' + new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) + '</h2>' +
-        content + '</body></html>'
-    ], {type:'text/html'});
+    var blob = new Blob(['<!DOCTYPE html><html><head><meta charset="utf-8"><title>Consumables Status</title></head><body>'
+        + invConsumablesEmailHTML() + '</body></html>'], { type: 'text/html' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'consumables_report_' + localToday() + '.html';
     a.click();
     showToast('Reporte HTML descargado', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v24.3] Importar el reporte semanal de consumibles (gases + gasolina)
+//
+// La app es la FUENTE del reporte (invConsumablesReportRows); esto es la puerta de
+// entrada para cargar lo que hoy vive en el Excel/correo del laboratorio. Tres
+// entradas que terminan en la MISMA cuadrícula y la MISMA vista previa:
+//   1. Excel / CSV       — recomendado: exacto.
+//   2. Pegar la tabla    — Ctrl+C en Outlook o Excel. Se prefiere el HTML (conserva
+//                          celdas combinadas); si no, texto con tabuladores.
+//   3. Imagen (OCR)      — respaldo. Tesseract.js corre en el navegador, sin API, y se
+//                          carga diferido. Una captura de pantalla sale bien; una foto
+//                          del monitor con el celular, no.
+// Solo se GUARDA el inventario (una lectura por el motor único invAddReading) y los
+// días de reposición. Consumo semanal/diario, límite y status NO se importan: la app
+// los calcula, y guardar los del correo crearía dos verdades. Sí se muestran al lado
+// de los calculados, para ver que coinciden.
+// Todo lo que analiza es PURO (tests/inventory-import.node.js).
+// ══════════════════════════════════════════════════════════════════════
+var INV_CONS_IMPORT_FIELDS = {
+    label:     { label: 'Consumible',          syn: ['consumible', 'consumable', 'gas', 'descripcion', 'cilindro'] },
+    inventory: { label: 'Inventario (PSI)',    syn: ['actual inventory', 'inventario actual', 'inventario', 'presion actual', 'psi actual', 'inventory'] },
+    weekly:    { label: 'Consumo semanal',     syn: ['consumo semanal promedio psi', 'consumo semanal promedio', 'consumo semanal', 'weekly consumption'] },
+    daily:     { label: 'Consumo diario',      syn: ['consumo diario promedio psi', 'consumo diario promedio', 'consumo diario', 'daily consumption'] },
+    lead:      { label: 'Reposición (días)',   syn: ['tiempo de reposicion dias', 'tiempo de reposicion', 'dias de reposicion', 'reposicion', 'lead time'] },
+    limit:     { label: 'Límite inferior',     syn: ['limite inferior psi', 'limite inferior', 'punto de reorden', 'reorder point'] },
+    status:    { label: 'Status',              syn: ['status', 'estatus', 'estado'] }
+};
+
+// Número tal como llega de Excel, del correo o del OCR: "1,000" / "95,33" / "O.8" / "1 300".
+function _invConsNum(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return null;
+    s = s.replace(/[Oo](?=[\d.,])|(?<=[\d.,])[Oo]/g, '0').replace(/[lI](?=\d)|(?<=\d)[lI]/g, '1');
+    if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');   // 1,000.5
+    else s = s.replace(',', '.');                                          // 95,33
+    s = s.replace(/\s+/g, '');
+    return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : null;
+}
+function _invConsStatus(v) {
+    var k = String(v == null ? '' : v).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!k) return '';
+    if (/^(ok|0k|oк|o)$/.test(k)) return 'ok';
+    if (/^(compra|comprar|buy|reorder|pedir)/.test(k)) return 'comprar';
+    return '';
+}
+
+/**
+ * Tokens de un renglón (celdas o palabras del OCR) → fila. El nombre del consumible
+ * lleva números adentro ("METANO 20 PPM", "NITRÓGENO 5.5 (99.9995 %)"), así que se lee
+ * DESDE EL FINAL: status opcional, luego los 5 números en orden
+ * inventario · semanal · diario · reposición · límite, y lo que sobra al frente es el nombre.
+ * tokens: [{text, conf?}]
+ */
+function _invConsParseTokens(tokens) {
+    var t = (tokens || []).map(function(x) { return typeof x === 'object' ? x : { text: String(x) }; })
+        .map(function(x) { return { text: String(x.text == null ? '' : x.text).trim(), conf: x.conf }; })
+        .filter(function(x) { return x.text && !/^[|¦:;_—–-]+$/.test(x.text); });
+    if (t.length < 6) return null;
+    var status = '';
+    var st = _invConsStatus(t[t.length - 1].text);
+    if (st) { status = st; t = t.slice(0, -1); }
+    var nums = [];
+    while (t.length && nums.length < 5) {
+        var n = _invConsNum(t[t.length - 1].text);
+        if (n === null) break;
+        nums.unshift({ v: n, conf: t[t.length - 1].conf });
+        t = t.slice(0, -1);
+    }
+    if (nums.length < 5) return null;
+    var label = t.map(function(x) { return x.text; }).join(' ')
+        .replace(/^gases?\s+de\s+referencia\s*/i, '').replace(/\s+/g, ' ').trim();
+    if (!label || !/[a-zA-ZÁÉÍÓÚÑáéíóúñ]{3}/.test(label)) return null;
+    return { label: label, inventory: nums[0].v, weekly: nums[1].v, daily: nums[2].v, lead: nums[3].v, limit: nums[4].v,
+             status: status, conf: { inventory: nums[0].conf } };
+}
+
+/**
+ * Autocomprobación con la propia fórmula del correo. Delata dígitos mal leídos en las
+ * columnas derivadas (sobre todo del OCR). El inventario —lo único que se guarda— no
+ * tiene fórmula que lo verifique: por eso se compara aparte con la última lectura.
+ * @returns {string[]} avisos
+ */
+function invConsRowCheck(r) {
+    var w = [];
+    if (!r) return w;
+    if (r.weekly > 0 && r.daily !== null) {
+        var d = r.weekly / INV_WORKDAYS_PER_WEEK;
+        if (Math.abs(r.daily - d) > Math.max(0.15, d * 0.05)) w.push('Consumo diario ≠ semanal / ' + INV_WORKDAYS_PER_WEEK + ' (' + d.toFixed(1) + ')');
+    }
+    if (r.weekly > 0 && r.lead > 0 && r.limit !== null) {
+        var lim = r.weekly / INV_WORKDAYS_PER_WEEK * r.lead * INV_REORDER_SAFETY;
+        var lim2 = (r.daily || 0) * r.lead * INV_REORDER_SAFETY;
+        var tol = function(x) { return Math.max(1, x * 0.03); };
+        if (Math.abs(r.limit - lim) > tol(lim) && Math.abs(r.limit - lim2) > tol(lim2)) w.push('Límite ≠ diario × reposición × ' + INV_REORDER_SAFETY + ' (' + lim.toFixed(2) + ')');
+    }
+    if (r.status && r.limit !== null && r.inventory !== null) {
+        var debe = r.inventory <= r.limit ? 'comprar' : 'ok';
+        if (debe !== r.status) w.push('El status no cuadra con inventario vs. límite');
+    }
+    if (r.conf && typeof r.conf.inventory === 'number' && r.conf.inventory < 80) w.push('OCR poco seguro del inventario (' + Math.round(r.conf.inventory) + '%)');
+    return w;
+}
+
+/**
+ * Cuadrícula (Excel, CSV o tabla pegada) → filas. Con encabezados reconocibles se usa el
+ * mapeo; una fila MÁS CORTA que el encabezado (celda combinada "GASES DE REFERENCIA" que
+ * el texto plano omite) se alinea por la DERECHA. Sin encabezados, se lee cada renglón
+ * con el mismo lector que el OCR.
+ */
+function invConsParseGrid(grid) {
+    var rows = [], hdr = null;
+    if (typeof _pnProjAutoMap === 'function') {
+        for (var i = 0; i < Math.min((grid || []).length, 30); i++) {
+            var m = _pnProjAutoMap(grid[i] || [], INV_CONS_IMPORT_FIELDS);
+            if (m.label !== undefined && m.inventory !== undefined && Object.keys(m).length >= 3) { hdr = { row: i, map: m, len: (grid[i] || []).length }; break; }
+        }
+    }
+    for (var r = hdr ? hdr.row + 1 : 0; r < (grid || []).length; r++) {
+        var row = (grid[r] || []).map(function(c) { return c == null ? '' : c; });
+        if (!row.some(function(c) { return String(c).trim() !== ''; })) continue;
+        var parsed = null;
+        if (hdr) {
+            var off = row.length < hdr.len ? hdr.len - row.length : 0;
+            var cell = function(f) { var ix = hdr.map[f]; return ix === undefined ? '' : row[ix - off]; };
+            var lbl = String(cell('label') || '').replace(/\s+/g, ' ').trim();
+            var inv = _invConsNum(cell('inventory'));
+            if (lbl && inv !== null && /[a-zA-Z]{3}/.test(lbl)) {
+                parsed = { label: lbl, inventory: inv, weekly: _invConsNum(cell('weekly')), daily: _invConsNum(cell('daily')),
+                           lead: _invConsNum(cell('lead')), limit: _invConsNum(cell('limit')), status: _invConsStatus(cell('status')), conf: {},
+                           invCol: hdr.map.inventory - off };
+            }
+        }
+        if (!parsed) {
+            var toks = [];
+            row.forEach(function(c) { String(c).split(/\s+/).forEach(function(p) { if (p) toks.push({ text: p }); }); });
+            parsed = _invConsParseTokens(toks);
+        }
+        if (parsed) { parsed.rowNo = r + 1; rows.push(parsed); }
+    }
+    return rows;
+}
+
+/** Renglones del OCR ([{text, words:[{text, confidence}]}] o texto) → filas. PURA. */
+function invConsParseOcrLines(lines) {
+    var out = [];
+    (lines || []).forEach(function(l, i) {
+        var toks;
+        if (l && typeof l === 'object' && Array.isArray(l.words) && l.words.length) {
+            toks = [];
+            l.words.forEach(function(w) {
+                String(w.text || '').split(/[|¦]+/).forEach(function(p) { if (p.trim()) toks.push({ text: p, conf: w.confidence }); });
+            });
+        } else {
+            toks = String(l && l.text !== undefined ? l.text : l).replace(/[|¦]/g, ' ').split(/\s+/).map(function(p) { return { text: p }; });
+        }
+        var r = _invConsParseTokens(toks);
+        if (r) { r.rowNo = i + 1; out.push(r); }
+    });
+    return out;
+}
+
+// "metano 20 ppm balance aire" → {species:'CH4', conc:20, unit:'ppm'}
+function _invConsFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+var INV_CONS_SPECIES = [
+    [/monoxido de carbono|\bco\b(?!2)/, 'CO'], [/[bd]ioxido de carbono|\bco2\b/, 'CO2'],
+    [/oxido nitroso|\bn2o\b/, 'N2O'], [/oxido nitrico|\bno\b/, 'NO'],
+    [/metano|\bch4\b/, 'CH4'], [/propano|\bc3h8\b/, 'C3H8'],
+    [/hidrogeno|\bh2\b/, 'H2'], [/oxigeno|\bo2\b/, 'O2'], [/nitrogeno|\bn2\b/, 'N2']
+];
+function _invConsParseSpecies(label) {
+    var f = _invConsFold(label);
+    var head = f.split(/\bbalance\b/)[0];      // "…balance nitrógeno" es el balance, no la especie
+    var sp = null;
+    for (var i = 0; i < INV_CONS_SPECIES.length; i++) { if (INV_CONS_SPECIES[i][0].test(head)) { sp = INV_CONS_SPECIES[i][1]; break; } }
+    var m = head.match(/(\d+(?:[.,]\d+)?)\s*(ppm|%)/);
+    var nums = (head.match(/\d+(?:[.,]\d+)?/g) || []).map(function(x) { return parseFloat(x.replace(',', '.')); });
+    return { species: sp, conc: m ? parseFloat(m[1].replace(',', '.')) : null, unit: m ? m[2] : null, nums: nums };
+}
+
+var INV_GAS_STATUS_RANK = { 'In use': 0, 'Stock': 1, 'Spare': 2 };
+/**
+ * [v24.3] Empata el nombre de un consumible del correo con un cilindro. PURA.
+ * Primero el alias recordado (g.importAlias), luego especie + concentración. Nunca un
+ * cilindro vacío; entre varios, el que está en uso. @returns {{gas, candidates, why}}
+ */
+function invMatchGasByLabel(label, gases) {
+    var list = (gases || []).filter(function(g) { return g && g.status !== 'Empty'; });
+    var rank = function(a, b) { return (INV_GAS_STATUS_RANK[a.status] !== undefined ? INV_GAS_STATUS_RANK[a.status] : 0) - (INV_GAS_STATUS_RANK[b.status] !== undefined ? INV_GAS_STATUS_RANK[b.status] : 0); };
+    var key = _invConsFold(label).replace(/\s+/g, ' ').trim();
+    var byAlias = list.filter(function(g) { return g.importAlias && _invConsFold(g.importAlias).replace(/\s+/g, ' ').trim() === key; }).sort(rank);
+    if (byAlias.length) return { gas: byAlias[0], candidates: byAlias, why: 'alias' };
+    var p = _invConsParseSpecies(label);
+    if (!p.species) return { gas: null, candidates: [], why: 'no reconozco el gas' };
+    var same = list.filter(function(g) { return String(g.formula || '').split('/')[0].trim().toUpperCase() === p.species; });
+    var hit = same.filter(function(g) {
+        var q = _invConsParseSpecies(g.concNominal || '');
+        return p.conc !== null && q.conc !== null && Math.abs(p.conc - q.conc) < 1e-6 && (!p.unit || !q.unit || p.unit === q.unit);
+    });
+    if (!hit.length) {
+        // Sin concentración que cuadre ("NITRÓGENO 5.5", o un "%" mal leído por el OCR):
+        // el grado del nombre en el tipo del cilindro ("Nitrogeno 5.5"), solo si es único.
+        var porGrado = same.filter(function(g) {
+            var gt = _invConsParseSpecies(g.gasType || '').nums;
+            return p.nums.some(function(n) { return gt.indexOf(n) !== -1; });
+        });
+        var formulas = {};
+        porGrado.forEach(function(g) { formulas[g.gasType + '|' + g.concNominal] = true; });
+        if (Object.keys(formulas).length === 1) hit = porGrado;
+    }
+    hit = hit.sort(rank);
+    if (hit.length) return { gas: hit[0], candidates: hit, why: 'gas+concentración' };
+    return { gas: null, candidates: same.sort(rank), why: same.length ? 'no encontré esa concentración' : 'no hay cilindros de ese gas' };
+}
+
+// Tabla HTML pegada → cuadrícula, expandiendo rowspan/colspan (Outlook combina la
+// columna "Tipo de consumible" en una sola celda vertical).
+function _invHtmlTableToGrid(table) {
+    var grid = [], rows = table.rows || [];
+    for (var r = 0; r < rows.length; r++) {
+        grid[r] = grid[r] || [];
+        var c = 0;
+        Array.prototype.forEach.call(rows[r].cells, function(cell) {
+            while (grid[r][c] !== undefined) c++;
+            var txt = (cell.innerText || cell.textContent || '').replace(/\s+/g, ' ').trim();
+            var rs = Math.max(1, cell.rowSpan || 1), cs = Math.max(1, cell.colSpan || 1);
+            for (var i = 0; i < rs; i++) for (var j = 0; j < cs; j++) {
+                grid[r + i] = grid[r + i] || [];
+                grid[r + i][c + j] = (i === 0 && j === 0) ? txt : '';
+            }
+            c += cs;
+        });
+    }
+    return grid.map(function(row) { var out = []; for (var k = 0; k < row.length; k++) out.push(row[k] === undefined ? '' : row[k]); return out; });
+}
+
+// ── OCR (respaldo) ──
+// Versiones fijas: si jsdelivr cambia "latest", el laboratorio no se entera de un
+// modelo nuevo a media semana. ~5 MB la primera vez (motor + español); después, caché.
+var INV_TESS_VER = '5.1.1';
+var INV_TESS = {
+    script: 'https://cdn.jsdelivr.net/npm/tesseract.js@' + INV_TESS_VER + '/dist/tesseract.min.js',
+    worker: 'https://cdn.jsdelivr.net/npm/tesseract.js@' + INV_TESS_VER + '/dist/worker.min.js',
+    core:   'https://cdn.jsdelivr.net/npm/tesseract.js-core@' + INV_TESS_VER,
+    lang:   'https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa/4.0.0_best_int'
+};
+// Mismo patrón que _pnProjLoadXLSX: nunca al arrancar, solo al elegir "Imagen".
+function _invLoadTesseract(cb) {
+    if (window.Tesseract) { cb(true); return; }
+    if (window._invTessLoading) { window._invTessLoading.push(cb); return; }
+    window._invTessLoading = [cb];
+    var done = function(ok) {
+        var q = window._invTessLoading || []; window._invTessLoading = null;
+        q.forEach(function(f) { try { f(ok); } catch (e) {} });
+    };
+    var s = document.createElement('script');
+    s.src = INV_TESS.script;
+    s.onload = function() { done(!!window.Tesseract); };
+    s.onerror = function() { done(false); };
+    document.head.appendChild(s);
+}
+
+// Umbral de Otsu sobre una imagen en grises (Uint8Array 0..255). PURA. Devuelve el
+// último tono de la clase oscura: tinta = gris <= umbral.
+function _invOtsu(g) {
+    var h = new Array(256).fill(0), n = g.length, sum = 0, sB = 0, wB = 0, best = -1, thr = 128;
+    for (var i = 0; i < n; i++) h[g[i]]++;
+    for (var t = 0; t < 256; t++) sum += t * h[t];
+    for (var k = 0; k < 256; k++) {
+        wB += h[k]; if (!wB) continue;
+        var wF = n - wB; if (!wF) break;
+        sB += k * h[k];
+        var mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+        if (v > best) { best = v; thr = k; }
+    }
+    return thr;
+}
+
+/**
+ * [v24.3] Cuadrícula de una tabla con bordes. PURA (sin DOM): `ink` = Uint8Array W×H,
+ * 1 = tinta. Una línea horizontal es un renglón de píxeles con un tramo continuo de
+ * tinta ≥ 40% del ancho; una vertical, un tramo ≥ 60% del alto de la tabla. Con menos
+ * de 3 de cada una no hay tabla reconocible (una foto torcida del monitor): null.
+ * Las líneas quedan BORRADAS de `ink` (valor 2) para que no se lean como "1" o "|".
+ * @returns {{rows:[[y0,y1]], cols:[[x0,x1]]}|null}
+ */
+function _invOcrFindGrid(ink, W, H) {
+    var group = function(marks) {
+        var out = [], start = -1;
+        for (var i = 0; i <= marks.length; i++) {
+            if (i < marks.length && marks[i]) { if (start < 0) start = i; }
+            else if (start >= 0) { out.push([start, i - 1]); start = -1; }
+        }
+        return out;
+    };
+    var hm = new Array(H).fill(false), minH = Math.max(40, W * 0.4);
+    for (var y = 0; y < H; y++) {
+        var run = 0, mx = 0;
+        for (var x = 0; x < W; x++) { if (ink[y * W + x]) { run++; if (run > mx) mx = run; } else run = 0; }
+        if (mx >= minH) hm[y] = true;
+    }
+    var hl = group(hm);
+    if (hl.length < 3) return null;
+    var top = hl[0][0], bot = hl[hl.length - 1][1], minV = Math.max(20, (bot - top) * 0.6);
+    var vm = new Array(W).fill(false);
+    for (var x2 = 0; x2 < W; x2++) {
+        var run2 = 0, mx2 = 0;
+        for (var y2 = top; y2 <= bot; y2++) { if (ink[y2 * W + x2]) { run2++; if (run2 > mx2) mx2 = run2; } else run2 = 0; }
+        if (mx2 >= minV) vm[x2] = true;
+    }
+    var vl = group(vm);
+    if (vl.length < 3) return null;
+    // borrar las líneas
+    hl.forEach(function(l) { for (var yy = l[0]; yy <= l[1]; yy++) for (var xx = 0; xx < W; xx++) if (ink[yy * W + xx]) ink[yy * W + xx] = 2; });
+    vl.forEach(function(l) { for (var xx = l[0]; xx <= l[1]; xx++) for (var yy = top; yy <= bot; yy++) if (ink[yy * W + xx]) ink[yy * W + xx] = 2; });
+    var cells = function(lines, minGap) {
+        var out = [];
+        for (var i = 1; i < lines.length; i++) { var a = lines[i - 1][1] + 1, b = lines[i][0] - 1; if (b - a >= minGap) out.push([a, b]); }
+        return out;
+    };
+    var rows = cells(hl, 8), cols = cells(vl, 8);
+    return (rows.length >= 2 && cols.length >= 3) ? { rows: rows, cols: cols } : null;
+}
+
+// Imagen → canvas en blanco y negro (×2, Otsu) + tinta para buscar la cuadrícula.
+function _invOcrPrepare(blob) {
+    return new Promise(function(resolve, reject) {
+        var url = URL.createObjectURL(blob), img = new Image();
+        img.onload = function() {
+            var k = Math.min(2, 3200 / Math.max(img.width, 1));
+            var cv = document.createElement('canvas');
+            var W = cv.width = Math.round(img.width * k), H = cv.height = Math.round(img.height * k);
+            var ctx = cv.getContext('2d');
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, W, H);
+            var d = ctx.getImageData(0, 0, W, H), p = d.data, n = W * H, g = new Uint8Array(n);
+            for (var i = 0; i < n; i++) g[i] = Math.round(0.299 * p[4 * i] + 0.587 * p[4 * i + 1] + 0.114 * p[4 * i + 2]);
+            var thr = _invOtsu(g), ink = new Uint8Array(n);
+            for (var j = 0; j < n; j++) ink[j] = g[j] <= thr ? 1 : 0;   // Otsu devuelve el último tono de la clase OSCURA
+            var grid = _invOcrFindGrid(ink, W, H);
+            for (var q = 0; q < n; q++) { var v = ink[q] === 1 ? 0 : 255; p[4 * q] = p[4 * q + 1] = p[4 * q + 2] = v; p[4 * q + 3] = 255; }
+            ctx.putImageData(d, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve({ canvas: cv, grid: grid, ink: ink, W: W });
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('La imagen no se pudo abrir.')); };
+        img.src = url;
+    });
+}
+
+/**
+ * OCR de una imagen de la tabla. Dos modos:
+ *  · CELDA POR CELDA si se encontró la cuadrícula (tabla con bordes, como la del
+ *    correo): cada celda se lee sola como un renglón (PSM 7) y las que parecen número
+ *    se RELEEN con solo dígitos. Leer la tabla completa de un jalón mezclaba columnas y
+ *    cambiaba dígitos que pasan cualquier revisión (3300 → 2300).
+ *  · POR RENGLONES si no hay cuadrícula (foto torcida): mucho menos confiable.
+ * Resuelve {mode:'celdas', grid:[[texto]], conf:[[%]]} o {mode:'renglones', lines:[…]}.
+ */
+function _invOcrImage(blob, onProgress) {
+    var tick = function(msg, p) { if (onProgress) onProgress(msg, p); };
+    return new Promise(function(resolve, reject) {
+        _invLoadTesseract(function(ok) {
+            if (!ok) { reject(new Error('No se pudo descargar el lector de imágenes (sin conexión o bloqueado por la red). Usa el Excel o pega la tabla.')); return; }
+            var worker = null, prep = null;
+            var fin = function(v) { if (worker) try { worker.terminate(); } catch (e) {} resolve(v); };
+            var fail = function(err) { if (worker) try { worker.terminate(); } catch (e) {} reject(err); };
+            _invOcrPrepare(blob).then(function(pp) {
+                prep = pp;
+                return Tesseract.createWorker('spa', 1, {
+                    workerPath: INV_TESS.worker, corePath: INV_TESS.core, langPath: INV_TESS.lang,
+                    logger: function(m) { if (m && typeof m.progress === 'number' && m.status !== 'recognizing text') tick('Cargando el lector', m.progress); }
+                });
+            }).then(function(w) {
+                worker = w;
+                if (!prep.grid) {
+                    return w.setParameters({ tessedit_pageseg_mode: '6', preserve_interword_spaces: '1' })
+                        .then(function() { tick('Leyendo la imagen', 0.5); return w.recognize(prep.canvas); })
+                        .then(function(res) {
+                            fin({ mode: 'renglones', lines: ((res.data && res.data.lines) || []).map(function(l) {
+                                return { text: l.text, confidence: l.confidence, words: (l.words || []).map(function(x) { return { text: x.text, confidence: x.confidence }; }) };
+                            }) });
+                        });
+                }
+                var G = prep.grid, W = prep.W, ink = prep.ink, jobs = [];
+                var text = G.rows.map(function() { return G.cols.map(function() { return ''; }); });
+                var conf = G.rows.map(function() { return G.cols.map(function() { return null; }); });
+                G.rows.forEach(function(ry, r) {
+                    G.cols.forEach(function(cx, c) {
+                        var x0 = cx[0] + 2, x1 = cx[1] - 2, y0 = ry[0] + 2, y1 = ry[1] - 2, tinta = 0;
+                        for (var y = y0; y <= y1 && tinta < 6; y += 2) for (var x = x0; x <= x1 && tinta < 6; x += 2) if (ink[y * W + x] === 1) tinta++;
+                        if (tinta >= 6 && x1 > x0 && y1 > y0) jobs.push({ r: r, c: c, rect: { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 } });
+                    });
+                });
+                var total = jobs.length, hechos = 0;
+                var pasada = function(lista, params, cb) {
+                    return w.setParameters(params).then(function() {
+                        return lista.reduce(function(pr, j) {
+                            return pr.then(function() {
+                                return w.recognize(prep.canvas, { rectangle: j.rect }).then(function(res) {
+                                    cb(j, String((res.data && res.data.text) || '').replace(/\s+/g, ' ').trim(), res.data && res.data.confidence);
+                                    hechos++; tick('Leyendo celdas', Math.min(1, hechos / (total * 1.6)));
+                                });
+                            });
+                        }, Promise.resolve());
+                    });
+                };
+                return pasada(jobs, { tessedit_pageseg_mode: '7', tessedit_char_whitelist: '' }, function(j, t, cf) { text[j.r][j.c] = t; conf[j.r][j.c] = cf; })
+                    .then(function() {
+                        // Relectura con solo dígitos de las celdas que parecen número
+                        var nums = jobs.filter(function(j) { var t = text[j.r][j.c]; return t && /\d/.test(t) && !/[a-zA-ZÁÉÍÓÚÑáéíóúñ]{3}/.test(t); });
+                        return pasada(nums, { tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789.,' }, function(j, t, cf) {
+                            if (t) { text[j.r][j.c] = t; conf[j.r][j.c] = cf; }
+                        });
+                    })
+                    .then(function() { fin({ mode: 'celdas', grid: text, conf: conf }); });
+            }).catch(fail);
+        });
+    });
+}
+
+// ── UI ──
+var _invConsImp = null;   // {source, rows:[{...parsed, gasId, match, warnings}]}
+
+function invConsImportOpen() {
+    _invConsImp = null;
+    var tanks = invState.fuelTanks || [];
+    var fuelRows = tanks.map(function(t) {
+        return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap: var(--space-xs);align-items:center;">'
+            + '<span>⛽ ' + escapeHtml(t.regulation || t.name || '') + ' <span class="u-muted" style="font-size: var(--fs-xs);">(' + (t.capacity || '?') + ' ' + (t.unit || 'L') + ')</span></span>'
+            + '<input type="number" inputmode="decimal" step="0.1" min="0" class="tp-input" data-fuel-level="' + escapeHtml(t.id) + '" placeholder="Restante" aria-label="Restante ' + escapeHtml(t.regulation || t.name || '') + '">'
+            + '<input type="number" inputmode="decimal" step="1" min="0" class="tp-input" data-fuel-reorder="' + escapeHtml(t.id) + '" value="' + (t.reorderLevel || '') + '" placeholder="Reorden" aria-label="Nivel de reorden ' + escapeHtml(t.regulation || t.name || '') + '">'
+            + '</div>';
+    }).join('');
+    showModal({
+        title: 'Importar reporte de consumibles',
+        type: 'info',
+        body: '<div class="inv-consimp" style="display:flex;flex-direction:column;gap: var(--space-sm);">'
+            + '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xs);align-items:center;">'
+            + '<label class="tp-btn tp-btn-primary" style="display:inline-flex;cursor:pointer;">📂 Excel / CSV <span class="u-chip u-chip--ok" style="margin-left: var(--space-xs);">recomendado</span>'
+            + '<input type="file" accept=".xlsx,.xls,.xlsm,.csv" style="display:none;" onchange="invConsImportFile(event)"></label>'
+            + '<label class="tp-btn tp-btn-ghost" style="display:inline-flex;cursor:pointer;">🖼️ Imagen (OCR)'
+            + '<input type="file" accept="image/*" style="display:none;" onchange="invConsImportImage(event)"></label>'
+            + '</div>'
+            + '<textarea id="inv-cons-paste" class="tp-input" rows="3" placeholder="…o pega aquí la tabla (Ctrl+V): selecciónala en el correo o en Excel y cópiala. También puedes pegar una captura de pantalla." style="width:100%;font-size: var(--fs-sm);"></textarea>'
+            + '<div class="u-muted" style="font-size: var(--fs-xs);">La imagen es el camino menos exacto: usa una <strong>captura de pantalla</strong> (Win+Shift+S), no una foto del monitor, y revisa las filas marcadas.</div>'
+            + '<label style="display:flex;gap: var(--space-sm);align-items:center;font-size: var(--fs-sm);">📅 Fecha de las lecturas <input type="date" id="inv-cons-date" class="tp-input" value="' + localToday() + '" max="' + localToday() + '" style="width:auto;"></label>'
+            + '<div id="inv-cons-preview"></div>'
+            + (tanks.length ? '<details open><summary style="font-weight:700;">⛽ Gasolina (se captura a mano: las gráficas del correo no se leen bien)</summary>'
+                + '<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap: var(--space-xs);margin-top: var(--space-xs);font-size: var(--fs-xs);" class="u-muted"><span></span><span>Restante</span><span>Reorden</span></div>'
+                + '<div style="display:flex;flex-direction:column;gap: var(--space-xs);">' + fuelRows + '</div></details>' : '')
+            + '</div>',
+        buttons: [
+            { label: 'Cancelar', onclick: function() { _invConsImp = null; _invCloseGlobalModal(); } },
+            { label: '✅ Aplicar', cls: 'btn-primary', onclick: function() { invConsImportApply(); } }
+        ]
+    });
+    var ta = document.getElementById('inv-cons-paste');
+    if (ta) ta.addEventListener('paste', invConsImportPaste);
+}
+
+function _invConsSetStatus(html) {
+    var host = document.getElementById('inv-cons-preview');
+    if (host) host.innerHTML = html;
+}
+
+function invConsImportPaste(e) {
+    var cd = e.clipboardData || window.clipboardData;
+    if (!cd) return;
+    var items = cd.items || [];
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && /^image\//.test(items[i].type)) {
+            e.preventDefault();
+            _invConsRunOcr(items[i].getAsFile());
+            return;
+        }
+    }
+    var html = cd.getData && cd.getData('text/html');
+    if (html && /<table/i.test(html)) {
+        e.preventDefault();
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var grid = [];
+        Array.prototype.forEach.call(doc.querySelectorAll('table'), function(t) {
+            // Tablas anidadas: solo las de más afuera
+            if (t.parentElement && t.parentElement.closest('table')) return;
+            grid = grid.concat(_invHtmlTableToGrid(t));
+        });
+        _invConsShow(invConsParseGrid(grid), 'tabla pegada');
+        return;
+    }
+    var text = cd.getData && cd.getData('text/plain');
+    if (text) {
+        e.preventDefault();
+        e.target.value = text;
+        var g = typeof _pnProjParseDelimited === 'function' ? _pnProjParseDelimited(text) : text.split('\n').map(function(l) { return l.split('\t'); });
+        _invConsShow(invConsParseGrid(g), 'texto pegado');
+    }
+}
+
+function invConsImportFile(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    if (!f) return;
+    _invConsSetStatus('<p class="u-muted">Leyendo ' + escapeHtml(f.name) + '…</p>');
+    var fail = function(msg) { _invConsSetStatus('<p style="color:var(--danger-text);">' + escapeHtml(msg) + '</p>'); };
+    if (/\.csv$/i.test(f.name)) {
+        var rd = new FileReader();
+        rd.onload = function(e) { _invConsShow(invConsParseGrid(_pnProjParseDelimited(String(e.target.result || '').replace(/^﻿/, ''))), f.name); };
+        rd.readAsText(f);
+    } else {
+        if (typeof _pnProjLoadXLSX !== 'function') { fail('El lector de Excel no está disponible.'); return; }
+        _pnProjLoadXLSX(function(ok) {
+            if (!ok) { fail('Sin conexión para cargar el lector de Excel. Copia la tabla y pégala en el recuadro.'); return; }
+            var rd = new FileReader();
+            rd.onload = function(e) {
+                try {
+                    var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    // La hoja buena es la que más filas de gases produce.
+                    var best = [];
+                    wb.SheetNames.forEach(function(n) {
+                        var rows = invConsParseGrid(XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '', blankrows: true }));
+                        if (rows.length > best.length) best = rows;
+                    });
+                    _invConsShow(best, f.name);
+                } catch (err) { fail('No se pudo leer el Excel: ' + (err && err.message || err)); }
+            };
+            rd.readAsArrayBuffer(f);
+        });
+    }
+    ev.target.value = '';
+}
+
+function invConsImportImage(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    if (f) _invConsRunOcr(f);
+    if (ev && ev.target) ev.target.value = '';
+}
+
+function _invConsRunOcr(blob) {
+    _invConsSetStatus('<p class="u-muted" id="inv-cons-ocr-msg">Preparando el lector de imágenes… (la primera vez descarga ~5 MB)</p>');
+    _invOcrImage(blob, function(status, p) {
+        var el = document.getElementById('inv-cons-ocr-msg');
+        if (el) el.textContent = status + '… ' + Math.round(p * 100) + '%';
+    }).then(function(res) {
+        var rows;
+        if (res.mode === 'celdas') {
+            rows = invConsParseGrid(res.grid);
+            // Confianza del OCR en la celda del inventario (lo único que se guarda)
+            rows.forEach(function(r) {
+                var cf = r.invCol !== undefined && res.conf[r.rowNo - 1] ? res.conf[r.rowNo - 1][r.invCol] : null;
+                if (typeof cf === 'number') r.conf = { inventory: cf };
+            });
+            _invConsShow(rows, 'imagen (OCR por celdas)', res.grid.length);
+        } else {
+            rows = invConsParseOcrLines(res.lines);
+            _invConsShow(rows, 'imagen (OCR por renglones — poco confiable)', res.lines.length);
+        }
+    }, function(err) {
+        _invConsSetStatus('<p style="color:var(--danger-text);">' + escapeHtml(err && err.message || String(err)) + '</p>');
+    });
+}
+
+function _invConsShow(rows, source, ocrLines) {
+    var gases = invState.gases || [];
+    var date = (document.getElementById('inv-cons-date') || {}).value || localToday();
+    var usados = {};
+    var list = rows.map(function(r) {
+        var m = invMatchGasByLabel(r.label, gases);
+        // Dos filas no pueden escribir en el mismo cilindro
+        var gas = m.gas && !usados[m.gas.id] ? m.gas : null;
+        if (gas) usados[gas.id] = true;
+        var warnings = invConsRowCheck(r);
+        if (gas && r.inventory !== null && typeof invReadingWarning === 'function') {
+            var rw = invReadingWarning(gas, r.inventory, date);
+            if (rw) warnings.push(rw);
+        }
+        return Object.assign({}, r, { gasId: gas ? gas.id : '', matchWhy: gas ? m.why : (m.gas ? 'ese cilindro ya lo usa otra fila' : m.why), warnings: warnings });
+    });
+    _invConsImp = { source: source, rows: list, ocr: /OCR/.test(source) };
+    invConsRenderPreview(ocrLines);
+}
+
+function invConsRenderPreview(ocrLines) {
+    var host = document.getElementById('inv-cons-preview');
+    if (!host || !_invConsImp) return;
+    var S = _invConsImp, gases = (invState.gases || []).filter(function(g) { return g.status !== 'Empty'; });
+    if (!S.rows.length) {
+        host.innerHTML = '<p style="color:var(--danger-text);">No encontré filas de gases en ' + escapeHtml(S.source) + '.'
+            + (S.ocr ? ' El lector vio ' + (ocrLines || 0) + ' renglones pero ninguno con nombre + 5 números. Prueba con una captura más nítida o con el Excel.' : ' Se buscan las columnas Consumible, Inventario, Consumo semanal, Consumo diario, Reposición y Límite.')
+            + '</p>';
+        return;
+    }
+    var opts = function(sel) {
+        return '<option value="">— no importar —</option>' + gases.map(function(g) {
+            return '<option value="' + escapeHtml(g.id) + '"' + (g.id === sel ? ' selected' : '') + '>' + escapeHtml(invGasReportLabel(g) + ' · #' + (g.controlNo || '') + (g.status && g.status !== 'In use' ? ' (' + (typeof uiLabel === 'function' ? uiLabel('gasStatus', g.status) : g.status) + ')' : '')) + '</option>';
+        }).join('');
+    };
+    var nOk = S.rows.filter(function(r) { return r.gasId; }).length, nWarn = S.rows.filter(function(r) { return r.warnings.length; }).length;
+    var h = '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-bottom: var(--space-xs);">'
+        + '<span class="u-chip u-chip--neutral">' + S.rows.length + ' filas · ' + escapeHtml(S.source) + '</span>'
+        + '<span class="u-chip u-chip--ok">' + nOk + ' con cilindro</span>'
+        + (S.rows.length - nOk ? '<span class="u-chip u-chip--danger">' + (S.rows.length - nOk) + ' sin cilindro</span>' : '')
+        + (nWarn ? '<span class="u-chip u-chip--warn">' + nWarn + ' por revisar</span>' : '')
+        + '</div>'
+        + '<div class="u-muted" style="font-size: var(--fs-xs);margin-bottom: var(--space-xs);">Se guarda solo el <strong>inventario</strong> (como lectura) y los <strong>días de reposición</strong>. Consumo, límite y status los calcula la app; la columna "la app" muestra con qué datos.</div>';
+    h += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">'
+        + '<thead><tr><th style="text-align:left;">Del reporte</th><th style="text-align:left;">Cilindro</th><th>Inventario</th><th>Reposición</th><th>Correo: semanal · límite</th><th>La app: semanal · límite</th></tr></thead><tbody>';
+    S.rows.forEach(function(r, i) {
+        var g = gases.find(function(x) { return x.id === r.gasId; });
+        var ro = g ? invGasReorder(g) : null;
+        var warn = r.warnings.length;
+        h += '<tr style="border-top:1px solid var(--border);' + (warn ? 'background:var(--warn-tint, var(--warn-bg));' : '') + '">'
+            + '<td>' + escapeHtml(r.label) + (r.status ? ' <span class="u-chip ' + (r.status === 'comprar' ? 'u-chip--warn' : 'u-chip--ok') + '">' + (r.status === 'comprar' ? 'Comprar' : 'OK') + '</span>' : '')
+            + (warn ? '<div style="color:var(--warn-text);font-size: var(--fs-xs);">⚠ ' + r.warnings.map(escapeHtml).join(' · ') + '</div>' : '')
+            + (!r.gasId ? '<div style="color:var(--danger-text);font-size: var(--fs-xs);">' + escapeHtml(r.matchWhy || '') + '</div>' : '') + '</td>'
+            + '<td><select class="tp-input" data-cons-gas="' + i + '" style="max-width:260px;">' + opts(r.gasId) + '</select></td>'
+            + '<td><input type="number" inputmode="decimal" min="0" class="tp-input" data-cons-psi="' + i + '" value="' + (r.inventory !== null ? r.inventory : '') + '" style="width:96px;"></td>'
+            + '<td><input type="number" inputmode="numeric" min="1" class="tp-input" data-cons-lead="' + i + '" value="' + (r.lead || '') + '" style="width:72px;"></td>'
+            + '<td style="text-align:center;">' + _invFmtNum(r.weekly, 1) + ' · ' + _invFmtNum(r.limit, 2) + '</td>'
+            + '<td style="text-align:center;">' + (ro && ro.status !== 'sinritmo' && ro.status !== 'sinlecturas' ? _invFmtNum(ro.weeklyPsi, 1) + ' · ' + _invFmtNum(ro.reorderPsi, 2) : '<span class="u-muted">sin ritmo aún</span>') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    host.innerHTML = h;
+    if (typeof uiTableCards === 'function') { try { uiTableCards(host); } catch (e) {} }
+}
+
+function invConsImportApply() {
+    var box = document.getElementById('globalModal');
+    if (!box) return;
+    var date = (document.getElementById('inv-cons-date') || {}).value || localToday();
+    var todo = [];
+    if (_invConsImp) _invConsImp.rows.forEach(function(r, i) {
+        var gid = (box.querySelector('[data-cons-gas="' + i + '"]') || {}).value;
+        var psi = parseFloat((box.querySelector('[data-cons-psi="' + i + '"]') || {}).value);
+        var lead = parseFloat((box.querySelector('[data-cons-lead="' + i + '"]') || {}).value);
+        if (gid && isFinite(psi)) todo.push({ gid: gid, psi: psi, lead: lead, label: r.label });
+    });
+    var fuel = [];
+    Array.prototype.forEach.call(box.querySelectorAll('[data-fuel-level]'), function(inp) {
+        var id = inp.getAttribute('data-fuel-level');
+        var lvl = parseFloat(inp.value);
+        var ro = parseFloat((box.querySelector('[data-fuel-reorder="' + id + '"]') || {}).value);
+        var t = (invState.fuelTanks || []).find(function(x) { return x.id === id; });
+        if (!t) return;
+        var roChanged = isFinite(ro) ? ro !== t.reorderLevel : false;
+        if (isFinite(lvl) || roChanged) fuel.push({ t: t, level: isFinite(lvl) ? lvl : null, reorder: isFinite(ro) ? ro : null, roChanged: roChanged });
+    });
+    var ids = todo.map(function(x) { return x.gid; });
+    if (ids.some(function(id, i) { return ids.indexOf(id) !== i; })) { showToast('Dos filas apuntan al mismo cilindro. Corrige el selector antes de aplicar.', 'error'); return; }
+    if (!todo.length && !fuel.length) { showToast('No hay nada que aplicar: carga el reporte o captura la gasolina.', 'warning'); return; }
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'importar el reporte de consumibles')) return;
+    if (typeof undoPush === 'function') undoPush('inventory', 'Importar reporte de consumibles');
+
+    var src = _invConsImp ? _invConsImp.source : 'captura';
+    var nGas = 0, nLead = 0, nFuel = 0, avisos = 0;
+    todo.forEach(function(x) {
+        var res = invAddReading(x.gid, x.psi, { date: date, source: 'importacion', silent: true, skipSave: true });
+        if (!res.ok) return;
+        nGas++; if (res.warning) avisos++;
+        var g = res.gas;
+        if (x.lead > 0 && Math.round(x.lead) !== invGasLeadDays(g)) { g.leadDays = Math.round(x.lead); nLead++; }
+        // El nombre del correo se recuerda: el próximo reporte empata solo y la app lo
+        // imprime con las mismas palabras que el laboratorio.
+        g.importAlias = String(x.label).replace(/\s+/g, ' ').trim().toUpperCase();
+        g.updatedAt = new Date().toISOString();
+    });
+    fuel.forEach(function(f) {
+        if (f.level !== null) { var r = invAddFuelReading(f.t.id, f.level, { date: date, source: 'importacion', silent: true, skipSave: true }); if (r.ok) nFuel++; }
+        if (f.roChanged) { f.t.reorderLevel = f.reorder || null; f.t.updatedAt = new Date().toISOString(); }
+    });
+    if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+    invSave(); invRender(); invUpdateBadges();
+    if (typeof auditLog === 'function') auditLog('inv', 'reporte_consumibles_importado', { type: 'gas', label: 'Reporte semanal' },
+        nGas + ' lecturas de gas, ' + nFuel + ' de combustible, ' + nLead + ' tiempos de reposición · ' + date + ' · ' + src + (avisos ? ' · ' + avisos + ' con aviso' : ''));
+    _invConsImp = null;
+    _invCloseGlobalModal();
+    showToast(nGas + ' lecturas de gas y ' + nFuel + ' de gasolina importadas' + (avisos ? ' (' + avisos + ' con aviso — revisa el historial)' : ''), avisos ? 'warning' : 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -28627,48 +29542,33 @@ function invDrawTrendChart(g) {
 // ║  [QW4] REORDER ALERTS — Smart alerts with reorder specs           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [v24.3] Sobre invGasReorder (LA definición del punto de reorden). Antes tenía su
+// propia tasa — primera contra última lectura, contando recargas y lecturas
+// automáticas — y avisaba por "menos de 6 semanas para llegar a 0 PSI", un criterio
+// que no era el del laboratorio ni el del resto de la app.
 function invCheckReorderAlerts() {
     var alerts = [];
-    var WEEKS_THRESHOLD = 6; // Alert when gas projected to last < 6 weeks
-
     invState.gases.forEach(function(g) {
-        if (g.status !== 'In use' || !g.readings || g.readings.length < 2) return;
-
-        var rdgs = g.readings;
-        var first = rdgs[0];
-        var last = rdgs[rdgs.length - 1];
-        var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
-        var dailyDrop = (first.psi - last.psi) / daysDiff;
-        if (dailyDrop <= 0) return;
-
-        var daysLeft = last.psi / dailyDrop;
-        var weeksLeft = daysLeft / 7;
-
-        if (weeksLeft < WEEKS_THRESHOLD) {
-            // Check if there's a spare of the same formula+concentration
-            var hasSpare = invState.gases.some(function(s) {
-                return s.id !== g.id && s.formula === g.formula && s.concNominal === g.concNominal && s.status === 'Spare';
-            });
-
-            alerts.push({
-                gasId: g.id,
-                controlNo: g.controlNo,
-                formula: g.formula,
-                concNominal: g.concNominal,
-                gasType: g.gasType,
-                traceability: g.traceability || 'EPA',
-                zone: g.zone,
-                currentPsi: last.psi,
-                dailyDrop: dailyDrop,
-                daysLeft: Math.round(daysLeft),
-                weeksLeft: Math.round(weeksLeft * 10) / 10,
-                hasSpare: hasSpare,
-                urgency: weeksLeft < 2 ? 'critica' : weeksLeft < 4 ? 'alta' : 'media'
-            });
-        }
+        if (g.status === 'Empty' || g.status === 'Spare') return;
+        var ro = invGasReorder(g);
+        if (!ro.needsPurchase) return;
+        var daily = ro.weeklyPsi / 7;
+        var daysLeft = daily > 0 ? Math.round(ro.psi / daily) : null;
+        var hasSpare = invState.gases.some(function(s) {
+            return s.id !== g.id && s.formula === g.formula && s.concNominal === g.concNominal && s.status === 'Spare';
+        });
+        alerts.push({
+            gasId: g.id, controlNo: g.controlNo, formula: g.formula, concNominal: g.concNominal,
+            gasType: g.gasType, traceability: g.traceability || 'EPA', zone: g.zone,
+            currentPsi: ro.psi, reorderPsi: ro.reorderPsi, leadDays: ro.leadDays,
+            dailyDrop: daily, daysLeft: daysLeft,
+            weeksLeft: daysLeft === null ? null : Math.round(daysLeft / 7 * 10) / 10,
+            hasSpare: hasSpare,
+            // Crítica: al ritmo actual se acaba ANTES de que llegue el pedido.
+            urgency: (daysLeft !== null && daysLeft < ro.leadDays) ? 'critica' : 'alta'
+        });
     });
-
-    alerts.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+    alerts.sort(function(a, b) { return (a.daysLeft === null ? 1e9 : a.daysLeft) - (b.daysLeft === null ? 1e9 : b.daysLeft); });
     return alerts;
 }
 
@@ -28678,7 +29578,7 @@ function invRenderReorderAlerts() {
 
     var html = '<div class="tp-card" style="border-left:3px solid #f97316;">';
     html += '<div class="tp-card-title"><span style="color:#f97316;">Alertas de Reorden (' + alerts.length + ')</span></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cilindros que se proyectan a agotarse en menos de 6 semanas.</div>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cilindros en o bajo su límite inferior (consumo por día hábil × días de reposición × ' + INV_REORDER_SAFETY + '). Crítica = al ritmo actual se acaba antes de que llegue el pedido.</div>';
 
     alerts.forEach(function(a) {
         var urgClr = a.urgency === 'critica' ? '#ef4444' : a.urgency === 'alta' ? '#f59e0b' : '#3b82f6';
@@ -28688,12 +29588,14 @@ function invRenderReorderAlerts() {
         html += '<span style="font-weight:700;font-size: var(--fs-sm);">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
         html += ' <span style="font-size: var(--fs-xs);color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
         html += '</div>';
-        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">' + a.urgency.toUpperCase() + ' ~' + a.weeksLeft + ' sem</span>';
+        html += '<span style="font-size: var(--fs-sm);font-weight:700;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-xl);background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">COMPRAR' + (a.weeksLeft !== null ? ' · ~' + a.weeksLeft + ' sem' : '') + '</span>';
         html += '</div>';
         html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-xs);font-size: var(--fs-xs);flex-wrap:wrap;">';
         html += '<span style="color:var(--tp-dim);">Actual: <strong>' + a.currentPsi + ' psi</strong></span>';
-        html += '<span style="color:var(--tp-dim);">Consumo: <strong>' + a.dailyDrop.toFixed(1) + ' psi/dia</strong></span>';
-        html += '<span style="color:var(--tp-dim);">Vacio en: <strong style="color:' + urgClr + ';">' + a.daysLeft + ' dias</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Consumo: <strong>' + a.dailyDrop.toFixed(1) + ' psi/día</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Límite: <strong>' + Math.round(a.reorderPsi) + ' psi</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Reposición: <strong>' + a.leadDays + ' días</strong></span>';
+        if (a.daysLeft !== null) html += '<span style="color:var(--tp-dim);">Vacío en: <strong style="color:' + urgClr + ';">' + a.daysLeft + ' días</strong></span>';
         if (a.hasSpare) {
             html += '<span style="color:var(--ok-text);font-weight:700;">Spare disponible</span>';
         } else {
@@ -29055,22 +29957,6 @@ function _invDownloadCsv(csv, filename) {
     a.click();
     if (typeof showToast === 'function') showToast('Exportado: ' + filename, 'success');
 }
-function _invParseCsvLine(line) {
-    var result = [], cur = '', inQuotes = false;
-    for (var i = 0; i < line.length; i++) {
-        var c = line[i];
-        if (inQuotes) {
-            if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; } }
-            else cur += c;
-        } else {
-            if (c === '"') inQuotes = true;
-            else if (c === ',') { result.push(cur); cur = ''; }
-            else cur += c;
-        }
-    }
-    result.push(cur);
-    return result;
-}
 
 function invExportF11Equipos() {
     var csv = 'ID,Equipo,Laboratorio,Marca,Modelo,No. Serie,Estatus,¿Requiere calibración? (auto),Cal. vencidas (auto),Notas\n';
@@ -29120,69 +30006,504 @@ function invExportF11Historial() {
     _invDownloadCsv(csv, 'COP15-F11_Historial_' + localToday() + '.csv');
 }
 
-// Actualización en bloque desde el CSV de Calibración (mismo formato del exportador) —
-// solo actualiza fecha/certificado/proveedor de instrumentos existentes; pide confirmación antes de escribir.
-function invImportF11CSV(csvText) {
-    var lines = csvText.trim().split('\n');
-    if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
-    var header = _invParseCsvLine(lines[0]);
-    var idx = {};
-    header.forEach(function(h, i) { idx[h.trim()] = i; });
-    if (idx['No.'] === undefined) { showToast('CSV sin columna "No." (ID del F11)', 'error'); return; }
+// ══════════════════════════════════════════════════════════════════════
+// [v24.3] Actualizar calibraciones desde el Excel COP15-F11
+//
+// Reemplaza a `invImportF11CSV`, que solo aceptaba .csv, guardaba la fecha como
+// texto crudo y empataba por `No. Serie` aunque la serie fuera "-". Ahora:
+//   · .xlsx / .xls / .csv, la hoja y la fila de encabezados se encuentran solas
+//     (el F11 trae bloque de título arriba y varias hojas);
+//   · fechas normalizadas (serial de Excel, dd/mm/aaaa, ISO) con `_pnNormDate`;
+//   · el empate NO adivina: No. del F11 → ID KMM → serie → descripción, y las tres
+//     últimas SOLO si son únicas. En el propio F11 un mismo instrumento físico con
+//     dos magnitudes comparte KMM (TH-0033 en C-003/C-004) y serie (K-150019C en
+//     C-013/14/15); empatar por ellas escribiría la calibración de uno en el otro;
+//   · vista previa con antes → después, y nada se escribe sin "Aplicar".
+// `invCalImportAnalyze` es PURA (sin DOM) — se prueba en tests/inventory-import.node.js.
+// ══════════════════════════════════════════════════════════════════════
 
-    var updates = [], news = 0, unchanged = 0;
-    for (var i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        var cols = _invParseCsvLine(lines[i]);
-        var f11Id = cols[idx['No.']];
-        if (!f11Id) continue;
-        var target = invState.equipment.find(function(e) { return e.f11Id === f11Id; })
-            || (idx['ID KMM'] !== undefined && cols[idx['ID KMM']] ? invState.equipment.find(function(e) { return e.kmmId && e.kmmId === cols[idx['ID KMM']]; }) : null)
-            || (idx['No. Serie'] !== undefined && cols[idx['No. Serie']] ? invState.equipment.find(function(e) { return e.serialNo && e.serialNo === cols[idx['No. Serie']]; }) : null);
-        var row = {
-            lastCalDate: idx['Última calibración'] !== undefined ? cols[idx['Última calibración']] : '',
-            calCertNo: idx['No. Certificado'] !== undefined ? cols[idx['No. Certificado']] : '',
-            calLab: idx['Proveedor (¿quién calibra?)'] !== undefined ? cols[idx['Proveedor (¿quién calibra?)']] : ''
-        };
-        if (target) {
-            var changed = (row.lastCalDate && row.lastCalDate !== target.lastCalDate) || (row.calCertNo && row.calCertNo !== target.calCertNo);
-            if (changed) updates.push({ target: target, row: row }); else unchanged++;
-        } else {
-            news++;
+// Los primeros sinónimos de cada campo son encabezados LITERALES de las revisiones
+// reales del F11: la exportada por la app (rev. 03: "No.", "Última calibración"…) y
+// el "Plan Anual de Calibración" que usa el laboratorio (en inglés: "Cal date",
+// "Cal Due", "Certification No.", "Laboratory", "Internal"/"External"). Agregar uno
+// basta para reconocer una redacción nueva. Nada de palabras sueltas que aparezcan
+// dentro de OTRO encabezado: "proveedor" empataba "Evaluacion de proveedores" (una
+// columna auxiliar) y "magnitud" le ganaba la columna a la descripción.
+var INV_F11_IMPORT_FIELDS = {
+    f11Id:       { label: 'No. (ID del F11)',     syn: ['no', 'no.', 'id f11', 'no f11', 'consecutivo'] },
+    kmmId:       { label: 'ID KMM',               syn: ['id kmm', 'kmm id', 'kmm', 'identificacion kmm'] },
+    serialNo:    { label: 'No. Serie',            syn: ['no serie', 'serial no', 'numero de serie', 'no de serie', 'serie', 'serial', 'serial number'] },
+    desc:        { label: 'Descripción',          syn: ['descripcion magnitud calibrada', 'description', 'descripcion', 'instrumento', 'instrument'] },
+    magnitude:   { label: 'Magnitud',             syn: ['magnitude', 'magnitud'] },
+    asset:       { label: 'Equipo',               syn: ['equipment', 'equipo', 'equipo padre'] },
+    model:       { label: 'Modelo',               syn: ['model', 'modelo'] },
+    lastCalDate: { label: 'Última calibración',   syn: ['ultima calibracion', 'cal date', 'calibration date', 'fecha de calibracion', 'fecha calibracion', 'fecha ultima calibracion', 'last calibration'] },
+    nextCalDate: { label: 'Próxima calibración',  syn: ['proxima calibracion auto', 'proxima calibracion', 'cal due', 'due date', 'fecha proxima calibracion', 'fecha de vencimiento', 'next calibration'] },
+    calCertNo:   { label: 'No. Certificado',      syn: ['no certificado', 'certification no', 'certificate no', 'numero de certificado', 'no de certificado', 'certificado', 'certificate'] },
+    calLab:      { label: 'Proveedor',            syn: ['proveedor quien calibra', 'laboratory', 'quien calibra', 'laboratorio de calibracion', 'calibrador', 'supplier'] },
+    calFreq:     { label: 'Frecuencia',           syn: ['frecuencia', 'frecuencia de calibracion', 'periodicidad', 'frequency'] },
+    freqInt:     { label: 'Interna (frecuencia)', syn: ['internal', 'interna'] },
+    freqExt:     { label: 'Externa (frecuencia)', syn: ['external', 'externa'] },
+    comments:    { label: 'Comentarios',          syn: ['certificado pdf comentarios', 'comment', 'comments', 'comentarios', 'notas'] }
+};
+
+function _invF11Key(s) {
+    if (typeof _pnNormKey === 'function') return _pnNormKey(s);
+    return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Identificadores y modelos se comparan compactos: "TH210-B0SP" = "TH210B0SP".
+function _invF11Compact(s) { return _invF11Key(s).replace(/\s+/g, ''); }
+function _invF11Cell(v) { return v == null ? '' : String(v).trim(); }
+// '-', 'N/A', 'NA', 'S/N' y vacío NO son identificadores (criterio de _fbEquipKey).
+function _invF11RealId(v) {
+    var s = _invF11Cell(v);
+    return (s && !/^(-+|n\/?a|s\/?n|sin serie|ninguno|none)$/i.test(s)) ? s : '';
+}
+// Texto de la hoja → clave de INV_CAL_FREQ_DAYS ('' si no se entiende).
+function _invF11Freq(v) {
+    var k = _invF11Key(v);
+    if (!k) return '';
+    if (/semestr|6 mes|seis mes/.test(k)) return 'Semestral';
+    if (/bianual|bienal|2 ano|dos ano|24 mes/.test(k)) return 'Bianual';
+    if (/anual|1 ano|un ano|12 mes|annual|yearly/.test(k)) return 'Anual';
+    return '';
+}
+
+/**
+ * Encabezados → {campo: columna}, en DOS pasadas globales: primero los empates
+ * exactos de TODOS los campos, luego contención (encabezado ⊇ sinónimo de ≥ 6 letras)
+ * solo para los que falten. `_pnProjAutoMap` va campo por campo y así un campo sin
+ * empate exacto le roba la columna a otro que sí lo tenía más abajo. PURA.
+ */
+function _invF11AutoMap(headers) {
+    var keys = (headers || []).map(_invF11Key), map = {}, used = {};
+    var F = INV_F11_IMPORT_FIELDS, fields = Object.keys(F);
+    fields.forEach(function(f) {
+        for (var i = 0; i < keys.length; i++) {
+            if (!used[i] && keys[i] && F[f].syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
+        }
+    });
+    fields.forEach(function(f) {
+        if (map[f] !== undefined) return;
+        for (var i = 0; i < keys.length; i++) {
+            if (used[i] || !keys[i]) continue;
+            if (F[f].syn.some(function(s) { return s.length >= 6 && keys[i].indexOf(s) !== -1; })) { map[f] = i; used[i] = true; return; }
+        }
+    });
+    return map;
+}
+
+// Busca la fila de encabezados: la que más campos del F11 mapea dentro de las
+// primeras 25 filas (el F11 trae título arriba). Exige una columna de fecha o
+// certificado y una de identidad; si no, no es la hoja.
+function _invF11FindHeader(grid) {
+    var best = null;
+    for (var i = 0; i < Math.min((grid || []).length, 25); i++) {
+        var row = grid[i] || [];
+        var filled = row.filter(function(c) { return _invF11Cell(c) !== ''; }).length;
+        if (filled < 2) continue;
+        var map = _invF11AutoMap(row);
+        var hasData = map.lastCalDate !== undefined || map.calCertNo !== undefined;
+        var hasId = map.f11Id !== undefined || map.kmmId !== undefined || map.serialNo !== undefined;
+        if (!hasData || !hasId) continue;
+        var score = Object.keys(map).length;
+        if (!best || score > best.score) best = { row: i, map: map, score: score };
+    }
+    return best;
+}
+
+// Una celda de fecha → lecturas posibles ('YYYY-MM-DD'). Serial de Excel o ISO: una.
+// "08/11/26" con ambos números ≤ 12: DOS (d/m y m/d) — decide quien llama. Un año
+// fuera de 2000–2100 no es una fecha de calibración (el "365" de una celda de
+// días se volvía "0365-01-01").
+function _invF11DateOptions(v, dmy) {
+    if (v === null || v === undefined || v === '') return [];
+    var ok = function(iso) { var y = +String(iso).slice(0, 4); return iso && y >= 2000 && y <= 2100 ? iso : ''; };
+    if (typeof v === 'number') {
+        if (!(v > 20000 && v < 80000)) return [];
+        return [ok(typeof _pnNormDate === 'function' ? _pnNormDate(v, true) : '')].filter(Boolean);
+    }
+    var s = String(v).trim();
+    if (!s || /^-+$/.test(s)) return [];
+    var m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if (m && +m[1] <= 12 && +m[2] <= 12 && m[1] !== m[2] && typeof _pnNormDate === 'function') {
+        // La hoja ya probó su orden con otra fecha (un número > 12): se usa ése.
+        if (dmy === true || dmy === false) return [ok(_pnNormDate(s, dmy))].filter(Boolean);
+        return [ok(_pnNormDate(s, true)), ok(_pnNormDate(s, false))].filter(Boolean);
+    }
+    return [ok(typeof _pnNormDate === 'function' ? _pnNormDate(s, true) : (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''))].filter(Boolean);
+}
+function _invDaysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+
+/**
+ * [v24.4] Parecido entre una fila del Excel y un instrumento. PURA.
+ * r / c = {kmm, sn, desc, model, asset} ya normalizados ('' = no trae el dato).
+ * Los identificadores suman mucho y RESTAN si los dos lados traen uno distinto; la
+ * descripción, el modelo y el equipo padre desempatan los instrumentos que comparten
+ * KMM o serie (un termohigrómetro son dos instrumentos: temperatura y humedad).
+ */
+function _invCalMatchScore(r, c) {
+    var s = 0;
+    if (r.kmm && c.kmm) s += r.kmm === c.kmm ? 8 : -8;
+    if (r.sn && c.sn) s += r.sn === c.sn ? 8 : -8;
+    if (r.desc && c.desc) {
+        if (r.desc === c.desc) s += 4;
+        else {
+            var a = r.desc.split(' '), b = c.desc.split(' ');
+            s += a.some(function(w) { return w.length > 3 && b.indexOf(w) !== -1; }) ? 2 : -2;
         }
     }
+    if (r.model && c.model) s += r.model === c.model ? 3 : -1;
+    if (r.asset && c.asset) s += r.asset === c.asset ? 2 : -2;
+    return s;
+}
+var INV_CAL_MATCH_MIN = 8, INV_CAL_MATCH_MARGIN = 3;
+// El mejor candidato, solo si es claro: puntaje ≥ mínimo y ventaja ≥ margen.
+function _invCalBestMatch(r, cands) {
+    var scored = cands.map(function(c) { return { c: c, s: _invCalMatchScore(r, c.f) }; })
+        .sort(function(x, y) { return y.s - x.s; });
+    if (!scored.length || scored[0].s < INV_CAL_MATCH_MIN) return { match: null, why: '' };
+    if (scored[1] && scored[0].s - scored[1].s < INV_CAL_MATCH_MARGIN) {
+        return { match: null, why: 'se parece igual a ' + [scored[0].c.label, scored[1].c.label].join(' y ') };
+    }
+    return { match: scored[0].c };
+}
 
-    if (updates.length === 0 && news === 0) { showToast('Sin cambios respecto al CSV (' + unchanged + ' sin cambio)', 'info'); return; }
+/**
+ * [v24.3/v24.4] LA definición de qué cambiaría el Excel del F11 sobre `equipment`. PURA.
+ * opts: {assets, seed, seedAssets, today}. Sin "No." en la hoja, cada fila se identifica
+ * contra la SEMILLA del F11 (INV_CAL_SEED_F11, que salió del mismo documento y usa su
+ * vocabulario) y de ahí al instrumento por f11Id; lo que no está en la semilla se
+ * busca directo entre los instrumentos de la app.
+ * @returns {{ok, reason?, headerRow, map, updates:[{eq, row, before, after, nextFromSheet, nextCalc, via, corrects}],
+ *            unmatched:[{rowNo, label}], ambiguous:[{rowNo, label, why}], older:[{eq, rowNo, before, after}],
+ *            rejected:[{rowNo, label, why}], unchanged:number, total:number}}
+ */
+function invCalImportAnalyze(grid, equipment, opts) {
+    opts = opts || {};
+    var res = { ok: false, headerRow: -1, map: {}, updates: [], unmatched: [], ambiguous: [], older: [], rejected: [], unchanged: 0, total: 0 };
+    var hdr = _invF11FindHeader(grid);
+    if (!hdr) { res.reason = 'No encontré una fila de encabezados del F11 (se necesita "No.", "ID KMM" o "No. Serie", y "Última calibración"/"Cal date" o el número de certificado).'; return res; }
+    res.ok = true; res.headerRow = hdr.row; res.map = hdr.map;
+    var M = hdr.map, eqs = equipment || [];
+    var today = opts.today || (typeof localToday === 'function' ? localToday() : new Date().toISOString().slice(0, 10));
+    var col = function(row, f) { return M[f] === undefined ? '' : row[M[f]]; };
+    var assets = opts.assets || (typeof invState !== 'undefined' && invState.assets) || [];
+    var seed = opts.seed || (typeof INV_CAL_SEED_F11 !== 'undefined' ? INV_CAL_SEED_F11 : []);
+    var seedAssets = opts.seedAssets || (typeof INV_ASSETS_SEED_F11 !== 'undefined' ? INV_ASSETS_SEED_F11 : []);
+    var assetName = function(list, id) { var a = list.find(function(x) { return x.id === id; }); return a ? a.name : ''; };
+    var feat = function(x, assetList) {
+        return { kmm: _invF11Compact(_invF11RealId(x.kmmId)), sn: _invF11Compact(_invF11RealId(x.serialNo)),
+                 desc: _invF11Key(x.type || x.magnitude || x.name), model: _invF11Compact(_invF11RealId(x.model)),
+                 asset: _invF11Key(assetName(assetList, x.assetId)) };
+    };
+    var seedCands = seed.map(function(s) { return { f11Id: s.f11Id, label: s.f11Id + ' ' + (s.name || ''), f: feat(s, seedAssets) }; });
+    var eqCands = eqs.map(function(e) { return { eq: e, label: (e.f11Id ? e.f11Id + ' ' : '') + (e.name || ''), f: feat(e, assets) }; });
+    var byF11 = {};
+    eqs.forEach(function(e) { var k = _invF11Cell(e.f11Id).toUpperCase(); if (k) (byF11[k] = byF11[k] || []).push(e); });
+    var used = {};
 
-    showConfirmDialog({
-        title: 'Importar COP15-F11',
-        message: updates.length + ' actualizados, ' + news + ' nuevos (se omiten — usa "+ Instrumento" para altas), ' + unchanged + ' sin cambio. ¿Aplicar?',
-        type: 'info', confirmText: 'Aplicar'
-    }).then(function(ok) {
-        if (!ok) return;
-        if (typeof undoPush === 'function') undoPush('inventory', 'Importar F11');
-        updates.forEach(function(u) {
-            var t = u.target, r = u.row;
-            if (r.lastCalDate) t.lastCalDate = r.lastCalDate;
-            if (r.calCertNo) t.calCertNo = r.calCertNo;
-            if (r.calLab) t.calLab = r.calLab;
-            if (r.lastCalDate) t.nextCalDate = invCalNextDate(r.lastCalDate, t.calFreq);
-            if (!t.calHistory) t.calHistory = [];
-            if (r.lastCalDate) t.calHistory.push({ date: r.lastCalDate, certNo: r.calCertNo || '', provider: r.calLab || t.calLab || '', by: 'Importación CSV', at: new Date().toISOString() });
+    // ¿d/m o m/d? Solo si la HOJA lo prueba con alguna fecha de texto que tenga un número
+    // > 12. Si no hay evidencia (null), cada fila ambigua se decide con su "próxima".
+    var dmy = null, first12 = false, second12 = false;
+    for (var r0 = hdr.row + 1; r0 < grid.length; r0++) {
+        ['lastCalDate', 'nextCalDate'].forEach(function(f) {
+            var mm = _invF11Cell(col(grid[r0] || [], f)).match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+            if (!mm) return;
+            if (+mm[1] > 12) first12 = true;
+            if (+mm[2] > 12) second12 = true;
         });
-        invSave(); invRender(); invUpdateBadges();
-        if (typeof auditLog === 'function') auditLog('inv', 'f11_importado', { type: 'equipment', label: 'COP15-F11' }, updates.length + ' actualizados');
-        showToast('Importados ' + updates.length + ' cambios', 'success');
+    }
+    if (first12 && !second12) dmy = true;
+    else if (second12 && !first12) dmy = false;
+
+    for (var r = hdr.row + 1; r < grid.length; r++) {
+        var row = grid[r] || [];
+        var lastOpts = _invF11DateOptions(col(row, 'lastCalDate'), dmy);
+        var nextOpts = _invF11DateOptions(col(row, 'nextCalDate'), dmy);
+        var cert = _invF11RealId(col(row, 'calCertNo'));
+        var prov = _invF11RealId(col(row, 'calLab'));
+        var fExt = _invF11Freq(col(row, 'freqExt')), fInt = _invF11Freq(col(row, 'freqInt'));
+        var freq = _invF11Freq(col(row, 'calFreq')) || fExt || fInt;
+        var calType = fExt ? 'Externa' : (fInt ? 'Interna' : '');
+        var comments = _invF11Cell(col(row, 'comments'));
+        if (!lastOpts.length && !cert && !nextOpts.length && !prov && !freq) continue;  // títulos, notas, sin calibración
+        var f11 = _invF11Cell(col(row, 'f11Id')).toUpperCase();
+        var rf = { kmm: _invF11Compact(_invF11RealId(col(row, 'kmmId'))), sn: _invF11Compact(_invF11RealId(col(row, 'serialNo'))),
+                   desc: _invF11Key(col(row, 'desc') || col(row, 'magnitude')), model: _invF11Compact(_invF11RealId(col(row, 'model'))),
+                   asset: _invF11Key(col(row, 'asset')) };
+        var label = [f11, _invF11Cell(col(row, 'asset')), _invF11Cell(col(row, 'desc')), _invF11Cell(col(row, 'model')),
+                     _invF11RealId(col(row, 'kmmId')), _invF11RealId(col(row, 'serialNo'))].filter(Boolean).join(' · ');
+        res.total++;
+
+        // Última calibración: si la celda admite dos lecturas, gana la que cuadra con
+        // la próxima y la frecuencia ("08/11/26" + vence 2027-08-11 = 11 de agosto).
+        var nextSheet = nextOpts[0] || '';
+        var last = lastOpts[0] || '';
+        if (lastOpts.length > 1) {
+            var expect = INV_CAL_FREQ_DAYS[freq] || 365;
+            var fits = lastOpts.filter(function(d) { return nextSheet ? Math.abs(_invDaysBetween(d, nextSheet) - expect) <= 20 : d <= today; });
+            if (fits.length === 1) last = fits[0];
+            else { res.rejected.push({ rowNo: r + 1, label: label, why: 'la fecha "' + _invF11Cell(col(row, 'lastCalDate')) + '" puede leerse de dos formas' }); continue; }
+        }
+        if (last && last > today) { res.rejected.push({ rowNo: r + 1, label: label, why: 'la última calibración (' + last + ') es posterior a hoy' }); continue; }
+
+        // Identidad: No. → semilla del F11 → instrumentos de la app.
+        var target = null, via = '', why = '';
+        if (f11 && byF11[f11] && byF11[f11].length === 1) { target = byF11[f11][0]; via = 'No.'; }
+        if (!target && !f11) {
+            var sm = _invCalBestMatch(rf, seedCands);
+            if (sm.match && byF11[sm.match.f11Id] && byF11[sm.match.f11Id].length === 1) { target = byF11[sm.match.f11Id][0]; via = 'F11 ' + sm.match.f11Id; }
+            else why = sm.why;
+        }
+        if (!target) {
+            var em = _invCalBestMatch(rf, eqCands);
+            if (em.match) { target = em.match.eq; via = 'parecido'; }
+            else why = why || em.why;
+        }
+        if (!target) {
+            if (why) res.ambiguous.push({ rowNo: r + 1, label: label, why: why });
+            else res.unmatched.push({ rowNo: r + 1, label: label || 'sin identificador' });
+            continue;
+        }
+        if (used[target.id]) { res.ambiguous.push({ rowNo: r + 1, label: label, why: 'otra fila ya apunta a ' + (target.f11Id || target.name) }); continue; }
+        used[target.id] = true;
+
+        var before = { lastCalDate: target.lastCalDate || '', nextCalDate: target.nextCalDate || '', calCertNo: target.calCertNo || '',
+                       calLab: target.calLab || '', calFreq: target.calFreq || '', calType: target.calType || '', comments: target.comments || '' };
+        // Una fecha del Excel más VIEJA no retrocede una calibración REGISTRADA en la app
+        // ("✅ Calibrado" o una importación anterior: queda en calHistory). Si la fecha de
+        // la app no tiene registro, vino de la semilla y el Excel la corrige.
+        var corrects = false;
+        if (last && before.lastCalDate && last < before.lastCalDate) {
+            var registrada = (target.calHistory || []).some(function(h) { return h && h.date === before.lastCalDate; });
+            if (registrada) { res.older.push({ eq: target, rowNo: r + 1, before: before, after: { lastCalDate: last } }); continue; }
+            corrects = true;
+        }
+        var after = Object.assign({}, before);
+        if (last) after.lastCalDate = last;
+        if (cert) after.calCertNo = cert;
+        if (prov) after.calLab = prov;
+        if (freq) after.calFreq = freq;
+        if (calType) after.calType = calType;
+        if (comments) after.comments = comments;
+        var nextCalc = after.lastCalDate ? invCalNextDate(after.lastCalDate, after.calFreq) : '';
+        // La próxima fecha del Excel manda (es el registro del laboratorio) si es coherente.
+        if (nextSheet && (!after.lastCalDate || nextSheet >= after.lastCalDate)) after.nextCalDate = nextSheet;
+        else if (last) after.nextCalDate = nextCalc;
+        var changed = Object.keys(after).some(function(k) { return after[k] !== before[k]; });
+        if (!changed) { res.unchanged++; continue; }
+        res.updates.push({ eq: target, rowNo: r + 1, before: before, after: after, via: via, corrects: corrects,
+                           nextFromSheet: !!(nextSheet && after.nextCalDate === nextSheet), nextCalc: nextCalc });
+    }
+    return res;
+}
+
+// [v24.3] ÚNICO escritor de una calibración — lo usan "✅ Calibrado" (invCalRegister)
+// y la importación. `calHistory` no repite fecha+certificado (el sync ya une por esa
+// llave, así que un duplicado local no tendría con qué deshacerse).
+function _invApplyCalibration(eq, o) {
+    if (!eq || !o) return eq;
+    if (o.date) eq.lastCalDate = o.date;
+    if (o.certNo !== undefined && o.certNo !== '') eq.calCertNo = o.certNo;
+    if (o.provider) eq.calLab = o.provider;
+    if (o.freq && INV_CAL_FREQ_DAYS[o.freq]) eq.calFreq = o.freq;
+    if (o.type && INV_CAL_TYPES.indexOf(o.type) !== -1) eq.calType = o.type;
+    if (o.comments) eq.comments = o.comments;
+    if (o.next) eq.nextCalDate = o.next;
+    else if (o.date) eq.nextCalDate = invCalNextDate(eq.lastCalDate, eq.calFreq);
+    if (o.date) {
+        if (!eq.calHistory) eq.calHistory = [];
+        var cert = eq.calCertNo || '';
+        var dup = eq.calHistory.some(function(h) { return h.date === eq.lastCalDate && (h.certNo || '') === cert; });
+        if (!dup) eq.calHistory.push({ date: eq.lastCalDate, certNo: cert, provider: eq.calLab || '',
+                                       by: o.by || 'Laboratorio', at: new Date().toISOString() });
+    }
+    eq.updatedAt = new Date().toISOString();
+    return eq;
+}
+
+var _invCalImp = null;   // {fileName, sheets:[{name, grid, res}], sheetIdx}
+
+function invCalImportOpen() {
+    _invCalImp = null;
+    showModal({
+        title: 'Actualizar calibraciones desde Excel',
+        type: 'info',
+        body: '<div class="inv-calimp">'
+            + '<p class="u-muted" style="margin:0 0 var(--space-sm);">Sube el <strong>COP15-F11</strong> actualizado (.xlsx o .csv). '
+            + 'La app busca sola la hoja y la fila de encabezados, y te muestra qué cambiaría antes de guardar nada.</p>'
+            + '<label class="tp-btn tp-btn-primary" style="display:inline-flex;cursor:pointer;">📂 Elegir archivo'
+            + '<input type="file" accept=".xlsx,.xls,.xlsm,.csv" style="display:none;" onchange="invCalImportFile(event)"></label>'
+            + '<div id="inv-calimp-preview" style="margin-top: var(--space-md);"></div></div>',
+        buttons: [
+            { label: 'Cancelar', onclick: function() { _invCalImp = null; _invCloseGlobalModal(); } },
+            { label: '✅ Aplicar', cls: 'btn-primary', onclick: function() { invCalImportApply(); } }
+        ]
     });
 }
 
-function invImportF11() { document.getElementById('inv-f11-import-file').click(); }
-function invHandleF11Import(event) {
-    var f = event.target.files[0]; if (!f) return;
-    var r = new FileReader();
-    r.onload = function(e) { invImportF11CSV(e.target.result); };
-    r.readAsText(f);
-    event.target.value = '';
+// Cerrar un showModal desde fuera: se QUITA #globalModal (v23.4 — ocultarlo lo apila).
+function _invCloseGlobalModal() {
+    var m = document.getElementById('globalModal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+}
+
+function invCalImportFile(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    if (!f) return;
+    var host = document.getElementById('inv-calimp-preview');
+    if (host) host.innerHTML = '<p class="u-muted">Leyendo ' + escapeHtml(f.name) + '…</p>';
+    var done = function(sheets) {
+        sheets.forEach(function(s) { s.res = invCalImportAnalyze(s.grid, invState.equipment || []); });
+        // La hoja buena es la que más filas empata; empate → la que más actualiza.
+        var bestIdx = -1, bestScore = -1;
+        sheets.forEach(function(s, i) {
+            if (!s.res.ok) return;
+            var sc = s.res.total * 1000 + s.res.updates.length;
+            if (sc > bestScore) { bestScore = sc; bestIdx = i; }
+        });
+        _invCalImp = { fileName: f.name, sheets: sheets, sheetIdx: bestIdx };
+        invCalImportRenderPreview();
+    };
+    var fail = function(msg) { if (host) host.innerHTML = '<p style="color:var(--danger-text);">' + escapeHtml(msg) + '</p>'; };
+    if (/\.csv$/i.test(f.name)) {
+        var rd = new FileReader();
+        rd.onload = function(e) {
+            var grid = typeof _pnProjParseDelimited === 'function' ? _pnProjParseDelimited(String(e.target.result || '').replace(/^﻿/, '')) : [];
+            done([{ name: f.name, grid: grid }]);
+        };
+        rd.onerror = function() { fail('No se pudo leer el archivo.'); };
+        rd.readAsText(f);
+    } else {
+        if (typeof _pnProjLoadXLSX !== 'function') { fail('El lector de Excel no está disponible. Guarda la hoja como CSV y súbela.'); ev.target.value = ''; return; }
+        _pnProjLoadXLSX(function(ok) {
+            if (!ok) { fail('Sin conexión para cargar el lector de Excel. Guarda la hoja de Calibración como CSV (Archivo → Guardar como → CSV) y súbela.'); return; }
+            var rd = new FileReader();
+            rd.onload = function(e) {
+                try {
+                    var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    // raw:true → las fechas llegan como serial de Excel (sin corrimiento de zona horaria)
+                    done(wb.SheetNames.map(function(n) {
+                        // blankrows:true → el número de fila de la vista previa es el mismo que ve el técnico en Excel
+                        return { name: n, grid: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '', blankrows: true }) };
+                    }));
+                } catch (err) { fail('No se pudo leer el Excel: ' + (err && err.message || err)); }
+            };
+            rd.onerror = function() { fail('No se pudo leer el archivo.'); };
+            rd.readAsArrayBuffer(f);
+        });
+    }
+    ev.target.value = '';
+}
+
+function invCalImportPickSheet(i) {
+    if (!_invCalImp) return;
+    _invCalImp.sheetIdx = i;
+    invCalImportRenderPreview();
+}
+
+function _invCalFmt(d) { return d ? d.split('-').reverse().join('/') : '—'; }
+
+function invCalImportRenderPreview() {
+    var host = document.getElementById('inv-calimp-preview');
+    if (!host || !_invCalImp) return;
+    var S = _invCalImp.sheets, idx = _invCalImp.sheetIdx;
+    if (idx < 0) {
+        host.innerHTML = '<p style="color:var(--danger-text);">' + escapeHtml((S[0] && S[0].res.reason) || 'Ninguna hoja parece la de Calibración del F11.') + '</p>'
+            + '<p class="u-muted">Hojas revisadas: ' + S.map(function(s) { return escapeHtml(s.name); }).join(', ') + '</p>';
+        return;
+    }
+    var res = S[idx].res;
+    var h = '';
+    var validas = S.map(function(s, i) { return s.res.ok ? i : -1; }).filter(function(i) { return i >= 0; });
+    if (validas.length > 1) {
+        h += '<div style="margin-bottom: var(--space-sm);">Hoja: <select class="tp-input" onchange="invCalImportPickSheet(+this.value)">'
+           + validas.map(function(i) { return '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + escapeHtml(S[i].name) + ' (' + S[i].res.total + ' filas)</option>'; }).join('')
+           + '</select></div>';
+    } else {
+        h += '<div class="u-muted" style="margin-bottom: var(--space-sm);">Hoja <strong>' + escapeHtml(S[idx].name) + '</strong> · encabezados en la fila ' + (res.headerRow + 1) + '</div>';
+    }
+    var cols = Object.keys(INV_F11_IMPORT_FIELDS).filter(function(k) { return res.map[k] !== undefined; })
+        .map(function(k) { return INV_F11_IMPORT_FIELDS[k].label; });
+    h += '<div class="u-muted" style="font-size: var(--fs-xs);margin-bottom: var(--space-sm);">Columnas reconocidas: ' + escapeHtml(cols.join(', ')) + '</div>';
+
+    h += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-bottom: var(--space-sm);">'
+       + '<span class="u-chip u-chip--ok">' + res.updates.length + ' por actualizar</span>'
+       + '<span class="u-chip u-chip--neutral">' + res.unchanged + ' sin cambio</span>'
+       + (res.older.length ? '<span class="u-chip u-chip--warn">' + res.older.length + ' más viejas que la app</span>' : '')
+       + (res.ambiguous.length ? '<span class="u-chip u-chip--warn">' + res.ambiguous.length + ' ambiguas</span>' : '')
+       + (res.rejected.length ? '<span class="u-chip u-chip--warn">' + res.rejected.length + ' con fecha dudosa</span>' : '')
+       + (res.unmatched.length ? '<span class="u-chip u-chip--danger">' + res.unmatched.length + ' sin instrumento</span>' : '')
+       + '</div>';
+
+    if (res.updates.length) {
+        h += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">'
+           + '<thead><tr><th style="text-align:left;">Instrumento</th><th>Última calibración</th><th>Próxima</th><th>Frecuencia</th><th>Certificado</th><th>Quedará</th></tr></thead><tbody>';
+        res.updates.forEach(function(u) {
+            var fake = Object.assign({}, u.eq, u.after);
+            var st = invCalStatus(fake);
+            var chg = function(k, fmt) {
+                var a = u.before[k], b = u.after[k];
+                fmt = fmt || function(x) { return x ? escapeHtml(x) : '—'; };
+                return a === b ? fmt(b) : '<span class="u-muted" style="text-decoration:line-through;">' + fmt(a) + '</span> → <strong>' + fmt(b) + '</strong>';
+            };
+            var nextNote = (u.nextFromSheet && u.nextCalc && u.nextCalc !== u.after.nextCalDate)
+                ? '<div class="u-muted" style="font-size: var(--fs-xs);">del Excel · por frecuencia sería ' + _invCalFmt(u.nextCalc) + '</div>' : '';
+            h += '<tr style="border-top:1px solid var(--border);">'
+               + '<td><strong>' + escapeHtml(u.eq.f11Id || '') + '</strong> ' + escapeHtml(u.eq.name || '') + '<div class="u-muted" style="font-size: var(--fs-xs);">fila ' + u.rowNo + ' · por ' + escapeHtml(u.via) + '</div>'
+               + (u.corrects ? '<div style="color:var(--warn-text);font-size: var(--fs-xs);">corrige un dato de la semilla (no había calibración registrada en la app)</div>' : '')
+               + (u.after.comments && u.after.comments !== u.before.comments ? '<div class="u-muted" style="font-size: var(--fs-xs);">📝 ' + escapeHtml(u.after.comments) + '</div>' : '') + '</td>'
+               + '<td>' + chg('lastCalDate', _invCalFmt) + '</td>'
+               + '<td>' + chg('nextCalDate', _invCalFmt) + nextNote + '</td>'
+               + '<td>' + chg('calFreq') + '</td>'
+               + '<td>' + chg('calCertNo') + '</td>'
+               + '<td><span style="color:' + st.color + ';font-weight:700;">' + escapeHtml(st.label) + '</span></td></tr>';
+        });
+        h += '</tbody></table></div>';
+    } else {
+        h += '<p class="u-muted">No hay nada que actualizar: el Excel coincide con lo que ya tiene la app.</p>';
+    }
+    var lista = function(titulo, arr, fn) {
+        if (!arr.length) return '';
+        return '<details style="margin-top: var(--space-sm);"><summary>' + titulo + ' (' + arr.length + ')</summary><ul style="margin: var(--space-xs) 0;">'
+             + arr.map(function(x) { return '<li>' + fn(x) + '</li>'; }).join('') + '</ul></details>';
+    };
+    h += lista('Más viejas que la app — no se aplican', res.older, function(o) {
+        return escapeHtml((o.eq.f11Id || '') + ' ' + (o.eq.name || '')) + ': Excel ' + _invCalFmt(o.after.lastCalDate) + ', la app ya tiene ' + _invCalFmt(o.before.lastCalDate);
+    });
+    h += lista('Fecha dudosa — no se aplican (corrígela en el Excel)', res.rejected, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label) + ' — ' + escapeHtml(a.why); });
+    h += lista('Ambiguas — no se aplican', res.ambiguous, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label) + ' — ' + escapeHtml(a.why); });
+    h += lista('Sin instrumento en la app — usa "+ Instrumento" para darlas de alta', res.unmatched, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label); });
+    host.innerHTML = h;
+    if (typeof uiTableCards === 'function') { try { uiTableCards(host); } catch (e) {} }
+}
+
+function invCalImportApply() {
+    if (!_invCalImp || _invCalImp.sheetIdx < 0) { showToast('Primero elige el archivo del F11.', 'warning'); return; }
+    var sh = _invCalImp.sheets[_invCalImp.sheetIdx];
+    var ups = sh.res.updates;
+    if (!ups.length) { _invCloseGlobalModal(); showToast('Sin cambios que aplicar.', 'info'); return; }
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'actualizar calibraciones')) return;
+    if (typeof undoPush === 'function') undoPush('inventory', 'Actualizar calibraciones (' + ups.length + ')');
+    var by = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Importación F11';
+    ups.forEach(function(u) {
+        var dateChanged = u.after.lastCalDate !== u.before.lastCalDate || u.after.calCertNo !== u.before.calCertNo;
+        _invApplyCalibration(u.eq, {
+            date: dateChanged ? u.after.lastCalDate : '',
+            certNo: u.after.calCertNo, provider: u.after.calLab, freq: u.after.calFreq,
+            type: u.after.calType, comments: u.after.comments,
+            next: u.after.nextCalDate, by: by + ' · Excel F11'
+        });
+        if (!dateChanged) u.eq.nextCalDate = u.after.nextCalDate || u.eq.nextCalDate;
+    });
+    invSave(); invRender(); invUpdateBadges();
+    if (typeof auditLog === 'function') auditLog('inv', 'calibraciones_importadas', { type: 'equipment', label: 'COP15-F11' },
+        ups.length + ' actualizadas desde ' + _invCalImp.fileName + ' (hoja ' + sh.name + ')');
+    _invCalImp = null;
+    _invCloseGlobalModal();
+    showToast(ups.length + ' calibraciones actualizadas', 'success');
 }
 
 // Plan Maestro (52 semanas) + Dashboard de cumplimiento en PDF, formato COP15-F11.
@@ -29691,6 +31012,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'inv-equipment': { title: 'Equipos y Calibración (COP15-F11)', text: 'Instrumentos del laboratorio agrupados por equipo padre, con semáforo de calibración (60 días para "por vencer"). Un crítico vencido debe identificarse como NO OPERABLE.', tips: [
         'Botón "✅ Calibrado" en cada instrumento: solo pide fecha, certificado y proveedor — la próxima fecha se calcula sola.',
+        '"📥 Actualizar desde Excel": sube el COP15-F11 o el Plan Anual de Calibración (.xlsx o .csv). La app encuentra sola la hoja, identifica cada instrumento (por No., KMM, serie, descripción y modelo) y te muestra qué cambia antes de guardar. Una calibración registrada en la app nunca se retrocede; las fechas dudosas o futuras se listan sin aplicar.',
         'Los filtros 🔴🟠🟢⚪ arriba muestran solo lo que necesita atención.',
         'El ✏️ del encabezado de cada grupo edita el equipo padre (laboratorio, marca, si bloquea pruebas).'
     ]},
@@ -29729,9 +31051,11 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Cada zona necesita un ID único, nombre, número de slots y tipo.',
         'Los Tipos de Gas definidos aquí alimentan el selector de "Nuevo Cilindro".'
     ]},
-    'inv-report': { title: 'Reporte semanal', text: 'Genera un reporte de consumo de combustible y gases listo para copiar y compartir por correo.', tips: [
-        'Usa "Copiar HTML" y pégalo directo en tu cliente de correo.',
-        'Cubre la semana actual (lunes a viernes) automáticamente.'
+    'inv-report': { title: 'Reporte semanal', text: 'El mismo reporte que se manda por correo, calculado por la app: combustible, gases de referencia y calibraciones. "Comprar" sale cuando el inventario llega al límite inferior = consumo por día hábil × días de reposición del proveedor × 1.3.', tips: [
+        '"📋 Copiar para correo" copia las tablas: pégalas directo en Outlook (Ctrl+V).',
+        '"📥 Importar reporte" carga el Excel del reporte, la tabla copiada del correo o una captura de pantalla (OCR, menos exacto). Solo se guarda el inventario como lectura y los días de reposición; lo demás lo calcula la app.',
+        '"Sin ritmo" = hacen falta dos lecturas con caída para calcular el consumo; no se da por OK.',
+        'Los días de reposición se editan en cada cilindro; el nivel de reorden, en cada tanque.'
     ]},
     'inv-trace': { title: 'Trazabilidad', text: 'Busca qué cilindro o lote de gas se usó en qué prueba/VIN — útil para auditorías de calidad.', tips: [
         'Busca por Cilindro, No. de Lote o VIN según lo que tengas a la mano.',
@@ -29763,7 +31087,9 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-maint-catalog-help': { title: 'Catálogo de actividades', text: 'Qué se mantiene, cada cuánto y quién lo hace. Cambios aquí regeneran el Plan Maestro automáticamente.' },
     'inv-maint-help': { title: 'Mantenimiento preventivo', text: 'Vencidos y de esta semana arriba para atender de un toque; el Plan Maestro de 52 semanas y el catálogo quedan plegados abajo para consulta.' },
     'inv-fuel-help': { title: 'Tanques de combustible', text: 'Tambos de gasolina/diesel de referencia por regulación; se descuentan automáticamente al liberar una prueba.' },
-    'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
+    'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo. Límite inferior = consumo por día hábil × días de reposición × 1.3.' },
+    'inv-g-lead': { title: 'Días de reposición', text: 'Lo que tarda el proveedor en entregar un cilindro nuevo (44 días la mayoría; 21 para N₂O 5 ppm y N₂). Entra al límite inferior: consumo por día hábil × estos días × 1.3. Vacío = 44.' },
+    'inv-ft-reorder': { title: 'Nivel de reorden', text: 'Litros por debajo de los cuales hay que pedir combustible (el correo usa 200 L). Vacío = el reporte no dice "Comprar" para este tanque.' },
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
     'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Cada tarjeta es una zona; arrastra un cilindro entre posiciones para reubicarlo.' },
     'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' },
@@ -41629,8 +42955,20 @@ function pnGetActiveAlerts() {
             alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
         } else if (lvl.status === 'bajo') {
             alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
+        } else if (typeof invGasReorder === 'function' && g.status !== 'Spare') {
+            // v24.3: el criterio con el que el laboratorio COMPRA (tiempo de entrega del
+            // proveedor). Solo si no salió ya como bajo/crítico, para no repetirlo.
+            var ro = invGasReorder(g);
+            if (ro.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)', source: 'Inventario' });
         }
     });
+    // v24.3: tanques de combustible bajo su nivel de reorden (si está capturado)
+    if (typeof invFuelReorder === 'function' && typeof invState !== 'undefined') {
+        (invState.fuelTanks || []).forEach(function(t) {
+            var fr = invFuelReorder(t);
+            if (fr.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel, source: 'Inventario' });
+        });
+    }
 
     // Check equipment calibrations due — v16.4: invCalStatus() es LA definición (antes leía el
     // campo inexistente eq.nextCalibration, así que esta alerta nunca se disparó; el campo real
@@ -45474,8 +46812,8 @@ function _pnProjLoadXLSX(cb) {
 
 // Texto pegado o .csv → retícula 2D. Detecta el separador solo: si la primera
 // línea trae tabuladores es TSV (lo que entrega el portapapeles de Excel),
-// si no se parsea como CSV con comillas (reusa la misma lógica de comillas
-// que _invParseCsvLine del F11).
+// si no se parsea como CSV con comillas. También la usa el importador del F11
+// (invCalImportFile, inventory.js).
 function _pnProjParseDelimited(text) {
     var t = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     if (!t.trim()) return [];
@@ -45501,7 +46839,10 @@ function _pnProjParseDelimited(text) {
 // Primera fila que parece encabezado: ≥2 celdas con texto y, de preferencia,
 // al menos un sinónimo conocido. Si nada empata, se toma la primera fila con
 // contenido (y el usuario puede corregir el mapeo de todos modos).
-function _pnProjDetectHeader(grid) {
+// v24.3: `fields` opcional (default PN_IMPORT_FIELDS) — el importador del F11
+// (inventory.js) lo reusa con su propio catálogo de sinónimos.
+function _pnProjDetectHeader(grid, fields) {
+    var F = fields || PN_IMPORT_FIELDS;
     var best = -1;
     for (var i = 0; i < Math.min(grid.length, 12); i++) {
         var cells = (grid[i] || []).filter(function(c) { return String(c == null ? '' : c).trim() !== ''; });
@@ -45509,7 +46850,7 @@ function _pnProjDetectHeader(grid) {
         if (best === -1) best = i;
         var hit = cells.some(function(c) {
             var k = _pnNormKey(c);
-            return Object.keys(PN_IMPORT_FIELDS).some(function(f) { return PN_IMPORT_FIELDS[f].syn.indexOf(k) !== -1; });
+            return Object.keys(F).some(function(f) { return F[f].syn.indexOf(k) !== -1; });
         });
         if (hit) return i;
     }
@@ -45519,11 +46860,15 @@ function _pnProjDetectHeader(grid) {
 // Encabezados → { campo: índiceDeColumna }. Empate exacto primero; si no,
 // "contiene" (para "Fecha objetivo (compromiso)"). Una columna no se asigna
 // dos veces, y el primer campo de PN_IMPORT_FIELDS gana en caso de empate.
-function _pnProjAutoMap(headers) {
+// v24.3: `fields` opcional (default PN_IMPORT_FIELDS). Y la contención inversa
+// (el encabezado cabe dentro de un sinónimo) exige ≥3 letras: un encabezado "No"
+// (número de fila) se leía como "notas" porque "no" está dentro de "notas".
+function _pnProjAutoMap(headers, fields) {
+    var F = fields || PN_IMPORT_FIELDS;
     var map = {}, used = {};
     var keys = (headers || []).map(_pnNormKey);
-    Object.keys(PN_IMPORT_FIELDS).forEach(function(f) {
-        var syn = PN_IMPORT_FIELDS[f].syn;
+    Object.keys(F).forEach(function(f) {
+        var syn = F[f].syn;
         for (var i = 0; i < keys.length; i++) {
             if (used[i] || !keys[i]) continue;
             if (syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
@@ -45531,7 +46876,7 @@ function _pnProjAutoMap(headers) {
         for (var j = 0; j < keys.length; j++) {
             if (used[j] || !keys[j]) continue;
             for (var s = 0; s < syn.length; s++) {
-                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || syn[s].indexOf(keys[j]) !== -1)) {
+                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || (keys[j].length >= 3 && syn[s].indexOf(keys[j]) !== -1))) {
                     map[f] = j; used[j] = true; return;
                 }
             }
@@ -48815,6 +50160,7 @@ function _fbPullSeed(col, remoteData, pulled) {
                 invState[k] = prevInv[k];
             }
         });
+        if (typeof _invRevInit === 'function') _invRevInit();
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
         pulled.push('Inventory');
@@ -50090,6 +51436,60 @@ function fbMergeLoadStation(stationId, callback) {
     });
 }
 
+// [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
+// sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
+// entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
+// Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
+// tirando a la basura las lecturas capturadas aquí.
+// [v24.3] A NIVEL SUPERIOR: vivía declarada DENTRO de fbMergeAnalyze pero la llama
+// fbMergeExecute (otra función), así que toda fusión de un cilindro o un tanque en
+// conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
+// así que fallaba callada.
+function _fbMergeReadings(locales, remotas, campo) {
+    var porFecha = {};
+    (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+    (locales || []).forEach(function(r) {
+        if (!r || !r.date) return;
+        var otra = porFecha[r.date];
+        if (!otra) { porFecha[r.date] = r; return; }
+        if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
+        else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+    });
+    return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+}
+
+// [v24.3] ¿Difieren dos copias de un cilindro/tanque? Por CONTENIDO (stableStringify,
+// Firestore devuelve las llaves en otro orden). Antes se comparaba `currentPsi`, campo
+// que un cilindro NO tiene (undefined === undefined), así que una lectura nueva, un
+// cambio de zona o de días de reposición en otro equipo se tomaban por "duplicado" y
+// nunca se fusionaban; en los tanques solo contaba el número de lecturas y el nivel.
+function _fbInvItemDiffers(l, r) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    return ss(l) !== ss(r);
+}
+
+// [v24.3] Fusión de dos copias de un cilindro/tanque. PURA y SIMÉTRICA (patrón de
+// _fbMergeVehicle, v23.5): los campos vienen de la copia editada más recientemente
+// (`updatedAt`); sin fecha o empatadas, de la que ordena mayor por contenido — así los
+// dos equipos eligen lo mismo y no se re-empujan. Las lecturas SIEMPRE se unen.
+function _fbMergeInvItem(local, remote) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var sinSerie = function(o) { var c = Object.assign({}, o); delete c.readings; return c; };
+    var lu = (local && local.updatedAt) || '', ru = (remote && remote.updatedAt) || '';
+    var base;
+    if (lu !== ru) base = lu > ru ? local : remote;
+    else base = ss(sinSerie(local)) >= ss(sinSerie(remote)) ? local : remote;
+    var otro = base === local ? remote : local;
+    var mezcla = Object.assign({}, otro, base);
+    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings);
+    // Un equipo con código viejo no conoce `initialPsi`: no se pierde por venir del otro.
+    if (!mezcla.initialPsi && otro && otro.initialPsi) mezcla.initialPsi = otro.initialPsi;
+    // Objeto nuevo → huella nueva SIN tocar updatedAt (regla de v23.5): si no, el próximo
+    // invSave lo tomaría por una edición local y ganaría a todos con la hora de ahora.
+    if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
+    return mezcla;
+}
+
 // ── Analyze differences between local and remote ──
 function fbMergeAnalyze(remoteData) {
     var analysis = { cop15: null, testplan: null, inventory: null };
@@ -50227,23 +51627,6 @@ function fbMergeAnalyze(remoteData) {
     }
 
     // ── Inventory: compare gases by controlNo, equipment by name ──
-    // [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
-    // sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
-    // entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
-    // Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
-    // tirando a la basura las lecturas capturadas aquí.
-    function _fbMergeReadings(locales, remotas, campo) {
-        var porFecha = {};
-        (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
-        (locales || []).forEach(function(r) {
-            if (!r || !r.date) return;
-            var otra = porFecha[r.date];
-            if (!otra) { porFecha[r.date] = r; return; }
-            if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
-            else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
-        });
-        return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
-    }
 
     if (remoteData.inventory) {
         var localGases = {};
@@ -50256,8 +51639,7 @@ function fbMergeAnalyze(remoteData) {
             if (!localGases[key]) newGases.push(rg);
             else {
                 var lg = localGases[key];
-                var isDiff = lg.currentPsi !== rg.currentPsi || lg.status !== rg.status;
-                if (isDiff) gasConflicts.push({ key: key, local: lg, remote: rg });
+                if (_fbInvItemDiffers(lg, rg)) gasConflicts.push({ key: key, local: lg, remote: rg });
                 else dupGases.push(key);
             }
         });
@@ -50317,8 +51699,7 @@ function fbMergeAnalyze(remoteData) {
             var lt = localTanks[rt.id || rt.name];
             if (!lt) { newFuelTanks.push(rt); return; }
             // Hay conflicto si difieren las series o el nivel: se resuelve uniendo lecturas.
-            var nLocal = (lt.readings || []).length, nRemoto = (rt.readings || []).length;
-            if (nLocal !== nRemoto || lt.currentLevel !== rt.currentLevel) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
+            if (_fbInvItemDiffers(lt, rt)) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
         });
 
         analysis.inventory = {
@@ -50616,11 +51997,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
                 if (idx < 0) return;
-                var local = invState.gases[idx];
-                var mezcla = Object.assign({}, local, c.remote);
-                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
-                if (local.initialPsi && !mezcla.initialPsi) mezcla.initialPsi = local.initialPsi;
-                invState.gases[idx] = mezcla;
+                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {});
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -50640,17 +52017,17 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.fuelUpdates || []).forEach(function(c) {
                 var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
                 if (idx < 0) return;
-                var local = invState.fuelTanks[idx];
-                var mezcla = Object.assign({}, local, c.remote);
-                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {});
                 // El nivel autoritativo sale de la última lectura de la serie ya unida:
                 // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
                 var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
                 if (ult && typeof ult.level === 'number') mezcla.currentLevel = ult.level;
+                if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
                 invState.fuelTanks[idx] = mezcla;
             });
             merged.push('Inventory: merge completo');
         }
+        if (typeof _invRevInit === 'function') _invRevInit();
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
     }
@@ -51109,7 +52486,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609231901' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609242058' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

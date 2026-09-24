@@ -1942,8 +1942,20 @@ function pnGetActiveAlerts() {
             alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
         } else if (lvl.status === 'bajo') {
             alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
+        } else if (typeof invGasReorder === 'function' && g.status !== 'Spare') {
+            // v24.3: el criterio con el que el laboratorio COMPRA (tiempo de entrega del
+            // proveedor). Solo si no salió ya como bajo/crítico, para no repetirlo.
+            var ro = invGasReorder(g);
+            if (ro.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)', source: 'Inventario' });
         }
     });
+    // v24.3: tanques de combustible bajo su nivel de reorden (si está capturado)
+    if (typeof invFuelReorder === 'function' && typeof invState !== 'undefined') {
+        (invState.fuelTanks || []).forEach(function(t) {
+            var fr = invFuelReorder(t);
+            if (fr.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel, source: 'Inventario' });
+        });
+    }
 
     // Check equipment calibrations due — v16.4: invCalStatus() es LA definición (antes leía el
     // campo inexistente eq.nextCalibration, así que esta alerta nunca se disparó; el campo real

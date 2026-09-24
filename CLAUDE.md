@@ -346,8 +346,8 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
   con el `equipment` local (solo se detectaban altas nuevas, nunca ediciones).
 - **Exportación**: 4 CSV con encabezados exactos del Excel (`invExportF11Equipos/Calibracion/
   Actividades/Historial`) + PDF del Plan Maestro (`invMaintPlanPDF`), todo en el Centro de
-  Reportes. **Importación** `invImportF11CSV` actualiza calibraciones en bloque (empata por
-  `f11Id` → KMM → serie), con resumen y confirmación antes de escribir.
+  Reportes. **Importación**: desde v24.3 es `invCalImportOpen` (.xlsx/.csv, ver v24.3/v24.4);
+  `invImportF11CSV` se retiró.
 
 ## v16.5 — Mapa como retícula + menos campos + sin espacio muerto
 
@@ -1371,6 +1371,58 @@ las dos, no una:
   o el número se corta en silencio ("1000" se veía "10").
 - Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
   dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
+
+## v24.3 — Calibraciones desde Excel, consumibles como fuente, HOY sin encimarse
+
+- **Filas de HOY (`dashRenderRow`)**: `.dash-row` es un CONTENEDOR (container query) y el grid
+  vive en `.dash-row-in`. El acomodo depende del ancho de la CELDA, no de la ventana: con
+  `@media` la fila ponía las acciones a la derecha en una celda de 450px y se desbordaba sobre
+  la vecina. Todo hijo de grid que pueda crecer lleva `min-width:0` y los tracks flexibles son
+  `minmax(0,1fr)`. `tests/v243.e2e.js` mide desbordes/cruces en 6 anchos × 3 densidades.
+- **`invCalImportAnalyze(grid, equipment)` (PURA) es LA definición de qué cambia el Excel del
+  F11.** Empate: No. del F11 → ID KMM → serie → descripción, las tres últimas **solo si son
+  únicas** — en el F11 real un instrumento físico con dos magnitudes comparte KMM y serie.
+  `'-'`, `N/A`, `S/N` no son identificadores. Una fecha del Excel más VIEJA que la de la app no
+  se aplica (se lista). Sinónimos en `INV_F11_IMPORT_FIELDS`: los literales del F11 primero;
+  nunca una palabra suelta como "laboratorio" (el F11 trae "Laboratorio (auto)").
+- **v24.4 — el F11 real no trae "No."** (encabezados en inglés, frecuencia en
+  `Internal`/`External`). El mapeo es `_invF11AutoMap` (exactos de TODOS los campos primero,
+  contención ≥ 6 letras después — nunca campo por campo). La identidad sale de
+  `_invCalMatchScore` (PURA: KMM/serie ±8, descripción, modelo, equipo padre) contra la
+  SEMILLA `INV_CAL_SEED_F11`, que salió del mismo documento; umbral ≥ 8 y ventaja ≥ 3, si no
+  es ambigua. "Más vieja" solo protege una fecha con registro en `calHistory`; la de la
+  semilla se corrige. Fechas: año 2000–2100, "última" futura rechazada, d/m vs m/d por la
+  hoja y, si no hay evidencia, por la próxima + frecuencia. El archivo real vive como fixture
+  en `tests/fixtures/f11-plan-anual-2026-09-12.json`: si cambia el formato, agregar su fixture.
+- **`_invApplyCalibration(eq, o)` es el ÚNICO escritor de una calibración** (lo usan
+  `invCalRegister` y la importación); no duplica fecha+certificado en `calHistory`.
+- `_pnProjDetectHeader(grid, fields)` / `_pnProjAutoMap(headers, fields)` aceptan un catálogo
+  propio (default `PN_IMPORT_FIELDS`). Reúsalas para cualquier importador nuevo.
+- **`invGasReorder(g)` es LA definición del punto de reorden** (el "Comprar" del correo):
+  `weeklyPsi / 5 × invGasLeadDays(g) × INV_REORDER_SAFETY(1.3)`. **No reemplaza a
+  `invGasIsLow`** — son dos preguntas (¿está bajo? vs ¿hay que pedirlo ya dado lo que tarda el
+  proveedor?). Sin ritmo (menos de dos lecturas humanas con caída) es `sinritmo`, nunca `ok`.
+  `invGasLeadDays` = `g.leadDays` → `g.reposDays` (semilla) → 44.
+- **`invConsumablesReportRows()` es LA definición de los datos del reporte semanal**; la
+  pantalla (`invRenderReport`) y el correo (`invConsumablesEmailHTML`, estilos LITERALES — nada
+  de `var(--…)` en HTML que sale de la app) solo pintan. `invFuelWeeklyUsage` (PURA) no cuenta
+  recargas ni lecturas `auto`.
+- **Importar el reporte (`invConsImportOpen`)**: Excel/CSV, pegar (HTML primero: se expanden
+  `rowspan/colspan`; TSV corto se alinea por la DERECHA) o imagen. Solo se GUARDA el inventario
+  (vía `invAddReading`, `source:'importacion'`) y `leadDays`; lo derivado del correo se muestra
+  al lado, nunca se guarda. `invMatchGasByLabel` (PURA) empata especie+concentración leyendo la
+  especie ANTES de "balance"; el nombre del correo queda en `g.importAlias`.
+- **OCR = respaldo, y así se queda.** Tesseract.js 5.1.1 diferido (`_invLoadTesseract`, versión
+  fija en `INV_TESS`), nunca al arrancar. Leer la tabla completa de un jalón cambia dígitos
+  plausibles (3300 → 2300): se detecta la cuadrícula (`_invOcrFindGrid`, PURA) y se lee celda
+  por celda (PSM 7), releyendo con whitelist de dígitos las numéricas. Sin cuadrícula (foto del
+  monitor) cae a renglones y normalmente no reconoce nada — se DICE. Otsu: tinta = gris `<=` umbral.
+- **Sync de inventario**: `_fbMergeReadings` es de NIVEL SUPERIOR (estaba anidada en
+  `fbMergeAnalyze` y la llamaba `fbMergeExecute`: `ReferenceError` tragado por el live-sync).
+  `_fbInvItemDiffers` (contenido) decide el conflicto de un cilindro/tanque y
+  `_fbMergeInvItem` lo resuelve SIMÉTRICO (gana `updatedAt`, desempate por contenido, lecturas
+  unidas). Todo editor de un cilindro/tanque sella `updatedAt`.
+- Utilidad nueva `.u-muted` (color apagado). Antes solo existía `.u-muted-xs`.
 
 ## v24.2 — Borrar un vehículo deja marca (`db.deletedVehicles`)
 
