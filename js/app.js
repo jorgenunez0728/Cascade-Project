@@ -6523,7 +6523,7 @@ var TOURS = {
         { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
-        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha.', position: 'bottom', tab: 'inv-equipment' },
+        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha. "📥 Actualizar desde Excel" carga el COP15-F11 completo.', position: 'bottom', tab: 'inv-equipment' },
         { target: '[data-help="inv-maint-help"]', title: 'Mantenimiento', text: 'Vencidos y de esta semana arriba, con "✔ Hecho" de un toque. El Plan Maestro de 52 semanas queda plegado abajo para consulta.', position: 'bottom', tab: 'inv-maint' },
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],
