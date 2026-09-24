@@ -2,6 +2,64 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.3 — Calibraciones desde Excel, el reporte de consumibles como fuente, y HOY sin encimarse (2026-09-24)
+
+Tres pedidos del laboratorio (fotos): subir el Excel actualizado de calibraciones, las tarjetas
+de HOY encimadas, y meter en automático el reporte semanal de consumibles que hoy va por correo.
+
+### HOY — las filas se acomodan a su celda
+- **Causa**: a 1440–1500px `.dash-group-rows` arma 3 columnas de ~450px y la fila de un
+  vehículo en Preacondicionamiento pedía 521px (stepper N/8 sin envolver, columna de acciones
+  `auto` con todo `nowrap`, `.dash-row-main` sin `min-width:0`). Reproducido en Chromium.
+- **Arreglo**: `.dash-row` es contenedor (container query) y su grid vive en `.dash-row-in`:
+  angosta → acciones debajo del título; ≥560px → a la derecha. Se borró el CSS muerto `.dash-group*`.
+- `tests/v243.e2e.js`: 6 anchos × 3 densidades; falla con el código anterior y pasa con el nuevo.
+
+### Equipos — actualizar calibraciones desde el Excel COP15-F11
+- "📥 Actualizar desde Excel" (Equipos y Mantenimiento). `.xlsx/.xls/.csv`; hoja y fila de
+  encabezados automáticas. Reemplaza a `invImportF11CSV` (solo CSV, fecha como texto crudo,
+  empataba por serie "-").
+- `invCalImportAnalyze` (PURA): No. del F11 → ID KMM → serie → descripción, las tres últimas
+  **solo si son únicas** (en el F11 C-003/C-004 comparten KMM y C-013/14/15 la serie). Una
+  fecha más vieja que la de la app no retrocede el registro. La próxima del Excel manda.
+- `_invApplyCalibration` es el único escritor (también lo usa `invCalRegister`).
+- `_pnProjDetectHeader/_pnProjAutoMap` aceptan un catálogo propio; la contención inversa exige
+  ≥3 letras ("No" ya no empata con "notas" en Proyectos).
+
+### Consumibles — la app como fuente del reporte semanal
+- **El reporte de la app no coincidía con el correo**: "Repos. (días)" mostraba días hasta
+  nivel bajo y "Límite Inf" el 30% de la nominal. El correo usa tiempo del proveedor y
+  consumo por día hábil × días × 1.3 (verificado: 95.33, 699.11, 955.5).
+  **`invGasReorder` es LA definición del punto de reorden**; `invGasIsLow` no cambia.
+- `g.leadDays` (con respaldo en `reposDays` de la semilla, 44 por default) y
+  `tank.reorderLevel`, editables. `invFuelWeeklyUsage` (litros por semana sin contar recargas).
+- `invConsumablesReportRows` = LOS datos; dos renderizadores: pantalla y
+  `invConsumablesEmailHTML` (estilos literales, "📋 Copiar para correo" como `text/html`).
+- `invCheckReorderAlerts` y el Panel usan `invGasReorder` (alerta "Comprar", sin duplicar
+  bajo/crítico); tanques bajo su nivel de reorden también alertan.
+- **"📥 Importar reporte"**: Excel/CSV (recomendado), pegar tabla (HTML con `rowspan`
+  expandido o TSV alineado por la derecha) o imagen por OCR (Tesseract.js 5.1.1 diferido desde
+  jsdelivr, sin API). Solo guarda inventario (vía `invAddReading`) y días de reposición.
+  Autocomprobación de cada fila con la fórmula del correo. El nombre del correo se recuerda en
+  `g.importAlias`.
+- **OCR, medido**: leer la tabla completa de un jalón cambió dígitos que pasan cualquier
+  revisión (3300 → 2300). Ahora se detecta la cuadrícula (`_invOcrFindGrid`, pura) y se lee
+  celda por celda, releyendo con solo dígitos las numéricas: en una captura de pantalla de la
+  tabla del correo, los 23 inventarios salieron exactos (~40 s). Sobre una foto del monitor no
+  hay cuadrícula recta y no se reconoce ninguna fila — la app lo dice en vez de inventar.
+
+### Sync — lecturas de gases y gasolina que no se fusionaban
+- `_fbMergeReadings` vivía **dentro** de `fbMergeAnalyze` pero la llama `fbMergeExecute`:
+  toda fusión de un cilindro o tanque en conflicto lanzaba `ReferenceError`, tragado por el
+  try/catch del live-sync. Ahora es de nivel superior.
+- El conflicto de un cilindro comparaba `currentPsi`, campo que no existe; en tanques, solo
+  número de lecturas y nivel. `_fbInvItemDiffers` compara por contenido (`stableStringify`) y
+  `_fbMergeInvItem` fusiona simétrico (gana `updatedAt`; lecturas unidas).
+
+### Pruebas
+`tests/inventory-import.node.js` (60, nuevo en `npm test`), `tests/sync.node.js` 28 → 39,
+`tests/v243.e2e.js` (nuevo en `test:e2e`).
+
 ## v24.2 — Un vehículo borrado ya no resucita con el sync (2026-09-23)
 
 Reporte del laboratorio (foto): un vehículo viejo borrado en Historial seguía apareciendo en

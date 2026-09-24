@@ -285,11 +285,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.2';
+var APP_VERSION = '24.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
+      notes: [
+          'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',
+          'Consumibles → Reporte: ahora calcula el "Comprar" igual que el correo (consumo por día hábil × días de reposición × 1.3) y "📋 Copiar para correo" pega las tablas en Outlook.',
+          '"📥 Importar reporte": carga el Excel, la tabla copiada del correo o una captura de pantalla (OCR, menos exacto). Solo guarda el inventario y los días de reposición.',
+          'HOY: las tarjetas de vehículos y del plan ya no se enciman en pantallas anchas; los botones bajan debajo del título cuando no caben.',
+          'Sincronización: las lecturas de gases y gasolina capturadas en otro equipo ya se fusionan (antes fallaba en silencio).'
+      ] },
     { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
       notes: [
           'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',

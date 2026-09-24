@@ -3535,6 +3535,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
 /* ══════════════════════════════════════════════════════════════════════ */
 .u-flex-between { display: flex; justify-content: space-between; align-items: center; }
 .u-muted-xs { font-size: var(--fs-xs); color: var(--tp-dim, #64748b); }
+.u-muted { color: var(--muted); }
 .badge { display: inline-block; font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); white-space: nowrap; }
 .avatar-circle { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
 .empty-state { text-align: center; padding: var(--space-xl) var(--space-lg); color: var(--tp-dim, #64748b); font-size: var(--fs-xs, 12px); }
