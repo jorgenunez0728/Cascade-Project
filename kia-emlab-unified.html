@@ -8080,15 +8080,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609242036';
+var APP_BUILD = '202609242058';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.3';
+var APP_VERSION = '24.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
+      notes: [
+          '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
+          'Cada fila se identifica aunque dos instrumentos compartan KMM o serie (p. ej. temperatura y humedad del mismo termohigrómetro).',
+          'Fechas dudosas ya no se aplican a ciegas: "08/11/26" se resuelve con la fecha de vencimiento y una calibración futura se rechaza.',
+          'Si la fecha de la app venía de la semilla original, el Excel la corrige; una calibración registrada en la app nunca se retrocede.'
+      ] },
     { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
       notes: [
           'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',
@@ -8562,14 +8569,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609242036' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609242036' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8585,7 +8592,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609242036' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609242058' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -28361,7 +28368,7 @@ function invConsParseOcrLines(lines) {
 }
 
 // "metano 20 ppm balance aire" → {species:'CH4', conc:20, unit:'ppm'}
-function _invConsFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function _invConsFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
 var INV_CONS_SPECIES = [
     [/monoxido de carbono|\bco\b(?!2)/, 'CO'], [/[bd]ioxido de carbono|\bco2\b/, 'CO2'],
     [/oxido nitroso|\bn2o\b/, 'N2O'], [/oxido nitrico|\bno\b/, 'NO'],
@@ -30015,27 +30022,38 @@ function invExportF11Historial() {
 // `invCalImportAnalyze` es PURA (sin DOM) — se prueba en tests/inventory-import.node.js.
 // ══════════════════════════════════════════════════════════════════════
 
-// Los primeros sinónimos de cada campo son los encabezados LITERALES del F11 (los
-// mismos que escribe invExportF11Calibracion). Agregar uno basta para reconocer una
-// redacción nueva. Ojo: nada de palabras sueltas como "laboratorio" o "fecha" —
-// el F11 tiene "Laboratorio (auto)" y la contención las empataría mal.
+// Los primeros sinónimos de cada campo son encabezados LITERALES de las revisiones
+// reales del F11: la exportada por la app (rev. 03: "No.", "Última calibración"…) y
+// el "Plan Anual de Calibración" que usa el laboratorio (en inglés: "Cal date",
+// "Cal Due", "Certification No.", "Laboratory", "Internal"/"External"). Agregar uno
+// basta para reconocer una redacción nueva. Nada de palabras sueltas que aparezcan
+// dentro de OTRO encabezado: "proveedor" empataba "Evaluacion de proveedores" (una
+// columna auxiliar) y "magnitud" le ganaba la columna a la descripción.
 var INV_F11_IMPORT_FIELDS = {
-    f11Id:       { label: 'No. (ID del F11)',     syn: ['no', 'no.', 'id f11', 'no f11', 'numero', 'num', 'consecutivo'] },
-    kmmId:       { label: 'ID KMM',               syn: ['id kmm', 'kmm', 'kmm id', 'id interno', 'identificacion kmm'] },
-    serialNo:    { label: 'No. Serie',            syn: ['no serie', 'numero de serie', 'no de serie', 'serie', 'serial', 'serial number', 'n s', 'ns'] },
-    name:        { label: 'Descripción',          syn: ['descripcion magnitud calibrada', 'descripcion', 'magnitud calibrada', 'instrumento', 'magnitud'] },
-    lastCalDate: { label: 'Última calibración',   syn: ['ultima calibracion', 'fecha de calibracion', 'fecha calibracion', 'fecha ultima calibracion', 'calibrado el', 'last calibration', 'calibration date'] },
-    nextCalDate: { label: 'Próxima calibración',  syn: ['proxima calibracion auto', 'proxima calibracion', 'fecha proxima calibracion', 'vencimiento calibracion', 'fecha de vencimiento', 'next calibration', 'due date'] },
-    calCertNo:   { label: 'No. Certificado',      syn: ['no certificado', 'numero de certificado', 'no de certificado', 'certificado', 'certificate', 'certificate no', 'cert'] },
-    calLab:      { label: 'Proveedor',            syn: ['proveedor quien calibra', 'proveedor', 'quien calibra', 'laboratorio de calibracion', 'calibrador', 'supplier', 'vendor'] },
-    calFreq:     { label: 'Frecuencia',           syn: ['frecuencia', 'frecuencia de calibracion', 'periodicidad', 'frequency'] }
+    f11Id:       { label: 'No. (ID del F11)',     syn: ['no', 'no.', 'id f11', 'no f11', 'consecutivo'] },
+    kmmId:       { label: 'ID KMM',               syn: ['id kmm', 'kmm id', 'kmm', 'identificacion kmm'] },
+    serialNo:    { label: 'No. Serie',            syn: ['no serie', 'serial no', 'numero de serie', 'no de serie', 'serie', 'serial', 'serial number'] },
+    desc:        { label: 'Descripción',          syn: ['descripcion magnitud calibrada', 'description', 'descripcion', 'instrumento', 'instrument'] },
+    magnitude:   { label: 'Magnitud',             syn: ['magnitude', 'magnitud'] },
+    asset:       { label: 'Equipo',               syn: ['equipment', 'equipo', 'equipo padre'] },
+    model:       { label: 'Modelo',               syn: ['model', 'modelo'] },
+    lastCalDate: { label: 'Última calibración',   syn: ['ultima calibracion', 'cal date', 'calibration date', 'fecha de calibracion', 'fecha calibracion', 'fecha ultima calibracion', 'last calibration'] },
+    nextCalDate: { label: 'Próxima calibración',  syn: ['proxima calibracion auto', 'proxima calibracion', 'cal due', 'due date', 'fecha proxima calibracion', 'fecha de vencimiento', 'next calibration'] },
+    calCertNo:   { label: 'No. Certificado',      syn: ['no certificado', 'certification no', 'certificate no', 'numero de certificado', 'no de certificado', 'certificado', 'certificate'] },
+    calLab:      { label: 'Proveedor',            syn: ['proveedor quien calibra', 'laboratory', 'quien calibra', 'laboratorio de calibracion', 'calibrador', 'supplier'] },
+    calFreq:     { label: 'Frecuencia',           syn: ['frecuencia', 'frecuencia de calibracion', 'periodicidad', 'frequency'] },
+    freqInt:     { label: 'Interna (frecuencia)', syn: ['internal', 'interna'] },
+    freqExt:     { label: 'Externa (frecuencia)', syn: ['external', 'externa'] },
+    comments:    { label: 'Comentarios',          syn: ['certificado pdf comentarios', 'comment', 'comments', 'comentarios', 'notas'] }
 };
 
 function _invF11Key(s) {
     if (typeof _pnNormKey === 'function') return _pnNormKey(s);
-    return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
         .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+// Identificadores y modelos se comparan compactos: "TH210-B0SP" = "TH210B0SP".
+function _invF11Compact(s) { return _invF11Key(s).replace(/\s+/g, ''); }
 function _invF11Cell(v) { return v == null ? '' : String(v).trim(); }
 // '-', 'N/A', 'NA', 'S/N' y vacío NO son identificadores (criterio de _fbEquipKey).
 function _invF11RealId(v) {
@@ -30052,17 +30070,40 @@ function _invF11Freq(v) {
     return '';
 }
 
+/**
+ * Encabezados → {campo: columna}, en DOS pasadas globales: primero los empates
+ * exactos de TODOS los campos, luego contención (encabezado ⊇ sinónimo de ≥ 6 letras)
+ * solo para los que falten. `_pnProjAutoMap` va campo por campo y así un campo sin
+ * empate exacto le roba la columna a otro que sí lo tenía más abajo. PURA.
+ */
+function _invF11AutoMap(headers) {
+    var keys = (headers || []).map(_invF11Key), map = {}, used = {};
+    var F = INV_F11_IMPORT_FIELDS, fields = Object.keys(F);
+    fields.forEach(function(f) {
+        for (var i = 0; i < keys.length; i++) {
+            if (!used[i] && keys[i] && F[f].syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
+        }
+    });
+    fields.forEach(function(f) {
+        if (map[f] !== undefined) return;
+        for (var i = 0; i < keys.length; i++) {
+            if (used[i] || !keys[i]) continue;
+            if (F[f].syn.some(function(s) { return s.length >= 6 && keys[i].indexOf(s) !== -1; })) { map[f] = i; used[i] = true; return; }
+        }
+    });
+    return map;
+}
+
 // Busca la fila de encabezados: la que más campos del F11 mapea dentro de las
-// primeras 25 filas (el F11 trae título, revisión y fecha arriba). Exige una
-// columna de fecha o certificado y una de identidad; si no, no es la hoja.
+// primeras 25 filas (el F11 trae título arriba). Exige una columna de fecha o
+// certificado y una de identidad; si no, no es la hoja.
 function _invF11FindHeader(grid) {
-    if (typeof _pnProjAutoMap !== 'function') return null;
     var best = null;
     for (var i = 0; i < Math.min((grid || []).length, 25); i++) {
         var row = grid[i] || [];
         var filled = row.filter(function(c) { return _invF11Cell(c) !== ''; }).length;
         if (filled < 2) continue;
-        var map = _pnProjAutoMap(row, INV_F11_IMPORT_FIELDS);
+        var map = _invF11AutoMap(row);
         var hasData = map.lastCalDate !== undefined || map.calCertNo !== undefined;
         var hasId = map.f11Id !== undefined || map.kmmId !== undefined || map.serialNo !== undefined;
         if (!hasData || !hasId) continue;
@@ -30072,111 +30113,189 @@ function _invF11FindHeader(grid) {
     return best;
 }
 
+// Una celda de fecha → lecturas posibles ('YYYY-MM-DD'). Serial de Excel o ISO: una.
+// "08/11/26" con ambos números ≤ 12: DOS (d/m y m/d) — decide quien llama. Un año
+// fuera de 2000–2100 no es una fecha de calibración (el "365" de una celda de
+// días se volvía "0365-01-01").
+function _invF11DateOptions(v, dmy) {
+    if (v === null || v === undefined || v === '') return [];
+    var ok = function(iso) { var y = +String(iso).slice(0, 4); return iso && y >= 2000 && y <= 2100 ? iso : ''; };
+    if (typeof v === 'number') {
+        if (!(v > 20000 && v < 80000)) return [];
+        return [ok(typeof _pnNormDate === 'function' ? _pnNormDate(v, true) : '')].filter(Boolean);
+    }
+    var s = String(v).trim();
+    if (!s || /^-+$/.test(s)) return [];
+    var m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if (m && +m[1] <= 12 && +m[2] <= 12 && m[1] !== m[2] && typeof _pnNormDate === 'function') {
+        // La hoja ya probó su orden con otra fecha (un número > 12): se usa ése.
+        if (dmy === true || dmy === false) return [ok(_pnNormDate(s, dmy))].filter(Boolean);
+        return [ok(_pnNormDate(s, true)), ok(_pnNormDate(s, false))].filter(Boolean);
+    }
+    return [ok(typeof _pnNormDate === 'function' ? _pnNormDate(s, true) : (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''))].filter(Boolean);
+}
+function _invDaysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+
 /**
- * [v24.3] LA definición de qué cambiaría el Excel del F11 sobre `equipment`. PURA.
- * @returns {{ok, reason?, headerRow, map, updates:[{eq, row, before, after, nextFromSheet, nextCalc, via}],
- *            unmatched:[{rowNo, label}], ambiguous:[{rowNo, label, why}], older:[{eq, rowNo, before, after}],
- *            unchanged:number, total:number}}
+ * [v24.4] Parecido entre una fila del Excel y un instrumento. PURA.
+ * r / c = {kmm, sn, desc, model, asset} ya normalizados ('' = no trae el dato).
+ * Los identificadores suman mucho y RESTAN si los dos lados traen uno distinto; la
+ * descripción, el modelo y el equipo padre desempatan los instrumentos que comparten
+ * KMM o serie (un termohigrómetro son dos instrumentos: temperatura y humedad).
  */
-function invCalImportAnalyze(grid, equipment) {
-    var res = { ok: false, headerRow: -1, map: {}, updates: [], unmatched: [], ambiguous: [], older: [], unchanged: 0, total: 0 };
+function _invCalMatchScore(r, c) {
+    var s = 0;
+    if (r.kmm && c.kmm) s += r.kmm === c.kmm ? 8 : -8;
+    if (r.sn && c.sn) s += r.sn === c.sn ? 8 : -8;
+    if (r.desc && c.desc) {
+        if (r.desc === c.desc) s += 4;
+        else {
+            var a = r.desc.split(' '), b = c.desc.split(' ');
+            s += a.some(function(w) { return w.length > 3 && b.indexOf(w) !== -1; }) ? 2 : -2;
+        }
+    }
+    if (r.model && c.model) s += r.model === c.model ? 3 : -1;
+    if (r.asset && c.asset) s += r.asset === c.asset ? 2 : -2;
+    return s;
+}
+var INV_CAL_MATCH_MIN = 8, INV_CAL_MATCH_MARGIN = 3;
+// El mejor candidato, solo si es claro: puntaje ≥ mínimo y ventaja ≥ margen.
+function _invCalBestMatch(r, cands) {
+    var scored = cands.map(function(c) { return { c: c, s: _invCalMatchScore(r, c.f) }; })
+        .sort(function(x, y) { return y.s - x.s; });
+    if (!scored.length || scored[0].s < INV_CAL_MATCH_MIN) return { match: null, why: '' };
+    if (scored[1] && scored[0].s - scored[1].s < INV_CAL_MATCH_MARGIN) {
+        return { match: null, why: 'se parece igual a ' + [scored[0].c.label, scored[1].c.label].join(' y ') };
+    }
+    return { match: scored[0].c };
+}
+
+/**
+ * [v24.3/v24.4] LA definición de qué cambiaría el Excel del F11 sobre `equipment`. PURA.
+ * opts: {assets, seed, seedAssets, today}. Sin "No." en la hoja, cada fila se identifica
+ * contra la SEMILLA del F11 (INV_CAL_SEED_F11, que salió del mismo documento y usa su
+ * vocabulario) y de ahí al instrumento por f11Id; lo que no está en la semilla se
+ * busca directo entre los instrumentos de la app.
+ * @returns {{ok, reason?, headerRow, map, updates:[{eq, row, before, after, nextFromSheet, nextCalc, via, corrects}],
+ *            unmatched:[{rowNo, label}], ambiguous:[{rowNo, label, why}], older:[{eq, rowNo, before, after}],
+ *            rejected:[{rowNo, label, why}], unchanged:number, total:number}}
+ */
+function invCalImportAnalyze(grid, equipment, opts) {
+    opts = opts || {};
+    var res = { ok: false, headerRow: -1, map: {}, updates: [], unmatched: [], ambiguous: [], older: [], rejected: [], unchanged: 0, total: 0 };
     var hdr = _invF11FindHeader(grid);
-    if (!hdr) { res.reason = 'No encontré una fila de encabezados del F11 (se necesita "No." o "ID KMM" o "No. Serie", y "Última calibración" o "No. Certificado").'; return res; }
+    if (!hdr) { res.reason = 'No encontré una fila de encabezados del F11 (se necesita "No.", "ID KMM" o "No. Serie", y "Última calibración"/"Cal date" o el número de certificado).'; return res; }
     res.ok = true; res.headerRow = hdr.row; res.map = hdr.map;
     var M = hdr.map, eqs = equipment || [];
+    var today = opts.today || (typeof localToday === 'function' ? localToday() : new Date().toISOString().slice(0, 10));
     var col = function(row, f) { return M[f] === undefined ? '' : row[M[f]]; };
-
-    // ¿dd/mm o mm/dd? Se decide con los datos de las dos columnas de fecha.
-    var dateSamples = [];
-    for (var r0 = hdr.row + 1; r0 < grid.length; r0++) {
-        dateSamples.push(col(grid[r0] || [], 'lastCalDate'), col(grid[r0] || [], 'nextCalDate'));
-    }
-    var dmy = typeof _pnProjDetectDMY === 'function' ? _pnProjDetectDMY(dateSamples) : true;
-    var normDate = function(v) {
-        if (typeof _pnNormDate === 'function') return _pnNormDate(typeof v === 'string' ? v.trim() : v, dmy);
-        var s = _invF11Cell(v); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+    var assets = opts.assets || (typeof invState !== 'undefined' && invState.assets) || [];
+    var seed = opts.seed || (typeof INV_CAL_SEED_F11 !== 'undefined' ? INV_CAL_SEED_F11 : []);
+    var seedAssets = opts.seedAssets || (typeof INV_ASSETS_SEED_F11 !== 'undefined' ? INV_ASSETS_SEED_F11 : []);
+    var assetName = function(list, id) { var a = list.find(function(x) { return x.id === id; }); return a ? a.name : ''; };
+    var feat = function(x, assetList) {
+        return { kmm: _invF11Compact(_invF11RealId(x.kmmId)), sn: _invF11Compact(_invF11RealId(x.serialNo)),
+                 desc: _invF11Key(x.type || x.magnitude || x.name), model: _invF11Compact(_invF11RealId(x.model)),
+                 asset: _invF11Key(assetName(assetList, x.assetId)) };
     };
-
-    // Índices de identidad: un id que aparece en más de un instrumento NO identifica.
-    var countBy = function(fn) {
-        var m = {};
-        eqs.forEach(function(e) { var k = fn(e); if (k) (m[k] = m[k] || []).push(e); });
-        return m;
-    };
-    var byF11 = countBy(function(e) { return _invF11Cell(e.f11Id).toUpperCase(); });
-    var byKmm = countBy(function(e) { return _invF11RealId(e.kmmId).toUpperCase(); });
-    var bySn = countBy(function(e) { return _invF11RealId(e.serialNo).toUpperCase(); });
-    var byName = countBy(function(e) { return _invF11Key(e.name); });
+    var seedCands = seed.map(function(s) { return { f11Id: s.f11Id, label: s.f11Id + ' ' + (s.name || ''), f: feat(s, seedAssets) }; });
+    var eqCands = eqs.map(function(e) { return { eq: e, label: (e.f11Id ? e.f11Id + ' ' : '') + (e.name || ''), f: feat(e, assets) }; });
+    var byF11 = {};
+    eqs.forEach(function(e) { var k = _invF11Cell(e.f11Id).toUpperCase(); if (k) (byF11[k] = byF11[k] || []).push(e); });
     var used = {};
+
+    // ¿d/m o m/d? Solo si la HOJA lo prueba con alguna fecha de texto que tenga un número
+    // > 12. Si no hay evidencia (null), cada fila ambigua se decide con su "próxima".
+    var dmy = null, first12 = false, second12 = false;
+    for (var r0 = hdr.row + 1; r0 < grid.length; r0++) {
+        ['lastCalDate', 'nextCalDate'].forEach(function(f) {
+            var mm = _invF11Cell(col(grid[r0] || [], f)).match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+            if (!mm) return;
+            if (+mm[1] > 12) first12 = true;
+            if (+mm[2] > 12) second12 = true;
+        });
+    }
+    if (first12 && !second12) dmy = true;
+    else if (second12 && !first12) dmy = false;
 
     for (var r = hdr.row + 1; r < grid.length; r++) {
         var row = grid[r] || [];
-        if (!row.some(function(c) { return _invF11Cell(c) !== ''; })) continue;
+        var lastOpts = _invF11DateOptions(col(row, 'lastCalDate'), dmy);
+        var nextOpts = _invF11DateOptions(col(row, 'nextCalDate'), dmy);
+        var cert = _invF11RealId(col(row, 'calCertNo'));
+        var prov = _invF11RealId(col(row, 'calLab'));
+        var fExt = _invF11Freq(col(row, 'freqExt')), fInt = _invF11Freq(col(row, 'freqInt'));
+        var freq = _invF11Freq(col(row, 'calFreq')) || fExt || fInt;
+        var calType = fExt ? 'Externa' : (fInt ? 'Interna' : '');
+        var comments = _invF11Cell(col(row, 'comments'));
+        if (!lastOpts.length && !cert && !nextOpts.length && !prov && !freq) continue;  // títulos, notas, sin calibración
         var f11 = _invF11Cell(col(row, 'f11Id')).toUpperCase();
-        var kmm = _invF11RealId(col(row, 'kmmId')).toUpperCase();
-        var sn = _invF11RealId(col(row, 'serialNo')).toUpperCase();
-        var nm = _invF11Key(col(row, 'name'));
-        var last = normDate(col(row, 'lastCalDate'));
-        var nextSheet = normDate(col(row, 'nextCalDate'));
-        var cert = _invF11Cell(col(row, 'calCertNo'));
-        var prov = _invF11Cell(col(row, 'calLab'));
-        var freq = _invF11Freq(col(row, 'calFreq'));
-        if (!last && !cert && !nextSheet && !prov && !freq) continue;  // títulos, totales, notas
+        var rf = { kmm: _invF11Compact(_invF11RealId(col(row, 'kmmId'))), sn: _invF11Compact(_invF11RealId(col(row, 'serialNo'))),
+                   desc: _invF11Key(col(row, 'desc') || col(row, 'magnitude')), model: _invF11Compact(_invF11RealId(col(row, 'model'))),
+                   asset: _invF11Key(col(row, 'asset')) };
+        var label = [f11, _invF11Cell(col(row, 'asset')), _invF11Cell(col(row, 'desc')), _invF11Cell(col(row, 'model')),
+                     _invF11RealId(col(row, 'kmmId')), _invF11RealId(col(row, 'serialNo'))].filter(Boolean).join(' · ');
         res.total++;
-        if (!f11 && !kmm && !sn && !nm) {
-            // Trae fecha o certificado pero ningún identificador utilizable ('-' no es serie):
-            // se DECLARA, no se salta en silencio.
-            res.unmatched.push({ rowNo: r + 1, label: 'sin No., ID KMM ni serie' });
-            continue;
-        }
-        var label = [f11, kmm, sn, _invF11Cell(col(row, 'name'))].filter(Boolean).join(' · ');
 
-        var target = null, via = '', why = '';
-        var pick = function(list, how) {
-            if (!list) return false;
-            if (list.length === 1) { target = list[0]; via = how; return true; }
-            why = why || (how + ' repetido en ' + list.length + ' instrumentos');
-            return false;
-        };
-        if (f11) {
-            if (!pick(byF11[f11], 'No.') && /^\d+$/.test(f11)) {
-                // "No." como consecutivo (1, 2, 3…) → C-001, C-002… del F11
-                pick(byF11['C-' + ('00' + f11).slice(-3)], 'No. consecutivo');
-            }
+        // Última calibración: si la celda admite dos lecturas, gana la que cuadra con
+        // la próxima y la frecuencia ("08/11/26" + vence 2027-08-11 = 11 de agosto).
+        var nextSheet = nextOpts[0] || '';
+        var last = lastOpts[0] || '';
+        if (lastOpts.length > 1) {
+            var expect = INV_CAL_FREQ_DAYS[freq] || 365;
+            var fits = lastOpts.filter(function(d) { return nextSheet ? Math.abs(_invDaysBetween(d, nextSheet) - expect) <= 20 : d <= today; });
+            if (fits.length === 1) last = fits[0];
+            else { res.rejected.push({ rowNo: r + 1, label: label, why: 'la fecha "' + _invF11Cell(col(row, 'lastCalDate')) + '" puede leerse de dos formas' }); continue; }
         }
-        if (!target && kmm) pick(byKmm[kmm], 'ID KMM');
-        if (!target && sn) pick(bySn[sn], 'No. Serie');
-        if (!target && nm) pick(byName[nm], 'descripción');
+        if (last && last > today) { res.rejected.push({ rowNo: r + 1, label: label, why: 'la última calibración (' + last + ') es posterior a hoy' }); continue; }
+
+        // Identidad: No. → semilla del F11 → instrumentos de la app.
+        var target = null, via = '', why = '';
+        if (f11 && byF11[f11] && byF11[f11].length === 1) { target = byF11[f11][0]; via = 'No.'; }
+        if (!target && !f11) {
+            var sm = _invCalBestMatch(rf, seedCands);
+            if (sm.match && byF11[sm.match.f11Id] && byF11[sm.match.f11Id].length === 1) { target = byF11[sm.match.f11Id][0]; via = 'F11 ' + sm.match.f11Id; }
+            else why = sm.why;
+        }
+        if (!target) {
+            var em = _invCalBestMatch(rf, eqCands);
+            if (em.match) { target = em.match.eq; via = 'parecido'; }
+            else why = why || em.why;
+        }
         if (!target) {
             if (why) res.ambiguous.push({ rowNo: r + 1, label: label, why: why });
-            else res.unmatched.push({ rowNo: r + 1, label: label });
+            else res.unmatched.push({ rowNo: r + 1, label: label || 'sin identificador' });
             continue;
         }
         if (used[target.id]) { res.ambiguous.push({ rowNo: r + 1, label: label, why: 'otra fila ya apunta a ' + (target.f11Id || target.name) }); continue; }
         used[target.id] = true;
 
-        var before = { lastCalDate: target.lastCalDate || '', nextCalDate: target.nextCalDate || '',
-                       calCertNo: target.calCertNo || '', calLab: target.calLab || '', calFreq: target.calFreq || '' };
-        // Una fecha del Excel más VIEJA que la de la app no retrocede el registro:
-        // alguien ya capturó una calibración más reciente con "✅ Calibrado".
+        var before = { lastCalDate: target.lastCalDate || '', nextCalDate: target.nextCalDate || '', calCertNo: target.calCertNo || '',
+                       calLab: target.calLab || '', calFreq: target.calFreq || '', calType: target.calType || '', comments: target.comments || '' };
+        // Una fecha del Excel más VIEJA no retrocede una calibración REGISTRADA en la app
+        // ("✅ Calibrado" o una importación anterior: queda en calHistory). Si la fecha de
+        // la app no tiene registro, vino de la semilla y el Excel la corrige.
+        var corrects = false;
         if (last && before.lastCalDate && last < before.lastCalDate) {
-            res.older.push({ eq: target, rowNo: r + 1, before: before, after: { lastCalDate: last } });
-            continue;
+            var registrada = (target.calHistory || []).some(function(h) { return h && h.date === before.lastCalDate; });
+            if (registrada) { res.older.push({ eq: target, rowNo: r + 1, before: before, after: { lastCalDate: last } }); continue; }
+            corrects = true;
         }
         var after = Object.assign({}, before);
         if (last) after.lastCalDate = last;
         if (cert) after.calCertNo = cert;
         if (prov) after.calLab = prov;
         if (freq) after.calFreq = freq;
+        if (calType) after.calType = calType;
+        if (comments) after.comments = comments;
         var nextCalc = after.lastCalDate ? invCalNextDate(after.lastCalDate, after.calFreq) : '';
         // La próxima fecha del Excel manda (es el registro del laboratorio) si es coherente.
         if (nextSheet && (!after.lastCalDate || nextSheet >= after.lastCalDate)) after.nextCalDate = nextSheet;
         else if (last) after.nextCalDate = nextCalc;
-        var changed = ['lastCalDate', 'nextCalDate', 'calCertNo', 'calLab', 'calFreq'].some(function(k) { return after[k] !== before[k]; });
+        var changed = Object.keys(after).some(function(k) { return after[k] !== before[k]; });
         if (!changed) { res.unchanged++; continue; }
-        res.updates.push({ eq: target, rowNo: r + 1, before: before, after: after, via: via,
-                           nextFromSheet: !!(nextSheet && after.nextCalDate === nextSheet),
-                           nextCalc: nextCalc });
+        res.updates.push({ eq: target, rowNo: r + 1, before: before, after: after, via: via, corrects: corrects,
+                           nextFromSheet: !!(nextSheet && after.nextCalDate === nextSheet), nextCalc: nextCalc });
     }
     return res;
 }
@@ -30190,6 +30309,8 @@ function _invApplyCalibration(eq, o) {
     if (o.certNo !== undefined && o.certNo !== '') eq.calCertNo = o.certNo;
     if (o.provider) eq.calLab = o.provider;
     if (o.freq && INV_CAL_FREQ_DAYS[o.freq]) eq.calFreq = o.freq;
+    if (o.type && INV_CAL_TYPES.indexOf(o.type) !== -1) eq.calType = o.type;
+    if (o.comments) eq.comments = o.comments;
     if (o.next) eq.nextCalDate = o.next;
     else if (o.date) eq.nextCalDate = invCalNextDate(eq.lastCalDate, eq.calFreq);
     if (o.date) {
@@ -30313,12 +30434,13 @@ function invCalImportRenderPreview() {
        + '<span class="u-chip u-chip--neutral">' + res.unchanged + ' sin cambio</span>'
        + (res.older.length ? '<span class="u-chip u-chip--warn">' + res.older.length + ' más viejas que la app</span>' : '')
        + (res.ambiguous.length ? '<span class="u-chip u-chip--warn">' + res.ambiguous.length + ' ambiguas</span>' : '')
+       + (res.rejected.length ? '<span class="u-chip u-chip--warn">' + res.rejected.length + ' con fecha dudosa</span>' : '')
        + (res.unmatched.length ? '<span class="u-chip u-chip--danger">' + res.unmatched.length + ' sin instrumento</span>' : '')
        + '</div>';
 
     if (res.updates.length) {
         h += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);">'
-           + '<thead><tr><th style="text-align:left;">Instrumento</th><th>Última calibración</th><th>Próxima</th><th>Certificado</th><th>Quedará</th></tr></thead><tbody>';
+           + '<thead><tr><th style="text-align:left;">Instrumento</th><th>Última calibración</th><th>Próxima</th><th>Frecuencia</th><th>Certificado</th><th>Quedará</th></tr></thead><tbody>';
         res.updates.forEach(function(u) {
             var fake = Object.assign({}, u.eq, u.after);
             var st = invCalStatus(fake);
@@ -30330,9 +30452,12 @@ function invCalImportRenderPreview() {
             var nextNote = (u.nextFromSheet && u.nextCalc && u.nextCalc !== u.after.nextCalDate)
                 ? '<div class="u-muted" style="font-size: var(--fs-xs);">del Excel · por frecuencia sería ' + _invCalFmt(u.nextCalc) + '</div>' : '';
             h += '<tr style="border-top:1px solid var(--border);">'
-               + '<td><strong>' + escapeHtml(u.eq.f11Id || '') + '</strong> ' + escapeHtml(u.eq.name || '') + '<div class="u-muted" style="font-size: var(--fs-xs);">fila ' + u.rowNo + ' · por ' + escapeHtml(u.via) + '</div></td>'
+               + '<td><strong>' + escapeHtml(u.eq.f11Id || '') + '</strong> ' + escapeHtml(u.eq.name || '') + '<div class="u-muted" style="font-size: var(--fs-xs);">fila ' + u.rowNo + ' · por ' + escapeHtml(u.via) + '</div>'
+               + (u.corrects ? '<div style="color:var(--warn-text);font-size: var(--fs-xs);">corrige un dato de la semilla (no había calibración registrada en la app)</div>' : '')
+               + (u.after.comments && u.after.comments !== u.before.comments ? '<div class="u-muted" style="font-size: var(--fs-xs);">📝 ' + escapeHtml(u.after.comments) + '</div>' : '') + '</td>'
                + '<td>' + chg('lastCalDate', _invCalFmt) + '</td>'
                + '<td>' + chg('nextCalDate', _invCalFmt) + nextNote + '</td>'
+               + '<td>' + chg('calFreq') + '</td>'
                + '<td>' + chg('calCertNo') + '</td>'
                + '<td><span style="color:' + st.color + ';font-weight:700;">' + escapeHtml(st.label) + '</span></td></tr>';
         });
@@ -30348,6 +30473,7 @@ function invCalImportRenderPreview() {
     h += lista('Más viejas que la app — no se aplican', res.older, function(o) {
         return escapeHtml((o.eq.f11Id || '') + ' ' + (o.eq.name || '')) + ': Excel ' + _invCalFmt(o.after.lastCalDate) + ', la app ya tiene ' + _invCalFmt(o.before.lastCalDate);
     });
+    h += lista('Fecha dudosa — no se aplican (corrígela en el Excel)', res.rejected, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label) + ' — ' + escapeHtml(a.why); });
     h += lista('Ambiguas — no se aplican', res.ambiguous, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label) + ' — ' + escapeHtml(a.why); });
     h += lista('Sin instrumento en la app — usa "+ Instrumento" para darlas de alta', res.unmatched, function(a) { return 'Fila ' + a.rowNo + ': ' + escapeHtml(a.label); });
     host.innerHTML = h;
@@ -30367,6 +30493,7 @@ function invCalImportApply() {
         _invApplyCalibration(u.eq, {
             date: dateChanged ? u.after.lastCalDate : '',
             certNo: u.after.calCertNo, provider: u.after.calLab, freq: u.after.calFreq,
+            type: u.after.calType, comments: u.after.comments,
             next: u.after.nextCalDate, by: by + ' · Excel F11'
         });
         if (!dateChanged) u.eq.nextCalDate = u.after.nextCalDate || u.eq.nextCalDate;
@@ -30885,7 +31012,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'inv-equipment': { title: 'Equipos y Calibración (COP15-F11)', text: 'Instrumentos del laboratorio agrupados por equipo padre, con semáforo de calibración (60 días para "por vencer"). Un crítico vencido debe identificarse como NO OPERABLE.', tips: [
         'Botón "✅ Calibrado" en cada instrumento: solo pide fecha, certificado y proveedor — la próxima fecha se calcula sola.',
-        '"📥 Actualizar desde Excel": sube el COP15-F11 actualizado (.xlsx o .csv). La app encuentra sola la hoja, empata por el No. del F11 y te muestra qué cambia antes de guardar. Una fecha más vieja que la de la app no se aplica.',
+        '"📥 Actualizar desde Excel": sube el COP15-F11 o el Plan Anual de Calibración (.xlsx o .csv). La app encuentra sola la hoja, identifica cada instrumento (por No., KMM, serie, descripción y modelo) y te muestra qué cambia antes de guardar. Una calibración registrada en la app nunca se retrocede; las fechas dudosas o futuras se listan sin aplicar.',
         'Los filtros 🔴🟠🟢⚪ arriba muestran solo lo que necesita atención.',
         'El ✏️ del encabezado de cada grupo edita el equipo padre (laboratorio, marca, si bloquea pruebas).'
     ]},
@@ -52359,7 +52486,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609242036' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609242058' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

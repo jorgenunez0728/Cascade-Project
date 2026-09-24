@@ -2,6 +2,36 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.4 — El importador de calibraciones, contra el F11 real del laboratorio (2026-09-24)
+
+El laboratorio compartió su archivo real ("COP15-F11 Plan Anual de Calibración – actualizado
+2026-09-12"). Es otra revisión del formato: encabezados en inglés (`Cal date`, `Cal Due`,
+`Certification No.`, `Laboratory`), **sin columna "No."**, la frecuencia repartida en
+`Internal`/`External` y columnas auxiliares a la derecha. Corrido en memoria, el importador de
+v24.3 no actualizaba ninguna fecha y escribía "Evaluacion de proveedores" como proveedor.
+
+- **Mapeo en dos pasadas globales** (`_invF11AutoMap`): exactos de todos los campos primero,
+  contención (≥ 6 letras) solo para lo que falte. Sinónimos reales agregados; fuera los sueltos
+  que colisionaban (`proveedor`, `magnitud`). Campos nuevos: equipo, modelo, magnitud,
+  frecuencia interna/externa y comentarios.
+- **Identidad sin "No."**: `_invCalMatchScore` (PURA) puntúa KMM, serie, descripción, modelo y
+  equipo padre; se empata contra la semilla del F11 (mismo documento) y de ahí por `f11Id`.
+  Resultado con el archivo real: **43 de 43 filas con datos identificadas, 0 ambiguas**,
+  incluidos los pares que comparten KMM/serie (TH-0033, K-150019C).
+- **Fechas**: año 2000–2100 (el `Cal Due = 365` ya no se vuelve "0365-01-01"); "08/11/26" se
+  resuelve con la próxima calibración y la frecuencia (11 de agosto, no 8 de noviembre); una
+  última calibración futura se rechaza y se lista. Si la hoja prueba su orden d/m con otra
+  fecha, manda la hoja.
+- **Regla de "más vieja"**: solo protege una calibración REGISTRADA en la app (`calHistory`).
+  Un dato que vino de la semilla se corrige y se marca (los 6 VETS pasan a 2024-12 Bianual).
+- Frecuencia, tipo (Interna/Externa) y comentarios del laboratorio se aplican por
+  `_invApplyCalibration`.
+- Con el archivo real: **17 instrumentos cambian**, vigentes 0 → 11, vencidos 27 → 16.
+- Dos regex de `inventory.js` tenían marcas combinantes literales; ahora son escapes
+  (`\u0300-\u036f`), como pide la convención de v22.2.
+- `tests/fixtures/f11-plan-anual-2026-09-12.json` (la hoja real) + 14 casos nuevos en
+  `tests/inventory-import.node.js` (75 en total).
+
 ## v24.3 — Calibraciones desde Excel, el reporte de consumibles como fuente, y HOY sin encimarse (2026-09-24)
 
 Tres pedidos del laboratorio (fotos): subir el Excel actualizado de calibraciones, las tarjetas

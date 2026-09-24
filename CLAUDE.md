@@ -346,7 +346,7 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
   con el `equipment` local (solo se detectaban altas nuevas, nunca ediciones).
 - **Exportación**: 4 CSV con encabezados exactos del Excel (`invExportF11Equipos/Calibracion/
   Actividades/Historial`) + PDF del Plan Maestro (`invMaintPlanPDF`), todo en el Centro de
-  Reportes. **Importación**: desde v24.3 es `invCalImportOpen` (.xlsx/.csv, ver v24.3);
+  Reportes. **Importación**: desde v24.3 es `invCalImportOpen` (.xlsx/.csv, ver v24.3/v24.4);
   `invImportF11CSV` se retiró.
 
 ## v16.5 — Mapa como retícula + menos campos + sin espacio muerto
@@ -1385,6 +1385,15 @@ las dos, no una:
   `'-'`, `N/A`, `S/N` no son identificadores. Una fecha del Excel más VIEJA que la de la app no
   se aplica (se lista). Sinónimos en `INV_F11_IMPORT_FIELDS`: los literales del F11 primero;
   nunca una palabra suelta como "laboratorio" (el F11 trae "Laboratorio (auto)").
+- **v24.4 — el F11 real no trae "No."** (encabezados en inglés, frecuencia en
+  `Internal`/`External`). El mapeo es `_invF11AutoMap` (exactos de TODOS los campos primero,
+  contención ≥ 6 letras después — nunca campo por campo). La identidad sale de
+  `_invCalMatchScore` (PURA: KMM/serie ±8, descripción, modelo, equipo padre) contra la
+  SEMILLA `INV_CAL_SEED_F11`, que salió del mismo documento; umbral ≥ 8 y ventaja ≥ 3, si no
+  es ambigua. "Más vieja" solo protege una fecha con registro en `calHistory`; la de la
+  semilla se corrige. Fechas: año 2000–2100, "última" futura rechazada, d/m vs m/d por la
+  hoja y, si no hay evidencia, por la próxima + frecuencia. El archivo real vive como fixture
+  en `tests/fixtures/f11-plan-anual-2026-09-12.json`: si cambia el formato, agregar su fixture.
 - **`_invApplyCalibration(eq, o)` es el ÚNICO escritor de una calibración** (lo usan
   `invCalRegister` y la importación); no duplica fecha+certificado en `calHistory`.
 - `_pnProjDetectHeader(grid, fields)` / `_pnProjAutoMap(headers, fields)` aceptan un catálogo

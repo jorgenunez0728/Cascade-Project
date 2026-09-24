@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.3';
+var APP_VERSION = '24.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
+      notes: [
+          '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
+          'Cada fila se identifica aunque dos instrumentos compartan KMM o serie (p. ej. temperatura y humedad del mismo termohigrómetro).',
+          'Fechas dudosas ya no se aplican a ciegas: "08/11/26" se resuelve con la fecha de vencimiento y una calibración futura se rechaza.',
+          'Si la fecha de la app venía de la semilla original, el Excel la corrige; una calibración registrada en la app nunca se retrocede.'
+      ] },
     { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
       notes: [
           'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',

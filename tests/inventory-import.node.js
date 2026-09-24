@@ -43,7 +43,11 @@ console.log('\n== invCalImportAnalyze (Excel COP15-F11) ==');
         { id: 'e4', f11Id: 'C-014', name: 'Humidity sensor Clean Cham', serialNo: 'K-150019C', calFreq: '', lastCalDate: '' },
         { id: 'e5', f11Id: 'C-027', name: 'Death Weight Dynamometer', serialNo: '-', calFreq: 'Anual', lastCalDate: '2025-03-01', nextCalDate: '2026-03-01' },
         { id: 'e6', f11Id: 'C-031', name: 'Mass 1 Dynamometer', serialNo: '1', kmmId: 'WE-0016-01', calFreq: 'Anual', lastCalDate: '2025-09-18', nextCalDate: '2026-09-18' },
-        { id: 'e7', f11Id: 'C-048', name: 'Pressure gauge Laboratorio', serialNo: 'PS 055 497', kmmId: 'PR-0002', calFreq: 'Anual', lastCalDate: '2026-08-01', nextCalDate: '2027-08-01' }
+        // C-048 tiene su calibración REGISTRADA en la app (calHistory): una fecha más vieja no la retrocede
+        { id: 'e7', f11Id: 'C-048', name: 'Pressure gauge Laboratorio', serialNo: 'PS 055 497', kmmId: 'PR-0002', calFreq: 'Anual', lastCalDate: '2026-08-01', nextCalDate: '2027-08-01',
+          calHistory: [{ date: '2026-08-01', certNo: 'X-1', by: 'Jorge' }] },
+        // C-013 solo trae la fecha de la semilla (sin calHistory): el Excel la corrige
+        { id: 'e8', f11Id: 'C-049', name: 'Thermometer Laboratorio', serialNo: '', calFreq: 'Anual', lastCalDate: '2026-01-10', nextCalDate: '2027-01-10' }
     ];
     // Hoja con bloque de título arriba, como el formato impreso del F11.
     const H = ['No.', 'Equipo', 'Laboratorio (auto)', 'Marca', 'Descripción / Magnitud calibrada', 'Modelo', 'No. Serie', 'ID KMM',
@@ -74,13 +78,17 @@ console.log('\n== invCalImportAnalyze (Excel COP15-F11) ==');
         // "No." consecutivo 13 → C-013
         row({ 'No.': 13, 'Frecuencia': 'Anual', 'Última calibración': serial('2026-05-05') }),
         row({ 'No.': 'C-999', 'Última calibración': serial('2026-01-01') }),
+        // C-049: fecha más vieja, pero la de la app no está registrada → corrige
+        row({ 'No.': 'C-049', 'Última calibración': serial('2025-10-07') }),
+        // Fecha futura → se rechaza
+        row({ 'No.': 'C-004', 'Última calibración': serial('2026-12-01') }),
         ['Total', '', '']
     ];
     const r = ctx.invCalImportAnalyze(grid, eq);
     ok('encuentra los encabezados debajo del bloque de título', r.ok && r.headerRow === 3, JSON.stringify({ ok: r.ok, h: r.headerRow, why: r.reason }));
-    ok('mapea las columnas literales del F11', ['f11Id', 'kmmId', 'serialNo', 'lastCalDate', 'nextCalDate', 'calCertNo', 'calLab', 'calFreq', 'name'].every(k => r.map[k] !== undefined), JSON.stringify(r.map));
+    ok('mapea las columnas literales del F11', ['f11Id', 'kmmId', 'serialNo', 'lastCalDate', 'nextCalDate', 'calCertNo', 'calLab', 'calFreq', 'desc', 'asset'].every(k => r.map[k] !== undefined), JSON.stringify(r.map));
     ok('"Laboratorio (auto)" NO se toma como proveedor', r.map.calLab === H.indexOf('Proveedor (¿quién calibra?)'));
-    ok('"Descripción / Magnitud calibrada" es la descripción (no "Equipo", que es el equipo padre)', r.map.name === H.indexOf('Descripción / Magnitud calibrada'));
+    ok('"Descripción / Magnitud calibrada" es la descripción (no "Equipo", que es el equipo padre)', r.map.desc === H.indexOf('Descripción / Magnitud calibrada') && r.map.asset === H.indexOf('Equipo'));
     const by = id => r.updates.find(u => u.eq.f11Id === id);
     const u3 = by('C-003');
     ok('C-003: serial de Excel → fecha ISO', u3 && u3.after.lastCalDate === '2026-02-20', u3 && JSON.stringify(u3.after));
@@ -88,15 +96,17 @@ console.log('\n== invCalImportAnalyze (Excel COP15-F11) ==');
     ok('C-003: la próxima del Excel manda', u3 && u3.after.nextCalDate === '2027-02-20' && u3.nextFromSheet);
     ok('KMM repetido (TH-0033) → ambigua, no se asigna', r.ambiguous.some(a => /TH-0033/.test(a.label)) && !by('C-004'));
     ok('serie repetida (K-150019C) → ambigua', r.ambiguous.some(a => /K-150019C/.test(a.label)));
-    ok('serie "-" no identifica → se declara "sin identificador"', r.unmatched.some(a => a.rowNo === 8 && /sin No/.test(a.label)), JSON.stringify(r.unmatched));
+    ok('serie "-" no identifica → se declara "sin identificador"', r.unmatched.some(a => a.rowNo === 8 && /sin identificador/.test(a.label)), JSON.stringify(r.unmatched));
     const u27 = by('C-027');
     ok('C-027: 15/08/2026 se lee día/mes', u27 && u27.after.lastCalDate === '2026-08-15', u27 && u27.after.lastCalDate);
     ok('C-027: sin próxima en el Excel → se calcula por frecuencia', u27 && u27.after.nextCalDate === '2027-08-15', u27 && u27.after.nextCalDate);
     ok('C-031 sin cambios → no aparece en updates', !by('C-031') && r.unchanged >= 1);
-    ok('C-048: fecha del Excel más vieja → a "older", no se aplica', !by('C-048') && r.older.some(o => o.eq.f11Id === 'C-048'));
-    ok('"No." consecutivo 13 → C-013', by('C-013') && by('C-013').via === 'No. consecutivo');
+    ok('C-048: fecha más vieja que una calibración REGISTRADA → a "older", no se aplica', !by('C-048') && r.older.some(o => o.eq.f11Id === 'C-048'));
+    ok('C-049: fecha más vieja que un dato de SEMILLA → se corrige y se marca', by('C-049') && by('C-049').corrects && by('C-049').after.lastCalDate === '2025-10-07');
+    ok('"No." que no existe (13) NO se adivina por posición', !by('C-013') && r.unmatched.some(a => /^13/.test(a.label)), JSON.stringify(r.unmatched));
+    ok('última calibración futura → rechazada, no se aplica', !by('C-004') && r.rejected.some(x => /posterior a hoy/.test(x.why)), JSON.stringify(r.rejected));
     ok('C-999 → sin instrumento', r.unmatched.some(a => /C-999/.test(a.label)));
-    ok('títulos y la fila "Total" no cuentan', r.total === 9 && !r.unmatched.some(a => /Total|PLAN|COP15/i.test(a.label)), 'total=' + r.total);
+    ok('títulos y la fila "Total" no cuentan', r.total === 11 && !r.unmatched.some(a => /Total|PLAN|COP15/i.test(a.label)), 'total=' + r.total);
 
     // _invApplyCalibration: escritor único, historial sin duplicados
     const e = Object.assign({}, eq[4], { calHistory: [] });
@@ -137,6 +147,47 @@ const EMAIL = [
     ['ÓXIDO NITROSO 5 PPM BALANCE NITRÓGENO', 1450, 4.2, 0.8, 21, 22.75, 'OK'],
     ['NITRÓGENO 5.5 (99.9995 %)', 2500, 175.0, 35.0, 21, 955.50, 'OK']
 ];
+
+console.log('\n== F11 real del laboratorio (Plan Anual de Calibración, 2026-09-12) ==');
+{
+    // Fixture: la hoja tal cual la entrega SheetJS (header:1, raw:true). Encabezados en
+    // inglés, SIN columna "No.", frecuencia repartida en Internal/External, y columnas
+    // auxiliares a la derecha ("Evaluacion de proveedores") que confundían al mapeo.
+    const fx = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'f11-plan-anual-2026-09-12.json'), 'utf8'));
+    const grid = fx.grid;
+    ctx.invPreloadData();
+    const eq = JSON.parse(JSON.stringify(ctx.__inv().equipment));
+    const r = ctx.invCalImportAnalyze(grid, eq, { assets: ctx.__inv().assets, today: '2026-09-24' });
+    const H = grid[r.headerRow] || [];
+    const hdr = f => String(H[r.map[f]] || '').trim();
+    ok('encabezados en la fila 2', r.ok && r.headerRow === 1, r.reason);
+    ok('mapea Cal date / Cal Due / Certification No. / Laboratory / Internal / External',
+        hdr('lastCalDate') === 'Cal date' && hdr('nextCalDate') === 'Cal Due' && hdr('calCertNo') === 'Certification No.' &&
+        hdr('calLab') === 'Laboratory' && hdr('freqInt') === 'Internal' && hdr('freqExt') === 'External', JSON.stringify(r.map));
+    ok('"Evaluacion de proveedores" NO es el proveedor; "Magnitude" NO es la descripción',
+        hdr('calLab') !== 'Evaluacion de proveedores' && hdr('desc') === 'Description');
+    ok('las 43 filas con datos empatan: 0 ambiguas, 0 sin instrumento, 0 fechas dudosas',
+        r.total === 43 && !r.ambiguous.length && !r.unmatched.length && !r.rejected.length,
+        JSON.stringify({ t: r.total, a: r.ambiguous, u: r.unmatched, x: r.rejected }));
+    ok('17 instrumentos cambian y 26 ya coinciden', r.updates.length === 17 && r.unchanged === 26, r.updates.length + '/' + r.unchanged);
+    const by = id => r.updates.find(u => u.eq.f11Id === id);
+    ok('TH-0033 temperatura → C-003 con T-99198-1-26 del 2026-03-02',
+        by('C-003') && by('C-003').after.calCertNo === 'T-99198-1-26' && by('C-003').after.lastCalDate === '2026-03-02');
+    ok('TH-0033 humedad → C-004 con H-99198-2-26 (mismo KMM, se distingue por la descripción)',
+        by('C-004') && by('C-004').after.calCertNo === 'H-99198-2-26');
+    ok('Death Weight "08/11/26" + vence 2027-08-11 → 11 de agosto de 2026 (no 8 de noviembre)',
+        by('C-027') && by('C-027').after.lastCalDate === '2026-08-11' && by('C-027').after.nextCalDate === '2027-08-11');
+    ok('Cooling Fan (Cal Due = 365) no inventa una fecha', !by('C-026'));
+    const vets = ['C-005', 'C-006', 'C-007', 'C-008', 'C-009', 'C-010'].map(by);
+    ok('VETS: corrigen el dato de la semilla y pasan a Bianual', vets.every(u => u && u.corrects && u.after.calFreq === 'Bianual' && u.after.calType === 'Externa'));
+    ok('GDC: Bianual, certificado y próxima del Excel', by('C-021') && by('C-021').after.nextCalDate === '2028-01-28' && by('C-021').after.calCertNo === 'VF70FJSL-012826');
+    ok('los comentarios del laboratorio viajan', by('C-003') && /METROLAB/.test(by('C-003').after.comments));
+    // Con la calibración REGISTRADA en la app, el Excel viejo no la retrocede
+    const eq2 = JSON.parse(JSON.stringify(eq));
+    const c5 = eq2.find(e => e.f11Id === 'C-005'); c5.calHistory = [{ date: c5.lastCalDate, certNo: 'VA-1', by: 'Jorge' }];
+    const r2 = ctx.invCalImportAnalyze(grid, eq2, { assets: ctx.__inv().assets, today: '2026-09-24' });
+    ok('con calibración registrada en la app, C-005 va a "older" y no se retrocede', r2.older.some(o => o.eq.f11Id === 'C-005') && !r2.updates.some(u => u.eq.f11Id === 'C-005'));
+}
 
 console.log('\n== invGasReorder (fórmula del correo) ==');
 {
