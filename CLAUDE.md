@@ -20,7 +20,7 @@ no-login operator picker, synced change history).
 
 | Root Tab | Contains | Internal Section IDs |
 |----------|----------|---------------------|
-| **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions. **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
+| **Hoy** | **v24.5**: Pulso del laboratorio (5 indicadores) → categorías como recuadros-filtro → Lo siguiente (5 acciones). **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
 | **Plan** | **v23**: abre en **📅 Mi semana** — el tablero por día Y el armador (tarjeta plegable con la propuesta en vivo) en la MISMA pantalla; la pestaña "Armar semana" se eliminó. Más **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
@@ -1371,6 +1371,37 @@ las dos, no una:
   o el número se corta en silencio ("1000" se veía "10").
 - Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
   dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
+
+## v24.5 — Un solo catálogo y HOY ejecutivo
+
+- **`tpConfigCatalog()` (testplan.js) es LA definición de las configuraciones planeables**:
+  `planData` ∪ `allConfigurations` por `desc`, gana la fila de producción; lo que solo está en el
+  catálogo sale `_catalogOnly` (total 0). **`tpConfigByDesc(desc)` es LA forma de resolver un
+  `desc`** en toda ruta MANUAL del plan (agregar, fijar, duplicar, mover, sustituir, vincular,
+  acreditar, etiquetas). Nunca volver a `planData.find(…desc…)` ahí: el Alta ofrecía configs que
+  el Plan no veía. **Lo automático sigue sobre `planData` a propósito** (`tpGetAnalysis`, REQ,
+  cobertura, generador, Recuperación): el REQ es de producción. Una `_catalogOnly` se DECLARA
+  (grupo "📦 … sin volumen" al final, chip en la tarjeta), nunca se mezcla en silencio.
+- **Configs manuales = `db.manualConfigs`** (viajan con cop15), no `kia_manual_configs` (queda
+  como legado de la migración). `getManualConfigs()` devuelve las vivas; `_saveManualConfigs(lista)`
+  recibe la lista viva y reconcilia (sella `updatedAt`, marca `deleted` lo que falte).
+  **`manualConfigsUnion` es LA fusión (PURA, simétrica)**; `manualConfigsAfterLoad()` corre en
+  `dedupeVehicleIds()` y solo migra códigos que `db` no conoce. Borrar SIEMPRE deja marca.
+- **HOY = Pulso → categorías → Lo siguiente.** `labPulseCompute(src)` (panel.js, PURA) es LA
+  definición de los 5 indicadores y `labPulseData()` los junta de las definiciones únicas
+  (`tpWeekBoardRows`, `tpCoverageSummary`, `pnGetActiveAlerts`, `invGasIsLow`, `invCalSummary`).
+  Vive como sección `'pulse'` de `renderLabOverview` (una sola fuente de KPIs); HOY ya no pide
+  `kpi`/`pipeline`, el Panel sí. El avance de la semana es contra el COMPROMISO (`planeadas`):
+  las no planeadas no inflan lo hecho.
+- **`dashNextUp(acts, n)` y `dashCatSummary(acts)` (app.js) son PURAS.** Los recuadros de
+  categoría FILTRAN el bloque de abajo (`uiPref('dashOpenCat')`), no se apilan listas.
+- **Nunca `data-help` en un `<button>`**: `cascadeInjectTooltips` mete otro `<button>` adentro.
+  Por eso el Pulso lleva un solo `?` en su título y `title` en cada recuadro.
+- **`./build.sh` publica el número de build en Firestore de producción** (`app/version`, un
+  curl al final). Las estaciones ven "hay actualización" aunque el hosting no haya cambiado. Para
+  compilar solo para verificar, correrlo sin red hacia Firestore (p. ej.
+  `HTTPS_PROXY=http://127.0.0.1:9 ./build.sh`): el HTML y `sw.build.js` ya quedaron escritos
+  cuando el curl falla; el script sale con código 7 por `set -e`, no por un error de build.
 
 ## v24.3 — Calibraciones desde Excel, consumibles como fuente, HOY sin encimarse
 

@@ -379,5 +379,71 @@ t('valores fuera de rango se acotan a 0..100 en pasos de 5', () => {
     eq(r.region, 100); eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.5] Un solo catálogo: el Alta y el Plan ven las mismas configuraciones
+// ══════════════════════════════════════════════════════════════════════
+console.log('\n== v24.5: catálogo unificado ==');
+const CAT_ROW = { codigo_config_text: 'CFG-CAT', Modelo: 'K5', 'MODEL YEAR (VIN)': '2026', TRANSMISSION: 'AT',
+    'ENVIRONMENT PACKAGE': '', 'EMISSION REGULATION': 'EURO-6E', 'DRIVE TYPE': 'AWD', 'ENGINE CAPACITY': '2.0',
+    'TIRE ASSY': 'R18', REGION: 'EUROPE', 'BODY TYPE': '5DR', 'ENGINE PACKAGE': '' };
+function resetCat() {
+    reset([]);
+    // CFG-A también viene en el catálogo, con otra forma: debe ganar la de producción.
+    sandbox.allConfigurations = [CAT_ROW, Object.assign({}, CAT_ROW, { codigo_config_text: 'CFG-A', Modelo: 'OTRO' })];
+    sandbox.tpInvalidateCache();
+}
+t('tpCfgFromCatalogRow mapea los encabezados del catálogo a la forma del plan', () => {
+    const c = sandbox.tpCfgFromCatalogRow(CAT_ROW);
+    eq(c.desc, 'CFG-CAT'); eq(c.mod, 'K5'); eq(c.rgn, 'EUROPE'); eq(c.drv, 'AWD'); eq(c.tire, 'R18');
+    eq(c.total, 0); eq(c._catalogOnly, true);
+});
+t('el catálogo une producción + Alta y gana la fila de producción', () => {
+    resetCat();
+    const all = sandbox.tpConfigCatalog();
+    eq(all.length, 3, 'CFG-A, CFG-B y CFG-CAT:');
+    eq(sandbox.tpConfigByDesc('CFG-A').mod, 'K5', 'la de producción manda:');
+    eq(!!sandbox.tpConfigByDesc('CFG-A')._catalogOnly, false);
+    eq(sandbox.tpConfigByDesc('CFG-CAT')._catalogOnly, true);
+    eq(sandbox.tpCatalogOnlyCount(), 1);
+});
+t('una config SOLO del catálogo se puede agregar a la semana (antes: "no está en el plan")', () => {
+    resetCat();
+    S.weeklyPlans = [{ id: 'p1', weekDate: '2026-09-07', items: [] }];
+    sandbox.tpWeekPlanInvalidate();
+    const r = sandbox.tpAddItemToWeekDay(0, 'CFG-CAT', null, {});
+    eq(r.ok, true, (r.reason || '') + ' ok:');
+    eq(r.catalogOnly, true);
+    eq(S.weeklyPlans[0].items[0].desc, 'CFG-CAT');
+});
+t('agregarla NO mueve la cobertura ni el análisis (no tiene REQ)', () => {
+    resetCat();
+    const antes = JSON.stringify(sandbox.tpCoverageSummary());
+    S.weeklyPlans = [{ id: 'p1', weekDate: '2026-09-07', items: [] }];
+    sandbox.tpWeekPlanInvalidate();
+    sandbox.tpAddItemToWeekDay(0, 'CFG-CAT', null, {});
+    sandbox.tpInvalidateCache();
+    eq(JSON.stringify(sandbox.tpCoverageSummary()), antes);
+    eq(sandbox.tpGetAnalysis().some(a => a.desc === 'CFG-CAT'), false, 'el análisis sigue siendo de producción:');
+});
+t('sustituir ofrece también las del catálogo, marcadas', () => {
+    resetCat();
+    const c = sandbox.tpSubstituteCandidatesFor({ desc: 'CFG-A' }, { scope: 'familia' });
+    const cat = c.filter(x => x.desc === 'CFG-CAT')[0];
+    eq(!!cat, true, 'aparece CFG-CAT:');
+    eq(cat.catalogOnly, true);
+});
+t('el generador automático NO elige una config sin volumen por su cuenta', () => {
+    resetCat();
+    const R = sandbox.tpSelectWeeklyItems({ capacity: 4, workDays: { lun: true, mar: true, mie: true, jue: true, vie: true }, dryRun: true, ignoreFilters: true });
+    eq(R.items.some(i => i.desc === 'CFG-CAT'), false);
+});
+t('pero SÍ la respeta si se fija a mano', () => {
+    resetCat();
+    const R = sandbox.tpSelectWeeklyItems({ capacity: 4, workDays: { lun: true, mar: true, mie: true, jue: true, vie: true }, dryRun: true, ignoreFilters: true, manualPicks: ['CFG-CAT'] });
+    eq(R.items.some(i => i.desc === 'CFG-CAT'), true);
+    sandbox.allConfigurations = [];
+    sandbox.tpInvalidateCache();
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

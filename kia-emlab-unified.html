@@ -5705,6 +5705,125 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [v24] Sub-vistas de "Análisis" de un proyecto: más discretas que las principales. */
 .pn-proj-viewtabs--sub { margin-top: var(--space-xs); }
 .pn-proj-viewtabs--sub .pn-proj-viewtab { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v24.5] HOY ejecutivo — Pulso · Lo siguiente · categorías como tiles
+   HOY apilaba 6 KPIs + Pipeline + Mi turno + todas las categorías abiertas:
+   había que bajar varias pantallas para ver qué hacer. Ahora son tres niveles
+   de lectura y el detalle está a un toque. Todo con tokens (densidad, v22).
+   ══════════════════════════════════════════════════════════════════════ */
+.dash-head { align-items: center; justify-content: flex-start; margin-bottom: var(--space-md); }
+.dash-head-text { flex: 1; min-width: 0; }
+.dash-head .daily-dash-greeting { margin-bottom: 0; }
+.dash-head-chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: var(--radius-full); padding: var(--space-xs) var(--space-md);
+    font-size: var(--fs-sm); font-weight: 600; cursor: pointer; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-height: var(--target-min, 40px);
+    transition: background-color var(--dur-fast) ease;
+}
+.dash-head-chip:hover { background: var(--surface-alt); }
+
+/* Pulso: 5 indicadores en una fila; se reacomodan según el ancho del contenedor. */
+.dash-pulse {
+    display: grid; gap: var(--space-sm); margin-bottom: var(--space-lg);
+    grid-template-columns: repeat(auto-fit, minmax(min(11.5rem, 100%), 1fr));
+}
+.dash-pulse-tile {
+    display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-xs);
+    min-width: 0; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--border);
+    border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-md);
+    transition: transform var(--dur-fast) ease, box-shadow var(--dur-base) ease;
+}
+.dash-pulse-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.dash-pulse-tile:focus-visible { outline: 3px solid var(--info-fill); outline-offset: 2px; }
+.dash-pulse-tile--ok      { border-top-color: var(--ok-fill); }
+.dash-pulse-tile--warn    { border-top-color: var(--warn-fill); background: var(--warn-tint); }
+.dash-pulse-tile--danger  { border-top-color: var(--danger-fill); background: var(--danger-tint); }
+.dash-pulse-tile--info    { border-top-color: var(--info-fill); }
+.dash-pulse-tile--neutral { border-top-color: var(--border); }
+.dash-pulse-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.dash-pulse-num { font-size: var(--fs-lg); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.dash-pulse-num small { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.dash-pulse-tile--ok .dash-pulse-num     { color: var(--ok-text); }
+.dash-pulse-tile--warn .dash-pulse-num   { color: var(--warn-text); }
+.dash-pulse-tile--danger .dash-pulse-num { color: var(--danger-text); }
+.dash-pulse-tile--info .dash-pulse-num   { color: var(--info-text); }
+.dash-pulse-sub { font-size: var(--fs-xs); color: var(--muted); overflow-wrap: anywhere; }
+.dash-pulse-bar {
+    display: block; width: 100%; height: 6px; border-radius: var(--radius-full);
+    background: var(--surface-alt); overflow: hidden;
+}
+.dash-pulse-bar > i {
+    display: block; height: 100%; border-radius: inherit; background: currentColor;
+    transition: width var(--dur-slow) ease;
+}
+.dash-pulse-tile--ok .dash-pulse-bar     { color: var(--ok-fill); }
+.dash-pulse-tile--warn .dash-pulse-bar   { color: var(--warn-fill); }
+.dash-pulse-tile--danger .dash-pulse-bar { color: var(--danger-fill); }
+.dash-pulse-tile--info .dash-pulse-bar   { color: var(--info-fill); }
+/* El pipeline como UNA barra segmentada: proporción de un vistazo. */
+.dash-pulse-seg {
+    display: flex; width: 100%; height: 8px; gap: var(--space-2xs);
+    border-radius: var(--radius-full); overflow: hidden;
+}
+.dash-pulse-seg > i { display: block; min-width: 6px; }
+.dash-pulse-seg--registered       { background: var(--info-fill); }
+.dash-pulse-seg--in-progress      { background: var(--warn-fill); }
+.dash-pulse-seg--testing          { background: var(--accent-cop); }
+.dash-pulse-seg--ready-release    { background: var(--ok-fill); }
+.dash-pulse-seg--pending-approval { background: var(--accent-panel); }
+.dash-spark { width: 100%; max-width: 7.5rem; height: 1.75rem; display: block; }
+.dash-spark rect { fill: var(--border); }
+.dash-spark rect.dash-spark-today { fill: var(--ok-fill); }
+
+/* Lo siguiente: una lista corta con el mismo formato de fila de siempre. */
+.dash-next {
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    background: var(--surface); overflow: hidden; margin-bottom: var(--space-md);
+}
+.dash-next > .dash-row:first-child { border-top: none; }
+
+/* Categorías como tiles. */
+.dash-cat-tiles {
+    display: grid; gap: var(--space-sm); margin-bottom: var(--space-md);
+    grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+}
+.dash-cat-tile {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+    column-gap: var(--space-sm); align-items: center; text-align: left;
+    font: inherit; color: var(--text); cursor: pointer; min-width: 0;
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-md);
+    min-height: var(--target-min, 44px);
+    transition: background-color var(--dur-fast) ease, box-shadow var(--dur-base) ease;
+}
+.dash-cat-tile:hover { background: var(--surface-alt); }
+.dash-cat-tile:focus-visible { outline: 3px solid var(--info-fill); outline-offset: 2px; }
+.dash-cat-tile--cascade   { border-left-color: var(--accent-cascade); }
+.dash-cat-tile--testplan  { border-left-color: var(--accent-testplan); }
+.dash-cat-tile--inventory { border-left-color: var(--accent-inventory); }
+.dash-cat-tile--panel     { border-left-color: var(--accent-panel); }
+.dash-cat-tile--cop       { border-left-color: var(--accent-cop); }
+.dash-cat-tile--on { background: var(--info-tint); box-shadow: inset 0 0 0 2px var(--info-fill); }
+.dash-cat-tile-icon { grid-row: 1 / 3; font-size: var(--fs-md); }
+.dash-cat-tile-name { font-size: var(--fs-sm); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-cat-tile-count { font-size: var(--fs-xs); color: var(--muted); }
+.dash-cat-tile--late .dash-cat-tile-count strong { color: var(--danger-text); }
+.dash-cat-detail {
+    border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface);
+    overflow: hidden; margin-bottom: var(--space-md);
+    animation: accordionOpen var(--dur-base) ease;
+}
+.dash-cat-detail-head {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); font-weight: 700; font-size: var(--fs-sm);
+}
+.dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
+.dash-cat-detail { border-left-width: 4px; }
+.dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
     </style>
 </head>
 
@@ -8080,15 +8199,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609242058';
+var APP_BUILD = '202609252355';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.4';
+var APP_VERSION = '24.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.5', date: '25 sep 2026', title: 'Un solo catálogo de configuraciones y HOY ejecutivo',
+      notes: [
+          'El Plan (agregar, sustituir, vincular) ofrece las mismas configuraciones que el Alta. Las que no vienen en el plan de producción importado salen al final marcadas "📦 sin volumen": se pueden planear a mano, pero no tienen REQ ni mueven la cobertura.',
+          'Las configuraciones dadas de alta a mano ya se sincronizan entre equipos (antes solo existían en el dispositivo donde se crearon). Borrar una la borra en todos.',
+          'HOY: el Pulso del laboratorio (semana, vehículos en curso, liberaciones con tendencia de 7 días, cobertura REQ y alertas) reemplaza a los 6 KPIs, el Pipeline y Mi turno. Cada recuadro abre su pantalla.',
+          'HOY: las categorías son recuadros con sus pendientes. Sin tocar ninguno se ven las 5 acciones que más urgen; tocando uno, su lista completa en el mismo lugar. Se retiró "Acceso rápido" (lo tiene la barra de arriba).'
+      ] },
     { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
       notes: [
           '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
@@ -8569,14 +8695,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609252355' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609242058' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609252355' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8592,7 +8718,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609242058' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609252355' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -8968,7 +9094,8 @@ var UI_PREFS_DEFAULTS = {
     tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
-    nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    dashOpenCat: ''        // [v24.5] HOY: categoría desplegada ('' = ninguna)
 };
 
 function _uiPrefsRead() {
@@ -9524,6 +9651,66 @@ function vehicleTombstonesApply() {
     return n;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.5] Configuraciones manuales — viven en `db.manualConfigs` y viajan con cop15.
+//
+// Vivían en localStorage['kia_manual_configs'], que NO se sincroniza: una config dada
+// de alta a mano en un equipo no existía en ningún otro, ni en su Alta ni en su Plan.
+// Identidad = `codigo_config_text`. Borrar deja marca (`deleted:true`) porque la
+// fusión es aditiva: sin marca, lo borrado vuelve en el siguiente sync (v24.2).
+// ══════════════════════════════════════════════════════════════════════
+
+function _manualCfgKey(c) { return c ? String(c.codigo_config_text || '').trim() : ''; }
+
+/**
+ * Une dos listas de configs manuales. PURA y SIMÉTRICA: gana `updatedAt` más reciente;
+ * en empate gana la marca de borrado; si aún empatan, desempate determinista por
+ * contenido (dos equipos deben elegir lo mismo o se re-empujan para siempre).
+ */
+function manualConfigsUnion(a, b) {
+    var byKey = {};
+    (a || []).concat(b || []).forEach(function(c) {
+        var k = _manualCfgKey(c);
+        if (!k) return;
+        var cur = byKey[k];
+        if (!cur) { byKey[k] = c; return; }
+        var tc = String(c.updatedAt || ''), tu = String(cur.updatedAt || '');
+        if (tc !== tu) { if (tc > tu) byKey[k] = c; return; }
+        if (!!c.deleted !== !!cur.deleted) { if (c.deleted) byKey[k] = c; return; }
+        if (stableStringify(c) > stableStringify(cur)) byKey[k] = c;
+    });
+    return Object.keys(byKey).sort().map(function(k) { return byKey[k]; });
+}
+
+/** ¿`incoming` trae algo que `base` no tiene (o una versión más nueva)? */
+function manualConfigsNewTo(base, incoming) {
+    if (!incoming || !incoming.length) return false;
+    return stableStringify(manualConfigsUnion(base, incoming)) !== stableStringify(manualConfigsUnion(base, []));
+}
+
+/**
+ * Migración + refresco. Idempotente: une lo heredado de `kia_manual_configs` SOLO para
+ * los códigos que `db.manualConfigs` no conoce (ni vivos ni borrados), así que una
+ * config borrada en otro equipo no resucita desde la copia local vieja.
+ */
+function manualConfigsAfterLoad() {
+    if (!db || typeof db !== 'object') return;
+    if (!Array.isArray(db.manualConfigs)) db.manualConfigs = [];
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem('kia_manual_configs') || '[]') || []; } catch (e) { legacy = []; }
+    if (Array.isArray(legacy) && legacy.length) {
+        var known = {};
+        db.manualConfigs.forEach(function(c) { known[_manualCfgKey(c)] = true; });
+        var add = legacy.filter(function(c) { var k = _manualCfgKey(c); return k && !known[k]; })
+                        .map(function(c) { var o = Object.assign({}, c); o._source = 'manual'; o.updatedAt = o.updatedAt || ''; return o; });
+        if (add.length) db.manualConfigs = manualConfigsUnion(db.manualConfigs, add);
+    }
+    if (typeof _mergeManualConfigsIntoAll === 'function' && typeof allConfigurations !== 'undefined' && allConfigurations.length) {
+        try { _mergeManualConfigsIntoAll(); } catch (e) { void 0; }
+    }
+    if (typeof tpCatalogInvalidate === 'function') tpCatalogInvalidate();
+}
+
 /**
  * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
@@ -9535,6 +9722,9 @@ function dedupeVehicleIds() {
     // y de retirar lo que otro equipo borró (ver vehicleTombstonesApply).
     try { revInitMissing(db.vehicles); } catch (e) { void 0; }
     try { vehicleTombstonesApply(); } catch (e) { void 0; }
+    // v24.5: las configs manuales viajan en `db`; tras cada carga se migra lo heredado
+    // y se refresca el catálogo del Alta y del Plan.
+    try { manualConfigsAfterLoad(); } catch (e) { void 0; }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
@@ -10883,52 +11073,39 @@ function dailyDashRender() {
     // v16.0: banner de ayuda de esta pestaña
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
-    // ── Header ──
-    // v22.6: "Ir a…" y "Crear" salieron de aquí. En v22.2 vivían en la cabecera de
-    // HOY porque no había dónde más ponerlos; ahora la .ui-bar los tiene de forma
-    // permanente en TODAS las pantallas, y tenerlos también aquí era el mismo botón
-    // dos veces en la misma vista — justo el desorden que esta ronda combate.
-    html += '<div class="daily-dash-header">';
-    html += '<div>';
-    html += '<div class="daily-dash-greeting">' + greeting + '</div>';
-    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
-    html += '</div>';
-    html += '</div>';
-
-    // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
-    html += '<div id="hoy-lab-overview" style="margin-bottom: var(--space-sm);"></div>';
-
-    // ── [v15.9] Mi Turno (compacto — la lista de vehículos vive ahora en el tablero) ──
+    // ── [v24.5] Encabezado de UNA línea ──
+    // Saludo + fecha + operador + el único atajo que la .ui-bar no tiene (el último
+    // vehículo). La tarjeta "Mi turno" se retiró: medía contra una meta fija de 8
+    // liberaciones escrita en el código, y el mismo dato ya vive en el Pulso.
     var currentOp = '';
     try {
         if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-    if (currentOp) {
-        var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
-                (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var testingToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var shiftTarget = 8;
-        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
-        html += '<div class="v7-mi-turno-card" style="margin-bottom: var(--space-md);">';
-        html += '<div class="v7-mi-turno-header">';
-        html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
-        html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
-        html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
-        html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? tokenColor('--ok-fill') : tokenColor('--info-fill')) + '</div>';
-        html += '</div></div>';
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    })[0];
+    html += '<div class="daily-dash-header dash-head">';
+    if (currentOp) html += '<span class="v7-mi-turno-avatar" aria-hidden="true">' + escapeHtml(currentOp.charAt(0).toUpperCase()) + '</span>';
+    html += '<div class="dash-head-text">';
+    html += '<div class="daily-dash-greeting">' + greeting + (currentOp ? ', ' + escapeHtml(currentOp.split(' ')[0]) : '') + '</div>';
+    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    if (lastVehicle) {
+        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
+        html += '<button type="button" class="dash-head-chip" title="Abrir el último vehículo que se movió" ' +
+                'onclick="v7GoToVehicle(' + lastVehicle.id + ')">📝 Último: ' + escapeHtml(lModel || lastVehicle.vin || '') + '</button>';
     }
+    html += '</div>';
 
-    // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
-    // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
-    // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
-    // [v23] Hoy o esta semana. El día es el default; la semana usa EL MISMO formato
-    // de calendario que el Plan (`tpBuildDayColumnsHTML`) para que no haya dos
-    // vocabularios distintos para la misma cosa.
+    // ── [v24.5] Pulso (fuente única: renderLabOverview, sección 'pulse') ──
+    html += '<div id="hoy-lab-overview"></div>';
+
+    // ── [v23] Hoy o esta semana. La semana usa EL MISMO formato de calendario que el
+    // Plan (`tpBuildDayColumnsHTML`). El día es el default y desde v24.5 se lee en tres
+    // niveles: lo siguiente (5 acciones), categorías como tiles, y el detalle al tocar.
     html += dashRangeTabsHTML();
     if (dashRange() === 'semana') {
         html += dashRenderWeek();
@@ -10937,36 +11114,13 @@ function dailyDashRender() {
         html += dashRenderBoard(acts, currentOp);
     }
 
-    // ── Quick Actions ──
-    html += '<div class="daily-dash-section">';
-    html += '<div class="daily-dash-section-title">⚡ Acceso Rápido</div>';
-    html += '<div class="daily-dash-quick-actions">';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=alta]\');if(t)t.click();},150);"><span class="daily-dash-action-icon">➕</span>Alta Vehículo</div>';
-
-    // Last edited vehicle shortcut
-    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
-        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
-        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
-        return tB > tA ? 1 : -1;
-    })[0];
-    if (lastVehicle) {
-        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
-        html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
-    } else {
-        html += '<div class="daily-dash-action" onclick="dashGo(\'inventory\',\'inv-readings\')"><span class="daily-dash-action-icon">🧪</span>Captura</div>';
-    }
-
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-reports\');"><span class="daily-dash-action-icon">📤</span>Reportes</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
-    html += '</div></div>';
-
+    // v24.5: "Acceso rápido" se retiró — duplicaba la .ui-bar (Crear / Ir a, v22.6).
 
     el.innerHTML = html;
 
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
-    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
+    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['pulse'] });
 
     // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
     _dashRegisterHelp();
@@ -10982,7 +11136,8 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Tablero de hoy', text: 'Todo lo pendiente del día agrupado por tipo: vehículos, pruebas del plan, inventario y tareas manuales. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-board-help': { title: 'Lo siguiente', text: 'Cada categoría es un recuadro con sus pendientes (y las atrasadas en rojo). Sin tocar ninguno ves las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero; toca un recuadro para ver en su lugar la lista completa de esa categoría. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
         'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
@@ -10990,7 +11145,9 @@ function _dashRegisterHelp() {
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {
-        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Todo lo pendiente de hoy en un solo tablero: vehículos con su etapa, pruebas del plan, inventario y tareas. Toca cualquier fila para ir directo a resolverla.', tips: [
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego lo siguiente que hay que hacer y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
+            'Cada recuadro del pulso abre la pantalla de donde sale su número.',
+            'Toca una categoría (Vehículos, Plan de hoy, Inventario…) para ver su lista completa; tócala otra vez para cerrarla.',
             'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
             'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
             'Usa "➕ Actividad" para anotar pendientes que no vienen de otro módulo.'
@@ -11588,49 +11745,111 @@ function dashRenderRow(a) {
     return h;
 }
 
+/**
+ * [v24.5] LO SIGUIENTE — las n acciones que más urgen, de TODAS las categorías. PURA.
+ * Lo atrasado primero, luego por `urgency`; lo hecho no entra.
+ */
+function dashNextUp(acts, n) {
+    n = n || 5;
+    return (acts || []).filter(function(a) { return a && a.status !== 'hecho'; })
+        .map(function(a, i) { return { a: a, i: i }; })
+        .sort(function(x, y) {
+            return ((y.a.status === 'atrasado') - (x.a.status === 'atrasado')) ||
+                   ((y.a.urgency || 0) - (x.a.urgency || 0)) || (x.i - y.i);
+        })
+        .slice(0, n).map(function(o) { return o.a; });
+}
+
+/** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
+function dashCatSummary(acts) {
+    return DASH_CAT_ORDER.map(function(cat) {
+        var rows = (acts || []).filter(function(a) { return a.cat === cat; });
+        return { cat: cat, total: rows.length,
+                 pend: rows.filter(function(a) { return a.status !== 'hecho'; }).length,
+                 late: rows.filter(function(a) { return a.status === 'atrasado'; }).length };
+    }).filter(function(c) { return c.total > 0; });
+}
+
+function dashSetOpenCat(cat) {
+    uiPref('dashOpenCat', uiPref('dashOpenCat') === cat ? '' : cat);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
 function dashRenderBoard(acts, currentOp) {
     var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
+    var ocultos = acts.length - shown.length;
     var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
 
     var h = '<div class="dash-board">';
     h += '<div class="dash-board-header" data-help="dash-board-help">';
-    h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
-    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
+    h += '<span class="dash-board-title">📌 Lo siguiente</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes hoy' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
     // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
     // 44px en pantallas de dedo sin engordar la barra.
     if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
+    // v22.5: un filtro que esconde cosas DICE cuántas.
+    if (onlyMine && ocultos > 0) h += '<span class="dash-chip dash-chip--pendiente">' + ocultos + ' de otros ocultas</span>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
-    DASH_CAT_ORDER.forEach(function(cat) {
-        var rows = shown.filter(function(a) { return a.cat === cat; });
-        if (!rows.length) return;
+    if (!shown.length) {
+        h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        return h + '</div>';
+    }
+
+    // 1) Categorías como tiles — funcionan como FILTRO del bloque de abajo: sin
+    //    ninguno elegido se ve "lo siguiente" de todo el laboratorio; con uno, la
+    //    lista completa de esa categoría EN EL MISMO LUGAR (nada se apila debajo).
+    var open = uiPref('dashOpenCat') || '';
+    var cats = dashCatSummary(shown);
+    if (!cats.some(function(c) { return c.cat === open; })) open = '';
+    h += '<div class="dash-cat-tiles" role="tablist" aria-label="Actividades por categoría">';
+    cats.forEach(function(c) {
+        var d = DASH_CATS[c.cat];
+        var on = c.cat === open;
+        h += '<button type="button" role="tab" aria-selected="' + on + '" ' +
+             'class="dash-cat-tile dash-cat-tile--' + (DASH_CAT_ACCENT[c.cat] || 'panel') + (on ? ' dash-cat-tile--on' : '') +
+             (c.late ? ' dash-cat-tile--late' : '') + '" onclick="dashSetOpenCat(\'' + c.cat + '\')">' +
+             '<span class="dash-cat-tile-icon" aria-hidden="true">' + d.icon + '</span>' +
+             '<span class="dash-cat-tile-name">' + d.label + '</span>' +
+             '<span class="dash-cat-tile-count">' +
+               (c.pend ? c.pend + ' pendiente' + (c.pend === 1 ? '' : 's') : '✓ al día') +
+               (c.late ? ' · <strong>' + c.late + ' atrasada' + (c.late === 1 ? '' : 's') + '</strong>' : '') +
+             '</span></button>';
+    });
+    h += '</div>';
+
+    if (open) {
+        // 2a) La categoría elegida, completa.
+        var rows = shown.filter(function(a) { return a.cat === open; });
         rows.sort(function(x, y) {
             return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
         });
-        var c = DASH_CATS[cat];
-        var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
-        // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        var body = '<div class="dash-group-rows">'
-                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
-                 + '</div>';
-        h += uiCard({
-            id: 'dash-' + cat,
-            icon: c.icon,
-            title: c.label,
-            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
-                         : { label: '✓ al día', tone: 'ok' },
-            accent: DASH_CAT_ACCENT[cat],
-            body: body,
-            bodyFlush: true
-        });
-    });
-    if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        var cd = DASH_CATS[open];
+        h += '<div class="dash-cat-detail dash-cat-tile--' + (DASH_CAT_ACCENT[open] || 'panel') + '" role="tabpanel">' +
+             '<div class="dash-cat-detail-head"><span>' + cd.icon + ' ' + cd.label + ' · ' + rows.length + '</span>' +
+             '<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashSetOpenCat(\'' + open + '\')">✕ Ver lo siguiente</button></div>' +
+             '<div class="dash-group-rows">' + rows.map(function(a) { return dashRenderRow(a); }).join('') + '</div></div>';
+    } else {
+        // 2b) Lo siguiente: 5 filas con el MISMO dashRenderRow (mismo check y acción).
+        var next = dashNextUp(shown, 5);
+        if (next.length) {
+            h += '<div class="dash-next">' + next.map(function(a) {
+                // Una fila con casilla no muestra icono: se le antepone el de su
+                // categoría para que "Pendiente" diga de qué. Las demás ya traen el suyo.
+                var c = DASH_CATS[a.cat] || {};
+                return dashRenderRow(a.checkbox && c.icon ? Object.assign({}, a, { title: c.icon + ' ' + a.title }) : a);
+            }).join('') + '</div>';
+            var resto = pend - next.length;
+            if (resto > 0) h += '<p class="dash-next-more">y ' + resto + ' pendiente' + (resto === 1 ? '' : 's') + ' más — toca una categoría para ver su lista completa.</p>';
+        } else {
+            h += '<div class="daily-dash-empty">Todo lo de hoy está hecho ✓</div>';
+        }
+    }
     h += '</div>';
     return h;
 }
@@ -14203,7 +14422,9 @@ function downloadFullBackup() {
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
-        manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
+        // v24.5: las manuales viven en db.manualConfigs (ya van dentro de `db`); se
+        // conserva el campo para quien restaure con una versión anterior.
+        manualConfigs: (typeof getManualConfigs === 'function') ? getManualConfigs() : JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
     var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -14322,10 +14543,9 @@ var TOURS = {
         { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, reportes, panel de control, operadores y configuración del sistema.', position: 'bottom' }
     ],
     today: [
-        { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
-        { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
-        { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
+        { target: '.dash-pulse', title: 'Pulso del laboratorio', text: 'Cinco indicadores: la semana, los vehículos en curso, las liberaciones, la cobertura del REQ y las alertas. Cada recuadro abre su pantalla.', position: 'bottom' },
+        { target: '.dash-cat-tiles', title: 'Por categoría', text: 'Cada recuadro es una categoría con sus pendientes. Tócalo para ver su lista completa; tócalo otra vez para volver a lo siguiente.', position: 'bottom' },
+        { target: '.dash-next', title: 'Lo siguiente', text: 'Las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero. Se resuelven desde aquí mismo.', position: 'top' }
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
@@ -14938,17 +15158,6 @@ document.addEventListener('alpine:init', function() {
         Alpine.data('panelModule', panelAlpineComponent);
     }
 });
-
-function buildProgressRing(pct, size, color) {
-    var r = (size - 6) / 2;
-    var c = Math.PI * 2 * r;
-    var offset = c - (pct / 100) * c;
-    return '<svg width="' + size + '" height="' + size + '" style="display:block;">' +
-        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' +
-        '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
-        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
-        '</svg>';
-}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] HELPER FUNCTIONS                                              ║
@@ -21730,13 +21939,49 @@ var _manualConfigFields = [
     { key: 'ENGINE PACKAGE', label: 'Engine Package' }
 ];
 
+// [v24.5] Las configs manuales viven en `db.manualConfigs` (se sincronizan con cop15);
+// `kia_manual_configs` queda solo como origen de la migración (manualConfigsAfterLoad).
+// getManualConfigs devuelve las VIVAS; borrar deja marca para que el sync no las resucite.
 function getManualConfigs() {
-    try { return JSON.parse(localStorage.getItem('kia_manual_configs')) || []; }
-    catch(e) { return []; }
+    if (typeof db === 'undefined' || !db) return [];
+    if (!Array.isArray(db.manualConfigs) && typeof manualConfigsAfterLoad === 'function') manualConfigsAfterLoad();
+    return (db.manualConfigs || []).filter(function(c) { return c && !c.deleted; });
 }
 
+/** Recibe la lista VIVA completa y la reconcilia contra lo guardado (altas, ediciones y marcas). */
 function _saveManualConfigs(configs) {
-    localStorage.setItem('kia_manual_configs', JSON.stringify(configs));
+    if (typeof db === 'undefined' || !db) return;
+    var now = new Date().toISOString();
+    var prev = {};
+    (db.manualConfigs || []).forEach(function(c) { if (c && c.codigo_config_text) prev[c.codigo_config_text] = c; });
+    var next = {}, out = [];
+    (configs || []).forEach(function(c) {
+        if (!c) return;
+        var o = Object.assign({}, c);
+        o._source = 'manual';
+        if (!o.codigo_config_text) o.codigo_config_text = _buildConfigCode(o);
+        var old = prev[o.codigo_config_text];
+        var cmpOld = old ? Object.assign({}, old) : null, cmpNew = Object.assign({}, o);
+        if (cmpOld) { delete cmpOld.updatedAt; delete cmpOld.deleted; delete cmpOld.deletedAt; }
+        delete cmpNew.updatedAt; delete cmpNew.deleted; delete cmpNew.deletedAt;
+        if (old && !old.deleted && stableStringify(cmpOld) === stableStringify(cmpNew)) o = old;   // sin cambio: no se re-sella
+        else { delete o.deleted; delete o.deletedAt; o.updatedAt = now; }
+        next[o.codigo_config_text] = true;
+        out.push(o);
+    });
+    Object.keys(prev).forEach(function(k) {
+        if (next[k]) return;
+        var c = prev[k];
+        out.push(c.deleted ? c : Object.assign({}, c, { deleted: true, deletedAt: now, updatedAt: now }));
+    });
+    db.manualConfigs = out;
+    saveDB();
+}
+
+function _manualConfigIdxByCode(code) {
+    var list = getManualConfigs();
+    for (var i = 0; i < list.length; i++) if (list[i].codigo_config_text === code) return i;
+    return -1;
 }
 
 function _buildConfigCode(cfg) {
@@ -21908,9 +22153,15 @@ function _mergeManualConfigsIntoAll() {
     });
 }
 
-function deleteManualConfig(idx) {
-    showConfirm('¿Eliminar esta configuración manual?', function() {
+// v24.5: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
+// de sync puede reordenarla (regla v23: la UI habla por identidad).
+function deleteManualConfig(code) {
+    showConfirm('¿Eliminar esta configuración manual? Se borra en todos los equipos.', function() {
         var manuals = getManualConfigs();
+        var idx = -1;
+        manuals.forEach(function(c, i) { if (c.codigo_config_text === code) idx = i; });
+        if (idx < 0) { showToast('Esa configuración ya no existe (la lista cambió).', 'info'); openConfigPanel(); return; }
+        if (typeof auditLog === 'function') auditLog('cop15', 'config_manual_borrada', { type: 'config', label: code }, '');
         manuals.splice(idx, 1);
         _saveManualConfigs(manuals);
         _mergeManualConfigsIntoAll();
@@ -21937,8 +22188,8 @@ function renderManualConfigsList() {
         var code = mc.codigo_config_text || _buildConfigCode(mc);
         html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid #dbeafe;font-size: var(--fs-xs);">' +
             '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
-            '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
-            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
+            '<button onclick="openManualConfigForm(_manualConfigIdxByCode(\'' + String(code).replace(/'/g, "\\'") + '\'))" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
+            '<button onclick="deleteManualConfig(\'' + String(code).replace(/'/g, "\\'") + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
             '</div>';
     });
     html += '</div>';
@@ -31853,6 +32104,84 @@ function tpConfirmDormantActive(desc) {
 // distintas, con contador y tarjeta propios, no variantes de la misma. La clave pasa de
 // 7 a 8 segmentos; `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave vieja
 // (overrides, soak) y el CoP empata juicios viejos por prefijo (no se pierde historia).
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v24.5] UN SOLO CATÁLOGO — el Alta y el Plan ven las mismas configuraciones.
+//
+// El Alta leía `allConfigurations` (catálogo horneado + manuales) y el Plan SOLO
+// `tpState.planData` (el último CSV de producción importado): todo lo que el catálogo
+// tenía y ese CSV no, era invisible para agregar, sustituir o vincular.
+// La regla: las ACCIONES MANUALES del plan resuelven contra `tpConfigCatalog()`; lo
+// AUTOMÁTICO (análisis, REQ, cobertura, generador) sigue sobre `planData`, porque el
+// REQ es de producción. Una config sin volumen tiene REQ 0: se puede planear a mano,
+// el generador no la elige por su cuenta y no mueve la cobertura.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Fila del catálogo (encabezados del CSV) → forma de `planData`. PURA. */
+function tpCfgFromCatalogRow(row) {
+    if (!row) return null;
+    var desc = String(row.codigo_config_text || '').trim();
+    if (!desc) return null;
+    var g = function(k) { return String(row[k] == null ? '' : row[k]).trim(); };
+    var eng = g('ENGINE CAPACITY');
+    var reg = g('EMISSION REGULATION');
+    // Misma normalización que tpImportPlanCSV, para que tpFamilyKeyForCfg empate.
+    if (typeof _normalizeRegulation === 'function') reg = _normalizeRegulation(reg, eng);
+    var cfg = { id: '', desc: desc, mod: g('Modelo'), my: g('MODEL YEAR (VIN)'), tx: g('TRANSMISSION'),
+                ep: g('ENVIRONMENT PACKAGE'), reg: reg, drv: g('DRIVE TYPE'), eng: eng, tire: g('TIRE ASSY'),
+                rgn: g('REGION'), body: g('BODY TYPE'), engpkg: g('ENGINE PACKAGE'),
+                hist: 0, total: 0, m: [], _catalogOnly: true };
+    if (row._source === 'manual') cfg._manual = true;
+    return cfg;
+}
+
+var _tpCatalogCache = { key: '', list: null, byDesc: null };
+
+/**
+ * LA definición del universo de configuraciones planeables: `planData` ∪ catálogo del
+ * Alta, por `desc`. Gana la fila de `planData` (trae volumen); lo que solo existe en el
+ * catálogo sale marcado `_catalogOnly`. Memoizada.
+ */
+function tpConfigCatalog() {
+    if (!_tpCatalogCache) _tpCatalogCache = { key: '', list: null, byDesc: null };
+    var plan = tpState.planData || [];
+    var cat = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var key = plan.length + '|' + (tpState._lastSave || 0) + '|' + cat.length + '|' +
+              cat.filter(function(c) { return c && c._source === 'manual'; }).length;
+    if (_tpCatalogCache.key === key && _tpCatalogCache.list) return _tpCatalogCache.list;
+    var byDesc = {}, list = [];
+    plan.forEach(function(c) { if (c && c.desc && !byDesc[c.desc]) { byDesc[c.desc] = c; list.push(c); } });
+    cat.forEach(function(row) {
+        var c = tpCfgFromCatalogRow(row);
+        if (c && !byDesc[c.desc]) { byDesc[c.desc] = c; list.push(c); }
+    });
+    _tpCatalogCache = { key: key, list: list, byDesc: byDesc };
+    return list;
+}
+
+/** LA forma de resolver un `desc` a su configuración (producción primero, luego catálogo). */
+function tpConfigByDesc(desc) {
+    if (!desc) return null;
+    tpConfigCatalog();
+    return (_tpCatalogCache.byDesc && _tpCatalogCache.byDesc[desc]) || null;
+}
+
+/** Configuraciones del catálogo que el CSV de producción importado no trae. */
+function tpCatalogOnlyCount() {
+    return tpConfigCatalog().filter(function(c) { return c._catalogOnly; }).length;
+}
+
+/** Una línea que DECLARA la diferencia entre el catálogo del Alta y el plan de producción. */
+function tpCatalogOnlyNoteHTML() {
+    var n = tpCatalogOnlyCount();
+    if (!n) return '';
+    var fecha = tpState.planImportDate ? String(tpState.planImportDate).slice(0, 10) : null;
+    return '<p class="tp-armar-hint">📦 ' + n + ' configuraci' + (n === 1 ? 'ón' : 'ones') + ' del catálogo del Alta no ' +
+           (n === 1 ? 'viene' : 'vienen') + ' en el plan de producción importado' + (fecha ? ' (' + fecha + ')' : '') +
+           '. Se pueden planear a mano (salen al final de la lista), pero no tienen REQ ni cuentan para la cobertura.</p>';
+}
+
+function tpCatalogInvalidate() { _tpCatalogCache = { key: '', list: null, byDesc: null }; }
+
 function tpFamilyKeyForCfg(cfg) {
     return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
 }
@@ -32056,6 +32385,8 @@ function tpInvalidateCache() {
     if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
     // v23: y el plan vigente de cada semana (aceptar/desaceptar/borrar lo cambia).
     if (typeof tpWeekPlanInvalidate === 'function') tpWeekPlanInvalidate();
+    // v24.5: el catálogo unificado depende de planData y de las configs manuales.
+    tpCatalogInvalidate();
 }
 
 // v16.2: LA definición única de "cobertura" en toda la plataforma — % de configuraciones
@@ -32251,7 +32582,7 @@ function _tpDayKeyOf(fecha) {
  * es cierto, y esconderlo seria mentir sobre la carga de la semana.
  */
 function _tpAppendCreditedItem(plan, vehicle, fechaPrueba) {
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === vehicle.configCode; });
+    var cfg = tpConfigByDesc(vehicle.configCode);
     var item = cfg ? _tpMakeItem(cfg, (tpState.testedList || []).slice(), {})
                    : { uid: _tpItemUid(), desc: vehicle.configCode, required: 0, deficit: 0, score: 0 };
     if (!item.uid) item.uid = _tpItemUid();
@@ -32640,8 +32971,8 @@ function tpConfigBadges(item, opts) {
     var sz = opts.fontSize || 'var(--fs-xs)';
     // For legacy items missing fields, try to resolve from planData
     var c = item;
-    if (!c.my && c.desc && tpState.planData.length > 0) {
-        var found = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var found = tpConfigByDesc(c.desc);
         if (found) c = Object.assign({}, found, item);
     }
     var h = '';
@@ -35134,8 +35465,8 @@ function tpItemMoved(item) {
 function tpConfigShortName(cfg) {
     if (!cfg) return '';
     var c = cfg;
-    if (!c.my && c.desc && tpState.planData && tpState.planData.length) {
-        var f = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var f = tpConfigByDesc(c.desc);
         if (f) c = Object.assign({}, f, cfg);
     }
     var partes = [];
@@ -35156,8 +35487,8 @@ function tpConfigShortName(cfg) {
 function tpConfigVariantTag(cfg) {
     if (!cfg) return '';
     var c = cfg;
-    if (!c.my && c.desc && tpState.planData && tpState.planData.length) {
-        var f = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var f = tpConfigByDesc(c.desc);
         if (f) c = Object.assign({}, f, cfg);
     }
     var out = [];
@@ -35306,7 +35637,7 @@ function tpWeekBoardRows(opts) {
     var _usados = {};
     Object.keys(_tpVehicleLinksElsewhere(null)).forEach(function(id) { _usados[id] = true; });
     var rows = (plan && plan.items || []).map(function(item, itemIdx) {
-        var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+        var cfg = tpConfigByDesc(item.desc) || item;
         var soak = tpSoakHoursFor(cfg);
         // El soak CONGELADO en el item manda: si la tabla cambia, un plan ya publicado
         // no debe empezar a mentir sobre con qué reposo se armó.
@@ -35475,7 +35806,7 @@ function tpMoveItemToDay(weekIdx, itemIdx, day, opts) {
     var workDays = tpWorkDaysFor(plan);
     if (!workDays[day]) return { ok: false, reason: TP_DAY_LABELS[day] + ' no es día laborable esta semana.' };
 
-    var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var par = tpSlotsForSoak(horas, workDays).filter(function(s) { return s.test === day; })[0];
     if (!par) {
@@ -35653,6 +35984,10 @@ function _tpWeekCardHTML(row, workDays, opts) {
     if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
+    // v24.5: una config del catálogo que el CSV de producción no trae — se corre, pero no
+    // tiene REQ ni cuenta para la cobertura. Se declara para que nadie lo descubra tarde.
+    var _cfgRow = tpConfigByDesc(row.desc || (row.item && row.item.desc));
+    if (_cfgRow && _cfgRow._catalogOnly) marcas.push('<span class="tp-week-flag tp-week-flag--warn" title="Esta configuración está en el catálogo del Alta pero no en el plan de producción importado: no tiene REQ y no cuenta para la cobertura.">📦 sin volumen</span>');
     if (row.substituted) marcas.push('<span class="tp-week-flag tp-week-flag--subst">🔄 sustituida</span>');
     if (row.item && row.item.overCapacity) marcas.push('<span class="tp-week-flag tp-week-flag--warn">⬆ sobre cupo</span>');
     if (row.dupOf) marcas.push('<span class="tp-week-flag" title="Otra prueba de la misma configuración esta semana">⧉ ' + row.dupIdx + ' de ' + row.dupTotal + '</span>');
@@ -35835,10 +36170,10 @@ function tpBuildArmarCardHTML(b) {
                '<input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" ' +
                'oninput="tpFilterPickOptions(this.value)">' +
                '<select id="tp-manual-pick-select" class="tp-select"><option value="">Seleccionar…</option>' +
-               tpBuildPickOptgroupsHTML((tpState.planData || []).map(function(c) { return c.desc; }).sort()) +
+               tpBuildPickOptgroupsHTML(tpConfigCatalog().map(function(c) { return c.desc; }).sort()) +
                '</select>' +
                '<button class="tp-btn tp-btn-primary" onclick="tpAddManualPick();_tpBoardRepaint();">+</button>' +
-               '</div></div>';
+               '</div>' + tpCatalogOnlyNoteHTML() + '</div>';
 
     body += (typeof uiCard === 'function')
         ? uiCard({ id: 'tp-armar-picks', icon: '📌', title: 'Obligatorias y cola', accent: 'testplan',
@@ -36134,8 +36469,8 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
     if (!_n) return { ok: false, reason: 'No se encontró esa semana (el plan cambió).' };
     weekIdx = _n.weekIdx;
     var plan = _n.plan;
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === desc; });
-    if (!cfg) return { ok: false, reason: 'Esa configuración no está en el plan de producción.' };
+    var cfg = tpConfigByDesc(desc);
+    if (!cfg) return { ok: false, reason: 'Esa configuración no está ni en el plan de producción ni en el catálogo.' };
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Agregar prueba al plan');
     if (!Array.isArray(plan.items)) plan.items = [];
@@ -36175,7 +36510,8 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
                  (repetida > 1 ? ' · ' + repetida + 'ª prueba de esta configuración en la semana' : '') +
                  (opts.via ? ' · ' + opts.via : ''));
     }
-    return { ok: true, itemIdx: idx, testDay: item.testDay, overCapacity: !!item.overCapacity, unscheduled: !!item.unscheduled };
+    return { ok: true, itemIdx: idx, testDay: item.testDay, overCapacity: !!item.overCapacity, unscheduled: !!item.unscheduled,
+             catalogOnly: !!cfg._catalogOnly };
 }
 
 /**
@@ -36189,7 +36525,7 @@ function tpDuplicateItem(weekIdx, itemIdx) {
     weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
     var plan = _n.plan;
     var item = _n.item;
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
     var pares = tpSlotsForSoak(horas, tpWorkDaysFor(plan)).filter(function(sl) { return !sl.spillsNextWeek; });
@@ -36223,7 +36559,7 @@ function tpWeekAddMenu(weekIdx, day) {
     var enSemana = {};
     (plan.items || []).forEach(function(it) { enSemana[it.desc] = (enSemana[it.desc] || 0) + 1; });
     var sug = an.filter(function(a) { return a.deficit > 0 && !enSemana[a.desc]; }).slice(0, 5);
-    var todas = (tpState.planData || []).map(function(c) { return c.desc; }).sort();
+    var todas = tpConfigCatalog().map(function(c) { return c.desc; }).sort();
 
     var body = '<div class="tp-week-movebox">' +
         '<p class="tp-week-movehint">Se agrega a <strong>' + (day ? TP_DAY_LABELS[day] : 'el primer día libre') + '</strong>' +
@@ -36255,7 +36591,7 @@ function tpWeekAddMenu(weekIdx, day) {
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
         '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
-        '</div></div>';
+        '</div>' + tpCatalogOnlyNoteHTML() + '</div>';
 
     showModal({ title: '➕ Agregar prueba a la semana', type: 'info', body: body, buttons: [{ label: 'Cerrar', cls: '' }] });
     setTimeout(function() { var i = document.getElementById('tp-week-add-search'); if (i) i.focus(); }, 60);
@@ -36273,7 +36609,8 @@ function tpWeekDoAdd(weekIdx, desc, day) {
     var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero', purpose: purpose });
     if (!r.ok) { showToast(r.reason, 'error'); return; }
     showToast('Agregada' + (r.unscheduled ? ' sin día libre — quedó declarada sin horario'
-                                          : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')),
+                                          : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')) +
+              (r.catalogOnly ? ' · 📦 sin volumen de producción: no cuenta para el REQ' : ''),
               r.unscheduled ? 'warning' : 'success', null, (typeof undoPop === 'function') ? undoPop : null);
     _tpBoardRepaint();
 }
@@ -36324,7 +36661,7 @@ function tpWeekBoardDragInit(host) {
             var _n = _tpIdx(p[0], p[1]);
             if (!_n) return false;
             var plan = _n.plan, item = _n.item;
-            var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+            var cfg = tpConfigByDesc(item.desc) || item;
             var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
             // Sólo se pinta en verde y sólo se acepta lo que el reposo permite de verdad.
             return tpSlotsForSoak(horas, tpWorkDaysFor(plan)).some(function(sl) { return sl.test === to; });
@@ -36416,7 +36753,7 @@ function tpWeekMoveMenu(weekIdx, itemIdx) {
     var item = _n.item;
     var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     var workDays = tpWorkDaysFor(plan);
-    var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var pares = tpSlotsForSoak(horas, workDays);
     var usables = {};
@@ -36530,13 +36867,17 @@ function tpWeekCardMenu(weekIdx, itemIdx) {
 function tpBuildPickOptgroupsHTML(descs) {
     var porFamilia = {};
     (descs || []).forEach(function(d) {
-        var c = (tpState.planData || []).find(function(p) { return p.desc === d; });
+        var c = tpConfigByDesc(d);
         if (!c) { (porFamilia['(sin catálogo)'] = porFamilia['(sin catálogo)'] || []).push({ desc: d, etiqueta: d }); return; }
-        var fam = tpConfigShortName(c) + ' · ' + (c.rgn || '?');
+        // v24.5: lo que solo existe en el catálogo del Alta se DECLARA en su propio
+        // grupo, al final — se puede planear a mano, pero no cuenta para el REQ.
+        var fam = (c._catalogOnly ? '\uFFFF' : '') + tpConfigShortName(c) + ' · ' + (c.rgn || '?') +
+                  (c._catalogOnly ? ' · sin volumen de producción' : '');
         (porFamilia[fam] = porFamilia[fam] || []).push({ desc: d, etiqueta: tpConfigVariantTag(c) || d, cfg: c });
     });
-    return Object.keys(porFamilia).sort().map(function(fam) {
-        return '<optgroup label="' + fam + '">' + porFamilia[fam].map(function(o) {
+    return Object.keys(porFamilia).sort().map(function(famKey) {
+        var fam = famKey.replace(/^\uFFFF/, '📦 ');
+        return '<optgroup label="' + fam + '">' + porFamilia[famKey].map(function(o) {
             // El `desc` completo va en data-full para que el buscador empate por
             // cualquier campo, no solo por lo que se ve.
             return '<option value="' + o.desc + '" data-full="' + o.desc.toLowerCase() + '">' + o.etiqueta + '</option>';
@@ -37484,7 +37825,8 @@ function tpSelectWeeklyItems(opts) {
     //    pasa el filtro se avisa, no se descarta.
     var manualTaken = 0;
     manualPicks.forEach(function(pick) {
-        var cfg = byDesc[pick];
+        // v24.5: una fijada a mano puede venir del catálogo (sin volumen de producción).
+        var cfg = byDesc[pick] || tpConfigByDesc(pick);
         if (!cfg) return;
         if (items.length >= capacity) { overflowManual.push(pick); return; }
         if (take(cfg, { manual: true, carriedOver: backlogDescs.has(pick) }, true)) {
@@ -38621,13 +38963,15 @@ function tpSubstituteCandidatesFor(item, opts) {
     opts = opts || {};
     var scope = TP_SUBST_SCOPES[opts.scope] ? opts.scope : 'familia';
     var keep = TP_SUBST_SCOPES[scope].keep;
-    var base = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var base = tpConfigByDesc(item.desc) || item;
     var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
     var porDesc = {};
     an.forEach(function(a) { porDesc[a.desc] = a; });
 
     var out = [];
-    (tpState.planData || []).forEach(function(c) {
+    // v24.5: el universo es el catálogo unificado — una config que el Alta ofrece
+    // también se puede sustituir aquí (sale marcada `catalogOnly`, déficit 0).
+    tpConfigCatalog().forEach(function(c) {
         if (c.desc === item.desc) return;
         for (var i = 0; i < keep.length; i++) {
             var f = keep[i];
@@ -38648,7 +38992,7 @@ function tpSubstituteCandidatesFor(item, opts) {
         var a2 = porDesc[c.desc] || {};
         out.push({ cfg: c, desc: c.desc, diffs: diffs, scope: scope, breaksCore: rompeNucleo,
                    deficit: a2.deficit || 0, required: a2.required || 0, testedN: a2.testedN || 0,
-                   paused: !!c.paused });
+                   paused: !!c.paused, catalogOnly: !!c._catalogOnly });
     });
     // Primero la equivalente, luego la que más falta hace, luego la que menos se aleja.
     out.sort(function(x, y) {
@@ -38676,8 +39020,8 @@ function tpSwapItemConfig(weekIdx, itemIdx, nuevoDesc, opts) {
     var plan = _n.plan;
     var item = _n.item;
     if (item.completed) return { ok: false, reason: 'Esa prueba ya está marcada como hecha.' };
-    var nueva = (tpState.planData || []).find(function(p) { return p.desc === nuevoDesc; });
-    if (!nueva) return { ok: false, reason: 'Esa configuración ya no está en el plan de producción.' };
+    var nueva = tpConfigByDesc(nuevoDesc);
+    if (!nueva) return { ok: false, reason: 'Esa configuración ya no está ni en el plan de producción ni en el catálogo.' };
 
     // v20.1: se busca en el nivel pedido y, si no aparece, se va ampliando. Así el
     // llamador no tiene que saber de antemano en qué nivel cae la candidata.
@@ -38771,7 +39115,8 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
                     '<span class="tp-week-movebtn-day">' + (c.breaksCore ? '⚠️ ' : '') + titulo + '</span>' +
                     '<span class="tp-week-movebtn-sub">' +
                       c.diffs.map(function(d) { return d.label + ': ' + d.planned + ' → ' + d.actual; }).join(' · ') +
-                      ' · faltan ' + c.deficit + ' de ' + c.required +
+                      (c.catalogOnly ? ' · 📦 sin volumen de producción (no cuenta para el REQ)'
+                                     : ' · faltan ' + c.deficit + ' de ' + c.required) +
                       (c.paused ? ' · PAUSADA' : '') +
                     '</span></button>';
         });
@@ -38830,7 +39175,7 @@ function tpLinkableVehiclesFor(item, opts) {
         var f = new Date(d0 + 'T00:00:00');
         if (!isNaN(f.getTime())) { f.setDate(f.getDate() + 6); d1 = (typeof _tpFmtDate === 'function') ? _tpFmtDate(f) : null; }
     }
-    var base = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+    var base = tpConfigByDesc(item.desc) || item;
     var famBase = (typeof tpFamilyKeyForCfg === 'function') ? tpFamilyKeyForCfg(base) : null;
 
     // Ya vinculado a OTRA fila — de esta semana o de cualquier otra: no se ofrece dos veces.
@@ -38846,7 +39191,7 @@ function tpLinkableVehiclesFor(item, opts) {
         var enSemana = !d0 || !fecha || (fecha >= d0 && fecha <= d1);
         if (!enSemana && !opts.all) return;
 
-        var cfgV = (tpState.planData || []).find(function(c) { return c.desc === v.configCode; });
+        var cfgV = tpConfigByDesc(v.configCode);
         var famV = cfgV && famBase ? tpFamilyKeyForCfg(cfgV) : null;
         var cercania = (v.configCode === item.desc) ? 0 : (famV && famV === famBase) ? 1 : 2;
 
@@ -38904,8 +39249,8 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     var distinta = v.configCode && v.configCode !== item.desc;
     var diffs = [];
     if (distinta) {
-        var a = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
-        var b = (tpState.planData || []).find(function(c) { return c.desc === v.configCode; });
+        var a = tpConfigByDesc(item.desc) || item;
+        var b = tpConfigByDesc(v.configCode);
         if (b) {
             _tpCoreFields.concat(_tpFlexFields).forEach(function(f) {
                 var x = String(a[f] || '').toUpperCase(), y = String(b[f] || '').toUpperCase();
@@ -40435,8 +40780,8 @@ function tpPredictSubstitutions(items) {
         if (probability >= 30 && bestSub) {
             // Find the differences between planned and predicted
             var diffs = [];
-            var planned = tpState.planData.find(function(c) { return c.desc === desc; });
-            var predicted = tpState.planData.find(function(c) { return c.desc === bestSub; });
+            var planned = tpConfigByDesc(desc);
+            var predicted = tpConfigByDesc(bestSub);
             if (planned && predicted) {
                 var flexFields = ['ep', 'engpkg', 'tire', 'drv', 'body'];
                 flexFields.forEach(function(f) {
@@ -42001,6 +42346,183 @@ function _labOverviewKey(sections) {
     return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(','), cardsSig].join('|');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.5] PULSO — la cabecera ejecutiva de HOY.
+//
+// Reemplaza en HOY a los 6 KPIs + Pipeline + Mi turno, que repetían el mismo dato
+// tres veces ("Vehículos activos" = suma del Pipeline) y medían contra una meta
+// inventada (8 liberaciones por turno, fija en el código). Cinco indicadores, cada
+// uno con la pregunta que responde y a un toque de su pantalla.
+// `labPulseCompute(src)` es PURA (recibe los datos, testeable en Node);
+// `labPulseData()` los junta de las definiciones únicas de cada módulo.
+// ══════════════════════════════════════════════════════════════════════
+
+var LAB_PULSE_PIPELINE = [
+    { key: 'registered',       label: 'Registrado' },
+    { key: 'in-progress',      label: 'En progreso' },
+    { key: 'testing',          label: 'En prueba' },
+    { key: 'ready-release',    label: 'Listo para liberar' },
+    { key: 'pending-approval', label: 'En aprobación' }
+];
+
+/** Días 'YYYY-MM-DD' de los últimos n días terminando en `today` (incluido). PURA. */
+function _labPulseDays(today, n) {
+    var out = [];
+    var p = String(today || '').split('-');
+    var base = new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1, 12, 0, 0);
+    for (var i = n - 1; i >= 0; i--) {
+        var d = new Date(base.getTime());
+        d.setDate(d.getDate() - i);
+        out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    }
+    return out;
+}
+
+/**
+ * LA definición de los indicadores del Pulso. PURA.
+ * src = { today, statuses:[status…], releasedDates:['YYYY-MM-DD'…], board, coverage,
+ *         alerts:[{level}], lowGases, calOverdue }
+ */
+function labPulseCompute(src) {
+    src = src || {};
+    var statuses = src.statuses || [];
+    var pipe = LAB_PULSE_PIPELINE.map(function(st) {
+        return { key: st.key, label: st.label, n: statuses.filter(function(s) { return s === st.key; }).length };
+    });
+    var active = pipe.reduce(function(s, x) { return s + x.n; }, 0);
+
+    var days = _labPulseDays(src.today, 7);
+    var byDay = {};
+    (src.releasedDates || []).forEach(function(d) { if (d) byDay[d] = (byDay[d] || 0) + 1; });
+    var series = days.map(function(d) { return { date: d, n: byDay[d] || 0 }; });
+    var prev = series.slice(0, 6);
+    var avgPrev = prev.reduce(function(s, x) { return s + x.n; }, 0) / 6;
+
+    var b = src.board || null, k = (b && b.kpis) || {};
+    var week = {
+        hasPlan: !!(b && b.plan), accepted: !!(b && b.accepted), weekDate: b ? b.weekDate : null,
+        planned: k.planeadas || 0, done: k.hechas || 0, unplanned: k.noPlaneadas || 0,
+        risk: k.riesgo || 0, attention: k.atencion || 0
+    };
+    // Las no planeadas que entraron solas al liberar ya están hechas: el avance del
+    // compromiso se mide contra lo PLANEADO (v23), sin inflarlo con ellas.
+    var doneCommitted = Math.max(0, week.done - week.unplanned);
+    week.pct = week.planned ? Math.min(100, Math.round(doneCommitted / week.planned * 100)) : 0;
+    week.doneCommitted = doneCommitted;
+
+    var c = src.coverage || {};
+    var coverage = { pct: c.pct || 0, pctVerified: (c.pctVerified != null ? c.pctVerified : (c.pct || 0)),
+                     vigentes: c.vigentes || 0, ok: c.ok || 0 };
+
+    var lv = { crit: 0, high: 0, med: 0 };
+    (src.alerts || []).forEach(function(a) {
+        var l = String(a && a.level || '').toUpperCase();
+        if (l === 'CRITICA') lv.crit++; else if (l === 'ALTA') lv.high++; else lv.med++;
+    });
+    var attention = { crit: lv.crit, high: lv.high, med: lv.med, total: lv.crit + lv.high + lv.med,
+                      lowGases: src.lowGases || 0, calOverdue: src.calOverdue || 0 };
+
+    return {
+        pipeline: pipe, active: active,
+        released: { today: series[6].n, series: series, avgPrev: Math.round(avgPrev * 10) / 10,
+                    week: series.reduce(function(s, x) { return s + x.n; }, 0) },
+        week: week, coverage: coverage, attention: attention
+    };
+}
+
+/** Junta los datos del Pulso desde las definiciones únicas de cada módulo. */
+function labPulseData() {
+    var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
+    var board = null, coverage = null, alerts = [], low = 0, calOver = 0;
+    if (typeof tpWeekBoardRows === 'function') { try { board = tpWeekBoardRows({}); } catch (e) { board = null; } }
+    if (typeof tpCoverageSummary === 'function') { try { coverage = tpCoverageSummary(); } catch (e) { coverage = null; } }
+    if (typeof pnGetActiveAlerts === 'function') { try { alerts = pnGetActiveAlerts() || []; } catch (e) { alerts = []; } }
+    if (typeof invState !== 'undefined' && invState.gases && typeof invGasIsLow === 'function')
+        low = invState.gases.filter(function(g) { return g && g.status !== 'Empty' && invGasIsLow(g); }).length;
+    if (typeof invCalSummary === 'function') { try { calOver = invCalSummary().vencidos || 0; } catch (e) { calOver = 0; } }
+    return labPulseCompute({
+        today: localToday(),
+        statuses: vehicles.map(function(v) { return v && v.status; }),
+        releasedDates: vehicles.filter(function(v) { return v && v.status === 'archived' && v.archivedAt; })
+                               .map(function(v) { return localDateStr(new Date(v.archivedAt)); }),
+        board: board, coverage: coverage, alerts: alerts, lowGases: low, calOverdue: calOver
+    });
+}
+
+/** Mini gráfica de barras de 7 días en SVG (sin Chart.js: nada que medir tras un cambio de pestaña). */
+function _labPulseSparkSVG(series) {
+    var max = Math.max(1, Math.max.apply(null, series.map(function(s) { return s.n; })));
+    var W = 8, G = 3, H = 26;
+    var bars = series.map(function(s, i) {
+        var h = s.n ? Math.max(3, Math.round(s.n / max * (H - 2))) : 1;
+        return '<rect x="' + (i * (W + G)) + '" y="' + (H - h) + '" width="' + W + '" height="' + h + '" rx="1.5"' +
+               (i === series.length - 1 ? ' class="dash-spark-today"' : '') + '><title>' + s.date + ': ' + s.n + '</title></rect>';
+    }).join('');
+    return '<svg class="dash-spark" viewBox="0 0 ' + (series.length * (W + G) - G) + ' ' + H + '" role="img" ' +
+           'aria-label="Liberaciones de los últimos 7 días: ' + series.map(function(s) { return s.n; }).join(', ') + '">' + bars + '</svg>';
+}
+
+function _labPulseHTML(p) {
+    var num = function(n, suf) { return '<span class="pn-kpi-num" data-kpi-target="' + n + '" data-kpi-suffix="' + (suf || '') + '">0</span>'; };
+    // El `?` de ayuda NO va dentro de cada tile: cascadeInjectTooltips agrega un
+    // <button> y un botón no puede contener otro. La ayuda es una sola, en el título.
+    var tile = function(tone, go, what, label, big, extra, sub) {
+        return '<button type="button" class="dash-pulse-tile dash-pulse-tile--' + tone + '" onclick="' + go + '" title="' + what + '">' +
+               '<span class="dash-pulse-label">' + label + '</span>' +
+               '<span class="dash-pulse-num">' + big + '</span>' + (extra || '') +
+               '<span class="dash-pulse-sub">' + sub + '</span></button>';
+    };
+    var h = '<div class="dash-pulse-head" data-help="dash-pulse-help">Pulso del laboratorio</div><div class="dash-pulse">';
+
+    // 1) Semana
+    var w = p.week, wTone, wSub, wBig, wExtra = '';
+    if (!w.hasPlan) { wTone = 'warn'; wBig = '—'; wSub = 'Sin plan para esta semana · armarlo'; }
+    else if (!w.accepted) { wTone = 'warn'; wBig = w.planned + '<small> propuestas</small>'; wSub = 'Propuesta sin aceptar · revisarla'; }
+    else {
+        wTone = w.risk ? 'danger' : (w.attention ? 'warn' : 'ok');
+        wBig = num(w.doneCommitted) + '<small>/' + w.planned + '</small>';
+        wExtra = '<span class="dash-pulse-bar"><i style="width:' + w.pct + '%"></i></span>';
+        wSub = (w.risk ? w.risk + ' en riesgo' : '') + (w.risk && w.attention ? ' · ' : '') +
+               (w.attention ? w.attention + ' por atender' : '') +
+               (!w.risk && !w.attention ? 'Todo en tiempo' : '') +
+               (w.unplanned ? ' · +' + w.unplanned + ' no planeada' + (w.unplanned === 1 ? '' : 's') : '');
+    }
+    h += tile(wTone, "dashGo('testplan','tp-myweek')", 'Avance del plan aceptado de esta semana. Toca para abrir Mi semana.', '📅 Semana', wBig, wExtra, wSub);
+
+    // 2) Pipeline — UNA barra segmentada en vez de cinco cajas
+    var seg = '<span class="dash-pulse-seg" aria-hidden="true">' + p.pipeline.map(function(s) {
+        return s.n ? '<i class="dash-pulse-seg--' + s.key + '" style="flex:' + s.n + '" title="' + s.label + ': ' + s.n + '"></i>' : '';
+    }).join('') + '</span>';
+    var pipeSub = p.pipeline.filter(function(s) { return s.n; }).map(function(s) { return s.n + ' ' + s.label.toLowerCase(); }).join(' · ') || 'Sin vehículos en curso';
+    h += tile(p.active ? 'info' : 'neutral', "dashGo('cop15','kanban')", 'Vehículos en curso por etapa. Toca para abrir el tablero Kanban.', '🚗 En curso',
+              num(p.active) + '<small> vehículos</small>', p.active ? seg : '', pipeSub);
+
+    // 3) Liberados
+    var r = p.released;
+    var tend = r.today > r.avgPrev ? '▲' : (r.today < r.avgPrev ? '▼' : '＝');
+    h += tile(r.today ? 'ok' : 'neutral', "dashGo('cop15','dashboard')", 'Liberaciones de hoy y de los últimos 7 días. Toca para abrir el resumen de Pruebas.', '✅ Liberados hoy',
+              num(r.today), _labPulseSparkSVG(r.series),
+              tend + ' vs ' + r.avgPrev + '/día (6 días previos) · ' + r.week + ' en 7 días');
+
+    // 4) Cobertura REQ — el verificado SIEMPRE al lado (v20)
+    var c = p.coverage;
+    h += tile(c.pct >= 80 ? 'ok' : (c.pct >= 50 ? 'warn' : 'danger'), "dashGo('testplan','tp-dashboard')", 'Configuraciones vigentes con su REQ cumplido. Toca para abrir el resumen del Plan.', '🎯 Cobertura REQ',
+              num(c.pct, '%'), '<span class="dash-pulse-bar"><i style="width:' + c.pct + '%"></i></span>',
+              c.ok + ' de ' + c.vigentes + ' configs · ' + c.pctVerified + '% solo verificadas');
+
+    // 5) Atención
+    var a = p.attention;
+    var aBits = [];
+    if (a.crit) aBits.push(a.crit + ' crítica' + (a.crit === 1 ? '' : 's'));
+    if (a.high) aBits.push(a.high + ' alta' + (a.high === 1 ? '' : 's'));
+    if (a.lowGases) aBits.push(a.lowGases + ' gas' + (a.lowGases === 1 ? '' : 'es') + ' bajo' + (a.lowGases === 1 ? '' : 's'));
+    if (a.calOverdue) aBits.push(a.calOverdue + ' calib. vencida' + (a.calOverdue === 1 ? '' : 's'));
+    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Alertas activas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
+              num(a.total), '', aBits.join(' · ') || 'Sin alertas activas');
+
+    return h + '</div>';
+}
+
 function renderLabOverview(el, opts) {
     if (!el) return;
     opts = opts || {};
@@ -42043,6 +42565,7 @@ function renderLabOverview(el, opts) {
     var activeOps = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }).length : 0;
 
     var html = '';
+    if (has('pulse')) html += _labPulseHTML(labPulseData());
     if (has('kpi')) {
         var kpis = [
             { value: activeVehicles.length, label: 'Vehículos Activos', color: '#3b82f6' },
@@ -43620,7 +44143,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
     { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
     { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
-    { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
+    { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde v24.5 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
     { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
@@ -50092,9 +50615,13 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [v24.2] Las marcas de borrado locales sobreviven al reemplazo (si no, lo
         // borrado aquí vuelve con la copia remota).
         var _seedTombs = (db && db.deletedVehicles) || [];
+        // [v24.5] Igual con las configs manuales (y sus marcas de borrado).
+        var _seedManual = (db && db.manualConfigs) || [];
         db = remoteData;
         if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
             db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
+        if (_seedManual.length && typeof manualConfigsUnion === 'function')
+            db.manualConfigs = manualConfigsUnion(_seedManual, db.manualConfigs);
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
@@ -50178,7 +50705,9 @@ function _fbPullMergeModule(col, remoteData, pulled) {
 
     var hasWork = false;
     if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0 ||
-        _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []);
+        _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
+        // v24.5: sin esto, un pull cuyo único cambio es una config manual se descartaba.
+        (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || []));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
@@ -50939,6 +51468,8 @@ function _fbLocalHasExtras(col, remote) {
         // no, un equipo con código viejo que re-empuje el documento la borra y el
         // vehículo resucita en los demás.
         if (_fbTombsNewTo(remote.deletedVehicles || [], (db && db.deletedVehicles) || [])) return true;
+        // v24.5: una config manual (o su marca de borrado) que la nube no tiene.
+        if (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo(remote.manualConfigs || [], (db && db.manualConfigs) || [])) return true;
         var rByVin = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByVin[v.vin] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -51750,6 +52281,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         // [v24.2] Las marcas de borrado de los dos lados se unen SIEMPRE, sea cual sea la
         // opción ('replace' reasigna db y perdería las locales).
         var _localTombs = (db && db.deletedVehicles) || [];
+        var _localManual = (db && db.manualConfigs) || [];   // v24.5, mismo motivo
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -51800,6 +52332,10 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             var _remoteTombs = (remoteData.cop15 && remoteData.cop15.deletedVehicles) || [];
             var _tombs = vehicleTombstonesUnion(_localTombs, _remoteTombs);
             if (_tombs.length) db.deletedVehicles = _tombs;
+        }
+        if (typeof manualConfigsUnion === 'function') {
+            var _mc = manualConfigsUnion(_localManual, (remoteData.cop15 && remoteData.cop15.manualConfigs) || []);
+            if (_mc.length) db.manualConfigs = _mc;
         }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
@@ -52486,7 +53022,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609242058' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609252355' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

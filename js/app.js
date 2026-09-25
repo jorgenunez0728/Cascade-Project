@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.4';
+var APP_VERSION = '24.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { v: '24.5', date: '25 sep 2026', title: 'Un solo catálogo de configuraciones y HOY ejecutivo',
+      notes: [
+          'El Plan (agregar, sustituir, vincular) ofrece las mismas configuraciones que el Alta. Las que no vienen en el plan de producción importado salen al final marcadas "📦 sin volumen": se pueden planear a mano, pero no tienen REQ ni mueven la cobertura.',
+          'Las configuraciones dadas de alta a mano ya se sincronizan entre equipos (antes solo existían en el dispositivo donde se crearon). Borrar una la borra en todos.',
+          'HOY: el Pulso del laboratorio (semana, vehículos en curso, liberaciones con tendencia de 7 días, cobertura REQ y alertas) reemplaza a los 6 KPIs, el Pipeline y Mi turno. Cada recuadro abre su pantalla.',
+          'HOY: las categorías son recuadros con sus pendientes. Sin tocar ninguno se ven las 5 acciones que más urgen; tocando uno, su lista completa en el mismo lugar. Se retiró "Acceso rápido" (lo tiene la barra de arriba).'
+      ] },
     { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
       notes: [
           '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
@@ -1169,7 +1176,8 @@ var UI_PREFS_DEFAULTS = {
     tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
-    nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    dashOpenCat: ''        // [v24.5] HOY: categoría desplegada ('' = ninguna)
 };
 
 function _uiPrefsRead() {
@@ -1725,6 +1733,66 @@ function vehicleTombstonesApply() {
     return n;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v24.5] Configuraciones manuales — viven en `db.manualConfigs` y viajan con cop15.
+//
+// Vivían en localStorage['kia_manual_configs'], que NO se sincroniza: una config dada
+// de alta a mano en un equipo no existía en ningún otro, ni en su Alta ni en su Plan.
+// Identidad = `codigo_config_text`. Borrar deja marca (`deleted:true`) porque la
+// fusión es aditiva: sin marca, lo borrado vuelve en el siguiente sync (v24.2).
+// ══════════════════════════════════════════════════════════════════════
+
+function _manualCfgKey(c) { return c ? String(c.codigo_config_text || '').trim() : ''; }
+
+/**
+ * Une dos listas de configs manuales. PURA y SIMÉTRICA: gana `updatedAt` más reciente;
+ * en empate gana la marca de borrado; si aún empatan, desempate determinista por
+ * contenido (dos equipos deben elegir lo mismo o se re-empujan para siempre).
+ */
+function manualConfigsUnion(a, b) {
+    var byKey = {};
+    (a || []).concat(b || []).forEach(function(c) {
+        var k = _manualCfgKey(c);
+        if (!k) return;
+        var cur = byKey[k];
+        if (!cur) { byKey[k] = c; return; }
+        var tc = String(c.updatedAt || ''), tu = String(cur.updatedAt || '');
+        if (tc !== tu) { if (tc > tu) byKey[k] = c; return; }
+        if (!!c.deleted !== !!cur.deleted) { if (c.deleted) byKey[k] = c; return; }
+        if (stableStringify(c) > stableStringify(cur)) byKey[k] = c;
+    });
+    return Object.keys(byKey).sort().map(function(k) { return byKey[k]; });
+}
+
+/** ¿`incoming` trae algo que `base` no tiene (o una versión más nueva)? */
+function manualConfigsNewTo(base, incoming) {
+    if (!incoming || !incoming.length) return false;
+    return stableStringify(manualConfigsUnion(base, incoming)) !== stableStringify(manualConfigsUnion(base, []));
+}
+
+/**
+ * Migración + refresco. Idempotente: une lo heredado de `kia_manual_configs` SOLO para
+ * los códigos que `db.manualConfigs` no conoce (ni vivos ni borrados), así que una
+ * config borrada en otro equipo no resucita desde la copia local vieja.
+ */
+function manualConfigsAfterLoad() {
+    if (!db || typeof db !== 'object') return;
+    if (!Array.isArray(db.manualConfigs)) db.manualConfigs = [];
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem('kia_manual_configs') || '[]') || []; } catch (e) { legacy = []; }
+    if (Array.isArray(legacy) && legacy.length) {
+        var known = {};
+        db.manualConfigs.forEach(function(c) { known[_manualCfgKey(c)] = true; });
+        var add = legacy.filter(function(c) { var k = _manualCfgKey(c); return k && !known[k]; })
+                        .map(function(c) { var o = Object.assign({}, c); o._source = 'manual'; o.updatedAt = o.updatedAt || ''; return o; });
+        if (add.length) db.manualConfigs = manualConfigsUnion(db.manualConfigs, add);
+    }
+    if (typeof _mergeManualConfigsIntoAll === 'function' && typeof allConfigurations !== 'undefined' && allConfigurations.length) {
+        try { _mergeManualConfigsIntoAll(); } catch (e) { console.warn('_mergeManualConfigsIntoAll:', e); }
+    }
+    if (typeof tpCatalogInvalidate === 'function') tpCatalogInvalidate();
+}
+
 /**
  * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
@@ -1736,6 +1804,9 @@ function dedupeVehicleIds() {
     // y de retirar lo que otro equipo borró (ver vehicleTombstonesApply).
     try { revInitMissing(db.vehicles); } catch (e) { console.warn('revInitMissing:', e); }
     try { vehicleTombstonesApply(); } catch (e) { console.warn('vehicleTombstonesApply:', e); }
+    // v24.5: las configs manuales viajan en `db`; tras cada carga se migra lo heredado
+    // y se refresca el catálogo del Alta y del Plan.
+    try { manualConfigsAfterLoad(); } catch (e) { console.warn('manualConfigsAfterLoad:', e); }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
@@ -3084,52 +3155,39 @@ function dailyDashRender() {
     // v16.0: banner de ayuda de esta pestaña
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
-    // ── Header ──
-    // v22.6: "Ir a…" y "Crear" salieron de aquí. En v22.2 vivían en la cabecera de
-    // HOY porque no había dónde más ponerlos; ahora la .ui-bar los tiene de forma
-    // permanente en TODAS las pantallas, y tenerlos también aquí era el mismo botón
-    // dos veces en la misma vista — justo el desorden que esta ronda combate.
-    html += '<div class="daily-dash-header">';
-    html += '<div>';
-    html += '<div class="daily-dash-greeting">' + greeting + '</div>';
-    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
-    html += '</div>';
-    html += '</div>';
-
-    // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
-    html += '<div id="hoy-lab-overview" style="margin-bottom: var(--space-sm);"></div>';
-
-    // ── [v15.9] Mi Turno (compacto — la lista de vehículos vive ahora en el tablero) ──
+    // ── [v24.5] Encabezado de UNA línea ──
+    // Saludo + fecha + operador + el único atajo que la .ui-bar no tiene (el último
+    // vehículo). La tarjeta "Mi turno" se retiró: medía contra una meta fija de 8
+    // liberaciones escrita en el código, y el mismo dato ya vive en el Pulso.
     var currentOp = '';
     try {
         if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-    if (currentOp) {
-        var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
-                (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var testingToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var shiftTarget = 8;
-        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
-        html += '<div class="v7-mi-turno-card" style="margin-bottom: var(--space-md);">';
-        html += '<div class="v7-mi-turno-header">';
-        html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
-        html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
-        html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
-        html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? tokenColor('--ok-fill') : tokenColor('--info-fill')) + '</div>';
-        html += '</div></div>';
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    })[0];
+    html += '<div class="daily-dash-header dash-head">';
+    if (currentOp) html += '<span class="v7-mi-turno-avatar" aria-hidden="true">' + escapeHtml(currentOp.charAt(0).toUpperCase()) + '</span>';
+    html += '<div class="dash-head-text">';
+    html += '<div class="daily-dash-greeting">' + greeting + (currentOp ? ', ' + escapeHtml(currentOp.split(' ')[0]) : '') + '</div>';
+    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    if (lastVehicle) {
+        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
+        html += '<button type="button" class="dash-head-chip" title="Abrir el último vehículo que se movió" ' +
+                'onclick="v7GoToVehicle(' + lastVehicle.id + ')">📝 Último: ' + escapeHtml(lModel || lastVehicle.vin || '') + '</button>';
     }
+    html += '</div>';
 
-    // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
-    // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
-    // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
-    // [v23] Hoy o esta semana. El día es el default; la semana usa EL MISMO formato
-    // de calendario que el Plan (`tpBuildDayColumnsHTML`) para que no haya dos
-    // vocabularios distintos para la misma cosa.
+    // ── [v24.5] Pulso (fuente única: renderLabOverview, sección 'pulse') ──
+    html += '<div id="hoy-lab-overview"></div>';
+
+    // ── [v23] Hoy o esta semana. La semana usa EL MISMO formato de calendario que el
+    // Plan (`tpBuildDayColumnsHTML`). El día es el default y desde v24.5 se lee en tres
+    // niveles: lo siguiente (5 acciones), categorías como tiles, y el detalle al tocar.
     html += dashRangeTabsHTML();
     if (dashRange() === 'semana') {
         html += dashRenderWeek();
@@ -3138,36 +3196,13 @@ function dailyDashRender() {
         html += dashRenderBoard(acts, currentOp);
     }
 
-    // ── Quick Actions ──
-    html += '<div class="daily-dash-section">';
-    html += '<div class="daily-dash-section-title">⚡ Acceso Rápido</div>';
-    html += '<div class="daily-dash-quick-actions">';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=alta]\');if(t)t.click();},150);"><span class="daily-dash-action-icon">➕</span>Alta Vehículo</div>';
-
-    // Last edited vehicle shortcut
-    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
-        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
-        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
-        return tB > tA ? 1 : -1;
-    })[0];
-    if (lastVehicle) {
-        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
-        html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
-    } else {
-        html += '<div class="daily-dash-action" onclick="dashGo(\'inventory\',\'inv-readings\')"><span class="daily-dash-action-icon">🧪</span>Captura</div>';
-    }
-
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-reports\');"><span class="daily-dash-action-icon">📤</span>Reportes</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
-    html += '</div></div>';
-
+    // v24.5: "Acceso rápido" se retiró — duplicaba la .ui-bar (Crear / Ir a, v22.6).
 
     el.innerHTML = html;
 
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
-    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
+    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['pulse'] });
 
     // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
     _dashRegisterHelp();
@@ -3183,7 +3218,8 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Tablero de hoy', text: 'Todo lo pendiente del día agrupado por tipo: vehículos, pruebas del plan, inventario y tareas manuales. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-board-help': { title: 'Lo siguiente', text: 'Cada categoría es un recuadro con sus pendientes (y las atrasadas en rojo). Sin tocar ninguno ves las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero; toca un recuadro para ver en su lugar la lista completa de esa categoría. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
         'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
@@ -3191,7 +3227,9 @@ function _dashRegisterHelp() {
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {
-        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Todo lo pendiente de hoy en un solo tablero: vehículos con su etapa, pruebas del plan, inventario y tareas. Toca cualquier fila para ir directo a resolverla.', tips: [
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego lo siguiente que hay que hacer y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
+            'Cada recuadro del pulso abre la pantalla de donde sale su número.',
+            'Toca una categoría (Vehículos, Plan de hoy, Inventario…) para ver su lista completa; tócala otra vez para cerrarla.',
             'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
             'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
             'Usa "➕ Actividad" para anotar pendientes que no vienen de otro módulo.'
@@ -3789,49 +3827,111 @@ function dashRenderRow(a) {
     return h;
 }
 
+/**
+ * [v24.5] LO SIGUIENTE — las n acciones que más urgen, de TODAS las categorías. PURA.
+ * Lo atrasado primero, luego por `urgency`; lo hecho no entra.
+ */
+function dashNextUp(acts, n) {
+    n = n || 5;
+    return (acts || []).filter(function(a) { return a && a.status !== 'hecho'; })
+        .map(function(a, i) { return { a: a, i: i }; })
+        .sort(function(x, y) {
+            return ((y.a.status === 'atrasado') - (x.a.status === 'atrasado')) ||
+                   ((y.a.urgency || 0) - (x.a.urgency || 0)) || (x.i - y.i);
+        })
+        .slice(0, n).map(function(o) { return o.a; });
+}
+
+/** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
+function dashCatSummary(acts) {
+    return DASH_CAT_ORDER.map(function(cat) {
+        var rows = (acts || []).filter(function(a) { return a.cat === cat; });
+        return { cat: cat, total: rows.length,
+                 pend: rows.filter(function(a) { return a.status !== 'hecho'; }).length,
+                 late: rows.filter(function(a) { return a.status === 'atrasado'; }).length };
+    }).filter(function(c) { return c.total > 0; });
+}
+
+function dashSetOpenCat(cat) {
+    uiPref('dashOpenCat', uiPref('dashOpenCat') === cat ? '' : cat);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
 function dashRenderBoard(acts, currentOp) {
     var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
+    var ocultos = acts.length - shown.length;
     var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
 
     var h = '<div class="dash-board">';
     h += '<div class="dash-board-header" data-help="dash-board-help">';
-    h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
-    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
+    h += '<span class="dash-board-title">📌 Lo siguiente</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes hoy' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
     // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
     // 44px en pantallas de dedo sin engordar la barra.
     if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
+    // v22.5: un filtro que esconde cosas DICE cuántas.
+    if (onlyMine && ocultos > 0) h += '<span class="dash-chip dash-chip--pendiente">' + ocultos + ' de otros ocultas</span>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
-    DASH_CAT_ORDER.forEach(function(cat) {
-        var rows = shown.filter(function(a) { return a.cat === cat; });
-        if (!rows.length) return;
+    if (!shown.length) {
+        h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        return h + '</div>';
+    }
+
+    // 1) Categorías como tiles — funcionan como FILTRO del bloque de abajo: sin
+    //    ninguno elegido se ve "lo siguiente" de todo el laboratorio; con uno, la
+    //    lista completa de esa categoría EN EL MISMO LUGAR (nada se apila debajo).
+    var open = uiPref('dashOpenCat') || '';
+    var cats = dashCatSummary(shown);
+    if (!cats.some(function(c) { return c.cat === open; })) open = '';
+    h += '<div class="dash-cat-tiles" role="tablist" aria-label="Actividades por categoría">';
+    cats.forEach(function(c) {
+        var d = DASH_CATS[c.cat];
+        var on = c.cat === open;
+        h += '<button type="button" role="tab" aria-selected="' + on + '" ' +
+             'class="dash-cat-tile dash-cat-tile--' + (DASH_CAT_ACCENT[c.cat] || 'panel') + (on ? ' dash-cat-tile--on' : '') +
+             (c.late ? ' dash-cat-tile--late' : '') + '" onclick="dashSetOpenCat(\'' + c.cat + '\')">' +
+             '<span class="dash-cat-tile-icon" aria-hidden="true">' + d.icon + '</span>' +
+             '<span class="dash-cat-tile-name">' + d.label + '</span>' +
+             '<span class="dash-cat-tile-count">' +
+               (c.pend ? c.pend + ' pendiente' + (c.pend === 1 ? '' : 's') : '✓ al día') +
+               (c.late ? ' · <strong>' + c.late + ' atrasada' + (c.late === 1 ? '' : 's') + '</strong>' : '') +
+             '</span></button>';
+    });
+    h += '</div>';
+
+    if (open) {
+        // 2a) La categoría elegida, completa.
+        var rows = shown.filter(function(a) { return a.cat === open; });
         rows.sort(function(x, y) {
             return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
         });
-        var c = DASH_CATS[cat];
-        var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
-        // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        var body = '<div class="dash-group-rows">'
-                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
-                 + '</div>';
-        h += uiCard({
-            id: 'dash-' + cat,
-            icon: c.icon,
-            title: c.label,
-            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
-                         : { label: '✓ al día', tone: 'ok' },
-            accent: DASH_CAT_ACCENT[cat],
-            body: body,
-            bodyFlush: true
-        });
-    });
-    if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        var cd = DASH_CATS[open];
+        h += '<div class="dash-cat-detail dash-cat-tile--' + (DASH_CAT_ACCENT[open] || 'panel') + '" role="tabpanel">' +
+             '<div class="dash-cat-detail-head"><span>' + cd.icon + ' ' + cd.label + ' · ' + rows.length + '</span>' +
+             '<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashSetOpenCat(\'' + open + '\')">✕ Ver lo siguiente</button></div>' +
+             '<div class="dash-group-rows">' + rows.map(function(a) { return dashRenderRow(a); }).join('') + '</div></div>';
+    } else {
+        // 2b) Lo siguiente: 5 filas con el MISMO dashRenderRow (mismo check y acción).
+        var next = dashNextUp(shown, 5);
+        if (next.length) {
+            h += '<div class="dash-next">' + next.map(function(a) {
+                // Una fila con casilla no muestra icono: se le antepone el de su
+                // categoría para que "Pendiente" diga de qué. Las demás ya traen el suyo.
+                var c = DASH_CATS[a.cat] || {};
+                return dashRenderRow(a.checkbox && c.icon ? Object.assign({}, a, { title: c.icon + ' ' + a.title }) : a);
+            }).join('') + '</div>';
+            var resto = pend - next.length;
+            if (resto > 0) h += '<p class="dash-next-more">y ' + resto + ' pendiente' + (resto === 1 ? '' : 's') + ' más — toca una categoría para ver su lista completa.</p>';
+        } else {
+            h += '<div class="daily-dash-empty">Todo lo de hoy está hecho ✓</div>';
+        }
+    }
     h += '</div>';
     return h;
 }
@@ -6404,7 +6504,9 @@ function downloadFullBackup() {
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
-        manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
+        // v24.5: las manuales viven en db.manualConfigs (ya van dentro de `db`); se
+        // conserva el campo para quien restaure con una versión anterior.
+        manualConfigs: (typeof getManualConfigs === 'function') ? getManualConfigs() : JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
     var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -6523,10 +6625,9 @@ var TOURS = {
         { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, reportes, panel de control, operadores y configuración del sistema.', position: 'bottom' }
     ],
     today: [
-        { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
-        { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
-        { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
+        { target: '.dash-pulse', title: 'Pulso del laboratorio', text: 'Cinco indicadores: la semana, los vehículos en curso, las liberaciones, la cobertura del REQ y las alertas. Cada recuadro abre su pantalla.', position: 'bottom' },
+        { target: '.dash-cat-tiles', title: 'Por categoría', text: 'Cada recuadro es una categoría con sus pendientes. Tócalo para ver su lista completa; tócalo otra vez para volver a lo siguiente.', position: 'bottom' },
+        { target: '.dash-next', title: 'Lo siguiente', text: 'Las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero. Se resuelven desde aquí mismo.', position: 'top' }
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
@@ -7139,17 +7240,6 @@ document.addEventListener('alpine:init', function() {
         Alpine.data('panelModule', panelAlpineComponent);
     }
 });
-
-function buildProgressRing(pct, size, color) {
-    var r = (size - 6) / 2;
-    var c = Math.PI * 2 * r;
-    var offset = c - (pct / 100) * c;
-    return '<svg width="' + size + '" height="' + size + '" style="display:block;">' +
-        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' +
-        '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
-        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
-        '</svg>';
-}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] HELPER FUNCTIONS                                              ║

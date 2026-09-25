@@ -2,6 +2,54 @@
 
 All notable changes to this project, organized by development round.
 
+## v24.5 — Un solo catálogo de configuraciones y HOY ejecutivo (2026-09-25)
+
+### El Plan ve las mismas configuraciones que el Alta
+El Alta leía `allConfigurations` (catálogo horneado + manuales) y el Plan **solo**
+`tpState.planData` (el último CSV de producción importado). Todo lo que el catálogo tenía y ese
+CSV no era invisible para agregar a la semana, fijar, sustituir o vincular.
+
+- **`tpConfigCatalog()`** (testplan.js) es LA definición del universo planeable: `planData` ∪
+  catálogo por `desc`, gana la fila de producción (trae volumen); lo que solo existe en el
+  catálogo sale `_catalogOnly`. **`tpConfigByDesc(desc)`** es LA forma de resolver un `desc`;
+  reemplazó 19 búsquedas `planData.find` de las rutas manuales (agregar, duplicar, mover,
+  sustituir, vincular, acreditar, etiquetas).
+- **Lo automático NO cambió a propósito**: análisis, REQ, cobertura, generador, Recuperación y
+  el merge de `planData` siguen sobre producción. Una config sin volumen tiene REQ 0: el
+  generador no la elige por su cuenta (sí respeta si se fija a mano) y no mueve la cobertura.
+- **Se declara, no se esconde**: grupos "📦 … · sin volumen de producción" al final de los
+  selectores, chip "📦 sin volumen" en la tarjeta de la semana, nota en el modal de sustituir y
+  una línea en el armador/agregar con cuántas configs del catálogo no trae el CSV.
+
+### Configuraciones manuales sincronizadas
+Vivían en `localStorage['kia_manual_configs']`, que no se sincroniza: hasta el Alta era distinta
+entre equipos. Ahora viven en **`db.manualConfigs`** y viajan con cop15 (patrón de
+`db.deletedVehicles`, v24.2).
+- `manualConfigsUnion` (PURA, simétrica): gana `updatedAt`; en empate gana la marca de borrado.
+- Borrar deja `deleted:true` (la fusión es aditiva). `deleteManualConfig` trabaja por código.
+- `manualConfigsAfterLoad()` (desde `dedupeVehicleIds`) migra lo heredado solo para códigos que
+  `db` no conoce, así que lo borrado en otro equipo no resucita.
+- firebase-sync: seed, `hasWork`, `fbMergeExecute` (las tres opciones) y `_fbLocalHasExtras`.
+
+### HOY ejecutivo
+HOY apilaba saludo → 6 KPIs → calibración → Pipeline → Mi turno → todas las categorías abiertas
+con todas sus filas → Acceso rápido. Ahora son tres niveles:
+- **Pulso del laboratorio** (sección `'pulse'` de `renderLabOverview`; datos en
+  `labPulseCompute`, PURA): semana (hechas vs. el COMPROMISO + riesgo), vehículos en curso como
+  una barra segmentada, liberados hoy con barras de 7 días (SVG, sin Chart.js) y tendencia contra
+  los 6 días previos, cobertura REQ con el % verificado al lado, y alertas por nivel. Cada
+  recuadro abre su pantalla.
+- **Categorías como recuadros** que filtran el bloque de abajo (`uiPref('dashOpenCat')`).
+- **Lo siguiente** (`dashNextUp`, PURA): las 5 acciones que más urgen, lo atrasado primero, con
+  el mismo `dashRenderRow`.
+- Se retiraron Mi turno (medía contra una meta fija de 8 escrita en el código;
+  `buildProgressRing` quedó huérfana y se borró) y Acceso rápido (duplicaba la `.ui-bar`).
+
+### Pruebas
+`plan.node.js` +7 (catálogo), **`tests/v245.node.js`** (27: unión de manuales, Pulso, Lo
+siguiente) y **`tests/v245.e2e.js`** (catálogo = Alta + producción, migración y borrado de
+manuales, HOY a 753/427/1366 px sin desplazamiento horizontal y con el tablero a la vista).
+
 ## v24.4 — El importador de calibraciones, contra el F11 real del laboratorio (2026-09-24)
 
 El laboratorio compartió su archivo real ("COP15-F11 Plan Anual de Calibración – actualizado

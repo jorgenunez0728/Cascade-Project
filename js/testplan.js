@@ -754,6 +754,84 @@ function tpConfirmDormantActive(desc) {
 // distintas, con contador y tarjeta propios, no variantes de la misma. La clave pasa de
 // 7 a 8 segmentos; `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave vieja
 // (overrides, soak) y el CoP empata juicios viejos por prefijo (no se pierde historia).
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v24.5] UN SOLO CATÁLOGO — el Alta y el Plan ven las mismas configuraciones.
+//
+// El Alta leía `allConfigurations` (catálogo horneado + manuales) y el Plan SOLO
+// `tpState.planData` (el último CSV de producción importado): todo lo que el catálogo
+// tenía y ese CSV no, era invisible para agregar, sustituir o vincular.
+// La regla: las ACCIONES MANUALES del plan resuelven contra `tpConfigCatalog()`; lo
+// AUTOMÁTICO (análisis, REQ, cobertura, generador) sigue sobre `planData`, porque el
+// REQ es de producción. Una config sin volumen tiene REQ 0: se puede planear a mano,
+// el generador no la elige por su cuenta y no mueve la cobertura.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Fila del catálogo (encabezados del CSV) → forma de `planData`. PURA. */
+function tpCfgFromCatalogRow(row) {
+    if (!row) return null;
+    var desc = String(row.codigo_config_text || '').trim();
+    if (!desc) return null;
+    var g = function(k) { return String(row[k] == null ? '' : row[k]).trim(); };
+    var eng = g('ENGINE CAPACITY');
+    var reg = g('EMISSION REGULATION');
+    // Misma normalización que tpImportPlanCSV, para que tpFamilyKeyForCfg empate.
+    if (typeof _normalizeRegulation === 'function') reg = _normalizeRegulation(reg, eng);
+    var cfg = { id: '', desc: desc, mod: g('Modelo'), my: g('MODEL YEAR (VIN)'), tx: g('TRANSMISSION'),
+                ep: g('ENVIRONMENT PACKAGE'), reg: reg, drv: g('DRIVE TYPE'), eng: eng, tire: g('TIRE ASSY'),
+                rgn: g('REGION'), body: g('BODY TYPE'), engpkg: g('ENGINE PACKAGE'),
+                hist: 0, total: 0, m: [], _catalogOnly: true };
+    if (row._source === 'manual') cfg._manual = true;
+    return cfg;
+}
+
+var _tpCatalogCache = { key: '', list: null, byDesc: null };
+
+/**
+ * LA definición del universo de configuraciones planeables: `planData` ∪ catálogo del
+ * Alta, por `desc`. Gana la fila de `planData` (trae volumen); lo que solo existe en el
+ * catálogo sale marcado `_catalogOnly`. Memoizada.
+ */
+function tpConfigCatalog() {
+    if (!_tpCatalogCache) _tpCatalogCache = { key: '', list: null, byDesc: null };
+    var plan = tpState.planData || [];
+    var cat = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var key = plan.length + '|' + (tpState._lastSave || 0) + '|' + cat.length + '|' +
+              cat.filter(function(c) { return c && c._source === 'manual'; }).length;
+    if (_tpCatalogCache.key === key && _tpCatalogCache.list) return _tpCatalogCache.list;
+    var byDesc = {}, list = [];
+    plan.forEach(function(c) { if (c && c.desc && !byDesc[c.desc]) { byDesc[c.desc] = c; list.push(c); } });
+    cat.forEach(function(row) {
+        var c = tpCfgFromCatalogRow(row);
+        if (c && !byDesc[c.desc]) { byDesc[c.desc] = c; list.push(c); }
+    });
+    _tpCatalogCache = { key: key, list: list, byDesc: byDesc };
+    return list;
+}
+
+/** LA forma de resolver un `desc` a su configuración (producción primero, luego catálogo). */
+function tpConfigByDesc(desc) {
+    if (!desc) return null;
+    tpConfigCatalog();
+    return (_tpCatalogCache.byDesc && _tpCatalogCache.byDesc[desc]) || null;
+}
+
+/** Configuraciones del catálogo que el CSV de producción importado no trae. */
+function tpCatalogOnlyCount() {
+    return tpConfigCatalog().filter(function(c) { return c._catalogOnly; }).length;
+}
+
+/** Una línea que DECLARA la diferencia entre el catálogo del Alta y el plan de producción. */
+function tpCatalogOnlyNoteHTML() {
+    var n = tpCatalogOnlyCount();
+    if (!n) return '';
+    var fecha = tpState.planImportDate ? String(tpState.planImportDate).slice(0, 10) : null;
+    return '<p class="tp-armar-hint">📦 ' + n + ' configuraci' + (n === 1 ? 'ón' : 'ones') + ' del catálogo del Alta no ' +
+           (n === 1 ? 'viene' : 'vienen') + ' en el plan de producción importado' + (fecha ? ' (' + fecha + ')' : '') +
+           '. Se pueden planear a mano (salen al final de la lista), pero no tienen REQ ni cuentan para la cobertura.</p>';
+}
+
+function tpCatalogInvalidate() { _tpCatalogCache = { key: '', list: null, byDesc: null }; }
+
 function tpFamilyKeyForCfg(cfg) {
     return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
 }
@@ -957,6 +1035,8 @@ function tpInvalidateCache() {
     if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
     // v23: y el plan vigente de cada semana (aceptar/desaceptar/borrar lo cambia).
     if (typeof tpWeekPlanInvalidate === 'function') tpWeekPlanInvalidate();
+    // v24.5: el catálogo unificado depende de planData y de las configs manuales.
+    tpCatalogInvalidate();
 }
 
 // v16.2: LA definición única de "cobertura" en toda la plataforma — % de configuraciones
@@ -1152,7 +1232,7 @@ function _tpDayKeyOf(fecha) {
  * es cierto, y esconderlo seria mentir sobre la carga de la semana.
  */
 function _tpAppendCreditedItem(plan, vehicle, fechaPrueba) {
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === vehicle.configCode; });
+    var cfg = tpConfigByDesc(vehicle.configCode);
     var item = cfg ? _tpMakeItem(cfg, (tpState.testedList || []).slice(), {})
                    : { uid: _tpItemUid(), desc: vehicle.configCode, required: 0, deficit: 0, score: 0 };
     if (!item.uid) item.uid = _tpItemUid();
@@ -1541,8 +1621,8 @@ function tpConfigBadges(item, opts) {
     var sz = opts.fontSize || 'var(--fs-xs)';
     // For legacy items missing fields, try to resolve from planData
     var c = item;
-    if (!c.my && c.desc && tpState.planData.length > 0) {
-        var found = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var found = tpConfigByDesc(c.desc);
         if (found) c = Object.assign({}, found, item);
     }
     var h = '';
@@ -4035,8 +4115,8 @@ function tpItemMoved(item) {
 function tpConfigShortName(cfg) {
     if (!cfg) return '';
     var c = cfg;
-    if (!c.my && c.desc && tpState.planData && tpState.planData.length) {
-        var f = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var f = tpConfigByDesc(c.desc);
         if (f) c = Object.assign({}, f, cfg);
     }
     var partes = [];
@@ -4057,8 +4137,8 @@ function tpConfigShortName(cfg) {
 function tpConfigVariantTag(cfg) {
     if (!cfg) return '';
     var c = cfg;
-    if (!c.my && c.desc && tpState.planData && tpState.planData.length) {
-        var f = tpState.planData.find(function(p) { return p.desc === c.desc; });
+    if (!c.my && c.desc) {
+        var f = tpConfigByDesc(c.desc);
         if (f) c = Object.assign({}, f, cfg);
     }
     var out = [];
@@ -4207,7 +4287,7 @@ function tpWeekBoardRows(opts) {
     var _usados = {};
     Object.keys(_tpVehicleLinksElsewhere(null)).forEach(function(id) { _usados[id] = true; });
     var rows = (plan && plan.items || []).map(function(item, itemIdx) {
-        var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+        var cfg = tpConfigByDesc(item.desc) || item;
         var soak = tpSoakHoursFor(cfg);
         // El soak CONGELADO en el item manda: si la tabla cambia, un plan ya publicado
         // no debe empezar a mentir sobre con qué reposo se armó.
@@ -4376,7 +4456,7 @@ function tpMoveItemToDay(weekIdx, itemIdx, day, opts) {
     var workDays = tpWorkDaysFor(plan);
     if (!workDays[day]) return { ok: false, reason: TP_DAY_LABELS[day] + ' no es día laborable esta semana.' };
 
-    var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var par = tpSlotsForSoak(horas, workDays).filter(function(s) { return s.test === day; })[0];
     if (!par) {
@@ -4554,6 +4634,10 @@ function _tpWeekCardHTML(row, workDays, opts) {
     if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
+    // v24.5: una config del catálogo que el CSV de producción no trae — se corre, pero no
+    // tiene REQ ni cuenta para la cobertura. Se declara para que nadie lo descubra tarde.
+    var _cfgRow = tpConfigByDesc(row.desc || (row.item && row.item.desc));
+    if (_cfgRow && _cfgRow._catalogOnly) marcas.push('<span class="tp-week-flag tp-week-flag--warn" title="Esta configuración está en el catálogo del Alta pero no en el plan de producción importado: no tiene REQ y no cuenta para la cobertura.">📦 sin volumen</span>');
     if (row.substituted) marcas.push('<span class="tp-week-flag tp-week-flag--subst">🔄 sustituida</span>');
     if (row.item && row.item.overCapacity) marcas.push('<span class="tp-week-flag tp-week-flag--warn">⬆ sobre cupo</span>');
     if (row.dupOf) marcas.push('<span class="tp-week-flag" title="Otra prueba de la misma configuración esta semana">⧉ ' + row.dupIdx + ' de ' + row.dupTotal + '</span>');
@@ -4736,10 +4820,10 @@ function tpBuildArmarCardHTML(b) {
                '<input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" ' +
                'oninput="tpFilterPickOptions(this.value)">' +
                '<select id="tp-manual-pick-select" class="tp-select"><option value="">Seleccionar…</option>' +
-               tpBuildPickOptgroupsHTML((tpState.planData || []).map(function(c) { return c.desc; }).sort()) +
+               tpBuildPickOptgroupsHTML(tpConfigCatalog().map(function(c) { return c.desc; }).sort()) +
                '</select>' +
                '<button class="tp-btn tp-btn-primary" onclick="tpAddManualPick();_tpBoardRepaint();">+</button>' +
-               '</div></div>';
+               '</div>' + tpCatalogOnlyNoteHTML() + '</div>';
 
     body += (typeof uiCard === 'function')
         ? uiCard({ id: 'tp-armar-picks', icon: '📌', title: 'Obligatorias y cola', accent: 'testplan',
@@ -5035,8 +5119,8 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
     if (!_n) return { ok: false, reason: 'No se encontró esa semana (el plan cambió).' };
     weekIdx = _n.weekIdx;
     var plan = _n.plan;
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === desc; });
-    if (!cfg) return { ok: false, reason: 'Esa configuración no está en el plan de producción.' };
+    var cfg = tpConfigByDesc(desc);
+    if (!cfg) return { ok: false, reason: 'Esa configuración no está ni en el plan de producción ni en el catálogo.' };
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Agregar prueba al plan');
     if (!Array.isArray(plan.items)) plan.items = [];
@@ -5076,7 +5160,8 @@ function tpAddItemToWeekDay(weekIdx, desc, day, opts) {
                  (repetida > 1 ? ' · ' + repetida + 'ª prueba de esta configuración en la semana' : '') +
                  (opts.via ? ' · ' + opts.via : ''));
     }
-    return { ok: true, itemIdx: idx, testDay: item.testDay, overCapacity: !!item.overCapacity, unscheduled: !!item.unscheduled };
+    return { ok: true, itemIdx: idx, testDay: item.testDay, overCapacity: !!item.overCapacity, unscheduled: !!item.unscheduled,
+             catalogOnly: !!cfg._catalogOnly };
 }
 
 /**
@@ -5090,7 +5175,7 @@ function tpDuplicateItem(weekIdx, itemIdx) {
     weekIdx = _n.weekIdx; itemIdx = _n.itemIdx;
     var plan = _n.plan;
     var item = _n.item;
-    var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
     var pares = tpSlotsForSoak(horas, tpWorkDaysFor(plan)).filter(function(sl) { return !sl.spillsNextWeek; });
@@ -5124,7 +5209,7 @@ function tpWeekAddMenu(weekIdx, day) {
     var enSemana = {};
     (plan.items || []).forEach(function(it) { enSemana[it.desc] = (enSemana[it.desc] || 0) + 1; });
     var sug = an.filter(function(a) { return a.deficit > 0 && !enSemana[a.desc]; }).slice(0, 5);
-    var todas = (tpState.planData || []).map(function(c) { return c.desc; }).sort();
+    var todas = tpConfigCatalog().map(function(c) { return c.desc; }).sort();
 
     var body = '<div class="tp-week-movebox">' +
         '<p class="tp-week-movehint">Se agrega a <strong>' + (day ? TP_DAY_LABELS[day] : 'el primer día libre') + '</strong>' +
@@ -5156,7 +5241,7 @@ function tpWeekAddMenu(weekIdx, day) {
         '<input type="search" id="tp-week-add-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)" oninput="tpFilterPickOptions(this.value,\'tp-week-add-select\')">' +
         '<select id="tp-week-add-select" class="tp-select" size="8">' + tpBuildPickOptgroupsHTML(todas) + '</select>' +
         '<button class="tp-btn tp-btn-primary" onclick="tpWeekDoAdd(\'' + _pid + '\',null,' + (day ? "'" + day + "'" : 'null') + ')">➕ Agregar la seleccionada</button>' +
-        '</div></div>';
+        '</div>' + tpCatalogOnlyNoteHTML() + '</div>';
 
     showModal({ title: '➕ Agregar prueba a la semana', type: 'info', body: body, buttons: [{ label: 'Cerrar', cls: '' }] });
     setTimeout(function() { var i = document.getElementById('tp-week-add-search'); if (i) i.focus(); }, 60);
@@ -5174,7 +5259,8 @@ function tpWeekDoAdd(weekIdx, desc, day) {
     var r = tpAddItemToWeekDay(weekIdx, desc, day || null, { via: 'tablero', purpose: purpose });
     if (!r.ok) { showToast(r.reason, 'error'); return; }
     showToast('Agregada' + (r.unscheduled ? ' sin día libre — quedó declarada sin horario'
-                                          : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')),
+                                          : ' · se prueba ' + TP_DAY_LABELS[r.testDay] + (r.overCapacity ? ' (sobre cupo)' : '')) +
+              (r.catalogOnly ? ' · 📦 sin volumen de producción: no cuenta para el REQ' : ''),
               r.unscheduled ? 'warning' : 'success', null, (typeof undoPop === 'function') ? undoPop : null);
     _tpBoardRepaint();
 }
@@ -5225,7 +5311,7 @@ function tpWeekBoardDragInit(host) {
             var _n = _tpIdx(p[0], p[1]);
             if (!_n) return false;
             var plan = _n.plan, item = _n.item;
-            var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+            var cfg = tpConfigByDesc(item.desc) || item;
             var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
             // Sólo se pinta en verde y sólo se acepta lo que el reposo permite de verdad.
             return tpSlotsForSoak(horas, tpWorkDaysFor(plan)).some(function(sl) { return sl.test === to; });
@@ -5317,7 +5403,7 @@ function tpWeekMoveMenu(weekIdx, itemIdx) {
     var item = _n.item;
     var _pid = tpPlanId(plan), _uid = (item && item.uid) || itemIdx, _ref = "'" + _pid + "','" + _uid + "'";
     var workDays = tpWorkDaysFor(plan);
-    var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var cfg = tpConfigByDesc(item.desc) || item;
     var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
     var pares = tpSlotsForSoak(horas, workDays);
     var usables = {};
@@ -5431,13 +5517,17 @@ function tpWeekCardMenu(weekIdx, itemIdx) {
 function tpBuildPickOptgroupsHTML(descs) {
     var porFamilia = {};
     (descs || []).forEach(function(d) {
-        var c = (tpState.planData || []).find(function(p) { return p.desc === d; });
+        var c = tpConfigByDesc(d);
         if (!c) { (porFamilia['(sin catálogo)'] = porFamilia['(sin catálogo)'] || []).push({ desc: d, etiqueta: d }); return; }
-        var fam = tpConfigShortName(c) + ' · ' + (c.rgn || '?');
+        // v24.5: lo que solo existe en el catálogo del Alta se DECLARA en su propio
+        // grupo, al final — se puede planear a mano, pero no cuenta para el REQ.
+        var fam = (c._catalogOnly ? '\uFFFF' : '') + tpConfigShortName(c) + ' · ' + (c.rgn || '?') +
+                  (c._catalogOnly ? ' · sin volumen de producción' : '');
         (porFamilia[fam] = porFamilia[fam] || []).push({ desc: d, etiqueta: tpConfigVariantTag(c) || d, cfg: c });
     });
-    return Object.keys(porFamilia).sort().map(function(fam) {
-        return '<optgroup label="' + fam + '">' + porFamilia[fam].map(function(o) {
+    return Object.keys(porFamilia).sort().map(function(famKey) {
+        var fam = famKey.replace(/^\uFFFF/, '📦 ');
+        return '<optgroup label="' + fam + '">' + porFamilia[famKey].map(function(o) {
             // El `desc` completo va en data-full para que el buscador empate por
             // cualquier campo, no solo por lo que se ve.
             return '<option value="' + o.desc + '" data-full="' + o.desc.toLowerCase() + '">' + o.etiqueta + '</option>';
@@ -6385,7 +6475,8 @@ function tpSelectWeeklyItems(opts) {
     //    pasa el filtro se avisa, no se descarta.
     var manualTaken = 0;
     manualPicks.forEach(function(pick) {
-        var cfg = byDesc[pick];
+        // v24.5: una fijada a mano puede venir del catálogo (sin volumen de producción).
+        var cfg = byDesc[pick] || tpConfigByDesc(pick);
         if (!cfg) return;
         if (items.length >= capacity) { overflowManual.push(pick); return; }
         if (take(cfg, { manual: true, carriedOver: backlogDescs.has(pick) }, true)) {
@@ -7522,13 +7613,15 @@ function tpSubstituteCandidatesFor(item, opts) {
     opts = opts || {};
     var scope = TP_SUBST_SCOPES[opts.scope] ? opts.scope : 'familia';
     var keep = TP_SUBST_SCOPES[scope].keep;
-    var base = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
+    var base = tpConfigByDesc(item.desc) || item;
     var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
     var porDesc = {};
     an.forEach(function(a) { porDesc[a.desc] = a; });
 
     var out = [];
-    (tpState.planData || []).forEach(function(c) {
+    // v24.5: el universo es el catálogo unificado — una config que el Alta ofrece
+    // también se puede sustituir aquí (sale marcada `catalogOnly`, déficit 0).
+    tpConfigCatalog().forEach(function(c) {
         if (c.desc === item.desc) return;
         for (var i = 0; i < keep.length; i++) {
             var f = keep[i];
@@ -7549,7 +7642,7 @@ function tpSubstituteCandidatesFor(item, opts) {
         var a2 = porDesc[c.desc] || {};
         out.push({ cfg: c, desc: c.desc, diffs: diffs, scope: scope, breaksCore: rompeNucleo,
                    deficit: a2.deficit || 0, required: a2.required || 0, testedN: a2.testedN || 0,
-                   paused: !!c.paused });
+                   paused: !!c.paused, catalogOnly: !!c._catalogOnly });
     });
     // Primero la equivalente, luego la que más falta hace, luego la que menos se aleja.
     out.sort(function(x, y) {
@@ -7577,8 +7670,8 @@ function tpSwapItemConfig(weekIdx, itemIdx, nuevoDesc, opts) {
     var plan = _n.plan;
     var item = _n.item;
     if (item.completed) return { ok: false, reason: 'Esa prueba ya está marcada como hecha.' };
-    var nueva = (tpState.planData || []).find(function(p) { return p.desc === nuevoDesc; });
-    if (!nueva) return { ok: false, reason: 'Esa configuración ya no está en el plan de producción.' };
+    var nueva = tpConfigByDesc(nuevoDesc);
+    if (!nueva) return { ok: false, reason: 'Esa configuración ya no está ni en el plan de producción ni en el catálogo.' };
 
     // v20.1: se busca en el nivel pedido y, si no aparece, se va ampliando. Así el
     // llamador no tiene que saber de antemano en qué nivel cae la candidata.
@@ -7672,7 +7765,8 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
                     '<span class="tp-week-movebtn-day">' + (c.breaksCore ? '⚠️ ' : '') + titulo + '</span>' +
                     '<span class="tp-week-movebtn-sub">' +
                       c.diffs.map(function(d) { return d.label + ': ' + d.planned + ' → ' + d.actual; }).join(' · ') +
-                      ' · faltan ' + c.deficit + ' de ' + c.required +
+                      (c.catalogOnly ? ' · 📦 sin volumen de producción (no cuenta para el REQ)'
+                                     : ' · faltan ' + c.deficit + ' de ' + c.required) +
                       (c.paused ? ' · PAUSADA' : '') +
                     '</span></button>';
         });
@@ -7731,7 +7825,7 @@ function tpLinkableVehiclesFor(item, opts) {
         var f = new Date(d0 + 'T00:00:00');
         if (!isNaN(f.getTime())) { f.setDate(f.getDate() + 6); d1 = (typeof _tpFmtDate === 'function') ? _tpFmtDate(f) : null; }
     }
-    var base = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+    var base = tpConfigByDesc(item.desc) || item;
     var famBase = (typeof tpFamilyKeyForCfg === 'function') ? tpFamilyKeyForCfg(base) : null;
 
     // Ya vinculado a OTRA fila — de esta semana o de cualquier otra: no se ofrece dos veces.
@@ -7747,7 +7841,7 @@ function tpLinkableVehiclesFor(item, opts) {
         var enSemana = !d0 || !fecha || (fecha >= d0 && fecha <= d1);
         if (!enSemana && !opts.all) return;
 
-        var cfgV = (tpState.planData || []).find(function(c) { return c.desc === v.configCode; });
+        var cfgV = tpConfigByDesc(v.configCode);
         var famV = cfgV && famBase ? tpFamilyKeyForCfg(cfgV) : null;
         var cercania = (v.configCode === item.desc) ? 0 : (famV && famV === famBase) ? 1 : 2;
 
@@ -7805,8 +7899,8 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     var distinta = v.configCode && v.configCode !== item.desc;
     var diffs = [];
     if (distinta) {
-        var a = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
-        var b = (tpState.planData || []).find(function(c) { return c.desc === v.configCode; });
+        var a = tpConfigByDesc(item.desc) || item;
+        var b = tpConfigByDesc(v.configCode);
         if (b) {
             _tpCoreFields.concat(_tpFlexFields).forEach(function(f) {
                 var x = String(a[f] || '').toUpperCase(), y = String(b[f] || '').toUpperCase();
@@ -9336,8 +9430,8 @@ function tpPredictSubstitutions(items) {
         if (probability >= 30 && bestSub) {
             // Find the differences between planned and predicted
             var diffs = [];
-            var planned = tpState.planData.find(function(c) { return c.desc === desc; });
-            var predicted = tpState.planData.find(function(c) { return c.desc === bestSub; });
+            var planned = tpConfigByDesc(desc);
+            var predicted = tpConfigByDesc(bestSub);
             if (planned && predicted) {
                 var flexFields = ['ep', 'engpkg', 'tire', 'drv', 'body'];
                 flexFields.forEach(function(f) {

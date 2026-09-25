@@ -6297,13 +6297,49 @@ var _manualConfigFields = [
     { key: 'ENGINE PACKAGE', label: 'Engine Package' }
 ];
 
+// [v24.5] Las configs manuales viven en `db.manualConfigs` (se sincronizan con cop15);
+// `kia_manual_configs` queda solo como origen de la migración (manualConfigsAfterLoad).
+// getManualConfigs devuelve las VIVAS; borrar deja marca para que el sync no las resucite.
 function getManualConfigs() {
-    try { return JSON.parse(localStorage.getItem('kia_manual_configs')) || []; }
-    catch(e) { return []; }
+    if (typeof db === 'undefined' || !db) return [];
+    if (!Array.isArray(db.manualConfigs) && typeof manualConfigsAfterLoad === 'function') manualConfigsAfterLoad();
+    return (db.manualConfigs || []).filter(function(c) { return c && !c.deleted; });
 }
 
+/** Recibe la lista VIVA completa y la reconcilia contra lo guardado (altas, ediciones y marcas). */
 function _saveManualConfigs(configs) {
-    localStorage.setItem('kia_manual_configs', JSON.stringify(configs));
+    if (typeof db === 'undefined' || !db) return;
+    var now = new Date().toISOString();
+    var prev = {};
+    (db.manualConfigs || []).forEach(function(c) { if (c && c.codigo_config_text) prev[c.codigo_config_text] = c; });
+    var next = {}, out = [];
+    (configs || []).forEach(function(c) {
+        if (!c) return;
+        var o = Object.assign({}, c);
+        o._source = 'manual';
+        if (!o.codigo_config_text) o.codigo_config_text = _buildConfigCode(o);
+        var old = prev[o.codigo_config_text];
+        var cmpOld = old ? Object.assign({}, old) : null, cmpNew = Object.assign({}, o);
+        if (cmpOld) { delete cmpOld.updatedAt; delete cmpOld.deleted; delete cmpOld.deletedAt; }
+        delete cmpNew.updatedAt; delete cmpNew.deleted; delete cmpNew.deletedAt;
+        if (old && !old.deleted && stableStringify(cmpOld) === stableStringify(cmpNew)) o = old;   // sin cambio: no se re-sella
+        else { delete o.deleted; delete o.deletedAt; o.updatedAt = now; }
+        next[o.codigo_config_text] = true;
+        out.push(o);
+    });
+    Object.keys(prev).forEach(function(k) {
+        if (next[k]) return;
+        var c = prev[k];
+        out.push(c.deleted ? c : Object.assign({}, c, { deleted: true, deletedAt: now, updatedAt: now }));
+    });
+    db.manualConfigs = out;
+    saveDB();
+}
+
+function _manualConfigIdxByCode(code) {
+    var list = getManualConfigs();
+    for (var i = 0; i < list.length; i++) if (list[i].codigo_config_text === code) return i;
+    return -1;
 }
 
 function _buildConfigCode(cfg) {
@@ -6475,9 +6511,15 @@ function _mergeManualConfigsIntoAll() {
     });
 }
 
-function deleteManualConfig(idx) {
-    showConfirm('¿Eliminar esta configuración manual?', function() {
+// v24.5: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
+// de sync puede reordenarla (regla v23: la UI habla por identidad).
+function deleteManualConfig(code) {
+    showConfirm('¿Eliminar esta configuración manual? Se borra en todos los equipos.', function() {
         var manuals = getManualConfigs();
+        var idx = -1;
+        manuals.forEach(function(c, i) { if (c.codigo_config_text === code) idx = i; });
+        if (idx < 0) { showToast('Esa configuración ya no existe (la lista cambió).', 'info'); openConfigPanel(); return; }
+        if (typeof auditLog === 'function') auditLog('cop15', 'config_manual_borrada', { type: 'config', label: code }, '');
         manuals.splice(idx, 1);
         _saveManualConfigs(manuals);
         _mergeManualConfigsIntoAll();
@@ -6504,8 +6546,8 @@ function renderManualConfigsList() {
         var code = mc.codigo_config_text || _buildConfigCode(mc);
         html += '<div style="display:flex;align-items:center;gap: var(--space-sm);padding:4px 0;border-bottom:1px solid #dbeafe;font-size: var(--fs-xs);">' +
             '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
-            '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
-            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
+            '<button onclick="openManualConfigForm(_manualConfigIdxByCode(\'' + String(code).replace(/'/g, "\\'") + '\'))" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
+            '<button onclick="deleteManualConfig(\'' + String(code).replace(/'/g, "\\'") + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
             '</div>';
     });
     html += '</div>';

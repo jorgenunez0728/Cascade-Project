@@ -5264,3 +5264,122 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [v24] Sub-vistas de "Análisis" de un proyecto: más discretas que las principales. */
 .pn-proj-viewtabs--sub { margin-top: var(--space-xs); }
 .pn-proj-viewtabs--sub .pn-proj-viewtab { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v24.5] HOY ejecutivo — Pulso · Lo siguiente · categorías como tiles
+   HOY apilaba 6 KPIs + Pipeline + Mi turno + todas las categorías abiertas:
+   había que bajar varias pantallas para ver qué hacer. Ahora son tres niveles
+   de lectura y el detalle está a un toque. Todo con tokens (densidad, v22).
+   ══════════════════════════════════════════════════════════════════════ */
+.dash-head { align-items: center; justify-content: flex-start; margin-bottom: var(--space-md); }
+.dash-head-text { flex: 1; min-width: 0; }
+.dash-head .daily-dash-greeting { margin-bottom: 0; }
+.dash-head-chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: var(--radius-full); padding: var(--space-xs) var(--space-md);
+    font-size: var(--fs-sm); font-weight: 600; cursor: pointer; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-height: var(--target-min, 40px);
+    transition: background-color var(--dur-fast) ease;
+}
+.dash-head-chip:hover { background: var(--surface-alt); }
+
+/* Pulso: 5 indicadores en una fila; se reacomodan según el ancho del contenedor. */
+.dash-pulse {
+    display: grid; gap: var(--space-sm); margin-bottom: var(--space-lg);
+    grid-template-columns: repeat(auto-fit, minmax(min(11.5rem, 100%), 1fr));
+}
+.dash-pulse-tile {
+    display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-xs);
+    min-width: 0; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--border);
+    border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-md);
+    transition: transform var(--dur-fast) ease, box-shadow var(--dur-base) ease;
+}
+.dash-pulse-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.dash-pulse-tile:focus-visible { outline: 3px solid var(--info-fill); outline-offset: 2px; }
+.dash-pulse-tile--ok      { border-top-color: var(--ok-fill); }
+.dash-pulse-tile--warn    { border-top-color: var(--warn-fill); background: var(--warn-tint); }
+.dash-pulse-tile--danger  { border-top-color: var(--danger-fill); background: var(--danger-tint); }
+.dash-pulse-tile--info    { border-top-color: var(--info-fill); }
+.dash-pulse-tile--neutral { border-top-color: var(--border); }
+.dash-pulse-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.dash-pulse-num { font-size: var(--fs-lg); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.dash-pulse-num small { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.dash-pulse-tile--ok .dash-pulse-num     { color: var(--ok-text); }
+.dash-pulse-tile--warn .dash-pulse-num   { color: var(--warn-text); }
+.dash-pulse-tile--danger .dash-pulse-num { color: var(--danger-text); }
+.dash-pulse-tile--info .dash-pulse-num   { color: var(--info-text); }
+.dash-pulse-sub { font-size: var(--fs-xs); color: var(--muted); overflow-wrap: anywhere; }
+.dash-pulse-bar {
+    display: block; width: 100%; height: 6px; border-radius: var(--radius-full);
+    background: var(--surface-alt); overflow: hidden;
+}
+.dash-pulse-bar > i {
+    display: block; height: 100%; border-radius: inherit; background: currentColor;
+    transition: width var(--dur-slow) ease;
+}
+.dash-pulse-tile--ok .dash-pulse-bar     { color: var(--ok-fill); }
+.dash-pulse-tile--warn .dash-pulse-bar   { color: var(--warn-fill); }
+.dash-pulse-tile--danger .dash-pulse-bar { color: var(--danger-fill); }
+.dash-pulse-tile--info .dash-pulse-bar   { color: var(--info-fill); }
+/* El pipeline como UNA barra segmentada: proporción de un vistazo. */
+.dash-pulse-seg {
+    display: flex; width: 100%; height: 8px; gap: var(--space-2xs);
+    border-radius: var(--radius-full); overflow: hidden;
+}
+.dash-pulse-seg > i { display: block; min-width: 6px; }
+.dash-pulse-seg--registered       { background: var(--info-fill); }
+.dash-pulse-seg--in-progress      { background: var(--warn-fill); }
+.dash-pulse-seg--testing          { background: var(--accent-cop); }
+.dash-pulse-seg--ready-release    { background: var(--ok-fill); }
+.dash-pulse-seg--pending-approval { background: var(--accent-panel); }
+.dash-spark { width: 100%; max-width: 7.5rem; height: 1.75rem; display: block; }
+.dash-spark rect { fill: var(--border); }
+.dash-spark rect.dash-spark-today { fill: var(--ok-fill); }
+
+/* Lo siguiente: una lista corta con el mismo formato de fila de siempre. */
+.dash-next {
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    background: var(--surface); overflow: hidden; margin-bottom: var(--space-md);
+}
+.dash-next > .dash-row:first-child { border-top: none; }
+
+/* Categorías como tiles. */
+.dash-cat-tiles {
+    display: grid; gap: var(--space-sm); margin-bottom: var(--space-md);
+    grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+}
+.dash-cat-tile {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+    column-gap: var(--space-sm); align-items: center; text-align: left;
+    font: inherit; color: var(--text); cursor: pointer; min-width: 0;
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-md);
+    min-height: var(--target-min, 44px);
+    transition: background-color var(--dur-fast) ease, box-shadow var(--dur-base) ease;
+}
+.dash-cat-tile:hover { background: var(--surface-alt); }
+.dash-cat-tile:focus-visible { outline: 3px solid var(--info-fill); outline-offset: 2px; }
+.dash-cat-tile--cascade   { border-left-color: var(--accent-cascade); }
+.dash-cat-tile--testplan  { border-left-color: var(--accent-testplan); }
+.dash-cat-tile--inventory { border-left-color: var(--accent-inventory); }
+.dash-cat-tile--panel     { border-left-color: var(--accent-panel); }
+.dash-cat-tile--cop       { border-left-color: var(--accent-cop); }
+.dash-cat-tile--on { background: var(--info-tint); box-shadow: inset 0 0 0 2px var(--info-fill); }
+.dash-cat-tile-icon { grid-row: 1 / 3; font-size: var(--fs-md); }
+.dash-cat-tile-name { font-size: var(--fs-sm); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-cat-tile-count { font-size: var(--fs-xs); color: var(--muted); }
+.dash-cat-tile--late .dash-cat-tile-count strong { color: var(--danger-text); }
+.dash-cat-detail {
+    border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface);
+    overflow: hidden; margin-bottom: var(--space-md);
+    animation: accordionOpen var(--dur-base) ease;
+}
+.dash-cat-detail-head {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); font-weight: 700; font-size: var(--fs-sm);
+}
+.dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
+.dash-cat-detail { border-left-width: 4px; }
+.dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
