@@ -283,41 +283,57 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
 var APP_BUILD = '__BUILD_VERSION__';
 
-// Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
-// con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '24.4';
+// Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
+//   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
+//            obliga a re-capacitar. MENOR — algo nuevo que el técnico ve o usa (pantalla,
+//            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
+// Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
+// CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
+var APP_VERSION = '2.0.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
+// Forma OBLIGATORIA de cada entrada: {version, date, title, bullets} — la plantilla de
+// index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
+// `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { v: '24.4', date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
-      notes: [
+    { version: '2.0.0', date: '26 sep 2026', title: 'Nueva numeración, un solo catálogo y HOY ejecutivo',
+      bullets: [
+          'Numeración nueva de tres números: MAYOR.MENOR.PARCHE. El primero cambia solo cuando todos los equipos deben actualizar juntos; el segundo, con cada novedad que se ve o se usa; el tercero, con arreglos. Todo lo anterior (hasta la v24.4) queda abajo como "numeración anterior".',
+          'Este historial mostraba vacías las últimas 12 versiones (sin número ni notas). Ya se ven completas.',
+          'El Plan (agregar, sustituir, vincular) ofrece las mismas configuraciones que el Alta. Las que no vienen en el plan de producción importado salen al final marcadas "📦 sin volumen": se pueden planear a mano, pero no tienen REQ ni mueven la cobertura.',
+          'Las configuraciones dadas de alta a mano ya se sincronizan entre equipos (antes solo existían en el dispositivo donde se crearon). Borrar una la borra en todos.',
+          'HOY: el Pulso del laboratorio (semana, vehículos en curso, liberaciones con tendencia de 7 días, cobertura REQ y alertas) reemplaza a los 6 KPIs, el Pipeline y Mi turno. Cada recuadro abre su pantalla.',
+          'HOY: las categorías son recuadros con sus pendientes. Sin tocar ninguno se ven las 5 acciones que más urgen; tocando uno, su lista completa en el mismo lugar. Se retiró "Acceso rápido" (lo tiene la barra de arriba).'
+      ] },
+    { version: '24.4', legacy: true, date: '24 sep 2026', title: 'El importador de calibraciones lee el Plan Anual del laboratorio',
+      bullets: [
           '"📥 Actualizar desde Excel" ahora reconoce el Plan Anual de Calibración tal como lo usa el laboratorio (encabezados en inglés, sin columna "No.", frecuencia en Internal/External).',
           'Cada fila se identifica aunque dos instrumentos compartan KMM o serie (p. ej. temperatura y humedad del mismo termohigrómetro).',
           'Fechas dudosas ya no se aplican a ciegas: "08/11/26" se resuelve con la fecha de vencimiento y una calibración futura se rechaza.',
           'Si la fecha de la app venía de la semilla original, el Excel la corrige; una calibración registrada en la app nunca se retrocede.'
       ] },
-    { v: '24.3', date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
-      notes: [
+    { version: '24.3', legacy: true, date: '24 sep 2026', title: 'Calibraciones desde Excel, reporte de consumibles y HOY sin tarjetas encimadas',
+      bullets: [
           'Equipos → "📥 Actualizar desde Excel": sube el COP15-F11 actualizado y la app encuentra sola la hoja, empata cada instrumento por su No. del F11 y te muestra fecha, certificado y próxima calibración antes de guardar.',
           'Consumibles → Reporte: ahora calcula el "Comprar" igual que el correo (consumo por día hábil × días de reposición × 1.3) y "📋 Copiar para correo" pega las tablas en Outlook.',
           '"📥 Importar reporte": carga el Excel, la tabla copiada del correo o una captura de pantalla (OCR, menos exacto). Solo guarda el inventario y los días de reposición.',
           'HOY: las tarjetas de vehículos y del plan ya no se enciman en pantallas anchas; los botones bajan debajo del título cuando no caben.',
           'Sincronización: las lecturas de gases y gasolina capturadas en otro equipo ya se fusionan (antes fallaba en silencio).'
       ] },
-    { v: '24.2', date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
-      notes: [
+    { version: '24.2', legacy: true, date: '23 sep 2026', title: 'Un vehículo borrado ya no regresa',
+      bullets: [
           'Borrar un vehículo en Historial ahora deja una marca que viaja con la sincronización: los demás equipos también lo retiran y ya no vuelve a aparecer en Liberación, Aprobador ni en ninguna lista.',
           'Si se vuelve a dar de alta el mismo VIN (una prueba nueva), el alta nueva se conserva: la marca solo aplica al registro que se borró.',
           'Cada borrado queda en la auditoría (Datos → Auditoría) con quién y en qué estado estaba.'
       ] },
-    { v: '24.1', date: '23 sep 2026', title: 'El checklist de liberación ya no se borra solo',
-      notes: [
+    { version: '24.1', legacy: true, date: '23 sep 2026', title: 'El checklist de liberación ya no se borra solo',
+      bullets: [
           'En un vehículo registrado antes de la v23.5, la primera marca del checklist (Retirado / Adjunto) se borraba al llegar la sincronización con la copia vieja de la nube. Ahora cada vehículo toma su huella al cargarse y la primera edición cuenta como la más reciente.',
           'Si un botón del checklist no puede registrar la marca (el vehículo ya cambió de etapa o no hay uno abierto), ahora lo dice en vez de no hacer nada.'
       ] },
-    { v: '24.0', date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
-      notes: [
+    { version: '24.0', legacy: true, date: '23 sep 2026', title: 'Toda la plataforma, más fácil de usar',
+      bullets: [
           'Las pestañas de Plan, Consumibles y Datos se agrupan en 3–4 secciones; se ven solo las de la sección abierta y cada una recuerda la última que usaste.',
           'Botones de un toque en ~25 listas (estado del cilindro, región, categoría, propósito…) y − / + en capacidades, ratios y horas.',
           'Borrar pregunta qué se borra y ofrece «Deshacer» unos segundos. El «Deshacer» nunca había funcionado en ningún aviso de la app.',
@@ -325,16 +341,16 @@ var APP_VERSION_HISTORY = [
           'En teléfono, las tablas anchas se leen como tarjetas; la captura de lecturas deja el Guardar siempre abajo.',
           'Textos: acentos, sin inglés ni MAYÚSCULAS, y errores que dicen qué hacer.'
       ] },
-    { v: '23.5', date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
-      notes: [
+    { version: '23.5', legacy: true, date: '22 sep 2026', title: 'El sync entre equipos, de verdad',
+      bullets: [
           'Corregido (#131): la fecha/hora de recepción, el operador de recepción y las notas se guardaban pero nunca se cargaban — al reabrir salían vacíos y el siguiente guardado los borraba.',
           'Corregido (#131): un cambio a un vehículo hecho en otro equipo ya llega; gana la edición más reciente, no la de timeline más largo.',
           'Corregido (#132): los avisos de sync ya no se ciclan. Cada fusión automática re-empujaba todo y el otro equipo la veía «distinta» por el orden de las llaves.',
           'Operación ya no pisa lo que otro equipo guardó en campos que tú no tocaste.',
           'Corregido: el campo de fecha/hora del preacondicionamiento se aplastaba y no abría en computadora; los botones «Ayer 6AM/Ahora» viejos (que ponían la hora UTC, 6 h adelante) se quitaron.'
       ] },
-    { v: '23.4', date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
-      notes: [
+    { version: '23.4', legacy: true, date: '22 sep 2026', title: 'Cascade más simple: números de un toque, un botón que dice qué sigue',
+      bullets: [
           'Corregido: guardar Operación borraba los gases, la firma y el checklist, y un vehículo en aprobación regresaba a «En progreso». Ahora en aprobación Operación es solo lectura.',
           'Corregido: ETW/Target vacíos se guardaban como 0 y el F05 podía decir «Completa» con esas casillas en blanco.',
           'Números de un toque: − / + con los valores más usados en esa configuración, deslizador para el SOC y «Último de esta config» para ETW/Target.',
@@ -344,8 +360,8 @@ var APP_VERSION_HISTORY = [
           'Vehículos en tarjetas por etapa, propósito del Alta en botones agrupados, Historial en tarjetas en el teléfono.',
           'El PDF imprime nombres: «Premium Mexicana», «RON95 (1/8)», no códigos.'
       ] },
-    { v: '23.3', date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
-      notes: [
+    { version: '23.3', legacy: true, date: '22 sep 2026', title: 'El PDF COP15-F05 cabe en una hoja y se llena completo',
+      bullets: [
           'Los resultados de emisiones y las firmas quedaban FUERA de la hoja, y el pie se encimaba sobre CO₂/THC. La página se reacomodó: todo cabe en una carta.',
           'Adiós a la basura tipo "d 1 P A S A" y "C O ,": los símbolos que el PDF no sabe dibujar (≤, ₂) se traducen.',
           'Nuevo checklist de liberación: objetos retirados y evidencia adjunta se confirman en Liberación y se imprimen en el F05. Lo que la app ya sabe (Solo Europa / Solo Cert. MX fuera de región) se llena solo.',
@@ -355,8 +371,8 @@ var APP_VERSION_HISTORY = [
           'Las pruebas liberadas antes de hoy traen el checklist asentado solo (y se puede corregir en Historial → 📝 Completar, donde también se llena el SOC).',
           'La liberación por lote queda en pausa.'
       ] },
-    { v: '23.2', date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
-      notes: [
+    { version: '23.2', legacy: true, date: '8 sep 2026', title: 'El live-sync que nunca corrió, y la identidad de los instrumentos',
+      bullets: [
           'El sync automático entre dispositivos NUNCA había funcionado: los cambios de otro equipo se descartaban en silencio mientras el indicador decía "Live sync active". Ahora sí llegan sin recargar.',
           'La calibración podía quedar registrada en el equipo equivocado: 11 de 31 instrumentos compartían clave de fusión por no tener número de serie. Ahora se identifican por su id.',
           'Un pull ya no borra la bitácora de turno ni devuelve las reglas del laboratorio a valores de fábrica.',
@@ -366,15 +382,15 @@ var APP_VERSION_HISTORY = [
           'Aprobar una prueba vuelve a verificar que los valores coincidan: el candado del doble ciego ya no depende de un botón.',
           'Las pruebas ahora corren solas antes de cada despliegue: 98 casos, y una guardia que detecta código muerto.'
       ] },
-    { v: '23.1', date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
-      notes: [
+    { version: '23.1', legacy: true, date: '3 sep 2026', title: 'OBD II fuera de emisiones, un solo lazo, y tres reportes',
+      bullets: [
           'Una prueba de OBD II ya NO baja el déficit de emisiones ni sube la cobertura: se registra igual, pero no acredita. Qué propósito cuenta se decide en Plan → Reglas.',
           'Generar mes y el Simulador dejaron de tener su propio algoritmo: usan el mismo de "Generar" una semana, así que por fin conocen la cuota de la cola, los filtros y la disponibilidad.',
           'Los controles que solo cambian la vista (filtros del Dashboard, Captura Manual/Importar JSON, el año del Plan Maestro, los tipos de gráfica) por fin repintan la pantalla — antes no pasaba nada (#110).',
           'La tira "Siguiente: …" solo se ve dentro de Pruebas, ya no tapa la barra de abajo y se puede apagar con su ✕ (#109).'
       ] },
-    { v: '23.0', date: '3 sep 2026', title: 'El plan de pruebas, de nuevo',
-      notes: [
+    { version: '23.0', legacy: true, date: '3 sep 2026', title: 'El plan de pruebas, de nuevo',
+      bullets: [
           'Se eliminó el auto-plan del viernes: generaba una propuesta en CADA dispositivo y el sync las acumulaba todas.',
           'Aceptar, borrar y mover ya no usan la posición del plan en la lista, sino su identidad: el botón dejó de caer en otro plan.',
           'La capacidad de la semana es un dato guardado (y no el máximo físico): se acabó el "40 pruebas en una semana".',
@@ -384,63 +400,63 @@ var APP_VERSION_HISTORY = [
           'HOY se puede ver por día o por semana, con proyectos y calibraciones que vencen; el plan aparece sólo una vez aceptado.',
           'Se pueden planear actividades de OBD, nuevos modelos y los demás tipos de Cascade, no sólo emisiones.'
       ] },
-    { version: '22.7', date: '2 sep 2026', title: 'Toda la app pasó a la escala compartida', bullets: [
+    { version: '22.7', legacy: true, date: '2 sep 2026', title: 'Toda la app pasó a la escala compartida', bullets: [
         'Los 2,256 espaciados y radios escritos a mano en los 12 módulos pasaron a la escala compartida: ahora la densidad Cómoda/Compacta/Amplia afecta a TODA la app, no solo a las pantallas ya migradas.',
         '335 colores grises escritos a mano pasaron a los del sistema, así que el texto secundario cumple contraste en todas partes.',
         '39 CAMPOS DE CAPTURA subieron a 16px: por debajo de eso el iPhone hace zoom al tocarlos y no regresa solo.',
         'Los títulos de tarjeta en Plan y Consumibles salían pegados a la derecha, separados de su barrita de color. Defecto viejo, corregido.',
         'Los colores de estado (rojo/ámbar/verde) NO se tocaron: cambiarlos sin saber si van sobre fondo claro u oscuro habría roto algún semáforo.'
     ] },
-    { version: '22.6', date: '1 sep 2026', title: 'Barra de acción fija y los botones dejaron de ser letra chica', bullets: [
+    { version: '22.6', legacy: true, date: '1 sep 2026', title: 'Barra de acción fija y los botones dejaron de ser letra chica', bullets: [
         'BARRA FIJA CON "IR A…", BÚSQUEDA Y "CREAR" en todas las pantallas, no solo en HOY. Es lo primero que se ve bajo las pestañas y desde ahí se llega a cualquiera de las 53 pantallas.',
         'Los mismos botones se quitaron de HOY y del menú ⋯: tenerlos en tres lugares era el desorden que veníamos combatiendo.',
         'LA ETIQUETA DE UN BOTÓN YA NO ES LETRA DE METADATO. 208 botones y títulos estaban al tamaño más chico de la app; ahora usan el de cuerpo.',
         'En celular las filas de botones se acomodan en varias líneas en vez de recortar el texto: "Exportar" se veía como "Exporta" sin que nada avisara.',
         'Los 308 textos que SÍ son metadato (contadores, leyendas, "+15 más") se quedaron chicos a propósito.'
     ] },
-    { version: '22.5', date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
+    { version: '22.5', legacy: true, date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
         'El Resumen del Lab (Pipeline, Plan Semanal, Alertas) y las tres secciones de Mantenimiento usan el mismo encabezado plegable que HOY. Como el Resumen se pinta igual en HOY y en Datos, colapsar en una lo deja colapsado en la otra.',
         '"CREAR OTRO" también al dar de alta un instrumento o una actividad de mantenimiento.',
         'PROYECTOS: filtro "Solo míos" en Tabla y Kanban, compartido con el de HOY. Dice cuántos pasos de otros está escondiendo, para que no se te olvide que hay un filtro puesto.',
         'El filtro NO se ofrece en Gantt, Curva S ni Carga: ahí ver solo tus pasos da una idea equivocada del proyecto.',
         'Tampoco se agregó a Mi semana: el plan semanal no tiene responsable por prueba, así que el control no habría podido filtrar nada.'
     ] },
-    { version: '22.4', date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
+    { version: '22.4', legacy: true, date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
         'LAS SECCIONES QUE SE PLIEGAN ABREN CON UNA TRANSICIÓN, no de golpe. La animación existía desde hace tiempo pero solo la usaban 5 de las 41 secciones plegables de la app.',
         'La flecha del encabezado gira en vez de cambiar de símbolo: se lee como el mismo objeto moviéndose y no como dos flechas parpadeando.',
         'Las gráficas quedan fuera de la animación a propósito, para no repetir el problema de v20.3 donde una carta se pintaba en blanco por medirse en mal momento.',
         'MOVIMIENTO REDUCIDO: había dos reglas contradictorias y una anulaba a la otra en silencio, así que lo que decía el código no era lo que hacía la app. Ahora es una sola.',
         'Las 155 duraciones de animación escritas a mano pasaron a la escala compartida: cambiar el ritmo de la plataforma ahora es cambiar tres valores, no buscar en 4,500 líneas.'
     ] },
-    { version: '22.3', date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
+    { version: '22.3', legacy: true, date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
         'TODAS LAS TARJETAS SE COLAPSAN Y RECUERDAN CÓMO LAS DEJASTE, por dispositivo. El encabezado muestra el dato clave sin abrirla: cuántos pendientes, si la ponderación suma 100, si el empuje por antigüedad está apagado.',
         '"SOLO MÍOS" YA NO SE PIERDE AL RECARGAR. Vivía solo en memoria, así que quien trabaja filtrado tenía que volver a marcarlo cada vez que abría la app.',
         '"CREAR OTRO" al dar de alta una actividad o un cilindro: guarda y vuelve a abrir el formulario, conservando lo que se repite (responsable, fecha, proveedor) y limpiando lo que cambia. Recuerda si lo prefieres siempre encendido.',
         'En Armar semana, si el peso de región está en 0% la pantalla lo dice: esos diez controles no afectan nada hasta que lo subas.',
         'Los grupos de HOY y las tarjetas del planificador comparten por fin el mismo encabezado, en vez de tres formas distintas de la misma cosa.'
     ] },
-    { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
+    { version: '22.2', legacy: true, date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
         'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
         'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
         'BOTÓN "CREAR": un solo lugar para dar de alta actividad, cilindro, ronda de lecturas, instrumento, mantenimiento o reporte de un problema.',
         'La lista de pantallas se arma sola leyendo los botones que ya existen, así que una pestaña nueva aparece en el lanzador sin que nadie la agregue a ninguna lista.',
         'Ctrl+K sigue funcionando igual. La ventana pasó de 520 a 720px y ya no recorta la lista.'
     ] },
-    { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
+    { version: '22.1', legacy: true, date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
         'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
         'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
         'El chip "Atrasado" se veía como texto suelto porque la fila resaltada usaba su mismo color de fondo. Ahora el tinte de fila es un nivel más claro que el del chip.',
         'Los campos del alta rápida de actividad pasaron a 16px: por debajo de eso iOS hace zoom automático al escribir y no vuelve solo.',
         'HOY dejó de usar 20 colores escritos a mano y pasó a los del sistema, así que el texto gris cumple contraste y ya no hay dos grises distintos para lo mismo.'
     ] },
-    { version: '22.0', date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
+    { version: '22.0', legacy: true, date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
         'LA PLATAFORMA SE VE MÁS LIMPIA. La tipografía de cuerpo de facto era var(--fs-xs), el tamaño que el propio sistema declaraba como "mínimo legal, solo metadatos": se usaba 898 veces contra 403 del tamaño de cuerpo real. De ahí venía la sensación de apretado.',
         'Densidad elegible en Datos → Sistema: Compacta (la escala anterior), Cómoda (nueva, por defecto) y Amplia (para tablet o proyector). Solo cambia tu dispositivo.',
         'El interlineado subió de 1.5 a 1.6. Como line-height se hereda, los ~900 tamaños escritos en línea ganaron altura de caja sin tocar ninguno.',
         'styles.css pasó de 617 medidas escritas a mano a 811 usos de la escala compartida: el espaciado por fin responde a la densidad. La barra de navegación quedó excluida a propósito para no reventar su ancho.',
         '.card y .tab-panel llevaban meses con esquinas cuadradas y sin sombra: usaban dos variables que nunca se habían declarado.'
     ] },
-    { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
+    { version: '21.1', legacy: true, date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
         'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
         'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
         'LA GASOLINA YA SE SINCRONIZA. Los tanques nunca viajaban a la nube: cada dispositivo llevaba su propio nivel. Además, unir dos dispositivos ya no descarta las lecturas capturadas aquí.',
@@ -448,7 +464,7 @@ var APP_VERSION_HISTORY = [
         'Las columnas de consumo del reporte se calculan de las lecturas reales; antes venían de la semilla y salían en 0.0 para todo cilindro dado de alta en la app.',
         'La regulación del tanque es un selector (era texto libre, y un typo rompía el descuento automático de gasolina en silencio). Borrar un tanque ahora tiene deshacer y queda en la auditoría.'
     ] },
-    { version: '21.0', date: '30 ago 2026', title: 'La captura de gases y gasolina, de cuatro caminos a uno', bullets: [
+    { version: '21.0', legacy: true, date: '30 ago 2026', title: 'La captura de gases y gasolina, de cuatro caminos a uno', bullets: [
         'LA RONDA POR FIN FUNCIONA. Estaba construida pero nunca había corrido (buscaba un estado de cilindro que la app no usa). Te pide un punto a la vez, en el orden en que están acomodados en el cuarto, termina con el combustible, y puedes salir a media ronda y retomarla donde ibas.',
         'Desde HOY, "🔄 Hacer la ronda" arranca el recorrido de un toque: la app abre en HOY, así que es un toque desde el arranque hasta estar capturando.',
         '¿Capturas de una libreta? La retícula ahora deja elegir la fecha del recorrido — antes clavaba la de hoy sin manera de retrofechar.',
@@ -457,53 +473,53 @@ var APP_VERSION_HISTORY = [
         'Capturar por escaneo, por el mapa o por la ronda ahora también actualiza la predicción de consumo — antes solo lo hacía la captura diaria.',
         '⛽ Combustible sale del menú "⋯ Más" a la barra principal, y las pantallas de captura dejan de verse en tema oscuro.'
     ] },
-    { version: '20.10', date: '28 ago 2026', title: 'Una semana, un plan: el Gantt dejaba de contar doble', bullets: [
+    { version: '20.10', legacy: true, date: '28 ago 2026', title: 'Una semana, un plan: el Gantt dejaba de contar doble', bullets: [
         'El Gantt contaba TODOS los planes de una semana (cada "Generar" crea uno nuevo, así que se acumulan el aceptado y las propuestas viejas). Ahora usa un solo plan por semana: el aceptado, o la propuesta más reciente si no hay ninguno aceptado — marcada como propuesta para que se distinga del compromiso.',
         'Ya se pueden borrar las propuestas: botón 🗑 en cada una dentro de Plan → 🗂 Semanas generadas, con un aviso cuando una semana tiene más de un plan. Los aceptados hay que desaceptarlos primero.'
     ] },
-    { version: '20.9', date: '28 ago 2026', title: 'El REQ es de la familia, por lotes de producción', bullets: [
+    { version: '20.9', legacy: true, date: '28 ago 2026', title: 'El REQ es de la familia, por lotes de producción', bullets: [
         'El REQ de una familia ya no es la suma del REQ de sus variantes: es 3 ensayos por cada lote de 5,000 unidades producidas, y el siguiente lote de 3 no entra hasta superar 7,501. Con los volúmenes actuales todas las familias quedan en 3 — calculado, no escrito a mano: el día que una pase de 7,501 sube sola a 6.',
         'El REQ por configuración no cambia: sigue alimentando al planificador semanal, que decide qué variante conviene correr. Son dos preguntas distintas.'
     ] },
-    { version: '20.8', date: '28 ago 2026', title: 'La carrocería es familia, y el candado de vinculación', bullets: [
+    { version: '20.8', legacy: true, date: '28 ago 2026', title: 'La carrocería es familia, y el candado de vinculación', bullets: [
         'Una 5DR y una WGN ya son FAMILIAS DISTINTAS en todo el sistema: contador propio, tarjeta propia y veredicto propio. No se prueban juntas, así que no se cuentan juntas. Lo que ya tenías guardado (prioridades, horas de reposo) se reparte solo a cada carrocería, y los juicios CoP viejos siguen apareciendo en la historia de ambas.',
         '🔒 Un vehículo acredita UNA sola prueba: ya no se puede vincular el mismo VIN a dos pruebas, ni siquiera en semanas distintas (antes el mismo vehículo aparecía como liberado en dos semanas con una sola prueba real). Si de verdad hacen falta dos, primero se desvincula la anterior.',
         'El Gantt de Progreso semanal se rediseñó: carrocería y tren motriz como etiquetas de color separadas, columna de familia fija al desplazarse, la semana en curso resaltada y una barra de avance por familia.'
     ] },
-    { version: '20.7', date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
+    { version: '20.7', legacy: true, date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
         'Las carrocerías de una familia (p. ej. 5DR y WGN) ahora se listan separadas por coma en vez de "/" — antes se leían como una sola carrocería compuesta.'
     ] },
-    { version: '20.6', date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
+    { version: '20.6', legacy: true, date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
         'La carrocería (body type) de la familia ahora se ve en la tarjeta y en cada fila del Gantt de Progreso semanal.',
         'Se cambió el emoji del botón de ocultar familia (de 🙈 a ➖).'
     ] },
-    { version: '20.5', date: '28 ago 2026', title: 'Panorama: ocultar familias y Gantt de progreso semanal', bullets: [
+    { version: '20.5', legacy: true, date: '28 ago 2026', title: 'Panorama: ocultar familias y Gantt de progreso semanal', bullets: [
         'Botón ➖ en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
         'Nueva tarjeta "📅 Progreso semanal" arriba de la retícula: cruza Plan → Mi semana con las familias que se muestran y dice cuántos vehículos se verificaron/declararon/programaron por semana, comparado contra la cuota — pensado para mostrar avance a gerencia.'
     ] },
-    { version: '20.4', date: '27 ago 2026', title: 'Catálogo de configuraciones actualizado a producción', bullets: [
+    { version: '20.4', legacy: true, date: '27 ago 2026', title: 'Catálogo de configuraciones actualizado a producción', bullets: [
         'El catálogo embebido (CSV_CONFIGURATIONS) pasa de 173 a 248 configuraciones con el CSV de producción más reciente — 10 descontinuadas, 85 nuevas, incluida la familia CL4MH.',
         'Horneado en el código (no importado localmente) para que se vea igual en todos los dispositivos: el importador de la app guarda el CSV solo en el equipo donde se sube, sin sincronizar por Firebase.'
     ] },
-    { version: '20.3', date: '27 ago 2026', title: 'Modal sin scroll y gráficas SPC en blanco', bullets: [
+    { version: '20.3', legacy: true, date: '27 ago 2026', title: 'Modal sin scroll y gráficas SPC en blanco', bullets: [
         'El modal genérico (usado por "🔄 Sustituir" en Mi semana, entre otros) recortaba el contenido largo sin dejar hacer scroll — corregido.',
         'Las cartas I-MR/MR de CoP → Control SPC salían en blanco al entrar a la pestaña — corregido (mismo arreglo que ya tenía la Curva S de Proyectos).'
     ] },
-    { version: '20.2', date: '27 ago 2026', title: 'CO₂ en el CoP: verificación estadística de familia', bullets: [
+    { version: '20.2', legacy: true, date: '27 ago 2026', title: 'CO₂ en el CoP: verificación estadística de familia', bullets: [
         'El CO₂ ya no se compara solo contra un % de tolerancia: ahora corre la prueba estadística real de la norma (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4, "A menos varianza"), confirmada con la tabla de UN R154 (WLTP GTR) §3.3.1 — las dos, lado a lado, con su propio gauge y una conclusión en texto ("se acepta la familia" / "se rechaza la familia") con los números reales.',
         'Nuevo ajuste por familia: FCF (Family Correction Factor) y Evolution Factor, editables ahí mismo en CoP → Validador. Sin ajustar valen 1 (sin corrección); cambiar uno recalcula el veredicto al instante.',
         'Usa el CO₂ medido de cada vehículo (de Pruebas) y el CO₂ declarado del ICMS (de Homologación) — agregar o quitar un vehículo de la mesa de trabajo recalcula todo solo, igual que con los gases.',
         'El juicio guardado congela el CO₂ (las dos pruebas, con el FCF/Evolution Factor con que se decidió) para que el registro sea reproducible aunque después cambien los ajustes. El expediente en PDF también lo incluye.',
         'Se retiró la tolerancia porcentual de CO₂ de Homologación → Settings: quedó superada por la prueba estadística real.'
     ] },
-    { version: '20.1', date: '27 ago 2026', title: 'Mi semana — repetir, agregar y vincular', bullets: [
+    { version: '20.1', legacy: true, date: '27 ago 2026', title: 'Mi semana — repetir, agregar y vincular', bullets: [
         'YA SE PUEDEN PROBAR DOS VEHÍCULOS IDÉNTICOS de la misma configuración en la misma semana. Estaba bloqueado en cuatro sitios a la vez; ahora "⧉ Otra unidad igual" agrega la segunda, se numeran "1 de 2" y "2 de 2", y cada una toma su propio vehículo.',
         'Botón ＋ en cada día para agregar configuraciones directo desde Mi semana, con buscador y agrupadas por familia. Antes solo se podían mover las que el generador proponía.',
         '🔗 Vincular: lista las pruebas de la semana con su VIN y configuración para acreditar una fila a mano cuando el automático no la empató. Si el vehículo es de otra configuración, se registra como sustitución con sus diferencias.',
         'Sustituir ahora tiene tres alcances: misma familia (equivalente), misma región y norma, o misma región. Los que se alejan del núcleo salen marcados con ⚠️ y el nivel queda grabado en el registro.',
         'Menos ruido: el aviso "movida desde el martes" ya no se pinta en la tarjeta. Que el plan se reacomode es normal; el registro sigue en la auditoría y en el menú ⋯.'
     ] },
-    { version: '20.0', date: '27 ago 2026', title: 'Planificador semanal — overhaul', bullets: [
+    { version: '20.0', legacy: true, date: '27 ago 2026', title: 'Planificador semanal — overhaul', bullets: [
         'Plan abre en 📅 Mi semana: una columna por día laborable, con la de hoy resaltada. El plan ya no sale hasta el fondo de la pantalla — es lo primero y lo único que se ve.',
         'Cada prueba se puede mover de día arrastrándola (mantén pulsado, también con el dedo) o con el teclado. Al moverla se recorre su preacondicionamiento, y si el reposo no cabe la app se niega DICIENDO por qué y qué días sí se puede.',
         'El hueco entre preacondicionar y probar ya no es un supuesto fijo de 12 h: sale de las horas de reposo reales. Con 36 h la prueba cae dos días después, y la semana ofrece 3 pares en vez de 4.',
@@ -513,7 +529,7 @@ var APP_VERSION_HISTORY = [
         'Enfoque de la semana de un toque: 🇪🇺 Europa · 🇺🇸 USA · Prioridad · Todo. La propuesta en vivo se reordena al instante y ya no queda tapada por el encabezado al bajar.',
         'HOY dejó de dictar el día con un plan de hace tres semanas: ahora pregunta por la semana en curso, y si no hay plan lo dice y ofrece armarla.'
     ] },
-    { version: '19.1', date: '26 ago 2026', title: 'Familias de interpolación del WVTA', bullets: [
+    { version: '19.1', legacy: true, date: '26 ago 2026', title: 'Familias de interpolación del WVTA', bullets: [
         'El CoP ya reconoce la familia de interpolación (IP), que es la agrupación oficial en Europa: la declara el certificado de homologación por variante y versión. Se lee pegando el texto del WVTA — no hay que teclear familia por familia.',
         'Probado contra un certificado real (e4*2018/858*00261*00, tipo CL4m / K4): las 5 familias salen con sus variantes, versiones, masas TML/TMH y rango de CO₂ exactamente como los declara el documento.',
         'Detecta un caso que a ojo se pasa: la misma variante puede pertenecer a familias distintas según su versión (B5P22 está en dos). Cuando la variante sola es ambigua, la app NO adivina.',
@@ -521,7 +537,7 @@ var APP_VERSION_HISTORY = [
         'El expediente PDF ya cita la familia IP, sus masas y el número de certificado.',
         'Los coeficientes f0/f1/f2 siguen viniendo del ICMS, nunca del WVTA: el certificado solo trae los de los vehículos extremos VL y VH que acotan la familia, no los del vehículo que se va a ensayar.'
     ]},
-    { version: '19.0', date: '26 ago 2026', title: 'CoP: de calculadora a tablero de conformidad', bullets: [
+    { version: '19.0', legacy: true, date: '26 ago 2026', title: 'CoP: de calculadora a tablero de conformidad', bullets: [
         'El CoP ya no obliga a elegir una familia en un menú para ver algo: el Panorama muestra TODAS las familias del alcance de un vistazo, con su veredicto, qué tan cerca del límite van y desde cuándo no se ensayan. Está pensado para proyectarse en una auditoría (botón Modo presentación).',
         'Alcance acotado a lo que el laboratorio realmente certifica: EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara al pie de la pantalla en vez de desaparecer sin explicación.',
         'Encontrado al revisar: el validador tenía los límites Euro 6 escritos a fuego y nunca consultaba el perfil de la norma. Fuera del alcance elegido eso juzgaba mal 65 de 173 configuraciones — EURO-2 y EURO-4 salían NO CONCORDANTE sin serlo, y SULEV 30 se comparaba en g/km contra datos en g/mi. Dentro del alcance no cambia ningún veredicto, y ahora la pantalla avisa si un límite no coincide con su perfil.',
@@ -531,14 +547,14 @@ var APP_VERSION_HISTORY = [
         'Cambiar de familia ya no borra lo que llevabas capturado en la anterior: cada familia guarda su propia mesa de trabajo y sobrevive al cambio, a la recarga y a la sincronización entre equipos.',
         'El módulo pasa a tener 3 exportaciones (Panorama CSV, Expediente PDF/CSV, Juicios CSV) en el Centro de Reportes, que tenía 17 renglones y ninguno de CoP.'
     ]},
-    { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
+    { version: '18.6', legacy: true, date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
         'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
         'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
         'La cola pasa de 50 a 200 pendientes: 50 se llenaba en un solo turno.',
         'El contador "diario" del panel medía en realidad la última hora (por eso veías el mismo número en ambos lados). Ahora sí es diario, y el panel muestra cuánto margen queda de verdad contra el plan gratuito.',
         'El PDF ya no falla en silencio: la librería se sirve desde la propia app en vez de un CDN (la red del trabajo los bloquea) y, si aun así no cargara, avisa en vez de dejar pegado el "Generando PDF...".'
     ]},
-    { version: '18.5', date: '25 ago 2026', title: 'Usuarios: se rompe el candado que impedía editar nada', bullets: [
+    { version: '18.5', legacy: true, date: '25 ago 2026', title: 'Usuarios: se rompe el candado que impedía editar nada', bullets: [
         'Causa real de que ningún campo de Usuarios se dejara modificar: TODOS los operadores nacen con rol "Técnico", pero cambiar un rol exige un permiso que solo tienen Supervisor y Coordinador. Nadie podía darse ni dar el permiso para dar permisos, así que los 22 campos salían en gris — sin errores y sin explicación.',
         'Jorge Nuñez queda como Coordinador (todos los permisos). Y de forma general: si ningún operador activo puede administrar usuarios, la app promueve sola al primero y lo deja anotado en la auditoría. El laboratorio ya no puede quedarse sin quien reparta permisos.',
         'Si tu rol no alcanza, ahora la pantalla te lo DICE: qué rol tienes, qué hace falta y qué sí puedes hacer, en vez de dejar todo gris como si la app estuviera rota.',
@@ -547,18 +563,18 @@ var APP_VERSION_HISTORY = [
         'Un rol escrito con otra grafía (\'SUPERVISOR\', \'tecnico\', con espacios) dejaba a esa persona sin ningún permiso sin avisar. Ahora se reconoce igual.',
         'El mismo operador podía quedar duplicado si su nombre venía escrito distinto entre dispositivos ("Nuñez" / "Núñez"), y la sesión tomaba el registro equivocado. Ahora se fusionan conservando PIN y competencias.'
     ]},
-    { version: '18.4', date: '25 ago 2026', title: 'El Panel vuelve a responder: una clave repetida lo tumbaba entero', bullets: [
+    { version: '18.4', legacy: true, date: '25 ago 2026', title: 'El Panel vuelve a responder: una clave repetida lo tumbaba entero', bullets: [
         'Ningún campo del Panel funcionaba y el Historial de Versiones salía vacío. Era un solo defecto: el historial armaba su identificador juntando la versión y el número de fila sin separador, así que "17.11" en la fila 9 y "17.1" en la fila 19 daban el MISMO identificador ("17.119").',
         'Con dos filas compartiendo identificador, la librería que dibuja las listas se rompe y deja de reaccionar en TODA la pestaña — no solo en esa tarjeta. Por eso los campos no respondían aunque el error pareciera de otra cosa.',
         'Corregido, y agregada una prueba que recorre todas las listas de la app y falla si dos filas vuelven a compartir identificador, para que esto no regrese.'
     ]},
-    { version: '18.3', date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
+    { version: '18.3', legacy: true, date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
         'Ya se puede cambiar el nivel de competencia de un operador. La tarjeta 🎓 Competencias salía VACÍA, sin un solo selector, por un error de programación — y como el nivel otorga permisos, nadie podía dar ni quitar autoridad. (Reportado con el botón 🐞, issue #100.)',
         'Un dispositivo podía salirse del laboratorio sin avisar: el campo "ID de Estación" invitaba a escribir el nombre del equipo, pero en realidad es la ruta del espacio compartido en la nube. Al cambiarlo, ese equipo dejaba de ver los datos y de poder reportar bugs.',
         'Ese campo ya no se puede editar: ahora se muestra el espacio compartido y, si un equipo quedó fuera, se reconecta solo al abrir la app (con aviso y registro en la auditoría). Para nombrar el equipo está "Nombre del dispositivo".',
         'Corregido un error de Alpine que ensuciaba todos los reportes de bug: la lista de alertas usaba el texto del mensaje como identificador y dos alertas con el mismo texto la rompían.'
     ]},
-    { version: '18.2', date: '25 ago 2026', title: 'Devolver al liberador + capturar los gases en las unidades del reporte', bullets: [
+    { version: '18.2', legacy: true, date: '25 ago 2026', title: 'Devolver al liberador + capturar los gases en las unidades del reporte', bullets: [
         'El aprobador ya puede DEVOLVER una prueba al liberador cuando los valores no coinciden. Antes se quedaba atorado: el botón de aprobar estaba deshabilitado y no había salida.',
         'Al devolver se borran los valores y la firma del liberador para que los capture de nuevo, y él ve el motivo al abrir Liberación. Tus valores nunca se le muestran: el doble ciego sigue intacto.',
         'Cada devolución queda registrada (quién, cuándo, por qué) en la línea de tiempo y en la auditoría.',
@@ -567,7 +583,7 @@ var APP_VERSION_HISTORY = [
         'Corregido: el editor de Regulaciones abría vacío (solo Cancelar/Aceptar) — nunca se pudo editar un perfil desde la app.',
         'Corregido: los valores de gases se redondeaban a 3 decimales, así que NOx 0.0013 g/km se guardaba como 0.001 y dos lecturas distintas (0.0013 y 0.0014) se daban por coincidentes en la verificación doble ciego.'
     ]},
-    { version: '18.1', date: '25 ago 2026', title: 'Se acabó el "almacenamiento lleno" que no dejaba liberar vehículos', bullets: [
+    { version: '18.1', legacy: true, date: '25 ago 2026', title: 'Se acabó el "almacenamiento lleno" que no dejaba liberar vehículos', bullets: [
         'Causa encontrada: el historial de fusiones entre dispositivos guardaba las últimas 20 fusiones con una COPIA COMPLETA de la base de datos, el plan y el inventario en cada una (~500 KB por fusión, hasta 10 MB). Ahora solo la fusión más reciente conserva su respaldo — que es la única que se podía deshacer.',
         'Al abrir la app se limpia sola: respaldos de fusión que ya nadie podía usar, borradores de captura caducados y respaldos de restauración vencidos.',
         'Datos → Sistema ya no esconde el 90% del uso en un renglón llamado "Otros": ahora se ve clave por clave qué ocupa cuánto, con etiqueta de si es dato del laboratorio, regenerable o para revisar.',
@@ -575,7 +591,7 @@ var APP_VERSION_HISTORY = [
         'Liberar un vehículo ahora comprueba el espacio ANTES de pedir la firma. Si no cabe, no se cambia nada y te lleva a liberar espacio.',
         'Corregido un problema serio: cuando el almacenamiento estaba lleno, el vehículo se marcaba como archivado en pantalla (con confeti) pero no se guardaba, mientras que el plan SÍ quedaba marcado como cumplido y el gas descontado. Ahora, si el vehículo no se puede guardar, no se guarda nada.'
     ]},
-    { version: '18.0', date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
+    { version: '18.0', legacy: true, date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
         'Se acabó el plan lleno de arrastre: la cola de pendientes ahora tiene un techo (50% de la semana por defecto), así que siempre quedan lugares para las prioridades de hoy. Antes la cola se llevaba la semana entera y lo nuevo no podía entrar.',
         'Los pendientes ahora caducan (4 semanas por defecto) y se pueden apagar por completo. Caducar NO cuenta como probado: el déficit y la cobertura no cambian.',
         'Todo se maneja en la misma pantalla: a la izquierda ajustas ponderación, peso por región, cola y filtros; a la derecha ves en vivo exactamente el plan que se generaría.',
@@ -583,187 +599,187 @@ var APP_VERSION_HISTORY = [
         'Añadir y quitar es directo desde la propuesta: 📌 para fijar, 🚫 para excluir y ➕ en los siguientes candidatos.',
         'El plan automático del viernes ya no se acepta solo: queda como propuesta marcada "⏳ falta aceptar". Aceptar era justo lo que fabricaba el arrastre.'
     ]},
-    { version: '17.14', date: '24 ago 2026', title: 'Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta', bullets: [
+    { version: '17.14', legacy: true, date: '24 ago 2026', title: 'Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta', bullets: [
         'Para vehículos Europa, el Alta ahora pide los datos del ICMS (f0, f1, f2, TM y el CO₂ declarado) desde el primer paso, en vez de tener que buscarlos vehículo por vehículo ya empezada la prueba.',
         'Importa UNA vez el Excel del ICMS en Datos → ⋯ Más → 🇪🇺 Homologación y el Alta se autollena. Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',
         'A partir del segundo vehículo de la misma configuración ya no hay que buscar nada: la plataforma recuerda el enlace y lo llena sola.',
         'El CoP ahora compara el CO₂: cada vehículo contra SU valor declarado, con una tolerancia que tú configuras, y muestra por VIN con qué coeficientes de dinamómetro se corrió.',
         'La ficha se guarda en el vehículo y queda en la auditoría, así que siempre se puede demostrar con qué targets se probó cada uno.'
     ]},
-    { version: '17.13b', date: '24 ago 2026', title: 'El token de bugs ya se comparte de verdad con todos los dispositivos', bullets: [
+    { version: '17.13b', legacy: true, date: '24 ago 2026', title: 'El token de bugs ya se comparte de verdad con todos los dispositivos', bullets: [
         'Guardar el token de GitHub seguía diciendo "guardado solo en este dispositivo" en algunos equipos. Ahora se configura UNA sola vez, desde cualquier dispositivo, y llega al resto del laboratorio.',
         'La causa: la app tarda hasta 12 segundos en darse cuenta de que la sincronización de ese equipo necesita el modo alterno. Si guardabas antes de ese momento, el intento fallaba y ya no se reintentaba. Ahora, si el guardado falla, se reintenta solo por la vía alterna.'
     ]},
-    { version: '17.13a', date: '24 ago 2026', title: 'Correcciones del botón 🐞 en dispositivos con "REST Sync"', bullets: [
+    { version: '17.13a', legacy: true, date: '24 ago 2026', title: 'Correcciones del botón 🐞 en dispositivos con "REST Sync"', bullets: [
         'La pestaña Datos → 🐞 Bugs ya no se borra entera cuando la sincronización viene a medias: si algo falla, solo esa sección avisa y el resto (cola pendiente y configuración) sigue en pantalla.',
         'Guardar el token de GitHub ya funciona en los dispositivos cuyo indicador dice "REST Sync" — antes se guardaba solo en ese dispositivo y no se compartía con los demás del laboratorio.',
         '"Probar conexión" ahora prueba el token que está escrito en pantalla, sin obligar a guardarlo primero.'
     ]},
-    { version: '17.13', date: '22 ago 2026', title: 'Botón 🐞 para reportar fallas con captura de pantalla', bullets: [
+    { version: '17.13', legacy: true, date: '22 ago 2026', title: 'Botón 🐞 para reportar fallas con captura de pantalla', bullets: [
         'Un botón 🐞 flotante, visible en cualquier pantalla de la plataforma: al tocarlo toma solo una captura de lo que estás viendo y abre una ventana para que cuentes qué pasó.',
         'Puedes Descartar (no se guarda absolutamente nada) o Enviar. Al enviar, el reporte se publica como issue en el repositorio de GitHub del proyecto, con la captura y los datos técnicos (versión, pantalla, tamaño, errores internos recientes) ya adjuntos — el técnico no tiene que explicar nada de eso.',
         'Sin internet o sin token configurado el reporte no se pierde: queda en cola (el 🐞 muestra cuántos esperan) y se envía solo al recuperar la conexión.',
         'Datos → ⋯ Más → 🐞 Bugs: bandeja con todos los reportes enviados, su issue y su estado. "Actualizar estados" pregunta a GitHub cuáles ya cerraste y los marca como resueltos aquí.',
         'La conexión con GitHub (token + repositorio) se configura UNA vez desde cualquier dispositivo y se comparte con todos los demás del laboratorio.'
     ]},
-    { version: '17.12', date: '21 ago 2026', title: 'Bug grave: dos vehículos podían compartir el mismo identificador', bullets: [
+    { version: '17.12', legacy: true, date: '21 ago 2026', title: 'Bug grave: dos vehículos podían compartir el mismo identificador', bullets: [
         'Elegir un vehículo en Operación cargaba OTRO (el selector mostraba uno y la ficha seguía con el anterior). Causa: el id se generaba con un contador local (++db.lastId) y la sincronización fusiona vehículos por VIN conservando el id del equipo que los creó, sin adelantar ese contador — dos dispositivos emitían el mismo id sin enterarse.',
         'El mismo id repetido tenía dos consecuencias peores y silenciosas: el borrador de captura se guardaba en una clave por id, así que dos vehículos compartían borrador; y "Eliminar vehículo" filtraba por id, así que borraba LOS DOS de un golpe.',
         'Los ids nuevos ya no pueden repetirse entre dispositivos, y al arrancar (y tras cada sincronización) la plataforma detecta y repara los duplicados que ya existan, dejando constancia en Datos → Auditoría. El temporizador de soak y el "último vehículo activo" se reapuntan solos porque guardan el VIN.',
         'Además, si el vehículo seleccionado ya no existe, Operación y Liberación limpian la pantalla y avisan en vez de dejar cargado el anterior; y "Guardar avance" ya no se queda girando fingiendo que guardó.'
     ]},
-    { version: '17.11', date: '21 ago 2026', title: '"Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial', bullets: [
+    { version: '17.11', legacy: true, date: '21 ago 2026', title: '"Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial', bullets: [
         'El término "ad-hoc" desaparece de la interfaz: la casilla del Alta, el distintivo del Historial y el de la Cola ahora dicen "Fuera de Plan", que es lo que la marca significa (trabajo que no acredita el plan semanal).',
         'Historial: filtro nuevo por Propósito (COP-Emisiones, ND-Emisiones, Correlación…), con las opciones tomadas de los registros que existen de verdad.',
         'Historial: el filtro de Estado no ofrecía "Pendiente Aprobación" — un vehículo esperando aprobación no se podía filtrar. Agregado, junto con una opción "Fuera de Plan" para listar de un toque las pruebas marcadas así.',
         'Ayuda contextual nueva en la casilla "Prueba fuera de plan" del Alta, y aviso corregido: decía que la aprobación se enviaría por Power Automate, un flujo eliminado en v15.6.'
     ]},
-    { version: '17.10', date: '21 ago 2026', title: 'Liberación: elegir contra qué regulación se comparan los gases', bullets: [
+    { version: '17.10', legacy: true, date: '21 ago 2026', title: 'Liberación: elegir contra qué regulación se comparan los gases', bullets: [
         'Un vehículo cuya "regulación" no es una norma con límites (típico del alta manual, donde el campo era texto libre y terminaba con la transmisión "6DCT", "N/A" o el voltaje de un EV) dejaba la Liberación bloqueada: el único camino era irse a Datos → Regulaciones y volver. Ahora el liberador elige ahí mismo contra qué regulación comparar, y el botón de enviar a aprobación se desbloquea.',
         'La elección se guarda en el vehículo, aparece en su línea de tiempo, en la auditoría, en la pantalla del aprobador (que está verificando contra esa norma, no contra la del alta) y en el PDF COP15-F05, que antes releía el dato del alta y podía citar una norma distinta a la usada para validar.',
         'Cuando sí hay perfil, la tabla de gases ahora dice contra qué regulación está comparando, con un botón "Cambiar" — corregir un alta equivocada ya no obliga a repetir la prueba.',
         'Alta manual: "Regulación" pasó de texto libre a un selector de las regulaciones configuradas (con "Otra (escribir)" y "Definir al liberar"), y se agregó un campo opcional de Transmisión — el hueco que hacía que la transmisión acabara capturada como si fuera la norma de emisiones.'
     ]},
-    { version: '17.9', date: '21 ago 2026', title: 'Topbar en una sola fila + menú "⋯" legible + configs manuales que sobreviven', bullets: [
+    { version: '17.9', legacy: true, date: '21 ago 2026', title: 'Topbar en una sola fila + menú "⋯" legible + configs manuales que sobreviven', bullets: [
         'La barra superior ya no envuelve a una segunda fila casi vacía en tablet/teléfono: sin las 5 pestañas (ocultas desde v16.8) no queda nada que envolver. El indicador de sincronización recorta su texto con elipsis en vez de forzar el salto de línea.',
         'El menú "⋯" pasó de cajas altas medio vacías (botones y wrappers mezclados, estirados) a filas de menú uniformes con icono + etiqueta, y el estado de conexión junto al pill de versión en un pie propio. En escritorio la barra ancha se ve igual que antes.',
         'Bug corregido: las configuraciones creadas a mano (Gestor de Configuraciones) desaparecían de la cascada al recargar la página — la fusión solo ocurría al guardarlas, no al arrancar. Seguían listadas en el gestor, pero ningún desplegable de Alta las mostraba.',
         'Cuando la cascada no encuentra ninguna configuración, la tarjeta ahora explica el caso y ofrece el botón "➕ Nueva configuración manual" en vez de terminar en un callejón sin salida.'
     ]},
-    { version: '17.8', date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
+    { version: '17.8', legacy: true, date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
         'El mapa de zonas de Consumibles (mover un cilindro entre posiciones) era solo por mouse/dedo — ahora también se opera por teclado: Enter sobre un cilindro lo selecciona, Enter sobre una posición vacía lo mueve ahí, Escape cancela. Cada paso se anuncia a lectores de pantalla.',
         'Tipografía sub-12px eliminada en js/auth.js y js/firebase-sync.js (login/PIN, ajustes de sincronización) — con esto ya no queda ningún archivo del proyecto con texto por debajo del mínimo.',
         'Bug de contraste encontrado al revisar auth.js: los 7 colores de avatar de operador fallaban como texto (la pantalla de "elige tu usuario", lo primero que ve cualquier técnico) — misma corrección que la paleta P1-P10 de Plan (v17.4).',
         'Un colorcito de "por vencer" en el mapa de zonas y tres tamaños de fuente en decimales (8.5px/10.5px/11.5px) que los barridos anteriores no habían detectado, también corregidos.'
     ]},
-    { version: '17.7', date: '15 ago 2026', title: 'Accesibilidad — módulo CoP (Fase 8, última) + cierre del overhaul', bullets: [
+    { version: '17.7', legacy: true, date: '15 ago 2026', title: 'Accesibilidad — módulo CoP (Fase 8, última) + cierre del overhaul', bullets: [
         'Octavo y último módulo migrado: CoP (validador Type 1 de Conformidad de Producción + Control SPC). Con esto quedan migrados los 7 módulos de la plataforma más la fundación — overhaul de accesibilidad v17.0-v17.7 completo.',
         'Tabla de VINes × gases con encabezados <th scope="col"> y aria-label por celda ("Formaldehído — VIN 3N1...") — antes cada casilla numérica era indistinguible por lectores de pantalla.',
         'Tres selects de familia/región sin etiqueta reciben aria-label.',
         'Nota de alcance: js/auth.js y js/firebase-sync.js (pantalla de login/PIN y ajustes de sincronización) no formaban parte de los 7 módulos planeados — quedan con tipografía sub-12px pendiente para una ronda futura.'
     ]},
-    { version: '17.6', date: '15 ago 2026', title: 'Accesibilidad — módulo Proyectos (Fase 7)', bullets: [
+    { version: '17.6', legacy: true, date: '15 ago 2026', title: 'Accesibilidad — módulo Proyectos (Fase 7)', bullets: [
         'Séptimo módulo migrado: Proyectos (tarjetas/portafolio, Tabla, Kanban, Línea de tiempo, Gantt, Curva S, Carga por responsable, importador de Excel).',
         'Mejora al helper compartido a11yDialog: ahora se autodesactiva si su modal fue removido del documento sin pasar por su propio cierre — necesario porque el importador reconstruye su ventana completa en cada paso (elegir archivo → mapear columnas → confirmar). Beneficia a los ~30 modales de toda la app que ya lo usan, no solo a este.',
         'Los indicadores de avance/vencidos/bloqueados del detalle de proyecto migrados a los tokens de contraste verificado.'
     ]},
-    { version: '17.5', date: '15 ago 2026', title: 'Accesibilidad — módulo Datos/Panel (Fase 6)', bullets: [
+    { version: '17.5', legacy: true, date: '15 ago 2026', title: 'Accesibilidad — módulo Datos/Panel (Fase 6)', bullets: [
         'Sexto módulo migrado: Datos (Dashboard, Reportes, Ejecutivo, Turnaround, Usuarios, Bitácora, Alertas, Inteligencia, Sistema, Calendario, Proyectos, Regulaciones, Archivos) — el que mezcla renderizado clásico con las 6 pestañas Alpine.',
         'Encontrado y corregido el único hueco real de teclado en las pestañas Alpine: las celdas del calendario (`<div @click>`) no tenían equivalente de teclado. El resto de la interfaz Alpine ya usaba botones reales — se revisó cada @click del módulo uno por uno para confirmarlo.',
         '30+ colores de estado migrados a los tokens verificados (severidad de alertas, matriz de habilidades, indicadores de auditoría).',
         'Las 13 pestañas de Datos navegan con flechas/Home/End.'
     ]},
-    { version: '17.4', date: '15 ago 2026', title: 'Accesibilidad — módulo Plan (Fase 5)', bullets: [
+    { version: '17.4', legacy: true, date: '15 ago 2026', title: 'Accesibilidad — módulo Plan (Fase 5)', bullets: [
         'Quinto módulo migrado: Plan (Dashboard, Plan Semanal, Recuperación, Producción, Probados, Familias, Reglas, Historial Semanal, Calendario, Simulador).',
         'Bug sistémico encontrado: la paleta de 10 colores de prioridad (P1..P10) de la barra de Recuperación fallaba contraste en 9 de 10 — texto blanco casi ilegible sobre la mayoría de las barras. Recalculada completa: mismos matices, oscurecidos hasta pasar el mínimo, sin perder la distinción visual entre prioridades.',
         'Las tarjetas de configuración (chips de Modelo/Motor/Transmisión/Año/Región…) que aparecen en cada tabla del módulo tenían el texto a 7-8px por defecto — subidas a 12px.',
         'Este módulo ya usaba el modal compartido y accesible de la plataforma (showModal) para todos sus diálogos — no tenía overlays propios que arreglar.'
     ]},
-    { version: '17.3', date: '15 ago 2026', title: 'Accesibilidad — módulo Consumibles (Fase 4)', bullets: [
+    { version: '17.3', legacy: true, date: '15 ago 2026', title: 'Accesibilidad — módulo Consumibles (Fase 4)', bullets: [
         'Cuarto módulo migrado: Consumibles (Gases, Equipos, Mtto, Captura, Predicción, Combustible, Mapa de zonas, Gráficas, Config, Reporte, Trazabilidad) — el más grande hasta ahora, 12 pestañas.',
         'El modal compartido de la mayoría de las altas/ediciones (Cilindro, Instrumento, Actividad, Zona…) se abría/cerraba desde ~20 funciones distintas sin ningún punto común — se resolvió observando el propio modal en vez de tocar cada cierre uno por uno: ahora todos atrapan el foco, cierran con Escape y devuelven el foco al botón que los abrió.',
         'Encontrado y corregido un bug real de contraste: la ficha de detalle de un cilindro (fecha de recepción, vigencia, trazabilidad, historial) tenía texto gris casi invisible sobre fondo blanco.',
         'Nota de alcance: el mapa de zonas (arrastrar cilindro a una posición) sigue siendo solo por mouse/dedo — mover un cilindro por teclado queda pendiente para una ronda futura, ya que es una interacción nueva, no un ajuste de presentación.'
     ]},
-    { version: '17.2', date: '14 ago 2026', title: 'Accesibilidad — módulo Pruebas/COP15 (Fase 3)', bullets: [
+    { version: '17.2', legacy: true, date: '14 ago 2026', title: 'Accesibilidad — módulo Pruebas/COP15 (Fase 3)', bullets: [
         'Tercer módulo migrado: Pruebas (Alta, Operación, Liberación, Cola, Historial, Consumibles) — los formularios más largos de la app.',
         'La firma digital (gate de liberación de vehículos) no tenía NINGUNA accesibilidad — sin atrapar el foco, sin Escape, sin devolver el foco al cerrar. Corregido: es la pieza más crítica del flujo de liberación.',
         'Las 6 pestañas de Pruebas (Alta/Operación/Liberación/Cola/Historial/Consumibles) ya se navegan con flechas de teclado.',
         'Más de 60 colores de estado migrados a los tokens con contraste verificado — verdes/ámbares/rojos de PASA/FALLA, tarjetas kanban, checklist de preacondicionamiento, timer de soak.',
         'Las tarjetas del kanban de vehículos (antes solo clicables con mouse) ya son alcanzables con Tab.'
     ]},
-    { version: '17.1', date: '14 ago 2026', title: 'Accesibilidad — módulo HOY (Fase 2)', bullets: [
+    { version: '17.1', legacy: true, date: '14 ago 2026', title: 'Accesibilidad — módulo HOY (Fase 2)', bullets: [
         'Segunda fase del overhaul de interfaz: primer módulo migrado por completo (HOY, la pantalla más vista). Se encontraron y corrigieron tres bugs de contraste reales (no solo teóricos) — texto casi invisible en el resumen "Lab Status", en el panel de Backup y en los encabezados de esas mismas tarjetas, restos de un tema oscuro que se eliminó hace varias rondas pero cuyos colores nunca se migraron.',
         'Los `<div onclick>` de tarjetas y filas de alerta ahora son alcanzables con Tab (nuevo helper compartido a11yClickables, reutilizable por los módulos siguientes) — antes solo funcionaban con mouse o dedo.',
         'El modal de "Nueva actividad" de HOY ahora atrapa el foco y regresa al botón que lo abrió al cerrar; el buscador global y el centro de notificaciones cierran con Escape.',
         'Once campos sin etiqueta (sliders de configuración de gráficos, buscador de glosario, notas rápidas, fecha de liberación estimada) ahora tienen aria-label.'
     ]},
-    { version: '17.0', date: '14 ago 2026', title: 'Fundación de accesibilidad (Fase 1)', bullets: [
+    { version: '17.0', legacy: true, date: '14 ago 2026', title: 'Fundación de accesibilidad (Fase 1)', bullets: [
         'Primera fase de un overhaul de interfaz hacia un sistema propio inspirado en GOV.UK: contraste AA real en todos los colores de estado, tipografía mínima de 12px, un solo foco de teclado visible en toda la app (antes había tres reglas compitiendo entre sí, y varias pantallas lo suprimían del todo).',
         'Las 5 pestañas raíz y la barra inferior ahora son botones navegables por teclado (antes eran divs con onclick, invisibles para quien no usa mouse); un solo landmark principal en vez de seis "main" duplicados; enlace para saltar al contenido.',
         'Se quitó el efecto glass/neumorfismo de la barra superior y las pestañas — bordes planos, sombras sutiles.',
         'Nuevos tokens de color con texto y relleno separados (antes el mismo verde/ámbar/rojo se usaba como texto Y como fondo, y en ambos casos fallaba el contraste mínimo); nuevos helpers compartidos (a11yTablist, a11yDialog, a11yAnnounce, tokenColor) para que los 7 módulos no reinventen cada patrón.',
         'Fase 1 = fundación (styles.css, index.html, helpers). La migración módulo por módulo (HOY, Pruebas, Consumibles, Plan, Datos, Proyectos, CoP) sigue en rondas siguientes.'
     ]},
-    { version: '16.8', date: '6 ago 2026', title: 'Proyectos como Project Manager completo', bullets: [
+    { version: '16.8', legacy: true, date: '6 ago 2026', title: 'Proyectos como Project Manager completo', bullets: [
         'Importar desde Excel: sube tu .xlsx/.csv o pega la tabla y los pasos se cargan solos. NO hace falta un formato especial — se detectan las columnas y puedes corregirlas antes de guardar. Reimportar el mismo archivo actualiza, no duplica.',
         'Cuatro vistas nuevas: 📌 Kanban (arrastra entre estatus), 👥 Carga por responsable (quién es el cuello de botella), 📈 Curva S (avance comprometido vs real) y 🗂️ Portafolio (todos los proyectos con semáforo, para reportar a jefatura).',
         'Hitos (◆), línea base y dependencias con ruta crítica en el Gantt: el retraso queda documentado en vez de desaparecer cuando alguien recorre una fecha.',
         'Desde HOY puedes dar de alta un pendiente directo en un proyecto, y mover una tarea suelta a uno con un toque.',
         'Arreglado: el filtro "Solo míos" de HOY no filtraba los pasos de proyecto ni los mantenimientos — mostraba los de todos.'
     ]},
-    { version: '16.7', date: '6 ago 2026', title: 'Versión siempre visible + historial completo', bullets: [
+    { version: '16.7', legacy: true, date: '6 ago 2026', title: 'Versión siempre visible + historial completo', bullets: [
         'APP_VERSION estaba pegado en "14.0" desde hace varias rondas — el pill del topbar nunca reflejó en qué versión real estaba parado el laboratorio. Corregido y con una regla para no volver a congelarse.',
         'El pill de versión (menú ⋯ del topbar) ahora es un chip visible y SIEMPRE clickeable — antes era texto casi invisible (10px, apenas gris) y solo reaccionaba si había una actualización pendiente.',
         'Nuevo "🗂️ Historial de Versiones" en Datos → Sistema: todo lo que se ha agregado, ronda por ronda, con la actual siempre marcada.'
     ]},
-    { version: '16.6', date: '6 ago 2026', title: 'Seguimiento de Proyectos', bullets: [
+    { version: '16.6', legacy: true, date: '6 ago 2026', title: 'Seguimiento de Proyectos', bullets: [
         'Nuevo módulo Proyectos (Datos → ⋯ Más → 🗂️ Proyectos): bitácora con tabla, línea de tiempo y Gantt para reparaciones o proyectos de inversión — no solo mantenimiento.',
         'Arreglada la vista de Plan → Familias (se veía con franjas negras y letra diminuta).',
         'Las alertas y el calendario de Datos ahora se actualizan solos, sin tener que recargar la página.'
     ]},
-    { version: '16.5', date: '5 ago 2026', title: 'Mapa como retícula + menos campos', bullets: [
+    { version: '16.5', legacy: true, date: '5 ago 2026', title: 'Mapa como retícula + menos campos', bullets: [
         'El mapa del cuarto de gases ya no es un plano roto — ahora es una retícula que se ajusta sola al tamaño de cada zona.',
         'Formularios más cortos (Cilindro, Instrumento, Mantenimiento, Zona) con autollenado.',
         'Sin espacio muerto en pantallas anchas (HOY, listas de cilindros).'
     ]},
-    { version: '16.4', date: '5 ago 2026', title: 'Plan Maestro de Mantenimiento (COP15-F11)', bullets: [
+    { version: '16.4', legacy: true, date: '5 ago 2026', title: 'Plan Maestro de Mantenimiento (COP15-F11)', bullets: [
         'Integración completa del formato oficial COP15-F11: calibración y mantenimiento preventivo de los 49 instrumentos.',
         'Pestaña 🛠️ Mtto nueva en Consumibles: vencidos y de esta semana con un toque.',
         'Exportación/importación de los 4 CSV oficiales + PDF del Plan Maestro.'
     ]},
-    { version: '16.3', date: '16 jul 2026', title: 'Almacén de Archivos', bullets: [
+    { version: '16.3', legacy: true, date: '16 jul 2026', title: 'Almacén de Archivos', bullets: [
         'Datos → ☁️ Archivos: sube y baja un documento (.zip, .pdf, .xlsx…) compartido entre todos los dispositivos, 5MB.'
     ]},
-    { version: '16.2', date: '15 jul 2026', title: 'Conteos correctos', bullets: [
+    { version: '16.2', legacy: true, date: '15 jul 2026', title: 'Conteos correctos', bullets: [
         'Corregido un bug que hacía fallar en silencio el cálculo de REQ (volumen requerido) entre configuraciones parecidas.',
         'HOY ya no se queda pegado en "0% cobertura" permanentemente.',
         'Una sola definición de cobertura en toda la plataforma.'
     ]},
-    { version: '16.1', date: '15 jul 2026', title: 'Fix cascada EV', bullets: [
+    { version: '16.1', legacy: true, date: '15 jul 2026', title: 'Fix cascada EV', bullets: [
         'Los vehículos eléctricos (SV1m) ya se pueden dar de alta — la cascada ocultaba su regulación (voltaje de carga).'
     ]},
-    { version: '16.0', date: '10 jul 2026', title: 'Plataforma autoguiada', bullets: [
+    { version: '16.0', legacy: true, date: '10 jul 2026', title: 'Plataforma autoguiada', bullets: [
         'Tooltips de ayuda (?) en los 7 módulos, banners por pestaña y recorridos guiados.',
         'Glosario del laboratorio con buscador.'
     ]},
-    { version: '15.9', date: '9 jul 2026', title: 'HOY como tablero de actividades', bullets: [
+    { version: '15.9', legacy: true, date: '9 jul 2026', title: 'HOY como tablero de actividades', bullets: [
         'HOY se rediseñó como un tablero único (estilo Monday) con vehículos, plan, inventario y calidad.',
         'El consumo de gas y gasolina ahora se APRENDE de la operación real, ya no es un descuento fijo.'
     ]},
-    { version: '15.8', date: '5 jul 2026', title: 'Edición retroactiva', bullets: [
+    { version: '15.8', legacy: true, date: '5 jul 2026', title: 'Edición retroactiva', bullets: [
         'Historial → "📝 Completar": edita datos faltantes de vehículos archivados antes del cambio, con firma y auditoría.',
         'Presupuesto Anual y vista de todo el año en el Plan.'
     ]},
-    { version: '15.7', date: '3 jul 2026', title: 'Control SPC', bullets: [
+    { version: '15.7', legacy: true, date: '3 jul 2026', title: 'Control SPC', bullets: [
         'Nueva sub-pestaña CoP → 📈 Control SPC: cartas I-MR, Cpk y alarmas estadísticas por familia y gas.',
         '% del límite y aviso de valores improbables en Liberación.'
     ]},
-    { version: '15.6', date: '2 jul 2026', title: 'Sync confiable + Seguridad real', bullets: [
+    { version: '15.6', legacy: true, date: '2 jul 2026', title: 'Sync confiable + Seguridad real', bullets: [
         'Arreglado el bug que dejaba dispositivos con datos viejos sin actualizar (service worker congelado).',
         'Firebase Auth + PIN por operador, con bloqueo tras 5 intentos fallidos.',
         'Eliminados los módulos muertos (Results Analyzer, Power Automate).'
     ]},
-    { version: '15.5', date: '2 jul 2026', title: 'Pulir y Endurecer', bullets: [
+    { version: '15.5', legacy: true, date: '2 jul 2026', title: 'Pulir y Endurecer', bullets: [
         '16 arreglos de fondo: seguridad (XSS), fechas en hora local, sincronización sin pérdida de datos.',
         'Tema oscuro eliminado (un solo tema claro), topbar móvil optimizado.'
     ]},
-    { version: 'Ronda 5', date: '11 mar 2026', title: 'Experiencia de app nativa', bullets: [
+    { version: 'Ronda 5', legacy: true, date: '11 mar 2026', title: 'Experiencia de app nativa', bullets: [
         'Modo pantalla completa, autoguardado silencioso, formularios inteligentes, calendario unificado, plantillas rápidas.'
     ]},
-    { version: 'Ronda 4', date: '11 mar 2026', title: 'Gráficas e inteligencia cruzada', bullets: [
+    { version: 'Ronda 4', legacy: true, date: '11 mar 2026', title: 'Gráficas e inteligencia cruzada', bullets: [
         'Motor de configuración de gráficas, deshacer (Ctrl+Z), reportes PDF con gráficas, búsqueda cruzada, panel de Inteligencia.'
     ]},
-    { version: 'Ronda 3', date: '2026', title: 'PWA y accesibilidad', bullets: [
+    { version: 'Ronda 3', legacy: true, date: '2026', title: 'PWA y accesibilidad', bullets: [
         'App instalable, accesibilidad, seguridad, impresión optimizada, recorrido de bienvenida.'
     ]},
-    { version: 'Ronda 2', date: '2026', title: 'Estadística y predicción', bullets: [
+    { version: 'Ronda 2', legacy: true, date: '2026', title: 'Estadística y predicción', bullets: [
         'Cartas de control estadístico (SPC), predicción semanal, árbol visual COP15, códigos de barras/QR.'
     ]},
-    { version: 'Ronda 1', date: '2026', title: 'Primeras mejoras de uso diario', bullets: [
+    { version: 'Ronda 1', legacy: true, date: '2026', title: 'Primeras mejoras de uso diario', bullets: [
         'Portapapeles, tablero kanban, temporizador de soak, paleta de comandos (Ctrl+K).'
     ]},
-    { version: 'Fundación', date: '2026', title: 'Base de la plataforma', bullets: [
+    { version: 'Fundación', legacy: true, date: '2026', title: 'Base de la plataforma', bullets: [
         'Registro de vehículos COP15, plan de pruebas, inventario de laboratorio, sincronización con Firebase.'
     ]}
 ];
@@ -1169,7 +1185,8 @@ var UI_PREFS_DEFAULTS = {
     tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
-    nextStep: true         // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
+    dashOpenCat: ''        // [2.0.0] HOY: categoría desplegada ('' = ninguna)
 };
 
 function _uiPrefsRead() {
@@ -1725,6 +1742,66 @@ function vehicleTombstonesApply() {
     return n;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [2.0.0] Configuraciones manuales — viven en `db.manualConfigs` y viajan con cop15.
+//
+// Vivían en localStorage['kia_manual_configs'], que NO se sincroniza: una config dada
+// de alta a mano en un equipo no existía en ningún otro, ni en su Alta ni en su Plan.
+// Identidad = `codigo_config_text`. Borrar deja marca (`deleted:true`) porque la
+// fusión es aditiva: sin marca, lo borrado vuelve en el siguiente sync (v24.2).
+// ══════════════════════════════════════════════════════════════════════
+
+function _manualCfgKey(c) { return c ? String(c.codigo_config_text || '').trim() : ''; }
+
+/**
+ * Une dos listas de configs manuales. PURA y SIMÉTRICA: gana `updatedAt` más reciente;
+ * en empate gana la marca de borrado; si aún empatan, desempate determinista por
+ * contenido (dos equipos deben elegir lo mismo o se re-empujan para siempre).
+ */
+function manualConfigsUnion(a, b) {
+    var byKey = {};
+    (a || []).concat(b || []).forEach(function(c) {
+        var k = _manualCfgKey(c);
+        if (!k) return;
+        var cur = byKey[k];
+        if (!cur) { byKey[k] = c; return; }
+        var tc = String(c.updatedAt || ''), tu = String(cur.updatedAt || '');
+        if (tc !== tu) { if (tc > tu) byKey[k] = c; return; }
+        if (!!c.deleted !== !!cur.deleted) { if (c.deleted) byKey[k] = c; return; }
+        if (stableStringify(c) > stableStringify(cur)) byKey[k] = c;
+    });
+    return Object.keys(byKey).sort().map(function(k) { return byKey[k]; });
+}
+
+/** ¿`incoming` trae algo que `base` no tiene (o una versión más nueva)? */
+function manualConfigsNewTo(base, incoming) {
+    if (!incoming || !incoming.length) return false;
+    return stableStringify(manualConfigsUnion(base, incoming)) !== stableStringify(manualConfigsUnion(base, []));
+}
+
+/**
+ * Migración + refresco. Idempotente: une lo heredado de `kia_manual_configs` SOLO para
+ * los códigos que `db.manualConfigs` no conoce (ni vivos ni borrados), así que una
+ * config borrada en otro equipo no resucita desde la copia local vieja.
+ */
+function manualConfigsAfterLoad() {
+    if (!db || typeof db !== 'object') return;
+    if (!Array.isArray(db.manualConfigs)) db.manualConfigs = [];
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem('kia_manual_configs') || '[]') || []; } catch (e) { legacy = []; }
+    if (Array.isArray(legacy) && legacy.length) {
+        var known = {};
+        db.manualConfigs.forEach(function(c) { known[_manualCfgKey(c)] = true; });
+        var add = legacy.filter(function(c) { var k = _manualCfgKey(c); return k && !known[k]; })
+                        .map(function(c) { var o = Object.assign({}, c); o._source = 'manual'; o.updatedAt = o.updatedAt || ''; return o; });
+        if (add.length) db.manualConfigs = manualConfigsUnion(db.manualConfigs, add);
+    }
+    if (typeof _mergeManualConfigsIntoAll === 'function' && typeof allConfigurations !== 'undefined' && allConfigurations.length) {
+        try { _mergeManualConfigsIntoAll(); } catch (e) { console.warn('_mergeManualConfigsIntoAll:', e); }
+    }
+    if (typeof tpCatalogInvalidate === 'function') tpCatalogInvalidate();
+}
+
 /**
  * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
@@ -1736,6 +1813,9 @@ function dedupeVehicleIds() {
     // y de retirar lo que otro equipo borró (ver vehicleTombstonesApply).
     try { revInitMissing(db.vehicles); } catch (e) { console.warn('revInitMissing:', e); }
     try { vehicleTombstonesApply(); } catch (e) { console.warn('vehicleTombstonesApply:', e); }
+    // 2.0.0: las configs manuales viajan en `db`; tras cada carga se migra lo heredado
+    // y se refresca el catálogo del Alta y del Plan.
+    try { manualConfigsAfterLoad(); } catch (e) { console.warn('manualConfigsAfterLoad:', e); }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
@@ -3084,52 +3164,39 @@ function dailyDashRender() {
     // v16.0: banner de ayuda de esta pestaña
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
-    // ── Header ──
-    // v22.6: "Ir a…" y "Crear" salieron de aquí. En v22.2 vivían en la cabecera de
-    // HOY porque no había dónde más ponerlos; ahora la .ui-bar los tiene de forma
-    // permanente en TODAS las pantallas, y tenerlos también aquí era el mismo botón
-    // dos veces en la misma vista — justo el desorden que esta ronda combate.
-    html += '<div class="daily-dash-header">';
-    html += '<div>';
-    html += '<div class="daily-dash-greeting">' + greeting + '</div>';
-    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
-    html += '</div>';
-    html += '</div>';
-
-    // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
-    html += '<div id="hoy-lab-overview" style="margin-bottom: var(--space-sm);"></div>';
-
-    // ── [v15.9] Mi Turno (compacto — la lista de vehículos vive ahora en el tablero) ──
+    // ── [2.0.0] Encabezado de UNA línea ──
+    // Saludo + fecha + operador + el único atajo que la .ui-bar no tiene (el último
+    // vehículo). La tarjeta "Mi turno" se retiró: medía contra una meta fija de 8
+    // liberaciones escrita en el código, y el mismo dato ya vive en el Pulso.
     var currentOp = '';
     try {
         if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-    if (currentOp) {
-        var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
-                (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var testingToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
-        }).length;
-        var shiftTarget = 8;
-        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
-        html += '<div class="v7-mi-turno-card" style="margin-bottom: var(--space-md);">';
-        html += '<div class="v7-mi-turno-header">';
-        html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
-        html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
-        html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
-        html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? tokenColor('--ok-fill') : tokenColor('--info-fill')) + '</div>';
-        html += '</div></div>';
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    })[0];
+    html += '<div class="daily-dash-header dash-head">';
+    if (currentOp) html += '<span class="v7-mi-turno-avatar" aria-hidden="true">' + escapeHtml(currentOp.charAt(0).toUpperCase()) + '</span>';
+    html += '<div class="dash-head-text">';
+    html += '<div class="daily-dash-greeting">' + greeting + (currentOp ? ', ' + escapeHtml(currentOp.split(' ')[0]) : '') + '</div>';
+    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    if (lastVehicle) {
+        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
+        html += '<button type="button" class="dash-head-chip" title="Abrir el último vehículo que se movió" ' +
+                'onclick="v7GoToVehicle(' + lastVehicle.id + ')">📝 Último: ' + escapeHtml(lModel || lastVehicle.vin || '') + '</button>';
     }
+    html += '</div>';
 
-    // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
-    // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
-    // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
-    // [v23] Hoy o esta semana. El día es el default; la semana usa EL MISMO formato
-    // de calendario que el Plan (`tpBuildDayColumnsHTML`) para que no haya dos
-    // vocabularios distintos para la misma cosa.
+    // ── [2.0.0] Pulso (fuente única: renderLabOverview, sección 'pulse') ──
+    html += '<div id="hoy-lab-overview"></div>';
+
+    // ── [v23] Hoy o esta semana. La semana usa EL MISMO formato de calendario que el
+    // Plan (`tpBuildDayColumnsHTML`). El día es el default y desde 2.0.0 se lee en tres
+    // niveles: lo siguiente (5 acciones), categorías como tiles, y el detalle al tocar.
     html += dashRangeTabsHTML();
     if (dashRange() === 'semana') {
         html += dashRenderWeek();
@@ -3138,36 +3205,13 @@ function dailyDashRender() {
         html += dashRenderBoard(acts, currentOp);
     }
 
-    // ── Quick Actions ──
-    html += '<div class="daily-dash-section">';
-    html += '<div class="daily-dash-section-title">⚡ Acceso Rápido</div>';
-    html += '<div class="daily-dash-quick-actions">';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=alta]\');if(t)t.click();},150);"><span class="daily-dash-action-icon">➕</span>Alta Vehículo</div>';
-
-    // Last edited vehicle shortcut
-    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
-        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
-        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
-        return tB > tA ? 1 : -1;
-    })[0];
-    if (lastVehicle) {
-        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
-        html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
-    } else {
-        html += '<div class="daily-dash-action" onclick="dashGo(\'inventory\',\'inv-readings\')"><span class="daily-dash-action-icon">🧪</span>Captura</div>';
-    }
-
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-reports\');"><span class="daily-dash-action-icon">📤</span>Reportes</div>';
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
-    html += '</div></div>';
-
+    // 2.0.0: "Acceso rápido" se retiró — duplicaba la .ui-bar (Crear / Ir a, v22.6).
 
     el.innerHTML = html;
 
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
-    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
+    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['pulse'] });
 
     // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
     _dashRegisterHelp();
@@ -3183,7 +3227,8 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Tablero de hoy', text: 'Todo lo pendiente del día agrupado por tipo: vehículos, pruebas del plan, inventario y tareas manuales. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-board-help': { title: 'Lo siguiente', text: 'Cada categoría es un recuadro con sus pendientes (y las atrasadas en rojo). Sin tocar ninguno ves las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero; toca un recuadro para ver en su lugar la lista completa de esa categoría. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
         'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
@@ -3191,7 +3236,9 @@ function _dashRegisterHelp() {
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {
-        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Todo lo pendiente de hoy en un solo tablero: vehículos con su etapa, pruebas del plan, inventario y tareas. Toca cualquier fila para ir directo a resolverla.', tips: [
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego lo siguiente que hay que hacer y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
+            'Cada recuadro del pulso abre la pantalla de donde sale su número.',
+            'Toca una categoría (Vehículos, Plan de hoy, Inventario…) para ver su lista completa; tócala otra vez para cerrarla.',
             'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
             'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
             'Usa "➕ Actividad" para anotar pendientes que no vienen de otro módulo.'
@@ -3789,49 +3836,111 @@ function dashRenderRow(a) {
     return h;
 }
 
+/**
+ * [2.0.0] LO SIGUIENTE — las n acciones que más urgen, de TODAS las categorías. PURA.
+ * Lo atrasado primero, luego por `urgency`; lo hecho no entra.
+ */
+function dashNextUp(acts, n) {
+    n = n || 5;
+    return (acts || []).filter(function(a) { return a && a.status !== 'hecho'; })
+        .map(function(a, i) { return { a: a, i: i }; })
+        .sort(function(x, y) {
+            return ((y.a.status === 'atrasado') - (x.a.status === 'atrasado')) ||
+                   ((y.a.urgency || 0) - (x.a.urgency || 0)) || (x.i - y.i);
+        })
+        .slice(0, n).map(function(o) { return o.a; });
+}
+
+/** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
+function dashCatSummary(acts) {
+    return DASH_CAT_ORDER.map(function(cat) {
+        var rows = (acts || []).filter(function(a) { return a.cat === cat; });
+        return { cat: cat, total: rows.length,
+                 pend: rows.filter(function(a) { return a.status !== 'hecho'; }).length,
+                 late: rows.filter(function(a) { return a.status === 'atrasado'; }).length };
+    }).filter(function(c) { return c.total > 0; });
+}
+
+function dashSetOpenCat(cat) {
+    uiPref('dashOpenCat', uiPref('dashOpenCat') === cat ? '' : cat);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
 function dashRenderBoard(acts, currentOp) {
     var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
+    var ocultos = acts.length - shown.length;
     var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
 
     var h = '<div class="dash-board">';
     h += '<div class="dash-board-header" data-help="dash-board-help">';
-    h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
-    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
+    h += '<span class="dash-board-title">📌 Lo siguiente</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes hoy' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
     // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
     // 44px en pantallas de dedo sin engordar la barra.
     if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
+    // v22.5: un filtro que esconde cosas DICE cuántas.
+    if (onlyMine && ocultos > 0) h += '<span class="dash-chip dash-chip--pendiente">' + ocultos + ' de otros ocultas</span>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
-    DASH_CAT_ORDER.forEach(function(cat) {
-        var rows = shown.filter(function(a) { return a.cat === cat; });
-        if (!rows.length) return;
+    if (!shown.length) {
+        h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        return h + '</div>';
+    }
+
+    // 1) Categorías como tiles — funcionan como FILTRO del bloque de abajo: sin
+    //    ninguno elegido se ve "lo siguiente" de todo el laboratorio; con uno, la
+    //    lista completa de esa categoría EN EL MISMO LUGAR (nada se apila debajo).
+    var open = uiPref('dashOpenCat') || '';
+    var cats = dashCatSummary(shown);
+    if (!cats.some(function(c) { return c.cat === open; })) open = '';
+    h += '<div class="dash-cat-tiles" role="tablist" aria-label="Actividades por categoría">';
+    cats.forEach(function(c) {
+        var d = DASH_CATS[c.cat];
+        var on = c.cat === open;
+        h += '<button type="button" role="tab" aria-selected="' + on + '" ' +
+             'class="dash-cat-tile dash-cat-tile--' + (DASH_CAT_ACCENT[c.cat] || 'panel') + (on ? ' dash-cat-tile--on' : '') +
+             (c.late ? ' dash-cat-tile--late' : '') + '" onclick="dashSetOpenCat(\'' + c.cat + '\')">' +
+             '<span class="dash-cat-tile-icon" aria-hidden="true">' + d.icon + '</span>' +
+             '<span class="dash-cat-tile-name">' + d.label + '</span>' +
+             '<span class="dash-cat-tile-count">' +
+               (c.pend ? c.pend + ' pendiente' + (c.pend === 1 ? '' : 's') : '✓ al día') +
+               (c.late ? ' · <strong>' + c.late + ' atrasada' + (c.late === 1 ? '' : 's') + '</strong>' : '') +
+             '</span></button>';
+    });
+    h += '</div>';
+
+    if (open) {
+        // 2a) La categoría elegida, completa.
+        var rows = shown.filter(function(a) { return a.cat === open; });
         rows.sort(function(x, y) {
             return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
         });
-        var c = DASH_CATS[cat];
-        var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
-        // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        var body = '<div class="dash-group-rows">'
-                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
-                 + '</div>';
-        h += uiCard({
-            id: 'dash-' + cat,
-            icon: c.icon,
-            title: c.label,
-            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
-                         : { label: '✓ al día', tone: 'ok' },
-            accent: DASH_CAT_ACCENT[cat],
-            body: body,
-            bodyFlush: true
-        });
-    });
-    if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+        var cd = DASH_CATS[open];
+        h += '<div class="dash-cat-detail dash-cat-tile--' + (DASH_CAT_ACCENT[open] || 'panel') + '" role="tabpanel">' +
+             '<div class="dash-cat-detail-head"><span>' + cd.icon + ' ' + cd.label + ' · ' + rows.length + '</span>' +
+             '<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashSetOpenCat(\'' + open + '\')">✕ Ver lo siguiente</button></div>' +
+             '<div class="dash-group-rows">' + rows.map(function(a) { return dashRenderRow(a); }).join('') + '</div></div>';
+    } else {
+        // 2b) Lo siguiente: 5 filas con el MISMO dashRenderRow (mismo check y acción).
+        var next = dashNextUp(shown, 5);
+        if (next.length) {
+            h += '<div class="dash-next">' + next.map(function(a) {
+                // Una fila con casilla no muestra icono: se le antepone el de su
+                // categoría para que "Pendiente" diga de qué. Las demás ya traen el suyo.
+                var c = DASH_CATS[a.cat] || {};
+                return dashRenderRow(a.checkbox && c.icon ? Object.assign({}, a, { title: c.icon + ' ' + a.title }) : a);
+            }).join('') + '</div>';
+            var resto = pend - next.length;
+            if (resto > 0) h += '<p class="dash-next-more">y ' + resto + ' pendiente' + (resto === 1 ? '' : 's') + ' más — toca una categoría para ver su lista completa.</p>';
+        } else {
+            h += '<div class="daily-dash-empty">Todo lo de hoy está hecho ✓</div>';
+        }
+    }
     h += '</div>';
     return h;
 }
@@ -6404,7 +6513,9 @@ function downloadFullBackup() {
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
-        manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
+        // 2.0.0: las manuales viven en db.manualConfigs (ya van dentro de `db`); se
+        // conserva el campo para quien restaure con una versión anterior.
+        manualConfigs: (typeof getManualConfigs === 'function') ? getManualConfigs() : JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
     var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -6523,10 +6634,9 @@ var TOURS = {
         { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, reportes, panel de control, operadores y configuración del sistema.', position: 'bottom' }
     ],
     today: [
-        { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
-        { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
-        { target: 'details[ontoggle*="dash-vehiculos"]', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
-        { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
+        { target: '.dash-pulse', title: 'Pulso del laboratorio', text: 'Cinco indicadores: la semana, los vehículos en curso, las liberaciones, la cobertura del REQ y las alertas. Cada recuadro abre su pantalla.', position: 'bottom' },
+        { target: '.dash-cat-tiles', title: 'Por categoría', text: 'Cada recuadro es una categoría con sus pendientes. Tócalo para ver su lista completa; tócalo otra vez para volver a lo siguiente.', position: 'bottom' },
+        { target: '.dash-next', title: 'Lo siguiente', text: 'Las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero. Se resuelven desde aquí mismo.', position: 'top' }
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
@@ -7139,17 +7249,6 @@ document.addEventListener('alpine:init', function() {
         Alpine.data('panelModule', panelAlpineComponent);
     }
 });
-
-function buildProgressRing(pct, size, color) {
-    var r = (size - 6) / 2;
-    var c = Math.PI * 2 * r;
-    var offset = c - (pct / 100) * c;
-    return '<svg width="' + size + '" height="' + size + '" style="display:block;">' +
-        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' +
-        '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
-        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
-        '</svg>';
-}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7] HELPER FUNCTIONS                                              ║

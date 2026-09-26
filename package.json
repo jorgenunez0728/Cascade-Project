@@ -1,13 +1,13 @@
 {
   "name": "cascade-project",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "KIA EmLab — Emissions Laboratory Management System",
   "private": true,
   "scripts": {
     "dev": "vite",
     "build": "bash build.sh",
-    "test": "node tests/plan.node.js && node tests/credit.node.js && node tests/sync.node.js && node tests/livesync.node.js && node tests/cop15.node.js && node tests/homolog.node.js && node tests/inventory-import.node.js && node tests/deadcode.node.js",
-    "test:e2e": "node tests/semana.e2e.js && node tests/v231.e2e.js && node tests/v243.e2e.js"
+    "test": "node tests/plan.node.js && node tests/credit.node.js && node tests/sync.node.js && node tests/livesync.node.js && node tests/cop15.node.js && node tests/homolog.node.js && node tests/inventory-import.node.js && node tests/catalogo-hoy.node.js && node tests/version.node.js && node tests/deadcode.node.js",
+    "test:e2e": "node tests/semana.e2e.js && node tests/v231.e2e.js && node tests/v243.e2e.js && node tests/catalogo-hoy.e2e.js"
   },
   "repository": {
     "type": "git",

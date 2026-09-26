@@ -988,6 +988,183 @@ function _labOverviewKey(sections) {
     return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(','), cardsSig].join('|');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [2.0.0] PULSO — la cabecera ejecutiva de HOY.
+//
+// Reemplaza en HOY a los 6 KPIs + Pipeline + Mi turno, que repetían el mismo dato
+// tres veces ("Vehículos activos" = suma del Pipeline) y medían contra una meta
+// inventada (8 liberaciones por turno, fija en el código). Cinco indicadores, cada
+// uno con la pregunta que responde y a un toque de su pantalla.
+// `labPulseCompute(src)` es PURA (recibe los datos, testeable en Node);
+// `labPulseData()` los junta de las definiciones únicas de cada módulo.
+// ══════════════════════════════════════════════════════════════════════
+
+var LAB_PULSE_PIPELINE = [
+    { key: 'registered',       label: 'Registrado' },
+    { key: 'in-progress',      label: 'En progreso' },
+    { key: 'testing',          label: 'En prueba' },
+    { key: 'ready-release',    label: 'Listo para liberar' },
+    { key: 'pending-approval', label: 'En aprobación' }
+];
+
+/** Días 'YYYY-MM-DD' de los últimos n días terminando en `today` (incluido). PURA. */
+function _labPulseDays(today, n) {
+    var out = [];
+    var p = String(today || '').split('-');
+    var base = new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1, 12, 0, 0);
+    for (var i = n - 1; i >= 0; i--) {
+        var d = new Date(base.getTime());
+        d.setDate(d.getDate() - i);
+        out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    }
+    return out;
+}
+
+/**
+ * LA definición de los indicadores del Pulso. PURA.
+ * src = { today, statuses:[status…], releasedDates:['YYYY-MM-DD'…], board, coverage,
+ *         alerts:[{level}], lowGases, calOverdue }
+ */
+function labPulseCompute(src) {
+    src = src || {};
+    var statuses = src.statuses || [];
+    var pipe = LAB_PULSE_PIPELINE.map(function(st) {
+        return { key: st.key, label: st.label, n: statuses.filter(function(s) { return s === st.key; }).length };
+    });
+    var active = pipe.reduce(function(s, x) { return s + x.n; }, 0);
+
+    var days = _labPulseDays(src.today, 7);
+    var byDay = {};
+    (src.releasedDates || []).forEach(function(d) { if (d) byDay[d] = (byDay[d] || 0) + 1; });
+    var series = days.map(function(d) { return { date: d, n: byDay[d] || 0 }; });
+    var prev = series.slice(0, 6);
+    var avgPrev = prev.reduce(function(s, x) { return s + x.n; }, 0) / 6;
+
+    var b = src.board || null, k = (b && b.kpis) || {};
+    var week = {
+        hasPlan: !!(b && b.plan), accepted: !!(b && b.accepted), weekDate: b ? b.weekDate : null,
+        planned: k.planeadas || 0, done: k.hechas || 0, unplanned: k.noPlaneadas || 0,
+        risk: k.riesgo || 0, attention: k.atencion || 0
+    };
+    // Las no planeadas que entraron solas al liberar ya están hechas: el avance del
+    // compromiso se mide contra lo PLANEADO (v23), sin inflarlo con ellas.
+    var doneCommitted = Math.max(0, week.done - week.unplanned);
+    week.pct = week.planned ? Math.min(100, Math.round(doneCommitted / week.planned * 100)) : 0;
+    week.doneCommitted = doneCommitted;
+
+    var c = src.coverage || {};
+    var coverage = { pct: c.pct || 0, pctVerified: (c.pctVerified != null ? c.pctVerified : (c.pct || 0)),
+                     vigentes: c.vigentes || 0, ok: c.ok || 0 };
+
+    var lv = { crit: 0, high: 0, med: 0 };
+    (src.alerts || []).forEach(function(a) {
+        var l = String(a && a.level || '').toUpperCase();
+        if (l === 'CRITICA') lv.crit++; else if (l === 'ALTA') lv.high++; else lv.med++;
+    });
+    var attention = { crit: lv.crit, high: lv.high, med: lv.med, total: lv.crit + lv.high + lv.med,
+                      lowGases: src.lowGases || 0, calOverdue: src.calOverdue || 0 };
+
+    return {
+        pipeline: pipe, active: active,
+        released: { today: series[6].n, series: series, avgPrev: Math.round(avgPrev * 10) / 10,
+                    week: series.reduce(function(s, x) { return s + x.n; }, 0) },
+        week: week, coverage: coverage, attention: attention
+    };
+}
+
+/** Junta los datos del Pulso desde las definiciones únicas de cada módulo. */
+function labPulseData() {
+    var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
+    var board = null, coverage = null, alerts = [], low = 0, calOver = 0;
+    if (typeof tpWeekBoardRows === 'function') { try { board = tpWeekBoardRows({}); } catch (e) { board = null; } }
+    if (typeof tpCoverageSummary === 'function') { try { coverage = tpCoverageSummary(); } catch (e) { coverage = null; } }
+    if (typeof pnGetActiveAlerts === 'function') { try { alerts = pnGetActiveAlerts() || []; } catch (e) { alerts = []; } }
+    if (typeof invState !== 'undefined' && invState.gases && typeof invGasIsLow === 'function')
+        low = invState.gases.filter(function(g) { return g && g.status !== 'Empty' && invGasIsLow(g); }).length;
+    if (typeof invCalSummary === 'function') { try { calOver = invCalSummary().vencidos || 0; } catch (e) { calOver = 0; } }
+    return labPulseCompute({
+        today: localToday(),
+        statuses: vehicles.map(function(v) { return v && v.status; }),
+        releasedDates: vehicles.filter(function(v) { return v && v.status === 'archived' && v.archivedAt; })
+                               .map(function(v) { return localDateStr(new Date(v.archivedAt)); }),
+        board: board, coverage: coverage, alerts: alerts, lowGases: low, calOverdue: calOver
+    });
+}
+
+/** Mini gráfica de barras de 7 días en SVG (sin Chart.js: nada que medir tras un cambio de pestaña). */
+function _labPulseSparkSVG(series) {
+    var max = Math.max(1, Math.max.apply(null, series.map(function(s) { return s.n; })));
+    var W = 8, G = 3, H = 26;
+    var bars = series.map(function(s, i) {
+        var h = s.n ? Math.max(3, Math.round(s.n / max * (H - 2))) : 1;
+        return '<rect x="' + (i * (W + G)) + '" y="' + (H - h) + '" width="' + W + '" height="' + h + '" rx="1.5"' +
+               (i === series.length - 1 ? ' class="dash-spark-today"' : '') + '><title>' + s.date + ': ' + s.n + '</title></rect>';
+    }).join('');
+    return '<svg class="dash-spark" viewBox="0 0 ' + (series.length * (W + G) - G) + ' ' + H + '" role="img" ' +
+           'aria-label="Liberaciones de los últimos 7 días: ' + series.map(function(s) { return s.n; }).join(', ') + '">' + bars + '</svg>';
+}
+
+function _labPulseHTML(p) {
+    var num = function(n, suf) { return '<span class="pn-kpi-num" data-kpi-target="' + n + '" data-kpi-suffix="' + (suf || '') + '">0</span>'; };
+    // El `?` de ayuda NO va dentro de cada tile: cascadeInjectTooltips agrega un
+    // <button> y un botón no puede contener otro. La ayuda es una sola, en el título.
+    var tile = function(tone, go, what, label, big, extra, sub) {
+        return '<button type="button" class="dash-pulse-tile dash-pulse-tile--' + tone + '" onclick="' + go + '" title="' + what + '">' +
+               '<span class="dash-pulse-label">' + label + '</span>' +
+               '<span class="dash-pulse-num">' + big + '</span>' + (extra || '') +
+               '<span class="dash-pulse-sub">' + sub + '</span></button>';
+    };
+    var h = '<div class="dash-pulse-head" data-help="dash-pulse-help">Pulso del laboratorio</div><div class="dash-pulse">';
+
+    // 1) Semana
+    var w = p.week, wTone, wSub, wBig, wExtra = '';
+    if (!w.hasPlan) { wTone = 'warn'; wBig = '—'; wSub = 'Sin plan para esta semana · armarlo'; }
+    else if (!w.accepted) { wTone = 'warn'; wBig = w.planned + '<small> propuestas</small>'; wSub = 'Propuesta sin aceptar · revisarla'; }
+    else {
+        wTone = w.risk ? 'danger' : (w.attention ? 'warn' : 'ok');
+        wBig = num(w.doneCommitted) + '<small>/' + w.planned + '</small>';
+        wExtra = '<span class="dash-pulse-bar"><i style="width:' + w.pct + '%"></i></span>';
+        wSub = (w.risk ? w.risk + ' en riesgo' : '') + (w.risk && w.attention ? ' · ' : '') +
+               (w.attention ? w.attention + ' por atender' : '') +
+               (!w.risk && !w.attention ? 'Todo en tiempo' : '') +
+               (w.unplanned ? ' · +' + w.unplanned + ' no planeada' + (w.unplanned === 1 ? '' : 's') : '');
+    }
+    h += tile(wTone, "dashGo('testplan','tp-myweek')", 'Avance del plan aceptado de esta semana. Toca para abrir Mi semana.', '📅 Semana', wBig, wExtra, wSub);
+
+    // 2) Pipeline — UNA barra segmentada en vez de cinco cajas
+    var seg = '<span class="dash-pulse-seg" aria-hidden="true">' + p.pipeline.map(function(s) {
+        return s.n ? '<i class="dash-pulse-seg--' + s.key + '" style="flex:' + s.n + '" title="' + s.label + ': ' + s.n + '"></i>' : '';
+    }).join('') + '</span>';
+    var pipeSub = p.pipeline.filter(function(s) { return s.n; }).map(function(s) { return s.n + ' ' + s.label.toLowerCase(); }).join(' · ') || 'Sin vehículos en curso';
+    h += tile(p.active ? 'info' : 'neutral', "dashGo('cop15','kanban')", 'Vehículos en curso por etapa. Toca para abrir el tablero Kanban.', '🚗 En curso',
+              num(p.active) + '<small> vehículos</small>', p.active ? seg : '', pipeSub);
+
+    // 3) Liberados
+    var r = p.released;
+    var tend = r.today > r.avgPrev ? '▲' : (r.today < r.avgPrev ? '▼' : '＝');
+    h += tile(r.today ? 'ok' : 'neutral', "dashGo('cop15','dashboard')", 'Liberaciones de hoy y de los últimos 7 días. Toca para abrir el resumen de Pruebas.', '✅ Liberados hoy',
+              num(r.today), _labPulseSparkSVG(r.series),
+              tend + ' vs ' + r.avgPrev + '/día (6 días previos) · ' + r.week + ' en 7 días');
+
+    // 4) Cobertura REQ — el verificado SIEMPRE al lado (v20)
+    var c = p.coverage;
+    h += tile(c.pct >= 80 ? 'ok' : (c.pct >= 50 ? 'warn' : 'danger'), "dashGo('testplan','tp-dashboard')", 'Configuraciones vigentes con su REQ cumplido. Toca para abrir el resumen del Plan.', '🎯 Cobertura REQ',
+              num(c.pct, '%'), '<span class="dash-pulse-bar"><i style="width:' + c.pct + '%"></i></span>',
+              c.ok + ' de ' + c.vigentes + ' configs · ' + c.pctVerified + '% solo verificadas');
+
+    // 5) Atención
+    var a = p.attention;
+    var aBits = [];
+    if (a.crit) aBits.push(a.crit + ' crítica' + (a.crit === 1 ? '' : 's'));
+    if (a.high) aBits.push(a.high + ' alta' + (a.high === 1 ? '' : 's'));
+    if (a.lowGases) aBits.push(a.lowGases + ' gas' + (a.lowGases === 1 ? '' : 'es') + ' bajo' + (a.lowGases === 1 ? '' : 's'));
+    if (a.calOverdue) aBits.push(a.calOverdue + ' calib. vencida' + (a.calOverdue === 1 ? '' : 's'));
+    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Alertas activas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
+              num(a.total), '', aBits.join(' · ') || 'Sin alertas activas');
+
+    return h + '</div>';
+}
+
 function renderLabOverview(el, opts) {
     if (!el) return;
     opts = opts || {};
@@ -1030,6 +1207,7 @@ function renderLabOverview(el, opts) {
     var activeOps = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }).length : 0;
 
     var html = '';
+    if (has('pulse')) html += _labPulseHTML(labPulseData());
     if (has('kpi')) {
         var kpis = [
             { value: activeVehicles.length, label: 'Vehículos Activos', color: '#3b82f6' },
@@ -2607,7 +2785,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
     { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
     { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
-    { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
+    { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
     { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
@@ -4462,5 +4640,5 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });

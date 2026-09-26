@@ -20,7 +20,7 @@ no-login operator picker, synced change history).
 
 | Root Tab | Contains | Internal Section IDs |
 |----------|----------|---------------------|
-| **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions. **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
+| **Hoy** | **2.0.0**: Pulso del laboratorio (5 indicadores) → categorías como recuadros-filtro → Lo siguiente (5 acciones). **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
 | **Plan** | **v23**: abre en **📅 Mi semana** — el tablero por día Y el armador (tarjeta plegable con la propuesta en vivo) en la MISMA pantalla; la pestaña "Armar semana" se eliminó. Más **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
@@ -183,6 +183,13 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
   `auditLog(module, action, entity, details)` so they appear in the change history
 - Verify syntax with `node --check js/<file>.js`; run `./build.sh` after changes; verify the bundle's
   largest inline `<script>` with `node --check` too
+
+## Historia técnica por versión
+
+Las secciones siguientes van en **orden cronológico** (la más nueva al final). Hasta v24.4 usan
+la numeración anterior (una "versión" por ronda); desde **2.0.0** la de tres números — ver
+**Versionado** más abajo. Las etiquetas viejas (`v20.8`, `[v23.1]`…) NO se reescriben: el código
+y los commits las citan.
 
 ## v15 — Simplify & Sync (current state)
 
@@ -706,6 +713,7 @@ El módulo pasó de calculadora de una familia a tablero con 4 vistas
   cosas distintas) y sale marcado **PRELIMINAR** si no hay juicio guardado.
 - **Ojo**: `undoPush('cop', …)` es un **no-op** — `undoPush` (app.js) solo conoce
   `cop15`/`testplan`/`inventory`. No llamarlo desde el CoP creyendo que hace algo.
+
 ## v19.1 — Familias de interpolación del WVTA (`js/homolog.js`)
 
 `homoState.ipFamilies` = `[{id, code, members:[{variant,version}], tml, tmh, co2Low, co2High,
@@ -901,47 +909,185 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
-## v21.1 — Nivel absoluto, un solo umbral, y la gasolina en la nube
+## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
 
-- **`invGasLevel(g)` es LA definición del nivel y es ABSOLUTA**: el % va contra la presión
-  nominal (`g.initialPsi` si está declarada, si no el **máximo histórico**), no contra
-  `readings[0]`. Antes el % dependía de en qué estado se tomó la PRIMERA lectura: un
-  cilindro al 13% real se reportaba al 63% y en verde. Devuelve
-  `{pct, psi, nominal, status:'sinlecturas'|'critico'|'bajo'|'ok', text, color, bg}` —
-  `color` es texto/relleno y `bg` el tinte; **no concatenar alfa a mano** (`color + '20'`
-  reventaba en cuanto los colores pasaron a ser tokens).
-- **`invGasIsLow(g)` es LA definición de "¿está bajo?"** y `INV_LEVEL_CRITICAL_PCT` /
-  `INV_LEVEL_LOW_PCT` los únicos umbrales. Había **cinco criterios en conflicto** (15/30 en
-  invGasLevel, 25/50 en `_invCylColor`, <20 en el dashboard, <10 en alertas proactivas, <15
-  en HOY) más **PSI absolutos** (200/500) en `pnGetActiveAlerts` y en las alertas de app.js.
-  Todo consumidor nuevo llama a estas dos, nunca compara PSI por su cuenta.
-  **`reorderPSI`/`criticalPSI` ya no se usan en ningún lado** — nunca se escribieron.
-- **`invGasBurnRate(g)` es LA definición del ritmo de consumo de UN cilindro** (diario,
-  semanal, días a nivel bajo), calculada de sus lecturas **humanas** y descartando los tramos
-  donde la presión sube (una recarga no es consumo negativo). Reemplaza a `weeklyPsi`/
-  `dailyPsi`/`reposDays`/`limitPsi`, que venían en la semilla y **nunca se recalculaban**.
-  No confundir con `invCalcConsumptionRates`, que es el consumo por TIPO DE PRUEBA.
-- `initialPsi` por fin se escribe (campo opcional en el alta). Sin él nada se rompe: la
-  nominal cae al máximo histórico.
+El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de
+referencia (con el extracto oficial adjunto) corre DOS fórmulas en paralelo — se implementaron
+las dos, no una:
 
-### ⛽ El combustible en `firebase-sync.js`
+- **`copCo2CalcStats(rows, fcf, evc)` es LA definición del veredicto de CO₂**, y devuelve AMBAS
+  pruebas: `appendixI` (Reg. (UE) 2017/1151 Anexo XXI Ap.I §4, "A menos varianza" — `Xtests <
+  A−VAR` / `Xtests > A−((n−3)/13)·VAR`, PRINCIPAL: es la que describe la conclusión) y `r154`
+  (UN R154 §3.3.1, Tabla A2/3 con t por tamaño de muestra — CONFIRMACIÓN). Los campos de nivel
+  superior (`decision`, `passBound`, `failBound`) son un alias de `appendixI` para que el resto
+  de la pantalla (gauge, congelado del juicio) no necesite saber que hay dos pruebas. **Si las
+  dos no coinciden, la conclusión lo declara en rojo — nunca se elige una en silencio.**
+- **Verificado byte-exacto contra los valores CACHEADOS del Excel de referencia** (media,
+  varianza, límites, decisión) — no es una aproximación de la fórmula, reproduce sus números
+  dígito por dígito. `COP_CO2_TABLE` (n=3..16) es la Tabla A2/3 transcrita del extracto oficial;
+  a n=16 las dos pruebas colapsan su banda exactamente al mismo punto (por diseño de la norma,
+  no coincidencia) — por eso comparten tope de muestra.
+- **`COP_CO2_A = 1,01` es fijo por la norma, NO configurable** — a diferencia del % de tolerancia
+  que reemplaza (v17.14-v20.1, retirado). Lo que SÍ es de la familia y SÍ se configura son
+  **FCF (Family Correction Factor) y Evolution Factor** (`copFamilyState(key).co2Fcf/.co2Evc`,
+  `copCo2Factors()`/`copSetCo2Factors()`), editables directo en CoP → Validador — no en una
+  pantalla de settings separada, a propósito: es donde se ve el efecto al instante.
+  `x_i = (CO2_medido × EvC × FCF) / CO2_declarado`.
+- **`_copBuildCo2HTML()` NO vive en `copBuildStatsHTML()`** — está un nivel arriba, en
+  `copBuildValidatorHTML()`. `copSetCo2Factors()` llama a `copRender()` completo, NUNCA
+  `copRenderStats()` (que solo repinta `#cop-stats-section`) — ese fue el bug real que apareció
+  al construir esto: guardar el ajuste actualizaba el estado pero la tarjeta seguía mostrando el
+  veredicto viejo, porque el repintado parcial no llegaba hasta ahí.
+- **El juicio guardado (`copSaveJudgment`) congela `co2` con las DOS pruebas** (`appendixI` +
+  `r154`, más `fcf`/`evc`/`mean`/`s`/`var`/`n` de cuando se decidió) — mismo principio que ya
+  aplicaba a los gases: un registro debe ser reproducible aunque después cambie un ajuste. El
+  PDF de expediente usa el congelado si hay juicio guardado, o lo calcula en vivo (PRELIMINAR)
+  si no — mismo patrón que el resto del documento.
+- **Se retiró `homoCo2Assess`/`homoState.co2TolerancePct`/`homoSaveTolerance`** (homolog.js) por
+  quedar superados — sin usos que quedaran huérfanos, se confirmó con grep antes de borrar.
+  **`homoCo2Deviation` SÍ se conserva**: la sigue usando la columna de desviación % por vehículo
+  en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
+  también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
 
-- **`fuelTanks` no aparecía NI UNA VEZ en ese archivo.** Los tanques ahora entran a
-  `_fbAnalyzeMerge` (`newFuelTanks` / `fuelUpdates`), al merge, a `hasWork` y al
-  **`_fbPullLocalScore`** — sin lo último, un dispositivo cuyo único dato nuevo eran lecturas
-  de gasolina puntuaba 0 y `_fbPullSeed` lo reemplazaba entero.
-- **`_fbPullSeed` preserva subcampos locales de inventario** (`fuelTanks`, `assets`,
-  `maintActivities`, `maintLog`, `consumption`, `f11Seed`) que un remoto de código viejo no
-  trae — mismo patrón que ya tenía `testplan`. Toda clave nueva de `invState` debe listarse
-  ahí o se pierde en cada pull.
-- **`_fbMergeReadings(locales, remotas)` une series sin perder lecturas.** El conflicto de un
-  cilindro hacía `invState.gases[idx] = c.remote`, tirando lo capturado en este dispositivo.
-  Regla: una fecha aparece una sola vez, gana la **humana** sobre la `auto:true`, y entre dos
-  humanas gana la **local**. El nivel autoritativo del tanque se recalcula de la última
-  lectura de la serie ya unida.
-- La `regulation` del tanque es un **selector** (`_invRegulationSelectHTML`), no texto libre:
-  es la llave con la que `invLogTestUsage` decide de qué tanque descontar. Conserva como
-  opción el valor heredado para no perder de vista uno que no empate con ningún perfil.
+## v20.3 — Modal sin scroll y gráficas SPC en blanco
+
+- **`.custom-modal-box` (styles.css) no tenía `overflow`**, solo `max-height:80vh` — cualquier
+  `showModal({body:…})` con contenido largo (p. ej. **Mi semana → 🔄 Sustituir** con varias
+  candidatas) se recortaba en silencio sin scroll. Ahora la caja es `flex column` con título y
+  botones fijos y **`.custom-modal-message` es la única región que hace scroll** (`flex:1;
+  overflow-y:auto`). Código nuevo que use `showModal` con `body` largo no necesita nada extra.
+- **`copSpcRenderCharts()` (cop_validator.js) llamaba a `new Chart()` síncrono**, en el mismo
+  tick en que `copRender()` acaba de pasar la pestaña de oculta a visible — Chart.js medía el
+  canvas antes del reflow y lo creaba a 0×0 (cartas I-MR/MR en blanco). `copRender()` ahora la
+  llama con `setTimeout(fn, 30)`, el mismo patrón que ya usa `pnProjSCurveRender` (projects.js,
+  con el comentario "canvas is already in use" — ahí es el mismo problema de timing). **Toda
+  gráfica nueva que se cree justo tras un cambio de pestaña/vista debe usar este patrón**, no
+  `new Chart()` directo tras el `innerHTML`.
+
+## v20.4 — Catálogo de configuraciones actualizado a producción
+
+- **`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente**:
+  173 → 248 configuraciones (10 descontinuadas, 85 nuevas, familia nueva **CL4MH**). Mismo
+  formato/orden de columnas de siempre (`codigo_config_text,Modelo,MODEL YEAR (VIN),
+  TRANSMISSION,ENVIRONMENT PACKAGE,EMISSION REGULATION,DRIVE TYPE,ENGINE CAPACITY,TIRE ASSY,
+  REGION,BODY TYPE,ENGINE PACKAGE`) — el CSV de producción trae además `codigo_config` (id
+  interno) y columnas de volumen mensual (`count_hist`, `Aug-26`…`Total_Calc`) que **no** son
+  parte del catálogo y se descartan al hornear; esas mismas columnas de volumen sí alimentan el
+  importador de producción del Plan (`tpImportPlanCSV`), pero eso el laboratorio lo sube desde
+  la propia app, no se hornea.
+- **Por qué se hornea en vez de usar el importador de la app (`kia_config_csv_raw`)**: ese
+  importador guarda el CSV en `localStorage` de un solo dispositivo y **no está en la lista de
+  sync de `firebase-sync.js`** — un catálogo importado ahí se ve en el equipo donde se subió y
+  en ningún otro. Un catálogo nuevo que deba verse igual en todos los dispositivos va horneado
+  en `CSV_CONFIGURATIONS` (vía código + `./build.sh`), no por el importador.
+
+## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal
+
+- **`copState.ovHidden`** = `{familyKey: true}`, estado de UI POR DISPOSITIVO (se agregó a la
+  misma lista de exclusión de `fbPullApply` que `view`/`region`/`ovFilter`/`spc` — v19.0: "gana
+  el local"). `copHideFamily`/`copShowFamily`/`copShowAllFamilies` son los únicos mutadores.
+  **Ocultar es declutter de la lectura, NUNCA del tracking**: `copPortfolioRows()` (KPIs,
+  `pnGetActiveAlerts`, SPC) sigue viendo TODAS las familias — el filtro por `ovHidden` vive
+  solo dentro de `copBuildOverviewHTML()`, al construir `visible`/`hidden` a partir de `shown`.
+- **`_copFamCardHTML` pasó de `<button>` a `<div onclick=...>`** porque ahora lleva un
+  `<button>` real anidado (🙈 ocultar, con `event.stopPropagation()`) — un `<button>` no puede
+  contener otro. El teclado lo sigue manejando igual: `a11yClickables()` (ya se llama al final
+  de `copRender()`) le pone `role="button"`/`tabindex` y el listener global de Enter/Espacio de
+  app.js hace el resto. Patrón ya usado en otras filas clicables de la app (`event.
+  stopPropagation()` en un botón anidado) — no es nuevo, solo su primer uso en una tarjeta CoP.
+- **`tpFamilyWeeklyProgress(familyKey)`** (testplan.js) es LA definición de "qué semanas del
+  plan tocan a esta familia": recorre `tpState.weeklyPlans` (vivo — las semanas aceptadas se
+  quedan ahí, nunca se mudan a `weekHistory` solamente), resuelve cada item a su config vía
+  `tpState.planData` (mismo patrón que `tpWeekBoardRows`, porque un item de un plan viejo solo
+  trae `desc` + un puñado de campos) y agrupa por `tpFamilyKeyForCfg`. Devuelve `done`
+  (completed, separado en `verified`/`declared`) y `planned` (sin completar todavía) por
+  semana — **no reconcilia esto con `planTested`/cobertura** (que cuenta TODO `testedList`,
+  incluida evidencia fuera de cualquier plan semanal): es a propósito una lente más angosta,
+  "según lo que pasó por Mi semana".
+- **`_copFamilyGanttHTML(rows)`** (cop_validator.js) consume lo anterior para las familias
+  `visible` (no ocultas) del Panorama: eje de semanas COMPARTIDO entre todas las filas (unión
+  de fechas con actividad, tope 12 columnas, se queda con las más recientes/próximas), y la
+  columna final "En el Plan" suma sobre el arreglo COMPLETO de `tpFamilyWeeklyProgress` (sin el
+  tope de 12), no solo lo visible, para que el total/pendiente no se lea mal cuando hay más de
+  12 semanas de historia. No guarda nada — se recalcula en cada render de `copBuildOverviewHTML`.
+
+## v20.8 — La carrocería es familia, y el candado de vinculación
+
+- **`tpFamilyKeyForCfg` tiene 8 segmentos, no 7** — `body` entró a la identidad:
+  `mod|eng|tx|my|reg|ep|engpkg|body`. Una 5DR y una WGN **no se prueban juntas**, así que
+  son familias distintas con contador, tarjeta y veredicto propios. `tpBuildFamilies` ya
+  no duplica la fórmula: llama a `tpFamilyKeyForCfg`. `copVehicleFamilyKey` (que replica
+  la clave desde los headers crudos de `v.config`) suma `BODY TYPE` — **las dos definiciones
+  tienen que cambiar juntas o las series SPC dejan de empatar con el plan.**
+- **`_tpMigrateFamilyKeysBody()` (testplan.js) remapea lo guardado con clave vieja**
+  (`familyOverrides`, `soak.byFamily`) duplicándolo a cada carrocería que esa familia
+  agrupaba en el catálogo. Solo actúa sobre claves de 7 segmentos, así que es idempotente
+  y **corre en `_tpEnsureState()` Y al principio de `tpBuildFamilies()`**: un pull de sync
+  desde un dispositivo sin actualizar puede reintroducir claves viejas en cualquier momento.
+- **Los juicios CoP guardados NUNCA se reescriben** — son evidencia congelada. Se empatan
+  por prefijo con **`_copJudgmentMatchesFamily(j, key)`** (el juicio de la familia combinada
+  cubría ambas carrocerías, así que sale en la historia de las dos). Todo consumidor nuevo
+  de `copState.saved` debe usarla en vez de `j.familyKey === key`. Ya migrados:
+  `copPortfolioRows`, `copFamilyHistory`, `copVerdictAt`.
+- Las **mesas de trabajo** (`copState.families`) solo se adoptan a la clave nueva si la
+  familia tenía UNA sola carrocería; con varias se quedan con la clave vieja, inofensivas —
+  los VINes capturados son de una carrocería concreta y repartirlos sería inventar.
+  `ovHidden` sí se duplica a todas: ocultar era una intención sobre el grupo entero.
+- **`_copFamilyEmissionReg` lee `parts[4]`** (índice desde el inicio), así que sobrevivió al
+  cambio. Cualquier parseo nuevo de la clave debe indexar desde el inicio, nunca desde el final.
+
+### 🔒 Un vehículo acredita UNA prueba
+
+- **`_tpVehicleLinksElsewhere(excludeItem)` es LA definición de "qué vehículos ya están
+  vinculados"** y barre **TODOS** los `tpState.weeklyPlans`, no solo la semana abierta —
+  ese era el bug: el mismo VIN se vinculaba otra vez en otra semana sin ningún aviso.
+  La usan `tpLinkableVehiclesFor` (para no ofrecerlo), `tpLinkVehicleToItem` (para
+  rechazarlo, diciendo en qué semana está) y `tpWeekBoardRows` (para reservarlo).
+- **Un archivado solo respalda una fila YA completada** (`tpWeekBoardRows`): un liberado es
+  una prueba que ocurrió, y si esta fila fuera esa prueba estaría marcada
+  (`tpAutoMarkWeeklyCompletion` la marca al liberar). Prestárselo a una fila pendiente
+  pintaba el mismo VIN "liberado" en dos semanas con una sola prueba real.
+- Los vínculos explícitos se **reservan antes** de resolver ninguna fila: si no, una fila
+  auto-resuelta que se procesa primero le gana el vehículo a una vinculada a mano.
+- El candado impide el **descuido**, no el caso legítimo: dos pruebas que de verdad
+  necesitan el mismo VIN se logran desvinculando la anterior primero.
+
+## v20.9 — El REQ es de la familia, por lotes de producción
+
+- **`tpFamilyRequired(vol)` (testplan.js) es LA definición del REQ de una familia** y todo
+  consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones. Regla:
+  `TP_COP_LOT_TESTS` (3) ensayos por cada `TP_COP_LOT_UNITS` (5 000) unidades, con el
+  escalón corrido `TP_COP_LOT_ROLLOVER` (2 500) hacia atrás — **no es `ceil(vol/5000)`**:
+  el segundo lote entra al SUPERAR 7 501, no al pasar 5 000. `≤7 500 → 3 · 7 501–12 500 → 6`.
+  Volumen 0 → 0 (misma regla que `tpCalcRequired`).
+- **`tpCalcRequired` (por configuración) NO fue reemplazada** — son dos preguntas distintas
+  y deben seguir separadas: cuántos ensayos exige la norma (familia, `f.totalRequired`) y
+  qué variante conviene correr (configuración, `configs[].required`, lo que lee el
+  planificador semanal vía `tpGetAnalysis`). La suma por variante se conserva en
+  `f.configRequiredSum` — si algún consumidor viejo la necesitaba, está ahí.
+- **`f.activeVol`** es el volumen que cuenta para el REQ: excluye las configuraciones
+  `paused`, igual que ya hacía el REQ por configuración. Toda regla nueva de volumen a
+  nivel familia debe usarlo, no `totalVol + totalHist` (que incluye pausadas).
+- `f.coverage` se acota a 1: con el REQ de familia es normal correr de más.
+- **`tpCoverageSummary()` sigue siendo otra cosa y NO cambió**: mide configuraciones
+  vigentes con su REQ *por configuración* cumplido. No intentar reconciliar los dos números
+  — miden unidades distintas a propósito.
+
+## v20.10 — Una semana, un plan (el Gantt contaba doble)
+
+- **`tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`** — cada
+  "Generar" empuja uno nuevo, así que lo normal es el aceptado + N propuestas viejas.
+  Todo consumidor que agregue por semana debe resolver el **plan vigente** primero:
+  el/los `accepted`, y si no hay ninguno, la propuesta con `created` más reciente.
+  `tpFamilyWeeklyProgress` ya lo hace y devuelve `proposal:true` cuando la semana no
+  tiene plan aceptado. Antes devolvía **una fila por plan**, así que el Gantt pintaba
+  la última (`byWeek[weekDate]` se sobrescribe) pero sumaba todas en el total.
+- **`tpDeleteWeeklyPlan` ya está expuesta** (🗑 por propuesta en `tpBuildWeekIndexHTML`).
+  Existía desde v20 sin ninguna UI que la llamara. Los planes aceptados no llevan botón:
+  la función ya redirigía a desaceptar primero, y esa validación se respeta en la vista.
+- Las filas de `tpBuildWeekIndexHTML` pasaron de `<button>` a `<div onclick>` porque
+  llevan un `<button>` anidado — mismo patrón (y misma razón) que `_copFamCardHTML` en
+  v20.5, con `a11yClickables(el)` al final de `tpRenderWeekly` para el teclado.
 
 ## v21.0 — El motor único de captura de lecturas (`js/inventory.js`)
 
@@ -993,185 +1139,47 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
 - Las superficies de captura salieron del **tema oscuro de v15.5** (`#0f172a`/`#1e293b`) a los
   tokens y a las utilidades `u-*`. No volver a propagar hex oscuros en este módulo.
 
-## v20.10 — Una semana, un plan (el Gantt contaba doble)
+## v21.1 — Nivel absoluto, un solo umbral, y la gasolina en la nube
 
-- **`tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`** — cada
-  "Generar" empuja uno nuevo, así que lo normal es el aceptado + N propuestas viejas.
-  Todo consumidor que agregue por semana debe resolver el **plan vigente** primero:
-  el/los `accepted`, y si no hay ninguno, la propuesta con `created` más reciente.
-  `tpFamilyWeeklyProgress` ya lo hace y devuelve `proposal:true` cuando la semana no
-  tiene plan aceptado. Antes devolvía **una fila por plan**, así que el Gantt pintaba
-  la última (`byWeek[weekDate]` se sobrescribe) pero sumaba todas en el total.
-- **`tpDeleteWeeklyPlan` ya está expuesta** (🗑 por propuesta en `tpBuildWeekIndexHTML`).
-  Existía desde v20 sin ninguna UI que la llamara. Los planes aceptados no llevan botón:
-  la función ya redirigía a desaceptar primero, y esa validación se respeta en la vista.
-- Las filas de `tpBuildWeekIndexHTML` pasaron de `<button>` a `<div onclick>` porque
-  llevan un `<button>` anidado — mismo patrón (y misma razón) que `_copFamCardHTML` en
-  v20.5, con `a11yClickables(el)` al final de `tpRenderWeekly` para el teclado.
+- **`invGasLevel(g)` es LA definición del nivel y es ABSOLUTA**: el % va contra la presión
+  nominal (`g.initialPsi` si está declarada, si no el **máximo histórico**), no contra
+  `readings[0]`. Antes el % dependía de en qué estado se tomó la PRIMERA lectura: un
+  cilindro al 13% real se reportaba al 63% y en verde. Devuelve
+  `{pct, psi, nominal, status:'sinlecturas'|'critico'|'bajo'|'ok', text, color, bg}` —
+  `color` es texto/relleno y `bg` el tinte; **no concatenar alfa a mano** (`color + '20'`
+  reventaba en cuanto los colores pasaron a ser tokens).
+- **`invGasIsLow(g)` es LA definición de "¿está bajo?"** y `INV_LEVEL_CRITICAL_PCT` /
+  `INV_LEVEL_LOW_PCT` los únicos umbrales. Había **cinco criterios en conflicto** (15/30 en
+  invGasLevel, 25/50 en `_invCylColor`, <20 en el dashboard, <10 en alertas proactivas, <15
+  en HOY) más **PSI absolutos** (200/500) en `pnGetActiveAlerts` y en las alertas de app.js.
+  Todo consumidor nuevo llama a estas dos, nunca compara PSI por su cuenta.
+  **`reorderPSI`/`criticalPSI` ya no se usan en ningún lado** — nunca se escribieron.
+- **`invGasBurnRate(g)` es LA definición del ritmo de consumo de UN cilindro** (diario,
+  semanal, días a nivel bajo), calculada de sus lecturas **humanas** y descartando los tramos
+  donde la presión sube (una recarga no es consumo negativo). Reemplaza a `weeklyPsi`/
+  `dailyPsi`/`reposDays`/`limitPsi`, que venían en la semilla y **nunca se recalculaban**.
+  No confundir con `invCalcConsumptionRates`, que es el consumo por TIPO DE PRUEBA.
+- `initialPsi` por fin se escribe (campo opcional en el alta). Sin él nada se rompe: la
+  nominal cae al máximo histórico.
 
-## v20.9 — El REQ es de la familia, por lotes de producción
+### ⛽ El combustible en `firebase-sync.js`
 
-- **`tpFamilyRequired(vol)` (testplan.js) es LA definición del REQ de una familia** y todo
-  consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones. Regla:
-  `TP_COP_LOT_TESTS` (3) ensayos por cada `TP_COP_LOT_UNITS` (5 000) unidades, con el
-  escalón corrido `TP_COP_LOT_ROLLOVER` (2 500) hacia atrás — **no es `ceil(vol/5000)`**:
-  el segundo lote entra al SUPERAR 7 501, no al pasar 5 000. `≤7 500 → 3 · 7 501–12 500 → 6`.
-  Volumen 0 → 0 (misma regla que `tpCalcRequired`).
-- **`tpCalcRequired` (por configuración) NO fue reemplazada** — son dos preguntas distintas
-  y deben seguir separadas: cuántos ensayos exige la norma (familia, `f.totalRequired`) y
-  qué variante conviene correr (configuración, `configs[].required`, lo que lee el
-  planificador semanal vía `tpGetAnalysis`). La suma por variante se conserva en
-  `f.configRequiredSum` — si algún consumidor viejo la necesitaba, está ahí.
-- **`f.activeVol`** es el volumen que cuenta para el REQ: excluye las configuraciones
-  `paused`, igual que ya hacía el REQ por configuración. Toda regla nueva de volumen a
-  nivel familia debe usarlo, no `totalVol + totalHist` (que incluye pausadas).
-- `f.coverage` se acota a 1: con el REQ de familia es normal correr de más.
-- **`tpCoverageSummary()` sigue siendo otra cosa y NO cambió**: mide configuraciones
-  vigentes con su REQ *por configuración* cumplido. No intentar reconciliar los dos números
-  — miden unidades distintas a propósito.
-
-## v20.8 — La carrocería es familia, y el candado de vinculación
-
-- **`tpFamilyKeyForCfg` tiene 8 segmentos, no 7** — `body` entró a la identidad:
-  `mod|eng|tx|my|reg|ep|engpkg|body`. Una 5DR y una WGN **no se prueban juntas**, así que
-  son familias distintas con contador, tarjeta y veredicto propios. `tpBuildFamilies` ya
-  no duplica la fórmula: llama a `tpFamilyKeyForCfg`. `copVehicleFamilyKey` (que replica
-  la clave desde los headers crudos de `v.config`) suma `BODY TYPE` — **las dos definiciones
-  tienen que cambiar juntas o las series SPC dejan de empatar con el plan.**
-- **`_tpMigrateFamilyKeysBody()` (testplan.js) remapea lo guardado con clave vieja**
-  (`familyOverrides`, `soak.byFamily`) duplicándolo a cada carrocería que esa familia
-  agrupaba en el catálogo. Solo actúa sobre claves de 7 segmentos, así que es idempotente
-  y **corre en `_tpEnsureState()` Y al principio de `tpBuildFamilies()`**: un pull de sync
-  desde un dispositivo sin actualizar puede reintroducir claves viejas en cualquier momento.
-- **Los juicios CoP guardados NUNCA se reescriben** — son evidencia congelada. Se empatan
-  por prefijo con **`_copJudgmentMatchesFamily(j, key)`** (el juicio de la familia combinada
-  cubría ambas carrocerías, así que sale en la historia de las dos). Todo consumidor nuevo
-  de `copState.saved` debe usarla en vez de `j.familyKey === key`. Ya migrados:
-  `copPortfolioRows`, `copFamilyHistory`, `copVerdictAt`.
-- Las **mesas de trabajo** (`copState.families`) solo se adoptan a la clave nueva si la
-  familia tenía UNA sola carrocería; con varias se quedan con la clave vieja, inofensivas —
-  los VINes capturados son de una carrocería concreta y repartirlos sería inventar.
-  `ovHidden` sí se duplica a todas: ocultar era una intención sobre el grupo entero.
-- **`_copFamilyEmissionReg` lee `parts[4]`** (índice desde el inicio), así que sobrevivió al
-  cambio. Cualquier parseo nuevo de la clave debe indexar desde el inicio, nunca desde el final.
-
-### 🔒 Un vehículo acredita UNA prueba
-
-- **`_tpVehicleLinksElsewhere(excludeItem)` es LA definición de "qué vehículos ya están
-  vinculados"** y barre **TODOS** los `tpState.weeklyPlans`, no solo la semana abierta —
-  ese era el bug: el mismo VIN se vinculaba otra vez en otra semana sin ningún aviso.
-  La usan `tpLinkableVehiclesFor` (para no ofrecerlo), `tpLinkVehicleToItem` (para
-  rechazarlo, diciendo en qué semana está) y `tpWeekBoardRows` (para reservarlo).
-- **Un archivado solo respalda una fila YA completada** (`tpWeekBoardRows`): un liberado es
-  una prueba que ocurrió, y si esta fila fuera esa prueba estaría marcada
-  (`tpAutoMarkWeeklyCompletion` la marca al liberar). Prestárselo a una fila pendiente
-  pintaba el mismo VIN "liberado" en dos semanas con una sola prueba real.
-- Los vínculos explícitos se **reservan antes** de resolver ninguna fila: si no, una fila
-  auto-resuelta que se procesa primero le gana el vehículo a una vinculada a mano.
-- El candado impide el **descuido**, no el caso legítimo: dos pruebas que de verdad
-  necesitan el mismo VIN se logran desvinculando la anterior primero.
-
-## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal
-
-- **`copState.ovHidden`** = `{familyKey: true}`, estado de UI POR DISPOSITIVO (se agregó a la
-  misma lista de exclusión de `fbPullApply` que `view`/`region`/`ovFilter`/`spc` — v19.0: "gana
-  el local"). `copHideFamily`/`copShowFamily`/`copShowAllFamilies` son los únicos mutadores.
-  **Ocultar es declutter de la lectura, NUNCA del tracking**: `copPortfolioRows()` (KPIs,
-  `pnGetActiveAlerts`, SPC) sigue viendo TODAS las familias — el filtro por `ovHidden` vive
-  solo dentro de `copBuildOverviewHTML()`, al construir `visible`/`hidden` a partir de `shown`.
-- **`_copFamCardHTML` pasó de `<button>` a `<div onclick=...>`** porque ahora lleva un
-  `<button>` real anidado (🙈 ocultar, con `event.stopPropagation()`) — un `<button>` no puede
-  contener otro. El teclado lo sigue manejando igual: `a11yClickables()` (ya se llama al final
-  de `copRender()`) le pone `role="button"`/`tabindex` y el listener global de Enter/Espacio de
-  app.js hace el resto. Patrón ya usado en otras filas clicables de la app (`event.
-  stopPropagation()` en un botón anidado) — no es nuevo, solo su primer uso en una tarjeta CoP.
-- **`tpFamilyWeeklyProgress(familyKey)`** (testplan.js) es LA definición de "qué semanas del
-  plan tocan a esta familia": recorre `tpState.weeklyPlans` (vivo — las semanas aceptadas se
-  quedan ahí, nunca se mudan a `weekHistory` solamente), resuelve cada item a su config vía
-  `tpState.planData` (mismo patrón que `tpWeekBoardRows`, porque un item de un plan viejo solo
-  trae `desc` + un puñado de campos) y agrupa por `tpFamilyKeyForCfg`. Devuelve `done`
-  (completed, separado en `verified`/`declared`) y `planned` (sin completar todavía) por
-  semana — **no reconcilia esto con `planTested`/cobertura** (que cuenta TODO `testedList`,
-  incluida evidencia fuera de cualquier plan semanal): es a propósito una lente más angosta,
-  "según lo que pasó por Mi semana".
-- **`_copFamilyGanttHTML(rows)`** (cop_validator.js) consume lo anterior para las familias
-  `visible` (no ocultas) del Panorama: eje de semanas COMPARTIDO entre todas las filas (unión
-  de fechas con actividad, tope 12 columnas, se queda con las más recientes/próximas), y la
-  columna final "En el Plan" suma sobre el arreglo COMPLETO de `tpFamilyWeeklyProgress` (sin el
-  tope de 12), no solo lo visible, para que el total/pendiente no se lea mal cuando hay más de
-  12 semanas de historia. No guarda nada — se recalcula en cada render de `copBuildOverviewHTML`.
-
-## v20.4 — Catálogo de configuraciones actualizado a producción
-
-- **`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente**:
-  173 → 248 configuraciones (10 descontinuadas, 85 nuevas, familia nueva **CL4MH**). Mismo
-  formato/orden de columnas de siempre (`codigo_config_text,Modelo,MODEL YEAR (VIN),
-  TRANSMISSION,ENVIRONMENT PACKAGE,EMISSION REGULATION,DRIVE TYPE,ENGINE CAPACITY,TIRE ASSY,
-  REGION,BODY TYPE,ENGINE PACKAGE`) — el CSV de producción trae además `codigo_config` (id
-  interno) y columnas de volumen mensual (`count_hist`, `Aug-26`…`Total_Calc`) que **no** son
-  parte del catálogo y se descartan al hornear; esas mismas columnas de volumen sí alimentan el
-  importador de producción del Plan (`tpImportPlanCSV`), pero eso el laboratorio lo sube desde
-  la propia app, no se hornea.
-- **Por qué se hornea en vez de usar el importador de la app (`kia_config_csv_raw`)**: ese
-  importador guarda el CSV en `localStorage` de un solo dispositivo y **no está en la lista de
-  sync de `firebase-sync.js`** — un catálogo importado ahí se ve en el equipo donde se subió y
-  en ningún otro. Un catálogo nuevo que deba verse igual en todos los dispositivos va horneado
-  en `CSV_CONFIGURATIONS` (vía código + `./build.sh`), no por el importador.
-
-## v20.3 — Modal sin scroll y gráficas SPC en blanco
-
-- **`.custom-modal-box` (styles.css) no tenía `overflow`**, solo `max-height:80vh` — cualquier
-  `showModal({body:…})` con contenido largo (p. ej. **Mi semana → 🔄 Sustituir** con varias
-  candidatas) se recortaba en silencio sin scroll. Ahora la caja es `flex column` con título y
-  botones fijos y **`.custom-modal-message` es la única región que hace scroll** (`flex:1;
-  overflow-y:auto`). Código nuevo que use `showModal` con `body` largo no necesita nada extra.
-- **`copSpcRenderCharts()` (cop_validator.js) llamaba a `new Chart()` síncrono**, en el mismo
-  tick en que `copRender()` acaba de pasar la pestaña de oculta a visible — Chart.js medía el
-  canvas antes del reflow y lo creaba a 0×0 (cartas I-MR/MR en blanco). `copRender()` ahora la
-  llama con `setTimeout(fn, 30)`, el mismo patrón que ya usa `pnProjSCurveRender` (projects.js,
-  con el comentario "canvas is already in use" — ahí es el mismo problema de timing). **Toda
-  gráfica nueva que se cree justo tras un cambio de pestaña/vista debe usar este patrón**, no
-  `new Chart()` directo tras el `innerHTML`.
-
-## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
-
-El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de
-referencia (con el extracto oficial adjunto) corre DOS fórmulas en paralelo — se implementaron
-las dos, no una:
-
-- **`copCo2CalcStats(rows, fcf, evc)` es LA definición del veredicto de CO₂**, y devuelve AMBAS
-  pruebas: `appendixI` (Reg. (UE) 2017/1151 Anexo XXI Ap.I §4, "A menos varianza" — `Xtests <
-  A−VAR` / `Xtests > A−((n−3)/13)·VAR`, PRINCIPAL: es la que describe la conclusión) y `r154`
-  (UN R154 §3.3.1, Tabla A2/3 con t por tamaño de muestra — CONFIRMACIÓN). Los campos de nivel
-  superior (`decision`, `passBound`, `failBound`) son un alias de `appendixI` para que el resto
-  de la pantalla (gauge, congelado del juicio) no necesite saber que hay dos pruebas. **Si las
-  dos no coinciden, la conclusión lo declara en rojo — nunca se elige una en silencio.**
-- **Verificado byte-exacto contra los valores CACHEADOS del Excel de referencia** (media,
-  varianza, límites, decisión) — no es una aproximación de la fórmula, reproduce sus números
-  dígito por dígito. `COP_CO2_TABLE` (n=3..16) es la Tabla A2/3 transcrita del extracto oficial;
-  a n=16 las dos pruebas colapsan su banda exactamente al mismo punto (por diseño de la norma,
-  no coincidencia) — por eso comparten tope de muestra.
-- **`COP_CO2_A = 1,01` es fijo por la norma, NO configurable** — a diferencia del % de tolerancia
-  que reemplaza (v17.14-v20.1, retirado). Lo que SÍ es de la familia y SÍ se configura son
-  **FCF (Family Correction Factor) y Evolution Factor** (`copFamilyState(key).co2Fcf/.co2Evc`,
-  `copCo2Factors()`/`copSetCo2Factors()`), editables directo en CoP → Validador — no en una
-  pantalla de settings separada, a propósito: es donde se ve el efecto al instante.
-  `x_i = (CO2_medido × EvC × FCF) / CO2_declarado`.
-- **`_copBuildCo2HTML()` NO vive en `copBuildStatsHTML()`** — está un nivel arriba, en
-  `copBuildValidatorHTML()`. `copSetCo2Factors()` llama a `copRender()` completo, NUNCA
-  `copRenderStats()` (que solo repinta `#cop-stats-section`) — ese fue el bug real que apareció
-  al construir esto: guardar el ajuste actualizaba el estado pero la tarjeta seguía mostrando el
-  veredicto viejo, porque el repintado parcial no llegaba hasta ahí.
-- **El juicio guardado (`copSaveJudgment`) congela `co2` con las DOS pruebas** (`appendixI` +
-  `r154`, más `fcf`/`evc`/`mean`/`s`/`var`/`n` de cuando se decidió) — mismo principio que ya
-  aplicaba a los gases: un registro debe ser reproducible aunque después cambie un ajuste. El
-  PDF de expediente usa el congelado si hay juicio guardado, o lo calcula en vivo (PRELIMINAR)
-  si no — mismo patrón que el resto del documento.
-- **Se retiró `homoCo2Assess`/`homoState.co2TolerancePct`/`homoSaveTolerance`** (homolog.js) por
-  quedar superados — sin usos que quedaran huérfanos, se confirmó con grep antes de borrar.
-  **`homoCo2Deviation` SÍ se conserva**: la sigue usando la columna de desviación % por vehículo
-  en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
-  también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
+- **`fuelTanks` no aparecía NI UNA VEZ en ese archivo.** Los tanques ahora entran a
+  `_fbAnalyzeMerge` (`newFuelTanks` / `fuelUpdates`), al merge, a `hasWork` y al
+  **`_fbPullLocalScore`** — sin lo último, un dispositivo cuyo único dato nuevo eran lecturas
+  de gasolina puntuaba 0 y `_fbPullSeed` lo reemplazaba entero.
+- **`_fbPullSeed` preserva subcampos locales de inventario** (`fuelTanks`, `assets`,
+  `maintActivities`, `maintLog`, `consumption`, `f11Seed`) que un remoto de código viejo no
+  trae — mismo patrón que ya tenía `testplan`. Toda clave nueva de `invState` debe listarse
+  ahí o se pierde en cada pull.
+- **`_fbMergeReadings(locales, remotas)` une series sin perder lecturas.** El conflicto de un
+  cilindro hacía `invState.gases[idx] = c.remote`, tirando lo capturado en este dispositivo.
+  Regla: una fecha aparece una sola vez, gana la **humana** sobre la `auto:true`, y entre dos
+  humanas gana la **local**. El nivel autoritativo del tanque se recalcula de la última
+  lectura de la serie ya unida.
+- La `regulation` del tanque es un **selector** (`_invRegulationSelectHTML`), no texto libre:
+  es la llave con la que `invLogTestUsage` decide de qué tanque descontar. Conserva como
+  opción el valor heredado para no perder de vista uno que no empate con ningún perfil.
 
 ## v22.0 — Aire: densidad de la interfaz y tokens que por fin mandan
 
@@ -1340,431 +1348,6 @@ las dos, no una:
 - `copBuildOverviewHTML` **sigue sin migrar a `uiCard`** a propósito: el CoP tiene su propio
   vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
   anidado (v20.5). Es una ronda propia.
-
-## v24.0 — Auditoría UX: primitivas de interacción (`js/app.js`)
-
-- **`uiEnhanceObserve()` hace que `data-chips` / `data-num` / `table.u-cards` funcionen en
-  CUALQUIER HTML pintado después del arranque** (renders, repintados parciales, modales).
-  Antes solo corrían al arrancar: marcar un select en Plan o Datos no hacía nada. Filtra por
-  `_chips`/`_num` para no re-procesar (si no, repintar las fichas se dispararía en bucle).
-- **`showToast(msg, type[, durMs][, undoFn])`**: el envoltorio de notificaciones reenvía
-  TODOS los argumentos (antes tiraba el 3º y 4º: ningún "Deshacer" funcionó nunca). Error ≥ 8 s
-  según largo — NO fijo: muchos "error" son validaciones. **`toastUndo(msg, fn)`** y
-  **`undoableAction(módulo, etiqueta, fn)`** son LA forma de ofrecer deshacer; la segunda
-  restaura ESA foto, no la última de la pila. `undoPush` ya cubre `'panel'`.
-- **Borrar = confirmar Y deshacer** (decisión del laboratorio), nombrando lo que se borra.
-  Consumibles tiene un solo camino: **`invConfirmDelete(kind, ref)`**.
-- **`uiPrompt(opts)` reemplaza a `prompt()`** (Promise). No quedan `prompt()`/`alert()` en la app;
-  el E2E v24 los intercepta y falla si aparece uno.
-- **`uiLabel(kind, code)`** (`gasStatus`, `purpose`, `region`) — el VALOR guardado no cambia
-  (hay ~20 filtros sobre `status === 'In use'`), solo lo que se lee.
-- **`table.u-cards`** → tarjetas bajo 640 px; `uiTableCards` copia cada `<th>` a `data-label`.
-  **`u-cards-grid`** para tablas de gases (primera celda a lo ancho, valores en 2 columnas).
-- **Pestañas por grupos (`UI_TAB_GROUPS`, `uiTabGroupsInit/Sync/Go`)** en Plan, Consumibles y
-  Datos. Los botones son LOS MISMOS (mismo id y onclick), solo se ocultan los de otros grupos:
-  `xxSwitchTab`, `dashGo` y `uiNavRegistry` no cambian. **Toda pestaña nueva se agrega a un
-  grupo en `UI_TAB_GROUPS`** (si no, cae en el último). `xxSwitchTab` queda envuelta para
-  sincronizar el grupo; la última pestaña por grupo vive en `uiPref('tabGroups')`.
-- **`tpWeightsRebalance(weights, key, value)`** (testplan.js, PURA): mover un peso reparte la
-  diferencia para sumar 100. `tpSetWeightBalanced` es su mutador.
-- Un `− / +` dentro de una `<td>` necesita `min-width` en el input (`td .ui-num-row > input`)
-  o el número se corta en silencio ("1000" se veía "10").
-- Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
-  dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
-
-## v24.3 — Calibraciones desde Excel, consumibles como fuente, HOY sin encimarse
-
-- **Filas de HOY (`dashRenderRow`)**: `.dash-row` es un CONTENEDOR (container query) y el grid
-  vive en `.dash-row-in`. El acomodo depende del ancho de la CELDA, no de la ventana: con
-  `@media` la fila ponía las acciones a la derecha en una celda de 450px y se desbordaba sobre
-  la vecina. Todo hijo de grid que pueda crecer lleva `min-width:0` y los tracks flexibles son
-  `minmax(0,1fr)`. `tests/v243.e2e.js` mide desbordes/cruces en 6 anchos × 3 densidades.
-- **`invCalImportAnalyze(grid, equipment)` (PURA) es LA definición de qué cambia el Excel del
-  F11.** Empate: No. del F11 → ID KMM → serie → descripción, las tres últimas **solo si son
-  únicas** — en el F11 real un instrumento físico con dos magnitudes comparte KMM y serie.
-  `'-'`, `N/A`, `S/N` no son identificadores. Una fecha del Excel más VIEJA que la de la app no
-  se aplica (se lista). Sinónimos en `INV_F11_IMPORT_FIELDS`: los literales del F11 primero;
-  nunca una palabra suelta como "laboratorio" (el F11 trae "Laboratorio (auto)").
-- **v24.4 — el F11 real no trae "No."** (encabezados en inglés, frecuencia en
-  `Internal`/`External`). El mapeo es `_invF11AutoMap` (exactos de TODOS los campos primero,
-  contención ≥ 6 letras después — nunca campo por campo). La identidad sale de
-  `_invCalMatchScore` (PURA: KMM/serie ±8, descripción, modelo, equipo padre) contra la
-  SEMILLA `INV_CAL_SEED_F11`, que salió del mismo documento; umbral ≥ 8 y ventaja ≥ 3, si no
-  es ambigua. "Más vieja" solo protege una fecha con registro en `calHistory`; la de la
-  semilla se corrige. Fechas: año 2000–2100, "última" futura rechazada, d/m vs m/d por la
-  hoja y, si no hay evidencia, por la próxima + frecuencia. El archivo real vive como fixture
-  en `tests/fixtures/f11-plan-anual-2026-09-12.json`: si cambia el formato, agregar su fixture.
-- **`_invApplyCalibration(eq, o)` es el ÚNICO escritor de una calibración** (lo usan
-  `invCalRegister` y la importación); no duplica fecha+certificado en `calHistory`.
-- `_pnProjDetectHeader(grid, fields)` / `_pnProjAutoMap(headers, fields)` aceptan un catálogo
-  propio (default `PN_IMPORT_FIELDS`). Reúsalas para cualquier importador nuevo.
-- **`invGasReorder(g)` es LA definición del punto de reorden** (el "Comprar" del correo):
-  `weeklyPsi / 5 × invGasLeadDays(g) × INV_REORDER_SAFETY(1.3)`. **No reemplaza a
-  `invGasIsLow`** — son dos preguntas (¿está bajo? vs ¿hay que pedirlo ya dado lo que tarda el
-  proveedor?). Sin ritmo (menos de dos lecturas humanas con caída) es `sinritmo`, nunca `ok`.
-  `invGasLeadDays` = `g.leadDays` → `g.reposDays` (semilla) → 44.
-- **`invConsumablesReportRows()` es LA definición de los datos del reporte semanal**; la
-  pantalla (`invRenderReport`) y el correo (`invConsumablesEmailHTML`, estilos LITERALES — nada
-  de `var(--…)` en HTML que sale de la app) solo pintan. `invFuelWeeklyUsage` (PURA) no cuenta
-  recargas ni lecturas `auto`.
-- **Importar el reporte (`invConsImportOpen`)**: Excel/CSV, pegar (HTML primero: se expanden
-  `rowspan/colspan`; TSV corto se alinea por la DERECHA) o imagen. Solo se GUARDA el inventario
-  (vía `invAddReading`, `source:'importacion'`) y `leadDays`; lo derivado del correo se muestra
-  al lado, nunca se guarda. `invMatchGasByLabel` (PURA) empata especie+concentración leyendo la
-  especie ANTES de "balance"; el nombre del correo queda en `g.importAlias`.
-- **OCR = respaldo, y así se queda.** Tesseract.js 5.1.1 diferido (`_invLoadTesseract`, versión
-  fija en `INV_TESS`), nunca al arrancar. Leer la tabla completa de un jalón cambia dígitos
-  plausibles (3300 → 2300): se detecta la cuadrícula (`_invOcrFindGrid`, PURA) y se lee celda
-  por celda (PSM 7), releyendo con whitelist de dígitos las numéricas. Sin cuadrícula (foto del
-  monitor) cae a renglones y normalmente no reconoce nada — se DICE. Otsu: tinta = gris `<=` umbral.
-- **Sync de inventario**: `_fbMergeReadings` es de NIVEL SUPERIOR (estaba anidada en
-  `fbMergeAnalyze` y la llamaba `fbMergeExecute`: `ReferenceError` tragado por el live-sync).
-  `_fbInvItemDiffers` (contenido) decide el conflicto de un cilindro/tanque y
-  `_fbMergeInvItem` lo resuelve SIMÉTRICO (gana `updatedAt`, desempate por contenido, lecturas
-  unidas). Todo editor de un cilindro/tanque sella `updatedAt`.
-- Utilidad nueva `.u-muted` (color apagado). Antes solo existía `.u-muted-xs`.
-
-## v24.2 — Borrar un vehículo deja marca (`db.deletedVehicles`)
-
-- **La fusión de vehículos es aditiva**: sin marca, lo borrado vuelve en el siguiente sync.
-  **Todo borrado de un vehículo que deba ser del laboratorio llama `vehicleTombstone(v)`
-  ANTES de quitarlo de `db.vehicles`.** Las purgas de almacenamiento local no la llaman a
-  propósito.
-- `vehicleIsTombstoned` / `vehicleTombstonesUnion` son PURAS. Identidad: id + VIN, o VIN +
-  `registeredAt` — **nunca el VIN solo** (un VIN re-ensayado tiene registros legítimos).
-- `vehicleTombstonesApply()` corre dentro de `dedupeVehicleIds()`, que ya es el paso
-  obligatorio tras toda carga de `db`: por eso cubre arranque, fusión, seed y restauración.
-- Solo vehículos. Planes, inventario y tpState siguen sin tombstones (deuda de v23.2).
-
-## v24.1 — La huella de revisión se fija al CARGAR (`revInitMissing`)
-
-- **`revInitMissing(list)` (app.js)** da `_rev` a los registros que no la tienen, sin
-  inventar fecha. **Tiene que correr al cargar, nunca en el primer guardado**: si la huella
-  se toma en `saveDB()`, se toma con la edición adentro y esa edición no se sella como
-  nueva — la siguiente fusión puede quedarse con la copia vieja de la nube (el checklist de
-  Liberación "no dejaba hacer clic"). La llama `dedupeVehicleIds()`, que ya es el paso
-  obligatorio tras toda carga de `db`. Toda lista nueva sellada con `stampRevisions` debe
-  inicializarse igual al cargarse.
-- Un botón que no puede registrar nada **lo dice** (`releaseChecklistSet`): un regreso
-  silencioso se lee como "el botón no sirve".
-
-## v23.5 — El sync entre equipos (`js/firebase-sync.js`, `js/app.js`, `js/cop15.js`)
-
-- **`stableStringify(v)` (app.js) es LA forma de comparar dos copias de un dato** cuando una
-  puede venir de Firestore (devuelve las llaves en otro orden). `JSON.stringify(a) !==
-  JSON.stringify(b)` contra un documento de la nube es SIEMPRE true — así nació el bucle del
-  #132. Nunca volver a comparar con JSON.stringify crudo en el sync.
-- **`stampRevisions(list, nowIso)` (app.js) sella `updatedAt` + `_rev`** en cada `saveDB()`
-  (vehículos) y `tpSave()` (planes semanales). `_rev` = huella del contenido cuando se selló:
-  lo que llega de la nube NO se re-sella. **Toda fusión que construya un objeto nuevo debe
-  recalcular `_rev = revContentHash(obj)` sin tocar `updatedAt`**, o el próximo guardado lo
-  tomará por una edición local más nueva.
-- **`_fbMergeVehicle(local, remote)` es LA resolución de dos copias de un VIN** — edición más
-  reciente gana; timeline/returnHistory se unen. **PURA y SIMÉTRICA**: si dos equipos
-  eligieran distinto, se re-empujarían para siempre. Todo desempate nuevo debe ser
-  determinista (nunca "gana lo local").
-- **Live-sync (`fbAutoMerge`)**: `merge_all` silencioso (`fbMergeExecute(…, {quiet,
-  noHistory, noPush})`), aviso ≤1/min/módulo solo si cambió la huella
-  (`_fbModuleFingerprint`), y **re-empuje de UN módulo solo si `_fbLocalHasExtras`**.
-  **Nunca `fbPushAll()` desde una fusión automática.** `_fbPushBack` tiene disyuntor.
-- Filas del plan: empatan con **`_fbPlanItemKey`** (`uid`, respaldo desc+día).
-- **Operación fusiona a tres bandas** (`cascadeThreeWay`, PURA) contra `_opLoadedBase` (lo
-  guardado al llenar el formulario): lo que el técnico no tocó no pisa lo remoto. Todo
-  campo nuevo del formulario debe **cargarse en `loadVehicle`** además de guardarse en
-  `saveProgress`: `op_recep`/`op_datetime`/`op_notes` se guardaban y nunca se cargaban
-  (#131), y el siguiente guardado los borraba.
-- `saveDB()` **devuelve** el resultado (el envoltorio de autoBackup lo tiraba).
-- `_renderDateSuggestion` escribe en el `.form-group`, nunca dentro de `.cascade-dt-row`.
-
-## v23.4 — Cascade más simple (`js/cop15.js`, `js/app.js`)
-
-- **`saveProgress` FUSIONA `vehicle.testData`, nunca lo reemplaza**: `testData` también
-  guarda lo que no vive en el formulario (gases, firmas, checklist). Y **Operación no
-  escribe sobre un vehículo en `pending-approval`/`archived`** (`_opIsReadOnlyStatus`):
-  para corregir, el aprobador lo devuelve o se usa Historial → Completar.
-- **Vacío es `null`, nunca 0**, en todo número del dinamómetro (`_dynoParse`, `_siMul`,
-  `_dynoShow`). `null * k === 0` en JS: toda conversión de unidades pasa por `_siMul`.
-  `PDF_REQUIRED_FIELDS[].zeroIsBlank` solo en ETW y A (f1/f2 = 0 es legítimo).
-- **`uiNumEnhance(root)` (app.js) es LA forma de dar controles a un número**:
-  `data-num="step|pct|big"` + `data-num-path` (dato guardado) + `data-num-si` (clave para
-  `fromSI`). Las sugerencias las da `window.uiNumSuggestProvider` (cop15:
-  `cascadeNumSuggest` → `cascadeFrequentValues`, pura). El input sigue siendo la fuente de
-  verdad. En filas flex, un `<input>` necesita `width:0; flex:1` o desborda la cuadrícula.
-- **Derivar, sugerir, nunca imponer**: `cascadeSoakHours`/`cascadePrecondVerdict` (puras),
-  `cascadeDerivedRefresh` solo escribe en un campo vacío o que llenó el propio cálculo
-  (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **ETW ← `homoWltpInertia`**
-  (homolog.js, PURA, LA definición): **TM + MR**, los dos del ICMS. **El ETW NO es la TM**:
-  sin MR no se calcula. Verificada contra el software del dinamómetro (1568 + 44.7 = 1612.7).
-  `cascadeSetField(id, v)` escribe como si tecleara.
-- **Un solo indicador por concepto**: `opSectionsRender` (en vivo, definición del PDF) es
-  el estado de cada sección y reemplazó al contador `.smart-badge`; la tarjeta "Siguiente
-  paso" (`OP_NEXT_STEPS`, pasa por `handleStatusChange`) manda en Operación y ahí se
-  oculta la tira v7. No volver a sumar una segunda señal para lo mismo.
-- **`p.ok` se guarda `'yes'`/`'no'`**: compararlo con `_precondIsOk`, nunca contra `'Si'`
-  (cinco sitios lo hacían y nunca empataban).
-- **`showModal({buttons})` usa `{label, cls:'btn-primary', onclick: función}`** y para
-  cerrar desde fuera hay que QUITAR `#globalModal` del DOM, no solo ocultarlo (se apilan).
-- **La guardia de código muerto ya lee regex** (veía 713 de 1,150 funciones): una función
-  sin llamadores ahora sí falla CI. Una función que solo se llama a sí misma dentro de una
-  cadena sigue contando como "usada" — revisar a mano los subsistemas enteros.
-- Microcopy: el PDF imprime `cascadeValueLabel(kind, v)`, no el código guardado. La jerga
-  del laboratorio (ETW, Soak, Speed Follow, Target/Dyno) se queda por decisión suya.
-
-## v23.3 — PDF COP15-F05: una hoja, `_pdfSafe` y checklist de liberación (`js/cop15.js`)
-
-- **El F05 tiene presupuesto vertical fijo** (carta horizontal, pie en `H - 10`). jsPDF no
-  avisa al escribir fuera de la hoja: antes de agregar una fila, sumar alturas. Liberación
-  va en tres columnas a la misma altura (inspección+objetos | evidencia | gases).
-- **`_pdfSafe(s)` es LA forma de meter texto al PDF** (PURA). Helvetica de jsPDF solo trae
-  WinAnsi; un `≤` o `₂` no solo sale como basura, espacia letra por letra la cadena entera.
-  `generateCOP15PDF` la aplica en `cell()` y envolviendo `doc.text`.
-- **`releaseChecklistRows(vehicle)` es LA definición del checklist de liberación**
-  (`vehicle.testData.releaseChecklist`, `RELEASE_CHECKLIST`). **Nunca autollenar un
-  "Retirado"/"Adjunto"**: lo afirma el liberador con su firma. Solo se derivan los "No aplica"
-  por región y la fila F05, que dice **Completa** únicamente con `validatePdfCompleteness`
-  sin ningún pendiente. `submitToApproval` bloquea con confirmaciones en blanco.
-- **`PDF_REQUIRED_FIELDS[].when(td, vehicle)` y `.soft(td, vehicle)`** reciben el
-  vehículo. Un campo obligatorio NUEVO debe ser **suave** para lo liberado antes de que
-  existiera (patrón del SOC de prueba): `validatePdfCompleteness` lo devuelve en `soft[]`
-  (se muestra en Completar como Opcional) y no en `missing[]` (lo que bloquea). Exentarlo
-  con `when` lo esconde también de Completar y ya no hay forma de llenarlo.
-- **Pruebas anteriores al checklist** (`releaseIsBeforeChecklist`, corte
-  `RELEASE_CHECKLIST_SINCE`): sus filas vacías se **derivan** Retirado/Adjunto al leer —
-  decisión explícita del laboratorio — nunca se escriben; el PDF lo declara en el pie y se
-  corrigen en Historial → 📝 Completar. La fila F05 nunca se asienta sola.
-- **`uiChipsEnhance(root)` (app.js) es LA forma de mostrar un `<select>` de opciones fijas
-  como botones**: marcar el `<select>` con `data-chips` (+ `data-chips-other` para
-  "Otro…" con texto libre que se guarda tal cual). El `<select>` sigue siendo la fuente
-  de verdad: leer/escribir `select.value` como siempre; nunca leer el estado de los botones.
-  Un modal que clone selects debe llamar `uiChipsEnhance(wrap)` **antes** de fijar valores.
-- **`V7_BATCH_RELEASE_ON_HOLD`**: la liberación por lote está en pausa (archivaba sin
-  checklist, firmas ni doble ciego). No reactivarla sin esas tres cosas.
-
-## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI
-
-Ronda salida de una auditoría del estado del proyecto. El área más necesitada resultó ser
-`firebase-sync.js`, y por un margen invisible desde fuera: **`fbAutoMerge` nunca se había
-ejecutado**.
-
-### `fbHandleRemoteChange` — el formato equivocado
-
-`fbPush` (SDK) escribe `data: data`, un **objeto JS plano**, y el listener recibe
-`change.doc.data()`, que el SDK compat ya devuelve **decodificado**.
-`fbFromFirestoreValue` sólo entiende el **formato de cable REST**, así que devolvía
-`null` y el `if (!parsedData) return` se tomaba SIEMPRE. Como tampoco hay pull periódico
-(sólo conectar, reconectar y el botón manual), **dos técnicos con la app abierta no se
-veían entre sí**. Al tocar este camino: es un merge que nunca se ejercitó, así que
-arreglarlo va **al final**, después de todo lo que activa.
-
-### Los DOS scores — no se pueden servir con el mismo número
-
-- **`_fbPullLocalScore(col)`** responde *"¿vale la pena preservar lo local?"* y desde
-  v23.2 cuenta también la CONFIGURACIÓN (reglas, pesos, soak, overrides, historial) y da
-  puntaje real a `panel`/`cop`/`homolog`/`audit`, que devolvían `0` a secas.
-- **`_fbPushDataScore(col)`** responde *"¿es SEGURO subir esto?"* y es **deliberadamente
-  estricta**: sólo dato real de los tres módulos núcleo. `fbPush` escribe el documento
-  ENTERO, así que subir un `tpState` con `planData` vacío **reemplaza el plan de todo el
-  laboratorio** — es el cinturón anti-vaciado de v15.6.
-
-**REGLA: el lado del PUSH (`fbPush`, `fbPushAll`, `_fbLocalIsEmpty`) y las comparaciones
-remoto-vs-local (`_fbPullAdoptByCount`) usan `_fbPushDataScore`. Sólo el lado del PULL
-(`_fbPullMergeModule`) usa `_fbPullLocalScore`.** Mezclarlos abre un agujero de pérdida de
-datos en una dirección y bloquea el seed en la otra. Fijado con pruebas en
-`tests/sync.node.js`.
-
-### `_fbEquipKey(e)` es LA definición de la identidad de un instrumento
-
-La clave era `serialNo || name` y sobre la semilla real del F11 **colisiona**: 11 de 31
-instrumentos (35%) en dos cubetas, `"-"` ×7 y `"N/A"` ×4. `_fbMergeEquipConflict` resuelve
-con `findIndex`, que devuelve siempre el primero → la calibración del instrumento remoto
-#4 se escribía sobre el local #1. Orden: `id` → `f11Id` → serie real → nombre; `'-'` y
-`'N/A'` **no son series**. Nunca volver a escribir `e.serialNo || e.name` a mano.
-
-### Estado de UI por dispositivo: la lista de exclusión
-
-La rama `panel` hacía `Object.assign(pnState, remoteData)`: `activeTab`, `matrixCols` y
-`opsSchema` (guarda de migración) venían del remoto. Y en `cop` faltaban **`regulation`,
-`fuelType` y `activePolls`** — que no son cosméticos: `copRenderStats` lee los límites por
-`COP_FUEL_LIMITS[copState.fuelType]`, así que con `vehicles` conservado el técnico
-evaluaba SUS filas contra la norma de otro. **Toda clave nueva de estado de pantalla va a
-la lista de exclusión de su rama.**
-
-### `_fbMergeByIdNewest(locales, remotas, cap)`
-
-Une listas append-only por `id` quedándose con la más nueva. `shiftLog` (500 entradas) y
-`shiftReports` se tomaban enteros del remoto y siempre tuvieron `id`: eran trivialmente
-mezclables. **Toda lista con `id` estable se mezcla; no se reemplaza.**
-
-### `_tpEnsureState` ya no revierte en silencio
-
-`_fbPullSeed` preservaba 14 claves de `tpState` de ~36. Y `_fbTpUISync()` llama a
-`_tpEnsureState()` justo después, que **resiembra** `rules` con `tpDefaultRules()` y
-`weights`/`regionPriority` con literales: un pull no las dejaba vacías, las dejaba en
-**valores de fábrica**. Se sumaron 14 claves (configuración e historial) y ahora resembrar
-sobre un `tpState` con `planData` **avisa** (toast + `auditLog`). En inventario se sumaron
-`usageLog`, `zones`, `gasTypes` y `lastReadingDate`.
-
-### `_libVerifyApproverMatch` — el candado del doble ciego, en la capa de datos
-
-`approveAndArchive()` estampaba `matchedLiberador: true` **hardcodeado**; la comparación
-vivía sólo en un handler de `oninput` que habilita `#approve-archive-btn`. La integridad
-del doble ciego descansaba en **un atributo `disabled`** — contra el principio de v18.5
-(*"el candado va en la capa de datos"*), aplicado entonces a `pnOp*` y nunca al flujo de
-más consecuencia. La función nueva es **pura** (se prueba en Node), la usan **las dos**
-rutas, y `matchedLiberador` pasa a ser el **resultado** de la verificación.
-
-### `npm test` existe y corre en CI
-
-`plan` (33) + `credit` (12) + **`sync` (28)** + **`cop15` (30)** + la guardia de código
-muerto, en **los dos workflows antes del deploy**.
-
-- **`tests/deadcode.node.js`** falla el build ante una función de nivel superior sin
-  referencias. Encontró **13**, dos de ellas (`tpAddToWeek`, `fbSetStation`) con
-  comentarios que **afirmaban falsamente** tener llamadores. No cuenta menciones en
-  comentarios; salta expresiones de función con nombre (un IIFE como `setupAltaValidation`
-  **no** es huérfano). Excepciones legítimas: `ALLOWLIST` o `// @entrypoint`.
-- **`cop15.js` SÍ entra al arnés `vm`** declarando los stubs de app.js (`db`, `tokenColor`,
-  `escapeHtml`, `isEmissionsPurpose`, `debounce`…). Era el único módulo grande fuera.
-- Los dos **E2E tenían CERO aserciones** — 304 líneas que no podían fallar. Ahora 11 y 23,
-  con `process.exitCode`. El navegador sale de `CHROME_PATH`, no de una ruta clavada.
-
-### Definiciones que se estaban esquivando (ruteadas)
-
-`invGasLevel`/`invGasIsLow` tenían **5** consumidores con umbrales de 10/15/25/30% y PSI
-absolutos de 200/500; `invCalStatus` **3**, uno con bug de zona horaria
-(`new Date('2026-01-15')` parsea UTC, `invCalStatus` parsea local: un día de desfase en
-UTC−6) más ventana de 30 días en vez de 60 y sin respetar `requiresCal === 'No'`.
-`_invLevelColor(pct)` es el equivalente para los tanques de combustible, que **no** son
-cilindros pero comparten umbrales.
-
-### Dos filtros sobre valores que la app nunca escribe
-
-`panel.js` filtraba gases por `g.status !== 'active'` (los reales son
-`Stock | In use | Empty | Spare`), así que **"Gases bajos" del reporte de turno decía 0
-desde siempre** — tercera aparición del mismo defecto. Y `g.status === 'Full'` aparecía
-**una sola vez en todo el repo**: la propia comparación.
-
-### "Descartadas" existe
-
-`tpDismissCarryover` y `tpRestoreCarryover` estaban escritas, completas, con permiso y
-auditoría, **y sin UI**, mientras el diálogo de "🧹 Vaciar la cola" y la ayuda prometían
-poder restaurar. **Si una acción masiva puede enterrar el backlog de un clic, su inversa
-también tiene que ser de un clic** (`tpRestoreAllCarryover`).
-
-### Pendiente declarado
-
-**`signature_pad` sigue en CDN** (`index.html`). La firma cierra `finishRelease()` **y**
-`approveAndArchive()`: con el CDN bloqueado no se libera nada. Alpine y jsPDF ya están en
-`vendor/` por lo mismo. No se pudo vendorizar (el entorno no alcanza cdnjs); el fallo al
-menos **dejó de ser silencioso**.
-
-### Deuda que NO se tocó, a propósito
-
-- **Tombstones**: los borrados son filtros duros y las dos rutas de merge son aditivas, así
-  que lo borrado resucita en el siguiente pull. Ronda propia, toca los cinco módulos.
-- **`panel.js` con dos paradigmas de render**: 16 pestañas (6 Alpine + 10 `innerHTML`), el
-  hack `_dataVersion`, `panelAlpineComponent` de 522 líneas. Mayor deuda estructural, pero
-  riesgo alto sobre pantallas que hoy funcionan.
-
-## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y la pestaña que no repintaba
-
-### 🏷 Qué acredita el REQ de emisiones
-
-La advertencia de v23 se resolvió: **una prueba de OBD II ya NO baja el déficit de
-emisiones**. Cuatro reglas que no se rompen:
-
-1. **La evidencia NO se toca.** La fila se sigue escribiendo en `testedList` — la
-   prueba ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y no en la
-   captura es lo que hace el cambio **reversible**: volver a marcar el propósito
-   devuelve los números exactos de antes, sin recuperar nada.
-2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20).
-   `purpose` sólo se escribe desde v23; degradar lo histórico borraría años de
-   cobertura real.
-3. **`tpTestedCountsForReq(t)` es LA definición**, y `tpTestedForConfig(desc[, list])`
-   / `tpTestedCountFor(desc[, list])` la forma de contar. Todo consumidor nuevo las
-   llama en vez de filtrar por `configText` a secas. Ya migrados: `tpGetAnalysis`,
-   `tpBuildFamilies` (conteo **y** VINes), la continuidad por MY, `tpBuildScoreDetail`,
-   `_tpMakeItem`, Recuperación y el snapshot del generador.
-4. **El plan es otra cosa.** Palomear una fila de OBD2 la marca como hecha: el
-   compromiso de la semana se cumplió. Lo que no baja es el déficit de emisiones.
-
-- **`tpReqPurposes()` es LA forma de leer la lista** — nunca `tpState.reqPurposes.x`
-  directo (reaplica defaults en cada lectura, patrón `tpPlannerCfg` de v18.0). Es
-  **editable** en Plan → Reglas (`tpSetReqPurpose`, se audita): `Correlacion`,
-  `Investigacion` y `ND-Emisiones` acreditan por default. `reqPurposes` está en la
-  lista de preservación de `_fbPullSeed`.
-- **`const TP_PURPOSES_OBD` va JUNTO a `TP_PURPOSES_VALID`**, no más abajo:
-  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
-  una `var` posterior estaría hoisted pero en `undefined` y la app no arranca.
-- **Lo excluido se declara, nunca se oculta**: `tpCoverageSummary()` suma
-  `totalNoEmisiones`, `noReqPorProposito` y `totalRegistradas`; Probados pinta el
-  desglose. `totalTested`/`pct`/`deficit` **sí cambian de valor** (cuentan sólo lo que
-  acredita) — es el punto de la ronda.
-- Dos bordes: la declaración a mano hereda el `purpose` del item (sin eso acreditaba
-  por omisión), y **sólo una liberación que acredita retira la declarada** — una
-  prueba de OBD2 no es la de emisiones que esa declaración prometía.
-
-### `tpPlanHorizon` — el único lazo de varias semanas
-
-Cierra la deuda de v18.0/v20/v23. `tpGenerateMonthly` y `tpRunSimulation` tenían su
-propio `Map` de conteo simulado y **no conocían la cuota de la cola ni los filtros**,
-así que el mes podía escribir cuatro semanas de puro arrastre y el simulador prometía
-una curva que el generador real no iba a producir.
-
-- **`opts.testedSeed` abre `tpSelectWeeklyItems` al horizonte**: la semana parte de
-  donde quedó la anterior y devuelve la lista rodante en `R.tested`. Sigue **pura
-  respecto a `tpState`**.
-- **`_tpAnalyze(list)`** es el cálculo del análisis sobre una lista cualquiera;
-  `tpGetAnalysis()` queda como su envoltorio memoizado sobre `tpState.testedList`.
-- **`tpPlanHorizon(opts)` es LA definición del horizonte** y NO escribe nada. Las
-  **obligatorias sólo aplican a la primera semana** (son de una semana concreta, o el
-  mes repetiría el mismo vehículo fijado 4 veces). Una semana no disponible se salta y
-  se declara; el simulador pasa `respectAvailability:false`.
-- **Recuperación NO se unificó, a propósito**: explota el déficit en unidades y ordena
-  por tier P1..P10, no por score — es empaquetado por prioridad, no el mismo lazo.
-  Lo que sí comparte ahora es la fila: `tpMaterializeRecovery` usa `_tpMakeItem`.
-
-### `tabCacheSwitch` repinta por DEFECTO (issue #110)
-
-**El valor por defecto estaba invertido.** Sólo se repintaba si la pestaña estaba
-"sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo la vista** no
-guarda nada, así que toda esa familia estaba muerta —filtros del Dashboard del Plan,
-los 5 ajustes de su gráfica, Captura Manual / Importar JSON, filtros de Probados, el
-año del Plan Maestro de Consumibles, sus 3 tipos de gráfica— **sin ningún error**.
-
-- Ahora `tabCacheSwitch(moduleId, tabId, renderFn, opts)` repinta siempre y conserva el
-  caché sólo con `opts.keepCache`. **El único que lo pasa es el salto de pestaña**:
-  `tpSwitchTab`/`invSwitchTab`/`pnSwitchTab` → `xxRender({ keepCache: true })`.
-- `tpRender`/`invRender`/`pnRender` aceptan `opts` y lo reenvían. Código nuevo que
-  cambie sólo la vista llama `xxRender()` a secas y **ya funciona** — no hace falta
-  `tabCacheInvalidate` ni un `xxSave()` de mentira.
-
-### La tira "Siguiente: …" (issue #109)
-
-- **`v7UpdateNextStepBanner` sólo la muestra dentro de Pruebas** (`_v7InCop15()` lee
-  `.platform-section.active`). En `switchPlatform` se apaga **de inmediato** al salir
-  sin leer el DOM y se reevalúa a los 320 ms: la rama de swipe difiere el toggle de
-  `.active` 110 ms, así que leer ahí daría el estado viejo.
-- `z-index: 1990` y `bottom: 62px` — **por debajo** de `.bottom-nav` (2000) y apoyada
-  encima, no montada sobre ella. `body.has-next-step` reserva su altura y sube el 🐞 y
-  el badge de soak (el `!important` del soak es deliberado: trae `bottom:68px` en un
-  atributo `style` de index.html).
-- Se apaga con su ✕ y la preferencia es **`uiPref('nextStep')`** — nunca una clave
-  propia (v22.0) — y por eso **no se sincroniza**. Se vuelve a encender en
-  Datos → Sistema, junto a la densidad (`pnDensityRenderChoices`).
-
-### #113 (editar operadores) — ya estaba arreglado
-
-Reportado contra la **v18.2**; lo cerró **v18.5** (`_pnEnsureAdminExists` +
-`_authNormalizeRole`). Verificado en navegador contra el código actual y **sin código
-nuevo**. Al revisar un reporte viejo, comparar primero la versión del reporte con las
-rondas posteriores antes de tocar nada.
-
-### Pruebas
-
-`tests/plan.node.js` 16 → **33 casos**; `tests/credit.node.js` 12; **`tests/v231.e2e.js`**
-(Chromium 753×1132, el dispositivo del #109) cubre la tira, el repintado y OBD II.
-Los E2E necesitan `NODE_PATH` apuntando a un `node_modules` con playwright.
 
 ## v23.0 — El plan de pruebas, de nuevo (`js/testplan.js`, `js/app.js`, `js/cop15.js`)
 
@@ -1953,14 +1536,466 @@ propósito: explota el déficit en unidades y ordena por tier P1..P10, no por sc
 así que no es el mismo lazo aunque lo parezca — lo que sí comparte ya es la
 construcción de la fila (`_tpMakeItem`).
 
+## v23.1 — OBD II fuera del REQ, un solo lazo greedy, y la pestaña que no repintaba
+
+### 🏷 Qué acredita el REQ de emisiones
+
+La advertencia de v23 se resolvió: **una prueba de OBD II ya NO baja el déficit de
+emisiones**. Cuatro reglas que no se rompen:
+
+1. **La evidencia NO se toca.** La fila se sigue escribiendo en `testedList` — la
+   prueba ocurrió. Lo que cambia es quién la CUENTA. Filtrar en el conteo y no en la
+   captura es lo que hace el cambio **reversible**: volver a marcar el propósito
+   devuelve los números exactos de antes, sin recuperar nada.
+2. **La ausencia de `purpose` CUENTA** (opt-out, patrón de `verified` en v20).
+   `purpose` sólo se escribe desde v23; degradar lo histórico borraría años de
+   cobertura real.
+3. **`tpTestedCountsForReq(t)` es LA definición**, y `tpTestedForConfig(desc[, list])`
+   / `tpTestedCountFor(desc[, list])` la forma de contar. Todo consumidor nuevo las
+   llama en vez de filtrar por `configText` a secas. Ya migrados: `tpGetAnalysis`,
+   `tpBuildFamilies` (conteo **y** VINes), la continuidad por MY, `tpBuildScoreDetail`,
+   `_tpMakeItem`, Recuperación y el snapshot del generador.
+4. **El plan es otra cosa.** Palomear una fila de OBD2 la marca como hecha: el
+   compromiso de la semana se cumplió. Lo que no baja es el déficit de emisiones.
+
+- **`tpReqPurposes()` es LA forma de leer la lista** — nunca `tpState.reqPurposes.x`
+  directo (reaplica defaults en cada lectura, patrón `tpPlannerCfg` de v18.0). Es
+  **editable** en Plan → Reglas (`tpSetReqPurpose`, se audita): `Correlacion`,
+  `Investigacion` y `ND-Emisiones` acreditan por default. `reqPurposes` está en la
+  lista de preservación de `_fbPullSeed`.
+- **`const TP_PURPOSES_OBD` va JUNTO a `TP_PURPOSES_VALID`**, no más abajo:
+  `_tpEnsureState()` corre al parsear el archivo y llama a `tpReqPurposes()`, así que
+  una `var` posterior estaría hoisted pero en `undefined` y la app no arranca.
+- **Lo excluido se declara, nunca se oculta**: `tpCoverageSummary()` suma
+  `totalNoEmisiones`, `noReqPorProposito` y `totalRegistradas`; Probados pinta el
+  desglose. `totalTested`/`pct`/`deficit` **sí cambian de valor** (cuentan sólo lo que
+  acredita) — es el punto de la ronda.
+- Dos bordes: la declaración a mano hereda el `purpose` del item (sin eso acreditaba
+  por omisión), y **sólo una liberación que acredita retira la declarada** — una
+  prueba de OBD2 no es la de emisiones que esa declaración prometía.
+
+### `tpPlanHorizon` — el único lazo de varias semanas
+
+Cierra la deuda de v18.0/v20/v23. `tpGenerateMonthly` y `tpRunSimulation` tenían su
+propio `Map` de conteo simulado y **no conocían la cuota de la cola ni los filtros**,
+así que el mes podía escribir cuatro semanas de puro arrastre y el simulador prometía
+una curva que el generador real no iba a producir.
+
+- **`opts.testedSeed` abre `tpSelectWeeklyItems` al horizonte**: la semana parte de
+  donde quedó la anterior y devuelve la lista rodante en `R.tested`. Sigue **pura
+  respecto a `tpState`**.
+- **`_tpAnalyze(list)`** es el cálculo del análisis sobre una lista cualquiera;
+  `tpGetAnalysis()` queda como su envoltorio memoizado sobre `tpState.testedList`.
+- **`tpPlanHorizon(opts)` es LA definición del horizonte** y NO escribe nada. Las
+  **obligatorias sólo aplican a la primera semana** (son de una semana concreta, o el
+  mes repetiría el mismo vehículo fijado 4 veces). Una semana no disponible se salta y
+  se declara; el simulador pasa `respectAvailability:false`.
+- **Recuperación NO se unificó, a propósito**: explota el déficit en unidades y ordena
+  por tier P1..P10, no por score — es empaquetado por prioridad, no el mismo lazo.
+  Lo que sí comparte ahora es la fila: `tpMaterializeRecovery` usa `_tpMakeItem`.
+
+### `tabCacheSwitch` repinta por DEFECTO (issue #110)
+
+**El valor por defecto estaba invertido.** Sólo se repintaba si la pestaña estaba
+"sucia", y quien la ensucia es `xxSave()`. Un control que cambia **sólo la vista** no
+guarda nada, así que toda esa familia estaba muerta —filtros del Dashboard del Plan,
+los 5 ajustes de su gráfica, Captura Manual / Importar JSON, filtros de Probados, el
+año del Plan Maestro de Consumibles, sus 3 tipos de gráfica— **sin ningún error**.
+
+- Ahora `tabCacheSwitch(moduleId, tabId, renderFn, opts)` repinta siempre y conserva el
+  caché sólo con `opts.keepCache`. **El único que lo pasa es el salto de pestaña**:
+  `tpSwitchTab`/`invSwitchTab`/`pnSwitchTab` → `xxRender({ keepCache: true })`.
+- `tpRender`/`invRender`/`pnRender` aceptan `opts` y lo reenvían. Código nuevo que
+  cambie sólo la vista llama `xxRender()` a secas y **ya funciona** — no hace falta
+  `tabCacheInvalidate` ni un `xxSave()` de mentira.
+
+### La tira "Siguiente: …" (issue #109)
+
+- **`v7UpdateNextStepBanner` sólo la muestra dentro de Pruebas** (`_v7InCop15()` lee
+  `.platform-section.active`). En `switchPlatform` se apaga **de inmediato** al salir
+  sin leer el DOM y se reevalúa a los 320 ms: la rama de swipe difiere el toggle de
+  `.active` 110 ms, así que leer ahí daría el estado viejo.
+- `z-index: 1990` y `bottom: 62px` — **por debajo** de `.bottom-nav` (2000) y apoyada
+  encima, no montada sobre ella. `body.has-next-step` reserva su altura y sube el 🐞 y
+  el badge de soak (el `!important` del soak es deliberado: trae `bottom:68px` en un
+  atributo `style` de index.html).
+- Se apaga con su ✕ y la preferencia es **`uiPref('nextStep')`** — nunca una clave
+  propia (v22.0) — y por eso **no se sincroniza**. Se vuelve a encender en
+  Datos → Sistema, junto a la densidad (`pnDensityRenderChoices`).
+
+### #113 (editar operadores) — ya estaba arreglado
+
+Reportado contra la **v18.2**; lo cerró **v18.5** (`_pnEnsureAdminExists` +
+`_authNormalizeRole`). Verificado en navegador contra el código actual y **sin código
+nuevo**. Al revisar un reporte viejo, comparar primero la versión del reporte con las
+rondas posteriores antes de tocar nada.
+
+### Pruebas
+
+`tests/plan.node.js` 16 → **33 casos**; `tests/credit.node.js` 12; **`tests/v231.e2e.js`**
+(Chromium 753×1132, el dispositivo del #109) cubre la tira, el repintado y OBD II.
+Los E2E necesitan `NODE_PATH` apuntando a un `node_modules` con playwright.
+
+## v23.2 — El live-sync que nunca corrió, la identidad de los instrumentos, y las pruebas en CI
+
+Ronda salida de una auditoría del estado del proyecto. El área más necesitada resultó ser
+`firebase-sync.js`, y por un margen invisible desde fuera: **`fbAutoMerge` nunca se había
+ejecutado**.
+
+### `fbHandleRemoteChange` — el formato equivocado
+
+`fbPush` (SDK) escribe `data: data`, un **objeto JS plano**, y el listener recibe
+`change.doc.data()`, que el SDK compat ya devuelve **decodificado**.
+`fbFromFirestoreValue` sólo entiende el **formato de cable REST**, así que devolvía
+`null` y el `if (!parsedData) return` se tomaba SIEMPRE. Como tampoco hay pull periódico
+(sólo conectar, reconectar y el botón manual), **dos técnicos con la app abierta no se
+veían entre sí**. Al tocar este camino: es un merge que nunca se ejercitó, así que
+arreglarlo va **al final**, después de todo lo que activa.
+
+### Los DOS scores — no se pueden servir con el mismo número
+
+- **`_fbPullLocalScore(col)`** responde *"¿vale la pena preservar lo local?"* y desde
+  v23.2 cuenta también la CONFIGURACIÓN (reglas, pesos, soak, overrides, historial) y da
+  puntaje real a `panel`/`cop`/`homolog`/`audit`, que devolvían `0` a secas.
+- **`_fbPushDataScore(col)`** responde *"¿es SEGURO subir esto?"* y es **deliberadamente
+  estricta**: sólo dato real de los tres módulos núcleo. `fbPush` escribe el documento
+  ENTERO, así que subir un `tpState` con `planData` vacío **reemplaza el plan de todo el
+  laboratorio** — es el cinturón anti-vaciado de v15.6.
+
+**REGLA: el lado del PUSH (`fbPush`, `fbPushAll`, `_fbLocalIsEmpty`) y las comparaciones
+remoto-vs-local (`_fbPullAdoptByCount`) usan `_fbPushDataScore`. Sólo el lado del PULL
+(`_fbPullMergeModule`) usa `_fbPullLocalScore`.** Mezclarlos abre un agujero de pérdida de
+datos en una dirección y bloquea el seed en la otra. Fijado con pruebas en
+`tests/sync.node.js`.
+
+### `_fbEquipKey(e)` es LA definición de la identidad de un instrumento
+
+La clave era `serialNo || name` y sobre la semilla real del F11 **colisiona**: 11 de 31
+instrumentos (35%) en dos cubetas, `"-"` ×7 y `"N/A"` ×4. `_fbMergeEquipConflict` resuelve
+con `findIndex`, que devuelve siempre el primero → la calibración del instrumento remoto
+#4 se escribía sobre el local #1. Orden: `id` → `f11Id` → serie real → nombre; `'-'` y
+`'N/A'` **no son series**. Nunca volver a escribir `e.serialNo || e.name` a mano.
+
+### Estado de UI por dispositivo: la lista de exclusión
+
+La rama `panel` hacía `Object.assign(pnState, remoteData)`: `activeTab`, `matrixCols` y
+`opsSchema` (guarda de migración) venían del remoto. Y en `cop` faltaban **`regulation`,
+`fuelType` y `activePolls`** — que no son cosméticos: `copRenderStats` lee los límites por
+`COP_FUEL_LIMITS[copState.fuelType]`, así que con `vehicles` conservado el técnico
+evaluaba SUS filas contra la norma de otro. **Toda clave nueva de estado de pantalla va a
+la lista de exclusión de su rama.**
+
+### `_fbMergeByIdNewest(locales, remotas, cap)`
+
+Une listas append-only por `id` quedándose con la más nueva. `shiftLog` (500 entradas) y
+`shiftReports` se tomaban enteros del remoto y siempre tuvieron `id`: eran trivialmente
+mezclables. **Toda lista con `id` estable se mezcla; no se reemplaza.**
+
+### `_tpEnsureState` ya no revierte en silencio
+
+`_fbPullSeed` preservaba 14 claves de `tpState` de ~36. Y `_fbTpUISync()` llama a
+`_tpEnsureState()` justo después, que **resiembra** `rules` con `tpDefaultRules()` y
+`weights`/`regionPriority` con literales: un pull no las dejaba vacías, las dejaba en
+**valores de fábrica**. Se sumaron 14 claves (configuración e historial) y ahora resembrar
+sobre un `tpState` con `planData` **avisa** (toast + `auditLog`). En inventario se sumaron
+`usageLog`, `zones`, `gasTypes` y `lastReadingDate`.
+
+### `_libVerifyApproverMatch` — el candado del doble ciego, en la capa de datos
+
+`approveAndArchive()` estampaba `matchedLiberador: true` **hardcodeado**; la comparación
+vivía sólo en un handler de `oninput` que habilita `#approve-archive-btn`. La integridad
+del doble ciego descansaba en **un atributo `disabled`** — contra el principio de v18.5
+(*"el candado va en la capa de datos"*), aplicado entonces a `pnOp*` y nunca al flujo de
+más consecuencia. La función nueva es **pura** (se prueba en Node), la usan **las dos**
+rutas, y `matchedLiberador` pasa a ser el **resultado** de la verificación.
+
+### `npm test` existe y corre en CI
+
+`plan` (33) + `credit` (12) + **`sync` (28)** + **`cop15` (30)** + la guardia de código
+muerto, en **los dos workflows antes del deploy**.
+
+- **`tests/deadcode.node.js`** falla el build ante una función de nivel superior sin
+  referencias. Encontró **13**, dos de ellas (`tpAddToWeek`, `fbSetStation`) con
+  comentarios que **afirmaban falsamente** tener llamadores. No cuenta menciones en
+  comentarios; salta expresiones de función con nombre (un IIFE como `setupAltaValidation`
+  **no** es huérfano). Excepciones legítimas: `ALLOWLIST` o `// @entrypoint`.
+- **`cop15.js` SÍ entra al arnés `vm`** declarando los stubs de app.js (`db`, `tokenColor`,
+  `escapeHtml`, `isEmissionsPurpose`, `debounce`…). Era el único módulo grande fuera.
+- Los dos **E2E tenían CERO aserciones** — 304 líneas que no podían fallar. Ahora 11 y 23,
+  con `process.exitCode`. El navegador sale de `CHROME_PATH`, no de una ruta clavada.
+
+### Definiciones que se estaban esquivando (ruteadas)
+
+`invGasLevel`/`invGasIsLow` tenían **5** consumidores con umbrales de 10/15/25/30% y PSI
+absolutos de 200/500; `invCalStatus` **3**, uno con bug de zona horaria
+(`new Date('2026-01-15')` parsea UTC, `invCalStatus` parsea local: un día de desfase en
+UTC−6) más ventana de 30 días en vez de 60 y sin respetar `requiresCal === 'No'`.
+`_invLevelColor(pct)` es el equivalente para los tanques de combustible, que **no** son
+cilindros pero comparten umbrales.
+
+### Dos filtros sobre valores que la app nunca escribe
+
+`panel.js` filtraba gases por `g.status !== 'active'` (los reales son
+`Stock | In use | Empty | Spare`), así que **"Gases bajos" del reporte de turno decía 0
+desde siempre** — tercera aparición del mismo defecto. Y `g.status === 'Full'` aparecía
+**una sola vez en todo el repo**: la propia comparación.
+
+### "Descartadas" existe
+
+`tpDismissCarryover` y `tpRestoreCarryover` estaban escritas, completas, con permiso y
+auditoría, **y sin UI**, mientras el diálogo de "🧹 Vaciar la cola" y la ayuda prometían
+poder restaurar. **Si una acción masiva puede enterrar el backlog de un clic, su inversa
+también tiene que ser de un clic** (`tpRestoreAllCarryover`).
+
+### Pendiente declarado
+
+**`signature_pad` sigue en CDN** (`index.html`). La firma cierra `finishRelease()` **y**
+`approveAndArchive()`: con el CDN bloqueado no se libera nada. Alpine y jsPDF ya están en
+`vendor/` por lo mismo. No se pudo vendorizar (el entorno no alcanza cdnjs); el fallo al
+menos **dejó de ser silencioso**.
+
+### Deuda que NO se tocó, a propósito
+
+- **Tombstones**: los borrados son filtros duros y las dos rutas de merge son aditivas, así
+  que lo borrado resucita en el siguiente pull. Ronda propia, toca los cinco módulos.
+- **`panel.js` con dos paradigmas de render**: 16 pestañas (6 Alpine + 10 `innerHTML`), el
+  hack `_dataVersion`, `panelAlpineComponent` de 522 líneas. Mayor deuda estructural, pero
+  riesgo alto sobre pantallas que hoy funcionan.
+
+## v23.3 — PDF COP15-F05: una hoja, `_pdfSafe` y checklist de liberación (`js/cop15.js`)
+
+- **El F05 tiene presupuesto vertical fijo** (carta horizontal, pie en `H - 10`). jsPDF no
+  avisa al escribir fuera de la hoja: antes de agregar una fila, sumar alturas. Liberación
+  va en tres columnas a la misma altura (inspección+objetos | evidencia | gases).
+- **`_pdfSafe(s)` es LA forma de meter texto al PDF** (PURA). Helvetica de jsPDF solo trae
+  WinAnsi; un `≤` o `₂` no solo sale como basura, espacia letra por letra la cadena entera.
+  `generateCOP15PDF` la aplica en `cell()` y envolviendo `doc.text`.
+- **`releaseChecklistRows(vehicle)` es LA definición del checklist de liberación**
+  (`vehicle.testData.releaseChecklist`, `RELEASE_CHECKLIST`). **Nunca autollenar un
+  "Retirado"/"Adjunto"**: lo afirma el liberador con su firma. Solo se derivan los "No aplica"
+  por región y la fila F05, que dice **Completa** únicamente con `validatePdfCompleteness`
+  sin ningún pendiente. `submitToApproval` bloquea con confirmaciones en blanco.
+- **`PDF_REQUIRED_FIELDS[].when(td, vehicle)` y `.soft(td, vehicle)`** reciben el
+  vehículo. Un campo obligatorio NUEVO debe ser **suave** para lo liberado antes de que
+  existiera (patrón del SOC de prueba): `validatePdfCompleteness` lo devuelve en `soft[]`
+  (se muestra en Completar como Opcional) y no en `missing[]` (lo que bloquea). Exentarlo
+  con `when` lo esconde también de Completar y ya no hay forma de llenarlo.
+- **Pruebas anteriores al checklist** (`releaseIsBeforeChecklist`, corte
+  `RELEASE_CHECKLIST_SINCE`): sus filas vacías se **derivan** Retirado/Adjunto al leer —
+  decisión explícita del laboratorio — nunca se escriben; el PDF lo declara en el pie y se
+  corrigen en Historial → 📝 Completar. La fila F05 nunca se asienta sola.
+- **`uiChipsEnhance(root)` (app.js) es LA forma de mostrar un `<select>` de opciones fijas
+  como botones**: marcar el `<select>` con `data-chips` (+ `data-chips-other` para
+  "Otro…" con texto libre que se guarda tal cual). El `<select>` sigue siendo la fuente
+  de verdad: leer/escribir `select.value` como siempre; nunca leer el estado de los botones.
+  Un modal que clone selects debe llamar `uiChipsEnhance(wrap)` **antes** de fijar valores.
+- **`V7_BATCH_RELEASE_ON_HOLD`**: la liberación por lote está en pausa (archivaba sin
+  checklist, firmas ni doble ciego). No reactivarla sin esas tres cosas.
+
+## v23.4 — Cascade más simple (`js/cop15.js`, `js/app.js`)
+
+- **`saveProgress` FUSIONA `vehicle.testData`, nunca lo reemplaza**: `testData` también
+  guarda lo que no vive en el formulario (gases, firmas, checklist). Y **Operación no
+  escribe sobre un vehículo en `pending-approval`/`archived`** (`_opIsReadOnlyStatus`):
+  para corregir, el aprobador lo devuelve o se usa Historial → Completar.
+- **Vacío es `null`, nunca 0**, en todo número del dinamómetro (`_dynoParse`, `_siMul`,
+  `_dynoShow`). `null * k === 0` en JS: toda conversión de unidades pasa por `_siMul`.
+  `PDF_REQUIRED_FIELDS[].zeroIsBlank` solo en ETW y A (f1/f2 = 0 es legítimo).
+- **`uiNumEnhance(root)` (app.js) es LA forma de dar controles a un número**:
+  `data-num="step|pct|big"` + `data-num-path` (dato guardado) + `data-num-si` (clave para
+  `fromSI`). Las sugerencias las da `window.uiNumSuggestProvider` (cop15:
+  `cascadeNumSuggest` → `cascadeFrequentValues`, pura). El input sigue siendo la fuente de
+  verdad. En filas flex, un `<input>` necesita `width:0; flex:1` o desborda la cuadrícula.
+- **Derivar, sugerir, nunca imponer**: `cascadeSoakHours`/`cascadePrecondVerdict` (puras),
+  `cascadeDerivedRefresh` solo escribe en un campo vacío o que llenó el propio cálculo
+  (`data-auto`). Europa: Target A/B/C ← f0/f1/f2 del ICMS; **ETW ← `homoWltpInertia`**
+  (homolog.js, PURA, LA definición): **TM + MR**, los dos del ICMS. **El ETW NO es la TM**:
+  sin MR no se calcula. Verificada contra el software del dinamómetro (1568 + 44.7 = 1612.7).
+  `cascadeSetField(id, v)` escribe como si tecleara.
+- **Un solo indicador por concepto**: `opSectionsRender` (en vivo, definición del PDF) es
+  el estado de cada sección y reemplazó al contador `.smart-badge`; la tarjeta "Siguiente
+  paso" (`OP_NEXT_STEPS`, pasa por `handleStatusChange`) manda en Operación y ahí se
+  oculta la tira v7. No volver a sumar una segunda señal para lo mismo.
+- **`p.ok` se guarda `'yes'`/`'no'`**: compararlo con `_precondIsOk`, nunca contra `'Si'`
+  (cinco sitios lo hacían y nunca empataban).
+- **`showModal({buttons})` usa `{label, cls:'btn-primary', onclick: función}`** y para
+  cerrar desde fuera hay que QUITAR `#globalModal` del DOM, no solo ocultarlo (se apilan).
+- **La guardia de código muerto ya lee regex** (veía 713 de 1,150 funciones): una función
+  sin llamadores ahora sí falla CI. Una función que solo se llama a sí misma dentro de una
+  cadena sigue contando como "usada" — revisar a mano los subsistemas enteros.
+- Microcopy: el PDF imprime `cascadeValueLabel(kind, v)`, no el código guardado. La jerga
+  del laboratorio (ETW, Soak, Speed Follow, Target/Dyno) se queda por decisión suya.
+
+## v23.5 — El sync entre equipos (`js/firebase-sync.js`, `js/app.js`, `js/cop15.js`)
+
+- **`stableStringify(v)` (app.js) es LA forma de comparar dos copias de un dato** cuando una
+  puede venir de Firestore (devuelve las llaves en otro orden). `JSON.stringify(a) !==
+  JSON.stringify(b)` contra un documento de la nube es SIEMPRE true — así nació el bucle del
+  #132. Nunca volver a comparar con JSON.stringify crudo en el sync.
+- **`stampRevisions(list, nowIso)` (app.js) sella `updatedAt` + `_rev`** en cada `saveDB()`
+  (vehículos) y `tpSave()` (planes semanales). `_rev` = huella del contenido cuando se selló:
+  lo que llega de la nube NO se re-sella. **Toda fusión que construya un objeto nuevo debe
+  recalcular `_rev = revContentHash(obj)` sin tocar `updatedAt`**, o el próximo guardado lo
+  tomará por una edición local más nueva.
+- **`_fbMergeVehicle(local, remote)` es LA resolución de dos copias de un VIN** — edición más
+  reciente gana; timeline/returnHistory se unen. **PURA y SIMÉTRICA**: si dos equipos
+  eligieran distinto, se re-empujarían para siempre. Todo desempate nuevo debe ser
+  determinista (nunca "gana lo local").
+- **Live-sync (`fbAutoMerge`)**: `merge_all` silencioso (`fbMergeExecute(…, {quiet,
+  noHistory, noPush})`), aviso ≤1/min/módulo solo si cambió la huella
+  (`_fbModuleFingerprint`), y **re-empuje de UN módulo solo si `_fbLocalHasExtras`**.
+  **Nunca `fbPushAll()` desde una fusión automática.** `_fbPushBack` tiene disyuntor.
+- Filas del plan: empatan con **`_fbPlanItemKey`** (`uid`, respaldo desc+día).
+- **Operación fusiona a tres bandas** (`cascadeThreeWay`, PURA) contra `_opLoadedBase` (lo
+  guardado al llenar el formulario): lo que el técnico no tocó no pisa lo remoto. Todo
+  campo nuevo del formulario debe **cargarse en `loadVehicle`** además de guardarse en
+  `saveProgress`: `op_recep`/`op_datetime`/`op_notes` se guardaban y nunca se cargaban
+  (#131), y el siguiente guardado los borraba.
+- `saveDB()` **devuelve** el resultado (el envoltorio de autoBackup lo tiraba).
+- `_renderDateSuggestion` escribe en el `.form-group`, nunca dentro de `.cascade-dt-row`.
+
+## v24.0 — Auditoría UX: primitivas de interacción (`js/app.js`)
+
+- **`uiEnhanceObserve()` hace que `data-chips` / `data-num` / `table.u-cards` funcionen en
+  CUALQUIER HTML pintado después del arranque** (renders, repintados parciales, modales).
+  Antes solo corrían al arrancar: marcar un select en Plan o Datos no hacía nada. Filtra por
+  `_chips`/`_num` para no re-procesar (si no, repintar las fichas se dispararía en bucle).
+- **`showToast(msg, type[, durMs][, undoFn])`**: el envoltorio de notificaciones reenvía
+  TODOS los argumentos (antes tiraba el 3º y 4º: ningún "Deshacer" funcionó nunca). Error ≥ 8 s
+  según largo — NO fijo: muchos "error" son validaciones. **`toastUndo(msg, fn)`** y
+  **`undoableAction(módulo, etiqueta, fn)`** son LA forma de ofrecer deshacer; la segunda
+  restaura ESA foto, no la última de la pila. `undoPush` ya cubre `'panel'`.
+- **Borrar = confirmar Y deshacer** (decisión del laboratorio), nombrando lo que se borra.
+  Consumibles tiene un solo camino: **`invConfirmDelete(kind, ref)`**.
+- **`uiPrompt(opts)` reemplaza a `prompt()`** (Promise). No quedan `prompt()`/`alert()` en la app;
+  el E2E v24 los intercepta y falla si aparece uno.
+- **`uiLabel(kind, code)`** (`gasStatus`, `purpose`, `region`) — el VALOR guardado no cambia
+  (hay ~20 filtros sobre `status === 'In use'`), solo lo que se lee.
+- **`table.u-cards`** → tarjetas bajo 640 px; `uiTableCards` copia cada `<th>` a `data-label`.
+  **`u-cards-grid`** para tablas de gases (primera celda a lo ancho, valores en 2 columnas).
+- **Pestañas por grupos (`UI_TAB_GROUPS`, `uiTabGroupsInit/Sync/Go`)** en Plan, Consumibles y
+  Datos. Los botones son LOS MISMOS (mismo id y onclick), solo se ocultan los de otros grupos:
+  `xxSwitchTab`, `dashGo` y `uiNavRegistry` no cambian. **Toda pestaña nueva se agrega a un
+  grupo en `UI_TAB_GROUPS`** (si no, cae en el último). `xxSwitchTab` queda envuelta para
+  sincronizar el grupo; la última pestaña por grupo vive en `uiPref('tabGroups')`.
+- **`tpWeightsRebalance(weights, key, value)`** (testplan.js, PURA): mover un peso reparte la
+  diferencia para sumar 100. `tpSetWeightBalanced` es su mutador.
+- Un `− / +` dentro de una `<td>` necesita `min-width` en el input (`td .ui-num-row > input`)
+  o el número se corta en silencio ("1000" se veía "10").
+- Texto nuevo: acentos, sin inglés, sin MAYÚSCULAS, "Ej.: …" en placeholders, y todo error
+  dice qué hacer. `.label-title` es MAYÚSCULAS: no usarla para oraciones.
+
+## v24.1 — La huella de revisión se fija al CARGAR (`revInitMissing`)
+
+- **`revInitMissing(list)` (app.js)** da `_rev` a los registros que no la tienen, sin
+  inventar fecha. **Tiene que correr al cargar, nunca en el primer guardado**: si la huella
+  se toma en `saveDB()`, se toma con la edición adentro y esa edición no se sella como
+  nueva — la siguiente fusión puede quedarse con la copia vieja de la nube (el checklist de
+  Liberación "no dejaba hacer clic"). La llama `dedupeVehicleIds()`, que ya es el paso
+  obligatorio tras toda carga de `db`. Toda lista nueva sellada con `stampRevisions` debe
+  inicializarse igual al cargarse.
+- Un botón que no puede registrar nada **lo dice** (`releaseChecklistSet`): un regreso
+  silencioso se lee como "el botón no sirve".
+
+## v24.2 — Borrar un vehículo deja marca (`db.deletedVehicles`)
+
+- **La fusión de vehículos es aditiva**: sin marca, lo borrado vuelve en el siguiente sync.
+  **Todo borrado de un vehículo que deba ser del laboratorio llama `vehicleTombstone(v)`
+  ANTES de quitarlo de `db.vehicles`.** Las purgas de almacenamiento local no la llaman a
+  propósito.
+- `vehicleIsTombstoned` / `vehicleTombstonesUnion` son PURAS. Identidad: id + VIN, o VIN +
+  `registeredAt` — **nunca el VIN solo** (un VIN re-ensayado tiene registros legítimos).
+- `vehicleTombstonesApply()` corre dentro de `dedupeVehicleIds()`, que ya es el paso
+  obligatorio tras toda carga de `db`: por eso cubre arranque, fusión, seed y restauración.
+- Solo vehículos. Planes, inventario y tpState siguen sin tombstones (deuda de v23.2).
+
+## v24.3 — Calibraciones desde Excel, consumibles como fuente, HOY sin encimarse
+
+- **Filas de HOY (`dashRenderRow`)**: `.dash-row` es un CONTENEDOR (container query) y el grid
+  vive en `.dash-row-in`. El acomodo depende del ancho de la CELDA, no de la ventana: con
+  `@media` la fila ponía las acciones a la derecha en una celda de 450px y se desbordaba sobre
+  la vecina. Todo hijo de grid que pueda crecer lleva `min-width:0` y los tracks flexibles son
+  `minmax(0,1fr)`. `tests/v243.e2e.js` mide desbordes/cruces en 6 anchos × 3 densidades.
+- **`invCalImportAnalyze(grid, equipment)` (PURA) es LA definición de qué cambia el Excel del
+  F11.** Empate: No. del F11 → ID KMM → serie → descripción, las tres últimas **solo si son
+  únicas** — en el F11 real un instrumento físico con dos magnitudes comparte KMM y serie.
+  `'-'`, `N/A`, `S/N` no son identificadores. Una fecha del Excel más VIEJA que la de la app no
+  se aplica (se lista). Sinónimos en `INV_F11_IMPORT_FIELDS`: los literales del F11 primero;
+  nunca una palabra suelta como "laboratorio" (el F11 trae "Laboratorio (auto)").
+- **v24.4 — el F11 real no trae "No."** (encabezados en inglés, frecuencia en
+  `Internal`/`External`). El mapeo es `_invF11AutoMap` (exactos de TODOS los campos primero,
+  contención ≥ 6 letras después — nunca campo por campo). La identidad sale de
+  `_invCalMatchScore` (PURA: KMM/serie ±8, descripción, modelo, equipo padre) contra la
+  SEMILLA `INV_CAL_SEED_F11`, que salió del mismo documento; umbral ≥ 8 y ventaja ≥ 3, si no
+  es ambigua. "Más vieja" solo protege una fecha con registro en `calHistory`; la de la
+  semilla se corrige. Fechas: año 2000–2100, "última" futura rechazada, d/m vs m/d por la
+  hoja y, si no hay evidencia, por la próxima + frecuencia. El archivo real vive como fixture
+  en `tests/fixtures/f11-plan-anual-2026-09-12.json`: si cambia el formato, agregar su fixture.
+- **`_invApplyCalibration(eq, o)` es el ÚNICO escritor de una calibración** (lo usan
+  `invCalRegister` y la importación); no duplica fecha+certificado en `calHistory`.
+- `_pnProjDetectHeader(grid, fields)` / `_pnProjAutoMap(headers, fields)` aceptan un catálogo
+  propio (default `PN_IMPORT_FIELDS`). Reúsalas para cualquier importador nuevo.
+- **`invGasReorder(g)` es LA definición del punto de reorden** (el "Comprar" del correo):
+  `weeklyPsi / 5 × invGasLeadDays(g) × INV_REORDER_SAFETY(1.3)`. **No reemplaza a
+  `invGasIsLow`** — son dos preguntas (¿está bajo? vs ¿hay que pedirlo ya dado lo que tarda el
+  proveedor?). Sin ritmo (menos de dos lecturas humanas con caída) es `sinritmo`, nunca `ok`.
+  `invGasLeadDays` = `g.leadDays` → `g.reposDays` (semilla) → 44.
+- **`invConsumablesReportRows()` es LA definición de los datos del reporte semanal**; la
+  pantalla (`invRenderReport`) y el correo (`invConsumablesEmailHTML`, estilos LITERALES — nada
+  de `var(--…)` en HTML que sale de la app) solo pintan. `invFuelWeeklyUsage` (PURA) no cuenta
+  recargas ni lecturas `auto`.
+- **Importar el reporte (`invConsImportOpen`)**: Excel/CSV, pegar (HTML primero: se expanden
+  `rowspan/colspan`; TSV corto se alinea por la DERECHA) o imagen. Solo se GUARDA el inventario
+  (vía `invAddReading`, `source:'importacion'`) y `leadDays`; lo derivado del correo se muestra
+  al lado, nunca se guarda. `invMatchGasByLabel` (PURA) empata especie+concentración leyendo la
+  especie ANTES de "balance"; el nombre del correo queda en `g.importAlias`.
+- **OCR = respaldo, y así se queda.** Tesseract.js 5.1.1 diferido (`_invLoadTesseract`, versión
+  fija en `INV_TESS`), nunca al arrancar. Leer la tabla completa de un jalón cambia dígitos
+  plausibles (3300 → 2300): se detecta la cuadrícula (`_invOcrFindGrid`, PURA) y se lee celda
+  por celda (PSM 7), releyendo con whitelist de dígitos las numéricas. Sin cuadrícula (foto del
+  monitor) cae a renglones y normalmente no reconoce nada — se DICE. Otsu: tinta = gris `<=` umbral.
+- **Sync de inventario**: `_fbMergeReadings` es de NIVEL SUPERIOR (estaba anidada en
+  `fbMergeAnalyze` y la llamaba `fbMergeExecute`: `ReferenceError` tragado por el live-sync).
+  `_fbInvItemDiffers` (contenido) decide el conflicto de un cilindro/tanque y
+  `_fbMergeInvItem` lo resuelve SIMÉTRICO (gana `updatedAt`, desempate por contenido, lecturas
+  unidas). Todo editor de un cilindro/tanque sella `updatedAt`.
+- Utilidad nueva `.u-muted` (color apagado). Antes solo existía `.u-muted-xs`.
+
+## 2.0.0 — Nueva numeración, un solo catálogo y HOY ejecutivo
+
+- **`tpConfigCatalog()` (testplan.js) es LA definición de las configuraciones planeables**:
+  `planData` ∪ `allConfigurations` por `desc`, gana la fila de producción; lo que solo está en el
+  catálogo sale `_catalogOnly` (total 0). **`tpConfigByDesc(desc)` es LA forma de resolver un
+  `desc`** en toda ruta MANUAL del plan (agregar, fijar, duplicar, mover, sustituir, vincular,
+  acreditar, etiquetas). Nunca volver a `planData.find(…desc…)` ahí: el Alta ofrecía configs que
+  el Plan no veía. **Lo automático sigue sobre `planData` a propósito** (`tpGetAnalysis`, REQ,
+  cobertura, generador, Recuperación): el REQ es de producción. Una `_catalogOnly` se DECLARA
+  (grupo "📦 … sin volumen" al final, chip en la tarjeta), nunca se mezcla en silencio.
+- **Configs manuales = `db.manualConfigs`** (viajan con cop15), no `kia_manual_configs` (queda
+  como legado de la migración). `getManualConfigs()` devuelve las vivas; `_saveManualConfigs(lista)`
+  recibe la lista viva y reconcilia (sella `updatedAt`, marca `deleted` lo que falte).
+  **`manualConfigsUnion` es LA fusión (PURA, simétrica)**; `manualConfigsAfterLoad()` corre en
+  `dedupeVehicleIds()` y solo migra códigos que `db` no conoce. Borrar SIEMPRE deja marca.
+- **HOY = Pulso → categorías → Lo siguiente.** `labPulseCompute(src)` (panel.js, PURA) es LA
+  definición de los 5 indicadores y `labPulseData()` los junta de las definiciones únicas
+  (`tpWeekBoardRows`, `tpCoverageSummary`, `pnGetActiveAlerts`, `invGasIsLow`, `invCalSummary`).
+  Vive como sección `'pulse'` de `renderLabOverview` (una sola fuente de KPIs); HOY ya no pide
+  `kpi`/`pipeline`, el Panel sí. El avance de la semana es contra el COMPROMISO (`planeadas`):
+  las no planeadas no inflan lo hecho.
+- **`dashNextUp(acts, n)` y `dashCatSummary(acts)` (app.js) son PURAS.** Los recuadros de
+  categoría FILTRAN el bloque de abajo (`uiPref('dashOpenCat')`), no se apilan listas.
+- **Nunca `data-help` en un `<button>`**: `cascadeInjectTooltips` mete otro `<button>` adentro.
+  Por eso el Pulso lleva un solo `?` en su título y `title` en cada recuadro.
+- **`./build.sh` publica el número de build en Firestore de producción** (`app/version`, un
+  curl al final). Las estaciones ven "hay actualización" aunque el hosting no haya cambiado. Para
+  compilar solo para verificar, correrlo sin red hacia Firestore (p. ej.
+  `HTTPS_PROXY=http://127.0.0.1:9 ./build.sh`): el HTML y `sw.build.js` ya quedaron escritos
+  cuando el curl falla; el script sale con código 7 por `set -e`, no por un error de build.
 
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
-- **Cada ronda que se documenta en `CHANGELOG.md` también actualiza `APP_VERSION` y agrega una
-  entrada al PRINCIPIO de `APP_VERSION_HISTORY` (ambos en `js/app.js`)** — si no, el pill de
-  versión del topbar y el historial de Datos → Sistema quedan desincronizados del changelog real
-  (pasó entre v14 y v16.6: `APP_VERSION` quedó pegado en `'14.0'` varias rondas).
+- **Toda ronda que cambia algo publica una versión** — ver **Versionado** abajo.
 - New function: add to the right module file; global scope makes it cross-available.
 - **Toda clave nueva de `localStorage` agrega su entrada a `PN_STORAGE_REGISTRY`** (v18.1) y, si
   vive dentro de `tpState`, a la lista de preservación de `_fbPullSeed` (v18.0/v20).
@@ -1969,6 +2004,37 @@ construcción de la fila (`_tpMakeItem`).
 - Tab switching: `tpSwitchTab`, `invSwitchTab`, `pnSwitchTab`; platforms via `switchPlatform`.
 - New chart: create Chart.js on `window._yourChartVar`; `chartConfigBuildPanel('id','_var',{rerenderFn})`;
   wrap canvas in `<div id="id-wrapper">`; config persists to `kia_chart_configs`.
+
+## Versionado (desde 2.0.0)
+
+**MAYOR.MENOR.PARCHE**, siempre tres números (`2.3.1`). Se decide así:
+
+| Número | Sube cuando… |
+|---|---|
+| **MAYOR** | La versión nueva **no puede convivir** en el sync con la anterior (cambia el formato de los datos compartidos y todos los equipos deben actualizar juntos), o un rediseño obliga a re-capacitar al laboratorio. Raro (~1/año). MENOR y PARCHE vuelven a 0. |
+| **MENOR** | Algo que el técnico **ve o usa**: pantalla, flujo, indicador, o una regla de cálculo (REQ, CoP, límites, cobertura). PARCHE vuelve a 0. |
+| **PARCHE** | Solo arreglos o ajustes sin funcionalidad nueva. |
+
+- **Un PR sube a lo más UN número.** Varias rondas el mismo día son una sola versión o parches
+  de ella: la numeración vieja llegó a v24 en tres meses (8 "versiones" el 1 de sep) y dejó de
+  decir algo.
+- **Qué se actualiza en cada versión** (y `tests/version.node.js` lo verifica en CI):
+  1. `APP_VERSION` en `js/app.js`;
+  2. una entrada al PRINCIPIO de `APP_VERSION_HISTORY` con la forma exacta
+     `{version, date, title, bullets}` — la plantilla de Datos → Sistema (`index.html`) lee esos
+     campos; 12 entradas escritas como `{v, notes}` salieron vacías durante 23.0–24.5;
+  3. la entrada `## X.Y.Z — Título (AAAA-MM-DD)` al principio de `CHANGELOG.md`, con
+     **Nuevo / Cambió / Arreglado** en lenguaje del laboratorio y **Para desarrollo** con las
+     definiciones técnicas;
+  4. `"version"` en `package.json`;
+  5. si trae reglas nuevas para quien programe, su sección `## X.Y.Z — …` al FINAL de la
+     historia técnica de este archivo (orden cronológico).
+- Lo anterior a 2.0.0 lleva `legacy: true` en `APP_VERSION_HISTORY` y vive bajo "Numeración
+  anterior" en CHANGELOG. **No se renumera ni se reescribe.**
+- Comentarios de código nuevos citan la versión con tres números: `// [2.1.0] …` (nunca `v2.1`,
+  que se confundiría con el estilo viejo).
+- **La versión no es el build.** `APP_BUILD` (fecha de compilación, la inyecta `build.sh`) es lo
+  que usa el aviso de "hay actualización"; la versión dice qué trae. El topbar muestra las dos.
 
 ## Important Notes
 
