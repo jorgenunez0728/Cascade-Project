@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.1.1';
+var APP_VERSION = '2.1.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,10 @@ var APP_VERSION = '2.1.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.1.2', date: '26 sep 2026', title: 'Hoja COP15-F05 revisión 8',
+      bullets: [
+          'La Hoja de Inspección COP15-F05 pasa a la revisión 8, con fecha de emisión 04-05-2026, la misma que el formato registrado en el sistema de gestión.'
+      ] },
     { version: '2.1.1', date: '26 sep 2026', title: 'La hoja COP15-F05 dice CASCADE',
       bullets: [
           'El pie de la Hoja de Inspección COP15-F05 dice ahora "Documento generado por CASCADE", el nombre con el que el formato queda registrado en el sistema de gestión.'

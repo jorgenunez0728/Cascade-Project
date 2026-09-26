@@ -20,6 +20,17 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.1.2 — Hoja COP15-F05 revisión 8 (2026-09-26)
+
+### Cambió
+- El encabezado de la **Hoja de Inspección COP15-F05** dice **Revisión: 8** y **Emission date:
+  04-05-2026** (antes revisión 7 del 28-11-2025), igual que el formato registrado en el sistema
+  de gestión. Aplica a los PDF que se generen desde ahora.
+
+### Para desarrollo
+- Revisión y fecha viven escritas en el encabezado de `generateCOP15PDF` (cop15.js). Toda
+  revisión nueva del formato registrado se cambia ahí.
+
 ## 2.1.1 — La hoja COP15-F05 dice CASCADE (2026-09-26)
 
 ### Cambió

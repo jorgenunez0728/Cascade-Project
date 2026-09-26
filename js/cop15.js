@@ -5767,8 +5767,9 @@ function generateCOP15PDF(vehicleId, opts) {
   doc.setTextColor(...BLACK); setF('normal', 5.5);
   const hoy = new Date().toLocaleDateString('es-MX');
   doc.text('Document#: COP15-F05', ix+2, y+4.5);
-  doc.text('Revisión: 7', ix+2, y+7.5);
-  doc.text('Emission date: 28-11-2025', ix+2, y+10.5);
+  // [2.1.2] Revisión y fecha de emisión del formato registrado en el sistema de gestión.
+  doc.text('Revisión: 8', ix+2, y+7.5);
+  doc.text('Emission date: 04-05-2026', ix+2, y+10.5);
   const _pageLineY = y + 13.5; // se escribe al final, cuando ya se sabe cuántas páginas hay
   y += 18;
 
