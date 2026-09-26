@@ -20,6 +20,39 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.2.0 — Cada regulación pide sus gases, de la liberación al PDF (2026-09-26)
+
+### Cambió
+- **SULEV 30** (USA y Canadá) se juzga como lo definen LEV III / Tier 3: **NMOG+NOx combinado
+  ≤ 0.030 g/mi** y **CO ≤ 1.0 g/mi** (CO₂ informativo). Antes comparaba NMHC ≤ 0.01 y NOx ≤ 0.02
+  por separado: un vehículo que cumple la norma podía salir FALLA, y al revés. Cada equipo migra
+  su perfil guardado una vez y el cambio queda en el historial.
+- **La aprobación verifica los gases y límites con los que se liberó.** Al enviar a aprobación se
+  guarda en el vehículo la regulación con sus gases y límites; la aprobación, el F05 y
+  "Completar" usan esa copia, aunque el perfil se edite después o el equipo del aprobador tenga
+  otro.
+- El aprobador confirma todo gas con límite y todo lo que el liberador capturó. Un gas informativo
+  (CO₂) que nadie capturó ya no le bloquea.
+
+### Arreglado
+- Una prueba de emisiones **se podía aprobar sin verificar ningún gas** si el equipo del aprobador
+  no tenía el perfil de su regulación ("no hay gases que verificar" habilitaba el botón). Ahora
+  se detiene y pide devolverla al liberador.
+- **Enviar a aprobación solo se frenaba en el botón**: el registro estampaba "pasó los límites"
+  sin verificarlo. Ahora la misma regla corre al enviar (todos los gases con límite, y que pasen)
+  y el registro guarda su resultado.
+- Los vehículos SULEV 30 liberados antes de este cambio se siguen leyendo, aprobando e imprimiendo
+  con NMHC y NOx, y sus series del Control SPC no desaparecen.
+
+### Para desarrollo
+- `_libGasProfileForVehicle(vehicle)` (cop15.js) es LA definición de los gases de un vehículo ya
+  liberado; núcleo puro `_libPickGasProfile` (congelado → vigente → retirado → derivado).
+- `_libVerifyReleaseValues(profile, values)` (PURA) es LA regla del liberador; la usan el botón y
+  `submitToApproval`. `gasResults.liberador.profile` es la copia congelada
+  (`_libGasProfileSnapshot`).
+- `REG_PROFILES_RETIRED` + `regMigrateProfiles` (app.js, PURA, guarda `migr.sulev30`).
+- Pruebas: `tests/gases.node.js` (31) y `tests/gases.e2e.js`.
+
 ## 2.1.2 — Hoja COP15-F05 revisión 8 (2026-09-26)
 
 ### Cambió

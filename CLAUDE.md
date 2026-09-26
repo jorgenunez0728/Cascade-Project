@@ -2025,6 +2025,35 @@ menos **dejó de ser silencioso**.
   cuenta del laboratorio y no distingue roles; para que la base lo haga cumplir hace falta una
   cuenta por persona. Ronda propia, no resuelta.
 
+## 2.2.0 — Los gases de cada regulación, de la liberación al PDF (`js/cop15.js`, `js/app.js`)
+
+- **`_libGasProfileForVehicle(vehicle)` es LA definición de los gases de un vehículo YA
+  liberado** — la usan aprobación (`loadApproval`, `libOnApproverGasChange`,
+  `approveAndArchive`), el PDF, `validatePdfCompleteness` e `histOpenCompleteModal`. Orden
+  (núcleo PURO `_libPickGasProfile`): perfil **congelado** en `gasResults.liberador.profile` →
+  perfil vigente si cubre lo capturado → versión de `REG_PROFILES_RETIRED` que lo cubra →
+  derivado de los campos capturados (sin límites). **La captura nueva del liberador sigue sobre
+  el perfil vigente**; al enviar se congela con `_libGasProfileSnapshot`.
+- **Los perfiles de regulación NO se sincronizan** (`kia_regulations_v1` vive en cada equipo).
+  Por eso la aprobación nunca debe releer `getRegulationProfile()`: el aprobador en otro equipo
+  veía otros gases, o ninguno y aprobaba sin doble ciego. Sincronizarlos es ronda propia.
+- **`_libVerifyReleaseValues(profile, values)` (PURA) es LA regla del liberador**: todo gas con
+  límite capturado y ≤ límite. La usan el botón y `submitToApproval` (candado en la capa de
+  datos, v23.2); `passedLimits` es su resultado, nunca `true` a secas.
+- **`_libVerifyApproverMatch`**: faltante = gas con límite, o gas que el liberador capturó. Un
+  informativo que nadie capturó no bloquea.
+- **Emisiones sin perfil y sin valores no se aprueban** (antes el botón se habilitaba).
+- **Cambiar los gases de un perfil exige**: (1) su versión anterior en `REG_PROFILES_RETIRED`
+  (si no, lo liberado con ella se lee con los gases nuevos y sale "incompleto"); (2) una
+  migración PURA en `regMigrateProfiles` con guarda versionada en `_regulationsData.migr`
+  — `loadRegulations` da prioridad a lo guardado, así que corregir
+  `DEFAULT_REGULATION_PROFILES` no llega a ningún equipo que ya tenga perfiles.
+- **SULEV 30 = NMOG+NOx combinado ≤ 0.030 g/mi** (campo `NMOGNOx`) + CO ≤ 1.0 g/mi. PM/PN
+  **fuera de toda regulación** por decisión del laboratorio. El laboratorio trabaja EURO-5,
+  PRE-EURO 7 (Europa) y SULEV 30; los perfiles bajos (EURO-2/4) no se tocaron a propósito.
+- `copSpcGases` agrega sin límite los campos con datos que el perfil ya no tiene: una serie
+  histórica no desaparece porque el perfil cambió.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
