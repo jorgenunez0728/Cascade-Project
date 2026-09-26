@@ -20,6 +20,62 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.1.0 — Los roles del laboratorio, y permisos que sí se cumplen (2026-09-26)
+
+### Nuevo
+- **Roles del laboratorio**, de menor a mayor autoridad: **Practicante < Técnico <
+  Especialista / Especialista Sr < Signatario < Assistant Manager / Manager**.
+- **Datos → Usuarios → 🔐 Roles y permisos**: matriz de qué puede hacer cada rol, generada de
+  la misma definición que el sistema hace cumplir.
+- Cuando un rol no permite algo, el aviso dice **quién sí puede** y el intento queda en el
+  historial de cambios.
+
+### Cambió
+- **Liberar y aprobar: solo Signatario y Assistant Manager / Manager.** Antes también liberaban
+  Técnico e Ingeniero.
+- **La matriz de competencias ya no da permisos.** Antes, certificar a alguien como "Liberador de
+  prueba" le permitía liberar con cualquier rol. Ahora es solo registro de capacitación.
+- Signatario y Assistant Manager / Manager tienen **permisos idénticos**.
+- El Practicante también administra Consumibles.
+- Los roles se migran solos: Supervisor → Signatario, Coordinador → Assistant Manager / Manager,
+  Ingeniero → Especialista / Especialista Sr. Cada cambio se registra.
+- Un rol que no existe pasa a **Practicante** (el menor), ya no a Técnico.
+
+### Arreglado
+Estos son hallazgos de la revisión de toda la plataforma:
+- **Los límites de emisiones los podía editar o borrar cualquiera, sin dejar rastro.** Ahora:
+  - solo Signatario y Assistant Manager / Manager;
+  - cada cambio se registra con los límites de antes y de después.
+- **Cualquiera podía eliminar vehículos, incluso archivados** (el registro firmado). Ahora solo
+  los roles de autoridad, y el botón no se muestra a los demás.
+- **Liberación a medias**:
+  - solo "Enviar a aprobación" pedía permiso;
+  - el checklist y la regulación de comparación no pedían nada;
+  - la pestaña ahora avisa quién puede liberar.
+- **Cinco permisos existían pero nada los revisaba**: dar de alta, operar, guardar juicios CoP,
+  exportar el historial y los ajustes de administración. Ya se revisan.
+- También se revisan: aceptar un plan semanal, importar producción, el catálogo de configuraciones,
+  la homologación Europa, restaurar respaldos, y borrar o calibrar en Consumibles.
+- El largo del PIN según el rol buscaba el nombre literal del rol: con un rol renombrado daba el
+  PIN corto.
+
+### Para desarrollo
+- **`AUTH_ROLES` (auth.js) es LA definición de los roles**: orden, nivel y descripción.
+  `pnRoles()` y la matriz salen de ahí; `PN_ROLES` y las dos listas copiadas se eliminaron.
+- `AUTH_ROLE_ALIASES` + `_authNormalizeRole` traducen nombres anteriores y variantes.
+  `_pnEnsureAdminExists` es la migración (sella `updatedAt` y audita `rol_migrado`).
+- **`authCan` es solo por rol.** Se eliminó `_authSkillGrants`; el campo `grants` del catálogo ya
+  no tiene efecto.
+- Permisos nuevos: `test.delete`, `regulation.manage`, `config.manage`, `homolog.manage`.
+  `AUTH_PERM_LABELS` nombra cada uno para la matriz.
+- `_cascadeGate(perm, label)` / `_cascadeCan(perm)` (cop15.js): candado al inicio de cada acción
+  de CASCADE. `_cascadeRoleNote` es el aviso en Liberación y Aprobación.
+- **Límite declarado**: el candado vive en la app y queda auditado, pero la base de datos
+  comparte una cuenta del laboratorio y no distingue roles. Para que la base lo haga cumplir hace
+  falta una cuenta por persona.
+- Pruebas: **`tests/roles.node.js`** (35) y **`tests/roles.e2e.js`** (21); `v231.e2e.js`
+  actualizado a los nombres nuevos.
+
 ## 2.0.0 — Nueva numeración, un solo catálogo y HOY ejecutivo (2026-09-26)
 
 Primera versión con la numeración MAYOR.MENOR.PARCHE. La generación 1 es todo lo anterior

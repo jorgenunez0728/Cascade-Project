@@ -789,6 +789,7 @@ function copSetVin(el) {
  * completa (la trampa de almacenamiento de v18.1).
  */
 function copSaveJudgment() {
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'guardar el juicio CoP')) return;
     copInitState();
     var pollStats = copGetPollStats();
     var decision = copGetOverallDecision(pollStats);

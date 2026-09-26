@@ -5824,6 +5824,19 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .dash-cat-detail { border-left-width: 4px; }
 .dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
+
+/* [2.1.0] Datos → Usuarios → Roles y permisos */
+.pn-roles-lead { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
+.pn-roles-wrap { overflow-x: auto; }
+.pn-roles-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.pn-roles-table th, .pn-roles-table td { border-bottom: 1px solid var(--border); padding: var(--space-xs) var(--space-sm); }
+.pn-roles-table th { text-align: center; vertical-align: bottom; font-weight: 700; color: var(--text); }
+.pn-roles-table th:first-child, .pn-roles-table td:first-child { text-align: left; }
+.pn-roles-table th small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-xs); }
+.pn-roles-table td.pn-roles-yes { text-align: center; color: var(--ok-text); font-weight: 800; background: var(--ok-tint); }
+.pn-roles-table td.pn-roles-no { text-align: center; color: var(--muted); }
+.pn-roles-desc { font-size: var(--fs-sm); color: var(--text); margin: var(--space-md) 0 0; padding-left: var(--space-lg); }
+.cascade-role-note { font-weight: 600; }
     </style>
 </head>
 
@@ -6769,6 +6782,8 @@ td .ui-num-row > input { min-width: 5rem; }
                 </select>
             </div>
             <div id="lib-content" style="display:none;">
+                <!-- 2.1.0: aviso de rol (lo llena _cascadeRoleNote en loadRelease) -->
+                <div class="alert alert-warning cascade-role-note" id="lib-role-note" style="display:none;"></div>
                 <div class="alert alert-success" id="releaseInfo"></div>
                 <div class="card">
                     <div class="card-title">📋 Resumen de Prueba</div>
@@ -6818,6 +6833,7 @@ td .ui-num-row > input { min-width: 5rem; }
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
+                <div class="alert alert-warning cascade-role-note" id="appr-role-note" style="display:none;"></div>
                 <div class="alert alert-success" id="approvalInfo"></div>
                 <div class="card">
                     <div class="card-title">📋 Resumen de Prueba</div>
@@ -7048,6 +7064,16 @@ td .ui-num-row > input { min-width: 5rem; }
             <div class="view-mode-toggle" style="margin-bottom:10px;" x-show="usersView !== 'profile'">
                 <button :class="usersView === 'list' ? 'active' : ''" @click="usersView = 'list'">👤 Operadores</button>
                 <button :class="usersView === 'matrix' ? 'active' : ''" @click="usersView = 'matrix'">🎓 Matriz</button>
+                <button :class="usersView === 'roles' ? 'active' : ''" @click="usersView = 'roles'">🔐 Roles y permisos</button>
+            </div>
+
+            <!-- ═══ [2.1.0] VISTA: ROLES Y PERMISOS — sale de AUTH_ROLE_PERMS (auth.js), la
+                 única definición: lo que se ve aquí ES lo que el sistema hace cumplir. -->
+            <div x-show="usersView === 'roles'">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span data-help="pn-roles-matrix">🔐 Roles y permisos</span></div>
+                    <div x-html="rolesMatrixHTML()"></div>
+                </div>
             </div>
 
             <!-- ═══ VISTA: MATRIZ DE HABILIDADES ═══ -->
@@ -7238,7 +7264,7 @@ td .ui-num-row > input { min-width: 5rem; }
                                 <div>
                                     <div style="font-size:15px;font-weight:800;color:var(--tp-text);" x-text="profileOp().name"></div>
                                     <div style="font-size: var(--fs-xs);color:var(--tp-dim);">
-                                        <span x-text="profileOp().role || 'Técnico'"></span> ·
+                                        <span x-text="profileOp().role || AUTH_ROLE_DEFAULT"></span> ·
                                         <span x-text="levelName(profileOp().level)"></span>
                                     </div>
                                 </div>
@@ -7352,7 +7378,7 @@ td .ui-num-row > input { min-width: 5rem; }
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                 <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
-                                <span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(6,182,212,0.15);color:var(--info-text);border-radius:4px;" x-text="op.role || 'Técnico'"></span>
+                                <span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(6,182,212,0.15);color:var(--info-text);border-radius:4px;" x-text="op.role || AUTH_ROLE_DEFAULT"></span>
                                 <template x-if="!op.active"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Inactivo</span></template>
                                 <template x-if="op.pinHash2 || op.pinHash"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius:4px;">PIN ✓</span></template>
                                 <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Sin PIN</span></template>
@@ -8211,7 +8237,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609261608';
+var APP_BUILD = '202609261713';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8219,7 +8245,7 @@ var APP_BUILD = '202609261608';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.0.0';
+var APP_VERSION = '2.1.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8227,6 +8253,14 @@ var APP_VERSION = '2.0.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.1.0', date: '26 sep 2026', title: 'Los roles del laboratorio, y permisos que sí se cumplen',
+      bullets: [
+          'Roles del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Los nombres anteriores se traducen solos (Supervisor → Signatario, Coordinador → Assistant Manager / Manager, Ingeniero → Especialista) y cada cambio queda en el historial.',
+          'Liberar y aprobar pruebas: solo Signatario y Assistant Manager / Manager. Un Técnico ya no libera, y la matriz de competencias ya no da permisos: es registro de capacitación.',
+          'Eliminar vehículos, corregir archivados y editar los límites de emisiones: solo Signatario y Assistant Manager / Manager. Editar un límite ahora queda registrado con el antes y el después.',
+          'Nueva vista Datos → Usuarios → Roles y permisos: qué puede hacer cada rol, tal como el sistema lo hace cumplir.',
+          'Si alguien intenta algo que su rol no permite, el sistema le dice quién sí puede y deja el intento registrado.'
+      ] },
     { version: '2.0.0', date: '26 sep 2026', title: 'Nueva numeración, un solo catálogo y HOY ejecutivo',
       bullets: [
           'Numeración nueva de tres números: MAYOR.MENOR.PARCHE. El primero cambia solo cuando todos los equipos deben actualizar juntos; el segundo, con cada novedad que se ve o se usa; el tercero, con arreglos. Todo lo anterior (hasta la v24.4) queda abajo como "numeración anterior".',
@@ -8716,14 +8750,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609261608' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609261713' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609261608' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609261713' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8739,7 +8773,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609261608' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609261713' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9843,6 +9877,7 @@ function auditGetTrail() {
 }
 
 function auditExportCSV() {
+    if (typeof authRequire === 'function' && !authRequire('audit.export', 'exportar el historial de cambios')) return;
     var trail = auditGetTrail();
     var csv = 'Fecha,Usuario,Rol,Modulo,Accion,Entidad,Detalle\n';
     trail.forEach(function(e) {
@@ -14488,6 +14523,7 @@ function openRestoreBackup() {
 }
 
 function restoreFromBackup(snapshotId) {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'restaurar un respaldo')) return;
     showConfirm('¿Restaurar este backup? Se hará un backup automático de los datos actuales antes de restaurar.', function() {
         // Auto-backup current state first
         autoBackup();
@@ -16925,6 +16961,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
     }
 
     function confirmAlta() {
+        if (!_cascadeGate('test.register', 'dar de alta un vehículo')) return;
         if(!validateVehicleData()) return;
         
         const isExternal = document.getElementById('modeToggle').checked;
@@ -16978,6 +17015,7 @@ setAltaDatetimeIfEmpty(true);
 
 
     function saveNewVehicle() {
+        if (!_cascadeGate('test.register', 'dar de alta un vehículo')) return;
         const isExternal = document.getElementById('modeToggle').checked;
         
         let config = {};
@@ -17349,8 +17387,33 @@ function initStatusPrevValue() {
 // empataban (stepper, auto-avance, checklist). 'Si'/'Sí' se aceptan por datos viejos.
 function _precondIsOk(v) { return v === 'yes' || v === 'Si' || v === 'Sí'; }
 
+// ══════════════════════════════════════════════════════════════════════
+// [2.1.0] Candados de rol de CASCADE. Van al INICIO de cada acción (capa de datos):
+// ocultar un botón es UX, esto es el candado. Sin módulo de sesión cargado (arnés de
+// pruebas) no bloquean.
+// ══════════════════════════════════════════════════════════════════════
+function _cascadeGate(perm, label) {
+  return (typeof authRequire !== 'function') || authRequire(perm, label);
+}
+function _cascadeCan(perm) {
+  return (typeof authCan !== 'function') || authCan(perm);
+}
+
+/** Aviso en Liberación/Aprobación cuando el rol de la sesión no puede firmar ahí. Se puede
+ *  VER el vehículo, pero la firma la hace el rol autorizado (el candado real está en
+ *  submitToApproval/approveAndArchive). */
+function _cascadeRoleNote(elId, perm, verbo) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  if (_cascadeCan(perm)) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var quien = (typeof authRolesWith === 'function') ? authRolesWith(perm).join(' o ') : '';
+  el.innerHTML = '🔒 Puedes consultar este vehículo, pero ' + verbo + ' lo hace ' + escapeHtml(quien || 'un rol autorizado') + '.';
+  el.style.display = 'block';
+}
+
 function handleStatusChange(selectEl) {
   if (!selectEl) return;
+  if (!_cascadeGate('test.operate', 'cambiar el estado de la prueba')) { selectEl.value = selectEl.dataset.prev || selectEl.value; return; }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   const isEm = vehicle ? isEmissionsPurpose(vehicle.purpose) : true;
@@ -17874,6 +17937,7 @@ function opNextStepRender() {
 }
 
 function opAdvance() {
+  if (!_cascadeGate('test.operate', 'avanzar la prueba')) return;
   var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
   var sel = document.getElementById('op_status');
   if (!vehicle || !sel) return;
@@ -18089,6 +18153,8 @@ function _opSetReadOnly(on) {
 
 function saveProgress(opts) {
   var silent = opts && opts.silent;
+  // [2.1.0] El autoguardado (silent) no insiste con avisos: solo se detiene.
+  if (silent ? !_cascadeCan('test.operate') : !_cascadeGate('test.operate', 'guardar la operación')) return;
   if (!activeVehicleId) {
     if (!silent) showToast('Primero elige un vehículo en la parte de arriba.', 'warning');
     return;
@@ -18585,6 +18651,7 @@ function libRegPickerToggle() {
 // Solo durante la liberación: una vez enviado a aprobación, el liberador ya firmó
 // valores contra un perfil concreto y cambiarlo invalidaría la doble verificación.
 function libApplyComparisonRegulation() {
+    if (!_cascadeGate('test.release', 'cambiar la regulación de comparación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     if (vehicle.status !== 'ready-release') {
@@ -18624,6 +18691,7 @@ function libApplyComparisonRegulation() {
 }
 
 function libClearComparisonRegulation() {
+    if (!_cascadeGate('test.release', 'cambiar la regulación de comparación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || !vehicle.regulationOverride) return;
     if (vehicle.status !== 'ready-release') {
@@ -19054,6 +19122,7 @@ function releaseChecklistRows(vehicle) {
 }
 
 function releaseChecklistSet(group, key, val) {
+    if (!_cascadeGate('test.release', 'llenar el checklist de liberación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     // Un toque que no registra nada tiene que decir por qué: si no, el botón "no sirve".
     if (!vehicle) { showToast('No hay un vehículo abierto en Liberación. Elígelo de nuevo en la lista.', 'warning'); return; }
@@ -19135,6 +19204,7 @@ function loadRelease() {
         return;
     }
     content.style.display = 'block';
+    _cascadeRoleNote('lib-role-note', 'test.release', 'liberar');
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode);
@@ -19236,6 +19306,7 @@ function loadApproval() {
         content.style.display = 'none'; return;
     }
     content.style.display = 'block';
+    _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
@@ -20088,7 +20159,7 @@ function histUpdateBatchBtn() {
         else { pdfBtn.style.display = 'none'; }
     }
     if (delBtn) {
-        if (checked.length > 0) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
+        if (checked.length > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
         else { delBtn.style.display = 'none'; }
     }
 }
@@ -20471,6 +20542,7 @@ function exportSingleArchivedVehicle(vehicleId) {
 }
 
 function deleteVehicleCascade(vehicleId) {
+    if (!_cascadeGate('test.delete', 'eliminar vehículos')) return;
     const v = db.vehicles.find(x => x.id == vehicleId);
     if (!v) return;
 
@@ -20526,6 +20598,7 @@ function deleteVehicleCascade(vehicleId) {
 }
 
 function batchDeleteVehicles() {
+    if (!_cascadeGate('test.delete', 'eliminar vehículos')) return;
     var ids = [];
     document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
         ids.push(parseInt(cb.dataset.vid));
@@ -21177,9 +21250,10 @@ function histRowMenu(vehicleId) {
   var close = function() { var m = document.getElementById('globalModal'); if (m) m.style.display = 'none'; };
   showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
     buttons: [
-      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } },
-      { label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }
-    ] });
+      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
+    ].concat(_cascadeCan('test.delete')   // [2.1.0] solo se ofrece a quien puede
+      ? [{ label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }]
+      : []) });
 }
 
 // Historial y control de cambios de un vehículo (visible también para archivados).
@@ -22019,6 +22093,7 @@ function _getExistingValues(key) {
 }
 
 function openManualConfigForm(editIdx) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     var existing = (editIdx !== undefined) ? getManualConfigs()[editIdx] : null;
     var html = '<div class="mcf-form">';
 
@@ -22057,6 +22132,7 @@ function updateManualConfigPreview() {
 }
 
 function saveManualConfig(editIdx) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     var newConfig = {};
     var missing = [];
 
@@ -22177,6 +22253,7 @@ function _mergeManualConfigsIntoAll() {
 // 2.0.0: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
 // de sync puede reordenarla (regla v23: la UI habla por identidad).
 function deleteManualConfig(code) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     showConfirm('¿Eliminar esta configuración manual? Se borra en todos los equipos.', function() {
         var manuals = getManualConfigs();
         var idx = -1;
@@ -22234,6 +22311,7 @@ openConfigPanel = function() {
 // ── Modify handleConfigCSVImport to check manual config conflicts ──
 var _origHandleConfigCSVImport = handleConfigCSVImport;
 handleConfigCSVImport = function(event) {
+    if (!_cascadeGate('config.manage', 'importar el catálogo de configuraciones')) { if (event && event.target) event.target.value = ''; return; }
     var manuals = getManualConfigs();
     if (manuals.length === 0) {
         _origHandleConfigCSVImport(event);
@@ -24342,6 +24420,7 @@ function v7RenderBatchRelease() {
 }
 
 function v7BatchRelease() {
+    if (!_cascadeGate('test.release', 'liberar')) return;
     if (V7_BATCH_RELEASE_ON_HOLD) {
         showToast('La liberación por lote está en pausa: libera cada vehículo con su checklist, firma y aprobación.', 'warning');
         return;
@@ -24885,6 +24964,7 @@ function invMaintMarkDone(activityId, opts) {
 
 // Registrar una calibración — dos toques: fecha + certificado; calcula la próxima fecha sola.
 function invCalRegister(eqId, opts) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'registrar calibraciones')) return false;
     opts = opts || {};
     var eq = invState.equipment.find(function(e) { return e.id === eqId; });
     if (!eq) { if (typeof showToast === 'function') showToast('Instrumento no encontrado', 'error'); return null; }
@@ -29634,6 +29714,7 @@ function invDeleteGasType(idx) { invConfirmDelete('gasType', idx); }
 // "Eliminar cilindro?" sin nombre ni signo de apertura.
 // ══════════════════════════════════════════════════════════════════════
 function invConfirmDelete(kind, ref) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'eliminar en Consumibles')) return;
     var name = '', what = '', extra = '', run = null;
     if (kind === 'gas') {
         var g = invState.gases.find(function(x) { return x.id === ref; }); if (!g) return;
@@ -32732,6 +32813,7 @@ function tpUnplanCreditedItem(weekIdx, itemIdx) {
 
 // ── CSV Import ──
 function tpImportPlanCSV(csvText) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'importar el plan de producción')) return;
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
     const header = lines[0].split(',').map(h => h.trim());
@@ -38496,6 +38578,7 @@ function tpMigrateWeekHistoryIds() {
 
 /** Aceptar — ahora IDEMPOTENTE: aceptar dos veces no duplica el archivo. */
 function tpAcceptWeeklyPlan(weekIdx) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'aceptar un plan semanal')) return;
     // v23: acepta índice (DOM viejo) o planId. Si la referencia ya no existe, se
     // avisa en vez de aceptar el plan que quedó en esa posición — que es el bug #126.
     var _n = _tpIdx(weekIdx);
@@ -41418,7 +41501,8 @@ var PN_SKILL_LEVELS = [
 // Sólo las evaluaciones por operador son datos.
 //   critical      → se vigila la cobertura del laboratorio
 //   recertMonths  → vence y hay que recertificar (hallazgo típico de ISO 17025)
-//   grants/minLvl → certificar esta habilidad otorga ese permiso (ver _authSkillGrants)
+//   grants/minLvl → [2.1.0] ya NO otorgan permisos: el rol decide todo (auth.js). Se
+//                   conservan en los datos solo por compatibilidad con catálogos viejos.
 //
 // [Fase 3.5] Esto es ahora sólo la SEMILLA. El catálogo vivo es editable por el
 // laboratorio y se sincroniza: pnState.skillCatalog (plano) + pnState.skillGroups.
@@ -41527,9 +41611,8 @@ function pnSkillDef(skillId) {
 }
 
 // ── CRUD del catálogo (requiere users.manage; ver nota de seguridad) ──
-// NOTA: una habilidad puede otorgar permisos (`grants`), así que quien edita el
-// catálogo puede alterar quién aprueba pruebas. Por eso va al mismo nivel que
-// administrar usuarios y todo cambio queda auditado.
+// NOTA: [2.1.0] las habilidades ya no otorgan permisos (el rol decide todo). Editar el
+// catálogo sigue en el nivel de administrar usuarios y todo cambio queda auditado.
 
 function _pnCatalogEnsure() {
     if (!pnState.skillCatalog || !pnState.skillCatalog.length) {
@@ -41743,8 +41826,8 @@ function pnSkillCoverage(skillId) {
 
 /** Asigna/actualiza una habilidad. Calcula el vencimiento desde recertMonths. */
 function pnOpSetSkill(opId, skillId, lvl, meta) {
-    // Certificar otorga permisos (ver `grants` en el catálogo): el candado no puede
-    // vivir solo en la vista.
+    // Certificar es una decisión de autoridad (registro de capacitación del
+    // laboratorio): el candado no puede vivir solo en la vista.
     if (typeof authRequire === 'function' && !authRequire('users.skills', 'certificar habilidades')) return false;
     var ops = pnState.operators || [];
     var op = null;
@@ -41817,8 +41900,9 @@ function pnOpAdd(name, role) {
     if (/[<>]/.test(name)) { showToast('El nombre no puede contener < o >', 'error'); return null; }
     var maxId = (pnState.operators || []).reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     var op = {
-        id: maxId + 1, name: name, role: role || 'Técnico', active: true,
-        level: (role === 'Practicante') ? 'L1' : 'L2', skills: {},
+        id: maxId + 1, name: name,
+        role: (typeof _authNormalizeRole === 'function' && _authNormalizeRole(role)) || AUTH_ROLE_DEFAULT, active: true,
+        level: (_authNormalizeRole(role) === 'Practicante') ? 'L1' : 'L2', skills: {},
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
     pnState.operators.push(op);
@@ -41842,8 +41926,8 @@ function pnOpUpdate(opId, patch) {
         // Normaliza antes de validar: ' supervisor' o 'SUPERVISOR' se aceptaban
         // como distintos de la clave real y se descartaban sin decir nada.
         var wantRole = (typeof _authNormalizeRole === 'function') ? _authNormalizeRole(patch.role) : patch.role;
-        if (wantRole && PN_ROLES.indexOf(wantRole) !== -1) op.role = wantRole;
-        else { showToast('Rol no reconocido: "' + patch.role + '". Válidos: ' + PN_ROLES.join(', '), 'error'); return false; }
+        if (wantRole && pnRoles().indexOf(wantRole) !== -1) op.role = wantRole;
+        else { showToast('Rol no reconocido: "' + patch.role + '". Válidos: ' + pnRoles().join(', '), 'error'); return false; }
     }
     op.updatedAt = new Date().toISOString();
     // Si el rol que cambió es el de quien está usando la app, su sesión guarda una
@@ -41889,7 +41973,8 @@ function pnOpDelete(opId) {
     });
 }
 
-var PN_ROLES = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+// [2.1.0] La lista de roles sale de AUTH_ROLES (auth.js), la única definición.
+function pnRoles() { return (typeof AUTH_ROLES !== 'undefined') ? AUTH_ROLES.map(function(r) { return r.key; }) : []; }
 
 /** Actualiza campos de perfil (no credenciales, no habilidades). */
 function pnOpUpdateProfile(opId, patch) {
@@ -41912,6 +41997,43 @@ function pnOpUpdateProfile(opId, patch) {
     return true;
 }
 
+/**
+ * [2.1.0] Matriz "Roles y permisos" (Datos → Usuarios). PURA respecto al DOM: sale de
+ * AUTH_ROLES + AUTH_PERM_LABELS + authRoleHas, las mismas definiciones que el sistema
+ * hace cumplir — no es una tabla escrita a mano que pueda desfasarse.
+ */
+function pnRolesMatrixHTML() {
+    if (typeof AUTH_ROLES === 'undefined' || typeof AUTH_PERM_LABELS === 'undefined') return '';
+    var roles = AUTH_ROLES;
+    var counts = {};
+    ((typeof pnState !== 'undefined' && pnState.operators) || []).forEach(function(o) {
+        if (!o || o.deleted || o.active === false) return;
+        var r = _authNormalizeRole(o.role) || AUTH_ROLE_DEFAULT;
+        counts[r] = (counts[r] || 0) + 1;
+    });
+    var h = '<p class="pn-roles-lead">Qué puede hacer cada rol. Los roles van de menor a mayor autoridad. ' +
+            'Liberar y aprobar lo hacen ' + escapeHtml(authRolesWith('test.release').join(' o ')) +
+            ', y nadie aprueba una prueba que él mismo liberó.</p>';
+    h += '<div class="pn-roles-wrap"><table class="pn-roles-table"><thead><tr><th>Acción</th>';
+    roles.forEach(function(r) {
+        h += '<th><div>' + escapeHtml(r.key) + '</div><small>' + (counts[r.key] || 0) + ' activo' + ((counts[r.key] || 0) === 1 ? '' : 's') + '</small></th>';
+    });
+    h += '</tr></thead><tbody>';
+    AUTH_PERM_LABELS.forEach(function(p) {
+        h += '<tr><td>' + escapeHtml(p.label) + '</td>';
+        roles.forEach(function(r) {
+            var ok = authRoleHas(r.key, p.perm);
+            h += '<td class="' + (ok ? 'pn-roles-yes' : 'pn-roles-no') + '" aria-label="' + (ok ? 'Sí' : 'No') + '">' + (ok ? '✔' : '—') + '</td>';
+        });
+        h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<ul class="pn-roles-desc">' + roles.map(function(r) {
+        return '<li><b>' + escapeHtml(r.key) + ':</b> ' + escapeHtml(r.desc) + '</li>';
+    }).join('') + '</ul>';
+    return h;
+}
+
 function pnInit() {
     try {
         var saved = localStorage.getItem(PN_LS_KEY);
@@ -41928,7 +42050,7 @@ function pnInit() {
     // createdAt es "ahora" y le ganaría por fecha al registro real que sí trae PINs.
     if (pnState.operators.length === 0 && CONFIG && CONFIG.operators) {
         pnState.operators = CONFIG.operators.map(function(name, i) {
-            return { id: i + 1, name: name, role: 'Técnico', active: true, provisional: true, createdAt: new Date().toISOString() };
+            return { id: i + 1, name: name, role: AUTH_ROLE_DEFAULT, active: true, provisional: true, createdAt: new Date().toISOString() };
         });
         pnSave();
     }
@@ -41982,9 +42104,9 @@ function _pnDedupeOperators() {
 /**
  * Garantiza que SIEMPRE exista alguien que pueda administrar usuarios.
  *
- * El candado era circular: todos los operadores nacen 'Técnico' (arriba y en
- * pnOpAdd), pero cambiar un rol exige `users.manage`, que solo tienen Supervisor
- * y Coordinador. Nadie podía otorgarse ni otorgar el permiso para otorgar
+ * El candado era circular: todos los operadores nacían con un rol sin `users.manage`
+ * (arriba y en pnOpAdd), pero cambiar un rol exige ese permiso, que solo tienen los
+ * roles de autoridad (desde 2.1.0: Signatario y Assistant Manager / Manager). Nadie podía otorgarse ni otorgar el permiso para otorgar
  * permisos, así que la pantalla de Usuarios quedaba muerta: 22 campos en gris,
  * sin errores ni explicación (issues #100, #103, #105).
  *
@@ -41998,12 +42120,23 @@ function _pnEnsureAdminExists() {
     var changed = false;
 
     // 1) Normalizar roles: un rol fuera del mapa daba CERO permisos en silencio.
+    //    [2.1.0] Es también la MIGRACIÓN a los roles del laboratorio: 'Supervisor' →
+    //    'Signatario', 'Coordinador' → 'Assistant Manager / Manager', etc. (alias en
+    //    auth.js). Cada cambio se sella (`updatedAt`, para que se propague) y se audita.
+    //    Un rol que no existe pasa al de MENOR privilegio, nunca a uno que libere.
     if (typeof _authNormalizeRole === 'function') {
         ops.forEach(function(o) {
             if (!o) return;
-            var canon = _authNormalizeRole(o.role);
-            if (canon && canon !== o.role) { o.role = canon; changed = true; }
-            else if (!canon && o.role !== 'Técnico') { o.role = 'Técnico'; changed = true; }
+            var canon = _authNormalizeRole(o.role) || AUTH_ROLE_DEFAULT;
+            if (canon === o.role) return;
+            var antes = o.role;
+            o.role = canon;
+            o.updatedAt = new Date().toISOString();
+            changed = true;
+            if (typeof auditLog === 'function') {
+                auditLog('auth', 'rol_migrado', { type: 'operator', id: o.id, label: o.name },
+                    'Rol "' + (antes || 'sin rol') + '" → "' + canon + '"');
+            }
         });
     }
 
@@ -42030,14 +42163,14 @@ function _pnEnsureAdminExists() {
     if (!target) { if (changed) pnSave(); return ''; }
 
     var before = target.role;
-    target.role = 'Coordinador';
+    target.role = 'Assistant Manager / Manager';
     // Sella la fecha para ganar el merge por `updatedAt` y que el rol se propague.
     target.updatedAt = new Date().toISOString();
     pnSave();
     if (typeof auditLog === 'function') {
         auditLog('auth', 'rol_desbloqueado', { type: 'operator', id: target.id, label: target.name },
             'Ningún operador activo podía administrar usuarios; ' + target.name +
-            ' pasó de "' + (before || 'sin rol') + '" a Coordinador');
+            ' pasó de "' + (before || 'sin rol') + '" a Assistant Manager / Manager');
     }
     return target.name;
 }
@@ -42899,7 +43032,7 @@ function pnRenderUsers(el) {
         }
     });
 
-    var roles = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+    var roles = pnRoles();
 
     var html = '';
 
@@ -42938,7 +43071,7 @@ function pnRenderUsers(el) {
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:center;gap: var(--space-sm);">';
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(6,182,212,0.15);color:var(--info-text);border-radius: var(--radius-md);">' + escapeHtml(op.role || 'Técnico') + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(6,182,212,0.15);color:var(--info-text);border-radius: var(--radius-md);">' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + '</span>';
             if (!op.active) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Inactivo</span>';
             html += (op.pinHash2 || op.pinHash) ? '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius: var(--radius-md);">PIN ✓</span>' : '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Sin PIN</span>';
             html += '</div>';
@@ -42972,7 +43105,7 @@ function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
     if (!name) return;
-    var id = pnOpAdd(name.value, role ? role.value : 'Técnico');
+    var id = pnOpAdd(name.value, role ? role.value : AUTH_ROLE_DEFAULT);
     if (!id) { if (typeof shakeElement === 'function') shakeElement(name); return; }
     name.value = '';
     showToast('Operador agregado', 'success');
@@ -42995,12 +43128,13 @@ function pnOpEditModal(opId) {
         var l = AUTH_ROLE_PERMS[r] || [];
         return l.indexOf('*') !== -1 ? 'todos los permisos' : l.length + ' permisos';
     };
-    var opts = PN_ROLES.map(function(r) {
-        return '<option value="' + escapeHtml(r) + '"' + (r === op.role ? ' selected' : '') + '>'
+    var curRole = _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT;
+    var opts = pnRoles().map(function(r) {
+        return '<option value="' + escapeHtml(r) + '"' + (r === curRole ? ' selected' : '') + '>'
              + escapeHtml(r) + ' — ' + permsOf(r) + '</option>';
     }).join('');
     // Quién puede administrar usuarios, para que se vea qué se está otorgando.
-    var admins = PN_ROLES.filter(function(r) {
+    var admins = pnRoles().filter(function(r) {
         return typeof authRoleHas === 'function' && authRoleHas(r, 'users.manage');
     }).join(', ');
 
@@ -43016,8 +43150,9 @@ function pnOpEditModal(opId) {
             '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
             '</div>' +
             '<div style="padding: var(--space-sm) var(--space-md);background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
-            'El rol decide qué puede hacer esta persona. <b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
-            '<br>Las competencias certificadas otorgan permisos adicionales por separado.' +
+            'El rol decide qué puede hacer esta persona. Liberar y aprobar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            '<b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
+            '<br>La matriz completa está en Usuarios → Roles y permisos.' +
             '</div>',
         buttons: [
             { label: 'Cancelar', cls: 'btn-secondary', onclick: function() { document.getElementById('globalModal').style.display = 'none'; } },
@@ -43119,10 +43254,10 @@ function pnHashPin3(pin, salt, iter) {
  * aprobar pruebas sí — son las dos facultades con las que más daño se hace.
  */
 function pnPinLenForRole(role) {
-    var perms = (typeof AUTH_ROLE_PERMS !== 'undefined' && AUTH_ROLE_PERMS[role]) ? AUTH_ROLE_PERMS[role] : [];
-    var privileged = perms.indexOf('*') !== -1 ||
-                     perms.indexOf('users.manage') !== -1 ||
-                     perms.indexOf('test.approve') !== -1;
+    // [2.1.0] Con authRoleHas (normaliza y traduce nombres viejos): el lookup literal
+    // AUTH_ROLE_PERMS[role] daba PIN corto a ' Supervisor' o a un rol renombrado.
+    var privileged = typeof authRoleHas === 'function' &&
+                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve') || authRoleHas(role, 'test.release'));
     return privileged ? PN_PIN_LEN_PRIVILEGED : PN_PIN_LEN_DEFAULT;
 }
 
@@ -43169,13 +43304,13 @@ function _pnAssignPin(op, pin) {
  * Devuelve Promise<string|null>.
  */
 function pnPromptPin(op) {
-    var need = pnPinLenForRole(op.role || 'Técnico');
+    var need = pnPinLenForRole(op.role || AUTH_ROLE_DEFAULT);
     return new Promise(function(resolve) {
         var msg =
             '<div style="font-size:12px;color:var(--muted);margin-bottom: var(--space-md);">' +
             'PIN de <b>' + need + ' dígitos</b> para <b>' + escapeHtml(op.name) + '</b>' +
             (need === PN_PIN_LEN_PRIVILEGED
-                ? '<br><span style="font-size: var(--fs-sm);">Su rol (' + escapeHtml(op.role || 'Técnico') + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
+                ? '<br><span style="font-size: var(--fs-sm);">Su rol (' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
                 : '') +
             '</div>' +
             '<input id="_pn_pin1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
@@ -44845,8 +44980,8 @@ function panelAlpineComponent() {
 
         // Form state — Users
         newOpName: '',
-        newOpRole: 'Técnico',
-        roles: ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'],
+        newOpRole: AUTH_ROLE_DEFAULT,
+        roles: pnRoles(),
         // [Fase 3] Perfiles y matriz de habilidades
         usersView: 'list',        // 'list' | 'profile' | 'matrix'
         profileOpId: null,        // operador abierto en la vista de perfil
@@ -44976,10 +45111,13 @@ function panelAlpineComponent() {
         },
         /** Roles que sí pueden administrar usuarios — se nombran en el aviso. */
         rolesQuePueden: function(perm) {
-            if (typeof AUTH_ROLE_PERMS === 'undefined') return '';
-            return Object.keys(AUTH_ROLE_PERMS).filter(function(r) {
-                return typeof authRoleHas === 'function' && authRoleHas(r, perm);
-            }).join(' o ');
+            return (typeof authRolesWith === 'function') ? authRolesWith(perm).join(' o ') : '';
+        },
+
+        /** [2.1.0] Matriz de roles y permisos (solo lectura). */
+        rolesMatrixHTML: function() {
+            this._dataVersion;
+            return (typeof pnRolesMatrixHTML === 'function') ? pnRolesMatrixHTML() : '';
         },
 
         // ── [Fase 3] Perfiles y matriz de habilidades ──
@@ -45006,7 +45144,7 @@ function panelAlpineComponent() {
          * contra una propiedad que no existía: Alpine lanzaba
          * "skillCatalog is not defined" y la tarjeta 🎓 Competencias salía vacía,
          * sin un solo selector — nadie podía cambiar el nivel de un operador
-         * (y el nivel otorga permisos, ver la nota de seguridad de arriba).
+         * (desde 2.1.0 el nivel es registro de capacitación: no cambia permisos).
          */
         skillCatalogGrouped: function() {
             this._dataVersion;   // v16.6: sin leerla Alpine no re-evalúa esto
@@ -45633,21 +45771,38 @@ function pnRenderRegulations(el) {
     el.innerHTML = html;
 }
 
-function pnRegAddNew() { _pnRegShowModal(null); }
+// [2.1.0] Los perfiles de regulación son los LÍMITES contra los que se decide PASA/FALLA.
+// Editarlos no pedía permiso ni dejaba rastro. Ahora: regulation.manage (roles de
+// autoridad) + auditoría con el antes y el después de cada límite.
+function _pnRegGate() {
+    return (typeof authRequire !== 'function') || authRequire('regulation.manage', 'editar perfiles de regulación y límites');
+}
+function _pnRegGasSummary(p) {
+    return (p && p.gases || []).map(function(g) {
+        return g.field + '=' + (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
+    }).join(', ');
+}
+
+function pnRegAddNew() { if (!_pnRegGate()) return; _pnRegShowModal(null); }
 
 function pnRegEdit(id) {
+    if (!_pnRegGate()) return;
     var data = loadRegulations();
     var profile = data.profiles.find(function(p) { return p.id === id; });
     if (profile) _pnRegShowModal(profile);
 }
 
 function pnRegDelete(id) {
+    if (!_pnRegGate()) return;
     var data = loadRegulations();
     var profile = data.profiles.find(function(p) { return p.id === id; });
     if (!profile) return;
     showConfirm('¿Eliminar el perfil "' + profile.name + '"? Los vehículos con esta regulación no podrán ser liberados hasta recrear el perfil.', function() {
+        if (!_pnRegGate()) return;
         data.profiles = data.profiles.filter(function(p) { return p.id !== id; });
         saveRegulations();
+        if (typeof auditLog === 'function') auditLog('pn', 'regulacion_eliminada', { type: 'regulation', id: profile.id, label: profile.name },
+            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile));
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
@@ -45711,14 +45866,18 @@ function _pnRegShowModal(profile) {
                     }
                 });
                 if (gases.length === 0) { showToast('Agrega al menos un gas', 'error'); return; }
+                if (!_pnRegGate()) return;
                 var data = loadRegulations();
                 var existing = data.profiles.find(function(x) { return x.id === p.id; });
+                var _antes = existing ? _pnRegGasSummary(existing) : null;
                 if (existing) {
                     existing.name = name; existing.shortName = name; existing.gases = gases; existing.updatedAt = new Date().toISOString();
                 } else {
                     data.profiles.push({ id: p.id, name: name, shortName: name, gases: gases, createdAt: new Date().toISOString() });
                 }
                 saveRegulations();
+                if (typeof auditLog === 'function') auditLog('pn', existing ? 'regulacion_editada' : 'regulacion_creada', { type: 'regulation', id: p.id, label: name },
+                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })));
                 _regulationsData = data;
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
@@ -45747,6 +45906,7 @@ function _pnRegGasRowHtml(i, g) {
  * Es exactamente el formato del ICMS, que era el que obligaba a convertir a mano.
  */
 function pnRegApplyIcmsUnits() {
+    if (!_pnRegGate()) return;
     var rows = document.querySelectorAll('#reg-gas-rows tr[data-gas-idx]');
     if (!rows.length) { showToast('Agrega gases primero', 'info'); return; }
     rows.forEach(function(row) {
@@ -46018,6 +46178,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
+    'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
     'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });
@@ -48098,41 +48259,101 @@ var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 // TRABAJO (evitar errores y exigir doble par de ojos), NO una frontera de
 // seguridad. Quien abra la consola del navegador puede saltárselo. Sirve para
 // el uso normal del laboratorio y para dejar rastro auditable de los intentos.
+// [2.1.0] LOS ROLES DEL LABORATORIO — la ÚNICA definición. Toda pantalla que liste
+// roles (Usuarios, alta de operador, matriz de permisos) sale de aquí. De menor a
+// mayor autoridad. Las parejas con "/" son UN solo rol.
+var AUTH_ROLES = [
+    { key: 'Practicante',                    level: 1, desc: 'Registra vehículos, opera pruebas y apoya en Consumibles.' },
+    { key: 'Técnico',                        level: 2, desc: 'Registra y opera pruebas, administra Consumibles y consulta el historial de cambios.' },
+    { key: 'Especialista / Especialista Sr', level: 3, desc: 'Además administra el plan, el catálogo de configuraciones, la homologación y el CoP.' },
+    { key: 'Signatario',                     level: 4, desc: 'Autoridad técnica: libera y aprueba pruebas, corrige archivados, edita límites y administra usuarios.' },
+    { key: 'Assistant Manager / Manager',    level: 5, desc: 'Mismos permisos que Signatario.' }
+];
+// Rol para un operador sin rol o con uno que no existe: el de MENOR privilegio.
+// (Antes era 'Técnico', que además podía liberar.)
+var AUTH_ROLE_DEFAULT = 'Practicante';
+
+// [2.1.0] Permisos por rol. Liberar y aprobar dependen SOLO del rol: la matriz de
+// competencias es registro de capacitación y ya no da ni quita permisos.
+// Signatario y Assistant Manager / Manager son idénticos por decisión del laboratorio.
 var AUTH_ROLE_PERMS = {
-    'Practicante': ['test.register', 'test.operate'],
-    'Técnico':     ['test.register', 'test.operate', 'test.release',
-                    'inventory.manage', 'audit.view'],
-    'Ingeniero':   ['test.register', 'test.operate', 'test.release',
-                    'inventory.manage', 'audit.view', 'audit.export',
-                    'cop.judge', 'plan.manage', 'users.view', 'users.skills'],
-    'Supervisor':  ['test.register', 'test.operate', 'test.release', 'test.approve',
-                    'test.retro_edit', 'inventory.manage', 'audit.view', 'audit.export',
-                    'cop.judge', 'plan.manage', 'users.view', 'users.manage',
-                    'users.pin', 'users.skills', 'data.sync_admin'],
-    'Coordinador': ['*']
+    'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view',
+                                       'plan.manage', 'cop.judge', 'audit.export', 'users.view',
+                                       'config.manage', 'homolog.manage'],
+    'Signatario':                     ['*'],
+    'Assistant Manager / Manager':    ['*']
 };
 
+// Qué protege cada permiso — para la matriz "Roles y permisos" de Datos → Usuarios.
+var AUTH_PERM_LABELS = [
+    { perm: 'test.register',     label: 'Dar de alta vehículos' },
+    { perm: 'test.operate',      label: 'Operar pruebas (recepción, preacondicionamiento, dinamómetro, verificación)' },
+    { perm: 'inventory.manage',  label: 'Administrar Consumibles (cilindros, combustible, equipos, calibraciones)' },
+    { perm: 'audit.view',        label: 'Consultar el historial de cambios' },
+    { perm: 'plan.manage',       label: 'Administrar el plan (aceptar semanas, importar producción, reglas)' },
+    { perm: 'config.manage',     label: 'Administrar el catálogo de configuraciones' },
+    { perm: 'homolog.manage',    label: 'Importar homologación Europa (ICMS / familias)' },
+    { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
+    { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
+    { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
+    { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
+    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
+    { perm: 'test.retro_edit',   label: 'Corregir pruebas archivadas' },
+    { perm: 'test.delete',       label: 'Eliminar vehículos y sus registros' },
+    { perm: 'regulation.manage', label: 'Editar perfiles de regulación y límites' },
+    { perm: 'users.manage',      label: 'Administrar usuarios y roles' },
+    { perm: 'users.pin',         label: 'Asignar o restablecer PIN' },
+    { perm: 'users.skills',      label: 'Certificar en la matriz de competencias' },
+    { perm: 'data.sync_admin',   label: 'Restaurar respaldos y ajustes de administración' }
+];
+
+// [2.1.0] Nombres anteriores y variantes → rol vigente. Hace de MIGRACIÓN (un roster
+// con 'Supervisor' se lee como 'Signatario') y de tolerancia a cómo se teclee.
+var AUTH_ROLE_ALIASES = {
+    'ingeniero': 'Especialista / Especialista Sr',
+    'especialista': 'Especialista / Especialista Sr',
+    'especialista sr': 'Especialista / Especialista Sr',
+    'especialista sr.': 'Especialista / Especialista Sr',
+    'especialista senior': 'Especialista / Especialista Sr',
+    'supervisor': 'Signatario',
+    'coordinador': 'Assistant Manager / Manager',
+    'assistant manager': 'Assistant Manager / Manager',
+    'asistant manager': 'Assistant Manager / Manager',
+    'manager': 'Assistant Manager / Manager',
+    'am': 'Assistant Manager / Manager',
+    'administrador': 'Assistant Manager / Manager',
+    'tecnico': 'Técnico'
+};
+
+function _authFoldRole(s) {
+    return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+}
+
 /**
- * Empata un rol escrito de cualquier forma contra las claves de AUTH_ROLE_PERMS.
+ * Empata un rol escrito de cualquier forma contra los roles vigentes.
  *
  * El lookup era literal (`AUTH_ROLE_PERMS[u.role]`), así que ' Supervisor',
- * 'SUPERVISOR' o 'Tecnico' sin acento daban `[]` — cero permisos, en silencio y
- * sin ningún aviso. Los roles llegan de tres fuentes que nadie normaliza: el
- * prompt() del editor, el merge de Firebase y ediciones a mano.
+ * 'SUPERVISOR' o 'Tecnico' sin acento daban `[]` — cero permisos, en silencio.
+ * Desde 2.1.0 también traduce los nombres anteriores (AUTH_ROLE_ALIASES).
  *
- * @returns {string|null} la clave canónica ('Supervisor'), o null si no existe.
+ * @returns {string|null} el rol canónico ('Signatario'), o null si no existe.
  */
 function _authNormalizeRole(role) {
     if (!role) return null;
-    var want = String(role).trim().toLowerCase()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    var want = _authFoldRole(role);
     if (!want) return null;
     var keys = Object.keys(AUTH_ROLE_PERMS);
     for (var i = 0; i < keys.length; i++) {
-        var k = keys[i].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-        if (k === want) return keys[i];
+        if (_authFoldRole(keys[i]) === want) return keys[i];
     }
-    return null;
+    return AUTH_ROLE_ALIASES[want] || null;
+}
+
+/** Roles que tienen un permiso, en orden de autoridad (para mensajes y la matriz). */
+function authRolesWith(perm) {
+    return AUTH_ROLES.filter(function(r) { return authRoleHas(r.key, perm); }).map(function(r) { return r.key; });
 }
 
 /** ¿Este rol otorga este permiso? Sin sesión de por medio — sirve para auditar un roster. */
@@ -48157,7 +48378,7 @@ function authRefreshCurrentRole() {
     if (!authState || !authState.currentUser) return false;
     var live = _authFindOperator(authState.currentUser.id);
     if (!live) return false;
-    var fresh = _authNormalizeRole(live.role) || 'Técnico';
+    var fresh = _authNormalizeRole(live.role) || AUTH_ROLE_DEFAULT;
     if (fresh === authState.currentUser.role) return false;
     authState.currentUser.role = fresh;
     if (typeof auditLog === 'function') {
@@ -48169,45 +48390,16 @@ function authRefreshCurrentRole() {
 /**
  * ¿La sesión actual tiene este permiso? Devuelve false sin sesión.
  * USAR SÓLO PARA OCULTAR UI. La comprobación real es authRequire().
+ *
+ * [2.1.0] Solo por ROL. Antes una competencia certificada en la matriz también daba
+ * permisos (un Técnico certificado como "Liberador de prueba" podía liberar), lo que
+ * contradecía la regla del laboratorio: liberar y aprobar es de Signatario y de
+ * Assistant Manager / Manager, nadie más. La matriz queda como registro de capacitación.
  */
 function authCan(perm) {
     var u = authGetCurrentUser();
     if (!u) return false;
-    if (authRoleHas(u.role, perm)) return true;
-    return _authSkillGrants(u.id, perm);
-}
-
-// [Fase 3] Habilidades certificadas que otorgan permisos por sí solas.
-// Esto es lo que hace que la matriz de competencias sea funcional y no decorativa:
-// un Técnico certificado como Aprobador CoP gana test.approve sin cambiar de rol, y
-// LO PIERDE SOLO cuando la certificación vence — que es exactamente para lo que
-// sirve una matriz de competencias en un laboratorio acreditado.
-//
-// [Fase 3.5] El mapa dejó de ser estático: `grants`/`minLvl` viven en el catálogo
-// editable (pnState.skillCatalog). Consecuencia a tener presente: quien puede editar
-// el catálogo puede alterar quién aprueba pruebas — por eso editarlo exige
-// users.manage (Supervisor/Coordinador) y queda auditado.
-// Semilla por defecto: cop_appr → test.approve (nivel 3), release → test.release (2).
-function _authSkillGrants(opId, perm) {
-    if (typeof pnState === 'undefined' || !pnState.operators) return false;
-    if (typeof pnSkillOf !== 'function' || typeof pnSkillExpired !== 'function') return false;
-    if (typeof pnCatalog !== 'function') return false;
-    var op = null;
-    for (var i = 0; i < pnState.operators.length; i++) {
-        if (String(pnState.operators[i].id) === String(opId)) { op = pnState.operators[i]; break; }
-    }
-    if (!op) return false;
-    var cat = pnCatalog();
-    for (var k = 0; k < cat.length; k++) {
-        var sk = cat[k];
-        if (sk.archived) continue;              // archivada → deja de otorgar
-        if (!sk.grants || sk.grants !== perm) continue;
-        var entry = pnSkillOf(op, sk.id);
-        if ((entry.lvl || 0) < (sk.minLvl || 2)) continue;
-        if (pnSkillExpired(entry)) continue;    // certificación vencida → ya no otorga
-        return true;
-    }
-    return false;
+    return authRoleHas(u.role, perm);
 }
 
 /**
@@ -48219,7 +48411,11 @@ function authRequire(perm, label) {
     var u = authGetCurrentUser();
     var role = u ? (u.role || '—') : 'sin sesión';
     if (typeof showToast === 'function') {
-        showToast('Tu rol (' + role + ') no permite: ' + (label || perm), 'error');
+        // [2.1.0] El mensaje dice QUIÉN sí puede: "no permite" a secas deja al técnico
+        // sin saber a quién pedírselo.
+        var quien = authRolesWith(perm);
+        showToast('Tu rol (' + role + ') no permite: ' + (label || perm) +
+                  (quien.length && quien.length < AUTH_ROLES.length ? '. Lo puede hacer: ' + quien.join(', ') + '.' : ''), 'error');
     }
     if (typeof auditLog === 'function') {
         auditLog('auth', 'permission_denied', { type: 'perm', label: perm }, label || '');
@@ -48263,7 +48459,7 @@ function _authHasPin(op) {
  */
 function _authPinLenFor(op) {
     if (op && op.pinLen) return op.pinLen;
-    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || 'Técnico');
+    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || AUTH_ROLE_DEFAULT);
     return 4;
 }
 
@@ -48303,7 +48499,7 @@ function _authOpCard(op, idx, handler, disabled) {
             ' onclick="' + handler + '(' + idx + ')">';
     h += '<div class="auth-op-avatar" style="background:' + c + '1f;color:' + c + ';">' + escapeHtml(authInitials(op.name)) + '</div>';
     h += '<div class="auth-op-name">' + escapeHtml(op.name) + '</div>';
-    h += '<div class="auth-op-role">' + escapeHtml(op.role || 'Técnico') + (disabled ? ' · sin PIN' : '') + '</div>';
+    h += '<div class="auth-op-role">' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + (disabled ? ' · sin PIN' : '') + '</div>';
     if (isLast && !disabled) h += '<div class="auth-op-badge">Último</div>';
     h += '</button>';
     return h;
@@ -48350,7 +48546,7 @@ function authSessionCheck() {
     var live = _authFindOperator(authState.currentUser.id);
     if (!live) {
         if (typeof auditLog === 'function') auditLog('auth', 'session_revoked', { type: 'operator', label: authState.currentUser.name }, 'Operador dado de baja o inactivo');
-        _authForceLogin('Tu usuario fue dado de baja. Contacta a un supervisor.');
+        _authForceLogin('Tu usuario fue dado de baja. Contacta a un Signatario o al Assistant Manager / Manager.');
         return;
     }
     // Rol siempre fresco desde el roster (una degradación surte efecto de inmediato)
@@ -48395,12 +48591,12 @@ function authInit() {
                     authState.sessionActive = false;
                     authState.currentUser = null;
                     authShowLogin();
-                    if (typeof showToast === 'function') showToast('Tu usuario fue dado de baja. Contacta a un supervisor.', 'error');
+                    if (typeof showToast === 'function') showToast('Tu usuario fue dado de baja. Contacta a un Signatario o al Assistant Manager / Manager.', 'error');
                     return;
                 }
                 // El rol se relee del roster, no del blob: antes quedaba congelado hasta
                 // el próximo login, así que una degradación de permisos no surtía efecto.
-                authState.currentUser = { id: _live.id, name: _live.name, role: _live.role || 'Técnico' };
+                authState.currentUser = { id: _live.id, name: _live.name, role: _authNormalizeRole(_live.role) || AUTH_ROLE_DEFAULT };
                 authState.sessionActive = true;
                 authState.sessionExpiry = new Date(session.expiresAt);
                 var overlay = document.getElementById('auth-overlay');
@@ -48725,13 +48921,13 @@ function authCreateSession(op) {
     var session = {
         operatorId: op.id,
         operatorName: op.name,
-        role: op.role || 'Técnico',
+        role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT,
         loginAt: new Date().toISOString(),
         expiresAt: expiry.toISOString()
     };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
-    authState.currentUser = { id: op.id, name: op.name, role: op.role || 'Técnico' };
+    authState.currentUser = { id: op.id, name: op.name, role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT };
     authState.sessionActive = true;
     authState.sessionExpiry = expiry;
     _authStartSessionWatch();
@@ -48811,11 +49007,11 @@ function authBypassLogin() {
     // 'Admin' NO existe en AUTH_ROLE_PERMS: este bypass creaba un "Administrador"
     // con CERO permisos, incluido users.manage — justo el que necesita para hacer
     // lo que el propio toast le pide ("Configura operadores y PINs en Usuarios").
-    authState.currentUser = { id: 0, name: 'Administrador', role: 'Coordinador' };
+    authState.currentUser = { id: 0, name: 'Administrador', role: 'Assistant Manager / Manager' };
     authState.sessionActive = true;
     var expiry = new Date(Date.now() + 2 * 3600000); // 2 hours for admin bypass
     authState.sessionExpiry = expiry;
-    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Coordinador', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
+    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Assistant Manager / Manager', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
     var overlay = document.getElementById('auth-overlay');
@@ -48845,7 +49041,7 @@ function authBypassForOperator(idx) {
         return;
     }
     if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
-    authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
+    authCreateSession({ id: op.id, name: op.name, role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT });
 }
 
 /**
@@ -52678,6 +52874,7 @@ function fbMergePurgeOldSnapshots() {
 
 // ── Undo last merge ──
 function fbMergeUndo() {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'deshacer una fusión')) return;
     var hist = fbMergeGetHistory();
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
@@ -53043,7 +53240,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609261608' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609261713' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -53226,6 +53423,7 @@ function fbBackupList(callback) {
 }
 
 function fbBackupRestore(backupId, modules) {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'restaurar un respaldo')) return;
     // If modules not specified, show selection UI
     if (!modules) {
         fbBackupRestoreSelectModules(backupId);
@@ -54965,6 +55163,7 @@ function copSetVin(el) {
  * completa (la trampa de almacenamiento de v18.1).
  */
 function copSaveJudgment() {
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'guardar el juicio CoP')) return;
     copInitState();
     var pollStats = copGetPollStats();
     var decision = copGetOverallDecision(pollStats);
@@ -57872,6 +58071,7 @@ function _homoNum(v) {
  * Devuelve {nuevas, actualizadas, ignoradas}.
  */
 function homoImportApply(grid) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar la homologación Europa')) return null;
     homoInit();
     if (!grid || !grid.length) return { nuevas: 0, actualizadas: 0, ignoradas: 0 };
 
@@ -58192,7 +58392,7 @@ function homoDeleteRow(id) {
 
 function _homoImportReport(res) {
     var st = document.getElementById('homo-import-status');
-    if (!st) return;
+    if (!st || !res) return;   // [2.1.0] null = el rol no permite importar (ya se avisó)
     if (res.error) {
         st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(res.error) + '</span>';
         return;
@@ -58438,6 +58638,7 @@ function homoIpScanOutliers(vehicles) {
 // ─── IP: ALTA / EDICIÓN / BORRADO ─────────────────────────────────────────────
 
 function homoIpSave(fam) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return false;
     homoInit();
     if (!fam || !fam.code) return false;
     if (!homoState.ipFamilies) homoState.ipFamilies = [];
@@ -58465,6 +58666,7 @@ function homoIpSave(fam) {
 }
 
 function homoIpDelete(id) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return false;
     homoInit();
     var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
     homoState.ipFamilies = (homoState.ipFamilies || []).filter(function(x) { return x.id !== id; });
@@ -58739,6 +58941,7 @@ function _homoIpRepaint() {
 }
 
 function homoIpApplyPending() {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar familias de interpolación')) return;
     var pend = window._homoIpPending || [];
     if (!pend.length) return;
     var n = 0;
@@ -58819,6 +59022,7 @@ function homoIpEditModal(id) {
 }
 
 function homoIpSaveFromModal(id) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return;
     var g = function(x) { var e = document.getElementById(x); return e ? e.value.trim() : ''; };
     var code = g('ipf-code');
     if (!code) { if (typeof showToast === 'function') showToast('El código de familia IP es obligatorio', 'error'); return; }

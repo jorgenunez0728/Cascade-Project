@@ -1361,6 +1361,7 @@ function tpUnplanCreditedItem(weekIdx, itemIdx) {
 
 // ── CSV Import ──
 function tpImportPlanCSV(csvText) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'importar el plan de producción')) return;
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
     const header = lines[0].split(',').map(h => h.trim());
@@ -7125,6 +7126,7 @@ function tpMigrateWeekHistoryIds() {
 
 /** Aceptar — ahora IDEMPOTENTE: aceptar dos veces no duplica el archivo. */
 function tpAcceptWeeklyPlan(weekIdx) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'aceptar un plan semanal')) return;
     // v23: acepta índice (DOM viejo) o planId. Si la referencia ya no existe, se
     // avisa en vez de aceptar el plan que quedó en esa posición — que es el bug #126.
     var _n = _tpIdx(weekIdx);

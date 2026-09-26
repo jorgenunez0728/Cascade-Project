@@ -1262,6 +1262,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
     }
 
     function confirmAlta() {
+        if (!_cascadeGate('test.register', 'dar de alta un vehículo')) return;
         if(!validateVehicleData()) return;
         
         const isExternal = document.getElementById('modeToggle').checked;
@@ -1315,6 +1316,7 @@ setAltaDatetimeIfEmpty(true);
 
 
     function saveNewVehicle() {
+        if (!_cascadeGate('test.register', 'dar de alta un vehículo')) return;
         const isExternal = document.getElementById('modeToggle').checked;
         
         let config = {};
@@ -1686,8 +1688,33 @@ function initStatusPrevValue() {
 // empataban (stepper, auto-avance, checklist). 'Si'/'Sí' se aceptan por datos viejos.
 function _precondIsOk(v) { return v === 'yes' || v === 'Si' || v === 'Sí'; }
 
+// ══════════════════════════════════════════════════════════════════════
+// [2.1.0] Candados de rol de CASCADE. Van al INICIO de cada acción (capa de datos):
+// ocultar un botón es UX, esto es el candado. Sin módulo de sesión cargado (arnés de
+// pruebas) no bloquean.
+// ══════════════════════════════════════════════════════════════════════
+function _cascadeGate(perm, label) {
+  return (typeof authRequire !== 'function') || authRequire(perm, label);
+}
+function _cascadeCan(perm) {
+  return (typeof authCan !== 'function') || authCan(perm);
+}
+
+/** Aviso en Liberación/Aprobación cuando el rol de la sesión no puede firmar ahí. Se puede
+ *  VER el vehículo, pero la firma la hace el rol autorizado (el candado real está en
+ *  submitToApproval/approveAndArchive). */
+function _cascadeRoleNote(elId, perm, verbo) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  if (_cascadeCan(perm)) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var quien = (typeof authRolesWith === 'function') ? authRolesWith(perm).join(' o ') : '';
+  el.innerHTML = '🔒 Puedes consultar este vehículo, pero ' + verbo + ' lo hace ' + escapeHtml(quien || 'un rol autorizado') + '.';
+  el.style.display = 'block';
+}
+
 function handleStatusChange(selectEl) {
   if (!selectEl) return;
+  if (!_cascadeGate('test.operate', 'cambiar el estado de la prueba')) { selectEl.value = selectEl.dataset.prev || selectEl.value; return; }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   const isEm = vehicle ? isEmissionsPurpose(vehicle.purpose) : true;
@@ -2211,6 +2238,7 @@ function opNextStepRender() {
 }
 
 function opAdvance() {
+  if (!_cascadeGate('test.operate', 'avanzar la prueba')) return;
   var vehicle = activeVehicleId && db.vehicles.find(function(v) { return v.id == activeVehicleId; });
   var sel = document.getElementById('op_status');
   if (!vehicle || !sel) return;
@@ -2426,6 +2454,8 @@ function _opSetReadOnly(on) {
 
 function saveProgress(opts) {
   var silent = opts && opts.silent;
+  // [2.1.0] El autoguardado (silent) no insiste con avisos: solo se detiene.
+  if (silent ? !_cascadeCan('test.operate') : !_cascadeGate('test.operate', 'guardar la operación')) return;
   if (!activeVehicleId) {
     if (!silent) showToast('Primero elige un vehículo en la parte de arriba.', 'warning');
     return;
@@ -2922,6 +2952,7 @@ function libRegPickerToggle() {
 // Solo durante la liberación: una vez enviado a aprobación, el liberador ya firmó
 // valores contra un perfil concreto y cambiarlo invalidaría la doble verificación.
 function libApplyComparisonRegulation() {
+    if (!_cascadeGate('test.release', 'cambiar la regulación de comparación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
     if (vehicle.status !== 'ready-release') {
@@ -2961,6 +2992,7 @@ function libApplyComparisonRegulation() {
 }
 
 function libClearComparisonRegulation() {
+    if (!_cascadeGate('test.release', 'cambiar la regulación de comparación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || !vehicle.regulationOverride) return;
     if (vehicle.status !== 'ready-release') {
@@ -3391,6 +3423,7 @@ function releaseChecklistRows(vehicle) {
 }
 
 function releaseChecklistSet(group, key, val) {
+    if (!_cascadeGate('test.release', 'llenar el checklist de liberación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     // Un toque que no registra nada tiene que decir por qué: si no, el botón "no sirve".
     if (!vehicle) { showToast('No hay un vehículo abierto en Liberación. Elígelo de nuevo en la lista.', 'warning'); return; }
@@ -3472,6 +3505,7 @@ function loadRelease() {
         return;
     }
     content.style.display = 'block';
+    _cascadeRoleNote('lib-role-note', 'test.release', 'liberar');
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode);
@@ -3573,6 +3607,7 @@ function loadApproval() {
         content.style.display = 'none'; return;
     }
     content.style.display = 'block';
+    _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
@@ -4425,7 +4460,7 @@ function histUpdateBatchBtn() {
         else { pdfBtn.style.display = 'none'; }
     }
     if (delBtn) {
-        if (checked.length > 0) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
+        if (checked.length > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
         else { delBtn.style.display = 'none'; }
     }
 }
@@ -4808,6 +4843,7 @@ function exportSingleArchivedVehicle(vehicleId) {
 }
 
 function deleteVehicleCascade(vehicleId) {
+    if (!_cascadeGate('test.delete', 'eliminar vehículos')) return;
     const v = db.vehicles.find(x => x.id == vehicleId);
     if (!v) return;
 
@@ -4863,6 +4899,7 @@ function deleteVehicleCascade(vehicleId) {
 }
 
 function batchDeleteVehicles() {
+    if (!_cascadeGate('test.delete', 'eliminar vehículos')) return;
     var ids = [];
     document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
         ids.push(parseInt(cb.dataset.vid));
@@ -5514,9 +5551,10 @@ function histRowMenu(vehicleId) {
   var close = function() { var m = document.getElementById('globalModal'); if (m) m.style.display = 'none'; };
   showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
     buttons: [
-      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } },
-      { label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }
-    ] });
+      { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
+    ].concat(_cascadeCan('test.delete')   // [2.1.0] solo se ofrece a quien puede
+      ? [{ label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }]
+      : []) });
 }
 
 // Historial y control de cambios de un vehículo (visible también para archivados).
@@ -6356,6 +6394,7 @@ function _getExistingValues(key) {
 }
 
 function openManualConfigForm(editIdx) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     var existing = (editIdx !== undefined) ? getManualConfigs()[editIdx] : null;
     var html = '<div class="mcf-form">';
 
@@ -6394,6 +6433,7 @@ function updateManualConfigPreview() {
 }
 
 function saveManualConfig(editIdx) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     var newConfig = {};
     var missing = [];
 
@@ -6514,6 +6554,7 @@ function _mergeManualConfigsIntoAll() {
 // 2.0.0: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
 // de sync puede reordenarla (regla v23: la UI habla por identidad).
 function deleteManualConfig(code) {
+    if (!_cascadeGate('config.manage', 'administrar el catálogo de configuraciones')) return;
     showConfirm('¿Eliminar esta configuración manual? Se borra en todos los equipos.', function() {
         var manuals = getManualConfigs();
         var idx = -1;
@@ -6571,6 +6612,7 @@ openConfigPanel = function() {
 // ── Modify handleConfigCSVImport to check manual config conflicts ──
 var _origHandleConfigCSVImport = handleConfigCSVImport;
 handleConfigCSVImport = function(event) {
+    if (!_cascadeGate('config.manage', 'importar el catálogo de configuraciones')) { if (event && event.target) event.target.value = ''; return; }
     var manuals = getManualConfigs();
     if (manuals.length === 0) {
         _origHandleConfigCSVImport(event);
@@ -8679,6 +8721,7 @@ function v7RenderBatchRelease() {
 }
 
 function v7BatchRelease() {
+    if (!_cascadeGate('test.release', 'liberar')) return;
     if (V7_BATCH_RELEASE_ON_HOLD) {
         showToast('La liberación por lote está en pausa: libera cada vehículo con su checklist, firma y aprobación.', 'warning');
         return;

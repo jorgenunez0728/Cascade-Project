@@ -982,6 +982,8 @@
                 </select>
             </div>
             <div id="lib-content" style="display:none;">
+                <!-- 2.1.0: aviso de rol (lo llena _cascadeRoleNote en loadRelease) -->
+                <div class="alert alert-warning cascade-role-note" id="lib-role-note" style="display:none;"></div>
                 <div class="alert alert-success" id="releaseInfo"></div>
                 <div class="card">
                     <div class="card-title">📋 Resumen de Prueba</div>
@@ -1031,6 +1033,7 @@
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
+                <div class="alert alert-warning cascade-role-note" id="appr-role-note" style="display:none;"></div>
                 <div class="alert alert-success" id="approvalInfo"></div>
                 <div class="card">
                     <div class="card-title">📋 Resumen de Prueba</div>
@@ -1261,6 +1264,16 @@
             <div class="view-mode-toggle" style="margin-bottom:10px;" x-show="usersView !== 'profile'">
                 <button :class="usersView === 'list' ? 'active' : ''" @click="usersView = 'list'">👤 Operadores</button>
                 <button :class="usersView === 'matrix' ? 'active' : ''" @click="usersView = 'matrix'">🎓 Matriz</button>
+                <button :class="usersView === 'roles' ? 'active' : ''" @click="usersView = 'roles'">🔐 Roles y permisos</button>
+            </div>
+
+            <!-- ═══ [2.1.0] VISTA: ROLES Y PERMISOS — sale de AUTH_ROLE_PERMS (auth.js), la
+                 única definición: lo que se ve aquí ES lo que el sistema hace cumplir. -->
+            <div x-show="usersView === 'roles'">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span data-help="pn-roles-matrix">🔐 Roles y permisos</span></div>
+                    <div x-html="rolesMatrixHTML()"></div>
+                </div>
             </div>
 
             <!-- ═══ VISTA: MATRIZ DE HABILIDADES ═══ -->
@@ -1451,7 +1464,7 @@
                                 <div>
                                     <div style="font-size:15px;font-weight:800;color:var(--tp-text);" x-text="profileOp().name"></div>
                                     <div style="font-size: var(--fs-xs);color:var(--tp-dim);">
-                                        <span x-text="profileOp().role || 'Técnico'"></span> ·
+                                        <span x-text="profileOp().role || AUTH_ROLE_DEFAULT"></span> ·
                                         <span x-text="levelName(profileOp().level)"></span>
                                     </div>
                                 </div>
@@ -1565,7 +1578,7 @@
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                 <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
-                                <span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(6,182,212,0.15);color:var(--info-text);border-radius:4px;" x-text="op.role || 'Técnico'"></span>
+                                <span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(6,182,212,0.15);color:var(--info-text);border-radius:4px;" x-text="op.role || AUTH_ROLE_DEFAULT"></span>
                                 <template x-if="!op.active"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Inactivo</span></template>
                                 <template x-if="op.pinHash2 || op.pinHash"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius:4px;">PIN ✓</span></template>
                                 <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size: var(--fs-xs);padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius:4px;">Sin PIN</span></template>

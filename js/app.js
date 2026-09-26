@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.0.0';
+var APP_VERSION = '2.1.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,14 @@ var APP_VERSION = '2.0.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.1.0', date: '26 sep 2026', title: 'Los roles del laboratorio, y permisos que sí se cumplen',
+      bullets: [
+          'Roles del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Los nombres anteriores se traducen solos (Supervisor → Signatario, Coordinador → Assistant Manager / Manager, Ingeniero → Especialista) y cada cambio queda en el historial.',
+          'Liberar y aprobar pruebas: solo Signatario y Assistant Manager / Manager. Un Técnico ya no libera, y la matriz de competencias ya no da permisos: es registro de capacitación.',
+          'Eliminar vehículos, corregir archivados y editar los límites de emisiones: solo Signatario y Assistant Manager / Manager. Editar un límite ahora queda registrado con el antes y el después.',
+          'Nueva vista Datos → Usuarios → Roles y permisos: qué puede hacer cada rol, tal como el sistema lo hace cumplir.',
+          'Si alguien intenta algo que su rol no permite, el sistema le dice quién sí puede y deja el intento registrado.'
+      ] },
     { version: '2.0.0', date: '26 sep 2026', title: 'Nueva numeración, un solo catálogo y HOY ejecutivo',
       bullets: [
           'Numeración nueva de tres números: MAYOR.MENOR.PARCHE. El primero cambia solo cuando todos los equipos deben actualizar juntos; el segundo, con cada novedad que se ve o se usa; el tercero, con arreglos. Todo lo anterior (hasta la v24.4) queda abajo como "numeración anterior".',
@@ -1913,6 +1921,7 @@ function auditGetTrail() {
 }
 
 function auditExportCSV() {
+    if (typeof authRequire === 'function' && !authRequire('audit.export', 'exportar el historial de cambios')) return;
     var trail = auditGetTrail();
     var csv = 'Fecha,Usuario,Rol,Modulo,Accion,Entidad,Detalle\n';
     trail.forEach(function(e) {
@@ -6558,6 +6567,7 @@ function openRestoreBackup() {
 }
 
 function restoreFromBackup(snapshotId) {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'restaurar un respaldo')) return;
     showConfirm('¿Restaurar este backup? Se hará un backup automático de los datos actuales antes de restaurar.', function() {
         // Auto-backup current state first
         autoBackup();

@@ -258,6 +258,7 @@ function _homoNum(v) {
  * Devuelve {nuevas, actualizadas, ignoradas}.
  */
 function homoImportApply(grid) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar la homologación Europa')) return null;
     homoInit();
     if (!grid || !grid.length) return { nuevas: 0, actualizadas: 0, ignoradas: 0 };
 
@@ -578,7 +579,7 @@ function homoDeleteRow(id) {
 
 function _homoImportReport(res) {
     var st = document.getElementById('homo-import-status');
-    if (!st) return;
+    if (!st || !res) return;   // [2.1.0] null = el rol no permite importar (ya se avisó)
     if (res.error) {
         st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(res.error) + '</span>';
         return;
@@ -824,6 +825,7 @@ function homoIpScanOutliers(vehicles) {
 // ─── IP: ALTA / EDICIÓN / BORRADO ─────────────────────────────────────────────
 
 function homoIpSave(fam) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return false;
     homoInit();
     if (!fam || !fam.code) return false;
     if (!homoState.ipFamilies) homoState.ipFamilies = [];
@@ -851,6 +853,7 @@ function homoIpSave(fam) {
 }
 
 function homoIpDelete(id) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return false;
     homoInit();
     var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
     homoState.ipFamilies = (homoState.ipFamilies || []).filter(function(x) { return x.id !== id; });
@@ -1125,6 +1128,7 @@ function _homoIpRepaint() {
 }
 
 function homoIpApplyPending() {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar familias de interpolación')) return;
     var pend = window._homoIpPending || [];
     if (!pend.length) return;
     var n = 0;
@@ -1205,6 +1209,7 @@ function homoIpEditModal(id) {
 }
 
 function homoIpSaveFromModal(id) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'administrar familias de interpolación')) return;
     var g = function(x) { var e = document.getElementById(x); return e ? e.value.trim() : ''; };
     var code = g('ipf-code');
     if (!code) { if (typeof showToast === 'function') showToast('El código de familia IP es obligatorio', 'error'); return; }

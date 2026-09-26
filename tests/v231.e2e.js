@@ -151,7 +151,7 @@ const SEED = () => {
         const antes = { rol: yo.role, puedeGestionar: authRoleHas(yo.role, 'users.manage') };
         const rol = () => pnState.operators.find(o => o.id === 'op-2').role;
         const rolInicial = rol();
-        const ok = pnOpUpdate('op-2', { role: 'Supervisor' });
+        const ok = pnOpUpdate('op-2', { role: 'Signatario' });
         const trasSupervisor = rol();
         const puedeLiberar = authRoleHas(trasSupervisor, 'test.release');
         // Y con mayusculas/acentos raros, que es lo que rompia antes de v18.5
@@ -218,9 +218,9 @@ const SEED = () => {
 
     // #113 — editar operadores (lo cerro v18.5)
     chk('quien administra tiene users.manage', r.usuarios.antes.puedeGestionar === true);
-    chk('se puede cambiar un rol', r.usuarios.cambio === true && r.usuarios.trasSupervisor === 'Supervisor',
+    chk('se puede cambiar un rol', r.usuarios.cambio === true && r.usuarios.trasSupervisor === 'Signatario',
         JSON.stringify(r.usuarios));
-    chk('Supervisor puede liberar', r.usuarios.puedeLiberar === true);
+    chk('Signatario puede liberar (2.1.0)', r.usuarios.puedeLiberar === true);
     chk('un rol con mayusculas/espacios se normaliza', r.usuarios.trasNormalizar === 'Tecnico' ||
         /t.cnico/i.test(r.usuarios.trasNormalizar), 'rol=' + r.usuarios.trasNormalizar);
     chk('un rol inventado se RECHAZA', r.usuarios.rolInventado === false, 'ok3=' + r.usuarios.rolInventado);
