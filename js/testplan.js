@@ -755,7 +755,7 @@ function tpConfirmDormantActive(desc) {
 // 7 a 8 segmentos; `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave vieja
 // (overrides, soak) y el CoP empata juicios viejos por prefijo (no se pierde historia).
 // ═══════════════════════════════════════════════════════════════════════════════
-// [v24.5] UN SOLO CATÁLOGO — el Alta y el Plan ven las mismas configuraciones.
+// [2.0.0] UN SOLO CATÁLOGO — el Alta y el Plan ven las mismas configuraciones.
 //
 // El Alta leía `allConfigurations` (catálogo horneado + manuales) y el Plan SOLO
 // `tpState.planData` (el último CSV de producción importado): todo lo que el catálogo
@@ -1035,7 +1035,7 @@ function tpInvalidateCache() {
     if (typeof tpBoardInvalidate === 'function') tpBoardInvalidate();
     // v23: y el plan vigente de cada semana (aceptar/desaceptar/borrar lo cambia).
     if (typeof tpWeekPlanInvalidate === 'function') tpWeekPlanInvalidate();
-    // v24.5: el catálogo unificado depende de planData y de las configs manuales.
+    // 2.0.0: el catálogo unificado depende de planData y de las configs manuales.
     tpCatalogInvalidate();
 }
 
@@ -4634,7 +4634,7 @@ function _tpWeekCardHTML(row, workDays, opts) {
     if (row.unplanned) marcas.push('<span class="tp-week-flag tp-week-flag--unplanned" title="Se liberó una prueba de esta configuración y no había fila que la registrara: entró sola. Se puede quitar del plan sin perder la evidencia.">⚡ no planeada</span>');
     if (row.declared) marcas.push('<span class="tp-week-flag tp-week-flag--declared" title="Sin vehículo liberado que la respalde">✋ declarada a mano</span>');
     if (row.carriedOver) marcas.push('<span class="tp-week-flag">🔄 viene de la cola</span>');
-    // v24.5: una config del catálogo que el CSV de producción no trae — se corre, pero no
+    // 2.0.0: una config del catálogo que el CSV de producción no trae — se corre, pero no
     // tiene REQ ni cuenta para la cobertura. Se declara para que nadie lo descubra tarde.
     var _cfgRow = tpConfigByDesc(row.desc || (row.item && row.item.desc));
     if (_cfgRow && _cfgRow._catalogOnly) marcas.push('<span class="tp-week-flag tp-week-flag--warn" title="Esta configuración está en el catálogo del Alta pero no en el plan de producción importado: no tiene REQ y no cuenta para la cobertura.">📦 sin volumen</span>');
@@ -5519,7 +5519,7 @@ function tpBuildPickOptgroupsHTML(descs) {
     (descs || []).forEach(function(d) {
         var c = tpConfigByDesc(d);
         if (!c) { (porFamilia['(sin catálogo)'] = porFamilia['(sin catálogo)'] || []).push({ desc: d, etiqueta: d }); return; }
-        // v24.5: lo que solo existe en el catálogo del Alta se DECLARA en su propio
+        // 2.0.0: lo que solo existe en el catálogo del Alta se DECLARA en su propio
         // grupo, al final — se puede planear a mano, pero no cuenta para el REQ.
         var fam = (c._catalogOnly ? '\uFFFF' : '') + tpConfigShortName(c) + ' · ' + (c.rgn || '?') +
                   (c._catalogOnly ? ' · sin volumen de producción' : '');
@@ -6475,7 +6475,7 @@ function tpSelectWeeklyItems(opts) {
     //    pasa el filtro se avisa, no se descarta.
     var manualTaken = 0;
     manualPicks.forEach(function(pick) {
-        // v24.5: una fijada a mano puede venir del catálogo (sin volumen de producción).
+        // 2.0.0: una fijada a mano puede venir del catálogo (sin volumen de producción).
         var cfg = byDesc[pick] || tpConfigByDesc(pick);
         if (!cfg) return;
         if (items.length >= capacity) { overflowManual.push(pick); return; }
@@ -7619,7 +7619,7 @@ function tpSubstituteCandidatesFor(item, opts) {
     an.forEach(function(a) { porDesc[a.desc] = a; });
 
     var out = [];
-    // v24.5: el universo es el catálogo unificado — una config que el Alta ofrece
+    // 2.0.0: el universo es el catálogo unificado — una config que el Alta ofrece
     // también se puede sustituir aquí (sale marcada `catalogOnly`, déficit 0).
     tpConfigCatalog().forEach(function(c) {
         if (c.desc === item.desc) return;

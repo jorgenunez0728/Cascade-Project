@@ -1769,7 +1769,18 @@
                     <span x-show="!appVersionInfo().publishedES">· desarrollo (sin build)</span>.
                     Todo lo que se ha agregado, versión por versión:
                 </p>
+                <!-- 2.0.0: MAYOR.MENOR.PARCHE. Lo anterior (legacy) va bajo su propio separador. -->
+                <p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:0 0 var(--space-sm) 0;">
+                    <strong>Cómo se lee el número:</strong> MAYOR.MENOR.PARCHE — el primero cambia solo cuando
+                    todos los equipos deben actualizar juntos, el segundo con cada novedad que se ve o se usa,
+                    el tercero con arreglos.
+                </p>
                 <template x-for="(v, vi) in versionHistory" :key="vi">
+                    <div>
+                    <div x-show="v.legacy && (vi === 0 || !versionHistory[vi - 1].legacy)"
+                         style="margin:var(--space-md) 0 var(--space-xs);padding-top:var(--space-sm);border-top:1px dashed var(--tp-border);color:var(--tp-dim);font-size: var(--fs-xs);font-weight:700;">
+                        Numeración anterior (v15.5–v24.4 y rondas previas)
+                    </div>
                     <details :open="vi === 0" style="border:1px solid var(--tp-border);border-radius:8px;margin-bottom:6px;overflow:hidden;">
                         <summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-size: var(--fs-sm);display:flex;align-items:center;gap:8px;">
                             <span style="font-weight:800;color:var(--tp-text);" x-text="/^\d/.test(v.version) ? 'v' + v.version : v.version"></span>
@@ -1783,6 +1794,7 @@
                             </template>
                         </ul>
                     </details>
+                    </div>
                 </template>
             </div>
 

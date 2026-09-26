@@ -380,9 +380,9 @@ t('valores fuera de rango se acotan a 0..100 en pasos de 5', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════
-// [v24.5] Un solo catálogo: el Alta y el Plan ven las mismas configuraciones
+// [2.0.0] Un solo catálogo: el Alta y el Plan ven las mismas configuraciones
 // ══════════════════════════════════════════════════════════════════════
-console.log('\n== v24.5: catálogo unificado ==');
+console.log('\n== 2.0.0: catálogo unificado ==');
 const CAT_ROW = { codigo_config_text: 'CFG-CAT', Modelo: 'K5', 'MODEL YEAR (VIN)': '2026', TRANSMISSION: 'AT',
     'ENVIRONMENT PACKAGE': '', 'EMISSION REGULATION': 'EURO-6E', 'DRIVE TYPE': 'AWD', 'ENGINE CAPACITY': '2.0',
     'TIRE ASSY': 'R18', REGION: 'EUROPE', 'BODY TYPE': '5DR', 'ENGINE PACKAGE': '' };

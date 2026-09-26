@@ -1,10 +1,55 @@
 # Changelog — KIA EmLab
 
-All notable changes to this project, organized by development round.
+## Cómo se numeran las versiones
 
-## v24.5 — Un solo catálogo de configuraciones y HOY ejecutivo (2026-09-25)
+Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por ejemplo `2.3.1`).
 
-### El Plan ve las mismas configuraciones que el Alta
+| Número | Sube cuando… |
+|---|---|
+| **MAYOR** | La versión nueva **no puede convivir** en el sync con la anterior (cambia el formato de los datos compartidos y todos los equipos deben actualizar juntos), o hay un rediseño que obliga a re-capacitar al laboratorio. Raro: del orden de una vez al año. |
+| **MENOR** | Llega algo que el técnico **ve o usa**: una pantalla, un flujo, un indicador o una regla de cálculo (REQ, CoP, límites). PARCHE vuelve a 0. |
+| **PARCHE** | Solo arreglos o ajustes sin funcionalidad nueva (un error, un texto, un estilo). |
+
+- Una ronda de trabajo (un PR) sube **a lo más un** número.
+- La versión dice **qué trae**; el *build* (fecha de compilación que muestra el topbar) dice
+  **cuál compilación** es. Son cosas distintas y las dos se muestran.
+- Cada entrada se escribe con las secciones **Nuevo / Cambió / Arreglado** (las que apliquen) y
+  una sección **Para desarrollo** con las definiciones y reglas técnicas.
+- Lo publicado hasta septiembre de 2026 usó otra numeración (una "versión" por ronda, v15.5 →
+  v24.4). Se conserva tal cual abajo, en **Numeración anterior**: el código y los commits citan
+  esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
+  viejas tienen dos números (y empiezan en 15), las nuevas tres.
+
+## 2.0.0 — Nueva numeración, un solo catálogo y HOY ejecutivo (2026-09-26)
+
+Primera versión con la numeración MAYOR.MENOR.PARCHE. La generación 1 es todo lo anterior
+(Fundación → Rondas 1–5 → v15.5 … v24.4).
+
+### Nuevo
+- **HOY ejecutivo**: el **Pulso del laboratorio** (la semana, los vehículos en curso, las
+  liberaciones de hoy con tendencia de 7 días, la cobertura del REQ y las alertas; cada recuadro
+  abre su pantalla), las **categorías como recuadros** que filtran lo de abajo, y **Lo siguiente**:
+  las 5 acciones más urgentes, lo atrasado primero.
+- Las **configuraciones dadas de alta a mano se sincronizan** entre equipos. Borrar una la borra
+  en todos.
+
+### Cambió
+- **El Plan ofrece las mismas configuraciones que el Alta** (agregar, fijar, sustituir,
+  vincular). Las que no vienen en el plan de producción importado salen al final marcadas
+  "📦 sin volumen": se pueden planear a mano, pero no tienen REQ ni mueven la cobertura.
+- HOY ya no muestra los 6 KPIs, el Pipeline, Mi turno ni Acceso rápido (repetían datos, "Mi
+  turno" medía contra una meta fija de 8 escrita en el código, y Acceso rápido duplicaba la barra
+  de arriba).
+- El historial de Datos → Sistema separa la numeración nueva de la anterior.
+
+### Arreglado
+- Datos → Sistema mostraba **vacías las últimas 12 versiones** (23.0–24.5, sin número ni notas):
+  se habían escrito con otros nombres de campo que la pantalla no leía.
+- `package.json` decía `1.0.0`, un número que nunca significó nada; ahora sigue a la app.
+
+### Para desarrollo
+
+#### El Plan ve las mismas configuraciones que el Alta
 El Alta leía `allConfigurations` (catálogo horneado + manuales) y el Plan **solo**
 `tpState.planData` (el último CSV de producción importado). Todo lo que el catálogo tenía y ese
 CSV no era invisible para agregar a la semana, fijar, sustituir o vincular.
@@ -21,7 +66,7 @@ CSV no era invisible para agregar a la semana, fijar, sustituir o vincular.
   selectores, chip "📦 sin volumen" en la tarjeta de la semana, nota en el modal de sustituir y
   una línea en el armador/agregar con cuántas configs del catálogo no trae el CSV.
 
-### Configuraciones manuales sincronizadas
+#### Configuraciones manuales sincronizadas
 Vivían en `localStorage['kia_manual_configs']`, que no se sincroniza: hasta el Alta era distinta
 entre equipos. Ahora viven en **`db.manualConfigs`** y viajan con cop15 (patrón de
 `db.deletedVehicles`, v24.2).
@@ -31,7 +76,7 @@ entre equipos. Ahora viven en **`db.manualConfigs`** y viajan con cop15 (patrón
   `db` no conoce, así que lo borrado en otro equipo no resucita.
 - firebase-sync: seed, `hasWork`, `fbMergeExecute` (las tres opciones) y `_fbLocalHasExtras`.
 
-### HOY ejecutivo
+#### HOY ejecutivo
 HOY apilaba saludo → 6 KPIs → calibración → Pipeline → Mi turno → todas las categorías abiertas
 con todas sus filas → Acceso rápido. Ahora son tres niveles:
 - **Pulso del laboratorio** (sección `'pulse'` de `renderLabOverview`; datos en
@@ -45,10 +90,15 @@ con todas sus filas → Acceso rápido. Ahora son tres niveles:
 - Se retiraron Mi turno (medía contra una meta fija de 8 escrita en el código;
   `buildProgressRing` quedó huérfana y se borró) y Acceso rápido (duplicaba la `.ui-bar`).
 
-### Pruebas
-`plan.node.js` +7 (catálogo), **`tests/v245.node.js`** (27: unión de manuales, Pulso, Lo
-siguiente) y **`tests/v245.e2e.js`** (catálogo = Alta + producción, migración y borrado de
+#### Pruebas
+`plan.node.js` +7 (catálogo), **`tests/catalogo-hoy.node.js`** (27: unión de manuales, Pulso, Lo
+siguiente), **`tests/version.node.js`** (la numeración: formato, historial completo, CHANGELOG y
+`package.json` sincronizados) y **`tests/catalogo-hoy.e2e.js`** (catálogo = Alta + producción, migración y borrado de
 manuales, HOY a 753/427/1366 px sin desplazamiento horizontal y con el tablero a la vista).
+
+# Numeración anterior (v15.5–v24.4 y rondas)
+
+Una "versión" por ronda de trabajo. Se conserva sin cambios; el código y los commits la citan.
 
 ## v24.4 — El importador de calibraciones, contra el F11 real del laboratorio (2026-09-24)
 

@@ -1366,7 +1366,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [v24.2] Las marcas de borrado locales sobreviven al reemplazo (si no, lo
         // borrado aquí vuelve con la copia remota).
         var _seedTombs = (db && db.deletedVehicles) || [];
-        // [v24.5] Igual con las configs manuales (y sus marcas de borrado).
+        // [2.0.0] Igual con las configs manuales (y sus marcas de borrado).
         var _seedManual = (db && db.manualConfigs) || [];
         db = remoteData;
         if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
@@ -1457,7 +1457,7 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     var hasWork = false;
     if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0 ||
         _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
-        // v24.5: sin esto, un pull cuyo único cambio es una config manual se descartaba.
+        // 2.0.0: sin esto, un pull cuyo único cambio es una config manual se descartaba.
         (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || []));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
@@ -2219,7 +2219,7 @@ function _fbLocalHasExtras(col, remote) {
         // no, un equipo con código viejo que re-empuje el documento la borra y el
         // vehículo resucita en los demás.
         if (_fbTombsNewTo(remote.deletedVehicles || [], (db && db.deletedVehicles) || [])) return true;
-        // v24.5: una config manual (o su marca de borrado) que la nube no tiene.
+        // 2.0.0: una config manual (o su marca de borrado) que la nube no tiene.
         if (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo(remote.manualConfigs || [], (db && db.manualConfigs) || [])) return true;
         var rByVin = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByVin[v.vin] = v; });
@@ -3033,7 +3033,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         // [v24.2] Las marcas de borrado de los dos lados se unen SIEMPRE, sea cual sea la
         // opción ('replace' reasigna db y perdería las locales).
         var _localTombs = (db && db.deletedVehicles) || [];
-        var _localManual = (db && db.manualConfigs) || [];   // v24.5, mismo motivo
+        var _localManual = (db && db.manualConfigs) || [];   // 2.0.0, mismo motivo
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }

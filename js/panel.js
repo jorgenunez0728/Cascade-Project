@@ -989,7 +989,7 @@ function _labOverviewKey(sections) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// [v24.5] PULSO — la cabecera ejecutiva de HOY.
+// [2.0.0] PULSO — la cabecera ejecutiva de HOY.
 //
 // Reemplaza en HOY a los 6 KPIs + Pipeline + Mi turno, que repetían el mismo dato
 // tres veces ("Vehículos activos" = suma del Pipeline) y medían contra una meta
@@ -2785,7 +2785,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
     { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
     { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
-    { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde v24.5 viven en la base y se sincronizan)', tier: 'core' },
+    { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
     { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
@@ -4640,5 +4640,5 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });

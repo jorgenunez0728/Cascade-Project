@@ -1,5 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  v24.5 — configs manuales sincronizadas + Pulso/Lo siguiente de HOY ║
+// ║  2.0.0 — configs manuales sincronizadas + Pulso/Lo siguiente de HOY ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 //
 // Todas las funciones probadas aquí son PURAS; se extraen de su archivo en vez

@@ -6297,7 +6297,7 @@ var _manualConfigFields = [
     { key: 'ENGINE PACKAGE', label: 'Engine Package' }
 ];
 
-// [v24.5] Las configs manuales viven en `db.manualConfigs` (se sincronizan con cop15);
+// [2.0.0] Las configs manuales viven en `db.manualConfigs` (se sincronizan con cop15);
 // `kia_manual_configs` queda solo como origen de la migración (manualConfigsAfterLoad).
 // getManualConfigs devuelve las VIVAS; borrar deja marca para que el sync no las resucite.
 function getManualConfigs() {
@@ -6511,7 +6511,7 @@ function _mergeManualConfigsIntoAll() {
     });
 }
 
-// v24.5: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
+// 2.0.0: por CÓDIGO, no por índice — entre pintar la lista y tocar el botón un pull
 // de sync puede reordenarla (regla v23: la UI habla por identidad).
 function deleteManualConfig(code) {
     showConfirm('¿Eliminar esta configuración manual? Se borra en todos los equipos.', function() {

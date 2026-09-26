@@ -5266,7 +5266,7 @@ td .ui-num-row > input { min-width: 5rem; }
 .pn-proj-viewtabs--sub .pn-proj-viewtab { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); }
 
 /* ══════════════════════════════════════════════════════════════════════
-   [v24.5] HOY ejecutivo — Pulso · Lo siguiente · categorías como tiles
+   [2.0.0] HOY ejecutivo — Pulso · Lo siguiente · categorías como tiles
    HOY apilaba 6 KPIs + Pipeline + Mi turno + todas las categorías abiertas:
    había que bajar varias pantallas para ver qué hacer. Ahora son tres niveles
    de lectura y el detalle está a un toque. Todo con tokens (densidad, v22).

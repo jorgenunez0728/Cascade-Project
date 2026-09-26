@@ -1,4 +1,4 @@
-// Verificación en navegador de v24.5:
+// Verificación en navegador de 2.0.0:
 //  1) El Plan ve las mismas configuraciones que el Alta (catálogo unificado).
 //  2) Las configs manuales viven en db.manualConfigs y borrar deja marca.
 //  3) HOY ejecutivo: Pulso + tiles + Lo siguiente, sin desbordes, a un toque.
@@ -169,7 +169,7 @@ const SEED = () => {
         const cerrado = await page.evaluate(() => !!document.querySelector('#platform-today .dash-next'));
         chk(tag + ': tocarla otra vez regresa a "lo siguiente"', cerrado);
         chk(tag + ': sin errores de página', errores.length === 0, errores.slice(0, 2).join(' | '));
-        if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, 'v245-hoy-' + w + '.png') });
+        if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, 'catalogo-hoy-' + w + '.png') });
         await ctx.close();
     }
 
