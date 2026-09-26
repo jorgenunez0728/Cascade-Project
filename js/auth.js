@@ -20,41 +20,101 @@ var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 // TRABAJO (evitar errores y exigir doble par de ojos), NO una frontera de
 // seguridad. Quien abra la consola del navegador puede saltárselo. Sirve para
 // el uso normal del laboratorio y para dejar rastro auditable de los intentos.
+// [2.1.0] LOS ROLES DEL LABORATORIO — la ÚNICA definición. Toda pantalla que liste
+// roles (Usuarios, alta de operador, matriz de permisos) sale de aquí. De menor a
+// mayor autoridad. Las parejas con "/" son UN solo rol.
+var AUTH_ROLES = [
+    { key: 'Practicante',                    level: 1, desc: 'Registra vehículos, opera pruebas y apoya en Consumibles.' },
+    { key: 'Técnico',                        level: 2, desc: 'Registra y opera pruebas, administra Consumibles y consulta el historial de cambios.' },
+    { key: 'Especialista / Especialista Sr', level: 3, desc: 'Además administra el plan, el catálogo de configuraciones, la homologación y el CoP.' },
+    { key: 'Signatario',                     level: 4, desc: 'Autoridad técnica: libera y aprueba pruebas, corrige archivados, edita límites y administra usuarios.' },
+    { key: 'Assistant Manager / Manager',    level: 5, desc: 'Mismos permisos que Signatario.' }
+];
+// Rol para un operador sin rol o con uno que no existe: el de MENOR privilegio.
+// (Antes era 'Técnico', que además podía liberar.)
+var AUTH_ROLE_DEFAULT = 'Practicante';
+
+// [2.1.0] Permisos por rol. Liberar y aprobar dependen SOLO del rol: la matriz de
+// competencias es registro de capacitación y ya no da ni quita permisos.
+// Signatario y Assistant Manager / Manager son idénticos por decisión del laboratorio.
 var AUTH_ROLE_PERMS = {
-    'Practicante': ['test.register', 'test.operate'],
-    'Técnico':     ['test.register', 'test.operate', 'test.release',
-                    'inventory.manage', 'audit.view'],
-    'Ingeniero':   ['test.register', 'test.operate', 'test.release',
-                    'inventory.manage', 'audit.view', 'audit.export',
-                    'cop.judge', 'plan.manage', 'users.view', 'users.skills'],
-    'Supervisor':  ['test.register', 'test.operate', 'test.release', 'test.approve',
-                    'test.retro_edit', 'inventory.manage', 'audit.view', 'audit.export',
-                    'cop.judge', 'plan.manage', 'users.view', 'users.manage',
-                    'users.pin', 'users.skills', 'data.sync_admin'],
-    'Coordinador': ['*']
+    'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view',
+                                       'plan.manage', 'cop.judge', 'audit.export', 'users.view',
+                                       'config.manage', 'homolog.manage'],
+    'Signatario':                     ['*'],
+    'Assistant Manager / Manager':    ['*']
 };
 
+// Qué protege cada permiso — para la matriz "Roles y permisos" de Datos → Usuarios.
+var AUTH_PERM_LABELS = [
+    { perm: 'test.register',     label: 'Dar de alta vehículos' },
+    { perm: 'test.operate',      label: 'Operar pruebas (recepción, preacondicionamiento, dinamómetro, verificación)' },
+    { perm: 'inventory.manage',  label: 'Administrar Consumibles (cilindros, combustible, equipos, calibraciones)' },
+    { perm: 'audit.view',        label: 'Consultar el historial de cambios' },
+    { perm: 'plan.manage',       label: 'Administrar el plan (aceptar semanas, importar producción, reglas)' },
+    { perm: 'config.manage',     label: 'Administrar el catálogo de configuraciones' },
+    { perm: 'homolog.manage',    label: 'Importar homologación Europa (ICMS / familias)' },
+    { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
+    { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
+    { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
+    { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
+    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
+    { perm: 'test.retro_edit',   label: 'Corregir pruebas archivadas' },
+    { perm: 'test.delete',       label: 'Eliminar vehículos y sus registros' },
+    { perm: 'regulation.manage', label: 'Editar perfiles de regulación y límites' },
+    { perm: 'users.manage',      label: 'Administrar usuarios y roles' },
+    { perm: 'users.pin',         label: 'Asignar o restablecer PIN' },
+    { perm: 'users.skills',      label: 'Certificar en la matriz de competencias' },
+    { perm: 'data.sync_admin',   label: 'Restaurar respaldos y ajustes de administración' }
+];
+
+// [2.1.0] Nombres anteriores y variantes → rol vigente. Hace de MIGRACIÓN (un roster
+// con 'Supervisor' se lee como 'Signatario') y de tolerancia a cómo se teclee.
+var AUTH_ROLE_ALIASES = {
+    'ingeniero': 'Especialista / Especialista Sr',
+    'especialista': 'Especialista / Especialista Sr',
+    'especialista sr': 'Especialista / Especialista Sr',
+    'especialista sr.': 'Especialista / Especialista Sr',
+    'especialista senior': 'Especialista / Especialista Sr',
+    'supervisor': 'Signatario',
+    'coordinador': 'Assistant Manager / Manager',
+    'assistant manager': 'Assistant Manager / Manager',
+    'asistant manager': 'Assistant Manager / Manager',
+    'manager': 'Assistant Manager / Manager',
+    'am': 'Assistant Manager / Manager',
+    'administrador': 'Assistant Manager / Manager',
+    'tecnico': 'Técnico'
+};
+
+function _authFoldRole(s) {
+    return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+}
+
 /**
- * Empata un rol escrito de cualquier forma contra las claves de AUTH_ROLE_PERMS.
+ * Empata un rol escrito de cualquier forma contra los roles vigentes.
  *
  * El lookup era literal (`AUTH_ROLE_PERMS[u.role]`), así que ' Supervisor',
- * 'SUPERVISOR' o 'Tecnico' sin acento daban `[]` — cero permisos, en silencio y
- * sin ningún aviso. Los roles llegan de tres fuentes que nadie normaliza: el
- * prompt() del editor, el merge de Firebase y ediciones a mano.
+ * 'SUPERVISOR' o 'Tecnico' sin acento daban `[]` — cero permisos, en silencio.
+ * Desde 2.1.0 también traduce los nombres anteriores (AUTH_ROLE_ALIASES).
  *
- * @returns {string|null} la clave canónica ('Supervisor'), o null si no existe.
+ * @returns {string|null} el rol canónico ('Signatario'), o null si no existe.
  */
 function _authNormalizeRole(role) {
     if (!role) return null;
-    var want = String(role).trim().toLowerCase()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    var want = _authFoldRole(role);
     if (!want) return null;
     var keys = Object.keys(AUTH_ROLE_PERMS);
     for (var i = 0; i < keys.length; i++) {
-        var k = keys[i].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-        if (k === want) return keys[i];
+        if (_authFoldRole(keys[i]) === want) return keys[i];
     }
-    return null;
+    return AUTH_ROLE_ALIASES[want] || null;
+}
+
+/** Roles que tienen un permiso, en orden de autoridad (para mensajes y la matriz). */
+function authRolesWith(perm) {
+    return AUTH_ROLES.filter(function(r) { return authRoleHas(r.key, perm); }).map(function(r) { return r.key; });
 }
 
 /** ¿Este rol otorga este permiso? Sin sesión de por medio — sirve para auditar un roster. */
@@ -79,7 +139,7 @@ function authRefreshCurrentRole() {
     if (!authState || !authState.currentUser) return false;
     var live = _authFindOperator(authState.currentUser.id);
     if (!live) return false;
-    var fresh = _authNormalizeRole(live.role) || 'Técnico';
+    var fresh = _authNormalizeRole(live.role) || AUTH_ROLE_DEFAULT;
     if (fresh === authState.currentUser.role) return false;
     authState.currentUser.role = fresh;
     if (typeof auditLog === 'function') {
@@ -91,45 +151,16 @@ function authRefreshCurrentRole() {
 /**
  * ¿La sesión actual tiene este permiso? Devuelve false sin sesión.
  * USAR SÓLO PARA OCULTAR UI. La comprobación real es authRequire().
+ *
+ * [2.1.0] Solo por ROL. Antes una competencia certificada en la matriz también daba
+ * permisos (un Técnico certificado como "Liberador de prueba" podía liberar), lo que
+ * contradecía la regla del laboratorio: liberar y aprobar es de Signatario y de
+ * Assistant Manager / Manager, nadie más. La matriz queda como registro de capacitación.
  */
 function authCan(perm) {
     var u = authGetCurrentUser();
     if (!u) return false;
-    if (authRoleHas(u.role, perm)) return true;
-    return _authSkillGrants(u.id, perm);
-}
-
-// [Fase 3] Habilidades certificadas que otorgan permisos por sí solas.
-// Esto es lo que hace que la matriz de competencias sea funcional y no decorativa:
-// un Técnico certificado como Aprobador CoP gana test.approve sin cambiar de rol, y
-// LO PIERDE SOLO cuando la certificación vence — que es exactamente para lo que
-// sirve una matriz de competencias en un laboratorio acreditado.
-//
-// [Fase 3.5] El mapa dejó de ser estático: `grants`/`minLvl` viven en el catálogo
-// editable (pnState.skillCatalog). Consecuencia a tener presente: quien puede editar
-// el catálogo puede alterar quién aprueba pruebas — por eso editarlo exige
-// users.manage (Supervisor/Coordinador) y queda auditado.
-// Semilla por defecto: cop_appr → test.approve (nivel 3), release → test.release (2).
-function _authSkillGrants(opId, perm) {
-    if (typeof pnState === 'undefined' || !pnState.operators) return false;
-    if (typeof pnSkillOf !== 'function' || typeof pnSkillExpired !== 'function') return false;
-    if (typeof pnCatalog !== 'function') return false;
-    var op = null;
-    for (var i = 0; i < pnState.operators.length; i++) {
-        if (String(pnState.operators[i].id) === String(opId)) { op = pnState.operators[i]; break; }
-    }
-    if (!op) return false;
-    var cat = pnCatalog();
-    for (var k = 0; k < cat.length; k++) {
-        var sk = cat[k];
-        if (sk.archived) continue;              // archivada → deja de otorgar
-        if (!sk.grants || sk.grants !== perm) continue;
-        var entry = pnSkillOf(op, sk.id);
-        if ((entry.lvl || 0) < (sk.minLvl || 2)) continue;
-        if (pnSkillExpired(entry)) continue;    // certificación vencida → ya no otorga
-        return true;
-    }
-    return false;
+    return authRoleHas(u.role, perm);
 }
 
 /**
@@ -141,7 +172,11 @@ function authRequire(perm, label) {
     var u = authGetCurrentUser();
     var role = u ? (u.role || '—') : 'sin sesión';
     if (typeof showToast === 'function') {
-        showToast('Tu rol (' + role + ') no permite: ' + (label || perm), 'error');
+        // [2.1.0] El mensaje dice QUIÉN sí puede: "no permite" a secas deja al técnico
+        // sin saber a quién pedírselo.
+        var quien = authRolesWith(perm);
+        showToast('Tu rol (' + role + ') no permite: ' + (label || perm) +
+                  (quien.length && quien.length < AUTH_ROLES.length ? '. Lo puede hacer: ' + quien.join(', ') + '.' : ''), 'error');
     }
     if (typeof auditLog === 'function') {
         auditLog('auth', 'permission_denied', { type: 'perm', label: perm }, label || '');
@@ -185,7 +220,7 @@ function _authHasPin(op) {
  */
 function _authPinLenFor(op) {
     if (op && op.pinLen) return op.pinLen;
-    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || 'Técnico');
+    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || AUTH_ROLE_DEFAULT);
     return 4;
 }
 
@@ -225,7 +260,7 @@ function _authOpCard(op, idx, handler, disabled) {
             ' onclick="' + handler + '(' + idx + ')">';
     h += '<div class="auth-op-avatar" style="background:' + c + '1f;color:' + c + ';">' + escapeHtml(authInitials(op.name)) + '</div>';
     h += '<div class="auth-op-name">' + escapeHtml(op.name) + '</div>';
-    h += '<div class="auth-op-role">' + escapeHtml(op.role || 'Técnico') + (disabled ? ' · sin PIN' : '') + '</div>';
+    h += '<div class="auth-op-role">' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + (disabled ? ' · sin PIN' : '') + '</div>';
     if (isLast && !disabled) h += '<div class="auth-op-badge">Último</div>';
     h += '</button>';
     return h;
@@ -272,7 +307,7 @@ function authSessionCheck() {
     var live = _authFindOperator(authState.currentUser.id);
     if (!live) {
         if (typeof auditLog === 'function') auditLog('auth', 'session_revoked', { type: 'operator', label: authState.currentUser.name }, 'Operador dado de baja o inactivo');
-        _authForceLogin('Tu usuario fue dado de baja. Contacta a un supervisor.');
+        _authForceLogin('Tu usuario fue dado de baja. Contacta a un Signatario o al Assistant Manager / Manager.');
         return;
     }
     // Rol siempre fresco desde el roster (una degradación surte efecto de inmediato)
@@ -317,12 +352,12 @@ function authInit() {
                     authState.sessionActive = false;
                     authState.currentUser = null;
                     authShowLogin();
-                    if (typeof showToast === 'function') showToast('Tu usuario fue dado de baja. Contacta a un supervisor.', 'error');
+                    if (typeof showToast === 'function') showToast('Tu usuario fue dado de baja. Contacta a un Signatario o al Assistant Manager / Manager.', 'error');
                     return;
                 }
                 // El rol se relee del roster, no del blob: antes quedaba congelado hasta
                 // el próximo login, así que una degradación de permisos no surtía efecto.
-                authState.currentUser = { id: _live.id, name: _live.name, role: _live.role || 'Técnico' };
+                authState.currentUser = { id: _live.id, name: _live.name, role: _authNormalizeRole(_live.role) || AUTH_ROLE_DEFAULT };
                 authState.sessionActive = true;
                 authState.sessionExpiry = new Date(session.expiresAt);
                 var overlay = document.getElementById('auth-overlay');
@@ -647,13 +682,13 @@ function authCreateSession(op) {
     var session = {
         operatorId: op.id,
         operatorName: op.name,
-        role: op.role || 'Técnico',
+        role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT,
         loginAt: new Date().toISOString(),
         expiresAt: expiry.toISOString()
     };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
-    authState.currentUser = { id: op.id, name: op.name, role: op.role || 'Técnico' };
+    authState.currentUser = { id: op.id, name: op.name, role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT };
     authState.sessionActive = true;
     authState.sessionExpiry = expiry;
     _authStartSessionWatch();
@@ -733,11 +768,11 @@ function authBypassLogin() {
     // 'Admin' NO existe en AUTH_ROLE_PERMS: este bypass creaba un "Administrador"
     // con CERO permisos, incluido users.manage — justo el que necesita para hacer
     // lo que el propio toast le pide ("Configura operadores y PINs en Usuarios").
-    authState.currentUser = { id: 0, name: 'Administrador', role: 'Coordinador' };
+    authState.currentUser = { id: 0, name: 'Administrador', role: 'Assistant Manager / Manager' };
     authState.sessionActive = true;
     var expiry = new Date(Date.now() + 2 * 3600000); // 2 hours for admin bypass
     authState.sessionExpiry = expiry;
-    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Coordinador', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
+    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Assistant Manager / Manager', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
     var overlay = document.getElementById('auth-overlay');
@@ -767,7 +802,7 @@ function authBypassForOperator(idx) {
         return;
     }
     if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
-    authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
+    authCreateSession({ id: op.id, name: op.name, role: _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT });
 }
 
 /**

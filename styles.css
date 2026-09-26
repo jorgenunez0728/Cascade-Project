@@ -5383,3 +5383,16 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .dash-cat-detail { border-left-width: 4px; }
 .dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
+
+/* [2.1.0] Datos → Usuarios → Roles y permisos */
+.pn-roles-lead { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
+.pn-roles-wrap { overflow-x: auto; }
+.pn-roles-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.pn-roles-table th, .pn-roles-table td { border-bottom: 1px solid var(--border); padding: var(--space-xs) var(--space-sm); }
+.pn-roles-table th { text-align: center; vertical-align: bottom; font-weight: 700; color: var(--text); }
+.pn-roles-table th:first-child, .pn-roles-table td:first-child { text-align: left; }
+.pn-roles-table th small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-xs); }
+.pn-roles-table td.pn-roles-yes { text-align: center; color: var(--ok-text); font-weight: 800; background: var(--ok-tint); }
+.pn-roles-table td.pn-roles-no { text-align: center; color: var(--muted); }
+.pn-roles-desc { font-size: var(--fs-sm); color: var(--text); margin: var(--space-md) 0 0; padding-left: var(--space-lg); }
+.cascade-role-note { font-weight: 600; }

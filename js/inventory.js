@@ -389,6 +389,7 @@ function invMaintMarkDone(activityId, opts) {
 
 // Registrar una calibración — dos toques: fecha + certificado; calcula la próxima fecha sola.
 function invCalRegister(eqId, opts) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'registrar calibraciones')) return false;
     opts = opts || {};
     var eq = invState.equipment.find(function(e) { return e.id === eqId; });
     if (!eq) { if (typeof showToast === 'function') showToast('Instrumento no encontrado', 'error'); return null; }
@@ -5138,6 +5139,7 @@ function invDeleteGasType(idx) { invConfirmDelete('gasType', idx); }
 // "Eliminar cilindro?" sin nombre ni signo de apertura.
 // ══════════════════════════════════════════════════════════════════════
 function invConfirmDelete(kind, ref) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'eliminar en Consumibles')) return;
     var name = '', what = '', extra = '', run = null;
     if (kind === 'gas') {
         var g = invState.gases.find(function(x) { return x.id === ref; }); if (!g) return;

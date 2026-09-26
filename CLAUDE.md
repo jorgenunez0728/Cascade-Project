@@ -639,8 +639,8 @@ localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
 ## v18.5 — Permisos de usuario (`_pnEnsureAdminExists`, `_authNormalizeRole`)
 
 - **`AUTH_ROLE_PERMS` (auth.js) es LA definición de permisos** y los roles son fijos (no hay
-  permisos sueltos por persona). Las competencias certificadas otorgan permisos extra vía
-  `grants`/`minLvl` del catálogo (`_authSkillGrants`) — esa es la única vía de ajuste fino.
+  permisos sueltos por persona). *(Desde 2.1.0 las competencias ya NO otorgan permisos y los
+  roles son otros — ver la sección 2.1.0.)*
 - **Nunca comparar `op.role` contra el mapa directo.** `_authNormalizeRole(role)` es LA forma de
   empatar un rol (ignora mayúsculas, acentos y espacios) y `authRoleHas(role, perm)` la de
   preguntar sin sesión de por medio. El lookup literal dejaba a `'SUPERVISOR'` o `' Supervisor'`
@@ -1991,6 +1991,39 @@ menos **dejó de ser silencioso**.
   compilar solo para verificar, correrlo sin red hacia Firestore (p. ej.
   `HTTPS_PROXY=http://127.0.0.1:9 ./build.sh`): el HTML y `sw.build.js` ya quedaron escritos
   cuando el curl falla; el script sale con código 7 por `set -e`, no por un error de build.
+
+## 2.1.0 — Roles del laboratorio y permisos que sí se cumplen (`js/auth.js`)
+
+- **`AUTH_ROLES` es LA definición de los roles**, de menor a mayor: Practicante < Técnico <
+  Especialista / Especialista Sr < Signatario < Assistant Manager / Manager. Las parejas con "/"
+  son UN rol.
+  - Toda lista de roles sale de ahí (`pnRoles()`). No volver a escribir una lista a mano: había
+    tres copias.
+  - `AUTH_ROLE_DEFAULT` = Practicante: sin rol o con uno inexistente se cae al MENOR privilegio.
+- **Liberar (`test.release`) y aprobar (`test.approve`): solo Signatario y Assistant Manager /
+  Manager.** Son idénticos por decisión del laboratorio (`['*']`).
+- **`authCan` es SOLO por rol.** La matriz de competencias es registro de capacitación y **no da
+  ni quita permisos**. Se eliminó `_authSkillGrants`; el campo `grants` del catálogo ya no tiene
+  efecto.
+- **No escribir "competencia vigente" (ni vigencia) en textos de roles o permisos.** Es decisión
+  explícita del laboratorio: no debe generar preguntas de auditoría sobre una regla que no existe.
+- **`AUTH_ROLE_ALIASES` + `_authNormalizeRole`**:
+  - traducen los nombres anteriores (Supervisor, Coordinador, Ingeniero) y sus variantes;
+  - `_pnEnsureAdminExists` aplica la traducción al roster al arrancar: sella `updatedAt` y audita
+    `rol_migrado`;
+  - todo rol nuevo o renombrado agrega aquí su alias, o el roster se degrada a Practicante.
+- **`AUTH_PERM_LABELS` nombra cada permiso** para la matriz de Datos → Usuarios → Roles y
+  permisos. Todo permiso nuevo agrega su etiqueta (`tests/roles.node.js` lo verifica).
+- **Todo handler que escribe algo sensible empieza con `authRequire(perm, label)`**
+  (`_cascadeGate` en cop15.js). Ocultar el botón es UX, no candado.
+  - Ya cubiertos: alta, operación, todo lo de Liberación, borrar vehículos (`test.delete`),
+    límites (`regulation.manage`, con auditoría antes/después), catálogo (`config.manage`),
+    homologación (`homolog.manage`), juicio CoP, aceptar plan, importar producción, Consumibles,
+    exportar auditoría y restaurar respaldos.
+  - El autoguardado usa `_cascadeCan`, para no llenar de avisos.
+- **Límite declarado**: el candado vive en la app y queda auditado. La base de datos comparte una
+  cuenta del laboratorio y no distingue roles; para que la base lo haga cumplir hace falta una
+  cuenta por persona. Ronda propia, no resuelta.
 
 ## Working with this project
 

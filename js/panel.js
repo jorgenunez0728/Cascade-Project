@@ -39,7 +39,8 @@ var PN_SKILL_LEVELS = [
 // Sólo las evaluaciones por operador son datos.
 //   critical      → se vigila la cobertura del laboratorio
 //   recertMonths  → vence y hay que recertificar (hallazgo típico de ISO 17025)
-//   grants/minLvl → certificar esta habilidad otorga ese permiso (ver _authSkillGrants)
+//   grants/minLvl → [2.1.0] ya NO otorgan permisos: el rol decide todo (auth.js). Se
+//                   conservan en los datos solo por compatibilidad con catálogos viejos.
 //
 // [Fase 3.5] Esto es ahora sólo la SEMILLA. El catálogo vivo es editable por el
 // laboratorio y se sincroniza: pnState.skillCatalog (plano) + pnState.skillGroups.
@@ -148,9 +149,8 @@ function pnSkillDef(skillId) {
 }
 
 // ── CRUD del catálogo (requiere users.manage; ver nota de seguridad) ──
-// NOTA: una habilidad puede otorgar permisos (`grants`), así que quien edita el
-// catálogo puede alterar quién aprueba pruebas. Por eso va al mismo nivel que
-// administrar usuarios y todo cambio queda auditado.
+// NOTA: [2.1.0] las habilidades ya no otorgan permisos (el rol decide todo). Editar el
+// catálogo sigue en el nivel de administrar usuarios y todo cambio queda auditado.
 
 function _pnCatalogEnsure() {
     if (!pnState.skillCatalog || !pnState.skillCatalog.length) {
@@ -364,8 +364,8 @@ function pnSkillCoverage(skillId) {
 
 /** Asigna/actualiza una habilidad. Calcula el vencimiento desde recertMonths. */
 function pnOpSetSkill(opId, skillId, lvl, meta) {
-    // Certificar otorga permisos (ver `grants` en el catálogo): el candado no puede
-    // vivir solo en la vista.
+    // Certificar es una decisión de autoridad (registro de capacitación del
+    // laboratorio): el candado no puede vivir solo en la vista.
     if (typeof authRequire === 'function' && !authRequire('users.skills', 'certificar habilidades')) return false;
     var ops = pnState.operators || [];
     var op = null;
@@ -438,8 +438,9 @@ function pnOpAdd(name, role) {
     if (/[<>]/.test(name)) { showToast('El nombre no puede contener < o >', 'error'); return null; }
     var maxId = (pnState.operators || []).reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     var op = {
-        id: maxId + 1, name: name, role: role || 'Técnico', active: true,
-        level: (role === 'Practicante') ? 'L1' : 'L2', skills: {},
+        id: maxId + 1, name: name,
+        role: (typeof _authNormalizeRole === 'function' && _authNormalizeRole(role)) || AUTH_ROLE_DEFAULT, active: true,
+        level: (_authNormalizeRole(role) === 'Practicante') ? 'L1' : 'L2', skills: {},
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
     pnState.operators.push(op);
@@ -463,8 +464,8 @@ function pnOpUpdate(opId, patch) {
         // Normaliza antes de validar: ' supervisor' o 'SUPERVISOR' se aceptaban
         // como distintos de la clave real y se descartaban sin decir nada.
         var wantRole = (typeof _authNormalizeRole === 'function') ? _authNormalizeRole(patch.role) : patch.role;
-        if (wantRole && PN_ROLES.indexOf(wantRole) !== -1) op.role = wantRole;
-        else { showToast('Rol no reconocido: "' + patch.role + '". Válidos: ' + PN_ROLES.join(', '), 'error'); return false; }
+        if (wantRole && pnRoles().indexOf(wantRole) !== -1) op.role = wantRole;
+        else { showToast('Rol no reconocido: "' + patch.role + '". Válidos: ' + pnRoles().join(', '), 'error'); return false; }
     }
     op.updatedAt = new Date().toISOString();
     // Si el rol que cambió es el de quien está usando la app, su sesión guarda una
@@ -510,7 +511,8 @@ function pnOpDelete(opId) {
     });
 }
 
-var PN_ROLES = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+// [2.1.0] La lista de roles sale de AUTH_ROLES (auth.js), la única definición.
+function pnRoles() { return (typeof AUTH_ROLES !== 'undefined') ? AUTH_ROLES.map(function(r) { return r.key; }) : []; }
 
 /** Actualiza campos de perfil (no credenciales, no habilidades). */
 function pnOpUpdateProfile(opId, patch) {
@@ -533,6 +535,43 @@ function pnOpUpdateProfile(opId, patch) {
     return true;
 }
 
+/**
+ * [2.1.0] Matriz "Roles y permisos" (Datos → Usuarios). PURA respecto al DOM: sale de
+ * AUTH_ROLES + AUTH_PERM_LABELS + authRoleHas, las mismas definiciones que el sistema
+ * hace cumplir — no es una tabla escrita a mano que pueda desfasarse.
+ */
+function pnRolesMatrixHTML() {
+    if (typeof AUTH_ROLES === 'undefined' || typeof AUTH_PERM_LABELS === 'undefined') return '';
+    var roles = AUTH_ROLES;
+    var counts = {};
+    ((typeof pnState !== 'undefined' && pnState.operators) || []).forEach(function(o) {
+        if (!o || o.deleted || o.active === false) return;
+        var r = _authNormalizeRole(o.role) || AUTH_ROLE_DEFAULT;
+        counts[r] = (counts[r] || 0) + 1;
+    });
+    var h = '<p class="pn-roles-lead">Qué puede hacer cada rol. Los roles van de menor a mayor autoridad. ' +
+            'Liberar y aprobar lo hacen ' + escapeHtml(authRolesWith('test.release').join(' o ')) +
+            ', y nadie aprueba una prueba que él mismo liberó.</p>';
+    h += '<div class="pn-roles-wrap"><table class="pn-roles-table"><thead><tr><th>Acción</th>';
+    roles.forEach(function(r) {
+        h += '<th><div>' + escapeHtml(r.key) + '</div><small>' + (counts[r.key] || 0) + ' activo' + ((counts[r.key] || 0) === 1 ? '' : 's') + '</small></th>';
+    });
+    h += '</tr></thead><tbody>';
+    AUTH_PERM_LABELS.forEach(function(p) {
+        h += '<tr><td>' + escapeHtml(p.label) + '</td>';
+        roles.forEach(function(r) {
+            var ok = authRoleHas(r.key, p.perm);
+            h += '<td class="' + (ok ? 'pn-roles-yes' : 'pn-roles-no') + '" aria-label="' + (ok ? 'Sí' : 'No') + '">' + (ok ? '✔' : '—') + '</td>';
+        });
+        h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<ul class="pn-roles-desc">' + roles.map(function(r) {
+        return '<li><b>' + escapeHtml(r.key) + ':</b> ' + escapeHtml(r.desc) + '</li>';
+    }).join('') + '</ul>';
+    return h;
+}
+
 function pnInit() {
     try {
         var saved = localStorage.getItem(PN_LS_KEY);
@@ -549,7 +588,7 @@ function pnInit() {
     // createdAt es "ahora" y le ganaría por fecha al registro real que sí trae PINs.
     if (pnState.operators.length === 0 && CONFIG && CONFIG.operators) {
         pnState.operators = CONFIG.operators.map(function(name, i) {
-            return { id: i + 1, name: name, role: 'Técnico', active: true, provisional: true, createdAt: new Date().toISOString() };
+            return { id: i + 1, name: name, role: AUTH_ROLE_DEFAULT, active: true, provisional: true, createdAt: new Date().toISOString() };
         });
         pnSave();
     }
@@ -603,9 +642,9 @@ function _pnDedupeOperators() {
 /**
  * Garantiza que SIEMPRE exista alguien que pueda administrar usuarios.
  *
- * El candado era circular: todos los operadores nacen 'Técnico' (arriba y en
- * pnOpAdd), pero cambiar un rol exige `users.manage`, que solo tienen Supervisor
- * y Coordinador. Nadie podía otorgarse ni otorgar el permiso para otorgar
+ * El candado era circular: todos los operadores nacían con un rol sin `users.manage`
+ * (arriba y en pnOpAdd), pero cambiar un rol exige ese permiso, que solo tienen los
+ * roles de autoridad (desde 2.1.0: Signatario y Assistant Manager / Manager). Nadie podía otorgarse ni otorgar el permiso para otorgar
  * permisos, así que la pantalla de Usuarios quedaba muerta: 22 campos en gris,
  * sin errores ni explicación (issues #100, #103, #105).
  *
@@ -619,12 +658,23 @@ function _pnEnsureAdminExists() {
     var changed = false;
 
     // 1) Normalizar roles: un rol fuera del mapa daba CERO permisos en silencio.
+    //    [2.1.0] Es también la MIGRACIÓN a los roles del laboratorio: 'Supervisor' →
+    //    'Signatario', 'Coordinador' → 'Assistant Manager / Manager', etc. (alias en
+    //    auth.js). Cada cambio se sella (`updatedAt`, para que se propague) y se audita.
+    //    Un rol que no existe pasa al de MENOR privilegio, nunca a uno que libere.
     if (typeof _authNormalizeRole === 'function') {
         ops.forEach(function(o) {
             if (!o) return;
-            var canon = _authNormalizeRole(o.role);
-            if (canon && canon !== o.role) { o.role = canon; changed = true; }
-            else if (!canon && o.role !== 'Técnico') { o.role = 'Técnico'; changed = true; }
+            var canon = _authNormalizeRole(o.role) || AUTH_ROLE_DEFAULT;
+            if (canon === o.role) return;
+            var antes = o.role;
+            o.role = canon;
+            o.updatedAt = new Date().toISOString();
+            changed = true;
+            if (typeof auditLog === 'function') {
+                auditLog('auth', 'rol_migrado', { type: 'operator', id: o.id, label: o.name },
+                    'Rol "' + (antes || 'sin rol') + '" → "' + canon + '"');
+            }
         });
     }
 
@@ -651,14 +701,14 @@ function _pnEnsureAdminExists() {
     if (!target) { if (changed) pnSave(); return ''; }
 
     var before = target.role;
-    target.role = 'Coordinador';
+    target.role = 'Assistant Manager / Manager';
     // Sella la fecha para ganar el merge por `updatedAt` y que el rol se propague.
     target.updatedAt = new Date().toISOString();
     pnSave();
     if (typeof auditLog === 'function') {
         auditLog('auth', 'rol_desbloqueado', { type: 'operator', id: target.id, label: target.name },
             'Ningún operador activo podía administrar usuarios; ' + target.name +
-            ' pasó de "' + (before || 'sin rol') + '" a Coordinador');
+            ' pasó de "' + (before || 'sin rol') + '" a Assistant Manager / Manager');
     }
     return target.name;
 }
@@ -1520,7 +1570,7 @@ function pnRenderUsers(el) {
         }
     });
 
-    var roles = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+    var roles = pnRoles();
 
     var html = '';
 
@@ -1559,7 +1609,7 @@ function pnRenderUsers(el) {
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:center;gap: var(--space-sm);">';
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(6,182,212,0.15);color:var(--info-text);border-radius: var(--radius-md);">' + escapeHtml(op.role || 'Técnico') + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(6,182,212,0.15);color:var(--info-text);border-radius: var(--radius-md);">' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + '</span>';
             if (!op.active) html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Inactivo</span>';
             html += (op.pinHash2 || op.pinHash) ? '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius: var(--radius-md);">PIN ✓</span>' : '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);background:rgba(239,68,68,0.15);color:var(--danger-text);border-radius: var(--radius-md);">Sin PIN</span>';
             html += '</div>';
@@ -1593,7 +1643,7 @@ function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
     if (!name) return;
-    var id = pnOpAdd(name.value, role ? role.value : 'Técnico');
+    var id = pnOpAdd(name.value, role ? role.value : AUTH_ROLE_DEFAULT);
     if (!id) { if (typeof shakeElement === 'function') shakeElement(name); return; }
     name.value = '';
     showToast('Operador agregado', 'success');
@@ -1616,12 +1666,13 @@ function pnOpEditModal(opId) {
         var l = AUTH_ROLE_PERMS[r] || [];
         return l.indexOf('*') !== -1 ? 'todos los permisos' : l.length + ' permisos';
     };
-    var opts = PN_ROLES.map(function(r) {
-        return '<option value="' + escapeHtml(r) + '"' + (r === op.role ? ' selected' : '') + '>'
+    var curRole = _authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT;
+    var opts = pnRoles().map(function(r) {
+        return '<option value="' + escapeHtml(r) + '"' + (r === curRole ? ' selected' : '') + '>'
              + escapeHtml(r) + ' — ' + permsOf(r) + '</option>';
     }).join('');
     // Quién puede administrar usuarios, para que se vea qué se está otorgando.
-    var admins = PN_ROLES.filter(function(r) {
+    var admins = pnRoles().filter(function(r) {
         return typeof authRoleHas === 'function' && authRoleHas(r, 'users.manage');
     }).join(', ');
 
@@ -1637,8 +1688,9 @@ function pnOpEditModal(opId) {
             '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
             '</div>' +
             '<div style="padding: var(--space-sm) var(--space-md);background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
-            'El rol decide qué puede hacer esta persona. <b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
-            '<br>Las competencias certificadas otorgan permisos adicionales por separado.' +
+            'El rol decide qué puede hacer esta persona. Liberar y aprobar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            '<b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
+            '<br>La matriz completa está en Usuarios → Roles y permisos.' +
             '</div>',
         buttons: [
             { label: 'Cancelar', cls: 'btn-secondary', onclick: function() { document.getElementById('globalModal').style.display = 'none'; } },
@@ -1740,10 +1792,10 @@ function pnHashPin3(pin, salt, iter) {
  * aprobar pruebas sí — son las dos facultades con las que más daño se hace.
  */
 function pnPinLenForRole(role) {
-    var perms = (typeof AUTH_ROLE_PERMS !== 'undefined' && AUTH_ROLE_PERMS[role]) ? AUTH_ROLE_PERMS[role] : [];
-    var privileged = perms.indexOf('*') !== -1 ||
-                     perms.indexOf('users.manage') !== -1 ||
-                     perms.indexOf('test.approve') !== -1;
+    // [2.1.0] Con authRoleHas (normaliza y traduce nombres viejos): el lookup literal
+    // AUTH_ROLE_PERMS[role] daba PIN corto a ' Supervisor' o a un rol renombrado.
+    var privileged = typeof authRoleHas === 'function' &&
+                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve') || authRoleHas(role, 'test.release'));
     return privileged ? PN_PIN_LEN_PRIVILEGED : PN_PIN_LEN_DEFAULT;
 }
 
@@ -1790,13 +1842,13 @@ function _pnAssignPin(op, pin) {
  * Devuelve Promise<string|null>.
  */
 function pnPromptPin(op) {
-    var need = pnPinLenForRole(op.role || 'Técnico');
+    var need = pnPinLenForRole(op.role || AUTH_ROLE_DEFAULT);
     return new Promise(function(resolve) {
         var msg =
             '<div style="font-size:12px;color:var(--muted);margin-bottom: var(--space-md);">' +
             'PIN de <b>' + need + ' dígitos</b> para <b>' + escapeHtml(op.name) + '</b>' +
             (need === PN_PIN_LEN_PRIVILEGED
-                ? '<br><span style="font-size: var(--fs-sm);">Su rol (' + escapeHtml(op.role || 'Técnico') + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
+                ? '<br><span style="font-size: var(--fs-sm);">Su rol (' + escapeHtml(_authNormalizeRole(op.role) || AUTH_ROLE_DEFAULT) + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
                 : '') +
             '</div>' +
             '<input id="_pn_pin1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
@@ -3466,8 +3518,8 @@ function panelAlpineComponent() {
 
         // Form state — Users
         newOpName: '',
-        newOpRole: 'Técnico',
-        roles: ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'],
+        newOpRole: AUTH_ROLE_DEFAULT,
+        roles: pnRoles(),
         // [Fase 3] Perfiles y matriz de habilidades
         usersView: 'list',        // 'list' | 'profile' | 'matrix'
         profileOpId: null,        // operador abierto en la vista de perfil
@@ -3597,10 +3649,13 @@ function panelAlpineComponent() {
         },
         /** Roles que sí pueden administrar usuarios — se nombran en el aviso. */
         rolesQuePueden: function(perm) {
-            if (typeof AUTH_ROLE_PERMS === 'undefined') return '';
-            return Object.keys(AUTH_ROLE_PERMS).filter(function(r) {
-                return typeof authRoleHas === 'function' && authRoleHas(r, perm);
-            }).join(' o ');
+            return (typeof authRolesWith === 'function') ? authRolesWith(perm).join(' o ') : '';
+        },
+
+        /** [2.1.0] Matriz de roles y permisos (solo lectura). */
+        rolesMatrixHTML: function() {
+            this._dataVersion;
+            return (typeof pnRolesMatrixHTML === 'function') ? pnRolesMatrixHTML() : '';
         },
 
         // ── [Fase 3] Perfiles y matriz de habilidades ──
@@ -3627,7 +3682,7 @@ function panelAlpineComponent() {
          * contra una propiedad que no existía: Alpine lanzaba
          * "skillCatalog is not defined" y la tarjeta 🎓 Competencias salía vacía,
          * sin un solo selector — nadie podía cambiar el nivel de un operador
-         * (y el nivel otorga permisos, ver la nota de seguridad de arriba).
+         * (desde 2.1.0 el nivel es registro de capacitación: no cambia permisos).
          */
         skillCatalogGrouped: function() {
             this._dataVersion;   // v16.6: sin leerla Alpine no re-evalúa esto
@@ -4254,21 +4309,38 @@ function pnRenderRegulations(el) {
     el.innerHTML = html;
 }
 
-function pnRegAddNew() { _pnRegShowModal(null); }
+// [2.1.0] Los perfiles de regulación son los LÍMITES contra los que se decide PASA/FALLA.
+// Editarlos no pedía permiso ni dejaba rastro. Ahora: regulation.manage (roles de
+// autoridad) + auditoría con el antes y el después de cada límite.
+function _pnRegGate() {
+    return (typeof authRequire !== 'function') || authRequire('regulation.manage', 'editar perfiles de regulación y límites');
+}
+function _pnRegGasSummary(p) {
+    return (p && p.gases || []).map(function(g) {
+        return g.field + '=' + (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
+    }).join(', ');
+}
+
+function pnRegAddNew() { if (!_pnRegGate()) return; _pnRegShowModal(null); }
 
 function pnRegEdit(id) {
+    if (!_pnRegGate()) return;
     var data = loadRegulations();
     var profile = data.profiles.find(function(p) { return p.id === id; });
     if (profile) _pnRegShowModal(profile);
 }
 
 function pnRegDelete(id) {
+    if (!_pnRegGate()) return;
     var data = loadRegulations();
     var profile = data.profiles.find(function(p) { return p.id === id; });
     if (!profile) return;
     showConfirm('¿Eliminar el perfil "' + profile.name + '"? Los vehículos con esta regulación no podrán ser liberados hasta recrear el perfil.', function() {
+        if (!_pnRegGate()) return;
         data.profiles = data.profiles.filter(function(p) { return p.id !== id; });
         saveRegulations();
+        if (typeof auditLog === 'function') auditLog('pn', 'regulacion_eliminada', { type: 'regulation', id: profile.id, label: profile.name },
+            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile));
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
@@ -4332,14 +4404,18 @@ function _pnRegShowModal(profile) {
                     }
                 });
                 if (gases.length === 0) { showToast('Agrega al menos un gas', 'error'); return; }
+                if (!_pnRegGate()) return;
                 var data = loadRegulations();
                 var existing = data.profiles.find(function(x) { return x.id === p.id; });
+                var _antes = existing ? _pnRegGasSummary(existing) : null;
                 if (existing) {
                     existing.name = name; existing.shortName = name; existing.gases = gases; existing.updatedAt = new Date().toISOString();
                 } else {
                     data.profiles.push({ id: p.id, name: name, shortName: name, gases: gases, createdAt: new Date().toISOString() });
                 }
                 saveRegulations();
+                if (typeof auditLog === 'function') auditLog('pn', existing ? 'regulacion_editada' : 'regulacion_creada', { type: 'regulation', id: p.id, label: name },
+                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })));
                 _regulationsData = data;
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
@@ -4368,6 +4444,7 @@ function _pnRegGasRowHtml(i, g) {
  * Es exactamente el formato del ICMS, que era el que obligaba a convertir a mano.
  */
 function pnRegApplyIcmsUnits() {
+    if (!_pnRegGate()) return;
     var rows = document.querySelectorAll('#reg-gas-rows tr[data-gas-idx]');
     if (!rows.length) { showToast('Agrega gases primero', 'info'); return; }
     rows.forEach(function(row) {
@@ -4639,6 +4716,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
+    'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
     'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });

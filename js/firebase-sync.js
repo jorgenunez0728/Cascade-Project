@@ -3409,6 +3409,7 @@ function fbMergePurgeOldSnapshots() {
 
 // ── Undo last merge ──
 function fbMergeUndo() {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'deshacer una fusión')) return;
     var hist = fbMergeGetHistory();
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
@@ -3957,6 +3958,7 @@ function fbBackupList(callback) {
 }
 
 function fbBackupRestore(backupId, modules) {
+    if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'restaurar un respaldo')) return;
     // If modules not specified, show selection UI
     if (!modules) {
         fbBackupRestoreSelectModules(backupId);
