@@ -8237,7 +8237,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609261713';
+var APP_BUILD = '202609261904';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8245,7 +8245,7 @@ var APP_BUILD = '202609261713';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.1.0';
+var APP_VERSION = '2.1.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8253,6 +8253,10 @@ var APP_VERSION = '2.1.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.1.1', date: '26 sep 2026', title: 'La hoja COP15-F05 dice CASCADE',
+      bullets: [
+          'El pie de la Hoja de Inspección COP15-F05 dice ahora "Documento generado por CASCADE", el nombre con el que el formato queda registrado en el sistema de gestión.'
+      ] },
     { version: '2.1.0', date: '26 sep 2026', title: 'Los roles del laboratorio, y permisos que sí se cumplen',
       bullets: [
           'Roles del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Los nombres anteriores se traducen solos (Supervisor → Signatario, Coordinador → Assistant Manager / Manager, Ingeniero → Especialista) y cada cambio queda en el historial.',
@@ -8750,14 +8754,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609261713' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609261904' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609261713' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609261904' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8773,7 +8777,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609261713' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609261904' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -21921,9 +21925,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // El pie solo afirma la doble firma cuando de verdad existe: el mismo PDF se
   // genera como vista previa antes de aprobar.
   const _dual = vehicle.status === 'archived' && _sigs.releaser && _sigs.approver;
+  // [2.1.1] El formato registrado en el sistema de gestión nombra al sistema CASCADE.
   const _footTxt = _dual
-      ? 'Documento generado por KIA EmLab — Archivado con doble firma (Liberador + Aprobador)'
-      : 'Documento generado por KIA EmLab — PRELIMINAR: pendiente de aprobación';
+      ? 'Documento generado por CASCADE — Archivado con doble firma (Liberador + Aprobador)'
+      : 'Documento generado por CASCADE — PRELIMINAR: pendiente de aprobación';
   const _nPages = doc.getNumberOfPages();
   for (let pg = 1; pg <= _nPages; pg++) {
     doc.setPage(pg);
@@ -53240,7 +53245,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609261713' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609261904' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

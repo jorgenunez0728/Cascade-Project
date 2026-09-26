@@ -6222,9 +6222,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // El pie solo afirma la doble firma cuando de verdad existe: el mismo PDF se
   // genera como vista previa antes de aprobar.
   const _dual = vehicle.status === 'archived' && _sigs.releaser && _sigs.approver;
+  // [2.1.1] El formato registrado en el sistema de gestión nombra al sistema CASCADE.
   const _footTxt = _dual
-      ? 'Documento generado por KIA EmLab — Archivado con doble firma (Liberador + Aprobador)'
-      : 'Documento generado por KIA EmLab — PRELIMINAR: pendiente de aprobación';
+      ? 'Documento generado por CASCADE — Archivado con doble firma (Liberador + Aprobador)'
+      : 'Documento generado por CASCADE — PRELIMINAR: pendiente de aprobación';
   const _nPages = doc.getNumberOfPages();
   for (let pg = 1; pg <= _nPages; pg++) {
     doc.setPage(pg);

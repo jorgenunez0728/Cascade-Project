@@ -20,6 +20,17 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.1.1 — La hoja COP15-F05 dice CASCADE (2026-09-26)
+
+### Cambió
+- El pie de la **Hoja de Inspección COP15-F05** dice **"Documento generado por CASCADE"** (antes
+  "KIA EmLab"), igual que el formato registrado en el sistema de gestión del laboratorio. Aplica
+  a los PDF que se generen desde ahora; los ya emitidos no cambian.
+
+### Para desarrollo
+- Solo cambia el texto `_footTxt` de `generateCOP15PDF` (cop15.js). El resto de la app sigue
+  llamándose KIA EmLab.
+
 ## 2.1.0 — Los roles del laboratorio, y permisos que sí se cumplen (2026-09-26)
 
 ### Nuevo
