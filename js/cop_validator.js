@@ -2478,10 +2478,16 @@ function copSpcFamilies(opts) {
 function copSpcGases(fam) {
     if (!fam) return [];
     var prof = (typeof getRegulationProfile === 'function') ? getRegulationProfile(fam.regName) : null;
-    if (prof && prof.gases && prof.gases.length) return prof.gases;
-    // Fallback: campos presentes en los datos, sin límite conocido
+    // Campos presentes en los datos
     var fields = {};
     fam.tests.forEach(function(t) { Object.keys(t.values || {}).forEach(function(f) { fields[f] = true; }); });
+    if (prof && prof.gases && prof.gases.length) {
+        // [2.2.0] Un perfil que cambió de gases (SULEV 30 → NMOG+NOx) no debe esconder
+        // la serie histórica de los campos anteriores: se agregan sin límite.
+        var extra = Object.keys(fields).filter(function(f) { return !prof.gases.some(function(g) { return g.field === f; }); });
+        return prof.gases.concat(extra.map(function(f) { return { field: f, label: f, unit: '', limit: null }; }));
+    }
+    // Fallback: campos presentes en los datos, sin límite conocido
     return Object.keys(fields).map(function(f) { return { field: f, label: f, unit: '', limit: null }; });
 }
 

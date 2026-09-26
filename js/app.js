@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.1.2';
+var APP_VERSION = '2.2.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,14 @@ var APP_VERSION = '2.1.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.2.0', date: '26 sep 2026', title: 'Cada regulación pide sus gases, de la liberación al PDF',
+      bullets: [
+          'SULEV 30 (USA y Canadá) se juzga como lo define la norma: NMOG+NOx combinado ≤ 0.030 g/mi y CO ≤ 1.0 g/mi. Antes comparaba NMHC y NOx por separado con límites que no son los de la norma. Los vehículos liberados antes se siguen leyendo con NMHC y NOx.',
+          'La aprobación verifica exactamente los gases y límites con los que se liberó, aunque el perfil de la regulación se edite después o el equipo del aprobador tenga otro.',
+          'Una prueba de emisiones ya no se puede aprobar sin resultados de gases: se devuelve al liberador para que elija la regulación y capture.',
+          'Enviar a aprobación exige todos los gases con límite de la regulación, y que pasen; el registro guarda el resultado de esa verificación.',
+          'El aprobador ya no tiene que teclear un gas informativo (CO₂) que el liberador no capturó; si el liberador lo capturó, lo confirma.'
+      ] },
     { version: '2.1.2', date: '26 sep 2026', title: 'Hoja COP15-F05 revisión 8',
       bullets: [
           'La Hoja de Inspección COP15-F05 pasa a la revisión 8, con fecha de emisión 04-05-2026, la misma que el formato registrado en el sistema de gestión.'
@@ -1039,12 +1047,15 @@ var DEFAULT_REGULATION_PROFILES = [
         ]
     },
     {
+        // [2.2.0] LEV III / Tier 3 definen SULEV30 como NMOG+NOx COMBINADO ≤ 0.030 g/mi.
+        // Antes se juzgaba NMHC ≤ 0.01 y NOx ≤ 0.02 por separado: un vehículo que cumple
+        // la norma podía salir FALLA y al revés. La definición anterior vive en
+        // REG_PROFILES_RETIRED para leer los vehículos liberados con ella.
         id: 'reg_sulev30', name: 'SULEV 30', shortName: 'SULEV 30',
         gases: [
-            { field: 'CO',   label: 'CO',   unit: 'g/mi', limit: 1.0 },
-            { field: 'CO2',  label: 'CO₂',  unit: 'g/mi', limit: null },
-            { field: 'NMHC', label: 'NMHC', unit: 'g/mi', limit: 0.01 },
-            { field: 'NOx',  label: 'NOx',  unit: 'g/mi', limit: 0.02 }
+            { field: 'CO',      label: 'CO',       unit: 'g/mi', limit: 1.0 },
+            { field: 'CO2',     label: 'CO₂',      unit: 'g/mi', limit: null },
+            { field: 'NMOGNOx', label: 'NMOG+NOx', unit: 'g/mi', limit: 0.030 }
         ]
     },
     {
@@ -1058,6 +1069,49 @@ var DEFAULT_REGULATION_PROFILES = [
         ]
     }
 ];
+
+// [2.2.0] Definiciones RETIRADAS de un perfil. Un vehículo liberado antes de que su
+// perfil cambiara guarda valores con los campos viejos (SULEV 30: NMHC y NOx por
+// separado); para leerlo —PDF, Completar, aprobación pendiente— se usa la versión
+// cuyos campos empatan con lo capturado (`_libGasProfileForVehicle`, cop15.js).
+// Nunca se ofrecen para liberar algo nuevo.
+var REG_PROFILES_RETIRED = [
+    {
+        name: 'SULEV 30', retiredIn: '2.2.0',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/mi', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/mi', limit: null },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/mi', limit: 0.01 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/mi', limit: 0.02 }
+        ]
+    }
+];
+
+/**
+ * [2.2.0] Migraciones de los perfiles GUARDADOS (PURA: devuelve copia + qué cambió).
+ * `loadRegulations` da prioridad al perfil guardado sobre DEFAULT_REGULATION_PROFILES,
+ * así que corregir el default no llega a ningún equipo que ya tenga perfiles: hay que
+ * migrar lo guardado. Se conserva lo que el laboratorio personalizó (unidad de
+ * captura, otros gases); solo se reemplaza lo que la norma define distinto.
+ *  - SULEV 30: NMHC + NOx por separado → un renglón NMOG+NOx ≤ 0.030 g/mi.
+ */
+function regMigrateProfiles(profiles) {
+    var out = JSON.parse(JSON.stringify(profiles || []));
+    var changed = [];
+    out.forEach(function(p) {
+        if (!p || String(p.name || '').trim().toUpperCase() !== 'SULEV 30' || !Array.isArray(p.gases)) return;
+        var has = function(f) { return p.gases.some(function(g) { return g && g.field === f; }); };
+        if (has('NMOGNOx') || !(has('NMHC') && has('NOx'))) return;
+        var nox = p.gases.find(function(g) { return g.field === 'NOx'; });
+        var combo = { field: 'NMOGNOx', label: 'NMOG+NOx', unit: 'g/mi', limit: 0.030 };
+        if (nox && nox.captureUnit) combo.captureUnit = nox.captureUnit;
+        var at = p.gases.findIndex(function(g) { return g.field === 'NMHC' || g.field === 'NOx'; });
+        p.gases = p.gases.filter(function(g) { return g.field !== 'NMHC' && g.field !== 'NOx'; });
+        p.gases.splice(Math.min(at, p.gases.length), 0, combo);
+        changed.push(p.name);
+    });
+    return { profiles: out, changed: changed };
+}
 
 // ======================================================================
 // [M-GASUNITS] Unidades de captura de gases
@@ -1118,7 +1172,7 @@ function loadRegulations() {
     if (_regulationsData) return _regulationsData;
     var saved = safeParse(REGS_LS_KEY, null);
     if (!saved || !saved.profiles || saved.profiles.length === 0) {
-        _regulationsData = { profiles: JSON.parse(JSON.stringify(DEFAULT_REGULATION_PROFILES)) };
+        _regulationsData = { profiles: JSON.parse(JSON.stringify(DEFAULT_REGULATION_PROFILES)), migr: { sulev30: 1 } };
         saveRegulations();
     } else {
         _regulationsData = saved;
@@ -1138,6 +1192,21 @@ function loadRegulations() {
             }
         });
         if (_added) saveRegulations();
+        // [2.2.0] Guarda versionada: corre una vez por dispositivo (los perfiles no se
+        // sincronizan, cada equipo migra lo suyo) y queda en el historial de cambios.
+        var _mv = (_regulationsData.migr && _regulationsData.migr.sulev30) || 0;
+        if (_mv < 1) {
+            var _mig = regMigrateProfiles(_regulationsData.profiles);
+            _regulationsData.profiles = _mig.profiles;
+            _regulationsData.migr = Object.assign({}, _regulationsData.migr, { sulev30: 1 });
+            saveRegulations();
+            if (_mig.changed.length && typeof auditLog === 'function') {
+                try {
+                    auditLog('regulations', 'regulacion_migrada', { type: 'regulation', label: 'SULEV 30' },
+                             'NMHC ≤ 0.01 y NOx ≤ 0.02 g/mi por separado → NMOG+NOx ≤ 0.030 g/mi (LEV III / Tier 3)');
+                } catch (e) {}
+            }
+        }
     }
     return _regulationsData;
 }

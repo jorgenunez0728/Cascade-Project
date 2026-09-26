@@ -3033,6 +3033,7 @@ var GAS_PLAUSIBLE_BOUNDS = {
     NOx:  { min: 0,   max: 5 },
     THC:  { min: 0,   max: 5 },
     NMHC: { min: 0,   max: 5 },
+    NMOGNOx: { min: 0, max: 5 },
     CO2:  { min: 1,   max: 1000 },
     PM:   { min: 0,   max: 0.5 },
     PN:   { min: 1e8, max: 1e13 }
@@ -3119,12 +3120,102 @@ function _libVerifyApproverMatch(profile, approverValues, liberadorValues) {
     var mismatches = [], missing = [];
     profile.gases.forEach(function(g) {
         var a = av[g.field];
-        if (a === null || a === undefined) { missing.push(g.label || g.field); return; }
         var l = lv[g.field];
-        if (l === null || l === undefined) return;   // el liberador no capturó ese gas
+        var liberadorLoCapturo = l !== null && l !== undefined && l !== '';
+        if (a === null || a === undefined || a === '') {
+            // [2.2.0] El aprobador confirma lo que DECIDE (todo gas con límite) y todo lo
+            // que el liberador puso en el registro. Un gas informativo que nadie capturó
+            // (CO₂ sin límite) ya no le bloquea: antes se le exigía teclear un valor que
+            // nadie iba a comparar.
+            if (_libGasHasLimit(g) || liberadorLoCapturo) missing.push(g.label || g.field);
+            return;
+        }
+        if (!liberadorLoCapturo) return;   // el liberador no capturó ese gas
         if (!_libValuesMatch(a, l)) mismatches.push(g.label || g.field);
     });
     return { ok: mismatches.length === 0 && missing.length === 0, mismatches: mismatches, missing: missing, sinPerfil: false };
+}
+
+function _libGasHasLimit(g) { return !!g && g.limit !== null && g.limit !== undefined && g.limit !== ''; }
+
+/**
+ * [2.2.0] LA regla de lo que el LIBERADOR debe capturar para enviar a aprobación
+ * (PURA). Todo gas con límite es obligatorio y debe PASAR; los informativos son
+ * opcionales. El botón y `submitToApproval` usan esta misma función: antes el candado
+ * vivía solo en el `disabled` del botón y el registro estampaba `passedLimits: true`
+ * a secas (la misma clase de defecto que v23.2 corrigió en la aprobación).
+ * Devuelve {ok, missing:[label], failing:[label]}.
+ */
+function _libVerifyReleaseValues(profile, values) {
+    if (!profile || !profile.gases) return { ok: false, missing: [], failing: [], sinPerfil: true };
+    var v = values || {}, missing = [], failing = [];
+    profile.gases.forEach(function(g) {
+        if (!_libGasHasLimit(g)) return;
+        var x = v[g.field];
+        if (x === null || x === undefined || x === '' || !isFinite(parseFloat(x))) { missing.push(g.label || g.field); return; }
+        if (parseFloat(x) > Number(g.limit)) failing.push(g.label || g.field);
+    });
+    return { ok: missing.length === 0 && failing.length === 0, missing: missing, failing: failing, sinPerfil: false };
+}
+
+/** [2.2.0] Copia congelada del perfil con el que se liberó (nombre + gases + límites). */
+function _libGasProfileSnapshot(profile, regName) {
+    if (!profile || !profile.gases) return null;
+    return {
+        name: regName || profile.name || '',
+        gases: profile.gases.map(function(g) {
+            var o = { field: g.field, label: g.label || g.field, unit: g.unit || '', limit: _libGasHasLimit(g) ? Number(g.limit) : null };
+            if (g.captureUnit) o.captureUnit = g.captureUnit;
+            return o;
+        }),
+        frozenAt: new Date().toISOString()
+    };
+}
+
+/**
+ * [2.2.0] Núcleo PURO de `_libGasProfileForVehicle`. Orden:
+ *  1. el perfil CONGELADO al liberar (lo que el liberador vio y firmó);
+ *  2. el perfil actual, si cubre los gases capturados;
+ *  3. una versión retirada del mismo nombre que sí los cubra (SULEV 30 antes de 2.2.0);
+ *  4. el actual aunque no los cubra; y sin perfil pero con valores, uno derivado de
+ *     los campos capturados (sin límites: sirve para el doble ciego, no para juzgar).
+ */
+function _libPickGasProfile(frozen, current, retired, values, regName) {
+    if (frozen && Array.isArray(frozen.gases) && frozen.gases.length) return frozen;
+    var captured = Object.keys(values || {}).filter(function(f) {
+        var x = values[f]; return x !== null && x !== undefined && x !== '';
+    });
+    var covers = function(p) {
+        return captured.every(function(f) { return p.gases.some(function(g) { return g.field === f; }); });
+    };
+    if (current && current.gases && (!captured.length || covers(current))) return current;
+    var norm = String(regName || (current && current.name) || '').trim().toUpperCase();
+    var old = (retired || []).filter(function(r) {
+        return r && String(r.name || '').trim().toUpperCase() === norm && Array.isArray(r.gases) && covers(r);
+    })[0];
+    if (old) return { name: old.name, gases: old.gases, retiredIn: old.retiredIn };
+    if (current && current.gases) return current;
+    if (captured.length) {
+        return { name: regName || '', derived: true,
+                 gases: captured.map(function(f) { return { field: f, label: f, unit: '', limit: null }; }) };
+    }
+    return null;
+}
+
+/**
+ * [2.2.0] LA definición de los gases de un vehículo YA LIBERADO: la usan la
+ * aprobación, el PDF COP15-F05, "Completar" y la completitud del PDF. La liberación
+ * (captura nueva) sigue sobre el perfil vigente de la regulación.
+ * Los perfiles viven en cada equipo (no se sincronizan): sin la copia congelada el
+ * aprobador podía ver otros gases que el liberador, o ninguno.
+ */
+function _libGasProfileForVehicle(vehicle) {
+    if (!vehicle) return null;
+    var lib = vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador;
+    var regName = _libGetVehicleRegulation(vehicle);
+    var current = regName && typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
+    var retired = typeof REG_PROFILES_RETIRED !== 'undefined' ? REG_PROFILES_RETIRED : [];
+    return _libPickGasProfile(lib && lib.profile, current, retired, lib && lib.values, regName);
 }
 
 // Tracks whether the approver mismatch alarm (toast) has already fired this episode.
@@ -3232,20 +3323,19 @@ function libOnGasChange() {
     var regName = _libGetVehicleRegulation(vehicle);
     var profile = regName ? getRegulationProfile(regName) : null;
     if (!profile) return;
-    var result = _libUpdateGasStatuses(profile, 'lib-gas-entry-content');
+    _libUpdateGasStatuses(profile, 'lib-gas-entry-content');
     var btn = document.getElementById('release-archive-btn');
     if (btn) {
-        var gasValues = _libCollectGasValues(profile, 'lib-gas-entry-content');
-        var hasAllRequired = profile.gases.every(function(g) { return g.limit === null || gasValues[g.field] !== null; });
-        btn.disabled = !(result && result.allPass && hasAllRequired);
+        // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
+        btn.disabled = !_libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content')).ok;
     }
 }
 
 function libOnApproverGasChange() {
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle) return;
-    var regName = _libGetVehicleRegulation(vehicle);
-    var profile = regName ? getRegulationProfile(regName) : null;
+    // [2.2.0] Los gases del registro del liberador, no los del perfil de este equipo.
+    var profile = _libGasProfileForVehicle(vehicle);
     if (!profile) return;
     _libUpdateGasStatuses(profile, 'appr-gas-entry-content');
     var approverValues = _libCollectGasValues(profile, 'appr-gas-entry-content');
@@ -3628,22 +3718,40 @@ function loadApproval() {
         '</div>';
 
     var regName = _libGetVehicleRegulation(vehicle);
-    var profile = regName ? getRegulationProfile(regName) : null;
+    // [2.2.0] Los gases que se verifican son los del registro del liberador (perfil
+    // congelado al enviar), no los del perfil que tenga ESTE equipo.
+    var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
     var btn = document.getElementById('approve-archive-btn');
     var matchDiv = document.getElementById('appr-match-status');
     if (matchDiv) matchDiv.style.display = 'none';
 
-    if (!isEm || !profile) {
-        document.getElementById('appr-gas-entry-content').innerHTML = (isEm && !profile)
-            ? '<div style="padding: var(--space-md);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;font-size:12px;">' +
-              '⚠️ La regulación de este vehículo (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) no tiene perfil de límites, así que no hay gases que verificar. ' +
-              'Si debía compararse contra una norma, pide al liberador que la elija en la pestaña Liberación (botón "Cambiar") antes de aprobar.</div>'
-            : '<p style="color:var(--muted);font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
+    if (!isEm) {
+        document.getElementById('appr-gas-entry-content').innerHTML =
+            '<p style="color:var(--muted);font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
         if (btn) btn.disabled = false;
+        return;
+    }
+    if (!profile) {
+        // [2.2.0] Antes esto HABILITABA el botón: una prueba de emisiones se aprobaba
+        // sin doble ciego si este equipo no tenía el perfil. Ahora se detiene.
+        document.getElementById('appr-gas-entry-content').innerHTML =
+            '<div style="padding: var(--space-md);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;font-size:12px;">' +
+            '⚠️ Esta prueba de emisiones llegó sin resultados de gases y la regulación (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) ' +
+            'no tiene perfil de límites. No se puede aprobar así: usa <strong>Devolver al liberador</strong> para que elija la regulación y capture los gases.</div>';
+        if (btn) btn.disabled = true;
         return;
     }
 
     _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
+    if (profile.derived || profile.retiredIn) {
+        var _apEl = document.getElementById('appr-gas-entry-content');
+        if (_apEl) _apEl.insertAdjacentHTML('afterbegin',
+            '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-sm);">' +
+            (profile.derived
+                ? 'Se liberó sin perfil en este equipo: captura los mismos gases que el liberador; aquí no se juzgan límites.'
+                : 'Se liberó con la definición anterior de ' + escapeHtml(profile.name) + ' (retirada en ' + escapeHtml(profile.retiredIn) + ').') +
+            '</div>');
+    }
     if (btn) btn.disabled = true;
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -3680,6 +3788,25 @@ function submitToApproval() {
     var regName = _libGetVehicleRegulation(vehicle);
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
     var gasValues = profile ? _libCollectGasValues(profile, 'lib-gas-entry-content') : {};
+    // [2.2.0] EL CANDADO VA EN LA CAPA DE DATOS: una prueba de emisiones no se envía
+    // sin perfil, sin todos los gases con límite, ni con uno que no pase.
+    if (isEm) {
+        if (!profile) {
+            showToast('Elige contra qué regulación comparar los gases (tarjeta de resultados, botón "Cambiar") antes de enviar a aprobación.', 'error');
+            return;
+        }
+        var _rel = _libVerifyReleaseValues(profile, gasValues);
+        if (!_rel.ok) {
+            showToast(_rel.missing.length
+                ? 'Faltan resultados de ' + _rel.missing.join(', ') + ' (' + regName + ' los exige). Captúralos para enviar a aprobación.'
+                : 'No pasa el límite de ' + regName + ' en ' + _rel.failing.join(', ') + '. Revisa la captura antes de enviar.', 'error');
+            if (typeof auditLog === 'function') {
+                auditLog('cop15', 'release_blocked_gases', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                         _rel.missing.length ? ('Faltan: ' + _rel.missing.join(', ')) : ('No pasa: ' + _rel.failing.join(', ')));
+            }
+            return;
+        }
+    }
 
     sigCaptureOpen({
         title: 'Firma del Liberador',
@@ -3695,7 +3822,12 @@ function submitToApproval() {
                     values: gasValues,
                     capturedBy: sig.signerName,
                     capturedAt: new Date().toISOString(),
-                    passedLimits: true
+                    // [2.2.0] Resultado de la verificación de arriba, no una afirmación.
+                    passedLimits: _libVerifyReleaseValues(profile, gasValues).ok,
+                    // [2.2.0] El perfil CONGELADO: aprobación y PDF verifican y juzgan
+                    // contra lo que el liberador vio, aunque el perfil cambie después o el
+                    // equipo del aprobador tenga otro.
+                    profile: _libGasProfileSnapshot(profile, regName)
                 };
                 _libAuditImplausibleValues(vehicle, gasValues, 'liberador');
             }
@@ -3751,8 +3883,12 @@ function approveAndArchive() {
     }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
-    var regName = _libGetVehicleRegulation(vehicle);
-    var profile = isEm && regName ? getRegulationProfile(regName) : null;
+    // [2.2.0] Mismos gases que el liberador (perfil congelado), nunca el de este equipo.
+    var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
+    if (isEm && !profile) {
+        showToast('Esta prueba de emisiones no tiene resultados de gases que verificar. Devuélvela al liberador.', 'error');
+        return;
+    }
     var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
 
     // [v23.2] EL CANDADO VA EN LA CAPA DE DATOS. Se re-verifica aquí, contra el `db`
@@ -5086,7 +5222,7 @@ function validatePdfCompleteness(vehicle) {
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
-  var profile = regName ? getRegulationProfile(regName) : null;
+  var profile = _libGasProfileForVehicle(vehicle);
   if (profile) {
     var libVals = (td.gasResults && td.gasResults.liberador) ? td.gasResults.liberador.values : null;
     profile.gases.forEach(function(g) {
@@ -5167,7 +5303,7 @@ function histOpenCompleteModal(vehicleId) {
   var status = vehicle.status;
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
   var regName = _libGetVehicleRegulation(vehicle);
-  var profile = regName ? getRegulationProfile(regName) : null;
+  var profile = _libGasProfileForVehicle(vehicle);
   var comp = validatePdfCompleteness(vehicle);
 
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
@@ -6073,7 +6209,8 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   const regName = (typeof _libGetVehicleRegulation === 'function')
       ? (_libGetVehicleRegulation(vehicle) || '')
       : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
-  const regProfile = hasGas && typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
+  // [2.2.0] Límites con los que se liberó (perfil congelado), no los de hoy.
+  const regProfile = hasGas ? _libGasProfileForVehicle(vehicle) : null;
   const gasEntries = !hasGas ? [] : regProfile ? regProfile.gases
       : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
   const _co2Entry = gasEntries.find(function(g) { return g.field === 'CO2'; });
