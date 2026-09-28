@@ -310,5 +310,64 @@ console.log('\n== cascadeValueLabel ==');
     ok('vacío → vacío', L('fuel', '') === '' && L('fuel', null) === '');
 }
 
+// ── [2.4.0] ✏️ Corregir alta ───────────────────────────────────────────────
+console.log('\n== vinCheckDigit / altaConfigFromCatalog ==');
+{
+    ok('VIN válido con su dígito correcto', ctx.vinCheckDigit('1M8GDM9AXKP042788').valid === true);
+    ok('dígito equivocado se detecta y dice cuál esperaba',
+        ctx.vinCheckDigit('1M8GDM9A1KP042788').valid === false && ctx.vinCheckDigit('1M8GDM9A1KP042788').expected === 'X');
+    ok('VIN incompleto: no aplica (null)', ctx.vinCheckDigit('KNA123').valid === null);
+    ok('I, O, Q no son válidos', ctx.vinCheckDigit('KNA6BA1D5T10000IO').valid === null);
+    const cfg = ctx.altaConfigFromCatalog({ codigo_config_text: 'X1', Modelo: 'SELTOS', 'BODY TYPE': 'WGN', REGION: '' },
+                                          ['Modelo', 'BODY TYPE', 'REGION']);
+    ok('solo columnas de la cascada, sin código ni vacíos', JSON.stringify(cfg) === '{"Modelo":"SELTOS","BODY TYPE":"WGN"}');
+}
+
+console.log('\n== vehicleAltaCorrectionPlan ==');
+{
+    const P = ctx.vehicleAltaCorrectionPlan;
+    const base = (status, extra) => Object.assign({
+        id: 7, vin: '1M8GDM9AXKP042788', status, configCode: 'C-5DR',
+        config: { Modelo: 'SELTOS', 'BODY TYPE': '5DR', 'EMISSION REGULATION': 'EURO-6', REGION: 'EUROPE' },
+        testData: {}
+    }, extra || {});
+    const wgn = { Modelo: 'SELTOS', 'BODY TYPE': 'WGN', 'EMISSION REGULATION': 'EURO-6', REGION: 'EUROPE' };
+    const otraReg = { Modelo: 'SELTOS', 'BODY TYPE': 'WGN', 'EMISSION REGULATION': 'SULEV 30', REGION: 'USA' };
+    const fam = v => (v.config || {})['BODY TYPE'] + '|' + (v.config || {})['EMISSION REGULATION'];
+
+    let r = P(base('in-progress'), { configCode: 'C-WGN', config: wgn }, { vehicles: [], famKeyOf: fam });
+    ok('en curso: 5DR → WGN se permite sin firma', r.ok && !r.requiresSignature && r.perm === 'test.register');
+    ok('lista el cambio de carrocería con antes y después',
+        r.changes.some(c => c.campo === 'Carrocería' && c.key === 'BODY TYPE' && c.antes === '5DR' && c.despues === 'WGN'));
+    ok('avisa que cambia la familia CoP', r.famChanged && r.warnings.some(w => /familia CoP/.test(w)));
+
+    r = P(base('in-progress'), {}, { vehicles: [] });
+    ok('sin cambios no se guarda', !r.ok && /No hay cambios/.test(r.errors[0]));
+
+    r = P(base('in-progress'), { vin: 'KNA123' }, { vehicles: [] });
+    ok('VIN inválido se rechaza con el porqué', !r.ok && /17 caracteres/.test(r.errors[0]));
+    r = P(base('in-progress'), { vin: '1M8GDM9A1KP042788' }, { vehicles: [] });
+    ok('dígito verificador malo: avisa pero no bloquea', r.ok && r.warnings.some(w => /dígito verificador/.test(w)));
+    r = P(base('in-progress'), { vin: 'KNA6BA1D5T1000065' }, { vehicles: [{ id: 9, vin: 'KNA6BA1D5T1000065', status: 'ready-release' }] });
+    ok('no se puede tomar el VIN de otro vehículo EN CURSO', !r.ok && /EN CURSO/.test(r.errors[0]));
+    r = P(base('in-progress'), { vin: 'KNA6BA1D5T1000065' }, { vehicles: [{ id: 9, vin: 'KNA6BA1D5T1000065', status: 'archived' }] });
+    ok('un VIN con pruebas archivadas: re-ensayo, solo aviso', r.ok && r.warnings.some(w => /re-ensayo/.test(w)));
+
+    r = P(base('pending-approval', { testData: { signatures: { releaser: { dataUrl: 'x' } } } }), { configCode: 'C-WGN', config: wgn }, { vehicles: [] });
+    ok('enviado a aprobación: pide firma de quien libera, misma regulación → sin regresar',
+        r.ok && r.requiresSignature && r.perm === 'test.release' && !r.resetRelease);
+    r = P(base('pending-approval', { testData: { signatures: { releaser: { dataUrl: 'x' } } } }), { configCode: 'C-US', config: otraReg }, { vehicles: [] });
+    ok('enviado a aprobación + otra regulación → regresa a Listo para liberar', r.ok && r.resetRelease && r.regChanged);
+
+    r = P(base('archived'), { configCode: 'C-WGN', config: wgn }, { vehicles: [] });
+    ok('archivado, misma regulación (el caso WGN/5DR): se permite con firma', r.ok && r.requiresSignature && r.perm === 'test.retro_edit');
+    r = P(base('archived'), { configCode: 'C-US', config: otraReg }, { vehicles: [] });
+    ok('archivado + otra regulación: NO se permite y dice por qué', !r.ok && /volver a evaluar/.test(r.errors[0]));
+    r = P(base('archived', { regulationOverride: { name: 'EURO-6' } }), { configCode: 'C-US', config: otraReg }, { vehicles: [] });
+    ok('con regulación elegida a mano al liberar, la config no la mueve', r.ok && !r.regChanged);
+    r = P(base('in-progress', { homolog: { mcCode: 'MC1', f0: 100 } }), { configCode: 'C-WGN', config: wgn }, { vehicles: [] });
+    ok('Europa con ficha de homologación: pide revisarla', r.warnings.some(w => /homologación/.test(w)));
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

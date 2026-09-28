@@ -2109,6 +2109,34 @@ menos **dejó de ser silencioso**.
 - **El workflow de PR compila con `SKIP_PUBLISH=1`**: antes cada push a un PR publicaba su build
   en `app/version` de producción y todas las estaciones veían "hay actualización".
 
+## 2.4.0 — ✏️ Corregir alta (`js/cop15.js`)
+
+- **`vehicleCorrectAlta(id, change, motivo, sig)` es LA forma de cambiar el VIN o la
+  configuración de un vehículo registrado.** Nunca asignar `v.vin`/`v.config`/`v.configCode` a
+  mano: lo que depende del vehículo (evidencia del plan, filas del plan, mesa CoP, usageLog, soak)
+  quedaría apuntando al dato viejo. `vehicleAltaCorrectionPlan` (PURA) decide etapa, permiso,
+  firma y bloqueos; el modal y la capa de datos usan la misma.
+- **Reglas por etapa**: abierto → `test.register`, sin firma · enviado a aprobación →
+  `test.release` + firma; si cambia la regulación, regresa a `ready-release` (borra captura y
+  firma del liberador, escribe `returnHistory` + `pendingReturn`, como `returnToReleaser`) ·
+  archivado → `test.retro_edit` + firma; **cambiar la regulación se bloquea**: el resultado se
+  juzgó con el perfil congelado (2.2.0) de la regulación anterior y el F05 citaría otra.
+  La regulación efectiva respeta `regulationOverride`.
+- **Cambiar un VIN = marca `kind:'vin-corregido'`** (id + VIN viejo) en `db.deletedVehicles` +
+  `vehicle.vinChanges[{from,to,at,by}]`. El sync empareja vehículos por VIN, así que la copia vieja
+  llega como "otro vehículo" y la marca la retira en `dedupeVehicleIds` (que aplica marcas ANTES
+  de reparar ids duplicados — no invertir ese orden). **`vehicleIsTombstoned` ignora una marca
+  `vin-corregido` si el vehículo volvió a ese VIN después**: sin eso, corregir la corrección borra
+  el vehículo en los demás equipos (reproducido en `livesync.node.js`).
+- La evidencia NO se crea ni se borra al corregir: se reasigna (`tpOnVehicleAltaCorrected`). Las
+  filas del plan que acredita se re-evalúan con `_tpConfigDiffs` (la misma de
+  `tpLinkVehicleToItem`): sustitución si difiere de lo planeado, se quita si ahora coincide.
+- **Mesa CoP**: al cambiar de familia salen las filas `source:'auto'` de la familia anterior;
+  las `manual` se quedan (las decide una persona). **`copState.saved` no se toca nunca.**
+- Los cambios van a la línea de tiempo con la forma `data.modified = [{campo, antes, despues,
+  razon}]`, que `histShowTimelineModal` ya pinta como tabla. `campo` es el nombre legible
+  (`ALTA_CORR_FIELD_LABELS`); la columna original viaja en `key`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

@@ -7898,18 +7898,9 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Vincular prueba con vehículo');
 
-    var distinta = v.configCode && v.configCode !== item.desc;
-    var diffs = [];
-    if (distinta) {
-        var a = tpConfigByDesc(item.desc) || item;
-        var b = tpConfigByDesc(v.configCode);
-        if (b) {
-            _tpCoreFields.concat(_tpFlexFields).forEach(function(f) {
-                var x = String(a[f] || '').toUpperCase(), y = String(b[f] || '').toUpperCase();
-                if (x !== y && (x || y)) diffs.push({ field: f, label: _tpFlexLabels[f] || _tpFieldLabel(f), planned: a[f] || '—', actual: b[f] || '—' });
-            });
-        }
-    }
+    var _dif = _tpConfigDiffs(item.desc, v.configCode, item);
+    var distinta = _dif.distinta;
+    var diffs = _dif.diffs;
 
     item.linkedVehicleId = v.id;
     item.linkedVin = v.vin || '';
@@ -7954,6 +7945,90 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
                  (yaRegistrada ? ' · ya estaba en Probados' : ''));
     }
     return { ok: true, vin: v.vin, distinta: distinta, diffs: diffs, released: v.status === 'archived', yaRegistrada: yaRegistrada };
+}
+
+/**
+ * [2.4.0] Diferencias entre la configuración PLANEADA (`desc` de la fila) y la que de
+ * verdad se corrió (`configCode` del vehículo). Una sola definición para vincular
+ * (tpLinkVehicleToItem) y para corregir un alta (tpOnVehicleAltaCorrected).
+ */
+function _tpConfigDiffs(plannedDesc, actualCode, plannedFallback) {
+    var distinta = !!actualCode && actualCode !== plannedDesc;
+    var diffs = [];
+    if (distinta) {
+        var a = tpConfigByDesc(plannedDesc) || plannedFallback || {};
+        var b = tpConfigByDesc(actualCode);
+        if (b) {
+            _tpCoreFields.concat(_tpFlexFields).forEach(function(f) {
+                var x = String(a[f] || '').toUpperCase(), y = String(b[f] || '').toUpperCase();
+                if (x !== y && (x || y)) diffs.push({ field: f, label: _tpFlexLabels[f] || _tpFieldLabel(f), planned: a[f] || '—', actual: b[f] || '—' });
+            });
+        }
+    }
+    return { distinta: distinta, diffs: diffs };
+}
+
+/**
+ * [2.4.0] ✏️ Corregir alta: el vehículo cambió de VIN y/o de configuración. Mueve su
+ * evidencia (`testedList`) y rehace la sustitución de las filas del plan que acredita.
+ * NO crea ni borra evidencia — la prueba ocurrió; lo que cambia es a qué VIN y a qué
+ * configuración cuenta. `before` = {vin, configCode}. Devuelve {tested, items}.
+ */
+function tpOnVehicleAltaCorrected(vehicle, before) {
+    var out = { tested: 0, items: 0 };
+    if (!vehicle || typeof tpState !== 'object' || !tpState) return out;
+    before = before || {};
+    var vinCambio = !!before.vin && vehicle.vin !== before.vin;
+    var cfgCambio = !!before.configCode && vehicle.configCode !== before.configCode;
+    var filas = {};   // planId::uid (o ::#idx) de las filas que acredita su evidencia
+    (tpState.testedList || []).forEach(function(t) {
+        if (!t) return;
+        var vid = tpTestedVehicleId(t);
+        var mia = (vid != null && String(vid) === String(vehicle.id)) ||
+                  (vid == null && !!before.vin && tpTestedVin(t) === before.vin);
+        if (!mia) return;
+        var cambio = false;
+        if (vinCambio) {
+            if (t.vin) { t.vin = vehicle.vin; cambio = true; }
+            if (t.note && t.note.indexOf(before.vin) !== -1) { t.note = t.note.split(before.vin).join(vehicle.vin); cambio = true; }
+        }
+        if (cfgCambio && t.configText === before.configCode) { t.configText = vehicle.configCode; cambio = true; }
+        if (vid == null) { t.vehicleId = vehicle.id; cambio = true; }
+        if (cambio) out.tested++;
+        if (t.planId) filas[t.planId + '::' + (t.itemUid ? t.itemUid : '#' + t.itemIdx)] = true;
+    });
+    var ahora = new Date().toISOString();
+    (tpState.weeklyPlans || []).forEach(function(p, pi) {
+        if (!p) return;
+        var pid = tpPlanId(p), tocado = false;
+        (p.items || []).forEach(function(it, i) {
+            var ligada = it.linkedVehicleId != null && String(it.linkedVehicleId) === String(vehicle.id);
+            var acreditada = filas[pid + '::' + (it.uid || '')] || filas[pid + '::#' + i];
+            if (!ligada && !acreditada) return;
+            if (ligada && vinCambio) it.linkedVin = vehicle.vin || '';
+            if (cfgCambio || vinCambio) {
+                var d = _tpConfigDiffs(it.desc, vehicle.configCode, it);
+                if (d.distinta) {
+                    it.substituted = true;
+                    it.substitution = Object.assign({}, it.substitution || {}, {
+                        originalDesc: it.desc, testedDesc: vehicle.configCode, testedVin: vehicle.vin || null,
+                        differences: d.diffs, correctedAt: ahora });
+                } else if (it.substituted && it.substitution &&
+                           (it.substitution.testedDesc === before.configCode || it.substitution.testedVin === before.vin)) {
+                    // La corrección hizo que coincida con lo planeado: ya no es una sustitución.
+                    delete it.substituted; delete it.substitution;
+                }
+            }
+            tocado = true;
+            out.items++;
+        });
+        if (tocado) _tpTouchPlan(pi);
+    });
+    if (out.tested || out.items) {
+        if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+        tpBoardInvalidate();
+    }
+    return out;
 }
 
 /** Deshacer el vínculo. La fila vuelve a pendiente; la evidencia en Probados se queda. */

@@ -5396,3 +5396,6 @@ td .ui-num-row > input { min-width: 5rem; }
 .pn-roles-table td.pn-roles-no { text-align: center; color: var(--muted); }
 .pn-roles-desc { font-size: var(--fs-sm); color: var(--text); margin: var(--space-md) 0 0; padding-left: var(--space-lg); }
 .cascade-role-note { font-weight: 600; }
+
+/* [2.4.0] ✏️ Corregir alta — botón dentro de la franja del vehículo en Operación */
+.op-corr-btn { margin-left: var(--space-sm); padding: var(--space-2xs) var(--space-md); font-size: var(--fs-sm); vertical-align: middle; }

@@ -222,6 +222,49 @@ console.log('\n== borrar un vehículo sobrevive al sync ==');
     ok('la unión no repite marcas', A.vehicleTombstonesUnion(A.db.deletedVehicles, B.db.deletedVehicles).length === 1);
 }
 
+// ── [2.4.0] Corregir el VIN: la copia vieja no resucita, y se puede volver ──
+// Se reproducen EXACTAMENTE los cambios que vehicleCorrectAlta (cop15.js) le hace a
+// `db`: marca 'vin-corregido' del VIN viejo + vinChanges en el vehículo + VIN nuevo.
+console.log('\n== corregir el VIN de un vehículo sobrevive al sync ==');
+{
+    arrancar();
+    const corregir = (eq, a) => {
+        reloj += 60000;
+        const ahora = new Date(reloj).toISOString();
+        const v = eq.db.vehicles[0];
+        eq.db.deletedVehicles = eq.vehicleTombstonesUnion(eq.db.deletedVehicles, [{
+            id: v.id, vin: v.vin, registeredAt: v.registeredAt || '', status: v.status || '',
+            deletedAt: ahora, by: 'Ana', kind: 'vin-corregido', to: a }]);
+        (v.vinChanges = v.vinChanges || []).push({ from: v.vin, to: a, at: ahora, by: 'Ana' });
+        v.vin = a;
+        guardar(eq);
+        correr();
+    };
+    const original = A.db.vehicles[0].vin;
+    corregir(A, 'KNA6BA1D5T1000099');
+    ok('A conserva UN vehículo, con el VIN nuevo', A.db.vehicles.length === 1 && A.db.vehicles[0].vin === 'KNA6BA1D5T1000099',
+       JSON.stringify(A.db.vehicles.map(x => x.vin)));
+    ok('B retira la copia con el VIN viejo y se queda con la nueva', B.db.vehicles.length === 1 && B.db.vehicles[0].vin === 'KNA6BA1D5T1000099',
+       JSON.stringify(B.db.vehicles.map(x => x.vin)));
+    ok('el mismo id (no se duplicó ni se re-numeró)', String(B.db.vehicles[0].id) === String(A.db.vehicles[0].id));
+
+    // Un equipo con código viejo re-empuja el documento con el VIN viejo y sin marcas.
+    nube('B', 'cop15', comoFirestore({ vehicles: [vehiculoBase()], lastId: 3 }));
+    correr();
+    ok('la copia vieja re-empujada no resucita en A', A.db.vehicles.length === 1 && A.db.vehicles[0].vin === 'KNA6BA1D5T1000099',
+       JSON.stringify(A.db.vehicles.map(x => x.vin)));
+
+    // Se corrige la corrección: vuelve al VIN original. La marca vieja NO debe matarlo.
+    corregir(A, original);
+    ok('volver al VIN original: A lo conserva', A.db.vehicles.length === 1 && A.db.vehicles[0].vin === original,
+       JSON.stringify(A.db.vehicles.map(x => x.vin)));
+    ok('…y B también, sin la copia intermedia', B.db.vehicles.length === 1 && B.db.vehicles[0].vin === original,
+       JSON.stringify(B.db.vehicles.map(x => x.vin)));
+    const copiaIntermedia = JSON.parse(JSON.stringify(A.db.vehicles[0])); copiaIntermedia.vin = 'KNA6BA1D5T1000099';
+    copiaIntermedia.vinChanges = copiaIntermedia.vinChanges.slice(0, 1);
+    ok('la copia con el VIN intermedio sí queda marcada', A.vehicleIsTombstoned(copiaIntermedia, A.db.deletedVehicles));
+}
+
 // ── _fbMergeVehicle ────────────────────────────────────────────────────────
 console.log('\n== _fbMergeVehicle ==');
 {

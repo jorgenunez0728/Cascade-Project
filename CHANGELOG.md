@@ -20,6 +20,51 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.4.0 — Corregir el alta de un vehículo sin borrarlo (2026-09-28)
+
+### Nuevo
+- **✏️ Corregir alta** (Historial → ⋯, y el botón junto al vehículo en Operación). Cambia el
+  **VIN** o la **configuración** de un vehículo ya registrado **sin borrarlo**. Antes la única
+  salida era borrar y volver a dar de alta (p. ej. un WGN capturado como 5DR), perdiendo la línea
+  de tiempo, el preacondicionamiento, el soak y el crédito en el plan.
+  - Buscador de configuraciones del catálogo (se escribe para acotar) y motivo obligatorio.
+  - Antes de guardar muestra el **antes y el después** de cada campo y qué implica.
+  - Queda en la **línea de tiempo** del vehículo (Historial → 🕘) y en el historial de cambios.
+- **La prueba registrada pasa a la configuración correcta**: la cobertura del plan se recalcula
+  y la fila del plan que acreditaba queda como **sustitución** (o deja de serlo si ahora coincide).
+
+### Reglas
+- **Antes de la firma del liberador**: se corrige con el permiso de alta.
+- **Enviado a aprobación**: se firma. Si cambia la **regulación**, la captura ya no corresponde:
+  se borran la captura y la firma del liberador y regresa a **Listo para liberar** (con aviso,
+  como una devolución).
+- **Archivado**: se firma (Signatario o Manager). **No se permite cambiar la regulación**: su
+  resultado se juzgó con los gases y límites de la regulación anterior. Corregir la carrocería u
+  otro dato con la misma regulación sí se permite.
+- El **VIN** se revisa con su dígito verificador (avisa, no bloquea), no se puede tomar el de otro
+  vehículo **en curso**, y si ese VIN ya tiene pruebas archivadas se avisa que queda como re-ensayo.
+- Si cambia la familia, el vehículo sale de la mesa de trabajo del CoP de la familia anterior.
+  **Los juicios CoP ya guardados no cambian.** Si el vehículo es de Europa, pide revisar su ficha
+  de homologación.
+- El **F05 no cambia de formato**: imprime los datos ya corregidos.
+
+### Para desarrollo
+- `vehicleAltaCorrectionPlan(vehicle, change, ctx)` (cop15.js, PURA) es LA definición de qué
+  implica una corrección (etapa, permiso, firma, bloqueos, avisos, cambios). La usan el modal
+  (vista previa) y `vehicleCorrectAlta` (candado en la capa de datos).
+- `vehicleCorrectAlta(id, change, motivo, sig)` es LA forma de cambiar VIN/config de un vehículo
+  registrado: `undoPush('all')`, restaura `db` completo si `saveDB()` falla, y arrastra a
+  `tpOnVehicleAltaCorrected` (testplan.js), `copOnVehicleAltaCorrected` (cop_validator.js),
+  `invState.usageLog` y el temporizador de soak.
+- **Cambiar un VIN** deja una marca `kind:'vin-corregido'` del VIN viejo en `db.deletedVehicles`
+  (los demás equipos retiran la copia vieja) y `vehicle.vinChanges[]`. `vehicleIsTombstoned` no
+  aplica esa marca si el vehículo **volvió** a ese VIN después (lo dice su `vinChanges`): sin eso,
+  corregir la corrección borraba el vehículo en los demás equipos (probado en `livesync.node.js`).
+- `_tpConfigDiffs` (testplan.js) sale de `tpLinkVehicleToItem`: una sola definición de las
+  diferencias planeada vs corrida. `vinCheckDigit(vin)` y `altaConfigFromCatalog` son PURAS.
+- Pruebas: `cop15.node.js` (+19), `plan.node.js` (+4), `livesync.node.js` (+7, dos equipos),
+  `tests/v240.e2e.js` (26). El candado del F05 sigue en verde.
+
 ## 2.3.0 — La nube avisa antes de llenarse y el respaldo diario vuelve a funcionar (2026-09-28)
 
 ### Nuevo

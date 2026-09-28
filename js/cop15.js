@@ -1530,6 +1530,7 @@ function loadVehicle() {
     <strong>Config:</strong> ${vehicle.configCode} |
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
     <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
+    <button type="button" class="btn-secondary op-corr-btn" onclick="vehicleCorrectAltaOpen('${String(vehicle.id).replace(/[^\w.-]/g, '')}')" title="Corregir VIN o configuración sin borrar el vehículo">✏️ Corregir alta</button>
   `;
   opSaveStateRender();
 
@@ -5688,9 +5689,418 @@ function histRowMenu(vehicleId) {
   showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
     buttons: [
       { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
-    ].concat(_cascadeCan('test.delete')   // [2.1.0] solo se ofrece a quien puede
+    ].concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
+      ? [{ label: '✏️ Corregir alta (VIN / configuración)…', onclick: function() { close(); setTimeout(function() { vehicleCorrectAltaOpen(id); }, 220); } }]
+      : []).concat(_cascadeCan('test.delete')   // [2.1.0] solo se ofrece a quien puede
       ? [{ label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }]
       : []) });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.4.0] ✏️ CORREGIR ALTA — VIN y configuración de un vehículo ya registrado
+//
+// Antes no había forma: un WGN capturado como 5DR obligaba a borrar el vehículo y
+// darlo de alta otra vez, perdiendo línea de tiempo, preacondicionamiento, soak y el
+// crédito en el plan. Corregir CONSERVA el vehículo (mismo id) y arrastra el cambio a
+// todo lo que depende de él: evidencia del plan, filas del plan, mesa del CoP y uso
+// de consumibles.
+//
+// Reglas por etapa (vehicleAltaCorrectionPlan es LA definición):
+//  · Antes de la firma del liberador: se corrige con el permiso de alta.
+//  · Enviado a aprobación: firma de quien libera; si cambia la regulación, la captura
+//    ya no corresponde y el vehículo regresa a "Listo para liberar".
+//  · Archivado: firma de quien corrige archivados. Si el cambio mueve la regulación,
+//    NO se permite: su resultado se juzgó con los gases y límites congelados de la
+//    regulación anterior, y el F05 citaría una norma que no corresponde a esos límites.
+// ══════════════════════════════════════════════════════════════════════
+
+var ALTA_CORR_VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
+// Nombres legibles de las columnas del catálogo (el Alta las muestra en mayúsculas).
+var ALTA_CORR_FIELD_LABELS = {
+    'Modelo': 'Modelo', 'MODEL YEAR (VIN)': 'Año modelo', 'ENGINE CAPACITY': 'Motor', 'TRANSMISSION': 'Transmisión',
+    'ENVIRONMENT PACKAGE': 'Paquete ambiental', 'EMISSION REGULATION': 'Regulación', 'REGION': 'Región',
+    'TIRE ASSY': 'Llantas', 'BODY TYPE': 'Carrocería', 'DRIVE TYPE': 'Manejo', 'ENGINE PACKAGE': 'Paquete de motor'
+};
+
+/**
+ * Dígito verificador del VIN (posición 9), el mismo cálculo que la validación del
+ * Alta. PURA. Devuelve {valid: true|false|null, expected, actual}; null = no aplica
+ * (VIN incompleto o con caracteres no válidos).
+ */
+function vinCheckDigit(vin) {
+    vin = String(vin || '').toUpperCase();
+    if (!ALTA_CORR_VIN_RE.test(vin)) return { valid: null, expected: '', actual: '' };
+    var map = { A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9 };
+    var w = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+    var sum = 0;
+    for (var i = 0; i < 17; i++) {
+        var c = vin[i];
+        sum += (/\d/.test(c) ? parseInt(c, 10) : (map[c] || 0)) * w[i];
+    }
+    var rem = sum % 11;
+    var expected = rem === 10 ? 'X' : String(rem);
+    return { valid: vin[8] === expected, expected: expected, actual: vin[8] };
+}
+
+/** La configuración del alta a partir de una fila del catálogo: solo las columnas de la cascada. PURA. */
+function altaConfigFromCatalog(entry, keys) {
+    var c = {};
+    (keys || []).forEach(function(k) {
+        if (entry && entry[k] != null && entry[k] !== '') c[k] = entry[k];
+    });
+    return c;
+}
+
+function _altaCorrRegOf(v, cfg) {
+    return String((v && v.regulationOverride && v.regulationOverride.name) || (cfg && cfg['EMISSION REGULATION']) || '').trim();
+}
+
+/**
+ * Qué implica corregir el alta de un vehículo. PURA: no toca `db` ni el DOM. La usan
+ * el modal (vista previa en vivo) y vehicleCorrectAlta (candado en la capa de datos).
+ * change = {vin?, configCode?, config?} · ctx = {vehicles, famKeyOf?}
+ */
+function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
+    ctx = ctx || {}; change = change || {};
+    var out = { ok: false, errors: [], warnings: [], changes: [], vinChanged: false, configChanged: false,
+                regChanged: false, famChanged: false, stage: '', perm: 'test.register', requiresSignature: false,
+                resetRelease: false, newVin: '', newConfig: null, newConfigCode: '', regBefore: '', regAfter: '' };
+    if (!vehicle) { out.errors.push('Ese vehículo ya no existe.'); return out; }
+    var same = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var oldVin = String(vehicle.vin || '').trim().toUpperCase();
+    var newVin = change.vin != null ? String(change.vin).trim().toUpperCase() : oldVin;
+    var oldCfg = vehicle.config || {};
+    var newCfg = change.config || oldCfg;
+    var newCode = change.configCode != null ? String(change.configCode) : String(vehicle.configCode || '');
+    out.newVin = newVin; out.newConfig = newCfg; out.newConfigCode = newCode;
+    out.vinChanged = newVin !== oldVin;
+    out.configChanged = newCode !== String(vehicle.configCode || '') || same(newCfg) !== same(oldCfg);
+
+    if (!out.vinChanged && !out.configChanged) out.errors.push('No hay cambios: el VIN y la configuración son los mismos.');
+
+    if (out.vinChanged) {
+        if (!ALTA_CORR_VIN_RE.test(newVin)) {
+            out.errors.push('El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q.');
+        } else {
+            var cd = vinCheckDigit(newVin);
+            if (cd.valid === false) out.warnings.push('El dígito verificador (posición 9) no coincide: se esperaba "' + cd.expected + '". Revisa el VIN antes de guardar.');
+            var otros = (ctx.vehicles || []).filter(function(x) {
+                return x && x !== vehicle && String(x.id) !== String(vehicle.id) && String(x.vin || '').toUpperCase() === newVin;
+            });
+            if (otros.some(function(x) { return x.status !== 'archived'; })) {
+                out.errors.push('Ya hay otro vehículo EN CURSO con el VIN ' + newVin + '. Corrige o elimina ese primero.');
+            } else if (otros.length) {
+                out.warnings.push('Ese VIN ya tiene ' + otros.length + ' prueba(s) archivada(s): este vehículo quedará como un re-ensayo del mismo VIN.');
+            }
+        }
+        out.changes.push({ campo: 'VIN', antes: oldVin || '—', despues: newVin });
+    }
+
+    if (out.configChanged) {
+        out.changes.push({ campo: 'Configuración', antes: vehicle.configCode || '—', despues: newCode || '—' });
+        var keys = {};
+        Object.keys(oldCfg).concat(Object.keys(newCfg)).forEach(function(k) { keys[k] = true; });
+        Object.keys(keys).forEach(function(k) {
+            var a = oldCfg[k] == null ? '' : String(oldCfg[k]), b = newCfg[k] == null ? '' : String(newCfg[k]);
+            if (a !== b) out.changes.push({ campo: ALTA_CORR_FIELD_LABELS[k] || k, key: k, antes: a || '—', despues: b || '—' });
+        });
+    }
+
+    out.regBefore = _altaCorrRegOf(vehicle, oldCfg);
+    out.regAfter = _altaCorrRegOf(vehicle, newCfg);
+    out.regChanged = out.regBefore.toUpperCase() !== out.regAfter.toUpperCase();
+    if (typeof ctx.famKeyOf === 'function') {
+        try { out.famChanged = ctx.famKeyOf(vehicle) !== ctx.famKeyOf({ config: newCfg }); } catch (e) {}
+    }
+
+    var td = vehicle.testData || {};
+    var firmado = !!(td.signatures && td.signatures.releaser) || vehicle.status === 'pending-approval';
+    if (vehicle.status === 'archived') {
+        out.stage = 'archivado'; out.perm = 'test.retro_edit'; out.requiresSignature = true;
+        if (out.regChanged) {
+            out.errors.push('Este vehículo ya está aprobado y el cambio mueve su regulación (' + (out.regBefore || '—') + ' → ' +
+                (out.regAfter || '—') + '). Su resultado se juzgó con los gases y límites de ' + (out.regBefore || 'la anterior') +
+                ', así que no es una corrección de alta: la prueba se tendría que volver a evaluar. Elige una configuración con la misma regulación o consúltalo con un Signatario.');
+        }
+    } else if (firmado) {
+        out.stage = 'firmado'; out.perm = 'test.release'; out.requiresSignature = true;
+        if (out.regChanged) {
+            out.resetRelease = true;
+            out.warnings.push('Cambia la regulación (' + (out.regBefore || '—') + ' → ' + (out.regAfter || '—') +
+                '): se borran la captura y la firma del liberador y el vehículo regresa a "Listo para liberar" para capturar contra los límites correctos.');
+        }
+    } else {
+        out.stage = 'abierto';
+        if (out.regChanged && td.gasResults && td.gasResults.liberador) {
+            out.warnings.push('Cambia la regulación: revisa la captura de gases en Liberación.');
+        }
+    }
+    if (out.famChanged) out.warnings.push('Cambia la familia CoP: el vehículo sale de la mesa de trabajo de la familia anterior. Los juicios ya guardados no cambian.');
+    if (out.configChanged && vehicle.homolog && (vehicle.homolog.mcCode || vehicle.homolog.f0 != null)) {
+        out.warnings.push('La ficha de homologación (f0/f1/f2, CO₂ declarado) se capturó con la configuración anterior: revísala.');
+    }
+    out.ok = out.errors.length === 0;
+    return out;
+}
+
+/**
+ * Aplica la corrección. Es LA forma de cambiar el VIN o la configuración de un vehículo
+ * registrado. Devuelve {ok, reason?, needSignature?, plan, tp, inv, cop}.
+ */
+function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
+    var v = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
+    var ctx = { vehicles: db.vehicles, famKeyOf: (typeof copVehicleFamilyKey === 'function') ? copVehicleFamilyKey : null };
+    var plan = vehicleAltaCorrectionPlan(v, change, ctx);
+    if (!plan.ok) return { ok: false, reason: plan.errors.join(' '), plan: plan };
+    // El candado va en la capa de datos (v18.5): ocultar el botón es UX.
+    if (!_cascadeGate(plan.perm, 'corregir el alta de un vehículo')) return { ok: false, reason: 'Tu rol no puede hacer esta corrección.', plan: plan };
+    motivo = String(motivo || '').trim();
+    if (motivo.length < 5) return { ok: false, reason: 'Escribe el motivo de la corrección (al menos 5 caracteres).', plan: plan };
+    if (plan.requiresSignature && !(sig && sig.dataUrl)) return { ok: false, needSignature: true, reason: 'Esta corrección requiere firma.', plan: plan };
+    if (!_releasePreflightStorage('corregir el alta')) return { ok: false, reason: 'No hay espacio en este dispositivo.', plan: plan };
+
+    var dbAntes = JSON.stringify(db);   // si saveDB falla, se restaura TODO (no solo el vehículo)
+    var before = { vin: v.vin || '', configCode: v.configCode || '', famKey: ctx.famKeyOf ? ctx.famKeyOf(v) : '' };
+    if (typeof undoPush === 'function') undoPush('all', 'Corregir alta: ' + (v.vin || ''));
+    var ahora = new Date().toISOString();
+    var quien = (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '') || 'Sistema';
+
+    if (plan.vinChanged) {
+        // La copia con el VIN viejo que quede en otros equipos se retira con esta marca;
+        // `vinChanges` es lo que permite volver a ese VIN después (vehicleIsTombstoned).
+        if (typeof vehicleTombstonesUnion === 'function') {
+            db.deletedVehicles = vehicleTombstonesUnion(db.deletedVehicles, [{
+                id: v.id, vin: v.vin || '', registeredAt: v.registeredAt || '', status: v.status || '',
+                deletedAt: ahora, by: quien, kind: 'vin-corregido', to: plan.newVin }]);
+        }
+        (v.vinChanges = v.vinChanges || []).push({ from: v.vin || '', to: plan.newVin, at: ahora, by: quien });
+        v.vin = plan.newVin;
+    }
+    if (plan.configChanged) {
+        v.config = JSON.parse(JSON.stringify(plan.newConfig));
+        v.configCode = plan.newConfigCode;
+    }
+    var td = v.testData = v.testData || {};
+    if (plan.resetRelease) {
+        if (td.gasResults) { delete td.gasResults.liberador; delete td.gasResults.aprobador; delete td.gasResults.mismatch; }
+        if (td.signatures) { delete td.signatures.releaser; delete td.signatures.approver; }
+        var razon = 'Alta corregida (cambió la regulación ' + plan.regBefore + ' → ' + plan.regAfter + '): ' + motivo;
+        (v.returnHistory = v.returnHistory || []).push({ at: ahora, by: quien, reason: razon, gases: [] });
+        v.pendingReturn = { at: ahora, by: quien, reason: razon };
+        v.status = 'ready-release';
+    }
+    var corr = { at: ahora, by: quien, reason: motivo, stage: plan.stage, changes: plan.changes, resetRelease: plan.resetRelease };
+    if (sig) corr.signature = sig;
+    (v.altaCorrections = v.altaCorrections || []).push(corr);
+    (v.timeline = v.timeline || []).push({
+        timestamp: ahora, user: quien, action: 'Alta corregida',
+        data: { modified: plan.changes.map(function(c) { return { campo: c.campo, antes: c.antes, despues: c.despues, razon: motivo }; }),
+                resetRelease: plan.resetRelease, signed: !!sig }
+    });
+
+    if (saveDB() === false) {
+        db = JSON.parse(dbAntes);
+        return { ok: false, reason: 'No se pudo guardar (almacenamiento del dispositivo). No se cambió nada.', plan: plan };
+    }
+
+    // Lo que depende del vehículo. Cada módulo guarda lo suyo.
+    var tp = (typeof tpOnVehicleAltaCorrected === 'function') ? tpOnVehicleAltaCorrected(v, before) : { tested: 0, items: 0 };
+    if ((tp.tested || tp.items) && typeof tpSave === 'function') tpSave();
+    var inv = 0;
+    if (plan.vinChanged && typeof invState !== 'undefined' && invState && Array.isArray(invState.usageLog)) {
+        invState.usageLog.forEach(function(u) { if (u && u.vin === before.vin) { u.vin = v.vin; inv++; } });
+        if (inv && typeof invSave === 'function') invSave();
+    }
+    var cop = (typeof copOnVehicleAltaCorrected === 'function') ? copOnVehicleAltaCorrected(v, before) : { renamed: 0, removed: 0, manualLeft: 0 };
+    if (plan.vinChanged) {
+        try {
+            var sk = JSON.parse(localStorage.getItem('kia_soak_timer') || 'null');
+            if (sk && sk.vehicleId == v.id) { sk.vin = v.vin; localStorage.setItem('kia_soak_timer', JSON.stringify(sk)); }
+        } catch (e) {}
+    }
+
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'alta_corregida', { type: 'vehicle', id: v.id, label: v.vin },
+            plan.changes.map(function(c) { return c.campo + ': ' + c.antes + ' → ' + c.despues; }).join(' · ') +
+            ' · motivo: ' + motivo + (plan.resetRelease ? ' · regresa a Listo para liberar' : '') + (sig ? ' · firmado' : '') +
+            ' · evidencia del plan: ' + tp.tested + ', filas: ' + tp.items + (cop.removed ? ', sale de la mesa CoP de su familia anterior' : ''));
+    }
+    try { refreshAllLists(); } catch (e) {}
+    try { updateProgressBar(); } catch (e) {}
+    if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
+    if (typeof tpRefreshFamilies === 'function') { try { tpRefreshFamilies(); } catch (e) {} }
+    if (typeof tpUpdateBadges === 'function') { try { tpUpdateBadges(); } catch (e) {} }
+    return { ok: true, plan: plan, tp: tp, inv: inv, cop: cop };
+}
+
+// ── Modal ──
+
+function _altaCorrCatalog() {
+    var list = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    return list.filter(function(c) { return c && c.codigo_config_text; });
+}
+
+function _altaCorrLabel(c) {
+    return [c.codigo_config_text, c['Modelo'], c['MODEL YEAR (VIN)'], c['ENGINE CAPACITY'], c['TRANSMISSION'],
+            c['BODY TYPE'], c['REGION'], c['EMISSION REGULATION']].filter(Boolean).join(' · ');
+}
+
+function _altaCorrFold(s) { return (typeof _uiFold === 'function') ? _uiFold(s) : String(s || '').toLowerCase(); }
+
+/** Llena la lista de configuraciones según la búsqueda (todas las palabras deben aparecer). */
+function _altaCorrFill() {
+    var st = window._altaCorr; if (!st) return;
+    var sel = document.getElementById('altaCorrCfg'), q = document.getElementById('altaCorrBuscar');
+    if (!sel) return;
+    var palabras = _altaCorrFold(q ? q.value : '').split(/\s+/).filter(Boolean);
+    var actual = sel.value || st.selected || '__actual__';
+    var html = '<option value="__actual__">(sin cambio) ' + escapeHtml(st.code || '—') + '</option>';
+    var n = 0, total = 0;
+    _altaCorrCatalog().forEach(function(c) {
+        var lab = _altaCorrLabel(c);
+        var f = _altaCorrFold(lab);
+        if (palabras.some(function(p) { return f.indexOf(p) === -1; })) return;
+        total++;
+        if (n >= 200) return;
+        n++;
+        // El código ya trae modelo, motor, carrocería, región y regulación: se muestra solo
+        // él (es lo que el técnico ve en el Alta); la búsqueda sí usa todos los campos.
+        html += '<option value="' + escapeHtml(c.codigo_config_text) + '" title="' + escapeHtml(lab) + '">' + escapeHtml(c.codigo_config_text) + '</option>';
+    });
+    sel.innerHTML = html;
+    sel.value = [].some.call(sel.options, function(o) { return o.value === actual; }) ? actual : '__actual__';
+    var cnt = document.getElementById('altaCorrCount');
+    if (cnt) cnt.textContent = total + ' configuraciones' + (total > n ? ' (se muestran ' + n + '; escribe más para acotar)' : '');
+    _altaCorrRefresh();
+}
+
+function _altaCorrChange() {
+    var st = window._altaCorr; if (!st) return null;
+    var vin = (document.getElementById('altaCorrVin') || {}).value;
+    var sel = document.getElementById('altaCorrCfg');
+    var code = sel ? sel.value : '__actual__';
+    st.selected = code;
+    var change = { vin: vin };
+    if (code && code !== '__actual__') {
+        var entry = _altaCorrCatalog().find(function(c) { return c.codigo_config_text === code; });
+        if (entry) {
+            change.configCode = code;
+            change.config = altaConfigFromCatalog(entry, Object.keys(fieldMapping));
+        }
+    }
+    return change;
+}
+
+function _altaCorrRefresh() {
+    var st = window._altaCorr; if (!st) return;
+    var v = db.vehicles.find(function(x) { return x.id == st.id; });
+    var box = document.getElementById('altaCorrEfectos');
+    if (!v || !box) return;
+    var change = _altaCorrChange();
+    var plan = vehicleAltaCorrectionPlan(v, change, { vehicles: db.vehicles,
+        famKeyOf: (typeof copVehicleFamilyKey === 'function') ? copVehicleFamilyKey : null });
+    st.plan = plan;
+    var motivo = String((document.getElementById('altaCorrMotivo') || {}).value || '').trim();
+    var cd = vinCheckDigit(change.vin);
+    var vinHint = document.getElementById('altaCorrVinHint');
+    if (vinHint) vinHint.textContent = cd.valid === null ? (String(change.vin || '').length + '/17 caracteres')
+        : (cd.valid ? '✓ Dígito verificador correcto' : '⚠ Dígito verificador: se esperaba "' + cd.expected + '" en la posición 9');
+
+    var h = '';
+    if (plan.changes.length) {
+        h += '<table class="u-cards" style="width:100%;font-size:var(--fs-xs);border-collapse:collapse;margin-top:var(--space-sm);"><thead><tr>' +
+             '<th style="text-align:left;padding:var(--space-2xs) var(--space-sm);">Campo</th><th style="text-align:left;padding:var(--space-2xs) var(--space-sm);">Antes</th><th style="text-align:left;padding:var(--space-2xs) var(--space-sm);">Después</th></tr></thead><tbody>';
+        plan.changes.forEach(function(c) {
+            h += '<tr><td style="padding:var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(c.campo) + '</td>' +
+                 '<td style="padding:var(--space-2xs) var(--space-sm);color:var(--danger-text);">' + escapeHtml(c.antes) + '</td>' +
+                 '<td style="padding:var(--space-2xs) var(--space-sm);color:var(--ok-text);">' + escapeHtml(c.despues) + '</td></tr>';
+        });
+        h += '</tbody></table>';
+    }
+    var nEv = (typeof tpState !== 'undefined' && tpState && tpState.testedList || []).filter(function(t) {
+        return t && ((t.vehicleId != null && String(t.vehicleId) === String(v.id)) || (!!v.vin && typeof tpTestedVin === 'function' && tpTestedVin(t) === v.vin));
+    }).length;
+    var info = [];
+    if (plan.ok && plan.configChanged && nEv) info.push('Su prueba registrada en el plan (' + nEv + ') pasa a contar para la configuración nueva.');
+    if (plan.ok && plan.requiresSignature) info.push('Está ' + (plan.stage === 'archivado' ? 'archivado' : 'enviado a aprobación') + ': la corrección se firma y queda en su historial.');
+    info.forEach(function(t) { h += '<div style="margin-top:var(--space-sm);font-size:var(--fs-sm);color:var(--tp-text);">ℹ️ ' + escapeHtml(t) + '</div>'; });
+    plan.warnings.forEach(function(t) { h += '<div style="margin-top:var(--space-sm);padding:var(--space-sm) var(--space-md);border-radius:var(--radius-md);background:var(--warn-tint);font-size:var(--fs-sm);">⚠️ ' + escapeHtml(t) + '</div>'; });
+    plan.errors.forEach(function(t) { h += '<div style="margin-top:var(--space-sm);padding:var(--space-sm) var(--space-md);border-radius:var(--radius-md);background:var(--danger-tint);font-size:var(--fs-sm);">⛔ ' + escapeHtml(t) + '</div>'; });
+    if (plan.ok && motivo.length < 5) h += '<div style="margin-top:var(--space-sm);font-size:var(--fs-sm);color:var(--muted);">Escribe el motivo para poder guardar.</div>';
+    box.innerHTML = h;
+
+    var btn = st.overlay ? st.overlay.querySelector('[data-modal-btn="1"]') : null;
+    if (btn) {
+        btn.disabled = !plan.ok || motivo.length < 5;
+        btn.textContent = plan.requiresSignature ? 'Firmar y guardar' : 'Guardar corrección';
+    }
+}
+
+function _altaCorrClose() {
+    var st = window._altaCorr;
+    if (st && st.overlay) st.overlay.style.display = 'none';
+    window._altaCorr = null;
+}
+
+function _altaCorrSave() {
+    var st = window._altaCorr; if (!st) return;
+    var change = _altaCorrChange();
+    var motivo = String((document.getElementById('altaCorrMotivo') || {}).value || '').trim();
+    var aplicar = function(sig) {
+        var r = vehicleCorrectAlta(st.id, change, motivo, sig);
+        if (!r.ok) { showToast(r.reason || 'No se pudo corregir.', 'error', 9000); return; }
+        _altaCorrClose();
+        var extra = [];
+        if (r.tp.tested || r.tp.items) extra.push('plan actualizado');
+        if (r.plan.resetRelease) extra.push('regresa a Listo para liberar');
+        showToast('Alta corregida' + (extra.length ? ' — ' + extra.join(', ') : '') + '. Queda en su historial.', 'success', 6000);
+    };
+    var plan = st.plan;
+    if (!plan || !plan.ok) { showToast((plan && plan.errors[0]) || 'Revisa los datos.', 'warning'); return; }
+    if (motivo.length < 5) { showToast('Escribe el motivo de la corrección (al menos 5 caracteres).', 'warning'); return; }
+    if (!plan.requiresSignature) { aplicar(null); return; }
+    if (!_cascadeGate(plan.perm, 'corregir el alta de un vehículo')) return;
+    sigCaptureOpen({
+        title: 'Firma de la corrección de alta',
+        role: plan.stage === 'archivado' ? 'Corrección de archivado' : 'Liberador',
+        signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+        lockName: true,
+        onSave: function(sig) { aplicar(sig); }
+    });
+}
+
+/** Abre el modal. `prefill` = {vin?} (p. ej. desde el archivo VETS, ronda siguiente). */
+function vehicleCorrectAltaOpen(vehicleId, prefill) {
+    var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+    if (!v) return;
+    if (!_cascadeCan('test.register') && !_cascadeCan('test.retro_edit')) {
+        _cascadeGate('test.register', 'corregir el alta de un vehículo');
+        return;
+    }
+    prefill = prefill || {};
+    window._altaCorr = { id: v.id, code: v.configCode || '', selected: '__actual__', plan: null, overlay: null };
+    var modelo = (v.config && v.config['Modelo']) || '';
+    var body =
+        '<p class="miss-intro">Corrige el VIN o la configuración sin borrar el vehículo: se conservan su línea de tiempo, su captura y su crédito en el plan, que pasa a la configuración correcta. La corrección queda en su historial.</p>' +
+        '<div class="form-group"><label for="altaCorrVin">VIN</label>' +
+        '<input id="altaCorrVin" maxlength="17" autocomplete="off" spellcheck="false" value="' + escapeHtml(prefill.vin || v.vin || '') + '" ' +
+        'oninput="this.value=this.value.toUpperCase();_altaCorrRefresh()" style="font-family:monospace;letter-spacing:1px;text-transform:uppercase;">' +
+        '<div id="altaCorrVinHint" class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);"></div></div>' +
+        '<div class="form-group"><label for="altaCorrBuscar">Configuración</label>' +
+        '<input id="altaCorrBuscar" type="search" autocomplete="off" placeholder="Ej.: SELTOS WGN 1.5" value="' + escapeHtml(modelo) + '" oninput="_altaCorrFill()">' +
+        '<select id="altaCorrCfg" size="6" onchange="_altaCorrRefresh()" style="width:100%;margin-top:var(--space-xs);font-size:var(--fs-sm);"></select>' +
+        '<div id="altaCorrCount" class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);"></div></div>' +
+        '<div class="form-group"><label for="altaCorrMotivo">Motivo</label>' +
+        '<textarea id="altaCorrMotivo" rows="2" placeholder="Ej.: se capturó 5DR y el vehículo es WGN" oninput="_altaCorrRefresh()"></textarea></div>' +
+        '<div id="altaCorrEfectos" aria-live="polite"></div>';
+    showModal({ title: '✏️ Corregir alta — ' + escapeHtml(v.vin || ''), body: body, buttons: [
+        { label: 'Cancelar', onclick: function() { _altaCorrClose(); } },
+        { label: 'Guardar corrección', cls: 'btn-primary', onclick: function() { _altaCorrSave(); } }
+    ] });
+    var overlays = document.querySelectorAll('.custom-modal-overlay');
+    window._altaCorr.overlay = overlays[overlays.length - 1] || null;
+    _altaCorrFill();
+    if (typeof cascadeInjectTooltips === 'function') { try { cascadeInjectTooltips(); } catch (e) {} }
 }
 
 // Historial y control de cambios de un vehículo (visible también para archivados).
@@ -9011,3 +9421,18 @@ function v7BatchRelease() {
         }, 100);
     });
 })();
+
+// [2.4.0] Ayuda de ✏️ Corregir alta (CASCADE_TOOLTIPS se define más arriba en este archivo).
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    altaCorrVin: { title: 'VIN corregido',
+        text: 'El VIN correcto del vehículo (17 caracteres, sin I, O ni Q). La app revisa el dígito verificador '
+            + '(posición 9) y avisa si no cuadra. El vehículo conserva su historial; el VIN anterior queda '
+            + 'registrado en la corrección y los demás equipos retiran la copia con el VIN viejo.' },
+    altaCorrBuscar: { title: 'Configuración correcta',
+        text: 'Escribe palabras para acotar el catálogo (modelo, carrocería, motor, región…) y elige la '
+            + 'configuración correcta. "(sin cambio)" deja la actual. Si la regulación cambia en un vehículo '
+            + 'ya enviado a aprobación, regresa a Liberación; en uno ya aprobado no se permite.' },
+    altaCorrMotivo: { title: 'Motivo de la corrección',
+        text: 'Qué estaba mal y cómo se detectó. Queda en la línea de tiempo del vehículo y en el historial '
+            + 'de cambios, junto con el antes y el después de cada campo.' }
+});
