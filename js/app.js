@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.4.0';
+var APP_VERSION = '2.5.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,16 @@ var APP_VERSION = '2.4.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.5.0', date: '28 sep 2026', title: 'Importar la prueba de STARS VETS en la liberación',
+      bullets: [
+          'Nuevo en Liberación: 📎 Adjuntar prueba VETS. Se elige el Excel que exporta VETS y la app llena los gases del liberador, los coeficientes del dinamómetro (Target y Dyno A/B/C, ETW) y la fecha de la prueba, en las unidades de Cascade. Funciona con las pruebas de México (g/mi, lb) y de Europa (g/km, mg/km, kg). No necesita internet.',
+          'Lo que ya estaba capturado a mano no se pisa: si es distinto se muestra lado a lado y se elige. El liberador revisa y firma como siempre; el doble ciego no cambia.',
+          'Revisa el VIN contra el del Alta y, en Europa, contra el que lee el ECU del vehículo. Si el error está en el Alta ofrece ✏️ Corregir; si ningún VIN coincide no deja usar el archivo. Una misma prueba no se puede adjuntar a dos vehículos.',
+          'Verificaciones de VETS que fallan (p. ej. "CVS Dilution Factor", "PM Pre Filter Temp"): la primera vez el liberador decide si son Importantes, Informativas o Desacreditadas (mal configuradas en VETS). Se aplica a todo el laboratorio y se cambia en Datos → Regulaciones. Desacreditar no borra nada: queda en el registro de la prueba.',
+          'OBFCM (Europa): combustible según el vehículo y la exactitud que calcula VETS, por prueba y por familia en CoP → Expediente. También guarda CALID, CVN y MIL.',
+          'Historial → ⋯ → 🔎 Comparar con VETS: compara lo que se tecleó en pruebas ya liberadas contra su archivo, sin cambiar nada. Reporte en el Centro de Reportes (validación del importador, ISO 17025 §7.11.2).',
+          'El F05 no cambia.'
+      ] },
     { version: '2.4.0', date: '28 sep 2026', title: 'Corregir el alta de un vehículo sin borrarlo',
       bullets: [
           'Nuevo: ✏️ Corregir alta (Historial → ⋯, y junto al vehículo en Operación). Cambia el VIN o la configuración de un vehículo ya registrado sin borrarlo: se conservan su línea de tiempo, su captura y su crédito en el plan.',

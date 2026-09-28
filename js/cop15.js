@@ -3662,6 +3662,11 @@ function loadRelease() {
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
+        // [2.5.0] Sin captura del liberador pero con prueba VETS adjunta: se precarga
+        // con los valores de VETS (siguen siendo editables; se firman como siempre).
+        if ((!existing || !Object.keys(existing).length) && typeof vetsGasValuesFor === 'function') {
+            existing = vetsGasValuesFor(vehicle, profile) || existing;
+        }
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
@@ -3683,6 +3688,7 @@ function loadRelease() {
         libOnGasChange();
     }
 
+    if (typeof vetsRenderLibStatus === 'function') vetsRenderLibStatus(vehicle);
     releaseChecklistRender(vehicle);
     _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
@@ -5691,6 +5697,8 @@ function histRowMenu(vehicleId) {
       { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
     ].concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
       ? [{ label: '✏️ Corregir alta (VIN / configuración)…', onclick: function() { close(); setTimeout(function() { vehicleCorrectAltaOpen(id); }, 220); } }]
+      : []).concat((v.status === 'archived' && isEmissionsPurpose(v.purpose) && _cascadeCan('test.retro_edit') && typeof vetsAttachStart === 'function')   // [2.5.0]
+      ? [{ label: '🔎 Comparar con VETS…', onclick: function() { close(); setTimeout(function() { vetsAttachStart('comparar', id); }, 220); } }]
       : []).concat(_cascadeCan('test.delete')   // [2.1.0] solo se ofrece a quien puede
       ? [{ label: '🗑 Eliminar vehículo…', onclick: function() { close(); setTimeout(function() { deleteVehicleCascade(id); }, 220); } }]
       : []) });

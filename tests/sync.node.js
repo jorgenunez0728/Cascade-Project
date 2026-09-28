@@ -82,6 +82,21 @@ console.log('\n== _fbEquipKey: identidad de un instrumento ==');
         Object.values(vieja).some(v => v > 1));
 }
 
+// ── [2.5.0] Política de verificaciones VETS (pnState.vetsChecks) ──────────────
+console.log('\n== _fbMergeByIdNewest: politica de verificaciones VETS ==');
+{
+    const m = ctx._fbMergeByIdNewest;
+    const loc = [{ id: 'PM Pre Filter Temp', level: 'desacreditada', reason: 'sensor', timestamp: '2026-09-02T10:00:00Z' }];
+    const rem = [{ id: 'PM Pre Filter Temp', level: 'importante', reason: '', timestamp: '2026-09-01T10:00:00Z' },
+                 { id: 'CVS Dilution Factor', level: 'informativa', reason: '', timestamp: '2026-09-01T11:00:00Z' }];
+    const r = m(loc, rem, 300);
+    ok('una entrada por verificacion', r.length === 2);
+    ok('gana la clasificacion mas reciente (aunque sea la local)', r.find(x => x.id === 'PM Pre Filter Temp').level === 'desacreditada');
+    ok('la que clasifico otro equipo llega', r.some(x => x.id === 'CVS Dilution Factor'));
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'firebase-sync.js'), 'utf8');
+    ok('la rama panel del pull la fusiona (no la toma entera del remoto)', /pnState\.vetsChecks = _fbMergeByIdNewest\(_localVetsChecks/.test(src));
+}
+
 // ── _fbMergeByIdNewest: la bitacora de turno ───────────────────────────────
 console.log('\n== _fbMergeByIdNewest: bitacora de turno ==');
 {

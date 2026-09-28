@@ -62,6 +62,7 @@ js/
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
+  vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -86,6 +87,7 @@ CHANGELOG.md            ← Detailed changelog
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
 | Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
+| Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -166,7 +168,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -175,7 +177,7 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
 - Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
-  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
+  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `vets*`=Importar VETS, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
   `undo*`=Undo, `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
@@ -2136,6 +2138,53 @@ menos **dejó de ser silencioso**.
 - Los cambios van a la línea de tiempo con la forma `data.modified = [{campo, antes, despues,
   razon}]`, que `histShowTimelineModal` ya pinta como tabla. `campo` es el nombre legible
   (`ALTA_CORR_FIELD_LABELS`); la columna original viaja en `key`.
+
+## 2.5.0 — Importar la prueba de STARS VETS (`js/vets.js`)
+
+- **El `.xlsx` de VETS se lee con un lector propio** (ZIP + `DecompressionStream('deflate-raw')`),
+  no con SheetJS: SheetJS viene de un CDN y la liberación no puede depender de internet. `vetsReadWorkbook(u8, hojas, inflate)` recibe el descompresor inyectado (Node usa
+  `zlib`) y solo lee `VETS_SHEETS`. El archivo pesa ~1 MB; nunca se guarda.
+- **Se lee SIEMPRE por nombre de campo y unidad, nunca por posición.** Las hojas visibles son el
+  reporte y cambian de acomodo entre México y Europa; las ocultas (TestDetails, CycleResults,
+  CustomFields, …) tienen renglón 1 = campo, 2 = unidad, 3+ = datos en los dos. `vetsTable(grid)`
+  busca la columna sin distinguir mayúsculas (STARS escribe `BagNOxRegulated` y
+  `BagNOXRegulated`). **`vetsExtract(sheets)` (PURA) es LA definición** del registro de una prueba.
+- **Gases**: columna `Bag<Gas>Regulated` primero, la cruda después; su unidad es la de la hoja
+  (g/mi, g/km, mg/km). **`vetsGasValue(rec, campo, unidad)` es LA conversión** a la unidad del
+  perfil (`GAS_UNIT_FACTORS`); una unidad desconocida devuelve `null`, nunca un número inventado.
+  El campo del perfil se normaliza (`NMOGNOx` → `NMOGNOX`).
+- **Dinamómetro**: Target ← `Highway.RoadLoadCoefficientA/B/C`, Dyno ← `Dyno.RoadLoadCoefficient*`,
+  ETW ← `Target.EffectiveInertia`; `vetsToSI` pasa lbf, lbf/mph, lbf/mph² y lb a SI (lo que guarda
+  Operación).
+- **El logger OBD (`OBD II Vehicle Info Logger`) escribe cada variable con su propia marca de
+  tiempo** (microsegundos de diferencia dentro de una misma lectura): agrupar por tiempo exacto
+  parte la lectura y pierde el VIN del ECU. Se toma el último valor no vacío de cada variable.
+- **OBFCM: la exactitud es la que calcula VETS** (`OnBoardFuelConsumedAccuracy`, unidad `%`). No
+  recalcularla: el signo de VETS es (medido − OBFCM)/OBFCM y la app no debe reinterpretar la
+  norma por su cuenta. En el ejemplo real vale −0.0256 %, no −2.56 %.
+- **Verificaciones (Limit Checks)**: definición en `PostTestMonitoredLimits`, resultado en las
+  banderas `<Nombre>Pass` de `CycleLimitResults` / `SampleLimitResults`. Los FAIL frecuentes son
+  verificaciones mal configuradas en VETS, así que la app **no decide sola**: `pnState.vetsChecks`
+  (`{id: nombre, level, reason, by, timestamp}`) guarda Importante / Informativa / Desacreditada
+  para todo el laboratorio; el pull del panel la fusiona con `_fbMergeByIdNewest` (gana la más
+  reciente). Clasificar al liberar = `test.release`; cambiarla en Regulaciones = `regulation.manage`.
+- **`vetsBlockers(view, decisiones)` (PURA) es EL candado** del botón y de `vetsApply` (capa de
+  datos): VIN de otra prueba, prueba ya adjunta a otro vehículo, VIN distinto sin justificación,
+  verificación sin clasificar, desacreditar sin motivo, Importante sin justificar.
+- **`vetsApply` NO envía a aprobación ni toca `gasResults`**: llena la captura del liberador en
+  pantalla y los campos de `testData` (dinamómetro, fecha). El liberador firma como siempre; el
+  doble ciego no cambia. Si ya había un valor distinto se queda salvo que el liberador lo marque.
+  Rechaza `pending-approval`/`archived` (para esos está 🔎 Comparar, que no modifica valores).
+- **`vehicle.testData.vets` es un RESUMEN** (< 4 KB, `vetsSummary`): el documento de vehículos
+  tiene tope (2.3.0). La copia completa va a `stations/KIA-EMLAB/vets/{testRef}` con `_fbBkSet`
+  (solo con la sincronización encendida). `loadRelease` precarga la captura desde el resumen con
+  `vetsGasValuesFor` cuando el liberador todavía no tiene valores.
+- **El Test Reference de VETS (`Entity.ID`) acredita a UN vehículo** (`_vetsDuplicate`).
+- `vetsVinCheck(alta, archivo, ecu)` usa `vinCheckDigit` (cop15.js, 2.4.0) cuando no hay ECU.
+- Los fixtures `tests/fixtures/vets-*.json` son las hojas de dos exportaciones reales extraídas
+  con un lector independiente (Python). Un formato nuevo de VETS = agregar su fixture.
+- `.modal-btn-confirm:disabled` por fin tiene estilo: todos los diálogos con botón deshabilitado
+  se veían activos.
 
 ## Working with this project
 

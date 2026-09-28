@@ -1971,6 +1971,8 @@ function copBuildDossierHTML() {
         if (ev.length > 60) html += '<p class="label-title" style="margin-top: var(--space-sm);">Mostrando los 60 eventos más recientes de ' + ev.length + '.</p>';
     }
     html += '</div>';
+    // [2.5.0] OBFCM de la familia, de las pruebas VETS adjuntas (vets.js)
+    if (typeof vetsObfcmCardHTML === 'function') html += vetsObfcmCardHTML(row.key);
     return html;
 }
 
