@@ -326,7 +326,9 @@ function reviewRenderApproval(vehicle) {
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    if (btn) btn.disabled = !r.ok;
+    uiExplainDisabled(btn, r.ok ? '' : r.hard.length
+        ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
+        : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');
     if (box) box.textContent = r.ok ? 'Los cinco bloques están revisados: ya puedes aprobar y firmar.'
         : r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
