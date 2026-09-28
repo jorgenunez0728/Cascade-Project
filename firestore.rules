@@ -34,10 +34,17 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // [2.7.0] Versiones de los límites de regulación: también solo-crear. La
+      // vigente vive en settings/regulations (esa sí se actualiza al publicar).
+      match /regversions/{v} {
+        allow read, create: if isLabUser();
+        allow update, delete: if false;
+      }
+
       // Todo lo demás del laboratorio. Las reglas se SUMAN (basta que una permita),
       // así que el comodín tiene que excluir auditlog o dejaría editarlo.
       match /{col}/{path=**} {
-        allow read, write: if isLabUser() && col != 'auditlog';
+        allow read, write: if isLabUser() && col != 'auditlog' && col != 'regversions';
       }
     }
 

@@ -5415,3 +5415,6 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [2.6.0] Auditoría: integridad y antes/después */
 .audit-integrity-line { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
 .audit-diff { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-2xs); font-size: var(--fs-xs); color: var(--tp-text); }
+
+/* [2.7.0] Aviso en Liberación: límites distintos a los del laboratorio */
+.reg-mismatch { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }

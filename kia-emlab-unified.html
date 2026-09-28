@@ -5856,6 +5856,9 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [2.6.0] Auditoría: integridad y antes/después */
 .audit-integrity-line { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
 .audit-diff { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-2xs); font-size: var(--fs-xs); color: var(--tp-text); }
+
+/* [2.7.0] Aviso en Liberación: límites distintos a los del laboratorio */
+.reg-mismatch { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
     </style>
 </head>
 
@@ -8325,7 +8328,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609281800';
+var APP_BUILD = '202609281816';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8333,7 +8336,7 @@ var APP_BUILD = '202609281800';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.6.0';
+var APP_VERSION = '2.7.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8341,6 +8344,15 @@ var APP_VERSION = '2.6.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.7.0', date: '28 sep 2026', title: 'Todos los equipos juzgan con los mismos límites',
+      bullets: [
+          'Nuevo en Datos → Regulaciones: "Límites compartidos del laboratorio". Un Signatario o Manager publica los límites de su equipo (con motivo) como la versión del laboratorio. Antes cada equipo tenía los suyos y dos equipos podían juzgar el mismo resultado distinto.',
+          'Los demás equipos toman la versión nueva solos, siempre que no tengan cambios propios. Editar un perfil en Regulaciones publica la versión siguiente.',
+          'Si un equipo tiene límites distintos, la tarjeta muestra cada diferencia (laboratorio vs este equipo) y quien administra regulaciones decide: usar los del laboratorio o publicar los de ese equipo. Nunca gana en silencio el último que editó.',
+          'Si dos equipos publican al mismo tiempo, el segundo no pisa al primero: se le pide revisar.',
+          'Liberación avisa si ese equipo no juzga con los límites del laboratorio, y sale la alerta "Regulaciones". La captura congelada del liberador guarda con qué versión coincidía.',
+          'Cada versión queda guardada y en el historial de cambios con el antes y el después.'
+      ] },
     { version: '2.6.0', date: '28 sep 2026', title: 'El historial de cambios ya no se borra ni se puede editar',
       bullets: [
           'Cada cambio se guarda en la nube como un registro propio que no se puede modificar ni borrar, con la hora del servidor. Antes el historial se recortaba a los últimos 90 días y cualquier equipo podía reescribirlo entero.',
@@ -8892,14 +8904,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609281800' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609281816' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609281800' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609281816' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8915,7 +8927,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609281800' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609281816' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9262,7 +9274,11 @@ function loadRegulations() {
         // dispositivos que ya tenían kia_regulations_v1 escrito (la rama de arriba solo
         // corre en un dispositivo virgen). Se agregan los que falten SIN tocar los que
         // el laboratorio ya editó — el perfil guardado siempre gana.
+        // [2.7.0] Con límites compartidos, el conjunto del laboratorio manda: agregar
+        // un default que la versión publicada no tiene haría que este equipo se viera
+        // "distinto" para siempre.
         var _have = {};
+        if (_regulationsData.shared && _regulationsData.shared.version) DEFAULT_REGULATION_PROFILES.forEach(function(d) { _have[String(d.name).trim().toUpperCase()] = true; });
         _regulationsData.profiles.forEach(function(p) {
             if (p && p.name) _have[String(p.name).trim().toUpperCase()] = true;
         });
@@ -9309,6 +9325,126 @@ function getRegulationProfile(regulationName) {
 
 function getAllRegulationProfiles() {
     return loadRegulations().profiles;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.7.0] LÍMITES COMPARTIDOS
+//
+// Antes cada equipo tenía sus propios perfiles (kia_regulations_v1 no se
+// sincronizaba): dos equipos podían juzgar el mismo resultado con límites
+// distintos. Ahora el laboratorio publica una VERSIÓN (settings/regulations +
+// regversions/{n}, solo-crear) y cada equipo se compara contra ella.
+// `_regulationsData.shared = {version, hash, at}` es la versión que este equipo
+// adoptó o publicó por última vez: la base para saber si lo local se editó.
+// Nunca gana "el más reciente" en silencio: si un equipo tiene cambios propios
+// y el laboratorio también, decide quien administra regulaciones.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Forma canónica de los perfiles (lo que define un juicio, sin fechas). PURA. */
+function regProfilesCanonical(profiles) {
+    return (profiles || []).filter(function(p) { return p && p.name; }).map(function(p) {
+        return {
+            name: String(p.name).trim(), shortName: String(p.shortName || p.name).trim(),
+            gases: (p.gases || []).filter(function(g) { return g && g.field; }).map(function(g) {
+                var o = { field: g.field, label: g.label || g.field, unit: g.unit || '',
+                          limit: (g.limit === null || g.limit === undefined || g.limit === '' || !isFinite(Number(g.limit))) ? null : Number(g.limit) };
+                if (g.captureUnit && g.captureUnit !== g.unit) o.captureUnit = g.captureUnit;
+                return o;
+            })
+        };
+    }).sort(function(a, b) { return a.name.toUpperCase() < b.name.toUpperCase() ? -1 : a.name.toUpperCase() > b.name.toUpperCase() ? 1 : 0; });
+}
+
+/** Huella de un conjunto de perfiles. PURA. */
+function regProfilesHash(profiles) {
+    return sha256Hex(stableStringify(regProfilesCanonical(profiles)));
+}
+
+/**
+ * Qué cambia de `from` a `to`, renglón por renglón (empata perfiles por nombre y
+ * gases por campo). PURA. [{profile, kind, field, antes, despues}] con kind:
+ * perfil-nuevo | perfil-quitado | gas-nuevo | gas-quitado | limite | unidad | captura | etiqueta.
+ */
+function regProfilesDiff(from, to) {
+    var A = {}, B = {}, out = [];
+    regProfilesCanonical(from).forEach(function(p) { A[p.name.toUpperCase()] = p; });
+    regProfilesCanonical(to).forEach(function(p) { B[p.name.toUpperCase()] = p; });
+    var lim = function(g) { return g.limit === null ? 'sin límite' : String(g.limit); };
+    Object.keys(A).concat(Object.keys(B).filter(function(k) { return !A[k]; })).sort().forEach(function(k) {
+        var a = A[k], b = B[k];
+        if (!b) { out.push({ profile: a.name, kind: 'perfil-quitado', field: '', antes: a.gases.map(function(g) { return g.field + ' ' + lim(g); }).join(', '), despues: '' }); return; }
+        if (!a) { out.push({ profile: b.name, kind: 'perfil-nuevo', field: '', antes: '', despues: b.gases.map(function(g) { return g.field + ' ' + lim(g); }).join(', ') }); return; }
+        var GA = {}, GB = {};
+        a.gases.forEach(function(g) { GA[g.field] = g; });
+        b.gases.forEach(function(g) { GB[g.field] = g; });
+        Object.keys(GA).concat(Object.keys(GB).filter(function(f) { return !GA[f]; })).forEach(function(f) {
+            var x = GA[f], y = GB[f];
+            if (!y) { out.push({ profile: a.name, kind: 'gas-quitado', field: f, antes: lim(x) + ' ' + x.unit, despues: '' }); return; }
+            if (!x) { out.push({ profile: a.name, kind: 'gas-nuevo', field: f, antes: '', despues: lim(y) + ' ' + y.unit }); return; }
+            if (x.limit !== y.limit) out.push({ profile: a.name, kind: 'limite', field: f, antes: lim(x), despues: lim(y) });
+            if (x.unit !== y.unit) out.push({ profile: a.name, kind: 'unidad', field: f, antes: x.unit, despues: y.unit });
+            if ((x.captureUnit || '') !== (y.captureUnit || '')) out.push({ profile: a.name, kind: 'captura', field: f, antes: x.captureUnit || x.unit, despues: y.captureUnit || y.unit });
+            if (x.label !== y.label) out.push({ profile: a.name, kind: 'etiqueta', field: f, antes: x.label, despues: y.label });
+        });
+    });
+    return out;
+}
+
+/**
+ * Estado de este equipo frente a la versión del laboratorio. PURA.
+ * local = {profiles, shared:{version, hash}}; shared = {version, hash, profiles} | null.
+ *  sin-publicar  · el laboratorio todavía no publica límites
+ *  al-dia        · idénticos a la versión publicada
+ *  atrasado      · sin cambios propios y hay versión nueva → se adopta sola
+ *  cambios-locales · este equipo editó sobre la versión vigente (falta publicar)
+ *  conflicto     · editó sobre una versión vieja y el laboratorio también cambió
+ *  distinto      · nunca se ha conciliado y no coincide
+ */
+function regSyncState(local, shared) {
+    local = local || {};
+    var localHash = regProfilesHash(local.profiles);
+    var base = local.shared || null;
+    var r = { state: '', localHash: localHash, version: shared ? shared.version : 0, baseVersion: base ? base.version : 0,
+              localEdited: !!(base && base.hash !== localHash), diff: [] };
+    if (!shared || !shared.version) { r.state = 'sin-publicar'; return r; }
+    if (shared.hash === localHash) { r.state = 'al-dia'; return r; }
+    r.diff = regProfilesDiff(shared.profiles, local.profiles);   // lo que ESTE equipo tiene distinto
+    if (!base || !base.version) r.state = 'distinto';
+    else if (!r.localEdited && shared.version > base.version) r.state = 'atrasado';
+    else if (r.localEdited && shared.version === base.version) r.state = 'cambios-locales';
+    else if (r.localEdited && shared.version > base.version) r.state = 'conflicto';
+    else r.state = 'distinto';
+    return r;
+}
+
+/** Mapa {perfil·gas: 'límite unidad'} para el antes/después del historial. PURA. */
+function regProfilesLimitMap(profiles) {
+    var o = {};
+    regProfilesCanonical(profiles).forEach(function(p) {
+        p.gases.forEach(function(g) { o[p.name + ' · ' + g.field] = (g.limit === null ? 'sin límite' : g.limit) + ' ' + g.unit; });
+    });
+    return o;
+}
+
+/**
+ * Este equipo toma la versión del laboratorio. Conserva `migr` (guardas locales) y
+ * deja constancia en el historial con el antes y el después.
+ */
+function regAdoptShared(shared, why) {
+    var data = loadRegulations();
+    var antes = regProfilesLimitMap(data.profiles);
+    var diff = regProfilesDiff(data.profiles, shared.profiles);
+    data.profiles = JSON.parse(JSON.stringify(shared.profiles));
+    data.shared = { version: shared.version, hash: shared.hash, at: new Date().toISOString() };
+    saveRegulations();
+    if (typeof auditLog === 'function') {
+        auditLog('regulations', 'regulacion_sincronizada', { type: 'regulation', label: 'versión ' + shared.version },
+            (why || 'Se adoptó la versión ' + shared.version + ' del laboratorio') + (diff.length ? ' · ' + diff.length + ' cambio(s)' : ' · sin cambios'),
+            { before: antes, after: regProfilesLimitMap(shared.profiles) });
+    }
+    if (typeof copInvalidateCache === 'function') { try { copInvalidateCache(); } catch (e) {} }
+    try { window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'regulations' } })); } catch (e) {}
+    return diff;
 }
 
 let activeVehicleId = null;
@@ -19278,8 +19414,19 @@ function _libGasProfileSnapshot(profile, regName) {
             if (g.captureUnit) o.captureUnit = g.captureUnit;
             return o;
         }),
-        frozenAt: new Date().toISOString()
+        frozenAt: new Date().toISOString(),
+        // [2.7.0] Con qué versión de los límites del laboratorio coincidía (null = distintos o sin publicar).
+        labVersion: _libLabVersionNow()
     };
+}
+
+function _libLabVersionNow() {
+    try {
+        if (typeof fbRegCachedShared !== 'function' || typeof regSyncState !== 'function') return null;
+        var c = fbRegCachedShared();
+        if (!c || !c.shared) return null;
+        return regSyncState(loadRegulations(), c.shared).state === 'al-dia' ? c.shared.version : null;
+    } catch (e) { return null; }
 }
 
 /**
@@ -19779,6 +19926,8 @@ function loadRelease() {
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
+        // [2.7.0] Este equipo no juzga con los límites publicados por el laboratorio.
+        if (_gasEl && typeof pnRegMismatchHTML === 'function') { var _rm = pnRegMismatchHTML(); if (_rm) _gasEl.insertAdjacentHTML('afterbegin', _rm); }
         // Si el aprobador lo devolvió, el liberador tiene que ver POR QUÉ antes de
         // volver a teclear — si no, repite el mismo error.
         if (_gasEl && vehicle.pendingReturn) {
@@ -43373,6 +43522,9 @@ function pnSwitchTab(tabId) {
     // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
     // estático de pn-system, que no pasa por pnRender.
     if (tabId === 'pn-system') pnDensityRenderChoices();
+    // [2.7.0] La pestaña de Regulaciones se conserva en caché al volver: sin esto la
+    // tarjeta de límites compartidos mostraría la versión de la visita anterior.
+    if (tabId === 'pn-regulations') setTimeout(function() { _pnRegSharedPaint(null); pnRegSharedRefresh(); }, 60);
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -45417,6 +45569,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
+    { key: 'kia_regulations_shared', label: 'Regulaciones: última versión del laboratorio', tier: 'cache' },   // [2.7.0]
     { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
@@ -46948,6 +47101,9 @@ function pnRenderRegulations(el) {
     html += '<h3 style="margin:0;font-size:14px;">⚗️ Perfiles de Regulación de Emisiones</h3>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">+ Agregar Regulación</button>';
     html += '</div>';
+    // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
+    // refresca contra la nube al abrir.
+    html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
     if (typeof vetsPolicyCardHTML === 'function') html += vetsPolicyCardHTML();
 
@@ -46988,6 +47144,151 @@ function pnRenderRegulations(el) {
     }
     html += '</div>';
     el.innerHTML = html;
+    pnRegSharedRefresh();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.7.0] Tarjeta "Límites compartidos del laboratorio"
+// ══════════════════════════════════════════════════════════════════════
+var _pnRegLive = null;   // {state…, shared} de la última consulta en esta sesión, o {error}
+
+var PN_REG_DIFF_KIND = {
+    'perfil-nuevo': 'solo en este equipo', 'perfil-quitado': 'solo en el laboratorio', 'gas-nuevo': 'gas solo en este equipo',
+    'gas-quitado': 'gas solo en el laboratorio', limite: 'límite', unidad: 'unidad', captura: 'unidad de captura', etiqueta: 'nombre del gas'
+};
+
+/** Diferencias en una tabla (laboratorio → este equipo). */
+function pnRegDiffTableHTML(diff) {
+    if (!diff || !diff.length) return '';
+    var h = '<table class="u-cards" style="width:100%;font-size:var(--fs-xs);border-collapse:collapse;margin-top:var(--space-xs);"><thead><tr>' +
+        ['Regulación', 'Qué', 'Laboratorio', 'Este equipo'].map(function(t) { return '<th style="text-align:left;padding:var(--space-2xs) var(--space-sm);">' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
+    diff.slice(0, 40).forEach(function(d) {
+        h += '<tr><td style="padding:var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(d.profile) + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);">' + escapeHtml((PN_REG_DIFF_KIND[d.kind] || d.kind) + (d.field ? ' · ' + d.field : '')) + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);">' + escapeHtml(d.antes || '—') + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);font-weight:700;">' + escapeHtml(d.despues || '—') + '</td></tr>';
+    });
+    if (diff.length > 40) h += '<tr><td colspan="4" class="u-muted" style="padding:var(--space-2xs) var(--space-sm);">… y ' + (diff.length - 40) + ' más</td></tr>';
+    return h + '</tbody></table>';
+}
+
+/** Tarjeta de estado. `live` = resultado de fbRegCheck (o null: se usa lo último visto). */
+function pnRegSharedCardHTML(live) {
+    var syncOn = typeof fbSync !== 'undefined' && fbSync.enabled;
+    var can = typeof authCan === 'function' ? authCan('regulation.manage') : true;
+    var h = '<div class="tp-card" style="margin-bottom:var(--space-md);">' +
+        '<div style="font-weight:700;font-size:var(--fs-sm);" data-help="reg_compartidos">🔗 Límites compartidos del laboratorio</div>';
+    var body = '';
+    if (!syncOn) {
+        body = '<div class="u-muted">La sincronización está apagada en este equipo: usa sus propios límites y no se puede comparar con los del laboratorio.</div>';
+        return h + '<div style="font-size:var(--fs-sm);margin-top:var(--space-xs);line-height:var(--lh-base);">' + body + '</div></div>';
+    }
+    var st = live;
+    if (!st) {
+        var c = typeof fbRegCachedShared === 'function' ? fbRegCachedShared() : null;
+        if (c) { st = regSyncState(loadRegulations(), c.shared); st.shared = c.shared; st.cached = c.at; }
+    }
+    if (!st) body = '<div class="u-muted">Consultando la nube…</div>';
+    else if (st.error) body = '<div class="u-muted">No se pudo consultar la nube (' + escapeHtml(st.error) + '). Se muestra lo último visto.</div>';
+    else {
+        var sh = st.shared, quien = sh ? (sh.publishedBy || '?') + ' · ' + String(sh.publishedAt || '').slice(0, 10) + (sh.note ? ' · ' + escapeHtml(sh.note) : '') : '';
+        var btn = function(label, onclick, primary) {
+            return can ? '<button type="button" class="tp-btn' + (primary ? ' tp-btn-primary' : '') + '" onclick="' + onclick + '">' + label + '</button>' : '';
+        };
+        var nadie = can ? '' : '<div class="u-muted" style="margin-top:var(--space-xs);">Pide a quien administra regulaciones (Signatario o Manager) que lo resuelva.</div>';
+        if (st.state === 'sin-publicar') {
+            body = 'El laboratorio todavía no publica sus límites: <b>cada equipo usa los suyos</b> y dos equipos pueden juzgar el mismo resultado distinto.' +
+                '<div style="margin-top:var(--space-xs);">' + btn('Publicar los límites de este equipo como los del laboratorio', 'pnRegPublishUI(\'primera\')', true) + '</div>' + nadie;
+        } else if (st.state === 'al-dia') {
+            body = '✓ Este equipo usa la <b>versión ' + sh.version + '</b> del laboratorio <span class="u-muted">(' + quien + ')</span>.';
+        } else if (st.state === 'cambios-locales') {
+            body = '⚠️ Este equipo tiene cambios <b>sin publicar</b> sobre la versión ' + sh.version + ':' + pnRegDiffTableHTML(st.diff) +
+                '<div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);margin-top:var(--space-sm);">' +
+                btn('Publicar como versión ' + (sh.version + 1), 'pnRegPublishUI(\'cambios\')', true) + btn('Descartar y usar la del laboratorio', 'pnRegAdoptUI()') + '</div>' + nadie;
+        } else {
+            body = '⚠️ Este equipo usa límites <b>distintos</b> a la versión ' + sh.version + ' del laboratorio <span class="u-muted">(' + quien + ')</span>' +
+                (st.state === 'conflicto' ? ', y los dos cambiaron desde la última vez que coincidieron' : '') + '.' + pnRegDiffTableHTML(st.diff) +
+                '<div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);margin-top:var(--space-sm);">' +
+                btn('Usar los del laboratorio', 'pnRegAdoptUI()', true) + btn('Publicar los de este equipo como versión ' + (sh.version + 1), 'pnRegPublishUI(\'reemplazar\')') + '</div>' + nadie;
+        }
+        if (st.cached && !live) body += '<div class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);">Última consulta: ' + escapeHtml(String(st.cached).slice(0, 16).replace('T', ' ')) + '</div>';
+    }
+    return h + '<div style="font-size:var(--fs-sm);margin-top:var(--space-xs);line-height:var(--lh-base);">' + body + '</div></div>';
+}
+
+function _pnRegSharedPaint(live) {
+    var el = document.getElementById('reg-shared-card');
+    if (el) el.innerHTML = pnRegSharedCardHTML(live);
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+function pnRegSharedRefresh() {
+    if (typeof fbRegCheck !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return Promise.resolve(null);
+    return fbRegCheck().then(function(st) { _pnRegLive = st; _pnRegSharedPaint(st); return st; },
+        function(e) { var st = { error: (typeof _fbBkErrText === 'function' ? _fbBkErrText(e) : e && e.message) }; _pnRegSharedPaint(st); return st; });
+}
+
+/** mode: primera | cambios | reemplazar. Pide motivo; reemplazar confirma mostrando qué se pierde. */
+function pnRegPublishUI(mode) {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'publicar los límites del laboratorio')) return Promise.resolve();
+    var ask = function() {
+        return uiPrompt({ title: mode === 'primera' ? 'Publicar límites del laboratorio' : 'Publicar nueva versión',
+            label: 'Motivo o referencia (procedimiento, oficio, revisión)', placeholder: 'Ej.: COP15 rev. 04 — NOx EURO-5 a 0.06', required: true });
+    };
+    var go = function(override) {
+        return ask().then(function(note) {
+            if (note === null) return;
+            if (String(note).length < 5) { showToast('Escribe un motivo de al menos 5 caracteres.', 'warning'); return; }
+            return fbRegPublish(note, { override: override }).then(function(r) {
+                showToast(r.ok ? (r.nada ? 'Ya coincide con la versión del laboratorio.' : 'Publicada la versión ' + r.version + ' de los límites del laboratorio.') : r.reason, r.ok ? 'success' : 'error', 8000);
+                return pnRegSharedRefresh();
+            });
+        });
+    };
+    if (mode !== 'reemplazar') return go(false);
+    var st = _pnRegLive || {};
+    return new Promise(function(resolve) {
+        showConfirm('Los límites de ESTE equipo reemplazarán a la versión ' + ((st.shared || {}).version || '') + ' del laboratorio para todos los equipos (' +
+            (st.diff || []).length + ' diferencia(s)). Queda en el historial con el antes y el después.', function() { resolve(go(true)); },
+            { title: 'Reemplazar los límites del laboratorio', type: 'warning', confirmText: 'Continuar' });
+    });
+}
+
+function pnRegAdoptUI() {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'cambiar los límites de este equipo')) return Promise.resolve();
+    var st = _pnRegLive;
+    if (!st || !st.shared) { showToast('Primero consulta la nube (vuelve a abrir Regulaciones).', 'warning'); return Promise.resolve(); }
+    return new Promise(function(resolve) {
+        showConfirm('Este equipo tomará la versión ' + st.shared.version + ' del laboratorio y dejará sus ' + (st.diff || []).length +
+            ' diferencia(s). Queda en el historial con el antes y el después.', function() {
+            regAdoptShared(st.shared, 'Un administrador adoptó la versión ' + st.shared.version + ' del laboratorio');
+            showToast('Este equipo ya usa la versión ' + st.shared.version + ' del laboratorio.', 'success');
+            if (typeof pnRender === 'function') pnRender();
+            resolve();
+        }, { title: 'Usar los límites del laboratorio', type: 'warning', confirmText: 'Usar los del laboratorio' });
+    });
+}
+
+/** Tras editar o borrar un perfil: si el laboratorio ya comparte límites, publicar la edición. */
+function pnRegAfterLocalEdit(label) {
+    var data = loadRegulations();
+    if (!data.shared || !data.shared.version || typeof fbRegPublish !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return;
+    fbRegPublish('Editado en Regulaciones: ' + label).then(function(r) {
+        if (r.ok && !r.nada) showToast('Publicado para todo el laboratorio como versión ' + r.version + '.', 'success');
+        else if (!r.ok) showToast('Guardado en este equipo, pero NO se publicó: ' + r.reason + ' Resuélvelo en la tarjeta de límites compartidos.', 'warning', 10000);
+        pnRegSharedRefresh();
+    });
+}
+
+/** Aviso para Liberación cuando este equipo no juzga con los límites del laboratorio. */
+function pnRegMismatchHTML() {
+    if (typeof fbSync === 'undefined' || !fbSync.enabled || typeof fbRegCachedShared !== 'function') return '';
+    var c = fbRegCachedShared();
+    if (!c || !c.shared) return '';
+    var st = regSyncState(loadRegulations(), c.shared);
+    if (st.state === 'al-dia' || st.state === 'sin-publicar' || st.state === 'atrasado') return '';
+    return '<div class="reg-mismatch">⚠️ Los límites de este equipo no son los de la versión ' + c.shared.version +
+        ' del laboratorio (' + st.diff.length + ' diferencia(s)). Revisa Datos → Regulaciones antes de liberar.</div>';
 }
 
 // [2.1.0] Los perfiles de regulación son los LÍMITES contra los que se decide PASA/FALLA.
@@ -47033,6 +47334,7 @@ function pnRegDelete(id) {
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
+        pnRegAfterLocalEdit('se eliminó ' + profile.name);
     }, { title: 'Eliminar Perfil', type: 'danger', confirmText: 'Eliminar' });
 }
 
@@ -47111,6 +47413,7 @@ function _pnRegShowModal(profile) {
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
                 showToast(isNew ? 'Perfil creado' : 'Perfil actualizado', 'success');
+                pnRegAfterLocalEdit((isNew ? 'nuevo perfil ' : '') + name);
             }}
         ]
     });
@@ -47419,6 +47722,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'reg_compartidos': { title: 'Límites compartidos', text: 'Los límites contra los que se juzga cada resultado son los mismos en todos los equipos. Quien administra regulaciones publica una versión (con motivo); los demás equipos la toman solos si no tienen cambios propios. Si un equipo tiene límites distintos, se muestran las diferencias y un Signatario o Manager decide: usar los del laboratorio o publicar los de ese equipo como versión nueva. Nunca gana en silencio el último que editó. Cada versión queda guardada y en el historial de cambios con el antes y el después.' },
     'pn-audit-integrity': { title: 'Integridad del historial', text: 'Desde 2.6.0 cada cambio se guarda en la nube como un registro que no se puede modificar ni borrar, con la hora del servidor. Cada equipo numera sus registros y cada uno lleva la huella del anterior: si falta uno, o alguien edita uno ya escrito, aquí aparece el aviso. "Buscar en la nube" consulta la historia completa, también la de hace más de 90 días.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
@@ -51260,6 +51564,17 @@ function fbSyncAlerts() {
                 source: 'Sincronización' });
         });
     } catch (e) {}
+    // [2.7.0] Este equipo juzga con límites distintos a los publicados por el laboratorio.
+    try {
+        var rc = (syncOn && typeof fbRegCachedShared === 'function') ? fbRegCachedShared() : null;
+        if (rc && rc.shared && typeof regSyncState === 'function') {
+            var rs = regSyncState(loadRegulations(), rc.shared);
+            if (rs.state === 'distinto' || rs.state === 'conflicto' || rs.state === 'cambios-locales') {
+                out.push({ level: 'ALTA', color: '#f59e0b', source: 'Regulaciones',
+                    message: 'Los límites de este equipo no son los de la versión ' + rc.shared.version + ' del laboratorio (' + rs.diff.length + ' diferencia(s)) — ver Datos → Regulaciones' });
+            }
+        }
+    } catch (e) {}
     // [2.6.0] Eventos del historial que llevan más de un día sin llegar a la nube.
     try {
         var as = syncOn ? fbAuditStatus() : null;
@@ -52885,6 +53200,8 @@ function fbPullApply(collections, results, showFeedback) {
     fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
     // [2.6.0] Historial permanente: subir la bandeja y traer lo de los demás equipos.
     if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
+    // [2.7.0] Límites compartidos: adoptar la versión nueva si este equipo no tiene cambios propios.
+    if (typeof fbRegCheck === 'function') setTimeout(function() { fbRegCheck().catch(function() {}); }, 2500);
     fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
@@ -54743,7 +55060,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609281800' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609281816' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -56475,6 +56792,127 @@ function fbAuditStatus() {
     var oldest = box.length ? box.reduce(function(m, e) { return (!m || e.ts < m) ? e.ts : m; }, '') : '';
     return { pending: box.length, oldest: oldest, lastFlush: fbSync.auditLastFlush || '', lastError: fbSync.auditLastError || '',
              enabled: !!(fbSync.enabled && fbSyncModules.audit) };
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.7.0] LÍMITES COMPARTIDOS — settings/regulations + regversions/{n}║
+// ║  La versión vigente vive en settings/regulations; cada publicación   ║
+// ║  CREA regversions/{n} en el mismo commit (precondición "no existe"): ║
+// ║  si dos equipos publican la misma versión a la vez, el segundo falla ║
+// ║  y se le pide revisar, en vez de pisar al primero.                   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_REG_SHARED_KEY = 'kia_regulations_shared';
+
+function _fbStationDocName(path) {
+    return 'projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' + _fbAuditStation() + '/' + path;
+}
+
+/** Documento de Firestore → versión compartida. PURA. */
+function fbRegParseShared(obj) {
+    if (!obj || !obj.version) return null;
+    var profiles = [];
+    try { profiles = typeof obj.profiles === 'string' ? JSON.parse(obj.profiles) : (obj.profiles || []); } catch (e) { profiles = []; }
+    return { version: Number(obj.version), hash: obj.hash || '', profiles: profiles, publishedBy: obj.publishedBy || '',
+             publishedAt: obj.publishedAt || '', note: obj.note || '', device: obj.device || '' };
+}
+
+/** Escrituras para publicar la versión n. PURA. */
+function fbRegPublishWrites(n, profiles, meta, docNameFn) {
+    var fields = {
+        version: fbToFirestoreValue(n), hash: fbToFirestoreValue(regProfilesHash(profiles)),
+        profiles: fbToFirestoreValue(JSON.stringify(regProfilesCanonical(profiles))),
+        publishedBy: fbToFirestoreValue(meta.by || ''), publishedAt: fbToFirestoreValue(meta.at || ''),
+        note: fbToFirestoreValue(meta.note || ''), device: fbToFirestoreValue(meta.device || '')
+    };
+    return [
+        { update: { name: docNameFn('regversions/v' + n), fields: fields }, currentDocument: { exists: false },
+          updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] },
+        { update: { name: docNameFn('settings/regulations'), fields: fields },
+          updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] }
+    ];
+}
+
+/** Lee la versión vigente del laboratorio. Resuelve la versión o null (nunca publicada). */
+function fbRegFetchShared() {
+    if (!fbSync.enabled || typeof fetch === 'undefined') return Promise.reject(new Error('La sincronización está apagada en este equipo.'));
+    return _fbBugsRestSend('GET', 'settings/regulations').then(function(doc) {
+        fbQuotaRecord('read');
+        var sh = fbRegParseShared(_fbBugsRestDocToObj(doc));
+        try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: sh, at: new Date().toISOString() })); } catch (e) {}
+        return sh;
+    }, function(err) {
+        if (_fbBkIsNotFound(err)) {
+            try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: null, at: new Date().toISOString() })); } catch (e) {}
+            return null;
+        }
+        throw err;
+    });
+}
+
+/** Última versión vista (sin red): {shared, at} o null si nunca se consultó. */
+function fbRegCachedShared() {
+    try { return JSON.parse(localStorage.getItem(FB_REG_SHARED_KEY)) || null; } catch (e) { return null; }
+}
+
+/**
+ * Compara con el laboratorio y, si este equipo no tiene cambios propios y hay versión
+ * nueva, la adopta solo. Resuelve el estado (regSyncState) + la versión compartida.
+ */
+function fbRegCheck(opts) {
+    opts = opts || {};
+    return fbRegFetchShared().then(function(sh) {
+        var st = regSyncState(loadRegulations(), sh);
+        if (st.state === 'atrasado') {
+            var d = regAdoptShared(sh, 'Actualizado a la versión ' + sh.version + ' del laboratorio');
+            if (!opts.quiet && typeof showToast === 'function') {
+                showToast('Límites de regulación actualizados a la versión ' + sh.version + ' del laboratorio (' + d.length + ' cambio(s)).', 'info', 7000);
+            }
+            st = regSyncState(loadRegulations(), sh);
+        }
+        st.shared = sh;
+        return st;
+    });
+}
+
+/**
+ * Publica los límites de ESTE equipo como la versión siguiente del laboratorio.
+ * Se niega si otro equipo publicó entre la consulta y el commit (la versión n ya existe).
+ */
+function fbRegPublish(note, opts) {
+    opts = opts || {};
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'publicar los límites del laboratorio')) {
+        return Promise.resolve({ ok: false, reason: 'Tu rol no puede publicar límites.' });
+    }
+    return fbRegFetchShared().then(function(sh) {
+        var data = loadRegulations();
+        var st = regSyncState(data, sh);
+        if (st.state === 'al-dia') return { ok: true, version: sh.version, nada: true };
+        if ((st.state === 'conflicto' || st.state === 'distinto') && !opts.override) {
+            return { ok: false, state: st.state, reason: 'El laboratorio tiene otra versión: revisa las diferencias antes de publicar.' };
+        }
+        var n = (sh ? sh.version : 0) + 1;
+        var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+        var meta = { by: who, at: new Date().toISOString(), note: note || '', device: (typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '') };
+        return _fbAuditCommit(fbRegPublishWrites(n, data.profiles, meta, _fbStationDocName)).then(function() {
+            data.shared = { version: n, hash: regProfilesHash(data.profiles), at: meta.at };
+            saveRegulations();
+            var nuevo = { version: n, hash: data.shared.hash, profiles: regProfilesCanonical(data.profiles), publishedBy: who, publishedAt: meta.at, note: meta.note };
+            try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: nuevo, at: meta.at })); } catch (e) {}
+            if (typeof auditLog === 'function') {
+                auditLog('regulations', 'regulacion_publicada', { type: 'regulation', label: 'versión ' + n },
+                    'Límites publicados como versión ' + n + ' del laboratorio' + (note ? ' · ' + note : '') +
+                    (sh ? ' · ' + regProfilesDiff(sh.profiles, data.profiles).length + ' cambio(s) sobre la versión ' + sh.version : ' · primera versión'),
+                    { before: sh ? regProfilesLimitMap(sh.profiles) : null, after: regProfilesLimitMap(data.profiles) });
+            }
+            return { ok: true, version: n };
+        }, function(err) {
+            if (_fbAuditAlreadyThere(err)) return { ok: false, reason: 'Otro equipo publicó la versión ' + n + ' en este momento. Vuelve a abrir Regulaciones y revisa las diferencias.' };
+            return { ok: false, reason: 'No se pudo publicar: ' + _fbBkErrText(err) };
+        });
+    }, function(err) {
+        return { ok: false, reason: 'No se pudo consultar la nube: ' + _fbBkErrText(err) };
+    });
 }
 
 
