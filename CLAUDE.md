@@ -2332,6 +2332,21 @@ menos **dejó de ser silencioso**.
   cadena cruda: la cola `kia_bug_queue` tiene tope. Los pasos previos (`window._bugCrumbs`) son
   solo la etiqueta del botón, con VINs enmascarados — **nunca valores de un campo**.
 
+## 2.11.0 — Bienvenida sin parpadeo (`js/app.js`, `js/auth.js`, `index.html`)
+
+- **`#auth-overlay` es la bienvenida Y el acceso**, visible desde el HTML (nunca se crea con JS:
+  mientras el teléfono lee 3 MB de JS, lo que no está en el HTML no existe y se veía la app cruda).
+  **Nunca volver a tocar `overlay.style.display`**: todo pasa por **`bootStage(etapa, info)`**
+  (`arranque → pin → entrando → lista`; `bootStageAllowed` es PURA). Un `style` en línea le
+  ganaría a las clases `is-leaving`/`is-gone`.
+- Todo camino que termina en sesión pasa a `entrando` y el que termina de inicializar a `lista`.
+  Algo nuevo que pida el PIN (bloqueo, cambio de usuario) llama `authShowLogin()`, que pasa a `pin`.
+- **Una barra con % no se repinta mientras la inicialización ocupa el hilo**: la de la bienvenida
+  es indeterminada y se mueve con `transform` (compositor). No volver a una barra de porcentaje.
+- La salida se retira en `transitionend`, nunca con un reloj fijo (en un teléfono ocupado el reloj
+  gana a la transición y el fundido se vuelve un corte).
+- `manifest.json` `background_color` = `--bg`: es la pantalla nativa con la que Android abre la PWA.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

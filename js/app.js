@@ -389,7 +389,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.10.0';
+var APP_VERSION = '2.11.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -397,6 +397,14 @@ var APP_VERSION = '2.10.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.11.0', date: '28 sep 2026', title: 'Una bienvenida sin parpadeo',
+      bullets: [
+          'Al abrir ya no se ve la app "cruda" unos segundos, ni un fondo oscuro que luego salta a la pantalla del PIN. Desde el primer instante se ve la bienvenida (logo + barra), en los mismos colores claros del acceso.',
+          'La pantalla del PIN aparece en la misma tarjeta, sin cambiar de pantalla.',
+          'Al entrar dice "Bienvenido, Ana" mientras se prepara la app, y después la app aparece con un fundido suave. Ya no sale el aviso "Bienvenido" arriba.',
+          'Con sesión abierta, la bienvenida pasa directo a la app.',
+          'En la app instalada en Android, la pantalla con la que abre ya es clara (antes era azul marino).'
+      ] },
     { version: '2.10.0', date: '28 sep 2026', title: 'Si algo falla, se dice — y el reporte trae el código',
       bullets: [
           'Nuevo: si algo falla justo después de tocar un botón, aparece "Algo falló al hacer eso" con el botón Reportar. Antes no pasaba nada visible y parecía que el botón no servía.',
@@ -5518,8 +5526,16 @@ function storageFreeBytes() {
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }
 
-        // [R5-M1] Splash screen
-        if (typeof splashShow === 'function') splashShow();
+        // [2.11.0] La bienvenida ya está en pantalla desde el HTML (#auth-overlay).
+        // Red de seguridad: este temporizador corre en cuanto initializeSystem termina
+        // O TRUENA a medias (es síncrona). Si para entonces hay sesión y no se llegó a
+        // `lista`, se abre la app igual: una bienvenida pegada para siempre sería peor.
+        setTimeout(function() {
+            try {
+                var st = bootStageNow();
+                if (typeof authState !== 'undefined' && authState.sessionActive && st !== 'lista' && st !== 'pin') bootStage('lista');
+            } catch (e) {}
+        }, 0);
 
         // Auth gate — must be authenticated before initializing
         try {
@@ -5527,12 +5543,13 @@ function storageFreeBytes() {
             if (!authState.sessionActive) {
                 if (typeof pnInit === 'function' && (!pnState || pnState.operators.length === 0)) pnInit();
                 authInit();
-                if (!authState.sessionActive) { if (typeof splashHide === 'function') splashHide(); return; }
+                // Sin sesión: authInit ya pasó la bienvenida a la etapa `pin`.
+                if (!authState.sessionActive) return;
             }
         }
         } catch(e) { console.error('auth error:', e); }
 
-        if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
+        bootProgress('Cargando configuraciones…');
         try { parseCSV(); } catch(e) { console.error('parseCSV error:', e); }
         try { populateOperators(); } catch(e) { console.error('populateOperators error:', e); }
         try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { console.error('op picker error:', e); }
@@ -5590,7 +5607,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 	try { initStatusPrevValue(); } catch(e) {}
 
         // ═══ Init Test Plan Manager ═══
-        if (typeof splashUpdate === 'function') splashUpdate('Iniciando módulos...', 50);
+        bootProgress('Iniciando módulos…');
         try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
@@ -5614,7 +5631,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); } } catch(e) {}
 
         // ═══ Restore Soak Timer if running ═══
-        if (typeof splashUpdate === 'function') splashUpdate('Restaurando estado...', 80);
+        bootProgress('Restaurando tu pantalla…');
         try { if (typeof soakTimerRestore === 'function') soakTimerRestore(); } catch(e) {}
 
         // ═══ Firebase Cloud Sync (optional) ═══
@@ -5724,9 +5741,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (typeof bugFabInit === 'function') bugFabInit();
         } catch(bugErr) { console.error('bugFabInit error:', bugErr); }
 
-        // [R5-M1] Finalize splash
-        if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
-        setTimeout(function() { if (typeof splashHide === 'function') splashHide(); }, 400);
+        // [2.11.0] La app ya está armada: la bienvenida se desvanece.
+        bootStage('lista');
 
         // [R5-M1] Restore immersive mode if previously active
         if (localStorage.getItem('kia_immersive_prefs') === '1') {
@@ -7687,38 +7703,104 @@ document.addEventListener('fullscreenchange', function() {
     }
 });
 
-// ── Splash Screen ──
-function splashShow() {
-    var splash = document.getElementById('splash-screen');
-    if (!splash) {
-        splash = document.createElement('div');
-        splash.id = 'splash-screen';
-        splash.className = 'splash-screen';
-        splash.innerHTML =
-            '<div class="splash-content">' +
-            '<div class="splash-logo">KIA</div>' +
-            '<div class="splash-subtitle">Laboratorio de Emisiones</div>' +
-            '<div class="splash-bar-track"><div class="splash-bar-fill" id="splash-progress"></div></div>' +
-            '<div class="splash-status" id="splash-status">Iniciando...</div>' +
-            '</div>';
-        document.body.appendChild(splash);
+// ══════════════════════════════════════════════════════════════════════
+// [2.11.0] BIENVENIDA — una sola superficie que cambia de etapa
+//
+// Antes, al abrir sin sesión pasaban CUATRO pantallas en menos de un segundo: la app
+// cruda (el splash no existía hasta DOMContentLoaded), un splash azul marino, el PIN
+// claro apareciendo debajo mientras el oscuro se desenfocaba, y tras el PIN la app a
+// medio armar (el segundo splash conservaba `splash-exit` y se iba solo).
+//
+// Ahora #auth-overlay existe desde el HTML y `bootStage` es LA máquina de estados:
+//   arranque → pin → entrando → lista
+// Solo avanza; volver a `pin` es explícito (bloqueo por inactividad, cerrar sesión,
+// sesión revocada). `arranque` no se repite.
+// ══════════════════════════════════════════════════════════════════════
+var BOOT_STAGES = ['arranque', 'pin', 'entrando', 'lista'];
+var _bootStage = 'arranque';
+var _bootLeaveTimer = null;
+
+/** ¿Se permite pasar de `cur` a `next`? PURA. */
+function bootStageAllowed(cur, next) {
+    var a = BOOT_STAGES.indexOf(cur), b = BOOT_STAGES.indexOf(next);
+    if (a < 0 || b < 0) return false;
+    if (next === 'pin') return true;          // bloquear/cerrar sesión: desde cualquier etapa
+    if (next === 'arranque') return false;    // el arranque ocurre una sola vez
+    return b >= a;
+}
+
+function _bootShell(innerHTML) {
+    return '<div class="auth-shell">' +
+        '<div class="auth-brand">' +
+            '<div class="auth-brand-mark">🔬</div>' +
+            '<h1 class="auth-brand-name">KIA EmLab</h1>' +
+            '<div class="auth-brand-sub">Laboratorio de Emisiones</div>' +
+        '</div>' + (innerHTML || '') + '</div>';
+}
+function _bootProgressHTML(msg) {
+    return '<div class="boot-progress" role="status" aria-live="polite">' +
+        '<div class="boot-bar" aria-hidden="true"><div class="boot-bar-fill"></div></div>' +
+        '<div class="boot-msg" id="boot-msg">' + escapeHtml(msg || '') + '</div></div>';
+}
+
+/**
+ * Cambia de etapa. `info` según la etapa: en `entrando`, el nombre de quien entra.
+ * Devuelve false si el cambio no está permitido (y no hace nada).
+ */
+function bootStage(stage, info) {
+    if (!bootStageAllowed(_bootStage, stage)) return false;
+    var prev = _bootStage;
+    _bootStage = stage;
+    var ov = document.getElementById('auth-overlay');
+    if (ov) ov.setAttribute('data-stage', stage);
+    if (stage !== 'lista' && ov) {
+        if (_bootLeaveTimer) { clearTimeout(_bootLeaveTimer); _bootLeaveTimer = null; }
+        ov.classList.remove('is-gone', 'is-leaving');
     }
-    splash.style.display = 'flex';
+    if (stage === 'entrando') {
+        var content = document.getElementById('auth-content');
+        if (content) content.innerHTML = _bootShell(
+            '<div class="auth-greeting">Bienvenido' + (info ? ', ' + escapeHtml(String(info).split(' ')[0]) : '') + '</div>' +
+            _bootProgressHTML('Preparando tu día…'));
+    }
+    if (stage === 'lista') {
+        document.documentElement.classList.remove('booting');
+        if (ov && prev !== 'lista') {
+            // La salida arranca DESPUÉS de un cuadro pintado y el overlay se retira al
+            // terminar la transición. Con un reloj fijo, en un teléfono ocupado el
+            // `display:none` llegaba antes de que la transición empezara: corte seco.
+            var gone = function() {
+                if (_bootLeaveTimer) { clearTimeout(_bootLeaveTimer); _bootLeaveTimer = null; }
+                ov.removeEventListener('transitionend', onEnd);
+                if (_bootStage === 'lista') { ov.classList.add('is-gone'); ov.classList.remove('is-leaving'); }
+            };
+            var onEnd = function(e) { if (e.target === ov && e.propertyName === 'opacity') gone(); };
+            var leave = function() {
+                if (_bootStage !== 'lista') return;
+                ov.addEventListener('transitionend', onEnd);
+                ov.classList.add('is-leaving');
+                _bootLeaveTimer = setTimeout(gone, 1500);   // respaldo si transitionend no llega
+                var sec = document.querySelector('.platform-section.active');
+                if (sec) {
+                    sec.classList.add('boot-reveal');
+                    setTimeout(function() { sec.classList.remove('boot-reveal'); }, 600);
+                }
+            };
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function() { requestAnimationFrame(leave); });
+            else leave();
+        }
+    }
+    return true;
 }
 
-function splashUpdate(msg, pct) {
-    var statusEl = document.getElementById('splash-status');
-    var progressEl = document.getElementById('splash-progress');
-    if (statusEl) statusEl.textContent = msg;
-    if (progressEl) progressEl.style.width = pct + '%';
+/** Texto de lo que se está haciendo (se ve en cuanto el hilo principal se libera). */
+function bootProgress(msg) {
+    var el = document.getElementById('boot-msg');
+    if (el && msg) el.textContent = msg;
 }
 
-function splashHide() {
-    var splash = document.getElementById('splash-screen');
-    if (!splash) return;
-    splash.classList.add('splash-exit');
-    setTimeout(function() { splash.style.display = 'none'; }, 500);
-}
+/** Etapa actual (para pruebas y para quien necesite saber si la app ya está a la vista). */
+function bootStageNow() { return _bootStage; }
 
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M4] Micro-Animations & Visual Polish — JS Helpers

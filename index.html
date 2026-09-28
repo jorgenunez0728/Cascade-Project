@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="booting">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,9 +44,24 @@
 
 <a href="#main" class="skip-link">Saltar al contenido principal</a>
 
-<!-- ═══ AUTH OVERLAY (login screen) ═══ -->
-<div id="auth-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg,#f0f2f5);align-items:center;justify-content:center;overflow-y:auto;">
-    <div id="auth-content"></div>
+<!-- ═══ BIENVENIDA + ACCESO (una sola superficie) ═══
+     [2.11.0] Visible desde el PRIMER cuadro: mientras el teléfono lee el JS ya se ve el
+     arranque, nunca la app cruda. El mismo overlay pasa a pedir el PIN, a "Bienvenido" y
+     se desvanece al terminar (bootStage en app.js). La marca no cambia de lugar. -->
+<div id="auth-overlay" class="auth-overlay" data-stage="arranque">
+    <div id="auth-content">
+        <div class="auth-shell">
+            <div class="auth-brand">
+                <div class="auth-brand-mark">🔬</div>
+                <h1 class="auth-brand-name">KIA EmLab</h1>
+                <div class="auth-brand-sub">Laboratorio de Emisiones</div>
+            </div>
+            <div class="boot-progress" role="status" aria-live="polite">
+                <div class="boot-bar" aria-hidden="true"><div class="boot-bar-fill"></div></div>
+                <div class="boot-msg" id="boot-msg">Abriendo el laboratorio…</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="progress-container" role="progressbar" aria-label="Progreso de carga" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="mainProgressContainer"><div class="progress-bar" id="mainProgress"></div></div>
