@@ -62,6 +62,7 @@ js/
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
+  review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
@@ -87,6 +88,7 @@ CHANGELOG.md            ← Detailed changelog
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
 | Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
+| Revisión dirigida | `js/review.js` | `review` | `_reviewMarks` (en memoria) | — (`pnState.reviewFlow`, `vehicle.reviewFlow`, `testData.review`) |
 | Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
@@ -168,7 +170,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -177,7 +179,7 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
 - Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
-  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `vets*`=Importar VETS, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
+  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `vets*`=Importar VETS, `review*`=Revisión dirigida, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
   `undo*`=Undo, `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
@@ -2253,6 +2255,34 @@ menos **dejó de ser silencioso**.
 - **Siguen existiendo `REG_PROFILES_RETIRED` y el perfil congelado del liberador (2.2.0)**: lo ya
   liberado se lee con los límites con que se liberó, sin importar versiones posteriores. La copia
   congelada ahora lleva `labVersion` (o null si ese equipo no coincidía con el laboratorio).
+
+## 2.8.0 — Revisión dirigida (`js/review.js`)
+
+- **`reviewFlowFor(vehicle)` (PURA) es LA definición del flujo de aprobación**: `'dirigida'` solo
+  si `vehicle.reviewFlow === 'dirigida'` **y** hay `testData.vets.testRef`; todo lo demás es
+  `'doble-ciego'`. La usan `loadApproval`, `approveAndArchive`, `getNextStep` y la nota de
+  Liberación. Nunca decidir el flujo por la fecha de hoy ni por la configuración vigente.
+- **El sello se pone en el Alta** (`saveNewVehicle`, `reviewFlowSealFor(settings, registeredAt)`)
+  y su **ausencia significa doble ciego** (opt-out, patrón de `verified` en v20): los vehículos
+  existentes no se migran y un equipo con código viejo no puede "ascender" a nadie. Un vehículo
+  termina con las reglas con las que empezó: desactivar la revisión dirigida NO quita sellos.
+- **`reviewBlocks(vehicle, ctx)` es PURA**: todo lo externo llega en `ctx` (perfil congelado,
+  otros vehículos, reposo requerido, inercia ICMS, `vetsVinCheck`, conversión de gases,
+  plausibilidad). `reviewContextFor(vehicle)` arma el `ctx` real. Un ítem `hard` en rojo
+  (gas sobre el límite, prueba duplicada, VIN de otra prueba, sin perfil) **no se acepta**: solo
+  devolver.
+- **`reviewReady(blocks, marks)` (PURA) es EL candado**: todo bloque aplicable marcado, ámbar/rojo
+  con justificación ≥ 5, ningún rojo duro. `reviewApprovalCheck` lo corre en `approveAndArchive`
+  contra el `db` de ese instante (si el vehículo cambió por sync, un bloque que pasó a ámbar exige
+  justificación aunque ya estuviera marcado). Las marcas viven en memoria (`_reviewMarks`) y se
+  borran al devolver al liberador.
+- En revisión dirigida `gasResults.aprobador.values` = copia de los del liberador (SPC/CoP leen
+  "aprobador→liberador"), con `method:'revision-dirigida'` y `matchedLiberador: null` —
+  **nunca `true`**: no hubo doble ciego y el registro no debe afirmarlo.
+- Activación en `pnState.reviewFlow = {active, since, procRef, by, at}` con permiso
+  `regulation.manage`; la fecha efectiva no puede ser anterior a hoy. El pull del panel se queda con
+  la de `at` más reciente (no `Object.assign` a ciegas).
+- El F05 no lee nada de esto: `tests/f05.e2e.js` lo sigue fijando.
 
 ## Working with this project
 

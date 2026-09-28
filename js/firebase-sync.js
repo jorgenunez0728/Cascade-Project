@@ -2056,6 +2056,7 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localShiftReports = (pnState.shiftReports || []).slice();
                 var _localSkillGroups = (pnState.skillGroups || []).slice();
                 var _localVetsChecks = (pnState.vetsChecks || []).slice();
+                var _localReviewFlow = pnState.reviewFlow || null;
 
                 Object.assign(pnState, remoteData);
 
@@ -2067,6 +2068,10 @@ function fbPullApply(collections, results, showFeedback) {
                 // [2.5.0] Política de verificaciones VETS: una entrada por verificación
                 // (id = su nombre), gana la clasificación más reciente.
                 pnState.vetsChecks = _fbMergeByIdNewest(_localVetsChecks, (remoteData && remoteData.vetsChecks) || [], 300);
+                // [2.8.0] Activación de la revisión dirigida: gana el cambio más reciente.
+                var _remoteReviewFlow = (remoteData && remoteData.reviewFlow) || null;
+                pnState.reviewFlow = (!_remoteReviewFlow || (_localReviewFlow && String(_localReviewFlow.at || '') > String(_remoteReviewFlow.at || '')))
+                    ? _localReviewFlow : _remoteReviewFlow;
                 // Los grupos de habilidades son una lista corta y editable: si el
                 // remoto no trae ninguno, no borrar los locales.
                 if (!(remoteData && (remoteData.skillGroups || []).length) && _localSkillGroups.length) {

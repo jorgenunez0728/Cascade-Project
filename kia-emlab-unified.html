@@ -5859,6 +5859,28 @@ td .ui-num-row > input { min-width: 5rem; }
 
 /* [2.7.0] Aviso en Liberación: límites distintos a los del laboratorio */
 .reg-mismatch { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
+
+/* [2.8.0] Revisión dirigida */
+.review-intro { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--info-tint, var(--surface-alt)); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.review-block { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
+.review-block--ok { border-left-color: var(--ok-text); }
+.review-block--warn { border-left-color: var(--warn-text); background: var(--warn-tint); }
+.review-block--fail { border-left-color: var(--danger-text); background: var(--danger-tint); }
+.review-block--na { border-left-color: var(--border); opacity: 0.75; }
+.review-block-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: var(--fs-sm); }
+.review-icon { font-weight: 700; }
+.review-done { margin-left: auto; font-size: var(--fs-xs); color: var(--ok-text); font-weight: 600; }
+.review-item { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
+.review-item--warn { color: var(--warn-text); }
+.review-item--fail { color: var(--danger-text); font-weight: 600; }
+.review-accept { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.review-accept input { flex: 1; min-width: 12rem; font-size: var(--fs-base); }
+.review-ack { margin-top: var(--space-sm); }
+.review-hard { margin-top: var(--space-sm); font-size: var(--fs-sm); font-weight: 700; color: var(--danger-text); }
+.review-undo { margin-top: var(--space-xs); font-size: var(--fs-xs); }
+.review-status { font-size: var(--fs-sm); font-weight: 600; margin-top: var(--space-sm); }
+.review-config { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-sm); margin-top: var(--space-sm); }
+.review-config label { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--fs-xs); }
     </style>
 </head>
 
@@ -6850,7 +6872,7 @@ td .ui-num-row > input { min-width: 5rem; }
 
         <!-- ── SUB-TAB B: APROBADOR ── -->
         <div id="lib-panel-aprobador" style="display:none;">
-            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
+            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;" id="appr-panel-note">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
             <div id="appr-veh-cards" class="veh-cards" aria-label="Vehículos pendientes de aprobación"></div>
             <div class="form-group veh-select-fallback">
                 <label for="approvalVehSelect">O elige de la lista</label>
@@ -6866,8 +6888,8 @@ td .ui-num-row > input { min-width: 5rem; }
                     <div id="approvalSummary"></div>
                 </div>
                 <div class="card">
-                    <div class="card-title" data-help="lib-gas-help">⚗️ Verificación de Aprobador</div>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
+                    <div class="card-title" data-help="lib-gas-help" id="appr-card-title">⚗️ Verificación de Aprobador</div>
+                    <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
                 </div>
@@ -8328,7 +8350,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609281816';
+var APP_BUILD = '202609281831';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8336,7 +8358,7 @@ var APP_BUILD = '202609281816';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.7.0';
+var APP_VERSION = '2.8.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8344,6 +8366,15 @@ var APP_VERSION = '2.7.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.8.0', date: '28 sep 2026', title: 'Revisión dirigida: aprobar revisando, no retecleando',
+      bullets: [
+          'Nuevo: revisión dirigida para pruebas con archivo de VETS. El aprobador ya no vuelve a teclear los resultados: recorre cinco bloques (identidad, montaje, validez, resultados y OBD/OBFCM) con lo esperado al lado.',
+          'Lo que está en verde se marca de un toque; lo que no, se acepta explicando por qué ("Acepto porque…") o se devuelve al liberador. Lo que no se puede aceptar (un gas sobre el límite, la misma prueba en otro vehículo) solo se devuelve.',
+          'Se activa en Datos → Regulaciones con una fecha efectiva y la revisión del procedimiento COP15 que la respalda. Hasta que alguien la active, todo sigue con doble ciego.',
+          'Solo aplica a vehículos dados de alta desde esa fecha (se sella en el Alta) y con archivo de VETS. Los anteriores, y los que no tengan archivo, terminan con doble ciego.',
+          'Queda registrado en el vehículo y en el historial qué se revisó, quién, cuándo y por qué se aceptó cada excepción. No se puede aprobar sin revisar los cinco bloques, ni siquiera saltándose el botón.',
+          'El F05 no cambia.'
+      ] },
     { version: '2.7.0', date: '28 sep 2026', title: 'Todos los equipos juzgan con los mismos límites',
       bullets: [
           'Nuevo en Datos → Regulaciones: "Límites compartidos del laboratorio". Un Signatario o Manager publica los límites de su equipo (con motivo) como la versión del laboratorio. Antes cada equipo tenía los suyos y dos equipos podían juzgar el mismo resultado distinto.',
@@ -8904,14 +8935,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609281816' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609281831' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609281816' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609281831' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8927,7 +8958,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609281816' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609281831' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -17648,6 +17679,10 @@ setAltaDatetimeIfEmpty(true);
             registeredSessionUserId: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().id : null,
             registeredDeviceId: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '',
             registeredAt: registeredAtIso,
+            // [2.8.0] Sello de revisión dirigida: se decide AQUÍ, al dar de alta, y el
+            // vehículo termina con las reglas con las que empezó. Sin sello = doble ciego.
+            reviewFlow: (typeof reviewFlowSealFor === 'function' && typeof reviewFlowSettings === 'function' &&
+                         reviewFlowSealFor(reviewFlowSettings(), registeredAtIso)) ? 'dirigida' : undefined,
             timeline: [
                 {
                     timestamp: registeredAtIso,
@@ -19926,6 +19961,8 @@ function loadRelease() {
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
+        // [2.8.0] Con qué flujo se aprobará (revisión dirigida solo con sello + VETS).
+        if (_gasEl && typeof reviewReleaseNoteHTML === 'function') { var _rn = reviewReleaseNoteHTML(vehicle); if (_rn) _gasEl.insertAdjacentHTML('afterbegin', _rn); }
         // [2.7.0] Este equipo no juzga con los límites publicados por el laboratorio.
         if (_gasEl && typeof pnRegMismatchHTML === 'function') { var _rm = pnRegMismatchHTML(); if (_rm) _gasEl.insertAdjacentHTML('afterbegin', _rm); }
         // Si el aprobador lo devolvió, el liberador tiene que ver POR QUÉ antes de
@@ -20007,6 +20044,22 @@ function loadApproval() {
         return;
     }
 
+    // [2.8.0] Revisión dirigida (vehículo sellado en el Alta + archivo de VETS): el
+    // aprobador no reteclea; revisa cinco bloques. Si no, el doble ciego de siempre.
+    var _flow = (typeof reviewFlowFor === 'function') ? reviewFlowFor(vehicle) : 'doble-ciego';
+    var _apTitle = document.getElementById('appr-card-title'), _apHint = document.getElementById('appr-card-hint');
+    var _apNote = document.getElementById('appr-panel-note');
+    if (_apNote) _apNote.innerHTML = _flow === 'dirigida'
+        ? '✅ <strong>Aprobador:</strong> este vehículo va con <strong>revisión dirigida</strong>: revisa los cinco bloques; no se reteclean valores.'
+        : '✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.';
+    if (_flow === 'dirigida' && typeof reviewRenderApproval === 'function') {
+        if (_apTitle) _apTitle.textContent = '🧭 Revisión del aprobador';
+        if (_apHint) _apHint.innerHTML = 'Revisa que la prueba sea válida y el resultado correcto. <strong>No se reteclean valores</strong>: se comparan contra el archivo de VETS, la homologación y los límites.';
+        reviewRenderApproval(vehicle);
+        return;
+    }
+    if (_apTitle) _apTitle.textContent = '⚗️ Verificación de Aprobador';
+    if (_apHint) _apHint.innerHTML = 'Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.';
     _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
     if (profile.derived || profile.retiredIn) {
         var _apEl = document.getElementById('appr-gas-entry-content');
@@ -20154,7 +20207,24 @@ function approveAndArchive() {
         showToast('Esta prueba de emisiones no tiene resultados de gases que verificar. Devuélvela al liberador.', 'error');
         return;
     }
-    var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
+    // [2.8.0] Revisión dirigida: el candado es que los cinco bloques estén revisados
+    // (reviewApprovalCheck, contra el `db` de este instante). El aprobador no reteclea:
+    // su "valor" es el del liberador, que ya comparó contra VETS en el bloque 4.
+    var _flow = (typeof reviewFlowFor === 'function') ? reviewFlowFor(vehicle) : 'doble-ciego';
+    var _review = null;
+    if (_flow === 'dirigida') {
+        if (typeof reviewApprovalCheck !== 'function') { showToast('Falta el módulo de revisión dirigida: actualiza la app.', 'error'); return; }
+        var _rc = reviewApprovalCheck(vehicle);
+        if (!_rc.ok) {
+            showToast(_rc.reason, 'error', 8000);
+            if (typeof auditLog === 'function') auditLog('cop15', 'approval_blocked_review', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, _rc.reason);
+            return;
+        }
+        _review = _rc.record;
+    }
+    var approverValues = _flow === 'dirigida'
+        ? JSON.parse(JSON.stringify(((vehicle.testData || {}).gasResults || {}).liberador ? vehicle.testData.gasResults.liberador.values || {} : {}))
+        : (profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {});
 
     // [v23.2] EL CANDADO VA EN LA CAPA DE DATOS. Se re-verifica aquí, contra el `db`
     // de ESTE instante, antes de abrir la firma: el botón pudo quedar habilitado con
@@ -20162,7 +20232,7 @@ function approveAndArchive() {
     var _match = _libVerifyApproverMatch(profile, approverValues,
         (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
             ? vehicle.testData.gasResults.liberador.values : {});
-    if (!_match.sinPerfil && !_match.ok) {
+    if (_flow !== 'dirigida' && !_match.sinPerfil && !_match.ok) {
         if (_match.missing.length) {
             showToast('Faltan valores por capturar: ' + _match.missing.join(', ') + '.', 'error');
         } else {
@@ -20206,9 +20276,11 @@ function approveAndArchive() {
                         // registro regulatorio firmado. Ahora es el RESULTADO de
                         // `_libVerifyApproverMatch`, que corrió unas líneas arriba contra
                         // los valores del liberador de este mismo instante.
-                        matchedLiberador: _match.ok,
-                        matchVerifiedAt: new Date().toISOString()
+                        matchedLiberador: _flow === 'dirigida' ? null : _match.ok,
+                        matchVerifiedAt: new Date().toISOString(),
+                        method: _flow === 'dirigida' ? 'revision-dirigida' : 'doble-ciego'
                     };
+                    if (_review) vehicle.testData.review = _review;   // [2.8.0] qué revisó, cuándo y por qué aceptó
                     _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }
                 // Aprobado ⇒ los valores coincidieron: limpiar la alarma de desacuerdo
@@ -20221,8 +20293,10 @@ function approveAndArchive() {
                 vehicle.timeline.push({
                     timestamp: new Date().toISOString(),
                     user: sig.signerName || 'Aprobador',
-                    action: 'Vehículo Aprobado y Archivado',
-                    data: { status: 'archived', approverValues: approverValues }
+                    action: _review ? 'Vehículo Aprobado (revisión dirigida) y Archivado' : 'Vehículo Aprobado y Archivado',
+                    data: _review
+                        ? { status: 'archived', revision: _review.blocks.map(function(b) { return b.title + ': ' + b.status + (b.justification ? ' — ' + b.justification : ''); }) }
+                        : { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
                 // Compactar timeline al archivar: el historial completo ya quedó en el export
@@ -20230,7 +20304,8 @@ function approveAndArchive() {
                 if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
                 auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''),
                     { before: { estado: prevStatus, liberador: (vehicle.testData.gasResults.liberador || {}).values || null },
-                      after: { estado: 'archived', aprobador: approverValues || null } });
+                      after: { estado: 'archived', metodo: _flow, aprobador: _flow === 'dirigida' ? null : (approverValues || null),
+                               revision: _review ? _review.blocks.map(function(b) { return b.id + ':' + b.status + (b.justification ? ' (' + b.justification + ')' : ''); }) : undefined } });
                 if (typeof fbPostTestCompleted === 'function') {
                     var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
                     fbPostTestCompleted(vehicle.vin, _res);
@@ -20385,6 +20460,8 @@ function returnToReleaser() {
                     showToast('⚠️ Sin espacio: no se pudo guardar la devolución. Libera espacio en Datos → Sistema.', 'error');
                     return;
                 }
+                // [2.8.0] Lo revisado ya no vale: el liberador va a cambiar la captura.
+                if (typeof _reviewMarks !== 'undefined') delete _reviewMarks[vehicle.id];
                 auditLog('cop15', 'returned_to_releaser', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
                     'Devuelto por ' + (approverName || '?') + ': ' + reason,
                     { before: { estado: 'pending-approval' }, after: { estado: 'ready-release' } });
@@ -24936,9 +25013,10 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         ]
     },
     'cop15-liberacion': {
-        title: 'Liberación doble-ciego',
-        text: 'El Liberador captura los resultados finales de gases y firma; después el Aprobador los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva. Así se evitan errores de dedo.',
+        title: 'Liberación y aprobación',
+        text: 'El Liberador captura (o adjunta de VETS) los resultados finales y firma. El Aprobador los verifica: con doble ciego los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva; con revisión dirigida (vehículos sellados en el Alta con archivo de VETS) revisa cinco bloques contra el archivo, sin reteclear.',
         tips: [
+            'Qué flujo le toca a cada vehículo lo dice la Liberación (🧭) y el aprobador lo ve al abrirlo. Lo anterior a la fecha efectiva siempre es doble ciego.',
             'Como Liberador: captura los valores FINALES verificados del reporte, no lecturas crudas.',
             'Como Aprobador: no podrás ver lo que capturó el Liberador — es intencional, garantiza independencia.',
             'Si los valores no coinciden, la plataforma marca desacuerdo y hay que revisar antes de continuar.',
@@ -25127,7 +25205,8 @@ function getNextStep(vehicle) {
         return { action: 'Liberar el vehículo', goto: 'release-action', icon: '🚗' };
     }
     if (status === 'pending-approval') {
-        return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
+        var _dir = typeof reviewFlowFor === 'function' && reviewFlowFor(vehicle) === 'dirigida';   // [2.8.0]
+        return { action: _dir ? 'Aprobar (revisión dirigida)' : 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
     }
     return null;
 }
@@ -47104,6 +47183,8 @@ function pnRenderRegulations(el) {
     // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
     // refresca contra la nube al abrir.
     html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
+    // [2.8.0] Activación de la revisión dirigida (review.js)
+    if (typeof reviewSettingsCardHTML === 'function') html += reviewSettingsCardHTML();
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
     if (typeof vetsPolicyCardHTML === 'function') html += vetsPolicyCardHTML();
 
@@ -53070,6 +53151,7 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localShiftReports = (pnState.shiftReports || []).slice();
                 var _localSkillGroups = (pnState.skillGroups || []).slice();
                 var _localVetsChecks = (pnState.vetsChecks || []).slice();
+                var _localReviewFlow = pnState.reviewFlow || null;
 
                 Object.assign(pnState, remoteData);
 
@@ -53081,6 +53163,10 @@ function fbPullApply(collections, results, showFeedback) {
                 // [2.5.0] Política de verificaciones VETS: una entrada por verificación
                 // (id = su nombre), gana la clasificación más reciente.
                 pnState.vetsChecks = _fbMergeByIdNewest(_localVetsChecks, (remoteData && remoteData.vetsChecks) || [], 300);
+                // [2.8.0] Activación de la revisión dirigida: gana el cambio más reciente.
+                var _remoteReviewFlow = (remoteData && remoteData.reviewFlow) || null;
+                pnState.reviewFlow = (!_remoteReviewFlow || (_localReviewFlow && String(_localReviewFlow.at || '') > String(_remoteReviewFlow.at || '')))
+                    ? _localReviewFlow : _remoteReviewFlow;
                 // Los grupos de habilidades son una lista corta y editable: si el
                 // remoto no trae ninguno, no borrar los locales.
                 if (!(remoteData && (remoteData.skillGroups || []).length) && _localSkillGroups.length) {
@@ -55060,7 +55146,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609281816' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609281831' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -62285,6 +62371,9 @@ function vetsSummary(rec, meta, classified, decisions) {
         checksFail: fallas, checksPass: (rec.checks || []).filter(function(c) { return c.status === 'PASS'; }).length,
         vetsLimits: (rec.vetsLimits || []).map(function(l) { return { name: l.name, pass: l.pass }; }),
         drive: rec.drive, obd: rec.obd, obfcm: rec.obfcm, ambient: rec.ambient,
+        // [2.8.0] Lo que VETS usó en el dinamómetro (SI): la Revisión dirigida lo compara con el ICMS.
+        dyno: rec.dyno ? { tA: _vetsRound(rec.dyno.tA, 4), tB: _vetsRound(rec.dyno.tB, 6), tC: _vetsRound(rec.dyno.tC, 7),
+                           etw: _vetsRound(rec.dyno.etw, 1) } : null,
         configDiffs: decisions.configDiffs || []
     };
 }
@@ -62885,6 +62974,454 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     vets_obfcm: { title: 'OBFCM',
         text: 'Combustible y distancia que registró el propio vehículo (OBFCM) durante la prueba y la exactitud que calcula VETS '
             + '(Reg. (UE) 2017/1151, Anexo XXII §4.2). Se guarda por vehículo y se ve por familia en CoP → Expediente.' }
+});
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  KIA EmLab — Revisión dirigida (2.8.0)                               ║
+// ║                                                                      ║
+// ║  Sustituye al doble ciego SOLO en pruebas con archivo de VETS y solo ║
+// ║  en vehículos dados de alta a partir de la fecha efectiva que fija   ║
+// ║  quien administra regulaciones (con la revisión del procedimiento    ║
+// ║  COP15 que la respalda). El aprobador ya no reteclea: recorre cinco  ║
+// ║  bloques (identidad, montaje, validez, resultados, OBD/OBFCM) con    ║
+// ║  lo esperado al lado y marca cada uno; lo que no está en verde exige ║
+// ║  "Acepto porque…" o devolver al liberador.                           ║
+// ║                                                                      ║
+// ║  Reglas:                                                             ║
+// ║  · Un vehículo termina con las reglas con las que empezó: el sello   ║
+// ║    se pone en el Alta (vehicle.reviewFlow = 'dirigida') y su         ║
+// ║    AUSENCIA significa doble ciego (opt-out: nada que migrar).         ║
+// ║  · Sin archivo de VETS → doble ciego, aunque tenga el sello.          ║
+// ║  · El candado vive en approveAndArchive (capa de datos), no solo en  ║
+// ║    el botón. El F05 no cambia.                                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var REVIEW_BLOCKS = [
+    { id: 'identidad',  title: '1 · Identidad',   help: 'review_identidad' },
+    { id: 'montaje',    title: '2 · Montaje',     help: 'review_montaje' },
+    { id: 'validez',    title: '3 · Validez',     help: 'review_validez' },
+    { id: 'resultados', title: '4 · Resultados',  help: 'review_resultados' },
+    { id: 'obd',        title: '5 · OBD / OBFCM', help: 'review_obd' }
+];
+var REVIEW_DYNO_TOL_PCT = 0.5;     // Target / ETW contra el ICMS
+var REVIEW_JUST_MIN = 5;
+
+// ══════════════════════════════════════════════════════════════════════
+// Activación (pnState.reviewFlow, sincronizada con el panel)
+// ══════════════════════════════════════════════════════════════════════
+
+/** {active, since:'AAAA-MM-DD', procRef, by, at} o null. */
+function reviewFlowSettings() {
+    var r = (typeof pnState !== 'undefined' && pnState) ? pnState.reviewFlow : null;
+    return r && r.since ? r : null;
+}
+
+/** ¿Se sella como revisión dirigida un vehículo dado de alta en `registeredAtIso`? PURA. */
+function reviewFlowSealFor(settings, registeredAtIso) {
+    if (!settings || !settings.active || !settings.since || !registeredAtIso) return false;
+    var d = new Date(registeredAtIso);
+    if (isNaN(d.getTime())) return false;
+    var p = function(x) { return (x < 10 ? '0' : '') + x; };
+    var local = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    return local >= settings.since;
+}
+
+/**
+ * LA definición de con qué flujo se aprueba un vehículo. PURA.
+ * 'dirigida' solo con sello Y archivo de VETS adjunto; cualquier otro caso, doble ciego.
+ */
+function reviewFlowFor(vehicle) {
+    if (!vehicle || vehicle.reviewFlow !== 'dirigida') return 'doble-ciego';
+    var v = vehicle.testData && vehicle.testData.vets;
+    return (v && v.testRef) ? 'dirigida' : 'doble-ciego';
+}
+
+function reviewFlowActivate(since, procRef) {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'activar la revisión dirigida')) return false;
+    since = String(since || '').trim();
+    procRef = String(procRef || '').trim();
+    var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) { showToast('Elige la fecha efectiva.', 'warning'); return false; }
+    if (since < today) { showToast('La fecha efectiva no puede ser anterior a hoy: los vehículos ya dados de alta siguen con doble ciego.', 'warning'); return false; }
+    if (procRef.length < REVIEW_JUST_MIN) { showToast('Escribe la revisión del procedimiento COP15 que respalda el cambio (Ej.: COP15 rev. 05).', 'warning'); return false; }
+    var antes = reviewFlowSettings();
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    pnState.reviewFlow = { active: true, since: since, procRef: procRef, by: who, at: new Date().toISOString() };
+    if (typeof pnSave === 'function') pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'revision_dirigida_activada', { type: 'procedimiento', label: procRef },
+            'Revisión dirigida para vehículos dados de alta desde ' + since + ' · ' + procRef,
+            { before: antes ? { activa: !!antes.active, desde: antes.since, procedimiento: antes.procRef } : null,
+              after: { activa: true, desde: since, procedimiento: procRef } });
+    }
+    return true;
+}
+
+function reviewFlowDeactivate(reason) {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'desactivar la revisión dirigida')) return false;
+    var antes = reviewFlowSettings();
+    if (!antes || !antes.active) return false;
+    if (String(reason || '').trim().length < REVIEW_JUST_MIN) { showToast('Escribe por qué se desactiva.', 'warning'); return false; }
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    pnState.reviewFlow = Object.assign({}, antes, { active: false, by: who, at: new Date().toISOString(), reason: String(reason).trim() });
+    if (typeof pnSave === 'function') pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'revision_dirigida_desactivada', { type: 'procedimiento', label: antes.procRef },
+            'Los vehículos nuevos vuelven a doble ciego (los ya sellados terminan con revisión dirigida) · ' + reason,
+            { before: { activa: true, desde: antes.since }, after: { activa: false } });
+    }
+    return true;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Los cinco bloques (PURO: todo lo externo llega en `ctx`)
+// ══════════════════════════════════════════════════════════════════════
+
+var _REVIEW_RANK = { na: 0, ok: 1, warn: 2, fail: 3 };
+
+function _reviewRel(a, b) {
+    if (a == null || b == null || !isFinite(a) || !isFinite(b)) return null;
+    if (b === 0) return a === 0 ? 0 : 100;
+    return Math.abs(a - b) / Math.abs(b) * 100;
+}
+function _reviewFmt(v, sig) {
+    if (v == null || !isFinite(v)) return '—';
+    return String(parseFloat(Number(v).toPrecision(sig || 5)));
+}
+
+/**
+ * ctx = {
+ *   profile,             // perfil congelado del liberador (gases + límites)
+ *   others: [vehicles],  // para prueba duplicada y CALID/CVN de la misma configuración
+ *   soakRequired: {hours} | null,
+ *   isEurope: bool,
+ *   inertia: {inertia} | null,   // homoWltpInertia del ICMS
+ *   vinCheck: fn(alta, archivo, ecu) → {status, ok, block, message},
+ *   gasValue: fn(summary, field, unit) → número | null,   // valor de VETS en la unidad del perfil
+ *   implausible: fn(field, value) → bool
+ * }
+ * Devuelve [{id, title, status:'ok'|'warn'|'fail'|'na', items:[{status, text, hard}]}].
+ */
+function reviewBlocks(vehicle, ctx) {
+    ctx = ctx || {};
+    var td = (vehicle && vehicle.testData) || {};
+    var s = td.vets || {};
+    var out = {};
+    REVIEW_BLOCKS.forEach(function(b) { out[b.id] = { id: b.id, title: b.title, items: [] }; });
+    var add = function(block, status, text, hard) { out[block].items.push({ status: status, text: text, hard: !!hard }); };
+
+    // 1 · Identidad
+    var vc = ctx.vinCheck ? ctx.vinCheck(vehicle.vin, s.vinFile, s.vinEcu) : null;
+    if (vc) {
+        if (vc.ok) add('identidad', 'ok', vc.message);
+        else add('identidad', vc.block ? 'fail' : 'warn', vc.message + (s.vinJustification ? ' — el liberador: "' + s.vinJustification + '"' : ''), vc.block);
+    }
+    var dup = (ctx.others || []).filter(function(o) { return o && o.id != vehicle.id && o.testData && o.testData.vets && o.testData.vets.testRef === s.testRef; });
+    if (dup.length) add('identidad', 'fail', 'La prueba VETS #' + (s.testNumber || '') + ' también está adjunta a ' + dup.map(function(o) { return o.vin; }).join(', ') + '.', true);
+    else add('identidad', 'ok', 'La prueba VETS #' + (s.testNumber || '') + ' solo está adjunta a este vehículo.');
+    var tdt = String(td.testDatetime || '').slice(0, 16);
+    if (s.testStart && tdt && tdt !== s.testStart) add('identidad', 'warn', 'La fecha de prueba registrada (' + tdt.replace('T', ' ') + ') no es la de VETS (' + s.testStart.replace('T', ' ') + ').');
+    else if (s.testStart) add('identidad', 'ok', 'Fecha de prueba ' + s.testStart.replace('T', ' ') + ' (VETS).');
+    var pre = td.preconditioning && td.preconditioning.datetime;
+    var when = s.testStart || tdt;
+    if (!pre) add('identidad', 'warn', 'No hay fecha de preacondicionamiento para comprobar el reposo.');
+    else if (when) {
+        var h = (new Date(when).getTime() - new Date(pre).getTime()) / 3600000;
+        if (!(h > 0)) add('identidad', 'warn', 'La prueba (' + when.replace('T', ' ') + ') no es posterior al preacondicionamiento (' + String(pre).replace('T', ' ') + ').');
+        else if (ctx.soakRequired && ctx.soakRequired.hours && h < ctx.soakRequired.hours) add('identidad', 'warn', 'Reposo de ' + _reviewFmt(h, 3) + ' h; se requieren ' + ctx.soakRequired.hours + ' h.');
+        else add('identidad', 'ok', 'Reposo de ' + _reviewFmt(h, 3) + ' h' + (ctx.soakRequired && ctx.soakRequired.hours ? ' (requerido ' + ctx.soakRequired.hours + ' h)' : '') + '.');
+    }
+    var proc = String(s.procedure || s.testName || '');
+    if (proc) {
+        var cicloOk = ctx.isEurope ? /WLTC|WLTP/i.test(proc) : /FTP|EPA|UDDS|HWFET|US06|SC03|LA-?4/i.test(proc);
+        add('identidad', cicloOk ? 'ok' : 'warn', 'Ciclo: ' + proc + (cicloOk ? '' : ' — no es el esperado para ' + (ctx.isEurope ? 'Europa (WLTC)' : 'esta región (FTP)') + '.'));
+    }
+
+    // 2 · Montaje
+    var d = s.dyno || null;
+    var hom = vehicle.homolog || null;
+    var cmp = function(label, vets, ref, refName, unit) {
+        var r = _reviewRel(vets, ref);
+        if (r === null) return;
+        add('montaje', r <= REVIEW_DYNO_TOL_PCT ? 'ok' : 'warn', label + ': VETS ' + _reviewFmt(vets) + ' · ' + refName + ' ' + _reviewFmt(ref) + (unit ? ' ' + unit : '') +
+            (r <= REVIEW_DYNO_TOL_PCT ? '' : ' (' + _reviewFmt(r, 2) + ' % de diferencia)'));
+    };
+    if (!d) add('montaje', 'warn', 'El registro de VETS no trae los coeficientes del dinamómetro (se adjuntó con una versión anterior): revisa el reporte.');
+    else if (ctx.isEurope && hom && (hom.f0 != null || hom.tm != null)) {
+        cmp('Target A', d.tA, hom.f0, 'ICMS f0', 'N');
+        cmp('Target B', d.tB, hom.f1, 'ICMS f1', 'N/(km/h)');
+        cmp('Target C', d.tC, hom.f2, 'ICMS f2', 'N/(km/h)²');
+        if (ctx.inertia && ctx.inertia.inertia) cmp('Inercia', d.etw, ctx.inertia.inertia, 'ICMS TM+MR', 'kg');
+        else add('montaje', 'warn', 'La ficha ICMS no trae TM y MR: no se puede comprobar la inercia.');
+    } else {
+        cmp('Target A', d.tA, td.targetA, 'Operación', 'N');
+        cmp('Target B', d.tB, td.targetB, 'Operación', 'N/(km/h)');
+        cmp('Target C', d.tC, td.targetC, 'Operación', 'N/(km/h)²');
+        cmp('Inercia', d.etw, td.etw, 'Operación', 'kg');
+        if (ctx.isEurope) add('montaje', 'warn', 'Vehículo de Europa sin ficha ICMS en el Alta: no se comparó contra la homologación.');
+    }
+    if (s.fuelName) add('montaje', 'ok', 'Combustible: ' + s.fuelName + '.');
+
+    // 3 · Validez
+    var fails = s.checksFail || [];
+    fails.forEach(function(c) {
+        if (c.level === 'desacreditada') add('validez', 'ok', c.name + ' — desacreditada por el laboratorio (' + (c.detail || '') + ').');
+        else if (c.level === 'informativa') add('validez', 'ok', c.name + ' — informativa: ' + (c.detail || ''));
+        else add('validez', 'warn', c.name + ' — IMPORTANTE: ' + (c.detail || '') + (c.justification ? '. El liberador: "' + c.justification + '"' : ''));
+    });
+    add('validez', 'ok', (s.checksPass || 0) + ' verificaciones de VETS pasan' + (fails.length ? ', ' + fails.length + ' fallaron' : '') + '.');
+    var dr = s.drive || {};
+    if ((dr.driverErrors || 0) > 0 || (dr.violations || 0) > 0) add('validez', 'warn', 'Errores de manejo: ' + (dr.driverErrors || 0) + ' · violaciones: ' + (dr.violations || 0) + '.');
+
+    // 4 · Resultados
+    var lib = (td.gasResults && td.gasResults.liberador && td.gasResults.liberador.values) || {};
+    var prof = ctx.profile;
+    if (!prof || !prof.gases || !prof.gases.length) add('resultados', 'fail', 'No hay perfil de gases con qué juzgar.', true);
+    else prof.gases.forEach(function(g) {
+        var v = lib[g.field];
+        var lim = (g.limit === null || g.limit === undefined || g.limit === '') ? null : Number(g.limit);
+        if (v == null || v === '') { if (lim !== null) add('resultados', 'fail', g.label + ': sin valor del liberador.', true); return; }
+        v = Number(v);
+        var txt = g.label + ' ' + _reviewFmt(v) + ' ' + g.unit + (lim !== null ? ' · límite ' + lim : ' · sin límite');
+        if (lim !== null && v > lim) add('resultados', 'fail', txt + ' — SOBRE EL LÍMITE.', true);
+        else add('resultados', 'ok', txt + (lim !== null ? ' (' + _reviewFmt(v / lim * 100, 3) + ' % del límite)' : '') + '.');
+        var vv = ctx.gasValue ? ctx.gasValue(s, g.field, g.unit) : null;
+        if (vv !== null && vv !== undefined) {
+            var rel = _reviewRel(v, vv);
+            if (rel !== null && rel > 0.5) add('resultados', 'warn', g.label + ': el valor enviado (' + _reviewFmt(v) + ') no es el de VETS (' + _reviewFmt(vv) + ').');
+        }
+        if (ctx.implausible && ctx.implausible(g.field, v)) add('resultados', 'warn', g.label + ': valor fuera del rango plausible.');
+    });
+    (s.vetsLimits || []).forEach(function(l) {
+        if (l.pass === false) add('resultados', 'warn', 'VETS marcó ' + l.name + ' fuera de SUS límites configurados (Cascade juzga con la regulación del vehículo).');
+    });
+
+    // 5 · OBD / OBFCM
+    var obd = s.obd || {};
+    var hayObd = !!(obd.mil || obd.calid || s.vinEcu || s.obfcm);
+    if (hayObd) {
+        if (obd.mil) add('obd', /^off$/i.test(obd.mil) ? 'ok' : 'fail', 'MIL (testigo de falla) ' + obd.mil + '.');
+        if (s.obfcm && s.obfcm.accuracyPct != null) add('obd', 'ok', 'OBFCM: ' + _reviewFmt(s.obfcm.fuelL, 4) + ' L según el vehículo · exactitud ' + _reviewFmt(s.obfcm.accuracyPct, 3) + ' % (calculada por VETS).');
+        if (obd.calid) {
+            var prev = (ctx.others || []).filter(function(o) {
+                return o && o.id != vehicle.id && o.configCode === vehicle.configCode && o.testData && o.testData.vets && o.testData.vets.obd && o.testData.vets.obd.calid;
+            });
+            var distintos = prev.filter(function(o) { return o.testData.vets.obd.calid !== obd.calid || (obd.cvn && o.testData.vets.obd.cvn && o.testData.vets.obd.cvn !== obd.cvn); });
+            if (!prev.length) add('obd', 'ok', 'CALID ' + obd.calid + ' · CVN ' + (obd.cvn || '—') + ' (primera prueba de esta configuración con estos datos).');
+            else if (distintos.length) add('obd', 'warn', 'CALID/CVN ' + obd.calid + ' / ' + (obd.cvn || '—') + ' distinto al de ' + distintos.map(function(o) { return o.vin + ' (' + o.testData.vets.obd.calid + ')'; }).join(', ') + ': ¿cambió la calibración?');
+            else add('obd', 'ok', 'CALID ' + obd.calid + ' · CVN ' + (obd.cvn || '—') + ', igual que en ' + prev.length + ' prueba(s) anteriores de esta configuración.');
+        }
+    }
+
+    return REVIEW_BLOCKS.map(function(b) {
+        var blk = out[b.id];
+        blk.help = b.help;
+        if (!blk.items.length) { blk.status = 'na'; return blk; }
+        blk.status = blk.items.reduce(function(m, it) { return _REVIEW_RANK[it.status] > _REVIEW_RANK[m] ? it.status : m; }, 'ok');
+        blk.hard = blk.items.some(function(it) { return it.hard && it.status === 'fail'; });
+        return blk;
+    });
+}
+
+/**
+ * ¿Se puede aprobar? PURA. marks = {blockId: {ack:true, justification}}.
+ * Todo bloque aplicable marcado; ⚠/✗ con "Acepto porque…" (≥5); un ✗ duro no se acepta.
+ */
+function reviewReady(blocks, marks) {
+    marks = marks || {};
+    var missing = [], hard = [];
+    (blocks || []).forEach(function(b) {
+        if (b.status === 'na') return;
+        if (b.hard) { hard.push(b.title); return; }
+        var m = marks[b.id];
+        if (!m || !m.ack) { missing.push(b.title); return; }
+        if (b.status !== 'ok' && String(m.justification || '').trim().length < REVIEW_JUST_MIN) missing.push(b.title + ' (falta "Acepto porque…")');
+    });
+    return { ok: !missing.length && !hard.length, missing: missing, hard: hard };
+}
+
+/** Contexto real de la pantalla (lo que reviewBlocks necesita). */
+function reviewContextFor(vehicle) {
+    var cfg = (vehicle && vehicle.config) || {};
+    var hom = vehicle && vehicle.homolog;
+    return {
+        profile: (typeof _libGasProfileForVehicle === 'function') ? _libGasProfileForVehicle(vehicle) : null,
+        others: (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [],
+        soakRequired: (typeof cascadeSoakRequired === 'function') ? cascadeSoakRequired(vehicle) : null,
+        isEurope: (typeof homoIsEurope === 'function') ? homoIsEurope(cfg.REGION) : /EUROP/i.test(cfg.REGION || ''),
+        inertia: (hom && typeof homoWltpInertia === 'function') ? homoWltpInertia({ tm: hom.tm, mr: hom.mr }) : null,
+        vinCheck: (typeof vetsVinCheck === 'function') ? vetsVinCheck : null,
+        gasValue: function(summary, field, unit) {
+            if (typeof vetsGasValue !== 'function' || !summary || !summary.gases) return null;
+            var rec = { gases: {} };
+            Object.keys(summary.gases).forEach(function(k) { rec.gases[k] = { value: summary.gases[k].v, unit: summary.gases[k].u }; });
+            return vetsGasValue(rec, field, unit);
+        },
+        implausible: (typeof _libValueImplausible === 'function') ? _libValueImplausible : null
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Pantalla de Aprobación
+// ══════════════════════════════════════════════════════════════════════
+
+var _reviewMarks = {};   // {vehicleId: {blockId: {ack, justification, by, at}}} mientras se revisa
+
+var REVIEW_ICON = { ok: '✓', warn: '⚠️', fail: '✗', na: '—' };
+
+function reviewRenderApproval(vehicle) {
+    var el = document.getElementById('appr-gas-entry-content');
+    if (!el) return;
+    var st = reviewFlowSettings();
+    var blocks = reviewBlocks(vehicle, reviewContextFor(vehicle));
+    var marks = _reviewMarks[vehicle.id] = _reviewMarks[vehicle.id] || {};
+    var vid = String(vehicle.id).replace(/[^\w.-]/g, '');
+    var h = '<div class="review-intro">🧭 <b>Revisión dirigida</b>' + (st ? ' (' + escapeHtml(st.procRef) + ', vehículos desde ' + escapeHtml(st.since) + ')' : '') +
+        ': no se reteclean valores. Revisa cada bloque: lo que está en verde se marca de un toque; lo que no, se acepta explicando por qué o se devuelve al liberador.</div>';
+    blocks.forEach(function(b) {
+        var m = marks[b.id] || {};
+        h += '<div class="review-block review-block--' + b.status + '">' +
+            '<div class="review-block-head"><span class="review-icon">' + REVIEW_ICON[b.status] + '</span><b data-help="' + b.help + '">' + escapeHtml(b.title) + '</b>' +
+            (m.ack ? '<span class="review-done">Revisado ✓' + (m.justification ? ' · ' + escapeHtml(m.justification) : '') + '</span>' : '') + '</div>';
+        if (b.status === 'na') h += '<div class="u-muted review-item">No aplica a esta prueba.</div>';
+        b.items.forEach(function(it) { h += '<div class="review-item review-item--' + it.status + '">' + REVIEW_ICON[it.status] + ' ' + escapeHtml(it.text) + '</div>'; });
+        if (b.status !== 'na') {
+            if (b.hard) h += '<div class="review-hard">Esto no se puede aceptar: devuelve la prueba al liberador.</div>';
+            else if (!m.ack) {
+                if (b.status === 'ok') h += '<button type="button" class="btn-secondary review-ack" onclick="reviewMark(\'' + vid + '\',\'' + b.id + '\')">Revisado ✓</button>';
+                else h += '<div class="review-accept"><input type="text" id="review-just-' + b.id + '" placeholder="Acepto porque… (Ej.: la temperatura del prefiltro está mal configurada en VETS)">' +
+                          '<button type="button" class="btn-secondary review-ack" onclick="reviewMark(\'' + vid + '\',\'' + b.id + '\')">Aceptar</button></div>';
+            } else h += '<button type="button" class="btn-link review-undo" onclick="reviewUnmark(\'' + vid + '\',\'' + b.id + '\')">Volver a revisar</button>';
+        }
+        h += '</div>';
+    });
+    h += '<div id="review-status" class="review-status" aria-live="polite"></div>';
+    el.innerHTML = h;
+    reviewRefreshButton(vehicle, blocks);
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+function reviewRefreshButton(vehicle, blocks) {
+    var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
+    var btn = document.getElementById('approve-archive-btn');
+    if (btn) btn.disabled = !r.ok;
+    var box = document.getElementById('review-status');
+    if (box) box.textContent = r.ok ? 'Los cinco bloques están revisados: ya puedes aprobar y firmar.'
+        : r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
+        : 'Falta revisar: ' + r.missing.join(', ') + '.';
+}
+
+function _reviewVehicle(vid) { return (db.vehicles || []).find(function(v) { return String(v.id).replace(/[^\w.-]/g, '') === String(vid); }); }
+
+function reviewMark(vid, blockId) {
+    var v = _reviewVehicle(vid);
+    if (!v) return;
+    var blocks = reviewBlocks(v, reviewContextFor(v));
+    var b = blocks.find(function(x) { return x.id === blockId; });
+    if (!b || b.hard) return;
+    var just = '';
+    if (b.status !== 'ok') {
+        var inp = document.getElementById('review-just-' + blockId);
+        just = inp ? String(inp.value || '').trim() : '';
+        if (just.length < REVIEW_JUST_MIN) { showToast('Escribe por qué lo aceptas (al menos ' + REVIEW_JUST_MIN + ' caracteres) o devuelve la prueba al liberador.', 'warning'); if (inp) inp.focus(); return; }
+    }
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    (_reviewMarks[v.id] = _reviewMarks[v.id] || {})[blockId] = { ack: true, justification: just, status: b.status, by: who, at: new Date().toISOString() };
+    reviewRenderApproval(v);
+}
+
+function reviewUnmark(vid, blockId) {
+    var v = _reviewVehicle(vid);
+    if (!v || !_reviewMarks[v.id]) return;
+    delete _reviewMarks[v.id][blockId];
+    reviewRenderApproval(v);
+}
+
+/**
+ * Candado de la capa de datos para approveAndArchive. Devuelve {ok, reason, record}.
+ * `record` es lo que se guarda en testData.review.
+ */
+function reviewApprovalCheck(vehicle) {
+    var blocks = reviewBlocks(vehicle, reviewContextFor(vehicle));
+    var marks = _reviewMarks[vehicle.id] || {};
+    var r = reviewReady(blocks, marks);
+    if (!r.ok) return { ok: false, reason: r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + '. Devuélvela al liberador.' : 'Falta revisar: ' + r.missing.join(', ') + '.' };
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    var st = reviewFlowSettings();
+    return { ok: true, record: {
+        flow: 'dirigida', procRef: st ? st.procRef : '', vetsTestRef: (vehicle.testData.vets || {}).testRef || '',
+        by: who, at: new Date().toISOString(),
+        blocks: blocks.map(function(b) {
+            var m = marks[b.id] || {};
+            return { id: b.id, title: b.title, status: b.status, justification: m.justification || '', by: m.by || '', at: m.at || '',
+                     items: b.items.filter(function(it) { return it.status !== 'ok'; }).map(function(it) { return it.status + ': ' + it.text; }) };
+        })
+    } };
+}
+
+/** Nota en Liberación: qué flujo le tocará a este vehículo al aprobarlo. */
+function reviewReleaseNoteHTML(vehicle) {
+    if (!vehicle || vehicle.reviewFlow !== 'dirigida') return '';
+    var conVets = reviewFlowFor(vehicle) === 'dirigida';
+    return '<div class="review-intro">🧭 ' + (conVets
+        ? 'Este vehículo se aprobará con <b>revisión dirigida</b>: el aprobador no reteclea, revisa cinco bloques contra el archivo de VETS.'
+        : 'Este vehículo está en <b>revisión dirigida</b>, pero sin archivo de VETS se aprobará con <b>doble ciego</b>. Adjunta la prueba para usar la revisión dirigida.') + '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Datos → Regulaciones: activación
+// ══════════════════════════════════════════════════════════════════════
+
+function reviewSettingsCardHTML() {
+    var st = reviewFlowSettings();
+    var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    var h = '<div class="tp-card" style="margin-bottom:var(--space-md);">' +
+        '<div style="font-weight:700;font-size:var(--fs-sm);" data-help="review_config">🧭 Revisión dirigida (aprobación con archivo de VETS)</div>' +
+        '<div style="font-size:var(--fs-sm);margin-top:var(--space-xs);line-height:var(--lh-base);">';
+    if (st && st.active) {
+        h += '✓ <b>Activa</b> para vehículos dados de alta desde <b>' + escapeHtml(st.since) + '</b> · ' + escapeHtml(st.procRef) +
+            ' <span class="u-muted">(' + escapeHtml(st.by || '?') + ', ' + escapeHtml(String(st.at || '').slice(0, 10)) + ')</span>.' +
+            '<div class="u-muted" style="margin-top:var(--space-2xs);">Los vehículos anteriores y los que no tengan archivo de VETS siguen con doble ciego.</div>' +
+            '<div style="margin-top:var(--space-sm);"><button type="button" class="tp-btn" onclick="reviewDeactivateUI()">Desactivar para vehículos nuevos…</button></div>';
+    } else {
+        h += 'Hoy todas las aprobaciones son con <b>doble ciego</b>.' + (st && !st.active ? ' <span class="u-muted">(Desactivada el ' + escapeHtml(String(st.at || '').slice(0, 10)) + ': ' + escapeHtml(st.reason || '') + ')</span>' : '') +
+            ' Al activarla, los vehículos que se den de alta <b>desde la fecha efectiva</b> y lleguen con archivo de VETS se aprueban revisando cinco bloques en vez de reteclear.' +
+            '<div class="review-config">' +
+            '<label>Fecha efectiva<input type="date" id="review-since" min="' + today + '" value="' + today + '"></label>' +
+            '<label>Procedimiento que la respalda<input type="text" id="review-proc" placeholder="Ej.: COP15 rev. 05"></label>' +
+            '<button type="button" class="tp-btn tp-btn-primary" onclick="reviewActivateUI()">Activar</button></div>';
+    }
+    return h + '</div></div>';
+}
+
+function reviewActivateUI() {
+    var since = (document.getElementById('review-since') || {}).value;
+    var proc = (document.getElementById('review-proc') || {}).value;
+    showConfirm('Los vehículos que se den de alta desde el <b>' + escapeHtml(since || '') + '</b> y lleguen con archivo de VETS se aprobarán con revisión dirigida (' +
+        escapeHtml(proc || '') + '). Los anteriores terminan con doble ciego. Queda en el historial de cambios.', function() {
+        if (reviewFlowActivate(since, proc)) { showToast('Revisión dirigida activada desde ' + since + '.', 'success'); if (typeof pnRender === 'function') pnRender(); }
+    }, { title: 'Activar revisión dirigida', type: 'warning', confirmText: 'Activar' });
+}
+
+function reviewDeactivateUI() {
+    uiPrompt({ title: 'Desactivar revisión dirigida', label: 'Motivo', placeholder: 'Ej.: auditoría interna pidió volver al doble ciego', required: true }).then(function(r) {
+        if (r === null) return;
+        if (reviewFlowDeactivate(r)) { showToast('Los vehículos nuevos vuelven a doble ciego.', 'success'); if (typeof pnRender === 'function') pnRender(); }
+    });
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    review_config: { title: 'Revisión dirigida',
+        text: 'Reemplaza al doble ciego en pruebas con archivo de VETS. El aprobador no vuelve a teclear los resultados: recorre cinco bloques '
+            + '(identidad, montaje, validez, resultados, OBD/OBFCM) con lo esperado al lado y marca cada uno; lo que no esté en verde lo acepta '
+            + 'explicando por qué, o devuelve la prueba. Aplica solo a vehículos dados de alta desde la fecha efectiva (se sella en el Alta): '
+            + 'un vehículo termina con las reglas con las que empezó. La activa quien administra regulaciones, con la revisión del procedimiento COP15.' },
+    review_identidad: { title: 'Identidad', text: 'VIN del Alta contra VETS y el ECU, que la prueba no esté adjunta a otro vehículo, fecha de prueba contra el preacondicionamiento y el reposo requerido, y ciclo acorde a la región.' },
+    review_montaje: { title: 'Montaje', text: 'Coeficientes y masa que usó el dinamómetro contra los del ICMS (Europa) o contra lo capturado en Operación. Tolerancia 0.5 %.' },
+    review_validez: { title: 'Validez', text: 'Las verificaciones de VETS según el tratamiento del laboratorio (las desacreditadas no cuentan) y los errores de manejo.' },
+    review_resultados: { title: 'Resultados', text: 'Cada gas contra el límite congelado de la regulación, que el valor enviado sea el de VETS, valores improbables y el veredicto de VETS.' },
+    review_obd: { title: 'OBD / OBFCM', text: 'Testigo MIL, exactitud OBFCM calculada por VETS y que CALID/CVN coincidan con pruebas anteriores de la misma configuración.' }
 });
 
 

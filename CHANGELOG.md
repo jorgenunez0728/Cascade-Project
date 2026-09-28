@@ -20,6 +20,55 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.8.0 — Revisión dirigida: aprobar revisando, no retecleando (2026-09-28)
+
+### Nuevo
+- **Revisión dirigida** en Aprobación, para pruebas con archivo de VETS. El doble ciego obligaba a
+  volver a teclear cinco números; no obligaba a revisar si la prueba era válida. Con el archivo de
+  VETS el error de tecleo ya no existe, así que el aprobador ahora **revisa** cinco bloques con lo
+  esperado al lado:
+  1. **Identidad** — VIN del Alta vs VETS vs ECU, la prueba no está adjunta a otro vehículo, fecha
+     de prueba vs preacondicionamiento y reposo requerido, ciclo acorde a la región.
+  2. **Montaje** — Target A/B/C e inercia del dinamómetro vs ICMS (Europa) o vs Operación.
+  3. **Validez** — verificaciones de VETS según el tratamiento del laboratorio (2.5.0), errores de
+     manejo.
+  4. **Resultados** — cada gas vs el límite congelado, que el valor enviado sea el de VETS, valores
+     improbables, veredicto de VETS.
+  5. **OBD / OBFCM** — MIL, exactitud OBFCM, CALID/CVN iguales a los de pruebas anteriores de la
+     misma configuración.
+- Verde = un toque ("Revisado ✓"). Ámbar o rojo = **"Acepto porque…"** o **devolver al
+  liberador**. Un gas sobre el límite o la misma prueba en dos vehículos **no se aceptan**: solo se
+  devuelven.
+- **Se activa** en Datos → Regulaciones → 🧭 Revisión dirigida, con **fecha efectiva** (hoy o
+  después) y la **revisión del procedimiento COP15** que la respalda. Queda en el historial. Hasta
+  que alguien la active, todo sigue con doble ciego.
+- **Vehículos anteriores**: se sella en el **Alta**. Solo los dados de alta desde la fecha efectiva
+  y con archivo de VETS van con revisión dirigida; los demás terminan con **doble ciego**, como
+  empezaron. Liberación dice qué flujo le tocará a cada vehículo.
+- Queda en el vehículo (`testData.review`), en su línea de tiempo y en el historial: qué bloque
+  estaba en qué estado, quién lo revisó, cuándo y por qué aceptó cada excepción.
+
+### Candado
+- No se puede aprobar sin los cinco bloques revisados **ni llamando la función directamente**: el
+  candado vive en `approveAndArchive` (capa de datos), no solo en el botón.
+- El registro del aprobador dice el método (`revision-dirigida`); no simula un doble ciego.
+
+### El F05 no cambia
+Sigue imprimiendo lo mismo (resultados del liberador y las dos firmas).
+
+### Límite declarado
+La activa quien administra regulaciones: **Signatario o Manager**. En el modelo de permisos los dos
+roles tienen todo (`*`); limitarlo solo a Manager exige darle a Signatario una lista de permisos
+explícita. Decisión del laboratorio.
+
+### Para desarrollo
+- `js/review.js` (nuevo, después de `vets.js`): `reviewFlowFor`, `reviewFlowSealFor`,
+  `reviewBlocks`, `reviewReady` (PURAS), `reviewApprovalCheck` (candado), UI de aprobación y de
+  activación. `pnState.reviewFlow` (gana el más reciente en el pull del panel).
+- `vetsSummary` guarda además los coeficientes del dinamómetro (`dyno`).
+- Pruebas: `tests/review.node.js` (38, con las dos exportaciones reales de VETS) y
+  `tests/v280.e2e.js` (19, con el Alta real).
+
 ## 2.7.0 — Todos los equipos juzgan con los mismos límites (2026-09-28)
 
 ### Nuevo

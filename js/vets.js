@@ -614,6 +614,9 @@ function vetsSummary(rec, meta, classified, decisions) {
         checksFail: fallas, checksPass: (rec.checks || []).filter(function(c) { return c.status === 'PASS'; }).length,
         vetsLimits: (rec.vetsLimits || []).map(function(l) { return { name: l.name, pass: l.pass }; }),
         drive: rec.drive, obd: rec.obd, obfcm: rec.obfcm, ambient: rec.ambient,
+        // [2.8.0] Lo que VETS usó en el dinamómetro (SI): la Revisión dirigida lo compara con el ICMS.
+        dyno: rec.dyno ? { tA: _vetsRound(rec.dyno.tA, 4), tB: _vetsRound(rec.dyno.tB, 6), tC: _vetsRound(rec.dyno.tC, 7),
+                           etw: _vetsRound(rec.dyno.etw, 1) } : null,
         configDiffs: decisions.configDiffs || []
     };
 }

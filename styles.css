@@ -5418,3 +5418,25 @@ td .ui-num-row > input { min-width: 5rem; }
 
 /* [2.7.0] Aviso en Liberación: límites distintos a los del laboratorio */
 .reg-mismatch { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
+
+/* [2.8.0] Revisión dirigida */
+.review-intro { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--info-tint, var(--surface-alt)); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.review-block { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
+.review-block--ok { border-left-color: var(--ok-text); }
+.review-block--warn { border-left-color: var(--warn-text); background: var(--warn-tint); }
+.review-block--fail { border-left-color: var(--danger-text); background: var(--danger-tint); }
+.review-block--na { border-left-color: var(--border); opacity: 0.75; }
+.review-block-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: var(--fs-sm); }
+.review-icon { font-weight: 700; }
+.review-done { margin-left: auto; font-size: var(--fs-xs); color: var(--ok-text); font-weight: 600; }
+.review-item { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
+.review-item--warn { color: var(--warn-text); }
+.review-item--fail { color: var(--danger-text); font-weight: 600; }
+.review-accept { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.review-accept input { flex: 1; min-width: 12rem; font-size: var(--fs-base); }
+.review-ack { margin-top: var(--space-sm); }
+.review-hard { margin-top: var(--space-sm); font-size: var(--fs-sm); font-weight: 700; color: var(--danger-text); }
+.review-undo { margin-top: var(--space-xs); font-size: var(--fs-xs); }
+.review-status { font-size: var(--fs-sm); font-weight: 600; margin-top: var(--space-sm); }
+.review-config { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-sm); margin-top: var(--space-sm); }
+.review-config label { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--fs-xs); }

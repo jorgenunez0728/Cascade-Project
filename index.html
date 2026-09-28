@@ -1028,7 +1028,7 @@
 
         <!-- ── SUB-TAB B: APROBADOR ── -->
         <div id="lib-panel-aprobador" style="display:none;">
-            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
+            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;" id="appr-panel-note">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
             <div id="appr-veh-cards" class="veh-cards" aria-label="Vehículos pendientes de aprobación"></div>
             <div class="form-group veh-select-fallback">
                 <label for="approvalVehSelect">O elige de la lista</label>
@@ -1044,8 +1044,8 @@
                     <div id="approvalSummary"></div>
                 </div>
                 <div class="card">
-                    <div class="card-title" data-help="lib-gas-help">⚗️ Verificación de Aprobador</div>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
+                    <div class="card-title" data-help="lib-gas-help" id="appr-card-title">⚗️ Verificación de Aprobador</div>
+                    <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
                 </div>
@@ -2235,6 +2235,7 @@
 <script src="js/cop_validator.js"></script>
 <script src="js/homolog.js"></script>
 <script src="js/vets.js"></script>
+<script src="js/review.js"></script>
 <script src="js/bugreport.js"></script>
 
 </body>
