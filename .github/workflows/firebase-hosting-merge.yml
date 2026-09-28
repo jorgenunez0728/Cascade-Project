@@ -31,12 +31,26 @@ jobs:
       # firebaserules.admin, publicar las reglas manualmente desde la consola
       # (Firestore → Reglas → pegar firestore.rules → Publicar).
       - name: Deploy Firestore Security Rules
+        id: rules
         continue-on-error: true
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
           GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" \
             npx --yes firebase-tools@13 deploy --only firestore:rules --project kia-emlab-test-system --non-interactive
           rm -f "$RUNNER_TEMP/sa.json"
+
+      # continue-on-error hacía que un fallo de las reglas saliera en VERDE: desde que
+      # existe este paso la cuenta de servicio recibe 403 y la base de producción nunca
+      # recibió firestore.rules. Ahora queda como anotación de error en la ejecución.
+      - name: Avisar si las reglas de seguridad NO se publicaron
+        if: steps.rules.outcome == 'failure'
+        run: |
+          echo "::error title=Reglas de Firestore sin publicar::La cuenta de servicio no pudo publicar firestore.rules (ver el paso anterior). Producción sigue con las reglas que tenga la consola. Dar el rol 'Firebase Rules Admin' a la cuenta de servicio, o publicar firestore.rules desde la consola (Firestore → Reglas)."
+          {
+            echo "### ⚠️ Reglas de Firestore sin publicar"
+            echo "La cuenta de servicio de CI no tiene permiso para publicar \`firestore.rules\`."
+            echo "Producción sigue con las reglas que tenga la consola de Firebase."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Firebase Hosting (live)
         uses: FirebaseExtended/action-hosting-deploy@v0

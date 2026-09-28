@@ -21,6 +21,10 @@ jobs:
 
       - name: Build unified HTML and assemble dist/
         run: bash deploy.sh --dry
+        # Un PR NO es producción: sin esto cada push a un PR publicaba su número de build
+        # en app/version y todas las estaciones veían "hay actualización" antes del merge.
+        env:
+          SKIP_PUBLISH: '1'
 
       - name: Deploy to Firebase Hosting (preview channel)
         uses: FirebaseExtended/action-hosting-deploy@v0

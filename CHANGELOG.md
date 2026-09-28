@@ -20,6 +20,71 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.3.0 — La nube avisa antes de llenarse y el respaldo diario vuelve a funcionar (2026-09-28)
+
+### Nuevo
+- **Datos → Sistema → ☁️ Capacidad de sincronización.** Cada módulo (vehículos, plan,
+  consumibles…) viaja a la nube como **un solo documento**, y un documento tiene tamaño máximo.
+  La tarjeta muestra cuánto ocupa cada módulo, **qué pesa en los vehículos** (firmas, perfiles
+  de gases congelados, línea de tiempo, datos de captura) y **cuántos vehículos caben todavía**
+  con el promedio actual. Es un límite distinto al del almacenamiento del dispositivo (la
+  tarjeta de abajo).
+- **Alerta "Sincronización"** (Datos → Alertas y HOY): amarilla al 75 %, roja al 90 % o si un
+  módulo ya no se está subiendo. Antes el primer aviso llegaba cuando ya no se subía, y salía en
+  cada guardado.
+- **Alerta "Respaldo"** si el respaldo diario en la nube falla o si pasan más de 3 días sin uno.
+
+### Cambió
+- **El respaldo diario va por módulo** y respalda también Panel (usuarios y proyectos), CoP,
+  Homologación e historial de cambios (antes solo vehículos, plan y consumibles). Guarda los
+  diarios de los últimos 30 días y, de ahí para atrás, el primero de cada mes durante un año.
+  "Restaurar" deja elegir también Panel, CoP y Homologación; los respaldos anteriores se siguen
+  pudiendo restaurar.
+- El tamaño de lo que se sube se mide **como lo cuenta la nube**. Antes se medía con una
+  aproximación que bloqueaba antes de tiempo (900 KB de texto contra un límite real de ~1 MB).
+- El aviso de "no se pudo subir" dice qué módulo, cuánto ocupa y a dónde ir, y ya no se repite
+  en cada guardado (a lo más cada 10 minutos).
+- Se retiró el botón **"COP15 > 90 días"** de Herramientas de Limpieza. Nunca borró nada, y los
+  vehículos son evidencia: si hace falta, se eliminan uno por uno desde Historial.
+
+### Arreglado
+- **El respaldo diario en la nube fallaba sin avisar.** Metía vehículos + plan + consumibles en
+  un solo documento (~1.2 MB con los datos actuales), por encima del máximo de la nube. Solo
+  quedaba un error en la consola del navegador.
+- El respaldo se tomaba antes de terminar de bajar los datos de la nube al abrir la app; ahora
+  espera a que termine.
+- **"Antigüedad de Datos" marcaba 0** en todas las columnas de vehículos: leía un campo de fecha
+  que los vehículos no tienen.
+- La copia previa a una restauración (hasta ~1 MB) se clasificaba en Almacenamiento como
+  "ajuste de sincronización". Ahora sale como "revisar" y se puede borrar a mano.
+- **Cada PR avisaba "hay actualización" a todas las estaciones** antes de publicarse nada: la
+  compilación de vista previa publicaba su número de build en producción.
+
+### Para desarrollo
+- `fbFirestoreDocSize(fields, path)` / `fbFirestoreValueSize(v)` (PURAS) son LA definición del
+  tamaño de un documento según las reglas de Firestore (reproduce el ejemplo oficial de 147
+  bytes). `fbModuleDocBytes(col, data)` = lo que ocupa el documento de un módulo;
+  `FB_DOC_SAFE_BYTES` (1 000 000) es el tope. `fbQuotaCheckSize(data, collection)` las usa.
+- `fbSyncCapacity()` (memoizada 60 s / hasta `data:saved`) es LA definición de la capacidad;
+  `fbVehicleWeight`, `fbCapacityRows`, `fbCapacityLevel` son PURAS. `fbSyncAlerts()` alimenta
+  `pnGetActiveAlerts` (fuentes `Sincronización` y `Respaldo`).
+- Respaldo formato 2: `backups/{fecha}` (índice, se escribe AL FINAL) +
+  `backups/{fecha}/parts/{run}__{módulo}__{i}` (JSON en fragmentos de 300 000 caracteres,
+  `_fbSplitChunks` no parte pares sustitutos). `fbBackupAssemble` (PURA) arma y **lanza si falta
+  un fragmento**. `fbBackupRetention` (PURA) decide qué se borra. `fbBackupStatusEval` (PURA)
+  decide el aviso. Primitivos `_fbBk*` con SDK→REST (`_fbBugsSdkOrRest`).
+- `_pnStorageEntryFor` revisa claves exactas antes que prefijos. `_pnVehicleDate(v)`: los
+  vehículos guardan `registeredAt`.
+- `SKIP_PUBLISH=1 ./build.sh` compila sin publicar la versión (lo usa el workflow de PR). El
+  truco de `HTTPS_PROXY` a un puerto muerto no funciona: curl lee primero `https_proxy`.
+- CI: el paso "Deploy Firestore Security Rules" recibe **403** (la cuenta de servicio no tiene
+  permiso de reglas) y por `continue-on-error` salía en verde. Ahora deja una anotación de error
+  y un resumen en la ejecución. **Las reglas de `firestore.rules` no están aplicadas en
+  producción** hasta que se dé el permiso o se publiquen desde la consola.
+- `tests/backup.node.js` (52), `tests/f05.e2e.js` (candado del F05: huella del PDF con reloj,
+  zona e idioma congelados; se regenera solo con `F05_UPDATE=1`) y `tests/v230.e2e.js` (33, con
+  una Firestore simulada en memoria).
+
 ## 2.2.0 — Cada regulación pide sus gases, de la liberación al PDF (2026-09-26)
 
 ### Cambió
