@@ -2858,6 +2858,19 @@ function pnRenderSystemHealth(el) {
     el.innerHTML = html;
 }
 
+/** [2.9.0] Una línea con el estado de los vehículos uno por uno (Datos → Sistema). */
+function _pnVehSyncLine() {
+    if (typeof fbVehStatus !== 'function') return '';
+    var st = fbVehStatus();
+    if (!st.active) return '';
+    var hora = function(iso) { try { return new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } };
+    var base = 'Cada vehículo viaja en su propio documento: el número de vehículos ya no tiene tope. ';
+    if (st.lastError && st.pending) return base + '⚠ ' + st.pending + ' vehículo(s) de este equipo sin subir: ' + st.lastError + '.';
+    if (st.pending) return base + st.pending + ' vehículo(s) por subir en el siguiente ciclo.';
+    return base + (st.lastSync ? 'Al día desde ' + hora(st.lastSync) : 'Todavía no se ha sincronizado en esta sesión') +
+        (st.live ? ' · avisos en vivo.' : ' · se revisa cada 5 min.');
+}
+
 function _pnFormatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
@@ -2929,6 +2942,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_fb_backup_status',  label: 'Estado del respaldo en la nube', tier: 'cache' },
     { key: 'kia_fb_backup_cleanup', label: 'Limpieza de respaldos (fecha)',  tier: 'cache' },
     { key: 'kia_fb_backup_warned',  label: 'Aviso de respaldo (fecha)',      tier: 'cache' },
+    // [2.9.0] Si se borra, el siguiente ciclo relee todos los vehículos una vez y sigue.
+    { key: 'kia_fb_veh_known',      label: 'Vehículos ya subidos (huellas)', tier: 'cache',
+      note: 'Qué versión de cada vehículo tiene la nube. Se reconstruye leyendo la nube una vez.' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
       note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
           + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
@@ -4025,7 +4041,9 @@ function panelAlpineComponent() {
                              blocked: c.blocked.indexOf(r.col) >= 0 };
                 }),
                 limit: c.limit, weight: w, parts: parts, vehiclesLeft: c.vehiclesLeft,
-                anyBlocked: c.blocked.length > 0
+                // [2.9.0] Si solo está bloqueada la copia para equipos viejos, este equipo sí sincroniza.
+                anyBlocked: c.rows.some(function(r) { return !r.legacy && c.blocked.indexOf(r.col) >= 0; }),
+                perVehicle: !!c.perVehicle, vehLine: _pnVehSyncLine()
             };
         },
         // [2.3.0] Estado del respaldo diario en la nube (fbBackupStatus es LA definición).

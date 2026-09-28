@@ -1839,6 +1839,9 @@
                     <div>
                         <p style="color:var(--tp-dim);font-size:var(--fs-xs);margin:0 0 var(--space-sm) 0;line-height:var(--lh-base);"
                            x-text="'Cada módulo viaja a la nube como un solo documento de hasta ' + formatBytes(syncCap().limit) + '. Si uno se llena, deja de subirse y los demás equipos no ven sus cambios.'"></p>
+                        <p x-show="syncCap().perVehicle && syncCap().vehLine"
+                           style="color:var(--tp-text);font-size:var(--fs-xs);margin:0 0 var(--space-sm) 0;line-height:var(--lh-base);"
+                           x-text="syncCap().vehLine"></p>
 
                         <div x-show="syncCap().anyBlocked"
                              style="margin-bottom:var(--space-sm);padding:var(--space-sm) var(--space-md);background:var(--danger-tint);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-md);font-size:var(--fs-xs);color:var(--tp-text);line-height:var(--lh-base);">

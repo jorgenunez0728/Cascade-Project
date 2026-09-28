@@ -20,6 +20,52 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.9.0 — Cada vehículo viaja solo: la nube ya no se llena (2026-09-28)
+
+### Cambió
+- **Cada vehículo se sube a la nube en su propio documento.** Hasta 2.8.0 todos los vehículos
+  viajaban juntos en un solo documento con tope de 1 MB; con las firmas incrustadas ya iba al
+  75 % (42 vehículos). Al llenarse, ese equipo seguía guardando local pero **los demás dejaban de
+  ver sus cambios de Pruebas**. Ahora el número de vehículos no tiene tope.
+- Al guardar se sube **solo el vehículo que cambió**. Antes cada guardado subía todos.
+- Los cambios de otro equipo llegan solos en unos segundos (aviso en vivo). En los equipos que
+  trabajan sin aviso en vivo (conexión de respaldo por REST) se revisa cada 5 minutos mientras la
+  app está a la vista — antes no se veían hasta recargar.
+- **Datos → Sistema → Capacidad** explica el modelo nuevo: la fila de vehículos pasa a ser la copia
+  para equipos sin actualizar, se mide el vehículo más pesado, y se dice si hay vehículos de este
+  equipo pendientes de subir.
+
+### Convivencia con equipos sin actualizar
+- No hace falta actualizar todos el mismo día: se sigue subiendo la **copia completa** de siempre
+  para los equipos en 2.8.0 o anterior, mientras quepa. Lo que suba un equipo viejo llega a los
+  nuevos por la copia y estos lo pasan a sus documentos.
+- Cuando la copia completa deje de caber, **este equipo sigue sincronizando** (ya no sale el aviso
+  rojo) y sale una alerta: los equipos sin actualizar dejaron de recibir cambios de Pruebas.
+- Retirar la copia completa (y el espejo del historial de 2.6.0) queda para cuando todos los
+  equipos estén en 2.9.0: ese sí será un cambio que no conviva (3.0.0).
+
+### Para desarrollo
+- `stations/KIA-EMLAB/vehicles/{fbVehDocId(v)}` = `{json, vin, id, rev, deleted, writer, serverTs}`.
+  El id del documento sale de `vehicle.id`, **no del VIN** (corregir el VIN no mueve el documento).
+- `stations/KIA-EMLAB/cop15meta/current` = `{json: fbVehMeta(db), writer, serverTs}`, escrito en el
+  **mismo commit** que cada tanda de vehículos: su listener es el timbre de los demás equipos.
+  `FB_VEH_META_KEYS` es lista cerrada (`deletedVehicles`, `manualConfigs`): `lastId`/`version` son
+  de cada equipo y harían que dos equipos se re-escribieran la meta para siempre.
+- `fbVehiclesSync()` = **traer y después subir**, nunca al revés, con un solo ciclo a la vez.
+  Trae con `runQuery` por `serverTs ≥ marca de agua − 5 min` (todo si no hay marca o no hay
+  vehículos locales) y fusiona con `_fbPullMergeModule(…, {noPushBack, noHistory})`. Sube con
+  `fbVehPushPlan` (PURA): vehículos cuyo `_rev` no es el que la nube tiene, y marcas de borrado
+  cuyo vehículo ya no existe (una `vin-corregido` conserva el id del vehículo vivo y no borra).
+- `kia_fb_veh_known` = `{docs: {docId: rev|'deleted'}, watermark, metaExtra}` (en
+  `PN_STORAGE_REGISTRY` como `cache`: si se borra, se relee la nube una vez).
+- `_fbPullMergeModule` acepta `opts.noHistory`: el ciclo corre en cada guardado y una foto
+  completa por ciclo en `kia_merge_history` es lo que llenó el almacenamiento en v18.1.
+- Pruebas: `tests/vehsync.node.js` (35, dos equipos contra un Firestore falso: siembra, edición
+  incremental, ediciones simultáneas sin ping-pong, borrado, VIN corregido, 60 vehículos de
+  1.7 MB, corte de red a medio lote, convivencia con la copia completa) y `tests/v290.e2e.js` (13).
+- Sin reglas nuevas que publicar: el comodín de `firestore.rules` ya cubre `vehicles` y
+  `cop15meta`.
+
 ## 2.8.0 — Revisión dirigida: aprobar revisando, no retecleando (2026-09-28)
 
 ### Nuevo
