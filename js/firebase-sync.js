@@ -550,6 +550,15 @@ function fbSyncAlerts() {
                 source: 'Sincronización' });
         });
     } catch (e) {}
+    // [2.6.0] Eventos del historial que llevan más de un día sin llegar a la nube.
+    try {
+        var as = syncOn ? fbAuditStatus() : null;
+        if (as && as.enabled && as.pending && as.oldest && (Date.now() - new Date(as.oldest).getTime()) > 86400000) {
+            out.push({ level: 'ALTA', color: '#f59e0b', source: 'Historial',
+                message: as.pending + ' cambio(s) del historial siguen sin subirse a la nube desde ' + as.oldest.slice(0, 10) +
+                    (as.lastError ? ' (' + as.lastError + ')' : '') + ' — ver Datos → Auditoría' });
+        }
+    } catch (e) {}
     try {
         var bs = fbBackupStatus();
         if (bs && bs.alert) out.push({ level: bs.alert.level, color: bs.alert.level === 'CRITICA' ? '#ef4444' : '#f59e0b',
@@ -2164,6 +2173,8 @@ function fbPullApply(collections, results, showFeedback) {
     // siempre y el indicador decía "Sync HH:MM" con 0 datos descargados
     if (pulled.length > 0) fbSync.lastSync = new Date();
     fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
+    // [2.6.0] Historial permanente: subir la bandeja y traer lo de los demás equipos.
+    if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
     fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
@@ -5514,4 +5525,245 @@ function fbBugsSaveSettings(settings, onDone) {
         function() { fbQuotaRecord('write'); onDone(true, null); },
         viaRest
     );
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.6.0] HISTORIAL INMUTABLE — stations/{ws}/auditlog/{id}          ║
+// ║  Un documento por evento, escrito por REST `documents:commit` con   ║
+// ║  precondición "no existe" (solo-crear) y la hora del servidor. La   ║
+// ║  bandeja de salida (auditOutbox, app.js) se vacía en lotes; sin red ║
+// ║  espera. El arreglo audit/current se sigue escribiendo como ESPEJO  ║
+// ║  para los equipos sin actualizar (se retira en 3.0.0).              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_AUDIT_BATCH = 100;
+var FB_AUDIT_LEGACY_KEY = 'kia_audit_legacy_upto';
+var _fbAuditFlushing = false, _fbAuditTimer = null;
+
+function _fbAuditBase() {
+    return 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents';
+}
+// El espacio compartido, aunque el flush corra antes de que la conexión fije
+// fbSync.stationId (si no, escribiría en "stations//auditlog").
+function _fbAuditStation() {
+    return fbSync.stationId || (typeof FB_SHARED_WORKSPACE !== 'undefined' ? FB_SHARED_WORKSPACE : 'KIA-EMLAB');
+}
+function _fbAuditDocName(id) {
+    return 'projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
+        _fbAuditStation() + '/auditlog/' + String(id).replace(/[^\w.-]/g, '_');
+}
+
+/**
+ * Escrituras de un commit REST para una lista de eventos. PURA.
+ * Siempre CREAR (`currentDocument.exists=false`: la base rechaza pisar uno existente)
+ * + `serverTs` = hora del servidor. También los heredados de antes de 2.6.0: con las
+ * reglas publicadas una escritura sin precondición sobre uno existente sería un
+ * "update" denegado y la bandeja se atoraría. Los campos que empiezan con "_" no viajan.
+ */
+function fbAuditCommitWrites(events, docNameFn) {
+    return (events || []).map(function(ev) {
+        var fields = {};
+        Object.keys(ev).forEach(function(k) {
+            if (k.charAt(0) === '_' || k === 'serverTs') return;
+            fields[k] = fbToFirestoreValue(ev[k]);
+        });
+        return { update: { name: docNameFn(ev.id), fields: fields }, currentDocument: { exists: false },
+                 updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] };
+    });
+}
+
+function _fbAuditCommit(writes) {
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        return fetch(_fbAuditBase() + ':commit?key=' + FIREBASE_CONFIG.apiKey,
+            { method: 'POST', headers: headers, body: JSON.stringify({ writes: writes }) })
+            .then(function(resp) {
+                if (resp.ok) { fbQuotaRecord('write'); return true; }
+                return resp.text().then(function(t) {
+                    var msg = 'HTTP ' + resp.status, st = '';
+                    try { var j = JSON.parse(t); msg = (j.error && j.error.message) || msg; st = (j.error && j.error.status) || ''; } catch (e) {}
+                    var err = new Error(msg); err.status = resp.status; err.fsStatus = st;
+                    throw err;
+                });
+            });
+    });
+}
+
+/** ¿El error dice que el documento ya existe? (subido antes por este u otro intento). */
+function _fbAuditAlreadyThere(err) {
+    var s = String((err && err.fsStatus) || '') + ' ' + String((err && err.message) || '');
+    return (err && err.status === 409) || /ALREADY_EXISTS|FAILED_PRECONDITION|already exists/i.test(s);
+}
+
+/** Sube un lote; devuelve los ids que ya están en la nube (entregados). */
+function _fbAuditSend(batch) {
+    var names = function(id) { return _fbAuditDocName(id); };
+    return _fbAuditCommit(fbAuditCommitWrites(batch, names)).then(function() {
+        return batch.map(function(e) { return e.id; });
+    }).catch(function(err) {
+        // Un commit es atómico: si UNO ya existía, falla el lote entero. Uno por uno.
+        if (!_fbAuditAlreadyThere(err) || batch.length === 1) {
+            if (batch.length === 1 && _fbAuditAlreadyThere(err)) return [batch[0].id];
+            throw err;
+        }
+        var done = [];
+        var chain = Promise.resolve();
+        batch.forEach(function(ev) {
+            chain = chain.then(function() {
+                return _fbAuditCommit(fbAuditCommitWrites([ev], names)).then(function() { done.push(ev.id); },
+                    function(e2) { if (_fbAuditAlreadyThere(e2)) done.push(ev.id); else throw e2; });
+            });
+        });
+        return chain.then(function() { return done; }, function(e3) { e3.partial = done; throw e3; });
+    });
+}
+
+function fbAuditFlushSoon() {
+    if (_fbAuditTimer) return;
+    _fbAuditTimer = setTimeout(function() { _fbAuditTimer = null; fbAuditFlush(); }, 3000);
+}
+
+function _fbAuditDropDelivered(ids) {
+    if (!ids || !ids.length) return;
+    var gone = {};
+    ids.forEach(function(id) { gone[id] = true; });
+    var rest = auditOutbox().filter(function(e) { return e && !gone[e.id]; });
+    try { localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(rest)); } catch (e) {}
+}
+
+/** Vacía la bandeja de salida a la nube. Resuelve {sent, pending, error}. */
+function fbAuditFlush() {
+    var box = (typeof auditOutbox === 'function') ? auditOutbox() : [];
+    if (_fbAuditFlushing) return Promise.resolve({ sent: 0, pending: box.length, busy: true });
+    if (!fbSync.enabled || !fbSyncModules.audit || typeof fetch === 'undefined' || !box.length) {
+        return Promise.resolve({ sent: 0, pending: box.length });
+    }
+    _fbAuditFlushing = true;
+    var sent = 0;
+    var step = function() {
+        var b = auditOutbox();
+        if (!b.length) return Promise.resolve();
+        var batch = b.slice(0, FB_AUDIT_BATCH);
+        return _fbAuditSend(batch).then(function(ids) {
+            _fbAuditDropDelivered(ids);
+            sent += ids.length;
+            if (ids.length === batch.length) return step();
+        });
+    };
+    return step().then(function() {
+        _fbAuditFlushing = false;
+        fbSync.auditLastFlush = new Date().toISOString();
+        fbSync.auditLastError = '';
+        return { sent: sent, pending: auditOutbox().length };
+    }, function(err) {
+        _fbAuditFlushing = false;
+        if (err && err.partial) { _fbAuditDropDelivered(err.partial); sent += err.partial.length; }
+        fbSync.auditLastError = _fbBkErrText(err);
+        return { sent: sent, pending: auditOutbox().length, error: fbSync.auditLastError };
+    });
+}
+
+/**
+ * Eventos de antes de 2.6.0 (sin cadena) que todavía no se subieron: van a la
+ * colección permanente marcados `migrated`. Una marca de agua por fecha evita
+ * volver a encolarlos. PURA respecto a sus argumentos.
+ */
+function fbAuditLegacyPending(trail, upto) {
+    return (trail || []).filter(function(e) {
+        return e && e.id && e.v !== 2 && (!upto || String(e.ts || '') > upto);
+    });
+}
+
+/**
+ * Encola lo heredado. Otro equipo ya pudo haber subido el mismo evento viejo: se
+ * consulta una vez qué ids migrados existen en ese tramo (solo el campo id) para no
+ * mandar cientos de escrituras que la base rechazaría. Resuelve el número encolado.
+ */
+function fbAuditQueueLegacy() {
+    if (typeof auditGetTrail !== 'function') return Promise.resolve(0);
+    var upto = '';
+    try { upto = localStorage.getItem(FB_AUDIT_LEGACY_KEY) || ''; } catch (e) {}
+    var pend = fbAuditLegacyPending(auditGetTrail(), upto);
+    if (!pend.length) return Promise.resolve(0);
+    var ts = pend.map(function(e) { return String(e.ts || ''); }).sort();
+    return fbAuditQuery(ts[0], ts[ts.length - 1], 5000, ['id']).then(function(r) {
+        var there = {};
+        r.events.forEach(function(e) { there[e.id] = true; });
+        var box = auditOutbox(), inBox = {}, n = 0;
+        box.forEach(function(e) { inBox[e.id] = true; });
+        pend.forEach(function(e) {
+            if (inBox[e.id] || there[e.id]) return;
+            box.push(Object.assign({}, e, { migrated: true }));
+            n++;
+        });
+        try {
+            localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(box));
+            localStorage.setItem(FB_AUDIT_LEGACY_KEY, ts[ts.length - 1]);
+        } catch (e) {}
+        return n;
+    });
+}
+
+/**
+ * Consulta la colección permanente por rango de fechas (ISO, inclusivo), la más
+ * reciente primero. Resuelve {events, truncated}.
+ */
+function fbAuditQuery(fromIso, toIso, limit, onlyFields) {
+    limit = limit || 1000;
+    if (!fbSync.enabled || typeof fetch === 'undefined') return Promise.reject(new Error('La sincronización está apagada en este equipo.'));
+    var filters = [];
+    if (fromIso) filters.push({ fieldFilter: { field: { fieldPath: 'ts' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: fromIso } } });
+    if (toIso) filters.push({ fieldFilter: { field: { fieldPath: 'ts' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: toIso } } });
+    var q = { from: [{ collectionId: 'auditlog' }], orderBy: [{ field: { fieldPath: 'ts' }, direction: 'DESCENDING' }], limit: limit };
+    if (onlyFields) q.select = { fields: onlyFields.map(function(f) { return { fieldPath: f }; }) };
+    if (filters.length === 1) q.where = filters[0];
+    else if (filters.length > 1) q.where = { compositeFilter: { op: 'AND', filters: filters } };
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        return fetch(_fbAuditBase() + '/stations/' + encodeURIComponent(_fbAuditStation()) + ':runQuery?key=' + FIREBASE_CONFIG.apiKey,
+            { method: 'POST', headers: headers, body: JSON.stringify({ structuredQuery: q }) });
+    }).then(function(resp) {
+        if (!resp.ok) return resp.text().then(function(t) {
+            var msg = 'HTTP ' + resp.status;
+            try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
+            throw new Error(msg);
+        });
+        return resp.json();
+    }).then(function(rows) {
+        var events = (rows || []).filter(function(r) { return r && r.document; }).map(function(r) {
+            var o = _fbBugsRestDocToObj(r.document);
+            delete o._id;
+            return o;
+        });
+        fbQuotaRecord('read');
+        return { events: events, truncated: events.length >= limit };
+    });
+}
+
+/** Trae lo reciente de la nube (todos los equipos) al caché de la pantalla. */
+function fbAuditFetchRecent(days) {
+    var from = new Date(Date.now() - (days || 7) * 86400000).toISOString();
+    return fbAuditQuery(from, '', 1000).then(function(r) {
+        if (typeof auditMergeIntoCache === 'function') auditMergeIntoCache(r.events);
+        return r;
+    });
+}
+
+/** Tras cada pull: encolar lo heredado, vaciar la bandeja y traer lo reciente. */
+function fbAuditAfterPull() {
+    if (!fbSync.enabled || !fbSyncModules.audit) return;
+    fbAuditQueueLegacy().catch(function() { return 0; })
+        .then(function() { return fbAuditFlush(); })
+        .then(function() { return fbAuditFetchRecent(7); })
+        .catch(function(e) { console.warn('Historial: no se pudo consultar la nube', e && e.message); });
+}
+
+/** Estado para Datos → Auditoría / Sistema y las Alertas. */
+function fbAuditStatus() {
+    var box = (typeof auditOutbox === 'function') ? auditOutbox() : [];
+    var oldest = box.length ? box.reduce(function(m, e) { return (!m || e.ts < m) ? e.ts : m; }, '') : '';
+    return { pending: box.length, oldest: oldest, lastFlush: fbSync.auditLastFlush || '', lastError: fbSync.auditLastError || '',
+             enabled: !!(fbSync.enabled && fbSyncModules.audit) };
 }

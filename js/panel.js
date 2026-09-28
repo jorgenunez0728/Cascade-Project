@@ -454,6 +454,7 @@ function pnOpUpdate(opId, patch) {
     if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return false;
     var op = pnOpFind(opId);
     if (!op || !patch) return false;
+    var _antes = { nombre: op.name, rol: op.role };   // [2.6.0] antes/después en el historial
     if (patch.name !== undefined) {
         var nm = String(patch.name).trim().replace(/\s+/g, ' ');
         if (!nm) { showToast('El nombre no puede quedar vacío', 'error'); return false; }
@@ -472,7 +473,8 @@ function pnOpUpdate(opId, patch) {
     // COPIA del rol: sin esto los permisos no aplican hasta recargar.
     if (typeof authRefreshCurrentRole === 'function') authRefreshCurrentRole();
     _pnOpAfterChange();
-    if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role);
+    if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role,
+        { before: _antes, after: { nombre: op.name, rol: op.role } });
     return true;
 }
 
@@ -879,6 +881,44 @@ function _pnGetRenderer(tabId) {
 /** Clear renderer for Alpine-managed tabs — Alpine x-data handles rendering in sibling div */
 function _pnAlpineTabRenderer(el) {
     el.innerHTML = ''; // Clear any skeleton/placeholder — Alpine template is in sibling container
+}
+
+// [2.6.0] Grupo legible de un módulo del historial. Los llamadores usan nombres
+// distintos para lo mismo ('tp' y 'testplan', 'pn' y 'panel'); el filtro por
+// módulo comparaba el código crudo y "Test Plan" dejaba fuera la mitad. PURA.
+var AUDIT_MOD_GROUPS = {
+    cop15: 'Pruebas (Cascade)', tp: 'Plan', testplan: 'Plan', inv: 'Consumibles', pn: 'Datos', panel: 'Datos',
+    cop: 'CoP', auth: 'Accesos', homolog: 'Homologación', regulations: 'Regulaciones', sistema: 'Sistema', bugs: 'Reporte de bugs'
+};
+function auditModGroup(mod) { return AUDIT_MOD_GROUPS[mod] || String(mod || 'Otro'); }
+
+/** Antes/después en una línea corta. PURA. */
+function auditShortValue(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v !== 'object') return String(v);
+    var parts = Object.keys(v).map(function(k) {
+        var x = v[k];
+        return k + ': ' + (x === null || x === undefined ? '—' : typeof x === 'object' ? JSON.stringify(x) : String(x));
+    });
+    var t = parts.join(' · ');
+    return t.length > 240 ? t.slice(0, 237) + '…' : t;
+}
+
+/** Renglones legibles del resultado de auditVerifyChain. PURA. */
+function auditIntegrityLines(r) {
+    if (!r) return [];
+    var out = [];
+    if (!r.checked) out.push('Todavía no hay eventos con cadena (llegan desde 2.6.0).');
+    else if (r.ok) out.push('✓ ' + r.checked + ' evento(s) con cadena, completos y sin cambios.');
+    Object.keys(r.devices || {}).forEach(function(dev) {
+        var d = r.devices[dev], name = d.name || dev;
+        d.gaps.forEach(function(g) { out.push('⚠ ' + name + ': faltan los eventos ' + g[0] + (g[1] > g[0] ? '–' + g[1] : '') + ' (' + (g[1] - g[0] + 1) + ')'); });
+        if (d.edited.length) out.push('⛔ ' + name + ': ' + d.edited.length + ' evento(s) modificados después de escritos (n.º ' + d.edited.slice(0, 5).join(', ') + ')');
+        if (d.broken.length) out.push('⛔ ' + name + ': la cadena no empata en ' + d.broken.slice(0, 5).join(', '));
+        if (d.forks.length) out.push('⚠ ' + name + ': número repetido con contenido distinto en ' + d.forks.slice(0, 5).join(', '));
+    });
+    if (r.legacy) out.push(r.legacy + ' evento(s) anteriores a 2.6.0: sin cadena, no se pueden verificar.');
+    return out;
 }
 
 /** Fallback renderer for Audit Trail tab (when Alpine is unavailable) */
@@ -2844,6 +2884,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
     { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
     { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
+    { key: 'kia_audit_outbox',      label: 'Historial: eventos por subir', tier: 'core' },   // [2.6.0]
+    { key: 'kia_audit_chain',       label: 'Historial: cadena de este equipo', tier: 'core' },
+    { key: 'kia_audit_legacy_upto', label: 'Historial: migración',     tier: 'core' },
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
@@ -3595,6 +3638,8 @@ function panelAlpineComponent() {
         auditFilterFrom: '',
         auditFilterTo: '',
         auditPage: 0,
+        auditCloudBusy: false,     // [2.6.0] consulta de un rango en la nube
+        auditCloudMsg: '',
 
         // ── Init ──
         init: function() {
@@ -3625,6 +3670,8 @@ function panelAlpineComponent() {
                 // Force Alpine to re-evaluate computed properties (alerts, calendar, etc.)
                 self._bump();
             });
+            // [2.6.0] Llegaron eventos del historial desde la nube.
+            document.addEventListener('audit:updated', function() { self._bump(); });
         },
 
         // ── Computed — Users ──
@@ -4049,17 +4096,24 @@ function panelAlpineComponent() {
 
         // ── Audit Trail computed & methods ──
         get auditTrail() {
-            return (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
+            void this._dataVersion;
+            return (typeof auditGetView === 'function') ? auditGetView().reverse()
+                 : (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
         },
         get auditUsers() {
             var users = {};
             this.auditTrail.forEach(function(e) { if (e.user && e.user.name) users[e.user.name] = true; });
             return Object.keys(users).sort();
         },
+        get auditModGroups() {
+            var g = {};
+            this.auditTrail.forEach(function(e) { g[auditModGroup(e.mod)] = true; });
+            return Object.keys(g).sort();
+        },
         get filteredAudit() {
             var self = this;
             return this.auditTrail.filter(function(e) {
-                if (self.auditFilterMod && e.mod !== self.auditFilterMod) return false;
+                if (self.auditFilterMod && auditModGroup(e.mod) !== self.auditFilterMod) return false;
                 if (self.auditFilterUser && (!e.user || e.user.name !== self.auditFilterUser)) return false;
                 if (self.auditFilterFrom && e.ts.slice(0, 10) < self.auditFilterFrom) return false;
                 if (self.auditFilterTo && e.ts.slice(0, 10) > self.auditFilterTo) return false;
@@ -4069,8 +4123,45 @@ function panelAlpineComponent() {
         get filteredAuditPage() {
             return this.filteredAudit.slice(this.auditPage * 50, (this.auditPage + 1) * 50);
         },
+        // [2.6.0] Integridad de lo que se está viendo + estado de la subida.
+        get auditIntegrity() {
+            void this._dataVersion;
+            return (typeof auditVerifyChain === 'function') ? auditVerifyChain(this.auditTrail) : null;
+        },
+        get auditIntegrityText() {
+            return auditIntegrityLines(this.auditIntegrity);
+        },
+        get auditUpload() {
+            void this._dataVersion;
+            return (typeof fbAuditStatus === 'function') ? fbAuditStatus() : null;
+        },
+        auditCloudSearch: function() {
+            var self = this;
+            if (typeof fbAuditQuery !== 'function') return;
+            if (!this.auditFilterFrom && !this.auditFilterTo) { showToast('Elige Desde y/o Hasta para buscar en la nube.', 'warning'); return; }
+            this.auditCloudBusy = true;
+            this.auditCloudMsg = 'Buscando en la nube…';
+            // Días locales del laboratorio → instantes UTC (así se guarda `ts`).
+            var from = this.auditFilterFrom ? new Date(this.auditFilterFrom + 'T00:00:00').toISOString() : '';
+            var to = this.auditFilterTo ? new Date(this.auditFilterTo + 'T23:59:59.999').toISOString() : '';
+            fbAuditQuery(from, to, 2000).then(function(r) {
+                auditSetCloudRange(r.events);
+                self.auditCloudMsg = r.events.length + ' evento(s) de la nube en ese rango' + (r.truncated ? ' — hay más: acorta el rango' : '') + '.';
+            }).catch(function(e) {
+                self.auditCloudMsg = 'No se pudo consultar la nube: ' + (typeof _fbBkErrText === 'function' ? _fbBkErrText(e) : (e && e.message));
+            }).then(function() { self.auditCloudBusy = false; self.auditPage = 0; self._bump(); });
+        },
+        auditShort: function(v) { return auditShortValue(v); },
+        auditFlushNow: function() {
+            var self = this;
+            if (typeof fbAuditFlush !== 'function') return;
+            fbAuditFlush().then(function(r) {
+                showToast(r.error ? 'No se pudo subir: ' + r.error : (r.sent ? r.sent + ' evento(s) subidos a la nube.' : 'No había nada por subir.'), r.error ? 'error' : 'success');
+                self._bump();
+            });
+        },
         auditExport: function() {
-            if (typeof auditExportCSV === 'function') auditExportCSV();
+            if (typeof auditExportCSV === 'function') auditExportCSV(this.filteredAudit.slice().reverse());
         }
     };
 }
@@ -4378,6 +4469,14 @@ function pnRenderRegulations(el) {
 function _pnRegGate() {
     return (typeof authRequire !== 'function') || authRequire('regulation.manage', 'editar perfiles de regulación y límites');
 }
+// [2.6.0] Límites de un perfil como objeto {campo: 'límite unidad'} para el antes/después del historial.
+function _pnRegGasMap(p) {
+    var o = {};
+    (p && p.gases || []).forEach(function(g) {
+        o[g.field] = (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
+    });
+    return o;
+}
 function _pnRegGasSummary(p) {
     return (p && p.gases || []).map(function(g) {
         return g.field + '=' + (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
@@ -4403,7 +4502,7 @@ function pnRegDelete(id) {
         data.profiles = data.profiles.filter(function(p) { return p.id !== id; });
         saveRegulations();
         if (typeof auditLog === 'function') auditLog('pn', 'regulacion_eliminada', { type: 'regulation', id: profile.id, label: profile.name },
-            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile));
+            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile), { before: _pnRegGasMap(profile), after: null });
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
@@ -4471,6 +4570,7 @@ function _pnRegShowModal(profile) {
                 var data = loadRegulations();
                 var existing = data.profiles.find(function(x) { return x.id === p.id; });
                 var _antes = existing ? _pnRegGasSummary(existing) : null;
+                var _antesMap = existing ? _pnRegGasMap(existing) : null;
                 if (existing) {
                     existing.name = name; existing.shortName = name; existing.gases = gases; existing.updatedAt = new Date().toISOString();
                 } else {
@@ -4478,7 +4578,8 @@ function _pnRegShowModal(profile) {
                 }
                 saveRegulations();
                 if (typeof auditLog === 'function') auditLog('pn', existing ? 'regulacion_editada' : 'regulacion_creada', { type: 'regulation', id: p.id, label: name },
-                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })));
+                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })),
+                    { before: _antesMap, after: _pnRegGasMap({ gases: gases }) });
                 _regulationsData = data;
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
@@ -4738,7 +4839,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
         'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
-        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
+        'Usa los filtros para buscar por módulo, operador o tipo de acción.',
+        'Desde 2.6.0 cada cambio queda en la nube para siempre y no se puede editar ni borrar. Aquí se ven los últimos 90 días; "Buscar en la nube" trae cualquier fecha.',
+        'La tarjeta de integridad avisa si falta algún registro o si alguno se modificó después de escrito.'
     ]},
     'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
         'Agrega una fila de gas por cada contaminante que la regulación limita.',
@@ -4789,6 +4892,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'pn-audit-integrity': { title: 'Integridad del historial', text: 'Desde 2.6.0 cada cambio se guarda en la nube como un registro que no se puede modificar ni borrar, con la hora del servidor. Cada equipo numera sus registros y cada uno lleva la huella del anterior: si falta uno, o alguien edita uno ya escrito, aquí aparece el aviso. "Buscar en la nube" consulta la historia completa, también la de hace más de 90 días.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },

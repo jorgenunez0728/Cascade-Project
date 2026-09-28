@@ -3970,7 +3970,9 @@ function approveAndArchive() {
                 // Compactar timeline al archivar: el historial completo ya quedó en el export
                 // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
                 if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
-                auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''));
+                auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''),
+                    { before: { estado: prevStatus, liberador: (vehicle.testData.gasResults.liberador || {}).values || null },
+                      after: { estado: 'archived', aprobador: approverValues || null } });
                 if (typeof fbPostTestCompleted === 'function') {
                     var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
                     fbPostTestCompleted(vehicle.vin, _res);
@@ -4126,7 +4128,8 @@ function returnToReleaser() {
                     return;
                 }
                 auditLog('cop15', 'returned_to_releaser', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
-                    'Devuelto por ' + (approverName || '?') + ': ' + reason);
+                    'Devuelto por ' + (approverName || '?') + ': ' + reason,
+                    { before: { estado: 'pending-approval' }, after: { estado: 'ready-release' } });
 
                 document.getElementById('globalModal').style.display = 'none';
                 showToast('↩️ Devuelto al liberador. Debe recapturar y firmar de nuevo.', 'success');
@@ -5675,7 +5678,10 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   var detail = added.length + gasFields.length + clLabels.length + ' campo(s) añadidos' +
       (modified.length ? '; ' + modified.length + ' modificados con razón: ' + modified.map(function(m) { return m.label + ' (' + m.reason + ')'; }).join('; ') : '') +
       (sigNames.length ? '; firmas capturadas: ' + sigNames.join(', ') : '');
-  auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail);
+  var _rb = {}, _ra = {};
+  modified.forEach(function(m) { _rb[m.label] = m.old; _ra[m.label] = m.value; });
+  added.forEach(function(a) { _rb[a.label] = null; _ra[a.label] = a.value !== undefined ? a.value : '(capturado)'; });
+  auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail, { before: _rb, after: _ra });
 
   saveDB();
   histCloseCompleteModal();
@@ -5931,7 +5937,9 @@ function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
         auditLog('cop15', 'alta_corregida', { type: 'vehicle', id: v.id, label: v.vin },
             plan.changes.map(function(c) { return c.campo + ': ' + c.antes + ' → ' + c.despues; }).join(' · ') +
             ' · motivo: ' + motivo + (plan.resetRelease ? ' · regresa a Listo para liberar' : '') + (sig ? ' · firmado' : '') +
-            ' · evidencia del plan: ' + tp.tested + ', filas: ' + tp.items + (cop.removed ? ', sale de la mesa CoP de su familia anterior' : ''));
+            ' · evidencia del plan: ' + tp.tested + ', filas: ' + tp.items + (cop.removed ? ', sale de la mesa CoP de su familia anterior' : ''),
+            { before: plan.changes.reduce(function(o, c) { o[c.campo] = c.antes; return o; }, {}),
+              after: plan.changes.reduce(function(o, c) { o[c.campo] = c.despues; return o; }, {}) });
     }
     try { refreshAllLists(); } catch (e) {}
     try { updateProgressBar(); } catch (e) {}

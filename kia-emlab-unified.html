@@ -5852,6 +5852,10 @@ td .ui-num-row > input { min-width: 5rem; }
 .vets-choice { display: inline-flex; align-items: center; gap: var(--space-2xs); cursor: pointer; min-height: var(--target-min, 44px); }
 .vets-list .vets-choice { display: inline; min-height: 0; }
 .vets-choice input[type="checkbox"], .vets-choice input[type="radio"] { width: auto; min-height: 0; margin: 0 var(--space-2xs) 0 0; vertical-align: middle; transform: scale(1.25); }
+
+/* [2.6.0] Auditoría: integridad y antes/después */
+.audit-integrity-line { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
+.audit-diff { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-2xs); font-size: var(--fs-xs); color: var(--tp-text); }
     </style>
 </head>
 
@@ -7871,12 +7875,7 @@ td .ui-num-row > input { min-width: 5rem; }
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Módulo</label>
                         <select x-model="auditFilterMod" class="tp-input" style="width:100%;">
                             <option value="">Todos</option>
-                            <option value="cop15">COP15 Cascade</option>
-                            <option value="tp">Test Plan</option>
-                            <option value="inv">Inventario</option>
-                            <option value="pn">Panel</option>
-                            <option value="cop">CoP</option>
-                            <option value="auth">Accesos</option>
+                            <template x-for="g in auditModGroups" :key="g"><option :value="g" x-text="g"></option></template>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">
@@ -7894,7 +7893,20 @@ td .ui-num-row > input { min-width: 5rem; }
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Hasta</label>
                         <input type="date" x-model="auditFilterTo" class="tp-input" style="width:100%;">
                     </div>
+                    <button @click="auditCloudSearch()" :disabled="auditCloudBusy" class="tp-btn" style="white-space:nowrap;" title="Consulta la historia completa en la nube para el rango Desde–Hasta (también lo de hace más de 90 días)">☁️ Buscar en la nube</button>
                     <button @click="auditExport()" class="tp-btn tp-btn-primary" style="white-space:nowrap;padding:6px 12px;">📥 CSV</button>
+                </div>
+                <div x-show="auditCloudMsg" class="u-muted" style="font-size: var(--fs-sm);margin-top: var(--space-xs);" x-text="auditCloudMsg"></div>
+            </div>
+            <!-- [2.6.0] Integridad y subida -->
+            <div class="tp-card audit-integrity" style="margin-bottom:8px;">
+                <div class="tp-card-title"><span data-help="pn-audit-integrity">🔒 Integridad del historial</span></div>
+                <template x-for="(l, i) in auditIntegrityText" :key="i"><div class="audit-integrity-line" x-text="l"></div></template>
+                <div class="u-muted audit-integrity-line" x-show="auditUpload">
+                    <span x-show="auditUpload && !auditUpload.enabled">La sincronización del historial está apagada en este equipo: los cambios solo quedan aquí.</span>
+                    <span x-show="auditUpload && auditUpload.enabled && !auditUpload.pending">☁️ Todo lo de este equipo ya está en la nube.</span>
+                    <span x-show="auditUpload && auditUpload.enabled && auditUpload.pending" x-text="auditUpload ? ('☁️ ' + auditUpload.pending + ' evento(s) de este equipo por subir' + (auditUpload.lastError ? ' — ' + auditUpload.lastError : '')) : ''"></span>
+                    <button x-show="auditUpload && auditUpload.enabled && auditUpload.pending" @click="auditFlushNow()" class="tp-btn tp-btn-ghost" style="margin-left: var(--space-sm);">Subir ahora</button>
                 </div>
             </div>
             <!-- Counter -->
@@ -7914,6 +7926,10 @@ td .ui-num-row > input { min-width: 5rem; }
                         </template>
                     </div>
                     <div x-show="entry.details" style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;" x-text="entry.details"></div>
+                    <div x-show="entry.before !== undefined || entry.after !== undefined" class="audit-diff">
+                        <span x-show="entry.before !== undefined" x-text="'Antes: ' + auditShort(entry.before)"></span>
+                        <span x-show="entry.after !== undefined" x-text="'Después: ' + auditShort(entry.after)"></span>
+                    </div>
                 </div>
             </template>
             <!-- Empty state -->
@@ -8309,7 +8325,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609281732';
+var APP_BUILD = '202609281800';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8317,7 +8333,7 @@ var APP_BUILD = '202609281732';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.5.0';
+var APP_VERSION = '2.6.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8325,6 +8341,16 @@ var APP_VERSION = '2.5.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.6.0', date: '28 sep 2026', title: 'El historial de cambios ya no se borra ni se puede editar',
+      bullets: [
+          'Cada cambio se guarda en la nube como un registro propio que no se puede modificar ni borrar, con la hora del servidor. Antes el historial se recortaba a los últimos 90 días y cualquier equipo podía reescribirlo entero.',
+          'Datos → Auditoría → "☁️ Buscar en la nube" trae la historia de cualquier fecha, también la de hace más de 90 días.',
+          'Tarjeta "🔒 Integridad del historial": cada equipo numera sus registros y cada uno lleva la huella del anterior. Si falta uno o alguien edita uno ya escrito, lo dice.',
+          'Los cambios críticos guardan el antes y el después: límites de regulación, roles, aprobación, devolución al liberador, edición retroactiva, corrección de alta y verificaciones de VETS.',
+          'Sin conexión, los cambios esperan en el equipo y se suben solos al volver. Si pasa más de un día sin subirse, sale una alerta.',
+          'El filtro por módulo de Auditoría junta los nombres que significan lo mismo (antes "Test Plan" dejaba fuera la mitad del plan).',
+          'Para que la nube haga cumplir el "no se puede editar" hay que publicar las reglas de Firestore (pendiente del laboratorio).'
+      ] },
     { version: '2.5.0', date: '28 sep 2026', title: 'Importar la prueba de STARS VETS en la liberación',
       bullets: [
           'Nuevo en Liberación: 📎 Adjuntar prueba VETS. Se elige el Excel que exporta VETS y la app llena los gases del liberador, los coeficientes del dinamómetro (Target y Dyno A/B/C, ETW) y la fecha de la prueba, en las unidades de Cascade. Funciona con las pruebas de México (g/mi, lb) y de Europa (g/km, mg/km, kg). No necesita internet.',
@@ -8866,14 +8892,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609281732' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609281800' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609281732' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609281800' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8889,7 +8915,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609281732' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609281800' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10040,38 +10066,239 @@ document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') _auditPersistNow();
 });
 
-function auditLog(module, action, entity, details) {
+// ══════════════════════════════════════════════════════════════════════
+// [2.6.0] HISTORIAL INMUTABLE
+//
+// Antes el historial era un arreglo recortado a 2 000 entradas / 90 días que se
+// subía ENTERO como un solo documento (audit/current): lo viejo desaparecía y
+// cualquier equipo podía reescribirlo. Ahora cada evento es su propio documento
+// en stations/KIA-EMLAB/auditlog/{id}, escrito con precondición "no existe"
+// (solo-crear) y con la hora del servidor. Se escribe primero a una bandeja de
+// salida local (kia_audit_outbox) para no perder nada sin red.
+//
+// Cadena por equipo: cada evento lleva `device`, `seq` (contador del equipo),
+// `prev` (huella del evento anterior del mismo equipo) y `hash` (SHA-256 de su
+// forma canónica). `auditVerifyChain` (PURA) detecta huecos, eventos editados y
+// cadenas rotas — evidencia de manipulación aunque la base todavía permita
+// escribir. No es una firma: quien tenga el código puede recalcular una cadena
+// entera; eso lo cierran las reglas de Firestore (solo-crear) una vez publicadas.
+// El caché local (kia_audit_trail) sigue siendo lo que pinta la pantalla.
+// ══════════════════════════════════════════════════════════════════════
+var AUDIT_OUTBOX_KEY = 'kia_audit_outbox';
+var AUDIT_CHAIN_KEY = 'kia_audit_chain';
+var AUDIT_OUTBOX_MAX = 5000;
+
+/** SHA-256 de una cadena (UTF-8) en hexadecimal. PURA y síncrona. */
+function sha256Hex(str) {
+    str = String(str == null ? '' : str);
+    var bytes = [];
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+            var d = str.charCodeAt(i + 1);
+            if (d >= 0xdc00 && d <= 0xdfff) { c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00); i++; }
+        }
+        if (c < 0x80) bytes.push(c);
+        else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+        else if (c < 0x10000) bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+        else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    var K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    var bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    var hi = Math.floor(bitLen / 0x100000000), lo = bitLen >>> 0;
+    bytes.push((hi >>> 24) & 255, (hi >>> 16) & 255, (hi >>> 8) & 255, hi & 255, (lo >>> 24) & 255, (lo >>> 16) & 255, (lo >>> 8) & 255, lo & 255);
+    var w = new Array(64);
+    var rotr = function(x, n) { return (x >>> n) | (x << (32 - n)); };
+    for (var off = 0; off < bytes.length; off += 64) {
+        for (var t = 0; t < 16; t++) w[t] = (bytes[off + 4 * t] << 24) | (bytes[off + 4 * t + 1] << 16) | (bytes[off + 4 * t + 2] << 8) | bytes[off + 4 * t + 3];
+        for (t = 16; t < 64; t++) {
+            var s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+            var s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+            w[t] = (w[t - 16] + s0 + w[t - 7] + s1) | 0;
+        }
+        var a = H[0], b = H[1], cc = H[2], dd = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+        for (t = 0; t < 64; t++) {
+            var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            var ch = (e & f) ^ (~e & g);
+            var t1 = (h + S1 + ch + K[t] + w[t]) | 0;
+            var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            var mj = (a & b) ^ (a & cc) ^ (b & cc);
+            var t2 = (S0 + mj) | 0;
+            h = g; g = f; f = e; e = (dd + t1) | 0; dd = cc; cc = b; b = a; a = (t1 + t2) | 0;
+        }
+        H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + cc) | 0; H[3] = (H[3] + dd) | 0;
+        H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(function(x) { return ('00000000' + (x >>> 0).toString(16)).slice(-8); }).join('');
+}
+
+/** Lo que entra a la huella de un evento: todo menos la huella misma y lo que pone el servidor. PURA. */
+function auditCanonical(e) {
+    var c = {};
+    Object.keys(e || {}).forEach(function(k) {
+        if (k === 'hash' || k === 'serverTs' || k === '_cloud') return;
+        c[k] = e[k];
+    });
+    return stableStringify(c);
+}
+function auditEventHash(e) { return sha256Hex(auditCanonical(e)); }
+
+/**
+ * ¿La historia está completa y sin tocar? PURA.
+ * Revisa por equipo (solo eventos con cadena): huecos en `seq`, `prev` que no
+ * empata con el evento anterior, huella que no cuadra (evento editado) y dos
+ * eventos distintos con el mismo `seq`. Solo juzga el tramo que recibe: el primer
+ * evento de cada equipo en el tramo no se puede comparar con uno anterior.
+ * Devuelve {ok, checked, legacy, devices:{id:{name, count, from, to, gaps:[[a,b]], edited:[seq], broken:[seq], forks:[seq]}}, problems}.
+ */
+function auditVerifyChain(events) {
+    var byDev = {}, legacy = 0;
+    (events || []).forEach(function(e) {
+        if (!e) return;
+        if (!e.device || typeof e.seq !== 'number' || !e.hash) { legacy++; return; }
+        (byDev[e.device] = byDev[e.device] || []).push(e);
+    });
+    var out = { ok: true, checked: 0, legacy: legacy, devices: {}, problems: 0 };
+    Object.keys(byDev).forEach(function(dev) {
+        var list = byDev[dev].slice().sort(function(a, b) { return a.seq - b.seq || String(a.id).localeCompare(String(b.id)); });
+        var r = { name: '', count: list.length, from: list[0].seq, to: list[list.length - 1].seq, gaps: [], edited: [], broken: [], forks: [] };
+        var seen = {};
+        list.forEach(function(e, i) {
+            if (e.deviceName) r.name = e.deviceName;
+            if (auditEventHash(e) !== e.hash) r.edited.push(e.seq);
+            if (seen[e.seq]) { if (seen[e.seq] !== e.hash) r.forks.push(e.seq); return; }
+            seen[e.seq] = e.hash;
+            var p = list[i - 1];
+            if (!p) return;
+            if (e.seq > p.seq + 1) r.gaps.push([p.seq + 1, e.seq - 1]);
+            else if (e.prev !== p.hash) r.broken.push(e.seq);
+        });
+        var n = r.gaps.length + r.edited.length + r.broken.length + r.forks.length;
+        out.problems += n;
+        if (n) out.ok = false;
+        out.checked += list.length;
+        out.devices[dev] = r;
+    });
+    return out;
+}
+
+function _auditDeviceId() {
+    if (typeof FB_DEVICE_ID !== 'undefined' && FB_DEVICE_ID) return FB_DEVICE_ID;
+    var k = 'kia_fb_device', v = null;
+    try { v = localStorage.getItem(k); } catch (e) {}
+    if (!v) { v = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); try { localStorage.setItem(k, v); } catch (e) {} }
+    return v;
+}
+
+function _auditReadJSON(k, def) {
+    try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch (e) { return def; }
+}
+
+/** Eventos que todavía no llegan a la nube. */
+function auditOutbox() { return _auditReadJSON(AUDIT_OUTBOX_KEY, []); }
+
+/**
+ * Registra un cambio. `opts.before` / `opts.after` (objetos chicos) para las
+ * acciones críticas: el antes y el después quedan en el evento, no solo en texto.
+ */
+function auditLog(module, action, entity, details, opts) {
+    opts = opts || {};
     var user = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    _auditEnsureLoaded().push({
-        id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    var chain = _auditReadJSON(AUDIT_CHAIN_KEY, { seq: 0, last: '' });
+    var ev = {
+        v: 2,
+        id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         ts: new Date().toISOString(),
         user: user ? { name: user.name, role: user.role } : { name: 'Sistema', role: '' },
         mod: module,
         action: action,
         entity: entity || null,
-        details: details || ''
-    });
+        details: details || '',
+        device: _auditDeviceId(),
+        deviceName: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        seq: (chain.seq || 0) + 1,
+        prev: chain.last || ''
+    };
+    if (opts.before !== undefined) ev.before = opts.before;
+    if (opts.after !== undefined) ev.after = opts.after;
+    ev.hash = auditEventHash(ev);
+    // La cadena y la bandeja se guardan YA (no con el debounce del caché): si el
+    // equipo se apaga, lo peor es un hueco visible, nunca un seq repetido.
+    var box = auditOutbox();
+    box.push(ev);
+    if (box.length > AUDIT_OUTBOX_MAX) box = box.slice(-AUDIT_OUTBOX_MAX);   // sin sync por meses: el hueco se verá en la cadena
+    try {
+        localStorage.setItem(AUDIT_CHAIN_KEY, JSON.stringify({ seq: ev.seq, last: ev.hash }));
+        localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(box));
+    } catch (e) {}
+    _auditEnsureLoaded().push(ev);
     _auditDirty = true;
     _auditPersistDebounced();
+    if (typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
 }
 
 function auditGetTrail() {
     return _auditEnsureLoaded().slice();
 }
 
-function auditExportCSV() {
+/**
+ * [2.6.0] Une eventos a una lista por id (la versión con `serverTs` gana: ya pasó
+ * por la nube) y ordena por fecha. PURA.
+ */
+function auditMergeEvents(base, extra) {
+    var map = {}, order = [];
+    (base || []).concat(extra || []).forEach(function(e) {
+        if (!e || !e.id) return;
+        if (!map[e.id]) order.push(e.id);
+        if (!map[e.id] || (!map[e.id].serverTs && e.serverTs)) map[e.id] = e;
+    });
+    return order.map(function(id) { return map[id]; })
+        .sort(function(a, b) { return String(a.ts || '') < String(b.ts || '') ? -1 : String(a.ts || '') > String(b.ts || '') ? 1 : 0; });
+}
+
+/** Lo reciente que llega de la nube entra al caché (lo sigue recortando _auditPersistNow). */
+function auditMergeIntoCache(events) {
+    if (!events || !events.length) return;
+    _auditTrail = auditMergeEvents(_auditEnsureLoaded(), events);
+    _auditDirty = true;
+    _auditPersistDebounced();
+    if (typeof document !== 'undefined') { try { document.dispatchEvent(new CustomEvent('audit:updated')); } catch (e) {} }
+}
+
+// Lo consultado de la nube para un rango viejo (más de 90 días) vive solo en
+// memoria: no infla el caché ni el espejo audit/current.
+var _auditCloudRange = [];
+function auditSetCloudRange(events) {
+    _auditCloudRange = events || [];
+    if (typeof document !== 'undefined') { try { document.dispatchEvent(new CustomEvent('audit:updated')); } catch (e) {} }
+}
+/** Lo que pinta Datos → Auditoría: caché + rango consultado, sin repetir. */
+function auditGetView() {
+    return auditMergeEvents(_auditEnsureLoaded(), _auditCloudRange);
+}
+
+function auditExportCSV(events) {
     if (typeof authRequire === 'function' && !authRequire('audit.export', 'exportar el historial de cambios')) return;
-    var trail = auditGetTrail();
-    var csv = 'Fecha,Usuario,Rol,Modulo,Accion,Entidad,Detalle\n';
+    var trail = Array.isArray(events) ? events : auditGetView();
+    var q = function(v) { var t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    var csv = 'Fecha,Hora del servidor,Usuario,Rol,Modulo,Accion,Entidad,Detalle,Antes,Despues,Equipo,Secuencia,Huella,Origen\n';
     trail.forEach(function(e) {
-        csv += [e.ts, e.user.name, e.user.role, e.mod, e.action,
-                (e.entity ? e.entity.type + ':' + (e.entity.label || e.entity.id) : ''),
-                '"' + (e.details || '').replace(/"/g,'""') + '"'].join(',') + '\n';
+        csv += [e.ts, e.serverTs || '', (e.user || {}).name || '', (e.user || {}).role || '', e.mod, e.action,
+                (e.entity ? e.entity.type + ':' + (e.entity.label || e.entity.id) : ''), e.details || '',
+                e.before !== undefined ? JSON.stringify(e.before) : '', e.after !== undefined ? JSON.stringify(e.after) : '',
+                e.deviceName || e.device || '', e.seq != null ? e.seq : '', e.hash ? e.hash.slice(0, 16) : '',
+                e.v === 2 ? 'cadena' : (e.migrated ? 'migrado (anterior a 2.6.0)' : 'anterior a 2.6.0')].map(q).join(',') + '\n';
     });
     var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'audit_trail_' + localToday() + '.csv';
+    a.download = 'historial_de_cambios_' + localToday() + '.csv';
     a.click();
 }
 
@@ -19852,7 +20079,9 @@ function approveAndArchive() {
                 // Compactar timeline al archivar: el historial completo ya quedó en el export
                 // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
                 if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
-                auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''));
+                auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''),
+                    { before: { estado: prevStatus, liberador: (vehicle.testData.gasResults.liberador || {}).values || null },
+                      after: { estado: 'archived', aprobador: approverValues || null } });
                 if (typeof fbPostTestCompleted === 'function') {
                     var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
                     fbPostTestCompleted(vehicle.vin, _res);
@@ -20008,7 +20237,8 @@ function returnToReleaser() {
                     return;
                 }
                 auditLog('cop15', 'returned_to_releaser', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
-                    'Devuelto por ' + (approverName || '?') + ': ' + reason);
+                    'Devuelto por ' + (approverName || '?') + ': ' + reason,
+                    { before: { estado: 'pending-approval' }, after: { estado: 'ready-release' } });
 
                 document.getElementById('globalModal').style.display = 'none';
                 showToast('↩️ Devuelto al liberador. Debe recapturar y firmar de nuevo.', 'success');
@@ -21557,7 +21787,10 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   var detail = added.length + gasFields.length + clLabels.length + ' campo(s) añadidos' +
       (modified.length ? '; ' + modified.length + ' modificados con razón: ' + modified.map(function(m) { return m.label + ' (' + m.reason + ')'; }).join('; ') : '') +
       (sigNames.length ? '; firmas capturadas: ' + sigNames.join(', ') : '');
-  auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail);
+  var _rb = {}, _ra = {};
+  modified.forEach(function(m) { _rb[m.label] = m.old; _ra[m.label] = m.value; });
+  added.forEach(function(a) { _rb[a.label] = null; _ra[a.label] = a.value !== undefined ? a.value : '(capturado)'; });
+  auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail, { before: _rb, after: _ra });
 
   saveDB();
   histCloseCompleteModal();
@@ -21813,7 +22046,9 @@ function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
         auditLog('cop15', 'alta_corregida', { type: 'vehicle', id: v.id, label: v.vin },
             plan.changes.map(function(c) { return c.campo + ': ' + c.antes + ' → ' + c.despues; }).join(' · ') +
             ' · motivo: ' + motivo + (plan.resetRelease ? ' · regresa a Listo para liberar' : '') + (sig ? ' · firmado' : '') +
-            ' · evidencia del plan: ' + tp.tested + ', filas: ' + tp.items + (cop.removed ? ', sale de la mesa CoP de su familia anterior' : ''));
+            ' · evidencia del plan: ' + tp.tested + ', filas: ' + tp.items + (cop.removed ? ', sale de la mesa CoP de su familia anterior' : ''),
+            { before: plan.changes.reduce(function(o, c) { o[c.campo] = c.antes; return o; }, {}),
+              after: plan.changes.reduce(function(o, c) { o[c.campo] = c.despues; return o; }, {}) });
     }
     try { refreshAllLists(); } catch (e) {}
     try { updateProgressBar(); } catch (e) {}
@@ -42746,6 +42981,7 @@ function pnOpUpdate(opId, patch) {
     if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return false;
     var op = pnOpFind(opId);
     if (!op || !patch) return false;
+    var _antes = { nombre: op.name, rol: op.role };   // [2.6.0] antes/después en el historial
     if (patch.name !== undefined) {
         var nm = String(patch.name).trim().replace(/\s+/g, ' ');
         if (!nm) { showToast('El nombre no puede quedar vacío', 'error'); return false; }
@@ -42764,7 +43000,8 @@ function pnOpUpdate(opId, patch) {
     // COPIA del rol: sin esto los permisos no aplican hasta recargar.
     if (typeof authRefreshCurrentRole === 'function') authRefreshCurrentRole();
     _pnOpAfterChange();
-    if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role);
+    if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role,
+        { before: _antes, after: { nombre: op.name, rol: op.role } });
     return true;
 }
 
@@ -43171,6 +43408,44 @@ function _pnGetRenderer(tabId) {
 /** Clear renderer for Alpine-managed tabs — Alpine x-data handles rendering in sibling div */
 function _pnAlpineTabRenderer(el) {
     el.innerHTML = ''; // Clear any skeleton/placeholder — Alpine template is in sibling container
+}
+
+// [2.6.0] Grupo legible de un módulo del historial. Los llamadores usan nombres
+// distintos para lo mismo ('tp' y 'testplan', 'pn' y 'panel'); el filtro por
+// módulo comparaba el código crudo y "Test Plan" dejaba fuera la mitad. PURA.
+var AUDIT_MOD_GROUPS = {
+    cop15: 'Pruebas (Cascade)', tp: 'Plan', testplan: 'Plan', inv: 'Consumibles', pn: 'Datos', panel: 'Datos',
+    cop: 'CoP', auth: 'Accesos', homolog: 'Homologación', regulations: 'Regulaciones', sistema: 'Sistema', bugs: 'Reporte de bugs'
+};
+function auditModGroup(mod) { return AUDIT_MOD_GROUPS[mod] || String(mod || 'Otro'); }
+
+/** Antes/después en una línea corta. PURA. */
+function auditShortValue(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v !== 'object') return String(v);
+    var parts = Object.keys(v).map(function(k) {
+        var x = v[k];
+        return k + ': ' + (x === null || x === undefined ? '—' : typeof x === 'object' ? JSON.stringify(x) : String(x));
+    });
+    var t = parts.join(' · ');
+    return t.length > 240 ? t.slice(0, 237) + '…' : t;
+}
+
+/** Renglones legibles del resultado de auditVerifyChain. PURA. */
+function auditIntegrityLines(r) {
+    if (!r) return [];
+    var out = [];
+    if (!r.checked) out.push('Todavía no hay eventos con cadena (llegan desde 2.6.0).');
+    else if (r.ok) out.push('✓ ' + r.checked + ' evento(s) con cadena, completos y sin cambios.');
+    Object.keys(r.devices || {}).forEach(function(dev) {
+        var d = r.devices[dev], name = d.name || dev;
+        d.gaps.forEach(function(g) { out.push('⚠ ' + name + ': faltan los eventos ' + g[0] + (g[1] > g[0] ? '–' + g[1] : '') + ' (' + (g[1] - g[0] + 1) + ')'); });
+        if (d.edited.length) out.push('⛔ ' + name + ': ' + d.edited.length + ' evento(s) modificados después de escritos (n.º ' + d.edited.slice(0, 5).join(', ') + ')');
+        if (d.broken.length) out.push('⛔ ' + name + ': la cadena no empata en ' + d.broken.slice(0, 5).join(', '));
+        if (d.forks.length) out.push('⚠ ' + name + ': número repetido con contenido distinto en ' + d.forks.slice(0, 5).join(', '));
+    });
+    if (r.legacy) out.push(r.legacy + ' evento(s) anteriores a 2.6.0: sin cadena, no se pueden verificar.');
+    return out;
 }
 
 /** Fallback renderer for Audit Trail tab (when Alpine is unavailable) */
@@ -45136,6 +45411,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
     { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
     { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
+    { key: 'kia_audit_outbox',      label: 'Historial: eventos por subir', tier: 'core' },   // [2.6.0]
+    { key: 'kia_audit_chain',       label: 'Historial: cadena de este equipo', tier: 'core' },
+    { key: 'kia_audit_legacy_upto', label: 'Historial: migración',     tier: 'core' },
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
@@ -45887,6 +46165,8 @@ function panelAlpineComponent() {
         auditFilterFrom: '',
         auditFilterTo: '',
         auditPage: 0,
+        auditCloudBusy: false,     // [2.6.0] consulta de un rango en la nube
+        auditCloudMsg: '',
 
         // ── Init ──
         init: function() {
@@ -45917,6 +46197,8 @@ function panelAlpineComponent() {
                 // Force Alpine to re-evaluate computed properties (alerts, calendar, etc.)
                 self._bump();
             });
+            // [2.6.0] Llegaron eventos del historial desde la nube.
+            document.addEventListener('audit:updated', function() { self._bump(); });
         },
 
         // ── Computed — Users ──
@@ -46341,17 +46623,24 @@ function panelAlpineComponent() {
 
         // ── Audit Trail computed & methods ──
         get auditTrail() {
-            return (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
+            void this._dataVersion;
+            return (typeof auditGetView === 'function') ? auditGetView().reverse()
+                 : (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
         },
         get auditUsers() {
             var users = {};
             this.auditTrail.forEach(function(e) { if (e.user && e.user.name) users[e.user.name] = true; });
             return Object.keys(users).sort();
         },
+        get auditModGroups() {
+            var g = {};
+            this.auditTrail.forEach(function(e) { g[auditModGroup(e.mod)] = true; });
+            return Object.keys(g).sort();
+        },
         get filteredAudit() {
             var self = this;
             return this.auditTrail.filter(function(e) {
-                if (self.auditFilterMod && e.mod !== self.auditFilterMod) return false;
+                if (self.auditFilterMod && auditModGroup(e.mod) !== self.auditFilterMod) return false;
                 if (self.auditFilterUser && (!e.user || e.user.name !== self.auditFilterUser)) return false;
                 if (self.auditFilterFrom && e.ts.slice(0, 10) < self.auditFilterFrom) return false;
                 if (self.auditFilterTo && e.ts.slice(0, 10) > self.auditFilterTo) return false;
@@ -46361,8 +46650,45 @@ function panelAlpineComponent() {
         get filteredAuditPage() {
             return this.filteredAudit.slice(this.auditPage * 50, (this.auditPage + 1) * 50);
         },
+        // [2.6.0] Integridad de lo que se está viendo + estado de la subida.
+        get auditIntegrity() {
+            void this._dataVersion;
+            return (typeof auditVerifyChain === 'function') ? auditVerifyChain(this.auditTrail) : null;
+        },
+        get auditIntegrityText() {
+            return auditIntegrityLines(this.auditIntegrity);
+        },
+        get auditUpload() {
+            void this._dataVersion;
+            return (typeof fbAuditStatus === 'function') ? fbAuditStatus() : null;
+        },
+        auditCloudSearch: function() {
+            var self = this;
+            if (typeof fbAuditQuery !== 'function') return;
+            if (!this.auditFilterFrom && !this.auditFilterTo) { showToast('Elige Desde y/o Hasta para buscar en la nube.', 'warning'); return; }
+            this.auditCloudBusy = true;
+            this.auditCloudMsg = 'Buscando en la nube…';
+            // Días locales del laboratorio → instantes UTC (así se guarda `ts`).
+            var from = this.auditFilterFrom ? new Date(this.auditFilterFrom + 'T00:00:00').toISOString() : '';
+            var to = this.auditFilterTo ? new Date(this.auditFilterTo + 'T23:59:59.999').toISOString() : '';
+            fbAuditQuery(from, to, 2000).then(function(r) {
+                auditSetCloudRange(r.events);
+                self.auditCloudMsg = r.events.length + ' evento(s) de la nube en ese rango' + (r.truncated ? ' — hay más: acorta el rango' : '') + '.';
+            }).catch(function(e) {
+                self.auditCloudMsg = 'No se pudo consultar la nube: ' + (typeof _fbBkErrText === 'function' ? _fbBkErrText(e) : (e && e.message));
+            }).then(function() { self.auditCloudBusy = false; self.auditPage = 0; self._bump(); });
+        },
+        auditShort: function(v) { return auditShortValue(v); },
+        auditFlushNow: function() {
+            var self = this;
+            if (typeof fbAuditFlush !== 'function') return;
+            fbAuditFlush().then(function(r) {
+                showToast(r.error ? 'No se pudo subir: ' + r.error : (r.sent ? r.sent + ' evento(s) subidos a la nube.' : 'No había nada por subir.'), r.error ? 'error' : 'success');
+                self._bump();
+            });
+        },
         auditExport: function() {
-            if (typeof auditExportCSV === 'function') auditExportCSV();
+            if (typeof auditExportCSV === 'function') auditExportCSV(this.filteredAudit.slice().reverse());
         }
     };
 }
@@ -46670,6 +46996,14 @@ function pnRenderRegulations(el) {
 function _pnRegGate() {
     return (typeof authRequire !== 'function') || authRequire('regulation.manage', 'editar perfiles de regulación y límites');
 }
+// [2.6.0] Límites de un perfil como objeto {campo: 'límite unidad'} para el antes/después del historial.
+function _pnRegGasMap(p) {
+    var o = {};
+    (p && p.gases || []).forEach(function(g) {
+        o[g.field] = (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
+    });
+    return o;
+}
 function _pnRegGasSummary(p) {
     return (p && p.gases || []).map(function(g) {
         return g.field + '=' + (g.limit === null || g.limit === undefined ? 'sin límite' : g.limit) + ' ' + (g.unit || '');
@@ -46695,7 +47029,7 @@ function pnRegDelete(id) {
         data.profiles = data.profiles.filter(function(p) { return p.id !== id; });
         saveRegulations();
         if (typeof auditLog === 'function') auditLog('pn', 'regulacion_eliminada', { type: 'regulation', id: profile.id, label: profile.name },
-            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile));
+            'Perfil eliminado. Límites que tenía: ' + _pnRegGasSummary(profile), { before: _pnRegGasMap(profile), after: null });
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
@@ -46763,6 +47097,7 @@ function _pnRegShowModal(profile) {
                 var data = loadRegulations();
                 var existing = data.profiles.find(function(x) { return x.id === p.id; });
                 var _antes = existing ? _pnRegGasSummary(existing) : null;
+                var _antesMap = existing ? _pnRegGasMap(existing) : null;
                 if (existing) {
                     existing.name = name; existing.shortName = name; existing.gases = gases; existing.updatedAt = new Date().toISOString();
                 } else {
@@ -46770,7 +47105,8 @@ function _pnRegShowModal(profile) {
                 }
                 saveRegulations();
                 if (typeof auditLog === 'function') auditLog('pn', existing ? 'regulacion_editada' : 'regulacion_creada', { type: 'regulation', id: p.id, label: name },
-                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })));
+                    existing ? ('Antes: ' + _antes + ' | Después: ' + _pnRegGasSummary({ gases: gases })) : ('Límites: ' + _pnRegGasSummary({ gases: gases })),
+                    { before: _antesMap, after: _pnRegGasMap({ gases: gases }) });
                 _regulationsData = data;
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
@@ -47030,7 +47366,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
         'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
-        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
+        'Usa los filtros para buscar por módulo, operador o tipo de acción.',
+        'Desde 2.6.0 cada cambio queda en la nube para siempre y no se puede editar ni borrar. Aquí se ven los últimos 90 días; "Buscar en la nube" trae cualquier fecha.',
+        'La tarjeta de integridad avisa si falta algún registro o si alguno se modificó después de escrito.'
     ]},
     'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
         'Agrega una fila de gas por cada contaminante que la regulación limita.',
@@ -47081,6 +47419,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'pn-audit-integrity': { title: 'Integridad del historial', text: 'Desde 2.6.0 cada cambio se guarda en la nube como un registro que no se puede modificar ni borrar, con la hora del servidor. Cada equipo numera sus registros y cada uno lleva la huella del anterior: si falta uno, o alguien edita uno ya escrito, aquí aparece el aviso. "Buscar en la nube" consulta la historia completa, también la de hace más de 90 días.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },
@@ -50921,6 +51260,15 @@ function fbSyncAlerts() {
                 source: 'Sincronización' });
         });
     } catch (e) {}
+    // [2.6.0] Eventos del historial que llevan más de un día sin llegar a la nube.
+    try {
+        var as = syncOn ? fbAuditStatus() : null;
+        if (as && as.enabled && as.pending && as.oldest && (Date.now() - new Date(as.oldest).getTime()) > 86400000) {
+            out.push({ level: 'ALTA', color: '#f59e0b', source: 'Historial',
+                message: as.pending + ' cambio(s) del historial siguen sin subirse a la nube desde ' + as.oldest.slice(0, 10) +
+                    (as.lastError ? ' (' + as.lastError + ')' : '') + ' — ver Datos → Auditoría' });
+        }
+    } catch (e) {}
     try {
         var bs = fbBackupStatus();
         if (bs && bs.alert) out.push({ level: bs.alert.level, color: bs.alert.level === 'CRITICA' ? '#ef4444' : '#f59e0b',
@@ -52535,6 +52883,8 @@ function fbPullApply(collections, results, showFeedback) {
     // siempre y el indicador decía "Sync HH:MM" con 0 datos descargados
     if (pulled.length > 0) fbSync.lastSync = new Date();
     fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
+    // [2.6.0] Historial permanente: subir la bandeja y traer lo de los demás equipos.
+    if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
     fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
@@ -54393,7 +54743,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609281732' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609281800' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -55884,6 +56234,247 @@ function fbBugsSaveSettings(settings, onDone) {
         function() { fbQuotaRecord('write'); onDone(true, null); },
         viaRest
     );
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.6.0] HISTORIAL INMUTABLE — stations/{ws}/auditlog/{id}          ║
+// ║  Un documento por evento, escrito por REST `documents:commit` con   ║
+// ║  precondición "no existe" (solo-crear) y la hora del servidor. La   ║
+// ║  bandeja de salida (auditOutbox, app.js) se vacía en lotes; sin red ║
+// ║  espera. El arreglo audit/current se sigue escribiendo como ESPEJO  ║
+// ║  para los equipos sin actualizar (se retira en 3.0.0).              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_AUDIT_BATCH = 100;
+var FB_AUDIT_LEGACY_KEY = 'kia_audit_legacy_upto';
+var _fbAuditFlushing = false, _fbAuditTimer = null;
+
+function _fbAuditBase() {
+    return 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents';
+}
+// El espacio compartido, aunque el flush corra antes de que la conexión fije
+// fbSync.stationId (si no, escribiría en "stations//auditlog").
+function _fbAuditStation() {
+    return fbSync.stationId || (typeof FB_SHARED_WORKSPACE !== 'undefined' ? FB_SHARED_WORKSPACE : 'KIA-EMLAB');
+}
+function _fbAuditDocName(id) {
+    return 'projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
+        _fbAuditStation() + '/auditlog/' + String(id).replace(/[^\w.-]/g, '_');
+}
+
+/**
+ * Escrituras de un commit REST para una lista de eventos. PURA.
+ * Siempre CREAR (`currentDocument.exists=false`: la base rechaza pisar uno existente)
+ * + `serverTs` = hora del servidor. También los heredados de antes de 2.6.0: con las
+ * reglas publicadas una escritura sin precondición sobre uno existente sería un
+ * "update" denegado y la bandeja se atoraría. Los campos que empiezan con "_" no viajan.
+ */
+function fbAuditCommitWrites(events, docNameFn) {
+    return (events || []).map(function(ev) {
+        var fields = {};
+        Object.keys(ev).forEach(function(k) {
+            if (k.charAt(0) === '_' || k === 'serverTs') return;
+            fields[k] = fbToFirestoreValue(ev[k]);
+        });
+        return { update: { name: docNameFn(ev.id), fields: fields }, currentDocument: { exists: false },
+                 updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] };
+    });
+}
+
+function _fbAuditCommit(writes) {
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        return fetch(_fbAuditBase() + ':commit?key=' + FIREBASE_CONFIG.apiKey,
+            { method: 'POST', headers: headers, body: JSON.stringify({ writes: writes }) })
+            .then(function(resp) {
+                if (resp.ok) { fbQuotaRecord('write'); return true; }
+                return resp.text().then(function(t) {
+                    var msg = 'HTTP ' + resp.status, st = '';
+                    try { var j = JSON.parse(t); msg = (j.error && j.error.message) || msg; st = (j.error && j.error.status) || ''; } catch (e) {}
+                    var err = new Error(msg); err.status = resp.status; err.fsStatus = st;
+                    throw err;
+                });
+            });
+    });
+}
+
+/** ¿El error dice que el documento ya existe? (subido antes por este u otro intento). */
+function _fbAuditAlreadyThere(err) {
+    var s = String((err && err.fsStatus) || '') + ' ' + String((err && err.message) || '');
+    return (err && err.status === 409) || /ALREADY_EXISTS|FAILED_PRECONDITION|already exists/i.test(s);
+}
+
+/** Sube un lote; devuelve los ids que ya están en la nube (entregados). */
+function _fbAuditSend(batch) {
+    var names = function(id) { return _fbAuditDocName(id); };
+    return _fbAuditCommit(fbAuditCommitWrites(batch, names)).then(function() {
+        return batch.map(function(e) { return e.id; });
+    }).catch(function(err) {
+        // Un commit es atómico: si UNO ya existía, falla el lote entero. Uno por uno.
+        if (!_fbAuditAlreadyThere(err) || batch.length === 1) {
+            if (batch.length === 1 && _fbAuditAlreadyThere(err)) return [batch[0].id];
+            throw err;
+        }
+        var done = [];
+        var chain = Promise.resolve();
+        batch.forEach(function(ev) {
+            chain = chain.then(function() {
+                return _fbAuditCommit(fbAuditCommitWrites([ev], names)).then(function() { done.push(ev.id); },
+                    function(e2) { if (_fbAuditAlreadyThere(e2)) done.push(ev.id); else throw e2; });
+            });
+        });
+        return chain.then(function() { return done; }, function(e3) { e3.partial = done; throw e3; });
+    });
+}
+
+function fbAuditFlushSoon() {
+    if (_fbAuditTimer) return;
+    _fbAuditTimer = setTimeout(function() { _fbAuditTimer = null; fbAuditFlush(); }, 3000);
+}
+
+function _fbAuditDropDelivered(ids) {
+    if (!ids || !ids.length) return;
+    var gone = {};
+    ids.forEach(function(id) { gone[id] = true; });
+    var rest = auditOutbox().filter(function(e) { return e && !gone[e.id]; });
+    try { localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(rest)); } catch (e) {}
+}
+
+/** Vacía la bandeja de salida a la nube. Resuelve {sent, pending, error}. */
+function fbAuditFlush() {
+    var box = (typeof auditOutbox === 'function') ? auditOutbox() : [];
+    if (_fbAuditFlushing) return Promise.resolve({ sent: 0, pending: box.length, busy: true });
+    if (!fbSync.enabled || !fbSyncModules.audit || typeof fetch === 'undefined' || !box.length) {
+        return Promise.resolve({ sent: 0, pending: box.length });
+    }
+    _fbAuditFlushing = true;
+    var sent = 0;
+    var step = function() {
+        var b = auditOutbox();
+        if (!b.length) return Promise.resolve();
+        var batch = b.slice(0, FB_AUDIT_BATCH);
+        return _fbAuditSend(batch).then(function(ids) {
+            _fbAuditDropDelivered(ids);
+            sent += ids.length;
+            if (ids.length === batch.length) return step();
+        });
+    };
+    return step().then(function() {
+        _fbAuditFlushing = false;
+        fbSync.auditLastFlush = new Date().toISOString();
+        fbSync.auditLastError = '';
+        return { sent: sent, pending: auditOutbox().length };
+    }, function(err) {
+        _fbAuditFlushing = false;
+        if (err && err.partial) { _fbAuditDropDelivered(err.partial); sent += err.partial.length; }
+        fbSync.auditLastError = _fbBkErrText(err);
+        return { sent: sent, pending: auditOutbox().length, error: fbSync.auditLastError };
+    });
+}
+
+/**
+ * Eventos de antes de 2.6.0 (sin cadena) que todavía no se subieron: van a la
+ * colección permanente marcados `migrated`. Una marca de agua por fecha evita
+ * volver a encolarlos. PURA respecto a sus argumentos.
+ */
+function fbAuditLegacyPending(trail, upto) {
+    return (trail || []).filter(function(e) {
+        return e && e.id && e.v !== 2 && (!upto || String(e.ts || '') > upto);
+    });
+}
+
+/**
+ * Encola lo heredado. Otro equipo ya pudo haber subido el mismo evento viejo: se
+ * consulta una vez qué ids migrados existen en ese tramo (solo el campo id) para no
+ * mandar cientos de escrituras que la base rechazaría. Resuelve el número encolado.
+ */
+function fbAuditQueueLegacy() {
+    if (typeof auditGetTrail !== 'function') return Promise.resolve(0);
+    var upto = '';
+    try { upto = localStorage.getItem(FB_AUDIT_LEGACY_KEY) || ''; } catch (e) {}
+    var pend = fbAuditLegacyPending(auditGetTrail(), upto);
+    if (!pend.length) return Promise.resolve(0);
+    var ts = pend.map(function(e) { return String(e.ts || ''); }).sort();
+    return fbAuditQuery(ts[0], ts[ts.length - 1], 5000, ['id']).then(function(r) {
+        var there = {};
+        r.events.forEach(function(e) { there[e.id] = true; });
+        var box = auditOutbox(), inBox = {}, n = 0;
+        box.forEach(function(e) { inBox[e.id] = true; });
+        pend.forEach(function(e) {
+            if (inBox[e.id] || there[e.id]) return;
+            box.push(Object.assign({}, e, { migrated: true }));
+            n++;
+        });
+        try {
+            localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(box));
+            localStorage.setItem(FB_AUDIT_LEGACY_KEY, ts[ts.length - 1]);
+        } catch (e) {}
+        return n;
+    });
+}
+
+/**
+ * Consulta la colección permanente por rango de fechas (ISO, inclusivo), la más
+ * reciente primero. Resuelve {events, truncated}.
+ */
+function fbAuditQuery(fromIso, toIso, limit, onlyFields) {
+    limit = limit || 1000;
+    if (!fbSync.enabled || typeof fetch === 'undefined') return Promise.reject(new Error('La sincronización está apagada en este equipo.'));
+    var filters = [];
+    if (fromIso) filters.push({ fieldFilter: { field: { fieldPath: 'ts' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: fromIso } } });
+    if (toIso) filters.push({ fieldFilter: { field: { fieldPath: 'ts' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: toIso } } });
+    var q = { from: [{ collectionId: 'auditlog' }], orderBy: [{ field: { fieldPath: 'ts' }, direction: 'DESCENDING' }], limit: limit };
+    if (onlyFields) q.select = { fields: onlyFields.map(function(f) { return { fieldPath: f }; }) };
+    if (filters.length === 1) q.where = filters[0];
+    else if (filters.length > 1) q.where = { compositeFilter: { op: 'AND', filters: filters } };
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        return fetch(_fbAuditBase() + '/stations/' + encodeURIComponent(_fbAuditStation()) + ':runQuery?key=' + FIREBASE_CONFIG.apiKey,
+            { method: 'POST', headers: headers, body: JSON.stringify({ structuredQuery: q }) });
+    }).then(function(resp) {
+        if (!resp.ok) return resp.text().then(function(t) {
+            var msg = 'HTTP ' + resp.status;
+            try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
+            throw new Error(msg);
+        });
+        return resp.json();
+    }).then(function(rows) {
+        var events = (rows || []).filter(function(r) { return r && r.document; }).map(function(r) {
+            var o = _fbBugsRestDocToObj(r.document);
+            delete o._id;
+            return o;
+        });
+        fbQuotaRecord('read');
+        return { events: events, truncated: events.length >= limit };
+    });
+}
+
+/** Trae lo reciente de la nube (todos los equipos) al caché de la pantalla. */
+function fbAuditFetchRecent(days) {
+    var from = new Date(Date.now() - (days || 7) * 86400000).toISOString();
+    return fbAuditQuery(from, '', 1000).then(function(r) {
+        if (typeof auditMergeIntoCache === 'function') auditMergeIntoCache(r.events);
+        return r;
+    });
+}
+
+/** Tras cada pull: encolar lo heredado, vaciar la bandeja y traer lo reciente. */
+function fbAuditAfterPull() {
+    if (!fbSync.enabled || !fbSyncModules.audit) return;
+    fbAuditQueueLegacy().catch(function() { return 0; })
+        .then(function() { return fbAuditFlush(); })
+        .then(function() { return fbAuditFetchRecent(7); })
+        .catch(function(e) { void 0; });
+}
+
+/** Estado para Datos → Auditoría / Sistema y las Alertas. */
+function fbAuditStatus() {
+    var box = (typeof auditOutbox === 'function') ? auditOutbox() : [];
+    var oldest = box.length ? box.reduce(function(m, e) { return (!m || e.ts < m) ? e.ts : m; }, '') : '';
+    return { pending: box.length, oldest: oldest, lastFlush: fbSync.auditLastFlush || '', lastError: fbSync.auditLastError || '',
+             enabled: !!(fbSync.enabled && fbSyncModules.audit) };
 }
 
 
@@ -61183,7 +61774,8 @@ function vetsPolicySet(name, level, reason, opts) {
     else pnState.vetsChecks.push({ id: id, level: level, reason: reason || '', by: by, timestamp: now });
     if (typeof auditLog === 'function') {
         auditLog('cop15', 'vets_verificacion_clasificada', { type: 'vets', id: id, label: id },
-            antes + ' → ' + VETS_LEVELS[level].label + (reason ? ' · motivo: ' + reason : ''));
+            antes + ' → ' + VETS_LEVELS[level].label + (reason ? ' · motivo: ' + reason : ''),
+            { before: { tratamiento: antes }, after: { tratamiento: VETS_LEVELS[level].label, motivo: reason || '' } });
     }
     if (!opts.skipSave && typeof pnSave === 'function') pnSave();
     return true;

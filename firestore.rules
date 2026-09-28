@@ -26,8 +26,18 @@ service cloud.firestore {
     // (cop15/testplan/inventory/panel/cop/audit/backups → doc 'current' o fechas)
     match /stations/{station} {
       allow read, write: if isLabUser();
-      match /{path=**} {
-        allow read, write: if isLabUser();
+
+      // [2.6.0] Historial de cambios: un documento por evento, SOLO CREAR.
+      // Nadie (ni la app) puede modificar ni borrar un evento ya escrito.
+      match /auditlog/{eventId} {
+        allow read, create: if isLabUser();
+        allow update, delete: if false;
+      }
+
+      // Todo lo demás del laboratorio. Las reglas se SUMAN (basta que una permita),
+      // así que el comodín tiene que excluir auditlog o dejaría editarlo.
+      match /{col}/{path=**} {
+        allow read, write: if isLabUser() && col != 'auditlog';
       }
     }
 
