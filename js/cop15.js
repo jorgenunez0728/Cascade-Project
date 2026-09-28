@@ -3169,8 +3169,19 @@ function _libGasProfileSnapshot(profile, regName) {
             if (g.captureUnit) o.captureUnit = g.captureUnit;
             return o;
         }),
-        frozenAt: new Date().toISOString()
+        frozenAt: new Date().toISOString(),
+        // [2.7.0] Con qué versión de los límites del laboratorio coincidía (null = distintos o sin publicar).
+        labVersion: _libLabVersionNow()
     };
+}
+
+function _libLabVersionNow() {
+    try {
+        if (typeof fbRegCachedShared !== 'function' || typeof regSyncState !== 'function') return null;
+        var c = fbRegCachedShared();
+        if (!c || !c.shared) return null;
+        return regSyncState(loadRegulations(), c.shared).state === 'al-dia' ? c.shared.version : null;
+    } catch (e) { return null; }
 }
 
 /**
@@ -3670,6 +3681,8 @@ function loadRelease() {
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
+        // [2.7.0] Este equipo no juzga con los límites publicados por el laboratorio.
+        if (_gasEl && typeof pnRegMismatchHTML === 'function') { var _rm = pnRegMismatchHTML(); if (_rm) _gasEl.insertAdjacentHTML('afterbegin', _rm); }
         // Si el aprobador lo devolvió, el liberador tiene que ver POR QUÉ antes de
         // volver a teclear — si no, repite el mismo error.
         if (_gasEl && vehicle.pendingReturn) {

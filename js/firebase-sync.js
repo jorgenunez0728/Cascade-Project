@@ -550,6 +550,17 @@ function fbSyncAlerts() {
                 source: 'Sincronización' });
         });
     } catch (e) {}
+    // [2.7.0] Este equipo juzga con límites distintos a los publicados por el laboratorio.
+    try {
+        var rc = (syncOn && typeof fbRegCachedShared === 'function') ? fbRegCachedShared() : null;
+        if (rc && rc.shared && typeof regSyncState === 'function') {
+            var rs = regSyncState(loadRegulations(), rc.shared);
+            if (rs.state === 'distinto' || rs.state === 'conflicto' || rs.state === 'cambios-locales') {
+                out.push({ level: 'ALTA', color: '#f59e0b', source: 'Regulaciones',
+                    message: 'Los límites de este equipo no son los de la versión ' + rc.shared.version + ' del laboratorio (' + rs.diff.length + ' diferencia(s)) — ver Datos → Regulaciones' });
+            }
+        }
+    } catch (e) {}
     // [2.6.0] Eventos del historial que llevan más de un día sin llegar a la nube.
     try {
         var as = syncOn ? fbAuditStatus() : null;
@@ -2175,6 +2186,8 @@ function fbPullApply(collections, results, showFeedback) {
     fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
     // [2.6.0] Historial permanente: subir la bandeja y traer lo de los demás equipos.
     if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
+    // [2.7.0] Límites compartidos: adoptar la versión nueva si este equipo no tiene cambios propios.
+    if (typeof fbRegCheck === 'function') setTimeout(function() { fbRegCheck().catch(function() {}); }, 2500);
     fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
@@ -5766,4 +5779,125 @@ function fbAuditStatus() {
     var oldest = box.length ? box.reduce(function(m, e) { return (!m || e.ts < m) ? e.ts : m; }, '') : '';
     return { pending: box.length, oldest: oldest, lastFlush: fbSync.auditLastFlush || '', lastError: fbSync.auditLastError || '',
              enabled: !!(fbSync.enabled && fbSyncModules.audit) };
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.7.0] LÍMITES COMPARTIDOS — settings/regulations + regversions/{n}║
+// ║  La versión vigente vive en settings/regulations; cada publicación   ║
+// ║  CREA regversions/{n} en el mismo commit (precondición "no existe"): ║
+// ║  si dos equipos publican la misma versión a la vez, el segundo falla ║
+// ║  y se le pide revisar, en vez de pisar al primero.                   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_REG_SHARED_KEY = 'kia_regulations_shared';
+
+function _fbStationDocName(path) {
+    return 'projects/' + FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' + _fbAuditStation() + '/' + path;
+}
+
+/** Documento de Firestore → versión compartida. PURA. */
+function fbRegParseShared(obj) {
+    if (!obj || !obj.version) return null;
+    var profiles = [];
+    try { profiles = typeof obj.profiles === 'string' ? JSON.parse(obj.profiles) : (obj.profiles || []); } catch (e) { profiles = []; }
+    return { version: Number(obj.version), hash: obj.hash || '', profiles: profiles, publishedBy: obj.publishedBy || '',
+             publishedAt: obj.publishedAt || '', note: obj.note || '', device: obj.device || '' };
+}
+
+/** Escrituras para publicar la versión n. PURA. */
+function fbRegPublishWrites(n, profiles, meta, docNameFn) {
+    var fields = {
+        version: fbToFirestoreValue(n), hash: fbToFirestoreValue(regProfilesHash(profiles)),
+        profiles: fbToFirestoreValue(JSON.stringify(regProfilesCanonical(profiles))),
+        publishedBy: fbToFirestoreValue(meta.by || ''), publishedAt: fbToFirestoreValue(meta.at || ''),
+        note: fbToFirestoreValue(meta.note || ''), device: fbToFirestoreValue(meta.device || '')
+    };
+    return [
+        { update: { name: docNameFn('regversions/v' + n), fields: fields }, currentDocument: { exists: false },
+          updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] },
+        { update: { name: docNameFn('settings/regulations'), fields: fields },
+          updateTransforms: [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }] }
+    ];
+}
+
+/** Lee la versión vigente del laboratorio. Resuelve la versión o null (nunca publicada). */
+function fbRegFetchShared() {
+    if (!fbSync.enabled || typeof fetch === 'undefined') return Promise.reject(new Error('La sincronización está apagada en este equipo.'));
+    return _fbBugsRestSend('GET', 'settings/regulations').then(function(doc) {
+        fbQuotaRecord('read');
+        var sh = fbRegParseShared(_fbBugsRestDocToObj(doc));
+        try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: sh, at: new Date().toISOString() })); } catch (e) {}
+        return sh;
+    }, function(err) {
+        if (_fbBkIsNotFound(err)) {
+            try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: null, at: new Date().toISOString() })); } catch (e) {}
+            return null;
+        }
+        throw err;
+    });
+}
+
+/** Última versión vista (sin red): {shared, at} o null si nunca se consultó. */
+function fbRegCachedShared() {
+    try { return JSON.parse(localStorage.getItem(FB_REG_SHARED_KEY)) || null; } catch (e) { return null; }
+}
+
+/**
+ * Compara con el laboratorio y, si este equipo no tiene cambios propios y hay versión
+ * nueva, la adopta solo. Resuelve el estado (regSyncState) + la versión compartida.
+ */
+function fbRegCheck(opts) {
+    opts = opts || {};
+    return fbRegFetchShared().then(function(sh) {
+        var st = regSyncState(loadRegulations(), sh);
+        if (st.state === 'atrasado') {
+            var d = regAdoptShared(sh, 'Actualizado a la versión ' + sh.version + ' del laboratorio');
+            if (!opts.quiet && typeof showToast === 'function') {
+                showToast('Límites de regulación actualizados a la versión ' + sh.version + ' del laboratorio (' + d.length + ' cambio(s)).', 'info', 7000);
+            }
+            st = regSyncState(loadRegulations(), sh);
+        }
+        st.shared = sh;
+        return st;
+    });
+}
+
+/**
+ * Publica los límites de ESTE equipo como la versión siguiente del laboratorio.
+ * Se niega si otro equipo publicó entre la consulta y el commit (la versión n ya existe).
+ */
+function fbRegPublish(note, opts) {
+    opts = opts || {};
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'publicar los límites del laboratorio')) {
+        return Promise.resolve({ ok: false, reason: 'Tu rol no puede publicar límites.' });
+    }
+    return fbRegFetchShared().then(function(sh) {
+        var data = loadRegulations();
+        var st = regSyncState(data, sh);
+        if (st.state === 'al-dia') return { ok: true, version: sh.version, nada: true };
+        if ((st.state === 'conflicto' || st.state === 'distinto') && !opts.override) {
+            return { ok: false, state: st.state, reason: 'El laboratorio tiene otra versión: revisa las diferencias antes de publicar.' };
+        }
+        var n = (sh ? sh.version : 0) + 1;
+        var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+        var meta = { by: who, at: new Date().toISOString(), note: note || '', device: (typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '') };
+        return _fbAuditCommit(fbRegPublishWrites(n, data.profiles, meta, _fbStationDocName)).then(function() {
+            data.shared = { version: n, hash: regProfilesHash(data.profiles), at: meta.at };
+            saveRegulations();
+            var nuevo = { version: n, hash: data.shared.hash, profiles: regProfilesCanonical(data.profiles), publishedBy: who, publishedAt: meta.at, note: meta.note };
+            try { localStorage.setItem(FB_REG_SHARED_KEY, JSON.stringify({ shared: nuevo, at: meta.at })); } catch (e) {}
+            if (typeof auditLog === 'function') {
+                auditLog('regulations', 'regulacion_publicada', { type: 'regulation', label: 'versión ' + n },
+                    'Límites publicados como versión ' + n + ' del laboratorio' + (note ? ' · ' + note : '') +
+                    (sh ? ' · ' + regProfilesDiff(sh.profiles, data.profiles).length + ' cambio(s) sobre la versión ' + sh.version : ' · primera versión'),
+                    { before: sh ? regProfilesLimitMap(sh.profiles) : null, after: regProfilesLimitMap(data.profiles) });
+            }
+            return { ok: true, version: n };
+        }, function(err) {
+            if (_fbAuditAlreadyThere(err)) return { ok: false, reason: 'Otro equipo publicó la versión ' + n + ' en este momento. Vuelve a abrir Regulaciones y revisa las diferencias.' };
+            return { ok: false, reason: 'No se pudo publicar: ' + _fbBkErrText(err) };
+        });
+    }, function(err) {
+        return { ok: false, reason: 'No se pudo consultar la nube: ' + _fbBkErrText(err) };
+    });
 }

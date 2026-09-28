@@ -44,7 +44,7 @@ vm.runInContext('var LIB_VAL_SIGFIGS = 9;', ctx);
 ['DEFAULT_REGULATION_PROFILES', 'REG_PROFILES_RETIRED'].forEach(n => vm.runInContext(extraerVar('app.js', n), ctx));
 vm.runInContext(extraer('app.js', 'regMigrateProfiles'), ctx);
 ['_libNormalizeVal', '_libSigFig', '_libValuesMatch', '_libVerifyApproverMatch', '_libGasHasLimit',
- '_libVerifyReleaseValues', '_libGasProfileSnapshot', '_libPickGasProfile']
+ '_libVerifyReleaseValues', '_libGasProfileSnapshot', '_libLabVersionNow', '_libPickGasProfile']
     .forEach(n => vm.runInContext(extraer('cop15.js', n), ctx));
 
 let pasaron = 0, fallaron = 0;
@@ -136,6 +136,7 @@ console.log('\n== _libPickGasProfile: congelado → vigente → retirado → der
     const frozen = ctx._libGasProfileSnapshot(perfil('EURO-5'), 'EURO-5');
     ok('la copia congelada guarda nombre, gases y límites', frozen.name === 'EURO-5' &&
         frozen.gases.length === 5 && frozen.gases.find(g => g.field === 'NOx').limit === 0.06);
+    ok('[2.7.0] sin límites compartidos la copia no cita versión del laboratorio', frozen.labVersion === null);
     ok('manda el perfil congelado aunque el equipo tenga otro', pick(frozen, perfil('SULEV 30'), {}, 'EURO-5') === frozen);
     ok('sin congelado usa el vigente si cubre lo capturado',
         pick(null, perfil('SULEV 30'), { CO: 0.1, NMOGNOx: 0.02 }, 'SULEV 30') === perfil('SULEV 30'));

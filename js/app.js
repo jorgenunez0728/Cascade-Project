@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.6.0';
+var APP_VERSION = '2.7.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,15 @@ var APP_VERSION = '2.6.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.7.0', date: '28 sep 2026', title: 'Todos los equipos juzgan con los mismos límites',
+      bullets: [
+          'Nuevo en Datos → Regulaciones: "Límites compartidos del laboratorio". Un Signatario o Manager publica los límites de su equipo (con motivo) como la versión del laboratorio. Antes cada equipo tenía los suyos y dos equipos podían juzgar el mismo resultado distinto.',
+          'Los demás equipos toman la versión nueva solos, siempre que no tengan cambios propios. Editar un perfil en Regulaciones publica la versión siguiente.',
+          'Si un equipo tiene límites distintos, la tarjeta muestra cada diferencia (laboratorio vs este equipo) y quien administra regulaciones decide: usar los del laboratorio o publicar los de ese equipo. Nunca gana en silencio el último que editó.',
+          'Si dos equipos publican al mismo tiempo, el segundo no pisa al primero: se le pide revisar.',
+          'Liberación avisa si ese equipo no juzga con los límites del laboratorio, y sale la alerta "Regulaciones". La captura congelada del liberador guarda con qué versión coincidía.',
+          'Cada versión queda guardada y en el historial de cambios con el antes y el después.'
+      ] },
     { version: '2.6.0', date: '28 sep 2026', title: 'El historial de cambios ya no se borra ni se puede editar',
       bullets: [
           'Cada cambio se guarda en la nube como un registro propio que no se puede modificar ni borrar, con la hora del servidor. Antes el historial se recortaba a los últimos 90 días y cualquier equipo podía reescribirlo entero.',
@@ -1218,7 +1227,11 @@ function loadRegulations() {
         // dispositivos que ya tenían kia_regulations_v1 escrito (la rama de arriba solo
         // corre en un dispositivo virgen). Se agregan los que falten SIN tocar los que
         // el laboratorio ya editó — el perfil guardado siempre gana.
+        // [2.7.0] Con límites compartidos, el conjunto del laboratorio manda: agregar
+        // un default que la versión publicada no tiene haría que este equipo se viera
+        // "distinto" para siempre.
         var _have = {};
+        if (_regulationsData.shared && _regulationsData.shared.version) DEFAULT_REGULATION_PROFILES.forEach(function(d) { _have[String(d.name).trim().toUpperCase()] = true; });
         _regulationsData.profiles.forEach(function(p) {
             if (p && p.name) _have[String(p.name).trim().toUpperCase()] = true;
         });
@@ -1265,6 +1278,126 @@ function getRegulationProfile(regulationName) {
 
 function getAllRegulationProfiles() {
     return loadRegulations().profiles;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.7.0] LÍMITES COMPARTIDOS
+//
+// Antes cada equipo tenía sus propios perfiles (kia_regulations_v1 no se
+// sincronizaba): dos equipos podían juzgar el mismo resultado con límites
+// distintos. Ahora el laboratorio publica una VERSIÓN (settings/regulations +
+// regversions/{n}, solo-crear) y cada equipo se compara contra ella.
+// `_regulationsData.shared = {version, hash, at}` es la versión que este equipo
+// adoptó o publicó por última vez: la base para saber si lo local se editó.
+// Nunca gana "el más reciente" en silencio: si un equipo tiene cambios propios
+// y el laboratorio también, decide quien administra regulaciones.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Forma canónica de los perfiles (lo que define un juicio, sin fechas). PURA. */
+function regProfilesCanonical(profiles) {
+    return (profiles || []).filter(function(p) { return p && p.name; }).map(function(p) {
+        return {
+            name: String(p.name).trim(), shortName: String(p.shortName || p.name).trim(),
+            gases: (p.gases || []).filter(function(g) { return g && g.field; }).map(function(g) {
+                var o = { field: g.field, label: g.label || g.field, unit: g.unit || '',
+                          limit: (g.limit === null || g.limit === undefined || g.limit === '' || !isFinite(Number(g.limit))) ? null : Number(g.limit) };
+                if (g.captureUnit && g.captureUnit !== g.unit) o.captureUnit = g.captureUnit;
+                return o;
+            })
+        };
+    }).sort(function(a, b) { return a.name.toUpperCase() < b.name.toUpperCase() ? -1 : a.name.toUpperCase() > b.name.toUpperCase() ? 1 : 0; });
+}
+
+/** Huella de un conjunto de perfiles. PURA. */
+function regProfilesHash(profiles) {
+    return sha256Hex(stableStringify(regProfilesCanonical(profiles)));
+}
+
+/**
+ * Qué cambia de `from` a `to`, renglón por renglón (empata perfiles por nombre y
+ * gases por campo). PURA. [{profile, kind, field, antes, despues}] con kind:
+ * perfil-nuevo | perfil-quitado | gas-nuevo | gas-quitado | limite | unidad | captura | etiqueta.
+ */
+function regProfilesDiff(from, to) {
+    var A = {}, B = {}, out = [];
+    regProfilesCanonical(from).forEach(function(p) { A[p.name.toUpperCase()] = p; });
+    regProfilesCanonical(to).forEach(function(p) { B[p.name.toUpperCase()] = p; });
+    var lim = function(g) { return g.limit === null ? 'sin límite' : String(g.limit); };
+    Object.keys(A).concat(Object.keys(B).filter(function(k) { return !A[k]; })).sort().forEach(function(k) {
+        var a = A[k], b = B[k];
+        if (!b) { out.push({ profile: a.name, kind: 'perfil-quitado', field: '', antes: a.gases.map(function(g) { return g.field + ' ' + lim(g); }).join(', '), despues: '' }); return; }
+        if (!a) { out.push({ profile: b.name, kind: 'perfil-nuevo', field: '', antes: '', despues: b.gases.map(function(g) { return g.field + ' ' + lim(g); }).join(', ') }); return; }
+        var GA = {}, GB = {};
+        a.gases.forEach(function(g) { GA[g.field] = g; });
+        b.gases.forEach(function(g) { GB[g.field] = g; });
+        Object.keys(GA).concat(Object.keys(GB).filter(function(f) { return !GA[f]; })).forEach(function(f) {
+            var x = GA[f], y = GB[f];
+            if (!y) { out.push({ profile: a.name, kind: 'gas-quitado', field: f, antes: lim(x) + ' ' + x.unit, despues: '' }); return; }
+            if (!x) { out.push({ profile: a.name, kind: 'gas-nuevo', field: f, antes: '', despues: lim(y) + ' ' + y.unit }); return; }
+            if (x.limit !== y.limit) out.push({ profile: a.name, kind: 'limite', field: f, antes: lim(x), despues: lim(y) });
+            if (x.unit !== y.unit) out.push({ profile: a.name, kind: 'unidad', field: f, antes: x.unit, despues: y.unit });
+            if ((x.captureUnit || '') !== (y.captureUnit || '')) out.push({ profile: a.name, kind: 'captura', field: f, antes: x.captureUnit || x.unit, despues: y.captureUnit || y.unit });
+            if (x.label !== y.label) out.push({ profile: a.name, kind: 'etiqueta', field: f, antes: x.label, despues: y.label });
+        });
+    });
+    return out;
+}
+
+/**
+ * Estado de este equipo frente a la versión del laboratorio. PURA.
+ * local = {profiles, shared:{version, hash}}; shared = {version, hash, profiles} | null.
+ *  sin-publicar  · el laboratorio todavía no publica límites
+ *  al-dia        · idénticos a la versión publicada
+ *  atrasado      · sin cambios propios y hay versión nueva → se adopta sola
+ *  cambios-locales · este equipo editó sobre la versión vigente (falta publicar)
+ *  conflicto     · editó sobre una versión vieja y el laboratorio también cambió
+ *  distinto      · nunca se ha conciliado y no coincide
+ */
+function regSyncState(local, shared) {
+    local = local || {};
+    var localHash = regProfilesHash(local.profiles);
+    var base = local.shared || null;
+    var r = { state: '', localHash: localHash, version: shared ? shared.version : 0, baseVersion: base ? base.version : 0,
+              localEdited: !!(base && base.hash !== localHash), diff: [] };
+    if (!shared || !shared.version) { r.state = 'sin-publicar'; return r; }
+    if (shared.hash === localHash) { r.state = 'al-dia'; return r; }
+    r.diff = regProfilesDiff(shared.profiles, local.profiles);   // lo que ESTE equipo tiene distinto
+    if (!base || !base.version) r.state = 'distinto';
+    else if (!r.localEdited && shared.version > base.version) r.state = 'atrasado';
+    else if (r.localEdited && shared.version === base.version) r.state = 'cambios-locales';
+    else if (r.localEdited && shared.version > base.version) r.state = 'conflicto';
+    else r.state = 'distinto';
+    return r;
+}
+
+/** Mapa {perfil·gas: 'límite unidad'} para el antes/después del historial. PURA. */
+function regProfilesLimitMap(profiles) {
+    var o = {};
+    regProfilesCanonical(profiles).forEach(function(p) {
+        p.gases.forEach(function(g) { o[p.name + ' · ' + g.field] = (g.limit === null ? 'sin límite' : g.limit) + ' ' + g.unit; });
+    });
+    return o;
+}
+
+/**
+ * Este equipo toma la versión del laboratorio. Conserva `migr` (guardas locales) y
+ * deja constancia en el historial con el antes y el después.
+ */
+function regAdoptShared(shared, why) {
+    var data = loadRegulations();
+    var antes = regProfilesLimitMap(data.profiles);
+    var diff = regProfilesDiff(data.profiles, shared.profiles);
+    data.profiles = JSON.parse(JSON.stringify(shared.profiles));
+    data.shared = { version: shared.version, hash: shared.hash, at: new Date().toISOString() };
+    saveRegulations();
+    if (typeof auditLog === 'function') {
+        auditLog('regulations', 'regulacion_sincronizada', { type: 'regulation', label: 'versión ' + shared.version },
+            (why || 'Se adoptó la versión ' + shared.version + ' del laboratorio') + (diff.length ? ' · ' + diff.length + ' cambio(s)' : ' · sin cambios'),
+            { before: antes, after: regProfilesLimitMap(shared.profiles) });
+    }
+    if (typeof copInvalidateCache === 'function') { try { copInvalidateCache(); } catch (e) {} }
+    try { window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'regulations' } })); } catch (e) {}
+    return diff;
 }
 
 let activeVehicleId = null;

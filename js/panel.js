@@ -846,6 +846,9 @@ function pnSwitchTab(tabId) {
     // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
     // estático de pn-system, que no pasa por pnRender.
     if (tabId === 'pn-system') pnDensityRenderChoices();
+    // [2.7.0] La pestaña de Regulaciones se conserva en caché al volver: sin esto la
+    // tarjeta de límites compartidos mostraría la versión de la visita anterior.
+    if (tabId === 'pn-regulations') setTimeout(function() { _pnRegSharedPaint(null); pnRegSharedRefresh(); }, 60);
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -2890,6 +2893,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_manual_configs',    label: 'Configuraciones manuales (legado — desde 2.0.0 viven en la base y se sincronizan)', tier: 'core' },
     { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
     { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
+    { key: 'kia_regulations_shared', label: 'Regulaciones: última versión del laboratorio', tier: 'cache' },   // [2.7.0]
     { key: 'kia_templates',         label: 'Plantillas (retiradas en v23.4)', tier: 'cache' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
@@ -4421,6 +4425,9 @@ function pnRenderRegulations(el) {
     html += '<h3 style="margin:0;font-size:14px;">⚗️ Perfiles de Regulación de Emisiones</h3>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">+ Agregar Regulación</button>';
     html += '</div>';
+    // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
+    // refresca contra la nube al abrir.
+    html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
     if (typeof vetsPolicyCardHTML === 'function') html += vetsPolicyCardHTML();
 
@@ -4461,6 +4468,151 @@ function pnRenderRegulations(el) {
     }
     html += '</div>';
     el.innerHTML = html;
+    pnRegSharedRefresh();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.7.0] Tarjeta "Límites compartidos del laboratorio"
+// ══════════════════════════════════════════════════════════════════════
+var _pnRegLive = null;   // {state…, shared} de la última consulta en esta sesión, o {error}
+
+var PN_REG_DIFF_KIND = {
+    'perfil-nuevo': 'solo en este equipo', 'perfil-quitado': 'solo en el laboratorio', 'gas-nuevo': 'gas solo en este equipo',
+    'gas-quitado': 'gas solo en el laboratorio', limite: 'límite', unidad: 'unidad', captura: 'unidad de captura', etiqueta: 'nombre del gas'
+};
+
+/** Diferencias en una tabla (laboratorio → este equipo). */
+function pnRegDiffTableHTML(diff) {
+    if (!diff || !diff.length) return '';
+    var h = '<table class="u-cards" style="width:100%;font-size:var(--fs-xs);border-collapse:collapse;margin-top:var(--space-xs);"><thead><tr>' +
+        ['Regulación', 'Qué', 'Laboratorio', 'Este equipo'].map(function(t) { return '<th style="text-align:left;padding:var(--space-2xs) var(--space-sm);">' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
+    diff.slice(0, 40).forEach(function(d) {
+        h += '<tr><td style="padding:var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(d.profile) + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);">' + escapeHtml((PN_REG_DIFF_KIND[d.kind] || d.kind) + (d.field ? ' · ' + d.field : '')) + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);">' + escapeHtml(d.antes || '—') + '</td>' +
+            '<td style="padding:var(--space-2xs) var(--space-sm);font-weight:700;">' + escapeHtml(d.despues || '—') + '</td></tr>';
+    });
+    if (diff.length > 40) h += '<tr><td colspan="4" class="u-muted" style="padding:var(--space-2xs) var(--space-sm);">… y ' + (diff.length - 40) + ' más</td></tr>';
+    return h + '</tbody></table>';
+}
+
+/** Tarjeta de estado. `live` = resultado de fbRegCheck (o null: se usa lo último visto). */
+function pnRegSharedCardHTML(live) {
+    var syncOn = typeof fbSync !== 'undefined' && fbSync.enabled;
+    var can = typeof authCan === 'function' ? authCan('regulation.manage') : true;
+    var h = '<div class="tp-card" style="margin-bottom:var(--space-md);">' +
+        '<div style="font-weight:700;font-size:var(--fs-sm);" data-help="reg_compartidos">🔗 Límites compartidos del laboratorio</div>';
+    var body = '';
+    if (!syncOn) {
+        body = '<div class="u-muted">La sincronización está apagada en este equipo: usa sus propios límites y no se puede comparar con los del laboratorio.</div>';
+        return h + '<div style="font-size:var(--fs-sm);margin-top:var(--space-xs);line-height:var(--lh-base);">' + body + '</div></div>';
+    }
+    var st = live;
+    if (!st) {
+        var c = typeof fbRegCachedShared === 'function' ? fbRegCachedShared() : null;
+        if (c) { st = regSyncState(loadRegulations(), c.shared); st.shared = c.shared; st.cached = c.at; }
+    }
+    if (!st) body = '<div class="u-muted">Consultando la nube…</div>';
+    else if (st.error) body = '<div class="u-muted">No se pudo consultar la nube (' + escapeHtml(st.error) + '). Se muestra lo último visto.</div>';
+    else {
+        var sh = st.shared, quien = sh ? (sh.publishedBy || '?') + ' · ' + String(sh.publishedAt || '').slice(0, 10) + (sh.note ? ' · ' + escapeHtml(sh.note) : '') : '';
+        var btn = function(label, onclick, primary) {
+            return can ? '<button type="button" class="tp-btn' + (primary ? ' tp-btn-primary' : '') + '" onclick="' + onclick + '">' + label + '</button>' : '';
+        };
+        var nadie = can ? '' : '<div class="u-muted" style="margin-top:var(--space-xs);">Pide a quien administra regulaciones (Signatario o Manager) que lo resuelva.</div>';
+        if (st.state === 'sin-publicar') {
+            body = 'El laboratorio todavía no publica sus límites: <b>cada equipo usa los suyos</b> y dos equipos pueden juzgar el mismo resultado distinto.' +
+                '<div style="margin-top:var(--space-xs);">' + btn('Publicar los límites de este equipo como los del laboratorio', 'pnRegPublishUI(\'primera\')', true) + '</div>' + nadie;
+        } else if (st.state === 'al-dia') {
+            body = '✓ Este equipo usa la <b>versión ' + sh.version + '</b> del laboratorio <span class="u-muted">(' + quien + ')</span>.';
+        } else if (st.state === 'cambios-locales') {
+            body = '⚠️ Este equipo tiene cambios <b>sin publicar</b> sobre la versión ' + sh.version + ':' + pnRegDiffTableHTML(st.diff) +
+                '<div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);margin-top:var(--space-sm);">' +
+                btn('Publicar como versión ' + (sh.version + 1), 'pnRegPublishUI(\'cambios\')', true) + btn('Descartar y usar la del laboratorio', 'pnRegAdoptUI()') + '</div>' + nadie;
+        } else {
+            body = '⚠️ Este equipo usa límites <b>distintos</b> a la versión ' + sh.version + ' del laboratorio <span class="u-muted">(' + quien + ')</span>' +
+                (st.state === 'conflicto' ? ', y los dos cambiaron desde la última vez que coincidieron' : '') + '.' + pnRegDiffTableHTML(st.diff) +
+                '<div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);margin-top:var(--space-sm);">' +
+                btn('Usar los del laboratorio', 'pnRegAdoptUI()', true) + btn('Publicar los de este equipo como versión ' + (sh.version + 1), 'pnRegPublishUI(\'reemplazar\')') + '</div>' + nadie;
+        }
+        if (st.cached && !live) body += '<div class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);">Última consulta: ' + escapeHtml(String(st.cached).slice(0, 16).replace('T', ' ')) + '</div>';
+    }
+    return h + '<div style="font-size:var(--fs-sm);margin-top:var(--space-xs);line-height:var(--lh-base);">' + body + '</div></div>';
+}
+
+function _pnRegSharedPaint(live) {
+    var el = document.getElementById('reg-shared-card');
+    if (el) el.innerHTML = pnRegSharedCardHTML(live);
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+function pnRegSharedRefresh() {
+    if (typeof fbRegCheck !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return Promise.resolve(null);
+    return fbRegCheck().then(function(st) { _pnRegLive = st; _pnRegSharedPaint(st); return st; },
+        function(e) { var st = { error: (typeof _fbBkErrText === 'function' ? _fbBkErrText(e) : e && e.message) }; _pnRegSharedPaint(st); return st; });
+}
+
+/** mode: primera | cambios | reemplazar. Pide motivo; reemplazar confirma mostrando qué se pierde. */
+function pnRegPublishUI(mode) {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'publicar los límites del laboratorio')) return Promise.resolve();
+    var ask = function() {
+        return uiPrompt({ title: mode === 'primera' ? 'Publicar límites del laboratorio' : 'Publicar nueva versión',
+            label: 'Motivo o referencia (procedimiento, oficio, revisión)', placeholder: 'Ej.: COP15 rev. 04 — NOx EURO-5 a 0.06', required: true });
+    };
+    var go = function(override) {
+        return ask().then(function(note) {
+            if (note === null) return;
+            if (String(note).length < 5) { showToast('Escribe un motivo de al menos 5 caracteres.', 'warning'); return; }
+            return fbRegPublish(note, { override: override }).then(function(r) {
+                showToast(r.ok ? (r.nada ? 'Ya coincide con la versión del laboratorio.' : 'Publicada la versión ' + r.version + ' de los límites del laboratorio.') : r.reason, r.ok ? 'success' : 'error', 8000);
+                return pnRegSharedRefresh();
+            });
+        });
+    };
+    if (mode !== 'reemplazar') return go(false);
+    var st = _pnRegLive || {};
+    return new Promise(function(resolve) {
+        showConfirm('Los límites de ESTE equipo reemplazarán a la versión ' + ((st.shared || {}).version || '') + ' del laboratorio para todos los equipos (' +
+            (st.diff || []).length + ' diferencia(s)). Queda en el historial con el antes y el después.', function() { resolve(go(true)); },
+            { title: 'Reemplazar los límites del laboratorio', type: 'warning', confirmText: 'Continuar' });
+    });
+}
+
+function pnRegAdoptUI() {
+    if (typeof authRequire === 'function' && !authRequire('regulation.manage', 'cambiar los límites de este equipo')) return Promise.resolve();
+    var st = _pnRegLive;
+    if (!st || !st.shared) { showToast('Primero consulta la nube (vuelve a abrir Regulaciones).', 'warning'); return Promise.resolve(); }
+    return new Promise(function(resolve) {
+        showConfirm('Este equipo tomará la versión ' + st.shared.version + ' del laboratorio y dejará sus ' + (st.diff || []).length +
+            ' diferencia(s). Queda en el historial con el antes y el después.', function() {
+            regAdoptShared(st.shared, 'Un administrador adoptó la versión ' + st.shared.version + ' del laboratorio');
+            showToast('Este equipo ya usa la versión ' + st.shared.version + ' del laboratorio.', 'success');
+            if (typeof pnRender === 'function') pnRender();
+            resolve();
+        }, { title: 'Usar los límites del laboratorio', type: 'warning', confirmText: 'Usar los del laboratorio' });
+    });
+}
+
+/** Tras editar o borrar un perfil: si el laboratorio ya comparte límites, publicar la edición. */
+function pnRegAfterLocalEdit(label) {
+    var data = loadRegulations();
+    if (!data.shared || !data.shared.version || typeof fbRegPublish !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return;
+    fbRegPublish('Editado en Regulaciones: ' + label).then(function(r) {
+        if (r.ok && !r.nada) showToast('Publicado para todo el laboratorio como versión ' + r.version + '.', 'success');
+        else if (!r.ok) showToast('Guardado en este equipo, pero NO se publicó: ' + r.reason + ' Resuélvelo en la tarjeta de límites compartidos.', 'warning', 10000);
+        pnRegSharedRefresh();
+    });
+}
+
+/** Aviso para Liberación cuando este equipo no juzga con los límites del laboratorio. */
+function pnRegMismatchHTML() {
+    if (typeof fbSync === 'undefined' || !fbSync.enabled || typeof fbRegCachedShared !== 'function') return '';
+    var c = fbRegCachedShared();
+    if (!c || !c.shared) return '';
+    var st = regSyncState(loadRegulations(), c.shared);
+    if (st.state === 'al-dia' || st.state === 'sin-publicar' || st.state === 'atrasado') return '';
+    return '<div class="reg-mismatch">⚠️ Los límites de este equipo no son los de la versión ' + c.shared.version +
+        ' del laboratorio (' + st.diff.length + ' diferencia(s)). Revisa Datos → Regulaciones antes de liberar.</div>';
 }
 
 // [2.1.0] Los perfiles de regulación son los LÍMITES contra los que se decide PASA/FALLA.
@@ -4506,6 +4658,7 @@ function pnRegDelete(id) {
         _regulationsData = data;
         pnSwitchTab('pn-regulations');
         showToast('Perfil eliminado', 'success');
+        pnRegAfterLocalEdit('se eliminó ' + profile.name);
     }, { title: 'Eliminar Perfil', type: 'danger', confirmText: 'Eliminar' });
 }
 
@@ -4584,6 +4737,7 @@ function _pnRegShowModal(profile) {
                 document.getElementById('globalModal').style.display = 'none';
                 pnSwitchTab('pn-regulations');
                 showToast(isNew ? 'Perfil creado' : 'Perfil actualizado', 'success');
+                pnRegAfterLocalEdit((isNew ? 'nuevo perfil ' : '') + name);
             }}
         ]
     });
@@ -4892,6 +5046,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'reg_compartidos': { title: 'Límites compartidos', text: 'Los límites contra los que se juzga cada resultado son los mismos en todos los equipos. Quien administra regulaciones publica una versión (con motivo); los demás equipos la toman solos si no tienen cambios propios. Si un equipo tiene límites distintos, se muestran las diferencias y un Signatario o Manager decide: usar los del laboratorio o publicar los de ese equipo como versión nueva. Nunca gana en silencio el último que editó. Cada versión queda guardada y en el historial de cambios con el antes y el después.' },
     'pn-audit-integrity': { title: 'Integridad del historial', text: 'Desde 2.6.0 cada cambio se guarda en la nube como un registro que no se puede modificar ni borrar, con la hora del servidor. Cada equipo numera sus registros y cada uno lleva la huella del anterior: si falta uno, o alguien edita uno ya escrito, aquí aparece el aviso. "Buscar en la nube" consulta la historia completa, también la de hace más de 90 días.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },

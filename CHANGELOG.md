@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.7.0 — Todos los equipos juzgan con los mismos límites (2026-09-28)
+
+### Nuevo
+- **Límites compartidos del laboratorio** (Datos → Regulaciones, tarjeta 🔗). Hasta ahora los
+  perfiles de regulación vivían en cada equipo y no se sincronizaban: dos equipos podían juzgar el
+  mismo resultado con límites distintos.
+  - La **primera vez**, un Signatario o Manager publica los límites de su equipo como la
+    **versión 1** del laboratorio, con un motivo (procedimiento, oficio, revisión).
+  - **Editar un perfil** en Regulaciones publica la versión siguiente para todos.
+  - Los demás equipos **toman la versión nueva solos**, siempre que no tengan cambios propios.
+  - Si un equipo tiene límites **distintos**, la tarjeta muestra cada diferencia (laboratorio vs
+    este equipo) y quien administra regulaciones decide: **Usar los del laboratorio** o **Publicar
+    los de este equipo** como versión nueva. **Nunca gana en silencio el último que editó.**
+  - Si dos equipos publican a la vez, el segundo **no pisa** al primero: se le pide revisar.
+- **Liberación avisa** cuando ese equipo no juzga con los límites del laboratorio, y sale la
+  alerta **Regulaciones**.
+- Cada versión queda guardada (no se puede modificar) y en el historial de cambios con el antes y
+  el después de cada límite.
+
+### Cambió
+- La copia congelada del perfil que guarda el liberador (2.2.0) anota con qué versión del
+  laboratorio coincidía (`labVersion`). El F05 no cambia.
+- Con límites compartidos, un perfil de fábrica que el laboratorio quitó ya no reaparece al abrir
+  la app.
+
+### Para desarrollo
+- `app.js`: `regProfilesCanonical`, `regProfilesHash`, `regProfilesDiff`, `regSyncState`
+  (estados sin-publicar / al-dia / atrasado / cambios-locales / conflicto / distinto),
+  `regProfilesLimitMap` — PURAS; `regAdoptShared`. `_regulationsData.shared = {version, hash, at}`.
+- `firebase-sync.js`: `fbRegFetchShared`, `fbRegCheck` (adopta solo en `atrasado`),
+  `fbRegPublish` (commit: `regversions/v{n}` solo-crear + `settings/regulations`),
+  `fbRegPublishWrites`/`fbRegParseShared` (PURAS). Cache `kia_regulations_shared`.
+- `firestore.rules`: `regversions` solo-crear.
+- Pruebas: `tests/regsync.node.js` (33, dos equipos contra un Firestore falso) y
+  `tests/v270.e2e.js`.
+
 ## 2.6.0 — El historial de cambios ya no se borra ni se puede editar (2026-09-28)
 
 ### Nuevo

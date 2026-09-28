@@ -2224,6 +2224,36 @@ menos **dejó de ser silencioso**.
 - `auditModGroup(mod)` (panel.js) agrupa códigos de módulo para el filtro: los llamadores usan
   `tp`/`testplan` y `pn`/`panel` para lo mismo.
 
+## 2.7.0 — Límites de regulación compartidos (`js/app.js`, `js/firebase-sync.js`, `js/panel.js`)
+
+- **Los perfiles SÍ se comparten desde 2.7.0** (lo que 2.2.0 decía "no se sincronizan" dejó de
+  ser cierto), pero NO como un módulo más del sync: por **versiones publicadas**. La vigente vive en
+  `stations/KIA-EMLAB/settings/regulations`; cada publicación CREA `regversions/v{n}` en el mismo
+  commit con `currentDocument.exists=false`. Esa precondición es el candado de concurrencia: si
+  dos equipos publican la n a la vez, el segundo falla (`_fbAuditAlreadyThere`) y se le pide revisar.
+- **`regSyncState(local, shared)` (PURA) es LA definición** del estado de un equipo. La base es
+  `_regulationsData.shared = {version, hash}` (la última versión que este equipo adoptó o
+  publicó); "editado localmente" = la huella actual ≠ la de esa base. **Solo `atrasado` se
+  adopta solo** (sin cambios propios, versión nueva). `distinto` (nunca conciliado), `conflicto`
+  y `cambios-locales` los decide alguien con `regulation.manage`. **Nunca "gana el más reciente"**
+  para límites: deciden PASA/FALLA.
+- **`regProfilesHash` usa la forma canónica** (`regProfilesCanonical`: nombre, gases, unidad,
+  límite, captura distinta de la unidad) — sin fechas ni orden. Todo campo nuevo de un perfil que
+  cambie un juicio debe entrar ahí o dos equipos "iguales" juzgarían distinto sin aviso.
+- **`regAdoptShared` conserva `migr`** (guardas locales de migración) y audita antes/después.
+  `fbRegPublish` audita `regulacion_publicada` con antes/después (`regProfilesLimitMap`).
+- **Con `shared` puesto, `loadRegulations` ya NO reinyecta perfiles de fábrica faltantes**: el
+  conjunto del laboratorio manda. Sin esa excepción, un equipo que adoptó una versión sin SULEV 30
+  se vería "distinto" para siempre.
+- Editar/borrar en el editor de Regulaciones llama `pnRegAfterLocalEdit` → publica la versión
+  siguiente si el laboratorio ya comparte límites y no hay conflicto; si no, lo dice y queda en la
+  tarjeta. La primera publicación es siempre explícita (con motivo).
+- La pestaña `pn-regulations` se conserva en caché: `pnSwitchTab` repinta la tarjeta y vuelve a
+  consultar (`pnRegSharedRefresh`) al entrar, si no mostraría la versión de la visita anterior.
+- **Siguen existiendo `REG_PROFILES_RETIRED` y el perfil congelado del liberador (2.2.0)**: lo ya
+  liberado se lee con los límites con que se liberó, sin importar versiones posteriores. La copia
+  congelada ahora lleva `labVersion` (o null si ese equipo no coincidía con el laboratorio).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
