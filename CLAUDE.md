@@ -2067,7 +2067,9 @@ menos **dejó de ser silencioso**.
   nada. La solución de fondo es un documento por vehículo (**cambia el formato compartido →
   MAYOR**, todos los equipos actualizan el mismo día). No mover las firmas a otra colección
   sin eso: un equipo con código viejo vería vehículos sin firma y, en un empate de fusión,
-  podría quedarse con la copia sin firma y propagarla.
+  podría quedarse con la copia sin firma y propagarla. *(Hecho en 2.9.0 SIN día único: cada
+  documento lleva el vehículo entero —firmas incluidas— y la copia completa se sigue escribiendo
+  para los equipos viejos; ver 2.9.0.)*
 - **`fbFirestoreDocSize` / `fbFirestoreValueSize` son LA definición del tamaño** (reglas de
   "Storage size calculations"; reproduce el ejemplo oficial de 147 bytes). **Nunca volver a
   medir con `JSON.stringify(x).length`.** `fbModuleDocBytes(col, data)` = el documento que
@@ -2283,6 +2285,34 @@ menos **dejó de ser silencioso**.
   `regulation.manage`; la fecha efectiva no puede ser anterior a hoy. El pull del panel se queda con
   la de `at` más reciente (no `Object.assign` a ciegas).
 - El F05 no lee nada de esto: `tests/f05.e2e.js` lo sigue fijando.
+
+## 2.9.0 — Un documento por vehículo (`js/firebase-sync.js`)
+
+- **Cada vehículo vive en `stations/KIA-EMLAB/vehicles/{fbVehDocId(v)}`** (`json` = el vehículo
+  entero, más `vin`, `id`, `rev`, `deleted`, `writer`, `serverTs`). El id sale de `vehicle.id`,
+  nunca del VIN. Lo que no es vehículo va en `cop15meta/current` (`fbVehMeta`, lista CERRADA
+  `FB_VEH_META_KEYS`) en el MISMO commit — es lo que escucha el listener de los demás equipos.
+  **Nunca meter en la meta algo propio de cada equipo** (`lastId`, `version`): dos equipos se
+  re-escribirían la meta y se despertarían el uno al otro sin fin (lo atrapa `vehsync.node.js`).
+- **`fbVehiclesSync()` es LA forma de sincronizar vehículos: traer y DESPUÉS subir**, un ciclo a
+  la vez. Nunca subir sin haber fusionado antes lo de la nube. `fbVehiclesSyncSoon()` lo pide con
+  debounce; lo llaman el gancho de `saveDB`, el listener de `cop15meta` y el final de
+  `fbPullApply`. Sin listener (REST, file://) hay un ciclo cada 5 min con la app visible.
+- **`fbVehPushPlan(vehicles, tombs, known)` (PURA) decide qué subir**: lo que la nube no tiene
+  por `_rev`. Por eso **`_rev` tiene que estar al día** (lo sella `saveDB`/`stampRevisions`, lo
+  inicializa `revInitMissing` al cargar): un vehículo mutado sin `saveDB()` no se sube.
+- **La consulta es incremental** por `serverTs` (hora del servidor) con 5 min de relectura hacia
+  atrás; sin marca de agua o sin vehículos locales se trae todo — una siembra nunca parte de una
+  lista incompleta.
+- `_fbPullMergeModule(col, remote, pulled, {noPushBack, noHistory})`: un remoto PARCIAL no debe
+  disparar `_fbPushBack` (siempre "faltaría" algo), y un ciclo frecuente no escribe fotos en
+  `kia_merge_history`.
+- **`cop15/current` sigue escribiéndose como COPIA para los equipos sin actualizar.** Si ya no
+  cabe, en un equipo 2.9.0 no hay toast; la alerta habla de los equipos viejos (`r.legacy` en
+  `fbSyncCapacity`). Retirarla —y el espejo `audit/current`— es la 3.0.0, cuando no quede ningún
+  equipo anterior.
+- Toda clave nueva de `db` que deba verse en todos los equipos: a `FB_VEH_META_KEYS` **y** a la
+  unión de `fbMergeExecute` (como `deletedVehicles` y `manualConfigs`).
 
 ## Working with this project
 

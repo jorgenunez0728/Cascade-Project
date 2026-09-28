@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.8.0';
+var APP_VERSION = '2.9.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,15 @@ var APP_VERSION = '2.8.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.9.0', date: '28 sep 2026', title: 'Cada vehículo viaja solo: la nube ya no se llena',
+      bullets: [
+          'Cambió: cada vehículo se sube a la nube en su propio documento. Antes todos viajaban juntos en uno solo con tope de 1 MB, y con las firmas ese documento ya estaba al 75 %: al llenarse, los demás equipos dejaban de ver los cambios de Pruebas.',
+          'Ya no hay número máximo de vehículos. Al guardar se sube solo el vehículo que cambió (antes se subían todos cada vez).',
+          'Los cambios de otro equipo llegan solos en unos segundos; en los equipos sin avisos en vivo se revisa cada 5 minutos.',
+          'Borrar un vehículo o corregir su VIN se refleja igual que antes en todos los equipos.',
+          'Convive con los equipos que no se han actualizado: se sigue subiendo la copia completa para ellos mientras quepa. Si deja de caber, sale una alerta para actualizarlos; este equipo sigue sincronizando.',
+          'Datos → Sistema → Capacidad explica el modelo nuevo y mide el vehículo más pesado.'
+      ] },
     { version: '2.8.0', date: '28 sep 2026', title: 'Revisión dirigida: aprobar revisando, no retecleando',
       bullets: [
           'Nuevo: revisión dirigida para pruebas con archivo de VETS. El aprobador ya no vuelve a teclear los resultados: recorre cinco bloques (identidad, montaje, validez, resultados y OBD/OBFCM) con lo esperado al lado.',

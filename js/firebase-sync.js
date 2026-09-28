@@ -522,10 +522,26 @@ function fbSyncCapacity(force) {
     try { rows = fbCapacityRows(_fbCapacityModules(), FB_DOC_SAFE_BYTES, st, dev); } catch (e) { rows = []; }
     try { weight = fbVehicleWeight((typeof db !== 'undefined' && db && db.vehicles) || []); } catch (e) { weight = null; }
     var cop = rows.filter(function(r) { return r.col === 'cop15'; })[0];
-    var vehiclesLeft = (cop && weight && weight.avg > 0) ? Math.floor(cop.free / weight.avg) : null;
+    // [2.9.0] Con vehículos uno por uno el tope ya no es "cuántos caben": cada vehículo
+    // tiene su documento. La fila cop15 pasa a ser la copia para equipos sin actualizar
+    // y se suma la del vehículo más pesado (lo único que todavía podría no caber).
+    var perVehicle = typeof fbVehActive === 'function' && fbVehActive();
+    var vehiclesLeft = (!perVehicle && cop && weight && weight.avg > 0) ? Math.floor(cop.free / weight.avg) : null;
+    if (perVehicle) {
+        if (cop) { cop.label = 'Copia completa de vehículos (solo equipos sin actualizar)'; cop.legacy = true; }
+        try {
+            var big = fbVehLargestDoc((typeof db !== 'undefined' && db && db.vehicles) || []);
+            if (big.bytes > 0) {
+                var bpct = Math.round((big.bytes / FB_DOC_SAFE_BYTES) * 1000) / 10;
+                rows.push({ col: 'vehicle', label: 'Vehículo más pesado (' + big.vin + ')', bytes: big.bytes, pct: bpct,
+                            level: fbCapacityLevel(bpct), free: Math.max(0, FB_DOC_SAFE_BYTES - big.bytes) });
+                rows.sort(function(a, b) { return b.pct - a.pct; });
+            }
+        } catch (e) {}
+    }
     var blocked = (typeof fbSync !== 'undefined' && fbSync.sizeBlocked) ? Object.keys(fbSync.sizeBlocked) : [];
     _fbCapacityCache = { rows: rows, top: rows[0] || null, weight: weight, vehiclesLeft: vehiclesLeft,
-        limit: FB_DOC_SAFE_BYTES, blocked: blocked, at: Date.now() };
+        limit: FB_DOC_SAFE_BYTES, blocked: blocked, perVehicle: perVehicle, at: Date.now() };
     return _fbCapacityCache;
 }
 
@@ -542,6 +558,13 @@ function fbSyncAlerts() {
         var cap = syncOn ? fbSyncCapacity() : { rows: [], blocked: [] };
         cap.rows.forEach(function(r) {
             var bloqueado = cap.blocked.indexOf(r.col) >= 0;
+            // [2.9.0] La copia completa solo la leen los equipos sin actualizar: llenarse
+            // no es un problema de este equipo; dejar de caber sí es un aviso para ellos.
+            if (r.legacy) {
+                if (bloqueado) out.push({ level: 'ALTA', color: '#f59e0b', source: 'Sincronización',
+                    message: 'La copia completa de vehículos ya no cabe en un documento: los equipos que sigan en una versión anterior a 2.9.0 dejaron de recibir cambios de Pruebas — actualízalos' });
+                return;
+            }
             if (r.level === 'ok' && !bloqueado) return;
             var crit = bloqueado || r.level === 'critico';
             var extra = (r.col === 'cop15' && cap.vehiclesLeft !== null) ? ' — caben ~' + cap.vehiclesLeft + ' vehículos más' : '';
@@ -559,6 +582,15 @@ function fbSyncAlerts() {
                 out.push({ level: 'ALTA', color: '#f59e0b', source: 'Regulaciones',
                     message: 'Los límites de este equipo no son los de la versión ' + rc.shared.version + ' del laboratorio (' + rs.diff.length + ' diferencia(s)) — ver Datos → Regulaciones' });
             }
+        }
+    } catch (e) {}
+    // [2.9.0] Vehículos de este equipo que llevan más de una hora sin llegar a la nube.
+    try {
+        var vs = syncOn && typeof fbVehStatus === 'function' ? fbVehStatus() : null;
+        var vAge = vs && vs.lastSync ? Date.now() - new Date(vs.lastSync).getTime() : Infinity;
+        if (vs && vs.active && vs.pending && vs.lastError && vAge > 3600000) {
+            out.push({ level: 'ALTA', color: '#f59e0b', source: 'Sincronización',
+                message: vs.pending + ' vehículo(s) de este equipo no han llegado a la nube (' + vs.lastError + ') — ver Datos → Sistema' });
         }
     } catch (e) {}
     // [2.6.0] Eventos del historial que llevan más de un día sin llegar a la nube.
@@ -673,6 +705,8 @@ function fbInit() {
     if (!fbSync._onlineListenerAdded) {
         fbSync._onlineListenerAdded = true;
         window.addEventListener('online', function() {
+            // [2.9.0] Lo que no se pudo subir sin red sale en cuanto vuelve.
+            if (typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon(3000);
             if (fbSync.enabled && fbOfflineQueue.length > 0) {
                 setTimeout(function() {
                     fbTestConnection(function(ok) {
@@ -1299,7 +1333,10 @@ function fbPush(collection, data, onDone, opts) {
         fbSync.sizeBlocked = fbSync.sizeBlocked || {};
         var _prevBlk = fbSync.sizeBlocked[collection];
         fbSync.sizeBlocked[collection] = { bytes: sizeCheck.bytes, at: Date.now() };
-        if (!_prevBlk || Date.now() - _prevBlk.at > 600000) showToast(sizeCheck.reason, 'error', 12000);
+        // [2.9.0] Pruebas ya viaja vehículo por vehículo: que la copia completa no quepa
+        // solo afecta a los equipos sin actualizar, y eso lo dice la alerta, no un toast.
+        var _vehOk = collection === 'cop15' && typeof fbVehActive === 'function' && fbVehActive() && fbSync.vehPulled;
+        if (!_vehOk && (!_prevBlk || Date.now() - _prevBlk.at > 600000)) showToast(sizeCheck.reason, 'error', 12000);
         if (onDone) onDone(false, sizeCheck.reason);
         return;
     }
@@ -1709,7 +1746,9 @@ function _fbPullSeed(col, remoteData, pulled) {
     }
 }
 
-function _fbPullMergeModule(col, remoteData, pulled) {
+// opts.noPushBack [2.9.0]: el remoto es PARCIAL (solo los vehículos que cambiaron), así
+// que "aquí hay algo que el remoto no tiene" es siempre cierto y no dice nada.
+function _fbPullMergeModule(col, remoteData, pulled, opts) {
     if (_fbPullLocalScore(col) === 0) { _fbPullSeed(col, remoteData, pulled); return; }
 
     var synth = { cop15: null, testplan: null, inventory: null };
@@ -1739,11 +1778,13 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     // [v23.5] Sin toast ni fbPushAll: solo se re-empuja ESTE módulo y solo si aquí hay
     // algo que la nube no tiene (mismo criterio que el live-sync). La bitácora sí se
     // conserva: el pull es poco frecuente y su "deshacer" es la red de seguridad.
-    fbMergeExecute(synth, analysis, choices, { quiet: true, noPush: true });
+    // [2.9.0] opts.noHistory: el ciclo por vehículo corre en cada guardado; una foto
+    // completa de db+tpState+invState por ciclo es justo lo que llenó el almacenamiento en v18.1.
+    fbMergeExecute(synth, analysis, choices, { quiet: true, noPush: true, noHistory: !!(opts && opts.noHistory) });
     if (col === 'cop15' && typeof cascadeOnRemoteVehicleChange === 'function') {
         try { cascadeOnRemoteVehicleChange(); } catch (e) {}
     }
-    if (_fbLocalHasExtras(col, remoteData)) _fbPushBack(col);
+    if (!(opts && opts.noPushBack) && _fbLocalHasExtras(col, remoteData)) _fbPushBack(col);
     pulled.push({ cop15: 'COP15', testplan: 'Test Plan', inventory: 'Inventory' }[col]);
 }
 
@@ -2193,6 +2234,11 @@ function fbPullApply(collections, results, showFeedback) {
     if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
     // [2.7.0] Límites compartidos: adoptar la versión nueva si este equipo no tiene cambios propios.
     if (typeof fbRegCheck === 'function') setTimeout(function() { fbRegCheck().catch(function() {}); }, 2500);
+    // [2.9.0] Vehículos uno por uno: después de fusionar la copia completa (si la hay).
+    if (typeof fbVehiclesSync === 'function') {
+        setTimeout(function() { fbVehiclesSync({ initial: true }); }, 1000);
+        if (typeof _fbVehPollArm === 'function') _fbVehPollArm();
+    }
     fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
@@ -2216,7 +2262,9 @@ function fbHookSaves() {
 
     // Nota: se preserva el valor de retorno (false = no se pudo persistir → no subir a la nube)
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbPush('cop15', db); return ok; }; }
+    // [2.9.0] Además de la copia completa (para equipos sin actualizar), un ciclo de
+    // vehículos uno por uno: trae lo de la nube y sube solo lo que cambió aquí.
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) { fbPush('cop15', db); fbVehiclesSyncSoon(); } return ok; }; }
     var _origTpSave = window.tpSave;
     if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origInvSave = window.invSave;
@@ -2267,6 +2315,27 @@ function fbStartListening() {
         }
     });
 
+    // [2.9.0] cop15meta/current se escribe en el mismo commit que cada tanda de
+    // vehículos: es el timbre que avisa a los demás equipos que hay algo que traer.
+    if (fbSyncModules.cop15) {
+        try {
+            var unsubVeh = fbSync.db.collection('stations').doc(fbSync.stationId)
+                .collection('cop15meta').doc('current').onSnapshot(function(snap) {
+                    if (Date.now() - _startedAt < 5000) return;
+                    var d = (snap && snap.exists) ? (snap.data() || {}) : null;
+                    if (!d || d.writer === FB_DEVICE_ID) return;
+                    fbVehiclesSyncSoon(800);
+                }, function(err) {
+                    fbSync._vehLive = false;
+                    console.warn('fbStartListening error (cop15meta):', err.message);
+                });
+            fbSync._listeners.push(unsubVeh);
+            fbSync._vehLive = true;
+        } catch (e) {
+            console.warn('fbStartListening: cop15meta failed:', e);
+        }
+    }
+
     fbSync._liveSync = fbSync._listeners.length > 0;
     fbUpdateIndicator();
     if (fbSync._liveSync) {
@@ -2278,6 +2347,7 @@ function fbStopListening() {
     fbSync._listeners.forEach(function(unsub) { try { unsub(); } catch(e) {} });
     fbSync._listeners = [];
     fbSync._liveSync = false;
+    fbSync._vehLive = false;
     fbUpdateIndicator();
     console.log('Firebase: Live sync stopped');
 }
@@ -5905,4 +5975,324 @@ function fbRegPublish(note, opts) {
     }, function(err) {
         return { ok: false, reason: 'No se pudo consultar la nube: ' + _fbBkErrText(err) };
     });
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.9.0] UN DOCUMENTO POR VEHÍCULO — stations/{ws}/vehicles/{id}     ║
+// ║  Los vehículos ya no dependen de caber juntos en un documento de     ║
+// ║  1 MiB: cada uno viaja en el suyo (JSON en el campo `json`) y lo que ║
+// ║  no es vehículo (marcas de borrado, configs manuales) en             ║
+// ║  cop15meta/current, escrito en el MISMO commit para que su listener  ║
+// ║  avise a los demás equipos. Un ciclo es SIEMPRE "traer y después     ║
+// ║  subir": nunca se sube sin haber fusionado antes lo de la nube.      ║
+// ║  cop15/current se sigue escribiendo como COPIA para los equipos sin  ║
+// ║  actualizar mientras quepa.                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_VEH_KNOWN_KEY = 'kia_fb_veh_known';
+var FB_VEH_BATCH = 20;                    // documentos por commit
+var FB_VEH_MARGIN_MS = 5 * 60 * 1000;     // relectura hacia atrás: un commit en vuelo no se pierde
+var FB_VEH_DEBOUNCE_MS = 2500;
+var FB_VEH_POLL_MS = 5 * 60 * 1000;       // solo sin listener en vivo (modo REST, file://)
+var _fbVehBusy = false, _fbVehAgain = false, _fbVehTimer = null, _fbVehPollTimer = null;
+
+/** Id del documento de un vehículo. PURA. Se ancla al id (no al VIN: corregir el VIN no mueve el documento). */
+function fbVehDocId(v) {
+    var raw = (v && v.id !== undefined && v.id !== null && v.id !== '') ? String(v.id) : ('vin_' + String((v && v.vin) || ''));
+    return 'v_' + raw.replace(/[^\w.-]/g, '_');
+}
+
+/**
+ * Lo compartido de `db` que no es un vehículo. PURA. Lista CERRADA: `lastId` y
+ * `version` son de cada equipo y, si viajaran, dos equipos se re-escribirían la meta
+ * (y se despertarían el uno al otro) para siempre. Todo campo nuevo de `db` que deba
+ * verse en todos los equipos se agrega aquí y a la unión de fbMergeExecute.
+ */
+var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs'];
+function fbVehMeta(d) {
+    var out = {};
+    FB_VEH_META_KEYS.forEach(function(k) { if (d && d[k] !== undefined) out[k] = d[k]; });
+    return out;
+}
+
+/** ¿Hay aquí algo de la meta que la nube (`remote`) no tiene? PURA respecto a sus argumentos. */
+function fbVehMetaHasExtras(local, remote) {
+    remote = remote || {};
+    if (_fbTombsNewTo(remote.deletedVehicles || [], (local && local.deletedVehicles) || [])) return true;
+    return typeof manualConfigsNewTo === 'function' &&
+        manualConfigsNewTo(remote.manualConfigs || [], (local && local.manualConfigs) || []);
+}
+
+/**
+ * Qué subir. PURA.
+ * known: {docId: rev|'deleted'} = lo que este equipo sabe que la nube ya tiene.
+ * - upserts: vehículos cuyo `_rev` no es el que la nube tiene.
+ * - deletes: marcas de borrado con id cuyo vehículo YA NO existe aquí (una marca
+ *   `vin-corregido` conserva el id del vehículo vivo: esa no borra el documento).
+ */
+function fbVehPushPlan(vehicles, tombs, known) {
+    known = known || {};
+    var upserts = [], deletes = [], vivos = {};
+    (vehicles || []).forEach(function(v) {
+        if (!v || typeof v !== 'object') return;
+        var id = fbVehDocId(v);
+        vivos[id] = true;
+        if (known[id] !== (v._rev || '')) upserts.push(v);
+    });
+    var vistos = {};
+    (tombs || []).forEach(function(t) {
+        if (!t || t.id === undefined || t.id === null || t.id === '') return;
+        var id = fbVehDocId({ id: t.id });
+        if (vivos[id] || vistos[id] || known[id] === 'deleted') return;
+        vistos[id] = true;
+        deletes.push({ docId: id, id: t.id, vin: t.vin || '' });
+    });
+    return { upserts: upserts, deletes: deletes };
+}
+
+/** Escrituras de un commit. PURA. `meta` (opcional) va al final con la hora del servidor. */
+function fbVehWrites(upserts, deletes, meta, docNameFn, device) {
+    var ts = [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }];
+    var w = [];
+    (upserts || []).forEach(function(v) {
+        var json = JSON.stringify(v);
+        w.push({ update: { name: docNameFn('vehicles/' + fbVehDocId(v)), fields: {
+            json: { stringValue: json }, vin: { stringValue: String(v.vin || '') }, id: { stringValue: String(v.id) },
+            rev: { stringValue: String(v._rev || '') }, deleted: { booleanValue: false }, writer: { stringValue: device || '' }
+        } }, updateTransforms: ts });
+    });
+    (deletes || []).forEach(function(d) {
+        w.push({ update: { name: docNameFn('vehicles/' + d.docId), fields: {
+            vin: { stringValue: String(d.vin || '') }, id: { stringValue: String(d.id) }, rev: { stringValue: 'deleted' },
+            deleted: { booleanValue: true }, writer: { stringValue: device || '' }
+        } }, updateTransforms: ts });
+    });
+    if (meta) {
+        w.push({ update: { name: docNameFn('cop15meta/current'), fields: {
+            json: { stringValue: JSON.stringify(meta) }, writer: { stringValue: device || '' }
+        } }, updateTransforms: ts });
+    }
+    return w;
+}
+
+/**
+ * Documentos de `vehicles` → {vehicles, revs:{docId: rev}, maxTs, bad}. PURA.
+ * `docs` son objetos planos (fbFromFirestoreValue) con `_id`. Un documento marcado
+ * `deleted` no trae vehículo: lo retira la marca de borrado de cop15meta.
+ */
+function fbVehParseDocs(docs) {
+    var out = { vehicles: [], revs: {}, maxTs: 0, bad: 0 };
+    (docs || []).forEach(function(d) {
+        if (!d) return;
+        var t = Date.parse(d.serverTs || '') || 0;
+        if (t > out.maxTs) out.maxTs = t;
+        var id = d._id || '';
+        if (d.deleted) { if (id) out.revs[id] = 'deleted'; return; }
+        var v = null;
+        try { v = JSON.parse(d.json || 'null'); } catch (e) { v = null; }
+        if (!v || typeof v !== 'object' || !v.vin) { out.bad++; return; }
+        out.vehicles.push(v);
+        if (id) out.revs[id] = v._rev || d.rev || '';
+    });
+    return out;
+}
+
+function fbVehKnown() {
+    var k = null;
+    try { k = JSON.parse(localStorage.getItem(FB_VEH_KNOWN_KEY) || 'null'); } catch (e) { k = null; }
+    if (!k || typeof k !== 'object') k = {};
+    if (!k.docs || typeof k.docs !== 'object') k.docs = {};
+    k.watermark = Number(k.watermark) || 0;
+    return k;
+}
+function _fbVehKnownSave(k) {
+    try { localStorage.setItem(FB_VEH_KNOWN_KEY, JSON.stringify(k)); } catch (e) { console.warn('kia_fb_veh_known:', e); }
+}
+
+/** ¿Este equipo sube vehículos uno por uno? (siempre que Pruebas se sincronice). */
+function fbVehActive() {
+    return !!(typeof fbSync !== 'undefined' && fbSync.enabled && typeof fbSyncModules !== 'undefined' && fbSyncModules.cop15);
+}
+
+/** Consulta de los vehículos cambiados desde `sinceMs` (0 = todos). Resuelve documentos planos. */
+function _fbVehQuery(sinceMs) {
+    var q = { from: [{ collectionId: 'vehicles' }] };
+    if (sinceMs > 0) {
+        q.where = { fieldFilter: { field: { fieldPath: 'serverTs' }, op: 'GREATER_THAN_OR_EQUAL',
+            value: { timestampValue: new Date(sinceMs).toISOString() } } };
+    }
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        return fetch(_fbAuditBase() + '/stations/' + encodeURIComponent(_fbAuditStation()) + ':runQuery?key=' + FIREBASE_CONFIG.apiKey,
+            { method: 'POST', headers: headers, body: JSON.stringify({ structuredQuery: q }) });
+    }).then(function(resp) {
+        if (!resp.ok) return resp.text().then(function(t) {
+            var msg = 'HTTP ' + resp.status;
+            try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
+            throw new Error(msg);
+        });
+        return resp.json();
+    }).then(function(rows) {
+        var docs = (rows || []).filter(function(r) { return r && r.document; }).map(function(r) { return _fbBugsRestDocToObj(r.document); });
+        for (var i = 0; i < Math.max(1, docs.length); i++) fbQuotaRecord('read');
+        return docs;
+    });
+}
+
+function _fbVehGetMeta() {
+    return _fbBugsRestSend('GET', 'cop15meta/current', null).then(function(doc) {
+        fbQuotaRecord('read');
+        var o = _fbBugsRestDocToObj(doc);
+        try { return JSON.parse(o.json || 'null'); } catch (e) { return null; }
+    }, function(err) {
+        if (_fbBkIsNotFound(err)) return null;
+        throw err;
+    });
+}
+
+/**
+ * Trae de la nube. Sin vehículos locales (o sin marca de agua) trae TODOS: una semilla
+ * nunca puede partir de una lista incompleta. Aplica con el mismo motor que el pull
+ * del documento completo (_fbPullMergeModule), sin re-empujar la copia completa.
+ */
+function _fbVehPull(known) {
+    var full = !known.watermark || !((typeof db !== 'undefined' && db && db.vehicles) || []).length;
+    var since = full ? 0 : Math.max(0, known.watermark - FB_VEH_MARGIN_MS);
+    return Promise.all([_fbVehGetMeta(), _fbVehQuery(since)]).then(function(r) {
+        var meta = r[0], parsed = fbVehParseDocs(r[1]);
+        var cambios = 0;
+        if (parsed.vehicles.length || meta) {
+            // Lo local de cada equipo (lastId, version) y lo que aún no esté en cop15meta
+            // se conserva: una siembra (_fbPullSeed) reemplaza db con este objeto.
+            var propio = {};
+            Object.keys(db || {}).forEach(function(k) { if (k !== 'vehicles') propio[k] = db[k]; });
+            var remote = Object.assign(propio, fbVehMeta(meta || {}), { vehicles: parsed.vehicles });
+            if (!remote.deletedVehicles) remote.deletedVehicles = [];
+            var before = _fbModuleFingerprint('cop15');
+            var pulled = [];
+            _fbPullMergeModule('cop15', remote, pulled, { noPushBack: true, noHistory: true });
+            if (_fbModuleFingerprint('cop15') !== before) cambios = 1;
+        }
+        Object.keys(parsed.revs).forEach(function(id) { known.docs[id] = parsed.revs[id]; });
+        if (parsed.maxTs > known.watermark) known.watermark = parsed.maxTs;
+        // Se decide DESPUÉS de fusionar: lo que ya vino de la nube no cuenta como propio.
+        known.metaExtra = fbVehMetaHasExtras(fbVehMeta(db), meta);
+        delete known.metaHash;
+        _fbVehKnownSave(known);
+        return { changed: cambios, received: parsed.vehicles.length, full: full };
+    });
+}
+
+/** Sube lo que la nube no tiene, en lotes. El último lote lleva cop15meta. */
+function _fbVehPush(known) {
+    var d = (typeof db !== 'undefined' && db) ? db : { vehicles: [] };
+    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs);
+    var meta = fbVehMeta(d);
+    var total = plan.upserts.length + plan.deletes.length;
+    if (!total && !known.metaExtra) return Promise.resolve({ sent: 0 });
+    var items = plan.upserts.map(function(v) { return { v: v }; }).concat(plan.deletes.map(function(x) { return { del: x }; }));
+    var lotes = [];
+    for (var i = 0; i < items.length; i += FB_VEH_BATCH) lotes.push(items.slice(i, i + FB_VEH_BATCH));
+    if (!lotes.length) lotes.push([]);
+    var dev = (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '';
+    var sent = 0;
+    var chain = Promise.resolve();
+    lotes.forEach(function(lote, li) {
+        chain = chain.then(function() {
+            var ups = lote.filter(function(x) { return x.v; }).map(function(x) { return x.v; });
+            var dels = lote.filter(function(x) { return x.del; }).map(function(x) { return x.del; });
+            var last = li === lotes.length - 1;
+            // Una copia congelada: si el técnico edita mientras sube, la edición sale en el siguiente ciclo.
+            var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '' }; });
+            return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev)).then(function() {
+                for (var n = 1; n < ups.length + dels.length + (last ? 1 : 0); n++) fbQuotaRecord('write');
+                revs.forEach(function(r) { known.docs[r.id] = r.rev; });
+                dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; });
+                if (last) known.metaExtra = false;
+                sent += ups.length + dels.length;
+                _fbVehKnownSave(known);
+            });
+        });
+    });
+    return chain.then(function() { return { sent: sent }; });
+}
+
+/**
+ * Un ciclo completo: traer, fusionar, subir lo propio. Nunca dos a la vez; si llega
+ * un pedido mientras corre, se repite UNA vez al terminar.
+ * Resuelve {ok, changed, received, sent} o {ok:false, error}.
+ */
+function fbVehiclesSync(opts) {
+    opts = opts || {};
+    if (!fbVehActive() || typeof fetch === 'undefined') return Promise.resolve({ ok: false, skipped: true });
+    if (_fbVehBusy) { _fbVehAgain = true; return Promise.resolve({ ok: false, busy: true }); }
+    var q = fbQuotaCheck('write');
+    if (!q.allowed) return Promise.resolve({ ok: false, error: q.reason });
+    _fbVehBusy = true;
+    var known = fbVehKnown();
+    var res = { ok: true, changed: 0, received: 0, sent: 0 };
+    return _fbVehPull(known).then(function(p) {
+        res.changed = p.changed; res.received = p.received;
+        if (p.changed) {
+            if (!opts.initial) _fbLiveToast('cop15');
+            _fbAfterAutoMerge('cop15');
+        }
+        return _fbVehPush(known);
+    }).then(function(s) {
+        res.sent = s.sent;
+        fbSync.vehLastSync = new Date().toISOString();
+        fbSync.vehLastError = '';
+        fbSync.vehPulled = true;
+        return res;
+    }, function(err) {
+        fbSync.vehLastError = _fbBkErrText(err);
+        console.warn('Vehículos: no se pudo sincronizar —', fbSync.vehLastError);
+        return { ok: false, error: fbSync.vehLastError };
+    }).then(function(r) {
+        _fbVehBusy = false;
+        if (typeof fbSyncCapacityInvalidate === 'function') fbSyncCapacityInvalidate();
+        if (_fbVehAgain) { _fbVehAgain = false; fbVehiclesSyncSoon(); }
+        return r;
+    });
+}
+
+/** Pide un ciclo en unos segundos (junta varios guardados seguidos en uno). */
+function fbVehiclesSyncSoon(ms) {
+    if (!fbVehActive()) return;
+    if (_fbVehTimer) clearTimeout(_fbVehTimer);
+    _fbVehTimer = setTimeout(function() { _fbVehTimer = null; fbVehiclesSync(); }, ms === undefined ? FB_VEH_DEBOUNCE_MS : ms);
+}
+
+/**
+ * Sin listener en vivo (modo REST o file://) no hay quién avise: un ciclo cada 5 min
+ * mientras la app está a la vista. Con listener no hace falta y no corre.
+ */
+function _fbVehPollArm() {
+    if (_fbVehPollTimer) return;
+    _fbVehPollTimer = setInterval(function() {
+        if (!fbVehActive() || fbSync._vehLive) return;
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        fbVehiclesSync();
+    }, FB_VEH_POLL_MS);
+}
+
+/** Vehículos que este equipo tiene y la nube todavía no (lo lee Datos → Sistema). */
+function fbVehStatus() {
+    var d = (typeof db !== 'undefined' && db) ? db : { vehicles: [] };
+    var known = fbVehKnown();
+    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs);
+    return { active: fbVehActive(), pending: plan.upserts.length + plan.deletes.length,
+             lastSync: fbSync.vehLastSync || '', lastError: fbSync.vehLastError || '', live: !!fbSync._vehLive };
+}
+
+/** El documento más pesado de un vehículo (el tope ahora es por vehículo). PURA salvo el tamaño. */
+function fbVehLargestDoc(vehicles) {
+    var max = 0, vin = '';
+    (vehicles || []).forEach(function(v) {
+        if (!v) return;
+        var b = _fbUtf8Bytes(JSON.stringify(v)) + 200;
+        if (b > max) { max = b; vin = v.vin || ''; }
+    });
+    return { bytes: max, vin: vin };
 }
