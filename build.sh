@@ -194,7 +194,12 @@ FIREBASE_PROJECT=$(grep -oE '(projectId: *"|"projectId":")[^"]+' "$DIR/$OUTPUT" 
 # fbApplyUpdate; ya no descarga el HTML crudo de GitHub)
 GH_RAW_URL="https://kia-emlab-test-system.web.app/"
 
-if [ -n "$FIREBASE_API_KEY" ] && [ -n "$FIREBASE_PROJECT" ] && [ "$FIREBASE_PROJECT" != "YOUR_PROJECT_ID" ]; then
+# [2.3.0] SKIP_PUBLISH=1 compila SIN tocar producción (verificación local). Antes la receta
+# era apuntar HTTPS_PROXY a un puerto muerto, pero curl lee primero `https_proxy` en
+# minúsculas y en algunos entornos la publicación salía de todos modos.
+if [ -n "$SKIP_PUBLISH" ]; then
+    echo "SKIP_PUBLISH: no se publica la versión en Firebase (build local de verificación)."
+elif [ -n "$FIREBASE_API_KEY" ] && [ -n "$FIREBASE_PROJECT" ] && [ "$FIREBASE_PROJECT" != "YOUR_PROJECT_ID" ]; then
     TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
       "https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/app/version?key=${FIREBASE_API_KEY}&updateMask.fieldPaths=build&updateMask.fieldPaths=downloadUrl&updateMask.fieldPaths=publishedAt" \

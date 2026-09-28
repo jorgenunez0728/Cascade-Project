@@ -7624,6 +7624,59 @@ td .ui-num-row > input { min-width: 5rem; }
                 </div>
             </div>
 
+            <!-- [2.3.0] Capacidad de sincronización: cada módulo viaja a la nube como UN
+                 documento. Es otro límite, distinto al del navegador (tarjeta de abajo). -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_sync_capacity">☁️ Capacidad de sincronización</h4>
+                <template x-if="!syncCap()">
+                    <p style="color:var(--tp-dim);font-size:var(--fs-xs);margin:0;">Sin datos para medir todavía.</p>
+                </template>
+                <template x-if="syncCap()">
+                    <div>
+                        <p style="color:var(--tp-dim);font-size:var(--fs-xs);margin:0 0 var(--space-sm) 0;line-height:var(--lh-base);"
+                           x-text="'Cada módulo viaja a la nube como un solo documento de hasta ' + formatBytes(syncCap().limit) + '. Si uno se llena, deja de subirse y los demás equipos no ven sus cambios.'"></p>
+
+                        <div x-show="syncCap().anyBlocked"
+                             style="margin-bottom:var(--space-sm);padding:var(--space-sm) var(--space-md);background:var(--danger-tint);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-md);font-size:var(--fs-xs);color:var(--tp-text);line-height:var(--lh-base);">
+                            <b>⛔ Hay módulos que ya no se están subiendo.</b> Los cambios se guardan en este dispositivo, pero los demás equipos no los ven.
+                        </div>
+
+                        <template x-for="r in syncCap().rows" :key="r.col">
+                            <div style="padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);">
+                                <div style="display:flex;justify-content:space-between;gap:var(--space-sm);font-size:var(--fs-xs);">
+                                    <span style="color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                        <span x-text="r.label"></span><span x-show="r.blocked" style="color:var(--danger-text);font-weight:700;"> · sin subir</span>
+                                    </span>
+                                    <span style="flex-shrink:0;font-weight:700;" :style="{ color: r.color }" x-text="r.pct + '% · ' + formatBytes(r.bytes)"></span>
+                                </div>
+                                <div style="width:100%;height:6px;background:var(--tp-border);border-radius:var(--radius-sm);overflow:hidden;margin-top:var(--space-xs);">
+                                    <div style="height:100%;border-radius:var(--radius-sm);" :style="{ width: r.bar + '%', background: r.color }"></div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="syncCap().weight && syncCap().weight.count > 0">
+                            <div style="margin-top:var(--space-md);">
+                                <div style="font-size:var(--fs-xs);color:var(--tp-text);font-weight:700;margin-bottom:var(--space-xs);"
+                                     x-text="'Qué pesa en vehículos (' + syncCap().weight.count + ' vehículos, ' + formatBytes(syncCap().weight.avg) + ' en promedio)'"></div>
+                                <template x-for="p in syncCap().parts" :key="p.key">
+                                    <div style="display:flex;justify-content:space-between;gap:var(--space-sm);font-size:var(--fs-xs);padding:var(--space-2xs) 0;">
+                                        <span style="color:var(--tp-dim);" x-text="p.label"></span>
+                                        <span style="color:var(--tp-text);flex-shrink:0;" x-text="formatBytes(p.bytes) + ' (' + p.pct + '%)'"></span>
+                                    </div>
+                                </template>
+                                <div x-show="syncCap().vehiclesLeft !== null"
+                                     style="margin-top:var(--space-xs);font-size:var(--fs-xs);color:var(--tp-text);"
+                                     x-text="'Con el promedio actual caben ~' + syncCap().vehiclesLeft + ' vehículos más antes de llenar el documento.'"></div>
+                            </div>
+                        </template>
+
+                        <div style="margin-top:var(--space-md);font-size:var(--fs-xs);color:var(--tp-dim);line-height:var(--lh-base);"
+                             x-text="backupLine()"></div>
+                    </div>
+                </template>
+            </div>
+
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
@@ -7697,7 +7750,7 @@ td .ui-num-row > input { min-width: 5rem; }
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>
                 <p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                    <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
+                    <!-- [2.3.0] Sin botón de COP15: los vehículos son evidencia y no se purgan por antigüedad. -->
                     <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
                 </div>
@@ -8237,7 +8290,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609262138';
+var APP_BUILD = '202609281642';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8245,7 +8298,7 @@ var APP_BUILD = '202609262138';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.2.0';
+var APP_VERSION = '2.3.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8253,6 +8306,15 @@ var APP_VERSION = '2.2.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.3.0', date: '28 sep 2026', title: 'La nube avisa antes de llenarse y el respaldo diario vuelve a funcionar',
+      bullets: [
+          'Nuevo en Datos → Sistema: "Capacidad de sincronización". Cada módulo viaja a la nube como un solo documento con tamaño máximo; la tarjeta dice cuánto ocupa cada uno, qué pesa en los vehículos (las firmas son casi todo) y cuántos vehículos caben todavía.',
+          'Alerta "Sincronización" al 75 % y crítica al 90 % o si un módulo ya no se está subiendo. Antes el primer aviso llegaba cuando ya no se subía, y salía en cada guardado.',
+          'El respaldo diario en la nube fallaba sin avisar: juntaba vehículos, plan y consumibles en un documento que ya pasaba del máximo. Ahora va por módulo, respalda también Panel, CoP, Homologación e historial de cambios, avisa si falla y guarda diarios de 30 días más uno por mes durante un año.',
+          'El tamaño se mide como lo cuenta la nube, no con una aproximación que bloqueaba antes de tiempo.',
+          '"Antigüedad de Datos" marcaba 0 en todas las columnas. El botón "COP15 > 90 días" se retiró: nunca borró nada y los vehículos son evidencia.',
+          'El F05 no cambia: una prueba automática verifica que sale idéntico.'
+      ] },
     { version: '2.2.0', date: '26 sep 2026', title: 'Cada regulación pide sus gases, de la liberación al PDF',
       bullets: [
           'SULEV 30 (USA y Canadá) se juzga como lo define la norma: NMOG+NOx combinado ≤ 0.030 g/mi y CO ≤ 1.0 g/mi. Antes comparaba NMHC y NOx por separado con límites que no son los de la norma. Los vehículos liberados antes se siguen leyendo con NMHC y NOx.',
@@ -8766,14 +8828,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609262138' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609281642' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609262138' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609281642' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8789,7 +8851,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609262138' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609281642' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -43938,6 +44000,12 @@ function pnGetActiveAlerts() {
         } catch (e) {}
     }
 
+    // [2.3.0] Nube: módulo cerca del límite de un documento (o ya sin subir) y
+    // respaldo diario fallando. firebase-sync.js carga después — guardar con typeof.
+    if (typeof fbSyncAlerts === 'function') {
+        try { fbSyncAlerts().forEach(function(a) { alerts.push(a); }); } catch (e) {}
+    }
+
     // Sort by severity
     var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
     alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
@@ -43983,7 +44051,7 @@ function pnRenderAlerts(el) {
 
         Object.keys(bySource).forEach(function(source) {
             var sourceAlerts = bySource[source];
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️' };
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
             html += '<div class="tp-card">';
             html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
 
@@ -44410,7 +44478,7 @@ function pnRenderSystemHealth(el) {
     if (typeof db !== 'undefined' && db.vehicles) {
         var cop30 = 0, cop60 = 0, cop90 = 0;
         db.vehicles.forEach(function(v) {
-            var ts = v.timestamp || v.createdAt;
+            var ts = _pnVehicleDate(v);
             if (!ts) return;
             var age = (now - new Date(ts).getTime()) / 86400000;
             if (age > 90) cop90++;
@@ -44464,7 +44532,6 @@ function pnRenderSystemHealth(el) {
     html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
 
     html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
     html += '</div>';
@@ -44546,8 +44613,13 @@ var PN_STORAGE_REGISTRY = [
     // ── Regenerable / preferencias ──
     { prefix: 'kia_cop15_draft_',   label: 'Borrador de captura',      tier: 'cache',
       note: 'Campos a medio llenar de una captura. Caducan a las 24 h.' },
-    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'cache',
-      note: 'Copia completa que permite deshacer una restauración de backup.' },
+    // [2.3.0] 'review', no 'cache': NO se regenera — es lo único que permite deshacer
+    // una restauración. Caduca sola a los 7 días (storageHousekeeping).
+    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'review',
+      note: 'Copia completa que permite deshacer una restauración de respaldo. Caduca a los 7 días.' },
+    { key: 'kia_fb_backup_status',  label: 'Estado del respaldo en la nube', tier: 'cache' },
+    { key: 'kia_fb_backup_cleanup', label: 'Limpieza de respaldos (fecha)',  tier: 'cache' },
+    { key: 'kia_fb_backup_warned',  label: 'Aviso de respaldo (fecha)',      tier: 'cache' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
       note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
           + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
@@ -44576,9 +44648,16 @@ var PN_STORAGE_REGISTRY = [
 ];
 
 function _pnStorageEntryFor(key) {
-    for (var i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
-        var e = PN_STORAGE_REGISTRY[i];
+    // [2.3.0] Primero las claves EXACTAS, después los prefijos. Antes se revisaba en
+    // el orden de la lista y el prefijo 'kia_fb_' se quedaba con
+    // 'kia_fb_prerestore_snapshot' (~1 MB) como si fuera un ajuste pequeño.
+    var i, e;
+    for (i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        e = PN_STORAGE_REGISTRY[i];
         if (e.key && e.key === key) return e;
+    }
+    for (i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        e = PN_STORAGE_REGISTRY[i];
         if (e.prefix && key.indexOf(e.prefix) === 0) return e;
     }
     return null;
@@ -44695,20 +44774,32 @@ function _pnMeasurePerformance() {
     return { lsKeys: lsKeys, domNodes: domNodes, memoryMB: memoryMB, charts: charts };
 }
 
+/**
+ * [2.3.0] Fecha de alta de un vehículo. El alta escribe `registeredAt`; "Antigüedad
+ * de Datos" leía `timestamp`/`createdAt`, que un vehículo no tiene, y marcaba 0 en
+ * todas las columnas desde siempre. PURA.
+ */
+function _pnVehicleDate(v) {
+    if (!v) return null;
+    var ts = v.registeredAt || v.timestamp || v.createdAt ||
+        (v.timeline && v.timeline[0] && v.timeline[0].timestamp) || null;
+    return ts || null;
+}
+
 function pnPurgeOldData(module, maxDays) {
+    if (module === 'cop15') {
+        // [2.3.0] Los vehículos son evidencia (F05, juicios CoP, SPC) y NO se purgan por
+        // antigüedad. Este botón nunca borró nada: leía `timestamp`/`createdAt`, campos
+        // que un vehículo no tiene. Se retiró de la pantalla; esta guarda cubre cualquier
+        // otra llamada. Sin marca de borrado, además, la sincronización los traería de vuelta.
+        if (typeof showToast === 'function') showToast('Los vehículos son evidencia y no se borran por antigüedad. Si hace falta, se eliminan uno por uno desde Historial.', 'info', 8000);
+        return;
+    }
     showConfirm('¿Eliminar datos de ' + module + ' con más de ' + maxDays + ' días? Esta acción es irreversible.', function() {
         var cutoff = Date.now() - (maxDays * 86400000);
         var count = 0;
 
-        if (module === 'cop15' && typeof db !== 'undefined' && db.vehicles) {
-            var before = db.vehicles.length;
-            db.vehicles = db.vehicles.filter(function(v) {
-                var ts = v.timestamp || v.createdAt;
-                return !ts || new Date(ts).getTime() >= cutoff;
-            });
-            count = before - db.vehicles.length;
-            if (count > 0) saveDB();
-        } else if (module === 'testplan') {
+        if (module === 'testplan') {
             // v16.2: tpState.plans/.records nunca existió — este purgado siempre fue un
             // no-op silencioso. NO se conecta a testedList aquí a propósito: esos registros
             // alimentan el conteo "Probadas" y la cobertura de cada configuración (borrarlos
@@ -45542,7 +45633,7 @@ function panelAlpineComponent() {
                 if (!grouped[a.source]) grouped[a.source] = [];
                 grouped[a.source].push(a);
             });
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️' };
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
             return Object.keys(grouped).map(function(source) {
                 return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
             });
@@ -45579,7 +45670,7 @@ function panelAlpineComponent() {
             if (typeof db !== 'undefined' && db.vehicles) {
                 var c30 = 0, c60 = 0, c90 = 0;
                 db.vehicles.forEach(function(v) {
-                    var ts = v.timestamp || v.createdAt; if (!ts) return;
+                    var ts = _pnVehicleDate(v); if (!ts) return;
                     var age = (now - new Date(ts).getTime()) / 86400000;
                     if (age > 90) c90++; else if (age > 60) c60++; else if (age > 30) c30++;
                 });
@@ -45599,6 +45690,36 @@ function panelAlpineComponent() {
         },
         perfData: function() { return _pnMeasurePerformance(); },
         formatBytes: function(b) { return _pnFormatBytes(b); },
+        // [2.3.0] Capacidad en la nube (fbSyncCapacity es LA definición; memoizada).
+        syncCap: function() {
+            void this._dataVersion;
+            if (typeof fbSyncCapacity !== 'function') return null;
+            var c = fbSyncCapacity();
+            if (!c || !c.rows.length) return null;
+            var COLOR = { ok: 'var(--ok-text)', alto: 'var(--warn-text)', critico: 'var(--danger-text)' };
+            var w = c.weight;
+            var parts = [];
+            if (w && w.total > 0) {
+                [['images', 'Firmas (imágenes)'], ['profiles', 'Perfiles de gases congelados'],
+                 ['timeline', 'Línea de tiempo'], ['rest', 'Datos de captura y resultados']].forEach(function(p) {
+                    parts.push({ key: p[0], label: p[1], bytes: w[p[0]], pct: Math.round((w[p[0]] / w.total) * 100) });
+                });
+            }
+            return {
+                rows: c.rows.map(function(r) {
+                    return { col: r.col, label: r.label, bytes: r.bytes, pct: r.pct, level: r.level,
+                             color: COLOR[r.level], bar: Math.min(100, r.pct),
+                             blocked: c.blocked.indexOf(r.col) >= 0 };
+                }),
+                limit: c.limit, weight: w, parts: parts, vehiclesLeft: c.vehiclesLeft,
+                anyBlocked: c.blocked.length > 0
+            };
+        },
+        // [2.3.0] Estado del respaldo diario en la nube (fbBackupStatus es LA definición).
+        backupLine: function() {
+            void this._dataVersion;
+            return (typeof fbBackupStatusText === 'function') ? fbBackupStatusText() : '';
+        },
         purgeOldData: function(module, maxDays) { pnPurgeOldData(module, maxDays); },
 
         // ── Computed — Calendar ──
@@ -46373,6 +46494,18 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
             + 'más grande y más separación entre bloques. "Compacta" devuelve la escala '
             + 'anterior si prefieres ver más filas de una sola vez. "Amplia" es para tablet o '
             + 'para proyectar en una junta. Se guarda solo en este dispositivo.'
+    },
+    pn_sync_capacity: {
+        title: 'Capacidad de sincronización',
+        text: 'Cuánto ocupa cada módulo EN LA NUBE. Es otro límite, distinto al del '
+            + 'almacenamiento de este dispositivo.\n\n'
+            + 'Cada módulo (vehículos, plan, consumibles…) viaja a la nube como UN solo '
+            + 'documento, y un documento admite ~977 KB. Si uno se llena, la app deja de '
+            + 'subirlo: se sigue guardando en este dispositivo, pero los demás equipos ya no '
+            + 'ven esos cambios.\n\n'
+            + 'La barra se pone amarilla al 75 % y roja al 90 %. En vehículos se desglosa qué '
+            + 'pesa (firmas, perfiles de gases, línea de tiempo) y cuántos vehículos caben '
+            + 'todavía con el promedio actual.'
     },
     pn_storage: {
         title: 'Uso de Almacenamiento',
@@ -49890,7 +50023,7 @@ var FB_QUOTA_LIMITS = {
     maxReadsPerHour: 1500,
     maxWritesPerDay: 2000,      // × 5 equipos = 10.000/día = 50% del plan gratuito
     maxReadsPerDay: 10000,      // × 5 equipos = 50.000... se vigila con el aviso de abajo
-    maxPayloadKB: 900,          // Max payload size in KB (Firestore limit is 1MB)
+    // [2.3.0] El tope de tamaño ya no vive aquí: ver FB_DOC_SAFE_BYTES / fbFirestoreDocSize.
     cooldownAfterBurstMs: 30000 // 30s cooldown after hitting hourly limit
 };
 var FB_QUEUE_MAX = 200;         // era 50 y se llenaba en un turno
@@ -49988,18 +50121,256 @@ function fbQuotaRecord(type) {
     fbQuotaSave();
 }
 
-// Check payload size before push
-function fbQuotaCheckSize(data) {
-    try {
-        var json = JSON.stringify(data);
-        var sizeKB = Math.round(json.length / 1024);
-        if (sizeKB > FB_QUOTA_LIMITS.maxPayloadKB) {
-            return { allowed: false, sizeKB: sizeKB, reason: 'Payload demasiado grande: ' + sizeKB + 'KB (limite: ' + FB_QUOTA_LIMITS.maxPayloadKB + 'KB)' };
+// ── [2.3.0] Tamaño de un documento TAL COMO LO CUENTA FIRESTORE ──
+//
+// Antes el tope se medía con JSON.stringify(data).length contra 900 KB. El JSON
+// no es lo que Firestore cobra: cada módulo viaja como UN documento, y el límite
+// duro de un documento es 1 MiB medido con las reglas de "Storage size
+// calculations" de Firestore (texto = bytes UTF-8 + 1, número = 8, booleano = 1,
+// nombre de campo = bytes UTF-8 + 1, documento = nombre + campos + 32). Medir mal
+// en cualquiera de las dos direcciones es malo: de más, se bloquea una subida que
+// cabía; de menos, Firestore la rechaza con un error críptico.
+//
+// FB_DOC_SAFE_BYTES deja ~48 KB de margen bajo el límite real para lo que el
+// cálculo no ve (metadatos del SDK, redondeos del servidor).
+var FB_DOC_MAX_BYTES = 1048576;
+var FB_DOC_SAFE_BYTES = 1000000;
+
+/** Bytes UTF-8 de un texto (sin TextEncoder: también corre en Node/vm). PURA. */
+function _fbUtf8Bytes(s) {
+    s = String(s);
+    var n = 0;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        if (c < 0x80) n += 1;
+        else if (c < 0x800) n += 2;
+        else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) {
+            var d = s.charCodeAt(i + 1);
+            if (d >= 0xDC00 && d <= 0xDFFF) { n += 4; i++; } else n += 3;
         }
-        return { allowed: true, sizeKB: sizeKB };
+        else n += 3;
+    }
+    return n;
+}
+
+/**
+ * Tamaño de un VALOR según las reglas de Firestore. PURA.
+ * `undefined` y funciones no cuentan (no se guardan); Date cuenta como timestamp.
+ */
+function fbFirestoreValueSize(v) {
+    if (v === null) return 1;
+    var t = typeof v;
+    if (t === 'undefined' || t === 'function') return 0;
+    if (t === 'boolean') return 1;
+    if (t === 'number') return 8;
+    if (t === 'string') return _fbUtf8Bytes(v) + 1;
+    if (v instanceof Date) return 8;
+    if (Array.isArray(v)) {
+        var a = 0;
+        for (var i = 0; i < v.length; i++) a += fbFirestoreValueSize(v[i]);
+        return a;
+    }
+    // Mapa: suma de (nombre del campo + valor). Un campo `undefined` no se guarda.
+    var m = 0;
+    for (var k in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+        var fv = v[k];
+        if (typeof fv === 'undefined' || typeof fv === 'function') continue;
+        m += _fbUtf8Bytes(k) + 1 + fbFirestoreValueSize(fv);
+    }
+    return m;
+}
+
+/**
+ * Tamaño de un DOCUMENTO completo. `pathSegments` = ['stations','KIA-EMLAB','cop15','current'].
+ * Es LA definición del tamaño que la nube le cobra a un módulo. PURA.
+ */
+function fbFirestoreDocSize(fields, pathSegments) {
+    var name = 16;
+    (pathSegments || []).forEach(function(seg) { name += _fbUtf8Bytes(seg) + 1; });
+    return name + fbFirestoreValueSize(fields || {}) + 32;
+}
+
+/**
+ * Tamaño que ocuparía el documento de un módulo en la nube, con los mismos
+ * campos que escribe fbPush ({data, updatedAt, station, writer}). PURA respecto a
+ * sus argumentos.
+ */
+function fbModuleDocBytes(collection, data, stationId, deviceId) {
+    return fbFirestoreDocSize(
+        { data: data, updatedAt: new Date(0), station: stationId || '', writer: deviceId || '' },
+        ['stations', stationId || 'KIA-EMLAB', collection || 'current', 'current']);
+}
+
+// Check payload size before push
+function fbQuotaCheckSize(data, collection) {
+    try {
+        var st = (typeof fbSync !== 'undefined' && fbSync.stationId) || 'KIA-EMLAB';
+        var dev = (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '';
+        var bytes = fbModuleDocBytes(collection, data, st, dev);
+        var sizeKB = Math.round(bytes / 1024);
+        var pct = Math.round((bytes / FB_DOC_SAFE_BYTES) * 100);
+        if (bytes > FB_DOC_SAFE_BYTES) {
+            return { allowed: false, bytes: bytes, sizeKB: sizeKB, pct: pct,
+                reason: 'No se pudo subir ' + (collection || 'el módulo') + ' a la nube: ocupa ' + sizeKB +
+                    ' KB y un documento admite ' + Math.round(FB_DOC_SAFE_BYTES / 1024) +
+                    ' KB. Los demás equipos no verán estos cambios. Revisa Datos → Sistema → Capacidad de sincronización.' };
+        }
+        return { allowed: true, bytes: bytes, sizeKB: sizeKB, pct: pct };
     } catch(e) {
         return { allowed: true, sizeKB: 0 };
     }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.3.0] CAPACIDAD DE SINCRONIZACIÓN                                ║
+// ║  Cada módulo viaja como UN documento (stations/KIA-EMLAB/{col}/     ║
+// ║  current). Si pasa de FB_DOC_SAFE_BYTES, fbPush deja de subirlo y   ║
+// ║  los demás equipos dejan de ver esos cambios. Esto lo mide ANTES de ║
+// ║  que pase y dice qué pesa. fbSyncCapacity() es LA definición; la    ║
+// ║  usan Datos → Sistema y pnGetActiveAlerts (vía fbSyncAlerts).       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_CAPACITY_WARN_PCT = 75;
+var FB_CAPACITY_CRIT_PCT = 90;
+var FB_CAPACITY_LABELS = {
+    cop15: 'Vehículos (COP15)', testplan: 'Plan de pruebas', inventory: 'Consumibles y equipos',
+    panel: 'Panel y proyectos', cop: 'CoP', homolog: 'Homologación Europa', audit: 'Historial de cambios'
+};
+
+/** Nivel de un % de uso. PURA. */
+function fbCapacityLevel(pct) {
+    return pct >= FB_CAPACITY_CRIT_PCT ? 'critico' : pct >= FB_CAPACITY_WARN_PCT ? 'alto' : 'ok';
+}
+
+/** Suma lo que ocupan las imágenes incrustadas ('data:image/…', p. ej. firmas). PURA. */
+function _fbImagesSize(v) {
+    if (typeof v === 'string') return v.slice(0, 11) === 'data:image/' ? _fbUtf8Bytes(v) + 1 : 0;
+    if (!v || typeof v !== 'object') return 0;
+    var n = 0;
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) n += _fbImagesSize(v[i]); return n; }
+    for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) n += _fbImagesSize(v[k]);
+    return n;
+}
+
+/**
+ * De qué está hecho el peso de los vehículos. PURA.
+ * - images: imágenes incrustadas (firmas de liberador/aprobador/retroactivas)
+ * - profiles: perfiles de gases congelados al liberar (2.2.0)
+ * - timeline: línea de tiempo + historial de devoluciones
+ * - rest: todo lo demás (datos de captura, configuración, resultados)
+ */
+function fbVehicleWeight(vehicles) {
+    var out = { count: 0, total: 0, images: 0, profiles: 0, timeline: 0, rest: 0, avg: 0, withImages: 0 };
+    (vehicles || []).forEach(function(v) {
+        if (!v || typeof v !== 'object') return;
+        var tot = fbFirestoreValueSize(v);
+        var img = _fbImagesSize(v);
+        var prof = 0;
+        var gr = v.testData && v.testData.gasResults;
+        if (gr && typeof gr === 'object') {
+            Object.keys(gr).forEach(function(k) {
+                if (gr[k] && typeof gr[k] === 'object' && gr[k].profile) prof += fbFirestoreValueSize(gr[k].profile) + _fbUtf8Bytes('profile') + 1;
+            });
+        }
+        var tl = fbFirestoreValueSize(v.timeline || []) + fbFirestoreValueSize(v.returnHistory || []);
+        out.count++;
+        out.total += tot;
+        out.images += img;
+        out.profiles += prof;
+        out.timeline += tl;
+        out.rest += Math.max(0, tot - img - prof - tl);
+        if (img > 0) out.withImages++;
+    });
+    out.avg = out.count ? Math.round(out.total / out.count) : 0;
+    return out;
+}
+
+/**
+ * Filas de capacidad por módulo. PURA.
+ * mods: [{col, data}] · limit: bytes permitidos por documento.
+ */
+function fbCapacityRows(mods, limit, stationId, deviceId) {
+    limit = limit || FB_DOC_SAFE_BYTES;
+    return (mods || []).map(function(m) {
+        var bytes = fbModuleDocBytes(m.col, m.data, stationId, deviceId);
+        var pct = Math.round((bytes / limit) * 1000) / 10;
+        return { col: m.col, label: FB_CAPACITY_LABELS[m.col] || m.col, bytes: bytes,
+                 pct: pct, level: fbCapacityLevel(pct), free: Math.max(0, limit - bytes) };
+    }).sort(function(a, b) { return b.pct - a.pct; });
+}
+
+/** Los mismos módulos y las mismas fuentes que sube fbPushAll. */
+function _fbCapacityModules() {
+    var mods = [];
+    var on = function(c) { return typeof fbSyncModules === 'undefined' || fbSyncModules[c] !== false; };
+    if (on('cop15') && typeof db !== 'undefined' && db) mods.push({ col: 'cop15', data: db });
+    if (on('testplan') && typeof tpState !== 'undefined' && tpState) mods.push({ col: 'testplan', data: tpState });
+    if (on('inventory') && typeof invState !== 'undefined' && invState) mods.push({ col: 'inventory', data: invState });
+    if (on('panel') && typeof pnState !== 'undefined' && pnState) mods.push({ col: 'panel', data: pnState });
+    ['cop:kia_cop_v1', 'homolog:kia_homolog_v1'].forEach(function(p) {
+        var c = p.split(':')[0];
+        if (!on(c)) return;
+        var raw = null; try { raw = JSON.parse(localStorage.getItem(p.split(':')[1])); } catch (e) {}
+        if (raw) mods.push({ col: c, data: raw });
+    });
+    if (on('audit') && typeof auditGetTrail === 'function') mods.push({ col: 'audit', data: auditGetTrail() });
+    return mods;
+}
+
+var _fbCapacityCache = null;
+var FB_CAPACITY_TTL_MS = 60000;
+
+function fbSyncCapacityInvalidate() { _fbCapacityCache = null; }
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('data:saved', fbSyncCapacityInvalidate);
+
+/**
+ * Estado de capacidad de la nube. Memoizada (60 s o hasta el siguiente guardado):
+ * pnGetActiveAlerts corre en cada render del Panel.
+ * Devuelve {rows, top, weight, vehiclesLeft, limit, blocked, at}.
+ */
+function fbSyncCapacity(force) {
+    if (!force && _fbCapacityCache && Date.now() - _fbCapacityCache.at < FB_CAPACITY_TTL_MS) return _fbCapacityCache;
+    var st = (typeof fbSync !== 'undefined' && fbSync.stationId) || 'KIA-EMLAB';
+    var dev = (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '';
+    var rows = [], weight = null;
+    try { rows = fbCapacityRows(_fbCapacityModules(), FB_DOC_SAFE_BYTES, st, dev); } catch (e) { rows = []; }
+    try { weight = fbVehicleWeight((typeof db !== 'undefined' && db && db.vehicles) || []); } catch (e) { weight = null; }
+    var cop = rows.filter(function(r) { return r.col === 'cop15'; })[0];
+    var vehiclesLeft = (cop && weight && weight.avg > 0) ? Math.floor(cop.free / weight.avg) : null;
+    var blocked = (typeof fbSync !== 'undefined' && fbSync.sizeBlocked) ? Object.keys(fbSync.sizeBlocked) : [];
+    _fbCapacityCache = { rows: rows, top: rows[0] || null, weight: weight, vehiclesLeft: vehiclesLeft,
+        limit: FB_DOC_SAFE_BYTES, blocked: blocked, at: Date.now() };
+    return _fbCapacityCache;
+}
+
+/**
+ * Alertas de la capa de nube para pnGetActiveAlerts (capacidad + respaldo diario).
+ * Mismo formato que las demás fuentes: {level, color, message, source}.
+ */
+function fbSyncAlerts() {
+    var out = [];
+    // Un equipo sin sincronización no sube nada: su alerta de capacidad sería ruido
+    // (la tarjeta de Datos → Sistema sí se sigue mostrando).
+    var syncOn = typeof fbSync !== 'undefined' && fbSync.enabled;
+    try {
+        var cap = syncOn ? fbSyncCapacity() : { rows: [], blocked: [] };
+        cap.rows.forEach(function(r) {
+            var bloqueado = cap.blocked.indexOf(r.col) >= 0;
+            if (r.level === 'ok' && !bloqueado) return;
+            var crit = bloqueado || r.level === 'critico';
+            var extra = (r.col === 'cop15' && cap.vehiclesLeft !== null) ? ' — caben ~' + cap.vehiclesLeft + ' vehículos más' : '';
+            out.push({ level: crit ? 'CRITICA' : 'ALTA', color: crit ? '#ef4444' : '#f59e0b',
+                message: (bloqueado ? 'Ya NO se sube a la nube: ' : 'Nube casi llena: ') + r.label + ' ocupa ' + r.pct + '% de lo que admite un documento' + extra + ' — ver Datos → Sistema',
+                source: 'Sincronización' });
+        });
+    } catch (e) {}
+    try {
+        var bs = fbBackupStatus();
+        if (bs && bs.alert) out.push({ level: bs.alert.level, color: bs.alert.level === 'CRITICA' ? '#ef4444' : '#f59e0b',
+            message: bs.alert.message, source: 'Respaldo' });
+    } catch (e) {}
+    return out;
 }
 
 // Get current usage stats for UI
@@ -50715,13 +51086,19 @@ function fbPush(collection, data, onDone, opts) {
     }
 
     // Payload size check
-    var sizeCheck = fbQuotaCheckSize(data);
+    var sizeCheck = fbQuotaCheckSize(data, collection);
     if (!sizeCheck.allowed) {
         void 0;
-        showToast(sizeCheck.reason, 'error');
+        // [2.3.0] Se registra para Datos → Sistema y Alertas, y el aviso sale a lo más
+        // cada 10 min por módulo: antes salía en CADA guardado y se volvía ruido.
+        fbSync.sizeBlocked = fbSync.sizeBlocked || {};
+        var _prevBlk = fbSync.sizeBlocked[collection];
+        fbSync.sizeBlocked[collection] = { bytes: sizeCheck.bytes, at: Date.now() };
+        if (!_prevBlk || Date.now() - _prevBlk.at > 600000) showToast(sizeCheck.reason, 'error', 12000);
         if (onDone) onDone(false, sizeCheck.reason);
         return;
     }
+    if (fbSync.sizeBlocked && fbSync.sizeBlocked[collection]) delete fbSync.sizeBlocked[collection];
 
     if (fbSync.debounceTimers[collection]) clearTimeout(fbSync.debounceTimers[collection]);
 
@@ -52214,7 +52591,7 @@ function fbShowSettings() {
         '<button onclick="fbBackupManual()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Backup Manual</button>' +
         '<button onclick="fbBackupShowList()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Ver Backups</button>' +
         '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);margin-top:-8px;">Respaldo diario automático. ' + escapeHtml(fbBackupStatusText()) + '</div>' : '') +
 
         // ═══ ACTIVITY FEED BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom: var(--space-md);">' +
@@ -53456,7 +53833,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609262138' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609281642' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -53509,133 +53886,466 @@ function fbApplyUpdate() {
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [QW5] AUTOMATIC DAILY BACKUP TO FIRESTORE                         ║
-// ║  Saves a timestamped snapshot every 24h, keeps last 30 days        ║
+// ║  [2.3.0] Un documento por módulo (fragmentado), aviso si falla,     ║
+// ║  diarios 30 días + el primero de cada mes durante un año.          ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var FB_BACKUP_LS_KEY = 'kia_fb_last_backup';
+var FB_BACKUP_LS_KEY = 'kia_fb_last_backup';        // fecha (YYYY-MM-DD) del último respaldo exitoso
+var FB_BACKUP_STATUS_KEY = 'kia_fb_backup_status';  // [2.3.0] último intento: ok, error, módulos
+var FB_BACKUP_CLEANUP_KEY = 'kia_fb_backup_cleanup';
+var FB_BACKUP_FORMAT = 2;
+// Cada fragmento es un campo de texto de un documento propio. 300 000 caracteres
+// dejan margen aun si todo fuera texto con acentos (3 bytes UTF-8 por carácter).
+var FB_BACKUP_CHUNK_CHARS = 300000;
+var FB_BACKUP_DAILY_DAYS = 30;     // diarios: los últimos 30 días
+var FB_BACKUP_MONTHLY_DAYS = 365;  // después: el primero de cada mes, hasta un año
+var FB_BACKUP_MODULES = [
+    { col: 'cop15',     label: 'Vehículos (COP15)',     icon: '🔬' },
+    { col: 'testplan',  label: 'Plan de pruebas',        icon: '📊' },
+    { col: 'inventory', label: 'Consumibles y equipos',  icon: '📦' },
+    { col: 'panel',     label: 'Panel, usuarios y proyectos', icon: '🗂️' },
+    { col: 'cop',       label: 'CoP (juicios)',          icon: '📐' },
+    { col: 'homolog',   label: 'Homologación Europa',    icon: '🇪🇺' },
+    { col: 'audit',     label: 'Historial de cambios',   icon: '🕘' }
+];
 
-function fbBackupCheck() {
-    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+/**
+ * Parte un texto en fragmentos de a lo más `size` caracteres SIN partir un par
+ * sustituto (un emoji partido a la mitad se guardaría corrupto). PURA.
+ */
+function _fbSplitChunks(str, size) {
+    str = String(str || '');
+    size = Math.max(2, size || FB_BACKUP_CHUNK_CHARS);
+    var out = [], i = 0;
+    while (i < str.length) {
+        var end = Math.min(str.length, i + size);
+        if (end < str.length) {
+            var c = str.charCodeAt(end - 1);
+            if (c >= 0xD800 && c <= 0xDBFF) end--;
+        }
+        out.push(str.slice(i, end));
+        i = end;
+    }
+    if (!out.length) out.push('');
+    return out;
+}
 
-    var lastBackup = localStorage.getItem(FB_BACKUP_LS_KEY) || '';
-    var today = new Date().toISOString().slice(0, 10);
+/**
+ * Qué respaldos se conservan. PURA.
+ * dates: ['YYYY-MM-DD', …] · today: 'YYYY-MM-DD'.
+ * - Los de los últimos FB_BACKUP_DAILY_DAYS días: todos.
+ * - Más viejos: el PRIMERO que exista de cada mes, hasta FB_BACKUP_MONTHLY_DAYS.
+ * - Más viejos que eso: se borran.
+ * Se decide con las fechas que EXISTEN (no "el día 1"), porque un día sin equipo
+ * encendido no tiene respaldo y el mes se quedaría sin ninguno.
+ */
+function fbBackupRetention(dates, today) {
+    var dayMs = 86400000;
+    var t0 = Date.parse(String(today).slice(0, 10) + 'T00:00:00Z');
+    var uniq = [];
+    (dates || []).forEach(function(d) {
+        d = String(d || '').slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d) && uniq.indexOf(d) < 0) uniq.push(d);
+    });
+    uniq.sort();
+    var keep = [], drop = [], firstOfMonth = {};
+    uniq.forEach(function(d) {
+        var age = Math.round((t0 - Date.parse(d + 'T00:00:00Z')) / dayMs);
+        if (age <= FB_BACKUP_DAILY_DAYS) { keep.push(d); return; }
+        if (age > FB_BACKUP_MONTHLY_DAYS) { drop.push(d); return; }
+        var mes = d.slice(0, 7);
+        if (!firstOfMonth[mes]) { firstOfMonth[mes] = d; keep.push(d); }
+        else drop.push(d);
+    });
+    return { keep: keep, drop: drop };
+}
 
-    if (lastBackup === today) return; // Already backed up today
+/** Módulos que se respaldan, con sus datos vivos (mismas fuentes que fbPushAll). */
+function _fbBackupCollect() {
+    var mods = [];
+    var add = function(col, data) { if (data !== null && data !== undefined) mods.push({ col: col, data: data }); };
+    // Un dispositivo recién instalado no debe dejar un respaldo "vacío" que parezca bueno.
+    var core = function(col, data) {
+        if (typeof _fbPushDataScore === 'function' && _fbPushDataScore(col) === 0) return;
+        add(col, data);
+    };
+    if (typeof db !== 'undefined') core('cop15', db);
+    if (typeof tpState !== 'undefined') core('testplan', tpState);
+    if (typeof invState !== 'undefined') core('inventory', invState);
+    if (typeof pnState !== 'undefined' && pnState && (pnState.operators || []).length) add('panel', pnState);
+    ['cop:kia_cop_v1', 'homolog:kia_homolog_v1'].forEach(function(p) {
+        var raw = null; try { raw = JSON.parse(localStorage.getItem(p.split(':')[1])); } catch (e) {}
+        if (raw) add(p.split(':')[0], raw);
+    });
+    if (typeof auditGetTrail === 'function') { var tr = auditGetTrail(); if (tr && tr.length) add('audit', tr); }
+    return mods;
+}
 
-    fbBackupNow(function(ok) {
+// ── Primitivos: SDK primero, REST si el SDK falla (mismo camino que fbBugs*) ──
+// `suffix` es relativo a stations/{station}/ — p.ej. 'backups/2026-09-28/parts/x'.
+
+function _fbBkRef(suffix) {
+    var segs = String(suffix).split('/');
+    var ref = fbSync.db.collection('stations').doc(fbSync.stationId);
+    for (var i = 0; i < segs.length; i++) ref = (i % 2 === 0) ? ref.collection(segs[i]) : ref.doc(segs[i]);
+    return ref;
+}
+
+function _fbBkIsNotFound(err) {
+    var m = String((err && err.message) || err || '');
+    return /404|not.?found/i.test(m);
+}
+
+function _fbBkSet(suffix, fields) {
+    return new Promise(function(resolve, reject) {
+        _fbBugsSdkOrRest(
+            function() { return _fbBkRef(suffix).set(fields); },
+            function() { fbQuotaRecord('write'); resolve(); },
+            function() {
+                _fbBugsRestSend('PATCH', suffix, fields)
+                    .then(function() { fbQuotaRecord('write'); resolve(); })
+                    .catch(reject);
+            });
+    });
+}
+
+function _fbBkGet(suffix) {
+    return new Promise(function(resolve, reject) {
+        _fbBugsSdkOrRest(
+            function() { return _fbBkRef(suffix).get(); },
+            function(doc) { fbQuotaRecord('read'); resolve(doc && doc.exists ? doc.data() : null); },
+            function() {
+                _fbBugsRestSend('GET', suffix, null)
+                    .then(function(doc) { fbQuotaRecord('read'); resolve(_fbBugsRestDocToObj(doc)); })
+                    .catch(function(err) { if (_fbBkIsNotFound(err)) resolve(null); else reject(err); });
+            });
+    });
+}
+
+/** Lista una colección → [{id, data}]. `orderBy` = 'meta.date desc' (opcional). */
+function _fbBkList(suffix, orderBy, limit) {
+    return new Promise(function(resolve, reject) {
+        _fbBugsSdkOrRest(
+            function() {
+                var q = _fbBkRef(suffix);
+                if (orderBy) { var p = orderBy.split(' '); q = q.orderBy(p[0], p[1] || 'asc'); }
+                if (limit) q = q.limit(limit);
+                return q.get();
+            },
+            function(snap) {
+                fbQuotaRecord('read');
+                var out = [];
+                snap.forEach(function(d) { out.push({ id: d.id, data: d.data() }); });
+                resolve(out);
+            },
+            function() {
+                var qs = 'pageSize=' + (limit || 300) + (orderBy ? '&orderBy=' + encodeURIComponent(orderBy) : '');
+                _fbBugsRestSend('GET', suffix, null, qs)
+                    .then(function(res) {
+                        fbQuotaRecord('read');
+                        resolve(((res && res.documents) || []).map(function(doc) {
+                            var o = _fbBugsRestDocToObj(doc);
+                            var id = o._id; delete o._id;
+                            return { id: id, data: o };
+                        }));
+                    })
+                    .catch(function(err) { if (_fbBkIsNotFound(err)) resolve([]); else reject(err); });
+            });
+    });
+}
+
+function _fbBkDelete(suffix) {
+    return new Promise(function(resolve, reject) {
+        _fbBugsSdkOrRest(
+            function() { return _fbBkRef(suffix).delete(); },
+            function() { fbQuotaRecord('write'); resolve(); },
+            function() {
+                _fbBugsRestSend('DELETE', suffix, null)
+                    .then(function() { fbQuotaRecord('write'); resolve(); })
+                    .catch(function(err) { if (_fbBkIsNotFound(err)) resolve(); else reject(err); });
+            });
+    });
+}
+
+/** Error de red/nube → texto que dice qué pasó y qué hacer. PURA. */
+function _fbBkErrText(err) {
+    var m = String((err && err.message) || err || '');
+    if (/failed to fetch|networkerror|network request failed|load failed|offline|unavailable/i.test(m)) return 'sin conexión con la nube';
+    if (/403|permission|insufficient/i.test(m)) return 'la nube rechazó la escritura (permisos): vuelve a iniciar sesión con la contraseña del laboratorio';
+    if (/413|too large|exceeds the maximum|maximum size/i.test(m)) return 'un fragmento resultó demasiado grande para la nube';
+    if (/quota|resource.?exhausted|429/i.test(m)) return 'se alcanzó el límite diario de escrituras de la nube';
+    return m || 'error desconocido';
+}
+
+// ── Estado del último intento (lo leen Datos → Sistema y las Alertas) ──
+
+function _fbBackupSaveStatus(patch) {
+    var st = {};
+    try { st = JSON.parse(localStorage.getItem(FB_BACKUP_STATUS_KEY)) || {}; } catch (e) { st = {}; }
+    Object.keys(patch || {}).forEach(function(k) { st[k] = patch[k]; });
+    try { localStorage.setItem(FB_BACKUP_STATUS_KEY, JSON.stringify(st)); } catch (e) {}
+    if (typeof fbSyncCapacityInvalidate === 'function') fbSyncCapacityInvalidate();
+    return st;
+}
+
+/**
+ * Evalúa el estado del respaldo. PURA respecto a sus argumentos.
+ * st: {lastOkAt, lastOkDate, lastAttemptAt, ok, error} · nowMs · enabled (sync activo).
+ * Devuelve {text, alert:{level,message}|null}.
+ */
+function fbBackupStatusEval(st, nowMs, enabled) {
+    st = st || {};
+    var dayMs = 86400000;
+    var fecha = function(iso) { return iso ? String(iso).slice(0, 16).replace('T', ' ') : ''; };
+    var text, alert = null;
+    if (st.lastOkAt) text = 'Último respaldo en la nube: ' + fecha(st.lastOkAt) + (st.modulesOk ? ' (' + st.modulesOk + ' módulos)' : '') + '.';
+    else text = 'Todavía no hay un respaldo en la nube con el formato nuevo.';
+    if (!enabled) return { text: text + ' La sincronización está apagada en este equipo.', alert: null };
+    if (st.lastAttemptAt && st.ok === false) {
+        text += ' ⚠ El intento del ' + fecha(st.lastAttemptAt) + ' falló: ' + (st.error || 'sin detalle') + '. Se reintenta al reconectar.';
+        alert = { level: 'ALTA', message: 'El respaldo diario en la nube falló (' + fecha(st.lastAttemptAt) + '): ' + (st.error || 'sin detalle') + ' — ver Datos → Sistema' };
+    }
+    var okMs = st.lastOkAt ? Date.parse(st.lastOkAt) : 0;
+    if (st.lastAttemptAt && (!okMs || nowMs - okMs > 3 * dayMs)) {
+        alert = { level: 'CRITICA', message: (okMs
+            ? 'Hace ' + Math.floor((nowMs - okMs) / dayMs) + ' días que no hay respaldo en la nube'
+            : 'No hay ningún respaldo en la nube con el formato nuevo') + ' — ver Datos → Sistema' };
+    }
+    return { text: text, alert: alert };
+}
+
+function fbBackupStatus() {
+    var st = {};
+    try { st = JSON.parse(localStorage.getItem(FB_BACKUP_STATUS_KEY)) || {}; } catch (e) { st = {}; }
+    var ev = fbBackupStatusEval(st, Date.now(), typeof fbSync !== 'undefined' && fbSync.enabled);
+    ev.raw = st;
+    return ev;
+}
+
+function fbBackupStatusText() { return fbBackupStatus().text; }
+
+// ── Disparo diario ──
+
+function fbBackupCheck(_intento) {
+    if (!fbSync.enabled || !fbSync.stationId || (!fbSync.db && !fbSync._useREST)) return;
+    var today = localToday();
+    if ((localStorage.getItem(FB_BACKUP_LS_KEY) || '') === today) return;
+    // Esperar al pull inicial: respaldar antes guardaría un estado a medio fusionar.
+    if (!fbSync._pullCompleted) {
+        var n = (_intento || 0) + 1;
+        if (n <= 10) setTimeout(function() { fbBackupCheck(n); }, 20000);
+        return;
+    }
+    fbBackupNow(function(ok, err, info) {
         if (ok) {
             localStorage.setItem(FB_BACKUP_LS_KEY, today);
             void 0;
+        } else {
+            // Una vez al día, visible: antes solo quedaba en la consola.
+            var avisado = '';
+            try { avisado = localStorage.getItem('kia_fb_backup_warned') || ''; } catch (e) {}
+            if (avisado !== today) {
+                try { localStorage.setItem('kia_fb_backup_warned', today); } catch (e) {}
+                if (typeof showToast === 'function') showToast('No se pudo guardar el respaldo diario en la nube: ' + (err || 'sin detalle') + '. Se reintentará al reconectar.', 'error', 12000);
+            }
         }
     });
 }
 
-function fbBackupNow(callback) {
-    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) {
-        if (callback) callback(false);
-        return;
-    }
-    var quota = fbQuotaCheck('write');
-    if (!quota.allowed) { void 0; if (callback) callback(false); return; }
+/**
+ * [2.3.0] Respaldo por módulo. Antes TODO iba en un solo documento (COP15 + Plan +
+ * Consumibles ≈ 1.2 MB), por encima del límite de 1 MiB de Firestore: fallaba en
+ * silencio. Ahora cada módulo va como JSON en fragmentos, en su propia subcolección:
+ *   backups/{fecha}                    ← índice (se escribe AL FINAL = respaldo completo)
+ *   backups/{fecha}/parts/{run}__{col}__{i}
+ * `run` distingue dos equipos respaldando el mismo día: el índice apunta a UNA corrida.
+ * callback(ok, errorOrNull, info)
+ */
+function fbBackupNow(callback, opts) {
+    opts = opts || {};
+    var done = function(ok, err, info) { if (callback) callback(ok, err || null, info || {}); };
+    var ready = (typeof fbBugsEnsureReady === 'function') ? fbBugsEnsureReady() : { ok: !!fbSync.enabled };
+    if (!ready.ok || !fbSync.stationId) { done(false, ready.reason || 'Sin conexión a la nube'); return; }
 
-    var today = new Date().toISOString().slice(0, 10);
-    // (v15.6: se quitó raState del snapshot — no estaba definido y crasheaba el backup)
-    var snapshot = {
-        cop15: { vehicleCount: (db.vehicles || []).length, data: db },
-        testplan: { testedCount: (tpState.testedList || []).length, data: tpState },
-        inventory: { gasCount: (invState.gases || []).length, equipCount: (invState.equipment || []).length, data: invState },
-        meta: {
-            station: fbSync.stationId,
-            date: today,
-            timestamp: new Date().toISOString(),
-            version: 'v11'
-        }
+    var mods = _fbBackupCollect();
+    if (!mods.length) { done(false, 'No hay datos locales que respaldar'); return; }
+
+    var today = localToday();
+    var run = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var nowIso = new Date().toISOString();
+    var parts = [], resumen = {}, bytesTot = 0;
+    mods.forEach(function(m) {
+        var json;
+        try { json = JSON.stringify(m.data); } catch (e) { return; }
+        var chunks = _fbSplitChunks(json, FB_BACKUP_CHUNK_CHARS);
+        resumen[m.col] = { chunks: chunks.length, chars: json.length };
+        bytesTot += json.length;
+        chunks.forEach(function(txt, i) {
+            parts.push({ id: run + '__' + m.col + '__' + i,
+                fields: { run: run, module: m.col, i: i, n: chunks.length, json: txt } });
+        });
+    });
+
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) { done(false, quota.reason); return; }
+    _fbBackupSaveStatus({ lastAttemptAt: nowIso });
+
+    var base = 'backups/' + today;
+    var fallo = function(err) {
+        var msg = _fbBkErrText(err);
+        void 0;
+        _fbBackupSaveStatus({ ok: false, error: msg, lastAttemptAt: nowIso });
+        done(false, msg);
     };
 
-    var backupRef = fbSync.db.collection('stations').doc(fbSync.stationId)
-        .collection('backups').doc(today);
+    // ¿Otro equipo ya dejó hoy un respaldo completo? Entonces no se duplica
+    // (salvo "Respaldar ahora", que pide uno nuevo a propósito).
+    var previo = opts.force ? Promise.resolve(null) : _fbBkGet(base);
+    previo.then(function(existente) {
+        if (existente && existente.meta && existente.meta.format === FB_BACKUP_FORMAT && existente.meta.complete) {
+            _fbBackupSaveStatus({ ok: true, error: '', lastOkAt: existente.meta.timestamp || nowIso,
+                lastOkDate: today, modulesOk: Object.keys(existente.meta.modules || {}).length });
+            done(true, null, { skipped: true });
+            return null;
+        }
+        // Fragmentos en serie: pocos documentos grandes; en paralelo solo se pelean la red.
+        var seq = Promise.resolve();
+        parts.forEach(function(p) { seq = seq.then(function() { return _fbBkSet(base + '/parts/' + p.id, p.fields); }); });
+        return seq.then(function() {
+            var idx = {
+                meta: { station: fbSync.stationId, date: today, timestamp: nowIso, format: FB_BACKUP_FORMAT,
+                        run: run, writer: FB_DEVICE_ID, appVersion: (typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''),
+                        modules: resumen, complete: true },
+                // Resumen legible por la lista (y por equipos con código anterior).
+                cop15: { vehicleCount: (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles.length : 0 },
+                testplan: { testedCount: (typeof tpState !== 'undefined' && tpState && tpState.testedList) ? tpState.testedList.length : 0 },
+                inventory: { gasCount: (typeof invState !== 'undefined' && invState && invState.gases) ? invState.gases.length : 0,
+                             equipCount: (typeof invState !== 'undefined' && invState && invState.equipment) ? invState.equipment.length : 0 }
+            };
+            return _fbBkSet(base, idx);
+        }).then(function() {
+            _fbBackupSaveStatus({ ok: true, error: '', lastOkAt: nowIso, lastOkDate: today,
+                modulesOk: Object.keys(resumen).length, chars: bytesTot });
+            done(true, null, { modules: resumen });
+            // Limpieza tolerante: si falla no invalida el respaldo ya hecho.
+            _fbBackupPruneRuns(base, run).catch(function(e) { void 0; });
+            fbBackupCleanup();
+            return null;
+        });
+    }).catch(fallo);
+}
 
-    backupRef.set(snapshot).then(function() {
-        fbQuotaRecord('write');
-        if (callback) callback(true);
-
-        // Cleanup: delete backups older than 30 days
-        fbBackupCleanup();
-    }).catch(function(err) {
-        void 0;
-        if (callback) callback(false);
+/** Borra fragmentos de HOY que no son de la corrida que quedó en el índice. */
+function _fbBackupPruneRuns(base, run) {
+    return _fbBkList(base + '/parts').then(function(list) {
+        var seq = Promise.resolve();
+        list.forEach(function(p) {
+            if (p.data && p.data.run !== run) seq = seq.then(function() { return _fbBkDelete(base + '/parts/' + p.id); });
+        });
+        return seq;
     });
 }
 
+/** Aplica fbBackupRetention una vez al día. Borra fragmentos y luego el índice. */
 function fbBackupCleanup() {
-    var cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    var cutoffStr = cutoff.toISOString().slice(0, 10);
-
-    fbSync.db.collection('stations').doc(fbSync.stationId)
-        .collection('backups')
-        .where('meta.date', '<', cutoffStr)
-        .get()
-        .then(function(snap) {
-            var batch = fbSync.db.batch();
-            var count = 0;
-            snap.forEach(function(doc) {
-                batch.delete(doc.ref);
-                count++;
+    var today = localToday();
+    try { if (localStorage.getItem(FB_BACKUP_CLEANUP_KEY) === today) return; } catch (e) {}
+    try { localStorage.setItem(FB_BACKUP_CLEANUP_KEY, today); } catch (e) {}
+    _fbBkList('backups', 'meta.date desc', 400).then(function(list) {
+        var dates = list.map(function(b) { return (b.data && b.data.meta && b.data.meta.date) || b.id; });
+        var r = fbBackupRetention(dates, today);
+        var seq = Promise.resolve(), count = 0;
+        list.forEach(function(b) {
+            var d = (b.data && b.data.meta && b.data.meta.date) || b.id;
+            if (r.drop.indexOf(String(d).slice(0, 10)) < 0) return;
+            seq = seq.then(function() {
+                return _fbBkList('backups/' + b.id + '/parts').then(function(parts) {
+                    var s2 = Promise.resolve();
+                    parts.forEach(function(p) { s2 = s2.then(function() { return _fbBkDelete('backups/' + b.id + '/parts/' + p.id); }); });
+                    return s2;
+                }).then(function() { count++; return _fbBkDelete('backups/' + b.id); });
             });
-            if (count > 0) {
-                batch.commit().then(function() {
-                    void 0;
-                });
-            }
-        })
-        .catch(function(err) {
-            void 0;
         });
+        return seq.then(function() { if (count) void 0; });
+    }).catch(function(err) { void 0; });
 }
 
 function fbBackupManual() {
-    showToast('Creando backup...', 'info');
-    fbBackupNow(function(ok) {
+    showToast('Creando respaldo…', 'info');
+    fbBackupNow(function(ok, err) {
         if (ok) {
-            localStorage.setItem(FB_BACKUP_LS_KEY, new Date().toISOString().slice(0, 10));
-            showToast('Backup guardado en Firebase', 'success');
-            fbShowSettings();
+            localStorage.setItem(FB_BACKUP_LS_KEY, localToday());
+            showToast('Respaldo guardado en la nube', 'success');
+            if (typeof fbShowSettings === 'function') fbShowSettings();
         } else {
-            showToast('Error creando backup', 'error');
+            showToast('No se pudo crear el respaldo: ' + (err || 'sin detalle'), 'error', 10000);
         }
-    });
+    }, { force: true });
 }
 
 function fbBackupList(callback) {
-    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) { callback([]); return; }
+    var ready = (typeof fbBugsEnsureReady === 'function') ? fbBugsEnsureReady() : { ok: !!fbSync.enabled };
+    if (!ready.ok || !fbSync.stationId) { callback([]); return; }
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { showToast(quota.reason, 'error'); callback([]); return; }
+    _fbBkList('backups', 'meta.date desc', 60).then(function(docs) {
+        callback(docs.map(function(b) {
+            var d = b.data || {};
+            var m = d.meta || {};
+            return {
+                id: b.id, date: m.date || b.id, timestamp: m.timestamp || '',
+                format: m.format || 1, complete: m.format === FB_BACKUP_FORMAT ? !!m.complete : !!(d.cop15 && d.cop15.data),
+                modules: m.format === FB_BACKUP_FORMAT ? Object.keys(m.modules || {}) : ['cop15', 'testplan', 'inventory'],
+                vehicles: d.cop15 ? d.cop15.vehicleCount : '?',
+                gases: d.inventory ? d.inventory.gasCount : '?'
+            };
+        }));
+    }).catch(function(err) {
+        void 0;
+        callback([]);
+    });
+}
 
-    fbSync.db.collection('stations').doc(fbSync.stationId)
-        .collection('backups')
-        .orderBy('meta.date', 'desc')
-        .limit(30)
-        .get()
-        .then(function(snap) {
-            fbQuotaRecord('read');
-            var list = [];
-            snap.forEach(function(doc) {
-                var d = doc.data();
-                list.push({
-                    id: doc.id,
-                    date: d.meta ? d.meta.date : doc.id,
-                    timestamp: d.meta ? d.meta.timestamp : '',
-                    vehicles: d.cop15 ? d.cop15.vehicleCount : '?',
-                    gases: d.inventory ? d.inventory.gasCount : '?'
-                });
-            });
-            callback(list);
-        })
-        .catch(function(err) {
-            void 0;
-            callback([]);
+/**
+ * Lee el contenido de un respaldo, del formato que sea. Resuelve {modulo: datos}.
+ * Formato 2: une los fragmentos de la corrida del índice y verifica que estén todos.
+ * Formato 1 (hasta 2.2.0): los datos venían dentro del mismo documento.
+ */
+function _fbBackupLoad(backupId) {
+    return _fbBkGet('backups/' + backupId).then(function(d) {
+        if (!d) throw new Error('Respaldo no encontrado');
+        var m = d.meta || {};
+        if (m.format !== FB_BACKUP_FORMAT) {
+            var out1 = {};
+            ['cop15', 'testplan', 'inventory'].forEach(function(c) { if (d[c] && d[c].data) out1[c] = d[c].data; });
+            return out1;
+        }
+        if (!m.complete) throw new Error('El respaldo quedó incompleto y no se puede restaurar');
+        return _fbBkList('backups/' + backupId + '/parts').then(function(list) {
+            return fbBackupAssemble(list.map(function(p) { return p.data; }), m);
         });
+    });
+}
+
+/**
+ * Arma los módulos a partir de los fragmentos. PURA.
+ * parts: [{run, module, i, n, json}] · meta: {run, modules:{col:{chunks}}}.
+ * Lanza si falta un fragmento: restaurar medio módulo sería peor que no restaurar.
+ */
+function fbBackupAssemble(parts, meta) {
+    var byMod = {};
+    (parts || []).forEach(function(p) {
+        if (!p || p.run !== meta.run) return;
+        (byMod[p.module] = byMod[p.module] || []).push(p);
+    });
+    var out = {};
+    Object.keys(meta.modules || {}).forEach(function(col) {
+        var esperado = meta.modules[col].chunks;
+        var trozos = (byMod[col] || []).slice().sort(function(a, b) { return a.i - b.i; });
+        if (trozos.length !== esperado) throw new Error('Faltan fragmentos de ' + col + ' (' + trozos.length + ' de ' + esperado + ')');
+        out[col] = JSON.parse(trozos.map(function(t) { return t.json; }).join(''));
+    });
+    return out;
 }
 
 function fbBackupRestore(backupId, modules) {
@@ -53647,50 +54357,79 @@ function fbBackupRestore(backupId, modules) {
     }
 
     // Create pre-restore snapshot for undo
+    var lsJSON = function(k) { return typeof safeParse === 'function' ? safeParse(k, null) : JSON.parse(localStorage.getItem(k) || 'null'); };
     var snapshot = {
         // savedAt permite que storageHousekeeping() lo caduque: es una copia completa
-        // de los tres módulos grandes (~500 KB) y antes se quedaba para siempre.
+        // de los módulos (~1 MB) y antes se quedaba para siempre.
         savedAt: Date.now(),
-        cop15: typeof safeParse === 'function' ? safeParse('kia_db_v11', null) : JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
-        testplan: typeof safeParse === 'function' ? safeParse('kia_testplan_v1', null) : JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
-        inventory: typeof safeParse === 'function' ? safeParse('kia_lab_inventory', null) : JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
+        cop15: lsJSON('kia_db_v11'),
+        testplan: lsJSON('kia_testplan_v1'),
+        inventory: lsJSON('kia_lab_inventory'),
+        panel: modules.panel ? lsJSON('kia_panel_v1') : null,
+        cop: modules.cop ? lsJSON('kia_cop_v1') : null,
+        homolog: modules.homolog ? lsJSON('kia_homolog_v1') : null
     };
     try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
 
-    fbSync.db.collection('stations').doc(fbSync.stationId)
-        .collection('backups').doc(backupId)
-        .get()
-        .then(function(doc) {
-            if (!doc.exists) { showToast('Backup no encontrado', 'error'); return; }
-            var d = doc.data();
-            var restored = [];
-
-            if (modules.cop15 && d.cop15 && d.cop15.data) {
-                db = d.cop15.data;
+    showToast('Leyendo respaldo…', 'info');
+    _fbBackupLoad(backupId).then(function(d) {
+        var restored = [], faltan = [];
+        var pide = function(c) { return !!modules[c]; };
+        if (pide('cop15')) {
+            if (d.cop15) {
+                db = d.cop15;
                 if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
                 if (typeof refreshAllLists === 'function') refreshAllLists();
                 restored.push('COP15');
-            }
-            if (modules.testplan && d.testplan && d.testplan.data) {
-                tpState = d.testplan.data;
+            } else faltan.push('COP15');
+        }
+        if (pide('testplan')) {
+            if (d.testplan) {
+                tpState = d.testplan;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
                 _fbTpUISync();
-                restored.push('Test Plan');
-            }
-            if (modules.inventory && d.inventory && d.inventory.data) {
-                invState = d.inventory.data;
+                restored.push('Plan de pruebas');
+            } else faltan.push('Plan de pruebas');
+        }
+        if (pide('inventory')) {
+            if (d.inventory) {
+                invState = d.inventory;
                 localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
                 if (typeof invRender === 'function') invRender();
-                restored.push('Inventario');
-            }
-
-            showToast('Restaurado: ' + restored.join(', '), 'success');
-            fbShowSettings();
-        })
-        .catch(function(err) {
-            showToast('Error restaurando: ' + err.message, 'error');
-        });
+                restored.push('Consumibles');
+            } else faltan.push('Consumibles');
+        }
+        if (pide('panel')) {
+            if (d.panel && typeof pnState !== 'undefined') {
+                pnState = d.panel;
+                localStorage.setItem('kia_panel_v1', JSON.stringify(pnState));
+                if (typeof pnRender === 'function') pnRender();
+                restored.push('Panel');
+            } else faltan.push('Panel');
+        }
+        if (pide('cop')) {
+            if (d.cop) {
+                localStorage.setItem('kia_cop_v1', JSON.stringify(d.cop));
+                if (typeof copSyncReload === 'function') copSyncReload();
+                restored.push('CoP');
+            } else faltan.push('CoP');
+        }
+        if (pide('homolog')) {
+            if (d.homolog) {
+                localStorage.setItem('kia_homolog_v1', JSON.stringify(d.homolog));
+                if (typeof homoSyncReload === 'function') homoSyncReload();
+                restored.push('Homologación');
+            } else faltan.push('Homologación');
+        }
+        if (typeof auditLog === 'function') auditLog('sistema', 'respaldo_restaurado', { type: 'sistema', id: backupId, label: 'Respaldo ' + backupId },
+            'Restaurado: ' + (restored.join(', ') || 'nada') + (faltan.length ? ' · no estaban en el respaldo: ' + faltan.join(', ') : ''));
+        showToast('Restaurado: ' + (restored.join(', ') || 'nada') + (faltan.length ? ' · No estaban en ese respaldo: ' + faltan.join(', ') : ''),
+            restored.length ? 'success' : 'warning');
+        if (typeof fbShowSettings === 'function') fbShowSettings();
+    }).catch(function(err) {
+        showToast('Error restaurando: ' + ((err && err.message) || err), 'error', 10000);
+    });
 }
 
 function fbBackupRestoreSelectModules(backupId) {
@@ -53698,60 +54437,59 @@ function fbBackupRestoreSelectModules(backupId) {
     if (!modal) return;
 
     var html = '<div style="max-width:420px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">';
-    html += '<button onclick="fbBackupShowList()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
-    html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Restaurar Backup</h3>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);">Backup: ' + backupId + '</div>';
-    html += '<div style="font-size: var(--fs-sm);color:#e2e8f0;margin-bottom: var(--space-md);">Selecciona los modulos a restaurar:</div>';
+    html += '<button onclick="fbBackupShowList()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>';
+    html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Restaurar respaldo</h3>';
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);">Respaldo: ' + backupId + '</div>';
+    html += '<div style="font-size: var(--fs-sm);color:#e2e8f0;margin-bottom: var(--space-md);">Selecciona los módulos a restaurar:</div>';
 
-    var mods = [
-        { key: 'cop15', label: 'COP15 (Vehiculos)', icon: '🔬' },
-        { key: 'testplan', label: 'Test Plan', icon: '📊' },
-        { key: 'inventory', label: 'Lab Inventory', icon: '📦' }
-    ];
-
-    mods.forEach(function(m) {
+    // El historial de cambios se respalda pero no se restaura: es un registro, no un estado.
+    FB_BACKUP_MODULES.filter(function(m) { return m.col !== 'audit'; }).forEach(function(m) {
+        var porDefecto = (m.col === 'cop15' || m.col === 'testplan' || m.col === 'inventory');
         html += '<label style="display:flex;align-items:center;gap: var(--space-md);padding: var(--space-md);margin-bottom: var(--space-xs);background:#1e293b;border-radius: var(--radius-xl);cursor:pointer;border:1px solid #334155;">';
-        html += '<input type="checkbox" id="fb-restore-' + m.key + '" checked style="accent-color:#3b82f6;width:18px;height:18px;">';
+        html += '<input type="checkbox" id="fb-restore-' + m.col + '"' + (porDefecto ? ' checked' : '') + ' style="accent-color:#3b82f6;width:18px;height:18px;">';
         html += '<span style="font-size:16px;">' + m.icon + '</span>';
-        html += '<span style="font-size:12px;">' + m.label + '</span>';
+        html += '<span style="font-size: var(--fs-sm);">' + m.label + '</span>';
         html += '</label>';
     });
 
     html += '<div style="padding: var(--space-sm);margin-top: var(--space-sm);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius: var(--radius-xl);font-size: var(--fs-xs);color:#f59e0b;">';
-    html += 'Se guardara un snapshot previo. Puedes deshacer la restauración si es necesario.</div>';
+    html += 'Se guarda una copia previa: puedes deshacer la restauración. Los respaldos anteriores a la versión 2.3.0 solo traen vehículos, plan y consumibles.</div>';
 
     html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-md);">';
     html += '<button onclick="fbBackupShowList()" style="flex:1;padding: var(--space-md);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-xl);cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
-    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding: var(--space-md);background:#7c3aed;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-size: var(--fs-sm);font-weight:700;">Restaurar Seleccion</button>';
+    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding: var(--space-md);background:#7c3aed;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-size: var(--fs-sm);font-weight:700;">Restaurar selección</button>';
     html += '</div></div>';
 
     modal.innerHTML = html;
 }
 
 function fbBackupRestoreConfirm(backupId) {
-    var modules = {
-        cop15: document.getElementById('fb-restore-cop15') ? document.getElementById('fb-restore-cop15').checked : false,
-        testplan: document.getElementById('fb-restore-testplan') ? document.getElementById('fb-restore-testplan').checked : false,
-        inventory: document.getElementById('fb-restore-inventory') ? document.getElementById('fb-restore-inventory').checked : false
-    };
-    var anySelected = modules.cop15 || modules.testplan || modules.results || modules.inventory;
-    if (!anySelected) { showToast('Selecciona al menos un modulo', 'error'); return; }
+    var modules = {}, anySelected = false;
+    FB_BACKUP_MODULES.forEach(function(m) {
+        var el = document.getElementById('fb-restore-' + m.col);
+        modules[m.col] = !!(el && el.checked);
+        if (modules[m.col]) anySelected = true;
+    });
+    if (!anySelected) { showToast('Selecciona al menos un módulo', 'error'); return; }
     fbBackupRestore(backupId, modules);
 }
 
 function fbBackupUndoRestore() {
     var snapshot = null;
     try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
-    if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
-    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+    if (!snapshot) { showToast('No hay copia previa a la restauración', 'error'); return; }
+    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: '¿Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
         if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
+        if (snapshot.panel && typeof pnState !== 'undefined') { pnState = snapshot.panel; localStorage.setItem('kia_panel_v1', JSON.stringify(pnState)); if (typeof pnRender === 'function') pnRender(); }
+        if (snapshot.cop) { localStorage.setItem('kia_cop_v1', JSON.stringify(snapshot.cop)); if (typeof copSyncReload === 'function') copSyncReload(); }
+        if (snapshot.homolog) { localStorage.setItem('kia_homolog_v1', JSON.stringify(snapshot.homolog)); if (typeof homoSyncReload === 'function') homoSyncReload(); }
 
         localStorage.removeItem('kia_fb_prerestore_snapshot');
-        showToast('Restauracion deshecha — datos anteriores restaurados', 'success');
+        showToast('Restauración deshecha — datos anteriores restaurados', 'success');
     });
 }
 
@@ -53759,23 +54497,24 @@ function fbBackupShowList() {
     var modal = document.getElementById('fbModal');
     if (!modal) return;
     modal.innerHTML = '<div style="max-width:480px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);color:#e2e8f0;text-align:center;">' +
-        '<div style="font-size:24px;">Cargando backups...</div></div>';
+        '<div style="font-size:24px;">Cargando respaldos…</div></div>';
 
     fbBackupList(function(list) {
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;color:#e2e8f0;">';
-        html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
-        html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Backups Disponibles (' + list.length + ')</h3>';
+        html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>';
+        html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Respaldos disponibles (' + list.length + ')</h3>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-md);">' + escapeHtml(fbBackupStatusText()) + '</div>';
 
         if (list.length === 0) {
-            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay backups guardados aún.</div>';
+            html += '<div style="text-align:center;padding: var(--space-xl);color:var(--muted);">No hay respaldos guardados aún.</div>';
         } else {
             list.forEach(function(b) {
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid #1e293b;border-radius: var(--radius-lg);background:#1e293b;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;gap: var(--space-sm);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-xs);border:1px solid #1e293b;border-radius: var(--radius-lg);background:#1e293b;">';
                 html += '<div>';
-                html += '<div style="font-size: var(--fs-sm);font-weight:700;">' + b.date + '</div>';
-                html += '<div style="font-size: var(--fs-xs);color:var(--muted);">' + b.vehicles + ' vehiculos | ' + b.gases + ' gases</div>';
+                html += '<div style="font-size: var(--fs-sm);font-weight:700;">' + escapeHtml(b.date) + (b.format === FB_BACKUP_FORMAT ? '' : ' <span style="color:var(--muted);font-weight:400;">(formato anterior)</span>') + '</div>';
+                html += '<div style="font-size: var(--fs-xs);color:var(--muted);">' + b.vehicles + ' vehículos · ' + b.modules.length + ' módulos' + (b.complete ? '' : ' · <b style="color:#f59e0b;">incompleto</b>') + '</div>';
                 html += '</div>';
-                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding: var(--space-xs) var(--space-md);background:#7c3aed;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Restaurar</button>';
+                if (b.complete) html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding: var(--space-xs) var(--space-md);background:#7c3aed;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Restaurar</button>';
                 html += '</div>';
             });
         }
@@ -53783,9 +54522,9 @@ function fbBackupShowList() {
         var hasSnapshot = !!localStorage.getItem('kia_fb_prerestore_snapshot');
         html += '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-md);flex-wrap:wrap;">';
         html += '<button onclick="fbShowSettings()" style="flex:1;padding: var(--space-sm);background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
-        html += '<button onclick="fbBackupManual()" style="flex:1;padding: var(--space-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Crear Backup Ahora</button>';
+        html += '<button onclick="fbBackupManual()" style="flex:1;padding: var(--space-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">Respaldar ahora</button>';
         if (hasSnapshot) {
-            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Última Restauracion</button>';
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding: var(--space-sm);background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius: var(--radius-lg);cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer última restauración</button>';
         }
         html += '</div></div>';
 

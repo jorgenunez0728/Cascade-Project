@@ -1988,9 +1988,9 @@ menos **dejó de ser silencioso**.
   Por eso el Pulso lleva un solo `?` en su título y `title` en cada recuadro.
 - **`./build.sh` publica el número de build en Firestore de producción** (`app/version`, un
   curl al final). Las estaciones ven "hay actualización" aunque el hosting no haya cambiado. Para
-  compilar solo para verificar, correrlo sin red hacia Firestore (p. ej.
-  `HTTPS_PROXY=http://127.0.0.1:9 ./build.sh`): el HTML y `sw.build.js` ya quedaron escritos
-  cuando el curl falla; el script sale con código 7 por `set -e`, no por un error de build.
+  compilar solo para verificar: **`SKIP_PUBLISH=1 ./build.sh`** (2.3.0). **No** usar el truco de
+  `HTTPS_PROXY=http://127.0.0.1:9`: curl lee primero `https_proxy` en minúsculas y en el entorno
+  de Claude Code publicó de verdad (pasó el 28-sep-2026).
 
 ## 2.1.0 — Roles del laboratorio y permisos que sí se cumplen (`js/auth.js`)
 
@@ -2054,9 +2054,64 @@ menos **dejó de ser silencioso**.
 - `copSpcGases` agrega sin límite los campos con datos que el perfil ya no tiene: una serie
   histórica no desaparece porque el perfil cambió.
 
+## 2.3.0 — La nube avisa antes de llenarse (`js/firebase-sync.js`)
+
+- **Cada módulo viaja como UN documento** (`stations/KIA-EMLAB/{col}/current`) y un documento
+  de Firestore tiene tope duro de 1 MiB. Con 42 vehículos, COP15 ya pesaba ~753 KB y **las
+  firmas (PNG en base64 dentro de cada vehículo) son ~95 % de ese peso**. Cuando un módulo pasa
+  el tope, `fbPush` deja de subirlo: el dispositivo sigue guardando local y los demás no ven
+  nada. La solución de fondo es un documento por vehículo (**cambia el formato compartido →
+  MAYOR**, todos los equipos actualizan el mismo día). No mover las firmas a otra colección
+  sin eso: un equipo con código viejo vería vehículos sin firma y, en un empate de fusión,
+  podría quedarse con la copia sin firma y propagarla.
+- **`fbFirestoreDocSize` / `fbFirestoreValueSize` son LA definición del tamaño** (reglas de
+  "Storage size calculations"; reproduce el ejemplo oficial de 147 bytes). **Nunca volver a
+  medir con `JSON.stringify(x).length`.** `fbModuleDocBytes(col, data)` = el documento que
+  escribe `fbPush`; `FB_DOC_SAFE_BYTES` (1 000 000) deja ~48 KB de margen.
+- **`fbSyncCapacity()` es LA definición de la capacidad** — memoizada (60 s o hasta el
+  siguiente `data:saved`) porque `pnGetActiveAlerts` corre en cada render. `fbVehicleWeight`,
+  `fbCapacityRows`, `fbCapacityLevel` son PURAS. `fbSyncAlerts()` es la fuente de
+  `pnGetActiveAlerts` para `Sincronización` y `Respaldo` (guarda `typeof`: firebase-sync carga
+  después de panel). Un bloqueo por tamaño queda en `fbSync.sizeBlocked[col]` y el aviso sale a
+  lo más cada 10 min.
+- **Respaldo formato 2**: `backups/{fecha}` es el índice y **se escribe AL FINAL** (su
+  existencia con `complete:true` = respaldo completo); los datos van como JSON en
+  `backups/{fecha}/parts/{run}__{col}__{i}`. `run` separa dos equipos respaldando el mismo día
+  (el índice apunta a una corrida; `_fbBackupPruneRuns` borra las demás). **`fbBackupAssemble`
+  lanza si falta un fragmento: restaurar medio módulo es peor que no restaurar.** El formato 1
+  (datos dentro del índice, hasta 2.2.0) se sigue leyendo en `_fbBackupLoad`.
+- Los primitivos `_fbBkSet/Get/List/Delete` van por SDK y caen a REST (`_fbBugsSdkOrRest`),
+  como los `fbBugs*`. `_fbBkErrText` traduce el error a algo que diga qué hacer — un técnico
+  nunca debe leer "Failed to fetch".
+- **`fbBackupCheck` espera `fbSync._pullCompleted`**: antes corría al conectar, en paralelo al
+  pull, y podía respaldar un estado a medio fusionar.
+- `fbBackupRetention(dates, today)` (PURA): diarios 30 días, luego el PRIMERO QUE EXISTA de
+  cada mes hasta un año (no "el día 1": un día sin equipo encendido no tiene respaldo).
+- **Toda clave nueva de un módulo sincronizado debe caber en el presupuesto del documento.**
+  Antes de guardar algo pesado en `db`/`tpState`/`invState` (imágenes, archivos, exportaciones
+  crudas), mirar Datos → Sistema → Capacidad. Lo pesado va en su propia colección (patrón
+  Archivos/Bugs), nunca dentro del documento del módulo.
+- `_pnStorageEntryFor` revisa **claves exactas antes que prefijos** (el prefijo `kia_fb_` se
+  quedaba con `kia_fb_prerestore_snapshot`). Registro nuevo: `kia_fb_backup_status/cleanup/warned`.
+- **Los vehículos guardan `registeredAt`**, no `timestamp`/`createdAt`. `_pnVehicleDate(v)` es
+  la forma de leer la fecha de alta. Los vehículos **no se purgan por antigüedad** (son
+  evidencia y, sin tombstone, el sync los traería de vuelta).
+- **Candado del F05 — `tests/f05.e2e.js`**: genera el PDF real (reloj, zona
+  `America/Mexico_City` e idioma congelados), quita CreationDate/ModDate/ID y compara la huella
+  con `tests/fixtures/f05-golden.json`. Detecta un solo byte de diferencia. **Solo se regenera
+  (`F05_UPDATE=1`) cuando el laboratorio aprueba un cambio al formato.**
+- **Las reglas de `firestore.rules` NO están en producción** (verificado 28-sep-2026: una
+  lectura sin sesión de `stations/KIA-EMLAB/*/current` responde 200). El paso de CI que las
+  publica recibe 403 desde siempre y `continue-on-error` lo pintaba en verde; ahora deja
+  anotación de error. Hasta que se publiquen, **nada que dependa de reglas protege nada** (p. ej.
+  el historial solo-crear de la ronda de auditoría). Antes de publicarlas, confirmar que todos
+  los equipos entran con la contraseña del laboratorio (proveedor `password`).
+- **El workflow de PR compila con `SKIP_PUBLISH=1`**: antes cada push a un PR publicaba su build
+  en `app/version` de producción y todas las estaciones veían "hay actualización".
+
 ## Working with this project
 
-- Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
+- Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
 - **Toda ronda que cambia algo publica una versión** — ver **Versionado** abajo.
 - New function: add to the right module file; global scope makes it cross-available.
 - **Toda clave nueva de `localStorage` agrega su entrada a `PN_STORAGE_REGISTRY`** (v18.1) y, si

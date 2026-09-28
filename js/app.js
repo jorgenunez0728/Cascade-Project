@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.2.0';
+var APP_VERSION = '2.3.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,15 @@ var APP_VERSION = '2.2.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.3.0', date: '28 sep 2026', title: 'La nube avisa antes de llenarse y el respaldo diario vuelve a funcionar',
+      bullets: [
+          'Nuevo en Datos → Sistema: "Capacidad de sincronización". Cada módulo viaja a la nube como un solo documento con tamaño máximo; la tarjeta dice cuánto ocupa cada uno, qué pesa en los vehículos (las firmas son casi todo) y cuántos vehículos caben todavía.',
+          'Alerta "Sincronización" al 75 % y crítica al 90 % o si un módulo ya no se está subiendo. Antes el primer aviso llegaba cuando ya no se subía, y salía en cada guardado.',
+          'El respaldo diario en la nube fallaba sin avisar: juntaba vehículos, plan y consumibles en un documento que ya pasaba del máximo. Ahora va por módulo, respalda también Panel, CoP, Homologación e historial de cambios, avisa si falla y guarda diarios de 30 días más uno por mes durante un año.',
+          'El tamaño se mide como lo cuenta la nube, no con una aproximación que bloqueaba antes de tiempo.',
+          '"Antigüedad de Datos" marcaba 0 en todas las columnas. El botón "COP15 > 90 días" se retiró: nunca borró nada y los vehículos son evidencia.',
+          'El F05 no cambia: una prueba automática verifica que sale idéntico.'
+      ] },
     { version: '2.2.0', date: '26 sep 2026', title: 'Cada regulación pide sus gases, de la liberación al PDF',
       bullets: [
           'SULEV 30 (USA y Canadá) se juzga como lo define la norma: NMOG+NOx combinado ≤ 0.030 g/mi y CO ≤ 1.0 g/mi. Antes comparaba NMHC y NOx por separado con límites que no son los de la norma. Los vehículos liberados antes se siguen leyendo con NMHC y NOx.',

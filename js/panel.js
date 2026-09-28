@@ -2260,6 +2260,12 @@ function pnGetActiveAlerts() {
         } catch (e) {}
     }
 
+    // [2.3.0] Nube: módulo cerca del límite de un documento (o ya sin subir) y
+    // respaldo diario fallando. firebase-sync.js carga después — guardar con typeof.
+    if (typeof fbSyncAlerts === 'function') {
+        try { fbSyncAlerts().forEach(function(a) { alerts.push(a); }); } catch (e) {}
+    }
+
     // Sort by severity
     var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
     alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
@@ -2305,7 +2311,7 @@ function pnRenderAlerts(el) {
 
         Object.keys(bySource).forEach(function(source) {
             var sourceAlerts = bySource[source];
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️' };
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
             html += '<div class="tp-card">';
             html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
 
@@ -2732,7 +2738,7 @@ function pnRenderSystemHealth(el) {
     if (typeof db !== 'undefined' && db.vehicles) {
         var cop30 = 0, cop60 = 0, cop90 = 0;
         db.vehicles.forEach(function(v) {
-            var ts = v.timestamp || v.createdAt;
+            var ts = _pnVehicleDate(v);
             if (!ts) return;
             var age = (now - new Date(ts).getTime()) / 86400000;
             if (age > 90) cop90++;
@@ -2786,7 +2792,6 @@ function pnRenderSystemHealth(el) {
     html += '<p style="color:var(--tp-dim);font-size: var(--fs-sm);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
 
     html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-md);background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
     html += '</div>';
@@ -2868,8 +2873,13 @@ var PN_STORAGE_REGISTRY = [
     // ── Regenerable / preferencias ──
     { prefix: 'kia_cop15_draft_',   label: 'Borrador de captura',      tier: 'cache',
       note: 'Campos a medio llenar de una captura. Caducan a las 24 h.' },
-    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'cache',
-      note: 'Copia completa que permite deshacer una restauración de backup.' },
+    // [2.3.0] 'review', no 'cache': NO se regenera — es lo único que permite deshacer
+    // una restauración. Caduca sola a los 7 días (storageHousekeeping).
+    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'review',
+      note: 'Copia completa que permite deshacer una restauración de respaldo. Caduca a los 7 días.' },
+    { key: 'kia_fb_backup_status',  label: 'Estado del respaldo en la nube', tier: 'cache' },
+    { key: 'kia_fb_backup_cleanup', label: 'Limpieza de respaldos (fecha)',  tier: 'cache' },
+    { key: 'kia_fb_backup_warned',  label: 'Aviso de respaldo (fecha)',      tier: 'cache' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
       note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
           + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
@@ -2898,9 +2908,16 @@ var PN_STORAGE_REGISTRY = [
 ];
 
 function _pnStorageEntryFor(key) {
-    for (var i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
-        var e = PN_STORAGE_REGISTRY[i];
+    // [2.3.0] Primero las claves EXACTAS, después los prefijos. Antes se revisaba en
+    // el orden de la lista y el prefijo 'kia_fb_' se quedaba con
+    // 'kia_fb_prerestore_snapshot' (~1 MB) como si fuera un ajuste pequeño.
+    var i, e;
+    for (i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        e = PN_STORAGE_REGISTRY[i];
         if (e.key && e.key === key) return e;
+    }
+    for (i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        e = PN_STORAGE_REGISTRY[i];
         if (e.prefix && key.indexOf(e.prefix) === 0) return e;
     }
     return null;
@@ -3017,20 +3034,32 @@ function _pnMeasurePerformance() {
     return { lsKeys: lsKeys, domNodes: domNodes, memoryMB: memoryMB, charts: charts };
 }
 
+/**
+ * [2.3.0] Fecha de alta de un vehículo. El alta escribe `registeredAt`; "Antigüedad
+ * de Datos" leía `timestamp`/`createdAt`, que un vehículo no tiene, y marcaba 0 en
+ * todas las columnas desde siempre. PURA.
+ */
+function _pnVehicleDate(v) {
+    if (!v) return null;
+    var ts = v.registeredAt || v.timestamp || v.createdAt ||
+        (v.timeline && v.timeline[0] && v.timeline[0].timestamp) || null;
+    return ts || null;
+}
+
 function pnPurgeOldData(module, maxDays) {
+    if (module === 'cop15') {
+        // [2.3.0] Los vehículos son evidencia (F05, juicios CoP, SPC) y NO se purgan por
+        // antigüedad. Este botón nunca borró nada: leía `timestamp`/`createdAt`, campos
+        // que un vehículo no tiene. Se retiró de la pantalla; esta guarda cubre cualquier
+        // otra llamada. Sin marca de borrado, además, la sincronización los traería de vuelta.
+        if (typeof showToast === 'function') showToast('Los vehículos son evidencia y no se borran por antigüedad. Si hace falta, se eliminan uno por uno desde Historial.', 'info', 8000);
+        return;
+    }
     showConfirm('¿Eliminar datos de ' + module + ' con más de ' + maxDays + ' días? Esta acción es irreversible.', function() {
         var cutoff = Date.now() - (maxDays * 86400000);
         var count = 0;
 
-        if (module === 'cop15' && typeof db !== 'undefined' && db.vehicles) {
-            var before = db.vehicles.length;
-            db.vehicles = db.vehicles.filter(function(v) {
-                var ts = v.timestamp || v.createdAt;
-                return !ts || new Date(ts).getTime() >= cutoff;
-            });
-            count = before - db.vehicles.length;
-            if (count > 0) saveDB();
-        } else if (module === 'testplan') {
+        if (module === 'testplan') {
             // v16.2: tpState.plans/.records nunca existió — este purgado siempre fue un
             // no-op silencioso. NO se conecta a testedList aquí a propósito: esos registros
             // alimentan el conteo "Probadas" y la cobertura de cada configuración (borrarlos
@@ -3864,7 +3893,7 @@ function panelAlpineComponent() {
                 if (!grouped[a.source]) grouped[a.source] = [];
                 grouped[a.source].push(a);
             });
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️' };
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
             return Object.keys(grouped).map(function(source) {
                 return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
             });
@@ -3901,7 +3930,7 @@ function panelAlpineComponent() {
             if (typeof db !== 'undefined' && db.vehicles) {
                 var c30 = 0, c60 = 0, c90 = 0;
                 db.vehicles.forEach(function(v) {
-                    var ts = v.timestamp || v.createdAt; if (!ts) return;
+                    var ts = _pnVehicleDate(v); if (!ts) return;
                     var age = (now - new Date(ts).getTime()) / 86400000;
                     if (age > 90) c90++; else if (age > 60) c60++; else if (age > 30) c30++;
                 });
@@ -3921,6 +3950,36 @@ function panelAlpineComponent() {
         },
         perfData: function() { return _pnMeasurePerformance(); },
         formatBytes: function(b) { return _pnFormatBytes(b); },
+        // [2.3.0] Capacidad en la nube (fbSyncCapacity es LA definición; memoizada).
+        syncCap: function() {
+            void this._dataVersion;
+            if (typeof fbSyncCapacity !== 'function') return null;
+            var c = fbSyncCapacity();
+            if (!c || !c.rows.length) return null;
+            var COLOR = { ok: 'var(--ok-text)', alto: 'var(--warn-text)', critico: 'var(--danger-text)' };
+            var w = c.weight;
+            var parts = [];
+            if (w && w.total > 0) {
+                [['images', 'Firmas (imágenes)'], ['profiles', 'Perfiles de gases congelados'],
+                 ['timeline', 'Línea de tiempo'], ['rest', 'Datos de captura y resultados']].forEach(function(p) {
+                    parts.push({ key: p[0], label: p[1], bytes: w[p[0]], pct: Math.round((w[p[0]] / w.total) * 100) });
+                });
+            }
+            return {
+                rows: c.rows.map(function(r) {
+                    return { col: r.col, label: r.label, bytes: r.bytes, pct: r.pct, level: r.level,
+                             color: COLOR[r.level], bar: Math.min(100, r.pct),
+                             blocked: c.blocked.indexOf(r.col) >= 0 };
+                }),
+                limit: c.limit, weight: w, parts: parts, vehiclesLeft: c.vehiclesLeft,
+                anyBlocked: c.blocked.length > 0
+            };
+        },
+        // [2.3.0] Estado del respaldo diario en la nube (fbBackupStatus es LA definición).
+        backupLine: function() {
+            void this._dataVersion;
+            return (typeof fbBackupStatusText === 'function') ? fbBackupStatusText() : '';
+        },
         purgeOldData: function(module, maxDays) { pnPurgeOldData(module, maxDays); },
 
         // ── Computed — Calendar ──
@@ -4695,6 +4754,18 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
             + 'más grande y más separación entre bloques. "Compacta" devuelve la escala '
             + 'anterior si prefieres ver más filas de una sola vez. "Amplia" es para tablet o '
             + 'para proyectar en una junta. Se guarda solo en este dispositivo.'
+    },
+    pn_sync_capacity: {
+        title: 'Capacidad de sincronización',
+        text: 'Cuánto ocupa cada módulo EN LA NUBE. Es otro límite, distinto al del '
+            + 'almacenamiento de este dispositivo.\n\n'
+            + 'Cada módulo (vehículos, plan, consumibles…) viaja a la nube como UN solo '
+            + 'documento, y un documento admite ~977 KB. Si uno se llena, la app deja de '
+            + 'subirlo: se sigue guardando en este dispositivo, pero los demás equipos ya no '
+            + 'ven esos cambios.\n\n'
+            + 'La barra se pone amarilla al 75 % y roja al 90 %. En vehículos se desglosa qué '
+            + 'pesa (firmas, perfiles de gases, línea de tiempo) y cuántos vehículos caben '
+            + 'todavía con el promedio actual.'
     },
     pn_storage: {
         title: 'Uso de Almacenamiento',

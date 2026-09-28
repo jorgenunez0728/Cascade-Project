@@ -1824,6 +1824,59 @@
                 </div>
             </div>
 
+            <!-- [2.3.0] Capacidad de sincronización: cada módulo viaja a la nube como UN
+                 documento. Es otro límite, distinto al del navegador (tarjeta de abajo). -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_sync_capacity">☁️ Capacidad de sincronización</h4>
+                <template x-if="!syncCap()">
+                    <p style="color:var(--tp-dim);font-size:var(--fs-xs);margin:0;">Sin datos para medir todavía.</p>
+                </template>
+                <template x-if="syncCap()">
+                    <div>
+                        <p style="color:var(--tp-dim);font-size:var(--fs-xs);margin:0 0 var(--space-sm) 0;line-height:var(--lh-base);"
+                           x-text="'Cada módulo viaja a la nube como un solo documento de hasta ' + formatBytes(syncCap().limit) + '. Si uno se llena, deja de subirse y los demás equipos no ven sus cambios.'"></p>
+
+                        <div x-show="syncCap().anyBlocked"
+                             style="margin-bottom:var(--space-sm);padding:var(--space-sm) var(--space-md);background:var(--danger-tint);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-md);font-size:var(--fs-xs);color:var(--tp-text);line-height:var(--lh-base);">
+                            <b>⛔ Hay módulos que ya no se están subiendo.</b> Los cambios se guardan en este dispositivo, pero los demás equipos no los ven.
+                        </div>
+
+                        <template x-for="r in syncCap().rows" :key="r.col">
+                            <div style="padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);">
+                                <div style="display:flex;justify-content:space-between;gap:var(--space-sm);font-size:var(--fs-xs);">
+                                    <span style="color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                        <span x-text="r.label"></span><span x-show="r.blocked" style="color:var(--danger-text);font-weight:700;"> · sin subir</span>
+                                    </span>
+                                    <span style="flex-shrink:0;font-weight:700;" :style="{ color: r.color }" x-text="r.pct + '% · ' + formatBytes(r.bytes)"></span>
+                                </div>
+                                <div style="width:100%;height:6px;background:var(--tp-border);border-radius:var(--radius-sm);overflow:hidden;margin-top:var(--space-xs);">
+                                    <div style="height:100%;border-radius:var(--radius-sm);" :style="{ width: r.bar + '%', background: r.color }"></div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="syncCap().weight && syncCap().weight.count > 0">
+                            <div style="margin-top:var(--space-md);">
+                                <div style="font-size:var(--fs-xs);color:var(--tp-text);font-weight:700;margin-bottom:var(--space-xs);"
+                                     x-text="'Qué pesa en vehículos (' + syncCap().weight.count + ' vehículos, ' + formatBytes(syncCap().weight.avg) + ' en promedio)'"></div>
+                                <template x-for="p in syncCap().parts" :key="p.key">
+                                    <div style="display:flex;justify-content:space-between;gap:var(--space-sm);font-size:var(--fs-xs);padding:var(--space-2xs) 0;">
+                                        <span style="color:var(--tp-dim);" x-text="p.label"></span>
+                                        <span style="color:var(--tp-text);flex-shrink:0;" x-text="formatBytes(p.bytes) + ' (' + p.pct + '%)'"></span>
+                                    </div>
+                                </template>
+                                <div x-show="syncCap().vehiclesLeft !== null"
+                                     style="margin-top:var(--space-xs);font-size:var(--fs-xs);color:var(--tp-text);"
+                                     x-text="'Con el promedio actual caben ~' + syncCap().vehiclesLeft + ' vehículos más antes de llenar el documento.'"></div>
+                            </div>
+                        </template>
+
+                        <div style="margin-top:var(--space-md);font-size:var(--fs-xs);color:var(--tp-dim);line-height:var(--lh-base);"
+                             x-text="backupLine()"></div>
+                    </div>
+                </template>
+            </div>
+
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
@@ -1897,7 +1950,7 @@
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>
                 <p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                    <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
+                    <!-- [2.3.0] Sin botón de COP15: los vehículos son evidencia y no se purgan por antigüedad. -->
                     <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
                 </div>
