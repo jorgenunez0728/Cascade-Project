@@ -2314,6 +2314,24 @@ menos **dejó de ser silencioso**.
 - Toda clave nueva de `db` que deba verse en todos los equipos: a `FB_VEH_META_KEYS` **y** a la
   unión de `fbMergeExecute` (como `deletedVehicles` y `manualConfigs`).
 
+## 2.10.0 — Nada falla en silencio (`js/app.js`, `js/bugreport.js`, `build.sh`)
+
+- **`uiExplainDisabled(btn, motivo)` es LA forma de deshabilitar un botón de acción** (motivo
+  vacío = habilitado). No volver a escribir `btn.disabled = cond` en un botón con candado: el
+  técnico toca, no pasa nada y lo reporta como "no sirve". El motivo va en `data-why` + `title` y
+  lo muestra un `pointerup` en el documento (un `click` sobre un control deshabilitado no llega).
+- **Un error tras un toque (≤ 4 s) avisa con "Reportar"** (`_uiErrorNotice`, a lo más cada 10 s);
+  sin toque reciente solo se registra. `bugIsNoise` (PURA) filtra red, ResizeObserver,
+  extensiones y el `INTERNAL ASSERTION FAILED` del SDK. No prometer en el aviso qué se guardó: no
+  se sabe.
+- **El mapa de líneas del bundle depende de que NADA cambie el número de líneas del JS después de
+  `// @@module`.** El quitado de `console.*` conserva los saltos a propósito; todo paso nuevo de
+  `build.sh` que reescriba el JS debe hacerlo igual, y el mapa se escribe al FINAL (después de
+  jsPDF y Alpine), en una sola línea. `tests/bugreport.node.js` lo vigila.
+- El reporte guarda la ubicación ya traducida (`ctx.where`, `errors[].file/fileLine`), nunca la
+  cadena cruda: la cola `kia_bug_queue` tiene tope. Los pasos previos (`window._bugCrumbs`) son
+  solo la etiqueta del botón, con VINs enmascarados — **nunca valores de un campo**.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

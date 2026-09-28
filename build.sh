@@ -76,6 +76,8 @@ echo "<script>" >> "$DIR/$OUTPUT"
 
 for jsfile in app.js cop15.js inventory.js testplan.js panel.js projects.js auth.js signatures.js firebase-sync.js cop_validator.js homolog.js vets.js review.js bugreport.js; do
     echo "" >> "$DIR/$OUTPUT"
+    # [2.10.0] Marca de módulo: de aquí sale el mapa de líneas del reporte de fallas.
+    echo "// @@module js/$jsfile" >> "$DIR/$OUTPUT"
     cat "$DIR/js/$jsfile" >> "$DIR/$OUTPUT"
     echo "" >> "$DIR/$OUTPUT"
 done
@@ -98,8 +100,10 @@ echo "</html>" >> "$DIR/$OUTPUT"
 # NOTE: Only strips from unified file, source files are untouched.
 # ═══════════════════════════════════════════════════════════════
 echo "Stripping console.log/warn/error from production build..."
-# Replace with void 0 instead of deleting to avoid breaking if-without-braces patterns
-perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?/void 0;/gs' "$DIR/$OUTPUT"
+# Replace with void 0 instead of deleting to avoid breaking if-without-braces patterns.
+# [2.10.0] Conserva los saltos de línea de la llamada quitada: si no, todo lo que va
+# después se recorre hacia arriba y el mapa de líneas del reporte de fallas mentiría.
+perl -0777 -i -pe 's/(console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?)/"void 0;" . ("\n" x ($1 =~ tr|\n||))/gse' "$DIR/$OUTPUT"
 
 # ═══════════════════════════════════════════════════════════════
 # Inyectar Alpine (vendorizado) — DESPUÉS del strip de console.*
@@ -140,6 +144,43 @@ with open(out_path, 'w', encoding='utf-8') as f:
 PYEOF
 
 # ═══════════════════════════════════════════════════════════════
+# [2.10.0] Mapa de líneas del bundle → archivo fuente, para el reporte de fallas.
+# Va DESPUÉS de todo lo que agrega líneas (jsPDF en <head>, Alpine al final) y se
+# escribe en UNA sola línea (/*__BUG_LINE_MAP__*/null), así que no mueve nada.
+# ═══════════════════════════════════════════════════════════════
+echo "Writing the bundle line map (bug reports)..."
+python3 - "$DIR/$OUTPUT" "$DIR/js" <<'PYEOF'
+import sys, json, os
+out_path, js_dir = sys.argv[1], sys.argv[2]
+with open(out_path, encoding='utf-8') as f:
+    html = f.read()
+lines = html.split('\n')
+mods, tag = [], None
+for i, l in enumerate(lines):
+    if l.startswith('// @@module js/'):
+        name = l[len('// @@module '):].strip()
+        with open(os.path.join(js_dir, name[3:]), encoding='utf-8') as f:
+            src = f.read()
+        n = src.count('\n') + (0 if src.endswith('\n') else 1)
+        start = i + 2                      # 1-based: la línea después de la marca
+        mods.append([start, name, start + n - 1])
+        if tag is None:
+            j = i
+            while j >= 0 and lines[j].strip() != '<script>':
+                j -= 1
+            tag = j + 1                    # 1-based
+if not mods or tag is None:
+    sys.exit('ERROR: no se encontraron las marcas @@module del bundle')
+marker = '/*__BUG_LINE_MAP__*/null'
+if html.count(marker) != 1:
+    sys.exit('ERROR: marcador BUG_LINE_MAP no encontrado (o repetido)')
+html = html.replace(marker, json.dumps({'tag': tag, 'mods': mods}, separators=(',', ':')))
+with open(out_path, 'w', encoding='utf-8') as f:
+    f.write(html)
+print('  %d módulos, <script> en la línea %d' % (len(mods), tag))
+PYEOF
+
+# ═══════════════════════════════════════════════════════════════
 # [Fase 4.1] Optional minification with terser
 # Install: npm install -g terser
 # This step is skipped if terser is not available
@@ -174,6 +215,9 @@ sed "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/sw.js" > "$DIR/sw.build.js"
 # placeholder embedded in app.js / firebase-sync.js sections)
 # ═══════════════════════════════════════════════════════════════
 sed -i "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/$OUTPUT"
+# [2.10.0] Commit del build: el reporte de fallas enlaza la línea exacta del código que corría.
+APP_COMMIT_SHA=$(git -C "$DIR" rev-parse HEAD 2>/dev/null || echo "")
+sed -i "s/__APP_COMMIT__/${APP_COMMIT_SHA}/g" "$DIR/$OUTPUT"
 
 LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)

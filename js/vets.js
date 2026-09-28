@@ -994,7 +994,7 @@ function _vetsRefreshBtn() {
     var box = document.getElementById('vetsBlockers');
     if (box) box.innerHTML = b.length ? _vetsBox('', '<span class="u-muted">Para aplicar: ' + b.map(escapeHtml).join(' ') + '</span>') : '';
     var btn = _vetsCtx.overlay.querySelector('[data-modal-btn="1"]');
-    if (btn) btn.disabled = b.length > 0;
+    uiExplainDisabled(btn, b.length ? 'Para aplicar: ' + b.join(' ') : '');
 }
 
 function vetsFixVin() {
@@ -1147,7 +1147,7 @@ function vetsCompareOpen() {
         { label: 'Guardar comparación', cls: 'btn-primary', onclick: function() { vetsCompareSave(); } }
     ]);
     var btn = _vetsCtx.overlay && _vetsCtx.overlay.querySelector('[data-modal-btn="1"]');
-    if (btn) btn.disabled = vin.block || !rows.length;
+    uiExplainDisabled(btn, vin.block ? (vin.message || 'El VIN del archivo no es el de este vehículo.') : !rows.length ? 'No hay resultados que comparar.' : '');
 }
 
 function vetsCompareSave() {

@@ -5,25 +5,122 @@
 // [v17.13] Los últimos errores internos se conservan en memoria para adjuntarlos
 // al reporte de bugs (botón 🐞). Solo RAM: nada se persiste ni se envía solo.
 window._bugRecentErrors = [];
-function _bugRecordError(type, message, source, line) {
+// [2.10.0] Además del mensaje: la URL completa, la columna y la cadena de llamadas
+// (`stack`), para que el reporte diga en qué archivo y línea del código falló.
+function _bugRecordError(type, message, source, line, col, stack) {
   try {
-    window._bugRecentErrors.push({
+    var entry = {
       at: new Date().toISOString(), type: type,
       message: String(message || '').slice(0, 300),
-      source: source ? String(source).split('/').pop() : '', line: line || 0
-    });
+      source: source ? String(source).split('/').pop() : '', line: line || 0,
+      url: source ? String(source).slice(0, 300) : '', col: col || 0,
+      stack: stack ? String(stack).slice(0, 4000) : ''
+    };
+    window._bugRecentErrors.push(entry);
     if (window._bugRecentErrors.length > 20) window._bugRecentErrors.shift();
+    return entry;
+  } catch (err) { return null; }
+}
+
+// ── [2.10.0] Pasos previos: los últimos toques del técnico (pantalla + botón) ──
+// Solo RAM, como los errores. Nunca lo que se tecleó: solo la etiqueta del botón,
+// con cualquier cosa con forma de VIN enmascarada.
+window._bugCrumbs = [];
+window._uiLastActionAt = 0;
+var BUG_CRUMBS_MAX = 15;
+function _bugCrumbLabel(el) {
+  var t = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('title'))) || el.textContent || el.id || '';
+  t = String(t).replace(/\s+/g, ' ').trim().replace(/\b[A-HJ-NPR-Z0-9]{11,17}\b/g, '[VIN]');
+  return t.length > 48 ? t.slice(0, 47) + '…' : t;
+}
+function _bugCrumbScreen() {
+  var p = '';
+  try { p = (typeof _currentPlatform !== 'undefined' && _currentPlatform) || ''; } catch (e) {}
+  var tab = '';
+  try {
+    if (p === 'panel' && typeof pnState !== 'undefined') tab = pnState.activeTab || '';
+    else if (p === 'testplan' && typeof tpState !== 'undefined') tab = tpState.activeTab || '';
+    else if (p === 'inventory' && typeof invState !== 'undefined') tab = invState.activeTab || '';
+    else if (p === 'cop15') { var a = document.querySelector('#platform-cop15 .tab.active'); if (a) tab = a.getAttribute('data-tab') || ''; }
+  } catch (e) {}
+  return p + (tab ? ' → ' + tab : '');
+}
+document.addEventListener('click', function(e) {
+  window._uiLastActionAt = Date.now();
+  try {
+    var el = e.target && e.target.closest && e.target.closest('button, a, summary, [role="button"], [role="tab"], .tab, [onclick]');
+    if (!el) return;
+    window._bugCrumbs.push({ at: new Date().toISOString(), screen: _bugCrumbScreen(), label: _bugCrumbLabel(el) });
+    if (window._bugCrumbs.length > BUG_CRUMBS_MAX) window._bugCrumbs.shift();
+  } catch (err) {}
+}, true);
+document.addEventListener('keydown', function() { window._uiLastActionAt = Date.now(); }, true);
+
+// ── [2.10.0] Nada falla en silencio ──
+// Un error del programa justo después de que el técnico tocó algo se AVISA, con un
+// botón que abre el reporte con todo adjunto. Antes solo iba a la consola y el
+// técnico veía "no hace nada" (casi todos los reportes 🐞 decían eso). Un error sin
+// acción reciente (sync de fondo, temporizadores) solo se registra: el aviso diría
+// "al hacer eso" sobre algo que nadie hizo.
+var UI_ERROR_NOTICE_GAP_MS = 10000;   // a lo más un aviso cada 10 s
+var UI_ERROR_ACTION_WINDOW_MS = 4000; // "al hacer eso" = hasta 4 s después de un toque
+var _uiErrorNoticeAt = 0;
+function _uiErrorNotice(entry) {
+  try {
+    if (!entry) return;
+    if (typeof bugIsNoise === 'function' && bugIsNoise(entry.message, entry.url)) return;
+    var now = Date.now();
+    if (now - (window._uiLastActionAt || 0) > UI_ERROR_ACTION_WINDOW_MS) return;
+    if (now - _uiErrorNoticeAt < UI_ERROR_NOTICE_GAP_MS) return;
+    _uiErrorNoticeAt = now;
+    entry.noticed = true;
+    if (typeof showToast !== 'function') return;
+    showToast('Algo falló al hacer eso (error del programa). Revisa si se aplicó; si no, repórtalo para que se arregle.', 'error', 12000,
+      function() { if (typeof bugCaptureStart === 'function') bugCaptureStart(); }, 'Reportar');
   } catch (err) {}
 }
 
+// ── [2.10.0] Un botón bloqueado dice por qué ──
+// `uiExplainDisabled(btn, motivo)` es LA forma de deshabilitar un botón de acción:
+// motivo vacío = habilitado; con motivo = deshabilitado + `title` + `data-why`. Se
+// sigue usando `disabled` de verdad (el candado real vive en la capa de datos y las
+// pruebas leen `.disabled`); para que el toque no se pierda en silencio se escucha
+// `pointerup` en el documento, que Chrome sí entrega sobre un control deshabilitado
+// (un `click` no). Con teclado el motivo queda en `title`.
+function uiExplainDisabled(btn, why) {
+  if (!btn) return;
+  why = why ? String(why) : '';
+  btn.disabled = !!why;
+  if (why) { btn.setAttribute('data-why', why); btn.title = why; }
+  else {
+    // Solo se quita el `title` si era el motivo (un botón puede traer su propio title).
+    var prev = btn.getAttribute('data-why');
+    btn.removeAttribute('data-why');
+    if (prev && btn.title === prev) btn.removeAttribute('title');
+  }
+}
+var _uiWhyShownAt = 0;
+document.addEventListener('pointerup', function(e) {
+  try {
+    var b = e.target && e.target.closest && e.target.closest('button[data-why]');
+    if (!b || !b.disabled) return;
+    var why = b.getAttribute('data-why');
+    if (!why || Date.now() - _uiWhyShownAt < 1500) return;
+    _uiWhyShownAt = Date.now();
+    if (typeof showToast === 'function') showToast(why, 'info', 5000);
+  } catch (err) {}
+}, true);
+
 window.addEventListener('error', (e) => {
   console.error('🔥 Error JS:', e.message, 'en', e.filename, 'línea', e.lineno);
-  _bugRecordError('error', e.message, e.filename, e.lineno);
+  var entry = _bugRecordError('error', e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
+  _uiErrorNotice(entry);
 });
 
 window.addEventListener('unhandledrejection', (e) => {
   var reason = e && e.reason;
-  _bugRecordError('promesa', (reason && reason.message) ? reason.message : reason, '', 0);
+  var entry = _bugRecordError('promesa', (reason && reason.message) ? reason.message : reason, '', 0, 0, reason && reason.stack);
+  _uiErrorNotice(entry);
 });
 
 // ======================================================================
@@ -282,6 +379,9 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
 var APP_BUILD = '__BUILD_VERSION__';
+// [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
+// enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
+var APP_COMMIT = '__APP_COMMIT__';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -289,7 +389,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.9.0';
+var APP_VERSION = '2.10.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +397,13 @@ var APP_VERSION = '2.9.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.10.0', date: '28 sep 2026', title: 'Si algo falla, se dice — y el reporte trae el código',
+      bullets: [
+          'Nuevo: si algo falla justo después de tocar un botón, aparece "Algo falló al hacer eso" con el botón Reportar. Antes no pasaba nada visible y parecía que el botón no servía.',
+          'Nuevo: un botón bloqueado dice por qué al tocarlo (p. ej. "Captura los gases para compararlos con los del liberador"). Aplica a liberar, aprobar, revisión dirigida, VETS y corregir alta.',
+          'El reporte 🐞 ahora trae el archivo y la línea del código donde falló, un enlace a ese código en la versión exacta que corría, un fragmento del código y los últimos toques que hiciste (solo qué botón, nunca lo que tecleaste).',
+          'Los errores que ocurren solos, sin que nadie toque nada (por ejemplo, la sincronización de fondo), no interrumpen: se guardan para el reporte.'
+      ] },
     { version: '2.9.0', date: '28 sep 2026', title: 'Cada vehículo viaja solo: la nube ya no se llena',
       bullets: [
           'Cambió: cada vehículo se sube a la nube en su propio documento. Antes todos viajaban juntos en uno solo con tope de 1 MB, y con las firmas ese documento ya estaba al 75 %: al llenarse, los demás equipos dejaban de ver los cambios de Pruebas.',
@@ -2654,11 +2761,13 @@ function showToast(msg, type) {
 
     var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
     var explicitDur = (typeof arguments[2] === 'number' && arguments[2] >= 0) ? arguments[2] : null;
+    // [2.10.0] 5º argumento: la etiqueta de la acción (por omisión "Deshacer").
+    var actionLabel = (typeof arguments[4] === 'string' && arguments[4]) ? arguments[4] : 'Deshacer';
     if (undoFn) {
         var undoBtn = document.createElement('button');
         undoBtn.type = 'button';
         undoBtn.className = 'toast-undo';
-        undoBtn.textContent = 'Deshacer';
+        undoBtn.textContent = actionLabel;
         undoBtn.onclick = function() { try { undoFn(); } finally { dismiss(); } };
         toast.appendChild(undoBtn);
     }

@@ -20,6 +20,48 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.10.0 — Si algo falla, se dice — y el reporte trae el código (2026-09-28)
+
+### Nuevo
+- **"Algo falló al hacer eso"**: si el programa falla justo después de que tocaste algo, aparece
+  un aviso con el botón **Reportar** (abre el 🐞 con todo adjunto). Antes no pasaba nada visible:
+  casi todos los reportes decían "no hace nada".
+- **Un botón bloqueado dice por qué** al tocarlo: liberar ("Captura NOx para poder liberar"),
+  aprobar ("Los valores de CO no coinciden con los del liberador…"), revisión dirigida, VETS y
+  Corregir alta. El botón sigue bloqueado igual que antes.
+
+### Cambió
+- **El reporte 🐞 trae el código donde falló**, como texto (se puede buscar y copiar; una imagen no):
+  - el archivo y la línea reales (`js/cop15.js:4819`), no la línea del archivo compilado
+    (`index.html:44387`, como llegó el #103);
+  - un enlace a esa línea en GitHub, **en el commit exacto de la versión que corría**;
+  - un fragmento de ±6 líneas con la línea del error marcada;
+  - la cadena de llamadas;
+  - tus últimos 15 toques (pantalla y botón). **Nunca lo que tecleaste**; un VIN en la etiqueta de
+    un botón sale como `[VIN]`.
+- Los errores que ocurren sin que nadie toque nada (sincronización de fondo, temporizadores) no
+  interrumpen: se guardan para el siguiente reporte.
+
+### Para desarrollo
+- `build.sh` marca cada módulo con `// @@module js/x.js` y, después de insertar jsPDF y Alpine,
+  reemplaza `BUG_LINE_MAP` (en UNA línea) con `{tag, mods:[[inicio, archivo, fin]]}`. Inyecta
+  `APP_COMMIT` (`git rev-parse HEAD`).
+- **El quitado de `console.*` conserva los saltos de línea** (si no, todo lo que va después se
+  recorre y el mapa miente). `tests/bugreport.node.js` compara cada función muestreada del bundle
+  con su archivo fuente; si el bundle es más viejo que `js/`, lo dice y no juzga.
+- Puras en bugreport.js: `bugMapLine`, `bugLocate`, `bugParseStack`, `bugPermalink`, `bugExcerpt`,
+  `bugIsNoise`, `bugWhereFailed` (el fragmento sale del `<script>` en línea; en desarrollo solo el
+  enlace). `bugBuildIssueBody` sigue pura; un reporte viejo de la cola sale igual que antes.
+- app.js: `_bugRecordError` guarda `url`, `col` y `stack`; `window._bugCrumbs` (RAM, 15);
+  `_uiErrorNotice` avisa solo si hubo un toque en los últimos 4 s y a lo más cada 10 s.
+  `showToast` acepta un 5º argumento: la etiqueta de la acción.
+- **`uiExplainDisabled(btn, motivo)` es LA forma de deshabilitar un botón de acción**: sigue usando
+  `disabled` (el candado real está en la capa de datos y las pruebas leen `.disabled`) y el motivo
+  sale con `pointerup`, que Chrome sí entrega sobre un control deshabilitado.
+- Pruebas: `tests/bugreport.node.js` (38) y `tests/v2100.e2e.js` (17, sobre el bundle compilado:
+  un error real dentro de `refreshAllLists` → `js/cop15.js:línea` exacta, enlace al commit y
+  fragmento con la misma línea del fuente).
+
 ## 2.9.0 — Cada vehículo viaja solo: la nube ya no se llena (2026-09-28)
 
 ### Cambió

@@ -33,6 +33,140 @@ var _bugPendingShot = null;
 var _bugSending = false;
 
 // ══════════════════════════════════════════════════════════════════════
+// [2.10.0] DÓNDE FALLÓ — del bundle al archivo real, y el código como TEXTO
+//
+// En el build de producción todo el JS vive en UN <script> del HTML, así que el
+// navegador reporta "index.html:44387" (#103). build.sh marca cada módulo con
+// "// @@module js/x.js" y reemplaza BUG_LINE_MAP (en UNA sola línea, para no mover
+// nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
+// En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
+// ══════════════════════════════════════════════════════════════════════
+var BUG_LINE_MAP = /*__BUG_LINE_MAP__*/null;
+var BUG_EXCERPT_RADIUS = 6;
+
+/** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
+function bugMapLine(docLine, map) {
+    if (!map || !map.mods || !(docLine > 0)) return null;
+    for (var i = 0; i < map.mods.length; i++) {
+        var m = map.mods[i];
+        if (docLine >= m[0] && docLine <= m[2]) return { file: m[1], line: docLine - m[0] + 1 };
+    }
+    return null;
+}
+
+/**
+ * Ubica un (url, línea) en el código fuente. PURA.
+ * - url de un archivo js/x.js (desarrollo) → ya es la línea del archivo.
+ * - cualquier otra url de la app (el HTML del build) → se traduce con el mapa.
+ * - librerías de CDN → null (no es código nuestro).
+ */
+function bugLocate(url, line, map) {
+    url = String(url || '');
+    if (!(line > 0)) return null;
+    var m = /\/(js\/[\w.-]+\.js)(?:[?#].*)?$/.exec(url);
+    if (m) return { file: m[1], line: line };
+    if (/^https?:\/\/(?!localhost)[^/]*(gstatic|cdnjs|jsdelivr|unpkg|googleapis)\./i.test(url)) return null;
+    return bugMapLine(line, map);
+}
+
+/** `error.stack` → [{fn, url, line, col}] (formatos Chrome y Firefox/Safari). PURA. */
+function bugParseStack(stack) {
+    var out = [];
+    String(stack || '').split('\n').forEach(function(l) {
+        var m = /^\s*at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?\s*$/.exec(l) || null;
+        if (m) { out.push({ fn: m[1] || '', url: m[2], line: +m[3], col: +m[4] }); return; }
+        m = /^\s*(.*?)@(.+?):(\d+):(\d+)\s*$/.exec(l);
+        if (m) out.push({ fn: m[1] || '', url: m[2], line: +m[3], col: +m[4] });
+    });
+    return out;
+}
+
+/** Enlace a la línea exacta en GitHub, en el commit del build (o main en desarrollo). PURA. */
+function bugPermalink(owner, repo, commit, file, line) {
+    var ref = /^[0-9a-f]{7,40}$/.test(String(commit || '')) ? commit : 'main';
+    return 'https://github.com/' + owner + '/' + repo + '/blob/' + ref + '/' + file + '#L' + line;
+}
+
+/** Fragmento de ±radius líneas alrededor de `line` (1-based) de un arreglo de líneas. PURA. */
+function bugExcerpt(lines, line, radius) {
+    if (!lines || !lines.length || !(line > 0) || line > lines.length) return null;
+    radius = radius || BUG_EXCERPT_RADIUS;
+    var from = Math.max(1, line - radius), to = Math.min(lines.length, line + radius);
+    var out = [];
+    for (var n = from; n <= to; n++) {
+        var t = String(lines[n - 1] || '');
+        out.push(t.length > 160 ? t.slice(0, 159) + '…' : t);
+    }
+    return { from: from, to: to, at: line, lines: out };
+}
+
+/** ¿Es ruido que no merece avisar al técnico? PURA. */
+function bugIsNoise(message, url) {
+    var m = String(message || ''), u = String(url || '');
+    if (/ResizeObserver loop|^Script error\.?$|ServiceWorker|service worker|INTERNAL ASSERTION FAILED/i.test(m)) return true;
+    if (/Failed to fetch|NetworkError|Load failed|network request failed|AbortError|The operation was aborted/i.test(m)) return true;
+    if (/^(chrome|moz|safari)-extension:/i.test(u)) return true;
+    return false;
+}
+
+/** Líneas del <script> en línea del build (una sola vez; no existe en desarrollo). */
+var _bugSourceCache;
+function _bugSourceLines() {
+    if (_bugSourceCache !== undefined) return _bugSourceCache;
+    _bugSourceCache = null;
+    try {
+        var ss = document.getElementsByTagName('script');
+        for (var i = 0; i < ss.length; i++) {
+            if (ss[i].src) continue;
+            var t = ss[i].textContent || '';
+            if (t.indexOf('// @@module js/app.js') >= 0) { _bugSourceCache = t.split('\n'); break; }
+        }
+    } catch (e) {}
+    return _bugSourceCache;
+}
+
+/**
+ * Líneas de un archivo fuente tomadas del bundle (para el fragmento). En el <script>,
+ * la línea i del texto es la línea (tag + i) del documento.
+ */
+function _bugFileLines(file, map) {
+    var all = _bugSourceLines();
+    if (!all || !map || !map.mods) return null;
+    for (var i = 0; i < map.mods.length; i++) {
+        var m = map.mods[i];
+        if (m[1] === file) return all.slice(m[0] - map.tag, m[2] - map.tag + 1);
+    }
+    return null;
+}
+
+/**
+ * Dónde falló: el error más reciente (el que avisó, si hubo) con su ubicación en el
+ * código fuente, el enlace y el fragmento. Se calcula al armar el reporte y viaja
+ * como DATO en el reporte: bugBuildIssueBody sigue siendo pura.
+ */
+function bugWhereFailed(errors, map, owner, repo, commit) {
+    var errs = (errors || []).slice().reverse();
+    var pick = errs.filter(function(e) { return e.noticed; })[0] || errs[0];
+    if (!pick) return null;
+    var frames = bugParseStack(pick.stack).map(function(f) {
+        var loc = bugLocate(f.url, f.line, map);
+        return { fn: f.fn, file: loc ? loc.file : '', line: loc ? loc.line : 0, col: f.col };
+    }).filter(function(f) { return f.file; }).slice(0, 8);
+    var top = frames[0] || null;
+    if (!top) {
+        var loc = bugLocate(pick.url, pick.line, map);
+        if (loc) top = { fn: '', file: loc.file, line: loc.line, col: pick.col || 0 };
+    }
+    var out = { message: pick.message, at: pick.at, frames: frames, file: '', line: 0, fn: '', url: '', excerpt: null };
+    if (top) {
+        out.file = top.file; out.line = top.line; out.fn = top.fn;
+        out.url = bugPermalink(owner, repo, commit, top.file, top.line);
+        out.excerpt = bugExcerpt(_bugFileLines(top.file, map), top.line, BUG_EXCERPT_RADIUS);
+    }
+    return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // CARGA DIFERIDA DE html2canvas
 // ══════════════════════════════════════════════════════════════════════
 
@@ -219,6 +353,9 @@ function bugModalOpen(dataUrl) {
             'Se adjunta automáticamente: <b>v' + escapeHtml(ctx.version) + '</b> · ' +
             escapeHtml(ctx.platformLabel) + ' · ' + escapeHtml(ctx.operator) + ' · ' +
             escapeHtml(ctx.viewport) + (ctx.errors.length ? ' · ' + ctx.errors.length + ' error(es) JS reciente(s)' : '') +
+            // [2.10.0] Lo que se adjunta se dice: dónde falló y los pasos previos (sin lo tecleado).
+            (ctx.where && ctx.where.file ? ' · dónde falló: <b>' + escapeHtml(ctx.where.file + ':' + ctx.where.line) + '</b>' : '') +
+            (ctx.crumbs && ctx.crumbs.length ? ' · tus últimos ' + ctx.crumbs.length + ' toques (solo el botón, nunca lo que tecleaste)' : '') +
         '</div>' +
         '<div class="custom-modal-actions">' +
             '<button type="button" class="modal-btn-cancel" id="bug-btn-discard">Descartar</button>' +
@@ -291,8 +428,25 @@ function bugBuildContext() {
         else if (platform === 'inventory' && typeof invState !== 'undefined' && invState.activeTab) tab = invState.activeTab;
     } catch (e) {}
 
+    var errors = (window._bugRecentErrors || []).slice(-BUG_ERRORS_MAX);
+    // [2.10.0] Dónde falló (archivo:línea real + enlace al commit del build + fragmento).
+    var commit = (typeof APP_COMMIT !== 'undefined') ? String(APP_COMMIT) : '';
+    var s = {};
+    try { s = (typeof bugGetSettings === 'function' && bugGetSettings()) || {}; } catch (e) {}
+    var where = null;
+    try { where = bugWhereFailed(errors, BUG_LINE_MAP, s.owner || BUG_DEFAULT_OWNER, s.repo || BUG_DEFAULT_REPO, commit); } catch (e) {}
+    // El reporte viaja SIN la cadena cruda: ya va traducida en `where` (y pesa en la cola local).
+    errors = errors.map(function(e) {
+        var loc = null;
+        try { loc = bugLocate(e.url, e.line, BUG_LINE_MAP); } catch (x) {}
+        return { at: e.at, type: e.type, message: e.message, source: e.source, line: e.line,
+                 file: loc ? loc.file : '', fileLine: loc ? loc.line : 0 };
+    });
+
     return {
         version: (typeof APP_VERSION !== 'undefined') ? String(APP_VERSION) : '?',
+        build: (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD) : '',
+        commit: /^[0-9a-f]{7,40}$/.test(commit) ? commit : '',
         platform: platform,
         tab: tab,
         platformLabel: platform + (tab ? ' → ' + tab : ''),
@@ -300,7 +454,9 @@ function bugBuildContext() {
         ua: (navigator && navigator.userAgent) ? navigator.userAgent : '',
         viewport: window.innerWidth + '×' + window.innerHeight,
         online: navigator.onLine !== false,
-        errors: (window._bugRecentErrors || []).slice(-BUG_ERRORS_MAX)
+        errors: errors,
+        where: where,
+        crumbs: (window._bugCrumbs || []).slice(-15)
     };
 }
 
@@ -577,13 +733,52 @@ function bugBuildIssueBody(report, shotUrls) {
         lines.push('> _No se pudo adjuntar la captura de pantalla (sin acceso al repositorio o sin espacio local)._');
         lines.push('');
     }
+    // [2.10.0] Dónde falló: archivo y línea reales, enlace al código de ESE build y
+    // el fragmento como texto (se puede buscar y copiar; una imagen no).
+    var w = c.where;
+    if (w && w.file) {
+        lines.push('### Dónde falló');
+        lines.push('');
+        lines.push('`' + w.file + ':' + w.line + '`' + (w.fn ? ' en `' + w.fn + '`' : '') +
+            ' — ' + (w.message || '') + (w.url ? ' · [ver en GitHub](' + w.url + ')' : ''));
+        lines.push('');
+        if (w.excerpt && w.excerpt.lines && w.excerpt.lines.length) {
+            var width = String(w.excerpt.to).length;
+            lines.push('```js');
+            w.excerpt.lines.forEach(function(t, i) {
+                var n = w.excerpt.from + i;
+                var num = String(n);
+                while (num.length < width) num = ' ' + num;
+                lines.push(num + (n === w.excerpt.at ? ' ▶ ' : ' │ ') + t);
+            });
+            lines.push('```');
+            lines.push('');
+        }
+        if (w.frames && w.frames.length > 1) {
+            lines.push('<details><summary>Cadena de llamadas</summary>');
+            lines.push('');
+            w.frames.forEach(function(f) { lines.push('- `' + (f.fn || '(anónima)') + '` — `' + f.file + ':' + f.line + '`'); });
+            lines.push('');
+            lines.push('</details>');
+            lines.push('');
+        }
+    }
+    if (c.crumbs && c.crumbs.length) {
+        lines.push('### Pasos previos');
+        lines.push('');
+        c.crumbs.forEach(function(k, i) {
+            lines.push((i + 1) + '. `' + String(k.at || '').slice(11, 19) + '` ' + (k.screen || '?') + ' · «' + (k.label || '') + '»');
+        });
+        lines.push('');
+    }
     lines.push('### Contexto');
     lines.push('');
     lines.push('| Dato | Valor |');
     lines.push('| --- | --- |');
     lines.push('| Reportado por | ' + (c.operator || '?') + ' |');
     lines.push('| Fecha | ' + (report.at || '') + ' |');
-    lines.push('| Versión de la app | ' + (c.version || '?') + ' |');
+    lines.push('| Versión de la app | ' + (c.version || '?') + (c.build ? ' · build ' + c.build : '') +
+        (c.commit ? ' · commit `' + c.commit.slice(0, 10) + '`' : '') + ' |');
     lines.push('| Pantalla | ' + (c.platformLabel || c.platform || '?') + ' |');
     lines.push('| Viewport | ' + (c.viewport || '?') + ' |');
     lines.push('| En línea | ' + (c.online ? 'sí' : 'no') + ' |');
@@ -595,7 +790,7 @@ function bugBuildIssueBody(report, shotUrls) {
         lines.push('```');
         c.errors.forEach(function(e) {
             lines.push('[' + (e.at || '') + '] ' + (e.type || 'error') + ': ' + (e.message || '') +
-                (e.source ? ' (' + e.source + ':' + (e.line || '?') + ')' : ''));
+                (e.file ? ' (' + e.file + ':' + e.fileLine + ')' : e.source ? ' (' + e.source + ':' + (e.line || '?') + ')' : ''));
         });
         lines.push('```');
         lines.push('');

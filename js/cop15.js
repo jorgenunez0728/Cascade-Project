@@ -3343,7 +3343,11 @@ function libOnGasChange() {
     var btn = document.getElementById('release-archive-btn');
     if (btn) {
         // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
-        btn.disabled = !_libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content')).ok;
+        var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+        // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
+        uiExplainDisabled(btn, _rv.ok ? '' : _rv.failing.length
+            ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
+            : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.');
     }
 }
 
@@ -3377,7 +3381,7 @@ function libOnApproverGasChange() {
     });
     if (!hasAllValues) {
         matchStatus.style.display = 'none';
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Captura todos los gases para compararlos con los del liberador.');
         _libMismatchAlarmKey = null;
         return;
     }
@@ -3387,7 +3391,7 @@ function libOnApproverGasChange() {
         matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
         matchStatus.style.color = tokenColor('--ok-text');
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
-        btn.disabled = false;
+        uiExplainDisabled(btn, '');
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
         _libHighlightReturnBtn(false);
@@ -3408,7 +3412,7 @@ function libOnApproverGasChange() {
         matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (comparación a 3 cifras significativas). '
             + 'Verifique su lectura; si el error es del liberador, use <strong>↩️ Devolver al liberador</strong>.';
         _libHighlightReturnBtn(true);
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Los valores de ' + mismatches.join(', ') + ' no coinciden con los del liberador. Revisa tu lectura o devuélvelo.');
         // Alarma: toast (una sola vez por episodio) + registro para alerta en Panel
         var alarmKey = vehicle.id + '|' + mismatches.join(',');
         if (_libMismatchAlarmKey !== alarmKey) {
@@ -3641,7 +3645,7 @@ function loadRelease() {
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
-        document.getElementById('release-archive-btn').disabled = false;
+        uiExplainDisabled(document.getElementById('release-archive-btn'), '');
         releaseChecklistRender(vehicle);
         _renderUsedCylinders(vehicle);
         renderTimeline(vehicle);
@@ -3673,7 +3677,7 @@ function loadRelease() {
             '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
             _libRegPickerControlsHTML(vehicle, '') +
             '</div>';
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Elige contra qué regulación comparar los gases para poder liberar.');
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
@@ -3754,7 +3758,7 @@ function loadApproval() {
     if (!isEm) {
         document.getElementById('appr-gas-entry-content').innerHTML =
             '<p style="color:var(--muted);font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
-        if (btn) btn.disabled = false;
+        uiExplainDisabled(btn, '');
         return;
     }
     if (!profile) {
@@ -3764,7 +3768,7 @@ function loadApproval() {
             '<div style="padding: var(--space-md);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;font-size:12px;">' +
             '⚠️ Esta prueba de emisiones llegó sin resultados de gases y la regulación (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) ' +
             'no tiene perfil de límites. No se puede aprobar así: usa <strong>Devolver al liberador</strong> para que elija la regulación y capture los gases.</div>';
-        if (btn) btn.disabled = true;
+        uiExplainDisabled(btn, 'Esta prueba no tiene perfil de límites: devuélvela al liberador para que elija la regulación.');
         return;
     }
 
@@ -3794,7 +3798,7 @@ function loadApproval() {
                 : 'Se liberó con la definición anterior de ' + escapeHtml(profile.name) + ' (retirada en ' + escapeHtml(profile.retiredIn) + ').') +
             '</div>');
     }
-    if (btn) btn.disabled = true;
+    uiExplainDisabled(btn, 'Captura los gases para compararlos con los del liberador.');
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
@@ -6106,7 +6110,8 @@ function _altaCorrRefresh() {
 
     var btn = st.overlay ? st.overlay.querySelector('[data-modal-btn="1"]') : null;
     if (btn) {
-        btn.disabled = !plan.ok || motivo.length < 5;
+        uiExplainDisabled(btn, !plan.ok ? (plan.errors[0] || 'No se puede corregir en esta etapa.')
+            : motivo.length < 5 ? 'Escribe el motivo (5 caracteres o más) para poder guardar.' : '');
         btn.textContent = plan.requiresSignature ? 'Firmar y guardar' : 'Guardar corrección';
     }
 }

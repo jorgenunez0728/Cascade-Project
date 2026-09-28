@@ -8070,6 +8070,7 @@ td .ui-num-row > input { min-width: 5rem; }
 
 <script>
 
+// @@module js/app.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — App Core (Config, Utilities, Platform, Init)          ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -8077,25 +8078,122 @@ td .ui-num-row > input { min-width: 5rem; }
 // [v17.13] Los últimos errores internos se conservan en memoria para adjuntarlos
 // al reporte de bugs (botón 🐞). Solo RAM: nada se persiste ni se envía solo.
 window._bugRecentErrors = [];
-function _bugRecordError(type, message, source, line) {
+// [2.10.0] Además del mensaje: la URL completa, la columna y la cadena de llamadas
+// (`stack`), para que el reporte diga en qué archivo y línea del código falló.
+function _bugRecordError(type, message, source, line, col, stack) {
   try {
-    window._bugRecentErrors.push({
+    var entry = {
       at: new Date().toISOString(), type: type,
       message: String(message || '').slice(0, 300),
-      source: source ? String(source).split('/').pop() : '', line: line || 0
-    });
+      source: source ? String(source).split('/').pop() : '', line: line || 0,
+      url: source ? String(source).slice(0, 300) : '', col: col || 0,
+      stack: stack ? String(stack).slice(0, 4000) : ''
+    };
+    window._bugRecentErrors.push(entry);
     if (window._bugRecentErrors.length > 20) window._bugRecentErrors.shift();
+    return entry;
+  } catch (err) { return null; }
+}
+
+// ── [2.10.0] Pasos previos: los últimos toques del técnico (pantalla + botón) ──
+// Solo RAM, como los errores. Nunca lo que se tecleó: solo la etiqueta del botón,
+// con cualquier cosa con forma de VIN enmascarada.
+window._bugCrumbs = [];
+window._uiLastActionAt = 0;
+var BUG_CRUMBS_MAX = 15;
+function _bugCrumbLabel(el) {
+  var t = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('title'))) || el.textContent || el.id || '';
+  t = String(t).replace(/\s+/g, ' ').trim().replace(/\b[A-HJ-NPR-Z0-9]{11,17}\b/g, '[VIN]');
+  return t.length > 48 ? t.slice(0, 47) + '…' : t;
+}
+function _bugCrumbScreen() {
+  var p = '';
+  try { p = (typeof _currentPlatform !== 'undefined' && _currentPlatform) || ''; } catch (e) {}
+  var tab = '';
+  try {
+    if (p === 'panel' && typeof pnState !== 'undefined') tab = pnState.activeTab || '';
+    else if (p === 'testplan' && typeof tpState !== 'undefined') tab = tpState.activeTab || '';
+    else if (p === 'inventory' && typeof invState !== 'undefined') tab = invState.activeTab || '';
+    else if (p === 'cop15') { var a = document.querySelector('#platform-cop15 .tab.active'); if (a) tab = a.getAttribute('data-tab') || ''; }
+  } catch (e) {}
+  return p + (tab ? ' → ' + tab : '');
+}
+document.addEventListener('click', function(e) {
+  window._uiLastActionAt = Date.now();
+  try {
+    var el = e.target && e.target.closest && e.target.closest('button, a, summary, [role="button"], [role="tab"], .tab, [onclick]');
+    if (!el) return;
+    window._bugCrumbs.push({ at: new Date().toISOString(), screen: _bugCrumbScreen(), label: _bugCrumbLabel(el) });
+    if (window._bugCrumbs.length > BUG_CRUMBS_MAX) window._bugCrumbs.shift();
+  } catch (err) {}
+}, true);
+document.addEventListener('keydown', function() { window._uiLastActionAt = Date.now(); }, true);
+
+// ── [2.10.0] Nada falla en silencio ──
+// Un error del programa justo después de que el técnico tocó algo se AVISA, con un
+// botón que abre el reporte con todo adjunto. Antes solo iba a la consola y el
+// técnico veía "no hace nada" (casi todos los reportes 🐞 decían eso). Un error sin
+// acción reciente (sync de fondo, temporizadores) solo se registra: el aviso diría
+// "al hacer eso" sobre algo que nadie hizo.
+var UI_ERROR_NOTICE_GAP_MS = 10000;   // a lo más un aviso cada 10 s
+var UI_ERROR_ACTION_WINDOW_MS = 4000; // "al hacer eso" = hasta 4 s después de un toque
+var _uiErrorNoticeAt = 0;
+function _uiErrorNotice(entry) {
+  try {
+    if (!entry) return;
+    if (typeof bugIsNoise === 'function' && bugIsNoise(entry.message, entry.url)) return;
+    var now = Date.now();
+    if (now - (window._uiLastActionAt || 0) > UI_ERROR_ACTION_WINDOW_MS) return;
+    if (now - _uiErrorNoticeAt < UI_ERROR_NOTICE_GAP_MS) return;
+    _uiErrorNoticeAt = now;
+    entry.noticed = true;
+    if (typeof showToast !== 'function') return;
+    showToast('Algo falló al hacer eso (error del programa). Revisa si se aplicó; si no, repórtalo para que se arregle.', 'error', 12000,
+      function() { if (typeof bugCaptureStart === 'function') bugCaptureStart(); }, 'Reportar');
   } catch (err) {}
 }
 
+// ── [2.10.0] Un botón bloqueado dice por qué ──
+// `uiExplainDisabled(btn, motivo)` es LA forma de deshabilitar un botón de acción:
+// motivo vacío = habilitado; con motivo = deshabilitado + `title` + `data-why`. Se
+// sigue usando `disabled` de verdad (el candado real vive en la capa de datos y las
+// pruebas leen `.disabled`); para que el toque no se pierda en silencio se escucha
+// `pointerup` en el documento, que Chrome sí entrega sobre un control deshabilitado
+// (un `click` no). Con teclado el motivo queda en `title`.
+function uiExplainDisabled(btn, why) {
+  if (!btn) return;
+  why = why ? String(why) : '';
+  btn.disabled = !!why;
+  if (why) { btn.setAttribute('data-why', why); btn.title = why; }
+  else {
+    // Solo se quita el `title` si era el motivo (un botón puede traer su propio title).
+    var prev = btn.getAttribute('data-why');
+    btn.removeAttribute('data-why');
+    if (prev && btn.title === prev) btn.removeAttribute('title');
+  }
+}
+var _uiWhyShownAt = 0;
+document.addEventListener('pointerup', function(e) {
+  try {
+    var b = e.target && e.target.closest && e.target.closest('button[data-why]');
+    if (!b || !b.disabled) return;
+    var why = b.getAttribute('data-why');
+    if (!why || Date.now() - _uiWhyShownAt < 1500) return;
+    _uiWhyShownAt = Date.now();
+    if (typeof showToast === 'function') showToast(why, 'info', 5000);
+  } catch (err) {}
+}, true);
+
 window.addEventListener('error', (e) => {
   void 0;
-  _bugRecordError('error', e.message, e.filename, e.lineno);
+  var entry = _bugRecordError('error', e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
+  _uiErrorNotice(entry);
 });
 
 window.addEventListener('unhandledrejection', (e) => {
   var reason = e && e.reason;
-  _bugRecordError('promesa', (reason && reason.message) ? reason.message : reason, '', 0);
+  var entry = _bugRecordError('promesa', (reason && reason.message) ? reason.message : reason, '', 0, 0, reason && reason.stack);
+  _uiErrorNotice(entry);
 });
 
 // ======================================================================
@@ -8353,7 +8451,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609282243';
+var APP_BUILD = '202609282325';
+// [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
+// enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
+var APP_COMMIT = 'c8145346b1d5121fa94669e9395b1499d98a5209';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8361,7 +8462,7 @@ var APP_BUILD = '202609282243';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.9.0';
+var APP_VERSION = '2.10.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8369,6 +8470,13 @@ var APP_VERSION = '2.9.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.10.0', date: '28 sep 2026', title: 'Si algo falla, se dice — y el reporte trae el código',
+      bullets: [
+          'Nuevo: si algo falla justo después de tocar un botón, aparece "Algo falló al hacer eso" con el botón Reportar. Antes no pasaba nada visible y parecía que el botón no servía.',
+          'Nuevo: un botón bloqueado dice por qué al tocarlo (p. ej. "Captura los gases para compararlos con los del liberador"). Aplica a liberar, aprobar, revisión dirigida, VETS y corregir alta.',
+          'El reporte 🐞 ahora trae el archivo y la línea del código donde falló, un enlace a ese código en la versión exacta que corría, un fragmento del código y los últimos toques que hiciste (solo qué botón, nunca lo que tecleaste).',
+          'Los errores que ocurren solos, sin que nadie toque nada (por ejemplo, la sincronización de fondo), no interrumpen: se guardan para el reporte.'
+      ] },
     { version: '2.9.0', date: '28 sep 2026', title: 'Cada vehículo viaja solo: la nube ya no se llena',
       bullets: [
           'Cambió: cada vehículo se sube a la nube en su propio documento. Antes todos viajaban juntos en uno solo con tope de 1 MB, y con las firmas ese documento ya estaba al 75 %: al llenarse, los demás equipos dejaban de ver los cambios de Pruebas.',
@@ -8947,14 +9055,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609282243' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609282325' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609282243' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609282325' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -8970,7 +9078,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609282243' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609282325' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10726,11 +10834,13 @@ function showToast(msg, type) {
 
     var undoFn = (typeof arguments[3] === 'function') ? arguments[3] : null;
     var explicitDur = (typeof arguments[2] === 'number' && arguments[2] >= 0) ? arguments[2] : null;
+    // [2.10.0] 5º argumento: la etiqueta de la acción (por omisión "Deshacer").
+    var actionLabel = (typeof arguments[4] === 'string' && arguments[4]) ? arguments[4] : 'Deshacer';
     if (undoFn) {
         var undoBtn = document.createElement('button');
         undoBtn.type = 'button';
         undoBtn.className = 'toast-undo';
-        undoBtn.textContent = 'Deshacer';
+        undoBtn.textContent = actionLabel;
         undoBtn.onclick = function() { try { undoFn(); } finally { dismiss(); } };
         toast.appendChild(undoBtn);
     }
@@ -16286,6 +16396,7 @@ function gridKbdSelect(slotEl, o) {
 }
 
 
+// @@module js/cop15.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -19631,7 +19742,11 @@ function libOnGasChange() {
     var btn = document.getElementById('release-archive-btn');
     if (btn) {
         // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
-        btn.disabled = !_libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content')).ok;
+        var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+        // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
+        uiExplainDisabled(btn, _rv.ok ? '' : _rv.failing.length
+            ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
+            : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.');
     }
 }
 
@@ -19665,7 +19780,7 @@ function libOnApproverGasChange() {
     });
     if (!hasAllValues) {
         matchStatus.style.display = 'none';
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Captura todos los gases para compararlos con los del liberador.');
         _libMismatchAlarmKey = null;
         return;
     }
@@ -19675,7 +19790,7 @@ function libOnApproverGasChange() {
         matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
         matchStatus.style.color = tokenColor('--ok-text');
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
-        btn.disabled = false;
+        uiExplainDisabled(btn, '');
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
         _libHighlightReturnBtn(false);
@@ -19696,7 +19811,7 @@ function libOnApproverGasChange() {
         matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (comparación a 3 cifras significativas). '
             + 'Verifique su lectura; si el error es del liberador, use <strong>↩️ Devolver al liberador</strong>.';
         _libHighlightReturnBtn(true);
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Los valores de ' + mismatches.join(', ') + ' no coinciden con los del liberador. Revisa tu lectura o devuélvelo.');
         // Alarma: toast (una sola vez por episodio) + registro para alerta en Panel
         var alarmKey = vehicle.id + '|' + mismatches.join(',');
         if (_libMismatchAlarmKey !== alarmKey) {
@@ -19929,7 +20044,7 @@ function loadRelease() {
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
-        document.getElementById('release-archive-btn').disabled = false;
+        uiExplainDisabled(document.getElementById('release-archive-btn'), '');
         releaseChecklistRender(vehicle);
         _renderUsedCylinders(vehicle);
         renderTimeline(vehicle);
@@ -19961,7 +20076,7 @@ function loadRelease() {
             '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
             _libRegPickerControlsHTML(vehicle, '') +
             '</div>';
-        btn.disabled = true;
+        uiExplainDisabled(btn, 'Elige contra qué regulación comparar los gases para poder liberar.');
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
@@ -20042,7 +20157,7 @@ function loadApproval() {
     if (!isEm) {
         document.getElementById('appr-gas-entry-content').innerHTML =
             '<p style="color:var(--muted);font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
-        if (btn) btn.disabled = false;
+        uiExplainDisabled(btn, '');
         return;
     }
     if (!profile) {
@@ -20052,7 +20167,7 @@ function loadApproval() {
             '<div style="padding: var(--space-md);background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-xl);color:#92400e;font-size:12px;">' +
             '⚠️ Esta prueba de emisiones llegó sin resultados de gases y la regulación (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) ' +
             'no tiene perfil de límites. No se puede aprobar así: usa <strong>Devolver al liberador</strong> para que elija la regulación y capture los gases.</div>';
-        if (btn) btn.disabled = true;
+        uiExplainDisabled(btn, 'Esta prueba no tiene perfil de límites: devuélvela al liberador para que elija la regulación.');
         return;
     }
 
@@ -20082,7 +20197,7 @@ function loadApproval() {
                 : 'Se liberó con la definición anterior de ' + escapeHtml(profile.name) + ' (retirada en ' + escapeHtml(profile.retiredIn) + ').') +
             '</div>');
     }
-    if (btn) btn.disabled = true;
+    uiExplainDisabled(btn, 'Captura los gases para compararlos con los del liberador.');
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
@@ -22394,7 +22509,8 @@ function _altaCorrRefresh() {
 
     var btn = st.overlay ? st.overlay.querySelector('[data-modal-btn="1"]') : null;
     if (btn) {
-        btn.disabled = !plan.ok || motivo.length < 5;
+        uiExplainDisabled(btn, !plan.ok ? (plan.errors[0] || 'No se puede corregir en esta etapa.')
+            : motivo.length < 5 ? 'Escribe el motivo (5 caracteres o más) para poder guardar.' : '');
         btn.textContent = plan.requiresSignature ? 'Firmar y guardar' : 'Guardar corrección';
     }
 }
@@ -25803,6 +25919,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/inventory.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Lab Inventory Module                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -32680,6 +32797,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/testplan.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Test Plan Manager Module                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -42765,6 +42883,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/panel.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Panel Module (Dashboard, Users, Shift Log, Alerts)    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -47843,6 +47962,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/projects.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  PROYECTOS — seguimiento general de iniciativas (módulo propio)      ║
 // ║                                                                      ║
@@ -49896,6 +50016,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/auth.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Authentication Module (PIN + WebAuthn / Biometric)    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -50919,6 +51040,7 @@ function _authLockCountdown(err, until) {
 }
 
 
+// @@module js/signatures.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Digital Signature Capture Module                      ║
 // ║  Reusable modal using SignaturePad (CDN already loaded).           ║
@@ -51123,6 +51245,7 @@ function sigCaptureDismiss() {
 }
 
 
+// @@module js/firebase-sync.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Firebase Cloud Sync (Optional)                       ║
 // ║  Works alongside localStorage — app stays 100% offline-capable    ║
@@ -53755,6 +53878,7 @@ function _fbPushBack(col) {
         if (!st.tripped) {
             st.tripped = true;
             void 0;
+
         }
         return false;
     }
@@ -55246,7 +55370,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609282243' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609282325' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -57422,6 +57546,7 @@ function fbVehLargestDoc(vehicles) {
 }
 
 
+// @@module js/cop_validator.js
 // ─── CoP Type 1 Validator — Cascade Module ───────────────────────────────────
 // Validación estadística de Conformidad de Producción (CoP) Tipo 1
 // Muestreo secuencial con σ desconocida — Appendix 2, UN R83 Rev.5 / R154
@@ -60911,6 +61036,7 @@ function copFamilyPDF(familyKey) {
 }
 
 
+// @@module js/homolog.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Homologación Europa (v17.14)                            ║
 // ║  Coeficientes de dinamómetro (f0/f1/f2/TM) y target de CO₂ por       ║
@@ -62175,6 +62301,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/vets.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Importar resultados de HORIBA STARS VETS (2.5.0)       ║
 // ║                                                                      ║
@@ -63171,7 +63298,7 @@ function _vetsRefreshBtn() {
     var box = document.getElementById('vetsBlockers');
     if (box) box.innerHTML = b.length ? _vetsBox('', '<span class="u-muted">Para aplicar: ' + b.map(escapeHtml).join(' ') + '</span>') : '';
     var btn = _vetsCtx.overlay.querySelector('[data-modal-btn="1"]');
-    if (btn) btn.disabled = b.length > 0;
+    uiExplainDisabled(btn, b.length ? 'Para aplicar: ' + b.join(' ') : '');
 }
 
 function vetsFixVin() {
@@ -63324,7 +63451,7 @@ function vetsCompareOpen() {
         { label: 'Guardar comparación', cls: 'btn-primary', onclick: function() { vetsCompareSave(); } }
     ]);
     var btn = _vetsCtx.overlay && _vetsCtx.overlay.querySelector('[data-modal-btn="1"]');
-    if (btn) btn.disabled = vin.block || !rows.length;
+    uiExplainDisabled(btn, vin.block ? (vin.message || 'El VIN del archivo no es el de este vehículo.') : !rows.length ? 'No hay resultados que comparar.' : '');
 }
 
 function vetsCompareSave() {
@@ -63397,6 +63524,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/review.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Revisión dirigida (2.8.0)                               ║
 // ║                                                                      ║
@@ -63725,7 +63853,9 @@ function reviewRenderApproval(vehicle) {
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    if (btn) btn.disabled = !r.ok;
+    uiExplainDisabled(btn, r.ok ? '' : r.hard.length
+        ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
+        : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');
     if (box) box.textContent = r.ok ? 'Los cinco bloques están revisados: ya puedes aprobar y firmar.'
         : r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
@@ -63845,6 +63975,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 });
 
 
+// @@module js/bugreport.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Reporte de Bugs (v17.13)                                ║
 // ║  Botón flotante 🐞 → captura automática → comentario → GitHub Issue  ║
@@ -63878,6 +64009,140 @@ var BUG_DEFAULT_REPO = 'Cascade-Project';
 // Captura pendiente de decisión (vive solo mientras el modal está abierto).
 var _bugPendingShot = null;
 var _bugSending = false;
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.10.0] DÓNDE FALLÓ — del bundle al archivo real, y el código como TEXTO
+//
+// En el build de producción todo el JS vive en UN <script> del HTML, así que el
+// navegador reporta "index.html:44387" (#103). build.sh marca cada módulo con
+// "// @@module js/x.js" y reemplaza BUG_LINE_MAP (en UNA sola línea, para no mover
+// nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
+// En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
+// ══════════════════════════════════════════════════════════════════════
+var BUG_LINE_MAP = {"tag":8071,"mods":[[8074,"js/app.js",16396],[16400,"js/cop15.js",25919],[25923,"js/inventory.js",32797],[32801,"js/testplan.js",42883],[42887,"js/panel.js",47962],[47966,"js/projects.js",50016],[50020,"js/auth.js",51040],[51044,"js/signatures.js",51245],[51249,"js/firebase-sync.js",57546],[57550,"js/cop_validator.js",61036],[61040,"js/homolog.js",62301],[62305,"js/vets.js",63524],[63528,"js/review.js",63975],[63979,"js/bugreport.js",65125]]};
+var BUG_EXCERPT_RADIUS = 6;
+
+/** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
+function bugMapLine(docLine, map) {
+    if (!map || !map.mods || !(docLine > 0)) return null;
+    for (var i = 0; i < map.mods.length; i++) {
+        var m = map.mods[i];
+        if (docLine >= m[0] && docLine <= m[2]) return { file: m[1], line: docLine - m[0] + 1 };
+    }
+    return null;
+}
+
+/**
+ * Ubica un (url, línea) en el código fuente. PURA.
+ * - url de un archivo js/x.js (desarrollo) → ya es la línea del archivo.
+ * - cualquier otra url de la app (el HTML del build) → se traduce con el mapa.
+ * - librerías de CDN → null (no es código nuestro).
+ */
+function bugLocate(url, line, map) {
+    url = String(url || '');
+    if (!(line > 0)) return null;
+    var m = /\/(js\/[\w.-]+\.js)(?:[?#].*)?$/.exec(url);
+    if (m) return { file: m[1], line: line };
+    if (/^https?:\/\/(?!localhost)[^/]*(gstatic|cdnjs|jsdelivr|unpkg|googleapis)\./i.test(url)) return null;
+    return bugMapLine(line, map);
+}
+
+/** `error.stack` → [{fn, url, line, col}] (formatos Chrome y Firefox/Safari). PURA. */
+function bugParseStack(stack) {
+    var out = [];
+    String(stack || '').split('\n').forEach(function(l) {
+        var m = /^\s*at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?\s*$/.exec(l) || null;
+        if (m) { out.push({ fn: m[1] || '', url: m[2], line: +m[3], col: +m[4] }); return; }
+        m = /^\s*(.*?)@(.+?):(\d+):(\d+)\s*$/.exec(l);
+        if (m) out.push({ fn: m[1] || '', url: m[2], line: +m[3], col: +m[4] });
+    });
+    return out;
+}
+
+/** Enlace a la línea exacta en GitHub, en el commit del build (o main en desarrollo). PURA. */
+function bugPermalink(owner, repo, commit, file, line) {
+    var ref = /^[0-9a-f]{7,40}$/.test(String(commit || '')) ? commit : 'main';
+    return 'https://github.com/' + owner + '/' + repo + '/blob/' + ref + '/' + file + '#L' + line;
+}
+
+/** Fragmento de ±radius líneas alrededor de `line` (1-based) de un arreglo de líneas. PURA. */
+function bugExcerpt(lines, line, radius) {
+    if (!lines || !lines.length || !(line > 0) || line > lines.length) return null;
+    radius = radius || BUG_EXCERPT_RADIUS;
+    var from = Math.max(1, line - radius), to = Math.min(lines.length, line + radius);
+    var out = [];
+    for (var n = from; n <= to; n++) {
+        var t = String(lines[n - 1] || '');
+        out.push(t.length > 160 ? t.slice(0, 159) + '…' : t);
+    }
+    return { from: from, to: to, at: line, lines: out };
+}
+
+/** ¿Es ruido que no merece avisar al técnico? PURA. */
+function bugIsNoise(message, url) {
+    var m = String(message || ''), u = String(url || '');
+    if (/ResizeObserver loop|^Script error\.?$|ServiceWorker|service worker|INTERNAL ASSERTION FAILED/i.test(m)) return true;
+    if (/Failed to fetch|NetworkError|Load failed|network request failed|AbortError|The operation was aborted/i.test(m)) return true;
+    if (/^(chrome|moz|safari)-extension:/i.test(u)) return true;
+    return false;
+}
+
+/** Líneas del <script> en línea del build (una sola vez; no existe en desarrollo). */
+var _bugSourceCache;
+function _bugSourceLines() {
+    if (_bugSourceCache !== undefined) return _bugSourceCache;
+    _bugSourceCache = null;
+    try {
+        var ss = document.getElementsByTagName('script');
+        for (var i = 0; i < ss.length; i++) {
+            if (ss[i].src) continue;
+            var t = ss[i].textContent || '';
+            if (t.indexOf('// @@module js/app.js') >= 0) { _bugSourceCache = t.split('\n'); break; }
+        }
+    } catch (e) {}
+    return _bugSourceCache;
+}
+
+/**
+ * Líneas de un archivo fuente tomadas del bundle (para el fragmento). En el <script>,
+ * la línea i del texto es la línea (tag + i) del documento.
+ */
+function _bugFileLines(file, map) {
+    var all = _bugSourceLines();
+    if (!all || !map || !map.mods) return null;
+    for (var i = 0; i < map.mods.length; i++) {
+        var m = map.mods[i];
+        if (m[1] === file) return all.slice(m[0] - map.tag, m[2] - map.tag + 1);
+    }
+    return null;
+}
+
+/**
+ * Dónde falló: el error más reciente (el que avisó, si hubo) con su ubicación en el
+ * código fuente, el enlace y el fragmento. Se calcula al armar el reporte y viaja
+ * como DATO en el reporte: bugBuildIssueBody sigue siendo pura.
+ */
+function bugWhereFailed(errors, map, owner, repo, commit) {
+    var errs = (errors || []).slice().reverse();
+    var pick = errs.filter(function(e) { return e.noticed; })[0] || errs[0];
+    if (!pick) return null;
+    var frames = bugParseStack(pick.stack).map(function(f) {
+        var loc = bugLocate(f.url, f.line, map);
+        return { fn: f.fn, file: loc ? loc.file : '', line: loc ? loc.line : 0, col: f.col };
+    }).filter(function(f) { return f.file; }).slice(0, 8);
+    var top = frames[0] || null;
+    if (!top) {
+        var loc = bugLocate(pick.url, pick.line, map);
+        if (loc) top = { fn: '', file: loc.file, line: loc.line, col: pick.col || 0 };
+    }
+    var out = { message: pick.message, at: pick.at, frames: frames, file: '', line: 0, fn: '', url: '', excerpt: null };
+    if (top) {
+        out.file = top.file; out.line = top.line; out.fn = top.fn;
+        out.url = bugPermalink(owner, repo, commit, top.file, top.line);
+        out.excerpt = bugExcerpt(_bugFileLines(top.file, map), top.line, BUG_EXCERPT_RADIUS);
+    }
+    return out;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // CARGA DIFERIDA DE html2canvas
@@ -64066,6 +64331,9 @@ function bugModalOpen(dataUrl) {
             'Se adjunta automáticamente: <b>v' + escapeHtml(ctx.version) + '</b> · ' +
             escapeHtml(ctx.platformLabel) + ' · ' + escapeHtml(ctx.operator) + ' · ' +
             escapeHtml(ctx.viewport) + (ctx.errors.length ? ' · ' + ctx.errors.length + ' error(es) JS reciente(s)' : '') +
+            // [2.10.0] Lo que se adjunta se dice: dónde falló y los pasos previos (sin lo tecleado).
+            (ctx.where && ctx.where.file ? ' · dónde falló: <b>' + escapeHtml(ctx.where.file + ':' + ctx.where.line) + '</b>' : '') +
+            (ctx.crumbs && ctx.crumbs.length ? ' · tus últimos ' + ctx.crumbs.length + ' toques (solo el botón, nunca lo que tecleaste)' : '') +
         '</div>' +
         '<div class="custom-modal-actions">' +
             '<button type="button" class="modal-btn-cancel" id="bug-btn-discard">Descartar</button>' +
@@ -64138,8 +64406,25 @@ function bugBuildContext() {
         else if (platform === 'inventory' && typeof invState !== 'undefined' && invState.activeTab) tab = invState.activeTab;
     } catch (e) {}
 
+    var errors = (window._bugRecentErrors || []).slice(-BUG_ERRORS_MAX);
+    // [2.10.0] Dónde falló (archivo:línea real + enlace al commit del build + fragmento).
+    var commit = (typeof APP_COMMIT !== 'undefined') ? String(APP_COMMIT) : '';
+    var s = {};
+    try { s = (typeof bugGetSettings === 'function' && bugGetSettings()) || {}; } catch (e) {}
+    var where = null;
+    try { where = bugWhereFailed(errors, BUG_LINE_MAP, s.owner || BUG_DEFAULT_OWNER, s.repo || BUG_DEFAULT_REPO, commit); } catch (e) {}
+    // El reporte viaja SIN la cadena cruda: ya va traducida en `where` (y pesa en la cola local).
+    errors = errors.map(function(e) {
+        var loc = null;
+        try { loc = bugLocate(e.url, e.line, BUG_LINE_MAP); } catch (x) {}
+        return { at: e.at, type: e.type, message: e.message, source: e.source, line: e.line,
+                 file: loc ? loc.file : '', fileLine: loc ? loc.line : 0 };
+    });
+
     return {
         version: (typeof APP_VERSION !== 'undefined') ? String(APP_VERSION) : '?',
+        build: (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD) : '',
+        commit: /^[0-9a-f]{7,40}$/.test(commit) ? commit : '',
         platform: platform,
         tab: tab,
         platformLabel: platform + (tab ? ' → ' + tab : ''),
@@ -64147,7 +64432,9 @@ function bugBuildContext() {
         ua: (navigator && navigator.userAgent) ? navigator.userAgent : '',
         viewport: window.innerWidth + '×' + window.innerHeight,
         online: navigator.onLine !== false,
-        errors: (window._bugRecentErrors || []).slice(-BUG_ERRORS_MAX)
+        errors: errors,
+        where: where,
+        crumbs: (window._bugCrumbs || []).slice(-15)
     };
 }
 
@@ -64424,13 +64711,52 @@ function bugBuildIssueBody(report, shotUrls) {
         lines.push('> _No se pudo adjuntar la captura de pantalla (sin acceso al repositorio o sin espacio local)._');
         lines.push('');
     }
+    // [2.10.0] Dónde falló: archivo y línea reales, enlace al código de ESE build y
+    // el fragmento como texto (se puede buscar y copiar; una imagen no).
+    var w = c.where;
+    if (w && w.file) {
+        lines.push('### Dónde falló');
+        lines.push('');
+        lines.push('`' + w.file + ':' + w.line + '`' + (w.fn ? ' en `' + w.fn + '`' : '') +
+            ' — ' + (w.message || '') + (w.url ? ' · [ver en GitHub](' + w.url + ')' : ''));
+        lines.push('');
+        if (w.excerpt && w.excerpt.lines && w.excerpt.lines.length) {
+            var width = String(w.excerpt.to).length;
+            lines.push('```js');
+            w.excerpt.lines.forEach(function(t, i) {
+                var n = w.excerpt.from + i;
+                var num = String(n);
+                while (num.length < width) num = ' ' + num;
+                lines.push(num + (n === w.excerpt.at ? ' ▶ ' : ' │ ') + t);
+            });
+            lines.push('```');
+            lines.push('');
+        }
+        if (w.frames && w.frames.length > 1) {
+            lines.push('<details><summary>Cadena de llamadas</summary>');
+            lines.push('');
+            w.frames.forEach(function(f) { lines.push('- `' + (f.fn || '(anónima)') + '` — `' + f.file + ':' + f.line + '`'); });
+            lines.push('');
+            lines.push('</details>');
+            lines.push('');
+        }
+    }
+    if (c.crumbs && c.crumbs.length) {
+        lines.push('### Pasos previos');
+        lines.push('');
+        c.crumbs.forEach(function(k, i) {
+            lines.push((i + 1) + '. `' + String(k.at || '').slice(11, 19) + '` ' + (k.screen || '?') + ' · «' + (k.label || '') + '»');
+        });
+        lines.push('');
+    }
     lines.push('### Contexto');
     lines.push('');
     lines.push('| Dato | Valor |');
     lines.push('| --- | --- |');
     lines.push('| Reportado por | ' + (c.operator || '?') + ' |');
     lines.push('| Fecha | ' + (report.at || '') + ' |');
-    lines.push('| Versión de la app | ' + (c.version || '?') + ' |');
+    lines.push('| Versión de la app | ' + (c.version || '?') + (c.build ? ' · build ' + c.build : '') +
+        (c.commit ? ' · commit `' + c.commit.slice(0, 10) + '`' : '') + ' |');
     lines.push('| Pantalla | ' + (c.platformLabel || c.platform || '?') + ' |');
     lines.push('| Viewport | ' + (c.viewport || '?') + ' |');
     lines.push('| En línea | ' + (c.online ? 'sí' : 'no') + ' |');
@@ -64442,7 +64768,7 @@ function bugBuildIssueBody(report, shotUrls) {
         lines.push('```');
         c.errors.forEach(function(e) {
             lines.push('[' + (e.at || '') + '] ' + (e.type || 'error') + ': ' + (e.message || '') +
-                (e.source ? ' (' + e.source + ':' + (e.line || '?') + ')' : ''));
+                (e.file ? ' (' + e.file + ':' + e.fileLine + ')' : e.source ? ' (' + e.source + ':' + (e.line || '?') + ')' : ''));
         });
         lines.push('```');
         lines.push('');
