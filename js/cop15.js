@@ -1403,6 +1403,10 @@ setAltaDatetimeIfEmpty(true);
             registeredSessionUserId: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().id : null,
             registeredDeviceId: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '',
             registeredAt: registeredAtIso,
+            // [2.8.0] Sello de revisión dirigida: se decide AQUÍ, al dar de alta, y el
+            // vehículo termina con las reglas con las que empezó. Sin sello = doble ciego.
+            reviewFlow: (typeof reviewFlowSealFor === 'function' && typeof reviewFlowSettings === 'function' &&
+                         reviewFlowSealFor(reviewFlowSettings(), registeredAtIso)) ? 'dirigida' : undefined,
             timeline: [
                 {
                     timestamp: registeredAtIso,
@@ -3681,6 +3685,8 @@ function loadRelease() {
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
+        // [2.8.0] Con qué flujo se aprobará (revisión dirigida solo con sello + VETS).
+        if (_gasEl && typeof reviewReleaseNoteHTML === 'function') { var _rn = reviewReleaseNoteHTML(vehicle); if (_rn) _gasEl.insertAdjacentHTML('afterbegin', _rn); }
         // [2.7.0] Este equipo no juzga con los límites publicados por el laboratorio.
         if (_gasEl && typeof pnRegMismatchHTML === 'function') { var _rm = pnRegMismatchHTML(); if (_rm) _gasEl.insertAdjacentHTML('afterbegin', _rm); }
         // Si el aprobador lo devolvió, el liberador tiene que ver POR QUÉ antes de
@@ -3762,6 +3768,22 @@ function loadApproval() {
         return;
     }
 
+    // [2.8.0] Revisión dirigida (vehículo sellado en el Alta + archivo de VETS): el
+    // aprobador no reteclea; revisa cinco bloques. Si no, el doble ciego de siempre.
+    var _flow = (typeof reviewFlowFor === 'function') ? reviewFlowFor(vehicle) : 'doble-ciego';
+    var _apTitle = document.getElementById('appr-card-title'), _apHint = document.getElementById('appr-card-hint');
+    var _apNote = document.getElementById('appr-panel-note');
+    if (_apNote) _apNote.innerHTML = _flow === 'dirigida'
+        ? '✅ <strong>Aprobador:</strong> este vehículo va con <strong>revisión dirigida</strong>: revisa los cinco bloques; no se reteclean valores.'
+        : '✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.';
+    if (_flow === 'dirigida' && typeof reviewRenderApproval === 'function') {
+        if (_apTitle) _apTitle.textContent = '🧭 Revisión del aprobador';
+        if (_apHint) _apHint.innerHTML = 'Revisa que la prueba sea válida y el resultado correcto. <strong>No se reteclean valores</strong>: se comparan contra el archivo de VETS, la homologación y los límites.';
+        reviewRenderApproval(vehicle);
+        return;
+    }
+    if (_apTitle) _apTitle.textContent = '⚗️ Verificación de Aprobador';
+    if (_apHint) _apHint.innerHTML = 'Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.';
     _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
     if (profile.derived || profile.retiredIn) {
         var _apEl = document.getElementById('appr-gas-entry-content');
@@ -3909,7 +3931,24 @@ function approveAndArchive() {
         showToast('Esta prueba de emisiones no tiene resultados de gases que verificar. Devuélvela al liberador.', 'error');
         return;
     }
-    var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
+    // [2.8.0] Revisión dirigida: el candado es que los cinco bloques estén revisados
+    // (reviewApprovalCheck, contra el `db` de este instante). El aprobador no reteclea:
+    // su "valor" es el del liberador, que ya comparó contra VETS en el bloque 4.
+    var _flow = (typeof reviewFlowFor === 'function') ? reviewFlowFor(vehicle) : 'doble-ciego';
+    var _review = null;
+    if (_flow === 'dirigida') {
+        if (typeof reviewApprovalCheck !== 'function') { showToast('Falta el módulo de revisión dirigida: actualiza la app.', 'error'); return; }
+        var _rc = reviewApprovalCheck(vehicle);
+        if (!_rc.ok) {
+            showToast(_rc.reason, 'error', 8000);
+            if (typeof auditLog === 'function') auditLog('cop15', 'approval_blocked_review', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, _rc.reason);
+            return;
+        }
+        _review = _rc.record;
+    }
+    var approverValues = _flow === 'dirigida'
+        ? JSON.parse(JSON.stringify(((vehicle.testData || {}).gasResults || {}).liberador ? vehicle.testData.gasResults.liberador.values || {} : {}))
+        : (profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {});
 
     // [v23.2] EL CANDADO VA EN LA CAPA DE DATOS. Se re-verifica aquí, contra el `db`
     // de ESTE instante, antes de abrir la firma: el botón pudo quedar habilitado con
@@ -3917,7 +3956,7 @@ function approveAndArchive() {
     var _match = _libVerifyApproverMatch(profile, approverValues,
         (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
             ? vehicle.testData.gasResults.liberador.values : {});
-    if (!_match.sinPerfil && !_match.ok) {
+    if (_flow !== 'dirigida' && !_match.sinPerfil && !_match.ok) {
         if (_match.missing.length) {
             showToast('Faltan valores por capturar: ' + _match.missing.join(', ') + '.', 'error');
         } else {
@@ -3961,9 +4000,11 @@ function approveAndArchive() {
                         // registro regulatorio firmado. Ahora es el RESULTADO de
                         // `_libVerifyApproverMatch`, que corrió unas líneas arriba contra
                         // los valores del liberador de este mismo instante.
-                        matchedLiberador: _match.ok,
-                        matchVerifiedAt: new Date().toISOString()
+                        matchedLiberador: _flow === 'dirigida' ? null : _match.ok,
+                        matchVerifiedAt: new Date().toISOString(),
+                        method: _flow === 'dirigida' ? 'revision-dirigida' : 'doble-ciego'
                     };
+                    if (_review) vehicle.testData.review = _review;   // [2.8.0] qué revisó, cuándo y por qué aceptó
                     _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }
                 // Aprobado ⇒ los valores coincidieron: limpiar la alarma de desacuerdo
@@ -3976,8 +4017,10 @@ function approveAndArchive() {
                 vehicle.timeline.push({
                     timestamp: new Date().toISOString(),
                     user: sig.signerName || 'Aprobador',
-                    action: 'Vehículo Aprobado y Archivado',
-                    data: { status: 'archived', approverValues: approverValues }
+                    action: _review ? 'Vehículo Aprobado (revisión dirigida) y Archivado' : 'Vehículo Aprobado y Archivado',
+                    data: _review
+                        ? { status: 'archived', revision: _review.blocks.map(function(b) { return b.title + ': ' + b.status + (b.justification ? ' — ' + b.justification : ''); }) }
+                        : { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
                 // Compactar timeline al archivar: el historial completo ya quedó en el export
@@ -3985,7 +4028,8 @@ function approveAndArchive() {
                 if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
                 auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''),
                     { before: { estado: prevStatus, liberador: (vehicle.testData.gasResults.liberador || {}).values || null },
-                      after: { estado: 'archived', aprobador: approverValues || null } });
+                      after: { estado: 'archived', metodo: _flow, aprobador: _flow === 'dirigida' ? null : (approverValues || null),
+                               revision: _review ? _review.blocks.map(function(b) { return b.id + ':' + b.status + (b.justification ? ' (' + b.justification + ')' : ''); }) : undefined } });
                 if (typeof fbPostTestCompleted === 'function') {
                     var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
                     fbPostTestCompleted(vehicle.vin, _res);
@@ -4140,6 +4184,8 @@ function returnToReleaser() {
                     showToast('⚠️ Sin espacio: no se pudo guardar la devolución. Libera espacio en Datos → Sistema.', 'error');
                     return;
                 }
+                // [2.8.0] Lo revisado ya no vale: el liberador va a cambiar la captura.
+                if (typeof _reviewMarks !== 'undefined') delete _reviewMarks[vehicle.id];
                 auditLog('cop15', 'returned_to_releaser', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
                     'Devuelto por ' + (approverName || '?') + ': ' + reason,
                     { before: { estado: 'pending-approval' }, after: { estado: 'ready-release' } });
@@ -8691,9 +8737,10 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         ]
     },
     'cop15-liberacion': {
-        title: 'Liberación doble-ciego',
-        text: 'El Liberador captura los resultados finales de gases y firma; después el Aprobador los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva. Así se evitan errores de dedo.',
+        title: 'Liberación y aprobación',
+        text: 'El Liberador captura (o adjunta de VETS) los resultados finales y firma. El Aprobador los verifica: con doble ciego los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva; con revisión dirigida (vehículos sellados en el Alta con archivo de VETS) revisa cinco bloques contra el archivo, sin reteclear.',
         tips: [
+            'Qué flujo le toca a cada vehículo lo dice la Liberación (🧭) y el aprobador lo ve al abrirlo. Lo anterior a la fecha efectiva siempre es doble ciego.',
             'Como Liberador: captura los valores FINALES verificados del reporte, no lecturas crudas.',
             'Como Aprobador: no podrás ver lo que capturó el Liberador — es intencional, garantiza independencia.',
             'Si los valores no coinciden, la plataforma marca desacuerdo y hay que revisar antes de continuar.',
@@ -8882,7 +8929,8 @@ function getNextStep(vehicle) {
         return { action: 'Liberar el vehículo', goto: 'release-action', icon: '🚗' };
     }
     if (status === 'pending-approval') {
-        return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
+        var _dir = typeof reviewFlowFor === 'function' && reviewFlowFor(vehicle) === 'dirigida';   // [2.8.0]
+        return { action: _dir ? 'Aprobar (revisión dirigida)' : 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
     }
     return null;
 }

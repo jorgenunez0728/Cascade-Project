@@ -4428,6 +4428,8 @@ function pnRenderRegulations(el) {
     // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
     // refresca contra la nube al abrir.
     html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
+    // [2.8.0] Activación de la revisión dirigida (review.js)
+    if (typeof reviewSettingsCardHTML === 'function') html += reviewSettingsCardHTML();
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
     if (typeof vetsPolicyCardHTML === 'function') html += vetsPolicyCardHTML();
 

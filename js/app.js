@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.7.0';
+var APP_VERSION = '2.8.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,15 @@ var APP_VERSION = '2.7.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.8.0', date: '28 sep 2026', title: 'Revisión dirigida: aprobar revisando, no retecleando',
+      bullets: [
+          'Nuevo: revisión dirigida para pruebas con archivo de VETS. El aprobador ya no vuelve a teclear los resultados: recorre cinco bloques (identidad, montaje, validez, resultados y OBD/OBFCM) con lo esperado al lado.',
+          'Lo que está en verde se marca de un toque; lo que no, se acepta explicando por qué ("Acepto porque…") o se devuelve al liberador. Lo que no se puede aceptar (un gas sobre el límite, la misma prueba en otro vehículo) solo se devuelve.',
+          'Se activa en Datos → Regulaciones con una fecha efectiva y la revisión del procedimiento COP15 que la respalda. Hasta que alguien la active, todo sigue con doble ciego.',
+          'Solo aplica a vehículos dados de alta desde esa fecha (se sella en el Alta) y con archivo de VETS. Los anteriores, y los que no tengan archivo, terminan con doble ciego.',
+          'Queda registrado en el vehículo y en el historial qué se revisó, quién, cuándo y por qué se aceptó cada excepción. No se puede aprobar sin revisar los cinco bloques, ni siquiera saltándose el botón.',
+          'El F05 no cambia.'
+      ] },
     { version: '2.7.0', date: '28 sep 2026', title: 'Todos los equipos juzgan con los mismos límites',
       bullets: [
           'Nuevo en Datos → Regulaciones: "Límites compartidos del laboratorio". Un Signatario o Manager publica los límites de su equipo (con motivo) como la versión del laboratorio. Antes cada equipo tenía los suyos y dos equipos podían juzgar el mismo resultado distinto.',
