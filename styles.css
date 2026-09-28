@@ -477,6 +477,28 @@
   	padding-left: var(--space-md);
 	}
 
+/* ===== [2.12.0] El error va en el campo (uiFieldError) =====
+   Borde + ícono + texto: el color solo no basta (daltonismo, pantalla al sol). */
+[aria-invalid="true"],
+[aria-invalid="true"] + .ui-chips,
+.ui-num:has([aria-invalid="true"]) .ui-num-row {
+  border-color: var(--danger-fill) !important;
+  box-shadow: 0 0 0 3px var(--danger-bg);
+}
+.ui-field-error {
+  display: flex; align-items: flex-start; gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  font-size: var(--fs-sm); font-weight: 600; line-height: var(--lh-base);
+  color: var(--danger-text);
+}
+.ui-field-error::before { content: '⚠'; flex-shrink: 0; }
+.form-group.has-error > label { color: var(--danger-text); }
+/* Faltantes de una sección: el "faltan N" del encabezado lleva al campo. */
+.op-sum-go {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+
 /* ===== Validación Ready-Release ===== */
 .field-missing {
   border: 2px solid var(--danger-fill) !important;
@@ -5168,6 +5190,8 @@ body.cop-present .cop-toolbar    { display: none; }
 .miss-sec-title { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .miss-link { display: block; width: 100%; text-align: left; min-height: var(--target-min); padding: var(--space-xs) var(--space-md); margin-bottom: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
 .miss-link:hover { border-color: var(--warn-fill); }
+.miss-link--static { cursor: default; background: var(--surface); }
+.miss-link--static:hover { border-color: var(--border); }
 /* ── Estado de guardado junto al vehículo ── */
 .op-save-state { display: inline-block; margin-left: var(--space-sm); font-size: var(--fs-sm); font-weight: 700; }
 .op-save-state.is-dirty { color: var(--warn-text); }

@@ -1218,14 +1218,15 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const operator = document.getElementById('reg_operator').value;
         const isExternal = document.getElementById('modeToggle').checked;
         
+        // [2.12.0] Cada rechazo marca SU campo (aria-invalid + mensaje debajo) y lleva a él.
+        if (typeof uiFieldErrorsClear === 'function') uiFieldErrorsClear(document.getElementById('panel-alta'));
+        const $ = function(id) { return document.getElementById(id); };
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            showToast('El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Revisa si falta o sobra uno.', 'error');
-            return false;
+            return uiInvalid($('vin'), 'El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Tiene ' + vin.length + '.');
         }
 
         if(db.vehicles.some(v => v.vin === vin && v.status !== 'archived')) {
-            showToast('Este VIN ya existe en el sistema con estado activo', 'error');
-            return false;
+            return uiInvalid($('vin'), 'Este VIN ya está dado de alta y su prueba sigue abierta. Búscalo en Operación.');
         }
 
         // Warn if VIN exists in archived vehicles (duplicate detection)
@@ -1234,28 +1235,23 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         }
 
         if(!purpose) {
-            showToast('Debe seleccionar un propósito', 'error');
-            return false;
+            return uiInvalid($('vehiclePurpose'), 'Elige para qué es la prueba.');
         }
 
         if(!operator) {
-            showToast('Debe seleccionar un operador', 'error');
-            return false;
+            return uiInvalid($('reg_operator'), 'Elige quién da de alta el vehículo.');
         }
 
         if(!isExternal) {
             if(!currentFilters['Modelo']) {
-                showToast('Debe seleccionar al menos el MODELO', 'error');
-                return false;
+                return uiInvalid($('cfg_model'), 'Elige al menos el modelo.');
             }
         } else {
             const manModel = document.getElementById('man_model').value;
             const manEngine = document.getElementById('man_engine').value;
 
-            if(!manModel || !manEngine) {
-                showToast('Debe completar los campos manuales de modelo y motor', 'error');
-                return false;
-            }
+            if(!manModel) return uiInvalid($('man_model'), 'Escribe el modelo.');
+            if(!manEngine) return uiInvalid($('man_engine'), 'Escribe el motor.');
         }
         
         return true;
@@ -1372,7 +1368,8 @@ setAltaDatetimeIfEmpty(true);
         if (regDtVal) {
             const parsed = new Date(regDtVal);
             if (isNaN(parsed.getTime())) {
-                showToast('Fecha/hora de alta inválida', 'error');
+                if (typeof closeModal === 'function') closeModal('modalConfirm');
+                uiInvalid(regDtEl, 'La fecha y hora de alta no es válida.');
                 return;
             }
             registeredAtIso = parsed.toISOString();
@@ -1968,6 +1965,8 @@ function calculateFanFlowFromSpeed() {
 
 function clearMissingMarks() {
   document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
+  // [2.12.0] Y su mensaje en el campo.
+  if (typeof uiFieldErrorsClear === 'function') uiFieldErrorsClear(document.getElementById('op-content') || document);
 }
 
 function isEmptyValue(el) {
@@ -1981,6 +1980,8 @@ function addMissing(missing, id, label) {
   missing.push({ id, label });
   const el = document.getElementById(id);
   if (el) el.classList.add('field-missing');
+  // [2.12.0] El faltante se dice EN el campo (aria-invalid + mensaje), no solo en la lista.
+  if (el && typeof uiFieldError === 'function') uiFieldError(el, 'Falta este dato.');
 }
 
 // Margen mínimo para dar por segura una liberación: la firma del aprobador es un
@@ -2118,10 +2119,36 @@ function cascadeGoToField(id) {
   var d = el.closest('details');
   while (d) { d.classList.remove('smart-locked'); d.open = true; d = d.parentElement && d.parentElement.closest('details'); }
   var target = (el._chips && el._chips.offsetParent) ? el._chips : (el._num ? el._num.wrap : el);
+  // [2.12.0] Si el <select> se muestra como fichas, está oculto y no toma el foco: se
+  // enfoca la ficha elegida (o la primera). Antes el foco se quedaba en el botón que llevó aquí.
+  var focusEl = (el._chips && el._chips.offsetParent)
+    ? (el._chips.querySelector('button.is-on, button[aria-pressed="true"]') || el._chips.querySelector('button') || el)
+    : el;
   setTimeout(function() {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(function() { try { el.focus(); } catch (e) {} }, 350);
+    setTimeout(function() { try { focusEl.focus({ preventScroll: true }); } catch (e) {} }, 350);
   }, 60);
+}
+
+/**
+ * [2.12.0] LA forma de abrir un vehículo en Operación desde otra pantalla (Plan,
+ * faltantes del PDF en Liberación), y opcionalmente llevar a un campo. La pestaña es
+ * `data-tab="seguimiento"`: el Plan buscaba "operacion", no la encontraba, y cargaba el
+ * vehículo con Operación sin mostrarse.
+ */
+function cascadeOpenInOperation(vehicleId, fieldId) {
+  dashGo('cop15', 'seguimiento');
+  setTimeout(function() {
+    var sel = document.getElementById('activeVehSelect');
+    if (!sel) { showToast('Abre Pruebas → Operación para ver el vehículo.', 'info'); return; }
+    sel.value = String(vehicleId);
+    if (sel.value !== String(vehicleId)) {
+      showToast('Ese vehículo ya no está en Operación (quizá ya se archivó).', 'info');
+      return;
+    }
+    if (typeof loadVehicle === 'function') loadVehicle();
+    if (fieldId) setTimeout(function() { cascadeGoToField(fieldId); }, 150);
+  }, 280);
 }
 
 function showMissingPopup(missing) {
@@ -2297,11 +2324,12 @@ function opSectionMissing(vehicle, getVal) {
   PDF_REQUIRED_FIELDS.forEach(function(f) {
     if (!OP_SECTION_ACC[f.section]) return;
     if (f.when && !f.when(td, vehicle)) return;
-    if (!out[f.section]) out[f.section] = { total: 0, missing: 0 };
+    if (!out[f.section]) out[f.section] = { total: 0, missing: 0, ids: [] };
     out[f.section].total++;
     var v = getVal ? getVal(f) : _histGetPath(vehicle, f.path);
     var blank = v === null || v === undefined || String(v).trim() === '' || (f.zeroIsBlank && Number(v) === 0);
-    if (blank && !(f.soft && f.soft(td, vehicle))) out[f.section].missing++;
+    // [2.12.0] Además del conteo, CUÁLES faltan: el "faltan N" del encabezado lleva al primero.
+    if (blank && !(f.soft && f.soft(td, vehicle))) { out[f.section].missing++; if (f.refId) out[f.section].ids.push(f.refId); }
   });
   return out;
 }
@@ -2348,7 +2376,19 @@ function opSectionsRender(vehicle, openFirst) {
     var span = document.createElement('span');
     if (info.missing) {
       span.className = 'op-sum op-sum-missing';
-      span.textContent = 'faltan ' + info.missing;
+      // [2.12.0] Tocable: lleva al primer campo que falta de ESTA sección (sin plegar/desplegar).
+      var firstId = (info.ids || []).filter(function(id) { return document.getElementById(id); })[0];
+      if (firstId) {
+        var go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'op-sum-go';
+        go.textContent = 'faltan ' + info.missing;
+        go.setAttribute('aria-label', 'Faltan ' + info.missing + ' datos en esta sección: ir al primero');
+        go.addEventListener('click', function(ev) { ev.preventDefault(); ev.stopPropagation(); cascadeGoToField(firstId); });
+        span.appendChild(go);
+      } else {
+        span.textContent = 'faltan ' + info.missing;
+      }
       if (!firstIncomplete && acc.style.display !== 'none') firstIncomplete = acc;
     } else {
       span.className = 'op-sum op-sum-ok';
@@ -3816,7 +3856,7 @@ function submitToApproval() {
     //  y la firma se captura a continuación.)
     var _comp = validatePdfCompleteness(vehicle);
     var _blockers = _comp.missing.filter(function(m) { return m.section !== 'Firmas' && m.section !== 'Resultados de Emisiones'; });
-    if (_blockers.length > 0) { _showPdfMissingPopup(_blockers); return; }
+    if (_blockers.length > 0) { _showPdfMissingPopup(_blockers, vehicle.id); return; }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
     // El checklist de liberación se imprime en el F05 con la firma del liberador
@@ -3843,6 +3883,19 @@ function submitToApproval() {
         }
         var _rel = _libVerifyReleaseValues(profile, gasValues);
         if (!_rel.ok) {
+            // [2.12.0] Cada gas que falta o no pasa se marca EN su casilla y se lleva a la primera.
+            var _gasBox = document.getElementById('lib-gas-entry-content');
+            if (_gasBox && typeof uiFieldError === 'function') {
+                uiFieldErrorsClear(_gasBox);
+                profile.gases.forEach(function(g) {
+                    var lbl = g.label || g.field;
+                    var inp = _gasBox.querySelector('.lib-gas-input[data-field="' + g.field + '"]');
+                    if (!inp) return;
+                    if (_rel.missing.indexOf(lbl) >= 0) uiFieldError(inp, 'Falta el resultado.');
+                    else if (_rel.failing.indexOf(lbl) >= 0) uiFieldError(inp, 'Sobre el límite.');
+                });
+                uiFocusFirstInvalid(_gasBox);
+            }
             showToast(_rel.missing.length
                 ? 'Faltan resultados de ' + _rel.missing.join(', ') + ' (' + regName + ' los exige). Captúralos para enviar a aprobación.'
                 : 'No pasa el límite de ' + regName + ' en ' + _rel.failing.join(', ') + '. Revisa la captura antes de enviar.', 'error');
@@ -3961,6 +4014,19 @@ function approveAndArchive() {
         (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
             ? vehicle.testData.gasResults.liberador.values : {});
     if (_flow !== 'dirigida' && !_match.sinPerfil && !_match.ok) {
+        // [2.12.0] Marcar en su casilla los gases que faltan o no coinciden.
+        var _apBox = document.getElementById('appr-gas-entry-content');
+        if (_apBox && profile && profile.gases) {
+            uiFieldErrorsClear(_apBox);
+            profile.gases.forEach(function(g) {
+                var lbl = g.label || g.field;
+                var inp = _apBox.querySelector('.lib-gas-input[data-field="' + g.field + '"]');
+                if (!inp) return;
+                if (_match.missing.indexOf(lbl) >= 0) uiFieldError(inp, 'Falta tu lectura.');
+                else if (_match.mismatches.indexOf(lbl) >= 0) uiFieldError(inp, 'No coincide con la del liberador.');
+            });
+            uiFocusFirstInvalid(_apBox);
+        }
         if (_match.missing.length) {
             showToast('Faltan valores por capturar: ' + _match.missing.join(', ') + '.', 'error');
         } else {
@@ -5270,7 +5336,8 @@ function validatePdfCompleteness(vehicle) {
   // cuenta para "Completa". `missing` sigue siendo solo lo que bloquea, así que
   // los consumidores de siempre no cambian.
   var soft = [];
-  function req(value, label, section, isSoft) { if (blank(value)) (isSoft ? soft : missing).push({ label: label, section: section, soft: !!isSoft }); }
+  // [2.12.0] `refId` (el campo de Operación) viaja con el faltante: la lista lleva a él.
+  function req(value, label, section, isSoft, refId) { if (blank(value)) (isSoft ? soft : missing).push({ label: label, section: section, soft: !!isSoft, refId: refId || '' }); }
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
@@ -5291,7 +5358,7 @@ function validatePdfCompleteness(vehicle) {
     var zeroGap = f.zeroIsBlank && val !== null && val !== undefined && val !== '' && Number(val) === 0;
     if (zeroGap) val = null;
     var isSoft = !!(f.soft && f.soft(td, vehicle)) || (zeroGap && releaseIsBeforeChecklist(vehicle));
-    req(val, f.label, f.section, isSoft);
+    req(val, f.label, f.section, isSoft, f.refId);
   });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
@@ -5314,15 +5381,32 @@ function validatePdfCompleteness(vehicle) {
 }
 
 // Popup que lista los campos faltantes agrupados por sección.
-function _showPdfMissingPopup(missing) {
+function _showPdfMissingPopup(missing, vehicleId) {
+  // [2.12.0] Mismo patrón que showMissingPopup (v23.4): cada faltante con campo en
+  // Operación es un botón que abre ESE vehículo en Operación y lleva al campo.
   var bySection = {};
-  missing.forEach(function(m) { (bySection[m.section] = bySection[m.section] || []).push(m.label); });
-  var html = '<div style="text-align:left;max-height:320px;overflow:auto;">Para evitar un PDF con espacios en blanco, completa estos campos antes de continuar:<ul style="margin:8px 0;padding-left: var(--space-lg);">';
+  missing.forEach(function(m) { (bySection[m.section] = bySection[m.section] || []).push(m); });
+  var html = '<p class="miss-intro">Para evitar un PDF con espacios en blanco, completa estos campos antes de continuar' +
+    (vehicleId ? '. Toca uno para ir directo:' : ':') + '</p>';
   Object.keys(bySection).forEach(function(sec) {
-    html += '<li style="margin-bottom: var(--space-xs);"><strong>' + sec + ':</strong> ' + bySection[sec].join(', ') + '</li>';
+    html += '<div class="miss-sec"><div class="miss-sec-title">' + escapeHtml(sec) + '</div>';
+    bySection[sec].forEach(function(m) {
+      if (vehicleId && m.refId && document.getElementById(m.refId)) {
+        html += '<button type="button" class="miss-link" onclick="_pdfMissingGo(\'' + escapeHtml(String(vehicleId)) + '\',\'' + m.refId + '\')">' + escapeHtml(m.label) + ' →</button>';
+      } else {
+        html += '<div class="miss-link miss-link--static">' + escapeHtml(m.label) + '</div>';
+      }
+    });
+    html += '</div>';
   });
-  html += '</ul></div>';
-  showModal({ title: 'Faltan ' + missing.length + ' campos', message: html, type: 'warning', showCancel: false, confirmText: 'Entendido' });
+  showModal({ title: 'Faltan ' + missing.length + ' campo' + (missing.length === 1 ? '' : 's'), body: html,
+              buttons: [{ label: 'Entendido', cls: 'btn-primary', onclick: function() { var g = document.getElementById('globalModal'); if (g && g.parentNode) g.parentNode.removeChild(g); } }] });
+}
+
+function _pdfMissingGo(vehicleId, refId) {
+  var m = document.getElementById('globalModal');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
+  cascadeOpenInOperation(vehicleId, refId);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -5636,15 +5720,18 @@ function histSaveCompleteModal() {
       var reason = ta ? String(ta.value).trim() : '';
       if (reason.length < 5) {
         invalid = true;
-        if (ta) ta.style.borderColor = tokenColor('--danger-fill');
-        var row = document.getElementById('hist-row-' + idx);
-        if (row) row.style.outline = '2px solid ' + tokenColor('--danger-fill');
+        // [2.12.0] La razón que falta se marca en SU campo (aria-invalid + mensaje).
+        if (ta) uiFieldError(ta, 'Escribe por qué cambia (5 caracteres o más).');
         return;
       }
       modified.push({ path: f.path, label: f.label, old: cur, value: newVal, reason: reason, si: !!f.si });
     }
   });
-  if (invalid) { showToast('Falta la razón del cambio en campos modificados (mín. 5 caracteres)', 'error'); return; }
+  if (invalid) {
+    uiFocusFirstInvalid(document.getElementById('hist-complete-overlay') || document);
+    showToast('Falta la razón del cambio en los campos marcados.', 'error');
+    return;
+  }
 
   var addedGases = {};
   document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
