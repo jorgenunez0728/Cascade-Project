@@ -1860,55 +1860,6 @@ body{ overflow-x: hidden; }
     border-color: var(--kia-red);
 }
 
-/* ── Splash Screen ── */
-.splash-screen {
-    position: fixed; inset: 0; z-index: 99999;
-    background: linear-gradient(135deg, #05141f 0%, #0a1628 50%, #0f1d30 100%);
-    display: flex; align-items: center; justify-content: center;
-    flex-direction: column;
-    animation:splashFadeIn var(--dur-slow) var(--ease-out);
-}
-.splash-content {
-    text-align: center;
-}
-.splash-logo {
-    font-size: 64px; font-weight: 900; color: var(--kia-red);
-    letter-spacing: 8px; margin-bottom: var(--space-xs);
-    animation:splashLogoPulse 2s ease infinite;
-}
-.splash-subtitle {
-    font-size: 14px; color: rgba(255,255,255,0.5); font-weight: 600;
-    letter-spacing: 3px; text-transform: uppercase; margin-bottom: var(--space-2xl);
-}
-.splash-bar-track {
-    width: 200px; height: 3px; border-radius: var(--radius-md);
-    background: rgba(255,255,255,0.1); margin: 0 auto 12px;
-    overflow: hidden;
-}
-.splash-bar-fill {
-    height: 100%; width: 0; border-radius: var(--radius-md);
-    background: linear-gradient(90deg, var(--kia-red), #f87171);
-    transition:width 0.4s ease;
-}
-.splash-status {
-    font-size: var(--fs-sm); color: rgba(255,255,255,0.35); font-weight: 600;
-}
-.splash-exit {
-    animation:splashFadeOut 0.5s ease forwards;
-}
-@keyframes splashFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-@keyframes splashFadeOut {
-    from { opacity: 1; filter: blur(0); }
-    to { opacity: 0; filter: blur(6px); pointer-events: none; }
-}
-@keyframes splashLogoPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
-
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [R5-M3] Smart Forms — Progressive Disclosure                        */
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -2558,6 +2509,50 @@ details.acc > summary {
    de la app. Ahora usa los tokens del sistema (--kia-red, --shadow-*,
    --radius-*, --space-*, --ease-out) para que la primera pantalla que ve el
    técnico ya se sienta parte del producto. */
+
+/* [2.11.0] El overlay de acceso ES la pantalla de arranque: existe desde el primer
+   cuadro (index.html) y cambia de etapa (data-stage) en vez de cambiar de pantalla.
+   Antes: app cruda → splash oscuro → PIN claro → app a medio armar. */
+.auth-overlay {
+    position: fixed; inset: 0; z-index: 10000;
+    background: var(--bg, #f0f2f5);
+    display: flex; align-items: center; justify-content: center; overflow-y: auto;
+    transition: opacity var(--dur-slow) var(--ease-out);
+}
+.auth-overlay.is-leaving { opacity: 0; pointer-events: none; }
+.auth-overlay.is-gone { display: none; }
+html.booting, html.booting body { overflow: hidden; }
+
+/* Barra INDETERMINADA: se mueve con transform, que corre en el compositor aunque el
+   teléfono esté ocupado leyendo o inicializando (una barra con % no se repintaría). */
+.boot-progress { max-width: 260px; margin: 0 auto; text-align: center; }
+.boot-bar {
+    position: relative; height: 4px; overflow: hidden;
+    border-radius: var(--radius-full); background: var(--border);
+}
+.boot-bar-fill {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+    border-radius: inherit; background: var(--kia-red);
+    animation: bootSlide 1.2s ease-in-out infinite;
+}
+@keyframes bootSlide {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(250%); }
+}
+.boot-msg {
+    margin-top: var(--space-sm); min-height: 1.4em;
+    font-size: var(--font-sm); color: var(--muted);
+}
+/* Lo nuevo aparece DEBAJO de la marca, que no se mueve: se lee como la misma tarjeta. */
+.auth-shell > :not(.auth-brand), .auth-pin-panel {
+    animation: bootIn var(--dur-slow) var(--ease-out) both;
+}
+@keyframes bootIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+}
+/* Al terminar, la pantalla de la app aparece en vez de "encenderse". */
+.boot-reveal { animation: bootIn var(--dur-slow) var(--ease-out) both; }
 
 .auth-shell {
     width: 100%; max-width: 460px; margin: auto;

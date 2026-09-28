@@ -20,6 +20,43 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.11.0 — Una bienvenida sin parpadeo (2026-09-28)
+
+### Arreglado
+- **Al abrir se veía la app "cruda" unos segundos** antes de la pantalla del PIN. Medido con el
+  código anterior en un teléfono de gama media simulado: la app sin armar estaba a la vista de 0.6
+  a 2.7 s, luego un splash azul marino y luego el PIN claro. Eran cuatro pantallas distintas; ahora
+  es una sola que cambia.
+
+### Cambió
+- **La bienvenida está en pantalla desde el primer instante** (logo KIA EmLab + barra en
+  movimiento), en los colores claros del acceso. Se retiró el splash oscuro.
+- **El PIN aparece en la misma tarjeta**: el logo no se mueve y lo nuevo entra suave debajo.
+- **Al entrar dice "Bienvenido, Ana"** mientras se prepara la app, y la app aparece con un fundido.
+  Se quitó el aviso "Bienvenido" de arriba (sobraba).
+- Con sesión abierta: bienvenida → app, sin pasar por el PIN.
+- La barra se mueve aunque el teléfono esté ocupado (antes una barra de "%" se quedaba congelada
+  justo mientras cargaba). Con "reducir movimiento" la barra queda quieta y el fundido es corto.
+- En la app instalada en Android, la pantalla con la que abre el sistema ya es clara
+  (`manifest.json` → `background_color`).
+
+### Para desarrollo
+- `#auth-overlay` existe desde el HTML (`index.html`, clase `.auth-overlay`, sin `style`) y
+  `<html class="booting">` en `index.html` y en el encabezado de `build.sh`.
+- **`bootStage(etapa, info)` (app.js) es LA máquina de estados** (`arranque → pin → entrando →
+  lista`); `bootStageAllowed` (PURA) solo deja avanzar, volver a `pin` (bloqueo/cerrar sesión) y
+  nunca repetir `arranque`. Reemplaza a `splashShow/Update/Hide` (retirados con sus 50 líneas de
+  CSS). `bootProgress(msg)` cambia el texto.
+- Tras el PIN, `authCreateSession` pasa a `entrando` y difiere `initializeSystem` dos cuadros para
+  que "Bienvenido" se pinte primero. La salida arranca tras un cuadro pintado y se retira en
+  `transitionend` (con respaldo de 1.5 s): con un reloj fijo el `display:none` llegaba antes de que
+  la transición empezara.
+- **Red de seguridad**: un `setTimeout(0)` al inicio de `initializeSystem` corre cuando termina o
+  truena; si hay sesión y no se llegó a `lista`, abre la app.
+- Pruebas: `tests/v2110.e2e.js` (20, CPU ×4 a 427×840) con muestreo por cuadro desde
+  `addInitScript`: ningún cuadro con la app descubierta antes de `lista`, etapas en orden, nunca un
+  fondo oscuro, fundido real, movimiento reducido y bloqueo. Mutación comprobada.
+
 ## 2.10.0 — Si algo falla, se dice — y el reporte trae el código (2026-09-28)
 
 ### Nuevo

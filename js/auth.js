@@ -360,8 +360,9 @@ function authInit() {
                 authState.currentUser = { id: _live.id, name: _live.name, role: _authNormalizeRole(_live.role) || AUTH_ROLE_DEFAULT };
                 authState.sessionActive = true;
                 authState.sessionExpiry = new Date(session.expiresAt);
-                var overlay = document.getElementById('auth-overlay');
-                if (overlay) overlay.style.display = 'none';
+                // [2.11.0] La bienvenida se queda hasta que la app esté armada
+                // (initializeSystem → bootStage('lista')): antes se ocultaba aquí y se
+                // veía la app a medio pintar.
                 authUpdateUI();
                 authFirebaseSignIn();
                 _authStartSessionWatch();
@@ -382,7 +383,8 @@ function authInit() {
 function authShowLogin() {
     var overlay = document.getElementById('auth-overlay');
     if (!overlay) return;
-    overlay.style.display = 'flex';
+    // [2.11.0] La misma superficie que el arranque pasa a pedir el PIN (la marca no se mueve).
+    bootStage('pin');
 
     var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active && !o.deleted; }) : [];
     var hasAnyPin = operators.some(function(o) { return _authHasPin(o); });
@@ -693,23 +695,22 @@ function authCreateSession(op) {
     authState.sessionExpiry = expiry;
     _authStartSessionWatch();
 
-    // Hide overlay
-    var overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
+    // [2.11.0] "Bienvenido, Ana" en la MISMA tarjeta del PIN, y la app aparece con un
+    // fundido cuando initializeSystem termina (bootStage('lista')). Antes el overlay se
+    // ocultaba en seco y se veía la app a medio armar; el toast de bienvenida sobraba.
+    bootStage('entrando', op.name);
 
-    // Show welcome toast
-    showToast('Bienvenido, ' + op.name, 'success');
-
-    // Continue app initialization
     authUpdateUI();
     authRenderOperatorPicker();
-    if (typeof initializeSystem !== 'undefined') {
-        // Re-run init now that we're authenticated
-        initializeSystem();
-    }
-
-    // Sesión de dispositivo con Firebase (Email/Password)
-    authFirebaseSignIn();
+    // Dos cuadros antes de inicializar: que "Bienvenido" alcance a pintarse antes de que
+    // la inicialización (síncrona y pesada) ocupe el hilo principal.
+    var _go = function() {
+        if (typeof initializeSystem !== 'undefined') initializeSystem();
+        // Sesión de dispositivo con Firebase (Email/Password)
+        authFirebaseSignIn();
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function() { requestAnimationFrame(_go); });
+    else _go();
 }
 
 // [v15.6] Cerrar sesión → volver al muro de login (con confirmación)
@@ -775,8 +776,7 @@ function authBypassLogin() {
     var session = { operatorId: 0, operatorName: 'Administrador', role: 'Assistant Manager / Manager', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
-    var overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
+    bootStage('entrando', 'Administrador');
     showToast('Acceso de administrador (2h). Configura operadores y PINs en Panel > Usuarios.', 'info');
     authUpdateUI();
     if (typeof initializeSystem !== 'undefined') initializeSystem();
