@@ -5373,22 +5373,9 @@ function _tpWireSelectionBar() {
  * repuebla el selector al mostrarse.
  */
 function tpOpenVehicleFromPlan(vehicleId) {
-    if (typeof switchPlatform === 'function') switchPlatform('cop15');
-    setTimeout(function() {
-        var tab = document.querySelector('#platform-cop15 .tab[data-tab="operacion"]') ||
-                  document.querySelector('#platform-cop15 .tab[onclick*="operacion"]');
-        if (tab) tab.click();
-        setTimeout(function() {
-            var sel = document.getElementById('activeVehSelect');
-            if (!sel) { showToast('Abre Pruebas → Operación para ver el vehículo.', 'info'); return; }
-            sel.value = String(vehicleId);
-            if (sel.value !== String(vehicleId)) {
-                showToast('Ese vehículo ya no está en operación (quizá se archivó).', 'info');
-                return;
-            }
-            if (typeof loadVehicle === 'function') loadVehicle();
-        }, 220);
-    }, 120);
+    // [2.12.0] Antes buscaba la pestaña "operacion" (la real es "seguimiento") y cargaba
+    // el vehículo sin mostrar Operación. La navegación vive en cop15.js.
+    cascadeOpenInOperation(vehicleId);
 }
 
 /**

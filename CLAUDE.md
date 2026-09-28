@@ -2347,6 +2347,21 @@ menos **dejó de ser silencioso**.
   gana a la transición y el fundido se vuelve un corte).
 - `manifest.json` `background_color` = `--bg`: es la pantalla nativa con la que Android abre la PWA.
 
+## 2.12.0 — El error va en el campo (`js/app.js`, `js/cop15.js`)
+
+- **`uiInvalid(el, msg)` es LA forma de rechazar un formulario por un campo**: `return
+  uiInvalid(el, '…')` en el validador. **No volver a validar con `showToast(..., 'error')`
+  cuando el problema es UN campo**: el toast se va y en el teléfono el campo queda lejos. El toast
+  se queda solo para resúmenes y para lo que no tiene campo.
+- El mensaje va con `role="alert"` y `aria-describedby`; el campo con `aria-invalid="true"` (el
+  CSS pinta borde + ⚠: el color solo no basta). Se limpia con `input`/`change`.
+- Un `<select data-chips>` está OCULTO: marcarlo pinta sus fichas, y enfocarlo debe enfocar una
+  ficha (`uiFocusField`, `cascadeGoToField`). Enfocar el `<select>` no hace nada.
+- **`cascadeOpenInOperation(vehicleId, fieldId)`** para ir a Operación desde otra pantalla. La
+  pestaña es `data-tab="seguimiento"`, no "operacion".
+- Todo faltante que venga de `PDF_REQUIRED_FIELDS` trae `refId`: una lista de faltantes debe
+  llevar al campo, nunca solo nombrarlo.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

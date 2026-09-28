@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.12.0 — El error va en el campo, no en un aviso que se va (2026-09-28)
+
+### Cambió
+- **Un dato que falta o está mal se marca EN su campo**: borde rojo, ⚠ y el motivo debajo, y la
+  pantalla lleva a él (abre la sección plegada, hace scroll y lo enfoca). Antes había 173 avisos de
+  validación arriba que se iban en segundos; en el teléfono el campo quedaba lejos.
+  - **Alta**: VIN ("Tiene 6 de 17"), VIN con prueba abierta, propósito, operador, modelo, modelo y
+    motor manuales, fecha de alta.
+  - **Operación**: el "faltan N" del encabezado de cada sección es un botón que lleva al primer
+    faltante de ESA sección. Los faltantes al enviar a liberación también se marcan en el campo
+    (la lista que lleva a cada uno ya existía desde v23.4).
+  - **Liberación**: la lista de "Faltan N campos" para el PDF ahora se toca y abre ese vehículo en
+    Operación con el campo enfocado. Los gases que faltan o pasan el límite se marcan en su casilla.
+  - **Aprobación**: los gases que faltan o no coinciden con el liberador se marcan en su casilla.
+  - **Historial → Completar**: la razón de cambio que falta se marca en su campo.
+- El error **se quita solo** al corregir el campo. Los lectores de pantalla lo anuncian
+  (`role="alert"` ligado por `aria-describedby`).
+
+### Arreglado
+- Desde el Plan, **"abrir vehículo" no mostraba Operación**: buscaba la pestaña "operacion" y la
+  real es "seguimiento"; cargaba el vehículo sin cambiar de pantalla.
+- Ir a un campo que se muestra como fichas (propósito, operador…) dejaba el foco en el botón que
+  llevó ahí: el `<select>` está oculto y no toma foco. Ahora se enfoca la ficha.
+
+### Para desarrollo
+- **`uiInvalid(el, msg)` es LA forma de rechazar un formulario por un campo** (marca, lleva y
+  enfoca; si el campo no existe cae al toast). `uiFieldError` / `uiFieldClear` /
+  `uiFieldErrorsClear` / `uiFocusField` / `uiFocusFirstInvalid` en app.js; entienden `data-chips`
+  (marca las fichas) y `data-num` (marca la fila). Un listener de `input`/`change` limpia solo.
+- `addMissing` (Operación) ahora también llama `uiFieldError`, y `clearMissingMarks` limpia.
+- `opSectionMissing` devuelve además `ids` (los `refId` que faltan). `validatePdfCompleteness`
+  pasa `refId` en cada faltante.
+- **`cascadeOpenInOperation(vehicleId, fieldId)` es LA forma de abrir un vehículo en Operación
+  desde otra pantalla** (usa `dashGo('cop15','seguimiento')`); `tpOpenVehicleFromPlan` la usa.
+- Pruebas: `tests/v2120.e2e.js` (14, a 427×840).
+
 ## 2.11.0 — Una bienvenida sin parpadeo (2026-09-28)
 
 ### Arreglado

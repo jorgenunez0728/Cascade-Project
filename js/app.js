@@ -99,6 +99,92 @@ function uiExplainDisabled(btn, why) {
     if (prev && btn.title === prev) btn.removeAttribute('title');
   }
 }
+// ── [2.12.0] El error va en el campo, no en un toast ──
+// Antes había 173 toasts de validación y ningún `aria-invalid`: en un teléfono de 427 px
+// el toast decía "falta X" y desaparecía, y el campo estaba tres pantallas abajo.
+// `uiFieldError(el, msg)` marca el campo (aria-invalid + mensaje role="alert" ligado por
+// aria-describedby); `uiInvalid(el, msg)` además lo muestra y lo enfoca, y es LA forma
+// de rechazar un formulario por un campo. Se limpia sola al editar el campo.
+function _uiFieldAnchor(el) {
+  if (!el) return null;
+  var num = el.closest && el.closest('.ui-num');
+  if (num) return num;
+  var nx = el.nextElementSibling;
+  if (nx && nx.classList && nx.classList.contains('ui-chips')) return nx;
+  return el;
+}
+function uiFieldError(el, msg) {
+  if (!el || !el.setAttribute) return false;
+  if (!el.id) el.id = 'uif_' + Math.random().toString(36).slice(2, 8);
+  var errId = el.id + '-err';
+  var box = document.getElementById(errId);
+  if (!box) {
+    box = document.createElement('div');
+    box.id = errId;
+    box.className = 'ui-field-error';
+    box.setAttribute('role', 'alert');
+    var anchor = _uiFieldAnchor(el);
+    anchor.parentNode.insertBefore(box, anchor.nextSibling);
+  }
+  box.textContent = msg || 'Revisa este campo.';
+  el.setAttribute('aria-invalid', 'true');
+  var d = (el.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+  if (d.indexOf(errId) < 0) { d.push(errId); el.setAttribute('aria-describedby', d.join(' ')); }
+  var fg = el.closest && el.closest('.form-group');
+  if (fg) fg.classList.add('has-error');
+  return true;
+}
+function uiFieldClear(el) {
+  if (!el || !el.removeAttribute || el.getAttribute('aria-invalid') !== 'true') return;
+  el.removeAttribute('aria-invalid');
+  var errId = el.id + '-err';
+  var box = document.getElementById(errId);
+  if (box && box.parentNode) box.parentNode.removeChild(box);
+  var d = (el.getAttribute('aria-describedby') || '').split(/\s+/).filter(function(x) { return x && x !== errId; });
+  if (d.length) el.setAttribute('aria-describedby', d.join(' ')); else el.removeAttribute('aria-describedby');
+  var fg = el.closest && el.closest('.form-group');
+  if (fg && !fg.querySelector('[aria-invalid="true"]')) fg.classList.remove('has-error');
+}
+/** Quita todas las marcas de error dentro de `root` (al abrir otro vehículo, al cerrar un modal). */
+function uiFieldErrorsClear(root) {
+  [].slice.call((root || document).querySelectorAll('[aria-invalid="true"]')).forEach(uiFieldClear);
+}
+/** Lleva al campo: abre los <details> que lo esconden, hace scroll y lo enfoca. */
+function uiFocusField(el) {
+  if (!el) return false;
+  var p = el.parentElement;
+  while (p) { if (p.tagName === 'DETAILS' && !p.open) p.open = true; p = p.parentElement; }
+  var target = el;
+  var chips = _uiFieldAnchor(el);
+  if (chips && chips !== el && chips.classList.contains('ui-chips')) target = chips.querySelector('button') || chips;
+  try { (_uiFieldAnchor(el) || el).scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+  // El scroll es animado (scroll-behavior: smooth): enfocar al final para no "saltar" antes.
+  setTimeout(function() { try { target.focus({ preventScroll: true }); } catch (e) {} }, 350);
+  return true;
+}
+/** Lleva al primer campo marcado dentro de `root`. */
+function uiFocusFirstInvalid(root) {
+  var el = (root || document).querySelector('[aria-invalid="true"]');
+  return el ? uiFocusField(el) : false;
+}
+/**
+ * Rechaza por un campo: lo marca y lo muestra. Si el campo no existe (pantalla
+ * distinta), cae al toast de siempre para que el motivo nunca se pierda. Devuelve false
+ * para poder escribir `return uiInvalid(el, '…');` en un validador.
+ */
+function uiInvalid(el, msg) {
+  if (el && el.isConnected && uiFieldError(el, msg)) { uiFocusField(el); return false; }
+  if (typeof showToast === 'function') showToast(msg, 'error');
+  return false;
+}
+// El error se va en cuanto el técnico corrige el campo.
+['input', 'change'].forEach(function(ev) {
+  document.addEventListener(ev, function(e) {
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('aria-invalid') === 'true') uiFieldClear(t);
+  }, true);
+});
+
 var _uiWhyShownAt = 0;
 document.addEventListener('pointerup', function(e) {
   try {
@@ -389,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.11.0';
+var APP_VERSION = '2.12.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -397,6 +483,16 @@ var APP_VERSION = '2.11.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.12.0', date: '28 sep 2026', title: 'El error va en el campo, no en un aviso que se va',
+      bullets: [
+          'Cuando algo falta o está mal, el campo se marca en rojo con un ⚠ y el motivo debajo, y la pantalla te lleva a él. Antes salía un aviso arriba que se iba en segundos, con el campo tres pantallas abajo.',
+          'Alta: VIN (dice cuántos caracteres tiene), propósito, operador, modelo y datos manuales.',
+          'Operación: el "faltan N" de cada sección se puede tocar y lleva al primer dato que falta. Los faltantes también se marcan en el campo.',
+          'Liberación: la lista de campos que faltan para el PDF se puede tocar y te lleva a ese campo en Operación. Los gases que faltan o pasan el límite se marcan en su casilla.',
+          'Aprobación y Completar: los gases que faltan o no coinciden, y las razones de cambio que faltan, se marcan donde van.',
+          'Arreglado: desde el Plan, "abrir vehículo" ya muestra Operación (antes lo cargaba sin cambiar de pantalla).',
+          'El error se quita solo en cuanto corriges el campo. Los lectores de pantalla lo anuncian.'
+      ] },
     { version: '2.11.0', date: '28 sep 2026', title: 'Una bienvenida sin parpadeo',
       bullets: [
           'Al abrir ya no se ve la app "cruda" unos segundos, ni un fondo oscuro que luego salta a la pantalla del PIN. Desde el primer instante se ve la bienvenida (logo + barra), en los mismos colores claros del acceso.',
