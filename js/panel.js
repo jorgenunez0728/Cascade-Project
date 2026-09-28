@@ -594,6 +594,7 @@ function pnInit() {
     }
     if (!pnState.tasks) pnState.tasks = []; // v15.9: tareas manuales del tablero HOY
     if (!pnState.projects) pnState.projects = []; // v16.6: seguimiento de proyectos/eventos
+    if (!Array.isArray(pnState.vetsChecks)) pnState.vetsChecks = []; // [2.5.0] política de verificaciones VETS (vets.js)
     pnMigrateOperators();
     _pnDedupeOperators();
     _pnEnsureAdminExists();
@@ -965,6 +966,7 @@ function pnRenderReports(el) {
         { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] },
         { icon: '🧪', title: 'CoP — Panorama de familias', desc: 'Un renglón por familia del alcance CoP: veredicto, VINes, % del límite, U con su banda A(n)/B(n), Cpk, días sin ensayar, riesgo y motivo.', actions: [{ label: 'CSV', fn: 'copExportPortfolioCSV' }] },
         { icon: '📑', title: 'CoP — Expediente de familia (auditoría)', desc: 'Dossier de la familia abierta: identificación, límites congelados, estadística, VINes con fechas, CO₂ vs declarado y firmas. Abre primero la familia en CoP → Panorama.', actions: [{ label: 'PDF', fn: 'copFamilyPDF' }, { label: 'CSV', fn: 'copExportFamilyCSV' }] },
+        { icon: '🔎', title: 'Validación del importador VETS', desc: 'Cada comparación "tecleado vs VETS" de vehículos ya liberados (Historial → ⋯ → Comparar con VETS): evidencia de que el importador lee bien (ISO 17025 §7.11.2).', actions: [{ label: 'CSV', fn: 'vetsValidationExportCSV' }] },
         { icon: '📜', title: 'CoP — Juicios emitidos', desc: 'Historial de veredictos con fecha, familia, n, decisión, quién lo emitió y los límites con los que se decidió.', actions: [{ label: 'CSV', fn: 'copExportJudgmentsCSV' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
@@ -4328,6 +4330,8 @@ function pnRenderRegulations(el) {
     html += '<h3 style="margin:0;font-size:14px;">⚗️ Perfiles de Regulación de Emisiones</h3>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size: var(--fs-sm);padding: var(--space-sm) var(--space-lg);">+ Agregar Regulación</button>';
     html += '</div>';
+    // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
+    if (typeof vetsPolicyCardHTML === 'function') html += vetsPolicyCardHTML();
 
     if (profiles.length === 0) {
         html += '<div class="tp-card" style="text-align:center;padding: var(--space-2xl);">';

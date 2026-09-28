@@ -1098,6 +1098,8 @@ body{ overflow-x: hidden; }
 .modal-btn-cancel:hover { background: #e2e8f0; }
 .modal-btn-confirm { background: var(--tp-blue); color: #fff; }
 .modal-btn-confirm:hover { opacity: 0.9; }
+/* [2.5.0] Un botón deshabilitado de un modal se veía igual que uno activo */
+.modal-btn-confirm:disabled, .modal-btn-cancel:disabled { opacity: 0.45; cursor: not-allowed; }
 .modal-btn-confirm.modal-type-danger { background: var(--tp-red); }
 .modal-btn-confirm.modal-type-warning { background: var(--tp-amber); color: #1a1a2e; }
 .modal-btn-confirm.modal-type-success { background: var(--tp-green); color: #fff; }
@@ -5399,3 +5401,13 @@ td .ui-num-row > input { min-width: 5rem; }
 
 /* [2.4.0] ✏️ Corregir alta — botón dentro de la franja del vehículo en Operación */
 .op-corr-btn { margin-left: var(--space-sm); padding: var(--space-2xs) var(--space-md); font-size: var(--fs-sm); vertical-align: middle; }
+
+/* [2.5.0] Adjuntar prueba VETS en la tarjeta de gases de Liberación */
+.vets-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.vets-attach-status { font-size: var(--fs-sm); color: var(--ok-text); line-height: var(--lh-base); }
+.vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
+.vets-list li { margin: var(--space-2xs) 0; }
+.vets-list--cols { columns: 2 14rem; column-gap: var(--space-lg); }
+.vets-choice { display: inline-flex; align-items: center; gap: var(--space-2xs); cursor: pointer; min-height: var(--target-min, 44px); }
+.vets-list .vets-choice { display: inline; min-height: 0; }
+.vets-choice input[type="checkbox"], .vets-choice input[type="radio"] { width: auto; min-height: 0; margin: 0 var(--space-2xs) 0 0; vertical-align: middle; transform: scale(1.25); }

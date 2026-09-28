@@ -2035,6 +2035,7 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localShiftLog = (pnState.shiftLog || []).slice();
                 var _localShiftReports = (pnState.shiftReports || []).slice();
                 var _localSkillGroups = (pnState.skillGroups || []).slice();
+                var _localVetsChecks = (pnState.vetsChecks || []).slice();
 
                 Object.assign(pnState, remoteData);
 
@@ -2043,6 +2044,9 @@ function fbPullApply(collections, results, showFeedback) {
                 // los reemplazaba enteros y se perdía lo escrito en este dispositivo).
                 pnState.shiftLog = _fbMergeByIdNewest(_localShiftLog, (remoteData && remoteData.shiftLog) || [], 500);
                 pnState.shiftReports = _fbMergeByIdNewest(_localShiftReports, (remoteData && remoteData.shiftReports) || [], 30).reverse();
+                // [2.5.0] Política de verificaciones VETS: una entrada por verificación
+                // (id = su nombre), gana la clasificación más reciente.
+                pnState.vetsChecks = _fbMergeByIdNewest(_localVetsChecks, (remoteData && remoteData.vetsChecks) || [], 300);
                 // Los grupos de habilidades son una lista corta y editable: si el
                 // remoto no trae ninguno, no borrar los locales.
                 if (!(remoteData && (remoteData.skillGroups || []).length) && _localSkillGroups.length) {

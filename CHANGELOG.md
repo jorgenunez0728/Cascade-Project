@@ -20,6 +20,64 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.5.0 — Importar la prueba de STARS VETS en la liberación (2026-09-28)
+
+### Nuevo
+- **📎 Adjuntar prueba VETS** (Liberación, tarjeta de gases). Se elige el Excel que exporta STARS
+  VETS (una prueba por archivo) y la app llena:
+  - los **gases del liberador** (en la unidad en que el laboratorio los teclea);
+  - los coeficientes del **dinamómetro** (Target A/B/C, Dyno A/B/C) y el **ETW**;
+  - la **fecha y hora de la prueba**.
+  Lee las pruebas de **México** (g/mi, lbf, lb) y de **Europa** (g/km, mg/km, N, kg) y lo convierte
+  a las unidades de Cascade. **No necesita internet** y el archivo no se sube: se guarda lo que se
+  extrajo, su huella (SHA-256) y el Test Reference de VETS.
+- **Nada capturado a mano se pisa solo**: un valor distinto al de VETS se muestra lado a lado y el
+  liberador marca si usa el de VETS. Después revisa y **firma como siempre** — el doble ciego no cambia.
+- **Identidad**: el VIN del Alta se compara con el que se tecleó en VETS y, en Europa, con el que
+  lee el **ECU** del vehículo.
+  - VETS y ECU coinciden pero el Alta no → ofrece **✏️ Corregir el VIN** (2.4.0).
+  - Alta y ECU coinciden pero VETS no → se puede usar el archivo escribiendo por qué.
+  - Ningún VIN coincide → no deja usar el archivo (es de otra prueba).
+  - Una misma prueba de VETS **no se adjunta a dos vehículos**.
+  - Si VETS capturó otra configuración (p. ej. WGN vs 5DR), lo avisa con el botón de Corregir alta.
+- **Verificaciones de VETS** (temperatura de celda, factor de dilución, prefiltro de PM…). La
+  primera vez que una falla, el liberador decide qué es para el laboratorio:
+  - **Importante** — se justifica en cada prueba o no se puede aplicar el archivo;
+  - **Informativa** — se muestra, no detiene;
+  - **Desacreditada** — mal configurada en VETS; ya no se pregunta. Pide motivo.
+  Vale para todo el laboratorio y se cambia en **Datos → Regulaciones → Verificaciones de VETS**.
+  Desacreditar no borra nada: el valor y el FAIL quedan en el registro de la prueba.
+- **OBFCM (Europa)**: combustible según el vehículo y la **exactitud que calcula VETS**, más CALID,
+  CVN y MIL. Por prueba en la liberación y **por familia en CoP → Expediente**.
+- **Historial → ⋯ → 🔎 Comparar con VETS** (vehículos archivados): compara lo que se tecleó al
+  liberar contra el archivo de VETS **sin cambiar nada**. Queda en el vehículo y en el historial de
+  cambios. **Centro de Reportes → Validación del importador VETS** junta todas las comparaciones
+  (evidencia de validación, ISO 17025 §7.11.2). Recomendación: correrlo con ~20 pruebas ya
+  liberadas antes de apoyarse en el importador — y decidir antes qué se hace si aparece un error de
+  tecleo en un vehículo archivado.
+
+### Arreglado
+- Un botón deshabilitado dentro de un diálogo se veía igual que uno activo.
+
+### El F05 no cambia
+Solo se llenan campos que el F05 ya imprimía; la prueba del candado del F05 sigue pasando.
+
+### Para desarrollo
+- `js/vets.js` (nuevo, carga después de `homolog.js`). Lector de `.xlsx` propio (ZIP +
+  `DecompressionStream('deflate-raw')`), sin SheetJS: lee solo las hojas de `VETS_SHEETS`.
+- Las hojas de datos de STARS (ocultas) tienen renglón 1 = campo, 2 = unidad, 3+ = datos, igual en
+  México y Europa. **`vetsTable(grid)` y `vetsExtract(sheets)` (PURAS) son LA lectura**: siempre por
+  nombre de campo y unidad, nunca por posición.
+- `vetsVinCheck`, `vetsConfigCheck`, `vetsClassifyChecks`, `vetsBlockers`, `vetsFillRows`,
+  `vetsSummary`, `vetsCompareValue`, `vetsObfcmForFamily`: PURAS. `vetsBlockers` es el candado de
+  la pantalla **y** de `vetsApply` (capa de datos).
+- `vehicle.testData.vets` = resumen compacto (< 4 KB, el documento de vehículos tiene tope). La
+  copia completa va a `stations/KIA-EMLAB/vets/{testRef}` (fuera de `db`).
+- `pnState.vetsChecks` = política de verificaciones, fusionada por id en el pull del panel.
+- Pruebas: `tests/vets.node.js` (fixtures con las hojas reales de dos exportaciones en
+  `tests/fixtures/vets-*.json`; con `VETS_REAL_DIR` compara además el lector de JS contra los
+  `.xlsx` originales) y `tests/v250.e2e.js`.
+
 ## 2.4.0 — Corregir el alta de un vehículo sin borrarlo (2026-09-28)
 
 ### Nuevo
