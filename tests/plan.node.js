@@ -445,5 +445,52 @@ t('pero SÍ la respeta si se fija a mano', () => {
     sandbox.tpInvalidateCache();
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// [2.4.0] ✏️ Corregir alta: la evidencia pasa a la configuración correcta
+// ══════════════════════════════════════════════════════════════════════
+console.log('\n== 2.4.0: corregir el alta mueve la evidencia ==');
+function resetCorr() {
+    reset([
+        { configText: 'CFG-A', date: '2026-09-08', vin: 'VIN-VIEJO', vehicleId: 7, note: 'VIN: VIN-VIEJO — Auto desde COP15',
+          purpose: 'COP-Emisiones', planId: 'p1', itemUid: 'u1' },
+        { configText: 'CFG-A', date: '2026-09-08', vin: 'OTRO', vehicleId: 8, purpose: 'COP-Emisiones' }
+    ]);
+    S.weeklyPlans = [{ id: 'p1', planId: 'p1', weekDate: '2026-09-07', accepted: true, items: [
+        { uid: 'u1', desc: 'CFG-A', completed: true },
+        { uid: 'u2', desc: 'CFG-B', linkedVehicleId: 7, linkedVin: 'VIN-VIEJO', completed: true,
+          substituted: true, substitution: { originalDesc: 'CFG-B', testedDesc: 'CFG-A', testedVin: 'VIN-VIEJO' } }
+    ] }];
+    sandbox.tpWeekPlanInvalidate();
+}
+t('la prueba registrada pasa de CFG-A a CFG-B (y la de otro vehículo no se toca)', () => {
+    resetCorr();
+    eq(nDe('CFG-A'), 2); eq(nDe('CFG-B'), 0);
+    const r = sandbox.tpOnVehicleAltaCorrected({ id: 7, vin: 'VIN-VIEJO', configCode: 'CFG-B' }, { vin: 'VIN-VIEJO', configCode: 'CFG-A' });
+    eq(r.tested, 1, 'filas de evidencia movidas:');
+    eq(nDe('CFG-A'), 1); eq(nDe('CFG-B'), 1);
+    eq(S.testedList[1].configText, 'CFG-A', 'la del vehículo 8 sigue igual:');
+});
+t('el VIN se corrige en la evidencia y en su nota', () => {
+    resetCorr();
+    sandbox.tpOnVehicleAltaCorrected({ id: 7, vin: 'VIN-NUEVO', configCode: 'CFG-A' }, { vin: 'VIN-VIEJO', configCode: 'CFG-A' });
+    eq(S.testedList[0].vin, 'VIN-NUEVO');
+    eq(S.testedList[0].note.indexOf('VIN-NUEVO') !== -1 && S.testedList[0].note.indexOf('VIN-VIEJO') === -1, true, 'nota:');
+    eq(S.weeklyPlans[0].items[1].linkedVin, 'VIN-NUEVO', 'vínculo del plan:');
+});
+t('la fila que acreditaba CFG-A y ahora recibe CFG-B queda como SUSTITUCIÓN', () => {
+    resetCorr();
+    sandbox.tpOnVehicleAltaCorrected({ id: 7, vin: 'VIN-VIEJO', configCode: 'CFG-B' }, { vin: 'VIN-VIEJO', configCode: 'CFG-A' });
+    const it = S.weeklyPlans[0].items[0];
+    eq(it.substituted, true); eq(it.substitution.testedDesc, 'CFG-B');
+    eq(it.substitution.differences.length > 0, true, 'con diferencias:');
+});
+t('la fila vinculada que era sustitución y ahora COINCIDE deja de serlo', () => {
+    resetCorr();
+    sandbox.tpOnVehicleAltaCorrected({ id: 7, vin: 'VIN-VIEJO', configCode: 'CFG-B' }, { vin: 'VIN-VIEJO', configCode: 'CFG-A' });
+    const it = S.weeklyPlans[0].items[1];
+    eq(!!it.substituted, false); eq(it.substitution, undefined);
+    eq(it.completed, true, 'sigue hecha:');
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

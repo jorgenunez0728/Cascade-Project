@@ -594,6 +594,48 @@ function copVehicleFamilyKey(v) {
     return mod + '|' + eng + '|' + tx + '|' + my + '|' + reg + '|' + ((ep && ep !== '0') ? ep : '') + '|' + ((engpkg && engpkg !== '0') ? engpkg : '') + '|' + ((body && body !== '0') ? body : '');
 }
 
+/**
+ * [2.4.0] ✏️ Corregir alta: el VIN y/o la familia de un vehículo cambiaron.
+ * - El VIN se renombra en toda mesa de trabajo donde aparezca.
+ * - Si cambió la familia, sus filas AUTOMÁTICAS salen de la familia anterior (vinieron
+ *   de las pruebas de esa familia y ya no le pertenecen); copSyncVinsFromTests las
+ *   traerá a la nueva al abrirla. Las MANUALES se quedan: las tecleó alguien y decidir
+ *   a dónde van no le toca a la app.
+ * - Los JUICIOS guardados (copState.saved) NO se tocan: son evidencia congelada.
+ * `before` = {vin, famKey}. Devuelve {renamed, removed, manualLeft}.
+ */
+function copOnVehicleAltaCorrected(vehicle, before) {
+    var out = { renamed: 0, removed: 0, manualLeft: 0 };
+    if (!vehicle || typeof copState !== 'object' || !copState || !copState.families) return out;
+    before = before || {};
+    var newKey = copVehicleFamilyKey(vehicle);
+    var oldKey = before.famKey || '';
+    var ahora = new Date().toISOString();
+    Object.keys(copState.families).forEach(function(k) {
+        var f = copState.families[k];
+        if (!f || !Array.isArray(f.vehicles)) return;
+        var tocada = false;
+        for (var i = f.vehicles.length - 1; i >= 0; i--) {
+            var r = f.vehicles[i];
+            if (!r || !r.vin || (r.vin !== before.vin && r.vin !== vehicle.vin)) continue;
+            if (oldKey && oldKey !== newKey && k === oldKey) {
+                if (r.source === 'auto') { f.vehicles.splice(i, 1); out.removed++; tocada = true; continue; }
+                out.manualLeft++;
+            }
+            if (before.vin && r.vin === before.vin && vehicle.vin !== before.vin) { r.vin = vehicle.vin; out.renamed++; tocada = true; }
+        }
+        if (tocada) {
+            f.vehicles.forEach(function(r, idx) { if (r) r.id = idx + 1; });   // mismo criterio que el merge: renumerar
+            f.updatedAt = ahora;
+        }
+    });
+    if (out.renamed || out.removed) {
+        if (typeof copInvalidateCache === 'function') copInvalidateCache();
+        copPersist();
+    }
+    return out;
+}
+
 // [v20.8] La clave de familia pasó de 7 a 8 segmentos (entró la carrocería). Los
 // juicios guardados con la clave vieja NO se reescriben — son evidencia congelada —
 // sino que se EMPATAN por prefijo: el juicio de la familia combinada de entonces

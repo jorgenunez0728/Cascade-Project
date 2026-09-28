@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.3.0';
+var APP_VERSION = '2.4.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,15 @@ var APP_VERSION = '2.3.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.4.0', date: '28 sep 2026', title: 'Corregir el alta de un vehículo sin borrarlo',
+      bullets: [
+          'Nuevo: ✏️ Corregir alta (Historial → ⋯, y junto al vehículo en Operación). Cambia el VIN o la configuración de un vehículo ya registrado sin borrarlo: se conservan su línea de tiempo, su captura y su crédito en el plan.',
+          'Su prueba registrada pasa a contar para la configuración correcta, y la fila del plan que acreditaba queda como sustitución (o deja de serlo si ahora coincide).',
+          'Pide un motivo y muestra antes de guardar qué cambia y qué implica. Queda en la línea de tiempo del vehículo y en el historial de cambios.',
+          'Ya enviado a aprobación o archivado: se firma. Si en uno enviado a aprobación cambia la regulación, regresa a Listo para liberar. En uno ya aprobado no se permite cambiar la regulación: su resultado se juzgó con otros límites.',
+          'El VIN se revisa con su dígito verificador, y no se puede tomar el de otro vehículo en curso. Los demás equipos retiran la copia con el VIN viejo.',
+          'El F05 no cambia de formato: imprime los datos ya corregidos.'
+      ] },
     { version: '2.3.0', date: '28 sep 2026', title: 'La nube avisa antes de llenarse y el respaldo diario vuelve a funcionar',
       bullets: [
           'Nuevo en Datos → Sistema: "Capacidad de sincronización". Cada módulo viaja a la nube como un solo documento con tamaño máximo; la tarjeta dice cuánto ocupa cada uno, qué pesa en los vehículos (las firmas son casi todo) y cuántos vehículos caben todavía.',
@@ -1799,6 +1808,12 @@ function vehicleIsTombstoned(v, list) {
     if (!v || !list || !list.length) return false;
     return list.some(function(t) {
         if (!t || !v.vin || t.vin !== v.vin) return false;
+        // [2.4.0] Una marca de "VIN corregido" retira la copia vieja que quedó en otros
+        // equipos. NO aplica si este vehículo VOLVIÓ a ese VIN después (se corrigió la
+        // corrección): lo dice su propio `vinChanges`, que viaja con el vehículo.
+        if (t.kind === 'vin-corregido' && (v.vinChanges || []).some(function(c) {
+            return c && c.to === v.vin && String(c.at || '') > String(t.deletedAt || '');
+        })) return false;
         if (t.id != null && v.id != null && String(t.id) === String(v.id)) return true;
         return !!t.registeredAt && t.registeredAt === v.registeredAt;
     });
