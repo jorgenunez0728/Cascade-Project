@@ -5411,3 +5411,7 @@ td .ui-num-row > input { min-width: 5rem; }
 .vets-choice { display: inline-flex; align-items: center; gap: var(--space-2xs); cursor: pointer; min-height: var(--target-min, 44px); }
 .vets-list .vets-choice { display: inline; min-height: 0; }
 .vets-choice input[type="checkbox"], .vets-choice input[type="radio"] { width: auto; min-height: 0; margin: 0 var(--space-2xs) 0 0; vertical-align: middle; transform: scale(1.25); }
+
+/* [2.6.0] Auditoría: integridad y antes/después */
+.audit-integrity-line { font-size: var(--fs-sm); line-height: var(--lh-base); margin-top: var(--space-2xs); }
+.audit-diff { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-2xs); font-size: var(--fs-xs); color: var(--tp-text); }

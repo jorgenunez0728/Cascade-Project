@@ -289,7 +289,7 @@ var APP_BUILD = '__BUILD_VERSION__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.5.0';
+var APP_VERSION = '2.6.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -297,6 +297,16 @@ var APP_VERSION = '2.5.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.6.0', date: '28 sep 2026', title: 'El historial de cambios ya no se borra ni se puede editar',
+      bullets: [
+          'Cada cambio se guarda en la nube como un registro propio que no se puede modificar ni borrar, con la hora del servidor. Antes el historial se recortaba a los últimos 90 días y cualquier equipo podía reescribirlo entero.',
+          'Datos → Auditoría → "☁️ Buscar en la nube" trae la historia de cualquier fecha, también la de hace más de 90 días.',
+          'Tarjeta "🔒 Integridad del historial": cada equipo numera sus registros y cada uno lleva la huella del anterior. Si falta uno o alguien edita uno ya escrito, lo dice.',
+          'Los cambios críticos guardan el antes y el después: límites de regulación, roles, aprobación, devolución al liberador, edición retroactiva, corrección de alta y verificaciones de VETS.',
+          'Sin conexión, los cambios esperan en el equipo y se suben solos al volver. Si pasa más de un día sin subirse, sale una alerta.',
+          'El filtro por módulo de Auditoría junta los nombres que significan lo mismo (antes "Test Plan" dejaba fuera la mitad del plan).',
+          'Para que la nube haga cumplir el "no se puede editar" hay que publicar las reglas de Firestore (pendiente del laboratorio).'
+      ] },
     { version: '2.5.0', date: '28 sep 2026', title: 'Importar la prueba de STARS VETS en la liberación',
       bullets: [
           'Nuevo en Liberación: 📎 Adjuntar prueba VETS. Se elige el Excel que exporta VETS y la app llena los gases del liberador, los coeficientes del dinamómetro (Target y Dyno A/B/C, ETW) y la fecha de la prueba, en las unidades de Cascade. Funciona con las pruebas de México (g/mi, lb) y de Europa (g/km, mg/km, kg). No necesita internet.',
@@ -2012,38 +2022,239 @@ document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') _auditPersistNow();
 });
 
-function auditLog(module, action, entity, details) {
+// ══════════════════════════════════════════════════════════════════════
+// [2.6.0] HISTORIAL INMUTABLE
+//
+// Antes el historial era un arreglo recortado a 2 000 entradas / 90 días que se
+// subía ENTERO como un solo documento (audit/current): lo viejo desaparecía y
+// cualquier equipo podía reescribirlo. Ahora cada evento es su propio documento
+// en stations/KIA-EMLAB/auditlog/{id}, escrito con precondición "no existe"
+// (solo-crear) y con la hora del servidor. Se escribe primero a una bandeja de
+// salida local (kia_audit_outbox) para no perder nada sin red.
+//
+// Cadena por equipo: cada evento lleva `device`, `seq` (contador del equipo),
+// `prev` (huella del evento anterior del mismo equipo) y `hash` (SHA-256 de su
+// forma canónica). `auditVerifyChain` (PURA) detecta huecos, eventos editados y
+// cadenas rotas — evidencia de manipulación aunque la base todavía permita
+// escribir. No es una firma: quien tenga el código puede recalcular una cadena
+// entera; eso lo cierran las reglas de Firestore (solo-crear) una vez publicadas.
+// El caché local (kia_audit_trail) sigue siendo lo que pinta la pantalla.
+// ══════════════════════════════════════════════════════════════════════
+var AUDIT_OUTBOX_KEY = 'kia_audit_outbox';
+var AUDIT_CHAIN_KEY = 'kia_audit_chain';
+var AUDIT_OUTBOX_MAX = 5000;
+
+/** SHA-256 de una cadena (UTF-8) en hexadecimal. PURA y síncrona. */
+function sha256Hex(str) {
+    str = String(str == null ? '' : str);
+    var bytes = [];
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+            var d = str.charCodeAt(i + 1);
+            if (d >= 0xdc00 && d <= 0xdfff) { c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00); i++; }
+        }
+        if (c < 0x80) bytes.push(c);
+        else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+        else if (c < 0x10000) bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+        else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    var K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    var bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    var hi = Math.floor(bitLen / 0x100000000), lo = bitLen >>> 0;
+    bytes.push((hi >>> 24) & 255, (hi >>> 16) & 255, (hi >>> 8) & 255, hi & 255, (lo >>> 24) & 255, (lo >>> 16) & 255, (lo >>> 8) & 255, lo & 255);
+    var w = new Array(64);
+    var rotr = function(x, n) { return (x >>> n) | (x << (32 - n)); };
+    for (var off = 0; off < bytes.length; off += 64) {
+        for (var t = 0; t < 16; t++) w[t] = (bytes[off + 4 * t] << 24) | (bytes[off + 4 * t + 1] << 16) | (bytes[off + 4 * t + 2] << 8) | bytes[off + 4 * t + 3];
+        for (t = 16; t < 64; t++) {
+            var s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+            var s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+            w[t] = (w[t - 16] + s0 + w[t - 7] + s1) | 0;
+        }
+        var a = H[0], b = H[1], cc = H[2], dd = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+        for (t = 0; t < 64; t++) {
+            var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            var ch = (e & f) ^ (~e & g);
+            var t1 = (h + S1 + ch + K[t] + w[t]) | 0;
+            var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            var mj = (a & b) ^ (a & cc) ^ (b & cc);
+            var t2 = (S0 + mj) | 0;
+            h = g; g = f; f = e; e = (dd + t1) | 0; dd = cc; cc = b; b = a; a = (t1 + t2) | 0;
+        }
+        H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + cc) | 0; H[3] = (H[3] + dd) | 0;
+        H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(function(x) { return ('00000000' + (x >>> 0).toString(16)).slice(-8); }).join('');
+}
+
+/** Lo que entra a la huella de un evento: todo menos la huella misma y lo que pone el servidor. PURA. */
+function auditCanonical(e) {
+    var c = {};
+    Object.keys(e || {}).forEach(function(k) {
+        if (k === 'hash' || k === 'serverTs' || k === '_cloud') return;
+        c[k] = e[k];
+    });
+    return stableStringify(c);
+}
+function auditEventHash(e) { return sha256Hex(auditCanonical(e)); }
+
+/**
+ * ¿La historia está completa y sin tocar? PURA.
+ * Revisa por equipo (solo eventos con cadena): huecos en `seq`, `prev` que no
+ * empata con el evento anterior, huella que no cuadra (evento editado) y dos
+ * eventos distintos con el mismo `seq`. Solo juzga el tramo que recibe: el primer
+ * evento de cada equipo en el tramo no se puede comparar con uno anterior.
+ * Devuelve {ok, checked, legacy, devices:{id:{name, count, from, to, gaps:[[a,b]], edited:[seq], broken:[seq], forks:[seq]}}, problems}.
+ */
+function auditVerifyChain(events) {
+    var byDev = {}, legacy = 0;
+    (events || []).forEach(function(e) {
+        if (!e) return;
+        if (!e.device || typeof e.seq !== 'number' || !e.hash) { legacy++; return; }
+        (byDev[e.device] = byDev[e.device] || []).push(e);
+    });
+    var out = { ok: true, checked: 0, legacy: legacy, devices: {}, problems: 0 };
+    Object.keys(byDev).forEach(function(dev) {
+        var list = byDev[dev].slice().sort(function(a, b) { return a.seq - b.seq || String(a.id).localeCompare(String(b.id)); });
+        var r = { name: '', count: list.length, from: list[0].seq, to: list[list.length - 1].seq, gaps: [], edited: [], broken: [], forks: [] };
+        var seen = {};
+        list.forEach(function(e, i) {
+            if (e.deviceName) r.name = e.deviceName;
+            if (auditEventHash(e) !== e.hash) r.edited.push(e.seq);
+            if (seen[e.seq]) { if (seen[e.seq] !== e.hash) r.forks.push(e.seq); return; }
+            seen[e.seq] = e.hash;
+            var p = list[i - 1];
+            if (!p) return;
+            if (e.seq > p.seq + 1) r.gaps.push([p.seq + 1, e.seq - 1]);
+            else if (e.prev !== p.hash) r.broken.push(e.seq);
+        });
+        var n = r.gaps.length + r.edited.length + r.broken.length + r.forks.length;
+        out.problems += n;
+        if (n) out.ok = false;
+        out.checked += list.length;
+        out.devices[dev] = r;
+    });
+    return out;
+}
+
+function _auditDeviceId() {
+    if (typeof FB_DEVICE_ID !== 'undefined' && FB_DEVICE_ID) return FB_DEVICE_ID;
+    var k = 'kia_fb_device', v = null;
+    try { v = localStorage.getItem(k); } catch (e) {}
+    if (!v) { v = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); try { localStorage.setItem(k, v); } catch (e) {} }
+    return v;
+}
+
+function _auditReadJSON(k, def) {
+    try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch (e) { return def; }
+}
+
+/** Eventos que todavía no llegan a la nube. */
+function auditOutbox() { return _auditReadJSON(AUDIT_OUTBOX_KEY, []); }
+
+/**
+ * Registra un cambio. `opts.before` / `opts.after` (objetos chicos) para las
+ * acciones críticas: el antes y el después quedan en el evento, no solo en texto.
+ */
+function auditLog(module, action, entity, details, opts) {
+    opts = opts || {};
     var user = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    _auditEnsureLoaded().push({
-        id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    var chain = _auditReadJSON(AUDIT_CHAIN_KEY, { seq: 0, last: '' });
+    var ev = {
+        v: 2,
+        id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         ts: new Date().toISOString(),
         user: user ? { name: user.name, role: user.role } : { name: 'Sistema', role: '' },
         mod: module,
         action: action,
         entity: entity || null,
-        details: details || ''
-    });
+        details: details || '',
+        device: _auditDeviceId(),
+        deviceName: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        seq: (chain.seq || 0) + 1,
+        prev: chain.last || ''
+    };
+    if (opts.before !== undefined) ev.before = opts.before;
+    if (opts.after !== undefined) ev.after = opts.after;
+    ev.hash = auditEventHash(ev);
+    // La cadena y la bandeja se guardan YA (no con el debounce del caché): si el
+    // equipo se apaga, lo peor es un hueco visible, nunca un seq repetido.
+    var box = auditOutbox();
+    box.push(ev);
+    if (box.length > AUDIT_OUTBOX_MAX) box = box.slice(-AUDIT_OUTBOX_MAX);   // sin sync por meses: el hueco se verá en la cadena
+    try {
+        localStorage.setItem(AUDIT_CHAIN_KEY, JSON.stringify({ seq: ev.seq, last: ev.hash }));
+        localStorage.setItem(AUDIT_OUTBOX_KEY, JSON.stringify(box));
+    } catch (e) {}
+    _auditEnsureLoaded().push(ev);
     _auditDirty = true;
     _auditPersistDebounced();
+    if (typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
 }
 
 function auditGetTrail() {
     return _auditEnsureLoaded().slice();
 }
 
-function auditExportCSV() {
+/**
+ * [2.6.0] Une eventos a una lista por id (la versión con `serverTs` gana: ya pasó
+ * por la nube) y ordena por fecha. PURA.
+ */
+function auditMergeEvents(base, extra) {
+    var map = {}, order = [];
+    (base || []).concat(extra || []).forEach(function(e) {
+        if (!e || !e.id) return;
+        if (!map[e.id]) order.push(e.id);
+        if (!map[e.id] || (!map[e.id].serverTs && e.serverTs)) map[e.id] = e;
+    });
+    return order.map(function(id) { return map[id]; })
+        .sort(function(a, b) { return String(a.ts || '') < String(b.ts || '') ? -1 : String(a.ts || '') > String(b.ts || '') ? 1 : 0; });
+}
+
+/** Lo reciente que llega de la nube entra al caché (lo sigue recortando _auditPersistNow). */
+function auditMergeIntoCache(events) {
+    if (!events || !events.length) return;
+    _auditTrail = auditMergeEvents(_auditEnsureLoaded(), events);
+    _auditDirty = true;
+    _auditPersistDebounced();
+    if (typeof document !== 'undefined') { try { document.dispatchEvent(new CustomEvent('audit:updated')); } catch (e) {} }
+}
+
+// Lo consultado de la nube para un rango viejo (más de 90 días) vive solo en
+// memoria: no infla el caché ni el espejo audit/current.
+var _auditCloudRange = [];
+function auditSetCloudRange(events) {
+    _auditCloudRange = events || [];
+    if (typeof document !== 'undefined') { try { document.dispatchEvent(new CustomEvent('audit:updated')); } catch (e) {} }
+}
+/** Lo que pinta Datos → Auditoría: caché + rango consultado, sin repetir. */
+function auditGetView() {
+    return auditMergeEvents(_auditEnsureLoaded(), _auditCloudRange);
+}
+
+function auditExportCSV(events) {
     if (typeof authRequire === 'function' && !authRequire('audit.export', 'exportar el historial de cambios')) return;
-    var trail = auditGetTrail();
-    var csv = 'Fecha,Usuario,Rol,Modulo,Accion,Entidad,Detalle\n';
+    var trail = Array.isArray(events) ? events : auditGetView();
+    var q = function(v) { var t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    var csv = 'Fecha,Hora del servidor,Usuario,Rol,Modulo,Accion,Entidad,Detalle,Antes,Despues,Equipo,Secuencia,Huella,Origen\n';
     trail.forEach(function(e) {
-        csv += [e.ts, e.user.name, e.user.role, e.mod, e.action,
-                (e.entity ? e.entity.type + ':' + (e.entity.label || e.entity.id) : ''),
-                '"' + (e.details || '').replace(/"/g,'""') + '"'].join(',') + '\n';
+        csv += [e.ts, e.serverTs || '', (e.user || {}).name || '', (e.user || {}).role || '', e.mod, e.action,
+                (e.entity ? e.entity.type + ':' + (e.entity.label || e.entity.id) : ''), e.details || '',
+                e.before !== undefined ? JSON.stringify(e.before) : '', e.after !== undefined ? JSON.stringify(e.after) : '',
+                e.deviceName || e.device || '', e.seq != null ? e.seq : '', e.hash ? e.hash.slice(0, 16) : '',
+                e.v === 2 ? 'cadena' : (e.migrated ? 'migrado (anterior a 2.6.0)' : 'anterior a 2.6.0')].map(q).join(',') + '\n';
     });
     var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'audit_trail_' + localToday() + '.csv';
+    a.download = 'historial_de_cambios_' + localToday() + '.csv';
     a.click();
 }
 

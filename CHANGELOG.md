@@ -20,6 +20,57 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.6.0 — El historial de cambios ya no se borra ni se puede editar (2026-09-28)
+
+### Nuevo
+- **Historial permanente en la nube.** Cada cambio es un registro propio en la nube que **no se
+  puede modificar ni borrar**, con la **hora del servidor** además de la del equipo. Antes el
+  historial era una lista recortada a los últimos 90 días (y 2 000 registros) que se subía entera:
+  lo viejo desaparecía y cualquier equipo podía reescribirla.
+- **Datos → Auditoría → ☁️ Buscar en la nube**: con Desde/Hasta consulta la historia completa, de
+  cualquier fecha. Lo reciente (7 días) de todos los equipos llega solo.
+- **🔒 Integridad del historial**: cada equipo numera sus registros y cada uno guarda la huella
+  (SHA-256) del anterior. La tarjeta dice si todo está completo y sin cambios, o qué falta
+  ("faltan los eventos 12–14 de la Tablet 2") o qué se modificó después de escrito.
+- **Antes y después** guardados como datos (no solo en el texto) en: límites de regulación, roles
+  de operadores, aprobación y archivo, devolución al liberador, edición retroactiva, corrección de
+  alta y tratamiento de verificaciones de VETS. La pantalla y el CSV los muestran.
+- **Sin conexión no se pierde nada**: los cambios esperan en el equipo y se suben solos. Si algo
+  lleva más de un día sin subirse, sale la alerta "Historial" (y un botón "Subir ahora").
+- El CSV de auditoría agrega hora del servidor, equipo, número, huella, antes/después y si el
+  registro es anterior a 2.6.0.
+
+### Cambió
+- El filtro por módulo de Auditoría muestra nombres legibles y agrupa los códigos que significan lo
+  mismo (`tp`/`testplan`, `pn`/`panel`). Antes "Test Plan" dejaba fuera la mitad del plan.
+
+### Importante: reglas de Firestore
+El "no se puede modificar ni borrar" lo cumple la app (cada registro se crea con la condición de
+que no exista). Para que **la base de datos** lo haga cumplir contra cualquiera, hay que publicar
+`firestore.rules` (Firestore → Reglas → pegar → Publicar). Sigue pendiente desde 2.3.0. Mientras
+tanto, la tarjeta de integridad es la que detecta un registro borrado o editado.
+
+### Convivencia
+- Los equipos sin actualizar siguen funcionando: el historial viejo (`audit/current`) se sigue
+  escribiendo como espejo y lo que traiga se sube a la colección permanente. Se retira en 3.0.0.
+- Lo anterior a 2.6.0 se sube una vez, marcado como migrado (sin cadena: no se puede verificar).
+- El respaldo diario sigue guardando los últimos 90 días del caché; la colección permanente no se
+  borra nunca.
+
+### Para desarrollo
+- `auditLog(module, action, entity, details, opts)` — `opts.before`/`opts.after`. Cada evento lleva
+  `v:2, device, deviceName, seq, prev, hash`; `serverTs` lo pone la nube.
+- `sha256Hex` (PURA, síncrona), `auditCanonical`/`auditEventHash`, `auditVerifyChain` (PURA),
+  `auditMergeEvents` (PURA).
+- Bandeja `kia_audit_outbox`, cadena `kia_audit_chain`, marca de migración `kia_audit_legacy_upto`.
+- `firebase-sync.js`: `fbAuditCommitWrites` (PURA), `fbAuditFlush`, `fbAuditQuery`,
+  `fbAuditFetchRecent`, `fbAuditQueueLegacy`, `fbAuditStatus`. Todo por REST
+  `documents:commit` con `currentDocument.exists=false` + `REQUEST_TIME`.
+- `firestore.rules`: `auditlog/{id}` → read/create; update/delete denegados; el comodín excluye
+  `auditlog`.
+- Pruebas: `tests/audit.node.js` (50, contra un Firestore falso con commit atómico y precondición;
+  dos equipos) y `tests/v260.e2e.js`.
+
 ## 2.5.0 — Importar la prueba de STARS VETS en la liberación (2026-09-28)
 
 ### Nuevo

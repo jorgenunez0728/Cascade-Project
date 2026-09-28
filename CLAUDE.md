@@ -2186,6 +2186,44 @@ menos **dejó de ser silencioso**.
 - `.modal-btn-confirm:disabled` por fin tiene estilo: todos los diálogos con botón deshabilitado
   se veían activos.
 
+## 2.6.0 — Historial de cambios inmutable (`js/app.js`, `js/firebase-sync.js`)
+
+- **Cada evento es un documento de `stations/KIA-EMLAB/auditlog/{id}` y SOLO SE CREA.** Se escribe
+  por REST `documents:commit` con `currentDocument: {exists:false}` (la base rechaza pisar uno
+  existente) y `updateTransforms: serverTs ← REQUEST_TIME`. **Nunca escribir en `auditlog` con
+  `set`/PATCH sin precondición**: con las reglas publicadas sería un `update` denegado y la bandeja
+  se atoraría. `fbAuditCommitWrites` (PURA) es LA forma de armar esas escrituras.
+- Un commit es **atómico**: si UN evento del lote ya existía, falla entero. `_fbAuditSend` entonces
+  va uno por uno y cuenta como entregado lo que responde ALREADY_EXISTS / FAILED_PRECONDITION /
+  409 (ya estaba: lo subió un intento anterior).
+- **Primero la bandeja** (`kia_audit_outbox`), después la red. `auditLog` guarda cadena y bandeja
+  **en el momento** (no con el debounce del caché): si el equipo se apaga, lo peor es un hueco
+  visible, nunca un `seq` repetido. El caché `kia_audit_trail` sigue recortado a 2 000 / 90 días:
+  ya no es la fuente, solo lo que pinta la pantalla.
+- **Cadena por equipo**: `device`, `seq`, `prev` (huella del anterior del MISMO equipo), `hash`
+  (`sha256Hex(auditCanonical(e))`, que excluye `hash`, `serverTs` y campos `_*`).
+  **`auditVerifyChain(events)` (PURA) es LA verificación**: huecos, editados, cadena rota, números
+  repetidos. Solo juzga el tramo que recibe (el primero de cada equipo no tiene con quién
+  compararse). Un evento sin `v:2`/`seq` es heredado: se cuenta aparte, no es error.
+- **No es una firma.** Quien tenga el código puede recalcular una cadena entera; lo que impide
+  reescribirla son las reglas (solo-crear) — que **siguen sin publicarse** (ver 2.3.0). No
+  presentar la cadena como prueba criptográfica.
+- `sha256Hex` es propia y síncrona porque `auditLog` es síncrona y la llaman ~150 sitios;
+  `crypto.subtle` es asíncrona. Verificada contra `crypto` de Node (acentos, emoji, bloques largos).
+- **Toda acción crítica pasa `opts.before`/`opts.after`** (objetos chicos). Ya: límites
+  (`_pnRegGasMap`), roles (`pnOpUpdate`), aprobación, devolución, `retro_edit`, `alta_corregida`,
+  política VETS. Acción crítica nueva = con antes/después.
+- **`_fbAuditStation()`** (nunca `fbSync.stationId` a secas): el flush puede correr antes de que la
+  conexión fije la estación y escribiría en `stations//auditlog` (lo encontró el E2E).
+- **Convivencia**: `audit/current` se sigue empujando como ESPEJO para equipos sin actualizar y su
+  pull se sigue uniendo por id; `fbAuditQueueLegacy` sube lo que no tenga cadena, marcado
+  `migrated`, tras consultar (solo el campo `id`) qué ya subió otro equipo. Retirar el espejo es
+  parte de 3.0.0.
+- Lo consultado por rango vive en memoria (`auditSetCloudRange`) y se ve con `auditGetView()`;
+  **no entra al caché** (inflaría el espejo). Lo reciente de la nube sí (`auditMergeIntoCache`).
+- `auditModGroup(mod)` (panel.js) agrupa códigos de módulo para el filtro: los llamadores usan
+  `tp`/`testplan` y `pn`/`panel` para lo mismo.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

@@ -2056,12 +2056,7 @@
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Módulo</label>
                         <select x-model="auditFilterMod" class="tp-input" style="width:100%;">
                             <option value="">Todos</option>
-                            <option value="cop15">COP15 Cascade</option>
-                            <option value="tp">Test Plan</option>
-                            <option value="inv">Inventario</option>
-                            <option value="pn">Panel</option>
-                            <option value="cop">CoP</option>
-                            <option value="auth">Accesos</option>
+                            <template x-for="g in auditModGroups" :key="g"><option :value="g" x-text="g"></option></template>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">
@@ -2079,7 +2074,20 @@
                         <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Hasta</label>
                         <input type="date" x-model="auditFilterTo" class="tp-input" style="width:100%;">
                     </div>
+                    <button @click="auditCloudSearch()" :disabled="auditCloudBusy" class="tp-btn" style="white-space:nowrap;" title="Consulta la historia completa en la nube para el rango Desde–Hasta (también lo de hace más de 90 días)">☁️ Buscar en la nube</button>
                     <button @click="auditExport()" class="tp-btn tp-btn-primary" style="white-space:nowrap;padding:6px 12px;">📥 CSV</button>
+                </div>
+                <div x-show="auditCloudMsg" class="u-muted" style="font-size: var(--fs-sm);margin-top: var(--space-xs);" x-text="auditCloudMsg"></div>
+            </div>
+            <!-- [2.6.0] Integridad y subida -->
+            <div class="tp-card audit-integrity" style="margin-bottom:8px;">
+                <div class="tp-card-title"><span data-help="pn-audit-integrity">🔒 Integridad del historial</span></div>
+                <template x-for="(l, i) in auditIntegrityText" :key="i"><div class="audit-integrity-line" x-text="l"></div></template>
+                <div class="u-muted audit-integrity-line" x-show="auditUpload">
+                    <span x-show="auditUpload && !auditUpload.enabled">La sincronización del historial está apagada en este equipo: los cambios solo quedan aquí.</span>
+                    <span x-show="auditUpload && auditUpload.enabled && !auditUpload.pending">☁️ Todo lo de este equipo ya está en la nube.</span>
+                    <span x-show="auditUpload && auditUpload.enabled && auditUpload.pending" x-text="auditUpload ? ('☁️ ' + auditUpload.pending + ' evento(s) de este equipo por subir' + (auditUpload.lastError ? ' — ' + auditUpload.lastError : '')) : ''"></span>
+                    <button x-show="auditUpload && auditUpload.enabled && auditUpload.pending" @click="auditFlushNow()" class="tp-btn tp-btn-ghost" style="margin-left: var(--space-sm);">Subir ahora</button>
                 </div>
             </div>
             <!-- Counter -->
@@ -2099,6 +2107,10 @@
                         </template>
                     </div>
                     <div x-show="entry.details" style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;" x-text="entry.details"></div>
+                    <div x-show="entry.before !== undefined || entry.after !== undefined" class="audit-diff">
+                        <span x-show="entry.before !== undefined" x-text="'Antes: ' + auditShort(entry.before)"></span>
+                        <span x-show="entry.after !== undefined" x-text="'Después: ' + auditShort(entry.after)"></span>
+                    </div>
                 </div>
             </template>
             <!-- Empty state -->

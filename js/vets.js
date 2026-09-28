@@ -541,7 +541,8 @@ function vetsPolicySet(name, level, reason, opts) {
     else pnState.vetsChecks.push({ id: id, level: level, reason: reason || '', by: by, timestamp: now });
     if (typeof auditLog === 'function') {
         auditLog('cop15', 'vets_verificacion_clasificada', { type: 'vets', id: id, label: id },
-            antes + ' → ' + VETS_LEVELS[level].label + (reason ? ' · motivo: ' + reason : ''));
+            antes + ' → ' + VETS_LEVELS[level].label + (reason ? ' · motivo: ' + reason : ''),
+            { before: { tratamiento: antes }, after: { tratamiento: VETS_LEVELS[level].label, motivo: reason || '' } });
     }
     if (!opts.skipSave && typeof pnSave === 'function') pnSave();
     return true;
