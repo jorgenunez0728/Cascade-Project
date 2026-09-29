@@ -7305,7 +7305,10 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
         <div id="pn-content"></div>
 
         <!-- ═══ [R6] Alpine.js Reactive Templates for Panel ═══ -->
-        <div x-data="panelModule()" x-cloak>
+        <!-- [2.17.0] x-ignore: Alpine NO arma este panel al arrancar (le costaba ~1.2 s a un
+             teléfono antes de poder mostrar HOY). pnAlpineEnsure() lo arma la primera vez que
+             alguien entra a Datos. -->
+        <div id="pn-alpine-root" x-data="panelModule()" x-cloak x-ignore>
 
         <!-- ───── USERS TAB ───── -->
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
@@ -8757,10 +8760,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609290419';
+var APP_BUILD = '202609290435';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'f7d21e238977f2952b5644fd7555353f8deba1ea';
+var APP_COMMIT = 'a18894747a66e2ce08b5332c9f77519d8397d421';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8768,7 +8771,7 @@ var APP_COMMIT = 'f7d21e238977f2952b5644fd7555353f8deba1ea';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.16.0';
+var APP_VERSION = '2.17.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8776,6 +8779,14 @@ var APP_VERSION = '2.16.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.17.0', date: '29 sep 2026', title: 'Arranque rápido',
+      bullets: [
+          'La app abre 3.5 veces más rápido: en un teléfono de gama media, con un laboratorio de 60 vehículos, HOY pasó de estar lista a los ~6.4 s a ~1.8 s.',
+          'Cada guardado también es más ligero: antes, cada vez que se guardaba algo, la app volvía a medir todo el almacenamiento del equipo ocho veces.',
+          'Datos se arma la primera vez que lo abres en la sesión (tarda un poco más esa primera vez; las demás son inmediatas). HOY, Plan y Pruebas no esperan a Datos.',
+          'Cambiar de pestaña es más rápido en toda la app (los botones de ayuda "?" ya no recorren la página entera por cada campo).',
+          'Nada cambió en lo que ves ni en los datos.'
+      ] },
     { version: '2.16.0', date: '29 sep 2026', title: 'Cada rol ve lo suyo',
       bullets: [
           'Nuevo: cada quien ve las pantallas que puede usar. Un Practicante ya no ve Plan → Producción, Reglas, Recuperación ni Simulador, ni Datos → Usuarios, Regulaciones, Homologación o Auditoría.',
@@ -9414,14 +9425,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609290419' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609290435' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609290419' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609290435' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9437,7 +9448,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609290419' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609290435' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11987,6 +11998,8 @@ function switchPlatform(platform, swipeDir) {
     var newSection = document.getElementById('platform-' + sectionId);
 
     if (!newSection) return;
+    // [2.17.0] Datos arma su parte de Alpine hasta la primera visita (ver pnAlpineEnsure).
+    if (sectionId === 'panel' && typeof pnAlpineEnsure === 'function') pnAlpineEnsure();
 
     // Only animate DOM sections if they actually differ
     if (sectionId !== oldSectionId) {
@@ -13904,6 +13917,7 @@ function storageHousekeeping() {
     } catch(e) {}
 
     if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
+    if (freed > 0 && typeof pnStorageScanInvalidate === 'function') pnStorageScanInvalidate();
 
     // 5) Avisar ANTES de que un guardado falle a media operación.
     try {
@@ -13924,7 +13938,7 @@ function storageHousekeeping() {
 function storageFreeBytes() {
     try {
         if (typeof pnStorageScan !== 'function') return Infinity;
-        var scan = pnStorageScan();
+        var scan = pnStorageScan({ fresh: true });   // [2.17.0] el preflight nunca usa el memo
         return Math.max(0, scan.max - scan.total);
     } catch(e) { return Infinity; }
 }
@@ -13975,8 +13989,10 @@ function storageFreeBytes() {
         }
         } catch(e) { void 0; }
 
+        bootMark('inicio');
         bootProgress('Cargando configuraciones…');
         try { parseCSV(); } catch(e) { void 0; }
+        bootMark('catalogo');
         try { populateOperators(); } catch(e) { void 0; }
         try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { void 0; }
         
@@ -13999,6 +14015,7 @@ function storageFreeBytes() {
 
         // Initialize visual cascade tree
         try { if (typeof initCascadeTree === 'function') initCascadeTree(); } catch(e) { void 0; }
+        bootMark('cascada');
 
         // Antes de poblar cualquier selector: los <option> llevan el id como valor, así
         // que un id repetido haría que elegir un vehículo cargara otro.
@@ -14010,6 +14027,7 @@ function storageFreeBytes() {
         } catch(e) { void 0; }
         try { updateProgressBar(); } catch(e) { void 0; }
         try { refreshAllLists(); } catch(e) { void 0; }
+        bootMark('listas');
 
         try {
 	var now = new Date();
@@ -14037,6 +14055,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { void 0; }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
+        bootMark('plan');
         // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
         try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
@@ -14052,9 +14071,11 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}
         try { if (typeof invUpdateBadges === 'function') invUpdateBadges(); } catch(e) {}
+        bootMark('consumibles');
 
         // ═══ Panel Module ═══
         try { if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); } } catch(e) {}
+        bootMark('datos');
 
         // ═══ Restore Soak Timer if running ═══
         bootProgress('Restaurando tu pantalla…');
@@ -14064,6 +14085,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { void 0; }
+        bootMark('nube');
 
         // ═══ [R4-M1] Load chart configurations ═══
         try { chartConfigLoad(); } catch(e) {}
@@ -14152,6 +14174,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof dailyDashRender === 'function') dailyDashRender();
         } catch(dashErr) { void 0; }
+        bootMark('hoy');
 
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { void 0; }
@@ -14161,6 +14184,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // [v24] Pestañas por grupos en Plan, Consumibles y Datos.
         ['tp', 'inv', 'pn'].forEach(function(m) { try { uiTabGroupsInit(m); } catch (tgErr) { void 0; } });
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { void 0; }
+        bootMark('mejoras-ui');
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -14168,6 +14192,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         } catch(bugErr) { void 0; }
 
         // [2.11.0] La app ya está armada: la bienvenida se desvanece.
+        bootMark('lista');
         bootStage('lista');
 
         // [R5-M1] Restore immersive mode if previously active
@@ -16366,6 +16391,18 @@ function bootProgress(msg) {
 
 /** Etapa actual (para pruebas y para quien necesite saber si la app ya está a la vista). */
 function bootStageNow() { return _bootStage; }
+
+// [2.17.0] Cronómetro del arranque: cuánto tarda cada paso de initializeSystem. Solo memoria
+// (window._bootMarks = [[paso, ms], …]); lo lee la prueba de presupuesto (tests/perf.e2e.js)
+// y sirve para saber dónde se va el tiempo sin abrir un perfilador en el teléfono.
+var _bootLast = 0;
+function bootMark(step) {
+    if (typeof performance === 'undefined' || typeof window === 'undefined') return;
+    var now = performance.now();
+    if (!window._bootMarks) window._bootMarks = [];
+    window._bootMarks.push([step, Math.round(now - (_bootLast || now))]);
+    _bootLast = now;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M4] Micro-Animations & Visual Polish — JS Helpers
@@ -25853,13 +25890,22 @@ function cascadeInjectTooltips() {
     // Remove existing tooltip buttons first
     document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
 
+    // [2.17.0] Un solo recorrido de <label for> en vez de un querySelector por clave: con
+    // cientos de claves y un documento enorme eran ~350 ms (teléfono) en CADA cambio de
+    // pestaña. Se queda el PRIMERO en orden de documento, igual que querySelector.
+    var labelsFor = {};
+    document.querySelectorAll('label[for]').forEach(function(l) {
+        var f = l.getAttribute('for');
+        if (f && !labelsFor[f]) labelsFor[f] = l;
+    });
+
     // Modo 1: campos de formulario con <label for="id"> (o label dentro de .form-group)
     Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
         var field = document.getElementById(fieldId);
         if (!field) return;
 
         // Find the label: either a <label> pointing to this field, or the nearest preceding label
-        var label = document.querySelector('label[for="' + fieldId + '"]');
+        var label = labelsFor[fieldId] || null;
         if (!label) {
             // Walk up to find form-group then find label inside
             var parent = field.closest('.form-group') || field.parentElement;
@@ -44375,7 +44421,30 @@ var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-us
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
 
+/**
+ * [2.17.0] Arma el componente Alpine de Datos la PRIMERA vez que se necesita. Al arrancar
+ * lleva `x-ignore` y Alpine se lo salta: construir sus seis pestañas (y evaluar cada
+ * binding, incluidas las ocultas) le costaba ~1.2 s a un teléfono antes de poder mostrar
+ * HOY, que es donde abre la app. El componente ya resincroniza todo desde pnState al
+ * iniciar (lo hacía porque Alpine podía arrancar antes que pnInit), así que armarlo tarde
+ * no pierde nada. Idempotente.
+ */
+function pnAlpineEnsure() {
+    var root = document.getElementById('pn-alpine-root');
+    if (!root || !root.hasAttribute('x-ignore')) return false;
+    root.removeAttribute('x-ignore');
+    // Alpine marcó el nodo al arrancar (propiedades internas de x-ignore): quitar solo el
+    // atributo no basta, initTree seguiría saltándoselo.
+    delete root._x_ignore; delete root._x_ignoreSelf;
+    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+        try { Alpine.initTree(root); } catch (e) { void 0; }
+    }
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    return true;
+}
+
 function pnSwitchTab(tabId) {
+    pnAlpineEnsure();
     // v16.3: apagar el listener en vivo del Almacén al salir de esa pestaña — no dejarlo
     // corriendo de fondo mientras el operador ve otra sección del Panel.
     if (pnState.activeTab === 'pn-files' && tabId !== 'pn-files' && typeof fbFilesUnsubscribe === 'function') fbFilesUnsubscribe();
@@ -46556,7 +46625,40 @@ function _pnStorageEntryFor(key) {
  * vez de recorrer localStorage por su cuenta.
  * @returns {{total:number, items:Array, reclaimable:number, reviewable:number, max:number, pct:number}}
  */
-function pnStorageScan() {
+// [2.17.0] Bytes UTF-8 de una cadena sin crear un Blob. `new Blob([v]).size` copiaba cada
+// valor al proceso del navegador (así viven los Blobs): con ~1.4 MB guardados eran ~600 ms
+// por escaneo en un teléfono, y la pestaña Sistema de Alpine lo pedía 8 veces al arrancar y
+// otras 8 en cada guardado. PURA.
+function pnUtf8Len(s) {
+    if (!s) return 0;
+    var n = s.length, extra = 0;
+    for (var i = 0; i < n; i++) {
+        var c = s.charCodeAt(i);
+        if (c < 0x80) continue;
+        if (c < 0x800) extra += 1;
+        else if (c >= 0xD800 && c <= 0xDBFF) { extra += 2; i++; }   // par sustituto = 4 bytes (2 unidades)
+        else extra += 2;
+    }
+    return n + extra;
+}
+
+// [2.17.0] Memo: el mismo escaneo sirve a todos los que lo piden en el mismo momento. Se
+// invalida con `data:saved` y con todo lo que borra claves (pnStorageScanInvalidate); el
+// TTL corto cubre las escrituras que no avisan (preferencias de UI). `opts.fresh` lo salta:
+// lo usa el preflight de las operaciones críticas (storageFreeBytes).
+var _pnStorageMemo = null;
+var PN_STORAGE_MEMO_MS = 3000;
+function pnStorageScanInvalidate() { _pnStorageMemo = null; }
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('data:saved', pnStorageScanInvalidate);
+
+function pnStorageScan(opts) {
+    if (!(opts && opts.fresh) && _pnStorageMemo && Date.now() - _pnStorageMemo.at < PN_STORAGE_MEMO_MS) return _pnStorageMemo.res;
+    var res = _pnStorageScanNow();
+    _pnStorageMemo = { at: Date.now(), res: res };
+    return res;
+}
+
+function _pnStorageScanNow() {
     var items = [], total = 0, reclaimable = 0, reviewable = 0;
     var n = 0;
     try { n = localStorage.length; } catch(e) { n = 0; }
@@ -46565,7 +46667,7 @@ function pnStorageScan() {
         try {
             k = localStorage.key(i);
             v = localStorage.getItem(k);
-            bytes = v ? new Blob([v]).size : 0;
+            bytes = v ? pnUtf8Len(v) : 0;
         } catch(e) { continue; }
         if (!k) continue;
         var entry = _pnStorageEntryFor(k);
@@ -46607,6 +46709,7 @@ function pnReclaimSpace() {
             var okCount = 0;
             targets.forEach(function(it) {
                 try { localStorage.removeItem(it.key); okCount++; } catch(e) {}
+                pnStorageScanInvalidate();
             });
             if (typeof auditLog === 'function') {
                 auditLog('panel', 'storage_reclaim', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
@@ -46634,6 +46737,7 @@ function pnStorageDeleteKey(key) {
         + (item.note || '') + '<br><br>Esta acción no se puede deshacer.',
         function() {
             try { localStorage.removeItem(key); } catch(e) {}
+            pnStorageScanInvalidate();
             if (typeof auditLog === 'function') {
                 auditLog('panel', 'storage_delete', { type: 'sistema', id: key, label: item.label },
                     'Liberados ' + _pnFormatBytes(item.bytes));
@@ -56067,7 +56171,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609290419' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609290435' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -65892,7 +65996,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8291,"mods":[[8294,"js/app.js",16970],[16974,"js/cop15.js",26589],[26593,"js/inventory.js",33467],[33471,"js/testplan.js",43540],[43544,"js/panel.js",48647],[48651,"js/projects.js",50701],[50705,"js/auth.js",51729],[51733,"js/signatures.js",51934],[51938,"js/firebase-sync.js",58708],[58712,"js/cop_validator.js",62198],[62202,"js/homolog.js",63463],[63467,"js/vets.js",64686],[64690,"js/review.js",65137],[65141,"js/opcards.js",65570],[65574,"js/handoff.js",65848],[65852,"js/bugreport.js",66998]]};
+var BUG_LINE_MAP = {"tag":8294,"mods":[[8297,"js/app.js",17007],[17011,"js/cop15.js",26635],[26639,"js/inventory.js",33513],[33517,"js/testplan.js",43586],[43590,"js/panel.js",48751],[48755,"js/projects.js",50805],[50809,"js/auth.js",51833],[51837,"js/signatures.js",52038],[52042,"js/firebase-sync.js",58812],[58816,"js/cop_validator.js",62302],[62306,"js/homolog.js",63567],[63571,"js/vets.js",64790],[64794,"js/review.js",65241],[65245,"js/opcards.js",65674],[65678,"js/handoff.js",65952],[65956,"js/bugreport.js",67102]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

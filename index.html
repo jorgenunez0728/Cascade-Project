@@ -1265,7 +1265,10 @@
         <div id="pn-content"></div>
 
         <!-- ═══ [R6] Alpine.js Reactive Templates for Panel ═══ -->
-        <div x-data="panelModule()" x-cloak>
+        <!-- [2.17.0] x-ignore: Alpine NO arma este panel al arrancar (le costaba ~1.2 s a un
+             teléfono antes de poder mostrar HOY). pnAlpineEnsure() lo arma la primera vez que
+             alguien entra a Datos. -->
+        <div id="pn-alpine-root" x-data="panelModule()" x-cloak x-ignore>
 
         <!-- ───── USERS TAB ───── -->
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">

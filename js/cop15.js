@@ -8880,13 +8880,22 @@ function cascadeInjectTooltips() {
     // Remove existing tooltip buttons first
     document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
 
+    // [2.17.0] Un solo recorrido de <label for> en vez de un querySelector por clave: con
+    // cientos de claves y un documento enorme eran ~350 ms (teléfono) en CADA cambio de
+    // pestaña. Se queda el PRIMERO en orden de documento, igual que querySelector.
+    var labelsFor = {};
+    document.querySelectorAll('label[for]').forEach(function(l) {
+        var f = l.getAttribute('for');
+        if (f && !labelsFor[f]) labelsFor[f] = l;
+    });
+
     // Modo 1: campos de formulario con <label for="id"> (o label dentro de .form-group)
     Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
         var field = document.getElementById(fieldId);
         if (!field) return;
 
         // Find the label: either a <label> pointing to this field, or the nearest preceding label
-        var label = document.querySelector('label[for="' + fieldId + '"]');
+        var label = labelsFor[fieldId] || null;
         if (!label) {
             // Walk up to find form-group then find label inside
             var parent = field.closest('.form-group') || field.parentElement;

@@ -20,6 +20,49 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.17.0 — Arranque rápido (2026-09-29)
+
+Se midió antes de tocar nada: teléfono 427×840 con la CPU a ¼, el bundle de producción y un
+laboratorio realista (60 vehículos con firmas, producción de todo el catálogo, 500 pruebas, 20
+semanas, 2 000 eventos de auditoría, ~1.4 MB). HOY quedaba usable a los **6.4 s**.
+
+### Cambió
+- **La app abre 3.5 veces más rápido**: HOY usable a los **~1.8 s** en ese mismo teléfono.
+  Qué se llevaba el tiempo, en orden:
+  1. **Medir el almacenamiento (~2.4 s)**: para calcular cuánto ocupa cada clave se creaba un
+     `Blob` por valor, que viaja al proceso del navegador; y la pestaña Sistema de Datos lo
+     pedía **8 veces al arrancar y otras 8 en cada guardado**.
+  2. **Armar Datos (~1.2 s)**: Alpine construía las seis pestañas de Datos (y evaluaba cada una,
+     incluso las ocultas) antes de poder mostrar HOY.
+  3. Los botones de ayuda "?" buscaban su etiqueta recorriendo la página entera una vez por
+     cada campo (~350 ms en cada cambio de pestaña).
+- **Datos se arma la primera vez que lo abres** en la sesión: esa primera visita tarda ~2 s en
+  el teléfono de prueba (~0.5 s en uno real); las siguientes son inmediatas.
+- **Cada guardado es más ligero** (ya no dispara ocho mediciones del almacenamiento).
+- Nada cambió en lo que ves ni en los datos. El aviso de almacenamiento casi lleno sigue igual;
+  la revisión de espacio antes de una operación crítica sigue midiendo al momento.
+
+### Medido y descartado
+- Cargar el catálogo de configuraciones bajo demanda: tarda **6 ms**, no vale la pena.
+- Lo que queda (~1.1 s) es leer los 3.3 MB de JavaScript del archivo único. Bajarlo exige dividir
+  el archivo, lo que choca con el modo sin conexión de un solo archivo: ronda propia si hace falta.
+
+### Para desarrollo
+- `pnStorageScan(opts)` está memoizado:
+  - se invalida con `data:saved` y con `pnStorageScanInvalidate()`;
+  - tiene un TTL de 3 s;
+  - `{fresh:true}` fuerza un escaneo nuevo, y lo usa `storageFreeBytes`.
+- `pnUtf8Len` (PURA) reemplaza a `new Blob([v]).size`.
+- `#pn-alpine-root` lleva `x-ignore`. `pnAlpineEnsure()` lo arma en `switchPlatform('panel')` y
+  en `pnSwitchTab`: quita el atributo **y** las marcas internas `_x_ignore` (sin eso,
+  `initTree` lo sigue saltando).
+- `cascadeInjectTooltips` arma un mapa `label[for]` una sola vez por llamada.
+- `bootMark(paso)` cronometra cada paso de `initializeSystem` en `window._bootMarks`.
+- **Pruebas**:
+  - `tests/perf.e2e.js` es el presupuesto. HOY ≤ 2.5 s (mediana de 3) y primera visita a Datos
+    ≤ 2.5 s mostrando su contenido. **Solo puede bajar.**
+  - `tests/perf.node.js` corre en CI y fija `x-ignore`, sin Blob, el memo y `pnUtf8Len`.
+
 ## 2.16.0 — Cada rol ve lo suyo (2026-09-29)
 
 Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas, Producción o

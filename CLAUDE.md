@@ -2426,6 +2426,29 @@ menos **dejó de ser silencioso**.
 - `uiTabRolesApply()` se llama desde `authUpdateUI` y `authRefreshCurrentRole`: todo código que
   cambie el rol de la sesión pasa por ahí.
 
+## 2.17.0 — Arranque rápido
+
+- **Medir antes de optimizar**: `bootMark(paso)` (app.js) cronometra `initializeSystem` en
+  `window._bootMarks`. `tests/perf.e2e.js` es el presupuesto:
+  - escenario: bundle de producción, 427×840, CPU ×4, ~1.4 MB de datos realistas;
+  - HOY ≤ 2.5 s;
+  - primera visita a Datos ≤ 2.5 s.
+
+  **El número solo baja**: si una ronda lo rompe, se arregla la ronda.
+- **`pnStorageScan()` está memoizado** (se invalida con `data:saved` y
+  `pnStorageScanInvalidate()`). Se cumplen tres reglas:
+  - todo código que borre claves de localStorage llama a `pnStorageScanInvalidate()`;
+  - una decisión que dependa del espacio libre justo antes de escribir usa
+    `pnStorageScan({fresh:true})`;
+  - **nunca medir con `new Blob([...]).size`**: cada Blob viaja al proceso del navegador. Usar
+    `pnUtf8Len`.
+- **El panel Alpine de Datos (`#pn-alpine-root`) lleva `x-ignore` y se arma en la primera
+  visita** (`pnAlpineEnsure`). Toda ruta nueva que muestre contenido Alpine de Datos debe pasar
+  por `pnSwitchTab` o `switchPlatform('panel')`, que ya lo llaman. Ningún paso del arranque debe
+  armarlo: `tests/perf.node.js` lo verifica en CI.
+- **Una binding de Alpine que llama a una función se evalúa en cada `_bump()`**. Lo caro va
+  memoizado (patrón de `pnStorageScan`), o cada guardado lo paga N veces.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
