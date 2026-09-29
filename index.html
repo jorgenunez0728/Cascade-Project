@@ -681,7 +681,8 @@
 
   <!-- DTC -->
   <div class="subsection-title">Validación DTC</div>
-  <div class="form-grid">
+  <!-- [2.13.0] En el teléfono, los tres DTC son UNA tarjeta (se contestan juntos). -->
+  <div class="form-grid" data-card-group data-card-title="DTC antes de la prueba (pendiente, confirmado, permanente)">
     <div class="form-group">
       <label>DTC Pendiente (antes)</label>
       <select id="dtc_pending_before" data-chips>
@@ -953,6 +954,7 @@
                 <div id="op-next-step"></div>
                 <div class="op-actions-row">
                     <button class="btn-secondary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
+                    <button class="btn-secondary" id="btn-op-cards" onclick="opCardsEnter({ remember: true })" title="Una pregunta por pantalla, ideal en el teléfono">📇 Una cosa a la vez</button>
                     <button class="btn-secondary" onclick="generateCOP15PDF(activeVehicleId)">📄 PDF COP15-F05</button>
                 </div>
                 <details class="op-status-manual">
@@ -2254,6 +2256,7 @@
 <script src="js/homolog.js"></script>
 <script src="js/vets.js"></script>
 <script src="js/review.js"></script>
+<script src="js/opcards.js"></script>
 <script src="js/bugreport.js"></script>
 
 </body>
