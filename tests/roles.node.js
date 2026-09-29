@@ -73,6 +73,11 @@ ok('corregir archivados y administrar usuarios: solo los roles de autoridad',
     J(ctx.authRolesWith('users.manage')) === J(['Signatario', 'Assistant Manager / Manager']));
 ok('el Practicante apoya en Consumibles', ctx.authRoleHas('Practicante', 'inventory.manage'));
 ok('todos registran y operan', ROLES.every(r => ctx.authRoleHas(r, 'test.register') && ctx.authRoleHas(r, 'test.operate')));
+// [2.18.0] Adjuntar VETS: desde Técnico. Decidir las fallas sigue siendo de quien libera.
+ok('Técnico y Especialista adjuntan la prueba de VETS', ctx.authRoleHas('Técnico', 'test.vets') && ctx.authRoleHas('Especialista / Especialista Sr', 'test.vets'));
+ok('…pero no liberan (las fallas de VETS las decide el liberador)', !ctx.authRoleHas('Técnico', 'test.release') && !ctx.authRoleHas('Especialista / Especialista Sr', 'test.release'));
+ok('el Practicante no adjunta VETS', !ctx.authRoleHas('Practicante', 'test.vets'));
+ok('Signatario y Manager adjuntan VETS', ctx.authRoleHas('Signatario', 'test.vets') && ctx.authRoleHas('Assistant Manager / Manager', 'test.vets'));
 ok('la autoridad es acumulativa: cada rol puede todo lo del rol de abajo',
     ROLES.every((r, i) => i === 0 || R.AUTH_PERM_LABELS.every(p => !ctx.authRoleHas(ROLES[i - 1], p.perm) || ctx.authRoleHas(r, p.perm))));
 ok('la matriz de permisos nombra todo lo que los roles otorgan',

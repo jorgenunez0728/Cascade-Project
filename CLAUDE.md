@@ -2463,6 +2463,19 @@ menos **dejó de ser silencioso**.
 - Un formato nuevo de VETS = su fixture en `tests/fixtures/` extraído con un lector
   independiente (ya hay tres: MX FTP75, EU WLTC con tablas, EU WLTC solo reporte 48V).
 
+## 2.18.0 — Adjunta el Técnico, decide el liberador (`js/vets.js`, `js/auth.js`)
+
+- **`test.vets` (Técnico, Especialista) es adjuntar; `test.release` es decidir.** Adjuntar llena
+  datos. Clasificar una falla para el laboratorio o justificar una Importante es decisión del
+  liberador (acuerdo del laboratorio) y NO viaja con `test.vets`.
+- **`vetsPendingDecisions(summary, policy)` es LA definición de lo pendiente.** Un `checksFail`
+  con `level: null` es "por decidir", no "Importante": todo consumidor que pinte niveles debe
+  distinguirlo (la Revisión dirigida ya lo hace). La política vigente resuelve sola lo que alguien
+  clasificó después.
+- **El candado va en la capa de datos**: `vetsApply` recalcula `vetsCanDecide()` y descarta
+  decisiones que lleguen sin `test.release`; `vetsDecideApply` pide `test.release`;
+  `submitToApproval` no envía con pendientes (después de los candados de F05 y checklist).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

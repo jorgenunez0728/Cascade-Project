@@ -3385,10 +3385,13 @@ function libOnGasChange() {
     if (btn) {
         // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
         var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+        // [2.18.0] Fallas de VETS por decidir (las dejó quien adjuntó sin poder liberar).
+        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
         // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
-        uiExplainDisabled(btn, _rv.ok ? '' : _rv.failing.length
+        uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
             ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
-            : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.');
+            : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
+            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "Decidir…" junto a la prueba VETS).' : '');
     }
 }
 
@@ -3657,6 +3660,11 @@ function loadRelease() {
     }
     content.style.display = 'block';
     _cascadeRoleNote('lib-role-note', 'test.release', 'liberar');
+    // [2.18.0] Quien no libera pero sí adjunta VETS: que lo sepa aquí mismo.
+    (function() {
+        var rn = document.getElementById('lib-role-note');
+        if (rn && rn.style.display !== 'none' && _cascadeCan('test.vets')) rn.innerHTML += ' Sí puedes adjuntar la prueba de VETS: 📎 Adjuntar prueba VETS.';
+    })();
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode) +
@@ -3871,6 +3879,14 @@ function submitToApproval() {
                 _cl.missing.map(function(r) { return r.label; }).join(', '), 'warning');
             var _clCard = document.getElementById('lib-checklist-card');
             if (_clCard && _clCard.scrollIntoView) _clCard.scrollIntoView({ block: 'center' });
+            return;
+        }
+        // [2.18.0] Fallas de VETS que dejó pendientes quien adjuntó sin poder liberar.
+        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
+        if (_vp.length) {
+            showToast('Antes de enviar decide ' + (_vp.length === 1 ? 'la falla' : 'las ' + _vp.length + ' fallas') + ' de VETS: ' +
+                _vp.map(function(p) { return p.name; }).join(', ') + '.', 'warning', 8000);
+            if (typeof vetsDecideOpen === 'function') vetsDecideOpen(vehicle.id);
             return;
         }
     }

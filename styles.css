@@ -5424,6 +5424,8 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [2.5.0] Adjuntar prueba VETS en la tarjeta de gases de Liberación */
 .vets-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .vets-attach-status { font-size: var(--fs-sm); color: var(--ok-text); line-height: var(--lh-base); }
+/* [2.18.0] Fallas de VETS que esperan al liberador */
+.vets-pending { margin-top: var(--space-xs); color: var(--warn-text); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 .vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
 .vets-list li { margin: var(--space-2xs) 0; }
 .vets-list--cols { columns: 2 14rem; column-gap: var(--space-lg); }
