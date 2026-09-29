@@ -1531,6 +1531,7 @@ function loadVehicle() {
     <strong>Config:</strong> ${vehicle.configCode} |
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
     <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
+    ${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(vehicle) : ''}
     <button type="button" class="btn-secondary op-corr-btn" onclick="vehicleCorrectAltaOpen('${String(vehicle.id).replace(/[^\w.-]/g, '')}')" title="Corregir VIN o configuración sin borrar el vehículo">✏️ Corregir alta</button>
   `;
   opSaveStateRender();
@@ -3658,7 +3659,8 @@ function loadRelease() {
     _cascadeRoleNote('lib-role-note', 'test.release', 'liberar');
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
-        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode);
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode) +
+        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '');
 
     // Indicador de completitud del PDF: campos de formulario faltantes (gases y firmas tienen su propio candado).
     var _relComp = validatePdfCompleteness(vehicle);
@@ -3770,6 +3772,7 @@ function loadApproval() {
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
+        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
         (vehicle.regulationOverride && vehicle.regulationOverride.name
@@ -4670,7 +4673,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
+                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : ''}${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
                             <td data-label="Configuración">
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">

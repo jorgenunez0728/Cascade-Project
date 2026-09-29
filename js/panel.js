@@ -846,6 +846,8 @@ function pnSwitchTab(tabId) {
     // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
     // estático de pn-system, que no pasa por pnRender.
     if (tabId === 'pn-system') pnDensityRenderChoices();
+    // [2.14.0] Equipos del laboratorio: qué versión corre cada uno.
+    if (tabId === 'pn-system' && typeof fbDevicesRender === 'function') fbDevicesRender();
     // [2.7.0] La pestaña de Regulaciones se conserva en caché al volver: sin esto la
     // tarjeta de límites compartidos mostraría la versión de la visita anterior.
     if (tabId === 'pn-regulations') setTimeout(function() { _pnRegSharedPaint(null); pnRegSharedRefresh(); }, 60);
@@ -2943,6 +2945,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_fb_backup_cleanup', label: 'Limpieza de respaldos (fecha)',  tier: 'cache' },
     { key: 'kia_fb_backup_warned',  label: 'Aviso de respaldo (fecha)',      tier: 'cache' },
     // [2.9.0] Si se borra, el siguiente ciclo relee todos los vehículos una vez y sigue.
+    // [2.14.0] Se reconstruye: el registro vive en la nube y los "vistos" se vuelven a anotar.
+    { key: 'kia_fb_devices',        label: 'Equipos del laboratorio (caché)', tier: 'cache',
+      note: 'Nombre y versión de cada equipo, para decir desde dónde llegó un cambio.' },
     { key: 'kia_fb_veh_known',      label: 'Vehículos ya subidos (huellas)', tier: 'cache',
       note: 'Qué versión de cada vehículo tiene la nube. Se reconstruye leyendo la nube una vez.' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
@@ -5029,6 +5034,14 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    pn_devices: {
+        title: 'Equipos del laboratorio',
+        text: 'Cada tablet o PC que usa la plataforma, con la versión que corre y cuándo se vio por '
+            + 'última vez. Sirve para dos cosas: saber desde qué equipo llegó un cambio (por eso '
+            + 'conviene ponerle nombre a cada uno) y saber cuándo ya no queda ningún equipo viejo. '
+            + 'Mientras haya uno "sin confirmar", la app sigue escribiendo la copia completa de '
+            + 'Pruebas para que ese equipo no se quede sin ver nada.'
+    },
     pn_density: {
         title: 'Densidad de la interfaz',
         text: 'Qué tanto aire tiene la plataforma. "Cómoda" es la recomendada: letra un poco '

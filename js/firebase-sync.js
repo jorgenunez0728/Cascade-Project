@@ -1121,6 +1121,7 @@ function fbPullREST(collection, onDone) {
                 fbQuotaRecord('read');
                 if (doc && doc.fields && doc.fields.data) {
                     var data = fbFromFirestoreValue(doc.fields.data);
+                    if (doc.fields.writer) _fbWriterSeen(fbFromFirestoreValue(doc.fields.writer), 'mod', doc.updateTime || '');
                     if (onDone) onDone(data);
                 } else {
                     if (onDone) onDone(null);
@@ -1544,6 +1545,7 @@ function fbPullAll(showFeedback) {
         collections.forEach(function(col, i) {
             var snap = snapshots[i];
             results[col] = (snap && snap.exists && snap.data().data) ? snap.data().data : null;
+            if (snap && snap.exists && snap.data().writer) _fbWriterSeen(snap.data().writer, 'mod', _fbTsIso(snap.data().updatedAt));
         });
         fbPullApply(collections, results, showFeedback);
     }).catch(function(err) {
@@ -2299,6 +2301,7 @@ function fbStartListening() {
                     // Con espacio compartido todos escriben al mismo stationId; distinguir el eco propio por writer (device id)
                     var writer = _d.writer || change.doc.ref.parent.parent.id; // fallback a stationId para docs viejos
                     if (writer === FB_DEVICE_ID) return; // eco propio (mismo dispositivo)
+                    if (_d.writer) _fbWriterSeen(_d.writer, 'mod');
                     // Debounce 300ms para coalescer cambios rápidos del mismo emisor+colección
                     var key = writer + '|' + col;
                     clearTimeout(fbSync._pendingMerge[key]);
@@ -2716,8 +2719,9 @@ function fbUpdateIndicator() {
         el.title = 'Ingresa la contraseña del laboratorio para sincronizar este dispositivo (una sola vez).';
         return;
     }
-    el.onclick = function() { fbShowSettings(); };
-    el.title = '';
+    // [2.14.0] El toque abre la hoja en lenguaje llano; los ajustes técnicos quedan detrás.
+    el.onclick = function() { fbSyncSheetOpen(); };
+    el.title = 'Qué falta por subir y qué equipos ven lo mismo';
 
     var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
     var labels = { off: 'Offline', connecting: 'Conectando...', connected: fbSync._useREST ? 'REST Sync' : 'Sync', syncing: 'Syncing...', error: 'Error' };
@@ -2730,6 +2734,10 @@ function fbUpdateIndicator() {
         (fbSync.stationId ? ' <span class="topbar-sync-station">(' + fbSync.stationId + ')</span>' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
         (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-sm);font-weight:700;">● vivo</span>' : '') +
+        (function() {
+            var n = (typeof fbVehStatus === 'function' && fbVehActive()) ? fbVehStatus().pending : 0;
+            return n > 0 ? ' <span class="topbar-sync-pending">⏳ ' + n + ' por subir</span>' : '';
+        })() +
         (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-xl);font-size: var(--fs-sm);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
@@ -6081,12 +6089,14 @@ function fbVehWrites(upserts, deletes, meta, docNameFn, device) {
  * `deleted` no trae vehículo: lo retira la marca de borrado de cop15meta.
  */
 function fbVehParseDocs(docs) {
-    var out = { vehicles: [], revs: {}, maxTs: 0, bad: 0 };
+    var out = { vehicles: [], revs: {}, info: {}, maxTs: 0, bad: 0 };
     (docs || []).forEach(function(d) {
         if (!d) return;
         var t = Date.parse(d.serverTs || '') || 0;
         if (t > out.maxTs) out.maxTs = t;
         var id = d._id || '';
+        // [2.14.0] Cuándo llegó a la nube y desde qué equipo: lo lee el chip ☁ del vehículo.
+        if (id) out.info[id] = { ts: d.serverTs || '', w: d.writer || '' };
         if (d.deleted) { if (id) out.revs[id] = 'deleted'; return; }
         var v = null;
         try { v = JSON.parse(d.json || 'null'); } catch (e) { v = null; }
@@ -6175,6 +6185,11 @@ function _fbVehPull(known) {
             if (_fbModuleFingerprint('cop15') !== before) cambios = 1;
         }
         Object.keys(parsed.revs).forEach(function(id) { known.docs[id] = parsed.revs[id]; });
+        if (!known.info || typeof known.info !== 'object') known.info = {};
+        Object.keys(parsed.info).forEach(function(id) {
+            known.info[id] = parsed.info[id];
+            if (typeof _fbWriterSeen === 'function') _fbWriterSeen(parsed.info[id].w, 'veh', parsed.info[id].ts);
+        });
         if (parsed.maxTs > known.watermark) known.watermark = parsed.maxTs;
         // Se decide DESPUÉS de fusionar: lo que ya vino de la nube no cuenta como propio.
         known.metaExtra = fbVehMetaHasExtras(fbVehMeta(db), meta);
@@ -6207,8 +6222,10 @@ function _fbVehPush(known) {
             var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '' }; });
             return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev)).then(function() {
                 for (var n = 1; n < ups.length + dels.length + (last ? 1 : 0); n++) fbQuotaRecord('write');
-                revs.forEach(function(r) { known.docs[r.id] = r.rev; });
-                dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; });
+                var at = new Date().toISOString();
+                if (!known.info || typeof known.info !== 'object') known.info = {};
+                revs.forEach(function(r) { known.docs[r.id] = r.rev; known.info[r.id] = { ts: at, w: dev }; });
+                dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev }; });
                 if (last) known.metaExtra = false;
                 sent += ups.length + dels.length;
                 _fbVehKnownSave(known);
@@ -6253,6 +6270,9 @@ function fbVehiclesSync(opts) {
         _fbVehBusy = false;
         if (typeof fbSyncCapacityInvalidate === 'function') fbSyncCapacityInvalidate();
         if (_fbVehAgain) { _fbVehAgain = false; fbVehiclesSyncSoon(); }
+        // [2.14.0] El chip de cada vehículo, el indicador y la hoja dicen lo que acaba de pasar.
+        if (typeof fbVehChipsRefreshSoon === 'function') { try { fbVehChipsRefreshSoon(); } catch (e) {} }
+        if (r && r.ok && typeof fbDeviceBeat === 'function') { try { fbDeviceBeat(); } catch (e) {} }
         return r;
     });
 }
@@ -6295,4 +6315,457 @@ function fbVehLargestDoc(vehicles) {
         if (b > max) { max = b; vin = v.vin || ''; }
     });
     return { bytes: max, vin: vin };
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.14.0] ¿SE GUARDÓ? ¿LO VEN LOS DEMÁS?                             ║
+// ║  El #131 fue de confianza: el técnico guardaba y no sabía si el otro ║
+// ║  equipo ya lo veía. 2.9.0 ya sabe por vehículo qué tiene la nube     ║
+// ║  (kia_fb_veh_known): aquí solo se DICE. Nada de esto agrega campos a ║
+// ║  un vehículo ni cambia su huella: cuándo y desde qué equipo llegó a  ║
+// ║  la nube sale del documento (serverTs + writer), no del vehículo.    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_DEVICES_KEY = 'kia_fb_devices';            // caché: registro de equipos + escritores vistos
+var FB_DEVICE_BEAT_MS = 30 * 60 * 1000;           // un equipo se reporta a lo más cada 30 min
+var FB_DEVICE_STALE_DAYS = 30;                    // sin actividad en 30 días = inactivo (no bloquea la 3.0.0)
+var FB_PER_VEHICLE_SINCE = '2.9.0';
+var _fbDevBeatAt = 0, _fbChipTimer = null;
+
+/** Compara dos versiones "2.10.1" (numérico por partes). PURA. */
+function fbVersionCmp(a, b) {
+    var pa = String(a || '0').split('.'), pb = String(b || '0').split('.');
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+        var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0;
+        if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+}
+
+/** Hora corta de una marca ISO: "10:42" si es de `now`, si no "28 sep". PURA (zona local). */
+function fbShortWhen(iso, now) {
+    var t = Date.parse(iso || '');
+    if (!t) return '';
+    var d = new Date(t), n = new Date(now || Date.now());
+    var pad = function(x) { return (x < 10 ? '0' : '') + x; };
+    if (d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()) {
+        return pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    var mes = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][d.getMonth()];
+    return d.getDate() + ' ' + mes + (d.getFullYear() !== n.getFullYear() ? ' ' + d.getFullYear() : '');
+}
+
+/**
+ * Estado en la nube de UN vehículo. PURA. LA definición: el chip, la hoja del
+ * indicador y las pruebas la usan; nadie vuelve a comparar huellas por su cuenta.
+ * known = fbVehKnown(); st = {active, online, lastError}.
+ * → {state:'nube'|'por-subir'|'error'|'sin-sync', at, writer, since, reason}
+ */
+function fbVehStateOf(v, known, st) {
+    st = st || {};
+    if (!v) return { state: 'sin-sync' };
+    if (!st.active) return { state: 'sin-sync' };
+    var id = fbVehDocId(v);
+    var docs = (known && known.docs) || {};
+    var info = (known && known.info && known.info[id]) || null;
+    if (Object.prototype.hasOwnProperty.call(docs, id) && docs[id] === (v._rev || '')) {
+        return { state: 'nube', at: (info && info.ts) || '', writer: (info && info.w) || '' };
+    }
+    var since = v.updatedAt || v.lastModified || '';
+    if (st.online === false) return { state: 'error', reason: 'sin conexión', since: since };
+    if (st.lastError) return { state: 'error', reason: String(st.lastError), since: since };
+    return { state: 'por-subir', since: since };
+}
+
+/**
+ * Texto del estado para una persona. PURA.
+ * opts = {now, own (id de este equipo), names ({id: nombre})}
+ * → {icon, text, title, cls}
+ */
+function fbVehStateLabel(s, opts) {
+    opts = opts || {};
+    s = s || { state: 'sin-sync' };
+    if (s.state === 'nube') {
+        var when = fbShortWhen(s.at, opts.now);
+        var from = (s.writer && s.writer !== opts.own) ? ((opts.names && opts.names[s.writer]) || 'otro equipo') : '';
+        return { icon: '☁', cls: 'is-nube',
+            text: 'En la nube' + (when ? ' · ' + when : '') + (from ? ' · desde ' + from : ''),
+            title: 'Los demás equipos ya ven esta versión' + (from ? ' (la subió ' + from + ')' : '') + '.' };
+    }
+    if (s.state === 'por-subir') {
+        var viejo = s.since && (Number(opts.now || Date.now()) - Date.parse(s.since) > 2 * 60 * 1000);
+        return { icon: '⏳', cls: 'is-pend',
+            text: 'Por subir' + (viejo ? ' desde ' + fbShortWhen(s.since, opts.now) : ''),
+            title: 'Guardado en este equipo. Se sube solo en unos segundos; los demás todavía no lo ven.' };
+    }
+    if (s.state === 'error') {
+        var off = s.reason === 'sin conexión';
+        return { icon: '⚠', cls: 'is-err',
+            text: 'Sin subir: ' + (off ? 'sin conexión' : 'toca para ver'),
+            title: 'Lo guardado está seguro en este equipo, pero los demás no lo ven todavía. ' +
+                (off ? 'Se sube solo al volver la conexión.' : 'Motivo: ' + s.reason) };
+    }
+    return { icon: '💾', cls: 'is-local', text: 'Solo en este equipo',
+        title: 'La sincronización está apagada: este vehículo no llega a los demás equipos.' };
+}
+
+/** Contexto real para fbVehStateOf/fbVehStateLabel. Memo corto: el Historial pinta
+ *  decenas de chips seguidos y cada uno leería y parsearía localStorage. */
+var _fbVehChipCtxMemo = null;
+function _fbVehChipCtx() {
+    if (_fbVehChipCtxMemo && Date.now() - _fbVehChipCtxMemo.t < 300) return _fbVehChipCtxMemo.ctx;
+    var cache = fbDevicesCache();
+    var names = {};
+    Object.keys(cache.devices).forEach(function(id) { if (cache.devices[id].name) names[id] = cache.devices[id].name; });
+    var ctx = {
+        known: fbVehKnown(),
+        st: { active: fbVehActive(), online: (typeof navigator !== 'undefined' && navigator.onLine === false) ? false : true,
+              lastError: (typeof fbSync !== 'undefined' && fbSync.vehLastError) || '' },
+        label: { now: Date.now(), own: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '', names: names }
+    };
+    _fbVehChipCtxMemo = { t: Date.now(), ctx: ctx };
+    return ctx;
+}
+
+function _fbVehChipFill(el, v, ctx) {
+    var s = fbVehStateOf(v, ctx.known, ctx.st);
+    var L = fbVehStateLabel(s, ctx.label);
+    var prev = el.getAttribute('data-state') || '';
+    var compact = el.hasAttribute('data-compact');
+    el.className = 'veh-cloud ' + L.cls + (compact ? ' veh-cloud--compact' : '') + (el.hasAttribute('data-quiet') ? ' veh-cloud--quiet' : '');
+    el.setAttribute('data-state', s.state);
+    el.title = L.text + '. ' + L.title;
+    el.setAttribute('aria-label', L.text);
+    el.innerHTML = '<span class="veh-cloud-ic" aria-hidden="true">' + L.icon + '</span>' +
+        (compact ? '' : '<span class="veh-cloud-tx">' + escapeHtml(L.text) + '</span>');
+    if (prev === 'por-subir' && s.state === 'nube') {
+        el.classList.add('is-arrived');
+        el.addEventListener('animationend', function once() { el.classList.remove('is-arrived'); el.removeEventListener('animationend', once); });
+    }
+}
+
+/**
+ * Chip ☁ de un vehículo. `opts.compact` = solo el ícono; `opts.quiet` = no se ve
+ * mientras todo esté en la nube (en listas largas, 40 nubes iguales son ruido).
+ * Se rellena con fbVehChipsRefresh(); el toque abre la hoja del indicador.
+ */
+function fbVehChipHTML(v, opts) {
+    if (!v) return '';
+    opts = opts || {};
+    var id = String(v.id !== undefined && v.id !== null ? v.id : '').replace(/[^\w.-]/g, '');
+    var html = '<button type="button" class="veh-cloud' + (opts.compact ? ' veh-cloud--compact' : '') + '" data-veh-cloud="' + id + '"' +
+        (opts.compact ? ' data-compact' : '') + (opts.quiet ? ' data-quiet' : '') +
+        ' onclick="event.stopPropagation();fbSyncSheetOpen()"></button>';
+    // Se pinta ya con su estado (sin esperar al siguiente refresco).
+    try {
+        if (typeof document !== 'undefined') {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            _fbVehChipFill(tmp.firstChild, v, _fbVehChipCtx());
+            html = tmp.innerHTML;
+        }
+    } catch (e) {}
+    return html;
+}
+
+/** Repinta todos los chips a la vista (tras un ciclo, un guardado o un cambio de red). */
+function fbVehChipsRefresh() {
+    if (typeof document === 'undefined') return;
+    var els = document.querySelectorAll('[data-veh-cloud]');
+    if (!els.length) return;
+    _fbVehChipCtxMemo = null;
+    var ctx = _fbVehChipCtx();
+    var list = (typeof db !== 'undefined' && db && db.vehicles) || [];
+    [].forEach.call(els, function(el) {
+        var id = el.getAttribute('data-veh-cloud');
+        var v = list.find(function(x) { return String(x.id).replace(/[^\w.-]/g, '') === id; });
+        if (v) _fbVehChipFill(el, v, ctx);
+    });
+}
+
+function fbVehChipsRefreshSoon() {
+    if (_fbChipTimer) clearTimeout(_fbChipTimer);
+    _fbChipTimer = setTimeout(function() {
+        _fbChipTimer = null;
+        fbVehChipsRefresh();
+        if (typeof fbUpdateIndicator === 'function') fbUpdateIndicator();
+        _fbSyncSheetRender();
+    }, 250);
+}
+
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('data:saved', fbVehChipsRefreshSoon);
+    window.addEventListener('online', fbVehChipsRefreshSoon);
+    window.addEventListener('offline', fbVehChipsRefreshSoon);
+}
+
+// ── Equipos del laboratorio ──────────────────────────────────────────────
+
+/** Firestore Timestamp | Date | cadena → ISO. */
+function _fbTsIso(x) {
+    if (!x) return '';
+    try {
+        if (typeof x.toDate === 'function') return x.toDate().toISOString();
+        if (x instanceof Date) return x.toISOString();
+    } catch (e) { return ''; }
+    return String(x);
+}
+
+function fbDevicesCache() {
+    var c = null;
+    try { c = JSON.parse(localStorage.getItem(FB_DEVICES_KEY) || 'null'); } catch (e) { c = null; }
+    if (!c || typeof c !== 'object') c = {};
+    if (!c.devices || typeof c.devices !== 'object') c.devices = {};
+    if (!c.seen || typeof c.seen !== 'object') c.seen = {};
+    return c;
+}
+function _fbDevicesCacheSave(c) {
+    try { localStorage.setItem(FB_DEVICES_KEY, JSON.stringify(c)); } catch (e) {}
+}
+
+/**
+ * Anota un equipo que escribió en la nube. `kind` = 'veh' (escribe vehículos uno
+ * por uno: 2.9.0 o más nueva) | 'mod' (documento completo de un módulo: lo hacen
+ * todas las versiones). Solo guarda si hay algo nuevo, para no escribir en cada eco.
+ */
+function _fbWriterSeen(id, kind, at) {
+    if (!id || typeof id !== 'string' || id.indexOf('dev_') !== 0) return;
+    if (typeof FB_DEVICE_ID !== 'undefined' && id === FB_DEVICE_ID) return;
+    var c = fbDevicesCache();
+    var s = c.seen[id] || {};
+    var ts = at || new Date().toISOString();
+    var changed = false;
+    if (kind === 'veh' && !s.veh) { s.veh = true; changed = true; }
+    if (!s.last || Date.parse(ts) - Date.parse(s.last) > 60 * 60 * 1000) { s.last = ts; changed = true; }
+    if (!changed) return;
+    c.seen[id] = s;
+    _fbDevicesCacheSave(c);
+}
+
+/**
+ * Tabla de equipos. PURA.
+ * reg = {id: {name, version, lastSeen}} (registro de 2.14.0+), seen = {id: {veh, last}}.
+ * opts = {now, own, current (APP_VERSION), staleDays}
+ * → {rows:[{id, name, version, last, own, level, inactive, text}], blockers3}
+ *   level: 'al-dia' | 'atrasado' | 'anterior-214' (sube vehículos: ≥2.9.0) | 'sin-confirmar' (podría ser < 2.9.0)
+ *   blockers3 = equipos activos que podrían ser anteriores a 2.9.0 (impiden retirar las copias completas).
+ */
+function fbDevicesView(reg, seen, opts) {
+    opts = opts || {};
+    reg = reg || {}; seen = seen || {};
+    var now = Number(opts.now || Date.now());
+    var staleMs = (opts.staleDays || FB_DEVICE_STALE_DAYS) * 86400000;
+    var ids = {};
+    Object.keys(reg).forEach(function(id) { ids[id] = true; });
+    Object.keys(seen).forEach(function(id) { ids[id] = true; });
+    if (opts.own) ids[opts.own] = true;
+    var rows = Object.keys(ids).map(function(id) {
+        var r = reg[id] || null, s = seen[id] || {};
+        var last = (r && r.lastSeen) || s.last || '';
+        if (s.last && Date.parse(s.last) > Date.parse(last || 0)) last = s.last;
+        var row = { id: id, name: (r && r.name) || '', version: (r && r.version) || '', last: last,
+                    own: id === opts.own, inactive: !!last && (now - Date.parse(last) > staleMs) };
+        if (row.own && !row.version) row.version = opts.current || '';
+        if (row.version) {
+            var cmp = fbVersionCmp(row.version, opts.current || row.version);
+            if (fbVersionCmp(row.version, FB_PER_VEHICLE_SINCE) < 0) { row.level = 'sin-confirmar'; row.text = row.version + ' — anterior a ' + FB_PER_VEHICLE_SINCE; }
+            else if (cmp < 0) { row.level = 'atrasado'; row.text = row.version + ' — hay una versión más nueva'; }
+            else { row.level = 'al-dia'; row.text = row.version + (row.own ? ' — este equipo' : ' — al día'); }
+        } else if (s.veh) {
+            row.level = 'anterior-214'; row.text = 'Anterior a 2.14.0 (ya sube vehículos uno por uno)';
+        } else {
+            row.level = 'sin-confirmar'; row.text = 'Sin registro: podría ser anterior a ' + FB_PER_VEHICLE_SINCE;
+        }
+        return row;
+    });
+    rows.sort(function(a, b) {
+        if (a.own !== b.own) return a.own ? -1 : 1;
+        if (a.inactive !== b.inactive) return a.inactive ? 1 : -1;
+        return (Date.parse(b.last || 0) || 0) - (Date.parse(a.last || 0) || 0);
+    });
+    var blockers3 = rows.filter(function(r) { return !r.own && !r.inactive && r.level === 'sin-confirmar'; });
+    return { rows: rows, blockers3: blockers3 };
+}
+
+/** Este equipo se reporta en devices/{FB_DEVICE_ID} (a lo más cada 30 min, o `force`). */
+function fbDeviceBeat(force) {
+    if (typeof fbSync === 'undefined' || !fbSync.enabled || typeof _fbBkSet !== 'function') return Promise.resolve(false);
+    if (!force && Date.now() - _fbDevBeatAt < FB_DEVICE_BEAT_MS) return Promise.resolve(false);
+    _fbDevBeatAt = Date.now();
+    var rec = {
+        name: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
+        build: (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD) : '',
+        lastSeen: new Date().toISOString(),
+        ua: (typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : '').slice(0, 120)
+    };
+    return _fbBkSet('devices/' + FB_DEVICE_ID, rec).then(function() {
+        var c = fbDevicesCache();
+        c.devices[FB_DEVICE_ID] = rec;
+        _fbDevicesCacheSave(c);
+        return true;
+    }, function(err) { console.warn('Registro de equipo:', _fbBkErrText(err)); return false; });
+}
+
+/** Trae el registro de equipos de la nube y lo deja en caché. */
+function fbDevicesLoad() {
+    if (typeof fbSync === 'undefined' || !fbSync.enabled || typeof _fbBkList !== 'function') return Promise.resolve(fbDevicesCache());
+    return _fbBkList('devices').then(function(list) {
+        var c = fbDevicesCache();
+        c.devices = {};
+        (list || []).forEach(function(d) { if (d && d.id) c.devices[d.id] = d.data || {}; });
+        c.fetchedAt = new Date().toISOString();
+        _fbDevicesCacheSave(c);
+        return c;
+    }, function(err) { console.warn('Equipos:', _fbBkErrText(err)); return fbDevicesCache(); });
+}
+
+/** Guarda el nombre de este equipo y lo publica al instante. */
+function fbDeviceNameSave(name) {
+    name = String(name || '').trim().slice(0, 40);
+    try { localStorage.setItem('kia_fb_device_name', name); } catch (e) {}
+    if (typeof fbUpdateStationMeta === 'function') fbUpdateStationMeta();
+    return fbDeviceBeat(true).then(function(ok) {
+        if (typeof showToast === 'function') showToast(name ? 'Este equipo se llama "' + name + '".' : 'Nombre borrado.', 'success');
+        fbDevicesRender();
+        _fbSyncSheetRender();
+        fbVehChipsRefresh();
+        return ok;
+    });
+}
+
+/** Tarjeta "Equipos del laboratorio" en Datos → Sistema (#pn-devices). */
+function fbDevicesRender(opts) {
+    if (typeof document === 'undefined') return;
+    var host = document.getElementById('pn-devices');
+    if (!host) return;
+    var c = fbDevicesCache();
+    var v = fbDevicesView(c.devices, c.seen, { now: Date.now(), own: FB_DEVICE_ID,
+        current: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' });
+    var myName = (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })();
+    var h = '<div class="dev-name-row"><label for="dev-name-input">Nombre de este equipo</label>' +
+        '<div class="dev-name-in"><input id="dev-name-input" maxlength="40" value="' + escapeHtml(myName) + '" placeholder="Ej.: Tablet celda 2">' +
+        '<button type="button" class="btn-secondary" onclick="fbDeviceNameSave(document.getElementById(\'dev-name-input\').value)">Guardar</button></div>' +
+        '<div class="u-muted-xs">Así aparece en los demás equipos cuando algo "llegó desde" aquí.</div></div>';
+    if (!fbVehActive()) {
+        h += '<p class="u-muted-xs">La sincronización está apagada en este equipo: no hay con quién compararse.</p>';
+    } else {
+        h += v.blockers3.length
+            ? '<div class="dev-note is-warn">⚠ ' + v.blockers3.length + ' equipo' + (v.blockers3.length > 1 ? 's' : '') +
+              ' activo' + (v.blockers3.length > 1 ? 's' : '') + ' sin confirmar versión. Hasta que se actualicen (o dejen de usarse) se sigue escribiendo la copia completa de Pruebas para ellos.</div>'
+            : '<div class="dev-note is-ok">✓ Todos los equipos activos suben vehículos uno por uno.</div>';
+        h += '<ul class="dev-list">' + v.rows.map(function(r) {
+            return '<li class="dev-row lvl-' + r.level + (r.inactive ? ' is-inactive' : '') + '">' +
+                '<div class="dev-row-name">' + escapeHtml(r.name || (r.own ? 'Este equipo (sin nombre)' : 'Equipo sin nombre')) +
+                (r.own ? ' <span class="dev-tag">este</span>' : '') + '</div>' +
+                '<div class="dev-row-sub">' + escapeHtml(r.text) + (r.last ? ' · visto ' + escapeHtml(fbShortWhen(r.last)) : '') +
+                (r.inactive ? ' · inactivo' : '') + '</div></li>';
+        }).join('') + '</ul>' +
+        '<div class="u-muted-xs">Los equipos se registran solos desde 2.14.0. Uno "sin registro" solo se conoce porque escribió en la nube.</div>';
+    }
+    host.innerHTML = h;
+    if (!(opts && opts.noFetch) && fbVehActive()) {
+        fbDevicesLoad().then(function() { fbDevicesRender({ noFetch: true }); });
+    }
+}
+
+// ── La hoja del indicador ────────────────────────────────────────────────
+
+/** Qué dice la hoja. PURA respecto a sus argumentos (la prueba la usa). */
+function fbSyncSheetModel(input) {
+    var i = input || {};
+    var m = { tone: 'ok', head: '', lines: [], pending: [] };
+    if (!i.active) {
+        m.tone = 'off'; m.head = '💾 La sincronización está apagada';
+        m.lines.push('Todo se guarda en este equipo, pero los demás no lo ven.');
+        return m;
+    }
+    m.pending = (i.pending || []).map(function(v) {
+        return { vin: v.vin || '', since: v.updatedAt || v.lastModified || '' };
+    });
+    if (i.online === false) { m.tone = 'err'; m.head = '⚠ Sin conexión'; m.lines.push('Lo guardado está seguro aquí. Se sube solo al volver la conexión.'); }
+    else if (i.lastError) { m.tone = 'err'; m.head = '⚠ No se pudo subir'; m.lines.push(i.lastError); }
+    else if (m.pending.length) { m.tone = 'pend'; m.head = '⏳ Subiendo lo de este equipo…'; }
+    else { m.head = '☁ Todo lo de este equipo está en la nube'; }
+    if (i.lastSync) m.lines.push('Última revisión con la nube: ' + fbShortWhen(i.lastSync, i.now) + '.');
+    m.lines.push(i.live ? 'Los cambios de otros equipos llegan al momento.' : 'Los cambios de otros equipos se revisan cada 5 minutos.');
+    if (i.queue > 0) m.lines.push(i.queue + ' cambio' + (i.queue > 1 ? 's' : '') + ' de otros módulos (plan, consumibles…) en espera.');
+    return m;
+}
+
+function _fbSyncSheetInput() {
+    var d = (typeof db !== 'undefined' && db) ? db : { vehicles: [] };
+    var known = fbVehKnown();
+    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs);
+    return {
+        active: fbVehActive(), online: (typeof navigator !== 'undefined' && navigator.onLine === false) ? false : true,
+        lastError: fbSync.vehLastError || '', lastSync: fbSync.vehLastSync || '', live: !!fbSync._vehLive,
+        pending: plan.upserts, queue: (typeof fbOfflineQueue !== 'undefined') ? fbOfflineQueue.length : 0, now: Date.now()
+    };
+}
+
+function _fbSyncSheetRender() {
+    if (typeof document === 'undefined') return;
+    var host = document.getElementById('fb-sheet');
+    if (!host) return;
+    var m = fbSyncSheetModel(_fbSyncSheetInput());
+    var h = '<div class="fb-sheet-head tone-' + m.tone + '">' + escapeHtml(m.head) + '</div>';
+    if (m.pending.length) {
+        h += '<div class="fb-sheet-sub">Por subir desde este equipo:</div><ul class="fb-sheet-list">' +
+            m.pending.slice(0, 12).map(function(p) {
+                return '<li><b>' + escapeHtml(p.vin) + '</b>' + (p.since ? ' · guardado ' + escapeHtml(fbShortWhen(p.since)) : '') + '</li>';
+            }).join('') + (m.pending.length > 12 ? '<li>… y ' + (m.pending.length - 12) + ' más</li>' : '') + '</ul>';
+    }
+    h += m.lines.map(function(l) { return '<p class="fb-sheet-line">' + escapeHtml(l) + '</p>'; }).join('');
+    var myName = (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })();
+    if (!myName && fbVehActive()) {
+        h += '<div class="fb-sheet-name"><label for="fb-sheet-name-in">Ponle nombre a este equipo para que los demás sepan de dónde llegan los cambios</label>' +
+            '<div class="dev-name-in"><input id="fb-sheet-name-in" maxlength="40" placeholder="Ej.: Tablet celda 2">' +
+            '<button type="button" class="btn-secondary" onclick="fbDeviceNameSave(document.getElementById(\'fb-sheet-name-in\').value)">Guardar</button></div></div>';
+    }
+    host.innerHTML = h;
+    var btn = document.querySelector('[data-fb-sheet-retry]');
+    if (btn && typeof uiExplainDisabled === 'function') {
+        uiExplainDisabled(btn, !fbVehActive() ? 'La sincronización está apagada en este equipo.'
+            : (navigator.onLine === false ? 'No hay conexión: se intenta solo al volver.' : ''));
+    }
+}
+
+/** El toque en el indicador del topbar: qué falta, desde cuándo, y "Intentar ahora". */
+function fbSyncSheetOpen() {
+    if (typeof showModal !== 'function') { fbShowSettings(); return; }
+    var old = document.getElementById('globalModal');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    showModal({
+        title: 'Sincronización', type: 'info',
+        body: '<div id="fb-sheet" class="fb-sheet" aria-live="polite"></div>',
+        buttons: [
+            { label: 'Intentar ahora', cls: 'btn-primary', onclick: function() { fbSyncSheetRetry(); } },
+            { label: 'Equipos y ajustes', onclick: function() {
+                var o = document.getElementById('globalModal'); if (o) o.style.display = 'none';
+                if (typeof dashGo === 'function') dashGo('panel', 'pn-system'); else fbShowSettings();
+            } },
+            { label: 'Cerrar', onclick: function() { var o = document.getElementById('globalModal'); if (o) o.style.display = 'none'; } }
+        ]
+    });
+    var retry = document.querySelector('#globalModal [data-modal-btn="0"]');
+    if (retry) retry.setAttribute('data-fb-sheet-retry', '');
+    _fbSyncSheetRender();
+}
+
+function fbSyncSheetRetry() {
+    var btn = document.querySelector('[data-fb-sheet-retry]');
+    if (btn && btn.getAttribute('data-why')) return;
+    if (btn) { btn.textContent = 'Revisando…'; btn.disabled = true; }
+    if (typeof fbQueueRetry === 'function') { try { fbQueueRetry(); } catch (e) {} }
+    return fbVehiclesSync().then(function(r) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Intentar ahora'; }
+        _fbSyncSheetRender();
+        if (typeof showToast === 'function') {
+            if (r && r.ok) showToast(r.sent ? 'Listo: se subieron ' + r.sent + ' cambio' + (r.sent > 1 ? 's' : '') + '.' : 'Listo: todo estaba al día.', 'success');
+            else if (r && r.busy) showToast('Ya se estaba revisando; en un momento termina.', 'info');
+            else if (r && r.error) showToast('No se pudo subir: ' + r.error, 'error');
+        }
+        return r;
+    });
 }

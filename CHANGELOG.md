@@ -20,6 +20,58 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.14.0 — ¿Se guardó? ¿Lo ven los demás? (2026-09-29)
+
+El #131 ("guardé una hora y en el otro equipo no está") fue de **confianza**: el técnico guardaba
+y no tenía cómo saber si el otro equipo ya lo veía. Desde 2.9.0 la app sí lo sabe, vehículo por
+vehículo; ahora lo dice.
+
+### Nuevo
+- **Chip de nube por vehículo** en Operación, Liberación, Aprobación y el encabezado del modo
+  tarjetas:
+  - ☁ **En la nube · 10:42**: los demás equipos ya ven esta versión. Si la subió otro equipo,
+    dice cuál ("desde Tablet celda 2").
+  - ⏳ **Por subir**: guardado aquí, sale solo en unos segundos. Si tarda más de dos minutos dice
+    desde cuándo.
+  - ⚠ **Sin subir: sin conexión** (o el motivo): lo guardado está seguro en este equipo.
+  - 💾 **Solo en este equipo**: la sincronización está apagada.
+  Al pasar de ⏳ a ☁ el chip cambia con un fundido corto.
+- **Historial**: el aviso aparece solo en los vehículos que NO están en la nube.
+- **Indicador de arriba**: cuenta lo pendiente ("⏳ 2 por subir"). Al tocarlo abre una hoja en
+  palabras: qué falta, desde cuándo, si los cambios de otros llegan al momento o cada 5 minutos,
+  y **Intentar ahora**. Los ajustes técnicos quedan en "Equipos y ajustes".
+- **Equipos del laboratorio** (Datos → Sistema): cada equipo se registra con su nombre, versión y
+  última vez que se vio. Marca cuáles están al día, atrasados o **sin confirmar** (podrían ser
+  anteriores a 2.9.0). Mientras haya uno activo sin confirmar, se sigue escribiendo la copia
+  completa de Pruebas para él; cuando no quede ninguno, se puede hacer la 3.0.0.
+- **Nombre del equipo**: se pide en la hoja del indicador si falta, y se edita en Datos → Sistema.
+
+### Cambió
+- El toque en el indicador ya no abre directo los ajustes técnicos (oscuros, en inglés a medias):
+  abre la hoja nueva, y desde ahí se llega a ellos.
+
+### No incluido (a propósito)
+- **HOY no lleva un chip por vehículo**: sus filas son actividades, no expedientes, y el
+  indicador de arriba (visible en HOY) ya cuenta lo que falta por subir.
+- Un equipo con versión anterior a 2.14.0 **no se registra** (no tiene el código): se conoce solo
+  porque escribió en la nube. Si ya subió vehículos uno por uno es 2.9.0 o más nueva; si solo
+  escribió copias completas queda "sin confirmar".
+
+### Para desarrollo
+- `fbVehStateOf(v, known, st)` (PURA) es LA definición del estado en la nube de un vehículo
+  (`nube | por-subir | error | sin-sync`); `fbVehStateLabel(s, opts)` (PURA) su texto. Nadie más
+  compara huellas por su cuenta.
+- Cuándo y desde qué equipo llegó a la nube sale del **documento** (`serverTs` + `writer`, en
+  `kia_fb_veh_known.info`), nunca del vehículo: no se agregaron campos al vehículo ni cambió
+  `revContentHash`.
+- `fbVehChipHTML(v, {compact, quiet})` + `fbVehChipsRefresh()`; se repintan tras cada ciclo, en
+  `data:saved` y con `online`/`offline`.
+- Registro: `devices/{FB_DEVICE_ID}` (`fbDeviceBeat`, a lo más cada 30 min). Escritores vistos en
+  `kia_fb_devices.seen` (`_fbWriterSeen`: `veh` = sube vehículos uno por uno).
+  `fbDevicesView` (PURA) clasifica y da `blockers3`.
+- `fbSyncSheetModel` (PURA) es el contenido de la hoja.
+- Pruebas: 33 casos nuevos en `tests/vehsync.node.js` y 22 en `tests/v2140.e2e.js` (teléfono 427×840).
+
 ## 2.13.0 — Operación en el teléfono: una cosa a la vez (2026-09-28)
 
 ### Nuevo
