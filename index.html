@@ -90,7 +90,7 @@
     <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
          La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
          en styles.css) — antes envolvía a una segunda fila casi vacía. -->
-    <div id="fb-sync-indicator" class="topbar-sync" onclick="fbShowSettings()" title="Estado de sincronización"></div>
+    <div id="fb-sync-indicator" class="topbar-sync" onclick="fbSyncSheetOpen()" title="Estado de sincronización"></div>
     <div id="op-picker" class="topbar-op" title="Operador actual"></div>
     <button class="topbar-icon-btn topbar-icon-btn--badged" onclick="toggleNotificationCenter()" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" class="topbar-badge" hidden>0</span></button>
     <button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" title="Historial de cambios" aria-label="Historial de cambios">🕘</button>
@@ -1843,6 +1843,13 @@
                 <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-sm);">
                     Solo cambia este dispositivo — no afecta a los demás del laboratorio.
                 </div>
+            </div>
+
+            <!-- [2.14.0] Equipos del laboratorio: lo pinta fbDevicesRender (firebase-sync.js) al
+                 entrar a la pestaña. Estático, fuera de Alpine (mismo criterio que la densidad). -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_devices">💻 Equipos del laboratorio</h4>
+                <div id="pn-devices"></div>
             </div>
 
             <!-- [2.3.0] Capacidad de sincronización: cada módulo viaja a la nube como UN

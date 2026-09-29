@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.13.0';
+var APP_VERSION = '2.14.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.13.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.14.0', date: '29 sep 2026', title: '¿Se guardó? ¿Lo ven los demás?',
+      bullets: [
+          'Nuevo: cada vehículo dice si ya está en la nube. En Operación, Liberación, Aprobación y el modo tarjetas: ☁ "En la nube · 10:42", ⏳ "Por subir" o ⚠ "Sin subir: sin conexión". Si lo subió otro equipo, dice cuál ("desde Tablet celda 2").',
+          'En el Historial solo aparece el aviso cuando algo NO está en la nube: 40 nubes iguales no dicen nada.',
+          'El indicador de arriba cuenta lo que falta por subir ("⏳ 2 por subir") y al tocarlo explica en palabras qué está pendiente, desde cuándo, y ofrece "Intentar ahora". Los ajustes técnicos quedan detrás.',
+          'Cada equipo se registra con su nombre y versión. Datos → Sistema → Equipos del laboratorio muestra cuáles están al día y cuáles podrían ser anteriores a 2.9.0 (los que impiden retirar la copia completa de Pruebas).',
+          'Ponle nombre a cada tablet o PC (en la hoja del indicador o en Datos → Sistema): así se sabe de dónde llegó cada cambio.'
+      ] },
     { version: '2.13.0', date: '28 sep 2026', title: 'Operación en el teléfono: una cosa a la vez',
       bullets: [
           'Nuevo: en el teléfono, Operación se muestra una pregunta por pantalla. Arriba dice qué haces y en qué vehículo (VIN, sección y cuántas van); abajo, un botón grande de Guardar.',

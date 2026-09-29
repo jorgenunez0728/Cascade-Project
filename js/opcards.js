@@ -232,6 +232,7 @@ function _opcHeader() {
             '<button type="button" class="oc-x" onclick="opCardsExit()" aria-label="Salir al formulario completo">✕</button>' +
             '<div class="oc-head-what"><b>' + escapeHtml(tail) + '</b> · Operación<div class="oc-head-sub">' + escapeHtml(where) + '</div></div>' +
             '<div class="oc-saved" id="oc-saved" aria-live="polite"></div>' +
+            (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v.id !== undefined ? v : null, { compact: true }) : '') +
         '</div>' +
         '<div class="oc-segs" aria-hidden="' + (n > 1 ? 'false' : 'true') + '">' + segs + '</div>';
 }

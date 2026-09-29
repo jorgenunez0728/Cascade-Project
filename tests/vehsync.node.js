@@ -6,6 +6,7 @@
 // Firestore falso: commit con la hora del servidor, GET de documentos y runQuery con
 // filtro por `serverTs`.
 
+process.env.TZ = process.env.TZ || 'America/Mexico_City';
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -279,6 +280,100 @@ const MARGEN = 10 * 60 * 1000;
         const c0 = srv.commits;
         r = await F.fbVehiclesSync();
         ok('no lee ni escribe', r.skipped && srv.commits === c0);
+    }
+
+    console.log('\n== 2.14.0: ¿se guardó? ¿lo ven los demás? (estado por vehículo) ==');
+    {
+        const srv4 = servidor();
+        const G = equipo(srv4, 'dev_G'), H = equipo(srv4, 'dev_H');
+        const st = { active: true, online: true, lastError: '' };
+        G.db.vehicles = [vehiculo(40)]; G.dedupeVehicleIds(); guardar(G);
+        const v = G.db.vehicles[0];
+        ok('recién guardado y sin ciclo: por subir', G.fbVehStateOf(v, G.fbVehKnown(), st).state === 'por-subir');
+        ok('sin conexión: error que lo dice', G.fbVehStateOf(v, G.fbVehKnown(), { active: true, online: false }).reason === 'sin conexión');
+        ok('con sync apagada: solo en este equipo', G.fbVehStateOf(v, G.fbVehKnown(), { active: false }).state === 'sin-sync');
+        r = await G.fbVehiclesSync();
+        let s1 = G.fbVehStateOf(v, G.fbVehKnown(), st);
+        ok('tras el ciclo: en la nube, con la hora del servidor y este equipo como autor',
+            s1.state === 'nube' && !!s1.at && s1.writer === 'dev_G', JSON.stringify(s1));
+        await H.fbVehiclesSync({ initial: true });
+        const vh = porVin(H, v.vin);
+        let s2 = H.fbVehStateOf(vh, H.fbVehKnown(), st);
+        ok('el otro equipo lo ve en la nube y sabe que vino de G', s2.state === 'nube' && s2.writer === 'dev_G', JSON.stringify(s2));
+        const seen = JSON.parse(H.store.kia_fb_devices || '{}').seen || {};
+        ok('H anota a G como equipo que sube vehículos uno por uno', seen.dev_G && seen.dev_G.veh === true, JSON.stringify(seen));
+        ok('un equipo no se anota a sí mismo', !(JSON.parse(G.store.kia_fb_devices || '{}').seen || {}).dev_G);
+        vh.testData.odometer = 999; H.stampRevisions(H.db.vehicles, ahora());
+        ok('una edición nueva vuelve a "por subir" aunque la versión anterior esté en la nube',
+            H.fbVehStateOf(vh, H.fbVehKnown(), st).state === 'por-subir');
+        srv4.fail = 2;
+        r = await H.fbVehiclesSync();
+        ok('si la red falla, el estado es error con el motivo',
+            !r.ok && H.fbVehStateOf(vh, H.fbVehKnown(), { active: true, online: true, lastError: H.fbSync.vehLastError }).state === 'error');
+        r = await H.fbVehiclesSync();
+        s2 = H.fbVehStateOf(vh, H.fbVehKnown(), st);
+        ok('al reintentar: en la nube, ahora desde H', r.ok && s2.state === 'nube' && s2.writer === 'dev_H', JSON.stringify(s2));
+        await G.fbVehiclesSync();
+        const s3 = G.fbVehStateOf(porVin(G, v.vin), G.fbVehKnown(), st);
+        ok('G recibe la edición y dice que llegó desde H', s3.state === 'nube' && s3.writer === 'dev_H', JSON.stringify(s3));
+        ok('la huella del vehículo no cambió por mostrar el estado (sin campos nuevos)',
+            !('_cloud' in porVin(G, v.vin)) && porVin(G, v.vin)._rev === vh._rev);
+
+        const now = Date.parse('2026-09-28T16:30:00');
+        const L = (x) => G.fbVehStateLabel(x, { now, own: 'dev_G', names: { dev_H: 'Tablet celda 2' } });
+        ok('etiqueta: en la nube con hora y nombre del equipo que lo subió',
+            L({ state: 'nube', at: new Date(Date.parse('2026-09-28T10:42:00')).toISOString(), writer: 'dev_H' }).text === 'En la nube · 10:42 · desde Tablet celda 2',
+            L({ state: 'nube', at: new Date(Date.parse('2026-09-28T10:42:00')).toISOString(), writer: 'dev_H' }).text);
+        ok('etiqueta: lo subido por este equipo no dice "desde"', L({ state: 'nube', at: new Date(now).toISOString(), writer: 'dev_G' }).text === 'En la nube · 16:30');
+        ok('etiqueta: un equipo sin nombre es "otro equipo"', /desde otro equipo$/.test(L({ state: 'nube', at: '', writer: 'dev_Z' }).text));
+        ok('etiqueta: otro día muestra la fecha', / · 27 sep$/.test(L({ state: 'nube', at: new Date(Date.parse('2026-09-27T09:00:00')).toISOString(), writer: 'dev_G' }).text));
+        ok('etiqueta: por subir hace rato dice desde cuándo', L({ state: 'por-subir', since: new Date(now - 10 * 60000).toISOString() }).text === 'Por subir desde 16:20');
+        ok('etiqueta: por subir recién no alarma', L({ state: 'por-subir', since: new Date(now - 30000).toISOString() }).text === 'Por subir');
+        ok('etiqueta: el error promete lo que es cierto (está guardado aquí)', /seguro en este equipo/.test(L({ state: 'error', reason: 'sin conexión' }).title));
+    }
+
+    console.log('\n== 2.14.0: equipos del laboratorio ==');
+    {
+        const A2 = equipo(servidor(), 'dev_X');
+        ok('versiones: comparación numérica por partes', A2.fbVersionCmp('2.10.0', '2.9.0') === 1 && A2.fbVersionCmp('2.9.0', '2.9') === 0 && A2.fbVersionCmp('2.13.1', '2.14.0') === -1);
+        const now = Date.parse('2026-09-28T12:00:00.000Z');
+        const reg = {
+            dev_me: { name: 'PC Lab', version: '2.14.0', lastSeen: '2026-09-28T11:00:00.000Z' },
+            dev_old: { name: 'Tablet 1', version: '2.14.0', lastSeen: '2026-09-28T10:00:00.000Z' },
+            dev_up: { name: 'Tablet 2', version: '2.15.0', lastSeen: '2026-09-28T09:00:00.000Z' }
+        };
+        const seen = {
+            dev_v: { veh: true, last: '2026-09-27T12:00:00.000Z' },
+            dev_m: { last: '2026-09-26T12:00:00.000Z' },
+            dev_gone: { last: '2026-07-01T12:00:00.000Z' }
+        };
+        const V = A2.fbDevicesView(reg, seen, { now, own: 'dev_me', current: '2.15.0' });
+        const by = id => V.rows.find(r => r.id === id);
+        ok('este equipo va primero', V.rows[0].id === 'dev_me' && V.rows[0].own);
+        ok('uno en la versión actual está al día', by('dev_up').level === 'al-dia');
+        ok('uno registrado en una versión anterior está atrasado', by('dev_old').level === 'atrasado');
+        ok('sin registro pero sube vehículos uno por uno: anterior a 2.14.0, no bloquea', by('dev_v').level === 'anterior-214');
+        ok('sin registro y solo escribió copias completas: sin confirmar', by('dev_m').level === 'sin-confirmar');
+        ok('uno sin actividad en 30 días queda inactivo y al final', by('dev_gone').inactive && V.rows[V.rows.length - 1].id === 'dev_gone');
+        ok('lo que impide la 3.0.0: solo los activos sin confirmar', V.blockers3.length === 1 && V.blockers3[0].id === 'dev_m', JSON.stringify(V.blockers3.map(r => r.id)));
+        ok('este equipo sin registro todavía toma la versión que corre', A2.fbDevicesView({}, {}, { now, own: 'dev_me', current: '2.14.0' }).rows[0].level === 'al-dia');
+    }
+
+    console.log('\n== 2.14.0: la hoja del indicador ==');
+    {
+        const A3 = equipo(servidor(), 'dev_S');
+        const now = Date.parse('2026-09-28T16:00:00');
+        let m = A3.fbSyncSheetModel({ active: false });
+        ok('apagada: lo dice y no promete nada', m.tone === 'off' && /apagada/.test(m.head));
+        m = A3.fbSyncSheetModel({ active: true, online: true, pending: [], live: true, lastSync: new Date(now).toISOString(), now });
+        ok('todo arriba: verde y cuándo se revisó', m.tone === 'ok' && m.lines.some(l => /16:00/.test(l)) && m.lines.some(l => /al momento/.test(l)));
+        m = A3.fbSyncSheetModel({ active: true, online: true, pending: [{ vin: 'KNA1', updatedAt: new Date(now).toISOString() }], queue: 2, now });
+        ok('con pendientes: los lista con su VIN y cuenta la cola de otros módulos',
+            m.tone === 'pend' && m.pending[0].vin === 'KNA1' && m.lines.some(l => /2 cambios de otros módulos/.test(l)));
+        m = A3.fbSyncSheetModel({ active: true, online: false, pending: [{ vin: 'KNA1' }], now });
+        ok('sin conexión manda sobre "subiendo"', m.tone === 'err' && /Sin conexión/.test(m.head));
+        m = A3.fbSyncSheetModel({ active: true, online: true, lastError: 'Sin permiso', pending: [], now });
+        ok('un error se muestra con su motivo', m.tone === 'err' && m.lines.indexOf('Sin permiso') >= 0);
     }
 
     console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

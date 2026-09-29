@@ -2379,6 +2379,21 @@ menos **dejó de ser silencioso**.
   hacen `switchPlatform`, las pestañas de Pruebas y `opCardsAdvance` al ir a Liberación.
 - Orden de carga: `… homolog.js → vets.js → review.js → opcards.js → bugreport.js`.
 
+## 2.14.0 — ¿Se guardó? ¿Lo ven los demás? (`js/firebase-sync.js`)
+
+- **`fbVehStateOf(v, known, st)` (PURA) es LA definición del estado en la nube de un vehículo**
+  (`nube | por-subir | error | sin-sync`) y `fbVehStateLabel` su texto. Todo indicador nuevo de
+  "¿se subió?" la usa; no volver a comparar `_rev` contra `known.docs` por fuera.
+- **Cuándo y desde qué equipo** sale del documento de la nube (`serverTs`, `writer`) y vive en
+  `kia_fb_veh_known.info`. **Nunca agregar al vehículo un campo de estado de sync**: cambiaría su
+  huella (`_rev`) y lo re-subiría en cada ciclo.
+- Un chip se pinta con `fbVehChipHTML(v, {compact, quiet})` y se actualiza solo
+  (`fbVehChipsRefresh` por `data-veh-cloud`): no guardar referencias al elemento.
+- Registro de equipos: `devices/{FB_DEVICE_ID}` (`fbDeviceBeat`). Un equipo anterior a 2.14.0 no
+  se registra; `_fbWriterSeen` lo conoce por lo que escribe. **`fbDevicesView(...).blockers3` es
+  lo que decide cuándo se puede hacer la 3.0.0** (retirar `cop15/current` y `audit/current`).
+- Clave nueva `kia_fb_devices` (caché, en `PN_STORAGE_REGISTRY`).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
