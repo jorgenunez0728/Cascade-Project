@@ -134,7 +134,8 @@ console.log('\n== El mapa del bundle compilado apunta al archivo correcto ==');
             const map = JSON.parse(m[1]);
             const L = html.split('\n');
             ok('tag apunta al <script> de la app', L[map.tag - 1].trim() === '<script>');
-            ok('los 14 módulos del build', map.mods.length === 14, map.mods.length);
+            const nBuild = (/for jsfile in ([^;]+);/.exec(fs.readFileSync(path.join(ROOT, 'build.sh'), 'utf8')) || ['', ''])[1].trim().split(/\s+/).length;
+            ok('todos los módulos del build (' + nBuild + ')', map.mods.length === nBuild, map.mods.length);
             let revisadas = 0, malas = 0;
             ['app.js', 'cop15.js', 'testplan.js', 'firebase-sync.js', 'bugreport.js'].forEach(function(f) {
                 const src = fs.readFileSync(path.join(ROOT, 'js', f), 'utf8').split('\n');

@@ -64,6 +64,7 @@ js/
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
+  opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -170,7 +171,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2361,6 +2362,22 @@ menos **dejó de ser silencioso**.
   pestaña es `data-tab="seguimiento"`, no "operacion".
 - Todo faltante que venga de `PDF_REQUIRED_FIELDS` trae `refId`: una lista de faltantes debe
   llevar al campo, nunca solo nombrarlo.
+
+## 2.13.0 — Operación en tarjetas (`js/opcards.js`)
+
+- **Las tarjetas son los campos de siempre, en su lugar.** Nunca mover (reparentar) un campo de
+  Operación fuera de `#op-content`: el autoguardado, `smartFormUpdateBadges` y los cálculos
+  derivados escuchan `input`/`change` ahí, y fallarían EN SILENCIO. `body.op-cards` esconde el
+  resto; `.oc-current` es la tarjeta visible.
+- Una tarjeta = `OP_CARD_SELECTOR` (`.form-group`, `.etw-box`, `.target-row`,
+  `[data-card-group]`, `#soak-timer-panel`) sin anidar. Para juntar campos en UNA tarjeta, marcar
+  su contenedor con `data-card-group` (+ `data-card-title`), como los DTC. **Todo campo nuevo de
+  Operación aparece solo como tarjeta** si vive en un `.form-group`.
+- Los obligatorios salen de `PDF_REQUIRED_FIELDS` (mismo `refId`): no hay otra lista.
+- Deslizar SOLO navega. No agregar un gesto que guarde o decida.
+- Todo camino que saque de Operación debe salir del modo (`opCardsExit({keepPref:true})`): ya lo
+  hacen `switchPlatform`, las pestañas de Pruebas y `opCardsAdvance` al ir a Liberación.
+- Orden de carga: `… homolog.js → vets.js → review.js → opcards.js → bugreport.js`.
 
 ## Working with this project
 

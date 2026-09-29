@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.12.0';
+var APP_VERSION = '2.13.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.12.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.13.0', date: '28 sep 2026', title: 'Operación en el teléfono: una cosa a la vez',
+      bullets: [
+          'Nuevo: en el teléfono, Operación se muestra una pregunta por pantalla. Arriba dice qué haces y en qué vehículo (VIN, sección y cuántas van); abajo, un botón grande de Guardar.',
+          'Guardar guarda y pasa a la siguiente. "Después" avanza sin exigir el dato (Operación dura días: lo que falte se pide al volver). Deslizar solo cambia de tarjeta, nunca guarda.',
+          'Al final, un resumen dice cuánto falta por sección, con "Seguir con lo que falta" y el siguiente paso de siempre (Iniciar prueba, Enviar a liberación…).',
+          'Al volver a abrir el vehículo empieza en el primer dato que falta y solo pregunta lo pendiente.',
+          'Se activa solo en el teléfono para Practicante y Técnico. ✕ vuelve al formulario completo (y lo recuerda); el botón 📇 "Una cosa a la vez" lo enciende en cualquier equipo.',
+          'Son los mismos campos de siempre: se guarda exactamente lo mismo que en el formulario completo.'
+      ] },
     { version: '2.12.0', date: '28 sep 2026', title: 'El error va en el campo, no en un aviso que se va',
       bullets: [
           'Cuando algo falta o está mal, el campo se marca en rojo con un ⚠ y el motivo debajo, y la pantalla te lleva a él. Antes salía un aviso arriba que se iba en segundos, con el campo tres pantallas abajo.',
@@ -1671,7 +1680,8 @@ var UI_PREFS_DEFAULTS = {
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
-    dashOpenCat: ''        // [2.0.0] HOY: categoría desplegada ('' = ninguna)
+    dashOpenCat: '',       // [2.0.0] HOY: categoría desplegada ('' = ninguna)
+    cardMode: 'auto'       // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
 };
 
 function _uiPrefsRead() {

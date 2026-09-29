@@ -5459,3 +5459,101 @@ td .ui-num-row > input { min-width: 5rem; }
 .review-status { font-size: var(--fs-sm); font-weight: 600; margin-top: var(--space-sm); }
 .review-config { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-sm); margin-top: var(--space-sm); }
 .review-config label { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--fs-xs); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [2.13.0] OPERACIÓN EN TARJETAS — una cosa a la vez (js/opcards.js)     */
+/* Los campos son los de siempre, en su lugar: aquí solo se esconde todo lo */
+/* demás y se agranda la tarjeta actual. Encabezado y pie fijos.           */
+/* ══════════════════════════════════════════════════════════════════════ */
+body.op-cards {
+    padding-top: 104px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+body.op-cards .platform-bar, body.op-cards .ui-bar, body.op-cards .bottom-nav,
+body.op-cards .bug-fab, body.op-cards #bug-fab, body.op-cards #v7-next-step-banner,
+body.op-cards .vcl-toggle, body.op-cards .vcl-panel,
+body.op-cards #platform-cop15 > .topbar, body.op-cards #platform-cop15 .tabs,
+body.op-cards #panel-seguimiento > :not(#op-content),
+body.op-cards #op-content > :not(#op-emissions-block):not(#op-simple-block):not(#oc-final),
+body.op-cards #op-content details.acc > summary,
+body.op-cards #op-content .subsection-title,
+body.op-cards #op-content .alert,
+body.op-cards #op-content .oc-card:not(.oc-current),
+body.op-cards.oc-at-final #op-emissions-block,
+body.op-cards.oc-at-final #op-simple-block { display: none !important; }
+body.op-cards #op-content details.acc { border: 0; box-shadow: none; background: none; margin: 0; padding: 0; }
+body.op-cards #op-content .acc-body, body.op-cards #op-content .form-grid,
+body.op-cards #op-content .dyno-grid, body.op-cards #op-content .targets-box { display: block; padding: 0; margin: 0; border: 0; background: none; }
+
+body.op-cards .oc-current {
+    display: block; max-width: 560px; margin: var(--space-lg) auto !important; padding: 0 var(--space-md);
+}
+body.op-cards .oc-current label, body.op-cards .oc-current .dyno-label,
+body.op-cards [data-card-group].oc-current::before {
+    display: block; margin-bottom: var(--space-md);
+    font-size: var(--fs-lg); font-weight: var(--weight-black); line-height: 1.25; color: var(--text);
+}
+body.op-cards [data-card-group].oc-current::before { content: attr(data-card-title); }
+body.op-cards [data-card-group].oc-current label { font-size: var(--fs-base); margin-top: var(--space-md); margin-bottom: var(--space-xs); }
+body.op-cards .oc-current input:not([type=checkbox]):not([type=radio]),
+body.op-cards .oc-current select:not([data-chips]), body.op-cards .oc-current textarea {
+    width: 100% !important; min-height: 56px; font-size: var(--fs-md) !important;
+}
+body.op-cards .oc-current .ui-chips button { min-height: 52px; font-size: var(--fs-base); }
+.oc-in { animation: ocIn var(--dur-base) var(--ease-out) both; }
+.oc-in-back { animation: ocInBack var(--dur-base) var(--ease-out) both; }
+@keyframes ocIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes ocInBack { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+
+.oc-head {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+    background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+    padding: calc(var(--space-sm) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-xs);
+}
+.oc-head-row { display: flex; align-items: center; gap: var(--space-sm); }
+.oc-x {
+    min-width: var(--target-min); min-height: var(--target-min); flex-shrink: 0;
+    border: 0; background: none; font-size: 20px; color: var(--muted); cursor: pointer;
+}
+.oc-head-what { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-head-sub { font-size: var(--fs-sm); color: var(--muted); }
+.oc-saved { flex-shrink: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ok-text); opacity: 0; }
+.oc-saved.is-on { animation: ocSaved 1.8s var(--ease-out) both; }
+@keyframes ocSaved { 0% { opacity: 0; } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.oc-segs { display: flex; gap: var(--space-2xs); margin-top: var(--space-xs); }
+.oc-seg { flex: 1; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; }
+.oc-seg-bar { display: block; width: 100%; height: 6px; border-radius: var(--radius-full); background: var(--border); overflow: hidden; }
+.oc-seg.is-here .oc-seg-bar { height: 8px; }
+.oc-seg-fill { display: block; height: 100%; background: var(--kia-red); transform-origin: left; transition: transform var(--dur-base) var(--ease-out); }
+
+.oc-foot {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 900;
+    display: grid; grid-template-columns: auto auto 1fr; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md) calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow-md);
+}
+.oc-save {
+    min-height: 56px; border: 0; border-radius: var(--radius-lg); cursor: pointer;
+    background: var(--kia-red); color: #fff; font-size: var(--fs-md); font-weight: var(--weight-black);
+    white-space: nowrap; padding: 0 var(--space-md);
+}
+.oc-back { min-width: 56px; font-size: var(--fs-lg) !important; }
+.oc-back, .oc-later {
+    min-height: 56px; padding: 0 var(--space-md); cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-sm); font-weight: 600;
+}
+.oc-back:disabled { opacity: 0.4; cursor: default; }
+body.oc-at-final .oc-save, body.oc-at-final .oc-later { display: none; }
+body.oc-at-final .oc-foot { grid-template-columns: auto; }
+
+.oc-final { max-width: 560px; margin: var(--space-lg) auto; padding: 0 var(--space-md); }
+.oc-final-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--text); margin-bottom: var(--space-md); }
+.oc-final-list { margin-bottom: var(--space-sm); }
+.oc-final-hint { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-xs) 0 0; line-height: var(--lh-base); }
+.oc-next { width: 100%; min-height: 56px; font-size: var(--fs-md); margin-top: var(--space-lg); }
+.oc-exit-link {
+    display: block; margin: var(--space-lg) auto 0; min-height: var(--target-min);
+    background: none; border: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: underline; cursor: pointer;
+}
+.oc-final-list { margin-top: var(--space-md); }

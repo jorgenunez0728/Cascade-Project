@@ -20,6 +20,46 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.13.0 — Operación en el teléfono: una cosa a la vez (2026-09-28)
+
+### Nuevo
+- **Operación en tarjetas**: en el teléfono, una pregunta por pantalla (tu propuesta, estilo
+  Reigns). Arriba: ✕, el VIN, "Operación" y la sección con su avance ("Preacondicionamiento · 3 de
+  10"), más una barra por sección que se puede tocar para saltar. Abajo: **‹**, **Después** y un
+  botón grande **Guardar ▸** al alcance del pulgar. No se ve nada más de la app.
+- **Guardar** guarda (el mismo guardado de siempre) y pasa a la siguiente; **Enter** también.
+  Un dato obligatorio vacío no deja guardar y se marca en el campo (2.12.0).
+- **Después** avanza sin exigir el dato. Operación dura días (recepción hoy, preacondicionamiento
+  mañana): nadie queda atrapado en una tarjeta.
+- **Deslizar solo cambia de tarjeta; nunca guarda ni decide.** A diferencia de Tinder, un
+  deslizamiento accidental no puede afirmar un dato que es evidencia del laboratorio.
+- **Resumen al final**: cuánto falta por sección, "Seguir con lo que falta" (solo pregunta lo
+  pendiente) y el siguiente paso de siempre (▶ Iniciar prueba, 📤 Enviar a liberación…). Al iniciar
+  la prueba aparecen solas las tarjetas de la verificación en el dinamómetro.
+- **Al volver a abrir el vehículo** empieza en el primer dato que falta.
+- Los tres DTC son una sola tarjeta; Target y Dyno Set de cada coeficiente van juntos.
+
+### Cuándo se usa
+- Solo en el teléfono (pantalla ≤ 640 px con dedo) y para **Practicante y Técnico**. ✕ vuelve al
+  formulario completo y lo recuerda en ese equipo; el botón **📇 Una cosa a la vez** (junto a
+  Guardar en Operación) lo enciende en cualquier equipo y para cualquier rol.
+
+### Para desarrollo
+- `js/opcards.js` (nuevo, carga después de review.js). **No es un segundo formulario**: las
+  tarjetas son los mismos `.form-group` en su lugar y `body.op-cards` esconde todo lo demás. Mover
+  los campos a otra capa rompería el autoguardado, los "faltan N" y los cálculos derivados, que
+  escuchan `input`/`change` en `#op-content`.
+- `opCardsFrom(groups)` (PURA): orden, secciones, pendientes. `opCardsWanted(pref, isPhone, role)`
+  (PURA). `uiPref('cardMode')` = `'auto'` | `true` | `false` (no se sincroniza).
+- Ganchos envueltos (patrón de `saveDB` en firebase-sync): `loadVehicle` (entra si corresponde),
+  `switchPlatform` y las pestañas de Pruebas (salen), `cascadeGoToField` (en tarjetas lleva a la
+  tarjeta del campo).
+- Pendiente declarado: **el Alta en tarjetas** queda para un parche (la cascada de región → modelo →
+  … cambia de campos a cada elección y merece su propia prueba).
+- Pruebas: `tests/opcards.node.js` (12) y `tests/v2130.e2e.js` (22, teléfono 427×840 con dedo):
+  entrar solo, un obligatorio vacío no avanza, Guardar y Enter guardan, deslizar no guarda, resumen,
+  lo capturado por tarjetas = por formulario, ✕ y 📇, escritorio no entra solo.
+
 ## 2.12.0 — El error va en el campo, no en un aviso que se va (2026-09-28)
 
 ### Cambió
