@@ -145,6 +145,8 @@ function authRefreshCurrentRole() {
     if (typeof auditLog === 'function') {
         auditLog('auth', 'role_refreshed', { type: 'operator', label: live.name }, 'Nuevo rol: ' + fresh);
     }
+    // [2.16.0] Las pestañas que ve dependen del rol: se reaplican al instante.
+    if (typeof uiTabRolesApply === 'function') uiTabRolesApply();
     return true;
 }
 
@@ -825,6 +827,8 @@ function showSelected(idx) {
 // ── UI Updates ──
 function authUpdateUI() {
     if (!authState.currentUser) return;
+    // [2.16.0] Entrar o cambiar de usuario cambia qué pestañas se ven.
+    if (typeof uiTabRolesApply === 'function') { try { uiTabRolesApply(); } catch (e) {} }
 
     // Pre-select the logged-in operator in COP15 dropdowns
     var opName = authState.currentUser.name;

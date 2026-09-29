@@ -93,7 +93,7 @@
     <div id="fb-sync-indicator" class="topbar-sync" onclick="fbSyncSheetOpen()" title="Estado de sincronización"></div>
     <div id="op-picker" class="topbar-op" title="Operador actual"></div>
     <button class="topbar-icon-btn topbar-icon-btn--badged" onclick="toggleNotificationCenter()" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" class="topbar-badge" hidden>0</span></button>
-    <button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" title="Historial de cambios" aria-label="Historial de cambios">🕘</button>
+    <button class="topbar-icon-btn" data-needs-tab="pn-audit" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" title="Historial de cambios" aria-label="Historial de cambios">🕘</button>
     <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
     <div class="topbar-more-group" id="topbar-more-group" role="menu" aria-label="Más opciones">
         <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">

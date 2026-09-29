@@ -2411,6 +2411,21 @@ menos **dejó de ser silencioso**.
 - **La campana cuenta solo lo accionable** (avisos de relevo + errores/advertencias sin leer).
 - Orden de carga: `… review.js → opcards.js → handoff.js → bugreport.js`.
 
+## 2.16.0 — Cada rol ve lo suyo (`js/app.js`)
+
+- **`UI_TAB_VIEW` es LA definición de quién VE cada pestaña** (`{perms, label, why}`, basta con
+  uno) y `uiTabVisibleFor(role, tabId, has)` (PURA) la forma de preguntar. Lo que no está en
+  `UI_TAB_VIEW` lo ven todos. **Toda pestaña nueva que solo sirva a quien tiene un permiso se
+  agrega ahí** (y `tests/roles.node.js` verifica que exista y que su permiso esté en
+  `AUTH_PERM_LABELS`).
+- **Se oculta lo que no se puede usar, nunca un dato que se necesita leer.** Y ocultar es UX: el
+  candado sigue siendo `authRequire` en la capa de datos.
+- Un enlace a una pestaña oculta **explica** (`uiTabExplainHidden`) en vez de abrir: el
+  envoltorio de `xxSwitchTab` en `uiTabGroupsInit` lo intercepta. Un atajo fuera de las barras
+  (como el 🕘 del topbar) lleva `data-needs-tab="<tabId>"` y se oculta solo.
+- `uiTabRolesApply()` se llama desde `authUpdateUI` y `authRefreshCurrentRole`: todo código que
+  cambie el rol de la sesión pasa por ahí.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

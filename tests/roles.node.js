@@ -103,5 +103,34 @@ ok('Signatario → PIN largo', ctx.pnPinLenForRole('Signatario') === ctx.PN_PIN_
 ok('"Supervisor" (viejo) → PIN largo', ctx.pnPinLenForRole('Supervisor') === ctx.PN_PIN_LEN_PRIVILEGED);
 ok('Técnico → PIN normal', ctx.pnPinLenForRole('Técnico') === ctx.PN_PIN_LEN_DEFAULT);
 
+console.log('\n== [2.16.0] Cada rol ve lo suyo (UI_TAB_VIEW) ==');
+{
+    ['UI_TAB_VIEW', 'UI_TAB_GROUPS'].forEach(n => vm.runInContext(extraerVar('app.js', n), ctx));
+    ['uiTabVisibleFor', 'uiTabHiddenWhy'].forEach(n => vm.runInContext(extraer('app.js', n), ctx));
+    ['authRolesWith'].forEach(n => { try { vm.runInContext(extraer('auth.js', n), ctx); } catch (e) {} });
+    const gated = Object.keys(ctx.UI_TAB_VIEW);
+    const ve = (rol) => gated.filter(t => ctx.uiTabVisibleFor(rol, t));
+    ok('Signatario ve todas las pantallas', ve('Signatario').length === gated.length);
+    ok('Assistant Manager / Manager ve todas', ve('Assistant Manager / Manager').length === gated.length);
+    ok('Practicante no ve ninguna de las restringidas', ve('Practicante').length === 0, ve('Practicante').join(','));
+    ok('Técnico ve solo Auditoría (puede consultar el historial)', ve('Técnico').join(',') === 'pn-audit', ve('Técnico').join(','));
+    const esp = ve('Especialista / Especialista Sr');
+    ok('Especialista ve las del plan, Usuarios, Homologación y Auditoría, no Regulaciones',
+        esp.indexOf('tp-rules') >= 0 && esp.indexOf('pn-users') >= 0 && esp.indexOf('pn-homolog') >= 0 && esp.indexOf('pn-regulations') < 0, esp.join(','));
+    ok('un rol viejo ("Supervisor") se traduce y ve lo de Signatario', ve('Supervisor').length === gated.length);
+    ok('lo que no está restringido lo ven todos (Sistema)', ctx.uiTabVisibleFor('Practicante', 'pn-system') && ctx.uiTabVisibleFor('Practicante', 'tp-myweek'));
+    ok('sin rol no se esconde nada', ctx.uiTabVisibleFor('', 'tp-rules'));
+    const perms = ctx.AUTH_PERM_LABELS.map(p => p.perm);
+    const malos = [];
+    gated.forEach(t => ctx.UI_TAB_VIEW[t].perms.forEach(p => { if (perms.indexOf(p) < 0) malos.push(t + ':' + p); }));
+    ok('cada permiso de UI_TAB_VIEW existe en AUTH_PERM_LABELS', malos.length === 0, malos.join(','));
+    const tabs = [].concat.apply([], Object.keys(ctx.UI_TAB_GROUPS).map(m => [].concat.apply([], ctx.UI_TAB_GROUPS[m].groups.map(g => g.tabs))));
+    const huerfanas = gated.filter(t => tabs.indexOf(t) < 0);
+    ok('cada pestaña restringida existe en UI_TAB_GROUPS (sin erratas)', huerfanas.length === 0, huerfanas.join(','));
+    ok('cada una dice qué permite y dónde está', gated.every(t => ctx.UI_TAB_VIEW[t].why && / → /.test(ctx.UI_TAB_VIEW[t].label)));
+    const why = ctx.uiTabHiddenWhy('tp-rules', 'Técnico', typeof ctx.authRolesWith === 'function' ? ctx.authRolesWith : null);
+    ok('el motivo nombra la pantalla, quién la ve y el rol propio', /Plan → Reglas/.test(why) && /Signatario/.test(why) && /Tu rol \(Técnico\)/.test(why), why);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron\n');
 process.exit(fallaron ? 1 : 0);

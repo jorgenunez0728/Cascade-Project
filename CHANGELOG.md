@@ -20,6 +20,45 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.16.0 — Cada rol ve lo suyo (2026-09-29)
+
+Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas, Producción o
+Auditoría para encontrarse con que no podía hacer nada ahí.
+
+### Nuevo
+- **Cada quien ve las pantallas que puede usar.** Qué se oculta y para quién:
+
+  | Pantalla | La ve quien puede… |
+  |---|---|
+  | Plan → Producción, Reglas, Recuperación, Simulador | administrar el plan |
+  | Datos → Usuarios | ver usuarios |
+  | Datos → Regulaciones | liberar pruebas o editar límites |
+  | Datos → Homologación | importar homologación |
+  | Datos → Auditoría (y el 🕘 de arriba) | consultar el historial |
+
+  Lo demás lo ven todos. Signatario y Manager ven todo.
+- **Una sección que queda sin pantallas para tu rol desaparece** (p. ej. "Planeación" para un
+  Técnico). El buscador **Ir a…** tampoco las ofrece.
+- **Si un enlace lleva a una pantalla que tu rol no ve, te lo explica**: para qué es, qué roles
+  la ven y que un Manager puede cambiar tu rol. No abre una pantalla donde no puedes hacer nada.
+- **Cambiar el rol aplica al instante**, sin recargar. Si estabas en una pantalla que dejas de
+  ver, te lleva a la primera que sí ves.
+- Datos → Usuarios → **Roles y permisos** suma la sección **"Pantallas que ve"**, sacada de la
+  misma regla.
+
+### Importante
+- **Ocultar no es el candado.** Cada acción sigue con su permiso en la capa de datos
+  (`authRequire`): si alguien llega a una pantalla por otro camino, el sistema bloquea igual.
+
+### Para desarrollo
+- `UI_TAB_VIEW` (app.js) es LA definición de quién ve cada pestaña: `{perms, label, why}`, basta
+  con uno de los permisos.
+- `uiTabVisibleFor(role, tabId, has)` es PURA y `uiTabHiddenWhy` arma el motivo.
+- Se aplica en `uiTabGroupsSync` / `uiTabGroupsGo`, en el envoltorio de `xxSwitchTab` (explica
+  y no cambia), en `uiNavRegistry` y en los `[data-needs-tab]`.
+- `uiTabRolesApply()` lo reaplica desde `authUpdateUI` y `authRefreshCurrentRole`.
+- Pruebas: 12 casos nuevos en `tests/roles.node.js` y `tests/v2160.e2e.js` (15).
+
 ## 2.15.0 — Avisos de relevo: "te toca a ti" (2026-09-29)
 
 Hasta ahora, nadie se enteraba de que un vehículo esperaba su aprobación hasta que alguien se lo
