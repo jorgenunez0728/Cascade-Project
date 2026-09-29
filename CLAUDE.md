@@ -65,6 +65,7 @@ js/
   review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
+  handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -91,6 +92,7 @@ CHANGELOG.md            ← Detailed changelog
 | Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
 | Revisión dirigida | `js/review.js` | `review` | `_reviewMarks` (en memoria) | — (`pnState.reviewFlow`, `vehicle.reviewFlow`, `testData.review`) |
 | Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
+| Avisos de relevo | `js/handoff.js` | `handoff` | `_handoffBase` (foto en memoria) | `kia_handoff_log` |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -171,7 +173,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -180,7 +182,7 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
 - Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
-  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `vets*`=Importar VETS, `review*`=Revisión dirigida, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
+  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `vets*`=Importar VETS, `review*`=Revisión dirigida, `handoff*`=Avisos de relevo, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
   `undo*`=Undo, `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
@@ -2393,6 +2395,21 @@ menos **dejó de ser silencioso**.
   se registra; `_fbWriterSeen` lo conoce por lo que escribe. **`fbDevicesView(...).blockers3` es
   lo que decide cuándo se puede hacer la 3.0.0** (retirar `cop15/current` y `audit/current`).
 - Clave nueva `kia_fb_devices` (caché, en `PN_STORAGE_REGISTRY`).
+
+## 2.15.0 — Avisos de relevo (`js/handoff.js`)
+
+- **`handoffEventsFor(prev, next, user)` (PURA) es LA definición de un aviso de relevo**
+  (aprobar / devuelto / aprobado). Todo aviso nuevo "te toca a ti" se agrega ahí, no con un
+  `showToast` suelto en el flujo.
+- **Un aviso nunca es de uno mismo**: se filtra por quién hizo el cambio con la identidad de la
+  SESIÓN (`signatures.*.sessionUserName`, `pendingReturn.by`), nunca por el nombre escrito en la
+  firma. Por eso da igual si el cambio llegó por la nube o se hizo aquí.
+- **La foto base se toma al cargar el archivo** (`db` ya está leído): si se tomara al primer
+  cambio, lo que llega de la nube al conectar no avisaría.
+- Los ids de aviso son estables (tipo + vehículo + marca de tiempo del cambio) y `kia_handoff_log.seen`
+  evita repetirlos. **El centro de notificaciones habla por `id`, nunca por posición** (regla de v23).
+- **La campana cuenta solo lo accionable** (avisos de relevo + errores/advertencias sin leer).
+- Orden de carga: `… review.js → opcards.js → handoff.js → bugreport.js`.
 
 ## Working with this project
 

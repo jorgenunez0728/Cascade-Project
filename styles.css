@@ -5614,3 +5614,20 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
 .dev-row.lvl-sin-confirmar:not(.is-inactive) .dev-row-sub { color: var(--warn-text); }
 .dev-row.is-inactive { opacity: .6; }
 .dev-tag { font-size: var(--fs-2xs); font-weight: 700; padding: 0 var(--space-xs); border-radius: var(--radius-sm); background: var(--info-bg); color: var(--info-text); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [2.15.0] Avisos de relevo — preferencias dentro del centro de notificaciones
+   ══════════════════════════════════════════════════════════════════════ */
+.notif-prefs { padding: var(--space-sm) var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-xs); }
+.notif-prefs-title { font-size: var(--fs-sm); font-weight: 700; color: var(--text); margin-bottom: var(--space-xs); }
+.notif-modes { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.notif-mode {
+    flex: 1; min-height: 36px; padding: var(--space-xs) var(--space-sm); font: inherit; font-size: var(--fs-sm);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface, #fff); color: var(--text); cursor: pointer;
+    transition: background-color var(--dur-fast), border-color var(--dur-fast);
+}
+.notif-mode.is-on { background: var(--info-bg); border-color: var(--info-text); color: var(--info-text); font-weight: 700; }
+.notif-prefs-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-xs); }
+.notif-perm { margin-top: var(--space-sm); width: 100%; min-height: 36px; font: inherit; font-size: var(--fs-sm);
+    border: 1px dashed var(--info-text); background: transparent; color: var(--info-text); border-radius: var(--radius-lg); cursor: pointer; }
+.notif-item.notif-handoff .notif-msg { font-weight: 600; }

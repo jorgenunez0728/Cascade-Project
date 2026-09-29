@@ -2945,6 +2945,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_fb_backup_cleanup', label: 'Limpieza de respaldos (fecha)',  tier: 'cache' },
     { key: 'kia_fb_backup_warned',  label: 'Aviso de respaldo (fecha)',      tier: 'cache' },
     // [2.9.0] Si se borra, el siguiente ciclo relee todos los vehículos una vez y sigue.
+    // [2.15.0] Avisos de relevo recibidos en este equipo (y los ya vistos, para no repetirlos).
+    { key: 'kia_handoff_log',       label: 'Avisos de relevo',               tier: 'cache',
+      note: 'Los avisos "te toca a ti" que llegaron aquí. Borrarlo solo vacía la lista.' },
     // [2.14.0] Se reconstruye: el registro vive en la nube y los "vistos" se vuelven a anotar.
     { key: 'kia_fb_devices',        label: 'Equipos del laboratorio (caché)', tier: 'cache',
       note: 'Nombre y versión de cada equipo, para decir desde dónde llegó un cambio.' },
