@@ -3387,12 +3387,22 @@ function libOnGasChange() {
         var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
         // [2.18.0] Fallas de VETS por decidir (las dejó quien adjuntó sin poder liberar).
         var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
+        // [2.19.1] Quien no libera no puede enviar, falte lo que falte: el motivo es ESE. Antes
+        // al Técnico se le decía "decide la falla de VETS", que no es su paso.
+        if (_libRoleWhy()) { uiExplainDisabled(btn, _libRoleWhy()); return; }
         // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
         uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
             ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
             : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
-            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "Decidir…" junto a la prueba VETS).' : '');
+            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).' : '');
     }
+}
+
+/** [2.19.1] Motivo por el que ESTA sesión no envía a aprobación ('' = sí puede). */
+function _libRoleWhy() {
+    if (_cascadeCan('test.release')) return '';
+    var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(' o ') : 'el liberador';
+    return 'Enviar a aprobación lo hace ' + quien + '. Lo que capturaste queda guardado; avísale al liberador.';
 }
 
 function libOnApproverGasChange() {
@@ -3713,7 +3723,8 @@ function loadRelease() {
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
-        uiExplainDisabled(document.getElementById('release-archive-btn'), '');
+        uiExplainDisabled(document.getElementById('release-archive-btn'), _libRoleWhy());
+        if (typeof vetsRenderActionNote === 'function') vetsRenderActionNote(vehicle);   // [2.19.1]
         releaseChecklistRender(vehicle);
         _renderUsedCylinders(vehicle);
         renderTimeline(vehicle);
@@ -3745,7 +3756,7 @@ function loadRelease() {
             '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
             _libRegPickerControlsHTML(vehicle, '') +
             '</div>';
-        uiExplainDisabled(btn, 'Elige contra qué regulación comparar los gases para poder liberar.');
+        uiExplainDisabled(btn, _libRoleWhy() || 'Elige contra qué regulación comparar los gases para poder liberar.');
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};

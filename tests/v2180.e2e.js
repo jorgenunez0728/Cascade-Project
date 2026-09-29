@@ -159,6 +159,11 @@ const SEED = () => {
     chk('la tarjeta dice que lo confirma el liberador con su firma', /Beto Técnico/.test(cl.who) && /lo confirma con su firma/.test(cl.who), cl.who);
     chk('Liberación le dice lo que sí puede hacer', /adjuntar la prueba de VETS y llenar el checklist/.test(cl.note), cl.note);
     chk('llenar el checklist no envía nada', cl.st === 'ready-release');
+    // [2.19.1] El botón de enviar le dice al Técnico que ese paso es del liberador (no "decide VETS").
+    const tb = await page.evaluate(() => ({ why: document.getElementById('release-archive-btn').getAttribute('data-why') || '',
+        note: (document.getElementById('lib-action-note') || {}).innerText || '', decideBtn: !!document.querySelector('#lib-action-note .lib-action-decide') }));
+    chk('al Técnico el botón de enviar le dice que lo hace el liberador', /Enviar a aprobación lo hace Signatario/.test(tb.why) && !/Decide primero/.test(tb.why), tb.why);
+    chk('junto al botón: el siguiente paso es del liberador, incluida la falla de VETS', /lo hace/.test(tb.note) && /falla de VETS/.test(tb.note) && !tb.decideBtn, tb.note);
 
     console.log('\n== Signatario: decide ==');
     await page.evaluate(() => localStorage.setItem('kia_auth_session', JSON.stringify({ operatorId: 'sara', operatorName: 'Sara Signataria', expiresAt: new Date(Date.now() + 11 * 3600e3).toISOString() })));
@@ -169,6 +174,9 @@ const SEED = () => {
     chk('sesión de Signatario', rol === 'Signatario', rol);
     chk('la franja le ofrece "Decidir…"', l.decidir && /por decidir/.test(l.status), l.status);
     chk('el botón de liberar explica que falta decidir VETS', /Decide primero la falla de VETS: PM Pre Filter Temp/.test(l.why || ''), l.why);
+    const nb = await page.evaluate(() => ({ note: (document.getElementById('lib-action-note') || {}).innerText || '',
+        btn: !!document.querySelector('#lib-action-note .lib-action-decide') }));
+    chk('[2.19.1] en Acción, junto a Enviar, está el botón para decidir', nb.btn && /PM Pre Filter Temp/.test(nb.note), nb.note);
     const env = await page.evaluate(() => {
         // Aislar el candado de VETS: los de F05 completo y checklist tienen sus propias pruebas.
         const vp = window.validatePdfCompleteness, rc = window.releaseChecklistRows;
