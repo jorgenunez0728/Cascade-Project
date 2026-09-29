@@ -3385,8 +3385,6 @@ function libOnGasChange() {
     if (btn) {
         // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
         var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
-        // [2.18.0] Fallas de VETS por decidir (las dejó quien adjuntó sin poder liberar).
-        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
         // [2.19.1] Quien no libera no puede enviar, falte lo que falte: el motivo es ESE. Antes
         // al Técnico se le decía "decide la falla de VETS", que no es su paso.
         if (_libRoleWhy()) { uiExplainDisabled(btn, _libRoleWhy()); return; }
@@ -3394,8 +3392,17 @@ function libOnGasChange() {
         uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
             ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
             : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
-            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).' : '');
+            : '');
     }
+}
+
+/** [2.20.0] Motivo por el que aún no se aprueba por VETS ('' = nada pendiente). */
+function _aprVetsWhy(vehicle) {
+    var pend = (typeof vetsPendingDecisions === 'function' && typeof vetsPolicy === 'function')
+        ? vetsPendingDecisions(vehicle && vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
+    if (!pend.length) return '';
+    return 'Decide primero ' + (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' +
+        pend.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).';
 }
 
 /** [2.19.1] Motivo por el que ESTA sesión no envía a aprobación ('' = sí puede). */
@@ -3445,7 +3452,7 @@ function libOnApproverGasChange() {
         matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
         matchStatus.style.color = tokenColor('--ok-text');
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
-        uiExplainDisabled(btn, '');
+        uiExplainDisabled(btn, _aprVetsWhy(vehicle));   // [2.20.0]
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
         _libHighlightReturnBtn(false);
@@ -3807,6 +3814,7 @@ function loadApproval() {
     }
     content.style.display = 'block';
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
+    if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
@@ -3910,14 +3918,8 @@ function submitToApproval() {
             if (_clCard && _clCard.scrollIntoView) _clCard.scrollIntoView({ block: 'center' });
             return;
         }
-        // [2.18.0] Fallas de VETS que dejó pendientes quien adjuntó sin poder liberar.
-        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
-        if (_vp.length) {
-            showToast('Antes de enviar decide ' + (_vp.length === 1 ? 'la falla' : 'las ' + _vp.length + ' fallas') + ' de VETS: ' +
-                _vp.map(function(p) { return p.name; }).join(', ') + '.', 'warning', 8000);
-            if (typeof vetsDecideOpen === 'function') vetsDecideOpen(vehicle.id);
-            return;
-        }
+        // [2.20.0] Las fallas de VETS ya NO detienen el envío: las decide quien aprueba,
+        // en Aprobación (candado en approveAndArchive).
     }
     var regName = _libGetVehicleRegulation(vehicle);
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
@@ -4030,6 +4032,12 @@ function approveAndArchive() {
     }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
+    // [2.20.0] Fallas de VETS: las decide quien aprueba, AQUÍ, antes de firmar.
+    if (_aprVetsWhy(vehicle)) {
+        showToast(_aprVetsWhy(vehicle).replace(/ \(botón.*$/, '.'), 'warning', 8000);
+        if (typeof vetsDecideOpen === 'function') vetsDecideOpen(vehicle.id);
+        return;
+    }
     // [2.2.0] Mismos gases que el liberador (perfil congelado), nunca el de este equipo.
     var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
     if (isEm && !profile) {

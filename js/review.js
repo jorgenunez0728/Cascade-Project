@@ -189,7 +189,7 @@ function reviewBlocks(vehicle, ctx) {
     fails.forEach(function(c) {
         if (c.level === 'desacreditada') add('validez', 'ok', c.name + ' — desacreditada por el laboratorio (' + (c.detail || '') + ').');
         else if (c.level === 'informativa') add('validez', 'ok', c.name + ' — informativa: ' + (c.detail || ''));
-        else if (!c.level) add('validez', 'warn', c.name + ' — sin decidir por el liberador: ' + (c.detail || ''));   // [2.18.0]
+        else if (!c.level) add('validez', 'warn', c.name + ' — sin decidir todavía (botón ⏳ Decidir, arriba): ' + (c.detail || ''));   // [2.18.0]
         else add('validez', 'warn', c.name + ' — IMPORTANTE: ' + (c.detail || '') + (c.justification ? '. El liberador: "' + c.justification + '"' : ''));
     });
     add('validez', 'ok', (s.checksPass || 0) + ' verificaciones de VETS pasan' + (fails.length ? ', ' + fails.length + ' fallaron' : '') + '.');
@@ -327,7 +327,8 @@ function reviewRenderApproval(vehicle) {
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    uiExplainDisabled(btn, r.ok ? '' : r.hard.length
+    var _vw = (typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '';   // [2.20.0]
+    uiExplainDisabled(btn, r.ok ? _vw : r.hard.length
         ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');

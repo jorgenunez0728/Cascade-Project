@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.19.1';
+var APP_VERSION = '2.20.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.19.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.20.0', date: '29 sep 2026', title: 'Libera el Técnico; las fallas de VETS las decide quien aprueba',
+      bullets: [
+          'Cambió: Técnico y Especialista pueden enviar a aprobación (firma del liberador). Aprobar sigue siendo solo de Signatario y Manager, y nadie aprueba lo que liberó.',
+          'Cambió: las fallas de las verificaciones de VETS las decide solo quien APRUEBA, en la sub-pestaña Aprobación, antes de aprobar. Quien adjunta o libera ya no las ve ni lo detienen.',
+          'En Aprobación, junto a "Aprobar y archivar", aparece el botón "⏳ Decidir la falla de VETS" cuando hay una pendiente.',
+          'Arreglado: al cambiar de usuario con Liberación o Aprobación abiertas, la pantalla se quedaba con los permisos y avisos del usuario anterior.',
+          'El PIN de cada quien no cambia de longitud.'
+      ] },
     { version: '2.19.1', date: '29 sep 2026', title: 'Liberación dice bien de quién es el siguiente paso',
       bullets: [
           'Arreglado: al Técnico, el botón "Enviar a aprobación" le decía "decide la falla de VETS", que no es su paso. Ahora dice que enviar lo hace el Signatario o Manager y que lo capturado queda guardado.',
@@ -6404,7 +6412,7 @@ var UI_TAB_VIEW = {
     'tp-recovery':    { perms: ['plan.manage'], label: 'Plan → Recuperación', why: 'armar el plan de recuperación' },
     'tp-simulator':   { perms: ['plan.manage'], label: 'Plan → Simulador',   why: 'simular el plan' },
     'pn-users':       { perms: ['users.view'], label: 'Datos → Usuarios',    why: 'ver usuarios y competencias' },
-    'pn-regulations': { perms: ['test.release', 'regulation.manage'], label: 'Datos → Regulaciones', why: 'liberar pruebas o editar límites' },
+    'pn-regulations': { perms: ['test.approve', 'regulation.manage'], label: 'Datos → Regulaciones', why: 'aprobar pruebas o editar límites' },
     'pn-homolog':     { perms: ['homolog.manage'], label: 'Datos → Homologación', why: 'importar la homologación de Europa' },
     'pn-audit':       { perms: ['audit.view'], label: 'Datos → Auditoría',   why: 'consultar el historial de cambios' }
 };

@@ -1,10 +1,10 @@
-// Verificación en navegador de 2.18.0 — Técnico y Especialista adjuntan la prueba de VETS;
-// las fallas nuevas las decide el liberador.
-//  - Sesión de Técnico: Liberación dice que sí puede adjuntar; la vista previa marca la falla
-//    nueva con ⏳ (sin opciones para clasificar) y Aplicar está habilitado; nada se clasifica.
-//  - Sesión de Signatario: la franja ofrece "Decidir…", el botón de liberar explica por qué
-//    está bloqueado, enviar a aprobación abre la decisión; al decidir se desbloquea.
-//  - Usa la exportación REAL "solo reporte" (2.17.1), armada desde su fixture.
+// Verificación en navegador de 2.18.0 → 2.20.0 — la prueba de VETS y el checklist los hace
+// quien libera (desde Técnico); las fallas de VETS las decide SOLO quien aprueba, al aprobar.
+//  - Técnico: adjunta el reporte real "solo reporte" (2.17.1) sin ver ninguna falla, llena el
+//    checklist y ENVÍA a aprobación aunque haya una falla de VETS sin decidir.
+//  - Signatario: en Aprobación ve la falla, el botón de aprobar lo explica, "Aprobar" abre la
+//    decisión; decide y se desbloquea. Quien liberó no puede decidir.
+//  - Cambiar de usuario con la pantalla abierta la repinta con los permisos nuevos.
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
@@ -70,7 +70,8 @@ const SEED = () => {
     localStorage.setItem('__seeded', '1');
     localStorage.setItem('kia_auth_session', JSON.stringify({ operatorId: 'beto', operatorName: 'Beto Técnico', expiresAt: new Date(Date.now() + 11 * 3600e3).toISOString() }));
     localStorage.setItem('kia_panel_v1', JSON.stringify({ operators: [{ id: 'beto', name: 'Beto Técnico', role: 'Técnico', active: true },
-        { id: 'sara', name: 'Sara Signataria', role: 'Signatario', active: true }], tasks: [], projects: [], alerts: [] }));
+        { id: 'sara', name: 'Sara Signataria', role: 'Signatario', active: true },
+        { id: 'pau', name: 'Pau Practicante', role: 'Practicante', active: true }], tasks: [], projects: [], alerts: [] }));
     localStorage.setItem('kia_fb_sync_modules', JSON.stringify({}));
     localStorage.setItem('kia_help_dismissed', JSON.stringify({ '*': true }));
     localStorage.setItem('kia_tour_done', '1');
@@ -99,21 +100,22 @@ const SEED = () => {
     });
     chk('sesión de Técnico', setup.role === 'Técnico', setup.role);
 
-    const abrirLiberacion = () => page.evaluate(() => {
+    const abrir = (tab) => page.evaluate((tab) => {
         switchPlatform('cop15');
         document.querySelector('#platform-cop15 .tab[data-tab="liberacion"]').click();
-        const s = document.getElementById('releaseVehSelect');
+        libSwitchSubtab(tab === 'liberacion' ? 'liberador' : 'aprobador');
+        const s = document.getElementById(tab === 'liberacion' ? 'releaseVehSelect' : 'approvalVehSelect');
         if (![...s.options].some(o => o.value === 'v48')) { const o = document.createElement('option'); o.value = 'v48'; s.appendChild(o); }
-        s.value = 'v48'; loadRelease();
-        const note = document.getElementById('lib-role-note');
-        const btn = document.getElementById('release-archive-btn');
-        return { note: note && note.style.display !== 'none' ? note.innerText : '', status: document.getElementById('vets-attach-status').innerText,
-                 decidir: !!document.querySelector('#vets-attach-status button'), why: btn ? (btn.getAttribute('data-why') || '') : null };
-    });
+        s.value = 'v48';
+        if (tab === 'liberacion') loadRelease(); else loadApproval();
+        const txt = id => { const e = document.getElementById(id); return e && e.style.display !== 'none' ? e.innerText : ''; };
+        const b = document.getElementById(tab === 'liberacion' ? 'release-archive-btn' : 'approve-archive-btn');
+        return { status: txt('vets-attach-status'), libNote: txt('lib-action-note'), aprNote: txt('appr-vets-note'),
+                 decideBtn: !!document.querySelector('#appr-vets-note .lib-action-decide'), why: b ? (b.getAttribute('data-why') || '') : null };
+    }, tab);
 
-    console.log('\n== Técnico: adjunta ==');
-    let l = await abrirLiberacion();
-    chk('Liberación le dice que no libera pero sí adjunta VETS', /Sí puedes adjuntar la prueba de VETS/.test(l.note), l.note);
+    console.log('\n== Técnico: adjunta, sin ver fallas ==');
+    await abrir('liberacion');
     const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('#vets-attach-btn')]);
     await fc.setFiles({ name: 'WLTC Class3b CL4 5DR 1.0 48V.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: XLSX });
     await page.waitForFunction(() => window._vetsCtx && window._vetsCtx.view, null, { timeout: 8000 }).catch(() => {});
@@ -121,73 +123,73 @@ const SEED = () => {
     const m = await page.evaluate(() => {
         const ov = window._vetsCtx && window._vetsCtx.overlay;
         if (!ov) return null;
-        const b = ov.querySelector('[data-modal-btn="1"]');
-        return { txt: ov.innerText, radios: ov.querySelectorAll('.vets-lvl').length, disabled: b.disabled };
+        return { txt: ov.innerText, radios: ov.querySelectorAll('.vets-lvl').length, disabled: ov.querySelector('[data-modal-btn="1"]').disabled };
     });
     chk('el reporte sin tablas de datos se abre (2.17.1)', !!m, errores.join(' | '));
     if (m) {
-        chk('la falla nueva sale con ⏳ para el liberador, sin opciones de clasificar', /⏳ PM Pre Filter Temp/.test(m.txt) && m.radios === 0, 'radios=' + m.radios);
-        chk('lo explica', /las decide el liberador antes de enviar a aprobación|la decide el liberador antes de enviar a aprobación/.test(m.txt));
+        chk('[2.20.0] el Técnico no ve la falla (ni nombre ni ⏳)', !/PM Pre Filter Temp/.test(m.txt) && !/⏳/.test(m.txt) && m.radios === 0, m.txt.slice(0, 400));
+        chk('dice que las verificaciones las revisa quien aprueba', /las revisa quien aprueba/.test(m.txt));
         chk('Aplicar habilitado', m.disabled === false);
     }
     await page.evaluate(() => window._vetsCtx.overlay.querySelector('[data-modal-btn="1"]').click());
     await page.waitForTimeout(400);
     const t = await page.evaluate(() => {
         const v = db.vehicles.find(x => x.id === 'v48');
-        return { s: v.testData.vets, pol: (pnState.vetsChecks || []).length, status: document.getElementById('vets-attach-status').innerText,
-                 decidir: !!document.querySelector('#vets-attach-status button'), targetA: v.testData.targetA };
+        return { s: v.testData.vets, pol: (pnState.vetsChecks || []).length, status: document.getElementById('vets-attach-status').innerText, targetA: v.testData.targetA,
+                 toast: [...document.querySelectorAll('.toast, .toast-item, [class*="toast"]')].map(x => x.innerText).join(' | ') };
     });
-    chk('se adjuntó y llenó el dinamómetro', t.s && t.s.testRef === '72f4b8ca-1b44-4348-9b60-75104e2eae85' && t.targetA === 113.7, JSON.stringify([t.s && t.s.testRef, t.targetA]));
-    chk('no se clasificó nada para el laboratorio', t.pol === 0 && t.s.checksFail[0].level === null);
-    chk('la franja dice que queda para el liberador (sin botón para el Técnico)', /1 falla de VETS por decidir/.test(t.status) && /las decide el liberador/.test(t.status) && !t.decidir, t.status);
+    chk('se adjuntó y llenó el dinamómetro', t.s && t.s.testRef === '72f4b8ca-1b44-4348-9b60-75104e2eae85' && t.targetA === 113.7);
+    chk('no se clasificó nada: queda para el aprobador', t.pol === 0 && t.s.checksFail[0].level === null);
+    chk('la franja no menciona fallas', !/falla/i.test(t.status) && /Prueba VETS #856 adjunta/.test(t.status), t.status);
+    chk('el aviso tampoco', !/falla/i.test(t.toast), t.toast);
 
-    console.log('\n== Técnico: llena el checklist (2.19.0) ==');
+    console.log('\n== Técnico: checklist y envío ==');
     const cl = await page.evaluate(() => {
-        const errs = [];
-        const t0 = document.querySelectorAll('.toast, .toast-item').length;
         document.querySelector('#lib-checklist-content .relcl-all').click();
-        const doc = [...document.querySelectorAll('#lib-checklist-content .relcl-opt')].find(b => /Adjunto/.test(b.textContent));
-        if (doc) doc.click();
+        // Todos los documentos (la tarjeta se repinta tras cada toque: se buscan de nuevo)
+        for (let i = 0; i < 10; i++) {
+            const doc = [...document.querySelectorAll('#lib-checklist-content .relcl-opt')].find(b => /Adjunto/.test(b.textContent) && b.getAttribute('aria-pressed') !== 'true');
+            if (!doc) break; doc.click();
+        }
         const v = db.vehicles.find(x => x.id === 'v48'), c = v.testData.releaseChecklist || {};
-        return { objetos: c.objects || {}, docs: c.docs || {}, by: c.by, who: (document.querySelector('#lib-checklist-content .relcl-who') || {}).innerText || '',
-                 note: document.getElementById('lib-role-note').innerText, st: v.status,
-                 aud: _auditEnsureLoaded().filter(a => a.action === 'checklist_liberacion').length };
+        return { objetos: c.objects || {}, by: c.by, aud: _auditEnsureLoaded().filter(a => a.action === 'checklist_liberacion').length,
+                 who: (document.querySelector('#lib-checklist-content .relcl-who') || {}).innerText || '' };
     });
-    chk('el Técnico marca "Todo retirado"', Object.keys(cl.objetos).length === 5 && Object.values(cl.objetos).every(x => x === 'ok'), JSON.stringify(cl.objetos));
-    chk('y la evidencia documental', Object.values(cl.docs).includes('ok'), JSON.stringify(cl.docs));
-    chk('queda a su nombre y en el historial', cl.by === 'Beto Técnico' && cl.aud >= 2, JSON.stringify([cl.by, cl.aud]));
-    chk('la tarjeta dice que lo confirma el liberador con su firma', /Beto Técnico/.test(cl.who) && /lo confirma con su firma/.test(cl.who), cl.who);
-    chk('Liberación le dice lo que sí puede hacer', /adjuntar la prueba de VETS y llenar el checklist/.test(cl.note), cl.note);
-    chk('llenar el checklist no envía nada', cl.st === 'ready-release');
-    // [2.19.1] El botón de enviar le dice al Técnico que ese paso es del liberador (no "decide VETS").
-    const tb = await page.evaluate(() => ({ why: document.getElementById('release-archive-btn').getAttribute('data-why') || '',
-        note: (document.getElementById('lib-action-note') || {}).innerText || '', decideBtn: !!document.querySelector('#lib-action-note .lib-action-decide') }));
-    chk('al Técnico el botón de enviar le dice que lo hace el liberador', /Enviar a aprobación lo hace Signatario/.test(tb.why) && !/Decide primero/.test(tb.why), tb.why);
-    chk('junto al botón: el siguiente paso es del liberador, incluida la falla de VETS', /lo hace/.test(tb.note) && /falla de VETS/.test(tb.note) && !tb.decideBtn, tb.note);
+    chk('el Técnico marca el checklist, a su nombre y en el historial', Object.values(cl.objetos).every(x => x === 'ok') && Object.keys(cl.objetos).length === 5 && cl.by === 'Beto Técnico' && cl.aud >= 2, JSON.stringify(cl));
+    let l = await abrir('liberacion');
+    chk('[2.20.0] el Técnico no tiene aviso de "no puedes enviar"', l.libNote === '', l.libNote);
+    chk('el botón de enviar no habla de VETS', !/VETS/.test(l.why || ''), l.why);
+    const env = await page.evaluate(() => {
+        // Aislar: F05 completo y checklist tienen sus propias pruebas; la firma se simula.
+        const vp = window.validatePdfCompleteness, sc = window.sigCaptureOpen;
+        window.validatePdfCompleteness = () => ({ missing: [], soft: [] });
+        window.sigCaptureOpen = (o) => o.onSave({ signerName: 'Beto Técnico', sessionUserName: 'Beto Técnico', dataUrl: 'data:image/png;base64,iVBORw0KGgo=', signedAt: new Date().toISOString() });
+        try { submitToApproval(); } finally { window.validatePdfCompleteness = vp; window.sigCaptureOpen = sc; }
+        const v = db.vehicles.find(x => x.id === 'v48');
+        return { st: v.status, rel: v.testData.signatures && v.testData.signatures.releaser && v.testData.signatures.releaser.signerName, level: v.testData.vets.checksFail[0].level };
+    });
+    await page.waitForTimeout(300);
+    const env2 = await page.evaluate(() => { const v = db.vehicles.find(x => x.id === 'v48'); return { st: v.status, rel: v.testData.signatures && v.testData.signatures.releaser && v.testData.signatures.releaser.signerName }; });
+    chk('[2.20.0] el Técnico ENVÍA a aprobación con una falla de VETS sin decidir', env2.st === 'pending-approval' && env2.rel === 'Beto Técnico', JSON.stringify([env, env2]));
 
-    console.log('\n== Signatario: decide ==');
-    await page.evaluate(() => localStorage.setItem('kia_auth_session', JSON.stringify({ operatorId: 'sara', operatorName: 'Sara Signataria', expiresAt: new Date(Date.now() + 11 * 3600e3).toISOString() })));
-    await page.reload();
+    console.log('\n== Quien liberó no decide ==');
+    const auto = await page.evaluate(() => { const v = db.vehicles.find(x => x.id === 'v48'); return vetsCanDecideFor(v); });
+    chk('el Técnico que liberó no puede decidir la falla', auto.ok === false, JSON.stringify(auto));
+
+    console.log('\n== Signatario: decide al aprobar ==');
+    await page.evaluate(() => authCreateSession({ id: 'sara', name: 'Sara Signataria', role: 'Signatario' }));
     await page.waitForTimeout(2500);
-    l = await abrirLiberacion();
     const rol = await page.evaluate(() => authState.currentUser && authState.currentUser.role);
     chk('sesión de Signatario', rol === 'Signatario', rol);
-    chk('la franja le ofrece "Decidir…"', l.decidir && /por decidir/.test(l.status), l.status);
-    chk('el botón de liberar explica que falta decidir VETS', /Decide primero la falla de VETS: PM Pre Filter Temp/.test(l.why || ''), l.why);
-    const nb = await page.evaluate(() => ({ note: (document.getElementById('lib-action-note') || {}).innerText || '',
-        btn: !!document.querySelector('#lib-action-note .lib-action-decide') }));
-    chk('[2.19.1] en Acción, junto a Enviar, está el botón para decidir', nb.btn && /PM Pre Filter Temp/.test(nb.note), nb.note);
-    const env = await page.evaluate(() => {
-        // Aislar el candado de VETS: los de F05 completo y checklist tienen sus propias pruebas.
-        const vp = window.validatePdfCompleteness, rc = window.releaseChecklistRows;
-        window.validatePdfCompleteness = () => ({ missing: [], soft: [] });
-        window.releaseChecklistRows = () => ({ missing: [], rows: [] });
-        try { submitToApproval(); } finally { window.validatePdfCompleteness = vp; window.releaseChecklistRows = rc; }
+    let a = await abrir('aprobacion');
+    chk('en Aprobación ve la falla y el botón para decidirla', a.decideBtn && /PM Pre Filter Temp/.test(a.aprNote), a.aprNote);
+    const bloqueo = await page.evaluate(() => {
+        approveAndArchive();
         const ov = window._vetsCtx && window._vetsCtx.mode === 'decidir' ? window._vetsCtx.overlay : null;
         const v = db.vehicles.find(x => x.id === 'v48');
         return { abierto: !!ov, st: v.status, radios: ov ? ov.querySelectorAll('.vets-lvl').length : 0, disabled: ov ? ov.querySelector('[data-modal-btn="1"]').disabled : null };
     });
-    chk('enviar a aprobación no envía: abre la decisión', env.abierto && env.st === 'ready-release' && env.radios === 3 && env.disabled === true, JSON.stringify(env));
+    chk('"Aprobar" no aprueba: abre la decisión', bloqueo.abierto && bloqueo.st === 'pending-approval' && bloqueo.radios === 3 && bloqueo.disabled === true, JSON.stringify(bloqueo));
     await page.evaluate(() => {
         const ov = window._vetsCtx.overlay;
         const r = ov.querySelector('.vets-lvl[value="desacreditada"]'); r.checked = true; r.dispatchEvent(new Event('change'));
@@ -197,16 +199,29 @@ const SEED = () => {
     await page.waitForTimeout(400);
     const d = await page.evaluate(() => {
         const v = db.vehicles.find(x => x.id === 'v48'), c = v.testData.vets.checksFail[0];
-        const btn = document.getElementById('release-archive-btn');
-        return { level: c.level, by: c.decidedBy, pol: JSON.parse(JSON.stringify(pnState.vetsChecks || [])), status: document.getElementById('vets-attach-status').innerText,
-                 why: btn ? (btn.getAttribute('data-why') || '') : null, tl: v.timeline.map(x => x.action),
+        return { level: c.level, by: c.decidedBy, pol: JSON.parse(JSON.stringify(pnState.vetsChecks || [])),
+                 note: (document.getElementById('appr-vets-note') || {}).style ? document.getElementById('appr-vets-note').style.display : '?',
+                 why: document.getElementById('approve-archive-btn').getAttribute('data-why') || '', tl: v.timeline.map(x => x.action),
                  aud: _auditEnsureLoaded().filter(a => /^vets_/.test(a.action)).map(a => a.action) };
     });
-    chk('la falla queda desacreditada, con quién decidió', d.level === 'desacreditada' && d.by === 'Sara Signataria', JSON.stringify([d.level, d.by]));
+    chk('la falla queda desacreditada, decidida por la Signataria', d.level === 'desacreditada' && d.by === 'Sara Signataria', JSON.stringify([d.level, d.by]));
     chk('y para todo el laboratorio', d.pol.length === 1 && d.pol[0].level === 'desacreditada');
-    chk('la franja ya no tiene pendientes', !/por decidir/.test(d.status), d.status);
-    chk('el bloqueo por VETS se quitó del botón de liberar', !/VETS/.test(d.why || ''), d.why);
+    chk('la nota de Aprobación desaparece', d.note === 'none', d.note);
+    chk('el botón de aprobar ya no habla de VETS', !/VETS/.test(d.why), d.why);
     chk('línea de tiempo y auditoría', d.tl.includes('Fallas de VETS decididas') && d.aud.includes('vets_fallas_decididas') && d.aud.includes('vets_importado'), d.aud.join());
+
+    console.log('\n== Cambiar de usuario repinta la pantalla abierta ==');
+    await page.evaluate(() => { const v = db.vehicles.find(x => x.id === 'v48'); v.status = 'ready-release'; saveDB(); });
+    await page.evaluate(() => authCreateSession({ id: 'pau', name: 'Pau Practicante', role: 'Practicante' }));
+    await page.waitForTimeout(2500);
+    l = await abrir('liberacion');
+    const cambio = await page.evaluate(() => {
+        authCreateSession({ id: 'beto', name: 'Beto Técnico', role: 'Técnico' });
+        const n = document.getElementById('lib-action-note');
+        return n.style.display === 'none' ? '' : n.innerText;
+    });
+    chk('el Practicante ve que enviar lo hace otro rol', /Enviar a aprobación lo hace/.test(l.libNote), l.libNote);
+    chk('al pasar a Técnico ese aviso se quita sin recargar', cambio === '', cambio);
 
     chk('ningún error de JavaScript ni diálogo nativo', errores.length === 0, errores.join(' | '));
     await browser.close();

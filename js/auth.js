@@ -40,9 +40,10 @@ var AUTH_ROLE_DEFAULT = 'Practicante';
 var AUTH_ROLE_PERMS = {
     'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
     // [2.18.0] test.vets: adjuntar la prueba de VETS. Las fallas nuevas las decide el liberador.
-    // [2.19.0] test.checklist: llenar el checklist de liberación. Lo confirma el liberador con su firma.
-    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist'],
-    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist',
+    // [2.20.0] Desde Técnico se LIBERA (enviar a aprobación con la firma del liberador); aprobar
+    // y decidir las fallas de VETS sigue siendo de Signatario y Manager (test.approve).
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist', 'test.release'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist', 'test.release',
                                        'plan.manage', 'cop.judge', 'audit.export', 'users.view',
                                        'config.manage', 'homolog.manage'],
     'Signatario':                     ['*'],
@@ -61,10 +62,10 @@ var AUTH_PERM_LABELS = [
     { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
     { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
     { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
-    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación (lo confirma el liberador con su firma)' },
-    { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS (las fallas nuevas las decide el liberador)' },
-    { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
-    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
+    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación' },
+    { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS' },
+    { perm: 'test.release',      label: 'Liberar pruebas: enviar a aprobación (firma del liberador)' },
+    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas y decidir las fallas de VETS (firma del aprobador)' },
     { perm: 'test.retro_edit',   label: 'Corregir pruebas archivadas' },
     { perm: 'test.delete',       label: 'Eliminar vehículos y sus registros' },
     { perm: 'regulation.manage', label: 'Editar perfiles de regulación y límites' },
@@ -833,6 +834,18 @@ function authUpdateUI() {
     if (!authState.currentUser) return;
     // [2.16.0] Entrar o cambiar de usuario cambia qué pestañas se ven.
     if (typeof uiTabRolesApply === 'function') { try { uiTabRolesApply(); } catch (e) {} }
+    // [2.20.0] Cambiar de usuario con Liberación o Aprobación abiertas: repintar con los
+    // permisos de la sesión NUEVA (antes se quedaba el aviso y los candados de la anterior).
+    try {
+        var _tab = document.querySelector('#platform-cop15 .tab.active');
+        var _t = _tab && _tab.getAttribute('data-tab');
+        var _rs = document.getElementById('releaseVehSelect'), _as = document.getElementById('approvalVehSelect');
+        // Aprobación es una sub-pestaña DENTRO de Liberación (#lib-panel-aprobador).
+        var _apr = document.getElementById('lib-panel-aprobador');
+        var _enApr = !!(_apr && _apr.style.display !== 'none');
+        if (_t === 'liberacion' && !_enApr && _rs && _rs.value && typeof loadRelease === 'function') loadRelease();
+        if (_t === 'liberacion' && _enApr && _as && _as.value && typeof loadApproval === 'function') loadApproval();
+    } catch (e) {}
 
     // Pre-select the logged-in operator in COP15 dropdowns
     var opName = authState.currentUser.name;

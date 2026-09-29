@@ -1,9 +1,8 @@
 // Verificación en navegador de 2.1.0: los roles del laboratorio se cumplen de verdad.
 //  - Un roster con nombres viejos se migra y queda auditado.
-//  - Liberar (regulación de comparación, enviar a aprobación): solo Signatario y
-//    Assistant Manager / Manager. Un Técnico certificado como liberador en la matriz
-//    TAMBIÉN queda fuera. [2.19.0] El checklist lo MARCA también el Técnico; lo
-//    confirma el liberador con su firma al enviar.
+//  - [2.20.0] Liberar (enviar a aprobación) es de Técnico hacia arriba; APROBAR (y decidir
+//    las fallas de VETS) solo Signatario y Assistant Manager / Manager. Un Técnico
+//    certificado como aprobador en la matriz TAMBIÉN queda fuera de aprobar.
 //  - Borrar vehículos y editar límites: solo roles de autoridad.
 //  - Nadie aprueba lo que él mismo liberó.
 const { chromium } = require('playwright');
@@ -70,37 +69,41 @@ const SEED = () => {
         releaseChecklistSet('objects', 'kds', 'yes');
         const v1 = db.vehicles.find(v => v.id === 'v1');
         const checklistEscrito = !!(v1.testData.releaseChecklist && v1.testData.releaseChecklist.objects && v1.testData.releaseChecklist.objects.kds);
-        submitToApproval();   // [2.19.0] enviar sigue siendo del liberador
-        const sigueSinEnviar = db.vehicles.find(v => v.id === 'v1').status !== 'pending-approval';
+        activeVehicleId = 'v2';
+        approveAndArchive();   // [2.20.0] aprobar sigue siendo de autoridad: se bloquea y se audita
+        const sigueSinAprobar = db.vehicles.find(v => v.id === 'v2').status === 'pending-approval';
+        activeVehicleId = 'v1';
         const nAntes = db.vehicles.length;
         deleteVehicleCascade('v1');
         const confirmAbierto = !!document.querySelector('.custom-modal-overlay, #globalModal[style*="flex"]');
         pnRegAddNew();
         const regModal = !!document.getElementById('reg-gas-rows');
         const denegados = _auditEnsureLoaded().filter(a => a.action === 'permission_denied').map(a => a.entity && a.entity.label);
-        return { puedeLiberar: authCan('test.release'), puedeAprobar: authCan('test.approve'), checklistEscrito, sigueSinEnviar,
+        return { puedeLiberar: authCan('test.release'), puedeAprobar: authCan('test.approve'), checklistEscrito, sigueSinAprobar,
                  sigueVehiculo: db.vehicles.length === nAntes, confirmAbierto, regModal, denegados };
     });
-    chk('un Técnico certificado en la matriz NO libera', tec.puedeLiberar === false);
-    chk('ni aprueba', tec.puedeAprobar === false);
+    chk('[2.20.0] el Técnico libera por su rol', tec.puedeLiberar === true);
+    chk('pero no aprueba, aunque la matriz lo certifique', tec.puedeAprobar === false);
     chk('[2.19.0] el Técnico SÍ marca el checklist de liberación', tec.checklistEscrito === true);
-    chk('pero no envía a aprobación', tec.sigueSinEnviar === true);
+    chk('su intento de aprobar no aprueba', tec.sigueSinAprobar === true);
     chk('el Técnico no puede borrar vehículos', tec.sigueVehiculo === true);
     chk('el Técnico no puede editar límites de regulación', tec.regModal === false);
-    chk('cada intento bloqueado queda registrado', ['test.release', 'test.delete', 'regulation.manage'].every(p => tec.denegados.indexOf(p) !== -1), JSON.stringify(tec.denegados));
+    chk('cada intento bloqueado queda registrado', ['test.approve', 'test.delete', 'regulation.manage'].every(p => tec.denegados.indexOf(p) !== -1), JSON.stringify(tec.denegados));
 
     // La pestaña Liberación lo dice
     await page.evaluate(() => { const t = document.querySelector('#platform-cop15 .tab[data-tab="liberacion"]'); switchPlatform('cop15'); if (t) t.click(); });
     await page.waitForTimeout(400);
-    const nota = await page.evaluate(() => { const s = document.getElementById('releaseVehSelect'); s.value = 'v1'; loadRelease();
-        const n = document.getElementById('lib-role-note'); return { vis: n && n.style.display !== 'none', txt: n ? n.textContent : '' }; });
-    chk('Liberación avisa al Técnico quién puede liberar', nota.vis && /Signatario/.test(nota.txt) && /Assistant Manager/.test(nota.txt), JSON.stringify(nota));
+    const nota = await page.evaluate(() => { libSwitchSubtab('aprobador'); const s = document.getElementById('approvalVehSelect');
+        if (![...s.options].some(o => o.value === 'v2')) { const o = document.createElement('option'); o.value = 'v2'; s.appendChild(o); }
+        s.value = 'v2'; loadApproval();
+        const n = document.getElementById('appr-role-note'); return { vis: n && n.style.display !== 'none', txt: n ? n.textContent : '' }; });
+    chk('Aprobación avisa al Técnico quién puede aprobar', nota.vis && /Signatario/.test(nota.txt) && /Assistant Manager/.test(nota.txt), JSON.stringify(nota));
     chk('el aviso no menciona vigencia', !/vigen/i.test(nota.txt));
 
     // ── Especialista: más que Técnico, pero no libera ni edita límites ──
     const esp = await page.evaluate(() => { authCreateSession({ id: 'pedro', name: 'Pedro Especialista', role: 'Especialista / Especialista Sr' });
-        return { plan: authCan('plan.manage'), liberar: authCan('test.release'), limites: authCan('regulation.manage') }; });
-    chk('Especialista administra el plan, pero no libera ni edita límites', esp.plan && !esp.liberar && !esp.limites, JSON.stringify(esp));
+        return { plan: authCan('plan.manage'), liberar: authCan('test.release'), aprobar: authCan('test.approve'), limites: authCan('regulation.manage') }; });
+    chk('Especialista administra el plan y libera, pero no aprueba ni edita límites', esp.plan && esp.liberar && !esp.aprobar && !esp.limites, JSON.stringify(esp));
 
     // ── Signatario ──
     const sig = await page.evaluate(() => {
@@ -126,10 +129,11 @@ const SEED = () => {
     await page.waitForTimeout(400);
     const m = await page.evaluate(() => { const t = document.querySelector('.pn-roles-table'); if (!t) return null;
         const filas = [...t.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.textContent.trim()));
-        const lib = filas.find(f => /Liberar pruebas/.test(f[0]));
-        return { cols: [...t.querySelectorAll('thead th div')].map(x => x.textContent), lib, texto: t.closest('.tp-card').textContent }; });
+        const lib = filas.find(f => /Liberar pruebas/.test(f[0])), apr = filas.find(f => /^Aprobar/.test(f[0]));
+        return { cols: [...t.querySelectorAll('thead th div')].map(x => x.textContent), lib, apr, texto: t.closest('.tp-card').textContent }; });
     chk('Datos → Usuarios muestra la matriz de roles', !!m && m.cols.length === 5, JSON.stringify(m && m.cols));
-    chk('la matriz dice que liberan solo Signatario y AM/Manager', m && m.lib && m.lib.slice(1).join('|') === '—|—|—|✔|✔', JSON.stringify(m && m.lib));
+    chk('[2.20.0] la matriz: liberan de Técnico hacia arriba', m && m.lib && m.lib.slice(1).join('|') === '—|✔|✔|✔|✔', JSON.stringify(m && m.lib));
+    chk('la matriz: aprueban solo Signatario y AM/Manager', m && m.apr && m.apr.slice(1).join('|') === '—|—|—|✔|✔', JSON.stringify(m && m.apr));
     chk('la matriz no menciona vigencia', m && !/vigen/i.test(m.texto));
     if (process.env.SHOTS) { const card = await page.$('.pn-roles-table'); if (card) await (await card.evaluateHandle(e => e.closest('.tp-card'))).asElement().screenshot({ path: path.join(process.env.SHOTS, 'roles-matriz.png') }); }
 
