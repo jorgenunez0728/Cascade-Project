@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.16.0';
+var APP_VERSION = '2.17.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.16.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.17.0', date: '29 sep 2026', title: 'Arranque rápido',
+      bullets: [
+          'La app abre 3.5 veces más rápido: en un teléfono de gama media, con un laboratorio de 60 vehículos, HOY pasó de estar lista a los ~6.4 s a ~1.8 s.',
+          'Cada guardado también es más ligero: antes, cada vez que se guardaba algo, la app volvía a medir todo el almacenamiento del equipo ocho veces.',
+          'Datos se arma la primera vez que lo abres en la sesión (tarda un poco más esa primera vez; las demás son inmediatas). HOY, Plan y Pruebas no esperan a Datos.',
+          'Cambiar de pestaña es más rápido en toda la app (los botones de ayuda "?" ya no recorren la página entera por cada campo).',
+          'Nada cambió en lo que ves ni en los datos.'
+      ] },
     { version: '2.16.0', date: '29 sep 2026', title: 'Cada rol ve lo suyo',
       bullets: [
           'Nuevo: cada quien ve las pantallas que puede usar. Un Practicante ya no ve Plan → Producción, Reglas, Recuperación ni Simulador, ni Datos → Usuarios, Regulaciones, Homologación o Auditoría.',
@@ -3694,6 +3702,8 @@ function switchPlatform(platform, swipeDir) {
     var newSection = document.getElementById('platform-' + sectionId);
 
     if (!newSection) return;
+    // [2.17.0] Datos arma su parte de Alpine hasta la primera visita (ver pnAlpineEnsure).
+    if (sectionId === 'panel' && typeof pnAlpineEnsure === 'function') pnAlpineEnsure();
 
     // Only animate DOM sections if they actually differ
     if (sectionId !== oldSectionId) {
@@ -5611,6 +5621,7 @@ function storageHousekeeping() {
     } catch(e) {}
 
     if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
+    if (freed > 0 && typeof pnStorageScanInvalidate === 'function') pnStorageScanInvalidate();
 
     // 5) Avisar ANTES de que un guardado falle a media operación.
     try {
@@ -5631,7 +5642,7 @@ function storageHousekeeping() {
 function storageFreeBytes() {
     try {
         if (typeof pnStorageScan !== 'function') return Infinity;
-        var scan = pnStorageScan();
+        var scan = pnStorageScan({ fresh: true });   // [2.17.0] el preflight nunca usa el memo
         return Math.max(0, scan.max - scan.total);
     } catch(e) { return Infinity; }
 }
@@ -5682,8 +5693,10 @@ function storageFreeBytes() {
         }
         } catch(e) { console.error('auth error:', e); }
 
+        bootMark('inicio');
         bootProgress('Cargando configuraciones…');
         try { parseCSV(); } catch(e) { console.error('parseCSV error:', e); }
+        bootMark('catalogo');
         try { populateOperators(); } catch(e) { console.error('populateOperators error:', e); }
         try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { console.error('op picker error:', e); }
         
@@ -5706,6 +5719,7 @@ function storageFreeBytes() {
 
         // Initialize visual cascade tree
         try { if (typeof initCascadeTree === 'function') initCascadeTree(); } catch(e) { console.error('initCascadeTree error:', e); }
+        bootMark('cascada');
 
         // Antes de poblar cualquier selector: los <option> llevan el id como valor, así
         // que un id repetido haría que elegir un vehículo cargara otro.
@@ -5717,6 +5731,7 @@ function storageFreeBytes() {
         } catch(e) { console.error('dedupeVehicleIds error:', e); }
         try { updateProgressBar(); } catch(e) { console.error('updateProgressBar error:', e); }
         try { refreshAllLists(); } catch(e) { console.error('refreshAllLists error:', e); }
+        bootMark('listas');
 
         try {
 	var now = new Date();
@@ -5744,6 +5759,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
+        bootMark('plan');
         // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
         try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
@@ -5759,9 +5775,11 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}
         try { if (typeof invUpdateBadges === 'function') invUpdateBadges(); } catch(e) {}
+        bootMark('consumibles');
 
         // ═══ Panel Module ═══
         try { if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); } } catch(e) {}
+        bootMark('datos');
 
         // ═══ Restore Soak Timer if running ═══
         bootProgress('Restaurando tu pantalla…');
@@ -5771,6 +5789,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+        bootMark('nube');
 
         // ═══ [R4-M1] Load chart configurations ═══
         try { chartConfigLoad(); } catch(e) {}
@@ -5859,6 +5878,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof dailyDashRender === 'function') dailyDashRender();
         } catch(dashErr) { console.error('dailyDashRender error:', dashErr); }
+        bootMark('hoy');
 
         // ═══ [v23.3] Listas de opciones fijas → botones ═══
         try { uiChipsEnhance(document); } catch(chipErr) { console.error('uiChipsEnhance error:', chipErr); }
@@ -5868,6 +5888,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // [v24] Pestañas por grupos en Plan, Consumibles y Datos.
         ['tp', 'inv', 'pn'].forEach(function(m) { try { uiTabGroupsInit(m); } catch (tgErr) { console.error('uiTabGroupsInit ' + m + ':', tgErr); } });
         try { if (typeof cascadeNowButtonsInit === 'function') cascadeNowButtonsInit(); } catch(nowErr) { console.error('cascadeNowButtonsInit error:', nowErr); }
+        bootMark('mejoras-ui');
 
         // ═══ [v17.13] Botón flotante de reporte de bugs ═══
         try {
@@ -5875,6 +5896,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         } catch(bugErr) { console.error('bugFabInit error:', bugErr); }
 
         // [2.11.0] La app ya está armada: la bienvenida se desvanece.
+        bootMark('lista');
         bootStage('lista');
 
         // [R5-M1] Restore immersive mode if previously active
@@ -8073,6 +8095,18 @@ function bootProgress(msg) {
 
 /** Etapa actual (para pruebas y para quien necesite saber si la app ya está a la vista). */
 function bootStageNow() { return _bootStage; }
+
+// [2.17.0] Cronómetro del arranque: cuánto tarda cada paso de initializeSystem. Solo memoria
+// (window._bootMarks = [[paso, ms], …]); lo lee la prueba de presupuesto (tests/perf.e2e.js)
+// y sirve para saber dónde se va el tiempo sin abrir un perfilador en el teléfono.
+var _bootLast = 0;
+function bootMark(step) {
+    if (typeof performance === 'undefined' || typeof window === 'undefined') return;
+    var now = performance.now();
+    if (!window._bootMarks) window._bootMarks = [];
+    window._bootMarks.push([step, Math.round(now - (_bootLast || now))]);
+    _bootLast = now;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M4] Micro-Animations & Visual Polish — JS Helpers

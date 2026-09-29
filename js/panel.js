@@ -832,7 +832,30 @@ var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-us
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
 
+/**
+ * [2.17.0] Arma el componente Alpine de Datos la PRIMERA vez que se necesita. Al arrancar
+ * lleva `x-ignore` y Alpine se lo salta: construir sus seis pestañas (y evaluar cada
+ * binding, incluidas las ocultas) le costaba ~1.2 s a un teléfono antes de poder mostrar
+ * HOY, que es donde abre la app. El componente ya resincroniza todo desde pnState al
+ * iniciar (lo hacía porque Alpine podía arrancar antes que pnInit), así que armarlo tarde
+ * no pierde nada. Idempotente.
+ */
+function pnAlpineEnsure() {
+    var root = document.getElementById('pn-alpine-root');
+    if (!root || !root.hasAttribute('x-ignore')) return false;
+    root.removeAttribute('x-ignore');
+    // Alpine marcó el nodo al arrancar (propiedades internas de x-ignore): quitar solo el
+    // atributo no basta, initTree seguiría saltándoselo.
+    delete root._x_ignore; delete root._x_ignoreSelf;
+    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+        try { Alpine.initTree(root); } catch (e) { console.error('Alpine (Datos):', e); }
+    }
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    return true;
+}
+
 function pnSwitchTab(tabId) {
+    pnAlpineEnsure();
     // v16.3: apagar el listener en vivo del Almacén al salir de esa pestaña — no dejarlo
     // corriendo de fondo mientras el operador ve otra sección del Panel.
     if (pnState.activeTab === 'pn-files' && tabId !== 'pn-files' && typeof fbFilesUnsubscribe === 'function') fbFilesUnsubscribe();
@@ -3013,7 +3036,40 @@ function _pnStorageEntryFor(key) {
  * vez de recorrer localStorage por su cuenta.
  * @returns {{total:number, items:Array, reclaimable:number, reviewable:number, max:number, pct:number}}
  */
-function pnStorageScan() {
+// [2.17.0] Bytes UTF-8 de una cadena sin crear un Blob. `new Blob([v]).size` copiaba cada
+// valor al proceso del navegador (así viven los Blobs): con ~1.4 MB guardados eran ~600 ms
+// por escaneo en un teléfono, y la pestaña Sistema de Alpine lo pedía 8 veces al arrancar y
+// otras 8 en cada guardado. PURA.
+function pnUtf8Len(s) {
+    if (!s) return 0;
+    var n = s.length, extra = 0;
+    for (var i = 0; i < n; i++) {
+        var c = s.charCodeAt(i);
+        if (c < 0x80) continue;
+        if (c < 0x800) extra += 1;
+        else if (c >= 0xD800 && c <= 0xDBFF) { extra += 2; i++; }   // par sustituto = 4 bytes (2 unidades)
+        else extra += 2;
+    }
+    return n + extra;
+}
+
+// [2.17.0] Memo: el mismo escaneo sirve a todos los que lo piden en el mismo momento. Se
+// invalida con `data:saved` y con todo lo que borra claves (pnStorageScanInvalidate); el
+// TTL corto cubre las escrituras que no avisan (preferencias de UI). `opts.fresh` lo salta:
+// lo usa el preflight de las operaciones críticas (storageFreeBytes).
+var _pnStorageMemo = null;
+var PN_STORAGE_MEMO_MS = 3000;
+function pnStorageScanInvalidate() { _pnStorageMemo = null; }
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('data:saved', pnStorageScanInvalidate);
+
+function pnStorageScan(opts) {
+    if (!(opts && opts.fresh) && _pnStorageMemo && Date.now() - _pnStorageMemo.at < PN_STORAGE_MEMO_MS) return _pnStorageMemo.res;
+    var res = _pnStorageScanNow();
+    _pnStorageMemo = { at: Date.now(), res: res };
+    return res;
+}
+
+function _pnStorageScanNow() {
     var items = [], total = 0, reclaimable = 0, reviewable = 0;
     var n = 0;
     try { n = localStorage.length; } catch(e) { n = 0; }
@@ -3022,7 +3078,7 @@ function pnStorageScan() {
         try {
             k = localStorage.key(i);
             v = localStorage.getItem(k);
-            bytes = v ? new Blob([v]).size : 0;
+            bytes = v ? pnUtf8Len(v) : 0;
         } catch(e) { continue; }
         if (!k) continue;
         var entry = _pnStorageEntryFor(k);
@@ -3064,6 +3120,7 @@ function pnReclaimSpace() {
             var okCount = 0;
             targets.forEach(function(it) {
                 try { localStorage.removeItem(it.key); okCount++; } catch(e) {}
+                pnStorageScanInvalidate();
             });
             if (typeof auditLog === 'function') {
                 auditLog('panel', 'storage_reclaim', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
@@ -3091,6 +3148,7 @@ function pnStorageDeleteKey(key) {
         + (item.note || '') + '<br><br>Esta acción no se puede deshacer.',
         function() {
             try { localStorage.removeItem(key); } catch(e) {}
+            pnStorageScanInvalidate();
             if (typeof auditLog === 'function') {
                 auditLog('panel', 'storage_delete', { type: 'sistema', id: key, label: item.label },
                     'Liberados ' + _pnFormatBytes(item.bytes));
