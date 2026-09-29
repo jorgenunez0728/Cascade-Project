@@ -60,7 +60,9 @@ ok('los niveles suben de 1 a 5', J(R.AUTH_ROLES.map(r => r.level)) === '[1,2,3,4
 ok('un rol sin definir cae al de MENOR privilegio', R.AUTH_ROLE_DEFAULT === 'Practicante');
 
 console.log('\n== Liberar y aprobar: Signatario y Assistant Manager / Manager, nadie más ==');
-['test.release', 'test.approve'].forEach(p => {
+// [2.20.0] Liberar (enviar a aprobación) es desde Técnico; aprobar sigue siendo de autoridad.
+ok('test.release: de Técnico hacia arriba', J(ctx.authRolesWith('test.release')) === J(['Técnico', 'Especialista / Especialista Sr', 'Signatario', 'Assistant Manager / Manager']), J(ctx.authRolesWith('test.release')));
+['test.approve'].forEach(p => {
     ok(p + ': solo los dos roles de autoridad', J(ctx.authRolesWith(p)) === J(['Signatario', 'Assistant Manager / Manager']), J(ctx.authRolesWith(p)));
 });
 ok('Signatario y AM/Manager tienen permisos idénticos',
@@ -75,7 +77,8 @@ ok('el Practicante apoya en Consumibles', ctx.authRoleHas('Practicante', 'invent
 ok('todos registran y operan', ROLES.every(r => ctx.authRoleHas(r, 'test.register') && ctx.authRoleHas(r, 'test.operate')));
 // [2.18.0] Adjuntar VETS: desde Técnico. Decidir las fallas sigue siendo de quien libera.
 ok('Técnico y Especialista adjuntan la prueba de VETS', ctx.authRoleHas('Técnico', 'test.vets') && ctx.authRoleHas('Especialista / Especialista Sr', 'test.vets'));
-ok('…pero no liberan (las fallas de VETS las decide el liberador)', !ctx.authRoleHas('Técnico', 'test.release') && !ctx.authRoleHas('Especialista / Especialista Sr', 'test.release'));
+ok('[2.20.0] también liberan, pero no aprueban (las fallas de VETS las decide quien aprueba)', ctx.authRoleHas('Técnico', 'test.release') && !ctx.authRoleHas('Técnico', 'test.approve') && !ctx.authRoleHas('Especialista / Especialista Sr', 'test.approve'));
+ok('el Practicante no libera', !ctx.authRoleHas('Practicante', 'test.release'));
 ok('el Practicante no adjunta VETS', !ctx.authRoleHas('Practicante', 'test.vets'));
 // [2.19.0] El checklist de liberación lo llena quien retiró los objetos; lo confirma el liberador.
 ok('Técnico y Especialista llenan el checklist de liberación', ctx.authRoleHas('Técnico', 'test.checklist') && ctx.authRoleHas('Especialista / Especialista Sr', 'test.checklist'));
@@ -94,13 +97,13 @@ const casos = { 'Supervisor': 'Signatario', 'Coordinador': 'Assistant Manager / 
     'signatario': 'Signatario', 'Practicante': 'Practicante' };
 Object.keys(casos).forEach(k => ok('"' + k + '" → ' + casos[k], ctx._authNormalizeRole(k) === casos[k], ctx._authNormalizeRole(k)));
 ok('un rol inventado no existe (no hereda permisos)', ctx._authNormalizeRole('Jefe supremo') === null && !ctx.authRoleHas('Jefe supremo', 'test.register'));
-ok('un Técnico viejo YA NO libera (antes sí)', !ctx.authRoleHas('Técnico', 'test.release'));
+ok('[2.20.0] un Técnico libera, pero no aprueba', ctx.authRoleHas('Técnico', 'test.release') && !ctx.authRoleHas('Técnico', 'test.approve'));
 ok('un Supervisor viejo sí libera: ahora es Signatario', ctx.authRoleHas('Supervisor', 'test.release'));
 
 console.log('\n== Las competencias ya no dan permisos ==');
 ctx.pnState = { operators: [{ id: 7, name: 'T', role: 'Técnico', skills: { release: { lvl: 3 }, cop_appr: { lvl: 3 } } }] };
 ctx.authGetCurrentUser = () => ({ id: 7, name: 'T', role: 'Técnico' });
-ok('un Técnico certificado como liberador NO puede liberar', ctx.authCan('test.release') === false);
+ok('[2.20.0] un Técnico libera por su rol', ctx.authCan('test.release') === true);
 ok('ni aprobar', ctx.authCan('test.approve') === false);
 ctx.authGetCurrentUser = () => ({ id: 8, name: 'S', role: 'Signatario' });
 ok('un Signatario libera por su rol, sin depender de la matriz', ctx.authCan('test.release') === true);

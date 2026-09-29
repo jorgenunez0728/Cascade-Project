@@ -333,7 +333,7 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         ok('validación del importador: compara solo lo que se tecleó', cmp.length === 2 && cmp.find(r => r.field === 'CO').ok === true && cmp.find(r => r.field === 'NOx').ok === false);
     }
 
-    console.log('\n== 2.18.0 · Técnico adjunta, el liberador decide ==');
+    console.log('\n== 2.18.0 / 2.20.0 · Adjunta y libera cualquiera, decide quien aprueba ==');
     {
         const R = ctx.vetsExtract(R48);
         const clsNew = ctx.vetsClassifyChecks(R.checks, []);
@@ -364,7 +364,8 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         // Capa de datos: un Técnico adjunta (test.vets sí, test.release no)
         const saved = [];
         ctx.saveDB = () => { saved.push(1); return true; };
-        let perms = { 'test.vets': true, 'test.release': false };
+        // [2.20.0] El Técnico adjunta y libera; no aprueba ni decide fallas.
+        let perms = { 'test.vets': true, 'test.release': true, 'test.approve': false };
         ctx._cascadeCan = p => !!perms[p];
         ctx._cascadeGate = p => !!perms[p];
         ctx.pnState.vetsChecks = [];
@@ -378,28 +379,37 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         ok('el Técnico adjunta', r1.ok === true, r1.reason);
         ok('…y aunque lleguen decisiones, la capa de datos NO clasifica por él', ctx.pnState.vetsChecks.length === 0 && veh.testData.vets.checksFail[0].level === null);
         ok('queda 1 falla por decidir y lo reporta', r1.pending === 1 && ctx.vetsPendingDecisions(veh.testData.vets, ctx.vetsPolicy()).length === 1);
-        ok('la auditoría dice que quedó para el liberador', audits.some(a => a[1] === 'vets_importado' && /por decidir del liberador/.test(a[3])));
+        ok('la auditoría dice que se decide al aprobar', audits.some(a => a[1] === 'vets_importado' && /por decidir al aprobar/.test(a[3])));
         perms = { 'test.vets': false, 'test.release': false };
         ctx._vetsCtx = { mode: 'liberar', vehicleId: 'v48', rec: R, meta, view: view(false) };
         ok('un Practicante (sin test.vets) no adjunta', ctx.vetsApply('v48', d0).ok === false);
-        perms = { 'test.vets': true, 'test.release': false };
+        perms = { 'test.vets': true, 'test.release': true, 'test.approve': false };
         ok('el Técnico tampoco puede decidir después', ctx.vetsDecideApply('v48', tryDecide).ok === false && veh.testData.vets.checksFail[0].level === null);
 
-        // El liberador decide
-        perms = { 'test.vets': true, 'test.release': true };
+        // [2.20.0] Decide QUIEN APRUEBA, y solo al aprobar
+        perms = { 'test.vets': true, 'test.release': true, 'test.approve': true };
+        let gate = { ok: true };
+        ctx.authCanApproveVehicle = () => gate;
+        const antesDeEnviar = ctx.vetsDecideApply('v48', tryDecide);
+        ok('antes de enviar a aprobación no se decide (ni el Signatario)', antesDeEnviar.ok === false && /al aprobar/.test(antesDeEnviar.reason), antesDeEnviar.reason);
+        veh.status = 'pending-approval';
+        gate = { ok: false, reason: 'self' };
+        const propio = ctx.vetsDecideApply('v48', tryDecide);
+        ok('quien liberó la prueba no decide sus fallas', propio.ok === false && /Liberaste esta prueba/.test(propio.reason), propio.reason);
+        gate = { ok: true };
         const sinMotivo = ctx.vetsDecideApply('v48', { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: {}, justifications: {} });
         ok('decidir sin motivo se rechaza en la capa de datos', sinMotivo.ok === false && /desacredita/.test(sinMotivo.reason));
         audits.length = 0;
         const r2 = ctx.vetsDecideApply('v48', { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: { 'PM Pre Filter Temp': 'sensor de prefiltro sin conectar en VETS' }, justifications: {} });
         const c0 = veh.testData.vets.checksFail[0];
-        ok('el liberador decide y se guarda en el resumen con quién', r2.ok && c0.level === 'desacreditada' && c0.decidedBy === 'Prueba' && !!c0.decidedAt, r2.reason);
+        ok('el aprobador decide y se guarda en el resumen con quién', r2.ok && c0.level === 'desacreditada' && c0.decidedBy === 'Prueba' && !!c0.decidedAt, r2.reason);
         ok('la clasificación queda para todo el laboratorio', ctx.pnState.vetsChecks.length === 1 && ctx.pnState.vetsChecks[0].level === 'desacreditada' && r2.policy === 1);
         ok('línea de tiempo y auditoría con antes → después', veh.timeline.some(t => t.action === 'Fallas de VETS decididas') &&
             audits.some(a => a[1] === 'vets_fallas_decididas') && audits.some(a => a[1] === 'vets_verificacion_clasificada'));
         ok('ya no queda nada pendiente', ctx.vetsPendingDecisions(veh.testData.vets, ctx.vetsPolicy()).length === 0);
-        veh.status = 'pending-approval';
-        ok('enviado a aprobación ya no se decide', ctx.vetsDecideApply('v48', d0).ok === false);
-        delete ctx._cascadeCan; delete ctx._cascadeGate;
+        veh.status = 'archived';
+        ok('archivado ya no se decide', ctx.vetsDecideApply('v48', d0).ok === false);
+        delete ctx._cascadeCan; delete ctx._cascadeGate; delete ctx.authCanApproveVehicle;
         ctx._vetsCtx = null; ctx.pnState.vetsChecks = []; ctx.db.vehicles = [];
     }
 

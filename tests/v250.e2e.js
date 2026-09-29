@@ -149,23 +149,13 @@ const SEED = () => {
         chk('sin avisos de configuración (misma que capturó VETS)', !/VETS capturó otra configuración/.test(m.txt));
         chk('lista lo que se llena (gases, dinamómetro, fecha)', /NOx/.test(m.txt) && /Target A/.test(m.txt) && /Fecha y hora de prueba/.test(m.txt));
         chk('ETW ya capturado y distinto: se ofrece, no se pisa solo', m.overs === 1, 'casillas=' + m.overs);
-        chk('"PM Pre Filter Temp" falla por primera vez: pide clasificarla', m.radios === 3 && /PM Pre Filter Temp/.test(m.txt) && /primera vez/.test(m.txt));
-        chk('muestra el valor y el límite', /máx\. 82\.68 · límite 20–52 °C/.test(m.txt));
+        // [2.20.0] Al adjuntar no se decide ni se ve la falla: la decide quien aprueba.
+        chk('[2.20.0] la falla de VETS no se clasifica al adjuntar', m.radios === 0 && !/PM Pre Filter Temp/.test(m.txt) && /las revisa quien aprueba/.test(m.txt));
         chk('OBFCM con la exactitud de VETS (−0.0256 %)', /-0\.0256 %/.test(m.txt) && /CALID 2591TCL46EP0026K/.test(m.txt), (m.txt.match(/OBFCM[\s\S]{0,200}/) || [''])[0]);
-        chk('Aplicar deshabilitado hasta clasificar', m.disabled === true);
+        chk('Aplicar habilitado', m.disabled === false);
     }
-    const aplicar = await page.evaluate(() => {
-        const ov = window._vetsCtx.overlay;
-        const r = ov.querySelector('.vets-lvl[value="desacreditada"]'); r.checked = true; r.dispatchEvent(new Event('change'));
-        const sinMotivo = ov.querySelector('[data-modal-btn="1"]').disabled;
-        const t = ov.querySelector('.vets-lvl-reason'); t.value = 'El sensor de prefiltro no está conectado en VETS'; t.dispatchEvent(new Event('input'));
-        const listo = ov.querySelector('[data-modal-btn="1"]').disabled;
-        ov.querySelector('[data-modal-btn="1"]').click();
-        return { sinMotivo, listo };
-    });
+    await page.evaluate(() => window._vetsCtx.overlay.querySelector('[data-modal-btn="1"]').click());
     await page.waitForTimeout(400);
-    chk('desacreditar sin motivo no deja aplicar', aplicar.sinMotivo === true);
-    chk('con motivo se habilita', aplicar.listo === false);
     const e1 = await page.evaluate(() => {
         const v = db.vehicles.find(x => x.id === 'e1');
         const inp = f => { const i = document.querySelector('#lib-gas-entry-content .lib-gas-input[data-field="' + f + '"]'); return i ? i.value : null; };
@@ -179,9 +169,9 @@ const SEED = () => {
     chk('dinamómetro llenado en SI y ETW capturado a mano respetado', e1.targetA === 102.5 && e1.etw === 1500, JSON.stringify([e1.targetA, e1.etw]));
     chk('fecha de la prueba llenada', e1.dt === '2026-08-25T10:12');
     chk('gases en la captura del liberador (siguen sin enviarse)', e1.nox !== null && e1.nox !== '' && e1.co2 !== '' && e1.st === 'ready-release', JSON.stringify([e1.nox, e1.co2]));
-    chk('la franja dice qué se adjuntó', /Prueba VETS #782 adjunta/.test(e1.status) && /desacreditada/.test(e1.status), e1.status);
-    chk('la política queda para todo el laboratorio', e1.pol.length === 1 && e1.pol[0].id === 'PM Pre Filter Temp' && e1.pol[0].level === 'desacreditada');
-    chk('queda en el historial: clasificación e importación', e1.aud.includes('vets_verificacion_clasificada') && e1.aud.includes('vets_importado'), e1.aud.join());
+    chk('la franja dice qué se adjuntó (sin hablar de fallas)', /Prueba VETS #782 adjunta/.test(e1.status) && !/falla|desacreditada/i.test(e1.status), e1.status);
+    chk('[2.20.0] nada se clasifica al adjuntar: queda por decidir al aprobar', e1.pol.length === 0 && e1.vets.checksFail[0].level === null);
+    chk('queda en el historial la importación', e1.aud.includes('vets_importado'), e1.aud.join());
     chk('línea de tiempo del vehículo', e1.tl === 'Prueba VETS adjunta');
 
     const recarga = await page.evaluate(() => {
@@ -198,12 +188,14 @@ const SEED = () => {
     m = await modal();
     chk('la misma prueba ya adjunta a otro vehículo: no se deja', m && /ya está adjunta al vehículo/.test(m.txt) && m.disabled === true);
     chk('el VIN no coincide con VETS ni con el ECU: lo dice y ofrece corregir', m && /lo más probable es que el Alta se haya tecleado mal/.test(m.txt) && m.fixVin);
-    chk('ya no pregunta por la verificación desacreditada', m && m.radios === 0 && /desacreditada por el laboratorio/.test(m.txt));
+    chk('tampoco pregunta por verificaciones (las revisa quien aprueba)', m && m.radios === 0 && /las revisa quien aprueba/.test(m.txt));
     chk('avisa que VETS capturó otra carrocería', m && /VETS capturó otra configuración/.test(m.txt) && /WGN/.test(m.txt));
     await cerrar();
 
     console.log('\n== Datos → Regulaciones: la política se cambia ahí ==');
     const reg = await page.evaluate(async () => {
+        // [2.20.0] La política ya no nace al adjuntar (la decide el aprobador): se siembra aquí.
+        vetsPolicySet('PM Pre Filter Temp', 'desacreditada', 'El sensor de prefiltro no está conectado en VETS', { skipAuth: true });
         switchPlatform('panel');
         pnSwitchTab('pn-regulations');
         await new Promise(r => setTimeout(r, 300));
@@ -220,10 +212,11 @@ const SEED = () => {
     const imp = await page.evaluate(() => {
         const ov = window._vetsCtx.overlay, btn = ov.querySelector('[data-modal-btn="1"]');
         const antes = btn.disabled;
-        const j = ov.querySelector('.vets-just'); j.value = 'Se revisó el termopar: lectura válida'; j.dispatchEvent(new Event('input'));
-        return { antes, despues: btn.disabled, txt: ov.innerText };
+        btn.click();
+        const v = db.vehicles.find(x => x.id === 'e1');
+        return { antes, pend: vetsPendingDecisions(v.testData.vets, vetsPolicy()) };
     });
-    chk('Importante: detiene hasta justificar', imp.antes === true && imp.despues === false && /Importante/.test(imp.txt));
+    chk('[2.20.0] Importante: no detiene al adjuntar; queda por justificar al aprobar', imp.antes === false && imp.pend.length === 1 && imp.pend[0].need === 'justificar', JSON.stringify(imp));
     await cerrar();
 
     console.log('\n== Historial → Comparar con VETS (validación del importador) ==');

@@ -20,6 +20,43 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.20.0 — Libera el Técnico; las fallas de VETS las decide quien aprueba (2026-09-29)
+
+### Cambió
+- **Técnico y Especialista liberan**: pueden enviar a aprobación con la firma del liberador.
+  **Aprobar** sigue siendo solo de Signatario y Assistant Manager / Manager, y nadie aprueba
+  una prueba que él mismo liberó. El Practicante no libera.
+- **Las fallas de las verificaciones de VETS las decide solo quien aprueba**, en la sub-pestaña
+  **Aprobación** (dentro de Liberación), antes de aprobar. Quien adjunta la prueba o la libera ya
+  no ve esas fallas ni lo detienen: la vista previa dice "las revisa quien aprueba la prueba".
+  Las que el laboratorio ya clasificó se aplican solas; las nuevas y las Importantes sin
+  justificar las resuelve el aprobador con **⏳ Decidir la falla de VETS**, junto a "Aprobar y
+  archivar". Quien liberó la prueba no puede decidirlas.
+- Datos → Regulaciones la ven quienes aprueban o editan límites.
+- La matriz de Roles y permisos separa liberar de aprobar.
+
+### Arreglado
+- **Cambiar de usuario dejaba la pantalla con la sesión anterior**: con Liberación o Aprobación
+  abiertas, un Signatario veía los avisos y candados del Técnico que acababa de salir. Ahora la
+  pantalla se repinta con los permisos de la sesión nueva.
+- La longitud del PIN ya no depende de poder liberar: sin esto, a un Técnico sin longitud
+  grabada se le habría exigido un PIN de 6 dígitos al entrar.
+
+### Para desarrollo
+- `test.release` se suma a Técnico y Especialista. `test.approve` es decidir fallas de VETS:
+  `vetsCanDecide()` = `test.approve`; **`vetsCanDecideFor(v)`** exige `pending-approval` y
+  `authCanApproveVehicle(v)` (rol + no ser quien liberó). `vetsDecideApply` y
+  `vetsPolicySet` (default) usan esos candados.
+- Al adjuntar nadie decide (`view.decides = false` en vista previa y en `vetsApply`).
+- El candado de fallas pendientes pasó de `submitToApproval` a **`approveAndArchive`**
+  (`_aprVetsWhy`, que también da el motivo del botón en doble ciego y en revisión dirigida).
+  `vetsRenderApprovalNote` llena `#appr-vets-note`.
+- `authUpdateUI` repinta Liberación o Aprobación (sub-pestaña `#lib-panel-aprobador`) si
+  están abiertas. `pnPinLenForRole` ya no mira `test.release`.
+- Pruebas actualizadas a la regla nueva: `vets.node.js`, `roles.node.js`, `roles.e2e.js`,
+  `v250.e2e.js` y `v2180.e2e.js` (este último, reescrito: el Técnico adjunta y envía; la
+  Signataria decide al aprobar; quien liberó no decide; cambiar de usuario repinta).
+
 ## 2.19.1 — Liberación dice bien de quién es el siguiente paso (2026-09-29)
 
 ### Arreglado

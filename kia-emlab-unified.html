@@ -5867,10 +5867,8 @@ td .ui-num-row > input { min-width: 5rem; }
 /* [2.5.0] Adjuntar prueba VETS en la tarjeta de gases de Liberación */
 .vets-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .vets-attach-status { font-size: var(--fs-sm); color: var(--ok-text); line-height: var(--lh-base); }
-/* [2.18.0] Fallas de VETS que esperan al liberador */
 .lib-action-note { margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
 .lib-action-note .lib-action-decide { margin-top: var(--space-xs); width: 100%; }
-.vets-pending { margin-top: var(--space-xs); color: var(--warn-text); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 .vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
 .vets-list li { margin: var(--space-2xs) 0; }
 .vets-list--cols { columns: 2 14rem; column-gap: var(--space-lg); }
@@ -7115,6 +7113,7 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>
+                    <div id="appr-vets-note" class="lib-action-note" style="display:none;"></div>
                     <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
                         ✅ Aprobar y archivar
                     </button>
@@ -8767,10 +8766,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609292331';
+var APP_BUILD = '202609292350';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '0e3eef84083dadde1d62abc647fcb3a8f995e90d';
+var APP_COMMIT = '042ee95f41bb69899631392eabf54ff864876b19';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8778,7 +8777,7 @@ var APP_COMMIT = '0e3eef84083dadde1d62abc647fcb3a8f995e90d';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.19.1';
+var APP_VERSION = '2.20.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8786,6 +8785,14 @@ var APP_VERSION = '2.19.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.20.0', date: '29 sep 2026', title: 'Libera el Técnico; las fallas de VETS las decide quien aprueba',
+      bullets: [
+          'Cambió: Técnico y Especialista pueden enviar a aprobación (firma del liberador). Aprobar sigue siendo solo de Signatario y Manager, y nadie aprueba lo que liberó.',
+          'Cambió: las fallas de las verificaciones de VETS las decide solo quien APRUEBA, en la sub-pestaña Aprobación, antes de aprobar. Quien adjunta o libera ya no las ve ni lo detienen.',
+          'En Aprobación, junto a "Aprobar y archivar", aparece el botón "⏳ Decidir la falla de VETS" cuando hay una pendiente.',
+          'Arreglado: al cambiar de usuario con Liberación o Aprobación abiertas, la pantalla se quedaba con los permisos y avisos del usuario anterior.',
+          'El PIN de cada quien no cambia de longitud.'
+      ] },
     { version: '2.19.1', date: '29 sep 2026', title: 'Liberación dice bien de quién es el siguiente paso',
       bullets: [
           'Arreglado: al Técnico, el botón "Enviar a aprobación" le decía "decide la falla de VETS", que no es su paso. Ahora dice que enviar lo hace el Signatario o Manager y que lo capturado queda guardado.',
@@ -9457,14 +9464,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609292331' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609292350' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609292331' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609292350' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9480,7 +9487,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609292331' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609292350' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -14707,7 +14714,7 @@ var UI_TAB_VIEW = {
     'tp-recovery':    { perms: ['plan.manage'], label: 'Plan → Recuperación', why: 'armar el plan de recuperación' },
     'tp-simulator':   { perms: ['plan.manage'], label: 'Plan → Simulador',   why: 'simular el plan' },
     'pn-users':       { perms: ['users.view'], label: 'Datos → Usuarios',    why: 'ver usuarios y competencias' },
-    'pn-regulations': { perms: ['test.release', 'regulation.manage'], label: 'Datos → Regulaciones', why: 'liberar pruebas o editar límites' },
+    'pn-regulations': { perms: ['test.approve', 'regulation.manage'], label: 'Datos → Regulaciones', why: 'aprobar pruebas o editar límites' },
     'pn-homolog':     { perms: ['homolog.manage'], label: 'Datos → Homologación', why: 'importar la homologación de Europa' },
     'pn-audit':       { perms: ['audit.view'], label: 'Datos → Auditoría',   why: 'consultar el historial de cambios' }
 };
@@ -20427,8 +20434,6 @@ function libOnGasChange() {
     if (btn) {
         // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
         var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
-        // [2.18.0] Fallas de VETS por decidir (las dejó quien adjuntó sin poder liberar).
-        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
         // [2.19.1] Quien no libera no puede enviar, falte lo que falte: el motivo es ESE. Antes
         // al Técnico se le decía "decide la falla de VETS", que no es su paso.
         if (_libRoleWhy()) { uiExplainDisabled(btn, _libRoleWhy()); return; }
@@ -20436,8 +20441,17 @@ function libOnGasChange() {
         uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
             ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
             : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
-            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).' : '');
+            : '');
     }
+}
+
+/** [2.20.0] Motivo por el que aún no se aprueba por VETS ('' = nada pendiente). */
+function _aprVetsWhy(vehicle) {
+    var pend = (typeof vetsPendingDecisions === 'function' && typeof vetsPolicy === 'function')
+        ? vetsPendingDecisions(vehicle && vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
+    if (!pend.length) return '';
+    return 'Decide primero ' + (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' +
+        pend.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).';
 }
 
 /** [2.19.1] Motivo por el que ESTA sesión no envía a aprobación ('' = sí puede). */
@@ -20487,7 +20501,7 @@ function libOnApproverGasChange() {
         matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
         matchStatus.style.color = tokenColor('--ok-text');
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
-        uiExplainDisabled(btn, '');
+        uiExplainDisabled(btn, _aprVetsWhy(vehicle));   // [2.20.0]
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
         _libHighlightReturnBtn(false);
@@ -20849,6 +20863,7 @@ function loadApproval() {
     }
     content.style.display = 'block';
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
+    if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
@@ -20952,14 +20967,8 @@ function submitToApproval() {
             if (_clCard && _clCard.scrollIntoView) _clCard.scrollIntoView({ block: 'center' });
             return;
         }
-        // [2.18.0] Fallas de VETS que dejó pendientes quien adjuntó sin poder liberar.
-        var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
-        if (_vp.length) {
-            showToast('Antes de enviar decide ' + (_vp.length === 1 ? 'la falla' : 'las ' + _vp.length + ' fallas') + ' de VETS: ' +
-                _vp.map(function(p) { return p.name; }).join(', ') + '.', 'warning', 8000);
-            if (typeof vetsDecideOpen === 'function') vetsDecideOpen(vehicle.id);
-            return;
-        }
+        // [2.20.0] Las fallas de VETS ya NO detienen el envío: las decide quien aprueba,
+        // en Aprobación (candado en approveAndArchive).
     }
     var regName = _libGetVehicleRegulation(vehicle);
     var profile = isEm && regName ? getRegulationProfile(regName) : null;
@@ -21072,6 +21081,12 @@ function approveAndArchive() {
     }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
+    // [2.20.0] Fallas de VETS: las decide quien aprueba, AQUÍ, antes de firmar.
+    if (_aprVetsWhy(vehicle)) {
+        showToast(_aprVetsWhy(vehicle).replace(/ \(botón.*$/, '.'), 'warning', 8000);
+        if (typeof vetsDecideOpen === 'function') vetsDecideOpen(vehicle.id);
+        return;
+    }
     // [2.2.0] Mismos gases que el liberador (perfil congelado), nunca el de este equipo.
     var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
     if (isEm && !profile) {
@@ -44218,7 +44233,8 @@ function pnRolesMatrixHTML() {
         counts[r] = (counts[r] || 0) + 1;
     });
     var h = '<p class="pn-roles-lead">Qué puede hacer cada rol. Los roles van de menor a mayor autoridad. ' +
-            'Liberar y aprobar lo hacen ' + escapeHtml(authRolesWith('test.release').join(' o ')) +
+            'Liberar (enviar a aprobación) lo hacen ' + escapeHtml(authRolesWith('test.release').join(', ')) +
+            '; aprobar, ' + escapeHtml(authRolesWith('test.approve').join(' o ')) +
             ', y nadie aprueba una prueba que él mismo liberó.</p>';
     h += '<div class="pn-roles-wrap"><table class="pn-roles-table"><thead><tr><th>Acción</th>';
     roles.forEach(function(r) {
@@ -45436,7 +45452,8 @@ function pnOpEditModal(opId) {
             '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
             '</div>' +
             '<div style="padding: var(--space-sm) var(--space-md);background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
-            'El rol decide qué puede hacer esta persona. Liberar y aprobar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            'El rol decide qué puede hacer esta persona. Liberar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            'Aprobar: <b>' + escapeHtml(authRolesWith('test.approve').join(', ')) + '</b>. ' +
             '<b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
             '<br>La matriz completa está en Usuarios → Roles y permisos.' +
             '</div>',
@@ -45543,7 +45560,9 @@ function pnPinLenForRole(role) {
     // [2.1.0] Con authRoleHas (normaliza y traduce nombres viejos): el lookup literal
     // AUTH_ROLE_PERMS[role] daba PIN corto a ' Supervisor' o a un rol renombrado.
     var privileged = typeof authRoleHas === 'function' &&
-                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve') || authRoleHas(role, 'test.release'));
+                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve'));
+    // [2.20.0] test.release ya NO cuenta: desde 2.20.0 lo tiene el Técnico, y a quien no tenga
+    // `pinLen` grabado se le habría exigido un PIN de 6 al entrar (lo dejaba fuera).
     return privileged ? PN_PIN_LEN_PRIVILEGED : PN_PIN_LEN_DEFAULT;
 }
 
@@ -50925,9 +50944,10 @@ var AUTH_ROLE_DEFAULT = 'Practicante';
 var AUTH_ROLE_PERMS = {
     'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
     // [2.18.0] test.vets: adjuntar la prueba de VETS. Las fallas nuevas las decide el liberador.
-    // [2.19.0] test.checklist: llenar el checklist de liberación. Lo confirma el liberador con su firma.
-    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist'],
-    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist',
+    // [2.20.0] Desde Técnico se LIBERA (enviar a aprobación con la firma del liberador); aprobar
+    // y decidir las fallas de VETS sigue siendo de Signatario y Manager (test.approve).
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist', 'test.release'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist', 'test.release',
                                        'plan.manage', 'cop.judge', 'audit.export', 'users.view',
                                        'config.manage', 'homolog.manage'],
     'Signatario':                     ['*'],
@@ -50946,10 +50966,10 @@ var AUTH_PERM_LABELS = [
     { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
     { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
     { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
-    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación (lo confirma el liberador con su firma)' },
-    { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS (las fallas nuevas las decide el liberador)' },
-    { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
-    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
+    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación' },
+    { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS' },
+    { perm: 'test.release',      label: 'Liberar pruebas: enviar a aprobación (firma del liberador)' },
+    { perm: 'test.approve',      label: 'Aprobar o devolver pruebas y decidir las fallas de VETS (firma del aprobador)' },
     { perm: 'test.retro_edit',   label: 'Corregir pruebas archivadas' },
     { perm: 'test.delete',       label: 'Eliminar vehículos y sus registros' },
     { perm: 'regulation.manage', label: 'Editar perfiles de regulación y límites' },
@@ -51718,6 +51738,18 @@ function authUpdateUI() {
     if (!authState.currentUser) return;
     // [2.16.0] Entrar o cambiar de usuario cambia qué pestañas se ven.
     if (typeof uiTabRolesApply === 'function') { try { uiTabRolesApply(); } catch (e) {} }
+    // [2.20.0] Cambiar de usuario con Liberación o Aprobación abiertas: repintar con los
+    // permisos de la sesión NUEVA (antes se quedaba el aviso y los candados de la anterior).
+    try {
+        var _tab = document.querySelector('#platform-cop15 .tab.active');
+        var _t = _tab && _tab.getAttribute('data-tab');
+        var _rs = document.getElementById('releaseVehSelect'), _as = document.getElementById('approvalVehSelect');
+        // Aprobación es una sub-pestaña DENTRO de Liberación (#lib-panel-aprobador).
+        var _apr = document.getElementById('lib-panel-aprobador');
+        var _enApr = !!(_apr && _apr.style.display !== 'none');
+        if (_t === 'liberacion' && !_enApr && _rs && _rs.value && typeof loadRelease === 'function') loadRelease();
+        if (_t === 'liberacion' && _enApr && _as && _as.value && typeof loadApproval === 'function') loadApproval();
+    } catch (e) {}
 
     // Pre-select the logged-in operator in COP15 dropdowns
     var opName = authState.currentUser.name;
@@ -56252,7 +56284,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609292331' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609292350' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -64431,7 +64463,7 @@ function vetsPolicySet(name, level, reason, opts) {
     opts = opts || {};
     if (!VETS_LEVELS[level]) return false;
     if (typeof pnState === 'undefined' || !pnState) return false;
-    if (!opts.skipAuth && typeof authRequire === 'function' && !authRequire(opts.perm || 'test.release', 'clasificar verificaciones de VETS')) return false;
+    if (!opts.skipAuth && typeof authRequire === 'function' && !authRequire(opts.perm || 'test.approve', 'clasificar verificaciones de VETS')) return false;
     if (!Array.isArray(pnState.vetsChecks)) pnState.vetsChecks = [];
     var id = String(name).trim(), now = new Date().toISOString();
     var by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
@@ -64499,10 +64531,27 @@ function vetsPolicyChange(id, level, sel) {
 // clasificar) y las Importantes sin justificar quedan pendientes: las decide el
 // liberador (test.release) y no se envía a aprobación hasta que lo haga.
 
-/** ¿La sesión decide fallas de VETS (clasificar, justificar)? */
+/**
+ * ¿La sesión decide fallas de VETS (clasificar, justificar)? [2.20.0] Solo quien APRUEBA
+ * (test.approve), y solo al aprobar: quien adjunta o libera ya no las ve ni las decide.
+ * Para un vehículo concreto, además, no puede ser quien lo liberó (vetsCanDecideFor).
+ */
 function vetsCanDecide() {
-    return (typeof _cascadeCan === 'function') ? _cascadeCan('test.release')
-        : (typeof authCan === 'function') ? authCan('test.release') : true;
+    return (typeof _cascadeCan === 'function') ? _cascadeCan('test.approve')
+        : (typeof authCan === 'function') ? authCan('test.approve') : true;
+}
+
+/** [2.20.0] ¿Esta sesión decide las fallas de ESTE vehículo? {ok, reason}. */
+function vetsCanDecideFor(v) {
+    if (!v || v.status !== 'pending-approval') return { ok: false, reason: 'Las fallas de VETS se deciden al aprobar la prueba.' };
+    if (typeof authCanApproveVehicle === 'function') {
+        var g = authCanApproveVehicle(v);
+        if (!g.ok) return { ok: false, reason: g.reason === 'self'
+            ? 'Liberaste esta prueba: sus fallas de VETS las decide quien la aprueba.'
+            : 'Las fallas de VETS las decide quien aprueba (Signatario o Assistant Manager / Manager).' };
+        return { ok: true, reason: '' };
+    }
+    return vetsCanDecide() ? { ok: true, reason: '' } : { ok: false, reason: 'Las fallas de VETS las decide quien aprueba.' };
 }
 
 /**
@@ -64542,13 +64591,15 @@ function vetsDecideOpen(vehicleId) {
     var v = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
     var s = v && v.testData && v.testData.vets;
     if (!s) return;
-    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.release', 'decidir las fallas de VETS')) return;
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.approve', 'decidir las fallas de VETS')) return;
+    var _can = vetsCanDecideFor(v);
+    if (!_can.ok) { showToast(_can.reason, 'warning'); return; }
     var pending = vetsPendingDecisions(s, vetsPolicy());
     if (!pending.length) { showToast('No quedan fallas de VETS por decidir.', 'info'); vetsRenderLibStatus(v); return; }
     _vetsCtx = { mode: 'decidir', vehicleId: v.id, pending: pending };
     var h = '<p class="miss-intro">Prueba VETS <b>#' + escapeHtml(String(s.testNumber || '—')) + '</b>' +
         (s.importedBy ? ', adjuntada por <b>' + escapeHtml(s.importedBy) + '</b>' : '') +
-        '. Estas fallas esperan tu decisión antes de enviar a aprobación.</p>';
+        '. Estas fallas esperan tu decisión antes de aprobar.</p>';
     pending.forEach(function(p, i) {
         if (p.need === 'justificar') {
             h += _vetsBox('danger', '🔴 <b>' + escapeHtml(p.name) + '</b> — ' + escapeHtml(p.detail) + '. <b>Importante</b>: justifícala para seguir.' +
@@ -64594,8 +64645,10 @@ function vetsDecideApply(vehicleId, d) {
     var v = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
     var s = v && v.testData && v.testData.vets;
     if (!s) return { ok: false, reason: 'Ese vehículo no tiene prueba VETS adjunta.' };
-    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.release', 'decidir las fallas de VETS')) return { ok: false, reason: 'Las fallas de VETS las decide quien libera (Signatario o Assistant Manager / Manager).' };
-    if (v.status === 'pending-approval' || v.status === 'archived') return { ok: false, reason: 'Ya se envió a aprobación.' };
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.approve', 'decidir las fallas de VETS')) return { ok: false, reason: 'Las fallas de VETS las decide quien aprueba (Signatario o Assistant Manager / Manager).' };
+    // [2.20.0] Se deciden AL APROBAR y no las decide quien liberó.
+    var _can = vetsCanDecideFor(v);
+    if (!_can.ok) return { ok: false, reason: _can.reason };
     d = d || {};
     var pol = vetsPolicy(), pending = vetsPendingDecisions(s, pol);
     var b = vetsDecideBlockers(pending, d);
@@ -64616,7 +64669,7 @@ function vetsDecideApply(vehicleId, d) {
         c.level = lvl;
         if (lvl === 'importante') c.justification = String((d.justifications || {})[c.name] || '').trim();
         c.decidedBy = who; c.decidedAt = now;
-        cambios.push({ campo: 'VETS · ' + c.name, antes: 'Por decidir', despues: (VETS_LEVELS[lvl] || {}).label + (c.justification ? ' — ' + c.justification : ''), razon: 'Decidido por el liberador' });
+        cambios.push({ campo: 'VETS · ' + c.name, antes: 'Por decidir', despues: (VETS_LEVELS[lvl] || {}).label + (c.justification ? ' — ' + c.justification : ''), razon: 'Decidido por el aprobador' });
     });
     (v.timeline = v.timeline || []).push({ timestamp: now, user: who || 'Sistema', action: 'Fallas de VETS decididas', data: { modified: cambios } });
     if (saveDB() === false) {
@@ -64632,8 +64685,14 @@ function vetsDecideApply(vehicleId, d) {
             cambios.map(function(c) { return c.campo.replace('VETS · ', '') + ' → ' + c.despues; }).join(' · '),
             { before: { pendientes: pending.map(function(p) { return p.name; }) }, after: { decisiones: cambios.map(function(c) { return c.campo + ': ' + c.despues; }) } });
     }
-    vetsRenderLibStatus(v);
-    if (typeof libOnGasChange === 'function') { try { libOnGasChange(); } catch (e) {} }
+    // [2.20.0] Repintar solo lo de VETS y el botón de aprobar: repintar la Aprobación
+    // entera borraría las lecturas que el aprobador ya tecleó (doble ciego).
+    vetsRenderApprovalNote(v);
+    try {
+        var _flow = (typeof reviewFlowFor === 'function') ? reviewFlowFor(v) : 'doble-ciego';
+        if (_flow === 'dirigida' && typeof reviewRenderApproval === 'function') reviewRenderApproval(v);
+        else if (typeof libOnApproverGasChange === 'function') libOnApproverGasChange();
+    } catch (e) {}
     return { ok: true, decided: cambios.length, policy: nPol };
 }
 
@@ -64903,7 +64962,8 @@ function vetsPreviewOpen() {
     var cfgDiffs = vetsConfigCheck(v.config, rec.config);
     var classified = vetsClassifyChecks(rec.checks, vetsPolicy());
     var rows = vetsFillRows(v, rec, profile, cur);
-    var decides = vetsCanDecide();
+    // [2.20.0] Al adjuntar nadie decide fallas: las revisa quien APRUEBA, en Aprobación.
+    var decides = false;
     _vetsCtx.view = { vin: vin, cfgDiffs: cfgDiffs, classified: classified, rows: rows, dup: dup, profile: profile, decides: decides };
 
     var h = _vetsHead(rec, meta);
@@ -64955,6 +65015,8 @@ function vetsPreviewOpen() {
     h += _vetsSection('3 · Verificaciones de VETS', 'vets_verificaciones');
     var pasa = (rec.checks || []).filter(function(c) { return c.status === 'PASS'; }).length;
     if (!classified.length) h += _vetsBox('ok', '✓ Las ' + pasa + ' verificaciones de la prueba pasan.');
+    // [2.20.0] Quien adjunta no ve las fallas: las revisa quien aprueba la prueba.
+    else if (!decides) h += _vetsBox('', 'Las verificaciones de validez de VETS las revisa quien aprueba la prueba.');
     else {
         h += '<div class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);">' + pasa + ' pasan · ' + classified.length + ' fallaron:</div>';
         var porDecidir = classified.filter(function(x) { return !x.known || x.level === 'importante'; }).length;
@@ -65068,8 +65130,7 @@ function vetsApplyFromModal() {
     var r = vetsApply(_vetsCtx && _vetsCtx.vehicleId, _vetsDecisions());
     if (!r.ok) { showToast(r.reason, 'error', 9000); return; }
     _vetsClose();
-    showToast('Prueba VETS aplicada: ' + r.filled + ' valor(es) llenados' + (r.policy ? ', ' + r.policy + ' verificación(es) clasificadas' : '') +
-        (r.pending ? '. ' + r.pending + ' falla(s) quedan para que las decida el liberador.' : '. Revisa y firma como siempre.'), 'success', 8000);
+    showToast('Prueba VETS aplicada: ' + r.filled + ' valor(es) llenados. Revisa y firma como siempre.', 'success', 7000);
 }
 
 /**
@@ -65086,7 +65147,7 @@ function vetsApply(vehicleId, d) {
     d = d || {};
     // [2.18.0] Lo decide la capa de datos, no la pantalla: sin test.release las fallas nuevas
     // quedan pendientes aunque lleguen decisiones.
-    view.decides = vetsCanDecide();
+    view.decides = false;   // [2.20.0] al adjuntar nadie decide: se decide al aprobar
     if (!view.decides) d = { overwrite: d.overwrite || {}, levels: {}, reasons: {}, justifications: {}, vinJustification: d.vinJustification || '' };
     var b = vetsBlockers(view, d);
     if (b.length) return { ok: false, reason: b.join(' ') };
@@ -65134,7 +65195,7 @@ function vetsApply(vehicleId, d) {
         auditLog('cop15', 'vets_importado', { type: 'vehicle', id: v.id, label: v.vin },
             'Prueba VETS #' + (rec.testNumber || '') + ' (' + (rec.testRef || '') + ') · ' + filled.length + ' valores · ' +
             view.classified.length + ' verificaciones fallidas' +
-            (view.decides ? '' : ' (' + vetsPendingDecisions(td.vets, vetsPolicy()).length + ' por decidir del liberador)') +
+            (view.decides ? '' : ' (' + vetsPendingDecisions(td.vets, vetsPolicy()).length + ' por decidir al aprobar)') +
             ' · VIN ' + view.vin.status + (meta.sha256 ? ' · huella ' + meta.sha256.slice(0, 16) : ''));
     }
     _vetsStoreFull(rec, meta, v);
@@ -65155,25 +65216,37 @@ function _vetsStoreFull(rec, meta, v) {
 
 /** Franja en Liberación con lo que ya se adjuntó. */
 /**
- * [2.19.1] Nota junto a "Enviar a aprobación": lo que falta por VETS, dicho donde se toca.
- * Al liberador le pone ahí el botón Decidir; a quien no libera le dice que el siguiente paso
- * es del liberador (y que las fallas de VETS también las decide él).
+ * [2.20.0] Nota junto a "Enviar a aprobación". Liberar ya es desde Técnico, así que solo
+ * habla a quien no puede enviar. Las fallas de VETS NO se mencionan aquí: se deciden al
+ * aprobar (vetsRenderApprovalNote), y quien libera no tiene por qué verlas.
  */
 function vetsRenderActionNote(v) {
     var el = document.getElementById('lib-action-note');
     if (!el) return;
+    var h = '';
+    var can = (typeof _cascadeCan === 'function') ? _cascadeCan('test.release') : true;
+    if (!can) {
+        var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(', ') : 'el liberador';
+        h = '<div class="lib-action-row">ℹ️ Enviar a aprobación lo hace <b>' + escapeHtml(quien) + '</b>. Lo que capturaste queda guardado.</div>';
+    }
+    el.innerHTML = h;
+    el.style.display = h ? '' : 'none';
+}
+
+/**
+ * [2.20.0] En Aprobación, junto a "Aprobar y archivar": las fallas de VETS que falta
+ * decidir y el botón para hacerlo. Solo lo ve quien puede aprobar ESTE vehículo.
+ */
+function vetsRenderApprovalNote(v) {
+    var el = document.getElementById('appr-vets-note');
+    if (!el) return;
     var pend = vetsPendingDecisions(v && v.testData && v.testData.vets, vetsPolicy());
-    var decide = vetsCanDecide(), h = '';
-    if (pend.length && decide) {
-        h = '<div class="lib-action-row">⏳ Antes de enviar decide ' + (pend.length === 1 ? 'la falla' : 'las ' + pend.length + ' fallas') + ' de VETS: <b>' +
+    var h = '';
+    if (pend.length && vetsCanDecideFor(v).ok) {
+        h = '<div class="lib-action-row">⏳ Antes de aprobar decide ' + (pend.length === 1 ? 'la falla' : 'las ' + pend.length + ' fallas') + ' de VETS: <b>' +
             pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + '</b>.</div>' +
             '<button type="button" class="btn-primary lib-action-decide" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">⏳ Decidir ' +
             (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS</button>';
-    } else if (!decide) {
-        var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(' o ') : 'el liberador';
-        h = '<div class="lib-action-row">ℹ️ Enviar a aprobación lo hace <b>' + escapeHtml(quien) + '</b>' +
-            (pend.length ? ', y también decide ' + (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS pendiente' + (pend.length === 1 ? '' : 's') : '') +
-            '. Lo que capturaste queda guardado: avísale al liberador.</div>';
     }
     el.innerHTML = h;
     el.style.display = h ? '' : 'none';
@@ -65185,17 +65258,10 @@ function vetsRenderLibStatus(v) {
     if (!el) return;
     var s = v && v.testData && v.testData.vets;
     if (!s) { el.textContent = ''; return; }
-    var desc = (s.checksFail || []).filter(function(c) { return c.level === 'desacreditada'; }).length;
-    var pend = vetsPendingDecisions(s, vetsPolicy());
-    var pendHtml = !pend.length ? '' : '<div class="vets-pending">⏳ ' + (pend.length === 1 ? '1 falla de VETS por decidir' : pend.length + ' fallas de VETS por decidir') +
-        ' (' + pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + ') — ' +
-        (vetsCanDecide()
-            ? '<button type="button" class="btn-secondary" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">Decidir…</button>'
-            : 'las decide el liberador antes de enviar a aprobación.') + '</div>';
+    // [2.20.0] Sin mención de fallas: en Liberación no se deciden ni se tienen que ver.
     el.innerHTML = '✓ Prueba VETS <b>#' + escapeHtml(String(s.testNumber || '')) + '</b> adjunta' +
         (s.importedBy ? ' por ' + escapeHtml(s.importedBy) : '') +
-        (desc ? ' · <span class="u-muted">' + desc + ' verificación(es) desacreditada(s)</span>' : '') +
-        (s.obfcm && s.obfcm.accuracyPct != null ? ' · OBFCM ' + (s.obfcm.accuracyPct > 0 ? '+' : '') + _vetsFmt(s.obfcm.accuracyPct, 3) + ' %' : '') + pendHtml;
+        (s.obfcm && s.obfcm.accuracyPct != null ? ' · OBFCM ' + (s.obfcm.accuracyPct > 0 ? '+' : '') + _vetsFmt(s.obfcm.accuracyPct, 3) + ' %' : '');
 }
 
 // ── Comparar un vehículo YA liberado contra VETS (validación del importador, 17025 §7.11.2) ──
@@ -65306,8 +65372,8 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
         text: 'Las revisiones de validez que corre VETS (temperatura de celda, factor de dilución, tiempos de bolsa…). La primera '
             + 'vez que una falla, se decide qué es para el laboratorio: Importante (se justifica en cada prueba), Informativa (solo se '
             + 'muestra) o Desacreditada (mal configurada en VETS: ya no se pregunta). Se cambia en Datos → Regulaciones. '
-            + 'Técnico y Especialista pueden adjuntar la prueba; las fallas nuevas y las Importantes las decide el liberador '
-            + 'antes de enviar a aprobación.' },
+            + 'Quien adjunta la prueba no las decide: las fallas nuevas y las Importantes las decide quien APRUEBA, en '
+            + 'la pestaña Aprobación, antes de aprobar.' },
     vets_veredicto: { title: 'Veredicto de VETS',
         text: 'Lo que VETS juzgó contra los límites que tiene configurados. Es informativo: el veredicto de Cascade es el de la '
             + 'regulación del vehículo, en la captura de gases.' },
@@ -65513,7 +65579,7 @@ function reviewBlocks(vehicle, ctx) {
     fails.forEach(function(c) {
         if (c.level === 'desacreditada') add('validez', 'ok', c.name + ' — desacreditada por el laboratorio (' + (c.detail || '') + ').');
         else if (c.level === 'informativa') add('validez', 'ok', c.name + ' — informativa: ' + (c.detail || ''));
-        else if (!c.level) add('validez', 'warn', c.name + ' — sin decidir por el liberador: ' + (c.detail || ''));   // [2.18.0]
+        else if (!c.level) add('validez', 'warn', c.name + ' — sin decidir todavía (botón ⏳ Decidir, arriba): ' + (c.detail || ''));   // [2.18.0]
         else add('validez', 'warn', c.name + ' — IMPORTANTE: ' + (c.detail || '') + (c.justification ? '. El liberador: "' + c.justification + '"' : ''));
     });
     add('validez', 'ok', (s.checksPass || 0) + ' verificaciones de VETS pasan' + (fails.length ? ', ' + fails.length + ' fallaron' : '') + '.');
@@ -65651,7 +65717,8 @@ function reviewRenderApproval(vehicle) {
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    uiExplainDisabled(btn, r.ok ? '' : r.hard.length
+    var _vw = (typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '';   // [2.20.0]
+    uiExplainDisabled(btn, r.ok ? _vw : r.hard.length
         ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');
@@ -66528,7 +66595,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8301,"mods":[[8304,"js/app.js",17039],[17043,"js/cop15.js",26712],[26716,"js/inventory.js",33590],[33594,"js/testplan.js",43663],[43667,"js/panel.js",48828],[48832,"js/projects.js",50882],[50886,"js/auth.js",51914],[51918,"js/signatures.js",52119],[52123,"js/firebase-sync.js",58893],[58897,"js/cop_validator.js",62383],[62387,"js/homolog.js",63648],[63652,"js/vets.js",65321],[65325,"js/review.js",65773],[65777,"js/opcards.js",66206],[66210,"js/handoff.js",66484],[66488,"js/bugreport.js",67634]]};
+var BUG_LINE_MAP = {"tag":8300,"mods":[[8303,"js/app.js",17046],[17050,"js/cop15.js",26727],[26731,"js/inventory.js",33605],[33609,"js/testplan.js",43678],[43682,"js/panel.js",48847],[48851,"js/projects.js",50901],[50905,"js/auth.js",51946],[51950,"js/signatures.js",52151],[52155,"js/firebase-sync.js",58925],[58929,"js/cop_validator.js",62415],[62419,"js/homolog.js",63680],[63684,"js/vets.js",65387],[65391,"js/review.js",65840],[65844,"js/opcards.js",66273],[66277,"js/handoff.js",66551],[66555,"js/bugreport.js",67701]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

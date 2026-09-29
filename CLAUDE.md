@@ -2494,6 +2494,24 @@ menos **dejó de ser silencioso**.
 - **La acción que desbloquea un botón va junto al botón.** `#lib-action-note` en la tarjeta
   Acción de Liberación; no mandar al usuario a buscar un botón en otra tarjeta.
 
+## 2.20.0 — Libera el Técnico; las fallas de VETS las decide quien aprueba
+
+**Reemplaza** lo que 2.1.0, 2.18.0 y 2.19.x dicen sobre quién libera y quién decide VETS.
+
+- **`test.release` = Técnico y hacia arriba; `test.approve` = Signatario y Manager.** Ya no
+  son idénticos (decisión del laboratorio, 29-sep-2026). Nadie aprueba lo que liberó
+  (`authCanApproveVehicle`).
+- **Las fallas de VETS se deciden AL APROBAR y solo las decide quien aprueba ESE vehículo**:
+  `vetsCanDecideFor(v)` (estado `pending-approval` + `authCanApproveVehicle`). Al adjuntar
+  nadie decide y quien adjunta/libera **no ve las fallas** (acuerdo explícito). El candado
+  vive en `approveAndArchive`, no en `submitToApproval`.
+- **Un permiso que antes era "de autoridad" puede bajar de rol**: antes de moverlo, buscar
+  todo lo que lo usa para OTRA cosa. `test.release` decidía la longitud del PIN
+  (`pnPinLenForRole`) y la visibilidad de Regulaciones; se separaron.
+- **Cambiar de sesión repinta la pantalla abierta** (`authUpdateUI`). Aprobación es una
+  sub-pestaña dentro de Liberación (`libSwitchSubtab`, `#lib-panel-aprobador`), no una
+  pestaña propia.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

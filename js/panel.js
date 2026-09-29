@@ -552,7 +552,8 @@ function pnRolesMatrixHTML() {
         counts[r] = (counts[r] || 0) + 1;
     });
     var h = '<p class="pn-roles-lead">Qué puede hacer cada rol. Los roles van de menor a mayor autoridad. ' +
-            'Liberar y aprobar lo hacen ' + escapeHtml(authRolesWith('test.release').join(' o ')) +
+            'Liberar (enviar a aprobación) lo hacen ' + escapeHtml(authRolesWith('test.release').join(', ')) +
+            '; aprobar, ' + escapeHtml(authRolesWith('test.approve').join(' o ')) +
             ', y nadie aprueba una prueba que él mismo liberó.</p>';
     h += '<div class="pn-roles-wrap"><table class="pn-roles-table"><thead><tr><th>Acción</th>';
     roles.forEach(function(r) {
@@ -1770,7 +1771,8 @@ function pnOpEditModal(opId) {
             '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
             '</div>' +
             '<div style="padding: var(--space-sm) var(--space-md);background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius: var(--radius-xl);font-size:12px;line-height:1.5;">' +
-            'El rol decide qué puede hacer esta persona. Liberar y aprobar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            'El rol decide qué puede hacer esta persona. Liberar pruebas: <b>' + escapeHtml(authRolesWith('test.release').join(', ')) + '</b>. ' +
+            'Aprobar: <b>' + escapeHtml(authRolesWith('test.approve').join(', ')) + '</b>. ' +
             '<b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
             '<br>La matriz completa está en Usuarios → Roles y permisos.' +
             '</div>',
@@ -1877,7 +1879,9 @@ function pnPinLenForRole(role) {
     // [2.1.0] Con authRoleHas (normaliza y traduce nombres viejos): el lookup literal
     // AUTH_ROLE_PERMS[role] daba PIN corto a ' Supervisor' o a un rol renombrado.
     var privileged = typeof authRoleHas === 'function' &&
-                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve') || authRoleHas(role, 'test.release'));
+                     (authRoleHas(role, 'users.manage') || authRoleHas(role, 'test.approve'));
+    // [2.20.0] test.release ya NO cuenta: desde 2.20.0 lo tiene el Técnico, y a quien no tenga
+    // `pinLen` grabado se le habría exigido un PIN de 6 al entrar (lo dejaba fuera).
     return privileged ? PN_PIN_LEN_PRIVILEGED : PN_PIN_LEN_DEFAULT;
 }
 
