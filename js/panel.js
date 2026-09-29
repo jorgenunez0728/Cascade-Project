@@ -567,6 +567,18 @@ function pnRolesMatrixHTML() {
         });
         h += '</tr>';
     });
+    // [2.16.0] Qué pantallas ve cada rol — derivado de UI_TAB_VIEW + los mismos permisos.
+    if (typeof UI_TAB_VIEW !== 'undefined' && typeof uiTabVisibleFor === 'function') {
+        h += '<tr class="pn-roles-sec"><th colspan="' + (roles.length + 1) + '">Pantallas que ve (las demás las ven todos)</th></tr>';
+        Object.keys(UI_TAB_VIEW).forEach(function(t) {
+            h += '<tr><td>' + escapeHtml(UI_TAB_VIEW[t].label) + '</td>';
+            roles.forEach(function(r) {
+                var ok = uiTabVisibleFor(r.key, t);
+                h += '<td class="' + (ok ? 'pn-roles-yes' : 'pn-roles-no') + '" aria-label="' + (ok ? 'La ve' : 'No la ve') + '">' + (ok ? '✔' : '—') + '</td>';
+            });
+            h += '</tr>';
+        });
+    }
     h += '</tbody></table></div>';
     h += '<ul class="pn-roles-desc">' + roles.map(function(r) {
         return '<li><b>' + escapeHtml(r.key) + ':</b> ' + escapeHtml(r.desc) + '</li>';

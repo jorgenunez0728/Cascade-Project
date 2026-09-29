@@ -5631,3 +5631,8 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
 .notif-perm { margin-top: var(--space-sm); width: 100%; min-height: 36px; font: inherit; font-size: var(--fs-sm);
     border: 1px dashed var(--info-text); background: transparent; color: var(--info-text); border-radius: var(--radius-lg); cursor: pointer; }
 .notif-item.notif-handoff .notif-msg { font-weight: 600; }
+
+/* [2.16.0] Pestañas que el rol de la sesión no ve (UI_TAB_VIEW). Es UX: el candado sigue en la capa de datos. */
+.tp-tab.ui-role-hidden { display: none !important; }
+.ui-tabgroup[hidden], .topbar-icon-btn[hidden] { display: none !important; }
+.pn-roles-table tr.pn-roles-sec th { text-align: left; padding-top: var(--space-md); font-size: var(--fs-sm); background: transparent; }

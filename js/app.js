@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.15.0';
+var APP_VERSION = '2.16.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.15.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.16.0', date: '29 sep 2026', title: 'Cada rol ve lo suyo',
+      bullets: [
+          'Nuevo: cada quien ve las pantallas que puede usar. Un Practicante ya no ve Plan → Producción, Reglas, Recuperación ni Simulador, ni Datos → Usuarios, Regulaciones, Homologación o Auditoría.',
+          'Si una sección se queda sin pantallas para tu rol, desaparece (p. ej. "Planeación" para un Técnico). El buscador (Ir a…) tampoco las ofrece.',
+          'Si un enlace te lleva a una pantalla que tu rol no ve, te dice para qué es, qué roles la ven y que un Manager puede cambiar tu rol.',
+          'Al cambiarte el rol, las pantallas aparecen o se van al instante, sin recargar. Si estabas en una que dejas de ver, te lleva a la primera que sí ves.',
+          'Datos → Usuarios → Roles y permisos suma "Pantallas que ve", sacado de la misma regla.',
+          'Ocultar es para no estorbar: cada acción sigue protegida por su permiso aunque alguien llegue a la pantalla.'
+      ] },
     { version: '2.15.0', date: '29 sep 2026', title: 'Avisos de relevo: "te toca a ti"',
       bullets: [
           'Nuevo: cuando otro equipo manda un vehículo a aprobación, a quien puede aprobar le llega "…05555 espera tu aprobación" con un botón Abrir que lleva directo a Aprobación con ese vehículo.',
@@ -6112,6 +6121,7 @@ function uiNavRegistry() {
         document.querySelectorAll(src.sel).forEach(function(b) {
             var p = _uiParseOnclick(b.getAttribute('onclick'));
             if (!p) return;
+            if (!uiTabVisible(p.arg)) return;   // [2.16.0] lo que este rol no ve tampoco se busca
             var s = _uiSplitIcon(b.textContent, src.fallback);
             push({ id: p.arg, icon: s.icon, label: s.label, group: src.group,
                    keywords: _uiHelpText(p.arg),
@@ -6334,6 +6344,67 @@ var UI_TAB_GROUPS = {
             { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
             { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
 };
+// ── [2.16.0] Cada rol ve lo suyo ────────────────────────────────────────
+// Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas,
+// Producción o Auditoría para encontrarse con que no podía hacer nada ahí. UI_TAB_VIEW es
+// LA definición de quién VE cada pestaña; lo que no aparece aquí lo ven todos.
+//   · Se oculta lo que no se puede USAR, nunca un dato que se necesita LEER.
+//   · Es UX, no candado: cada acción sigue con su authRequire en la capa de datos.
+//   · perms = basta con UNO. why = qué permite, en palabras (para explicar el motivo).
+var UI_TAB_VIEW = {
+    'tp-production':  { perms: ['plan.manage'], label: 'Plan → Producción',  why: 'importar la producción del plan' },
+    'tp-rules':       { perms: ['plan.manage'], label: 'Plan → Reglas',      why: 'cambiar las reglas del plan' },
+    'tp-recovery':    { perms: ['plan.manage'], label: 'Plan → Recuperación', why: 'armar el plan de recuperación' },
+    'tp-simulator':   { perms: ['plan.manage'], label: 'Plan → Simulador',   why: 'simular el plan' },
+    'pn-users':       { perms: ['users.view'], label: 'Datos → Usuarios',    why: 'ver usuarios y competencias' },
+    'pn-regulations': { perms: ['test.release', 'regulation.manage'], label: 'Datos → Regulaciones', why: 'liberar pruebas o editar límites' },
+    'pn-homolog':     { perms: ['homolog.manage'], label: 'Datos → Homologación', why: 'importar la homologación de Europa' },
+    'pn-audit':       { perms: ['audit.view'], label: 'Datos → Auditoría',   why: 'consultar el historial de cambios' }
+};
+
+/**
+ * ¿Este rol ve esta pestaña? PURA (con `has` inyectable; por omisión authRoleHas).
+ * Sin rol no se esconde nada: sin sesión no hay a quién adaptar la pantalla.
+ */
+function uiTabVisibleFor(role, tabId, has) {
+    var rule = UI_TAB_VIEW[tabId];
+    if (!rule || !role) return true;
+    has = has || (typeof authRoleHas === 'function' ? authRoleHas : null);
+    if (!has) return true;
+    return rule.perms.some(function(p) { return has(role, p); });
+}
+function uiCurrentRole() {
+    return (typeof authState !== 'undefined' && authState && authState.currentUser && authState.currentUser.role) || '';
+}
+function uiTabVisible(tabId) { return uiTabVisibleFor(uiCurrentRole(), tabId); }
+
+/** Por qué no se ve. PURA respecto a sus argumentos. `rolesWith(perm)` → roles que lo tienen. */
+function uiTabHiddenWhy(tabId, role, rolesWith) {
+    var rule = UI_TAB_VIEW[tabId];
+    if (!rule) return '';
+    var quien = [];
+    if (typeof rolesWith === 'function') rule.perms.forEach(function(p) {
+        rolesWith(p).forEach(function(r) { if (quien.indexOf(r) < 0) quien.push(r); });
+    });
+    return rule.label + ' es para ' + rule.why + (quien.length ? ' (' + quien.join(', ') + ')' : '') +
+        '. Tu rol' + (role ? ' (' + role + ')' : '') + ' no lo tiene; si lo necesitas, pídele a un Manager que cambie tu rol.';
+}
+function uiTabExplainHidden(tabId) {
+    var msg = uiTabHiddenWhy(tabId, uiCurrentRole(), typeof authRolesWith === 'function' ? authRolesWith : null);
+    if (msg && typeof showToast === 'function') showToast(msg, 'info', 9000);
+}
+
+/** Reaplica la vista por rol en Plan, Consumibles y Datos (al entrar o cambiar de rol). */
+function uiTabRolesApply() {
+    Object.keys(UI_TAB_GROUPS).forEach(function(m) { try { uiTabGroupsSync(m); } catch (e) {} });
+    // Atajos fuera de las barras de pestañas (el 🕘 del topbar lleva a Auditoría).
+    if (typeof document !== 'undefined') {
+        [].forEach.call(document.querySelectorAll('[data-needs-tab]'), function(el) {
+            el.hidden = !uiTabVisible(el.getAttribute('data-needs-tab'));
+        });
+    }
+}
+
 // Etiquetas en español claro (solo botones sin insignias adentro).
 var UI_TAB_RELABEL = {
     'tp-dashboard': '📊 Cobertura', 'tp-weekhistory': '📋 Semanas pasadas',
@@ -6388,7 +6459,12 @@ function uiTabGroupsInit(mod) {
     // un render que restaura la pestaña guardada).
     var fn = window[cfg.sw];
     if (typeof fn === 'function' && !fn._grouped) {
-        var wrapped = function() { var r = fn.apply(this, arguments); try { uiTabGroupsSync(mod); } catch (e) {} return r; };
+        var wrapped = function(tab) {
+            // [2.16.0] Un enlace (lanzador, HOY, dashGo) a una pestaña que este rol no ve
+            // explica por qué, en vez de abrir una pantalla donde no puede hacer nada.
+            if (typeof tab === 'string' && !uiTabVisible(tab)) { uiTabExplainHidden(tab); return; }
+            var r = fn.apply(this, arguments); try { uiTabGroupsSync(mod); } catch (e) {} return r;
+        };
         wrapped._grouped = true;
         window[cfg.sw] = wrapped;
     }
@@ -6406,9 +6482,17 @@ function uiTabGroupsSync(mod) {
     var bar = document.getElementById(cfg.bar);
     if (!bar || !bar.getAttribute('data-grouped')) return;
     var tab = cfg.state() || cfg.groups[0].tabs[0];
+    // [2.16.0] Si la pestaña guardada es una que este rol ya no ve (cambió de rol, o la
+    // dejó abierta otra persona en este equipo), se va a la primera que sí ve.
+    if (!uiTabVisible(tab)) {
+        var alt = _uiTabFirstVisible(mod);
+        if (alt && typeof window[cfg.sw] === 'function') setTimeout(function() { window[cfg.sw](alt); }, 0);
+        if (alt) tab = alt;
+    }
     var g = _uiTabGroupOf(mod, tab);
     [].forEach.call(bar.querySelectorAll('.tp-tab[data-tabgroup]'), function(b) {
         b.classList.toggle('ui-tg-hidden', b.getAttribute('data-tabgroup') !== g.id);
+        b.classList.toggle('ui-role-hidden', !uiTabVisible(_uiTabIdOf(b)));
     });
     var row = bar.previousElementSibling;
     if (row && row.classList.contains('ui-tabgroups')) {
@@ -6416,6 +6500,9 @@ function uiTabGroupsSync(mod) {
             var on = b.getAttribute('data-group') === g.id;
             b.classList.toggle('active', on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            // Un grupo sin ninguna pestaña visible para este rol desaparece.
+            var grp = cfg.groups.filter(function(x) { return x.id === b.getAttribute('data-group'); })[0];
+            b.hidden = !!grp && !grp.tabs.some(uiTabVisible);
         });
     }
     var mem = Object.assign({}, uiPref('tabGroups') || {});
@@ -6423,11 +6510,24 @@ function uiTabGroupsSync(mod) {
     uiPref('tabGroups', mem);
 }
 
+/** La primera pestaña que este rol ve en un módulo (o en un grupo). */
+function _uiTabFirstVisible(mod, groupId) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return null;
+    for (var i = 0; i < cfg.groups.length; i++) {
+        if (groupId && cfg.groups[i].id !== groupId) continue;
+        var t = cfg.groups[i].tabs.filter(uiTabVisible)[0];
+        if (t) return t;
+    }
+    return null;
+}
+
 function uiTabGroupsGo(mod, groupId) {
     var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
     var g = cfg.groups.filter(function(x) { return x.id === groupId; })[0]; if (!g) return;
     var mem = (uiPref('tabGroups') || {})[mod] || {};
-    var tab = mem[groupId] && g.tabs.indexOf(mem[groupId]) !== -1 ? mem[groupId] : g.tabs[0];
+    var tab = mem[groupId] && g.tabs.indexOf(mem[groupId]) !== -1 && uiTabVisible(mem[groupId])
+        ? mem[groupId] : _uiTabFirstVisible(mod, groupId);
+    if (!tab) return;
     if (typeof window[cfg.sw] === 'function') window[cfg.sw](tab);
 }
 
