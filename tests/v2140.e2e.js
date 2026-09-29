@@ -122,7 +122,7 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 
     console.log('\n== Un cambio de otro equipo dice de cuál ==');
     const remoto = await page.evaluate(async (id) => {
-        window.__put(window.__base + 'devices/dev_otro', { name: { stringValue: 'Tablet celda 2' }, version: { stringValue: '2.14.0' },
+        window.__put(window.__base + 'devices/dev_otro', { name: { stringValue: 'Tablet celda 2' }, version: { stringValue: APP_VERSION },   // la versión que corre: "al día" (un literal caducaba en cada versión)
             lastSeen: { stringValue: new Date().toISOString() } });
         const v = JSON.parse(JSON.stringify(db.vehicles.find(x => x.id === id)));
         // Como lo sella el otro equipo: huella = contenido (si no, este equipo la re-subiría como suya).
