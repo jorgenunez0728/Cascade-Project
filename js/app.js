@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.17.1';
+var APP_VERSION = '2.18.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '2.17.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.18.0', date: '29 sep 2026', title: 'Técnico y Especialista adjuntan la prueba de VETS',
+      bullets: [
+          'Nuevo: Técnico y Especialista pueden usar 📎 Adjuntar prueba VETS en Liberación. Se llenan gases, dinamómetro y fecha, igual que cuando lo hace un Signatario.',
+          'Las fallas de VETS las sigue decidiendo quien libera. Si el archivo trae una verificación que falla por primera vez, o una Importante, queda "⏳ por decidir" y el Signatario la resuelve con el botón Decidir…; no se puede enviar a aprobación hasta hacerlo.',
+          'Las fallas que el laboratorio ya clasificó (p. ej. una Desacreditada) se aplican solas, adjunte quien adjunte.',
+          'El Practicante no adjunta. La matriz de Datos → Usuarios → Roles y permisos muestra el permiso nuevo.'
+      ] },
     { version: '2.17.1', date: '29 sep 2026', title: 'Adjuntar VETS con el reporte de Excel sin tablas de datos',
       bullets: [
           'Arreglado: algunas exportaciones de STARS VETS traen solo el reporte (VETS Report, Limit Checks, OBD II) y no las tablas de datos ocultas. Cascade decía "No se pudo leer el archivo de VETS"; ahora las lee del reporte: gases, fecha, VIN, verificaciones, OBD y OBFCM.',

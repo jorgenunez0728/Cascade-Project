@@ -39,8 +39,9 @@ var AUTH_ROLE_DEFAULT = 'Practicante';
 // Signatario y Assistant Manager / Manager son idénticos por decisión del laboratorio.
 var AUTH_ROLE_PERMS = {
     'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
-    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view'],
-    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view',
+    // [2.18.0] test.vets: adjuntar la prueba de VETS. Las fallas nuevas las decide el liberador.
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets',
                                        'plan.manage', 'cop.judge', 'audit.export', 'users.view',
                                        'config.manage', 'homolog.manage'],
     'Signatario':                     ['*'],
@@ -59,6 +60,7 @@ var AUTH_PERM_LABELS = [
     { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
     { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
     { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
+    { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS (las fallas nuevas las decide el liberador)' },
     { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
     { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
     { perm: 'test.retro_edit',   label: 'Corregir pruebas archivadas' },

@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.18.0 — Técnico y Especialista adjuntan la prueba de VETS (2026-09-29)
+
+### Nuevo
+- **Técnico y Especialista pueden adjuntar la prueba de VETS** en Liberación (📎 Adjuntar prueba
+  VETS). Se llenan los gases, el dinamómetro y la fecha, igual que cuando lo hace un Signatario.
+  El Practicante no adjunta.
+- **Las fallas las sigue decidiendo quien libera.** Si el archivo trae una verificación que falla
+  por primera vez, o una clasificada como Importante, el Técnico la ve marcada con ⏳ y puede
+  adjuntar de todos modos; queda "por decidir". El Signatario la resuelve con **Decidir…** junto
+  a la prueba VETS: la clasifica para todo el laboratorio o justifica la Importante.
+- **No se envía a aprobación con fallas de VETS por decidir.** El botón de liberar lo explica al
+  tocarlo, y "Enviar a aprobación" abre la decisión.
+- Las fallas que el laboratorio ya clasificó se aplican solas, adjunte quien adjunte. Si alguien
+  la clasifica en otro vehículo después, la pendiente se resuelve sola.
+
+### Cambió
+- Liberación le dice al Técnico que no libera pero sí puede adjuntar VETS.
+- Revisión dirigida: una falla sin decidir se muestra como tal, no como "Importante".
+
+### Para desarrollo
+- Permiso nuevo **`test.vets`** (Técnico, Especialista; Signatario y Manager por `*`), con su
+  etiqueta en `AUTH_PERM_LABELS`. `vetsAttachStart('liberar')` y `vetsApply` piden `test.vets`.
+- **`vetsCanDecide()`** = `test.release` de la sesión. `vetsApply` lo recalcula en la capa de
+  datos: sin él descarta niveles y justificaciones que lleguen y no escribe política.
+  `vetsBlockers` no exige clasificar ni justificar cuando `view.decides === false`; VIN y prueba
+  duplicada siguen bloqueando a cualquiera.
+- **`vetsPendingDecisions(summary, policy)` (PURA) es LA definición de "fallas por decidir"**:
+  nivel vacío sin política vigente → `clasificar`; Importante sin justificación ≥ 5 → `justificar`.
+  La usan la franja de Liberación, el botón de liberar y `submitToApproval`.
+- `vetsDecideBlockers` (PURA), `vetsDecideOpen`, `vetsDecideApply` (candado `test.release`; sella
+  `decidedBy`/`decidedAt` en `checksFail`, línea de tiempo "Fallas de VETS decididas", auditoría
+  `vets_fallas_decididas` con antes/después y `vetsPolicySet` para las nuevas).
+- Pruebas: `tests/vets.node.js` 127 → 153, `tests/roles.node.js` 47 → 51 y E2E nuevo
+  `tests/v2180.e2e.js` (Técnico adjunta el reporte real, Signatario decide).
+
 ## 2.17.1 — Adjuntar VETS con el reporte de Excel sin tablas de datos (2026-09-29)
 
 ### Arreglado

@@ -333,6 +333,76 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         ok('validación del importador: compara solo lo que se tecleó', cmp.length === 2 && cmp.find(r => r.field === 'CO').ok === true && cmp.find(r => r.field === 'NOx').ok === false);
     }
 
+    console.log('\n== 2.18.0 · Técnico adjunta, el liberador decide ==');
+    {
+        const R = ctx.vetsExtract(R48);
+        const clsNew = ctx.vetsClassifyChecks(R.checks, []);
+        const view = (decides, policy) => ({ vin: { ok: true, status: 'ok' }, dup: null, classified: ctx.vetsClassifyChecks(R.checks, policy || []), rows: [], profile: null, decides });
+        const d0 = { overwrite: {}, levels: {}, reasons: {}, justifications: {}, vinJustification: '' };
+        ok('sin poder liberar: una falla nueva NO detiene el adjuntar', ctx.vetsBlockers(view(false), d0).length === 0);
+        ok('sin poder liberar: una Importante sin justificar tampoco', ctx.vetsBlockers(view(false, [{ id: 'PM Pre Filter Temp', level: 'importante' }]), d0).length === 0);
+        ok('pero el VIN y la prueba duplicada SÍ detienen a cualquiera', ctx.vetsBlockers(Object.assign(view(false), { vin: { ok: false, block: true } }), d0).length === 1 &&
+            ctx.vetsBlockers(Object.assign(view(false), { dup: { id: 9 } }), d0).length === 1);
+        ok('el liberador sigue teniendo que clasificar', /Clasifica/.test(ctx.vetsBlockers(view(true), d0).join()));
+
+        const P = ctx.vetsPendingDecisions;
+        const sum = (level, just) => ({ checksFail: [{ name: 'PM Pre Filter Temp', level: level, detail: 'máx. 82.94', justification: just || '' }] });
+        ok('falla sin nivel → pendiente de clasificar', P(sum(null), []).length === 1 && P(sum(null), [])[0].need === 'clasificar');
+        ok('si el laboratorio ya la clasificó después (desacreditada) → ya no está pendiente', P(sum(null), [{ id: 'pm pre filter temp', level: 'desacreditada' }]).length === 0);
+        ok('clasificada después como Importante → falta justificarla', P(sum(null), [{ id: 'PM Pre Filter Temp', level: 'importante' }])[0].need === 'justificar');
+        ok('Importante sin justificar → pendiente; justificada → no', P(sum('importante'), [])[0].need === 'justificar' && P(sum('importante', 'se repitió y quedó en 48'), []).length === 0);
+        ok('informativa o desacreditada → nada pendiente', P(sum('informativa'), []).length === 0 && P(sum('desacreditada'), []).length === 0);
+        ok('sin prueba VETS → nada pendiente', P(null, []).length === 0 && P({}, []).length === 0);
+
+        const DB = ctx.vetsDecideBlockers;
+        const pend = [{ name: 'PM Pre Filter Temp', need: 'clasificar' }];
+        ok('decidir: sin nivel no se guarda', /Clasifica/.test(DB(pend, d0).join()));
+        ok('decidir: desacreditar pide motivo', /desacredita/.test(DB(pend, { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: {}, justifications: {} }).join()));
+        ok('decidir: Importante pide justificación', /Justifica/.test(DB(pend, { levels: { 'PM Pre Filter Temp': 'importante' }, reasons: {}, justifications: {} }).join()));
+        ok('decidir: justificar una Importante ya clasificada', DB([{ name: 'X', need: 'justificar' }], { levels: {}, reasons: {}, justifications: { X: 'lectura repetida dentro' } }).length === 0);
+
+        // Capa de datos: un Técnico adjunta (test.vets sí, test.release no)
+        const saved = [];
+        ctx.saveDB = () => { saved.push(1); return true; };
+        let perms = { 'test.vets': true, 'test.release': false };
+        ctx._cascadeCan = p => !!perms[p];
+        ctx._cascadeGate = p => !!perms[p];
+        ctx.pnState.vetsChecks = [];
+        audits.length = 0;
+        const veh = { id: 'v48', vin: '3KPFX51BXTE433243', status: 'ready-release', timeline: [], testData: {} };
+        ctx.db.vehicles = [veh];
+        const meta = { fileName: 'x.xlsx', sha256: 'cd'.repeat(32), at: '2026-09-29T18:00:00Z', by: 'Beto Técnico' };
+        ctx._vetsCtx = { mode: 'liberar', vehicleId: 'v48', rec: R, meta, view: view(true) };   // la pantalla dice que decide…
+        const tryDecide = Object.assign({}, d0, { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: { 'PM Pre Filter Temp': 'la meto yo' } });
+        const r1 = ctx.vetsApply('v48', tryDecide);
+        ok('el Técnico adjunta', r1.ok === true, r1.reason);
+        ok('…y aunque lleguen decisiones, la capa de datos NO clasifica por él', ctx.pnState.vetsChecks.length === 0 && veh.testData.vets.checksFail[0].level === null);
+        ok('queda 1 falla por decidir y lo reporta', r1.pending === 1 && ctx.vetsPendingDecisions(veh.testData.vets, ctx.vetsPolicy()).length === 1);
+        ok('la auditoría dice que quedó para el liberador', audits.some(a => a[1] === 'vets_importado' && /por decidir del liberador/.test(a[3])));
+        perms = { 'test.vets': false, 'test.release': false };
+        ctx._vetsCtx = { mode: 'liberar', vehicleId: 'v48', rec: R, meta, view: view(false) };
+        ok('un Practicante (sin test.vets) no adjunta', ctx.vetsApply('v48', d0).ok === false);
+        perms = { 'test.vets': true, 'test.release': false };
+        ok('el Técnico tampoco puede decidir después', ctx.vetsDecideApply('v48', tryDecide).ok === false && veh.testData.vets.checksFail[0].level === null);
+
+        // El liberador decide
+        perms = { 'test.vets': true, 'test.release': true };
+        const sinMotivo = ctx.vetsDecideApply('v48', { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: {}, justifications: {} });
+        ok('decidir sin motivo se rechaza en la capa de datos', sinMotivo.ok === false && /desacredita/.test(sinMotivo.reason));
+        audits.length = 0;
+        const r2 = ctx.vetsDecideApply('v48', { levels: { 'PM Pre Filter Temp': 'desacreditada' }, reasons: { 'PM Pre Filter Temp': 'sensor de prefiltro sin conectar en VETS' }, justifications: {} });
+        const c0 = veh.testData.vets.checksFail[0];
+        ok('el liberador decide y se guarda en el resumen con quién', r2.ok && c0.level === 'desacreditada' && c0.decidedBy === 'Prueba' && !!c0.decidedAt, r2.reason);
+        ok('la clasificación queda para todo el laboratorio', ctx.pnState.vetsChecks.length === 1 && ctx.pnState.vetsChecks[0].level === 'desacreditada' && r2.policy === 1);
+        ok('línea de tiempo y auditoría con antes → después', veh.timeline.some(t => t.action === 'Fallas de VETS decididas') &&
+            audits.some(a => a[1] === 'vets_fallas_decididas') && audits.some(a => a[1] === 'vets_verificacion_clasificada'));
+        ok('ya no queda nada pendiente', ctx.vetsPendingDecisions(veh.testData.vets, ctx.vetsPolicy()).length === 0);
+        veh.status = 'pending-approval';
+        ok('enviado a aprobación ya no se decide', ctx.vetsDecideApply('v48', d0).ok === false);
+        delete ctx._cascadeCan; delete ctx._cascadeGate;
+        ctx._vetsCtx = null; ctx.pnState.vetsChecks = []; ctx.db.vehicles = [];
+    }
+
     console.log('\n== OBFCM por familia (CoP → Expediente) ==');
     {
         const mk = (vin, fam, acc, at) => ({ vin, fam, testData: { vets: { testNumber: 1, testStart: at, obfcm: { fuelL: 1.37, accuracyPct: acc, distKm: 23 } } } });

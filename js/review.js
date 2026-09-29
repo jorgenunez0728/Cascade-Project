@@ -189,6 +189,7 @@ function reviewBlocks(vehicle, ctx) {
     fails.forEach(function(c) {
         if (c.level === 'desacreditada') add('validez', 'ok', c.name + ' — desacreditada por el laboratorio (' + (c.detail || '') + ').');
         else if (c.level === 'informativa') add('validez', 'ok', c.name + ' — informativa: ' + (c.detail || ''));
+        else if (!c.level) add('validez', 'warn', c.name + ' — sin decidir por el liberador: ' + (c.detail || ''));   // [2.18.0]
         else add('validez', 'warn', c.name + ' — IMPORTANTE: ' + (c.detail || '') + (c.justification ? '. El liberador: "' + c.justification + '"' : ''));
     });
     add('validez', 'ok', (s.checksPass || 0) + ' verificaciones de VETS pasan' + (fails.length ? ', ' + fails.length + ' fallaron' : '') + '.');
