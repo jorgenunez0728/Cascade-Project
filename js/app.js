@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.17.0';
+var APP_VERSION = '2.17.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.17.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.17.1', date: '29 sep 2026', title: 'Adjuntar VETS con el reporte de Excel sin tablas de datos',
+      bullets: [
+          'Arreglado: algunas exportaciones de STARS VETS traen solo el reporte (VETS Report, Limit Checks, OBD II) y no las tablas de datos ocultas. Cascade decía "No se pudo leer el archivo de VETS"; ahora las lee del reporte: gases, fecha, VIN, verificaciones, OBD y OBFCM.',
+          'Arreglado: en vehículos con dos módulos OBD (48V), el CALID y el CVN que se guardaban eran los de la batería. Ahora son los del motor.',
+          'Nada cambió en la captura, la firma ni la aprobación.'
+      ] },
     { version: '2.17.0', date: '29 sep 2026', title: 'Arranque rápido',
       bullets: [
           'La app abre 3.5 veces más rápido: en un teléfono de gama media, con un laboratorio de 60 vehículos, HOY pasó de estar lista a los ~6.4 s a ~1.8 s.',
