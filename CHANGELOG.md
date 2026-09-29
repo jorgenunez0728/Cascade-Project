@@ -20,6 +20,24 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.19.1 — Liberación dice bien de quién es el siguiente paso (2026-09-29)
+
+### Arreglado
+- **Mensaje contradictorio al Técnico.** El botón "Enviar a aprobación" le decía "decide
+  primero la falla de VETS", que no es su paso: enviar lo hace el Signatario o Manager. Ahora el
+  motivo es ese, en los tres caminos del botón (emisiones, formato simple y sin regulación).
+- **El botón para decidir las fallas de VETS estaba lejos de donde se atora el liberador.**
+  Ahora, junto a "Enviar a aprobación", una nota dice el siguiente paso: al liberador con fallas
+  pendientes le pone ahí el botón **⏳ Decidir la falla de VETS**; a quien no libera le dice que
+  enviar (y decidir VETS) lo hace el liberador. Todo pasa en la pestaña Liberación, no en
+  Aprobación.
+
+### Para desarrollo
+- `_libRoleWhy()` (cop15.js) es el motivo de rol para el botón de enviar; manda sobre cualquier
+  otro motivo. `vetsRenderActionNote(v)` (vets.js) llena `#lib-action-note`; la llama
+  `vetsRenderLibStatus` y el camino de formato simple de `loadRelease`.
+- `tests/v2180.e2e.js` +3.
+
 ## 2.19.0 — Técnico y Especialista llenan el checklist de liberación (2026-09-29)
 
 ### Nuevo

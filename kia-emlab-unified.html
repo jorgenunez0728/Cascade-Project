@@ -5868,6 +5868,8 @@ td .ui-num-row > input { min-width: 5rem; }
 .vets-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .vets-attach-status { font-size: var(--fs-sm); color: var(--ok-text); line-height: var(--lh-base); }
 /* [2.18.0] Fallas de VETS que esperan al liberador */
+.lib-action-note { margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.lib-action-note .lib-action-decide { margin-top: var(--space-xs); width: 100%; }
 .vets-pending { margin-top: var(--space-xs); color: var(--warn-text); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 .vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
 .vets-list li { margin: var(--space-2xs) 0; }
@@ -7068,6 +7070,7 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>
+                    <div id="lib-action-note" class="lib-action-note" style="display:none;"></div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button class="btn-primary" id="release-archive-btn" onclick="submitToApproval()" style="flex:1;" disabled>
                             📤 Enviar a aprobación
@@ -8764,10 +8767,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609292322';
+var APP_BUILD = '202609292331';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '29f7cd73ad80c745595d62a1dfccc57a26911b23';
+var APP_COMMIT = '0e3eef84083dadde1d62abc647fcb3a8f995e90d';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8775,7 +8778,7 @@ var APP_COMMIT = '29f7cd73ad80c745595d62a1dfccc57a26911b23';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.19.0';
+var APP_VERSION = '2.19.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8783,6 +8786,12 @@ var APP_VERSION = '2.19.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.19.1', date: '29 sep 2026', title: 'Liberación dice bien de quién es el siguiente paso',
+      bullets: [
+          'Arreglado: al Técnico, el botón "Enviar a aprobación" le decía "decide la falla de VETS", que no es su paso. Ahora dice que enviar lo hace el Signatario o Manager y que lo capturado queda guardado.',
+          'Junto al botón de enviar aparece una nota con el siguiente paso. Al liberador con fallas de VETS pendientes le pone ahí mismo el botón "⏳ Decidir la falla de VETS" (antes solo estaba arriba, junto a la prueba VETS).',
+          'Todo sigue en la pestaña Liberación: el liberador decide la falla y envía desde la misma pantalla.'
+      ] },
     { version: '2.19.0', date: '29 sep 2026', title: 'Técnico y Especialista llenan el checklist de liberación',
       bullets: [
           'Nuevo: Técnico y Especialista pueden marcar el checklist de liberación (objetos retirados y evidencia adjunta). Antes solo Signatario y Manager, aunque quien retira los objetos suele ser el técnico.',
@@ -9448,14 +9457,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609292322' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609292331' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609292322' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609292331' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9471,7 +9480,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609292322' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609292331' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -20420,12 +20429,22 @@ function libOnGasChange() {
         var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
         // [2.18.0] Fallas de VETS por decidir (las dejó quien adjuntó sin poder liberar).
         var _vp = (typeof vetsPendingDecisions === 'function') ? vetsPendingDecisions(vehicle.testData && vehicle.testData.vets, vetsPolicy()) : [];
+        // [2.19.1] Quien no libera no puede enviar, falte lo que falte: el motivo es ESE. Antes
+        // al Técnico se le decía "decide la falla de VETS", que no es su paso.
+        if (_libRoleWhy()) { uiExplainDisabled(btn, _libRoleWhy()); return; }
         // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
         uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
             ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
             : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
-            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "Decidir…" junto a la prueba VETS).' : '');
+            : _vp.length ? 'Decide primero ' + (_vp.length === 1 ? 'la falla' : 'las fallas') + ' de VETS: ' + _vp.map(function(p) { return p.name; }).join(', ') + ' (botón "⏳ Decidir" justo arriba de este).' : '');
     }
+}
+
+/** [2.19.1] Motivo por el que ESTA sesión no envía a aprobación ('' = sí puede). */
+function _libRoleWhy() {
+    if (_cascadeCan('test.release')) return '';
+    var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(' o ') : 'el liberador';
+    return 'Enviar a aprobación lo hace ' + quien + '. Lo que capturaste queda guardado; avísale al liberador.';
 }
 
 function libOnApproverGasChange() {
@@ -20746,7 +20765,8 @@ function loadRelease() {
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
-        uiExplainDisabled(document.getElementById('release-archive-btn'), '');
+        uiExplainDisabled(document.getElementById('release-archive-btn'), _libRoleWhy());
+        if (typeof vetsRenderActionNote === 'function') vetsRenderActionNote(vehicle);   // [2.19.1]
         releaseChecklistRender(vehicle);
         _renderUsedCylinders(vehicle);
         renderTimeline(vehicle);
@@ -20778,7 +20798,7 @@ function loadRelease() {
             '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
             _libRegPickerControlsHTML(vehicle, '') +
             '</div>';
-        uiExplainDisabled(btn, 'Elige contra qué regulación comparar los gases para poder liberar.');
+        uiExplainDisabled(btn, _libRoleWhy() || 'Elige contra qué regulación comparar los gases para poder liberar.');
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
@@ -56232,7 +56252,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609292322' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609292331' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -65134,7 +65154,33 @@ function _vetsStoreFull(rec, meta, v) {
 }
 
 /** Franja en Liberación con lo que ya se adjuntó. */
+/**
+ * [2.19.1] Nota junto a "Enviar a aprobación": lo que falta por VETS, dicho donde se toca.
+ * Al liberador le pone ahí el botón Decidir; a quien no libera le dice que el siguiente paso
+ * es del liberador (y que las fallas de VETS también las decide él).
+ */
+function vetsRenderActionNote(v) {
+    var el = document.getElementById('lib-action-note');
+    if (!el) return;
+    var pend = vetsPendingDecisions(v && v.testData && v.testData.vets, vetsPolicy());
+    var decide = vetsCanDecide(), h = '';
+    if (pend.length && decide) {
+        h = '<div class="lib-action-row">⏳ Antes de enviar decide ' + (pend.length === 1 ? 'la falla' : 'las ' + pend.length + ' fallas') + ' de VETS: <b>' +
+            pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + '</b>.</div>' +
+            '<button type="button" class="btn-primary lib-action-decide" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">⏳ Decidir ' +
+            (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS</button>';
+    } else if (!decide) {
+        var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(' o ') : 'el liberador';
+        h = '<div class="lib-action-row">ℹ️ Enviar a aprobación lo hace <b>' + escapeHtml(quien) + '</b>' +
+            (pend.length ? ', y también decide ' + (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS pendiente' + (pend.length === 1 ? '' : 's') : '') +
+            '. Lo que capturaste queda guardado: avísale al liberador.</div>';
+    }
+    el.innerHTML = h;
+    el.style.display = h ? '' : 'none';
+}
+
 function vetsRenderLibStatus(v) {
+    vetsRenderActionNote(v);   // [2.19.1]
     var el = document.getElementById('vets-attach-status');
     if (!el) return;
     var s = v && v.testData && v.testData.vets;
@@ -66482,7 +66528,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8298,"mods":[[8301,"js/app.js",17030],[17034,"js/cop15.js",26692],[26696,"js/inventory.js",33570],[33574,"js/testplan.js",43643],[43647,"js/panel.js",48808],[48812,"js/projects.js",50862],[50866,"js/auth.js",51894],[51898,"js/signatures.js",52099],[52103,"js/firebase-sync.js",58873],[58877,"js/cop_validator.js",62363],[62367,"js/homolog.js",63628],[63632,"js/vets.js",65275],[65279,"js/review.js",65727],[65731,"js/opcards.js",66160],[66164,"js/handoff.js",66438],[66442,"js/bugreport.js",67588]]};
+var BUG_LINE_MAP = {"tag":8301,"mods":[[8304,"js/app.js",17039],[17043,"js/cop15.js",26712],[26716,"js/inventory.js",33590],[33594,"js/testplan.js",43663],[43667,"js/panel.js",48828],[48832,"js/projects.js",50882],[50886,"js/auth.js",51914],[51918,"js/signatures.js",52119],[52123,"js/firebase-sync.js",58893],[58897,"js/cop_validator.js",62383],[62387,"js/homolog.js",63648],[63652,"js/vets.js",65321],[65325,"js/review.js",65773],[65777,"js/opcards.js",66206],[66210,"js/handoff.js",66484],[66488,"js/bugreport.js",67634]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

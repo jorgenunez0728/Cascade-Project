@@ -5427,6 +5427,8 @@ td .ui-num-row > input { min-width: 5rem; }
 .vets-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .vets-attach-status { font-size: var(--fs-sm); color: var(--ok-text); line-height: var(--lh-base); }
 /* [2.18.0] Fallas de VETS que esperan al liberador */
+.lib-action-note { margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.lib-action-note .lib-action-decide { margin-top: var(--space-xs); width: 100%; }
 .vets-pending { margin-top: var(--space-xs); color: var(--warn-text); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 .vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
 .vets-list li { margin: var(--space-2xs) 0; }

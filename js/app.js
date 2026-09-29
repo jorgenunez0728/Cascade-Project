@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.19.0';
+var APP_VERSION = '2.19.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.19.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.19.1', date: '29 sep 2026', title: 'Liberación dice bien de quién es el siguiente paso',
+      bullets: [
+          'Arreglado: al Técnico, el botón "Enviar a aprobación" le decía "decide la falla de VETS", que no es su paso. Ahora dice que enviar lo hace el Signatario o Manager y que lo capturado queda guardado.',
+          'Junto al botón de enviar aparece una nota con el siguiente paso. Al liberador con fallas de VETS pendientes le pone ahí mismo el botón "⏳ Decidir la falla de VETS" (antes solo estaba arriba, junto a la prueba VETS).',
+          'Todo sigue en la pestaña Liberación: el liberador decide la falla y envía desde la misma pantalla.'
+      ] },
     { version: '2.19.0', date: '29 sep 2026', title: 'Técnico y Especialista llenan el checklist de liberación',
       bullets: [
           'Nuevo: Técnico y Especialista pueden marcar el checklist de liberación (objetos retirados y evidencia adjunta). Antes solo Signatario y Manager, aunque quien retira los objetos suele ser el técnico.',

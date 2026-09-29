@@ -1503,7 +1503,33 @@ function _vetsStoreFull(rec, meta, v) {
 }
 
 /** Franja en Liberación con lo que ya se adjuntó. */
+/**
+ * [2.19.1] Nota junto a "Enviar a aprobación": lo que falta por VETS, dicho donde se toca.
+ * Al liberador le pone ahí el botón Decidir; a quien no libera le dice que el siguiente paso
+ * es del liberador (y que las fallas de VETS también las decide él).
+ */
+function vetsRenderActionNote(v) {
+    var el = document.getElementById('lib-action-note');
+    if (!el) return;
+    var pend = vetsPendingDecisions(v && v.testData && v.testData.vets, vetsPolicy());
+    var decide = vetsCanDecide(), h = '';
+    if (pend.length && decide) {
+        h = '<div class="lib-action-row">⏳ Antes de enviar decide ' + (pend.length === 1 ? 'la falla' : 'las ' + pend.length + ' fallas') + ' de VETS: <b>' +
+            pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + '</b>.</div>' +
+            '<button type="button" class="btn-primary lib-action-decide" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">⏳ Decidir ' +
+            (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS</button>';
+    } else if (!decide) {
+        var quien = (typeof authRolesWith === 'function') ? authRolesWith('test.release').join(' o ') : 'el liberador';
+        h = '<div class="lib-action-row">ℹ️ Enviar a aprobación lo hace <b>' + escapeHtml(quien) + '</b>' +
+            (pend.length ? ', y también decide ' + (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS pendiente' + (pend.length === 1 ? '' : 's') : '') +
+            '. Lo que capturaste queda guardado: avísale al liberador.</div>';
+    }
+    el.innerHTML = h;
+    el.style.display = h ? '' : 'none';
+}
+
 function vetsRenderLibStatus(v) {
+    vetsRenderActionNote(v);   // [2.19.1]
     var el = document.getElementById('vets-attach-status');
     if (!el) return;
     var s = v && v.testData && v.testData.vets;

@@ -2486,6 +2486,14 @@ menos **dejó de ser silencioso**.
 - Preparar la liberación (VETS, checklist) y liberar son permisos distintos a propósito: un
   permiso nuevo del mismo tipo va separado, no se cuelga de `test.release`.
 
+## 2.19.1 — El motivo de un botón bloqueado es el de QUIEN lo toca
+
+- **Si la sesión no tiene el permiso de la acción, ése es el motivo, antes que cualquier dato
+  faltante.** Decirle a un Técnico "decide la falla de VETS" (paso del liberador) fue leído como
+  contradicción. `_libRoleWhy()` va primero en todos los caminos de `#release-archive-btn`.
+- **La acción que desbloquea un botón va junto al botón.** `#lib-action-note` en la tarjeta
+  Acción de Liberación; no mandar al usuario a buscar un botón en otra tarjeta.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
