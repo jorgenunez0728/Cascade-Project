@@ -20,6 +20,36 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.17.1 — Adjuntar VETS con el reporte de Excel sin tablas de datos (2026-09-29)
+
+### Arreglado
+- **"No se pudo leer el archivo de VETS: este archivo no trae las tablas de datos…"** con un
+  reporte real de STARS VETS (WLTC 3b, CL4 48V). Esa exportación trae la hoja TestDetails y el
+  reporte visible (VETS Report, Limit Checks, OBD II), pero no las tablas ocultas CycleResults,
+  CustomFields, límites ni OBDIIResults. Cascade ahora lee del reporte visible lo que falta:
+  resultados de emisiones (fila Total de "Bag Analysis Results"), fecha y hora de la prueba, VIN,
+  conductor, kilometraje, verificaciones con su estadística, índices de manejo, MIL y OBFCM.
+  Lo que ese reporte no trae (configuración capturada en VETS, operador, OBFCM antes/después)
+  se queda vacío; no se inventa.
+- **48V: CALID y CVN del módulo equivocado.** El registro OBD trae un bloque por módulo (motor y
+  batería); se guardaba el último leído, que en un 48V es la batería (BECM). Ahora manda el
+  módulo de control del motor. Esto afecta la comparación de CALID/CVN de la Revisión dirigida.
+
+### Para desarrollo
+- `vetsExtract` delega en **`vetsExtractFromReport(sheets, td)`** (PURA) cuando hay TestDetails
+  pero no CycleResults. El registro es el mismo, con `source: 'reporte'`.
+- El reporte visible se lee SIEMPRE por etiqueta: `vetsReportValue` (valor a la derecha de una
+  etiqueta), `vetsReportBlock` (tabla a partir de su renglón ancla: encabezados arriba, filas
+  mientras haya valores), `vetsReportChecks` (cada encabezado con "Checked Parameter" + "Status"
+  abre una tabla). La tabla de límites se ancla por sus filas Limit/Status, no por su título (es
+  el nombre de la norma).
+- Lo común a las dos rutas vive en `_vetsIdentity`, `_vetsDynoAmbient` y `_vetsObdLogger`.
+  `_vetsObdLogger` agrupa por `S09EcuNumber` y elige el ECU con ECM/Engine en `ECUNAME`.
+- `VETS_SHEETS` suma `VETS Report`, `Limit Checks` y `OBD II`.
+- Fixture nuevo `tests/fixtures/vets-eu-reporte-48v.json`, extraído con el lector independiente
+  en Python; coincide celda por celda con el lector de JS sobre el .xlsx original.
+  `tests/vets.node.js`: 99 → 127 casos.
+
 ## 2.17.0 — Arranque rápido (2026-09-29)
 
 Se midió antes de tocar nada: teléfono 427×840 con la CPU a ¼, el bundle de producción y un

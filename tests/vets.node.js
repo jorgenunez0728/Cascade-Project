@@ -49,6 +49,9 @@ function ok(nombre, cond, detalle) {
 const near = (a, b, tol) => a !== null && a !== undefined && Math.abs(a - b) <= (tol || 1e-9);
 const fx = n => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', n), 'utf8'));
 const MX = fx('vets-mx-ftp75.json'), EU = fx('vets-eu-wltp.json');
+// [2.17.1] Exportación real que trae TestDetails pero NO las tablas de datos (CycleResults,
+// límites, CustomFields…): solo el reporte visible. Vehículo 48V con dos módulos OBD.
+const R48 = fx('vets-eu-reporte-48v.json');
 const LBF = 4.4482216153, MPH = 1.609344, LB = 0.45359237;
 
 // ── .xlsx mínimo armado en la prueba ─────────────────────────────────────
@@ -107,7 +110,7 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
     const real = process.env.VETS_REAL_DIR;
     if (real) {
         console.log('\n== Lector de JS vs lector de Python, con los .xlsx originales (' + real + ') ==');
-        for (const [pat, fixture] of [[/SELTOS.*\.xlsx$/, MX], [/CL4.*\.xlsx$/, EU]]) {
+        for (const [pat, fixture] of [[/SELTOS.*\.xlsx$/, MX], [/CL4.*12V.*\.xlsx$/, EU], [/CL4.*48V.*\.xlsx$/, R48]]) {
             const f = fs.readdirSync(real).find(x => pat.test(x));
             if (!f) { ok('existe ' + pat, false); continue; }
             const u8 = new Uint8Array(fs.readFileSync(path.join(real, f)));
@@ -165,6 +168,56 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         let err = '';
         try { ctx.vetsExtract({ Reporte: {} }); } catch (e) { err = e.message; }
         ok('un Excel que no es de VETS lo dice', /no trae las tablas de datos de VETS/.test(err));
+    }
+
+    console.log('\n== Europa · solo el reporte visible (CL4 48V, sin CycleResults) ==');
+    {
+        ok('el archivo NO trae las tablas de datos (por eso fallaba)', !R48.CycleResults && !R48.CustomFields && !!R48.TestDetails && !!R48['VETS Report']);
+        const r = ctx.vetsExtract(R48);
+        ok('se lee del reporte y lo declara', r.source === 'reporte');
+        ok('identidad de la prueba (GUID) y número', r.testRef === '72f4b8ca-1b44-4348-9b60-75104e2eae85' && r.testNumber === 856);
+        ok('VIN de la prueba, no el del registro del vehículo en VETS', r.vinFile === '3KPFX51BXTE433243', r.vinFile);
+        ok('fecha de inicio y fin (Start/End Time)', r.testStart === '2026-09-29T12:17' && r.testEnd === '2026-09-29T13:07', r.testStart + ' ' + r.testEnd);
+        ok('conductor y kilometraje', r.driver === 'Ivan' && r.startKm === 67 && r.endKm === 90);
+        ok('distancia de la tabla de bolsas', near(r.distanceKm, 23.1957, 1e-4));
+        ok('CO 100.132 mg/km (fila Total)', near(r.gases.CO.value, 100.132, 5e-4) && r.gases.CO.unit === 'mg/km');
+        ok('CO₂ 130.488 g/km', near(r.gases.CO2.value, 130.488, 5e-4) && r.gases.CO2.unit === 'g/km');
+        ok('NOx 6.354 mg/km, THC, NMHC, PM', near(r.gases.NOX.value, 6.3542, 1e-4) && near(r.gases.THC.value, 10.7509, 1e-4) &&
+            near(r.gases.NMHC.value, 8.3846, 1e-4) && near(r.gases.PM.value, 1.6514, 1e-4));
+        ok('HC+NOx y NMHC+NOx combinados (g/km)', near(r.gases.HCNOX.value, 0.0171052, 1e-7) && r.gases.THCNOX === r.gases.HCNOX && near(r.gases.NMHCNOX.value, 0.0147389, 1e-7));
+        ok('PN y consumo no son gases de Cascade', !r.gases.PN && !r.gases.FUELCONS);
+        ok('cada gas coincide con el "Result" de la tabla de límites de VETS', ['CO', 'NOX', 'NMHC', 'PM'].every(g => near(r.vetsLimits.find(l => l.name === g).value, r.gases[g].value, 1e-9)));
+        ok('límites de VETS (informativos): 6, todos PASS', r.vetsLimits.length === 6 && r.vetsLimits.every(l => l.pass === true) && r.vetsLimits.find(l => l.name === 'NOX').upper === 59.999999999999993);
+        ok('dinamómetro de TestDetails: Target 113.7 N, Dyno A 51.97 N, ETW 1586.95 kg', r.dyno.tA === 113.7 && near(r.dyno.dA, 51.9696, 1e-4) && near(r.dyno.etw, 1586.95, 1e-6));
+        const pm = r.checks.find(c => c.name === 'PM Pre Filter Temp');
+        ok('FAIL "PM Pre Filter Temp" con su estadística (hoja Limit Checks)', pm && pm.status === 'FAIL' && pm.where.join() === 'ciclo' && near(pm.ave, 76.9247, 1e-4) && near(pm.max, 82.937, 1e-3) && pm.lo === 20 && pm.hi === 52);
+        const amb = r.checks.find(c => c.name === 'Ambient Bag Read Delay');
+        ok('verificación por muestra: una sola fila, PASS', amb && amb.status === 'PASS' && r.checks.filter(c => c.name === 'Ambient Bag Read Delay').length === 1);
+        ok('8 verificaciones, 1 falla', r.checks.length === 8 && r.checks.filter(c => c.status === 'FAIL').length === 1);
+        ok('índices de manejo del ciclo', near(r.drive.rmsse, 0.7358, 1e-4) && r.drive.rmsseUnit === 'km/h' && near(r.drive.iwr, -0.7331, 1e-4) && r.drive.driverErrors === 0 && r.drive.violations === 0);
+        ok('MIL apagada (hoja OBD II)', r.obd.mil === 'OFF' && r.obd.milDistanceKm === 0);
+        ok('48V: CALID/CVN del MOTOR, no de la batería (BECM llega después)', r.obd.calid === '2661VCL46EP0036I' && r.obd.cvn === '0x6adb4309', r.obd.calid);
+        ok('VIN del ECU', r.vinEcu === '3KPFX51BXTE433243');
+        ok('OBFCM: 1.34 L, exactitud −0.199 % (la de VETS)', near(r.obfcm.fuelL, 1.34, 1e-9) && near(r.obfcm.accuracyPct, -0.199027, 1e-6) && near(r.obfcm.testFuelL, 1.33734, 1e-5));
+        ok('lo que el reporte no trae se queda vacío, no se inventa', r.operator === '' && Object.keys(r.config).length === 0 && r.obfcm.fuelBeforeL === null);
+        const v = ctx.vetsVinCheck('3KPFX51BXTE433243', r.vinFile, r.vinEcu);
+        ok('VIN a tres bandas: coincide', v.status === 'ok');
+        let err = '';
+        try { ctx.vetsExtract({ TestDetails: R48.TestDetails, 'VETS Report': { 1: { 1: 'Otro reporte' } } }); } catch (e) { err = e.message; }
+        ok('reporte sin tabla de bolsas: lo dice', /Bag Analysis Results/.test(err), err);
+    }
+
+    console.log('\n== OBD: varios módulos ==');
+    {
+        const lg = { 1: { 1: 'Time', 2: 'S09EcuNumber', 3: 'S09VarName', 6: 'S09VarValue' }, 2: { 1: 'Date' },
+            3: { 1: '1', 2: '1', 3: 'CALID', 6: 'BMSX' }, 4: { 1: '1', 2: '1', 3: 'ECUNAME', 6: 'BECM-B+EnergyCtrl' },
+            5: { 1: '1', 2: '2', 3: 'CALID', 6: 'MOTOR1' }, 6: { 1: '1', 2: '2', 3: 'VIN', 6: 'VINX' }, 7: { 1: '1', 2: '2', 3: 'ECUNAME', 6: 'ECM -EngineControl' } };
+        const rec = { obd: {} };
+        ctx._vetsObdLogger(rec, ctx.vetsTable(lg));
+        ok('manda el módulo del motor aunque no sea el primero', rec.obd.calid === 'MOTOR1' && rec.vinEcu === 'VINX', rec.obd.calid);
+        const rec2 = { obd: {} };
+        ctx._vetsObdLogger(rec2, ctx.vetsTable({ 1: lg[1], 2: lg[2], 3: { 1: '1', 2: '3', 3: 'CALID', 6: 'C3' }, 4: { 1: '1', 2: '0', 3: 'CALID', 6: 'C0' } }));
+        ok('sin nombre de módulo: el de menor número', rec2.obd.calid === 'C0');
     }
 
     console.log('\n== Unidades ==');

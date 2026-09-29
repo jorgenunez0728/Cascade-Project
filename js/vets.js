@@ -21,7 +21,9 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var VETS_SHEETS = ['TestDetails', 'CycleResults', 'CycleLimitResults', 'SampleLimitResults', 'PostTestMonitoredLimits',
-    'PollutantMonitoredLimits', 'CustomFields', 'Entity', 'OBDIIResults', 'OBD II Vehicle Info Logger', 'STARSDataSet'];
+    'PollutantMonitoredLimits', 'CustomFields', 'Entity', 'OBDIIResults', 'OBD II Vehicle Info Logger', 'STARSDataSet',
+    // [2.17.1] El reporte visible: de ahí se lee cuando la exportación no trae las tablas de datos.
+    'VETS Report', 'Limit Checks', 'OBD II'];
 
 // Columnas de CycleResults por campo de gas de Cascade. Primero la "Regulated" (la que
 // reporta VETS), después la cruda.
@@ -253,22 +255,9 @@ function _vetsCodeLabel(s) {
     return m ? { code: m[1], label: m[2].trim() } : { code: '', label: s };
 }
 
-/**
- * Todo lo que Cascade usa de una prueba VETS. PURA.
- * `sheets` = {nombreDeHoja: grid}. Devuelve el registro o lanza con un mensaje que
- * dice qué falta.
- */
-function vetsExtract(sheets) {
-    sheets = sheets || {};
-    var T = function(n) { return vetsTable(sheets[n]); };
-    var td = T('TestDetails'), cr = T('CycleResults');
-    if (!td.count || !cr.count) {
-        throw new Error('Este archivo no trae las tablas de datos de VETS (TestDetails / CycleResults). ¿Es el reporte de Excel que exporta STARS VETS?');
-    }
-    var rec = { format: 1 };
-
-    // Identidad de la prueba
-    var ent = T('Entity');
+// Lo que sale de TestDetails y del logger OBD lo comparten las dos formas de exportar
+// (con tablas de datos, o solo el reporte visible).
+function _vetsIdentity(rec, td, ent) {
     rec.testRef = ent.text('Entity.ID') || td.text('PwsOneImport.NameResolved') || '';
     rec.testNumber = td.num('TestNumber');
     rec.testName = td.text('TestName');
@@ -279,6 +268,287 @@ function vetsExtract(sheets) {
     rec.fuelName = td.text('FuelName');
     rec.fuelType = td.text('FuelType');
     rec.category = td.text('Test.Category');
+}
+
+function _vetsDynoAmbient(rec, td) {
+    // Dinamómetro (siempre en SI, como lo guarda Operación)
+    var co = function(pref, x) { return vetsToSI(td.raw(pref + '.RoadLoadCoefficient' + x), td.unit(pref + '.RoadLoadCoefficient' + x)); };
+    rec.dyno = {
+        tA: co('Highway', 'A'), tB: co('Highway', 'B'), tC: co('Highway', 'C'),
+        dA: co('Dyno', 'A'), dB: co('Dyno', 'B'), dC: co('Dyno', 'C'),
+        etw: vetsToSI(td.raw('Target.EffectiveInertia'), td.unit('Target.EffectiveInertia')),
+        units: td.unit('Highway.RoadLoadCoefficientA') || ''
+    };
+    rec.ambient = {
+        cellTempC: (function() { var k = td.num('CellTemperature'); return k === null ? null : (/k/i.test(td.unit('CellTemperature')) ? k - 273.15 : k); })(),
+        rhPct: td.num('RelativeHumidity')
+    };
+}
+
+function _vetsObdLogger(rec, lg) {
+    // El logger escribe cada variable con su propia marca de tiempo (difieren en
+    // microsegundos dentro de una misma lectura), así que NO se agrupa por hora: se
+    // toma el último valor no vacío de cada variable (la lectura al final de la prueba).
+    // [2.17.1] Cada módulo que responde por OBD (S09EcuNumber) trae su propio CALID/CVN:
+    // en un 48V el de la batería (BECM) llega DESPUÉS del motor y lo pisaba. Manda el
+    // módulo de control del motor (ECUNAME con ECM/Engine); sin nombre, el de menor número.
+    var byEcu = {};
+    for (var q = 0; q < lg.count; q++) {
+        var k2 = lg.text('S09VarName', q), vv2 = lg.text('S09VarValue', q);
+        var ecu = lg.text('S09EcuNumber', q) || '0';
+        if (k2 && vv2) (byEcu[ecu] = byEcu[ecu] || {})[k2.toUpperCase()] = vv2;
+    }
+    var ecus = Object.keys(byEcu).sort(function(a, b) { return (parseFloat(a) || 0) - (parseFloat(b) || 0); });
+    var main = ecus.filter(function(e) { return /\bECM\b|ENGINE/i.test(byEcu[e].ECUNAME || ''); })[0] || ecus[0];
+    var last = main ? byEcu[main] : {};
+    if (!last.VIN) ecus.forEach(function(e) { if (!last.VIN && byEcu[e].VIN) last.VIN = byEcu[e].VIN; });
+    rec.vinEcu = String(last.VIN || '').trim().toUpperCase();
+    rec.obd.calid = String(last.CALID || '').trim();
+    rec.obd.cvn = String(last.CVN || '').trim();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.17.1] Exportación con solo el reporte visible
+// ══════════════════════════════════════════════════════════════════════
+// Algunas exportaciones de VETS traen TestDetails pero no las tablas de datos
+// (CycleResults, límites, CustomFields, Entity, OBDIIResults). Lo que falta se lee del
+// reporte visible ("VETS Report", "Limit Checks", "OBD II"). Ese reporte cambia de
+// acomodo entre plantillas, así que se lee SIEMPRE por la etiqueta de la fila o del
+// encabezado de la columna, nunca por la posición de la celda.
+
+var _VETS_VALUE_RE = /^([-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?|PASS|FAIL|ON|OFF|N\/A|∞|-∞)$/i;
+
+/** Renglones de una hoja como [{r, c:{col: texto}}], en orden. PURA. */
+function _vetsGridRows(grid) {
+    return Object.keys(grid || {}).map(Number).sort(function(a, b) { return a - b; }).map(function(r) {
+        var src = grid[r] || grid[String(r)] || {}, c = {};
+        Object.keys(src).forEach(function(k) { var v = String(src[k] == null ? '' : src[k]).trim(); if (v) c[Number(k)] = v; });
+        return { r: r, c: c };
+    });
+}
+function _vetsCols(row) { return Object.keys(row.c).map(Number).sort(function(a, b) { return a - b; }); }
+/** 'Starting Mileage (km)' → {name:'STARTING MILEAGE', unit:'km'}. */
+function _vetsLabel(s) {
+    var m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(String(s || '').trim());
+    return { name: (m ? m[1] : String(s || '')).trim().toUpperCase(), unit: m ? m[2].trim() : '' };
+}
+
+/** Primer valor a la derecha de la etiqueta `label` (sin su unidad). {value, unit} o null. PURA. */
+function vetsReportValue(grid, label) {
+    var want = _vetsLabel(label).name, rows = _vetsGridRows(grid);
+    for (var i = 0; i < rows.length; i++) {
+        var cols = _vetsCols(rows[i]);
+        for (var j = 0; j < cols.length - 1; j++) {
+            var l = _vetsLabel(rows[i].c[cols[j]]);
+            if (l.name === want) return { value: rows[i].c[cols[j + 1]], unit: l.unit };
+        }
+    }
+    return null;
+}
+
+/**
+ * Una tabla del reporte a partir de su renglón ancla (el del título, que casi siempre
+ * trae también las unidades). Encabezados = el renglón no vacío de arriba. Filas = las
+ * que siguen mientras tengan valores bajo los encabezados. PURA.
+ * → {names:{col:NOMBRE}, units:{col:unidad}, rows:[{label, cells:{NOMBRE: texto}}]}
+ */
+function vetsReportBlock(grid, anchorRow) {
+    var rows = _vetsGridRows(grid), ai = -1;
+    for (var i = 0; i < rows.length; i++) if (rows[i].r === anchorRow) ai = i;
+    if (ai < 1) return null;
+    var head = rows[ai - 1], names = {}, units = {};
+    _vetsCols(head).forEach(function(c) { names[c] = head.c[c]; });
+    var nameCols = Object.keys(names).map(Number);
+    if (!nameCols.length) return null;
+    var firstCol = Math.min.apply(null, nameCols);
+    nameCols.forEach(function(c) {
+        var u = rows[ai].c[c];
+        if (u && /^\(.*\)$/.test(u)) units[c] = u.slice(1, -1).trim();
+    });
+    var out = { names: {}, units: {}, rows: [] };
+    nameCols.forEach(function(c) { out.names[c] = names[c].toUpperCase(); if (units[c]) out.units[names[c].toUpperCase()] = units[c]; });
+    for (var k = ai + 1; k < rows.length; k++) {
+        var row = rows[k], cells = {}, hasVal = false;
+        nameCols.forEach(function(c) {
+            if (row.c[c] === undefined) return;
+            cells[out.names[c]] = row.c[c];
+            if (_VETS_VALUE_RE.test(row.c[c])) hasVal = true;
+        });
+        if (!hasVal) break;
+        var label = _vetsCols(row).filter(function(c) { return c < firstCol; }).map(function(c) { return row.c[c]; }).join(' ').trim();
+        out.rows.push({ label: label, cells: cells });
+    }
+    return out;
+}
+
+/** Renglón donde alguna celda dice exactamente `text`. PURA. */
+function _vetsRowWith(grid, text, fromRow) {
+    var want = String(text).trim().toUpperCase(), rows = _vetsGridRows(grid);
+    for (var i = 0; i < rows.length; i++) {
+        if (fromRow && rows[i].r <= fromRow) continue;
+        for (var c in rows[i].c) if (rows[i].c[c].toUpperCase() === want) return rows[i].r;
+    }
+    return null;
+}
+function _vetsBlockRow(block, label) {
+    var want = String(label).toUpperCase();
+    return block ? (block.rows.filter(function(r) { return r.label.toUpperCase() === want; })[0] || null) : null;
+}
+
+/**
+ * Verificaciones (Limit Checks) del reporte visible. Cada encabezado con "Checked
+ * Parameter" y "Status" abre una tabla (vectoriales y escalares tienen columnas
+ * distintas); las filas del mismo nombre (una por muestra) se juntan. PURA.
+ */
+function vetsReportChecks(grid) {
+    var rows = _vetsGridRows(grid), map = null, byName = {}, order = [];
+    rows.forEach(function(row) {
+        var cols = _vetsCols(row), up = {};
+        cols.forEach(function(c) { up[row.c[c].toUpperCase()] = c; });
+        if (up['CHECKED PARAMETER'] !== undefined && up.STATUS !== undefined) { map = up; return; }
+        if (!map) return;
+        var st = String(row.c[map.STATUS] || '').toUpperCase();
+        if (st !== 'PASS' && st !== 'FAIL') return;
+        var name = cols.filter(function(c) { return c < map['CHECKED PARAMETER']; }).map(function(c) { return row.c[c]; }).join(' ').trim();
+        if (!name) return;
+        var get = function(k) { return map[k] === undefined ? null : _vetsNum(row.c[map[k]]); };
+        var period = map.PERIOD === undefined ? '' : String(row.c[map.PERIOD] || '');
+        var chk = byName[name];
+        if (!chk) {
+            chk = byName[name] = { name: name, unit: map.UNIT === undefined ? '' : String(row.c[map.UNIT] || ''),
+                lo: get('LO LIMIT'), hi: get('HI LIMIT'), status: 'PASS', where: [] };
+            order.push(name);
+        }
+        if (st === 'FAIL') {
+            chk.status = 'FAIL';
+            var sm = /^sample\s*(\d+)/i.exec(period);
+            chk.where.push(sm ? 'muestra ' + sm[1] : (period && !/^cycle$/i.test(period) ? period : 'ciclo'));
+        }
+        if (/^sample/i.test(period)) return;   // lo estadístico del ciclo, no de cada muestra
+        if (get('AVERAGE') !== null && chk.ave == null) chk.ave = get('AVERAGE');
+        if (get('MAXIMUM') !== null) chk.max = get('MAXIMUM');
+        if (get('MINIMUM') !== null) chk.min = get('MINIMUM');
+        if (chk.ave == null && get('RESULT') !== null) chk.value = get('RESULT');
+    });
+    return order.map(function(n) { return byName[n]; });
+}
+
+/** Nombre del gas en el reporte ('HC+NOx', 'NMOG+NOx') → campo de Cascade. */
+function _vetsReportGasKey(name) {
+    var k = String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return VETS_GAS_COLUMNS.hasOwnProperty(k) ? k : null;
+}
+
+/**
+ * La prueba desde el reporte visible + TestDetails. Mismo registro que `vetsExtract`,
+ * con `source: 'reporte'`. Lo que el reporte no trae se queda vacío (config de VETS,
+ * operador, OBFCM antes/después), nunca se inventa. PURA.
+ */
+function vetsExtractFromReport(sheets, td) {
+    var rep = sheets['VETS Report'] || {};
+    var rec = { format: 1, source: 'reporte' };
+    _vetsIdentity(rec, td, vetsTable(sheets.Entity));
+    var val = function(l) { var x = vetsReportValue(rep, l); return x ? x.value : ''; };
+    rec.testStart = vetsSerialToLocal(val('Start Time') || val('Date'));
+    rec.testEnd = vetsSerialToLocal(val('End Time'));
+
+    var bagRow = _vetsRowWith(rep, 'Bag Analysis Results');
+    var bag = bagRow ? vetsReportBlock(rep, bagRow) : null;
+    var total = _vetsBlockRow(bag, 'Total');
+    if (!total) throw new Error('El reporte de VETS no trae la tabla "Bag Analysis Results" con la fila Total: no hay resultados de emisiones que leer.');
+    rec.distanceKm = (function() {
+        var d = _vetsNum(total.cells.DISTANCE), u = bag.units.DISTANCE || '';
+        if (d === null) return null;
+        return /mi/i.test(u) ? d * 1.609344 : d;
+    })();
+
+    rec.vinFile = String(val('VIN') || '').trim().toUpperCase();
+    rec.operator = val('Operator') || '';
+    rec.driver = val('Driver') || '';
+    rec.startKm = _vetsNum(val('Starting Mileage'));
+    rec.endKm = _vetsNum(val('Ending Mileage'));
+    rec.config = {};
+
+    _vetsDynoAmbient(rec, td);
+
+    rec.gases = {};
+    Object.keys(bag.names).forEach(function(c) {
+        var nm = bag.names[c], key = _vetsReportGasKey(nm), v = _vetsNum(total.cells[nm]);
+        if (!key || v === null) return;
+        var g = { value: v, unit: bag.units[nm] || '', column: 'VETS Report · ' + nm };
+        rec.gases[key] = g;
+        // HC+NOx y THC+NOx son el mismo valor en VETS (misma columna en CycleResults)
+        if (key === 'HCNOX' && !rec.gases.THCNOX) rec.gases.THCNOX = g;
+        if (key === 'THCNOX' && !rec.gases.HCNOX) rec.gases.HCNOX = g;
+    });
+
+    // Tabla de límites de VETS: el renglón con "Limit" y después "Status". Su título es el
+    // nombre de la norma, así que se ancla por las filas, no por el título.
+    rec.vetsLimits = [];
+    var limRow = null, rrows = _vetsGridRows(rep);
+    for (var i = 1; i < rrows.length && !limRow; i++) {
+        var labs = _vetsCols(rrows[i]).map(function(c) { return rrows[i].c[c].toUpperCase(); });
+        if (labs.indexOf('LIMIT') >= 0 && _vetsRowWith(rep, 'Status', rrows[i].r)) limRow = rrows[i - 1].r;
+    }
+    var lim = limRow ? vetsReportBlock(rep, limRow) : null;
+    if (lim) {
+        var lL = _vetsBlockRow(lim, 'Limit'), lR = _vetsBlockRow(lim, 'Result'), lS = _vetsBlockRow(lim, 'Status');
+        Object.keys(lim.names).forEach(function(c) {
+            var nm = lim.names[c];
+            var up = lL ? _vetsNum(lL.cells[nm]) : null, v = lR ? _vetsNum(lR.cells[nm]) : null;
+            var st = lS ? String(lS.cells[nm] || '').toUpperCase() : '';
+            if (up === null && v === null) return;
+            rec.vetsLimits.push({ name: nm, unit: lim.units[nm] || '', upper: up, value: v,
+                pass: st === 'PASS' ? true : st === 'FAIL' ? false : ((v === null || up === null) ? null : v <= up) });
+        });
+    }
+
+    rec.checks = vetsReportChecks(sheets['Limit Checks']);
+    if (!rec.checks.length) rec.checks = vetsReportChecks(rep);
+
+    var drvRow = _vetsRowWith(rep, 'Drive Trace Indices');
+    var drv = drvRow ? vetsReportBlock(rep, drvRow) : null, dc = _vetsBlockRow(drv, 'Cycle');
+    var dn = function(k) { return dc ? _vetsNum(dc.cells[k]) : null; };
+    rec.drive = { rmsse: dn('RMSSE'), rmsseUnit: drv ? (drv.units.RMSSE || '') : '', iwr: dn('IWR'), er: dn('ER'), dr: dn('DR'),
+                  driverErrors: dn('ERROR COUNT'), violations: dn('VIOLATION COUNT') };
+
+    var obdSheet = sheets['OBD II'] || {};
+    var milRow = _vetsRowWith(obdSheet, 'MIL Status');
+    var mil = milRow ? vetsReportBlock(obdSheet, milRow) : null;
+    var m0 = mil && mil.rows[0] ? mil.rows[0].cells : {};
+    rec.obd = { mil: String(m0['MIL ON'] || ''), milDistanceKm: _vetsNum(m0['DIST. SINCE ON']) };
+    _vetsObdLogger(rec, vetsTable(sheets['OBD II Vehicle Info Logger']));
+
+    var ofRow = _vetsRowWith(obdSheet, 'On-Board Fuel Consumption Meter');
+    var of = ofRow ? vetsReportBlock(obdSheet, ofRow) : null;
+    var o0 = of && of.rows[0] ? of.rows[0].cells : null;
+    rec.obfcm = (o0 && _vetsNum(o0['CONSUMED FUEL']) !== null) ? {
+        fuelL: _vetsNum(o0['CONSUMED FUEL']), accuracyPct: _vetsNum(o0['CONSUMED FUEL ACCURACY']),
+        fuelBeforeL: null, fuelAfterL: null,
+        distKm: _vetsNum(o0['DISTANCE TRAVELLED']), distBeforeKm: null, distAfterKm: null,
+        testFuelL: _vetsNum(o0['CONSUMED FUEL BAG'])
+    } : null;
+    return rec;
+}
+
+/**
+ * Todo lo que Cascade usa de una prueba VETS. PURA.
+ * `sheets` = {nombreDeHoja: grid}. Devuelve el registro o lanza con un mensaje que
+ * dice qué falta.
+ */
+function vetsExtract(sheets) {
+    sheets = sheets || {};
+    var T = function(n) { return vetsTable(sheets[n]); };
+    var td = T('TestDetails'), cr = T('CycleResults');
+    // [2.17.1] Hay exportaciones que traen TestDetails pero NO CycleResults (ni límites,
+    // CustomFields, Entity ni OBDIIResults): lo que falta está en el reporte visible.
+    if (td.count && !cr.count && sheets['VETS Report']) return vetsExtractFromReport(sheets, td);
+    if (!td.count || !cr.count) {
+        throw new Error('Este archivo no trae las tablas de datos de VETS (TestDetails / CycleResults). ¿Es el reporte de Excel que exporta STARS VETS?');
+    }
+    var rec = { format: 1 };
+
+    _vetsIdentity(rec, td, T('Entity'));
     rec.testStart = vetsSerialToLocal(cr.raw('CycleStart'));
     rec.testEnd = vetsSerialToLocal(cr.raw('CycleEnd'));
     rec.distanceKm = (function() {
@@ -301,18 +571,7 @@ function vetsExtract(sheets) {
         if (cl) rec.config[VETS_CONFIG_FIELDS[k]] = cl;
     });
 
-    // Dinamómetro (siempre en SI, como lo guarda Operación)
-    var co = function(pref, x) { return vetsToSI(td.raw(pref + '.RoadLoadCoefficient' + x), td.unit(pref + '.RoadLoadCoefficient' + x)); };
-    rec.dyno = {
-        tA: co('Highway', 'A'), tB: co('Highway', 'B'), tC: co('Highway', 'C'),
-        dA: co('Dyno', 'A'), dB: co('Dyno', 'B'), dC: co('Dyno', 'C'),
-        etw: vetsToSI(td.raw('Target.EffectiveInertia'), td.unit('Target.EffectiveInertia')),
-        units: td.unit('Highway.RoadLoadCoefficientA') || ''
-    };
-    rec.ambient = {
-        cellTempC: (function() { var k = td.num('CellTemperature'); return k === null ? null : (/k/i.test(td.unit('CellTemperature')) ? k - 273.15 : k); })(),
-        rhPct: td.num('RelativeHumidity')
-    };
+    _vetsDynoAmbient(rec, td);
 
     // Gases (resultado del ciclo)
     rec.gases = {};
@@ -375,17 +634,7 @@ function vetsExtract(sheets) {
     // reinventa aquí la referencia de la norma.
     var obdr = T('OBDIIResults');
     rec.obd = { mil: obdr.text('MILOn') || '', milDistanceKm: obdr.num('MILDistance') };
-    // El logger escribe cada variable con su propia marca de tiempo (difieren en
-    // microsegundos dentro de una misma lectura), así que NO se agrupa por hora: se
-    // toma el último valor no vacío de cada variable (la lectura al final de la prueba).
-    var lg = T('OBD II Vehicle Info Logger'), last = {};
-    for (var q = 0; q < lg.count; q++) {
-        var k2 = lg.text('S09VarName', q), vv2 = lg.text('S09VarValue', q);
-        if (k2 && vv2) last[k2.toUpperCase()] = vv2;
-    }
-    rec.vinEcu = String(last.VIN || '').trim().toUpperCase();
-    rec.obd.calid = String(last.CALID || '').trim();
-    rec.obd.cvn = String(last.CVN || '').trim();
+    _vetsObdLogger(rec, T('OBD II Vehicle Info Logger'));
     if (cr.has('OnBoardFuelConsumed')) {
         rec.obfcm = {
             fuelL: cr.num('OnBoardFuelConsumed'), accuracyPct: cr.num('OnBoardFuelConsumedAccuracy'),

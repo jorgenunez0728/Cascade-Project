@@ -2449,6 +2449,20 @@ menos **dejó de ser silencioso**.
 - **Una binding de Alpine que llama a una función se evalúa en cada `_bump()`**. Lo caro va
   memoizado (patrón de `pnStorageScan`), o cada guardado lo paga N veces.
 
+## 2.17.1 — VETS: exportación con solo el reporte visible (`js/vets.js`)
+
+- **Hay exportaciones de VETS sin las tablas de datos** (traen TestDetails y el reporte visible,
+  pero no CycleResults, CustomFields, límites, Entity ni OBDIIResults). `vetsExtract` pasa a
+  `vetsExtractFromReport` y el registro lleva `source: 'reporte'`. **La regla de 2.5.0 sigue
+  valiendo con un matiz**: con tablas de datos se lee por nombre de campo; sin ellas, el reporte
+  visible se lee por **etiqueta** (`vetsReportValue`, `vetsReportBlock`, `vetsReportChecks`),
+  nunca por la posición de la celda.
+- **El logger OBD trae un bloque por módulo** (`S09EcuNumber`). CALID/CVN/VIN salen del módulo
+  del motor (`ECUNAME` con ECM/Engine) o, sin nombre, del de menor número. Nunca "el último
+  valor de la hoja": en un 48V es la batería.
+- Un formato nuevo de VETS = su fixture en `tests/fixtures/` extraído con un lector
+  independiente (ya hay tres: MX FTP75, EU WLTC con tablas, EU WLTC solo reporte 48V).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
