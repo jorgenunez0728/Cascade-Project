@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.14.0';
+var APP_VERSION = '2.15.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.14.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.15.0', date: '29 sep 2026', title: 'Avisos de relevo: "te toca a ti"',
+      bullets: [
+          'Nuevo: cuando otro equipo manda un vehículo a aprobación, a quien puede aprobar le llega "…05555 espera tu aprobación" con un botón Abrir que lleva directo a Aprobación con ese vehículo.',
+          'A quien liberó le llega "Te devolvieron …08888: motivo" (abre Liberación para corregir) y "…08888 quedó aprobado" (abre el Historial).',
+          'El fin del reposo (soak) entra al mismo canal: queda en la campana y Abrir lleva a Operación.',
+          'Nunca te avisa de lo que hiciste tú. En la campana eliges: Todos, Solo los míos o Ninguno; y puedes pedir que el sistema te avise también con la app en segundo plano.',
+          'La campana cuenta solo lo que pide algo de ti (avisos de relevo, errores y advertencias), no cada "Guardado".',
+          'Los avisos llegan con la app abierta, aunque esté en segundo plano. Con la app cerrada haría falta un servicio de pago de la nube.'
+      ] },
     { version: '2.14.0', date: '29 sep 2026', title: '¿Se guardó? ¿Lo ven los demás?',
       bullets: [
           'Nuevo: cada vehículo dice si ya está en la nube. En Operación, Liberación, Aprobación y el modo tarjetas: ☁ "En la nube · 10:42", ⏳ "Por subir" o ⚠ "Sin subir: sin conexión". Si lo subió otro equipo, dice cuál ("desde Tablet celda 2").',
@@ -1689,7 +1698,8 @@ var UI_PREFS_DEFAULTS = {
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
     dashOpenCat: '',       // [2.0.0] HOY: categoría desplegada ('' = ninguna)
-    cardMode: 'auto'       // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
+    cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
+    handoff: 'todos'       // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
 };
 
 function _uiPrefsRead() {
@@ -5872,6 +5882,7 @@ window.addEventListener('DOMContentLoaded', initializeSystem);
 
 var _notificationLog = [];
 var _notifMaxItems = 50;
+var _notifSeq = 0;
 
 // Wrap showToast to also log notifications
 (function() {
@@ -5881,21 +5892,35 @@ var _notifMaxItems = 50;
     // Deshacer que funcionaba era el de un llamador que quedó antes de este envoltorio.
     showToast = function(msg, type) {
         var t = _origShowToast.apply(this, arguments);
-        addNotification(msg, type);
+        // [2.15.0] Un aviso de relevo ya vive en su bitácora (handoff.js): no duplicarlo.
+        if (!window._notifSkipLog) addNotification(msg, type);
         return t;
     };
 })();
 
 function addNotification(msg, type) {
-    _notificationLog.unshift({ message: msg, type: type || 'info', timestamp: Date.now(), read: false });
+    _notificationLog.unshift({ id: 't' + (++_notifSeq), message: msg, type: type || 'info', timestamp: Date.now(), read: false });
     if (_notificationLog.length > _notifMaxItems) _notificationLog.pop();
     updateNotifBadge();
+}
+
+// [2.15.0] Todo lo del centro: los toasts de esta sesión (RAM) + los avisos de relevo
+// (guardados, handoff.js). Se habla por `id`, nunca por posición: la lista cambia entre
+// pintar y tocar (llega un aviso) y un índice apuntaría a otro renglón (regla de v23).
+function _notifAll() {
+    var extra = (typeof handoffLogItems === 'function') ? handoffLogItems() : [];
+    return extra.concat(_notificationLog).sort(function(a, b) { return b.timestamp - a.timestamp; }).slice(0, _notifMaxItems);
 }
 
 function updateNotifBadge() {
     var badge = document.getElementById('notif-badge');
     if (!badge) return;
-    var unread = _notificationLog.filter(function(n) { return !n.read; }).length;
+    // [2.15.0] La campana cuenta lo que pide algo de ti: avisos de relevo y errores/advertencias
+    // sin leer. Un "Guardado" o "actualizado desde otro dispositivo" ya se vio como toast; si
+    // también sumara, la insignia nunca estaría en 0 y nadie la miraría.
+    var unread = _notifAll().filter(function(n) {
+        return !n.read && (n.handoff || n.type === 'error' || n.type === 'warning');
+    }).length;
     badge.hidden = unread === 0;
     badge.textContent = unread > 9 ? '9+' : unread;
 }
@@ -5916,20 +5941,52 @@ function toggleNotificationCenter() {
     }
 }
 
+function notifOpen(id) {
+    var h = _notifAll().find(function(n) { return n.id === id; });
+    if (h && h.handoff) { if (typeof handoffOpen === 'function') handoffOpen(id); return; }
+    var t = _notificationLog.find(function(n) { return n.id === id; });
+    if (t) t.read = true;
+    renderNotifications();
+    updateNotifBadge();
+}
+function notifDismiss(id) {
+    if (typeof handoffDismiss === 'function') handoffDismiss(id);
+    _notificationLog = _notificationLog.filter(function(n) { return n.id !== id; });
+    renderNotifications();
+    updateNotifBadge();
+}
+
 function renderNotifications() {
     var list = document.getElementById('notification-list');
     if (!list) return;
-    if (_notificationLog.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);font-size:12px;">Sin notificaciones</div>';
+    var prefs = '';
+    if (typeof handoffMode === 'function') {
+        var m = handoffMode();
+        var opt = function(k, l) {
+            return '<button type="button" class="notif-mode' + (m === k ? ' is-on' : '') + '" aria-pressed="' + (m === k) + '" onclick="event.stopPropagation();handoffSetMode(\'' + k + '\')">' + l + '</button>';
+        };
+        var perm = (typeof Notification !== 'undefined' && Notification.permission === 'default' && m !== 'ninguno')
+            ? '<button type="button" class="notif-perm" onclick="event.stopPropagation();handoffAskPermission()">Avisarme también con la app en segundo plano</button>' : '';
+        prefs = '<div class="notif-prefs"><div class="notif-prefs-title">Avisos de relevo</div>' +
+            '<div class="notif-modes" role="group" aria-label="Avisos de relevo">' + opt('todos', 'Todos') + opt('mios', 'Solo los míos') + opt('ninguno', 'Ninguno') + '</div>' +
+            '<div class="notif-prefs-note">Llegan con la app abierta, aunque esté en segundo plano.</div>' + perm + '</div>';
+    }
+    var items = _notifAll();
+    if (items.length === 0) {
+        list.innerHTML = prefs + '<div style="text-align:center;padding: var(--space-2xl);color:var(--muted);font-size:12px;">Sin notificaciones</div>';
         return;
     }
     var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
-    list.innerHTML = _notificationLog.map(function(n, i) {
+    var kindIcon = { aprobar: '✍️', devuelto: '↩️', aprobado: '✅', soak: '⏲️' };
+    list.innerHTML = prefs + items.map(function(n) {
         var ago = _timeAgo(n.timestamp);
-        return '<div class="notif-item' + (n.read ? '' : ' notif-unread') + '" onclick="_notificationLog[' + i + '].read=true;this.classList.remove(\'notif-unread\');updateNotifBadge();">' +
-            '<span class="notif-icon">' + (icons[n.type] || 'ℹ️') + '</span>' +
-            '<div class="notif-body"><div class="notif-msg">' + n.message + '</div><div class="notif-time">' + ago + '</div></div>' +
-            '<button class="notif-dismiss" onclick="event.stopPropagation();_notificationLog.splice(' + i + ',1);renderNotifications();updateNotifBadge();">×</button>' +
+        var sid = escapeHtml(String(n.id));   // getAttribute devuelve el id tal cual
+        // Los avisos de relevo traen texto de otras personas (motivo de una devolución): se escapan.
+        var msg = n.handoff ? escapeHtml(n.message) : n.message;
+        return '<div class="notif-item' + (n.read ? '' : ' notif-unread') + (n.handoff ? ' notif-handoff' : '') + '" data-notif-id="' + sid + '" onclick="notifOpen(this.getAttribute(\'data-notif-id\'))">' +
+            '<span class="notif-icon">' + (n.handoff ? (kindIcon[n.kind] || '🔔') : (icons[n.type] || 'ℹ️')) + '</span>' +
+            '<div class="notif-body"><div class="notif-msg">' + msg + '</div><div class="notif-time">' + ago + (n.handoff && !n.read ? ' · toca para abrir' : '') + '</div></div>' +
+            '<button class="notif-dismiss" aria-label="Quitar" onclick="event.stopPropagation();notifDismiss(this.parentNode.getAttribute(\'data-notif-id\'))">×</button>' +
             '</div>';
     }).join('');
     a11yClickables(list);
@@ -5937,6 +5994,7 @@ function renderNotifications() {
 
 function clearAllNotifications() {
     _notificationLog = [];
+    if (typeof handoffClearAll === 'function') handoffClearAll();
     renderNotifications();
     updateNotifBadge();
 }

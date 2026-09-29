@@ -20,6 +20,52 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.15.0 — Avisos de relevo: "te toca a ti" (2026-09-29)
+
+Hasta ahora, nadie se enteraba de que un vehículo esperaba su aprobación hasta que alguien se lo
+decía en persona: la campana solo guardaba los avisos de este equipo.
+
+### Nuevo
+- **Avisos de relevo.** Tras cada cambio (de este equipo o de otro), la app compara cómo estaba
+  cada vehículo y avisa a quien le toca:
+  - **A aprobación** → a quien puede aprobar: "…05555 espera tu aprobación · Lo liberó Beto".
+    **Abrir** lleva a Liberación → Aprobación con ese vehículo ya cargado.
+  - **Devuelto** → a quien lo liberó: "Te devolvieron …08888: motivo · Lo devolvió Ana".
+    **Abrir** lleva a Liberación con ese vehículo para corregir.
+  - **Aprobado** → a quien lo liberó: "…08888 quedó aprobado". **Abrir** lleva al Historial.
+  - **Soak terminado** → entra al mismo canal (ya avisaba con sonido y notificación; ahora
+    también queda en la campana y Abrir lleva a Operación).
+- Nunca te avisa de lo que hiciste tú (se compara con quién liberó, devolvió o aprobó, por la
+  sesión, no por el nombre escrito en la firma). El mismo aviso no se repite.
+- **En la campana**: Todos / Solo los míos / Ninguno (se guarda en este equipo), y un botón
+  para que el sistema también avise con la app en segundo plano (el permiso se pide solo si lo
+  tocas).
+
+### Cambió
+- **La campana cuenta solo lo que pide algo de ti**: avisos de relevo, errores y advertencias
+  sin leer. Antes contaba cada "Guardado" y cada "actualizado desde otro dispositivo", así que
+  casi nunca estaba en 0.
+- El centro de notificaciones habla por identidad, no por posición: si llegaba un aviso nuevo
+  mientras estaba abierto, "×" podía quitar el renglón equivocado.
+
+### Límite (dicho, no escondido)
+- Los avisos llegan **con la app abierta**, aunque esté en segundo plano. Con la app cerrada
+  haría falta Cloud Functions, que es plan de pago de Firebase.
+
+### Para desarrollo
+- `js/handoff.js` (nuevo, carga después de `opcards.js`).
+- `handoffEventsFor(prev, next, user)` (PURA) es LA definición de un aviso de relevo; recibe
+  fotos de `handoffSnapshot` / `handoffVehSig`.
+- La identidad es `signatures.*.sessionUserName` (respaldo `signerName`) y `pendingReturn.by`,
+  comparadas con `handoffNameKey`.
+- La base se toma al cargar `handoff.js`, antes de cualquier sync. Se compara en `data:saved` y
+  tras `_fbAfterAutoMerge('cop15')` (envuelta). Lo que llega de la nube al conectar también
+  avisa.
+- La bitácora vive en `kia_handoff_log` (`items` + `seen`); los ids son estables.
+- La preferencia es `uiPref('handoff')`.
+- Pruebas: `tests/handoff.node.js` (24) y `tests/v2150.e2e.js` (17, teléfono 427×840, cuatro
+  roles).
+
 ## 2.14.0 — ¿Se guardó? ¿Lo ven los demás? (2026-09-29)
 
 El #131 ("guardé una hora y en el otro equipo no está") fue de **confianza**: el técnico guardaba

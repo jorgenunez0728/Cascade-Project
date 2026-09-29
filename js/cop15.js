@@ -7892,6 +7892,9 @@ function soakTimerTick() {
         clearInterval(_soakTimer.interval);
         _soakTimer.interval = null;
         _soakTimer.running = false;
+        // [2.15.0] De qué vehículo era: solo vive en la clave guardada, que se borra aquí.
+        var _soakDoneOf = null;
+        try { _soakDoneOf = JSON.parse(localStorage.getItem('kia_soak_timer') || 'null'); } catch (e) {}
         localStorage.removeItem('kia_soak_timer');
 
         document.getElementById('soak_timer_display').textContent = '00:00:00';
@@ -7906,6 +7909,9 @@ function soakTimerTick() {
         // Auto-fill soak time field
         var soakField = document.getElementById('soak_time');
         if (soakField) soakField.value = (_soakTimer.totalMs / 3600000).toFixed(1);
+
+        // [2.15.0] Entra al canal de avisos de relevo (centro de notificaciones, con "Abrir").
+        if (typeof handoffSoakDone === 'function') { try { handoffSoakDone(_soakDoneOf && _soakDoneOf.vehicleId, _soakDoneOf && _soakDoneOf.vin); } catch (e) {} }
 
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
