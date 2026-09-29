@@ -2476,6 +2476,16 @@ menos **dejó de ser silencioso**.
   decisiones que lleguen sin `test.release`; `vetsDecideApply` pide `test.release`;
   `submitToApproval` no envía con pendientes (después de los candados de F05 y checklist).
 
+## 2.19.0 — El checklist lo llena quien retiró los objetos (`js/cop15.js`, `js/auth.js`)
+
+- **`test.checklist` (Técnico, Especialista) es marcar el checklist; `test.release` es
+  confirmarlo.** La confirmación es la firma del liberador en `submitToApproval`, que congela el
+  checklist en la línea de tiempo. Esto matiza la regla de v23.3 ("lo afirma el liberador con
+  su firma"): cualquiera con el permiso MARCA, solo el liberador AFIRMA. La app sigue sin
+  autollenar un "Retirado"/"Adjunto".
+- Preparar la liberación (VETS, checklist) y liberar son permisos distintos a propósito: un
+  permiso nuevo del mismo tipo va separado, no se cuelga de `test.release`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

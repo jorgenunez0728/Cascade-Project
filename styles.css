@@ -5103,6 +5103,8 @@ body.cop-present .cop-toolbar    { display: none; }
 .relcl-auto.relcl-na { background: var(--surface-alt); color: var(--muted); }
 .relcl-auto.relcl-pending { background: var(--warn-bg); color: var(--warn-text); }
 .relcl-foot { font-size: var(--fs-sm); color: var(--muted); }
+/* [2.19.0] Quién marcó el checklist y quién lo confirma */
+.relcl-who { font-size: var(--fs-xs); margin-top: var(--space-2xs); }
 
 /* ── Botones de opción en lugar de <select> (app.js: uiChipsEnhance) ──
    El <select> queda oculto pero en el DOM (es la fuente de verdad); no se usa

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.18.0';
+var APP_VERSION = '2.19.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.18.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.19.0', date: '29 sep 2026', title: 'Técnico y Especialista llenan el checklist de liberación',
+      bullets: [
+          'Nuevo: Técnico y Especialista pueden marcar el checklist de liberación (objetos retirados y evidencia adjunta). Antes solo Signatario y Manager, aunque quien retira los objetos suele ser el técnico.',
+          'El checklist dice quién lo marcó por última vez y que el liberador lo confirma con su firma al enviar a aprobación. Cada marca queda en el historial de cambios.',
+          'Enviar a aprobación sigue siendo solo de Signatario y Manager. El Practicante no llena el checklist.'
+      ] },
     { version: '2.18.0', date: '29 sep 2026', title: 'Técnico y Especialista adjuntan la prueba de VETS',
       bullets: [
           'Nuevo: Técnico y Especialista pueden usar 📎 Adjuntar prueba VETS en Liberación. Se llenan gases, dinamómetro y fecha, igual que cuando lo hace un Signatario.',

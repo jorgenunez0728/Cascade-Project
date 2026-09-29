@@ -5544,6 +5544,8 @@ body.cop-present .cop-toolbar    { display: none; }
 .relcl-auto.relcl-na { background: var(--surface-alt); color: var(--muted); }
 .relcl-auto.relcl-pending { background: var(--warn-bg); color: var(--warn-text); }
 .relcl-foot { font-size: var(--fs-sm); color: var(--muted); }
+/* [2.19.0] Quién marcó el checklist y quién lo confirma */
+.relcl-who { font-size: var(--fs-xs); margin-top: var(--space-2xs); }
 
 /* ── Botones de opción en lugar de <select> (app.js: uiChipsEnhance) ──
    El <select> queda oculto pero en el DOM (es la fuente de verdad); no se usa
@@ -8762,10 +8764,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609292313';
+var APP_BUILD = '202609292322';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'd1f66d3d0a69d93d83b81ca18f3963acab1d3dc5';
+var APP_COMMIT = '29f7cd73ad80c745595d62a1dfccc57a26911b23';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8773,7 +8775,7 @@ var APP_COMMIT = 'd1f66d3d0a69d93d83b81ca18f3963acab1d3dc5';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.18.0';
+var APP_VERSION = '2.19.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8781,6 +8783,12 @@ var APP_VERSION = '2.18.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.19.0', date: '29 sep 2026', title: 'Técnico y Especialista llenan el checklist de liberación',
+      bullets: [
+          'Nuevo: Técnico y Especialista pueden marcar el checklist de liberación (objetos retirados y evidencia adjunta). Antes solo Signatario y Manager, aunque quien retira los objetos suele ser el técnico.',
+          'El checklist dice quién lo marcó por última vez y que el liberador lo confirma con su firma al enviar a aprobación. Cada marca queda en el historial de cambios.',
+          'Enviar a aprobación sigue siendo solo de Signatario y Manager. El Practicante no llena el checklist.'
+      ] },
     { version: '2.18.0', date: '29 sep 2026', title: 'Técnico y Especialista adjuntan la prueba de VETS',
       bullets: [
           'Nuevo: Técnico y Especialista pueden usar 📎 Adjuntar prueba VETS en Liberación. Se llenan gases, dinamómetro y fecha, igual que cuando lo hace un Signatario.',
@@ -9440,14 +9448,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609292313' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609292322' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609292313' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609292322' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9463,7 +9471,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609292313' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609292322' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -20602,7 +20610,10 @@ function releaseChecklistRows(vehicle) {
 }
 
 function releaseChecklistSet(group, key, val) {
-    if (!_cascadeGate('test.release', 'llenar el checklist de liberación')) return;
+    // [2.19.0] Lo llena quien retiró los objetos (Técnico o Especialista también); lo
+    // CONFIRMA el liberador: su firma al enviar a aprobación congela el checklist en la
+    // línea de tiempo. Enviar sigue siendo test.release.
+    if (!_cascadeGate('test.checklist', 'llenar el checklist de liberación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     // Un toque que no registra nada tiene que decir por qué: si no, el botón "no sirve".
     if (!vehicle) { showToast('No hay un vehículo abierto en Liberación. Elígelo de nuevo en la lista.', 'warning'); return; }
@@ -20622,6 +20633,10 @@ function releaseChecklistSet(group, key, val) {
     cl.by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
     cl.at = new Date().toISOString();
     saveDB();
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'checklist_liberacion', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            (group === 'objects' ? 'Objetos' : 'Evidencia') + ' · ' + (key === '*' ? 'todos' : key) + ' → ' + (st[key === '*' ? keys[0] : key] || 'sin marcar'));
+    }
     releaseChecklistRender(vehicle);
 }
 
@@ -20660,6 +20675,13 @@ function releaseChecklistRender(vehicle) {
     html += '<div class="relcl-foot">' + (st.missing.length
         ? '⚠️ Faltan <b>' + st.missing.length + '</b> confirmaciones para enviar a aprobación.'
         : '✅ Checklist completo — se imprime en el PDF COP15-F05.') + '</div>';
+    // [2.19.0] Quién lo marcó y quién lo confirma: el liberador, con su firma al enviar.
+    var _clSaved = (vehicle.testData && vehicle.testData.releaseChecklist) || {};
+    if (_clSaved.by || !_cascadeCan('test.release')) {
+        html += '<div class="relcl-who u-muted">' +
+            (_clSaved.by ? 'Última marca: ' + escapeHtml(_clSaved.by) + (_clSaved.at ? ' · ' + escapeHtml(new Date(_clSaved.at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })) : '') + '. ' : '') +
+            'El liberador lo confirma con su firma al enviar a aprobación.</div>';
+    }
     host.innerHTML = html;
 }
 
@@ -20688,7 +20710,11 @@ function loadRelease() {
     // [2.18.0] Quien no libera pero sí adjunta VETS: que lo sepa aquí mismo.
     (function() {
         var rn = document.getElementById('lib-role-note');
-        if (rn && rn.style.display !== 'none' && _cascadeCan('test.vets')) rn.innerHTML += ' Sí puedes adjuntar la prueba de VETS: 📎 Adjuntar prueba VETS.';
+        if (!rn || rn.style.display === 'none') return;
+        var puede = [];
+        if (_cascadeCan('test.vets')) puede.push('adjuntar la prueba de VETS');
+        if (_cascadeCan('test.checklist')) puede.push('llenar el checklist de liberación');   // [2.19.0]
+        if (puede.length) rn.innerHTML += ' Sí puedes ' + puede.join(' y ') + '.';
     })();
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
@@ -25847,7 +25873,7 @@ var CASCADE_TOOLTIPS = {
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
     test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
     'op-next-help': { title: 'Siguiente paso', text: 'El botón grande hace lo que sigue para este vehículo: iniciar la prueba, enviarlo a liberación o ir a Liberación. Antes de avanzar revisa que no falte nada y, si falta, te dice qué. «Guardar» guarda sin cambiar de etapa. «Cambiar estado a mano» es solo para corregir (por ejemplo, regresar un vehículo a «En progreso»).' },
-    'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco.' },
+    'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco. Lo puede llenar el Técnico o el Especialista que retiró los objetos; el liberador lo confirma con su firma al enviar.' },
     man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
     man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
     man_transmission: { title: 'Transmisi\u00f3n (alta manual)', text: 'Opcional: transmisi\u00f3n del veh\u00edculo (6DCT, 8AT, 6MT\u2026). Es solo un dato descriptivo \u2014 NO es la regulaci\u00f3n de emisiones, que se captura en el campo siguiente.' },
@@ -50879,8 +50905,9 @@ var AUTH_ROLE_DEFAULT = 'Practicante';
 var AUTH_ROLE_PERMS = {
     'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
     // [2.18.0] test.vets: adjuntar la prueba de VETS. Las fallas nuevas las decide el liberador.
-    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets'],
-    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets',
+    // [2.19.0] test.checklist: llenar el checklist de liberación. Lo confirma el liberador con su firma.
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist',
                                        'plan.manage', 'cop.judge', 'audit.export', 'users.view',
                                        'config.manage', 'homolog.manage'],
     'Signatario':                     ['*'],
@@ -50899,6 +50926,7 @@ var AUTH_PERM_LABELS = [
     { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
     { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
     { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
+    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación (lo confirma el liberador con su firma)' },
     { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS (las fallas nuevas las decide el liberador)' },
     { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
     { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
@@ -56204,7 +56232,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609292313' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609292322' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -66454,7 +66482,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8296,"mods":[[8299,"js/app.js",17022],[17026,"js/cop15.js",26666],[26670,"js/inventory.js",33544],[33548,"js/testplan.js",43617],[43621,"js/panel.js",48782],[48786,"js/projects.js",50836],[50840,"js/auth.js",51866],[51870,"js/signatures.js",52071],[52075,"js/firebase-sync.js",58845],[58849,"js/cop_validator.js",62335],[62339,"js/homolog.js",63600],[63604,"js/vets.js",65247],[65251,"js/review.js",65699],[65703,"js/opcards.js",66132],[66136,"js/handoff.js",66410],[66414,"js/bugreport.js",67560]]};
+var BUG_LINE_MAP = {"tag":8298,"mods":[[8301,"js/app.js",17030],[17034,"js/cop15.js",26692],[26696,"js/inventory.js",33570],[33574,"js/testplan.js",43643],[43647,"js/panel.js",48808],[48812,"js/projects.js",50862],[50866,"js/auth.js",51894],[51898,"js/signatures.js",52099],[52103,"js/firebase-sync.js",58873],[58877,"js/cop_validator.js",62363],[62367,"js/homolog.js",63628],[63632,"js/vets.js",65275],[65279,"js/review.js",65727],[65731,"js/opcards.js",66160],[66164,"js/handoff.js",66438],[66442,"js/bugreport.js",67588]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

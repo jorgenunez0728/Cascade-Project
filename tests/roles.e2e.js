@@ -1,8 +1,9 @@
 // Verificación en navegador de 2.1.0: los roles del laboratorio se cumplen de verdad.
 //  - Un roster con nombres viejos se migra y queda auditado.
-//  - Liberar (checklist, regulación de comparación, enviar a aprobación): solo
-//    Signatario y Assistant Manager / Manager. Un Técnico certificado como
-//    liberador en la matriz TAMBIÉN queda fuera.
+//  - Liberar (regulación de comparación, enviar a aprobación): solo Signatario y
+//    Assistant Manager / Manager. Un Técnico certificado como liberador en la matriz
+//    TAMBIÉN queda fuera. [2.19.0] El checklist lo MARCA también el Técnico; lo
+//    confirma el liberador con su firma al enviar.
 //  - Borrar vehículos y editar límites: solo roles de autoridad.
 //  - Nadie aprueba lo que él mismo liberó.
 const { chromium } = require('playwright');
@@ -69,18 +70,21 @@ const SEED = () => {
         releaseChecklistSet('objects', 'kds', 'yes');
         const v1 = db.vehicles.find(v => v.id === 'v1');
         const checklistEscrito = !!(v1.testData.releaseChecklist && v1.testData.releaseChecklist.objects && v1.testData.releaseChecklist.objects.kds);
+        submitToApproval();   // [2.19.0] enviar sigue siendo del liberador
+        const sigueSinEnviar = db.vehicles.find(v => v.id === 'v1').status !== 'pending-approval';
         const nAntes = db.vehicles.length;
         deleteVehicleCascade('v1');
         const confirmAbierto = !!document.querySelector('.custom-modal-overlay, #globalModal[style*="flex"]');
         pnRegAddNew();
         const regModal = !!document.getElementById('reg-gas-rows');
         const denegados = _auditEnsureLoaded().filter(a => a.action === 'permission_denied').map(a => a.entity && a.entity.label);
-        return { puedeLiberar: authCan('test.release'), puedeAprobar: authCan('test.approve'), checklistEscrito,
+        return { puedeLiberar: authCan('test.release'), puedeAprobar: authCan('test.approve'), checklistEscrito, sigueSinEnviar,
                  sigueVehiculo: db.vehicles.length === nAntes, confirmAbierto, regModal, denegados };
     });
     chk('un Técnico certificado en la matriz NO libera', tec.puedeLiberar === false);
     chk('ni aprueba', tec.puedeAprobar === false);
-    chk('el Técnico no puede llenar el checklist de liberación', tec.checklistEscrito === false);
+    chk('[2.19.0] el Técnico SÍ marca el checklist de liberación', tec.checklistEscrito === true);
+    chk('pero no envía a aprobación', tec.sigueSinEnviar === true);
     chk('el Técnico no puede borrar vehículos', tec.sigueVehiculo === true);
     chk('el Técnico no puede editar límites de regulación', tec.regModal === false);
     chk('cada intento bloqueado queda registrado', ['test.release', 'test.delete', 'regulation.manage'].every(p => tec.denegados.indexOf(p) !== -1), JSON.stringify(tec.denegados));
@@ -102,9 +106,9 @@ const SEED = () => {
     const sig = await page.evaluate(() => {
         authCreateSession({ id: 'ana', name: 'Ana Signataria', role: 'Signatario' });
         activeVehicleId = 'v1';
-        releaseChecklistSet('objects', 'kds', 'yes');
+        releaseChecklistSet('objects', 'cardaq', 'ok');
         const v1 = db.vehicles.find(v => v.id === 'v1');
-        const ok = !!(v1.testData.releaseChecklist && v1.testData.releaseChecklist.objects && v1.testData.releaseChecklist.objects.kds);
+        const ok = !!(v1.testData.releaseChecklist && v1.testData.releaseChecklist.objects && v1.testData.releaseChecklist.objects.cardaq);
         const self = authCanApproveVehicle(db.vehicles.find(v => v.id === 'v2'));
         return { puedeLiberar: authCan('test.release'), checklist: ok, selfReason: self.reason };
     });

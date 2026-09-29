@@ -40,8 +40,9 @@ var AUTH_ROLE_DEFAULT = 'Practicante';
 var AUTH_ROLE_PERMS = {
     'Practicante':                    ['test.register', 'test.operate', 'inventory.manage'],
     // [2.18.0] test.vets: adjuntar la prueba de VETS. Las fallas nuevas las decide el liberador.
-    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets'],
-    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets',
+    // [2.19.0] test.checklist: llenar el checklist de liberación. Lo confirma el liberador con su firma.
+    'Técnico':                        ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist'],
+    'Especialista / Especialista Sr': ['test.register', 'test.operate', 'inventory.manage', 'audit.view', 'test.vets', 'test.checklist',
                                        'plan.manage', 'cop.judge', 'audit.export', 'users.view',
                                        'config.manage', 'homolog.manage'],
     'Signatario':                     ['*'],
@@ -60,6 +61,7 @@ var AUTH_PERM_LABELS = [
     { perm: 'cop.judge',         label: 'Guardar juicios CoP' },
     { perm: 'audit.export',      label: 'Exportar el historial de cambios' },
     { perm: 'users.view',        label: 'Ver usuarios y la matriz de competencias' },
+    { perm: 'test.checklist',    label: 'Llenar el checklist de liberación (lo confirma el liberador con su firma)' },
     { perm: 'test.vets',         label: 'Adjuntar la prueba de VETS (las fallas nuevas las decide el liberador)' },
     { perm: 'test.release',      label: 'Liberar pruebas (firma del liberador)' },
     { perm: 'test.approve',      label: 'Aprobar o devolver pruebas (firma del aprobador)' },
