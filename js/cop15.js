@@ -3577,7 +3577,10 @@ function releaseChecklistRows(vehicle) {
 }
 
 function releaseChecklistSet(group, key, val) {
-    if (!_cascadeGate('test.release', 'llenar el checklist de liberación')) return;
+    // [2.19.0] Lo llena quien retiró los objetos (Técnico o Especialista también); lo
+    // CONFIRMA el liberador: su firma al enviar a aprobación congela el checklist en la
+    // línea de tiempo. Enviar sigue siendo test.release.
+    if (!_cascadeGate('test.checklist', 'llenar el checklist de liberación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     // Un toque que no registra nada tiene que decir por qué: si no, el botón "no sirve".
     if (!vehicle) { showToast('No hay un vehículo abierto en Liberación. Elígelo de nuevo en la lista.', 'warning'); return; }
@@ -3597,6 +3600,10 @@ function releaseChecklistSet(group, key, val) {
     cl.by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
     cl.at = new Date().toISOString();
     saveDB();
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'checklist_liberacion', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            (group === 'objects' ? 'Objetos' : 'Evidencia') + ' · ' + (key === '*' ? 'todos' : key) + ' → ' + (st[key === '*' ? keys[0] : key] || 'sin marcar'));
+    }
     releaseChecklistRender(vehicle);
 }
 
@@ -3635,6 +3642,13 @@ function releaseChecklistRender(vehicle) {
     html += '<div class="relcl-foot">' + (st.missing.length
         ? '⚠️ Faltan <b>' + st.missing.length + '</b> confirmaciones para enviar a aprobación.'
         : '✅ Checklist completo — se imprime en el PDF COP15-F05.') + '</div>';
+    // [2.19.0] Quién lo marcó y quién lo confirma: el liberador, con su firma al enviar.
+    var _clSaved = (vehicle.testData && vehicle.testData.releaseChecklist) || {};
+    if (_clSaved.by || !_cascadeCan('test.release')) {
+        html += '<div class="relcl-who u-muted">' +
+            (_clSaved.by ? 'Última marca: ' + escapeHtml(_clSaved.by) + (_clSaved.at ? ' · ' + escapeHtml(new Date(_clSaved.at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })) : '') + '. ' : '') +
+            'El liberador lo confirma con su firma al enviar a aprobación.</div>';
+    }
     host.innerHTML = html;
 }
 
@@ -3663,7 +3677,11 @@ function loadRelease() {
     // [2.18.0] Quien no libera pero sí adjunta VETS: que lo sepa aquí mismo.
     (function() {
         var rn = document.getElementById('lib-role-note');
-        if (rn && rn.style.display !== 'none' && _cascadeCan('test.vets')) rn.innerHTML += ' Sí puedes adjuntar la prueba de VETS: 📎 Adjuntar prueba VETS.';
+        if (!rn || rn.style.display === 'none') return;
+        var puede = [];
+        if (_cascadeCan('test.vets')) puede.push('adjuntar la prueba de VETS');
+        if (_cascadeCan('test.checklist')) puede.push('llenar el checklist de liberación');   // [2.19.0]
+        if (puede.length) rn.innerHTML += ' Sí puedes ' + puede.join(' y ') + '.';
     })();
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
@@ -8822,7 +8840,7 @@ var CASCADE_TOOLTIPS = {
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
     test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
     'op-next-help': { title: 'Siguiente paso', text: 'El botón grande hace lo que sigue para este vehículo: iniciar la prueba, enviarlo a liberación o ir a Liberación. Antes de avanzar revisa que no falte nada y, si falta, te dice qué. «Guardar» guarda sin cambiar de etapa. «Cambiar estado a mano» es solo para corregir (por ejemplo, regresar un vehículo a «En progreso»).' },
-    'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco.' },
+    'lib-checklist-help': { title: 'Checklist de Liberación', text: 'Lo que el COP15-F05 pide confirmar al liberar: que se retiraron los equipos del vehículo (KDS, CARDAQ, control, radio, GSI) y que la evidencia documental está adjunta. Marca "Retirado"/"Adjunto" o "No se instaló"/"No aplica". Las filas marcadas como Automático las resuelve la app: los reportes "Solo Europa" o "Solo Cert. MX" no aplican fuera de esa región, y "Hoja F05 completa" depende de que no falte ningún campo en Operación. No se puede enviar a aprobación con confirmaciones en blanco. Lo puede llenar el Técnico o el Especialista que retiró los objetos; el liberador lo confirma con su firma al enviar.' },
     man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
     man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
     man_transmission: { title: 'Transmisi\u00f3n (alta manual)', text: 'Opcional: transmisi\u00f3n del veh\u00edculo (6DCT, 8AT, 6MT\u2026). Es solo un dato descriptivo \u2014 NO es la regulaci\u00f3n de emisiones, que se captura en el campo siguiente.' },

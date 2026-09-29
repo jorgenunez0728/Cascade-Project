@@ -77,6 +77,10 @@ ok('todos registran y operan', ROLES.every(r => ctx.authRoleHas(r, 'test.registe
 ok('Técnico y Especialista adjuntan la prueba de VETS', ctx.authRoleHas('Técnico', 'test.vets') && ctx.authRoleHas('Especialista / Especialista Sr', 'test.vets'));
 ok('…pero no liberan (las fallas de VETS las decide el liberador)', !ctx.authRoleHas('Técnico', 'test.release') && !ctx.authRoleHas('Especialista / Especialista Sr', 'test.release'));
 ok('el Practicante no adjunta VETS', !ctx.authRoleHas('Practicante', 'test.vets'));
+// [2.19.0] El checklist de liberación lo llena quien retiró los objetos; lo confirma el liberador.
+ok('Técnico y Especialista llenan el checklist de liberación', ctx.authRoleHas('Técnico', 'test.checklist') && ctx.authRoleHas('Especialista / Especialista Sr', 'test.checklist'));
+ok('el Practicante no llena el checklist', !ctx.authRoleHas('Practicante', 'test.checklist'));
+ok('Signatario y Manager también lo llenan', ctx.authRoleHas('Signatario', 'test.checklist') && ctx.authRoleHas('Assistant Manager / Manager', 'test.checklist'));
 ok('Signatario y Manager adjuntan VETS', ctx.authRoleHas('Signatario', 'test.vets') && ctx.authRoleHas('Assistant Manager / Manager', 'test.vets'));
 ok('la autoridad es acumulativa: cada rol puede todo lo del rol de abajo',
     ROLES.every((r, i) => i === 0 || R.AUTH_PERM_LABELS.every(p => !ctx.authRoleHas(ROLES[i - 1], p.perm) || ctx.authRoleHas(r, p.perm))));

@@ -20,6 +20,27 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.19.0 — Técnico y Especialista llenan el checklist de liberación (2026-09-29)
+
+### Nuevo
+- **Técnico y Especialista pueden marcar el checklist de liberación** (objetos retirados del
+  vehículo y evidencia documental). Antes solo Signatario y Manager, aunque quien retira los
+  objetos suele ser el técnico.
+- El checklist dice **quién lo marcó por última vez** y que **el liberador lo confirma con su
+  firma** al enviar a aprobación (la firma congela el checklist en la línea de tiempo, como
+  siempre). Cada marca queda en el historial de cambios.
+- Liberación le dice al Técnico lo que sí puede hacer ahí: adjuntar la prueba de VETS y llenar el
+  checklist.
+
+### Sin cambios
+- Enviar a aprobación sigue siendo solo de Signatario y Manager. El Practicante no llena el
+  checklist. El F05 no cambia.
+
+### Para desarrollo
+- Permiso nuevo **`test.checklist`** (Técnico, Especialista; Signatario y Manager por `*`).
+  `releaseChecklistSet` lo pide en vez de `test.release` y audita `checklist_liberacion`.
+- Pruebas: `tests/roles.node.js` +3, `tests/v2180.e2e.js` +6 (el Técnico llena el checklist).
+
 ## 2.18.0 — Técnico y Especialista adjuntan la prueba de VETS (2026-09-29)
 
 ### Nuevo

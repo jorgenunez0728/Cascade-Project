@@ -141,6 +141,25 @@ const SEED = () => {
     chk('no se clasificó nada para el laboratorio', t.pol === 0 && t.s.checksFail[0].level === null);
     chk('la franja dice que queda para el liberador (sin botón para el Técnico)', /1 falla de VETS por decidir/.test(t.status) && /las decide el liberador/.test(t.status) && !t.decidir, t.status);
 
+    console.log('\n== Técnico: llena el checklist (2.19.0) ==');
+    const cl = await page.evaluate(() => {
+        const errs = [];
+        const t0 = document.querySelectorAll('.toast, .toast-item').length;
+        document.querySelector('#lib-checklist-content .relcl-all').click();
+        const doc = [...document.querySelectorAll('#lib-checklist-content .relcl-opt')].find(b => /Adjunto/.test(b.textContent));
+        if (doc) doc.click();
+        const v = db.vehicles.find(x => x.id === 'v48'), c = v.testData.releaseChecklist || {};
+        return { objetos: c.objects || {}, docs: c.docs || {}, by: c.by, who: (document.querySelector('#lib-checklist-content .relcl-who') || {}).innerText || '',
+                 note: document.getElementById('lib-role-note').innerText, st: v.status,
+                 aud: _auditEnsureLoaded().filter(a => a.action === 'checklist_liberacion').length };
+    });
+    chk('el Técnico marca "Todo retirado"', Object.keys(cl.objetos).length === 5 && Object.values(cl.objetos).every(x => x === 'ok'), JSON.stringify(cl.objetos));
+    chk('y la evidencia documental', Object.values(cl.docs).includes('ok'), JSON.stringify(cl.docs));
+    chk('queda a su nombre y en el historial', cl.by === 'Beto Técnico' && cl.aud >= 2, JSON.stringify([cl.by, cl.aud]));
+    chk('la tarjeta dice que lo confirma el liberador con su firma', /Beto Técnico/.test(cl.who) && /lo confirma con su firma/.test(cl.who), cl.who);
+    chk('Liberación le dice lo que sí puede hacer', /adjuntar la prueba de VETS y llenar el checklist/.test(cl.note), cl.note);
+    chk('llenar el checklist no envía nada', cl.st === 'ready-release');
+
     console.log('\n== Signatario: decide ==');
     await page.evaluate(() => localStorage.setItem('kia_auth_session', JSON.stringify({ operatorId: 'sara', operatorName: 'Sara Signataria', expiresAt: new Date(Date.now() + 11 * 3600e3).toISOString() })));
     await page.reload();
