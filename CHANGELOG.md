@@ -20,6 +20,47 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.24.0 — La ficha de cada cosa (2026-09-30)
+
+### Nuevo
+- **La ficha**: tocar el nombre de un vehículo, un cilindro, un instrumento o un proyecto en HOY
+  abre una hoja con **cómo va**, **una sola acción siguiente**, sus datos y lo más reciente que le
+  pasó.
+  - **Vehículo**: etapa N/8, propósito, liberación esperada, responsable y su línea de tiempo.
+  - **Configuración**: probadas contra el REQ y las pruebas que la acreditan.
+  - **Familia**: el semáforo del CoP (aviso interno, no un veredicto), juicio guardado, Cpk y sus
+    semanas en el plan.
+  - **Cilindro**: nivel, consumo, si hay que pedirlo ya, vigencia y sus últimas lecturas.
+  - **Instrumento**: estado de calibración, proveedor, historial y el proyecto abierto de su equipo.
+  - **Proyecto**: avance, vencidos, bloqueados, siguiente paso y su historia.
+- **Las fichas se enlazan**: vehículo → su configuración y su familia; familia → configuraciones,
+  vehículos y semanas; instrumento → proyecto; proyecto → instrumentos. Una relación se abre
+  encima y **‹** regresa a la anterior.
+- **El buscador encuentra cosas**, no solo pantallas: el final de un VIN, el número de un
+  cilindro, un instrumento o un proyecto abren su ficha.
+
+### Cambió
+- La ficha **no modifica nada**: su botón lleva a la pantalla de siempre (Operación, Liberación,
+  Consumibles, CoP, Proyectos), donde están los candados y se hace el trabajo.
+- Se cierra con ✕, tocando fuera, con Escape o arrastrándola hacia abajo. Arrastrarla no cambia de
+  pantalla.
+
+### Arreglado
+- En el teléfono, tocar un resultado escrito del buscador no hacía nada: pasar el dedo repintaba
+  la lista y el toque caía en un elemento que ya no existía.
+
+### Para desarrollo
+- `js/ficha.js`, cargado después de `handoff.js`. **`fichaHTML(model)` es PURA**;
+  `fichaModel(kind, ref)` compone las definiciones únicas de cada módulo (guardas `typeof`) y no
+  calcula nada propio. Devuelve `null` si la cosa ya no existe y `{error:true}` si una definición
+  truena — la hoja dice cosas distintas en cada caso.
+- `fichaLinkHTML(kind, ref, label)` es el botón para abrir una ficha desde cualquier HTML generado.
+  En HOY, una actividad con `ficha: {kind, ref}` pinta su título así.
+- `fichaSearch(q)` alimenta al lanzador (≥ 3 letras, sin acentos, tope 12), después de las
+  pantallas.
+- `_cmdHover(i)` resalta sin repintar la lista del lanzador.
+- Pruebas: `tests/ficha.node.js`, `tests/v2240.e2e.js` (427×840).
+
 ## 2.23.0 — HOY: te toca (2026-09-30)
 
 ### Nuevo
