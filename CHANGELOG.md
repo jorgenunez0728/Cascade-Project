@@ -20,6 +20,39 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.26.0 — Continuidad y momentos de cierre (2026-09-30)
+
+### Nuevo
+- **Momentos de cierre**, con información y no con confeti:
+  - **🎯 Semana cumplida** — al palomear o liberar la última prueba del compromiso: cuántas de
+    cuántas, las que no estaban en el plan y cuántas se palomearon sin liberación todavía.
+  - **🔧 Calibraciones al día** — al registrar la última calibración vencida: vigentes de
+    cuántas y las que vencen en los próximos 60 días.
+  - **👪 Familia concordante** — al guardar un juicio CoP que pasa: la familia, cuántos VINes y
+    que el juicio queda como evidencia.
+- Solo cuando **lo ves pasar** en tu sesión: una semana que ya estaba cumplida al abrir la app no
+  se celebra. Cada momento aparece **una vez** y vibra corto en el teléfono.
+
+### Cambió
+- La **ficha crece desde la fila que tocaste** (HOY, relaciones, relevo), así se ve de dónde
+  salió. Con movimiento reducido se abre como siempre.
+
+### Arreglado
+- En HOY, en el teléfono, el **⏰ de posponer** quedaba solo en su propio renglón. Ahora va en la
+  esquina de la fila y las filas son más cortas.
+
+### Para desarrollo
+- `js/momentos.js`, después de `relevo.js`. **`momentWeekFacts(board)`**, **`momentCalFacts(prev,
+  cur)`** y **`momentCopFacts(j)`** son PURAS; `momentShow(m)` muestra una vez por clave
+  (`uiPref('moments')`, tope 60, no se sincroniza).
+- Solo transiciones: la línea base se toma al cargar; se revisa en `data:saved` y en el nuevo
+  evento ligero **`tp:saved`** (lo emite `tpSave`; no es `data:saved` porque ese repinta HOY y
+  Datos, y el plan se guarda en cada arrastre).
+- `copSaveJudgment` muestra el momento en lugar del toast cuando el juicio es PASS.
+- `_fichaGrowFrom(sheet, origen)`: Web Animations con `clip-path` + desplazamiento desde la fila
+  (`FICHA_ORIGIN_SEL`); sin animación con `prefers-reduced-motion`.
+- Pruebas: `tests/momentos.node.js`, `tests/v2260.e2e.js`.
+
 ## 2.25.0 — Desde tu última vez (2026-09-30)
 
 ### Nuevo

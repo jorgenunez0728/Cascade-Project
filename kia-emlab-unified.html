@@ -5836,6 +5836,17 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-inbox .dash-row.is-swiping { transition: none; }
 .dash-row--snoozed { opacity: 0.7; }
 .dash-snooze-btn { min-width: var(--target-min); }
+/* [2.26.0] En una fila angosta el ⏰ quedaba solo en su propio renglón (chip + acción +
+   ⏰ no caben en ~300 px). Ahí va a la esquina superior de la fila y el texto le deja
+   espacio; en una fila ancha se queda con las demás acciones. */
+.dash-row-in { position: relative; }
+@container (max-width: 559px) {
+    .dash-snooze-btn {
+        position: absolute; top: var(--space-2xs); right: var(--space-2xs);
+        min-height: var(--target-min); padding: 0; background: transparent;
+    }
+    .dash-row[data-dash-id] .dash-row-main { padding-right: var(--target-min); }
+}
 .dash-inbox-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); }
 .dash-inbox-snoozed { margin-bottom: var(--space-md); }
 .dash-inbox-clear {
@@ -6159,6 +6170,8 @@ body.uf-at-final .uf-foot { grid-template-columns: 56px; }
     animation: fichaUp var(--dur-slow) var(--ease-out) both;
     transition: transform var(--dur-fast) var(--ease-out);
 }
+/* [2.26.0] Al crecer desde la fila tocada la anima el JS (_fichaGrowFrom): sin la entrada de CSS. */
+.ficha-sheet.ficha-grow { animation: none; }
 @keyframes fichaUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fichaFade { from { opacity: 0; } to { opacity: 1; } }
 .ficha-grip { width: 44px; height: 5px; margin: var(--space-sm) auto 0; border-radius: var(--radius-full); background: var(--border); }
@@ -6244,6 +6257,28 @@ body.ficha-open { overflow: hidden; }
 }
 .relevo-strip-txt { flex: 1; min-width: 0; }
 .relevo-strip-go { font-size: var(--fs-lg); color: var(--info-text); }
+
+/* [2.26.0] Momento de cierre: tarjeta breve con información, arriba y centrada. Debajo de
+   toasts y diálogos (9999), encima de la ficha (9400) y de uiFlow (9500). */
+.moment {
+    position: fixed; z-index: 9600; left: 50%; top: calc(var(--space-lg) + env(safe-area-inset-top, 0px));
+    width: min(420px, calc(100vw - 2 * var(--space-md))); transform: translateX(-50%);
+    display: flex; align-items: flex-start; gap: var(--space-md);
+    padding: var(--space-md); border-radius: var(--radius-xl);
+    background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
+    border: 1px solid var(--ok-fill); border-left-width: 4px;
+    animation: momentIn var(--dur-slow) var(--ease-out) both;
+}
+@keyframes momentIn { from { opacity: 0; transform: translate(-50%, -12px) scale(0.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+.moment-icon { flex-shrink: 0; font-size: 32px; line-height: 1; }
+.moment-main { flex: 1; min-width: 0; }
+.moment-title { font-size: var(--fs-md); font-weight: var(--weight-black); color: var(--ok-text); }
+.moment-facts { margin: var(--space-xs) 0 0; padding-left: var(--space-md); font-size: var(--fs-sm); color: var(--text); }
+.moment-facts li + li { margin-top: var(--space-2xs); }
+.moment-x {
+    flex-shrink: 0; min-width: var(--target-min); min-height: var(--target-min); margin: calc(-1 * var(--space-sm));
+    border: 0; background: none; cursor: pointer; font-size: var(--fs-md); color: var(--muted);
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    [2.14.0] ¿Se guardó? ¿Lo ven los demás? — chip ☁ por vehículo, hoja del
@@ -9008,10 +9043,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609301216';
+var APP_BUILD = '202609301230';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '3bd880c9f792cc4853555494ff819f55306d7b85';
+var APP_COMMIT = 'a8c64011c1bc97f6c85d63d56c44ed89f781fd85';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9019,7 +9054,7 @@ var APP_COMMIT = '3bd880c9f792cc4853555494ff819f55306d7b85';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.25.0';
+var APP_VERSION = '2.26.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9027,6 +9062,13 @@ var APP_VERSION = '2.25.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.26.0', date: '30 sep 2026', title: 'Continuidad y momentos de cierre',
+      bullets: [
+          'La ficha ahora crece desde la fila que tocaste: se ve de dónde salió. Con movimiento reducido se abre como siempre.',
+          'Nuevo: momentos de cierre, con información y no con confeti. "Semana cumplida" al palomear o liberar la última prueba del compromiso (cuántas de cuántas, cuántas sin liberación todavía). "Calibraciones al día" al registrar la última vencida. "Familia concordante" al guardar un juicio CoP que pasa.',
+          'Solo cuando lo ves pasar: una semana que ya estaba cumplida al abrir la app no se celebra. Cada uno aparece una vez, con una vibración corta en el teléfono.',
+          'Arreglado: en HOY, en el teléfono, el ⏰ de posponer quedaba solo en su propio renglón. Ahora va en la esquina de la fila y las filas son más cortas.'
+      ] },
     { version: '2.25.0', date: '30 sep 2026', title: 'Desde tu última vez',
       bullets: [
           'Nuevo: al entrar después de más de 4 horas, una hoja con lo que cambió mientras no estabas: vehículos que avanzaron de etapa o regresaron (de dónde a dónde), semanas aceptadas y pruebas movidas, lecturas y calibraciones, cilindros que quedaron bajos, juicios CoP, límites publicados y pasos de proyectos.',
@@ -9746,14 +9788,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609301216' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609301230' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609301216' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609301230' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9769,7 +9811,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609301216' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609301230' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10335,7 +10377,8 @@ var UI_PREFS_DEFAULTS = {
     cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
     handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
     dashSnooze: {},        // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
-    lastSeen: {}           // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
+    lastSeen: {},          // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
+    moments: {}            // [2.26.0] momentos de cierre ya mostrados en este equipo: {clave: ISO}
 };
 
 function _uiPrefsRead() {
@@ -35242,6 +35285,10 @@ function tpSave() {
         return false;
     }
     tabCacheInvalidate('tp');
+    // [2.26.0] Aviso LIGERO de que el plan cambió (lo escucha momentos.js). No es
+    // 'data:saved' a propósito: ese dispara repintados de HOY, Datos y el sync de vehículos,
+    // y el plan se guarda en cada arrastre del tablero.
+    try { window.dispatchEvent(new CustomEvent('tp:saved')); } catch (e) {}
     return true;
 }
 
@@ -57856,7 +57903,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609301216' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609301230' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -61381,7 +61428,12 @@ function copSaveJudgment() {
     if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
     _copPushNow();
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
-    if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
+    // [2.26.0] Concordante: un momento con lo que significa (una vez por juicio). Si no, el toast de siempre.
+    var _mom = typeof momentCopFacts === 'function' ? momentCopFacts({ id: copState.saved[0].id, decision: decision,
+        familyLabel: copState.familyLabel, n: (copState.vehicles || []).filter(function(v) { return v && v.vin; }).length }) : null;
+    if (!(_mom && typeof momentShow === 'function' && momentShow(_mom)) && typeof showToast === 'function') {
+        showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
+    }
     copRender();
 }
 
@@ -68472,6 +68524,7 @@ function fichaOpen(kind, ref, originEl) {
     _ficha = { stack: [{ kind: kind, ref: ref }], closeDialog: null, origin: originEl || null };
     _fichaPaint();
     _fichaGestures(el);
+    _fichaGrowFrom(el.querySelector('.ficha-sheet'), originEl);
     if (typeof a11yDialog === 'function') {
         _ficha.closeDialog = a11yDialog(el, { labelId: 'ficha-title', onClose: function() { if (_ficha) { _ficha.closeDialog = null; fichaClose(); } } });
     }
@@ -68512,6 +68565,33 @@ function _fichaPaint(dir) {
     if (back) back.style.visibility = _ficha.stack.length > 1 ? 'visible' : 'hidden';
     var t = document.getElementById('ficha-title');
     if (t && t.focus) { t.setAttribute('tabindex', '-1'); try { t.focus({ preventScroll: true }); } catch (e) {} }
+}
+
+// [2.26.0] Continuidad: la hoja CRECE desde la fila que se tocó (se ve de dónde
+// salió), en vez de aparecer desde abajo sin relación con nada. Nivel ELEMENTO:
+// `startViewTransition` a nivel sección se retiró del cambio de plataforma porque
+// fallaba (app.js). Con movimiento reducido, o sin origen visible, se queda la
+// entrada de siempre. Solo se anima abrir: cerrar es una acción de descarte (v22.4).
+var FICHA_ORIGIN_SEL = '.dash-row, .cmd-item, .ficha-rel, .ficha-line, .relevo-strip, .tp-week-card';
+function _fichaGrowFrom(sheet, originEl) {
+    try {
+        if (!sheet || !sheet.animate || !originEl || !originEl.getBoundingClientRect) return false;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+        var src = (originEl.closest && originEl.closest(FICHA_ORIGIN_SEL)) || originEl;
+        if (!document.contains(src)) return false;
+        var r = src.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return false;
+        sheet.classList.add('ficha-grow');
+        var s = sheet.getBoundingClientRect();
+        var dy = Math.round(r.top - s.top);
+        var left = Math.max(0, Math.round(r.left - s.left)), right = Math.max(0, Math.round(s.right - r.right));
+        var bottom = Math.max(0, Math.round(s.height - r.height));
+        sheet.animate([
+            { transform: 'translateY(' + dy + 'px)', clipPath: 'inset(0 ' + right + 'px ' + bottom + 'px ' + left + 'px round 8px)' },
+            { transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 8px)' }
+        ], { duration: 320, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        return true;
+    } catch (e) { return false; }
 }
 
 // Arrastrar la hoja hacia abajo desde su parte de arriba la cierra (como en el
@@ -68920,9 +69000,9 @@ function _relevoWhenSynced(cb) {
 }
 
 /** Abrir el relevo a mano (desde HOY). */
-function relevoOpen() {
+function relevoOpen(originEl) {
     if (!_relevo || !_relevo.since || typeof fichaOpen !== 'function') return;
-    fichaOpen('relevo', _relevo.since);
+    fichaOpen('relevo', _relevo.since, originEl);
 }
 
 /** Franja de HOY: "Mientras no estabas: N cambios · Ver". '' si no aplica. */
@@ -68930,7 +69010,7 @@ function relevoStripHTML() {
     var d = null;
     try { d = relevoCurrent(); } catch (e) { d = null; }
     if (!d || !d.total) return '';
-    return '<button type="button" class="relevo-strip" onclick="relevoOpen()">' +
+    return '<button type="button" class="relevo-strip" onclick="relevoOpen(this)">' +
         '<span aria-hidden="true">🕘</span><span class="relevo-strip-txt"><b>Desde tu última vez</b> · ' +
         d.total + ' cambio' + (d.total === 1 ? '' : 's') + (d.people.length ? ' de ' + d.people.length + ' persona' + (d.people.length === 1 ? '' : 's') : '') +
         '</span><span class="relevo-strip-go" aria-hidden="true">›</span></button>';
@@ -68959,6 +69039,147 @@ if (typeof FICHA_KINDS !== 'undefined') {
             return m;
         }
     };
+}
+
+
+// @@module js/momentos.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.26.0] MOMENTOS DE CIERRE — cuando algo importante queda completo   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Una tarjeta breve, con INFORMACIÓN (no confeti), cuando en esta sesión se ve
+// cerrarse algo que costó trabajo: la semana cumplida, las calibraciones al día, una
+// familia CoP concordante. Regla pico-final: el cierre es lo que se recuerda del turno.
+//
+// REGLAS:
+//  - Solo TRANSICIONES vistas en esta sesión (de "no" a "sí"). Nunca al arrancar: una
+//    semana que ya estaba cumplida no es un momento, es un dato (ya lo dice el Pulso).
+//  - Una vez por cosa y por equipo (uiPref('moments')). No se sincroniza.
+//  - No escribe nada del laboratorio. Las condiciones son PURAS (momentWeekFacts,
+//    momentCalFacts) y salen de las definiciones únicas (tpWeekBoardRows, invCalSummary).
+//  - Vibración corta solo en teléfono y nunca con movimiento reducido.
+//  - La bandeja vacía NO tiene momento: HOY ya dice "Todo al día" en la propia pantalla.
+
+var MOMENT_MAX_KEYS = 60;
+var MOMENT_SHOW_MS = 7000;
+
+/**
+ * ¿La semana está cumplida? PURA. Recibe lo que devuelve tpWeekBoardRows().
+ * Cumplida = todo el COMPROMISO (filas no auto-agregadas) hecho. → null | {key, title, facts}
+ */
+function momentWeekFacts(board) {
+    if (!board || !board.rows || !board.accepted) return null;
+    var comp = board.rows.filter(function(r) { return !r.unplanned; });
+    if (!comp.length) return null;
+    var hechas = comp.filter(function(r) { return r.done; });
+    if (hechas.length < comp.length) return null;
+    var declaradas = hechas.filter(function(r) { return r.declared; }).length;
+    var extra = board.rows.filter(function(r) { return r.unplanned && r.done; }).length;
+    var facts = [comp.length + ' de ' + comp.length + ' pruebas planeadas, hechas'];
+    if (extra) facts.push('y ' + extra + ' que no estaban en el plan');
+    if (declaradas) facts.push(declaradas + ' palomeada' + (declaradas === 1 ? '' : 's') + ' a mano, sin liberación todavía');
+    if (board.kpis && board.kpis.movidas) facts.push(board.kpis.movidas + ' se movieron de día en el camino');
+    return { key: 'semana:' + (board.planId || board.weekDate || ''), icon: '🎯', title: 'Semana cumplida', facts: facts };
+}
+
+/** ¿Las calibraciones quedaron al día? PURA. prev/cur = invCalSummary(). → null | {…} */
+function momentCalFacts(prev, cur, today) {
+    if (!prev || !cur || !(prev.vencidos > 0) || cur.vencidos !== 0 || !cur.requiere) return null;
+    var facts = [(cur.vigentes + cur.porVencer) + ' de ' + cur.requiere + ' instrumentos con calibración vigente'];
+    if (cur.porVencer) facts.push(cur.porVencer + ' vence' + (cur.porVencer === 1 ? '' : 'n') + ' en los próximos 60 días');
+    if (cur.sinRegistro) facts.push(cur.sinRegistro + ' sin registro todavía');
+    return { key: 'cal:' + (today || ''), icon: '🔧', title: 'Calibraciones al día', facts: facts };
+}
+
+/** Familia CoP concordante al guardar el juicio. PURA. */
+function momentCopFacts(j) {
+    if (!j || j.decision !== 'PASS') return null;
+    var facts = [j.familyLabel || 'Familia'];
+    if (j.n) facts.push(j.n + ' VIN' + (j.n === 1 ? '' : 'es') + ' en el muestreo');
+    facts.push('El juicio queda guardado como evidencia, con los límites de hoy');
+    return { key: 'cop:' + (j.id || ''), icon: '👪', title: 'Familia concordante', facts: facts };
+}
+
+// ── Mostrar ─────────────────────────────────────────────────────────────
+
+function _momentSeen() { var m = typeof uiPref === 'function' ? uiPref('moments') : null; return (m && typeof m === 'object') ? m : {}; }
+
+/** Muestra un momento una sola vez por `key`. Devuelve true si se mostró. */
+function momentShow(m) {
+    if (!m || !m.key) return false;
+    var seen = _momentSeen();
+    if (seen[m.key]) return false;
+    var next = Object.assign({}, seen);
+    next[m.key] = new Date().toISOString();
+    var ks = Object.keys(next).sort(function(a, b) { return String(next[b]).localeCompare(String(next[a])); });
+    var out = {}; ks.slice(0, MOMENT_MAX_KEYS).forEach(function(k) { out[k] = next[k]; });
+    if (typeof uiPref === 'function') uiPref('moments', out);
+
+    var old = document.getElementById('moment');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s); };
+    var el = document.createElement('div');
+    el.id = 'moment';
+    el.className = 'moment';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.innerHTML = '<div class="moment-icon" aria-hidden="true">' + (m.icon || '✓') + '</div>' +
+        '<div class="moment-main"><div class="moment-title">' + esc(m.title) + '</div>' +
+        '<ul class="moment-facts">' + (m.facts || []).map(function(f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></div>' +
+        '<button type="button" class="moment-x" aria-label="Cerrar" onclick="momentClose()">✕</button>';
+    document.body.appendChild(el);
+    var reduce = false;
+    try { reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    try { if (!reduce && navigator.vibrate && window.matchMedia('(pointer: coarse)').matches) navigator.vibrate([20, 60, 20]); } catch (e) {}
+    var timer = setTimeout(momentClose, MOMENT_SHOW_MS);
+    // Mientras se lee (puntero o foco encima), no se va.
+    el.addEventListener('pointerenter', function() { clearTimeout(timer); });
+    el.addEventListener('focusin', function() { clearTimeout(timer); });
+    return true;
+}
+
+function momentClose() {
+    var el = document.getElementById('moment');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+}
+
+// ── Vigilar transiciones (solo en esta sesión) ──────────────────────────
+
+var _momentPrev = { week: null, cal: null };
+
+function _momentCheck() {
+    // Semana: la vigente de HOY. Solo si en esta sesión ya se había visto incompleta.
+    try {
+        if (typeof tpWeekBoardRows === 'function') {
+            var b = tpWeekBoardRows();
+            var f = momentWeekFacts(b);
+            var id = b ? (b.planId || b.weekDate || '') : '';
+            if (_momentPrev.week && _momentPrev.week.id === id && !_momentPrev.week.done && f) momentShow(f);
+            _momentPrev.week = { id: id, done: !!f };
+        }
+    } catch (e) {}
+    try {
+        if (typeof invCalSummary === 'function') {
+            var cur = invCalSummary();
+            var today = typeof localToday === 'function' ? localToday() : '';
+            var c = momentCalFacts(_momentPrev.cal, cur, today);
+            if (c) momentShow(c);
+            _momentPrev.cal = cur;
+        }
+    } catch (e) {}
+}
+
+var _momentTimer = null;
+function momentCheckSoon() {
+    clearTimeout(_momentTimer);
+    _momentTimer = setTimeout(_momentCheck, 600);
+}
+
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('data:saved', momentCheckSoon);
+    window.addEventListener('tp:saved', momentCheckSoon);
+    // La línea base se toma al terminar de cargar: lo que ya estaba cumplido no es un momento.
+    window.addEventListener('load', function() { setTimeout(_momentCheck, 1500); });
 }
 
 
@@ -69006,7 +69227,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8542,"mods":[[8545,"js/app.js",17590],[17594,"js/uiflow.js",17910],[17914,"js/cop15.js",27591],[27595,"js/inventory.js",34661],[34665,"js/testplan.js",45011],[45015,"js/panel.js",50180],[50184,"js/projects.js",52473],[52477,"js/auth.js",53518],[53522,"js/signatures.js",53723],[53727,"js/firebase-sync.js",60497],[60501,"js/cop_validator.js",63987],[63991,"js/homolog.js",65252],[65256,"js/vets.js",66959],[66963,"js/review.js",67412],[67416,"js/opcards.js",67845],[67849,"js/handoff.js",68123],[68127,"js/ficha.js",68582],[68586,"js/relevo.js",68962],[68966,"js/bugreport.js",70112]]};
+var BUG_LINE_MAP = {"tag":8577,"mods":[[8580,"js/app.js",17633],[17637,"js/uiflow.js",17953],[17957,"js/cop15.js",27634],[27638,"js/inventory.js",34704],[34708,"js/testplan.js",45058],[45062,"js/panel.js",50227],[50231,"js/projects.js",52520],[52524,"js/auth.js",53565],[53569,"js/signatures.js",53770],[53774,"js/firebase-sync.js",60544],[60548,"js/cop_validator.js",64039],[64043,"js/homolog.js",65304],[65308,"js/vets.js",67011],[67015,"js/review.js",67464],[67468,"js/opcards.js",67897],[67901,"js/handoff.js",68175],[68179,"js/ficha.js",68662],[68666,"js/relevo.js",69042],[69046,"js/momentos.js",69183],[69187,"js/bugreport.js",70333]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

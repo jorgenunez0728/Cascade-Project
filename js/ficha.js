@@ -346,6 +346,7 @@ function fichaOpen(kind, ref, originEl) {
     _ficha = { stack: [{ kind: kind, ref: ref }], closeDialog: null, origin: originEl || null };
     _fichaPaint();
     _fichaGestures(el);
+    _fichaGrowFrom(el.querySelector('.ficha-sheet'), originEl);
     if (typeof a11yDialog === 'function') {
         _ficha.closeDialog = a11yDialog(el, { labelId: 'ficha-title', onClose: function() { if (_ficha) { _ficha.closeDialog = null; fichaClose(); } } });
     }
@@ -386,6 +387,33 @@ function _fichaPaint(dir) {
     if (back) back.style.visibility = _ficha.stack.length > 1 ? 'visible' : 'hidden';
     var t = document.getElementById('ficha-title');
     if (t && t.focus) { t.setAttribute('tabindex', '-1'); try { t.focus({ preventScroll: true }); } catch (e) {} }
+}
+
+// [2.26.0] Continuidad: la hoja CRECE desde la fila que se tocó (se ve de dónde
+// salió), en vez de aparecer desde abajo sin relación con nada. Nivel ELEMENTO:
+// `startViewTransition` a nivel sección se retiró del cambio de plataforma porque
+// fallaba (app.js). Con movimiento reducido, o sin origen visible, se queda la
+// entrada de siempre. Solo se anima abrir: cerrar es una acción de descarte (v22.4).
+var FICHA_ORIGIN_SEL = '.dash-row, .cmd-item, .ficha-rel, .ficha-line, .relevo-strip, .tp-week-card';
+function _fichaGrowFrom(sheet, originEl) {
+    try {
+        if (!sheet || !sheet.animate || !originEl || !originEl.getBoundingClientRect) return false;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+        var src = (originEl.closest && originEl.closest(FICHA_ORIGIN_SEL)) || originEl;
+        if (!document.contains(src)) return false;
+        var r = src.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return false;
+        sheet.classList.add('ficha-grow');
+        var s = sheet.getBoundingClientRect();
+        var dy = Math.round(r.top - s.top);
+        var left = Math.max(0, Math.round(r.left - s.left)), right = Math.max(0, Math.round(s.right - r.right));
+        var bottom = Math.max(0, Math.round(s.height - r.height));
+        sheet.animate([
+            { transform: 'translateY(' + dy + 'px)', clipPath: 'inset(0 ' + right + 'px ' + bottom + 'px ' + left + 'px round 8px)' },
+            { transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 8px)' }
+        ], { duration: 320, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        return true;
+    } catch (e) { return false; }
 }
 
 // Arrastrar la hoja hacia abajo desde su parte de arriba la cierra (como en el
