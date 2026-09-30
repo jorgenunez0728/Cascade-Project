@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.20.0';
+var APP_VERSION = '2.21.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.20.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.21.0', date: '30 sep 2026', title: 'Una cosa a la vez, también en Consumibles',
+      bullets: [
+          'Nuevo: la ronda de lecturas de gases usa las mismas tarjetas que Operación: un cilindro por pantalla, avance por zona arriba, Guardar grande abajo, "Después" para lo que no se pudo leer y deslizar solo cambia de tarjeta.',
+          'Nuevo: 🧭 Ronda de equipos. Junta los mantenimientos vencidos y de esta semana y las calibraciones vencidas o que vencen en 14 días, y los registra uno por uno. Está en 🔧 Equipos, 🛠️ Mtto, en HOY (con 2 o más pendientes) y en el menú Crear.',
+          'Al terminar cada ronda, el resumen dice cómo quedó el laboratorio: qué cilindros quedaron bajos, qué se registró y qué quedó para después.',
+          'Cambió: en la ronda de gases, una tarjeta vacía ya no guarda "lo mismo de ayer". Para repetir la lectura anterior se toca "= Igual".',
+          'Arreglado: salir de la ronda de gases a medias con ✕ dejaba las lecturas capturadas sin guardar.'
+      ] },
     { version: '2.20.0', date: '29 sep 2026', title: 'Libera el Técnico; las fallas de VETS las decide quien aprueba',
       bullets: [
           'Cambió: Técnico y Especialista pueden enviar a aprobación (firma del liberador). Aprobar sigue siendo solo de Signatario y Manager, y nadie aprueba lo que liberó.',
@@ -4439,6 +4447,20 @@ function dashCollectActivities() {
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
+        // [2.21.0] Con dos o más pendientes, un toque arranca la ronda de equipos (uno por
+        // uno, en tarjetas). Las filas sueltas de abajo se quedan para el check de un toque.
+        if (typeof invEquipmentRoundItems === 'function') {
+            var eqr = invEquipmentRoundItems();
+            if (eqr.length >= 2) {
+                var eqrVenc = eqr.filter(function(x) { return x.overdue; }).length;
+                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭',
+                    title: 'Ronda de equipos',
+                    meta: eqr.length + ' calibraciones y mantenimientos pendientes' + (eqrVenc ? ' · ' + eqrVenc + ' vencidos' : ''),
+                    status: eqrVenc ? 'atrasado' : 'pendiente', urgency: eqrVenc ? 3 : 2,
+                    action: { label: '🧭 Hacer la ronda', aria: 'Iniciar la ronda de equipos',
+                              js: "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" } });
+            }
+        }
         if (typeof invCalStatus === 'function') {
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
@@ -6968,6 +6990,7 @@ var UI_CREATE_ACTIONS = [
     { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
     { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
     { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🧭', label: 'Ronda de equipos',      fn: 'invStartEquipmentRound', hint: 'Calibraciones y mantenimientos pendientes, uno por uno' },
     { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
     { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
     { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }
