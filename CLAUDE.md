@@ -2558,6 +2558,20 @@ menos **dejó de ser silencioso**.
   (`noNav`): se repinta al cerrar.
 - Un solo botón principal por resumen: uiFlow degrada Terminar si `onFinal` trae un `btn-primary`.
 
+## 2.23.0 — HOY: te toca (`js/app.js`)
+
+- **`dashInbox(acts, ctx)` (PURA) es LA definición de "lo que le toca a esta persona"**. Toda fila
+  nueva de `dashCollectActivities` cuyo siguiente paso pida un permiso declara `perm`; si no es para
+  quien la mira (aprobar lo propio), `notForMe`. Sin `perm` la ven todos. Lo que se esconde por rol
+  se CUENTA (`byRole`) y sigue en su categoría — regla v22.5.
+- **Toda fila de HOY necesita un `id` ESTABLE** (nunca el índice de una lista): posponer se
+  recuerda por id. `_dashHash(texto)` para las que no traen uno propio.
+- **Posponer ≠ completar.** Solo esconde de la bandeja; la fila sigue en su categoría con
+  `_snoozed`. `uiPref('dashSnooze')` va por persona (`_dashMe()`), no por equipo.
+- **Un gesto horizontal dentro de una pantalla debe detener la propagación**: el deslizar global
+  entre plataformas vive en `document` (150 px, < 600 ms) y dispararía en el mismo gesto
+  (`dashInboxSwipeInit` lo hace; `.dash-inbox .dash-row` lleva `touch-action: pan-y`).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

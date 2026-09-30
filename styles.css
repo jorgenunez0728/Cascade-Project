@@ -5386,6 +5386,29 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .dash-cat-detail { border-left-width: 4px; }
 .dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
+/* [2.23.0] "Te toca" — la bandeja de HOY */
+.dash-inbox-more {
+    display: block; width: 100%; min-height: var(--target-min); text-align: left; cursor: pointer;
+    border: 0; background: none; font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--info-text);
+}
+.dash-inbox .dash-row { transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); touch-action: pan-y; }
+.dash-inbox .dash-row.is-swiping { transition: none; }
+.dash-row--snoozed { opacity: 0.7; }
+.dash-snooze-btn { min-width: var(--target-min); }
+.dash-inbox-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); }
+.dash-inbox-snoozed { margin-bottom: var(--space-md); }
+.dash-inbox-clear {
+    text-align: center; padding: var(--space-xl) var(--space-md); margin-bottom: var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--ok-tint);
+    animation: ocIn var(--dur-slow) var(--ease-out) both;
+}
+.dash-inbox-clear-mark {
+    width: 56px; height: 56px; margin: 0 auto var(--space-sm); border-radius: var(--radius-full);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ok-fill, #10b981); color: #fff; font-size: var(--fs-xl); font-weight: var(--weight-black);
+}
+.dash-inbox-clear-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--ok-text); margin-bottom: var(--space-xs); }
+.dash-inbox-clear p { margin: var(--space-2xs) 0 0; font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
 
 /* [2.1.0] Datos → Usuarios → Roles y permisos */
 .pn-roles-lead { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-sm); }

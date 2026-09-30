@@ -20,6 +20,40 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.23.0 — HOY: te toca (2026-09-30)
+
+### Nuevo
+- **📥 Te toca** reemplaza a "📌 Lo siguiente" en HOY: lo que a ti te toca hacer ahora, lo
+  atrasado primero.
+  - **Según tu rol**: aprobar solo le aparece a quien puede aprobar, y nunca lo que esa persona
+    liberó; liberar, a quien puede liberar; armar o aceptar la semana, a quien administra el plan;
+    las alarmas del Control SPC, a quien juzga el CoP.
+  - Lo que le toca a otro rol **se cuenta al pie** ("N le tocan a otros roles") y sigue en su
+    categoría: no se esconde en silencio.
+  - Se ven las 5 más urgentes; **Ver las que siguen** despliega el resto.
+- **⏰ Posponer hasta mañana** (o deslizar la fila a la izquierda). La fila sale de tu bandeja,
+  sigue en su categoría marcada **⏰ Pospuesta · regresar** y aparece otra vez sola al día
+  siguiente. Deshacer en el aviso. **Posponer nunca marca nada como hecho.** Es por persona y por
+  equipo: en una tablet compartida, el siguiente turno la sigue viendo.
+- **Todo al día**: con la bandeja vacía, un cierre con cómo va la semana (pruebas hechas del
+  compromiso y en riesgo) y cuántas quedaron pospuestas.
+
+### Arreglado
+- Las alertas de Calidad en HOY usaban su posición en la lista como identidad: al cambiar la
+  lista, "la misma" fila era otra. Ahora tienen un id estable (necesario para posponer).
+
+### Para desarrollo
+- `dashInbox(acts, {can, snooze, now})` (PURA) es LA definición de la bandeja; ordena con
+  `dashNextUp` y devuelve `{items, snoozed, byRole}`. Cada fila de `dashCollectActivities` puede
+  declarar `perm` (permiso de su siguiente paso) y `notForMe` (p. ej. aprobar lo propio,
+  `authCanApproveVehicle`).
+- Posponer: `dashSnooze(id)` / `dashUnsnooze(id)`, en `uiPref('dashSnooze')[persona][id] =
+  hastaISO` (`dashSnoozeUntil`, PURA: inicio de mañana, hora local). Se purga lo vencido al escribir.
+- Deslizar: `dashInboxSwipeInit(root)` escucha en el contenedor de HOY y detiene la propagación,
+  porque el deslizar global entre plataformas (150 px, en `document`) cambiaría de pantalla en el
+  mismo gesto.
+- Pruebas: `tests/catalogo-hoy.node.js` (+7), `tests/v2230.e2e.js` (16).
+
 ## 2.22.0 — Revisar la semana y repasar proyectos, una cosa a la vez (2026-09-30)
 
 ### Nuevo
