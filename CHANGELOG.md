@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.25.0 — Desde tu última vez (2026-09-30)
+
+### Nuevo
+- **🕘 Desde tu última vez** — el relevo de turno. Al entrar después de más de **4 horas**, una
+  hoja con lo que cambió mientras no estabas, agrupado:
+  - **Vehículos**: de qué etapa a cuál pasó cada uno (o si es nuevo), y los devueltos al
+    liberador con su motivo, en ámbar y primero.
+  - **Plan**: semanas aceptadas o reabiertas, pruebas agregadas, movidas, quitadas o sustituidas.
+  - **Consumibles**: lecturas registradas, calibraciones y mantenimientos, y los cilindros que
+    quedaron bajos con la última lectura.
+  - **CoP y límites**: juicios guardados, límites publicados, revisión dirigida.
+  - **Proyectos**, actividades nuevas y cambios de **usuarios**.
+- Lo tuyo no aparece. Lo de otras personas dice quién y a qué hora.
+- Cada línea abre la **ficha** de su cosa (2.24.0) y ‹ regresa al relevo. Al final, **📥 Lo que
+  te toca ahora** lleva a HOY.
+- Si lo cierras, HOY conserva la franja **🕘 Desde tu última vez** durante la sesión.
+- También aparece al **volver a una tableta** que se quedó con la sesión abierta varias horas.
+
+### Cambió
+- La ficha ya no resalta su título en amarillo al abrirse (el foco es para el lector de
+  pantalla, no una selección).
+
+### Para desarrollo
+- `js/relevo.js`, cargado después de `ficha.js`. **`relevoDigest(src, since, me)` es PURA** y es
+  LA definición del relevo. Cero lecturas nuevas a la nube: `auditGetView()` + `db.vehicles`.
+- Vehículos = **cambio neto de estado** (`relevoVehicleStatusAt`, desde `timeline[].data.status`).
+  El `user` de la línea de tiempo es el operador del formulario, no la sesión: no decide nada.
+- Historial = **lista blanca** `RELEVO_ACTIONS`; lo propio se omite por nombre sin acentos.
+- La última vez vive en `uiPref('lastSeen')[nombre]` (por persona y equipo, no se sincroniza):
+  se sella al entrar, al ocultar la app y cada 5 min visible. Se decide en `bootStage('lista')` y
+  al volver a primer plano; espera el pull de la nube (máx. 20 s) y no se abre sobre otra capa.
+- La ficha admite tipos registrados (`FICHA_KINDS[kind].model`), grupos de líneas (`m.groups`) y
+  la acción al final (`m.nextAtEnd`).
+- Pruebas: `tests/relevo.node.js`, `tests/v2250.e2e.js`.
+
 ## 2.24.0 — La ficha de cada cosa (2026-09-30)
 
 ### Nuevo

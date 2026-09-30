@@ -5730,7 +5730,9 @@ body.uf-at-final .uf-foot { grid-template-columns: 56px; }
 .ficha-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 var(--space-md) var(--space-lg); }
 .ficha-kicker { font-size: var(--fs-sm); color: var(--muted); }
 .ficha-title { margin: var(--space-2xs) 0 0; font-size: var(--fs-lg); font-weight: var(--weight-black); line-height: 1.25; color: var(--text); word-break: break-word; }
-.ficha-title:focus { outline: none; }
+/* El título recibe el foco al abrir (lector de pantalla) pero no es un control:
+   sin el resaltado amarillo global de :focus-visible, que lo hacía parecer seleccionado. */
+.ficha-title:focus, .ficha-title:focus-visible { outline: none; box-shadow: none; background: none; color: var(--text); }
 .ficha-sub { margin-top: var(--space-2xs); font-size: var(--fs-sm); color: var(--muted); }
 .ficha-badges { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
 .ficha-badge {
@@ -5776,6 +5778,31 @@ body.uf-at-final .uf-foot { grid-template-columns: 56px; }
 }
 .ficha-link:hover { color: var(--kia-red); }
 body.ficha-open { overflow: hidden; }
+
+/* [2.25.0] Grupos de líneas de una ficha (el relevo). Una línea con ficha es un botón. */
+.ficha-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
+.ficha-line { border-left: 3px solid transparent; border-radius: var(--radius-md); }
+.ficha-line.is-warn { border-left-color: var(--warn-fill); background: var(--warn-tint); }
+.ficha-line.is-ok { border-left-color: var(--ok-fill); }
+.ficha-line-btn, .ficha-line-in {
+    display: flex; align-items: center; gap: var(--space-sm); width: 100%; min-height: var(--target-min);
+    padding: var(--space-xs) var(--space-sm); text-align: left; color: var(--text);
+}
+.ficha-line-btn { border: 0; background: none; cursor: pointer; font: inherit; }
+.ficha-line-btn:hover { background: var(--surface-alt); }
+.ficha-line-text { flex: 1; min-width: 0; font-size: var(--fs-base); word-break: break-word; }
+.ficha-line small { flex-shrink: 0; max-width: 40%; font-size: var(--fs-sm); color: var(--muted); text-align: right; }
+.ficha-line-more { padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); color: var(--muted); }
+
+/* [2.25.0] HOY: franja "Desde tu última vez" (un toque abre el relevo). */
+.relevo-strip {
+    display: flex; align-items: center; gap: var(--space-sm); width: 100%; min-height: var(--target-min);
+    margin: var(--space-sm) 0; padding: var(--space-xs) var(--space-md); cursor: pointer; text-align: left;
+    border: 1px solid var(--info-fill); border-radius: var(--radius-lg); background: var(--info-tint); color: var(--text);
+    font: inherit; font-size: var(--fs-base);
+}
+.relevo-strip-txt { flex: 1; min-width: 0; }
+.relevo-strip-go { font-size: var(--fs-lg); color: var(--info-text); }
 
 /* ══════════════════════════════════════════════════════════════════════
    [2.14.0] ¿Se guardó? ¿Lo ven los demás? — chip ☁ por vehículo, hoja del
