@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.27.1';
+var APP_VERSION = '2.27.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '2.27.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.27.2', date: '30 sep 2026', title: 'El checklist dice "Reporte STARS VETS"',
+      bullets: [
+          'Cambió: la fila de evidencia del checklist de liberación y de la Hoja COP15-F05 dice "Reporte STARS VETS", sin el código COP15-F31.'
+      ] },
     { version: '2.27.1', date: '30 sep 2026', title: 'Doble ciego con las cifras del reporte',
       bullets: [
           'Arreglado: la aprobación rechazaba el mismo resultado cuando uno traía todos los decimales (VETS: 6.389859) y el otro tecleaba lo que dice el reporte impreso (6.4).',

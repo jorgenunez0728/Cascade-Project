@@ -20,6 +20,17 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.27.2 — El checklist dice "Reporte STARS VETS" (2026-09-30)
+
+### Cambió
+- La fila de evidencia del checklist de liberación dice **"Reporte STARS VETS"**, sin el código
+  COP15-F31. Cambia en la pantalla de Liberación y en la Hoja COP15-F05, que salen de la misma
+  lista. Lo ya capturado no cambia: solo el texto de la fila.
+
+### Para desarrollo
+- `RELEASE_CHECKLIST` (cop15.js) es la única fuente de la etiqueta. Se regeneró
+  `tests/fixtures/f05-golden.json` con `F05_UPDATE=1` por decisión del laboratorio.
+
 ## 2.27.1 — Doble ciego con las cifras del reporte (2026-09-30)
 
 ### Arreglado

@@ -3556,7 +3556,7 @@ var RELEASE_CHECKLIST = {
     ],
     docs: [
         { key: 'f05',   label: 'Hoja de Inspección COP15-F05 Completa', rule: 'f05' },
-        { key: 'vets',  label: 'Reporte STARS VETS COP15-F31' },
+        { key: 'vets',  label: 'Reporte STARS VETS' },
         { key: 'obfcm', label: 'Reporte OBFCM (Solo Europa)', rule: 'europe' },
         { key: 'coast', label: 'Reporte Coast/Down Quick Check (Solo Europa)', rule: 'europe' },
         { key: 'f02',   label: 'Solicitud de Ensayo COP15-F02 (Solo Cert. MX)', rule: 'mexico' },
