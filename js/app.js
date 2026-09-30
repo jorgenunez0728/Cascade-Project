@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.23.0';
+var APP_VERSION = '2.24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.23.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.24.0', date: '30 sep 2026', title: 'La ficha de cada cosa',
+      bullets: [
+          'Nuevo: la ficha. Tocar el nombre de un vehículo, cilindro, instrumento o proyecto en HOY abre una hoja con cómo va, UNA acción siguiente, sus datos y lo más reciente que le pasó.',
+          'Las fichas se enlazan: vehículo → su configuración y su familia; familia → sus configuraciones, sus vehículos y sus semanas en el plan. Tocar una relación la abre encima y ‹ regresa.',
+          'El buscador (Busca una pantalla) ahora también encuentra COSAS: teclea el final de un VIN, el número de un cilindro, un instrumento o un proyecto.',
+          'La ficha no cambia nada: su botón te lleva a la pantalla de siempre, donde se hace el trabajo. Se cierra con ✕, tocando fuera o arrastrándola hacia abajo.',
+          'Arreglado: en el teléfono, tocar un resultado escrito del buscador no hacía nada.'
+      ] },
     { version: '2.23.0', date: '30 sep 2026', title: 'HOY: te toca',
       bullets: [
           'Nuevo: "📌 Lo siguiente" pasa a ser "📥 Te toca": lo que a TI te toca hacer ahora, según tu rol. Un Técnico ya no ve "Aprobar", y nadie ve aprobar lo que él mismo liberó.',
@@ -4028,7 +4036,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -4458,7 +4466,7 @@ function dashCollectActivities() {
             meta: (v.purpose || '') + (soakTxt ? ' · ' + soakTxt : ''),
             status: status, urgency: status === 'atrasado' ? 3 : 1,
             assignee: (v.testData && v.testData.testResponsible) || v.registeredBy || '',
-            stage: st, eta: eta, vehicleId: v.id,
+            stage: st, eta: eta, vehicleId: v.id, ficha: { kind: 'vehiculo', ref: v.id },
             // [2.23.0] Quién puede dar el siguiente paso: la bandeja "Te toca" solo lo
             // pone a quien puede hacerlo (dashInbox). Aprobar lo propio tampoco se ofrece.
             perm: _dashVehPerm(v), notForMe: v.status === 'pending-approval' && _dashIsOwnRelease(v),
@@ -4471,7 +4479,7 @@ function dashCollectActivities() {
         acts.push({ id: 'act-appr-' + v.id, cat: 'calidad', icon: '🔏',
             title: 'Aprobar liberación: ' + (v.vin ? '…' + v.vin.slice(-6) : '#' + v.id),
             meta: 'Doble ciego pendiente', status: 'pendiente', urgency: 3,
-            perm: 'test.approve', notForMe: _dashIsOwnRelease(v),
+            perm: 'test.approve', notForMe: _dashIsOwnRelease(v), ficha: { kind: 'vehiculo', ref: v.id },
             action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
     });
 
@@ -4481,14 +4489,14 @@ function dashCollectActivities() {
             if (typeof invGasExpiry === 'function') {
                 var exp = invGasExpiry(g);
                 if (exp.status === 'expired') acts.push({ id: 'act-gexp-' + g.id, cat: 'inventario', icon: '⚠️',
-                    title: g.formula + ' #' + g.controlNo + ' VENCIDO', meta: exp.text || '', status: 'atrasado', urgency: 3,
+                    title: g.formula + ' #' + g.controlNo + ' VENCIDO', meta: exp.text || '', status: 'atrasado', urgency: 3, ficha: { kind: 'cilindro', ref: g.id },
                     action: { label: 'Reemplazar', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
                 // v21.1: el criterio de "bajo" es el de invGasLevel, no un < 15 propio de HOY.
                 if (lvl.status === 'critico') acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
-                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel crítico', status: 'pendiente', urgency: 2,
+                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel crítico', status: 'pendiente', urgency: 2, ficha: { kind: 'cilindro', ref: g.id },
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
@@ -4510,10 +4518,10 @@ function dashCollectActivities() {
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
                 if (st.code === 'vencido') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                    title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3,
+                    title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
                 else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                    title: e.name + ': calibrar en ' + st.days + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: st.days <= 7 ? 2 : 1,
+                    title: e.name + ': calibrar en ' + st.days + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: st.days <= 7 ? 2 : 1, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
             });
         }
@@ -4557,7 +4565,7 @@ function dashCollectActivities() {
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
-                title: o.project.name + ': ' + o.step.title,
+                title: o.project.name + ': ' + o.step.title, ficha: { kind: 'proyecto', ref: o.project.id },
                 meta: (o.blocked ? 'Bloqueado' + (o.step.roadblock ? ' — ' + o.step.roadblock : '') : 'Vencido (' + o.step.targetDate + ')') + (o.step.responsible ? ' · 👤 ' + o.step.responsible : ''),
                 // v16.8: sin assignee, el filtro "Solo míos" dejaba pasar TODOS los
                 // pasos (la condición es `!a.assignee || a.assignee === currentOp`),
@@ -4571,7 +4579,7 @@ function dashCollectActivities() {
     if (typeof pnProjectsDueThisWeek === 'function') {
         pnProjectsDueThisWeek().forEach(function(d) {
             acts.push({ id: 'act-proj-week-' + d.step.id, cat: 'proyectos', icon: '🗂️',
-                title: d.project.name + ': ' + d.step.title,
+                title: d.project.name + ': ' + d.step.title, ficha: { kind: 'proyecto', ref: d.project.id },
                 meta: 'Esta semana (' + d.step.targetDate + ')' + (d.step.responsible ? ' · 👤 ' + d.step.responsible : ''),
                 assignee: d.step.responsible || '',
                 status: 'pendiente', urgency: 2,
@@ -4660,7 +4668,10 @@ function dashRenderRow(a) {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }
     h += '<div class="dash-row-main">';
-    h += '<div class="dash-row-title">' + escapeHtml(a.title) + '</div>';
+    // [2.24.0] El nombre de la cosa abre su ficha (estado, historia y relaciones).
+    h += '<div class="dash-row-title">' + (a.ficha && typeof fichaLinkHTML === 'function'
+        ? fichaLinkHTML(a.ficha.kind, a.ficha.ref, escapeHtml(a.title), 'dash-row-title-link')
+        : escapeHtml(a.title)) + '</div>';
     var metaBits = [];
     if (a.meta) metaBits.push(escapeHtml(a.meta));
     if (a.assignee && (!a.meta || a.meta.indexOf(a.assignee) === -1)) metaBits.push('👤 ' + escapeHtml(a.assignee));
@@ -7293,6 +7304,11 @@ function filterCommands(query) {
             || (c.cat && _uiFold(c.cat).includes(qf))
             || (c.keywords && _uiFold(c.keywords).includes(qf));
     }) : universe;
+    // [2.24.0] Cosas, no solo pantallas: un VIN, un cilindro, un instrumento o un proyecto
+    // abren su ficha. Van después de las pantallas (una palabra como "calibración" busca la pestaña).
+    if (_cmdMode !== 'create' && qf.length >= 3 && typeof fichaSearch === 'function') {
+        try { _cmdFiltered = _cmdFiltered.concat(fichaSearch(q)); } catch (e) {}
+    }
     _cmdActiveIdx = 0;
     renderCommandResults();
 }
@@ -7351,13 +7367,24 @@ function renderCommandResults() {
         return;
     }
     el.innerHTML = _cmdFiltered.map(function(c, i) {
-        return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
+        return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdHover(' + i + ')">' +
             '<span class="cmd-icon">' + c.icon + '</span>' +
             '<span class="cmd-label">' + escapeHtml(c.label) + '</span>' +
             (c.cat ? '<span class="cmd-cat">' + escapeHtml(c.cat) + '</span>' : '') +
             (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
             '</div>';
     }).join('');
+}
+
+// [2.24.0] Resaltar al pasar el puntero SIN repintar la lista. Repintar con innerHTML
+// reemplazaba el elemento entre el mousedown y el mouseup que el navegador sintetiza
+// tras un toque, y el click caía en el contenedor: en el teléfono, tocar un resultado
+// escrito no hacía nada.
+function _cmdHover(i) {
+    if (i === _cmdActiveIdx) return;
+    _cmdActiveIdx = i;
+    var items = document.querySelectorAll('#command-palette-results .cmd-item');
+    for (var k = 0; k < items.length; k++) items[k].classList.toggle('cmd-active', k === i);
 }
 
 function executeCommand(idx) {

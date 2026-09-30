@@ -67,6 +67,7 @@ js/
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
+  ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~440 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -94,6 +95,7 @@ CHANGELOG.md            ← Detailed changelog
 | Revisión dirigida | `js/review.js` | `review` | `_reviewMarks` (en memoria) | — (`pnState.reviewFlow`, `vehicle.reviewFlow`, `testData.review`) |
 | Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
 | Avisos de relevo | `js/handoff.js` | `handoff` | `_handoffBase` (foto en memoria) | `kia_handoff_log` |
+| Ficha universal | `js/ficha.js` | `ficha` | `_ficha` (pila de fichas abiertas) | — |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -174,7 +176,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2571,6 +2573,28 @@ menos **dejó de ser silencioso**.
 - **Un gesto horizontal dentro de una pantalla debe detener la propagación**: el deslizar global
   entre plataformas vive en `document` (150 px, < 600 ms) y dispararía en el mismo gesto
   (`dashInboxSwipeInit` lo hace; `.dash-inbox .dash-row` lleva `touch-action: pan-y`).
+
+## 2.24.0 — La ficha universal (`js/ficha.js`)
+
+- **`fichaModel(kind, ref)` compone, no calcula.** Cada parte sale de la definición única de su
+  módulo (`cascadeVehicleStage`/`getNextStep`/`cascadeVehicleETA`, `copPortfolioRows`,
+  `tpGetAnalysis`/`tpFamilyWeeklyProgress`, `invGasLevel`/`invGasBurnRate`/`invGasReorder`,
+  `invCalStatus`, `pnProjectProgress`/`pnProjectTimeline`), con guarda `typeof`. Si una ficha
+  necesita un número que no existe en ninguna definición, se agrega a la definición, no a la ficha.
+- **La ficha no escribe nada.** Su acción siguiente NAVEGA a la pantalla de siempre (donde viven
+  los candados). Cascade no se toca: el vehículo solo se lee y se abre con `v7GoToVehicle`.
+- `null` = ya no existe; `{error:true}` = una definición tronó. Son mensajes distintos: decir "ya
+  no existe" por un error de código haría que el técnico busque un vehículo borrado que no lo está.
+- **`fichaHTML(m)` es PURA**; todo por identidad (`id`, `key`, `desc`), nunca por posición.
+- Para que algo abra su ficha desde otra pantalla: `fichaLinkHTML(kind, ref, labelEscapado)`. En
+  HOY basta con poner `ficha: {kind, ref}` en la actividad. Un tipo nuevo de cosa = entrada en
+  `FICHA_KINDS` + su `_ficha<Tipo>` + su rama en `fichaModel` y en `fichaSearch`.
+- Hoja a `z-index: 9400`: debajo de uiFlow (9500) y de toasts/diálogos (9999). Sus gestos llevan
+  `stopPropagation` (el deslizar global entre plataformas escucha en `document`).
+- **Lista del lanzador: nunca repintar en `mouseenter`** (`_cmdHover`). En un teléfono el navegador
+  sintetiza mouseenter → mousedown → mouseup tras el toque; repintar en medio hace que el click
+  caiga en el contenedor y el toque no haga nada.
+- Orden de carga: `… opcards.js → handoff.js → ficha.js → bugreport.js`.
 
 ## Working with this project
 
