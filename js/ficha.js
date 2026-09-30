@@ -48,6 +48,9 @@ function fichaLinkHTML(kind, ref, label, cls) {
 
 function fichaModel(kind, ref) {
     try {
+        // [2.25.0] Un tipo puede registrarse desde otro archivo con su propio modelo
+        // (FICHA_KINDS.relevo en relevo.js) sin tocar este despachador.
+        if (FICHA_KINDS[kind] && typeof FICHA_KINDS[kind].model === 'function') return FICHA_KINDS[kind].model(ref);
         if (kind === 'vehiculo') return _fichaVehiculo(ref);
         if (kind === 'config') return _fichaConfig(ref);
         if (kind === 'familia') return _fichaFamilia(ref);
@@ -281,7 +284,8 @@ function fichaHTML(m, opts) {
         }
         h += '</div>';
     }
-    if (m.next) h += '<button type="button" class="btn-primary ficha-next" onclick="' + _fichaEsc(m.next.js) + '">' + _fichaEsc(m.next.label) + '</button>';
+    var nextHTML = m.next ? '<button type="button" class="btn-primary ficha-next" onclick="' + _fichaEsc(m.next.js) + '">' + _fichaEsc(m.next.label) + '</button>' : '';
+    if (!m.nextAtEnd) h += nextHTML;
     if (m.note) h += '<p class="ficha-note">' + _fichaEsc(m.note) + '</p>';
     if (m.facts && m.facts.length) {
         h += '<dl class="ficha-facts">' + m.facts.map(function(f) {
@@ -297,11 +301,25 @@ function fichaHTML(m, opts) {
                    '<span class="ficha-rel-go" aria-hidden="true">›</span></button>';
         }).join('') + '</div>';
     }
+    // [2.25.0] Grupos de líneas (el relevo): cada línea puede abrir la ficha de su cosa.
+    (m.groups || []).forEach(function(g) {
+        h += '<div class="ficha-sec">' + (g.icon ? g.icon + ' ' : '') + _fichaEsc(g.title) + '</div><ul class="ficha-lines">';
+        (g.lines || []).forEach(function(l) {
+            var inner = '<span class="ficha-line-text">' + _fichaEsc(l.text) + '</span>' +
+                (l.who || l.when || l.whenText ? '<small>' + _fichaEsc([l.who, l.whenText || (l.when ? _fichaDate(l.when) : '')].filter(Boolean).join(' · ')) + '</small>' : '');
+            h += '<li class="ficha-line' + (l.tone ? ' is-' + _fichaEsc(l.tone) : '') + '">' + (l.link
+                ? '<button type="button" class="ficha-line-btn" onclick="fichaPush(\'' + _fichaArg(l.link.kind) + '\',\'' + _fichaArg(l.link.ref) + '\')">' + inner + '<span class="ficha-rel-go" aria-hidden="true">›</span></button>'
+                : '<div class="ficha-line-in">' + inner + '</div>') + '</li>';
+        });
+        if (g.more) h += '<li class="ficha-line ficha-line-more">y ' + g.more + ' más</li>';
+        h += '</ul>';
+    });
     if (m.history && m.history.length) {
         h += '<div class="ficha-sec">Lo más reciente</div><ol class="ficha-hist">' + m.history.map(function(e) {
             return '<li><time>' + _fichaEsc(_fichaDate(e.when)) + '</time><span>' + _fichaEsc(e.text) + '</span></li>';
         }).join('') + '</ol>';
     }
+    if (m.nextAtEnd) h += nextHTML;
     return h;
 }
 

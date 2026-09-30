@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.24.0';
+var APP_VERSION = '2.25.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.24.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.25.0', date: '30 sep 2026', title: 'Desde tu última vez',
+      bullets: [
+          'Nuevo: al entrar después de más de 4 horas, una hoja con lo que cambió mientras no estabas: vehículos que avanzaron de etapa o regresaron (de dónde a dónde), semanas aceptadas y pruebas movidas, lecturas y calibraciones, cilindros que quedaron bajos, juicios CoP, límites publicados y pasos de proyectos.',
+          'Lo tuyo no aparece; lo de otras personas, sí, con quién y a qué hora.',
+          'Cada línea abre la ficha de su cosa, y al final "Lo que te toca ahora" te lleva a HOY.',
+          'Si la cierras, HOY conserva la franja 🕘 Desde tu última vez para volver a verla.',
+          'También aparece al volver a una tableta que se quedó con la sesión abierta horas. No consulta nada extra a la nube: sale del historial de cambios y de la línea de tiempo de cada vehículo.'
+      ] },
     { version: '2.24.0', date: '30 sep 2026', title: 'La ficha de cada cosa',
       bullets: [
           'Nuevo: la ficha. Tocar el nombre de un vehículo, cilindro, instrumento o proyecto en HOY abre una hoja con cómo va, UNA acción siguiente, sus datos y lo más reciente que le pasó.',
@@ -1782,7 +1790,8 @@ var UI_PREFS_DEFAULTS = {
     dashOpenCat: '',       // [2.0.0] HOY: categoría desplegada ('' = ninguna)
     cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
     handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
-    dashSnooze: {}         // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
+    dashSnooze: {},        // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
+    lastSeen: {}           // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
 };
 
 function _uiPrefsRead() {
@@ -4036,7 +4045,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona. Si llevabas más de 4 horas fuera, la franja 🕘 Desde tu última vez resume lo que cambió mientras no estabas.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -4840,6 +4849,8 @@ function dashRenderBoard(acts, currentOp) {
     if (onlyMine && ocultos > 0) h += '<span class="dash-chip dash-chip--pendiente">' + ocultos + ' de otros ocultas</span>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
+    // [2.25.0] Lo que cambió mientras no estabas: se queda a un toque toda la sesión.
+    if (typeof relevoStripHTML === 'function') h += relevoStripHTML();
 
     if (!shown.length) {
         h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
@@ -8379,6 +8390,10 @@ function bootStage(stage, info) {
     }
     if (stage === 'lista') {
         document.documentElement.classList.remove('booting');
+        // [2.25.0] "Desde tu última vez": se decide al terminar de entrar (también al cambiar de usuario).
+        if (prev !== 'lista' && typeof relevoOnReady === 'function') {
+            setTimeout(function() { try { relevoOnReady(); } catch (e) {} }, 400);
+        }
         if (ov && prev !== 'lista') {
             // La salida arranca DESPUÉS de un cuadro pintado y el overlay se retira al
             // terminar la transición. Con un reloj fijo, en un teléfono ocupado el

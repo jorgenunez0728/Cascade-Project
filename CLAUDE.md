@@ -67,7 +67,8 @@ js/
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
-  ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~440 lines)
+  ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
+  relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -96,6 +97,7 @@ CHANGELOG.md            ← Detailed changelog
 | Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
 | Avisos de relevo | `js/handoff.js` | `handoff` | `_handoffBase` (foto en memoria) | `kia_handoff_log` |
 | Ficha universal | `js/ficha.js` | `ficha` | `_ficha` (pila de fichas abiertas) | — |
+| Desde tu última vez | `js/relevo.js` | `relevo` | `_relevo` (la última vez de esta sesión) | — (`uiPref('lastSeen')`) |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -116,7 +118,7 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_homolog_v1` | Catálogo de homologación Europa (ICMS) + enlaces config→MC code + tolerancia CO₂ — synced |
 | `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
 | `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
-| `kia_ui_prefs` | Preferencias de interfaz por dispositivo (`uiPref`). **v23** suma `dashRange` (HOY: día o semana). NO se sincroniza |
+| `kia_ui_prefs` | Preferencias de interfaz por dispositivo (`uiPref`). **v23** suma `dashRange` (HOY: día o semana); **2.25.0** `lastSeen` (relevo). NO se sincroniza |
 
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
 (editable P1..P10 classification for Recovery), `weekAvailability`, `maxTiers`, `recoveryUntil`.
@@ -176,7 +178,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2595,6 +2597,27 @@ menos **dejó de ser silencioso**.
   sintetiza mouseenter → mousedown → mouseup tras el toque; repintar en medio hace que el click
   caiga en el contenedor y el toque no haga nada.
 - Orden de carga: `… opcards.js → handoff.js → ficha.js → bugreport.js`.
+
+## 2.25.0 — Desde tu última vez (`js/relevo.js`)
+
+- **`relevoDigest(src, since, me)` es PURA y es LA definición del relevo.** Sale de lo que ya
+  viaja por el sync (`auditGetView()` y `db.vehicles`): **cero lecturas nuevas a Firestore**.
+  No volver a proponer un "modo TV" o un tablero que consulte la nube por su cuenta.
+- **Vehículos = cambio NETO de estado** desde `since` (`relevoVehicleStatusAt`, a partir de
+  `timeline[].data.status`). **El `user` de `vehicle.timeline` es el operador del formulario, no
+  quien tenía la sesión**: no usarlo para atribuir ni filtrar. Por eso varios avances de etapa no
+  están en el historial y no hace falta tocar Cascade para verlos.
+- **Historial = lista blanca `RELEVO_ACTIONS`.** Una acción nueva que un compañero deba enterarse
+  al llegar se agrega ahí (grupo + cómo se dice + qué ficha abre). Lo que no esté, no es relevo.
+  Lo propio se omite comparando el nombre sin acentos ni mayúsculas (`e.user` no trae id).
+- `uiPref('lastSeen')[nombre]`: por persona y por equipo, **no se sincroniza** (la "última vez"
+  es de este equipo; en otro equipo habrá la suya). Se sella al entrar, al ocultar y cada 5 min.
+- Se decide en `bootStage('lista')` (también al cambiar de usuario) y al volver a primer plano.
+  Espera `fbSync._pullCompleted` (máx. 20 s) y **no se abre encima** de uiFlow, un diálogo, otra
+  ficha o el tour.
+- La ficha (2.24.0) admite tipos registrados desde otro archivo: `FICHA_KINDS[kind] = {icon,
+  label, model(ref)}`; `m.groups` (líneas que abren su ficha) y `m.nextAtEnd`.
+- Orden de carga: `… handoff.js → ficha.js → relevo.js → bugreport.js`.
 
 ## Working with this project
 
