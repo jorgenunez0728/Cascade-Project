@@ -69,6 +69,7 @@ js/
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
+  momentos.js           ← Momentos de cierre: semana cumplida, calibraciones al día, familia concordante (~140 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -98,6 +99,7 @@ CHANGELOG.md            ← Detailed changelog
 | Avisos de relevo | `js/handoff.js` | `handoff` | `_handoffBase` (foto en memoria) | `kia_handoff_log` |
 | Ficha universal | `js/ficha.js` | `ficha` | `_ficha` (pila de fichas abiertas) | — |
 | Desde tu última vez | `js/relevo.js` | `relevo` | `_relevo` (la última vez de esta sesión) | — (`uiPref('lastSeen')`) |
+| Momentos de cierre | `js/momentos.js` | `moment` | `_momentPrev` (línea base de la sesión) | — (`uiPref('moments')`) |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -178,7 +180,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2618,6 +2620,25 @@ menos **dejó de ser silencioso**.
 - La ficha (2.24.0) admite tipos registrados desde otro archivo: `FICHA_KINDS[kind] = {icon,
   label, model(ref)}`; `m.groups` (líneas que abren su ficha) y `m.nextAtEnd`.
 - Orden de carga: `… handoff.js → ficha.js → relevo.js → bugreport.js`.
+
+## 2.26.0 — Continuidad y momentos de cierre (`js/momentos.js`, `js/ficha.js`)
+
+- **Un momento es una TRANSICIÓN vista en esta sesión**, nunca un estado: la línea base se toma
+  al cargar y solo se muestra al pasar de "no" a "sí". Una semana ya cumplida al abrir la app no
+  se celebra (ya lo dice el Pulso). Las condiciones son PURAS (`momentWeekFacts`,
+  `momentCalFacts`, `momentCopFacts`) y salen de las definiciones únicas.
+- **Información, no confeti**: cada momento dice qué se cerró y con qué salvedades (p. ej.
+  pruebas palomeadas sin liberación). Un momento nuevo agrega su función PURA aquí y su disparo.
+- `momentShow` una vez por clave (`uiPref('moments')`). No agregar un momento para la bandeja
+  vacía: HOY ya lo dice en la pantalla y sería la misma señal dos veces.
+- **`tp:saved`** es el aviso ligero de `tpSave`. No emitir `data:saved` desde `tpSave`: sus
+  oyentes repintan HOY/Datos y disparan el sync de vehículos, y el plan se guarda en cada arrastre.
+- **La ficha crece desde la fila tocada** (`_fichaGrowFrom`, Web Animations sobre `clip-path`).
+  Nivel ELEMENTO, nunca sección (`startViewTransition` ya falló). Una lista nueva que abra fichas
+  agrega su selector de fila a `FICHA_ORIGIN_SEL` y pasa `this` como origen.
+- HOY: en una fila angosta (container query < 560px) el ⏰ va en la esquina (`position:absolute`)
+  y `.dash-row-main` le reserva `--target-min` a la derecha.
+- Orden de carga: `… ficha.js → relevo.js → momentos.js → bugreport.js`.
 
 ## Working with this project
 

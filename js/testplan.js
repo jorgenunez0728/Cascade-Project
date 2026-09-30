@@ -578,6 +578,10 @@ function tpSave() {
         return false;
     }
     tabCacheInvalidate('tp');
+    // [2.26.0] Aviso LIGERO de que el plan cambió (lo escucha momentos.js). No es
+    // 'data:saved' a propósito: ese dispara repintados de HOY, Datos y el sync de vehículos,
+    // y el plan se guarda en cada arrastre del tablero.
+    try { window.dispatchEvent(new CustomEvent('tp:saved')); } catch (e) {}
     return true;
 }
 

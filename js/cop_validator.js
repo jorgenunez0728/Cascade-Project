@@ -881,7 +881,12 @@ function copSaveJudgment() {
     if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
     _copPushNow();
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
-    if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
+    // [2.26.0] Concordante: un momento con lo que significa (una vez por juicio). Si no, el toast de siempre.
+    var _mom = typeof momentCopFacts === 'function' ? momentCopFacts({ id: copState.saved[0].id, decision: decision,
+        familyLabel: copState.familyLabel, n: (copState.vehicles || []).filter(function(v) { return v && v.vin; }).length }) : null;
+    if (!(_mom && typeof momentShow === 'function' && momentShow(_mom)) && typeof showToast === 'function') {
+        showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
+    }
     copRender();
 }
 

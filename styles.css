@@ -5395,6 +5395,17 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-inbox .dash-row.is-swiping { transition: none; }
 .dash-row--snoozed { opacity: 0.7; }
 .dash-snooze-btn { min-width: var(--target-min); }
+/* [2.26.0] En una fila angosta el ⏰ quedaba solo en su propio renglón (chip + acción +
+   ⏰ no caben en ~300 px). Ahí va a la esquina superior de la fila y el texto le deja
+   espacio; en una fila ancha se queda con las demás acciones. */
+.dash-row-in { position: relative; }
+@container (max-width: 559px) {
+    .dash-snooze-btn {
+        position: absolute; top: var(--space-2xs); right: var(--space-2xs);
+        min-height: var(--target-min); padding: 0; background: transparent;
+    }
+    .dash-row[data-dash-id] .dash-row-main { padding-right: var(--target-min); }
+}
 .dash-inbox-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); }
 .dash-inbox-snoozed { margin-bottom: var(--space-md); }
 .dash-inbox-clear {
@@ -5718,6 +5729,8 @@ body.uf-at-final .uf-foot { grid-template-columns: 56px; }
     animation: fichaUp var(--dur-slow) var(--ease-out) both;
     transition: transform var(--dur-fast) var(--ease-out);
 }
+/* [2.26.0] Al crecer desde la fila tocada la anima el JS (_fichaGrowFrom): sin la entrada de CSS. */
+.ficha-sheet.ficha-grow { animation: none; }
 @keyframes fichaUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fichaFade { from { opacity: 0; } to { opacity: 1; } }
 .ficha-grip { width: 44px; height: 5px; margin: var(--space-sm) auto 0; border-radius: var(--radius-full); background: var(--border); }
@@ -5803,6 +5816,28 @@ body.ficha-open { overflow: hidden; }
 }
 .relevo-strip-txt { flex: 1; min-width: 0; }
 .relevo-strip-go { font-size: var(--fs-lg); color: var(--info-text); }
+
+/* [2.26.0] Momento de cierre: tarjeta breve con información, arriba y centrada. Debajo de
+   toasts y diálogos (9999), encima de la ficha (9400) y de uiFlow (9500). */
+.moment {
+    position: fixed; z-index: 9600; left: 50%; top: calc(var(--space-lg) + env(safe-area-inset-top, 0px));
+    width: min(420px, calc(100vw - 2 * var(--space-md))); transform: translateX(-50%);
+    display: flex; align-items: flex-start; gap: var(--space-md);
+    padding: var(--space-md); border-radius: var(--radius-xl);
+    background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
+    border: 1px solid var(--ok-fill); border-left-width: 4px;
+    animation: momentIn var(--dur-slow) var(--ease-out) both;
+}
+@keyframes momentIn { from { opacity: 0; transform: translate(-50%, -12px) scale(0.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+.moment-icon { flex-shrink: 0; font-size: 32px; line-height: 1; }
+.moment-main { flex: 1; min-width: 0; }
+.moment-title { font-size: var(--fs-md); font-weight: var(--weight-black); color: var(--ok-text); }
+.moment-facts { margin: var(--space-xs) 0 0; padding-left: var(--space-md); font-size: var(--fs-sm); color: var(--text); }
+.moment-facts li + li { margin-top: var(--space-2xs); }
+.moment-x {
+    flex-shrink: 0; min-width: var(--target-min); min-height: var(--target-min); margin: calc(-1 * var(--space-sm));
+    border: 0; background: none; cursor: pointer; font-size: var(--fs-md); color: var(--muted);
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    [2.14.0] ¿Se guardó? ¿Lo ven los demás? — chip ☁ por vehículo, hoja del

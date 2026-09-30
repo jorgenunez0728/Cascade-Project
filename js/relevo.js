@@ -335,9 +335,9 @@ function _relevoWhenSynced(cb) {
 }
 
 /** Abrir el relevo a mano (desde HOY). */
-function relevoOpen() {
+function relevoOpen(originEl) {
     if (!_relevo || !_relevo.since || typeof fichaOpen !== 'function') return;
-    fichaOpen('relevo', _relevo.since);
+    fichaOpen('relevo', _relevo.since, originEl);
 }
 
 /** Franja de HOY: "Mientras no estabas: N cambios · Ver". '' si no aplica. */
@@ -345,7 +345,7 @@ function relevoStripHTML() {
     var d = null;
     try { d = relevoCurrent(); } catch (e) { d = null; }
     if (!d || !d.total) return '';
-    return '<button type="button" class="relevo-strip" onclick="relevoOpen()">' +
+    return '<button type="button" class="relevo-strip" onclick="relevoOpen(this)">' +
         '<span aria-hidden="true">🕘</span><span class="relevo-strip-txt"><b>Desde tu última vez</b> · ' +
         d.total + ' cambio' + (d.total === 1 ? '' : 's') + (d.people.length ? ' de ' + d.people.length + ' persona' + (d.people.length === 1 ? '' : 's') : '') +
         '</span><span class="relevo-strip-go" aria-hidden="true">›</span></button>';

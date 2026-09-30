@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.25.0';
+var APP_VERSION = '2.26.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '2.25.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.26.0', date: '30 sep 2026', title: 'Continuidad y momentos de cierre',
+      bullets: [
+          'La ficha ahora crece desde la fila que tocaste: se ve de dónde salió. Con movimiento reducido se abre como siempre.',
+          'Nuevo: momentos de cierre, con información y no con confeti. "Semana cumplida" al palomear o liberar la última prueba del compromiso (cuántas de cuántas, cuántas sin liberación todavía). "Calibraciones al día" al registrar la última vencida. "Familia concordante" al guardar un juicio CoP que pasa.',
+          'Solo cuando lo ves pasar: una semana que ya estaba cumplida al abrir la app no se celebra. Cada uno aparece una vez, con una vibración corta en el teléfono.',
+          'Arreglado: en HOY, en el teléfono, el ⏰ de posponer quedaba solo en su propio renglón. Ahora va en la esquina de la fila y las filas son más cortas.'
+      ] },
     { version: '2.25.0', date: '30 sep 2026', title: 'Desde tu última vez',
       bullets: [
           'Nuevo: al entrar después de más de 4 horas, una hoja con lo que cambió mientras no estabas: vehículos que avanzaron de etapa o regresaron (de dónde a dónde), semanas aceptadas y pruebas movidas, lecturas y calibraciones, cilindros que quedaron bajos, juicios CoP, límites publicados y pasos de proyectos.',
@@ -1791,7 +1798,8 @@ var UI_PREFS_DEFAULTS = {
     cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
     handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
     dashSnooze: {},        // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
-    lastSeen: {}           // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
+    lastSeen: {},          // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
+    moments: {}            // [2.26.0] momentos de cierre ya mostrados en este equipo: {clave: ISO}
 };
 
 function _uiPrefsRead() {
