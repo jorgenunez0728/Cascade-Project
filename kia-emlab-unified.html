@@ -9065,10 +9065,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609301526';
+var APP_BUILD = '202609301645';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '57663f3e4bdf6b2fcd75154550d2442651462f5e';
+var APP_COMMIT = '276965fac392f92a21a06ab0e8175324765fe5fc';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9076,7 +9076,7 @@ var APP_COMMIT = '57663f3e4bdf6b2fcd75154550d2442651462f5e';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.27.1';
+var APP_VERSION = '2.27.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9084,6 +9084,10 @@ var APP_VERSION = '2.27.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.27.2', date: '30 sep 2026', title: 'El checklist dice "Reporte STARS VETS"',
+      bullets: [
+          'Cambió: la fila de evidencia del checklist de liberación y de la Hoja COP15-F05 dice "Reporte STARS VETS", sin el código COP15-F31.'
+      ] },
     { version: '2.27.1', date: '30 sep 2026', title: 'Doble ciego con las cifras del reporte',
       bullets: [
           'Arreglado: la aprobación rechazaba el mismo resultado cuando uno traía todos los decimales (VETS: 6.389859) y el otro tecleaba lo que dice el reporte impreso (6.4).',
@@ -9826,14 +9830,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609301526' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609301645' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609301526' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609301645' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9849,7 +9853,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609301526' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609301645' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -21552,7 +21556,7 @@ var RELEASE_CHECKLIST = {
     ],
     docs: [
         { key: 'f05',   label: 'Hoja de Inspección COP15-F05 Completa', rule: 'f05' },
-        { key: 'vets',  label: 'Reporte STARS VETS COP15-F31' },
+        { key: 'vets',  label: 'Reporte STARS VETS' },
         { key: 'obfcm', label: 'Reporte OBFCM (Solo Europa)', rule: 'europe' },
         { key: 'coast', label: 'Reporte Coast/Down Quick Check (Solo Europa)', rule: 'europe' },
         { key: 'f02',   label: 'Solicitud de Ensayo COP15-F02 (Solo Cert. MX)', rule: 'mexico' },
@@ -58303,7 +58307,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609301526' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609301645' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69627,7 +69631,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8599,"mods":[[8602,"js/app.js",17673],[17677,"js/uiflow.js",17993],[17997,"js/cop15.js",27662],[27666,"js/inventory.js",34732],[34736,"js/testplan.js",45458],[45462,"js/panel.js",50627],[50631,"js/projects.js",52920],[52924,"js/auth.js",53965],[53969,"js/signatures.js",54170],[54174,"js/firebase-sync.js",60944],[60948,"js/cop_validator.js",64439],[64443,"js/homolog.js",65704],[65708,"js/vets.js",67411],[67415,"js/review.js",67864],[67868,"js/opcards.js",68297],[68301,"js/handoff.js",68575],[68579,"js/ficha.js",69062],[69066,"js/relevo.js",69442],[69446,"js/momentos.js",69583],[69587,"js/bugreport.js",70733]]};
+var BUG_LINE_MAP = {"tag":8599,"mods":[[8602,"js/app.js",17677],[17681,"js/uiflow.js",17997],[18001,"js/cop15.js",27666],[27670,"js/inventory.js",34736],[34740,"js/testplan.js",45462],[45466,"js/panel.js",50631],[50635,"js/projects.js",52924],[52928,"js/auth.js",53969],[53973,"js/signatures.js",54174],[54178,"js/firebase-sync.js",60948],[60952,"js/cop_validator.js",64443],[64447,"js/homolog.js",65708],[65712,"js/vets.js",67415],[67419,"js/review.js",67868],[67872,"js/opcards.js",68301],[68305,"js/handoff.js",68579],[68583,"js/ficha.js",69066],[69070,"js/relevo.js",69446],[69450,"js/momentos.js",69587],[69591,"js/bugreport.js",70737]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
