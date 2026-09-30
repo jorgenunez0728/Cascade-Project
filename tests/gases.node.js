@@ -43,7 +43,7 @@ vm.createContext(ctx);
 vm.runInContext('var LIB_VAL_SIGFIGS = 9;', ctx);
 ['DEFAULT_REGULATION_PROFILES', 'REG_PROFILES_RETIRED'].forEach(n => vm.runInContext(extraerVar('app.js', n), ctx));
 vm.runInContext(extraer('app.js', 'regMigrateProfiles'), ctx);
-['_libNormalizeVal', '_libSigFig', '_libValuesMatch', '_libVerifyApproverMatch', '_libGasHasLimit',
+['_libNormalizeVal', '_libSigFig', '_libSigDigits', '_libValuesMatch', '_libVerifyApproverMatch', '_libGasHasLimit',
  '_libVerifyReleaseValues', '_libGasProfileSnapshot', '_libLabVersionNow', '_libPickGasProfile']
     .forEach(n => vm.runInContext(extraer('cop15.js', n), ctx));
 
@@ -127,6 +127,21 @@ console.log('\n== _libVerifyApproverMatch (2.2.0) ==');
         v(p, lib, Object.assign({ CO2: '150' }, lib)).missing.join() === 'CO₂');
     ok('un gas con límite sin capturar sigue faltando', v(p, { CO: '0.2' }, lib).missing.length === 3);
     ok('y un desacuerdo sigue bloqueando', v(p, Object.assign({}, lib, { NOx: '0.02' }), lib).mismatches.join() === 'NOx');
+}
+
+// ── [2.27.1] Se compara en la unidad en que se TECLEA ─────────────────────
+console.log('\n== Doble ciego en la unidad de captura (2.27.1) ==');
+{
+    ['GAS_UNIT_FACTORS'].forEach(n => vm.runInContext(extraerVar('app.js', n), ctx));
+    ['_gasTidy', 'gasConvert', 'gasCaptureUnit'].forEach(n => vm.runInContext(extraer('app.js', n), ctx));
+    const v = ctx._libVerifyApproverMatch;
+    const p = { gases: [{ field: 'NOx', label: 'NOx', unit: 'g/km', captureUnit: 'g/mi', limit: 0.06 }] };
+    // Lo guardado está en g/km; lo tecleado y lo que dice el reporte, en g/mi.
+    const aprob = { NOx: ctx.gasConvert(6.4, 'g/mi', 'g/km') };
+    const libera = { NOx: ctx.gasConvert(6.389859, 'g/mi', 'g/km') };
+    ok('6.4 g/mi coincide con 6.389859 g/mi aunque se guarden en g/km', v(p, aprob, libera).ok === true,
+       JSON.stringify(v(p, aprob, libera)) + ' ' + aprob.NOx + ' vs ' + libera.NOx);
+    ok('6.3 g/mi no', v(p, { NOx: ctx.gasConvert(6.3, 'g/mi', 'g/km') }, libera).ok === false);
 }
 
 // ── El perfil de un vehículo YA liberado ─────────────────────────────────

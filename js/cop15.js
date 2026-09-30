@@ -3152,12 +3152,31 @@ function _libSigFig(n, s) {
     return Math.round(n * factor) / factor;
 }
 
-// Liberador↔Aprobador match: equal to 3 significant figures.
+/** Cuántas cifras significativas trae un número ya normalizado (6.4 → 2, 0.0064 → 2, 130 → 3). PURA. */
+function _libSigDigits(n) {
+    var m = String(Math.abs(Number(n))).toLowerCase().split('e')[0].replace('.', '').replace(/^0+/, '');
+    return Math.max(1, m.length);
+}
+
+/**
+ * Liberador↔Aprobador: ¿es el mismo resultado? PURA.
+ *
+ * [2.27.1] Se compara a la precisión del valor que trae MENOS cifras, con piso de 2 y
+ * techo de 3 cifras significativas. Antes eran 3 fijas: VETS traía 6.389859, el reporte
+ * impreso decía 6.4, el aprobador tecleaba 6.4 y la comparación daba 6.39 ≠ 6.40 — el
+ * doble ciego rechazaba el MISMO resultado. Ahora 6.4 coincide con 6.389859 porque éste
+ * se redondea a 6.4.
+ * NO se bajó a 2 cifras para todos: en CO₂ eso daría 126 = 134 (los dos → 130). Con este
+ * criterio 126 vs 134 sigue sin coincidir, y teclear "6" contra 6.39 tampoco (piso 2).
+ * Los enteros cuentan sus ceros ("130" = 3 cifras): nadie esquiva la comparación
+ * tecleando un número redondo.
+ */
 function _libValuesMatch(a, b) {
     var na = _libNormalizeVal(a);
     var nb = _libNormalizeVal(b);
     if (na === null || nb === null) return na === nb;
-    return _libSigFig(na, 3) === _libSigFig(nb, 3);
+    var k = Math.min(3, Math.max(2, Math.min(_libSigDigits(na), _libSigDigits(nb))));
+    return _libSigFig(na, k) === _libSigFig(nb, k);
 }
 
 /**
@@ -3198,6 +3217,13 @@ function _libVerifyApproverMatch(profile, approverValues, liberadorValues) {
             return;
         }
         if (!liberadorLoCapturo) return;   // el liberador no capturó ese gas
+        // [2.27.1] Se compara en la unidad en que se TECLEA (captureUnit): ahí es donde las
+        // cifras significan algo. En la unidad guardada, 6.4 g/mi se vuelve 3.97678… g/km
+        // y ya no se sabe cuántas cifras tecleó la persona.
+        var cu = (typeof gasCaptureUnit === 'function') ? gasCaptureUnit(g) : null;
+        if (cu && g.unit && cu !== g.unit && typeof gasConvert === 'function') {
+            a = gasConvert(a, g.unit, cu); l = gasConvert(l, g.unit, cu);
+        }
         if (!_libValuesMatch(a, l)) mismatches.push(g.label || g.field);
     });
     return { ok: mismatches.length === 0 && missing.length === 0, mismatches: mismatches, missing: missing, sinPerfil: false };
@@ -3491,7 +3517,7 @@ function libOnApproverGasChange() {
         matchStatus.style.background = 'rgba(239,68,68,0.1)';
         matchStatus.style.border = '1px solid rgba(239,68,68,0.3)';
         matchStatus.style.color = tokenColor('--danger-text');
-        matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (comparación a 3 cifras significativas). '
+        matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (se compara con las cifras del valor más corto: mínimo 2, máximo 3 significativas). '
             + 'Verifique su lectura; si el error es del liberador, use <strong>↩️ Devolver al liberador</strong>.';
         _libHighlightReturnBtn(true);
         uiExplainDisabled(btn, 'Los valores de ' + mismatches.join(', ') + ' no coinciden con los del liberador. Revisa tu lectura o devuélvelo.');

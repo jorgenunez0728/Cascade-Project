@@ -98,6 +98,16 @@ console.log('\n== _libValuesMatch: doble ciego ==');
     ok('con la coma decimal tambien', m('0,013', '0.013') === true);
     ok('dos vacios coinciden', m('', '') === true);
     ok('vacio contra un numero NO coincide', m('', '0.013') === false);
+    // [2.27.1] El caso reportado: VETS 6.389859, el reporte impreso dice 6.4.
+    ok('6.4 tecleado coincide con 6.389859 de VETS', m('6.4', '6.389859') === true);
+    ok('y al reves (el liberador redondeó, el aprobador trae todo)', m('6.389859', '6.4') === true);
+    ok('6.3 NO coincide con 6.389859', m('6.3', '6.389859') === false);
+    ok('piso de 2 cifras: "6" contra 6.39 NO coincide', m('6', '6.389859') === false);
+    ok('CO2: 126 vs 134 sigue sin coincidir (con 2 cifras fijas daria 130 = 130)', m('126', '134') === false);
+    ok('CO2: 126.4 coincide con 126.367152', m('126.4', '126.367152') === true);
+    ok('un entero redondo cuenta sus ceros: 130 NO coincide con 126.37', m('130', '126.37') === false);
+    ok('NOx 0.0064 coincide con 0.00643310999', m('0.0064', '0.00643310999') === true);
+    ok('techo de 3 cifras: 6.38986 vs 6.38912 coinciden (6.39)', m('6.38986', '6.38912') === true);
 }
 
 // ── _libVerifyApproverMatch: el candado, ya en la capa de datos ────────────
