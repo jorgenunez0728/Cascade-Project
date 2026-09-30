@@ -38,14 +38,58 @@ function tpRemoveWeeklyItem(wk, idx) {
     wk = _n.weekIdx; idx = _n.itemIdx;
     var _plan = _n.plan;
     var _lbl = _n.item.desc || '';
+    var _pid = tpPlanId(_plan), _uid = _n.item.uid;
     showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        // Acción destructiva: se puede deshacer y queda en el control de cambios.
-        if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
-        tpState.weeklyPlans[wk].items.splice(idx, 1);
-        tpSave(); tpRender();
-        if (typeof auditLog === 'function') auditLog('tp', 'week_item_removed', { type: 'plan', label: _lbl }, 'Semana ' + (wk + 1));
+        // [2.22.0] Por identidad, no por el índice de cuando se abrió el diálogo.
+        var r = tpRemoveWeeklyItemNow(_pid, _uid != null ? _uid : idx);
+        if (!r.ok) { if (typeof showToast === 'function') showToast(r.reason, 'error'); return; }
+        tpRender();
     });
+}
+
+/**
+ * [2.22.0] ÚNICO escritor de "quitar una prueba del plan". Sin diálogo: lo llaman
+ * tpRemoveWeeklyItem (tras su confirmación) y la revisión de la semana (la ficha
+ * "Quitar" + Guardar es la confirmación). Acción destructiva: undoPush + auditoría.
+ * Devuelve {ok, item, atIdx, planId} — lo que hace falta para devolverla.
+ */
+function tpRemoveWeeklyItemNow(planRef, itemRef, opts) {
+    opts = opts || {};
+    var _n = _tpIdx(planRef, itemRef);
+    if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
+    if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
+    var item = _n.plan.items.splice(_n.itemIdx, 1)[0];
+    tpBoardInvalidate();
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_removed', { type: 'plan', label: item.desc || '' },
+                 'Semana del ' + (_n.plan.weekDate || '—') + (opts.via ? ' · ' + opts.via : ''));
+    }
+    return { ok: true, item: item, atIdx: _n.itemIdx, planId: tpPlanId(_n.plan) };
+}
+
+/**
+ * [2.22.0] Devolver una prueba quitada: reinserta ESE objeto (mismo uid, misma
+ * posición). No es "agregar otra": conserva origen, cola y propósito. Se niega si
+ * el uid ya volvió (dos toques no duplican).
+ */
+function tpRestoreWeeklyItem(planRef, item, atIdx) {
+    var _n = _tpIdx(planRef);
+    if (!_n || !item) return { ok: false, reason: 'No se encontró esa semana (el plan cambió).' };
+    var plan = _n.plan;
+    if (!Array.isArray(plan.items)) plan.items = [];
+    if (item.uid && plan.items.some(function(it) { return it && it.uid === item.uid; })) {
+        return { ok: false, reason: 'Esa prueba ya está en la semana.' };
+    }
+    var at = Math.max(0, Math.min(plan.items.length, typeof atIdx === 'number' ? atIdx : plan.items.length));
+    plan.items.splice(at, 0, item);
+    tpBoardInvalidate();
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_restored', { type: 'plan', label: item.desc || '' }, 'Semana del ' + (plan.weekDate || '—'));
+    }
+    return { ok: true };
 }
 
 /**
@@ -4993,7 +5037,10 @@ function tpRenderMyWeek(el) {
             ? '<span class="tp-week-tag tp-week-tag--ok">✔ Aceptado</span>' +
               '<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(\'' + b.planId + '\')">↩️ Desaceptar</button>'
             : '<span class="tp-week-tag">Propuesta</span>' +
-              '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
+              // [2.22.0] Revisar prueba por prueba es el camino principal; aceptar sin
+              // revisar sigue a un toque, como secundario.
+              '<button class="tp-btn tp-btn-primary" onclick="tpReviewWeekOpen(\'' + b.weekDate + '\')">🔎 Revisar y aceptar</button>' +
+              '<button class="tp-btn tp-btn-ghost" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
     }
     // [v24] Sin plan el armador ya se muestra abierto abajo: un segundo botón que lleva
     // al mismo sitio es una decisión de más.
@@ -9949,6 +9996,235 @@ function tpRenderCoverageHeatmap() {
 
 
 // ══════════════════════════════════════════════════════════════════════
+// [2.22.0] REVISAR Y ACEPTAR LA SEMANA — una prueba a la vez (uiFlow)
+//
+// Aceptar era UN botón sobre un tablero de cinco columnas: en el teléfono nadie
+// revisaba prueba por prueba. Aquí cada prueba de la PROPUESTA es una tarjeta con su
+// semáforo (tpWeekItemRisk, la definición única) y una decisión: así está / otro día /
+// quitar. Al final, el resumen y "Aceptar la semana".
+//  - Todo por IDENTIDAD (planId + uid), nunca índice — la regla de v23.
+//  - Escribe solo con los escritores de siempre: tpMoveItemToDay, tpRemoveWeeklyItemNow,
+//    tpRestoreWeeklyItem, tpAcceptWeeklyPlan. "Así está" no escribe nada.
+//  - Deshacer un "Quitar" es "↩ Devolver" en el resumen (reinserta ESE objeto). Un
+//    undoableAction restauraría la foto entera y se llevaría los movimientos posteriores.
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Qué se revisa y en qué orden. PURA (recibe el tablero de tpWeekBoardRows).
+ * Lo que no tiene día va primero (es lo que pide atención); luego por día de prueba.
+ * Las ya hechas no se preguntan: se cuentan aparte.
+ */
+function tpReviewWeekPick(board) {
+    var rows = (board && board.rows) || [];
+    var order = TP_DAY_ORDER;
+    var pend = rows.filter(function(r) { return r && !r.done; }).map(function(r, i) { return { r: r, i: i }; });
+    pend.sort(function(a, b) {
+        var da = a.r.testDay ? order.indexOf(a.r.testDay) : -1;
+        var db = b.r.testDay ? order.indexOf(b.r.testDay) : -1;
+        return da !== db ? da - db : a.i - b.i;
+    });
+    return {
+        rows: pend.map(function(x) { return x.r; }),
+        sectionOf: function(r) { return r.testDay ? (TP_DAY_LABELS[r.testDay] || r.testDay) : 'Sin día'; },
+        done: rows.filter(function(r) { return r && r.done; }).length
+    };
+}
+
+var _tpReview = null;   // {planId, weekDate, choice:{uid:'ok'|'move'|'drop'}, day:{uid:dia}, moved:[], removed:[]}
+
+function tpReviewWeekOpen(weekDate) {
+    var wd = weekDate || (typeof tpBoardWeekDate === 'function' ? tpBoardWeekDate() : null);
+    var vig = tpWeekPlanFor(wd);
+    if (!vig || !vig.plan) { showToast('Esta semana no tiene plan. Ármalo primero en Plan → Mi semana.', 'info'); return false; }
+    if (vig.accepted) { showToast('La semana del ' + wd + ' ya está aceptada.', 'info'); return false; }
+    tpEnsureItemUids();
+    var b = tpWeekBoardRows({ planId: vig.planId });
+    var pick = tpReviewWeekPick(b);
+    if (!pick.rows.length) {
+        showToast('La propuesta no tiene pruebas pendientes que revisar.', 'info');
+        return false;
+    }
+    _tpReview = { planId: vig.planId, weekDate: wd, choice: {}, day: {}, moved: [], removed: [], doneBefore: pick.done };
+    return uiFlowOpen({
+        id: 'weekReview',
+        title: '🔎 Revisar la semana',
+        subtitle: 'del ' + wd,
+        saveLabel: 'Listo ▸',
+        steps: pick.rows.map(function(r) {
+            var uid = r.uid;
+            return {
+                key: uid,
+                section: pick.sectionOf(r),
+                title: r.shortName || r.desc,
+                render: function(host) { _tpReviewCard(host, uid); },
+                save: function(host) { return _tpReviewSave(host, uid); }
+            };
+        }),
+        onFinal: _tpReviewFinalHTML,
+        onClose: function() {
+            _tpReview = null;
+            if (typeof tpRender === 'function') tpRender();
+            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        }
+    });
+}
+
+/** La fila VIVA de un uid (el plan pudo cambiar a media revisión). */
+function _tpReviewRow(uid) {
+    if (!_tpReview) return null;
+    var b = tpWeekBoardRows({ planId: _tpReview.planId });
+    return ((b && b.rows) || []).filter(function(r) { return r.uid === uid; })[0] || null;
+}
+
+function _tpReviewCard(host, uid) {
+    var r = _tpReviewRow(uid);
+    if (!r) {
+        host.innerHTML = '<p class="uf-note">Esta prueba ya no está en la semana (se quitó o cambió desde otro equipo). Toca <b>Después</b> para seguir.</p>';
+        return;
+    }
+    var ch = _tpReview.choice[uid] || 'ok';
+    var lvl = r.risk && r.risk.level;
+    var dias = (r.preconDay ? (TP_DAY_LABELS[r.preconDay] || r.preconDay) + ' → ' : '') + (r.testDay ? (TP_DAY_LABELS[r.testDay] || r.testDay) : 'sin día');
+    var veh = r.vehicleAny
+        ? '🚗 …' + escapeHtml(String(r.vehicleAny.vin || '').slice(-6)) + (r.stage ? ' · ' + escapeHtml(r.stage.label) : '')
+        : 'Sin vehículo todavía';
+    var h = '<div class="uf-kicker">' + escapeHtml(r.variantTag || '') + (r.rgn ? ' · ' + escapeHtml(r.rgn) : '') + (r.reg ? ' · ' + escapeHtml(r.reg) : '') + '</div>' +
+        '<div class="uf-q">' + escapeHtml(r.shortName || r.desc) + '</div>' +
+        '<div class="uf-facts">' +
+            '<div><span>Preacon → prueba</span><b>' + escapeHtml(dias) + '</b></div>' +
+            '<div><span>Reposo</span><b>' + (r.soakHours || '—') + ' h</b></div>' +
+            '<div><span>Vehículo</span><b>' + veh + '</b></div>' +
+        '</div>';
+    if (r.risk && r.risk.reasons && r.risk.reasons.length) {
+        h += '<div class="uf-list ' + (lvl === 'riesgo' ? 'is-bad' : 'is-warn') + '"><b>' + (lvl === 'riesgo' ? '🔴 Revisa' : '⚠️ Atención') + '</b>' +
+             r.risk.reasons.map(function(x) { return '<div>' + escapeHtml(x.text) + '</div>'; }).join('') + '</div>';
+    }
+    h += '<div class="uf-choices" role="radiogroup" aria-label="¿Qué hacemos con esta prueba?">' +
+        _tpReviewChoiceBtn(uid, 'ok', '✔ Así está', ch) +
+        _tpReviewChoiceBtn(uid, 'move', '📅 Otro día', ch) +
+        _tpReviewChoiceBtn(uid, 'drop', '✕ Quitar de la semana', ch) +
+        '</div>';
+    if (ch === 'move') {
+        var _pl = _tpIdx(_tpReview.planId);
+        var workDays = _pl ? tpWorkDaysFor(_pl.plan) : {};
+        var slots = tpSlotsForSoak(r.soakHours || tpSoakHoursFor(r.cfg || {}).hours, workDays)
+            .filter(function(s) { return !s.spillsNextWeek && s.test !== r.testDay; });
+        var sel = _tpReview.day[uid] || '';
+        h += '<div class="uf-field"><span>¿Qué día se prueba?</span><div class="uf-choices" id="uf-tp-day">' +
+            (slots.length ? slots.map(function(s) {
+                return '<button type="button" class="uf-choice' + (sel === s.test ? ' is-on' : '') + '" aria-pressed="' + (sel === s.test) + '" ' +
+                       'onclick="_tpReviewPickDay(\'' + uid + '\',\'' + s.test + '\')">' + escapeHtml(s.testLabel) +
+                       ' <small>(preacon ' + escapeHtml(s.preconLabel) + ')</small></button>';
+            }).join('') : '<p class="uf-note">Con ' + (r.soakHours || '—') + ' h de reposo no hay otro día posible esta semana.</p>') +
+            '</div></div>';
+    } else if (ch === 'drop') {
+        h += '<p class="uf-note">Sale de esta semana. Si te equivocas, al final puedes devolverla.</p>';
+    }
+    host.innerHTML = h;
+}
+
+function _tpReviewChoiceBtn(uid, val, label, cur) {
+    var on = cur === val;
+    return '<button type="button" role="radio" class="uf-choice' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" ' +
+           'onclick="_tpReviewChoose(\'' + uid + '\',\'' + val + '\')">' + label + '</button>';
+}
+
+function _tpReviewChoose(uid, val) {
+    if (!_tpReview) return;
+    _tpReview.choice[uid] = val;
+    var host = document.querySelector('#ui-flow .uf-card');
+    if (host) _tpReviewCard(host, uid);
+}
+function _tpReviewPickDay(uid, day) {
+    if (!_tpReview) return;
+    _tpReview.day[uid] = day;
+    var host = document.querySelector('#ui-flow .uf-card');
+    if (host) _tpReviewCard(host, uid);
+}
+
+function _tpReviewSave(host, uid) {
+    if (!_tpReview) return { ok: false, msg: 'La revisión ya se cerró.' };
+    var r = _tpReviewRow(uid);
+    if (!r) return { ok: false, msg: 'Esta prueba ya no está en la semana: toca "Después".' };
+    var ch = _tpReview.choice[uid] || 'ok';
+    if (ch === 'ok') return { ok: true };
+    if (ch === 'move') {
+        var day = _tpReview.day[uid];
+        var box = host && host.querySelector('#uf-tp-day');
+        if (!day) return { ok: false, field: box, msg: 'Elige el día, o toca "✔ Así está".' };
+        var res = tpMoveItemToDay(_tpReview.planId, uid, day, { via: 'revision' });
+        if (!res.ok) return { ok: false, field: box, msg: res.reason };
+        _tpReview.moved.push({ uid: uid, name: r.shortName || r.desc, from: res.from, to: res.to });
+        return { ok: true };
+    }
+    var rm = tpRemoveWeeklyItemNow(_tpReview.planId, uid, { via: 'revisión de la semana' });
+    if (!rm.ok) return { ok: false, msg: rm.reason };
+    _tpReview.removed.push({ uid: uid, name: r.shortName || r.desc, item: rm.item, atIdx: rm.atIdx, back: false });
+    return { ok: true };
+}
+
+/** ↩ Devolver desde el resumen: reinserta ese mismo objeto. */
+function tpReviewRestore(uid) {
+    if (!_tpReview) return;
+    var x = _tpReview.removed.filter(function(y) { return y.uid === uid; })[0];
+    if (!x || x.back) return;
+    var res = tpRestoreWeeklyItem(_tpReview.planId, x.item, x.atIdx);
+    if (!res.ok) { showToast(res.reason, 'error'); return; }
+    x.back = true;
+    showToast('Volvió a la semana: ' + x.name, 'success');
+    var body = document.getElementById('uf-body');
+    if (body && typeof uiFlowGoTo === 'function') uiFlowGoTo(9999);   // repinta el resumen
+}
+
+function tpReviewAccept() {
+    if (!_tpReview) return;
+    var pid = _tpReview.planId;
+    if (typeof authCan === 'function' && !authCan('plan.manage')) {
+        if (typeof authRequire === 'function') authRequire('plan.manage', 'aceptar un plan semanal');
+        return;
+    }
+    tpAcceptWeeklyPlan(pid);
+    var n = _tpIdx(pid);
+    if (n && n.plan && n.plan.accepted && typeof uiFlowClose === 'function') uiFlowClose('done');
+}
+
+function _tpReviewFinalHTML(model) {
+    if (!_tpReview) return '';
+    var b = tpWeekBoardRows({ planId: _tpReview.planId });
+    var rows = (b && b.rows) || [];
+    var riesgo = rows.filter(function(r) { return !r.done && r.risk && r.risk.level === 'riesgo'; }).length;
+    var sinRev = model.cards.filter(function(c) { return c.status !== 'hecho'; }).length;
+    var h = '<div class="uf-final-title">' + (b && b.accepted ? '✔ Semana aceptada' : 'Semana del ' + escapeHtml(_tpReview.weekDate)) + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b>' + rows.length + '</b><span>Pruebas en la semana</span></div>' +
+        '<div class="uf-stat"><b class="is-ok">' + _tpReview.moved.length + '</b><span>Movidas</span></div>' +
+        '<div class="uf-stat"><b class="' + (riesgo ? 'is-bad' : 'is-ok') + '">' + riesgo + '</b><span>Con riesgo</span></div>' +
+        '</div>';
+    if (_tpReview.moved.length) {
+        h += '<div class="uf-list is-ok"><b>📅 Movidas</b>' + _tpReview.moved.map(function(m) {
+            return '<div>' + escapeHtml(m.name) + ': ' + escapeHtml(TP_DAY_LABELS[m.from] || 'sin día') + ' → ' + escapeHtml(TP_DAY_LABELS[m.to] || m.to) + '</div>';
+        }).join('') + '</div>';
+    }
+    if (_tpReview.removed.length) {
+        h += '<div class="uf-list"><b>✕ Quitadas</b>' + _tpReview.removed.map(function(x) {
+            return '<div class="uf-row">' + escapeHtml(x.name) + (x.back
+                ? ' <span class="u-muted">· devuelta</span>'
+                : ' <button type="button" class="uf-link" onclick="tpReviewRestore(\'' + x.uid + '\')">↩ Devolver</button>') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (sinRev) h += '<div class="uf-list is-warn">' + sinRev + ' prueba(s) sin revisar. Puedes aceptar igual o seguir revisando.</div>';
+    if (_tpReview.doneBefore) h += '<p class="uf-note">' + _tpReview.doneBefore + ' prueba(s) ya estaban hechas y no se preguntaron.</p>';
+    if (b && !b.accepted) {
+        var why = (typeof authCan === 'function' && !authCan('plan.manage'))
+            ? 'Tu rol no permite aceptar el plan. Lo acepta quien administra el plan; lo que moviste ya quedó guardado.' : '';
+        h += '<button type="button" class="btn-primary uf-next" id="uf-tp-accept" onclick="tpReviewAccept()"' +
+             (why ? ' disabled data-why="' + escapeHtml(why) + '" title="' + escapeHtml(why) + '"' : '') + '>✔ Aceptar la semana (' + rows.length + ' prueba' + (rows.length === 1 ? '' : 's') + ')</button>';
+        if (why) h += '<p class="uf-note">' + escapeHtml(why) + '</p>';
+    }
+    return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // v16.0 — Banners de ayuda de las pestañas de Test Plan (HELP_TABS vive en
 // app.js, que carga primero, así que ya existe cuando se ejecuta esta línea).
 // ══════════════════════════════════════════════════════════════════════
@@ -9967,6 +10243,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         text: 'El tablero de lo que toca correr: una columna por día laborable. Cada prueba vive una sola vez, en su columna de PRUEBA — el preacondicionamiento se ve en el medidor del encabezado y en la tira de días de la tarjeta.',
         tips: [
             'La columna de HOY va resaltada. ◀ ▶ mueven de semana; "Ir a hoy" regresa.',
+            'Con una propuesta, "🔎 Revisar y aceptar" te lleva prueba por prueba: así está, otro día (solo los días donde cabe el reposo) o quitarla. Lo quitado se puede devolver en el resumen, antes de aceptar.',
             'La tira de colores de cada tarjeta es su recorrido real: P = preacondicionamiento, · = reposo, T = prueba. Un soak de 36 h ocupa más días, y se ve.',
             '"↪ Mover" ofrece solo los días donde el reposo SÍ cabe; los imposibles salen deshabilitados con el motivo escrito.',
             'Marcar ✅ a mano deja un registro permanente marcado como "declarada" — sobrevive aunque borres el plan, pero nunca se disfraza de liberación real.',

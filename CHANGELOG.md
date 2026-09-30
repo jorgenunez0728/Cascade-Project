@@ -20,6 +20,125 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.23.0 — HOY: te toca (2026-09-30)
+
+### Nuevo
+- **📥 Te toca** reemplaza a "📌 Lo siguiente" en HOY: lo que a ti te toca hacer ahora, lo
+  atrasado primero.
+  - **Según tu rol**: aprobar solo le aparece a quien puede aprobar, y nunca lo que esa persona
+    liberó; liberar, a quien puede liberar; armar o aceptar la semana, a quien administra el plan;
+    las alarmas del Control SPC, a quien juzga el CoP.
+  - Lo que le toca a otro rol **se cuenta al pie** ("N le tocan a otros roles") y sigue en su
+    categoría: no se esconde en silencio.
+  - Se ven las 5 más urgentes; **Ver las que siguen** despliega el resto.
+- **⏰ Posponer hasta mañana** (o deslizar la fila a la izquierda). La fila sale de tu bandeja,
+  sigue en su categoría marcada **⏰ Pospuesta · regresar** y aparece otra vez sola al día
+  siguiente. Deshacer en el aviso. **Posponer nunca marca nada como hecho.** Es por persona y por
+  equipo: en una tablet compartida, el siguiente turno la sigue viendo.
+- **Todo al día**: con la bandeja vacía, un cierre con cómo va la semana (pruebas hechas del
+  compromiso y en riesgo) y cuántas quedaron pospuestas.
+
+### Arreglado
+- Las alertas de Calidad en HOY usaban su posición en la lista como identidad: al cambiar la
+  lista, "la misma" fila era otra. Ahora tienen un id estable (necesario para posponer).
+
+### Para desarrollo
+- `dashInbox(acts, {can, snooze, now})` (PURA) es LA definición de la bandeja; ordena con
+  `dashNextUp` y devuelve `{items, snoozed, byRole}`. Cada fila de `dashCollectActivities` puede
+  declarar `perm` (permiso de su siguiente paso) y `notForMe` (p. ej. aprobar lo propio,
+  `authCanApproveVehicle`).
+- Posponer: `dashSnooze(id)` / `dashUnsnooze(id)`, en `uiPref('dashSnooze')[persona][id] =
+  hastaISO` (`dashSnoozeUntil`, PURA: inicio de mañana, hora local). Se purga lo vencido al escribir.
+- Deslizar: `dashInboxSwipeInit(root)` escucha en el contenedor de HOY y detiene la propagación,
+  porque el deslizar global entre plataformas (150 px, en `document`) cambiaría de pantalla en el
+  mismo gesto.
+- Pruebas: `tests/catalogo-hoy.node.js` (+7), `tests/v2230.e2e.js` (16).
+
+## 2.22.0 — Revisar la semana y repasar proyectos, una cosa a la vez (2026-09-30)
+
+### Nuevo
+- **🔎 Revisar y aceptar la semana** (Plan → Mi semana, y desde HOY). Con una propuesta, cada
+  prueba es una tarjeta: su configuración, preacondicionamiento → prueba, reposo, vehículo y el
+  semáforo con sus motivos. Una decisión por tarjeta:
+  - **✔ Así está** (no cambia nada),
+  - **📅 Otro día**: solo ofrece los días donde cabe el reposo; el cambio queda registrado como
+    cualquier movimiento del tablero,
+  - **✕ Quitar de la semana**.
+  Primero salen las pruebas sin día. Al final, el resumen (pruebas, movidas, con riesgo, sin
+  revisar) y **✔ Aceptar la semana**. Se puede aceptar aunque falte revisar alguna: el resumen lo
+  dice. Quien no puede aceptar el plan ve el botón deshabilitado con el motivo; lo que movió sí
+  queda guardado.
+- **↩ Devolver** en el resumen regresa una prueba quitada tal como estaba, en su lugar.
+- **🧭 Repasar pendientes** (Datos → Proyectos, y desde HOY con 2 o más). Cada paso vencido o
+  bloqueado es una tarjeta con una decisión:
+  - **✔ Ya se hizo** (con la fecha en que se terminó),
+  - **📅 Nueva fecha** (con motivo opcional; queda en el historial de cambios). Un paso bloqueado
+    que recibe fecha nueva deja de estar bloqueado,
+  - **🚧 Está bloqueado** (hay que escribir qué lo detiene).
+  Respeta "Solo míos" y dice cuántos pasos de otros quedaron fuera.
+
+### Cambió
+- En Mi semana, una propuesta muestra primero **🔎 Revisar y aceptar**; "✔ Aceptar" directo sigue
+  ahí como botón secundario.
+- La fila de HOY de la propuesta sin aceptar abre la revisión directo (el 📅 de al lado sigue
+  llevando al tablero).
+- En los resúmenes de las tarjetas hay un solo botón principal.
+
+### Para desarrollo
+- `tpReviewWeekOpen(weekDate)` y `tpReviewWeekPick(board)` (PURA). Todo por `planId` + `uid`.
+- `tpRemoveWeeklyItemNow(planRef, itemRef, opts)` es el ÚNICO escritor de "quitar una prueba del
+  plan" (sin diálogo); `tpRemoveWeeklyItem` lo llama tras su confirmación.
+  `tpRestoreWeeklyItem(planRef, item, atIdx)` reinserta ese mismo objeto (audit `week_item_restored`).
+- `pnProjectsReviewOpen()`, `pnProjectsReviewPick(items, {onlyMine, me})` (PURA),
+  `pnProjectsReviewCount()`. Escritores: `pnProjectStepDone(pid, sid, {date, silent, noNav})`
+  (sin opts, igual que antes), `pnProjectStepReschedule` (audit `proyecto_fecha_movida`) y
+  `pnProjectStepBlock` (audit `proyecto_paso_estatus`).
+- `uiFlowOpen` acepta `closeLabel`; Terminar pasa a secundario si el resumen trae un `btn-primary`
+  (y lleva la clase `uf-close`).
+- Pruebas: `tests/plan.node.js` (+4), `tests/uiflow.node.js` (+6), `tests/v2220.e2e.js` (25).
+
+## 2.21.0 — Una cosa a la vez, también en Consumibles (2026-09-30)
+
+### Nuevo
+- **La ronda de lecturas de gases usa las tarjetas de Operación.** Un cilindro por pantalla, con
+  su última lectura y la tendencia de las últimas cinco; arriba la barra de avance por zona
+  (A, B, C… y al final el combustible), abajo **Guardar ▸** grande, **Después** para lo que no
+  se pudo leer y **‹** para regresar. Deslizar solo cambia de tarjeta: nunca guarda. Se puede
+  salir a media ronda y retomarla donde se quedó, como antes.
+- **🧭 Ronda de equipos.** Junta en un solo recorrido los mantenimientos vencidos, los de esta
+  semana y las calibraciones vencidas o que vencen en los próximos 14 días. Cada tarjeta pide lo
+  mismo que ya pedían "✅ Calibrado" (fecha, certificado, proveedor) y "✔ Hecho" (fecha, horas,
+  comentarios). Se abre desde **🔧 Equipos**, **🛠️ Mtto**, **HOY** (cuando hay 2 o más
+  pendientes) y el menú **Crear**.
+- **El cierre de cada ronda dice cómo quedó el laboratorio**: en gases, qué cilindros quedaron
+  por debajo del nivel de reposición y cuáles tuvieron una caída que revisar; en equipos, qué se
+  registró, qué quedó para después y el % de calibraciones vigentes.
+
+### Cambió
+- En la ronda de gases, una tarjeta vacía **ya no** guarda la lectura anterior por omisión: una
+  lectura es evidencia. Para repetirla se toca **= Igual que la última**.
+
+### Arreglado
+- Salir de la ronda de gases a medias con ✕ dejaba las lecturas ya capturadas solo en memoria:
+  se perdían al recargar. Ahora se guardan al salir.
+- Regresar a un cilindro dentro de la misma ronda y corregir su valor ya no duplica la fila en
+  el resumen, y la caída se calcula contra la lectura del día anterior, no contra la recién
+  capturada.
+
+### Para desarrollo
+- **`js/uiflow.js` es LA primitiva de "una cosa a la vez"** para toda la plataforma fuera de
+  Operación: `uiFlowOpen({id, title, subtitle, steps, state, startAt, saveLabel, onStep,
+  onFinal, onClose})`. Cada paso es `{key, section, title, render(host), save(host),
+  onLater(), blocked()}`. **uiFlow no guarda nada**: cada `save` escribe con el escritor único
+  de su módulo. `uiFlowModel` y `uiFlowNextIndex` son PURAS (`tests/uiflow.node.js`).
+- `opcards.js` no se tocó: sus tarjetas son los campos del formulario de Operación en su lugar.
+- `invEquipmentRoundPick(src)` (PURA) decide qué entra a la ronda de equipos y en qué orden;
+  `INV_EQ_ROUND_CAL_DAYS` = 14.
+- `invCalRegister` e `invMaintMarkDone` aceptan `opts.silent` (sin toast); lo demás igual.
+- Se retiró el overlay `.reading-round-overlay` y las funciones `invRoundNext/Prev/Skip/Finish`.
+  `kia_inv_round` sigue siendo la llave de la ronda a medias.
+- Orden de carga: `app.js → uiflow.js → cop15.js → …`.
+
 ## 2.20.0 — Libera el Técnico; las fallas de VETS las decide quien aprueba (2026-09-29)
 
 ### Cambió

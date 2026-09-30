@@ -53,6 +53,7 @@ index.html              ← Development entry point (modular, uses <script src>)
 styles.css              ← All CSS — Glass + Neumorphism design system
 js/
   app.js                ← Config, utils, chart engine, undo, notes, PDF, audit, gridDragInit, bootstrap (~5,660 lines)
+  uiflow.js             ← Una cosa a la vez: primitiva de tarjetas para toda la plataforma fuera de Operación (~300 lines)
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
@@ -172,7 +173,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
+`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
 `signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
@@ -2511,6 +2512,65 @@ menos **dejó de ser silencioso**.
 - **Cambiar de sesión repinta la pantalla abierta** (`authUpdateUI`). Aprobación es una
   sub-pestaña dentro de Liberación (`libSwitchSubtab`, `#lib-panel-aprobador`), no una
   pestaña propia.
+
+## 2.21.0 — Una cosa a la vez, fuera de Operación (`js/uiflow.js`)
+
+- **`uiFlowOpen(opts)` es LA forma de llevar al técnico por una lista de cosas una por una**
+  (rondas, revisiones) en cualquier módulo que no sea Operación. Mismo lenguaje que
+  `opcards.js`: encabezado con segmentos por sección, pie ‹ / Después / Guardar ▸, deslizar
+  SOLO navega, Enter = Guardar, resumen final con "Seguir con lo que falta". **No agregar una
+  tercera implementación de tarjetas**: la ronda de gases tenía la suya y se migró aquí.
+- **uiFlow no guarda nada.** Cada paso `{key, section, title, render(host), save(host),
+  onLater(), blocked()}` escribe con el escritor único de su módulo (`invAddReading`,
+  `invCalRegister`, `invMaintMarkDone`…). `save` devuelve `{ok:false, field, msg}` para
+  rechazar: el error va en el campo (`uiInvalid`, 2.12.0). `blocked()` devuelve el motivo y el
+  botón lo dice (`uiExplainDisabled`, 2.10.0).
+- **"Después" nunca afirma un dato** y cuenta como pendiente en `uiFlowModel`. Un valor vacío
+  tampoco se guarda "por omisión": repetir la lectura anterior es un toque explícito (`= Igual`).
+- `uiFlowModel` / `uiFlowNextIndex` son PURAS (`tests/uiflow.node.js`).
+- **`opcards.js` NO usa uiFlow a propósito**: sus tarjetas son los campos de `#op-content` en
+  su lugar (reparentarlos rompería el autoguardado). Cascade no se tocó en esta ronda.
+- Capa `#ui-flow` a `z-index: 9500`: debajo de toasts y diálogos (9999), para que una
+  confirmación se vea encima.
+- **Ronda de gases**: `invStartReadingRound` sobre uiFlow; `kia_inv_round` sigue siendo la llave
+  de la ronda a medias; las lecturas se escriben con `skipSave` y se guardan UNA vez al llegar
+  al resumen **o al salir con ✕** (antes salir las dejaba solo en memoria).
+- **Ronda de equipos**: `invEquipmentRoundPick(src)` (PURA) es LA definición de qué entra y en
+  qué orden (mtto vencido → cal vencida → mtto de la semana → cal por vencer ≤
+  `INV_EQ_ROUND_CAL_DAYS`). `invCalRegister`/`invMaintMarkDone` aceptan `opts.silent`.
+
+## 2.22.0 — Revisar la semana y repasar proyectos (`js/testplan.js`, `js/projects.js`)
+
+- **Una tarjeta = UNA decisión con fichas** (`.uf-choices` / `.uf-choice`, `role="radio"`), y
+  Guardar aplica la elegida. Sin elegir, `save` rechaza por el grupo de fichas (`{ok:false, field}`),
+  nunca decide por omisión — salvo que la opción sea "no cambiar nada" (✔ Así está).
+- **Revisión de la semana**: solo sobre una PROPUESTA (`tpWeekPlanFor`); todo por `planId` + `uid`.
+  La fila se relee viva en cada tarjeta (`tpWeekBoardRows({planId})`): el plan puede cambiar por
+  sync a media revisión. Mover = `tpMoveItemToDay(…, {via:'revision'})`; quitar =
+  `tpRemoveWeeklyItemNow` (ÚNICO escritor de quitar).
+- **Deshacer dentro de una ronda NO usa `undoableAction`**: restaura la foto entera y se llevaría
+  los cambios posteriores de la misma ronda. Se deshace la acción concreta (`tpRestoreWeeklyItem`
+  reinserta ESE objeto, mismo `uid`).
+- Aceptar sigue siendo `tpAcceptWeeklyPlan` con `plan.manage`; el botón del resumen lo explica si
+  no hay permiso. Revisar NO es requisito para aceptar.
+- **Proyectos**: `pnProjectsReviewPick` aplica "Solo míos" con el criterio de `pnProjStepsFor` y
+  devuelve `hidden` (regla v22.5). Los escritores no llaman `_pnProjNav()` dentro de la ronda
+  (`noNav`): se repinta al cerrar.
+- Un solo botón principal por resumen: uiFlow degrada Terminar si `onFinal` trae un `btn-primary`.
+
+## 2.23.0 — HOY: te toca (`js/app.js`)
+
+- **`dashInbox(acts, ctx)` (PURA) es LA definición de "lo que le toca a esta persona"**. Toda fila
+  nueva de `dashCollectActivities` cuyo siguiente paso pida un permiso declara `perm`; si no es para
+  quien la mira (aprobar lo propio), `notForMe`. Sin `perm` la ven todos. Lo que se esconde por rol
+  se CUENTA (`byRole`) y sigue en su categoría — regla v22.5.
+- **Toda fila de HOY necesita un `id` ESTABLE** (nunca el índice de una lista): posponer se
+  recuerda por id. `_dashHash(texto)` para las que no traen uno propio.
+- **Posponer ≠ completar.** Solo esconde de la bandeja; la fila sigue en su categoría con
+  `_snoozed`. `uiPref('dashSnooze')` va por persona (`_dashMe()`), no por equipo.
+- **Un gesto horizontal dentro de una pantalla debe detener la propagación**: el deslizar global
+  entre plataformas vive en `document` (150 px, < 600 ms) y dispararía en el mismo gesto
+  (`dashInboxSwipeInit` lo hace; `.dash-inbox .dash-row` lleva `touch-action: pan-y`).
 
 ## Working with this project
 

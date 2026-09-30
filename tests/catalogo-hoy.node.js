@@ -45,6 +45,7 @@ const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, p
 vm.createContext(ctx);
 [['app.js', 'stableStringify'], ['app.js', '_manualCfgKey'], ['app.js', 'manualConfigsUnion'],
  ['app.js', 'manualConfigsNewTo'], ['app.js', 'dashNextUp'], ['app.js', 'dashCatSummary'],
+ ['app.js', 'dashInbox'], ['app.js', 'dashSnoozeUntil'],
  ['panel.js', '_labPulseDays'], ['panel.js', 'labPulseCompute']]
     .forEach(([f, n]) => vm.runInContext(extraer(f, n), ctx, { filename: f }));
 vm.runInContext(extraerVar('panel.js', 'LAB_PULSE_PIPELINE'), ctx);
@@ -126,6 +127,32 @@ console.log('\n== dashNextUp / dashCatSummary: lo siguiente de HOY ==');
     ok('el resumen por categoría cuenta pendientes sin lo hecho', veh.total === 2 && veh.pend === 1);
     ok('y marca las atrasadas', s.filter(c => c.cat === 'inventario')[0].late === 1);
     ok('las categorías vacías no generan tile', !s.some(c => c.cat === 'manuales'));
+}
+
+console.log('\n== [2.23.0] dashInbox: la bandeja "Te toca" ==');
+{
+    const acts = [
+        { id: 'a', cat: 'plan', status: 'pendiente', urgency: 1 },
+        { id: 'b', cat: 'calidad', status: 'pendiente', urgency: 3, perm: 'test.approve' },
+        { id: 'c', cat: 'inventario', status: 'atrasado', urgency: 0 },
+        { id: 'd', cat: 'vehiculos', status: 'hecho', urgency: 9 },
+        { id: 'e', cat: 'calidad', status: 'pendiente', urgency: 3, perm: 'test.approve', notForMe: true },
+        { id: 'f', cat: 'plan', status: 'pendiente', urgency: 2 }
+    ];
+    const tecnico = p => p !== 'test.approve';
+    const now = '2026-09-30T15:00:00.000Z';
+    const r = ctx.dashInbox(acts, { can: tecnico, snooze: { f: '2026-10-01T06:00:00.000Z' }, now });
+    ok('solo lo que su rol puede hacer; lo hecho fuera; lo atrasado primero', J(r.items.map(x => x.id)) === J(['c', 'a']), J(r.items.map(x => x.id)));
+    ok('lo de otros roles (y aprobar lo propio) se CUENTA, no se pierde', r.byRole === 2);
+    ok('lo pospuesto sale de la bandeja pero se devuelve aparte', J(r.snoozed.map(x => x.id)) === J(['f']));
+    const venc = ctx.dashInbox(acts, { can: tecnico, snooze: { f: '2026-09-30T06:00:00.000Z' }, now });
+    ok('un pospuesto vencido regresa solo', venc.items.some(x => x.id === 'f') && venc.snoozed.length === 0);
+    const mgr = ctx.dashInbox(acts, { can: () => true, now });
+    ok('Manager ve aprobar, pero no lo que él liberó', mgr.items.some(x => x.id === 'b') && !mgr.items.some(x => x.id === 'e'));
+    ok('sin contexto no truena y no oculta por rol', ctx.dashInbox(acts).byRole === 1 && ctx.dashInbox(null).items.length === 0);
+    const until = ctx.dashSnoozeUntil(new Date(2026, 8, 30, 15, 20));
+    const u = new Date(until);
+    ok('posponer = hasta el inicio de mañana (hora local)', u.getDate() === 1 && u.getMonth() === 9 && u.getHours() === 0 && u.getMinutes() === 0, until);
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron\n');

@@ -1940,26 +1940,6 @@ body{ overflow-x: hidden; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
-/* [R5-M5] Batch Reading Round                                          */
-/* ══════════════════════════════════════════════════════════════════════ */
-
-.reading-round-overlay {
-    position: fixed; inset: 0; z-index: 9500;
-    background: rgba(15,23,42,0.5);
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(12px);
-    animation:animFadeInUp var(--dur-slow) var(--ease-out);
-}
-.reading-round-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-xl); padding: var(--space-xl); width: 90%; max-width: 380px;
-    box-shadow: var(--shadow-xl);
-    /* La ronda se usa de pie en el cuarto de gases: si la tarjeta crece (muchas
-       alertas en el resumen) tiene que poder desplazarse, no recortarse. */
-    max-height: 90vh; overflow-y: auto;
-}
-
-/* ══════════════════════════════════════════════════════════════════════ */
 /* [R5-M7] Unified Calendar                                            */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -5406,6 +5386,29 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .dash-cat-detail { border-left-width: 4px; }
 .dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
+/* [2.23.0] "Te toca" — la bandeja de HOY */
+.dash-inbox-more {
+    display: block; width: 100%; min-height: var(--target-min); text-align: left; cursor: pointer;
+    border: 0; background: none; font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--info-text);
+}
+.dash-inbox .dash-row { transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); touch-action: pan-y; }
+.dash-inbox .dash-row.is-swiping { transition: none; }
+.dash-row--snoozed { opacity: 0.7; }
+.dash-snooze-btn { min-width: var(--target-min); }
+.dash-inbox-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); }
+.dash-inbox-snoozed { margin-bottom: var(--space-md); }
+.dash-inbox-clear {
+    text-align: center; padding: var(--space-xl) var(--space-md); margin-bottom: var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--ok-tint);
+    animation: ocIn var(--dur-slow) var(--ease-out) both;
+}
+.dash-inbox-clear-mark {
+    width: 56px; height: 56px; margin: 0 auto var(--space-sm); border-radius: var(--radius-full);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ok-fill, #10b981); color: #fff; font-size: var(--fs-xl); font-weight: var(--weight-black);
+}
+.dash-inbox-clear-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--ok-text); margin-bottom: var(--space-xs); }
+.dash-inbox-clear p { margin: var(--space-2xs) 0 0; font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
 
 /* [2.1.0] Datos → Usuarios → Roles y permisos */
 .pn-roles-lead { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
@@ -5561,6 +5564,144 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
     background: none; border: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: underline; cursor: pointer;
 }
 .oc-final-list { margin-top: var(--space-md); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [2.21.0] UNA COSA A LA VEZ — primitiva uiFlow (js/uiflow.js)           */
+/* Mismo lenguaje que Operación en tarjetas (.oc-*), para el resto de la  */
+/* plataforma. Capa propia a pantalla completa, debajo de toasts y        */
+/* diálogos (9999) para que un aviso o una confirmación se vean encima.   */
+/* ══════════════════════════════════════════════════════════════════════ */
+body.uf-open { overflow: hidden; }
+.uf {
+    position: fixed; inset: 0; z-index: 9500;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    animation: ocIn var(--dur-base) var(--ease-out) both;
+}
+.uf-head {
+    flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+    padding: calc(var(--space-sm) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-xs);
+}
+.uf-head-row { display: flex; align-items: center; gap: var(--space-sm); max-width: 560px; margin: 0 auto; }
+.uf-x {
+    min-width: var(--target-min); min-height: var(--target-min); flex-shrink: 0;
+    border: 0; background: none; font-size: var(--fs-lg); color: var(--muted); cursor: pointer;
+}
+.uf-head-what { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uf-head-sub { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.uf-saved { flex-shrink: 0; font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--ok-text); opacity: 0; }
+.uf-saved.is-on { animation: ocSaved 1.8s var(--ease-out) both; }
+.uf-segs { display: flex; gap: var(--space-2xs); margin: var(--space-xs) auto 0; max-width: 560px; }
+.uf-seg { flex: 1; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; }
+.uf-seg-bar { display: block; width: 100%; height: 6px; border-radius: var(--radius-full); background: var(--border); overflow: hidden; }
+.uf-seg.is-here .uf-seg-bar { height: 8px; }
+.uf-seg-fill { display: block; height: 100%; background: var(--kia-red); transform-origin: left; transition: transform var(--dur-base) var(--ease-out); }
+
+.uf-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.uf-card, .uf-final { max-width: 560px; margin: var(--space-lg) auto; padding: 0 var(--space-md); }
+.uf-in { animation: ocIn var(--dur-base) var(--ease-out) both; }
+.uf-in-back { animation: ocInBack var(--dur-base) var(--ease-out) both; }
+
+.uf-kicker { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--space-xs); }
+.uf-q {
+    display: block; margin-bottom: var(--space-md);
+    font-size: var(--fs-lg); font-weight: var(--weight-black); line-height: 1.25; color: var(--text);
+}
+.uf-context { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); font-size: var(--fs-sm); color: var(--muted); }
+.uf-context b { color: var(--text); }
+.uf-big { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+/* El error de uiInvalid se inserta junto al campo: aquí va a su propio renglón, debajo. */
+.uf-big > .ui-field-error { flex-basis: 100%; order: 3; }
+.uf-big-input {
+    flex: 1; min-width: 0; min-height: 64px; padding: 0 var(--space-md);
+    font-size: var(--fs-xl); font-weight: var(--weight-black); text-align: center;
+    border: 2px solid var(--border-strong); border-radius: var(--radius-lg);
+    background: var(--surface); color: var(--text);
+}
+.uf-big-unit { flex-shrink: 0; font-size: var(--fs-md); font-weight: var(--weight-bold); color: var(--muted); }
+.uf-warn { min-height: 1.5em; margin-top: var(--space-sm); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--warn-text); }
+.uf-alt {
+    display: block; width: 100%; min-height: var(--target-min); margin-top: var(--space-sm);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold); cursor: pointer;
+}
+.uf-note { font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-base); }
+.uf-field { display: block; margin-top: var(--space-md); }
+.uf-field > span { display: block; margin-bottom: var(--space-xs); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text); }
+.uf-field > span small { font-weight: var(--weight-normal); color: var(--muted); }
+.uf-field input {
+    width: 100%; min-height: 52px; padding: 0 var(--space-md); font-size: var(--fs-base);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text);
+}
+.uf-badge {
+    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    font-size: var(--fs-sm); font-weight: var(--weight-bold); background: var(--surface-alt); color: var(--text);
+}
+.uf-badge.is-bad  { background: var(--danger-tint); color: var(--danger-text); }
+.uf-badge.is-warn { background: var(--warn-tint);   color: var(--warn-text); }
+
+.uf-foot {
+    flex-shrink: 0; display: grid; grid-template-columns: auto auto 1fr; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md) calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow-md);
+}
+.uf-save {
+    min-height: 56px; border: 0; border-radius: var(--radius-lg); cursor: pointer;
+    background: var(--kia-red); color: #fff; font-size: var(--fs-md); font-weight: var(--weight-black);
+    white-space: nowrap; padding: 0 var(--space-md);
+}
+.uf-save:disabled { opacity: 0.45; cursor: not-allowed; }
+.uf-back { min-width: 56px; font-size: var(--fs-lg) !important; }
+.uf-back, .uf-later {
+    min-height: 56px; padding: 0 var(--space-md); cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-sm); font-weight: var(--weight-semibold);
+}
+.uf-back:disabled { opacity: 0.4; cursor: default; }
+body.uf-at-final .uf-save, body.uf-at-final .uf-later { display: none; }
+body.uf-at-final .uf-foot { grid-template-columns: 56px; }
+
+.uf-final-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--text); margin-bottom: var(--space-md); }
+.uf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-md); }
+.uf-stat {
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-2xs);
+    padding: var(--space-md) var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+}
+.uf-stat b { font-size: var(--fs-xl); font-weight: var(--weight-black); color: var(--text); line-height: 1.1; }
+.uf-stat b.is-ok  { color: var(--ok-text); }
+.uf-stat b.is-bad { color: var(--danger-text); }
+.uf-stat span { font-size: var(--fs-sm); color: var(--muted); text-align: center; }
+.uf-list {
+    margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base);
+}
+.uf-list > b { display: block; margin-bottom: var(--space-2xs); }
+.uf-list.is-bad  { background: var(--danger-tint); border-color: var(--danger-text); }
+.uf-list.is-warn { background: var(--warn-tint); }
+.uf-list.is-ok   { background: var(--ok-tint); }
+.uf-next { width: 100%; min-height: 56px; font-size: var(--fs-md); margin-top: var(--space-md); }
+/* [2.22.0] Decisión de una tarjeta (fichas) + datos de la tarjeta */
+.uf-facts { display: grid; gap: var(--space-xs); margin-bottom: var(--space-md); }
+.uf-facts > div { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--fs-sm); }
+.uf-facts span { color: var(--muted); flex-shrink: 0; }
+.uf-facts b { color: var(--text); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.uf-choices { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-sm); }
+.uf-choice {
+    min-height: 52px; padding: var(--space-sm) var(--space-md); text-align: left; cursor: pointer;
+    border: 2px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold);
+    transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.uf-choice small { font-weight: var(--weight-normal); color: var(--muted); }
+.uf-choice.is-on { border-color: var(--kia-red); background: var(--info-tint); }
+.uf-choice:focus-visible { outline: 2px solid var(--kia-red); outline-offset: 2px; }
+.uf-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.uf-link {
+    min-height: var(--target-min); padding: 0 var(--space-sm); border: 0; background: none; cursor: pointer;
+    color: var(--kia-red); font-size: var(--fs-sm); font-weight: var(--weight-bold); white-space: nowrap;
+}
+.uf-next:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ══════════════════════════════════════════════════════════════════════
    [2.14.0] ¿Se guardó? ¿Lo ven los demás? — chip ☁ por vehículo, hoja del

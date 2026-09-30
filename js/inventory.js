@@ -383,7 +383,7 @@ function invMaintMarkDone(activityId, opts) {
     invState.maintLog.push(entry);
     invSave();
     if (typeof auditLog === 'function') auditLog('inv', 'mtto_ejecutado', { type: 'maintenance', id: activityId, label: act.desc }, by + (entry.comments ? ' — ' + entry.comments : ''));
-    if (typeof showToast === 'function') showToast('Mantenimiento registrado', 'success');
+    if (!opts.silent && typeof showToast === 'function') showToast('Mantenimiento registrado', 'success');
     return entry;
 }
 
@@ -404,8 +404,194 @@ function invCalRegister(eqId, opts) {
     invSave();
     if (typeof auditLog === 'function') auditLog('inv', 'calibracion_registrada', { type: 'equipment', id: eqId, label: eq.name }, 'Cert: ' + (certNo || '-') + ' · próxima: ' + eq.nextCalDate);
     if (typeof fbPostCalibration === 'function') fbPostCalibration(eq.name);
-    if (typeof showToast === 'function') showToast('Calibración registrada', 'success');
+    if (!opts.silent && typeof showToast === 'function') showToast('Calibración registrada', 'success');
     return eq;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.21.0] RONDA DE EQUIPOS — calibraciones y mantenimientos pendientes, uno por uno
+// Mismo lenguaje que la ronda de gases (uiFlow). Cada tarjeta escribe con el
+// escritor de siempre: invCalRegister (→ _invApplyCalibration) e invMaintMarkDone.
+// ══════════════════════════════════════════════════════════════════════
+var INV_EQ_ROUND_CAL_DAYS = 14;   // una calibración entra a la ronda si vence en ≤ 14 días
+
+/**
+ * Qué entra a la ronda y en qué orden. PURA (todo llega en `src`).
+ * src: {equipment, statusOf(eq), overdue:[{act, asset, lastWeek}], dueThisWeek:[{act, asset}], calDays}
+ * Orden: lo vencido primero (mantenimiento, luego calibración), después lo de esta semana
+ * y al final las calibraciones por vencer, de la más próxima a la más lejana.
+ */
+function invEquipmentRoundPick(src) {
+    src = src || {};
+    var days = typeof src.calDays === 'number' ? src.calDays : INV_EQ_ROUND_CAL_DAYS;
+    var statusOf = src.statusOf || function() { return { code: 'noaplica' }; };
+    var out = [], seen = {};
+    (src.overdue || []).forEach(function(o) {
+        if (!o || !o.act || seen['m:' + o.act.id]) return;
+        seen['m:' + o.act.id] = true;
+        out.push({ kind: 'mtto', id: o.act.id, section: 'Vencido', overdue: true, act: o.act, asset: o.asset || null, week: o.lastWeek });
+    });
+    var cals = (src.equipment || []).filter(function(e) { return e && e.requiresCal !== 'No'; })
+        .map(function(e) { return { eq: e, st: statusOf(e) || {} }; });
+    cals.filter(function(c) { return c.st.code === 'vencido'; })
+        .sort(function(a, b) { return (a.st.days || 0) - (b.st.days || 0); })
+        .forEach(function(c) { out.push({ kind: 'cal', id: c.eq.id, section: 'Vencido', overdue: true, eq: c.eq, st: c.st }); });
+    (src.dueThisWeek || []).forEach(function(d) {
+        if (!d || !d.act || seen['m:' + d.act.id]) return;
+        seen['m:' + d.act.id] = true;
+        out.push({ kind: 'mtto', id: d.act.id, section: 'Esta semana', overdue: false, act: d.act, asset: d.asset || null, week: d.week });
+    });
+    cals.filter(function(c) { return c.st.code === 'porvencer' && typeof c.st.days === 'number' && c.st.days <= days; })
+        .sort(function(a, b) { return a.st.days - b.st.days; })
+        .forEach(function(c) { out.push({ kind: 'cal', id: c.eq.id, section: 'Por vencer', overdue: false, eq: c.eq, st: c.st }); });
+    return out;
+}
+
+/** Los pendientes de la ronda con el estado vivo del inventario. */
+function invEquipmentRoundItems() {
+    return invEquipmentRoundPick({
+        equipment: invState.equipment || [],
+        statusOf: invCalStatus,
+        overdue: typeof invMaintOverdue === 'function' ? invMaintOverdue() : [],
+        dueThisWeek: typeof invMaintDueThisWeek === 'function' ? invMaintDueThisWeek() : []
+    });
+}
+
+var _invEqRound = null;   // {cal:[nombres], mtto:[nombres]} — lo registrado en esta ronda
+
+/** Botón de la ronda con cuántos pendientes hay (Equipos y Mtto). Sin pendientes, no estorba. */
+function _invEqRoundButtonHTML() {
+    var n = invEquipmentRoundItems().length;
+    if (!n) return '';
+    return '<button class="tp-btn tp-btn-primary" onclick="invStartEquipmentRound()" style="font-size: var(--fs-sm);" ' +
+           'title="Calibraciones y mantenimientos pendientes, uno por uno">🧭 Hacer la ronda (' + n + ')</button>';
+}
+
+function invStartEquipmentRound() {
+    var items = invEquipmentRoundItems();
+    if (!items.length) {
+        showToast('Equipos al día: no hay calibraciones ni mantenimientos pendientes.', 'success');
+        return;
+    }
+    _invEqRound = { cal: [], mtto: [] };
+    uiFlowOpen({
+        id: 'eqRound',
+        title: '🧭 Ronda de equipos',
+        saveLabel: 'Registrar ▸',
+        steps: items.map(_invEqRoundStep),
+        onFinal: _invEqRoundFinalHTML,
+        onClose: function() {
+            _invEqRound = null;
+            if (typeof invRender === 'function') invRender();
+            if (typeof invUpdateBadges === 'function') invUpdateBadges();
+        }
+    });
+}
+
+function _invEqRoundStep(it) {
+    var isCal = it.kind === 'cal';
+    return {
+        key: it.kind + ':' + it.id,
+        section: it.section,
+        title: isCal ? (it.eq.name || 'Instrumento') : (it.act.desc || 'Mantenimiento'),
+        // La calibración pide 'inventory.manage' (invCalRegister): sin él, el botón lo dice.
+        blocked: isCal ? function() {
+            return (typeof authCan === 'function' && !authCan('inventory.manage'))
+                ? 'Tu rol no permite registrar calibraciones. Toca "Después" para seguir.' : '';
+        } : null,
+        render: function(host) { isCal ? _invEqRoundCalCard(host, it) : _invEqRoundMttoCard(host, it); },
+        save: function(host) { return isCal ? _invEqRoundCalSave(host, it) : _invEqRoundMttoSave(host, it); }
+    };
+}
+
+function _invEqRoundDateField(id, label) {
+    return '<label class="uf-field"><span>' + label + '</span>' +
+           '<input type="date" id="' + id + '" value="' + localToday() + '" max="' + localToday() + '"></label>';
+}
+
+function _invEqRoundCalCard(host, it) {
+    var eq = it.eq, st = invCalStatus(eq);
+    var asset = (invState.assets || []).find(function(a) { return a.id === eq.assetId; });
+    host.innerHTML =
+        '<div class="uf-kicker"><span class="uf-badge ' + (st.code === 'vencido' ? 'is-bad' : 'is-warn') + '">' + escapeHtml(st.label) + '</span>' +
+        (asset ? ' · ' + escapeHtml(asset.name) : '') + '</div>' +
+        '<div class="uf-q">✅ ' + escapeHtml(eq.name || 'Instrumento') + (eq.magnitude ? ' <small class="u-muted">— ' + escapeHtml(eq.magnitude) + '</small>' : '') + '</div>' +
+        '<div class="uf-note">' + (eq.kmmId ? 'KMM ' + escapeHtml(eq.kmmId) + ' · ' : '') +
+        (eq.nextCalDate ? 'tocaba el ' + escapeHtml(eq.nextCalDate) : 'sin fecha') + '</div>' +
+        _invEqRoundDateField('uf-cal-date', 'Fecha de la calibración') +
+        '<label class="uf-field"><span>No. de certificado <small>(opcional)</small></span>' +
+        '<input type="text" id="uf-cal-cert" autocomplete="off" placeholder="Ej.: T-2199-2026"></label>' +
+        '<label class="uf-field"><span>Proveedor</span>' +
+        '<input type="text" id="uf-cal-prov" autocomplete="off" value="' + escapeHtml(eq.calLab || '') + '"></label>';
+}
+
+function _invEqRoundCalSave(host, it) {
+    var d = host.querySelector('#uf-cal-date');
+    var date = d ? d.value : '';
+    if (!date) return { ok: false, field: d, msg: 'Pon la fecha en que se calibró.' };
+    if (date > localToday()) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+    var cert = (host.querySelector('#uf-cal-cert') || {}).value || '';
+    var prov = (host.querySelector('#uf-cal-prov') || {}).value || '';
+    var eq = invCalRegister(it.id, { date: date, certNo: cert.trim(), provider: prov.trim(), silent: true });
+    if (!eq) return { ok: false, msg: 'No se pudo registrar la calibración.' };
+    if (_invEqRound) _invEqRound.cal.push(eq.name || it.id);
+    return { ok: true };
+}
+
+function _invEqRoundMttoCard(host, it) {
+    var act = it.act;
+    host.innerHTML =
+        '<div class="uf-kicker"><span class="uf-badge ' + (it.overdue ? 'is-bad' : 'is-warn') + '">' +
+        (it.overdue ? 'Vencido desde la semana ' + escapeHtml(String(it.week || '?')) : 'Esta semana') + '</span>' +
+        (act.responsible ? ' · ' + escapeHtml(act.responsible) : '') + '</div>' +
+        '<div class="uf-q">🛠️ ' + (it.asset ? escapeHtml(it.asset.name) + ' — ' : '') + escapeHtml(act.desc || '') + '</div>' +
+        _invEqRoundDateField('uf-mtto-date', 'Fecha en que se hizo') +
+        '<label class="uf-field"><span>Horas <small>(opcional)</small></span>' +
+        '<input type="number" id="uf-mtto-hours" inputmode="decimal" step="0.5" min="0" placeholder="Ej.: 1.5"></label>' +
+        '<label class="uf-field"><span>Comentarios <small>(opcional)</small></span>' +
+        '<input type="text" id="uf-mtto-comments" autocomplete="off" placeholder="Ej.: se cambió el filtro"></label>';
+}
+
+function _invEqRoundMttoSave(host, it) {
+    var d = host.querySelector('#uf-mtto-date');
+    var date = d ? d.value : '';
+    if (!date) return { ok: false, field: d, msg: 'Pon la fecha en que se hizo.' };
+    if (date > localToday()) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+    var hours = parseFloat((host.querySelector('#uf-mtto-hours') || {}).value) || null;
+    var comments = String((host.querySelector('#uf-mtto-comments') || {}).value || '').trim();
+    var entry = invMaintMarkDone(it.id, { date: date, hours: hours, comments: comments, silent: true });
+    if (!entry) return { ok: false, msg: 'No se pudo registrar el mantenimiento.' };
+    if (_invEqRound) _invEqRound.mtto.push((it.asset ? it.asset.name + ': ' : '') + (it.act.desc || ''));
+    return { ok: true };
+}
+
+/** El cierre dice cómo quedó el laboratorio, no solo cuántos toques hubo. */
+function _invEqRoundFinalHTML(model) {
+    var r = _invEqRound || { cal: [], mtto: [] };
+    var sum = invCalSummary();
+    var left = model.cards.filter(function(c) { return c.status !== 'hecho'; });
+    var h = '<div class="uf-final-title">' + (left.length
+        ? 'Quedan ' + left.length + ' para después'
+        : '✅ Equipos al día') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + r.cal.length + '</b><span>Calibraciones</span></div>' +
+        '<div class="uf-stat"><b class="is-ok">' + r.mtto.length + '</b><span>Mantenimientos</span></div>' +
+        '<div class="uf-stat"><b class="' + (sum.vencidos ? 'is-bad' : 'is-ok') + '">' + sum.pct + '%</b><span>Calibraciones vigentes</span></div>' +
+        '</div>';
+    if (r.cal.length || r.mtto.length) {
+        h += '<div class="uf-list is-ok"><b>Registrado</b>' + r.cal.concat(r.mtto).map(function(x) {
+            return '<div>' + escapeHtml(x) + '</div>';
+        }).join('') + '</div>';
+    }
+    if (left.length) {
+        h += '<div class="uf-list"><b>Para después</b>' + left.map(function(c) {
+            return '<div>' + escapeHtml(c.title) + ' <span class="u-muted">· ' + escapeHtml(c.section) + '</span></div>';
+        }).join('') + '</div>';
+    }
+    if (sum.vencidos) {
+        h += '<div class="uf-list is-bad">Siguen ' + sum.vencidos + ' calibración(es) vencida(s) en el laboratorio.</div>';
+    }
+    return h;
 }
 
 
@@ -2191,6 +2377,7 @@ function invRenderEquipment(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>🔧 Equipos y Calibración (' + equip.length + ')</span>';
     html += '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">'
+          + _invEqRoundButtonHTML()
           + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv): fechas, certificados y próxima calibración">📥 Actualizar desde Excel</button>'
           + '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size: var(--fs-sm);">+ Instrumento</button></span></div>';
 
@@ -2534,7 +2721,8 @@ function invRenderMaint(el) {
     var curWeek = invWeekOfYear(localToday());
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-maint-help"><span>🛠️ Mantenimiento</span>'
-        + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv)">📥 Calibraciones desde Excel</button></div></div>';
+        + '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">' + _invEqRoundButtonHTML()
+        + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv)">📥 Calibraciones desde Excel</button></span></div></div>';
 
     // v16.6: banner de proyecto abierto ligado a un equipo (ej. "Reparación del Dinamómetro")
     if (typeof pnActiveProjectForAsset === 'function') {
@@ -6461,17 +6649,22 @@ function _invRoundRef(item) {
         : (invState.gases || []).find(function(g) { return g.id === item.id; });
 }
 
+function _invRoundKey(item) { return item.kind + ':' + item.id; }
+
 function _invRoundPersist() {
     try {
         if (!_readingRound) { localStorage.removeItem(INV_ROUND_LS_KEY); return; }
         localStorage.setItem(INV_ROUND_LS_KEY, JSON.stringify({
             index: _readingRound.index, date: _readingRound.date,
             startTime: _readingRound.startTime, results: _readingRound.results,
-            ids: _readingRound.items.map(function(i) { return i.kind + ':' + i.id; })
+            ids: _readingRound.items.map(_invRoundKey)
         }));
     } catch (e) {}   // que se llene el almacenamiento no debe tumbar la ronda
 }
 
+// [2.21.0] La ronda corre sobre uiFlow (js/uiflow.js): el mismo encabezado, pie y gesto
+// que Operación en tarjetas. Lo que NO cambió: el orden por zona, el escritor único
+// (invAddReading / invAddFuelReading con skipSave), el guardado único y la reanudación.
 function invStartReadingRound(opts) {
     opts = opts || {};
     var items = invRoundItems();
@@ -6499,242 +6692,239 @@ function invStartReadingRound(opts) {
         index: (r && r.index < items.length) ? r.index : 0,
         results: (r && Array.isArray(r.results)) ? r.results : [],
         startTime: (r && r.startTime) || Date.now(),
-        date: (r && r.date) || localToday()
+        date: (r && r.date) || localToday(),
+        audited: false
     };
     _invRoundPersist();
-    _invRoundRenderCurrent();
+
+    var state = { done: {}, skipped: {} };
+    _readingRound.results.forEach(function(x) {
+        var k = x.kind + ':' + x.id;
+        if (x.skipped) state.skipped[k] = true; else state.done[k] = true;
+    });
+    uiFlowOpen({
+        id: 'gasRound',
+        title: '🔄 Ronda de lecturas',
+        subtitle: _readingRound.date,
+        steps: items.map(_invRoundStep),
+        state: state,
+        startAt: _readingRound.index,
+        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); } },
+        onFinal: _invRoundFinalHTML,
+        onClose: _invRoundClose
+    });
 }
 
-function _invRoundRenderCurrent() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
+/** Un punto del recorrido como tarjeta de uiFlow. */
+function _invRoundStep(item) {
     var ref = _invRoundRef(item);
-    // El cilindro pudo borrarse a media ronda (o llegar un pull de la nube): se salta.
-    if (!ref) { _readingRound.index++; if (_readingRound.index >= _readingRound.items.length) { invRoundFinish(); } else { _invRoundRenderCurrent(); } return; }
-
     var esFuel = item.kind === 'fuel';
-    var total = _readingRound.items.length;
-    var idx = _readingRound.index;
-    var lecturas = ref.readings || [];
-    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
-    var lastVal = ultima ? (esFuel ? ultima.level : ultima.psi) : '';
+    var zona = String((ref && ref.zone) || '').trim();
+    return {
+        key: _invRoundKey(item),
+        // Una sección por pasillo (letra de la zona): los segmentos del encabezado
+        // siguen la caminata por el cuarto.
+        section: esFuel ? '⛽ Combustible' : (zona ? 'Zona ' + zona.charAt(0).toUpperCase() : 'Sin zona'),
+        title: ref ? (esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas')) : item.id,
+        render: function(host) { _invRoundRenderCard(host, item); },
+        save: function(host) { return _invRoundSaveCard(host, item); },
+        onLater: function() { _invRoundMarkSkipped(item); }
+    };
+}
+
+/** Última lectura ANTERIOR a la fecha de la ronda (si se regresa a un punto, la de hoy no cuenta). */
+function _invRoundPrevReading(ref, esFuel, date) {
+    var ls = (ref.readings || []).filter(function(x) { return x && x.date !== date; });
+    var u = ls.length ? ls[ls.length - 1] : null;
+    return u ? (esFuel ? u.level : u.psi) : '';
+}
+
+function _invRoundRenderCard(host, item) {
+    var ref = _invRoundRef(item);
+    // El cilindro pudo borrarse a media ronda (o llegar un pull de la nube).
+    if (!ref) {
+        host.innerHTML = '<p class="uf-note">Este punto ya no existe (se dio de baja o cambió desde otro equipo). Toca <b>Después</b> para seguir.</p>';
+        return;
+    }
+    var esFuel = item.kind === 'fuel';
     var unidad = esFuel ? (ref.unit || 'L') : 'PSI';
-
-    var sparkHtml = _invRoundSparkline(lecturas.slice(-5).map(function(r) { return (esFuel ? r.level : r.psi) || 0; }));
-    var pct = Math.round((idx / total) * 100);
-
+    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var mine = (_readingRound.results || []).filter(function(x) { return !x.skipped && x.kind + ':' + x.id === _invRoundKey(item); })[0];
     var titulo = esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas');
     var sub = esFuel
         ? ((ref.regulation || '—') + ' · capacidad ' + (ref.capacity || '?') + ' ' + unidad)
-        : ((ref.controlNo || ref.id) + ' · Zona: ' + (ref.zone || '—'));
+        : ((ref.controlNo || ref.id) + ' · Zona ' + (ref.zone || '—') + (ref.concNominal ? ' · ' + ref.concNominal : ''));
+    var spark = _invRoundSparkline((ref.readings || []).slice(-5).map(function(x) { return (esFuel ? x.level : x.psi) || 0; }));
 
-    var html = '<div class="reading-round-overlay">' +
-        '<div class="reading-round-card">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-lg);">' +
-        '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);">' + (idx + 1) + ' de ' + total + (esFuel ? ' · ⛽' : '') + '</span>' +
-        '<button onclick="_invRoundCancel()" aria-label="Salir de la ronda" style="background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+    host.innerHTML =
+        '<div class="uf-kicker">' + escapeHtml(sub) + '</div>' +
+        '<label class="uf-q" for="round-reading-input">' + escapeHtml(titulo) + '</label>' +
+        (spark || lastVal !== ''
+            ? '<div class="uf-context">' + spark +
+              (lastVal !== '' ? '<span>Última: <b>' + escapeHtml(String(lastVal)) + ' ' + escapeHtml(unidad) + '</b></span>' : '') + '</div>'
+            : '') +
+        '<div class="uf-big">' +
+            '<input type="number" id="round-reading-input" class="uf-big-input" min="0" step="any" ' +
+            'inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" ' +
+            'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + escapeHtml(unidad) + '" ' +
+            'placeholder="Lectura" ' +
+            'data-last="' + escapeHtml(String(lastVal)) + '" value="' + (mine ? escapeHtml(String(mine.value)) : '') + '">' +
+            '<span class="uf-big-unit">' + escapeHtml(unidad) + '</span>' +
         '</div>' +
-        '<div style="height:4px;background:var(--border);border-radius: var(--radius-sm);margin-bottom: var(--space-lg);overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:var(--ok-fill);border-radius: var(--radius-sm);transition:width 0.3s;"></div>' +
-        '</div>' +
-        '<div style="text-align:center;margin-bottom: var(--space-xl);">' +
-        '<div style="font-size: var(--fs-base);font-weight:800;color:var(--text);">' + escapeHtml(titulo) + '</div>' +
-        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(sub) + '</div>' +
-        (esFuel ? '' : '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Conc: ' + escapeHtml(ref.concNominal || '—') + '</div>') +
-        '</div>' +
-        (sparkHtml ? '<div style="text-align:center;margin-bottom: var(--space-md);">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Últimas 5 lecturas</div></div>' : '') +
-        (lastVal !== '' ? '<div style="text-align:center;margin-bottom: var(--space-sm);font-size: var(--fs-xs);color:var(--muted);">Última lectura: <strong style="color:var(--text);">' + lastVal + ' ' + unidad + '</strong></div>' : '') +
-        '<div style="text-align:center;margin-bottom: var(--space-sm);">' +
-        '<input type="number" inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" id="round-reading-input" ' +
-        'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + unidad + '" placeholder="' + unidad + '" value="' + (lastVal || '') + '" ' +
-        'style="width:150px;padding: var(--space-md) var(--space-lg);font-size:24px;font-weight:800;text-align:center;border:2px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);color:var(--text);" ' +
-        'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
-        '</div>' +
-        '<div id="round-warn" style="min-height:18px;text-align:center;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-bottom: var(--space-md);"></div>' +
-        '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
-        (idx > 0 ? '<button onclick="invRoundPrev()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">← Anterior</button>' : '') +
-        '<button onclick="invRoundSkip()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);" title="No se pudo leer este punto">Saltar</button>' +
-        (lastVal !== '' ? '<button onclick="_invRoundSameValue()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);border-color:var(--ok-text);color:var(--ok-text);">= Igual</button>' : '') +
-        '<button onclick="invRoundNext()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
-        '</div>' +
-        '</div></div>';
+        '<div id="round-warn" class="uf-warn" aria-live="polite"></div>' +
+        (lastVal !== '' ? '<button type="button" class="uf-alt" onclick="_invRoundSameValue()">= Igual que la última (' + escapeHtml(String(lastVal)) + ')</button>' : '');
 
-    var overlay = document.getElementById('reading-round-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'reading-round-overlay';
-        document.body.appendChild(overlay);
-    }
-    overlay.innerHTML = html;
-    overlay.style.display = 'block';
-
-    setTimeout(function() {
-        var inp = document.getElementById('round-reading-input');
-        if (!inp) return;
-        inp.focus(); inp.select();
-        // Aviso en vivo mientras teclea: ámbar que informa, nunca un candado.
-        inp.oninput = function() {
-            var w = document.getElementById('round-warn');
-            if (!w) return;
-            var v = parseFloat(inp.value);
-            if (isNaN(v)) { w.textContent = ''; return; }
-            var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
-            w.textContent = msg ? '⚠ ' + msg : '';
-        };
-    }, 100);
+    // Aviso en vivo mientras teclea: ámbar que informa, nunca un candado.
+    var inp = host.querySelector('#round-reading-input');
+    if (inp) inp.addEventListener('input', function() {
+        var w = host.querySelector('#round-warn');
+        if (!w || !_readingRound) return;
+        var v = parseFloat(inp.value);
+        if (isNaN(v)) { w.textContent = ''; return; }
+        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
+        w.textContent = msg ? '⚠ ' + msg : '';
+    });
 }
 
-function invRoundNext() {
-    if (!_readingRound) return;
-    _invRoundSaveCurrentReading();
-    _readingRound.index++;
+/** "= Igual": el manómetro marca lo mismo que la última vez. Se AFIRMA con un toque, no por omisión. */
+function _invRoundSameValue() {
+    var inp = document.getElementById('round-reading-input');
+    if (inp && inp.getAttribute('data-last') !== '') inp.value = inp.getAttribute('data-last');
+    uiFlowSave();
+}
+
+function _invRoundRecord(entry) {
+    var k = entry.kind + ':' + entry.id;
+    _readingRound.results = (_readingRound.results || []).filter(function(x) { return x.kind + ':' + x.id !== k; });
+    _readingRound.results.push(entry);
     _invRoundPersist();
-    if (_readingRound.index >= _readingRound.items.length) {
-        invRoundFinish();
-    } else {
-        _invRoundRenderCurrent();
-    }
 }
 
-function invRoundPrev() {
-    if (!_readingRound || _readingRound.index <= 0) return;
-    _readingRound.index--;
-    _invRoundPersist();
-    _invRoundRenderCurrent();
-}
-
-/** Saltar: el punto no se pudo leer (manómetro tapado, cilindro fuera). No guarda nada. */
-function invRoundSkip() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
+function _invRoundSaveCard(host, item) {
+    if (!_readingRound) return { ok: false, msg: 'La ronda ya se cerró.' };
     var ref = _invRoundRef(item);
-    _readingRound.results.push({
+    if (!ref) return { ok: false, msg: 'Este punto ya no existe: toca "Después" para seguir.' };
+    var esFuel = item.kind === 'fuel';
+    var inp = host && host.querySelector('#round-reading-input');
+    var raw = inp ? String(inp.value).trim() : '';
+    var val = parseFloat(raw);
+    // [2.21.0] Vacío ya no guarda "lo mismo de ayer" por omisión: una lectura es evidencia.
+    if (raw === '' || isNaN(val)) {
+        return { ok: false, field: inp, msg: 'Escribe la lectura, toca "= Igual" o "Después" si no se pudo leer.' };
+    }
+    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    // Por el motor único — valida, deduplica por fecha, atribuye, audita y reentrena.
+    // skipSave: la ronda guarda una sola vez (al llegar al resumen o al salir).
+    var res = esFuel
+        ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
+        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
+    if (!res.ok) return { ok: false, field: inp, msg: res.reason };
+
+    var prevNum = prevVal === '' ? 0 : (Number(prevVal) || 0);
+    var dropPct = prevNum > 0 ? Math.round(((prevNum - val) / prevNum) * 100) : 0;
+    _invRoundRecord({
+        kind: item.kind, id: item.id,
+        controlNo: ref.controlNo || ref.name || item.id,
+        gasType: ref.gasType || ref.name || '',
+        value: val, prev: prevNum,
+        warning: res.warning || null,
+        alert: dropPct > 15 || !!res.warning
+    });
+    return { ok: true };
+}
+
+/** "Después": el punto no se pudo leer (manómetro tapado, cilindro fuera). No guarda nada. */
+function _invRoundMarkSkipped(item) {
+    if (!_readingRound) return;
+    var k = _invRoundKey(item);
+    if ((_readingRound.results || []).some(function(x) { return !x.skipped && x.kind + ':' + x.id === k; })) return;
+    var ref = _invRoundRef(item);
+    _invRoundRecord({
         kind: item.kind, id: item.id,
         controlNo: ref ? (ref.controlNo || ref.name || item.id) : item.id,
         gasType: ref ? (ref.gasType || ref.name || '') : '',
         skipped: true
     });
-    _readingRound.index++;
-    _invRoundPersist();
-    if (_readingRound.index >= _readingRound.items.length) invRoundFinish();
-    else _invRoundRenderCurrent();
 }
 
-function _invRoundSameValue() {
-    // Conserva el valor precargado (la última lectura) y avanza.
-    invRoundNext();
+/** Guarda lo capturado (la ronda escribe con skipSave). Único guardado y único reentrenamiento. */
+function _invRoundCommit() {
+    if (!_readingRound) return 0;
+    var n = (_readingRound.results || []).filter(function(x) { return !x.skipped; }).length;
+    if (n) {
+        if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+        invSave();
+    }
+    return n;
 }
 
-function _invRoundSaveCurrentReading() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
-    var ref = _invRoundRef(item);
-    if (!ref) return;
-    var inp = document.getElementById('round-reading-input');
-    var val = inp ? parseFloat(inp.value) : NaN;
-    if (isNaN(val)) return;
-
-    var lecturas = ref.readings || [];
-    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
-    var lastVal = ultima ? ((item.kind === 'fuel' ? ultima.level : ultima.psi) || 0) : 0;
-
-    // v21: por el motor único — valida, deduplica, atribuye, audita y reentrena.
-    // Antes escribía a mano un esquema sin `date` que nadie más sabía leer.
-    // skipSave: la ronda guarda una sola vez al final (invRoundFinish).
-    var res = (item.kind === 'fuel')
-        ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
-        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
-    if (!res.ok) { showToast(res.reason, 'error'); return; }
-
-    var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
-    _readingRound.results.push({
-        kind: item.kind, id: item.id,
-        controlNo: ref.controlNo || ref.name || item.id,
-        gasType: ref.gasType || ref.name || '',
-        value: val, prev: lastVal,
-        warning: res.warning || null,
-        alert: dropPct > 15 || !!res.warning
+/** El resumen: lo leído, lo que quedó bajo y lo que se saltó. También guarda. */
+function _invRoundFinalHTML(model) {
+    if (!_readingRound) return '';
+    _invRoundCommit();
+    var capturadas = _readingRound.results.filter(function(x) { return !x.skipped; });
+    var saltadas = _readingRound.results.filter(function(x) { return x.skipped; });
+    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
+    var mins = Math.floor(elapsed / 60), secs = elapsed % 60;
+    var alerts = capturadas.filter(function(x) { return x.alert; });
+    // Lo que importa al salir del cuarto: qué cilindros quedaron por debajo del umbral.
+    var bajos = capturadas.filter(function(x) {
+        if (x.kind !== 'gas' || typeof invGasIsLow !== 'function') return false;
+        var g = _invRoundRef(x);
+        return g && invGasIsLow(g);
     });
-}
 
-function invRoundFinish() {
-    if (!_readingRound) return;
-    // La ronda escribió con skipSave: aquí va el único guardado y el único reentrenamiento.
-    if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
-    invSave();
-    try { localStorage.removeItem(INV_ROUND_LS_KEY); } catch (e) {}   // ya no hay nada que retomar
-
-    var capturadas = _readingRound.results.filter(function(r) { return !r.skipped; });
-    var saltadas = _readingRound.results.filter(function(r) { return r.skipped; });
-    if (typeof auditLog === 'function') {
+    if (!_readingRound.audited && capturadas.length && typeof auditLog === 'function') {
         auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date },
                  capturadas.length + ' lectura(s), ' + saltadas.length + ' saltada(s)');
+        _readingRound.audited = true;
     }
-
-    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
-    var mins = Math.floor(elapsed / 60);
-    var secs = elapsed % 60;
-    var alerts = capturadas.filter(function(r) { return r.alert; });
-
-    var html = '<div class="reading-round-overlay">' +
-        '<div class="reading-round-card">' +
-        '<div style="text-align:center;margin-bottom: var(--space-lg);">' +
-        '<div style="font-size:36px;margin-bottom: var(--space-sm);">✅</div>' +
-        '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-bottom: var(--space-lg);">' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:var(--ok-text);">' + capturadas.length + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--muted);">Lecturas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Alertas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Tiempo</div></div>' +
-        '</div>';
-
-    if (alerts.length > 0) {
-        html += '<div style="margin-bottom: var(--space-md);">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom: var(--space-sm);">⚠ Alertas de presión:</div>';
-        alerts.forEach(function(a) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding:2px 0;">' +
-                escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
-        });
-        html += '</div>';
-    }
-
-    if (saltadas.length > 0) {
-        html += '<div style="margin-bottom: var(--space-md);">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--muted);margin-bottom: var(--space-sm);">↷ Saltadas (sin lectura):</div>';
-        saltadas.forEach(function(s) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--muted);padding:2px 0;">' + escapeHtml(s.controlNo) + '</div>';
-        });
-        html += '</div>';
-    }
-
-    html += '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
-        '<button onclick="_invRoundCopyReport()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">📋 Copiar Resumen</button>' +
-        '<button onclick="_invRoundCancel()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">Cerrar</button>' +
-        '</div></div></div>';
-
-    var overlay = document.getElementById('reading-round-overlay');
-    if (overlay) overlay.innerHTML = html;
-
-    // El botón "Copiar Resumen" corre DESPUÉS de soltar la ronda, así que el resumen
-    // se guarda aquí; si no, sólo quedaba raspar el texto del DOM.
+    // Ya todo quedó guardado: no hay nada que retomar (si sigue con lo que falta,
+    // el siguiente paso vuelve a escribir la llave).
+    try { localStorage.removeItem(INV_ROUND_LS_KEY); } catch (e) {}
+    // El botón Copiar corre después de soltar la ronda: el resumen se guarda aquí.
     _invLastRound = { date: _readingRound.date, elapsed: elapsed, results: _readingRound.results.slice() };
 
-    invRender();
-    _readingRound = null;
+    var h = '<div class="uf-final-title">' + (model.pending.length
+        ? 'Ronda: ' + capturadas.length + ' de ' + model.cards.length + ' leídos'
+        : '✅ Ronda completa') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + capturadas.length + '</b><span>Lecturas</span></div>' +
+        '<div class="uf-stat"><b class="' + (bajos.length ? 'is-bad' : 'is-ok') + '">' + bajos.length + '</b><span>Quedaron bajos</span></div>' +
+        '<div class="uf-stat"><b>' + mins + ':' + String(secs).padStart(2, '0') + '</b><span>Tiempo</span></div>' +
+        '</div>';
+    if (bajos.length) {
+        h += '<div class="uf-list is-bad"><b>🔴 Pedir o cambiar pronto</b>' + bajos.map(function(x) {
+            var g = _invRoundRef(x);
+            var lv = g && typeof invGasLevel === 'function' ? invGasLevel(g) : null;
+            return '<div>' + escapeHtml(x.controlNo) + (x.gasType ? ' · ' + escapeHtml(x.gasType) : '') +
+                   (lv && lv.pct !== undefined && lv.pct !== null ? ' — ' + lv.pct + '%' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (alerts.length) {
+        h += '<div class="uf-list is-warn"><b>⚠ Revisar la caída</b>' + alerts.map(function(a) {
+            return '<div>' + escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value +
+                   (a.warning ? ' · ' + escapeHtml(a.warning) : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (saltadas.length) {
+        h += '<div class="uf-list"><b>↷ Sin lectura</b>' + saltadas.map(function(s) {
+            return '<div>' + escapeHtml(s.controlNo) + '</div>';
+        }).join('') + '</div>';
+    }
+    h += '<button type="button" class="uf-alt" onclick="_invRoundCopyReport()">📋 Copiar resumen</button>';
+    return h;
 }
 
-function _invRoundCancel() {
-    var overlay = document.getElementById('reading-round-overlay');
-    if (overlay) overlay.style.display = 'none';
-    // Salir a media ronda NO borra el avance: se ofrece retomarlo al volver a entrar.
-    // (invRoundFinish sí limpia la llave — ahí ya no queda nada pendiente.)
+/** 'done' desde el resumen; 'cancel' a media ronda (se conserva la llave para retomar). */
+function _invRoundClose(reason) {
+    if (!_readingRound) return;
+    // Salir a media ronda NO pierde lo capturado: las lecturas vivían solo en memoria
+    // (skipSave) hasta el resumen, y salir con ✕ las dejaba sin guardar.
+    _invRoundCommit();
+    if (reason !== 'done') _invRoundPersist();
     _readingRound = null;
+    if (typeof invRender === 'function') invRender();
 }
 
 function _invRoundCopyReport() {
@@ -6749,8 +6939,8 @@ function _invRoundCopyReport() {
                     (x.warning ? '  ⚠ ' + x.warning : '') + '\n';
         });
     } else {
-        var overlay = document.getElementById('reading-round-overlay');
-        text = overlay ? overlay.textContent : 'Ronda de lecturas';
+        var body = document.getElementById('uf-body');
+        text = body ? body.textContent : 'Ronda de lecturas';
     }
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(function() { showToast('Resumen copiado', 'success'); })
@@ -6790,18 +6980,20 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'inv-equipment': { title: 'Equipos y Calibración (COP15-F11)', text: 'Instrumentos del laboratorio agrupados por equipo padre, con semáforo de calibración (60 días para "por vencer"). Un crítico vencido debe identificarse como NO OPERABLE.', tips: [
         'Botón "✅ Calibrado" en cada instrumento: solo pide fecha, certificado y proveedor — la próxima fecha se calcula sola.',
+        '"🧭 Hacer la ronda" te lleva por lo vencido y lo que vence en 14 días, uno por uno, con los mismos datos que "✅ Calibrado". "Después" lo deja pendiente sin registrar nada.',
         '"📥 Actualizar desde Excel": sube el COP15-F11 o el Plan Anual de Calibración (.xlsx o .csv). La app encuentra sola la hoja, identifica cada instrumento (por No., KMM, serie, descripción y modelo) y te muestra qué cambia antes de guardar. Una calibración registrada en la app nunca se retrocede; las fechas dudosas o futuras se listan sin aplicar.',
         'Los filtros 🔴🟠🟢⚪ arriba muestran solo lo que necesita atención.',
         'El ✏️ del encabezado de cada grupo edita el equipo padre (laboratorio, marca, si bloquea pruebas).'
     ]},
     'inv-maint': { title: 'Mantenimiento (COP15-F11)', text: 'Plan Maestro de mantenimiento preventivo: vencidos y programados de la semana arriba, la matriz de 52 semanas y el catálogo de actividades abajo, plegados.', tips: [
         '"✔ Hecho" registra el mantenimiento con un toque (fecha de hoy y tu usuario); "…con detalle" agrega horas y comentarios.',
+        '"🧭 Hacer la ronda" junta mantenimientos vencidos, los de esta semana y las calibraciones por vencer en un solo recorrido, uno por tarjeta.',
         'La matriz de 52 semanas es de solo consulta — tócala en una celda planeada para marcarla hecha directamente ahí.',
         '"📥 Importar F11" actualiza calibraciones en bloque desde el CSV oficial exportado por la plataforma.'
     ]},
     'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
         'Si vas al cuarto de gases, usa 🔄 Hacer la ronda: te pide un punto a la vez, en el orden en que están acomodados, y termina con el combustible. Puedes salir a media ronda y retomarla donde ibas.',
-        '"= Igual" repite la lectura anterior de un toque; Enter avanza al siguiente punto; "Saltar" deja sin lectura lo que no se pudo leer.',
+        '"= Igual" repite la lectura anterior de un toque; Enter guarda y avanza; "Después" deja sin lectura lo que no se pudo leer. Deslizar solo cambia de tarjeta, nunca guarda.',
         'Si traes la libreta, captura en la retícula y cambia la fecha del lote a la del recorrido.',
         'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
         'Un valor improbable se marca en ámbar y avisa por qué, pero nunca te impide guardar: tú decides, y queda en la auditoría.'

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.20.0';
+var APP_VERSION = '2.23.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,30 @@ var APP_VERSION = '2.20.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.23.0', date: '30 sep 2026', title: 'HOY: te toca',
+      bullets: [
+          'Nuevo: "📌 Lo siguiente" pasa a ser "📥 Te toca": lo que a TI te toca hacer ahora, según tu rol. Un Técnico ya no ve "Aprobar", y nadie ve aprobar lo que él mismo liberó.',
+          'Lo que le toca a otro rol no se esconde en silencio: se cuenta al pie y sigue en su categoría.',
+          'Nuevo: ⏰ (o deslizar la fila a la izquierda) pospone hasta mañana. Sale de tu bandeja, sigue en su categoría marcada como pospuesta y se regresa con un toque. Posponer nunca marca nada como hecho, y es solo tuyo: otro compañero en el mismo equipo la sigue viendo.',
+          'Con la bandeja vacía aparece "Todo al día", con cómo va la semana y cuántas dejaste para mañana.',
+          'Se ven las 5 más urgentes y "Ver las que siguen" despliega el resto.'
+      ] },
+    { version: '2.22.0', date: '30 sep 2026', title: 'Revisar la semana y repasar proyectos, una cosa a la vez',
+      bullets: [
+          'Nuevo: 🔎 Revisar y aceptar. Con una propuesta de semana, cada prueba es una tarjeta con su semáforo y una decisión: así está, otro día (solo los días donde cabe el reposo) o quitarla. Al final, el resumen y "Aceptar la semana".',
+          'Lo que quites en la revisión se puede devolver desde el resumen con ↩ Devolver, antes de aceptar.',
+          'Nuevo: 🧭 Repasar pendientes en Proyectos. Cada paso vencido o bloqueado se resuelve en una tarjeta: ya se hizo, nueva fecha (con motivo, queda en el historial) o está bloqueado (con lo que lo detiene).',
+          'HOY abre las dos revisiones directo: la propuesta sin aceptar y los pendientes de proyectos (con 2 o más).',
+          'En los resúmenes hay un solo botón principal: si está "Aceptar la semana", Terminar pasa a secundario.'
+      ] },
+    { version: '2.21.0', date: '30 sep 2026', title: 'Una cosa a la vez, también en Consumibles',
+      bullets: [
+          'Nuevo: la ronda de lecturas de gases usa las mismas tarjetas que Operación: un cilindro por pantalla, avance por zona arriba, Guardar grande abajo, "Después" para lo que no se pudo leer y deslizar solo cambia de tarjeta.',
+          'Nuevo: 🧭 Ronda de equipos. Junta los mantenimientos vencidos y de esta semana y las calibraciones vencidas o que vencen en 14 días, y los registra uno por uno. Está en 🔧 Equipos, 🛠️ Mtto, en HOY (con 2 o más pendientes) y en el menú Crear.',
+          'Al terminar cada ronda, el resumen dice cómo quedó el laboratorio: qué cilindros quedaron bajos, qué se registró y qué quedó para después.',
+          'Cambió: en la ronda de gases, una tarjeta vacía ya no guarda "lo mismo de ayer". Para repetir la lectura anterior se toca "= Igual".',
+          'Arreglado: salir de la ronda de gases a medias con ✕ dejaba las lecturas capturadas sin guardar.'
+      ] },
     { version: '2.20.0', date: '29 sep 2026', title: 'Libera el Técnico; las fallas de VETS las decide quien aprueba',
       bullets: [
           'Cambió: Técnico y Especialista pueden enviar a aprobación (firma del liberador). Aprobar sigue siendo solo de Signatario y Manager, y nadie aprueba lo que liberó.',
@@ -1749,7 +1773,8 @@ var UI_PREFS_DEFAULTS = {
     nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
     dashOpenCat: '',       // [2.0.0] HOY: categoría desplegada ('' = ninguna)
     cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
-    handoff: 'todos'       // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
+    handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
+    dashSnooze: {}         // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
 };
 
 function _uiPrefsRead() {
@@ -3983,6 +4008,7 @@ function dailyDashRender() {
     // 2.0.0: "Acceso rápido" se retiró — duplicaba la .ui-bar (Crear / Ir a, v22.6).
 
     el.innerHTML = html;
+    dashInboxSwipeInit(el);   // [2.23.0] deslizar = posponer (delegado, se instala una vez)
 
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
@@ -4002,7 +4028,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Lo siguiente', text: 'Cada categoría es un recuadro con sus pendientes (y las atrasadas en rojo). Sin tocar ninguno ves las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero; toca un recuadro para ver en su lugar la lista completa de esa categoría. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -4011,8 +4037,9 @@ function _dashRegisterHelp() {
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {
-        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego lo siguiente que hay que hacer y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego "Te toca" (lo que a ti te toca hacer, según tu rol) y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
             'Cada recuadro del pulso abre la pantalla de donde sale su número.',
+            '"Te toca" es tuyo: lo que tu rol no puede hacer se cuenta abajo y queda en su categoría. ⏰ (o deslizar a la izquierda) pospone una fila hasta mañana, solo para ti y en este equipo.',
             'Toca una categoría (Vehículos, Plan de hoy, Inventario…) para ver su lista completa; tócala otra vez para cerrarla.',
             'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
             'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
@@ -4230,7 +4257,7 @@ function dashRenderWeek() {
     } else if (!b.accepted) {
         h += '<p class="dash-week-note">⏳ Hay una <strong>propuesta sin aceptar</strong> para esta semana: ' +
              'las pruebas no se agendan hasta que alguien la acepte. ' +
-             '<button class="dash-row-action" onclick="dashGo(\'testplan\',\'tp-myweek\')">Revisarla</button></p>';
+             '<button class="dash-row-action" onclick="tpReviewWeekOpen(\'' + b.weekDate + '\')">🔎 Revisarla</button></p>';
     }
 
     if (b && b.plan && b.accepted && typeof tpBuildDayColumnsHTML === 'function') {
@@ -4264,6 +4291,25 @@ function dashRangeTabsHTML() {
              'aria-selected="' + (r === k) + '" onclick="dashSetRange(\'' + k + '\')">' + DASH_RANGES[k] + '</button>';
     });
     return h + '</div>';
+}
+
+// [2.23.0] Permiso que pide el siguiente paso de un vehículo (para la bandeja).
+function _dashVehPerm(v) {
+    if (!v) return '';
+    if (v.status === 'pending-approval') return 'test.approve';
+    if (v.status === 'ready-release') return 'test.release';
+    return 'test.operate';
+}
+// ¿La sesión liberó este vehículo? Nadie aprueba lo que liberó (authCanApproveVehicle).
+function _dashIsOwnRelease(v) {
+    if (typeof authCanApproveVehicle !== 'function') return false;
+    try { return authCanApproveVehicle(v).reason === 'self'; } catch (e) { return false; }
+}
+// Huella corta y estable de un texto (ids de filas que no traen uno propio).
+function _dashHash(s) {
+    var h = 0; s = String(s || '');
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return (h >>> 0).toString(36);
 }
 
 function dashCollectActivities() {
@@ -4328,7 +4374,7 @@ function dashCollectActivities() {
                 var _proxISO = _tpFmtDate(_prox);
                 var _yaHay = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(_proxISO) : null;
                 if (!_yaHay) {
-                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓',
+                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓', perm: 'plan.manage',
                         title: 'Falta armar la semana del ' + _proxISO,
                         meta: 'La semana que entra no tiene plan. La app ya no lo genera sola: lo armas tu y decides que entra.',
                         status: 'pendiente', urgency: 2,
@@ -4340,7 +4386,7 @@ function dashCollectActivities() {
 
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {
-                acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
+                acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅', perm: 'plan.manage',
                     title: 'No hay plan para esta semana',
                     meta: 'El ultimo plan es de otra semana — no se usa para decidir que toca hoy.',
                     status: 'pendiente', urgency: 1,
@@ -4352,12 +4398,15 @@ function dashCollectActivities() {
             // aceptar", y con el auto-plan generando en cada dispositivo eso llenaba HOY
             // de pruebas que nadie habia decidido correr. Una propuesta es una sola
             // linea: la decision de aceptarla.
-            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳',
+            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳', perm: 'plan.manage',
                 title: 'Hay una propuesta sin aceptar para esta semana',
                 meta: (_b.rows || []).length + ' prueba(s) propuestas. Hasta que se acepte, HOY no las agenda.' +
                       (_b.otrosPlanes ? ' · ' + _b.otrosPlanes + ' propuesta(s) mas de la misma semana' : ''),
                 status: 'pendiente', urgency: 2,
-                action: { label: '📅 Revisarla', js: "dashGo('testplan','tp-myweek')" } });
+                // [2.22.0] Abre la revisión prueba por prueba directo, sin pasar por el tablero.
+                action: { label: '🔎 Revisar y aceptar', aria: 'Revisar la propuesta prueba por prueba',
+                          js: "tpReviewWeekOpen('" + _b.weekDate + "')" },
+                action2: { label: '📅', aria: 'Ver el tablero de la semana', ghost: true, js: "dashGo('testplan','tp-myweek')" } });
         } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
             _b.rows.forEach(function(row) {
@@ -4410,6 +4459,9 @@ function dashCollectActivities() {
             status: status, urgency: status === 'atrasado' ? 3 : 1,
             assignee: (v.testData && v.testData.testResponsible) || v.registeredBy || '',
             stage: st, eta: eta, vehicleId: v.id,
+            // [2.23.0] Quién puede dar el siguiente paso: la bandeja "Te toca" solo lo
+            // pone a quien puede hacerlo (dashInbox). Aprobar lo propio tampoco se ofrece.
+            perm: _dashVehPerm(v), notForMe: v.status === 'pending-approval' && _dashIsOwnRelease(v),
             action: next ? { label: next.icon + ' ' + next.action, js: 'v7GoToVehicle(' + v.id + ",'" + (next.goto || '') + "')" }
                          : { label: 'Ver', js: 'v7GoToVehicle(' + v.id + ')' } });
     });
@@ -4419,6 +4471,7 @@ function dashCollectActivities() {
         acts.push({ id: 'act-appr-' + v.id, cat: 'calidad', icon: '🔏',
             title: 'Aprobar liberación: ' + (v.vin ? '…' + v.vin.slice(-6) : '#' + v.id),
             meta: 'Doble ciego pendiente', status: 'pendiente', urgency: 3,
+            perm: 'test.approve', notForMe: _dashIsOwnRelease(v),
             action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
     });
 
@@ -4439,6 +4492,20 @@ function dashCollectActivities() {
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
+        // [2.21.0] Con dos o más pendientes, un toque arranca la ronda de equipos (uno por
+        // uno, en tarjetas). Las filas sueltas de abajo se quedan para el check de un toque.
+        if (typeof invEquipmentRoundItems === 'function') {
+            var eqr = invEquipmentRoundItems();
+            if (eqr.length >= 2) {
+                var eqrVenc = eqr.filter(function(x) { return x.overdue; }).length;
+                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭',
+                    title: 'Ronda de equipos',
+                    meta: eqr.length + ' calibraciones y mantenimientos pendientes' + (eqrVenc ? ' · ' + eqrVenc + ' vencidos' : ''),
+                    status: eqrVenc ? 'atrasado' : 'pendiente', urgency: eqrVenc ? 3 : 2,
+                    action: { label: '🧭 Hacer la ronda', aria: 'Iniciar la ronda de equipos',
+                              js: "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" } });
+            }
+        }
         if (typeof invCalStatus === 'function') {
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
@@ -4476,6 +4543,17 @@ function dashCollectActivities() {
     }
 
     // 6b) v16.6: pasos de proyectos vencidos y de esta semana (Proyectos, en Datos)
+    // [2.22.0] Con dos o más pendientes, un toque arranca la ronda (una decisión por
+    // paso: hecho / nueva fecha / bloqueado). Las filas sueltas se quedan para el check.
+    if (typeof pnProjectsReviewCount === 'function') {
+        var prN = pnProjectsReviewCount();
+        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭',
+            title: 'Pendientes de proyectos',
+            meta: prN + ' pasos vencidos o bloqueados',
+            status: 'atrasado', urgency: 3,
+            action: { label: '🧭 Repasarlos', aria: 'Repasar los pasos vencidos uno por uno',
+                      js: "if(typeof pnProjectsReviewOpen==='function')pnProjectsReviewOpen()" } });
+    }
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
@@ -4519,7 +4597,7 @@ function dashCollectActivities() {
     // 8) Alertas cross-módulo (Panel) — sin duplicar las de inventario/consumo (ya arriba)
     if (typeof pnGetActiveAlerts === 'function') {
         try {
-            pnGetActiveAlerts().forEach(function(a, ai) {
+            pnGetActiveAlerts().forEach(function(a) {
                 if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento' || a.source === 'Proyectos') return;
                 // v20: 'Test Plan' también sale del pase de alertas. Sus dos mensajes
                 // ("no hay plan para la semana en curso" y "N pruebas en riesgo") se
@@ -4530,7 +4608,10 @@ function dashCollectActivities() {
                 var cat = a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
-                acts.push({ id: 'act-al-' + ai, cat: cat, icon: '🚨', title: a.message, meta: a.source,
+                // [2.23.0] id ESTABLE (no la posición en la lista): posponer en la bandeja
+                // se recuerda por id, y un índice apuntaría a otra alerta mañana.
+                acts.push({ id: 'act-al-' + (a.id || _dashHash(a.source + '|' + a.message)), cat: cat, icon: '🚨', title: a.message, meta: a.source,
+                    perm: a.source === 'CoP SPC' ? 'cop.judge' : '',
                     status: a.level === 'CRITICA' ? 'atrasado' : 'pendiente',
                     urgency: a.level === 'CRITICA' ? 3 : 2,
                     action: { label: 'Revisar', js: a.source === 'CoP SPC' ? "switchPlatform('cop')" : "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-alerts');" } });
@@ -4563,7 +4644,8 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     // v24.3: .dash-row es el contenedor (container query) y el grid vive en
     // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
-    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
+    var h = '<div class="dash-row dash-row--' + a.status + (a._snoozed ? ' dash-row--snoozed' : '') + '"' +
+            (a.snoozable && a.id != null ? ' data-dash-id="' + escapeHtml(String(a.id)) + '"' : '') + '><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -4604,9 +4686,12 @@ function dashRenderRow(a) {
              '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
     }
     h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
+    // [2.23.0] Pospuesta: la fila sigue en su categoría, marcada, con su regreso a un toque.
+    if (a._snoozed) h += '<button class="dash-row-action dash-row-action--ghost" aria-label="Regresar a Te toca: ' + escapeHtml(a.title) + '" onclick="event.stopPropagation();dashUnsnooze(\'' + String(a.id).replace(/'/g, '') + '\')">⏰ Pospuesta · regresar</button>';
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
+    if (a.snoozable && a.id != null) h += '<button class="dash-row-action dash-row-action--ghost dash-snooze-btn" title="Posponer hasta mañana" aria-label="Posponer hasta mañana: ' + escapeHtml(a.title) + '" onclick="event.stopPropagation();dashSnooze(\'' + String(a.id).replace(/'/g, '') + '\')">⏰</button>';
     h += '</div></div></div>';
     return h;
 }
@@ -4624,6 +4709,83 @@ function dashNextUp(acts, n) {
                    ((y.a.urgency || 0) - (x.a.urgency || 0)) || (x.i - y.i);
         })
         .slice(0, n).map(function(o) { return o.a; });
+}
+
+/**
+ * [2.23.0] LA BANDEJA "TE TOCA" — qué le toca a ESTA persona ahora. PURA.
+ * acts: las de dashCollectActivities (ya filtradas por "Solo míos" si aplica).
+ * ctx:  {can(perm) → bool, snooze: {id: hastaISO}, now: ISO}
+ * Fuera: lo hecho; lo que su rol no puede hacer (`a.perm`); lo que no es para ella
+ * (`a.notForMe`, p. ej. aprobar lo que liberó); lo pospuesto hasta después de `now`.
+ * Lo que queda, en el orden de dashNextUp (atrasado primero, luego urgencia).
+ * Devuelve {items, snoozed:[act], byRole:n} — lo que se esconde se CUENTA (v22.5).
+ */
+function dashInbox(acts, ctx) {
+    ctx = ctx || {};
+    var can = typeof ctx.can === 'function' ? ctx.can : function() { return true; };
+    var sn = ctx.snooze || {};
+    var now = ctx.now || new Date().toISOString();
+    var items = [], snoozed = [], byRole = 0;
+    (acts || []).forEach(function(a) {
+        if (!a || a.status === 'hecho') return;
+        if ((a.perm && !can(a.perm)) || a.notForMe) { byRole++; return; }
+        if (a.id != null && sn[a.id] && String(sn[a.id]) > now) { snoozed.push(a); return; }
+        items.push(a);
+    });
+    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole };
+}
+
+/** Hasta cuándo pospone "⏰": el inicio de mañana, hora local. PURA (recibe la fecha). */
+function dashSnoozeUntil(now) {
+    var d = new Date(now || Date.now());
+    d.setHours(24, 0, 0, 0);
+    return d.toISOString();
+}
+
+// Lo pospuesto es POR PERSONA y por equipo (uiPref no se sincroniza): en una tablet
+// compartida, que uno posponga no le esconde la fila al siguiente turno.
+function _dashMe() {
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) return u.name; }
+        return localStorage.getItem('kia_last_operator') || '';
+    } catch (e) { return ''; }
+}
+function dashSnoozeMap() {
+    var all = uiPref('dashSnooze') || {};
+    return all[_dashMe() || '_'] || {};
+}
+function _dashSnoozeWrite(map) {
+    var all = Object.assign({}, uiPref('dashSnooze') || {});
+    var now = new Date().toISOString(), clean = {};
+    Object.keys(map || {}).forEach(function(k) { if (String(map[k]) > now) clean[k] = map[k]; });   // se purga lo vencido
+    all[_dashMe() || '_'] = clean;
+    uiPref('dashSnooze', all);
+}
+/** Posponer hasta mañana. Solo esconde de la bandeja: la fila sigue en su categoría. */
+function dashSnooze(id, opts) {
+    opts = opts || {};
+    if (id == null) return;
+    var map = Object.assign({}, dashSnoozeMap());
+    map[id] = dashSnoozeUntil();
+    _dashSnoozeWrite(map);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+    if (!opts.silent && typeof toastUndo === 'function') {
+        toastUndo('Pospuesta hasta mañana. La sigues viendo en su categoría.', function() { dashUnsnooze(id); });
+    }
+}
+function dashUnsnooze(id) {
+    var map = Object.assign({}, dashSnoozeMap());
+    delete map[id];
+    _dashSnoozeWrite(map);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+function dashToggleSnoozed() {
+    window._dashShowSnoozed = !window._dashShowSnoozed;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+function dashToggleInboxAll() {
+    window._dashInboxAll = !window._dashInboxAll;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
 }
 
 /** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
@@ -4647,12 +4809,18 @@ function dashRenderBoard(acts, currentOp) {
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
     var ocultos = acts.length - shown.length;
-    var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
+    // [2.23.0] La bandeja: lo que a ESTA persona le toca (rol, pospuesto, lo propio).
+    var snoozeMap = dashSnoozeMap();
+    var inbox = dashInbox(shown, {
+        can: function(perm) { return typeof authCan !== 'function' || authCan(perm); },
+        snooze: snoozeMap, now: new Date().toISOString()
+    });
+    var pend = inbox.items.length;
 
     var h = '<div class="dash-board">';
     h += '<div class="dash-board-header" data-help="dash-board-help">';
-    h += '<span class="dash-board-title">📌 Lo siguiente</span>';
-    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes hoy' : 'al día ✓') + '</span>';
+    h += '<span class="dash-board-title">📥 Te toca</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendiente' + (pend === 1 ? '' : 's') : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
     // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
     // 44px en pantallas de dedo sin engordar la barra.
@@ -4699,25 +4867,116 @@ function dashRenderBoard(acts, currentOp) {
         h += '<div class="dash-cat-detail dash-cat-tile--' + (DASH_CAT_ACCENT[open] || 'panel') + '" role="tabpanel">' +
              '<div class="dash-cat-detail-head"><span>' + cd.icon + ' ' + cd.label + ' · ' + rows.length + '</span>' +
              '<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashSetOpenCat(\'' + open + '\')">✕ Ver lo siguiente</button></div>' +
-             '<div class="dash-group-rows">' + rows.map(function(a) { return dashRenderRow(a); }).join('') + '</div></div>';
+             '<div class="dash-group-rows">' + rows.map(function(a) {
+                 return dashRenderRow(snoozeMap[a.id] && String(snoozeMap[a.id]) > new Date().toISOString() && a.status !== 'hecho'
+                     ? Object.assign({}, a, { _snoozed: true }) : a);
+             }).join('') + '</div></div>';
     } else {
-        // 2b) Lo siguiente: 5 filas con el MISMO dashRenderRow (mismo check y acción).
-        var next = dashNextUp(shown, 5);
+        // 2b) [2.23.0] TE TOCA: la bandeja de esta persona, con el MISMO dashRenderRow
+        //     (mismo check y acción) más ⏰ posponer. Deslizar a la izquierda pospone;
+        //     NUNCA completa (regla de Operación en tarjetas: el gesto no afirma nada).
+        var lim = window._dashInboxAll ? inbox.items.length : 5;
+        var next = inbox.items.slice(0, lim);
         if (next.length) {
-            h += '<div class="dash-next">' + next.map(function(a) {
+            h += '<div class="dash-next dash-inbox">' + next.map(function(a) {
                 // Una fila con casilla no muestra icono: se le antepone el de su
                 // categoría para que "Pendiente" diga de qué. Las demás ya traen el suyo.
                 var c = DASH_CATS[a.cat] || {};
-                return dashRenderRow(a.checkbox && c.icon ? Object.assign({}, a, { title: c.icon + ' ' + a.title }) : a);
+                var row = Object.assign({}, a, { snoozable: true });
+                if (a.checkbox && c.icon) row.title = c.icon + ' ' + a.title;
+                return dashRenderRow(row);
             }).join('') + '</div>';
             var resto = pend - next.length;
-            if (resto > 0) h += '<p class="dash-next-more">y ' + resto + ' pendiente' + (resto === 1 ? '' : 's') + ' más — toca una categoría para ver su lista completa.</p>';
+            if (resto > 0) h += '<button type="button" class="dash-next-more dash-inbox-more" onclick="dashToggleInboxAll()">Ver las ' + resto + ' que siguen ▾</button>';
+            else if (window._dashInboxAll && pend > 5) h += '<button type="button" class="dash-next-more dash-inbox-more" onclick="dashToggleInboxAll()">Ver solo las 5 primeras ▴</button>';
         } else {
-            h += '<div class="daily-dash-empty">Todo lo de hoy está hecho ✓</div>';
+            h += _dashInboxEmptyHTML(inbox);
         }
+        h += _dashInboxFootHTML(inbox);
     }
     h += '</div>';
     return h;
+}
+
+/** [2.23.0] Bandeja vacía: un cierre con información, no solo "sin pendientes". */
+function _dashInboxEmptyHTML(inbox) {
+    var sem = '';
+    try {
+        var b = typeof tpWeekBoardRows === 'function' ? tpWeekBoardRows() : null;
+        if (b && b.plan && b.accepted && b.kpis && b.kpis.planeadas) {
+            sem = 'Semana: <strong>' + b.kpis.hechas + ' de ' + b.kpis.planeadas + '</strong> pruebas del compromiso' +
+                  (b.kpis.riesgo ? ' · <strong>' + b.kpis.riesgo + '</strong> en riesgo' : '') + '.';
+        }
+    } catch (e) {}
+    var extra = [];
+    if (inbox.snoozed.length) extra.push(inbox.snoozed.length + ' pospuesta' + (inbox.snoozed.length === 1 ? '' : 's') + ' para mañana');
+    if (inbox.byRole) extra.push(inbox.byRole + ' le toca' + (inbox.byRole === 1 ? '' : 'n') + ' a otros roles');
+    return '<div class="dash-inbox-clear" role="status">' +
+        '<div class="dash-inbox-clear-mark" aria-hidden="true">✓</div>' +
+        '<div class="dash-inbox-clear-title">Todo al día</div>' +
+        '<p>No tienes nada pendiente ahora mismo.' + (sem ? ' ' + sem : '') + '</p>' +
+        (extra.length ? '<p class="u-muted">' + escapeHtml(extra.join(' · ')) + '.</p>' : '') +
+        '</div>';
+}
+
+/** [2.23.0] Pie de la bandeja: lo que NO está a la vista se cuenta, y lo pospuesto se puede ver. */
+function _dashInboxFootHTML(inbox) {
+    var h = '';
+    var bits = [];
+    if (inbox.byRole) bits.push('<span class="u-muted">' + inbox.byRole + ' le toca' + (inbox.byRole === 1 ? '' : 'n') + ' a otros roles (las ves en su categoría)</span>');
+    if (inbox.snoozed.length) {
+        bits.push('<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashToggleSnoozed()" aria-expanded="' + !!window._dashShowSnoozed + '">⏰ ' +
+                  inbox.snoozed.length + ' pospuesta' + (inbox.snoozed.length === 1 ? '' : 's') + (window._dashShowSnoozed ? ' ▴' : ' ▾') + '</button>');
+    }
+    if (bits.length) h += '<div class="dash-inbox-foot">' + bits.join('') + '</div>';
+    if (window._dashShowSnoozed && inbox.snoozed.length) {
+        h += '<div class="dash-group-rows dash-inbox-snoozed">' + inbox.snoozed.map(function(a) {
+            return dashRenderRow(Object.assign({}, a, { _snoozed: true }));
+        }).join('') + '</div>';
+    }
+    return h;
+}
+
+// [2.23.0] Deslizar a la izquierda una fila de "Te toca" = posponer hasta mañana.
+// Se escucha en el contenedor de HOY (delegado, una sola vez) y detiene la
+// propagación: el deslizar global entre plataformas escucha en `document` y con
+// 150 px cambiaría de pantalla en el mismo gesto.
+var DASH_SWIPE_PX = 90;
+function dashInboxSwipeInit(root) {
+    if (!root || root._dashSwipe) return;
+    root._dashSwipe = true;
+    var row = null, x0 = 0, y0 = 0, dx = 0, horiz = null;
+    function reset() {
+        if (row) { row.style.transform = ''; row.style.opacity = ''; row.classList.remove('is-swiping'); }
+        row = null; horiz = null; dx = 0;
+    }
+    root.addEventListener('touchstart', function(e) {
+        var r = e.target.closest && e.target.closest('.dash-inbox .dash-row[data-dash-id]');
+        if (!r || !e.touches || e.touches.length !== 1) return;
+        if (e.target.closest('button, input, label, a, select')) return;
+        row = r; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null;
+        e.stopPropagation();
+    }, { passive: true });
+    root.addEventListener('touchmove', function(e) {
+        if (!row || !e.touches) return;
+        var mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+        if (horiz === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > 2 * Math.abs(my);
+        if (!horiz) return;
+        dx = Math.min(0, mx);
+        row.classList.add('is-swiping');
+        row.style.transform = 'translateX(' + dx + 'px)';
+        row.style.opacity = String(Math.max(0.35, 1 + dx / 300));
+        e.stopPropagation();
+    }, { passive: true });
+    root.addEventListener('touchend', function(e) {
+        if (!row) return;
+        var id = row.getAttribute('data-dash-id');
+        var go = horiz && dx <= -DASH_SWIPE_PX;
+        e.stopPropagation();
+        reset();
+        if (go && id) dashSnooze(id);
+    }, { passive: true });
+    root.addEventListener('touchcancel', reset, { passive: true });
 }
 
 // v22.3 — "Solo míos" PERSISTE. Vivía en window._dashOnlyMine, o sea que se perdía
@@ -6968,6 +7227,7 @@ var UI_CREATE_ACTIONS = [
     { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
     { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
     { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🧭', label: 'Ronda de equipos',      fn: 'invStartEquipmentRound', hint: 'Calibraciones y mantenimientos pendientes, uno por uno' },
     { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
     { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
     { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }

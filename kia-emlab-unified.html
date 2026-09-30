@@ -2381,26 +2381,6 @@ body{ overflow-x: hidden; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
-/* [R5-M5] Batch Reading Round                                          */
-/* ══════════════════════════════════════════════════════════════════════ */
-
-.reading-round-overlay {
-    position: fixed; inset: 0; z-index: 9500;
-    background: rgba(15,23,42,0.5);
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(12px);
-    animation:animFadeInUp var(--dur-slow) var(--ease-out);
-}
-.reading-round-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-xl); padding: var(--space-xl); width: 90%; max-width: 380px;
-    box-shadow: var(--shadow-xl);
-    /* La ronda se usa de pie en el cuarto de gases: si la tarjeta crece (muchas
-       alertas en el resumen) tiene que poder desplazarse, no recortarse. */
-    max-height: 90vh; overflow-y: auto;
-}
-
-/* ══════════════════════════════════════════════════════════════════════ */
 /* [R5-M7] Unified Calendar                                            */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -5847,6 +5827,29 @@ td .ui-num-row > input { min-width: 5rem; }
 .dash-pulse-head { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-bottom: var(--space-xs); }
 .dash-cat-detail { border-left-width: 4px; }
 .dash-next-more { font-size: var(--fs-xs); color: var(--muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); padding: 0 var(--space-xs); }
+/* [2.23.0] "Te toca" — la bandeja de HOY */
+.dash-inbox-more {
+    display: block; width: 100%; min-height: var(--target-min); text-align: left; cursor: pointer;
+    border: 0; background: none; font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--info-text);
+}
+.dash-inbox .dash-row { transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); touch-action: pan-y; }
+.dash-inbox .dash-row.is-swiping { transition: none; }
+.dash-row--snoozed { opacity: 0.7; }
+.dash-snooze-btn { min-width: var(--target-min); }
+.dash-inbox-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); }
+.dash-inbox-snoozed { margin-bottom: var(--space-md); }
+.dash-inbox-clear {
+    text-align: center; padding: var(--space-xl) var(--space-md); margin-bottom: var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--ok-tint);
+    animation: ocIn var(--dur-slow) var(--ease-out) both;
+}
+.dash-inbox-clear-mark {
+    width: 56px; height: 56px; margin: 0 auto var(--space-sm); border-radius: var(--radius-full);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ok-fill, #10b981); color: #fff; font-size: var(--fs-xl); font-weight: var(--weight-black);
+}
+.dash-inbox-clear-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--ok-text); margin-bottom: var(--space-xs); }
+.dash-inbox-clear p { margin: var(--space-2xs) 0 0; font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
 
 /* [2.1.0] Datos → Usuarios → Roles y permisos */
 .pn-roles-lead { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
@@ -6002,6 +6005,144 @@ body.oc-at-final .oc-foot { grid-template-columns: auto; }
     background: none; border: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: underline; cursor: pointer;
 }
 .oc-final-list { margin-top: var(--space-md); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [2.21.0] UNA COSA A LA VEZ — primitiva uiFlow (js/uiflow.js)           */
+/* Mismo lenguaje que Operación en tarjetas (.oc-*), para el resto de la  */
+/* plataforma. Capa propia a pantalla completa, debajo de toasts y        */
+/* diálogos (9999) para que un aviso o una confirmación se vean encima.   */
+/* ══════════════════════════════════════════════════════════════════════ */
+body.uf-open { overflow: hidden; }
+.uf {
+    position: fixed; inset: 0; z-index: 9500;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    animation: ocIn var(--dur-base) var(--ease-out) both;
+}
+.uf-head {
+    flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+    padding: calc(var(--space-sm) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-xs);
+}
+.uf-head-row { display: flex; align-items: center; gap: var(--space-sm); max-width: 560px; margin: 0 auto; }
+.uf-x {
+    min-width: var(--target-min); min-height: var(--target-min); flex-shrink: 0;
+    border: 0; background: none; font-size: var(--fs-lg); color: var(--muted); cursor: pointer;
+}
+.uf-head-what { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uf-head-sub { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.uf-saved { flex-shrink: 0; font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--ok-text); opacity: 0; }
+.uf-saved.is-on { animation: ocSaved 1.8s var(--ease-out) both; }
+.uf-segs { display: flex; gap: var(--space-2xs); margin: var(--space-xs) auto 0; max-width: 560px; }
+.uf-seg { flex: 1; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; }
+.uf-seg-bar { display: block; width: 100%; height: 6px; border-radius: var(--radius-full); background: var(--border); overflow: hidden; }
+.uf-seg.is-here .uf-seg-bar { height: 8px; }
+.uf-seg-fill { display: block; height: 100%; background: var(--kia-red); transform-origin: left; transition: transform var(--dur-base) var(--ease-out); }
+
+.uf-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.uf-card, .uf-final { max-width: 560px; margin: var(--space-lg) auto; padding: 0 var(--space-md); }
+.uf-in { animation: ocIn var(--dur-base) var(--ease-out) both; }
+.uf-in-back { animation: ocInBack var(--dur-base) var(--ease-out) both; }
+
+.uf-kicker { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--space-xs); }
+.uf-q {
+    display: block; margin-bottom: var(--space-md);
+    font-size: var(--fs-lg); font-weight: var(--weight-black); line-height: 1.25; color: var(--text);
+}
+.uf-context { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); font-size: var(--fs-sm); color: var(--muted); }
+.uf-context b { color: var(--text); }
+.uf-big { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+/* El error de uiInvalid se inserta junto al campo: aquí va a su propio renglón, debajo. */
+.uf-big > .ui-field-error { flex-basis: 100%; order: 3; }
+.uf-big-input {
+    flex: 1; min-width: 0; min-height: 64px; padding: 0 var(--space-md);
+    font-size: var(--fs-xl); font-weight: var(--weight-black); text-align: center;
+    border: 2px solid var(--border-strong); border-radius: var(--radius-lg);
+    background: var(--surface); color: var(--text);
+}
+.uf-big-unit { flex-shrink: 0; font-size: var(--fs-md); font-weight: var(--weight-bold); color: var(--muted); }
+.uf-warn { min-height: 1.5em; margin-top: var(--space-sm); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--warn-text); }
+.uf-alt {
+    display: block; width: 100%; min-height: var(--target-min); margin-top: var(--space-sm);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold); cursor: pointer;
+}
+.uf-note { font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-base); }
+.uf-field { display: block; margin-top: var(--space-md); }
+.uf-field > span { display: block; margin-bottom: var(--space-xs); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text); }
+.uf-field > span small { font-weight: var(--weight-normal); color: var(--muted); }
+.uf-field input {
+    width: 100%; min-height: 52px; padding: 0 var(--space-md); font-size: var(--fs-base);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text);
+}
+.uf-badge {
+    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    font-size: var(--fs-sm); font-weight: var(--weight-bold); background: var(--surface-alt); color: var(--text);
+}
+.uf-badge.is-bad  { background: var(--danger-tint); color: var(--danger-text); }
+.uf-badge.is-warn { background: var(--warn-tint);   color: var(--warn-text); }
+
+.uf-foot {
+    flex-shrink: 0; display: grid; grid-template-columns: auto auto 1fr; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md) calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow-md);
+}
+.uf-save {
+    min-height: 56px; border: 0; border-radius: var(--radius-lg); cursor: pointer;
+    background: var(--kia-red); color: #fff; font-size: var(--fs-md); font-weight: var(--weight-black);
+    white-space: nowrap; padding: 0 var(--space-md);
+}
+.uf-save:disabled { opacity: 0.45; cursor: not-allowed; }
+.uf-back { min-width: 56px; font-size: var(--fs-lg) !important; }
+.uf-back, .uf-later {
+    min-height: 56px; padding: 0 var(--space-md); cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-sm); font-weight: var(--weight-semibold);
+}
+.uf-back:disabled { opacity: 0.4; cursor: default; }
+body.uf-at-final .uf-save, body.uf-at-final .uf-later { display: none; }
+body.uf-at-final .uf-foot { grid-template-columns: 56px; }
+
+.uf-final-title { font-size: var(--fs-lg); font-weight: var(--weight-black); color: var(--text); margin-bottom: var(--space-md); }
+.uf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-md); }
+.uf-stat {
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-2xs);
+    padding: var(--space-md) var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+}
+.uf-stat b { font-size: var(--fs-xl); font-weight: var(--weight-black); color: var(--text); line-height: 1.1; }
+.uf-stat b.is-ok  { color: var(--ok-text); }
+.uf-stat b.is-bad { color: var(--danger-text); }
+.uf-stat span { font-size: var(--fs-sm); color: var(--muted); text-align: center; }
+.uf-list {
+    margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base);
+}
+.uf-list > b { display: block; margin-bottom: var(--space-2xs); }
+.uf-list.is-bad  { background: var(--danger-tint); border-color: var(--danger-text); }
+.uf-list.is-warn { background: var(--warn-tint); }
+.uf-list.is-ok   { background: var(--ok-tint); }
+.uf-next { width: 100%; min-height: 56px; font-size: var(--fs-md); margin-top: var(--space-md); }
+/* [2.22.0] Decisión de una tarjeta (fichas) + datos de la tarjeta */
+.uf-facts { display: grid; gap: var(--space-xs); margin-bottom: var(--space-md); }
+.uf-facts > div { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--fs-sm); }
+.uf-facts span { color: var(--muted); flex-shrink: 0; }
+.uf-facts b { color: var(--text); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.uf-choices { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-sm); }
+.uf-choice {
+    min-height: 52px; padding: var(--space-sm) var(--space-md); text-align: left; cursor: pointer;
+    border: 2px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold);
+    transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.uf-choice small { font-weight: var(--weight-normal); color: var(--muted); }
+.uf-choice.is-on { border-color: var(--kia-red); background: var(--info-tint); }
+.uf-choice:focus-visible { outline: 2px solid var(--kia-red); outline-offset: 2px; }
+.uf-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.uf-link {
+    min-height: var(--target-min); padding: 0 var(--space-sm); border: 0; background: none; cursor: pointer;
+    color: var(--kia-red); font-size: var(--fs-sm); font-weight: var(--weight-bold); white-space: nowrap;
+}
+.uf-next:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ══════════════════════════════════════════════════════════════════════
    [2.14.0] ¿Se guardó? ¿Lo ven los demás? — chip ☁ por vehículo, hoja del
@@ -8766,10 +8907,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609292350';
+var APP_BUILD = '202609301147';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '042ee95f41bb69899631392eabf54ff864876b19';
+var APP_COMMIT = 'ab0b5c26396072a5282897f4d9d9dda881844c04';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -8777,7 +8918,7 @@ var APP_COMMIT = '042ee95f41bb69899631392eabf54ff864876b19';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.20.0';
+var APP_VERSION = '2.23.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -8785,6 +8926,30 @@ var APP_VERSION = '2.20.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.23.0', date: '30 sep 2026', title: 'HOY: te toca',
+      bullets: [
+          'Nuevo: "📌 Lo siguiente" pasa a ser "📥 Te toca": lo que a TI te toca hacer ahora, según tu rol. Un Técnico ya no ve "Aprobar", y nadie ve aprobar lo que él mismo liberó.',
+          'Lo que le toca a otro rol no se esconde en silencio: se cuenta al pie y sigue en su categoría.',
+          'Nuevo: ⏰ (o deslizar la fila a la izquierda) pospone hasta mañana. Sale de tu bandeja, sigue en su categoría marcada como pospuesta y se regresa con un toque. Posponer nunca marca nada como hecho, y es solo tuyo: otro compañero en el mismo equipo la sigue viendo.',
+          'Con la bandeja vacía aparece "Todo al día", con cómo va la semana y cuántas dejaste para mañana.',
+          'Se ven las 5 más urgentes y "Ver las que siguen" despliega el resto.'
+      ] },
+    { version: '2.22.0', date: '30 sep 2026', title: 'Revisar la semana y repasar proyectos, una cosa a la vez',
+      bullets: [
+          'Nuevo: 🔎 Revisar y aceptar. Con una propuesta de semana, cada prueba es una tarjeta con su semáforo y una decisión: así está, otro día (solo los días donde cabe el reposo) o quitarla. Al final, el resumen y "Aceptar la semana".',
+          'Lo que quites en la revisión se puede devolver desde el resumen con ↩ Devolver, antes de aceptar.',
+          'Nuevo: 🧭 Repasar pendientes en Proyectos. Cada paso vencido o bloqueado se resuelve en una tarjeta: ya se hizo, nueva fecha (con motivo, queda en el historial) o está bloqueado (con lo que lo detiene).',
+          'HOY abre las dos revisiones directo: la propuesta sin aceptar y los pendientes de proyectos (con 2 o más).',
+          'En los resúmenes hay un solo botón principal: si está "Aceptar la semana", Terminar pasa a secundario.'
+      ] },
+    { version: '2.21.0', date: '30 sep 2026', title: 'Una cosa a la vez, también en Consumibles',
+      bullets: [
+          'Nuevo: la ronda de lecturas de gases usa las mismas tarjetas que Operación: un cilindro por pantalla, avance por zona arriba, Guardar grande abajo, "Después" para lo que no se pudo leer y deslizar solo cambia de tarjeta.',
+          'Nuevo: 🧭 Ronda de equipos. Junta los mantenimientos vencidos y de esta semana y las calibraciones vencidas o que vencen en 14 días, y los registra uno por uno. Está en 🔧 Equipos, 🛠️ Mtto, en HOY (con 2 o más pendientes) y en el menú Crear.',
+          'Al terminar cada ronda, el resumen dice cómo quedó el laboratorio: qué cilindros quedaron bajos, qué se registró y qué quedó para después.',
+          'Cambió: en la ronda de gases, una tarjeta vacía ya no guarda "lo mismo de ayer". Para repetir la lectura anterior se toca "= Igual".',
+          'Arreglado: salir de la ronda de gases a medias con ✕ dejaba las lecturas capturadas sin guardar.'
+      ] },
     { version: '2.20.0', date: '29 sep 2026', title: 'Libera el Técnico; las fallas de VETS las decide quien aprueba',
       bullets: [
           'Cambió: Técnico y Especialista pueden enviar a aprobación (firma del liberador). Aprobar sigue siendo solo de Signatario y Manager, y nadie aprueba lo que liberó.',
@@ -9464,14 +9629,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609292350' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609301147' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609292350' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609301147' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9487,7 +9652,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609292350' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609301147' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10051,7 +10216,8 @@ var UI_PREFS_DEFAULTS = {
     nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
     dashOpenCat: '',       // [2.0.0] HOY: categoría desplegada ('' = ninguna)
     cardMode: 'auto',      // [2.13.0] Operación una cosa a la vez: 'auto' (teléfono + técnico) | true | false
-    handoff: 'todos'       // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
+    handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
+    dashSnooze: {}         // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
 };
 
 function _uiPrefsRead() {
@@ -12285,6 +12451,7 @@ function dailyDashRender() {
     // 2.0.0: "Acceso rápido" se retiró — duplicaba la .ui-bar (Crear / Ir a, v22.6).
 
     el.innerHTML = html;
+    dashInboxSwipeInit(el);   // [2.23.0] deslizar = posponer (delegado, se instala una vez)
 
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
@@ -12304,7 +12471,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Lo siguiente', text: 'Cada categoría es un recuadro con sus pendientes (y las atrasadas en rojo). Sin tocar ninguno ves las 5 acciones que más urgen de todo el laboratorio, lo atrasado primero; toca un recuadro para ver en su lugar la lista completa de esa categoría. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -12313,8 +12480,9 @@ function _dashRegisterHelp() {
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {
-        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego lo siguiente que hay que hacer y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Arriba el pulso del laboratorio (cinco indicadores que se tocan para abrir su pantalla), luego "Te toca" (lo que a ti te toca hacer, según tu rol) y las categorías como recuadros: el detalle está a un toque, no a varias pantallas de distancia.', tips: [
             'Cada recuadro del pulso abre la pantalla de donde sale su número.',
+            '"Te toca" es tuyo: lo que tu rol no puede hacer se cuenta abajo y queda en su categoría. ⏰ (o deslizar a la izquierda) pospone una fila hasta mañana, solo para ti y en este equipo.',
             'Toca una categoría (Vehículos, Plan de hoy, Inventario…) para ver su lista completa; tócala otra vez para cerrarla.',
             'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
             'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
@@ -12532,7 +12700,7 @@ function dashRenderWeek() {
     } else if (!b.accepted) {
         h += '<p class="dash-week-note">⏳ Hay una <strong>propuesta sin aceptar</strong> para esta semana: ' +
              'las pruebas no se agendan hasta que alguien la acepte. ' +
-             '<button class="dash-row-action" onclick="dashGo(\'testplan\',\'tp-myweek\')">Revisarla</button></p>';
+             '<button class="dash-row-action" onclick="tpReviewWeekOpen(\'' + b.weekDate + '\')">🔎 Revisarla</button></p>';
     }
 
     if (b && b.plan && b.accepted && typeof tpBuildDayColumnsHTML === 'function') {
@@ -12566,6 +12734,25 @@ function dashRangeTabsHTML() {
              'aria-selected="' + (r === k) + '" onclick="dashSetRange(\'' + k + '\')">' + DASH_RANGES[k] + '</button>';
     });
     return h + '</div>';
+}
+
+// [2.23.0] Permiso que pide el siguiente paso de un vehículo (para la bandeja).
+function _dashVehPerm(v) {
+    if (!v) return '';
+    if (v.status === 'pending-approval') return 'test.approve';
+    if (v.status === 'ready-release') return 'test.release';
+    return 'test.operate';
+}
+// ¿La sesión liberó este vehículo? Nadie aprueba lo que liberó (authCanApproveVehicle).
+function _dashIsOwnRelease(v) {
+    if (typeof authCanApproveVehicle !== 'function') return false;
+    try { return authCanApproveVehicle(v).reason === 'self'; } catch (e) { return false; }
+}
+// Huella corta y estable de un texto (ids de filas que no traen uno propio).
+function _dashHash(s) {
+    var h = 0; s = String(s || '');
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return (h >>> 0).toString(36);
 }
 
 function dashCollectActivities() {
@@ -12630,7 +12817,7 @@ function dashCollectActivities() {
                 var _proxISO = _tpFmtDate(_prox);
                 var _yaHay = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(_proxISO) : null;
                 if (!_yaHay) {
-                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓',
+                    acts.push({ id: 'act-plan-armar', cat: 'plan', icon: '🗓', perm: 'plan.manage',
                         title: 'Falta armar la semana del ' + _proxISO,
                         meta: 'La semana que entra no tiene plan. La app ya no lo genera sola: lo armas tu y decides que entra.',
                         status: 'pendiente', urgency: 2,
@@ -12642,7 +12829,7 @@ function dashCollectActivities() {
 
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {
-                acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
+                acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅', perm: 'plan.manage',
                     title: 'No hay plan para esta semana',
                     meta: 'El ultimo plan es de otra semana — no se usa para decidir que toca hoy.',
                     status: 'pendiente', urgency: 1,
@@ -12654,12 +12841,15 @@ function dashCollectActivities() {
             // aceptar", y con el auto-plan generando en cada dispositivo eso llenaba HOY
             // de pruebas que nadie habia decidido correr. Una propuesta es una sola
             // linea: la decision de aceptarla.
-            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳',
+            acts.push({ id: 'act-plan-propuesta', cat: 'plan', icon: '⏳', perm: 'plan.manage',
                 title: 'Hay una propuesta sin aceptar para esta semana',
                 meta: (_b.rows || []).length + ' prueba(s) propuestas. Hasta que se acepte, HOY no las agenda.' +
                       (_b.otrosPlanes ? ' · ' + _b.otrosPlanes + ' propuesta(s) mas de la misma semana' : ''),
                 status: 'pendiente', urgency: 2,
-                action: { label: '📅 Revisarla', js: "dashGo('testplan','tp-myweek')" } });
+                // [2.22.0] Abre la revisión prueba por prueba directo, sin pasar por el tablero.
+                action: { label: '🔎 Revisar y aceptar', aria: 'Revisar la propuesta prueba por prueba',
+                          js: "tpReviewWeekOpen('" + _b.weekDate + "')" },
+                action2: { label: '📅', aria: 'Ver el tablero de la semana', ghost: true, js: "dashGo('testplan','tp-myweek')" } });
         } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
             _b.rows.forEach(function(row) {
@@ -12712,6 +12902,9 @@ function dashCollectActivities() {
             status: status, urgency: status === 'atrasado' ? 3 : 1,
             assignee: (v.testData && v.testData.testResponsible) || v.registeredBy || '',
             stage: st, eta: eta, vehicleId: v.id,
+            // [2.23.0] Quién puede dar el siguiente paso: la bandeja "Te toca" solo lo
+            // pone a quien puede hacerlo (dashInbox). Aprobar lo propio tampoco se ofrece.
+            perm: _dashVehPerm(v), notForMe: v.status === 'pending-approval' && _dashIsOwnRelease(v),
             action: next ? { label: next.icon + ' ' + next.action, js: 'v7GoToVehicle(' + v.id + ",'" + (next.goto || '') + "')" }
                          : { label: 'Ver', js: 'v7GoToVehicle(' + v.id + ')' } });
     });
@@ -12721,6 +12914,7 @@ function dashCollectActivities() {
         acts.push({ id: 'act-appr-' + v.id, cat: 'calidad', icon: '🔏',
             title: 'Aprobar liberación: ' + (v.vin ? '…' + v.vin.slice(-6) : '#' + v.id),
             meta: 'Doble ciego pendiente', status: 'pendiente', urgency: 3,
+            perm: 'test.approve', notForMe: _dashIsOwnRelease(v),
             action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
     });
 
@@ -12741,6 +12935,20 @@ function dashCollectActivities() {
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
+        // [2.21.0] Con dos o más pendientes, un toque arranca la ronda de equipos (uno por
+        // uno, en tarjetas). Las filas sueltas de abajo se quedan para el check de un toque.
+        if (typeof invEquipmentRoundItems === 'function') {
+            var eqr = invEquipmentRoundItems();
+            if (eqr.length >= 2) {
+                var eqrVenc = eqr.filter(function(x) { return x.overdue; }).length;
+                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭',
+                    title: 'Ronda de equipos',
+                    meta: eqr.length + ' calibraciones y mantenimientos pendientes' + (eqrVenc ? ' · ' + eqrVenc + ' vencidos' : ''),
+                    status: eqrVenc ? 'atrasado' : 'pendiente', urgency: eqrVenc ? 3 : 2,
+                    action: { label: '🧭 Hacer la ronda', aria: 'Iniciar la ronda de equipos',
+                              js: "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" } });
+            }
+        }
         if (typeof invCalStatus === 'function') {
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
@@ -12778,6 +12986,17 @@ function dashCollectActivities() {
     }
 
     // 6b) v16.6: pasos de proyectos vencidos y de esta semana (Proyectos, en Datos)
+    // [2.22.0] Con dos o más pendientes, un toque arranca la ronda (una decisión por
+    // paso: hecho / nueva fecha / bloqueado). Las filas sueltas se quedan para el check.
+    if (typeof pnProjectsReviewCount === 'function') {
+        var prN = pnProjectsReviewCount();
+        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭',
+            title: 'Pendientes de proyectos',
+            meta: prN + ' pasos vencidos o bloqueados',
+            status: 'atrasado', urgency: 3,
+            action: { label: '🧭 Repasarlos', aria: 'Repasar los pasos vencidos uno por uno',
+                      js: "if(typeof pnProjectsReviewOpen==='function')pnProjectsReviewOpen()" } });
+    }
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
@@ -12821,7 +13040,7 @@ function dashCollectActivities() {
     // 8) Alertas cross-módulo (Panel) — sin duplicar las de inventario/consumo (ya arriba)
     if (typeof pnGetActiveAlerts === 'function') {
         try {
-            pnGetActiveAlerts().forEach(function(a, ai) {
+            pnGetActiveAlerts().forEach(function(a) {
                 if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento' || a.source === 'Proyectos') return;
                 // v20: 'Test Plan' también sale del pase de alertas. Sus dos mensajes
                 // ("no hay plan para la semana en curso" y "N pruebas en riesgo") se
@@ -12832,7 +13051,10 @@ function dashCollectActivities() {
                 var cat = a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
-                acts.push({ id: 'act-al-' + ai, cat: cat, icon: '🚨', title: a.message, meta: a.source,
+                // [2.23.0] id ESTABLE (no la posición en la lista): posponer en la bandeja
+                // se recuerda por id, y un índice apuntaría a otra alerta mañana.
+                acts.push({ id: 'act-al-' + (a.id || _dashHash(a.source + '|' + a.message)), cat: cat, icon: '🚨', title: a.message, meta: a.source,
+                    perm: a.source === 'CoP SPC' ? 'cop.judge' : '',
                     status: a.level === 'CRITICA' ? 'atrasado' : 'pendiente',
                     urgency: a.level === 'CRITICA' ? 3 : 2,
                     action: { label: 'Revisar', js: a.source === 'CoP SPC' ? "switchPlatform('cop')" : "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-alerts');" } });
@@ -12865,7 +13087,8 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     // v24.3: .dash-row es el contenedor (container query) y el grid vive en
     // .dash-row-in — así la fila se acomoda al ancho de SU celda, no al de la ventana.
-    var h = '<div class="dash-row dash-row--' + a.status + '"><div class="dash-row-in">';
+    var h = '<div class="dash-row dash-row--' + a.status + (a._snoozed ? ' dash-row--snoozed' : '') + '"' +
+            (a.snoozable && a.id != null ? ' data-dash-id="' + escapeHtml(String(a.id)) + '"' : '') + '><div class="dash-row-in">';
     if (a.checkbox) {
         // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
         // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
@@ -12906,9 +13129,12 @@ function dashRenderRow(a) {
              '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
     }
     h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
+    // [2.23.0] Pospuesta: la fila sigue en su categoría, marcada, con su regreso a un toque.
+    if (a._snoozed) h += '<button class="dash-row-action dash-row-action--ghost" aria-label="Regresar a Te toca: ' + escapeHtml(a.title) + '" onclick="event.stopPropagation();dashUnsnooze(\'' + String(a.id).replace(/'/g, '') + '\')">⏰ Pospuesta · regresar</button>';
     // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
     if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
+    if (a.snoozable && a.id != null) h += '<button class="dash-row-action dash-row-action--ghost dash-snooze-btn" title="Posponer hasta mañana" aria-label="Posponer hasta mañana: ' + escapeHtml(a.title) + '" onclick="event.stopPropagation();dashSnooze(\'' + String(a.id).replace(/'/g, '') + '\')">⏰</button>';
     h += '</div></div></div>';
     return h;
 }
@@ -12926,6 +13152,83 @@ function dashNextUp(acts, n) {
                    ((y.a.urgency || 0) - (x.a.urgency || 0)) || (x.i - y.i);
         })
         .slice(0, n).map(function(o) { return o.a; });
+}
+
+/**
+ * [2.23.0] LA BANDEJA "TE TOCA" — qué le toca a ESTA persona ahora. PURA.
+ * acts: las de dashCollectActivities (ya filtradas por "Solo míos" si aplica).
+ * ctx:  {can(perm) → bool, snooze: {id: hastaISO}, now: ISO}
+ * Fuera: lo hecho; lo que su rol no puede hacer (`a.perm`); lo que no es para ella
+ * (`a.notForMe`, p. ej. aprobar lo que liberó); lo pospuesto hasta después de `now`.
+ * Lo que queda, en el orden de dashNextUp (atrasado primero, luego urgencia).
+ * Devuelve {items, snoozed:[act], byRole:n} — lo que se esconde se CUENTA (v22.5).
+ */
+function dashInbox(acts, ctx) {
+    ctx = ctx || {};
+    var can = typeof ctx.can === 'function' ? ctx.can : function() { return true; };
+    var sn = ctx.snooze || {};
+    var now = ctx.now || new Date().toISOString();
+    var items = [], snoozed = [], byRole = 0;
+    (acts || []).forEach(function(a) {
+        if (!a || a.status === 'hecho') return;
+        if ((a.perm && !can(a.perm)) || a.notForMe) { byRole++; return; }
+        if (a.id != null && sn[a.id] && String(sn[a.id]) > now) { snoozed.push(a); return; }
+        items.push(a);
+    });
+    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole };
+}
+
+/** Hasta cuándo pospone "⏰": el inicio de mañana, hora local. PURA (recibe la fecha). */
+function dashSnoozeUntil(now) {
+    var d = new Date(now || Date.now());
+    d.setHours(24, 0, 0, 0);
+    return d.toISOString();
+}
+
+// Lo pospuesto es POR PERSONA y por equipo (uiPref no se sincroniza): en una tablet
+// compartida, que uno posponga no le esconde la fila al siguiente turno.
+function _dashMe() {
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) return u.name; }
+        return localStorage.getItem('kia_last_operator') || '';
+    } catch (e) { return ''; }
+}
+function dashSnoozeMap() {
+    var all = uiPref('dashSnooze') || {};
+    return all[_dashMe() || '_'] || {};
+}
+function _dashSnoozeWrite(map) {
+    var all = Object.assign({}, uiPref('dashSnooze') || {});
+    var now = new Date().toISOString(), clean = {};
+    Object.keys(map || {}).forEach(function(k) { if (String(map[k]) > now) clean[k] = map[k]; });   // se purga lo vencido
+    all[_dashMe() || '_'] = clean;
+    uiPref('dashSnooze', all);
+}
+/** Posponer hasta mañana. Solo esconde de la bandeja: la fila sigue en su categoría. */
+function dashSnooze(id, opts) {
+    opts = opts || {};
+    if (id == null) return;
+    var map = Object.assign({}, dashSnoozeMap());
+    map[id] = dashSnoozeUntil();
+    _dashSnoozeWrite(map);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+    if (!opts.silent && typeof toastUndo === 'function') {
+        toastUndo('Pospuesta hasta mañana. La sigues viendo en su categoría.', function() { dashUnsnooze(id); });
+    }
+}
+function dashUnsnooze(id) {
+    var map = Object.assign({}, dashSnoozeMap());
+    delete map[id];
+    _dashSnoozeWrite(map);
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+function dashToggleSnoozed() {
+    window._dashShowSnoozed = !window._dashShowSnoozed;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+function dashToggleInboxAll() {
+    window._dashInboxAll = !window._dashInboxAll;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
 }
 
 /** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
@@ -12949,12 +13252,18 @@ function dashRenderBoard(acts, currentOp) {
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
     var ocultos = acts.length - shown.length;
-    var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
+    // [2.23.0] La bandeja: lo que a ESTA persona le toca (rol, pospuesto, lo propio).
+    var snoozeMap = dashSnoozeMap();
+    var inbox = dashInbox(shown, {
+        can: function(perm) { return typeof authCan !== 'function' || authCan(perm); },
+        snooze: snoozeMap, now: new Date().toISOString()
+    });
+    var pend = inbox.items.length;
 
     var h = '<div class="dash-board">';
     h += '<div class="dash-board-header" data-help="dash-board-help">';
-    h += '<span class="dash-board-title">📌 Lo siguiente</span>';
-    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes hoy' : 'al día ✓') + '</span>';
+    h += '<span class="dash-board-title">📥 Te toca</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendiente' + (pend === 1 ? '' : 's') : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
     // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
     // 44px en pantallas de dedo sin engordar la barra.
@@ -13001,25 +13310,116 @@ function dashRenderBoard(acts, currentOp) {
         h += '<div class="dash-cat-detail dash-cat-tile--' + (DASH_CAT_ACCENT[open] || 'panel') + '" role="tabpanel">' +
              '<div class="dash-cat-detail-head"><span>' + cd.icon + ' ' + cd.label + ' · ' + rows.length + '</span>' +
              '<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashSetOpenCat(\'' + open + '\')">✕ Ver lo siguiente</button></div>' +
-             '<div class="dash-group-rows">' + rows.map(function(a) { return dashRenderRow(a); }).join('') + '</div></div>';
+             '<div class="dash-group-rows">' + rows.map(function(a) {
+                 return dashRenderRow(snoozeMap[a.id] && String(snoozeMap[a.id]) > new Date().toISOString() && a.status !== 'hecho'
+                     ? Object.assign({}, a, { _snoozed: true }) : a);
+             }).join('') + '</div></div>';
     } else {
-        // 2b) Lo siguiente: 5 filas con el MISMO dashRenderRow (mismo check y acción).
-        var next = dashNextUp(shown, 5);
+        // 2b) [2.23.0] TE TOCA: la bandeja de esta persona, con el MISMO dashRenderRow
+        //     (mismo check y acción) más ⏰ posponer. Deslizar a la izquierda pospone;
+        //     NUNCA completa (regla de Operación en tarjetas: el gesto no afirma nada).
+        var lim = window._dashInboxAll ? inbox.items.length : 5;
+        var next = inbox.items.slice(0, lim);
         if (next.length) {
-            h += '<div class="dash-next">' + next.map(function(a) {
+            h += '<div class="dash-next dash-inbox">' + next.map(function(a) {
                 // Una fila con casilla no muestra icono: se le antepone el de su
                 // categoría para que "Pendiente" diga de qué. Las demás ya traen el suyo.
                 var c = DASH_CATS[a.cat] || {};
-                return dashRenderRow(a.checkbox && c.icon ? Object.assign({}, a, { title: c.icon + ' ' + a.title }) : a);
+                var row = Object.assign({}, a, { snoozable: true });
+                if (a.checkbox && c.icon) row.title = c.icon + ' ' + a.title;
+                return dashRenderRow(row);
             }).join('') + '</div>';
             var resto = pend - next.length;
-            if (resto > 0) h += '<p class="dash-next-more">y ' + resto + ' pendiente' + (resto === 1 ? '' : 's') + ' más — toca una categoría para ver su lista completa.</p>';
+            if (resto > 0) h += '<button type="button" class="dash-next-more dash-inbox-more" onclick="dashToggleInboxAll()">Ver las ' + resto + ' que siguen ▾</button>';
+            else if (window._dashInboxAll && pend > 5) h += '<button type="button" class="dash-next-more dash-inbox-more" onclick="dashToggleInboxAll()">Ver solo las 5 primeras ▴</button>';
         } else {
-            h += '<div class="daily-dash-empty">Todo lo de hoy está hecho ✓</div>';
+            h += _dashInboxEmptyHTML(inbox);
         }
+        h += _dashInboxFootHTML(inbox);
     }
     h += '</div>';
     return h;
+}
+
+/** [2.23.0] Bandeja vacía: un cierre con información, no solo "sin pendientes". */
+function _dashInboxEmptyHTML(inbox) {
+    var sem = '';
+    try {
+        var b = typeof tpWeekBoardRows === 'function' ? tpWeekBoardRows() : null;
+        if (b && b.plan && b.accepted && b.kpis && b.kpis.planeadas) {
+            sem = 'Semana: <strong>' + b.kpis.hechas + ' de ' + b.kpis.planeadas + '</strong> pruebas del compromiso' +
+                  (b.kpis.riesgo ? ' · <strong>' + b.kpis.riesgo + '</strong> en riesgo' : '') + '.';
+        }
+    } catch (e) {}
+    var extra = [];
+    if (inbox.snoozed.length) extra.push(inbox.snoozed.length + ' pospuesta' + (inbox.snoozed.length === 1 ? '' : 's') + ' para mañana');
+    if (inbox.byRole) extra.push(inbox.byRole + ' le toca' + (inbox.byRole === 1 ? '' : 'n') + ' a otros roles');
+    return '<div class="dash-inbox-clear" role="status">' +
+        '<div class="dash-inbox-clear-mark" aria-hidden="true">✓</div>' +
+        '<div class="dash-inbox-clear-title">Todo al día</div>' +
+        '<p>No tienes nada pendiente ahora mismo.' + (sem ? ' ' + sem : '') + '</p>' +
+        (extra.length ? '<p class="u-muted">' + escapeHtml(extra.join(' · ')) + '.</p>' : '') +
+        '</div>';
+}
+
+/** [2.23.0] Pie de la bandeja: lo que NO está a la vista se cuenta, y lo pospuesto se puede ver. */
+function _dashInboxFootHTML(inbox) {
+    var h = '';
+    var bits = [];
+    if (inbox.byRole) bits.push('<span class="u-muted">' + inbox.byRole + ' le toca' + (inbox.byRole === 1 ? '' : 'n') + ' a otros roles (las ves en su categoría)</span>');
+    if (inbox.snoozed.length) {
+        bits.push('<button type="button" class="dash-row-action dash-row-action--ghost" onclick="dashToggleSnoozed()" aria-expanded="' + !!window._dashShowSnoozed + '">⏰ ' +
+                  inbox.snoozed.length + ' pospuesta' + (inbox.snoozed.length === 1 ? '' : 's') + (window._dashShowSnoozed ? ' ▴' : ' ▾') + '</button>');
+    }
+    if (bits.length) h += '<div class="dash-inbox-foot">' + bits.join('') + '</div>';
+    if (window._dashShowSnoozed && inbox.snoozed.length) {
+        h += '<div class="dash-group-rows dash-inbox-snoozed">' + inbox.snoozed.map(function(a) {
+            return dashRenderRow(Object.assign({}, a, { _snoozed: true }));
+        }).join('') + '</div>';
+    }
+    return h;
+}
+
+// [2.23.0] Deslizar a la izquierda una fila de "Te toca" = posponer hasta mañana.
+// Se escucha en el contenedor de HOY (delegado, una sola vez) y detiene la
+// propagación: el deslizar global entre plataformas escucha en `document` y con
+// 150 px cambiaría de pantalla en el mismo gesto.
+var DASH_SWIPE_PX = 90;
+function dashInboxSwipeInit(root) {
+    if (!root || root._dashSwipe) return;
+    root._dashSwipe = true;
+    var row = null, x0 = 0, y0 = 0, dx = 0, horiz = null;
+    function reset() {
+        if (row) { row.style.transform = ''; row.style.opacity = ''; row.classList.remove('is-swiping'); }
+        row = null; horiz = null; dx = 0;
+    }
+    root.addEventListener('touchstart', function(e) {
+        var r = e.target.closest && e.target.closest('.dash-inbox .dash-row[data-dash-id]');
+        if (!r || !e.touches || e.touches.length !== 1) return;
+        if (e.target.closest('button, input, label, a, select')) return;
+        row = r; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null;
+        e.stopPropagation();
+    }, { passive: true });
+    root.addEventListener('touchmove', function(e) {
+        if (!row || !e.touches) return;
+        var mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+        if (horiz === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > 2 * Math.abs(my);
+        if (!horiz) return;
+        dx = Math.min(0, mx);
+        row.classList.add('is-swiping');
+        row.style.transform = 'translateX(' + dx + 'px)';
+        row.style.opacity = String(Math.max(0.35, 1 + dx / 300));
+        e.stopPropagation();
+    }, { passive: true });
+    root.addEventListener('touchend', function(e) {
+        if (!row) return;
+        var id = row.getAttribute('data-dash-id');
+        var go = horiz && dx <= -DASH_SWIPE_PX;
+        e.stopPropagation();
+        reset();
+        if (go && id) dashSnooze(id);
+    }, { passive: true });
+    root.addEventListener('touchcancel', reset, { passive: true });
 }
 
 // v22.3 — "Solo míos" PERSISTE. Vivía en window._dashOnlyMine, o sea que se perdía
@@ -15270,6 +15670,7 @@ var UI_CREATE_ACTIONS = [
     { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
     { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
     { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🧭', label: 'Ronda de equipos',      fn: 'invStartEquipmentRound', hint: 'Calibraciones y mantenimientos pendientes, uno por uno' },
     { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
     { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
     { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }
@@ -17043,6 +17444,326 @@ function gridKbdSelect(slotEl, o) {
     if (typeof a11yAnnounce === 'function') {
         a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
     }
+}
+
+
+// @@module js/uiflow.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.21.0] UNA COSA A LA VEZ — tarjetas para toda la plataforma       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Operación en tarjetas (2.13.0, opcards.js) probó el principio: una pregunta por
+// pantalla, un botón grande, deslizar solo navega y un resumen de lo que falta al
+// final. Aquí vive ese principio como primitiva para el RESTO de la plataforma
+// (Consumibles primero: ronda de lecturas y ronda de equipos).
+//
+// REGLAS:
+//  - uiFlow NO guarda nada por su cuenta. Cada paso escribe con el escritor único de
+//    su módulo (invAddReading, invCalRegister, invMaintMarkDone…); la primitiva solo
+//    decide qué tarjeta se ve y lleva la cuenta de hecho / para después.
+//  - Deslizar SOLO navega. "Después" deja el paso pendiente: nunca afirma un dato.
+//  - Un paso bloqueado (sin permiso, por ejemplo) lo DICE en su botón
+//    (uiExplainDisabled, 2.10.0); nunca un botón que no hace nada.
+//  - uiFlowModel y uiFlowNextIndex son PURAS (sin DOM, se prueban en Node).
+//  - opcards.js NO usa esto a propósito: sus tarjetas son los campos del formulario
+//    de Operación en su lugar (y Cascade no se toca). Aquí la tarjeta la pinta el paso.
+//
+// Un paso: { key, section, title,
+//            render(host)          pinta la tarjeta dentro de host
+//            save(host)            → true | {ok:true} | {ok:false, msg, field}
+//            onLater()             opcional: al tocar "Después"
+//            blocked()             opcional: motivo (texto) por el que no se puede guardar }
+
+var UF_SWIPE_PX = 60;
+
+var _uf = null;   // {opts, steps, state:{done,skipped}, idx, final, onlyPending, closeDialog}
+
+/**
+ * Estado de las tarjetas. PURA.
+ * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}}
+ * Devuelve {cards:[{key, section, title, index, status}], sections:[{name, start, count}],
+ *           pending:[índices no hechos], firstPending, done, skipped}
+ * status: 'hecho' | 'despues' (se tocó "Después") | 'pendiente' (no se ha visto).
+ */
+function uiFlowModel(steps, state) {
+    state = state || {};
+    var done = state.done || {}, skipped = state.skipped || {};
+    var cards = (steps || []).filter(function(s) { return s && s.key; }).map(function(s, i) {
+        var st = done[s.key] ? 'hecho' : (skipped[s.key] ? 'despues' : 'pendiente');
+        return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st };
+    });
+    var sections = [];
+    cards.forEach(function(c, i) {
+        var last = sections[sections.length - 1];
+        if (!last || last.name !== c.section) sections.push({ name: c.section, start: i, count: 1 });
+        else last.count++;
+    });
+    var pending = cards.filter(function(c) { return c.status !== 'hecho'; }).map(function(c) { return c.index; });
+    return {
+        cards: cards, sections: sections, pending: pending,
+        firstPending: pending.length ? pending[0] : -1,
+        done: cards.filter(function(c) { return c.status === 'hecho'; }).length,
+        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length
+    };
+}
+
+/**
+ * La tarjeta que sigue. PURA. Al retomar (onlyPending) salta lo ya hecho.
+ * Devuelve cards.length cuando no queda ninguna: eso es el resumen final.
+ */
+function uiFlowNextIndex(model, idx, onlyPending) {
+    var n = model.cards.length;
+    if (!onlyPending) return Math.min(n, idx + 1);
+    var nx = model.pending.filter(function(i) { return i > idx; })[0];
+    return nx === undefined ? n : nx;
+}
+
+// ── Abrir / cerrar ───────────────────────────────────────────────────────
+
+/**
+ * opts: {id, title, subtitle, steps, state, startAt, saveLabel,
+ *        onStep(idx)        cada vez que se muestra una tarjeta (para guardar el avance)
+ *        onFinal(model)     → HTML del resumen (su propio título incluido)
+ *        onClose(reason, model)   reason: 'done' (Terminar) | 'cancel' (✕ a media ronda)}
+ */
+function uiFlowOpen(opts) {
+    opts = opts || {};
+    if (_uf) uiFlowClose('cancel');
+    var steps = (opts.steps || []).filter(function(s) { return s && s.key; });
+    if (!steps.length) return false;
+    var st = opts.state || {};
+    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}) },
+            idx: 0, final: false, onlyPending: false, closeDialog: null };
+
+    var el = document.createElement('div');
+    el.id = 'ui-flow';
+    el.className = 'uf';
+    el.innerHTML =
+        '<div class="uf-head">' +
+            '<div class="uf-head-row">' +
+                '<button type="button" class="uf-x" onclick="uiFlowClose()" aria-label="Salir">✕</button>' +
+                '<div class="uf-head-what"><b id="uf-title"></b><div class="uf-head-sub" id="uf-sub"></div></div>' +
+                '<div class="uf-saved" id="uf-saved" aria-live="polite"></div>' +
+            '</div>' +
+            '<div class="uf-segs" id="uf-segs"></div>' +
+        '</div>' +
+        '<div class="uf-body" id="uf-body"></div>' +
+        '<div class="uf-foot">' +
+            '<button type="button" class="uf-back" onclick="uiFlowBack()" aria-label="Tarjeta anterior">‹</button>' +
+            '<button type="button" class="uf-later" onclick="uiFlowLater()" title="Avanzar sin registrar este punto">Después</button>' +
+            '<button type="button" class="uf-save" onclick="uiFlowSave()"></button>' +
+        '</div>';
+    document.body.appendChild(el);
+    document.body.classList.add('uf-open');
+    _ufSwipe(el);
+    if (typeof a11yDialog === 'function') {
+        _uf.closeDialog = a11yDialog(el, { labelId: 'uf-title', onClose: function() {
+            if (_uf) { _uf.closeDialog = null; uiFlowClose(); }
+        } });
+    }
+    var m = uiFlowModel(steps, _uf.state);
+    // Retomar: si ya hay avance, solo se pregunta lo que falta.
+    _uf.onlyPending = m.done > 0;
+    var start = (typeof opts.startAt === 'number' && opts.startAt >= 0) ? opts.startAt : (m.firstPending >= 0 ? m.firstPending : 0);
+    _ufGo(start, 1);
+    return true;
+}
+
+/** Cerrar. Sin motivo: 'done' si ya se está en el resumen, 'cancel' si no. */
+function uiFlowClose(reason) {
+    if (!_uf) return;
+    var f = _uf;
+    _uf = null;
+    var why = reason || (f.final ? 'done' : 'cancel');
+    var el = document.getElementById('ui-flow');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    document.body.classList.remove('uf-open', 'uf-at-final');
+    if (f.closeDialog) { var c = f.closeDialog; f.closeDialog = null; try { c(); } catch (e) {} }
+    if (typeof f.opts.onClose === 'function') {
+        try { f.opts.onClose(why, uiFlowModel(f.steps, f.state)); } catch (e) { void 0; }
+    }
+}
+
+// ── Pintar ───────────────────────────────────────────────────────────────
+
+function _ufModel() { return uiFlowModel(_uf.steps, _uf.state); }
+
+function _ufHeader(m) {
+    var sub = document.getElementById('uf-sub');
+    var title = document.getElementById('uf-title');
+    var segs = document.getElementById('uf-segs');
+    if (!sub || !title || !segs) return;
+    var o = _uf.opts;
+    title.textContent = o.title || '';
+    var c = _uf.final ? null : m.cards[_uf.idx];
+    var sec = c ? m.sections.filter(function(s) { return _uf.idx >= s.start && _uf.idx < s.start + s.count; })[0] : null;
+    var where = c ? ((sec && sec.name ? sec.name + ' · ' : '') + (_uf.idx + 1) + ' de ' + m.cards.length) : 'Resumen';
+    sub.textContent = where + (o.subtitle ? ' · ' + o.subtitle : '');
+    // Cada segmento se llena con lo HECHO de su sección, no con la posición: "Después"
+    // avanza, pero no llena la barra.
+    segs.innerHTML = m.sections.map(function(s) {
+        var mine = m.cards.slice(s.start, s.start + s.count);
+        var done = mine.filter(function(x) { return x.status === 'hecho'; }).length / s.count;
+        var here = sec && sec.start === s.start;
+        return '<button type="button" class="uf-seg' + (here ? ' is-here' : '') + '" style="flex:' + s.count + '" ' +
+            'onclick="uiFlowGoTo(' + s.start + ')" aria-label="Ir a ' + escapeHtml(s.name || 'la sección') + '">' +
+            '<span class="uf-seg-bar"><span class="uf-seg-fill" style="transform:scaleX(' + done.toFixed(3) + ')"></span></span></button>';
+    }).join('');
+    segs.style.display = m.cards.length > 1 ? '' : 'none';
+}
+
+function _ufGo(i, dir) {
+    if (!_uf) return;
+    var m = _ufModel();
+    if (i >= m.cards.length) { _ufFinal(); return; }
+    _uf.final = false;
+    document.body.classList.remove('uf-at-final');
+    _uf.idx = Math.max(0, i);
+    var step = _uf.steps[_uf.idx];
+    var body = document.getElementById('uf-body');
+    if (!body) return;
+    body.innerHTML = '';
+    var card = document.createElement('div');
+    card.className = 'uf-card ' + (dir < 0 ? 'uf-in-back' : 'uf-in');
+    card.setAttribute('data-uf-key', step.key);
+    body.appendChild(card);
+    try { step.render(card); } catch (e) {
+        void 0;
+        card.innerHTML = '<p class="uf-note">No se pudo mostrar este punto. Toca <b>Después</b> para seguir.</p>';
+    }
+    _ufHeader(m);
+    var save = document.querySelector('#ui-flow .uf-save');
+    if (save) {
+        save.textContent = _uf.opts.saveLabel || 'Guardar ▸';
+        var why = (typeof step.blocked === 'function') ? (step.blocked() || '') : '';
+        if (typeof uiExplainDisabled === 'function') uiExplainDisabled(save, why);
+        else save.disabled = !!why;
+    }
+    var back = document.querySelector('#ui-flow .uf-back');
+    if (back) back.disabled = _uf.idx === 0;
+    body.scrollTop = 0;
+    if (typeof _uf.opts.onStep === 'function') { try { _uf.opts.onStep(_uf.idx); } catch (e) {} }
+    // Foco al primer campo (≥ 16 px en CSS: iOS no hace zoom).
+    setTimeout(function() {
+        if (!_uf || !card.isConnected) return;
+        var f = card.querySelector('input:not([type=hidden]):not([disabled]), textarea, select');
+        if (f && f.focus) { try { f.focus({ preventScroll: true }); } catch (e) {} }
+    }, 120);
+}
+
+function _ufFinal() {
+    _uf.final = true;
+    document.body.classList.add('uf-at-final');
+    var m = _ufModel();
+    var body = document.getElementById('uf-body');
+    if (!body) return;
+    var h = '<div class="uf-final uf-in">';
+    var fin = '';
+    if (typeof _uf.opts.onFinal === 'function') {
+        try { fin = _uf.opts.onFinal(m) || ''; } catch (e) { void 0; }
+    }
+    h += fin;
+    if (m.pending.length) {
+        h += '<button type="button" class="btn-secondary uf-next" onclick="uiFlowResume()">Seguir con ' +
+             (m.pending.length === 1 ? 'el que falta' : 'los ' + m.pending.length + ' que faltan') + ' ▸</button>';
+    }
+    // [2.22.0] Un solo botón principal por pantalla: si el resumen ya trae su acción
+    // principal (p. ej. "Aceptar la semana"), Terminar pasa a secundario.
+    var mainInFinal = /class="btn-primary/.test(fin);
+    h += '<button type="button" class="' + (mainInFinal ? 'btn-secondary' : 'btn-primary') + ' uf-next uf-close" onclick="uiFlowClose(\'done\')">' +
+         escapeHtml(_uf.opts.closeLabel || 'Terminar') + '</button></div>';
+    body.innerHTML = h;
+    body.scrollTop = 0;
+    _ufHeader(m);
+    var back = document.querySelector('#ui-flow .uf-back');
+    if (back) back.disabled = false;
+    // El cierre se siente en la mano: una vibración corta donde el equipo la tenga.
+    try { if (navigator.vibrate && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) navigator.vibrate(20); } catch (e) {}
+}
+
+function _ufFlash(msg) {
+    var s = document.getElementById('uf-saved');
+    if (!s) return;
+    s.textContent = msg;
+    s.classList.remove('is-on'); void s.offsetWidth; s.classList.add('is-on');
+}
+
+// ── Acciones ─────────────────────────────────────────────────────────────
+
+/** Guardar = lo que el paso diga + siguiente. Si el paso rechaza, el error va en el campo. */
+function uiFlowSave() {
+    if (!_uf || _uf.final) return;
+    var step = _uf.steps[_uf.idx];
+    var card = document.querySelector('#uf-body .uf-card');
+    var why = (typeof step.blocked === 'function') ? (step.blocked() || '') : '';
+    if (why) { if (typeof showToast === 'function') showToast(why, 'warning'); return; }
+    var res;
+    try { res = step.save ? step.save(card) : true; } catch (e) {
+        void 0;
+        res = { ok: false, msg: 'No se pudo guardar este punto: ' + (e && e.message || e) };
+    }
+    if (res === false || (res && res.ok === false)) {
+        var msg = (res && res.msg) || 'No se pudo guardar este punto.';
+        if (res && res.field && typeof uiInvalid === 'function') uiInvalid(res.field, msg);
+        else if (typeof showToast === 'function') showToast(msg, 'error');
+        return;
+    }
+    _uf.state.done[step.key] = true;
+    delete _uf.state.skipped[step.key];
+    _ufFlash('✓ Guardado');
+    _ufGo(uiFlowNextIndex(_ufModel(), _uf.idx, _uf.onlyPending), 1);
+}
+
+/** Después: avanza sin registrar. Lo ya hecho sigue hecho. */
+function uiFlowLater() {
+    if (!_uf || _uf.final) return;
+    var step = _uf.steps[_uf.idx];
+    if (!_uf.state.done[step.key]) {
+        _uf.state.skipped[step.key] = true;
+        if (typeof step.onLater === 'function') { try { step.onLater(); } catch (e) {} }
+    }
+    _ufGo(uiFlowNextIndex(_ufModel(), _uf.idx, _uf.onlyPending), 1);
+}
+
+function uiFlowBack() {
+    if (!_uf) return;
+    if (_uf.final) { _ufGo(_uf.steps.length - 1, -1); return; }
+    if (_uf.idx > 0) _ufGo(_uf.idx - 1, -1);
+}
+
+/** Desde el resumen: solo lo que falta. */
+function uiFlowResume() {
+    if (!_uf) return;
+    var m = _ufModel();
+    _uf.onlyPending = true;
+    _ufGo(m.firstPending >= 0 ? m.firstPending : 0, 1);
+}
+
+function uiFlowGoTo(i) { if (_uf) _ufGo(i, (_uf.final || i >= _uf.idx) ? 1 : -1); }
+
+// Deslizar SOLO navega (nunca guarda). Enter en un campo = Guardar.
+function _ufSwipe(el) {
+    var x0 = null, y0 = null;
+    el.addEventListener('touchstart', function(e) {
+        if (!_uf || !e.touches || e.touches.length !== 1) return;
+        if (e.target.closest && e.target.closest('.uf-head, .uf-foot, .ui-num-row, input[type=range]')) { x0 = null; return; }
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    el.addEventListener('touchend', function(e) {
+        if (!_uf || x0 === null || !e.changedTouches) return;
+        var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) < UF_SWIPE_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
+        if (dx < 0) { if (!_uf.final) uiFlowLater(); }
+        else uiFlowBack();
+    }, { passive: true });
+    el.addEventListener('keydown', function(e) {
+        if (!_uf || e.key !== 'Enter' || e.isComposing) return;
+        var t = e.target;
+        if (!t || !t.closest || !t.closest('.uf-card') || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
+        e.preventDefault();
+        uiFlowSave();
+    });
 }
 
 
@@ -27113,7 +27834,7 @@ function invMaintMarkDone(activityId, opts) {
     invState.maintLog.push(entry);
     invSave();
     if (typeof auditLog === 'function') auditLog('inv', 'mtto_ejecutado', { type: 'maintenance', id: activityId, label: act.desc }, by + (entry.comments ? ' — ' + entry.comments : ''));
-    if (typeof showToast === 'function') showToast('Mantenimiento registrado', 'success');
+    if (!opts.silent && typeof showToast === 'function') showToast('Mantenimiento registrado', 'success');
     return entry;
 }
 
@@ -27134,8 +27855,194 @@ function invCalRegister(eqId, opts) {
     invSave();
     if (typeof auditLog === 'function') auditLog('inv', 'calibracion_registrada', { type: 'equipment', id: eqId, label: eq.name }, 'Cert: ' + (certNo || '-') + ' · próxima: ' + eq.nextCalDate);
     if (typeof fbPostCalibration === 'function') fbPostCalibration(eq.name);
-    if (typeof showToast === 'function') showToast('Calibración registrada', 'success');
+    if (!opts.silent && typeof showToast === 'function') showToast('Calibración registrada', 'success');
     return eq;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.21.0] RONDA DE EQUIPOS — calibraciones y mantenimientos pendientes, uno por uno
+// Mismo lenguaje que la ronda de gases (uiFlow). Cada tarjeta escribe con el
+// escritor de siempre: invCalRegister (→ _invApplyCalibration) e invMaintMarkDone.
+// ══════════════════════════════════════════════════════════════════════
+var INV_EQ_ROUND_CAL_DAYS = 14;   // una calibración entra a la ronda si vence en ≤ 14 días
+
+/**
+ * Qué entra a la ronda y en qué orden. PURA (todo llega en `src`).
+ * src: {equipment, statusOf(eq), overdue:[{act, asset, lastWeek}], dueThisWeek:[{act, asset}], calDays}
+ * Orden: lo vencido primero (mantenimiento, luego calibración), después lo de esta semana
+ * y al final las calibraciones por vencer, de la más próxima a la más lejana.
+ */
+function invEquipmentRoundPick(src) {
+    src = src || {};
+    var days = typeof src.calDays === 'number' ? src.calDays : INV_EQ_ROUND_CAL_DAYS;
+    var statusOf = src.statusOf || function() { return { code: 'noaplica' }; };
+    var out = [], seen = {};
+    (src.overdue || []).forEach(function(o) {
+        if (!o || !o.act || seen['m:' + o.act.id]) return;
+        seen['m:' + o.act.id] = true;
+        out.push({ kind: 'mtto', id: o.act.id, section: 'Vencido', overdue: true, act: o.act, asset: o.asset || null, week: o.lastWeek });
+    });
+    var cals = (src.equipment || []).filter(function(e) { return e && e.requiresCal !== 'No'; })
+        .map(function(e) { return { eq: e, st: statusOf(e) || {} }; });
+    cals.filter(function(c) { return c.st.code === 'vencido'; })
+        .sort(function(a, b) { return (a.st.days || 0) - (b.st.days || 0); })
+        .forEach(function(c) { out.push({ kind: 'cal', id: c.eq.id, section: 'Vencido', overdue: true, eq: c.eq, st: c.st }); });
+    (src.dueThisWeek || []).forEach(function(d) {
+        if (!d || !d.act || seen['m:' + d.act.id]) return;
+        seen['m:' + d.act.id] = true;
+        out.push({ kind: 'mtto', id: d.act.id, section: 'Esta semana', overdue: false, act: d.act, asset: d.asset || null, week: d.week });
+    });
+    cals.filter(function(c) { return c.st.code === 'porvencer' && typeof c.st.days === 'number' && c.st.days <= days; })
+        .sort(function(a, b) { return a.st.days - b.st.days; })
+        .forEach(function(c) { out.push({ kind: 'cal', id: c.eq.id, section: 'Por vencer', overdue: false, eq: c.eq, st: c.st }); });
+    return out;
+}
+
+/** Los pendientes de la ronda con el estado vivo del inventario. */
+function invEquipmentRoundItems() {
+    return invEquipmentRoundPick({
+        equipment: invState.equipment || [],
+        statusOf: invCalStatus,
+        overdue: typeof invMaintOverdue === 'function' ? invMaintOverdue() : [],
+        dueThisWeek: typeof invMaintDueThisWeek === 'function' ? invMaintDueThisWeek() : []
+    });
+}
+
+var _invEqRound = null;   // {cal:[nombres], mtto:[nombres]} — lo registrado en esta ronda
+
+/** Botón de la ronda con cuántos pendientes hay (Equipos y Mtto). Sin pendientes, no estorba. */
+function _invEqRoundButtonHTML() {
+    var n = invEquipmentRoundItems().length;
+    if (!n) return '';
+    return '<button class="tp-btn tp-btn-primary" onclick="invStartEquipmentRound()" style="font-size: var(--fs-sm);" ' +
+           'title="Calibraciones y mantenimientos pendientes, uno por uno">🧭 Hacer la ronda (' + n + ')</button>';
+}
+
+function invStartEquipmentRound() {
+    var items = invEquipmentRoundItems();
+    if (!items.length) {
+        showToast('Equipos al día: no hay calibraciones ni mantenimientos pendientes.', 'success');
+        return;
+    }
+    _invEqRound = { cal: [], mtto: [] };
+    uiFlowOpen({
+        id: 'eqRound',
+        title: '🧭 Ronda de equipos',
+        saveLabel: 'Registrar ▸',
+        steps: items.map(_invEqRoundStep),
+        onFinal: _invEqRoundFinalHTML,
+        onClose: function() {
+            _invEqRound = null;
+            if (typeof invRender === 'function') invRender();
+            if (typeof invUpdateBadges === 'function') invUpdateBadges();
+        }
+    });
+}
+
+function _invEqRoundStep(it) {
+    var isCal = it.kind === 'cal';
+    return {
+        key: it.kind + ':' + it.id,
+        section: it.section,
+        title: isCal ? (it.eq.name || 'Instrumento') : (it.act.desc || 'Mantenimiento'),
+        // La calibración pide 'inventory.manage' (invCalRegister): sin él, el botón lo dice.
+        blocked: isCal ? function() {
+            return (typeof authCan === 'function' && !authCan('inventory.manage'))
+                ? 'Tu rol no permite registrar calibraciones. Toca "Después" para seguir.' : '';
+        } : null,
+        render: function(host) { isCal ? _invEqRoundCalCard(host, it) : _invEqRoundMttoCard(host, it); },
+        save: function(host) { return isCal ? _invEqRoundCalSave(host, it) : _invEqRoundMttoSave(host, it); }
+    };
+}
+
+function _invEqRoundDateField(id, label) {
+    return '<label class="uf-field"><span>' + label + '</span>' +
+           '<input type="date" id="' + id + '" value="' + localToday() + '" max="' + localToday() + '"></label>';
+}
+
+function _invEqRoundCalCard(host, it) {
+    var eq = it.eq, st = invCalStatus(eq);
+    var asset = (invState.assets || []).find(function(a) { return a.id === eq.assetId; });
+    host.innerHTML =
+        '<div class="uf-kicker"><span class="uf-badge ' + (st.code === 'vencido' ? 'is-bad' : 'is-warn') + '">' + escapeHtml(st.label) + '</span>' +
+        (asset ? ' · ' + escapeHtml(asset.name) : '') + '</div>' +
+        '<div class="uf-q">✅ ' + escapeHtml(eq.name || 'Instrumento') + (eq.magnitude ? ' <small class="u-muted">— ' + escapeHtml(eq.magnitude) + '</small>' : '') + '</div>' +
+        '<div class="uf-note">' + (eq.kmmId ? 'KMM ' + escapeHtml(eq.kmmId) + ' · ' : '') +
+        (eq.nextCalDate ? 'tocaba el ' + escapeHtml(eq.nextCalDate) : 'sin fecha') + '</div>' +
+        _invEqRoundDateField('uf-cal-date', 'Fecha de la calibración') +
+        '<label class="uf-field"><span>No. de certificado <small>(opcional)</small></span>' +
+        '<input type="text" id="uf-cal-cert" autocomplete="off" placeholder="Ej.: T-2199-2026"></label>' +
+        '<label class="uf-field"><span>Proveedor</span>' +
+        '<input type="text" id="uf-cal-prov" autocomplete="off" value="' + escapeHtml(eq.calLab || '') + '"></label>';
+}
+
+function _invEqRoundCalSave(host, it) {
+    var d = host.querySelector('#uf-cal-date');
+    var date = d ? d.value : '';
+    if (!date) return { ok: false, field: d, msg: 'Pon la fecha en que se calibró.' };
+    if (date > localToday()) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+    var cert = (host.querySelector('#uf-cal-cert') || {}).value || '';
+    var prov = (host.querySelector('#uf-cal-prov') || {}).value || '';
+    var eq = invCalRegister(it.id, { date: date, certNo: cert.trim(), provider: prov.trim(), silent: true });
+    if (!eq) return { ok: false, msg: 'No se pudo registrar la calibración.' };
+    if (_invEqRound) _invEqRound.cal.push(eq.name || it.id);
+    return { ok: true };
+}
+
+function _invEqRoundMttoCard(host, it) {
+    var act = it.act;
+    host.innerHTML =
+        '<div class="uf-kicker"><span class="uf-badge ' + (it.overdue ? 'is-bad' : 'is-warn') + '">' +
+        (it.overdue ? 'Vencido desde la semana ' + escapeHtml(String(it.week || '?')) : 'Esta semana') + '</span>' +
+        (act.responsible ? ' · ' + escapeHtml(act.responsible) : '') + '</div>' +
+        '<div class="uf-q">🛠️ ' + (it.asset ? escapeHtml(it.asset.name) + ' — ' : '') + escapeHtml(act.desc || '') + '</div>' +
+        _invEqRoundDateField('uf-mtto-date', 'Fecha en que se hizo') +
+        '<label class="uf-field"><span>Horas <small>(opcional)</small></span>' +
+        '<input type="number" id="uf-mtto-hours" inputmode="decimal" step="0.5" min="0" placeholder="Ej.: 1.5"></label>' +
+        '<label class="uf-field"><span>Comentarios <small>(opcional)</small></span>' +
+        '<input type="text" id="uf-mtto-comments" autocomplete="off" placeholder="Ej.: se cambió el filtro"></label>';
+}
+
+function _invEqRoundMttoSave(host, it) {
+    var d = host.querySelector('#uf-mtto-date');
+    var date = d ? d.value : '';
+    if (!date) return { ok: false, field: d, msg: 'Pon la fecha en que se hizo.' };
+    if (date > localToday()) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+    var hours = parseFloat((host.querySelector('#uf-mtto-hours') || {}).value) || null;
+    var comments = String((host.querySelector('#uf-mtto-comments') || {}).value || '').trim();
+    var entry = invMaintMarkDone(it.id, { date: date, hours: hours, comments: comments, silent: true });
+    if (!entry) return { ok: false, msg: 'No se pudo registrar el mantenimiento.' };
+    if (_invEqRound) _invEqRound.mtto.push((it.asset ? it.asset.name + ': ' : '') + (it.act.desc || ''));
+    return { ok: true };
+}
+
+/** El cierre dice cómo quedó el laboratorio, no solo cuántos toques hubo. */
+function _invEqRoundFinalHTML(model) {
+    var r = _invEqRound || { cal: [], mtto: [] };
+    var sum = invCalSummary();
+    var left = model.cards.filter(function(c) { return c.status !== 'hecho'; });
+    var h = '<div class="uf-final-title">' + (left.length
+        ? 'Quedan ' + left.length + ' para después'
+        : '✅ Equipos al día') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + r.cal.length + '</b><span>Calibraciones</span></div>' +
+        '<div class="uf-stat"><b class="is-ok">' + r.mtto.length + '</b><span>Mantenimientos</span></div>' +
+        '<div class="uf-stat"><b class="' + (sum.vencidos ? 'is-bad' : 'is-ok') + '">' + sum.pct + '%</b><span>Calibraciones vigentes</span></div>' +
+        '</div>';
+    if (r.cal.length || r.mtto.length) {
+        h += '<div class="uf-list is-ok"><b>Registrado</b>' + r.cal.concat(r.mtto).map(function(x) {
+            return '<div>' + escapeHtml(x) + '</div>';
+        }).join('') + '</div>';
+    }
+    if (left.length) {
+        h += '<div class="uf-list"><b>Para después</b>' + left.map(function(c) {
+            return '<div>' + escapeHtml(c.title) + ' <span class="u-muted">· ' + escapeHtml(c.section) + '</span></div>';
+        }).join('') + '</div>';
+    }
+    if (sum.vencidos) {
+        h += '<div class="uf-list is-bad">Siguen ' + sum.vencidos + ' calibración(es) vencida(s) en el laboratorio.</div>';
+    }
+    return h;
 }
 
 
@@ -28921,6 +29828,7 @@ function invRenderEquipment(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>🔧 Equipos y Calibración (' + equip.length + ')</span>';
     html += '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">'
+          + _invEqRoundButtonHTML()
           + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv): fechas, certificados y próxima calibración">📥 Actualizar desde Excel</button>'
           + '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size: var(--fs-sm);">+ Instrumento</button></span></div>';
 
@@ -29264,7 +30172,8 @@ function invRenderMaint(el) {
     var curWeek = invWeekOfYear(localToday());
 
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-maint-help"><span>🛠️ Mantenimiento</span>'
-        + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv)">📥 Calibraciones desde Excel</button></div></div>';
+        + '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">' + _invEqRoundButtonHTML()
+        + '<button class="tp-btn tp-btn-ghost" onclick="invCalImportOpen()" style="font-size: var(--fs-sm);" title="Subir el COP15-F11 actualizado (.xlsx o .csv)">📥 Calibraciones desde Excel</button></span></div></div>';
 
     // v16.6: banner de proyecto abierto ligado a un equipo (ej. "Reparación del Dinamómetro")
     if (typeof pnActiveProjectForAsset === 'function') {
@@ -33191,17 +34100,22 @@ function _invRoundRef(item) {
         : (invState.gases || []).find(function(g) { return g.id === item.id; });
 }
 
+function _invRoundKey(item) { return item.kind + ':' + item.id; }
+
 function _invRoundPersist() {
     try {
         if (!_readingRound) { localStorage.removeItem(INV_ROUND_LS_KEY); return; }
         localStorage.setItem(INV_ROUND_LS_KEY, JSON.stringify({
             index: _readingRound.index, date: _readingRound.date,
             startTime: _readingRound.startTime, results: _readingRound.results,
-            ids: _readingRound.items.map(function(i) { return i.kind + ':' + i.id; })
+            ids: _readingRound.items.map(_invRoundKey)
         }));
     } catch (e) {}   // que se llene el almacenamiento no debe tumbar la ronda
 }
 
+// [2.21.0] La ronda corre sobre uiFlow (js/uiflow.js): el mismo encabezado, pie y gesto
+// que Operación en tarjetas. Lo que NO cambió: el orden por zona, el escritor único
+// (invAddReading / invAddFuelReading con skipSave), el guardado único y la reanudación.
 function invStartReadingRound(opts) {
     opts = opts || {};
     var items = invRoundItems();
@@ -33229,242 +34143,239 @@ function invStartReadingRound(opts) {
         index: (r && r.index < items.length) ? r.index : 0,
         results: (r && Array.isArray(r.results)) ? r.results : [],
         startTime: (r && r.startTime) || Date.now(),
-        date: (r && r.date) || localToday()
+        date: (r && r.date) || localToday(),
+        audited: false
     };
     _invRoundPersist();
-    _invRoundRenderCurrent();
+
+    var state = { done: {}, skipped: {} };
+    _readingRound.results.forEach(function(x) {
+        var k = x.kind + ':' + x.id;
+        if (x.skipped) state.skipped[k] = true; else state.done[k] = true;
+    });
+    uiFlowOpen({
+        id: 'gasRound',
+        title: '🔄 Ronda de lecturas',
+        subtitle: _readingRound.date,
+        steps: items.map(_invRoundStep),
+        state: state,
+        startAt: _readingRound.index,
+        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); } },
+        onFinal: _invRoundFinalHTML,
+        onClose: _invRoundClose
+    });
 }
 
-function _invRoundRenderCurrent() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
+/** Un punto del recorrido como tarjeta de uiFlow. */
+function _invRoundStep(item) {
     var ref = _invRoundRef(item);
-    // El cilindro pudo borrarse a media ronda (o llegar un pull de la nube): se salta.
-    if (!ref) { _readingRound.index++; if (_readingRound.index >= _readingRound.items.length) { invRoundFinish(); } else { _invRoundRenderCurrent(); } return; }
-
     var esFuel = item.kind === 'fuel';
-    var total = _readingRound.items.length;
-    var idx = _readingRound.index;
-    var lecturas = ref.readings || [];
-    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
-    var lastVal = ultima ? (esFuel ? ultima.level : ultima.psi) : '';
+    var zona = String((ref && ref.zone) || '').trim();
+    return {
+        key: _invRoundKey(item),
+        // Una sección por pasillo (letra de la zona): los segmentos del encabezado
+        // siguen la caminata por el cuarto.
+        section: esFuel ? '⛽ Combustible' : (zona ? 'Zona ' + zona.charAt(0).toUpperCase() : 'Sin zona'),
+        title: ref ? (esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas')) : item.id,
+        render: function(host) { _invRoundRenderCard(host, item); },
+        save: function(host) { return _invRoundSaveCard(host, item); },
+        onLater: function() { _invRoundMarkSkipped(item); }
+    };
+}
+
+/** Última lectura ANTERIOR a la fecha de la ronda (si se regresa a un punto, la de hoy no cuenta). */
+function _invRoundPrevReading(ref, esFuel, date) {
+    var ls = (ref.readings || []).filter(function(x) { return x && x.date !== date; });
+    var u = ls.length ? ls[ls.length - 1] : null;
+    return u ? (esFuel ? u.level : u.psi) : '';
+}
+
+function _invRoundRenderCard(host, item) {
+    var ref = _invRoundRef(item);
+    // El cilindro pudo borrarse a media ronda (o llegar un pull de la nube).
+    if (!ref) {
+        host.innerHTML = '<p class="uf-note">Este punto ya no existe (se dio de baja o cambió desde otro equipo). Toca <b>Después</b> para seguir.</p>';
+        return;
+    }
+    var esFuel = item.kind === 'fuel';
     var unidad = esFuel ? (ref.unit || 'L') : 'PSI';
-
-    var sparkHtml = _invRoundSparkline(lecturas.slice(-5).map(function(r) { return (esFuel ? r.level : r.psi) || 0; }));
-    var pct = Math.round((idx / total) * 100);
-
+    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var mine = (_readingRound.results || []).filter(function(x) { return !x.skipped && x.kind + ':' + x.id === _invRoundKey(item); })[0];
     var titulo = esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas');
     var sub = esFuel
         ? ((ref.regulation || '—') + ' · capacidad ' + (ref.capacity || '?') + ' ' + unidad)
-        : ((ref.controlNo || ref.id) + ' · Zona: ' + (ref.zone || '—'));
+        : ((ref.controlNo || ref.id) + ' · Zona ' + (ref.zone || '—') + (ref.concNominal ? ' · ' + ref.concNominal : ''));
+    var spark = _invRoundSparkline((ref.readings || []).slice(-5).map(function(x) { return (esFuel ? x.level : x.psi) || 0; }));
 
-    var html = '<div class="reading-round-overlay">' +
-        '<div class="reading-round-card">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-lg);">' +
-        '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);">' + (idx + 1) + ' de ' + total + (esFuel ? ' · ⛽' : '') + '</span>' +
-        '<button onclick="_invRoundCancel()" aria-label="Salir de la ronda" style="background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+    host.innerHTML =
+        '<div class="uf-kicker">' + escapeHtml(sub) + '</div>' +
+        '<label class="uf-q" for="round-reading-input">' + escapeHtml(titulo) + '</label>' +
+        (spark || lastVal !== ''
+            ? '<div class="uf-context">' + spark +
+              (lastVal !== '' ? '<span>Última: <b>' + escapeHtml(String(lastVal)) + ' ' + escapeHtml(unidad) + '</b></span>' : '') + '</div>'
+            : '') +
+        '<div class="uf-big">' +
+            '<input type="number" id="round-reading-input" class="uf-big-input" min="0" step="any" ' +
+            'inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" ' +
+            'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + escapeHtml(unidad) + '" ' +
+            'placeholder="Lectura" ' +
+            'data-last="' + escapeHtml(String(lastVal)) + '" value="' + (mine ? escapeHtml(String(mine.value)) : '') + '">' +
+            '<span class="uf-big-unit">' + escapeHtml(unidad) + '</span>' +
         '</div>' +
-        '<div style="height:4px;background:var(--border);border-radius: var(--radius-sm);margin-bottom: var(--space-lg);overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:var(--ok-fill);border-radius: var(--radius-sm);transition:width 0.3s;"></div>' +
-        '</div>' +
-        '<div style="text-align:center;margin-bottom: var(--space-xl);">' +
-        '<div style="font-size: var(--fs-base);font-weight:800;color:var(--text);">' + escapeHtml(titulo) + '</div>' +
-        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top: var(--space-2xs);">' + escapeHtml(sub) + '</div>' +
-        (esFuel ? '' : '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Conc: ' + escapeHtml(ref.concNominal || '—') + '</div>') +
-        '</div>' +
-        (sparkHtml ? '<div style="text-align:center;margin-bottom: var(--space-md);">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Últimas 5 lecturas</div></div>' : '') +
-        (lastVal !== '' ? '<div style="text-align:center;margin-bottom: var(--space-sm);font-size: var(--fs-xs);color:var(--muted);">Última lectura: <strong style="color:var(--text);">' + lastVal + ' ' + unidad + '</strong></div>' : '') +
-        '<div style="text-align:center;margin-bottom: var(--space-sm);">' +
-        '<input type="number" inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" id="round-reading-input" ' +
-        'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + unidad + '" placeholder="' + unidad + '" value="' + (lastVal || '') + '" ' +
-        'style="width:150px;padding: var(--space-md) var(--space-lg);font-size:24px;font-weight:800;text-align:center;border:2px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);color:var(--text);" ' +
-        'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
-        '</div>' +
-        '<div id="round-warn" style="min-height:18px;text-align:center;font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;margin-bottom: var(--space-md);"></div>' +
-        '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
-        (idx > 0 ? '<button onclick="invRoundPrev()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">← Anterior</button>' : '') +
-        '<button onclick="invRoundSkip()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);" title="No se pudo leer este punto">Saltar</button>' +
-        (lastVal !== '' ? '<button onclick="_invRoundSameValue()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);border-color:var(--ok-text);color:var(--ok-text);">= Igual</button>' : '') +
-        '<button onclick="invRoundNext()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
-        '</div>' +
-        '</div></div>';
+        '<div id="round-warn" class="uf-warn" aria-live="polite"></div>' +
+        (lastVal !== '' ? '<button type="button" class="uf-alt" onclick="_invRoundSameValue()">= Igual que la última (' + escapeHtml(String(lastVal)) + ')</button>' : '');
 
-    var overlay = document.getElementById('reading-round-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'reading-round-overlay';
-        document.body.appendChild(overlay);
-    }
-    overlay.innerHTML = html;
-    overlay.style.display = 'block';
-
-    setTimeout(function() {
-        var inp = document.getElementById('round-reading-input');
-        if (!inp) return;
-        inp.focus(); inp.select();
-        // Aviso en vivo mientras teclea: ámbar que informa, nunca un candado.
-        inp.oninput = function() {
-            var w = document.getElementById('round-warn');
-            if (!w) return;
-            var v = parseFloat(inp.value);
-            if (isNaN(v)) { w.textContent = ''; return; }
-            var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
-            w.textContent = msg ? '⚠ ' + msg : '';
-        };
-    }, 100);
+    // Aviso en vivo mientras teclea: ámbar que informa, nunca un candado.
+    var inp = host.querySelector('#round-reading-input');
+    if (inp) inp.addEventListener('input', function() {
+        var w = host.querySelector('#round-warn');
+        if (!w || !_readingRound) return;
+        var v = parseFloat(inp.value);
+        if (isNaN(v)) { w.textContent = ''; return; }
+        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
+        w.textContent = msg ? '⚠ ' + msg : '';
+    });
 }
 
-function invRoundNext() {
-    if (!_readingRound) return;
-    _invRoundSaveCurrentReading();
-    _readingRound.index++;
+/** "= Igual": el manómetro marca lo mismo que la última vez. Se AFIRMA con un toque, no por omisión. */
+function _invRoundSameValue() {
+    var inp = document.getElementById('round-reading-input');
+    if (inp && inp.getAttribute('data-last') !== '') inp.value = inp.getAttribute('data-last');
+    uiFlowSave();
+}
+
+function _invRoundRecord(entry) {
+    var k = entry.kind + ':' + entry.id;
+    _readingRound.results = (_readingRound.results || []).filter(function(x) { return x.kind + ':' + x.id !== k; });
+    _readingRound.results.push(entry);
     _invRoundPersist();
-    if (_readingRound.index >= _readingRound.items.length) {
-        invRoundFinish();
-    } else {
-        _invRoundRenderCurrent();
-    }
 }
 
-function invRoundPrev() {
-    if (!_readingRound || _readingRound.index <= 0) return;
-    _readingRound.index--;
-    _invRoundPersist();
-    _invRoundRenderCurrent();
-}
-
-/** Saltar: el punto no se pudo leer (manómetro tapado, cilindro fuera). No guarda nada. */
-function invRoundSkip() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
+function _invRoundSaveCard(host, item) {
+    if (!_readingRound) return { ok: false, msg: 'La ronda ya se cerró.' };
     var ref = _invRoundRef(item);
-    _readingRound.results.push({
+    if (!ref) return { ok: false, msg: 'Este punto ya no existe: toca "Después" para seguir.' };
+    var esFuel = item.kind === 'fuel';
+    var inp = host && host.querySelector('#round-reading-input');
+    var raw = inp ? String(inp.value).trim() : '';
+    var val = parseFloat(raw);
+    // [2.21.0] Vacío ya no guarda "lo mismo de ayer" por omisión: una lectura es evidencia.
+    if (raw === '' || isNaN(val)) {
+        return { ok: false, field: inp, msg: 'Escribe la lectura, toca "= Igual" o "Después" si no se pudo leer.' };
+    }
+    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    // Por el motor único — valida, deduplica por fecha, atribuye, audita y reentrena.
+    // skipSave: la ronda guarda una sola vez (al llegar al resumen o al salir).
+    var res = esFuel
+        ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
+        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
+    if (!res.ok) return { ok: false, field: inp, msg: res.reason };
+
+    var prevNum = prevVal === '' ? 0 : (Number(prevVal) || 0);
+    var dropPct = prevNum > 0 ? Math.round(((prevNum - val) / prevNum) * 100) : 0;
+    _invRoundRecord({
+        kind: item.kind, id: item.id,
+        controlNo: ref.controlNo || ref.name || item.id,
+        gasType: ref.gasType || ref.name || '',
+        value: val, prev: prevNum,
+        warning: res.warning || null,
+        alert: dropPct > 15 || !!res.warning
+    });
+    return { ok: true };
+}
+
+/** "Después": el punto no se pudo leer (manómetro tapado, cilindro fuera). No guarda nada. */
+function _invRoundMarkSkipped(item) {
+    if (!_readingRound) return;
+    var k = _invRoundKey(item);
+    if ((_readingRound.results || []).some(function(x) { return !x.skipped && x.kind + ':' + x.id === k; })) return;
+    var ref = _invRoundRef(item);
+    _invRoundRecord({
         kind: item.kind, id: item.id,
         controlNo: ref ? (ref.controlNo || ref.name || item.id) : item.id,
         gasType: ref ? (ref.gasType || ref.name || '') : '',
         skipped: true
     });
-    _readingRound.index++;
-    _invRoundPersist();
-    if (_readingRound.index >= _readingRound.items.length) invRoundFinish();
-    else _invRoundRenderCurrent();
 }
 
-function _invRoundSameValue() {
-    // Conserva el valor precargado (la última lectura) y avanza.
-    invRoundNext();
+/** Guarda lo capturado (la ronda escribe con skipSave). Único guardado y único reentrenamiento. */
+function _invRoundCommit() {
+    if (!_readingRound) return 0;
+    var n = (_readingRound.results || []).filter(function(x) { return !x.skipped; }).length;
+    if (n) {
+        if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+        invSave();
+    }
+    return n;
 }
 
-function _invRoundSaveCurrentReading() {
-    if (!_readingRound) return;
-    var item = _readingRound.items[_readingRound.index];
-    var ref = _invRoundRef(item);
-    if (!ref) return;
-    var inp = document.getElementById('round-reading-input');
-    var val = inp ? parseFloat(inp.value) : NaN;
-    if (isNaN(val)) return;
-
-    var lecturas = ref.readings || [];
-    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
-    var lastVal = ultima ? ((item.kind === 'fuel' ? ultima.level : ultima.psi) || 0) : 0;
-
-    // v21: por el motor único — valida, deduplica, atribuye, audita y reentrena.
-    // Antes escribía a mano un esquema sin `date` que nadie más sabía leer.
-    // skipSave: la ronda guarda una sola vez al final (invRoundFinish).
-    var res = (item.kind === 'fuel')
-        ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
-        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
-    if (!res.ok) { showToast(res.reason, 'error'); return; }
-
-    var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
-    _readingRound.results.push({
-        kind: item.kind, id: item.id,
-        controlNo: ref.controlNo || ref.name || item.id,
-        gasType: ref.gasType || ref.name || '',
-        value: val, prev: lastVal,
-        warning: res.warning || null,
-        alert: dropPct > 15 || !!res.warning
+/** El resumen: lo leído, lo que quedó bajo y lo que se saltó. También guarda. */
+function _invRoundFinalHTML(model) {
+    if (!_readingRound) return '';
+    _invRoundCommit();
+    var capturadas = _readingRound.results.filter(function(x) { return !x.skipped; });
+    var saltadas = _readingRound.results.filter(function(x) { return x.skipped; });
+    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
+    var mins = Math.floor(elapsed / 60), secs = elapsed % 60;
+    var alerts = capturadas.filter(function(x) { return x.alert; });
+    // Lo que importa al salir del cuarto: qué cilindros quedaron por debajo del umbral.
+    var bajos = capturadas.filter(function(x) {
+        if (x.kind !== 'gas' || typeof invGasIsLow !== 'function') return false;
+        var g = _invRoundRef(x);
+        return g && invGasIsLow(g);
     });
-}
 
-function invRoundFinish() {
-    if (!_readingRound) return;
-    // La ronda escribió con skipSave: aquí va el único guardado y el único reentrenamiento.
-    if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
-    invSave();
-    try { localStorage.removeItem(INV_ROUND_LS_KEY); } catch (e) {}   // ya no hay nada que retomar
-
-    var capturadas = _readingRound.results.filter(function(r) { return !r.skipped; });
-    var saltadas = _readingRound.results.filter(function(r) { return r.skipped; });
-    if (typeof auditLog === 'function') {
+    if (!_readingRound.audited && capturadas.length && typeof auditLog === 'function') {
         auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date },
                  capturadas.length + ' lectura(s), ' + saltadas.length + ' saltada(s)');
+        _readingRound.audited = true;
     }
-
-    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
-    var mins = Math.floor(elapsed / 60);
-    var secs = elapsed % 60;
-    var alerts = capturadas.filter(function(r) { return r.alert; });
-
-    var html = '<div class="reading-round-overlay">' +
-        '<div class="reading-round-card">' +
-        '<div style="text-align:center;margin-bottom: var(--space-lg);">' +
-        '<div style="font-size:36px;margin-bottom: var(--space-sm);">✅</div>' +
-        '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);margin-bottom: var(--space-lg);">' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:var(--ok-text);">' + capturadas.length + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--muted);">Lecturas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Alertas</div></div>' +
-        '<div class="tp-card" style="text-align:center;padding: var(--space-md);">' +
-        '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Tiempo</div></div>' +
-        '</div>';
-
-    if (alerts.length > 0) {
-        html += '<div style="margin-bottom: var(--space-md);">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--danger-text);margin-bottom: var(--space-sm);">⚠ Alertas de presión:</div>';
-        alerts.forEach(function(a) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);padding:2px 0;">' +
-                escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
-        });
-        html += '</div>';
-    }
-
-    if (saltadas.length > 0) {
-        html += '<div style="margin-bottom: var(--space-md);">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--muted);margin-bottom: var(--space-sm);">↷ Saltadas (sin lectura):</div>';
-        saltadas.forEach(function(s) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--muted);padding:2px 0;">' + escapeHtml(s.controlNo) + '</div>';
-        });
-        html += '</div>';
-    }
-
-    html += '<div style="display:flex;gap: var(--space-sm);justify-content:center;flex-wrap:wrap;">' +
-        '<button onclick="_invRoundCopyReport()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">📋 Copiar Resumen</button>' +
-        '<button onclick="_invRoundCancel()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">Cerrar</button>' +
-        '</div></div></div>';
-
-    var overlay = document.getElementById('reading-round-overlay');
-    if (overlay) overlay.innerHTML = html;
-
-    // El botón "Copiar Resumen" corre DESPUÉS de soltar la ronda, así que el resumen
-    // se guarda aquí; si no, sólo quedaba raspar el texto del DOM.
+    // Ya todo quedó guardado: no hay nada que retomar (si sigue con lo que falta,
+    // el siguiente paso vuelve a escribir la llave).
+    try { localStorage.removeItem(INV_ROUND_LS_KEY); } catch (e) {}
+    // El botón Copiar corre después de soltar la ronda: el resumen se guarda aquí.
     _invLastRound = { date: _readingRound.date, elapsed: elapsed, results: _readingRound.results.slice() };
 
-    invRender();
-    _readingRound = null;
+    var h = '<div class="uf-final-title">' + (model.pending.length
+        ? 'Ronda: ' + capturadas.length + ' de ' + model.cards.length + ' leídos'
+        : '✅ Ronda completa') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + capturadas.length + '</b><span>Lecturas</span></div>' +
+        '<div class="uf-stat"><b class="' + (bajos.length ? 'is-bad' : 'is-ok') + '">' + bajos.length + '</b><span>Quedaron bajos</span></div>' +
+        '<div class="uf-stat"><b>' + mins + ':' + String(secs).padStart(2, '0') + '</b><span>Tiempo</span></div>' +
+        '</div>';
+    if (bajos.length) {
+        h += '<div class="uf-list is-bad"><b>🔴 Pedir o cambiar pronto</b>' + bajos.map(function(x) {
+            var g = _invRoundRef(x);
+            var lv = g && typeof invGasLevel === 'function' ? invGasLevel(g) : null;
+            return '<div>' + escapeHtml(x.controlNo) + (x.gasType ? ' · ' + escapeHtml(x.gasType) : '') +
+                   (lv && lv.pct !== undefined && lv.pct !== null ? ' — ' + lv.pct + '%' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (alerts.length) {
+        h += '<div class="uf-list is-warn"><b>⚠ Revisar la caída</b>' + alerts.map(function(a) {
+            return '<div>' + escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value +
+                   (a.warning ? ' · ' + escapeHtml(a.warning) : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (saltadas.length) {
+        h += '<div class="uf-list"><b>↷ Sin lectura</b>' + saltadas.map(function(s) {
+            return '<div>' + escapeHtml(s.controlNo) + '</div>';
+        }).join('') + '</div>';
+    }
+    h += '<button type="button" class="uf-alt" onclick="_invRoundCopyReport()">📋 Copiar resumen</button>';
+    return h;
 }
 
-function _invRoundCancel() {
-    var overlay = document.getElementById('reading-round-overlay');
-    if (overlay) overlay.style.display = 'none';
-    // Salir a media ronda NO borra el avance: se ofrece retomarlo al volver a entrar.
-    // (invRoundFinish sí limpia la llave — ahí ya no queda nada pendiente.)
+/** 'done' desde el resumen; 'cancel' a media ronda (se conserva la llave para retomar). */
+function _invRoundClose(reason) {
+    if (!_readingRound) return;
+    // Salir a media ronda NO pierde lo capturado: las lecturas vivían solo en memoria
+    // (skipSave) hasta el resumen, y salir con ✕ las dejaba sin guardar.
+    _invRoundCommit();
+    if (reason !== 'done') _invRoundPersist();
     _readingRound = null;
+    if (typeof invRender === 'function') invRender();
 }
 
 function _invRoundCopyReport() {
@@ -33479,8 +34390,8 @@ function _invRoundCopyReport() {
                     (x.warning ? '  ⚠ ' + x.warning : '') + '\n';
         });
     } else {
-        var overlay = document.getElementById('reading-round-overlay');
-        text = overlay ? overlay.textContent : 'Ronda de lecturas';
+        var body = document.getElementById('uf-body');
+        text = body ? body.textContent : 'Ronda de lecturas';
     }
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(function() { showToast('Resumen copiado', 'success'); })
@@ -33520,18 +34431,20 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]},
     'inv-equipment': { title: 'Equipos y Calibración (COP15-F11)', text: 'Instrumentos del laboratorio agrupados por equipo padre, con semáforo de calibración (60 días para "por vencer"). Un crítico vencido debe identificarse como NO OPERABLE.', tips: [
         'Botón "✅ Calibrado" en cada instrumento: solo pide fecha, certificado y proveedor — la próxima fecha se calcula sola.',
+        '"🧭 Hacer la ronda" te lleva por lo vencido y lo que vence en 14 días, uno por uno, con los mismos datos que "✅ Calibrado". "Después" lo deja pendiente sin registrar nada.',
         '"📥 Actualizar desde Excel": sube el COP15-F11 o el Plan Anual de Calibración (.xlsx o .csv). La app encuentra sola la hoja, identifica cada instrumento (por No., KMM, serie, descripción y modelo) y te muestra qué cambia antes de guardar. Una calibración registrada en la app nunca se retrocede; las fechas dudosas o futuras se listan sin aplicar.',
         'Los filtros 🔴🟠🟢⚪ arriba muestran solo lo que necesita atención.',
         'El ✏️ del encabezado de cada grupo edita el equipo padre (laboratorio, marca, si bloquea pruebas).'
     ]},
     'inv-maint': { title: 'Mantenimiento (COP15-F11)', text: 'Plan Maestro de mantenimiento preventivo: vencidos y programados de la semana arriba, la matriz de 52 semanas y el catálogo de actividades abajo, plegados.', tips: [
         '"✔ Hecho" registra el mantenimiento con un toque (fecha de hoy y tu usuario); "…con detalle" agrega horas y comentarios.',
+        '"🧭 Hacer la ronda" junta mantenimientos vencidos, los de esta semana y las calibraciones por vencer en un solo recorrido, uno por tarjeta.',
         'La matriz de 52 semanas es de solo consulta — tócala en una celda planeada para marcarla hecha directamente ahí.',
         '"📥 Importar F11" actualiza calibraciones en bloque desde el CSV oficial exportado por la plataforma.'
     ]},
     'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
         'Si vas al cuarto de gases, usa 🔄 Hacer la ronda: te pide un punto a la vez, en el orden en que están acomodados, y termina con el combustible. Puedes salir a media ronda y retomarla donde ibas.',
-        '"= Igual" repite la lectura anterior de un toque; Enter avanza al siguiente punto; "Saltar" deja sin lectura lo que no se pudo leer.',
+        '"= Igual" repite la lectura anterior de un toque; Enter guarda y avanza; "Después" deja sin lectura lo que no se pudo leer. Deslizar solo cambia de tarjeta, nunca guarda.',
         'Si traes la libreta, captura en la retícula y cambia la fecha del lote a la del recorrido.',
         'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
         'Un valor improbable se marca en ámbar y avisa por qué, pero nunca te impide guardar: tú decides, y queda en la auditoría.'
@@ -33646,14 +34559,58 @@ function tpRemoveWeeklyItem(wk, idx) {
     wk = _n.weekIdx; idx = _n.itemIdx;
     var _plan = _n.plan;
     var _lbl = _n.item.desc || '';
+    var _pid = tpPlanId(_plan), _uid = _n.item.uid;
     showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        // Acción destructiva: se puede deshacer y queda en el control de cambios.
-        if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
-        tpState.weeklyPlans[wk].items.splice(idx, 1);
-        tpSave(); tpRender();
-        if (typeof auditLog === 'function') auditLog('tp', 'week_item_removed', { type: 'plan', label: _lbl }, 'Semana ' + (wk + 1));
+        // [2.22.0] Por identidad, no por el índice de cuando se abrió el diálogo.
+        var r = tpRemoveWeeklyItemNow(_pid, _uid != null ? _uid : idx);
+        if (!r.ok) { if (typeof showToast === 'function') showToast(r.reason, 'error'); return; }
+        tpRender();
     });
+}
+
+/**
+ * [2.22.0] ÚNICO escritor de "quitar una prueba del plan". Sin diálogo: lo llaman
+ * tpRemoveWeeklyItem (tras su confirmación) y la revisión de la semana (la ficha
+ * "Quitar" + Guardar es la confirmación). Acción destructiva: undoPush + auditoría.
+ * Devuelve {ok, item, atIdx, planId} — lo que hace falta para devolverla.
+ */
+function tpRemoveWeeklyItemNow(planRef, itemRef, opts) {
+    opts = opts || {};
+    var _n = _tpIdx(planRef, itemRef);
+    if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
+    if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
+    var item = _n.plan.items.splice(_n.itemIdx, 1)[0];
+    tpBoardInvalidate();
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_removed', { type: 'plan', label: item.desc || '' },
+                 'Semana del ' + (_n.plan.weekDate || '—') + (opts.via ? ' · ' + opts.via : ''));
+    }
+    return { ok: true, item: item, atIdx: _n.itemIdx, planId: tpPlanId(_n.plan) };
+}
+
+/**
+ * [2.22.0] Devolver una prueba quitada: reinserta ESE objeto (mismo uid, misma
+ * posición). No es "agregar otra": conserva origen, cola y propósito. Se niega si
+ * el uid ya volvió (dos toques no duplican).
+ */
+function tpRestoreWeeklyItem(planRef, item, atIdx) {
+    var _n = _tpIdx(planRef);
+    if (!_n || !item) return { ok: false, reason: 'No se encontró esa semana (el plan cambió).' };
+    var plan = _n.plan;
+    if (!Array.isArray(plan.items)) plan.items = [];
+    if (item.uid && plan.items.some(function(it) { return it && it.uid === item.uid; })) {
+        return { ok: false, reason: 'Esa prueba ya está en la semana.' };
+    }
+    var at = Math.max(0, Math.min(plan.items.length, typeof atIdx === 'number' ? atIdx : plan.items.length));
+    plan.items.splice(at, 0, item);
+    tpBoardInvalidate();
+    _tpTouchPlan(_n.weekIdx);
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_item_restored', { type: 'plan', label: item.desc || '' }, 'Semana del ' + (plan.weekDate || '—'));
+    }
+    return { ok: true };
 }
 
 /**
@@ -38601,7 +39558,10 @@ function tpRenderMyWeek(el) {
             ? '<span class="tp-week-tag tp-week-tag--ok">✔ Aceptado</span>' +
               '<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(\'' + b.planId + '\')">↩️ Desaceptar</button>'
             : '<span class="tp-week-tag">Propuesta</span>' +
-              '<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
+              // [2.22.0] Revisar prueba por prueba es el camino principal; aceptar sin
+              // revisar sigue a un toque, como secundario.
+              '<button class="tp-btn tp-btn-primary" onclick="tpReviewWeekOpen(\'' + b.weekDate + '\')">🔎 Revisar y aceptar</button>' +
+              '<button class="tp-btn tp-btn-ghost" onclick="tpAcceptWeeklyPlan(\'' + b.planId + '\')">✔ Aceptar</button>';
     }
     // [v24] Sin plan el armador ya se muestra abierto abajo: un segundo botón que lleva
     // al mismo sitio es una decisión de más.
@@ -43557,6 +44517,235 @@ function tpRenderCoverageHeatmap() {
 
 
 // ══════════════════════════════════════════════════════════════════════
+// [2.22.0] REVISAR Y ACEPTAR LA SEMANA — una prueba a la vez (uiFlow)
+//
+// Aceptar era UN botón sobre un tablero de cinco columnas: en el teléfono nadie
+// revisaba prueba por prueba. Aquí cada prueba de la PROPUESTA es una tarjeta con su
+// semáforo (tpWeekItemRisk, la definición única) y una decisión: así está / otro día /
+// quitar. Al final, el resumen y "Aceptar la semana".
+//  - Todo por IDENTIDAD (planId + uid), nunca índice — la regla de v23.
+//  - Escribe solo con los escritores de siempre: tpMoveItemToDay, tpRemoveWeeklyItemNow,
+//    tpRestoreWeeklyItem, tpAcceptWeeklyPlan. "Así está" no escribe nada.
+//  - Deshacer un "Quitar" es "↩ Devolver" en el resumen (reinserta ESE objeto). Un
+//    undoableAction restauraría la foto entera y se llevaría los movimientos posteriores.
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Qué se revisa y en qué orden. PURA (recibe el tablero de tpWeekBoardRows).
+ * Lo que no tiene día va primero (es lo que pide atención); luego por día de prueba.
+ * Las ya hechas no se preguntan: se cuentan aparte.
+ */
+function tpReviewWeekPick(board) {
+    var rows = (board && board.rows) || [];
+    var order = TP_DAY_ORDER;
+    var pend = rows.filter(function(r) { return r && !r.done; }).map(function(r, i) { return { r: r, i: i }; });
+    pend.sort(function(a, b) {
+        var da = a.r.testDay ? order.indexOf(a.r.testDay) : -1;
+        var db = b.r.testDay ? order.indexOf(b.r.testDay) : -1;
+        return da !== db ? da - db : a.i - b.i;
+    });
+    return {
+        rows: pend.map(function(x) { return x.r; }),
+        sectionOf: function(r) { return r.testDay ? (TP_DAY_LABELS[r.testDay] || r.testDay) : 'Sin día'; },
+        done: rows.filter(function(r) { return r && r.done; }).length
+    };
+}
+
+var _tpReview = null;   // {planId, weekDate, choice:{uid:'ok'|'move'|'drop'}, day:{uid:dia}, moved:[], removed:[]}
+
+function tpReviewWeekOpen(weekDate) {
+    var wd = weekDate || (typeof tpBoardWeekDate === 'function' ? tpBoardWeekDate() : null);
+    var vig = tpWeekPlanFor(wd);
+    if (!vig || !vig.plan) { showToast('Esta semana no tiene plan. Ármalo primero en Plan → Mi semana.', 'info'); return false; }
+    if (vig.accepted) { showToast('La semana del ' + wd + ' ya está aceptada.', 'info'); return false; }
+    tpEnsureItemUids();
+    var b = tpWeekBoardRows({ planId: vig.planId });
+    var pick = tpReviewWeekPick(b);
+    if (!pick.rows.length) {
+        showToast('La propuesta no tiene pruebas pendientes que revisar.', 'info');
+        return false;
+    }
+    _tpReview = { planId: vig.planId, weekDate: wd, choice: {}, day: {}, moved: [], removed: [], doneBefore: pick.done };
+    return uiFlowOpen({
+        id: 'weekReview',
+        title: '🔎 Revisar la semana',
+        subtitle: 'del ' + wd,
+        saveLabel: 'Listo ▸',
+        steps: pick.rows.map(function(r) {
+            var uid = r.uid;
+            return {
+                key: uid,
+                section: pick.sectionOf(r),
+                title: r.shortName || r.desc,
+                render: function(host) { _tpReviewCard(host, uid); },
+                save: function(host) { return _tpReviewSave(host, uid); }
+            };
+        }),
+        onFinal: _tpReviewFinalHTML,
+        onClose: function() {
+            _tpReview = null;
+            if (typeof tpRender === 'function') tpRender();
+            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        }
+    });
+}
+
+/** La fila VIVA de un uid (el plan pudo cambiar a media revisión). */
+function _tpReviewRow(uid) {
+    if (!_tpReview) return null;
+    var b = tpWeekBoardRows({ planId: _tpReview.planId });
+    return ((b && b.rows) || []).filter(function(r) { return r.uid === uid; })[0] || null;
+}
+
+function _tpReviewCard(host, uid) {
+    var r = _tpReviewRow(uid);
+    if (!r) {
+        host.innerHTML = '<p class="uf-note">Esta prueba ya no está en la semana (se quitó o cambió desde otro equipo). Toca <b>Después</b> para seguir.</p>';
+        return;
+    }
+    var ch = _tpReview.choice[uid] || 'ok';
+    var lvl = r.risk && r.risk.level;
+    var dias = (r.preconDay ? (TP_DAY_LABELS[r.preconDay] || r.preconDay) + ' → ' : '') + (r.testDay ? (TP_DAY_LABELS[r.testDay] || r.testDay) : 'sin día');
+    var veh = r.vehicleAny
+        ? '🚗 …' + escapeHtml(String(r.vehicleAny.vin || '').slice(-6)) + (r.stage ? ' · ' + escapeHtml(r.stage.label) : '')
+        : 'Sin vehículo todavía';
+    var h = '<div class="uf-kicker">' + escapeHtml(r.variantTag || '') + (r.rgn ? ' · ' + escapeHtml(r.rgn) : '') + (r.reg ? ' · ' + escapeHtml(r.reg) : '') + '</div>' +
+        '<div class="uf-q">' + escapeHtml(r.shortName || r.desc) + '</div>' +
+        '<div class="uf-facts">' +
+            '<div><span>Preacon → prueba</span><b>' + escapeHtml(dias) + '</b></div>' +
+            '<div><span>Reposo</span><b>' + (r.soakHours || '—') + ' h</b></div>' +
+            '<div><span>Vehículo</span><b>' + veh + '</b></div>' +
+        '</div>';
+    if (r.risk && r.risk.reasons && r.risk.reasons.length) {
+        h += '<div class="uf-list ' + (lvl === 'riesgo' ? 'is-bad' : 'is-warn') + '"><b>' + (lvl === 'riesgo' ? '🔴 Revisa' : '⚠️ Atención') + '</b>' +
+             r.risk.reasons.map(function(x) { return '<div>' + escapeHtml(x.text) + '</div>'; }).join('') + '</div>';
+    }
+    h += '<div class="uf-choices" role="radiogroup" aria-label="¿Qué hacemos con esta prueba?">' +
+        _tpReviewChoiceBtn(uid, 'ok', '✔ Así está', ch) +
+        _tpReviewChoiceBtn(uid, 'move', '📅 Otro día', ch) +
+        _tpReviewChoiceBtn(uid, 'drop', '✕ Quitar de la semana', ch) +
+        '</div>';
+    if (ch === 'move') {
+        var _pl = _tpIdx(_tpReview.planId);
+        var workDays = _pl ? tpWorkDaysFor(_pl.plan) : {};
+        var slots = tpSlotsForSoak(r.soakHours || tpSoakHoursFor(r.cfg || {}).hours, workDays)
+            .filter(function(s) { return !s.spillsNextWeek && s.test !== r.testDay; });
+        var sel = _tpReview.day[uid] || '';
+        h += '<div class="uf-field"><span>¿Qué día se prueba?</span><div class="uf-choices" id="uf-tp-day">' +
+            (slots.length ? slots.map(function(s) {
+                return '<button type="button" class="uf-choice' + (sel === s.test ? ' is-on' : '') + '" aria-pressed="' + (sel === s.test) + '" ' +
+                       'onclick="_tpReviewPickDay(\'' + uid + '\',\'' + s.test + '\')">' + escapeHtml(s.testLabel) +
+                       ' <small>(preacon ' + escapeHtml(s.preconLabel) + ')</small></button>';
+            }).join('') : '<p class="uf-note">Con ' + (r.soakHours || '—') + ' h de reposo no hay otro día posible esta semana.</p>') +
+            '</div></div>';
+    } else if (ch === 'drop') {
+        h += '<p class="uf-note">Sale de esta semana. Si te equivocas, al final puedes devolverla.</p>';
+    }
+    host.innerHTML = h;
+}
+
+function _tpReviewChoiceBtn(uid, val, label, cur) {
+    var on = cur === val;
+    return '<button type="button" role="radio" class="uf-choice' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" ' +
+           'onclick="_tpReviewChoose(\'' + uid + '\',\'' + val + '\')">' + label + '</button>';
+}
+
+function _tpReviewChoose(uid, val) {
+    if (!_tpReview) return;
+    _tpReview.choice[uid] = val;
+    var host = document.querySelector('#ui-flow .uf-card');
+    if (host) _tpReviewCard(host, uid);
+}
+function _tpReviewPickDay(uid, day) {
+    if (!_tpReview) return;
+    _tpReview.day[uid] = day;
+    var host = document.querySelector('#ui-flow .uf-card');
+    if (host) _tpReviewCard(host, uid);
+}
+
+function _tpReviewSave(host, uid) {
+    if (!_tpReview) return { ok: false, msg: 'La revisión ya se cerró.' };
+    var r = _tpReviewRow(uid);
+    if (!r) return { ok: false, msg: 'Esta prueba ya no está en la semana: toca "Después".' };
+    var ch = _tpReview.choice[uid] || 'ok';
+    if (ch === 'ok') return { ok: true };
+    if (ch === 'move') {
+        var day = _tpReview.day[uid];
+        var box = host && host.querySelector('#uf-tp-day');
+        if (!day) return { ok: false, field: box, msg: 'Elige el día, o toca "✔ Así está".' };
+        var res = tpMoveItemToDay(_tpReview.planId, uid, day, { via: 'revision' });
+        if (!res.ok) return { ok: false, field: box, msg: res.reason };
+        _tpReview.moved.push({ uid: uid, name: r.shortName || r.desc, from: res.from, to: res.to });
+        return { ok: true };
+    }
+    var rm = tpRemoveWeeklyItemNow(_tpReview.planId, uid, { via: 'revisión de la semana' });
+    if (!rm.ok) return { ok: false, msg: rm.reason };
+    _tpReview.removed.push({ uid: uid, name: r.shortName || r.desc, item: rm.item, atIdx: rm.atIdx, back: false });
+    return { ok: true };
+}
+
+/** ↩ Devolver desde el resumen: reinserta ese mismo objeto. */
+function tpReviewRestore(uid) {
+    if (!_tpReview) return;
+    var x = _tpReview.removed.filter(function(y) { return y.uid === uid; })[0];
+    if (!x || x.back) return;
+    var res = tpRestoreWeeklyItem(_tpReview.planId, x.item, x.atIdx);
+    if (!res.ok) { showToast(res.reason, 'error'); return; }
+    x.back = true;
+    showToast('Volvió a la semana: ' + x.name, 'success');
+    var body = document.getElementById('uf-body');
+    if (body && typeof uiFlowGoTo === 'function') uiFlowGoTo(9999);   // repinta el resumen
+}
+
+function tpReviewAccept() {
+    if (!_tpReview) return;
+    var pid = _tpReview.planId;
+    if (typeof authCan === 'function' && !authCan('plan.manage')) {
+        if (typeof authRequire === 'function') authRequire('plan.manage', 'aceptar un plan semanal');
+        return;
+    }
+    tpAcceptWeeklyPlan(pid);
+    var n = _tpIdx(pid);
+    if (n && n.plan && n.plan.accepted && typeof uiFlowClose === 'function') uiFlowClose('done');
+}
+
+function _tpReviewFinalHTML(model) {
+    if (!_tpReview) return '';
+    var b = tpWeekBoardRows({ planId: _tpReview.planId });
+    var rows = (b && b.rows) || [];
+    var riesgo = rows.filter(function(r) { return !r.done && r.risk && r.risk.level === 'riesgo'; }).length;
+    var sinRev = model.cards.filter(function(c) { return c.status !== 'hecho'; }).length;
+    var h = '<div class="uf-final-title">' + (b && b.accepted ? '✔ Semana aceptada' : 'Semana del ' + escapeHtml(_tpReview.weekDate)) + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b>' + rows.length + '</b><span>Pruebas en la semana</span></div>' +
+        '<div class="uf-stat"><b class="is-ok">' + _tpReview.moved.length + '</b><span>Movidas</span></div>' +
+        '<div class="uf-stat"><b class="' + (riesgo ? 'is-bad' : 'is-ok') + '">' + riesgo + '</b><span>Con riesgo</span></div>' +
+        '</div>';
+    if (_tpReview.moved.length) {
+        h += '<div class="uf-list is-ok"><b>📅 Movidas</b>' + _tpReview.moved.map(function(m) {
+            return '<div>' + escapeHtml(m.name) + ': ' + escapeHtml(TP_DAY_LABELS[m.from] || 'sin día') + ' → ' + escapeHtml(TP_DAY_LABELS[m.to] || m.to) + '</div>';
+        }).join('') + '</div>';
+    }
+    if (_tpReview.removed.length) {
+        h += '<div class="uf-list"><b>✕ Quitadas</b>' + _tpReview.removed.map(function(x) {
+            return '<div class="uf-row">' + escapeHtml(x.name) + (x.back
+                ? ' <span class="u-muted">· devuelta</span>'
+                : ' <button type="button" class="uf-link" onclick="tpReviewRestore(\'' + x.uid + '\')">↩ Devolver</button>') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (sinRev) h += '<div class="uf-list is-warn">' + sinRev + ' prueba(s) sin revisar. Puedes aceptar igual o seguir revisando.</div>';
+    if (_tpReview.doneBefore) h += '<p class="uf-note">' + _tpReview.doneBefore + ' prueba(s) ya estaban hechas y no se preguntaron.</p>';
+    if (b && !b.accepted) {
+        var why = (typeof authCan === 'function' && !authCan('plan.manage'))
+            ? 'Tu rol no permite aceptar el plan. Lo acepta quien administra el plan; lo que moviste ya quedó guardado.' : '';
+        h += '<button type="button" class="btn-primary uf-next" id="uf-tp-accept" onclick="tpReviewAccept()"' +
+             (why ? ' disabled data-why="' + escapeHtml(why) + '" title="' + escapeHtml(why) + '"' : '') + '>✔ Aceptar la semana (' + rows.length + ' prueba' + (rows.length === 1 ? '' : 's') + ')</button>';
+        if (why) h += '<p class="uf-note">' + escapeHtml(why) + '</p>';
+    }
+    return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // v16.0 — Banners de ayuda de las pestañas de Test Plan (HELP_TABS vive en
 // app.js, que carga primero, así que ya existe cuando se ejecuta esta línea).
 // ══════════════════════════════════════════════════════════════════════
@@ -43575,6 +44764,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         text: 'El tablero de lo que toca correr: una columna por día laborable. Cada prueba vive una sola vez, en su columna de PRUEBA — el preacondicionamiento se ve en el medidor del encabezado y en la tira de días de la tarjeta.',
         tips: [
             'La columna de HOY va resaltada. ◀ ▶ mueven de semana; "Ir a hoy" regresa.',
+            'Con una propuesta, "🔎 Revisar y aceptar" te lleva prueba por prueba: así está, otro día (solo los días donde cabe el reposo) o quitarla. Lo quitado se puede devolver en el resumen, antes de aceptar.',
             'La tira de colores de cada tarjeta es su recorrido real: P = preacondicionamiento, · = reposo, T = prueba. Un soak de 36 h ocupa más días, y se ve.',
             '"↪ Mover" ofrece solo los días donde el reposo SÍ cabe; los imposibles salen deshabilitados con el motivo escrito.',
             'Marcar ✅ a mano deja un registro permanente marcado como "declarada" — sobrevive aunque borres el plan, pero nunca se disfraza de liberación real.',
@@ -48984,19 +50174,254 @@ function pnActiveProjectForAsset(assetId) {
     return (pnState.projects || []).find(function(p) { return p.assetId === assetId && p.status === 'activo' && !p.archived; }) || null;
 }
 
-function pnProjectStepDone(projectId, stepId) {
+// opts [2.22.0]: {date, silent, noNav} — sin opts se comporta como siempre (HOY).
+function pnProjectStepDone(projectId, stepId, opts) {
+    opts = opts || {};
     var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
-    if (!p) return;
+    if (!p) return null;
     var s = (p.steps || []).find(function(x) { return x.id === stepId; });
-    if (!s) return;
+    if (!s) return null;
     s.status = 'completado';
-    s.doneDate = localToday();
+    s.doneDate = opts.date || localToday();
     s.updatedAt = new Date().toISOString();
-    p.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
     pnSave();
     if (typeof auditLog === 'function') auditLog('panel', 'proyecto_paso_completado', { type: 'project', id: projectId, label: p.name }, s.title);
-    if (typeof showToast === 'function') showToast('Paso completado', 'success');
-    _pnProjNav();
+    if (!opts.silent && typeof showToast === 'function') showToast('Paso completado', 'success');
+    if (!opts.noNav) _pnProjNav();
+    return s;
+}
+
+// [2.22.0] Recorrer la fecha objetivo de un paso. Misma auditoría que el modal de
+// edición (`proyecto_fecha_movida`), aunque el paso no tenga línea base: mover un
+// compromiso vencido es una decisión. Un paso bloqueado que recibe fecha nueva se
+// desbloquea (pasa a pendiente): quien lo reprograma dice que ya se puede avanzar.
+function pnProjectStepReschedule(projectId, stepId, date, opts) {
+    opts = opts || {};
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return null;
+    var s = (p.steps || []).find(function(x) { return x.id === stepId; });
+    if (!s || !date) return null;
+    var prev = s.targetDate || '';
+    var wasBlocked = s.status === 'bloqueado';
+    s.targetDate = date;
+    if (wasBlocked) s.status = 'pendiente';
+    s.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('panel', 'proyecto_fecha_movida', { type: 'project', id: p.id, label: p.name },
+            s.title + ': ' + (prev || '(sin fecha)') + ' → ' + date +
+            (s.baselineTarget ? ' (comprometida ' + s.baselineTarget + ')' : '') +
+            (wasBlocked ? ' · se desbloquea' : '') + (opts.reason ? ' — ' + opts.reason : ''));
+    }
+    return s;
+}
+
+// [2.22.0] Declarar (o actualizar) el obstáculo de un paso. El obstáculo es obligatorio:
+// "bloqueado" sin decir por qué no le sirve a nadie.
+function pnProjectStepBlock(projectId, stepId, roadblock) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return null;
+    var s = (p.steps || []).find(function(x) { return x.id === stepId; });
+    var why = String(roadblock || '').trim();
+    if (!s || !why) return null;
+    var prev = s.status;
+    s.status = 'bloqueado';
+    s.roadblock = why;
+    s.doneDate = '';
+    s.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('panel', 'proyecto_paso_estatus', { type: 'project', id: p.id, label: p.name },
+            s.title + ': ' + (PN_STEP_STATUS[prev] || prev) + ' → ' + PN_STEP_STATUS.bloqueado + ' — ' + why);
+    }
+    return s;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.22.0] REPASAR PENDIENTES — pasos vencidos y bloqueados, uno por uno (uiFlow)
+// Cada tarjeta es UNA decisión: ya se hizo / nueva fecha / está bloqueado. Escribe
+// solo con pnProjectStepDone / pnProjectStepReschedule / pnProjectStepBlock.
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Qué entra a la ronda. PURA. items = pnProjectsOverdueSteps().
+ * "Solo míos" con el mismo criterio que pnProjStepsFor: sin responsable = de todos.
+ * Orden: por proyecto (nombre) y fecha objetivo, la más vieja primero; los bloqueados
+ * sin fecha al final de su proyecto. Devuelve {items, hidden} — el filtro dice cuántos oculta.
+ */
+function pnProjectsReviewPick(items, o) {
+    o = o || {};
+    var me = String(o.me || '').trim();
+    var all = (items || []).filter(function(x) { return x && x.project && x.step; });
+    var mine = (o.onlyMine && me) ? all.filter(function(x) {
+        var r = String(x.step.responsible || '').trim();
+        return !r || r === me;
+    }) : all;
+    mine = mine.slice().sort(function(a, b) {
+        var pa = String(a.project.name || ''), pb = String(b.project.name || '');
+        if (pa !== pb) return pa.localeCompare(pb, 'es');
+        return String(a.step.targetDate || '9999-99-99').localeCompare(String(b.step.targetDate || '9999-99-99'));
+    });
+    return { items: mine, hidden: all.length - mine.length };
+}
+
+var _pnReview = null;   // {choice:{key:'done'|'date'|'block'}, done:[], moved:[], blocked:[]}
+
+function _pnReviewMe() {
+    var me = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) me = u.name; }
+        if (!me) me = localStorage.getItem('kia_last_operator') || '';
+    } catch (e) {}
+    return me;
+}
+
+/** Cuántos pasos entrarían a la ronda (para el botón y HOY). */
+function pnProjectsReviewCount() {
+    return pnProjectsReviewPick(pnProjectsOverdueSteps(), {
+        onlyMine: typeof dashOnlyMine === 'function' && dashOnlyMine(), me: _pnReviewMe()
+    }).items.length;
+}
+
+function pnProjectsReviewOpen() {
+    var only = typeof dashOnlyMine === 'function' && dashOnlyMine();
+    var pick = pnProjectsReviewPick(pnProjectsOverdueSteps(), { onlyMine: only, me: _pnReviewMe() });
+    if (!pick.items.length) {
+        showToast(pick.hidden ? 'No tienes pasos vencidos ni bloqueados (' + pick.hidden + ' de otros, con "Solo míos" puesto).'
+                              : 'Proyectos al día: no hay pasos vencidos ni bloqueados.', 'success');
+        return false;
+    }
+    _pnReview = { choice: {}, done: [], moved: [], blocked: [] };
+    return uiFlowOpen({
+        id: 'projReview',
+        title: '🧭 Pendientes de proyectos',
+        subtitle: pick.hidden ? 'solo tuyos · ' + pick.hidden + ' de otros ocultos' : '',
+        steps: pick.items.map(function(x) {
+            var key = x.project.id + '::' + x.step.id;
+            return {
+                key: key,
+                section: x.project.name || 'Proyecto',
+                title: x.step.title,
+                render: function(host) { _pnReviewCard(host, x.project.id, x.step.id); },
+                save: function(host) { return _pnReviewSave(host, x.project.id, x.step.id); }
+            };
+        }),
+        onFinal: _pnReviewFinalHTML,
+        onClose: function() { _pnReview = null; if (typeof _pnProjNav === 'function') _pnProjNav(); }
+    });
+}
+
+function _pnReviewFind(pid, sid) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === pid; });
+    var s = p && (p.steps || []).find(function(x) { return x.id === sid; });
+    return s ? { p: p, s: s } : null;
+}
+
+function _pnReviewCard(host, pid, sid) {
+    var f = _pnReviewFind(pid, sid);
+    if (!f) { host.innerHTML = '<p class="uf-note">Este paso ya no existe (se borró o cambió desde otro equipo). Toca <b>Después</b>.</p>'; return; }
+    var key = pid + '::' + sid;
+    var ch = _pnReview.choice[key] || '';
+    var s = f.s, hoy = localToday();
+    var blocked = s.status === 'bloqueado';
+    var late = s.targetDate && s.targetDate < hoy
+        ? Math.round((new Date(hoy + 'T00:00:00') - new Date(s.targetDate + 'T00:00:00')) / 86400000) : 0;
+    var h = '<div class="uf-kicker"><span class="uf-badge ' + (blocked ? 'is-bad' : 'is-warn') + '">' +
+            (blocked ? '🚧 Bloqueado' : 'Vencido hace ' + late + ' día' + (late === 1 ? '' : 's')) + '</span>' +
+            (s.responsible ? ' · 👤 ' + escapeHtml(s.responsible) : '') + '</div>' +
+        '<div class="uf-q">' + escapeHtml(s.title) + '</div>' +
+        '<div class="uf-facts">' +
+            '<div><span>Proyecto</span><b>' + escapeHtml(f.p.name || '') + '</b></div>' +
+            '<div><span>Fecha objetivo</span><b>' + escapeHtml(s.targetDate || 'sin fecha') + '</b></div>' +
+            (s.roadblock ? '<div><span>Obstáculo</span><b>' + escapeHtml(s.roadblock) + '</b></div>' : '') +
+        '</div>' +
+        '<div class="uf-choices" id="uf-pn-choice" role="radiogroup" aria-label="¿Qué pasó con este paso?">' +
+            _pnReviewChoiceBtn(key, 'done', '✔ Ya se hizo', ch) +
+            _pnReviewChoiceBtn(key, 'date', '📅 Nueva fecha', ch) +
+            _pnReviewChoiceBtn(key, 'block', blocked ? '🚧 Sigue bloqueado' : '🚧 Está bloqueado', ch) +
+        '</div>';
+    if (ch === 'done') {
+        h += '<label class="uf-field"><span>¿Cuándo se terminó?</span><input type="date" id="uf-pn-done" value="' + hoy + '" max="' + hoy + '"></label>';
+    } else if (ch === 'date') {
+        h += '<label class="uf-field"><span>Nueva fecha objetivo</span><input type="date" id="uf-pn-date" min="' + hoy + '"></label>' +
+             '<label class="uf-field"><span>Motivo <small>(opcional)</small></span><input type="text" id="uf-pn-reason" autocomplete="off" placeholder="Ej.: llegó tarde la refacción"></label>' +
+             (blocked ? '<p class="uf-note">Con fecha nueva el paso deja de estar bloqueado.</p>' : '');
+    } else if (ch === 'block') {
+        h += '<label class="uf-field"><span>¿Qué lo detiene?</span><input type="text" id="uf-pn-block" autocomplete="off" ' +
+             'placeholder="Ej.: esperando la cotización del proveedor" value="' + escapeHtml(s.roadblock || '') + '"></label>';
+    }
+    host.innerHTML = h;
+}
+
+function _pnReviewChoiceBtn(key, val, label, cur) {
+    var on = cur === val;
+    return '<button type="button" role="radio" class="uf-choice' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" ' +
+           'onclick="_pnReviewChoose(\'' + key + '\',\'' + val + '\')">' + label + '</button>';
+}
+
+function _pnReviewChoose(key, val) {
+    if (!_pnReview) return;
+    _pnReview.choice[key] = val;
+    var host = document.querySelector('#ui-flow .uf-card');
+    var ids = key.split('::');
+    if (host) _pnReviewCard(host, ids[0], ids[1]);
+}
+
+function _pnReviewSave(host, pid, sid) {
+    if (!_pnReview) return { ok: false, msg: 'La ronda ya se cerró.' };
+    var f = _pnReviewFind(pid, sid);
+    if (!f) return { ok: false, msg: 'Este paso ya no existe: toca "Después".' };
+    var key = pid + '::' + sid;
+    var ch = _pnReview.choice[key];
+    var hoy = localToday();
+    var name = f.s.title;
+    if (!ch) return { ok: false, field: host.querySelector('#uf-pn-choice'), msg: 'Elige qué pasó con este paso, o toca "Después".' };
+    if (ch === 'done') {
+        var d = host.querySelector('#uf-pn-done');
+        if (!d || !d.value) return { ok: false, field: d, msg: 'Pon la fecha en que se terminó.' };
+        if (d.value > hoy) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+        pnProjectStepDone(pid, sid, { date: d.value, silent: true, noNav: true });
+        _pnReview.done.push(name);
+    } else if (ch === 'date') {
+        var n = host.querySelector('#uf-pn-date');
+        if (!n || !n.value) return { ok: false, field: n, msg: 'Elige la nueva fecha objetivo.' };
+        if (n.value < hoy) return { ok: false, field: n, msg: 'La nueva fecha no puede estar en el pasado.' };
+        var why = String((host.querySelector('#uf-pn-reason') || {}).value || '').trim();
+        pnProjectStepReschedule(pid, sid, n.value, { reason: why });
+        _pnReview.moved.push(name + ' → ' + n.value);
+    } else {
+        var b = host.querySelector('#uf-pn-block');
+        var txt = b ? String(b.value || '').trim() : '';
+        if (txt.length < 5) return { ok: false, field: b, msg: 'Escribe qué lo detiene (al menos 5 letras).' };
+        pnProjectStepBlock(pid, sid, txt);
+        _pnReview.blocked.push(name + ' — ' + txt);
+    }
+    return { ok: true };
+}
+
+function _pnReviewFinalHTML(model) {
+    var r = _pnReview || { done: [], moved: [], blocked: [] };
+    var left = model.cards.filter(function(c) { return c.status !== 'hecho'; });
+    var quedan = pnProjectsOverdueSteps().filter(function(x) { return !x.blocked; }).length;
+    var h = '<div class="uf-final-title">' + (left.length ? 'Quedan ' + left.length + ' para después' : '✅ Pendientes repasados') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + r.done.length + '</b><span>Completados</span></div>' +
+        '<div class="uf-stat"><b>' + r.moved.length + '</b><span>Con fecha nueva</span></div>' +
+        '<div class="uf-stat"><b class="' + (quedan ? 'is-bad' : 'is-ok') + '">' + quedan + '</b><span>Vencidos en el laboratorio</span></div>' +
+        '</div>';
+    [['is-ok', '✔ Completados', r.done], ['', '📅 Con fecha nueva', r.moved], ['is-warn', '🚧 Bloqueados', r.blocked]].forEach(function(g) {
+        if (!g[2].length) return;
+        h += '<div class="uf-list ' + g[0] + '"><b>' + g[1] + '</b>' + g[2].map(function(t) { return '<div>' + escapeHtml(t) + '</div>'; }).join('') + '</div>';
+    });
+    if (left.length) {
+        h += '<div class="uf-list"><b>Para después</b>' + left.map(function(c) {
+            return '<div>' + escapeHtml(c.title) + ' <span class="u-muted">· ' + escapeHtml(c.section) + '</span></div>';
+        }).join('') + '</div>';
+    }
+    return h;
 }
 
 // ── UI ──
@@ -49012,6 +50437,9 @@ function _pnRenderProjectGrid(el) {
     var portfolio = window._pnGridView === 'portfolio';
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
+    // [2.22.0] La ronda de pendientes, solo si hay algo que repasar.
+    var _pnRevN = pnProjectsReviewCount();
+    if (_pnRevN) html += '<button class="tp-btn tp-btn-primary" onclick="pnProjectsReviewOpen()" style="font-size: var(--fs-sm);" title="Pasos vencidos y bloqueados, uno por uno">🧭 Repasar pendientes (' + _pnRevN + ')</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-sm);">+ Proyecto</button></div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
@@ -50881,6 +52309,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Marca los entregables clave como hito (◆) — el Portafolio muestra el próximo hito de cada proyecto.',
         'Liga un proyecto a un equipo (ej. Dinamómetro) para que aparezca como banner en Consumibles → Mtto.',
         'Un paso vencido o bloqueado aparece en HOY y en Alertas hasta que se resuelva.',
+        '"🧭 Repasar pendientes" te lleva por los pasos vencidos y bloqueados uno por uno: ya se hizo, nueva fecha (queda en la auditoría) o está bloqueado (con el motivo). "Después" no cambia nada.',
         'Desde HOY puedes dar de alta un pendiente directo en un proyecto con el selector del modal ➕ Actividad.'
     ]}
 });
@@ -56284,7 +57713,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609292350' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609301147' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -66595,7 +68024,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8300,"mods":[[8303,"js/app.js",17046],[17050,"js/cop15.js",26727],[26731,"js/inventory.js",33605],[33609,"js/testplan.js",43678],[43682,"js/panel.js",48847],[48851,"js/projects.js",50901],[50905,"js/auth.js",51946],[51950,"js/signatures.js",52151],[52155,"js/firebase-sync.js",58925],[58929,"js/cop_validator.js",62415],[62419,"js/homolog.js",63680],[63684,"js/vets.js",65387],[65391,"js/review.js",65840],[65844,"js/opcards.js",66273],[66277,"js/handoff.js",66551],[66555,"js/bugreport.js",67701]]};
+var BUG_LINE_MAP = {"tag":8441,"mods":[[8444,"js/app.js",17447],[17451,"js/uiflow.js",17767],[17771,"js/cop15.js",27448],[27452,"js/inventory.js",34518],[34522,"js/testplan.js",44868],[44872,"js/panel.js",50037],[50041,"js/projects.js",52330],[52334,"js/auth.js",53375],[53379,"js/signatures.js",53580],[53584,"js/firebase-sync.js",60354],[60358,"js/cop_validator.js",63844],[63848,"js/homolog.js",65109],[65113,"js/vets.js",66816],[66820,"js/review.js",67269],[67273,"js/opcards.js",67702],[67706,"js/handoff.js",67980],[67984,"js/bugreport.js",69130]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
