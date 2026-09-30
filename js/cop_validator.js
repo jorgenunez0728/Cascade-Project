@@ -51,10 +51,10 @@ var COP_CO2_TABLE = {
  * son de la familia (Ajustes → esta pantalla) y entran multiplicando el CO₂
  * medido, tal cual la hoja de referencia (columna CO2 = raw × EvC × FCF).
  *
- * Las dos fórmulas colapsan su banda exactamente en n=16 (verificado con los
- * valores cacheados del Excel: a n=16, (16−3)/13=1 → A−VAR = A−1·VAR, y
- * tP1=tP2=0 en la Tabla A2/3) — por eso ambas comparten el mismo tope de
- * muestra. Más allá de 16 se evalúa con esa fila tope y se marca `overSample`.
+ * A n=16 cada banda colapsa a un solo punto — el Apéndice I en A−VAR y R154 en
+ * A (tP1=tP2=0, tF1=tF2) —, por eso comparten el tope de muestra. [2.27.3] NO es
+ * el mismo punto: difieren en VAR. Más allá de 16 se evalúa con esa fila tope y
+ * se marca `overSample`.
  *
  * rows = [{measured, target}, …] (mismo shape que homoCo2RowsForVins). Con
  * menos de 3 pares válidos devuelve decision:'SIN DATOS' — mismo criterio que
@@ -168,14 +168,66 @@ function copCo2ConclusionHTML(stats) {
         : cmpTxt + ' (n=' + stats.n + ' de hasta 16 ensayos): hace falta otro vehículo para decidir.';
     var icon = ap.decision === 'PASS' ? '✅' : ap.decision === 'FAIL' ? '❌' : '⏳';
 
-    var coincide = r154.decision === ap.decision;
-    var confirm = coincide
-        ? '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>'
-        : '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) + ' — las dos pruebas NO coinciden, revisar antes de aceptar.</b>';
+    // [2.27.3] Tres casos, no dos. Que R154 diga "sin decidir" mientras el
+    // Apéndice I ya decidió NO es una contradicción: la banda de R154 usa la
+    // desviación estándar s con un factor t (a n=3, 2.124·s), la del Apéndice I
+    // usa VAR = s² (sobre un cociente, del orden de 1e-4). Con pocos ensayos
+    // R154 casi siempre pide más. Rojo solo para veredictos OPUESTOS.
+    var confirm = copCo2ConfirmHTML(stats);
 
     return '<p class="cop-co2-conclusion cop-co2-conclusion--' + ap.decision.toLowerCase() + '">' + icon + ' ' + frase +
            (stats.overSample ? ' <span style="opacity:0.75;">(n&gt;16: evaluado con la fila tope, n=16.)</span>' : '') +
            '<br>' + confirm + '</p>';
+}
+
+/**
+ * [2.27.3] Cómo se relacionan las dos pruebas de CO₂ (PURA):
+ *   'coinciden'         — mismo veredicto.
+ *   'opuestas'          — PASS contra FAIL: conflicto real, se pinta en rojo.
+ *   'r154-pide-mas'     — el Apéndice I ya decidió y R154 sigue en muestreo.
+ *   'apendice-pide-mas' — al revés.
+ * Las dos últimas NO son contradicción: una prueba pide más vehículos.
+ */
+function copCo2Agreement(stats) {
+    if (!stats || !stats.appendixI || !stats.r154) return null;
+    var a = stats.appendixI.decision, r = stats.r154.decision;
+    if (a === r) return 'coinciden';
+    if (r === 'CONTINUE') return 'r154-pide-mas';
+    if (a === 'CONTINUE') return 'apendice-pide-mas';
+    return 'opuestas';
+}
+
+/** [2.27.3] La línea de confirmación de UN R154 §3.3.1 bajo la conclusión. */
+function copCo2ConfirmHTML(stats) {
+    var kind = copCo2Agreement(stats);
+    if (!kind) return '';
+    var r154 = stats.r154, t = r154.table || {};
+    if (kind === 'coinciden') {
+        return '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>';
+    }
+    if (kind === 'opuestas') {
+        return '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) +
+            ': las dos pruebas dan veredictos OPUESTOS. Revisar antes de aceptar.</b>';
+    }
+    var warn = 'color:var(--warn-text,#92400e);';
+    if (kind === 'apendice-pide-mas') {
+        return '<span style="' + warn + '">UN R154 §3.3.1 ya da ' + _copDecisionWord(r154.decision) +
+            ', pero el veredicto de arriba es el del Apéndice I, que todavía pide más vehículos.</span>';
+    }
+    var txt = 'UN R154 §3.3.1 (Tabla A2/3) todavía no decide con n=' + stats.n +
+        ': su banda usa la desviación estándar' + (typeof stats.s === 'number' ? ' (s = ' + stats.s.toFixed(4) + ')' : '') +
+        ' y con pocos ensayos es más estricta';
+    if (stats.appendixI.decision === 'PASS') {
+        txt += '. Para aceptar pide X̄ ≤ ' + r154.passBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
+        var k = (t.tP1 || 0) + (t.tP2 || 0);
+        if (k > 0 && stats.mean < stats.A) {
+            txt += ', o que los vehículos varíen menos entre sí (s ≤ ' + ((stats.A - stats.mean) / k).toFixed(4) + ')';
+        }
+    } else {
+        txt += '. Rechaza solo con X̄ > ' + r154.failBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
+    }
+    txt += '. No contradice al Apéndice I, que es el veredicto de arriba: se aclara con más vehículos.';
+    return '<span style="' + warn + '">ℹ️ ' + txt + '</span>';
 }
 
 // ─── VALORES CRÍTICOS A(n) B(n) — Test t secuencial ─────────────────────────
@@ -2981,7 +3033,7 @@ function _copCo2GaugeHTML(stats) {
     html += '<div class="cop-gauge" role="img" aria-label="CO₂: X̄ ' + stats.mean.toFixed(4) +
             ', banda ' + a.toFixed(4) + ' a ' + b.toFixed(4) + ', ' + _copEsc(vu.word) + '">';
     html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante</span></div>';
-    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>' + a.toFixed(3) + ' — sin decidir — ' + b.toFixed(3) + '</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>' + a.toFixed(4) + ' — sin decidir — ' + b.toFixed(4) + '</span></div>';
     html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>No concord.</span></div>';
     html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="X̄ = ' + stats.mean.toFixed(4) + '"></div>';
     html += '</div>';

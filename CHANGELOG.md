@@ -20,6 +20,27 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.27.3 — CO₂: R154 "sin decidir" ya no se lee como conflicto (2026-09-30)
+
+### Arreglado
+- En **CoP → Validador → CO₂ vs valor declarado**, cuando el Apéndice I (Reg. 2017/1151) ya
+  aceptaba la familia y UN R154 §3.3.1 todavía no decidía, salía en rojo **"las dos pruebas NO
+  coinciden, revisar antes de aceptar"**. No es una contradicción: R154 mide la dispersión con la
+  desviación estándar y un factor de la Tabla A2/3 (a n=3, 2.124·s), así que con pocos
+  vehículos casi siempre pide más; el Apéndice I usa la varianza, que sobre un cociente es muy
+  chica. Ahora sale en **ámbar** y dice qué pide R154 para aceptar (el X̄ o la dispersión) y que
+  se aclara con más vehículos.
+- El **rojo** queda solo para veredictos **opuestos** (una acepta y la otra rechaza).
+- La banda "sin decidir" del medidor de CO₂ se rotula con 4 decimales: 1.0095 y 1.0100 se veían
+  los dos como 1.010.
+- El cálculo no cambió: los veredictos son los mismos. El PDF del expediente usa el mismo texto.
+
+### Para desarrollo
+- `copCo2Agreement(stats)` (PURA): `coinciden` | `opuestas` | `r154-pide-mas` |
+  `apendice-pide-mas`. `copCo2ConfirmHTML(stats)` pinta la línea de confirmación.
+- `tests/co2.node.js` (24): fija el caso real de la familia, las cuatro relaciones y el medidor.
+  Antes no había ninguna prueba del CO₂ en el repositorio.
+
 ## 2.27.2 — El checklist dice "Reporte STARS VETS" (2026-09-30)
 
 ### Cambió
