@@ -4863,6 +4863,35 @@ body.cop-present .cop-toolbar    { display: none; }
     margin-bottom: var(--space-sm);
 }
 
+/* ── [2.27.0] Vincular / acreditar: qué tan parecida es cada prueba y dónde está ── */
+.tp-link-sec { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin: var(--space-xs) 0 0; text-transform: none; }
+.tp-link-opt { border-left-width: 4px; }
+.tp-link-opt--exacta   { border-left-color: var(--ok-text); }
+.tp-link-opt--variante { border-left-color: var(--info-text); }
+.tp-link-opt--otra     { border-left-color: var(--warn-text); }
+.tp-link-opt--taken    { background: var(--warn-tint); }
+.tp-link-opt-fit { font-weight: 600; font-size: var(--fs-xs); color: var(--muted); margin-left: var(--space-2xs); }
+.tp-link-opt-diff { font-size: var(--fs-xs); color: var(--info-text); overflow-wrap: anywhere; }
+.tp-link-opt--otra .tp-link-opt-diff { color: var(--warn-text); }
+.tp-link-opt-taken { font-size: var(--fs-xs); color: var(--warn-text); overflow-wrap: anywhere; }
+.tp-week-note--link { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-week-note .tp-btn { margin-left: var(--space-xs); }
+.tp-week-suggest {
+    display: block; width: 100%; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+    font-size: var(--fs-xs); padding: var(--space-xs) var(--space-sm); margin-bottom: var(--space-xs);
+    border-radius: var(--radius-sm); border: 1px dashed var(--info-text);
+    background: var(--info-tint); color: var(--info-text); min-height: var(--target-min);
+}
+.tp-week-suggest:hover { background: var(--info-bg); }
+.tp-reconcile-row {
+    display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-sm);
+    border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius-md); background: var(--surface);
+}
+.tp-reconcile-veh { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.tp-reconcile-why { display: block; font-size: var(--fs-xs); color: var(--warn-text); }
+.tp-reconcile-arrow { font-size: var(--fs-sm); color: var(--text); overflow-wrap: anywhere; }
+.tp-reconcile-go { align-self: flex-end; }
+
 /* ── [v20.2] CO₂ — ajustes de familia (FCF / Evolution Factor) + conclusión ── */
 .cop-co2-settings {
     display: flex; align-items: flex-end; gap: var(--space-md); flex-wrap: wrap;
