@@ -169,7 +169,7 @@ async function deslizar(page, dx) {
     s = await estado(page);
     chk('ronda completa', s.final && /Ronda completa/.test(s.body), s.body.slice(0, 120));
     chk('el cierre dice qué quedó bajo', /Pedir o cambiar pronto[\s\S]*CIL-B01/.test(s.body), s.body);
-    await page.click('#uf-body .btn-primary.uf-next');
+    await page.click('#uf-body .uf-close');
     await page.waitForTimeout(300);
     s = await estado(page);
     chk('Terminar cierra', !s.open);
@@ -218,7 +218,7 @@ async function deslizar(page, dx) {
     const e2 = await page.evaluate(() => invState.equipment.find(e => e.id === 'e2'));
     chk('"Después" no registra nada', !(e2.calHistory || []).length && e2.lastCalDate !== hoy, JSON.stringify(e2));
     chk('el cierre dice lo registrado y lo pendiente', s.final && /Quedan 1 para después/.test(s.body) && /Manómetro/.test(s.body), s.body.slice(0, 300));
-    await page.click('#uf-body .btn-primary.uf-next');
+    await page.click('#uf-body .uf-close');
     await page.waitForTimeout(300);
     chk('Terminar cierra', !(await estado(page)).open);
 

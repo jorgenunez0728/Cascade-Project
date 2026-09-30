@@ -492,5 +492,37 @@ t('la fila vinculada que era sustitución y ahora COINCIDE deja de serlo', () =>
     eq(it.completed, true, 'sigue hecha:');
 });
 
+console.log('\n== [2.22.0] Revisar la semana: qué se pregunta y quitar/devolver ==');
+t('tpReviewWeekPick: sin día primero, luego por día de prueba; las hechas no se preguntan', () => {
+    const r = (uid, testDay, done) => ({ uid, testDay, done: !!done });
+    const pick = sandbox.tpReviewWeekPick({ rows: [r('a', 'jue'), r('b', 'mar'), r('c', null), r('d', 'mar', true), r('e', 'mar')] });
+    eq(pick.rows.map(x => x.uid).join(','), 'c,b,e,a', 'orden:');
+    eq(pick.done, 1, 'hechas:');
+    eq(pick.sectionOf(pick.rows[0]), 'Sin día');
+    eq(pick.sectionOf(pick.rows[1]), 'Martes');
+});
+t('tpReviewWeekPick: sin tablero no truena', () => {
+    eq(sandbox.tpReviewWeekPick(null).rows.length, 0);
+});
+t('quitar por uid y devolver ESE objeto en su lugar (mismo uid); devolver dos veces no duplica', () => {
+    S.weeklyPlans = [{ id: 'P1', weekDate: '2026-10-05', created: '2026-10-01T00:00:00Z', items: [
+        { uid: 'U1', desc: 'A' }, { uid: 'U2', desc: 'B', origin: 'cola' }, { uid: 'U3', desc: 'C' }] }];
+    sandbox.tpWeekPlanInvalidate();
+    const pid = sandbox.tpPlanId(S.weeklyPlans[0]);
+    const rm = sandbox.tpRemoveWeeklyItemNow(pid, 'U2');
+    eq(rm.ok, true); eq(rm.atIdx, 1); eq(S.weeklyPlans[0].items.map(i => i.uid).join(','), 'U1,U3');
+    const back = sandbox.tpRestoreWeeklyItem(pid, rm.item, rm.atIdx);
+    eq(back.ok, true);
+    eq(S.weeklyPlans[0].items.map(i => i.uid).join(','), 'U1,U2,U3', 'misma posición:');
+    eq(S.weeklyPlans[0].items[1].origin, 'cola', 'es el mismo objeto:');
+    eq(sandbox.tpRestoreWeeklyItem(pid, rm.item, rm.atIdx).ok, false, 'segunda vez:');
+    eq(S.weeklyPlans[0].items.length, 3);
+});
+t('quitar un uid que ya no existe lo dice y no toca nada', () => {
+    const pid = sandbox.tpPlanId(S.weeklyPlans[0]);
+    eq(sandbox.tpRemoveWeeklyItemNow(pid, 'NO-EXISTE').ok, false);
+    eq(S.weeklyPlans[0].items.length, 3);
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

@@ -208,14 +208,20 @@ function _ufFinal() {
     var body = document.getElementById('uf-body');
     if (!body) return;
     var h = '<div class="uf-final uf-in">';
+    var fin = '';
     if (typeof _uf.opts.onFinal === 'function') {
-        try { h += _uf.opts.onFinal(m) || ''; } catch (e) { console.warn('uiFlow onFinal:', e); }
+        try { fin = _uf.opts.onFinal(m) || ''; } catch (e) { console.warn('uiFlow onFinal:', e); }
     }
+    h += fin;
     if (m.pending.length) {
         h += '<button type="button" class="btn-secondary uf-next" onclick="uiFlowResume()">Seguir con ' +
              (m.pending.length === 1 ? 'el que falta' : 'los ' + m.pending.length + ' que faltan') + ' ▸</button>';
     }
-    h += '<button type="button" class="btn-primary uf-next" onclick="uiFlowClose(\'done\')">Terminar</button></div>';
+    // [2.22.0] Un solo botón principal por pantalla: si el resumen ya trae su acción
+    // principal (p. ej. "Aceptar la semana"), Terminar pasa a secundario.
+    var mainInFinal = /class="btn-primary/.test(fin);
+    h += '<button type="button" class="' + (mainInFinal ? 'btn-secondary' : 'btn-primary') + ' uf-next uf-close" onclick="uiFlowClose(\'done\')">' +
+         escapeHtml(_uf.opts.closeLabel || 'Terminar') + '</button></div>';
     body.innerHTML = h;
     body.scrollTop = 0;
     _ufHeader(m);

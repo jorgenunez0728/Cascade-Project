@@ -21,7 +21,7 @@ const ctx = {
 };
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['uiflow.js', 'inventory.js']) {
+for (const f of ['uiflow.js', 'inventory.js', 'projects.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 }
 
@@ -92,6 +92,23 @@ console.log('\n== invEquipmentRoundPick ==');
     const ancho = ctx.invEquipmentRoundPick({ equipment, statusOf: e => st[e.id], calDays: 60 });
     ok('la ventana se puede ampliar (calDays)', ancho.some(x => x.id === 'e5'));
     ok('sin datos → vacío, sin tronar', ctx.invEquipmentRoundPick().length === 0 && ctx.invEquipmentRoundPick({}).length === 0);
+}
+
+console.log('\n== pnProjectsReviewPick ==');
+{
+    const P1 = { id: 'p1', name: 'Túnel' }, P2 = { id: 'p2', name: 'Dinamómetro' };
+    const it = (p, id, resp, fecha) => ({ project: p, step: { id, responsible: resp, targetDate: fecha } });
+    const items = [it(P1, 's1', 'Ana', '2026-09-20'), it(P2, 's2', 'Beto', '2026-09-25'),
+                   it(P2, 's3', '', '2026-09-10'), it(P1, 's4', 'Beto', '2026-09-01'), it(P2, 's5', 'Beto', null)];
+    const all = ctx.pnProjectsReviewPick(items, {});
+    ok('orden: por proyecto y la fecha más vieja primero; sin fecha al final',
+        all.items.map(x => x.step.id).join(',') === 's3,s2,s5,s4,s1', all.items.map(x => x.step.id).join(','));
+    ok('sin filtro no oculta nada', all.hidden === 0);
+    const mine = ctx.pnProjectsReviewPick(items, { onlyMine: true, me: 'Beto' });
+    ok('"Solo míos": los suyos y los que no tienen responsable', mine.items.map(x => x.step.id).join(',') === 's3,s2,s5,s4');
+    ok('…y dice cuántos de otros oculta', mine.hidden === 1);
+    ok('"Solo míos" sin sesión no filtra', ctx.pnProjectsReviewPick(items, { onlyMine: true, me: '' }).hidden === 0);
+    ok('sin datos → vacío', ctx.pnProjectsReviewPick(null).items.length === 0);
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

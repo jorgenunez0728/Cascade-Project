@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.21.0';
+var APP_VERSION = '2.22.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.21.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.22.0', date: '30 sep 2026', title: 'Revisar la semana y repasar proyectos, una cosa a la vez',
+      bullets: [
+          'Nuevo: 🔎 Revisar y aceptar. Con una propuesta de semana, cada prueba es una tarjeta con su semáforo y una decisión: así está, otro día (solo los días donde cabe el reposo) o quitarla. Al final, el resumen y "Aceptar la semana".',
+          'Lo que quites en la revisión se puede devolver desde el resumen con ↩ Devolver, antes de aceptar.',
+          'Nuevo: 🧭 Repasar pendientes en Proyectos. Cada paso vencido o bloqueado se resuelve en una tarjeta: ya se hizo, nueva fecha (con motivo, queda en el historial) o está bloqueado (con lo que lo detiene).',
+          'HOY abre las dos revisiones directo: la propuesta sin aceptar y los pendientes de proyectos (con 2 o más).',
+          'En los resúmenes hay un solo botón principal: si está "Aceptar la semana", Terminar pasa a secundario.'
+      ] },
     { version: '2.21.0', date: '30 sep 2026', title: 'Una cosa a la vez, también en Consumibles',
       bullets: [
           'Nuevo: la ronda de lecturas de gases usa las mismas tarjetas que Operación: un cilindro por pantalla, avance por zona arriba, Guardar grande abajo, "Después" para lo que no se pudo leer y deslizar solo cambia de tarjeta.',
@@ -4238,7 +4246,7 @@ function dashRenderWeek() {
     } else if (!b.accepted) {
         h += '<p class="dash-week-note">⏳ Hay una <strong>propuesta sin aceptar</strong> para esta semana: ' +
              'las pruebas no se agendan hasta que alguien la acepte. ' +
-             '<button class="dash-row-action" onclick="dashGo(\'testplan\',\'tp-myweek\')">Revisarla</button></p>';
+             '<button class="dash-row-action" onclick="tpReviewWeekOpen(\'' + b.weekDate + '\')">🔎 Revisarla</button></p>';
     }
 
     if (b && b.plan && b.accepted && typeof tpBuildDayColumnsHTML === 'function') {
@@ -4365,7 +4373,10 @@ function dashCollectActivities() {
                 meta: (_b.rows || []).length + ' prueba(s) propuestas. Hasta que se acepte, HOY no las agenda.' +
                       (_b.otrosPlanes ? ' · ' + _b.otrosPlanes + ' propuesta(s) mas de la misma semana' : ''),
                 status: 'pendiente', urgency: 2,
-                action: { label: '📅 Revisarla', js: "dashGo('testplan','tp-myweek')" } });
+                // [2.22.0] Abre la revisión prueba por prueba directo, sin pasar por el tablero.
+                action: { label: '🔎 Revisar y aceptar', aria: 'Revisar la propuesta prueba por prueba',
+                          js: "tpReviewWeekOpen('" + _b.weekDate + "')" },
+                action2: { label: '📅', aria: 'Ver el tablero de la semana', ghost: true, js: "dashGo('testplan','tp-myweek')" } });
         } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
             _b.rows.forEach(function(row) {
@@ -4498,6 +4509,17 @@ function dashCollectActivities() {
     }
 
     // 6b) v16.6: pasos de proyectos vencidos y de esta semana (Proyectos, en Datos)
+    // [2.22.0] Con dos o más pendientes, un toque arranca la ronda (una decisión por
+    // paso: hecho / nueva fecha / bloqueado). Las filas sueltas se quedan para el check.
+    if (typeof pnProjectsReviewCount === 'function') {
+        var prN = pnProjectsReviewCount();
+        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭',
+            title: 'Pendientes de proyectos',
+            meta: prN + ' pasos vencidos o bloqueados',
+            status: 'atrasado', urgency: 3,
+            action: { label: '🧭 Repasarlos', aria: 'Repasar los pasos vencidos uno por uno',
+                      js: "if(typeof pnProjectsReviewOpen==='function')pnProjectsReviewOpen()" } });
+    }
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',

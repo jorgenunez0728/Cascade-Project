@@ -134,19 +134,254 @@ function pnActiveProjectForAsset(assetId) {
     return (pnState.projects || []).find(function(p) { return p.assetId === assetId && p.status === 'activo' && !p.archived; }) || null;
 }
 
-function pnProjectStepDone(projectId, stepId) {
+// opts [2.22.0]: {date, silent, noNav} — sin opts se comporta como siempre (HOY).
+function pnProjectStepDone(projectId, stepId, opts) {
+    opts = opts || {};
     var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
-    if (!p) return;
+    if (!p) return null;
     var s = (p.steps || []).find(function(x) { return x.id === stepId; });
-    if (!s) return;
+    if (!s) return null;
     s.status = 'completado';
-    s.doneDate = localToday();
+    s.doneDate = opts.date || localToday();
     s.updatedAt = new Date().toISOString();
-    p.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
     pnSave();
     if (typeof auditLog === 'function') auditLog('panel', 'proyecto_paso_completado', { type: 'project', id: projectId, label: p.name }, s.title);
-    if (typeof showToast === 'function') showToast('Paso completado', 'success');
-    _pnProjNav();
+    if (!opts.silent && typeof showToast === 'function') showToast('Paso completado', 'success');
+    if (!opts.noNav) _pnProjNav();
+    return s;
+}
+
+// [2.22.0] Recorrer la fecha objetivo de un paso. Misma auditoría que el modal de
+// edición (`proyecto_fecha_movida`), aunque el paso no tenga línea base: mover un
+// compromiso vencido es una decisión. Un paso bloqueado que recibe fecha nueva se
+// desbloquea (pasa a pendiente): quien lo reprograma dice que ya se puede avanzar.
+function pnProjectStepReschedule(projectId, stepId, date, opts) {
+    opts = opts || {};
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return null;
+    var s = (p.steps || []).find(function(x) { return x.id === stepId; });
+    if (!s || !date) return null;
+    var prev = s.targetDate || '';
+    var wasBlocked = s.status === 'bloqueado';
+    s.targetDate = date;
+    if (wasBlocked) s.status = 'pendiente';
+    s.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('panel', 'proyecto_fecha_movida', { type: 'project', id: p.id, label: p.name },
+            s.title + ': ' + (prev || '(sin fecha)') + ' → ' + date +
+            (s.baselineTarget ? ' (comprometida ' + s.baselineTarget + ')' : '') +
+            (wasBlocked ? ' · se desbloquea' : '') + (opts.reason ? ' — ' + opts.reason : ''));
+    }
+    return s;
+}
+
+// [2.22.0] Declarar (o actualizar) el obstáculo de un paso. El obstáculo es obligatorio:
+// "bloqueado" sin decir por qué no le sirve a nadie.
+function pnProjectStepBlock(projectId, stepId, roadblock) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return null;
+    var s = (p.steps || []).find(function(x) { return x.id === stepId; });
+    var why = String(roadblock || '').trim();
+    if (!s || !why) return null;
+    var prev = s.status;
+    s.status = 'bloqueado';
+    s.roadblock = why;
+    s.doneDate = '';
+    s.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('panel', 'proyecto_paso_estatus', { type: 'project', id: p.id, label: p.name },
+            s.title + ': ' + (PN_STEP_STATUS[prev] || prev) + ' → ' + PN_STEP_STATUS.bloqueado + ' — ' + why);
+    }
+    return s;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [2.22.0] REPASAR PENDIENTES — pasos vencidos y bloqueados, uno por uno (uiFlow)
+// Cada tarjeta es UNA decisión: ya se hizo / nueva fecha / está bloqueado. Escribe
+// solo con pnProjectStepDone / pnProjectStepReschedule / pnProjectStepBlock.
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Qué entra a la ronda. PURA. items = pnProjectsOverdueSteps().
+ * "Solo míos" con el mismo criterio que pnProjStepsFor: sin responsable = de todos.
+ * Orden: por proyecto (nombre) y fecha objetivo, la más vieja primero; los bloqueados
+ * sin fecha al final de su proyecto. Devuelve {items, hidden} — el filtro dice cuántos oculta.
+ */
+function pnProjectsReviewPick(items, o) {
+    o = o || {};
+    var me = String(o.me || '').trim();
+    var all = (items || []).filter(function(x) { return x && x.project && x.step; });
+    var mine = (o.onlyMine && me) ? all.filter(function(x) {
+        var r = String(x.step.responsible || '').trim();
+        return !r || r === me;
+    }) : all;
+    mine = mine.slice().sort(function(a, b) {
+        var pa = String(a.project.name || ''), pb = String(b.project.name || '');
+        if (pa !== pb) return pa.localeCompare(pb, 'es');
+        return String(a.step.targetDate || '9999-99-99').localeCompare(String(b.step.targetDate || '9999-99-99'));
+    });
+    return { items: mine, hidden: all.length - mine.length };
+}
+
+var _pnReview = null;   // {choice:{key:'done'|'date'|'block'}, done:[], moved:[], blocked:[]}
+
+function _pnReviewMe() {
+    var me = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) me = u.name; }
+        if (!me) me = localStorage.getItem('kia_last_operator') || '';
+    } catch (e) {}
+    return me;
+}
+
+/** Cuántos pasos entrarían a la ronda (para el botón y HOY). */
+function pnProjectsReviewCount() {
+    return pnProjectsReviewPick(pnProjectsOverdueSteps(), {
+        onlyMine: typeof dashOnlyMine === 'function' && dashOnlyMine(), me: _pnReviewMe()
+    }).items.length;
+}
+
+function pnProjectsReviewOpen() {
+    var only = typeof dashOnlyMine === 'function' && dashOnlyMine();
+    var pick = pnProjectsReviewPick(pnProjectsOverdueSteps(), { onlyMine: only, me: _pnReviewMe() });
+    if (!pick.items.length) {
+        showToast(pick.hidden ? 'No tienes pasos vencidos ni bloqueados (' + pick.hidden + ' de otros, con "Solo míos" puesto).'
+                              : 'Proyectos al día: no hay pasos vencidos ni bloqueados.', 'success');
+        return false;
+    }
+    _pnReview = { choice: {}, done: [], moved: [], blocked: [] };
+    return uiFlowOpen({
+        id: 'projReview',
+        title: '🧭 Pendientes de proyectos',
+        subtitle: pick.hidden ? 'solo tuyos · ' + pick.hidden + ' de otros ocultos' : '',
+        steps: pick.items.map(function(x) {
+            var key = x.project.id + '::' + x.step.id;
+            return {
+                key: key,
+                section: x.project.name || 'Proyecto',
+                title: x.step.title,
+                render: function(host) { _pnReviewCard(host, x.project.id, x.step.id); },
+                save: function(host) { return _pnReviewSave(host, x.project.id, x.step.id); }
+            };
+        }),
+        onFinal: _pnReviewFinalHTML,
+        onClose: function() { _pnReview = null; if (typeof _pnProjNav === 'function') _pnProjNav(); }
+    });
+}
+
+function _pnReviewFind(pid, sid) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === pid; });
+    var s = p && (p.steps || []).find(function(x) { return x.id === sid; });
+    return s ? { p: p, s: s } : null;
+}
+
+function _pnReviewCard(host, pid, sid) {
+    var f = _pnReviewFind(pid, sid);
+    if (!f) { host.innerHTML = '<p class="uf-note">Este paso ya no existe (se borró o cambió desde otro equipo). Toca <b>Después</b>.</p>'; return; }
+    var key = pid + '::' + sid;
+    var ch = _pnReview.choice[key] || '';
+    var s = f.s, hoy = localToday();
+    var blocked = s.status === 'bloqueado';
+    var late = s.targetDate && s.targetDate < hoy
+        ? Math.round((new Date(hoy + 'T00:00:00') - new Date(s.targetDate + 'T00:00:00')) / 86400000) : 0;
+    var h = '<div class="uf-kicker"><span class="uf-badge ' + (blocked ? 'is-bad' : 'is-warn') + '">' +
+            (blocked ? '🚧 Bloqueado' : 'Vencido hace ' + late + ' día' + (late === 1 ? '' : 's')) + '</span>' +
+            (s.responsible ? ' · 👤 ' + escapeHtml(s.responsible) : '') + '</div>' +
+        '<div class="uf-q">' + escapeHtml(s.title) + '</div>' +
+        '<div class="uf-facts">' +
+            '<div><span>Proyecto</span><b>' + escapeHtml(f.p.name || '') + '</b></div>' +
+            '<div><span>Fecha objetivo</span><b>' + escapeHtml(s.targetDate || 'sin fecha') + '</b></div>' +
+            (s.roadblock ? '<div><span>Obstáculo</span><b>' + escapeHtml(s.roadblock) + '</b></div>' : '') +
+        '</div>' +
+        '<div class="uf-choices" id="uf-pn-choice" role="radiogroup" aria-label="¿Qué pasó con este paso?">' +
+            _pnReviewChoiceBtn(key, 'done', '✔ Ya se hizo', ch) +
+            _pnReviewChoiceBtn(key, 'date', '📅 Nueva fecha', ch) +
+            _pnReviewChoiceBtn(key, 'block', blocked ? '🚧 Sigue bloqueado' : '🚧 Está bloqueado', ch) +
+        '</div>';
+    if (ch === 'done') {
+        h += '<label class="uf-field"><span>¿Cuándo se terminó?</span><input type="date" id="uf-pn-done" value="' + hoy + '" max="' + hoy + '"></label>';
+    } else if (ch === 'date') {
+        h += '<label class="uf-field"><span>Nueva fecha objetivo</span><input type="date" id="uf-pn-date" min="' + hoy + '"></label>' +
+             '<label class="uf-field"><span>Motivo <small>(opcional)</small></span><input type="text" id="uf-pn-reason" autocomplete="off" placeholder="Ej.: llegó tarde la refacción"></label>' +
+             (blocked ? '<p class="uf-note">Con fecha nueva el paso deja de estar bloqueado.</p>' : '');
+    } else if (ch === 'block') {
+        h += '<label class="uf-field"><span>¿Qué lo detiene?</span><input type="text" id="uf-pn-block" autocomplete="off" ' +
+             'placeholder="Ej.: esperando la cotización del proveedor" value="' + escapeHtml(s.roadblock || '') + '"></label>';
+    }
+    host.innerHTML = h;
+}
+
+function _pnReviewChoiceBtn(key, val, label, cur) {
+    var on = cur === val;
+    return '<button type="button" role="radio" class="uf-choice' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" ' +
+           'onclick="_pnReviewChoose(\'' + key + '\',\'' + val + '\')">' + label + '</button>';
+}
+
+function _pnReviewChoose(key, val) {
+    if (!_pnReview) return;
+    _pnReview.choice[key] = val;
+    var host = document.querySelector('#ui-flow .uf-card');
+    var ids = key.split('::');
+    if (host) _pnReviewCard(host, ids[0], ids[1]);
+}
+
+function _pnReviewSave(host, pid, sid) {
+    if (!_pnReview) return { ok: false, msg: 'La ronda ya se cerró.' };
+    var f = _pnReviewFind(pid, sid);
+    if (!f) return { ok: false, msg: 'Este paso ya no existe: toca "Después".' };
+    var key = pid + '::' + sid;
+    var ch = _pnReview.choice[key];
+    var hoy = localToday();
+    var name = f.s.title;
+    if (!ch) return { ok: false, field: host.querySelector('#uf-pn-choice'), msg: 'Elige qué pasó con este paso, o toca "Después".' };
+    if (ch === 'done') {
+        var d = host.querySelector('#uf-pn-done');
+        if (!d || !d.value) return { ok: false, field: d, msg: 'Pon la fecha en que se terminó.' };
+        if (d.value > hoy) return { ok: false, field: d, msg: 'La fecha no puede ser futura.' };
+        pnProjectStepDone(pid, sid, { date: d.value, silent: true, noNav: true });
+        _pnReview.done.push(name);
+    } else if (ch === 'date') {
+        var n = host.querySelector('#uf-pn-date');
+        if (!n || !n.value) return { ok: false, field: n, msg: 'Elige la nueva fecha objetivo.' };
+        if (n.value < hoy) return { ok: false, field: n, msg: 'La nueva fecha no puede estar en el pasado.' };
+        var why = String((host.querySelector('#uf-pn-reason') || {}).value || '').trim();
+        pnProjectStepReschedule(pid, sid, n.value, { reason: why });
+        _pnReview.moved.push(name + ' → ' + n.value);
+    } else {
+        var b = host.querySelector('#uf-pn-block');
+        var txt = b ? String(b.value || '').trim() : '';
+        if (txt.length < 5) return { ok: false, field: b, msg: 'Escribe qué lo detiene (al menos 5 letras).' };
+        pnProjectStepBlock(pid, sid, txt);
+        _pnReview.blocked.push(name + ' — ' + txt);
+    }
+    return { ok: true };
+}
+
+function _pnReviewFinalHTML(model) {
+    var r = _pnReview || { done: [], moved: [], blocked: [] };
+    var left = model.cards.filter(function(c) { return c.status !== 'hecho'; });
+    var quedan = pnProjectsOverdueSteps().filter(function(x) { return !x.blocked; }).length;
+    var h = '<div class="uf-final-title">' + (left.length ? 'Quedan ' + left.length + ' para después' : '✅ Pendientes repasados') + '</div>';
+    h += '<div class="uf-stats">' +
+        '<div class="uf-stat"><b class="is-ok">' + r.done.length + '</b><span>Completados</span></div>' +
+        '<div class="uf-stat"><b>' + r.moved.length + '</b><span>Con fecha nueva</span></div>' +
+        '<div class="uf-stat"><b class="' + (quedan ? 'is-bad' : 'is-ok') + '">' + quedan + '</b><span>Vencidos en el laboratorio</span></div>' +
+        '</div>';
+    [['is-ok', '✔ Completados', r.done], ['', '📅 Con fecha nueva', r.moved], ['is-warn', '🚧 Bloqueados', r.blocked]].forEach(function(g) {
+        if (!g[2].length) return;
+        h += '<div class="uf-list ' + g[0] + '"><b>' + g[1] + '</b>' + g[2].map(function(t) { return '<div>' + escapeHtml(t) + '</div>'; }).join('') + '</div>';
+    });
+    if (left.length) {
+        h += '<div class="uf-list"><b>Para después</b>' + left.map(function(c) {
+            return '<div>' + escapeHtml(c.title) + ' <span class="u-muted">· ' + escapeHtml(c.section) + '</span></div>';
+        }).join('') + '</div>';
+    }
+    return h;
 }
 
 // ── UI ──
@@ -162,6 +397,9 @@ function _pnRenderProjectGrid(el) {
     var portfolio = window._pnGridView === 'portfolio';
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
+    // [2.22.0] La ronda de pendientes, solo si hay algo que repasar.
+    var _pnRevN = pnProjectsReviewCount();
+    if (_pnRevN) html += '<button class="tp-btn tp-btn-primary" onclick="pnProjectsReviewOpen()" style="font-size: var(--fs-sm);" title="Pasos vencidos y bloqueados, uno por uno">🧭 Repasar pendientes (' + _pnRevN + ')</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-sm);">+ Proyecto</button></div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-sm);">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
@@ -2031,6 +2269,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Marca los entregables clave como hito (◆) — el Portafolio muestra el próximo hito de cada proyecto.',
         'Liga un proyecto a un equipo (ej. Dinamómetro) para que aparezca como banner en Consumibles → Mtto.',
         'Un paso vencido o bloqueado aparece en HOY y en Alertas hasta que se resuelva.',
+        '"🧭 Repasar pendientes" te lleva por los pasos vencidos y bloqueados uno por uno: ya se hizo, nueva fecha (queda en la auditoría) o está bloqueado (con el motivo). "Después" no cambia nada.',
         'Desde HOY puedes dar de alta un pendiente directo en un proyecto con el selector del modal ➕ Actividad.'
     ]}
 });

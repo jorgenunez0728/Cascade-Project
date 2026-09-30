@@ -2539,6 +2539,25 @@ menos **dejó de ser silencioso**.
   qué orden (mtto vencido → cal vencida → mtto de la semana → cal por vencer ≤
   `INV_EQ_ROUND_CAL_DAYS`). `invCalRegister`/`invMaintMarkDone` aceptan `opts.silent`.
 
+## 2.22.0 — Revisar la semana y repasar proyectos (`js/testplan.js`, `js/projects.js`)
+
+- **Una tarjeta = UNA decisión con fichas** (`.uf-choices` / `.uf-choice`, `role="radio"`), y
+  Guardar aplica la elegida. Sin elegir, `save` rechaza por el grupo de fichas (`{ok:false, field}`),
+  nunca decide por omisión — salvo que la opción sea "no cambiar nada" (✔ Así está).
+- **Revisión de la semana**: solo sobre una PROPUESTA (`tpWeekPlanFor`); todo por `planId` + `uid`.
+  La fila se relee viva en cada tarjeta (`tpWeekBoardRows({planId})`): el plan puede cambiar por
+  sync a media revisión. Mover = `tpMoveItemToDay(…, {via:'revision'})`; quitar =
+  `tpRemoveWeeklyItemNow` (ÚNICO escritor de quitar).
+- **Deshacer dentro de una ronda NO usa `undoableAction`**: restaura la foto entera y se llevaría
+  los cambios posteriores de la misma ronda. Se deshace la acción concreta (`tpRestoreWeeklyItem`
+  reinserta ESE objeto, mismo `uid`).
+- Aceptar sigue siendo `tpAcceptWeeklyPlan` con `plan.manage`; el botón del resumen lo explica si
+  no hay permiso. Revisar NO es requisito para aceptar.
+- **Proyectos**: `pnProjectsReviewPick` aplica "Solo míos" con el criterio de `pnProjStepsFor` y
+  devuelve `hidden` (regla v22.5). Los escritores no llaman `_pnProjNav()` dentro de la ronda
+  (`noNav`): se repinta al cerrar.
+- Un solo botón principal por resumen: uiFlow degrada Terminar si `onFinal` trae un `btn-primary`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

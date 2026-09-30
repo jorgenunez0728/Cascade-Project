@@ -20,6 +20,49 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.22.0 — Revisar la semana y repasar proyectos, una cosa a la vez (2026-09-30)
+
+### Nuevo
+- **🔎 Revisar y aceptar la semana** (Plan → Mi semana, y desde HOY). Con una propuesta, cada
+  prueba es una tarjeta: su configuración, preacondicionamiento → prueba, reposo, vehículo y el
+  semáforo con sus motivos. Una decisión por tarjeta:
+  - **✔ Así está** (no cambia nada),
+  - **📅 Otro día**: solo ofrece los días donde cabe el reposo; el cambio queda registrado como
+    cualquier movimiento del tablero,
+  - **✕ Quitar de la semana**.
+  Primero salen las pruebas sin día. Al final, el resumen (pruebas, movidas, con riesgo, sin
+  revisar) y **✔ Aceptar la semana**. Se puede aceptar aunque falte revisar alguna: el resumen lo
+  dice. Quien no puede aceptar el plan ve el botón deshabilitado con el motivo; lo que movió sí
+  queda guardado.
+- **↩ Devolver** en el resumen regresa una prueba quitada tal como estaba, en su lugar.
+- **🧭 Repasar pendientes** (Datos → Proyectos, y desde HOY con 2 o más). Cada paso vencido o
+  bloqueado es una tarjeta con una decisión:
+  - **✔ Ya se hizo** (con la fecha en que se terminó),
+  - **📅 Nueva fecha** (con motivo opcional; queda en el historial de cambios). Un paso bloqueado
+    que recibe fecha nueva deja de estar bloqueado,
+  - **🚧 Está bloqueado** (hay que escribir qué lo detiene).
+  Respeta "Solo míos" y dice cuántos pasos de otros quedaron fuera.
+
+### Cambió
+- En Mi semana, una propuesta muestra primero **🔎 Revisar y aceptar**; "✔ Aceptar" directo sigue
+  ahí como botón secundario.
+- La fila de HOY de la propuesta sin aceptar abre la revisión directo (el 📅 de al lado sigue
+  llevando al tablero).
+- En los resúmenes de las tarjetas hay un solo botón principal.
+
+### Para desarrollo
+- `tpReviewWeekOpen(weekDate)` y `tpReviewWeekPick(board)` (PURA). Todo por `planId` + `uid`.
+- `tpRemoveWeeklyItemNow(planRef, itemRef, opts)` es el ÚNICO escritor de "quitar una prueba del
+  plan" (sin diálogo); `tpRemoveWeeklyItem` lo llama tras su confirmación.
+  `tpRestoreWeeklyItem(planRef, item, atIdx)` reinserta ese mismo objeto (audit `week_item_restored`).
+- `pnProjectsReviewOpen()`, `pnProjectsReviewPick(items, {onlyMine, me})` (PURA),
+  `pnProjectsReviewCount()`. Escritores: `pnProjectStepDone(pid, sid, {date, silent, noNav})`
+  (sin opts, igual que antes), `pnProjectStepReschedule` (audit `proyecto_fecha_movida`) y
+  `pnProjectStepBlock` (audit `proyecto_paso_estatus`).
+- `uiFlowOpen` acepta `closeLabel`; Terminar pasa a secundario si el resumen trae un `btn-primary`
+  (y lleva la clase `uf-close`).
+- Pruebas: `tests/plan.node.js` (+4), `tests/uiflow.node.js` (+6), `tests/v2220.e2e.js` (25).
+
 ## 2.21.0 — Una cosa a la vez, también en Consumibles (2026-09-30)
 
 ### Nuevo
