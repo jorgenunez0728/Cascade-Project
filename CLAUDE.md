@@ -2691,6 +2691,20 @@ abría, y Vincular escondía vehículos).
   unidad guardada las cifras tecleadas se pierden al convertir (6.4 g/mi → 3.97678… g/km).
   `vetsCompareValue` (VETS vs tecleado) es otra regla y no cambió.
 
+## 2.27.3 — Las dos pruebas de CO₂ no siempre dicen lo mismo, y está bien (`js/cop_validator.js`)
+
+- **`copCo2Agreement(stats)` (PURA) es LA definición** de cómo se relacionan el Apéndice I y
+  UN R154: `coinciden` | `opuestas` (PASS contra FAIL, en rojo) | `r154-pide-mas` /
+  `apendice-pide-mas` (una ya decidió y la otra sigue en muestreo, en ámbar). **Un "sin
+  decidir" NO es una contradicción**: R154 usa `(tP1+tP2)·s` y el Apéndice I usa `VAR = s²`
+  sobre un cociente (~1e-4), así que con pocos ensayos R154 casi siempre pide más.
+- Apéndice I CONCORDANTE con R154 NO CONCORDANTE es **imposible** (X̄ < A − VAR contra
+  X̄ > A + (tF1−tF2)·s ≥ A). "Opuestas" solo cabe como Apéndice I FAIL con R154 PASS.
+- Lo que dice v20.2 ("a n=16 las dos colapsan exactamente al mismo punto") es inexacto: el
+  Apéndice I colapsa en A − VAR y R154 en A.
+- `tests/co2.node.js` fija el caso real de la familia CL4 5DR 48V. El texto de conclusión lo
+  reusa el PDF del expediente (quitando etiquetas): todo cambio al mensaje se ve también ahí.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

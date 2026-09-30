@@ -9065,10 +9065,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609301645';
+var APP_BUILD = '202609301958';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '276965fac392f92a21a06ab0e8175324765fe5fc';
+var APP_COMMIT = '42cc094acd951d33e4581259b596fecef8e41ebf';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9076,7 +9076,7 @@ var APP_COMMIT = '276965fac392f92a21a06ab0e8175324765fe5fc';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.27.2';
+var APP_VERSION = '2.27.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9084,6 +9084,12 @@ var APP_VERSION = '2.27.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.27.3', date: '30 sep 2026', title: 'CO₂: R154 "sin decidir" ya no se lee como conflicto',
+      bullets: [
+          'Arreglado: en CoP → Validador, cuando el Apéndice I ya aceptaba la familia y UN R154 todavía pedía más vehículos, salía en rojo "las dos pruebas NO coinciden, revisar antes de aceptar". No es una contradicción: R154 es más estricta con pocos ensayos. Ahora sale en ámbar y dice qué pide R154 para decidir.',
+          'El rojo queda solo para veredictos opuestos (una acepta y la otra rechaza).',
+          'La banda "sin decidir" del medidor de CO₂ se rotula con 4 decimales (antes 1.0095 y 1.0100 se veían ambos como 1.010).'
+      ] },
     { version: '2.27.2', date: '30 sep 2026', title: 'El checklist dice "Reporte STARS VETS"',
       bullets: [
           'Cambió: la fila de evidencia del checklist de liberación y de la Hoja COP15-F05 dice "Reporte STARS VETS", sin el código COP15-F31.'
@@ -9830,14 +9836,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609301645' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609301958' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609301645' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609301958' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9853,7 +9859,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609301645' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609301958' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -58307,7 +58313,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609301645' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609301958' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -61002,10 +61008,10 @@ var COP_CO2_TABLE = {
  * son de la familia (Ajustes → esta pantalla) y entran multiplicando el CO₂
  * medido, tal cual la hoja de referencia (columna CO2 = raw × EvC × FCF).
  *
- * Las dos fórmulas colapsan su banda exactamente en n=16 (verificado con los
- * valores cacheados del Excel: a n=16, (16−3)/13=1 → A−VAR = A−1·VAR, y
- * tP1=tP2=0 en la Tabla A2/3) — por eso ambas comparten el mismo tope de
- * muestra. Más allá de 16 se evalúa con esa fila tope y se marca `overSample`.
+ * A n=16 cada banda colapsa a un solo punto — el Apéndice I en A−VAR y R154 en
+ * A (tP1=tP2=0, tF1=tF2) —, por eso comparten el tope de muestra. [2.27.3] NO es
+ * el mismo punto: difieren en VAR. Más allá de 16 se evalúa con esa fila tope y
+ * se marca `overSample`.
  *
  * rows = [{measured, target}, …] (mismo shape que homoCo2RowsForVins). Con
  * menos de 3 pares válidos devuelve decision:'SIN DATOS' — mismo criterio que
@@ -61119,14 +61125,66 @@ function copCo2ConclusionHTML(stats) {
         : cmpTxt + ' (n=' + stats.n + ' de hasta 16 ensayos): hace falta otro vehículo para decidir.';
     var icon = ap.decision === 'PASS' ? '✅' : ap.decision === 'FAIL' ? '❌' : '⏳';
 
-    var coincide = r154.decision === ap.decision;
-    var confirm = coincide
-        ? '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>'
-        : '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) + ' — las dos pruebas NO coinciden, revisar antes de aceptar.</b>';
+    // [2.27.3] Tres casos, no dos. Que R154 diga "sin decidir" mientras el
+    // Apéndice I ya decidió NO es una contradicción: la banda de R154 usa la
+    // desviación estándar s con un factor t (a n=3, 2.124·s), la del Apéndice I
+    // usa VAR = s² (sobre un cociente, del orden de 1e-4). Con pocos ensayos
+    // R154 casi siempre pide más. Rojo solo para veredictos OPUESTOS.
+    var confirm = copCo2ConfirmHTML(stats);
 
     return '<p class="cop-co2-conclusion cop-co2-conclusion--' + ap.decision.toLowerCase() + '">' + icon + ' ' + frase +
            (stats.overSample ? ' <span style="opacity:0.75;">(n&gt;16: evaluado con la fila tope, n=16.)</span>' : '') +
            '<br>' + confirm + '</p>';
+}
+
+/**
+ * [2.27.3] Cómo se relacionan las dos pruebas de CO₂ (PURA):
+ *   'coinciden'         — mismo veredicto.
+ *   'opuestas'          — PASS contra FAIL: conflicto real, se pinta en rojo.
+ *   'r154-pide-mas'     — el Apéndice I ya decidió y R154 sigue en muestreo.
+ *   'apendice-pide-mas' — al revés.
+ * Las dos últimas NO son contradicción: una prueba pide más vehículos.
+ */
+function copCo2Agreement(stats) {
+    if (!stats || !stats.appendixI || !stats.r154) return null;
+    var a = stats.appendixI.decision, r = stats.r154.decision;
+    if (a === r) return 'coinciden';
+    if (r === 'CONTINUE') return 'r154-pide-mas';
+    if (a === 'CONTINUE') return 'apendice-pide-mas';
+    return 'opuestas';
+}
+
+/** [2.27.3] La línea de confirmación de UN R154 §3.3.1 bajo la conclusión. */
+function copCo2ConfirmHTML(stats) {
+    var kind = copCo2Agreement(stats);
+    if (!kind) return '';
+    var r154 = stats.r154, t = r154.table || {};
+    if (kind === 'coinciden') {
+        return '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>';
+    }
+    if (kind === 'opuestas') {
+        return '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) +
+            ': las dos pruebas dan veredictos OPUESTOS. Revisar antes de aceptar.</b>';
+    }
+    var warn = 'color:var(--warn-text,#92400e);';
+    if (kind === 'apendice-pide-mas') {
+        return '<span style="' + warn + '">UN R154 §3.3.1 ya da ' + _copDecisionWord(r154.decision) +
+            ', pero el veredicto de arriba es el del Apéndice I, que todavía pide más vehículos.</span>';
+    }
+    var txt = 'UN R154 §3.3.1 (Tabla A2/3) todavía no decide con n=' + stats.n +
+        ': su banda usa la desviación estándar' + (typeof stats.s === 'number' ? ' (s = ' + stats.s.toFixed(4) + ')' : '') +
+        ' y con pocos ensayos es más estricta';
+    if (stats.appendixI.decision === 'PASS') {
+        txt += '. Para aceptar pide X̄ ≤ ' + r154.passBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
+        var k = (t.tP1 || 0) + (t.tP2 || 0);
+        if (k > 0 && stats.mean < stats.A) {
+            txt += ', o que los vehículos varíen menos entre sí (s ≤ ' + ((stats.A - stats.mean) / k).toFixed(4) + ')';
+        }
+    } else {
+        txt += '. Rechaza solo con X̄ > ' + r154.failBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
+    }
+    txt += '. No contradice al Apéndice I, que es el veredicto de arriba: se aclara con más vehículos.';
+    return '<span style="' + warn + '">ℹ️ ' + txt + '</span>';
 }
 
 // ─── VALORES CRÍTICOS A(n) B(n) — Test t secuencial ─────────────────────────
@@ -63932,7 +63990,7 @@ function _copCo2GaugeHTML(stats) {
     html += '<div class="cop-gauge" role="img" aria-label="CO₂: X̄ ' + stats.mean.toFixed(4) +
             ', banda ' + a.toFixed(4) + ' a ' + b.toFixed(4) + ', ' + _copEsc(vu.word) + '">';
     html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante</span></div>';
-    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>' + a.toFixed(3) + ' — sin decidir — ' + b.toFixed(3) + '</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>' + a.toFixed(4) + ' — sin decidir — ' + b.toFixed(4) + '</span></div>';
     html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>No concord.</span></div>';
     html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="X̄ = ' + stats.mean.toFixed(4) + '"></div>';
     html += '</div>';
@@ -69631,7 +69689,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8599,"mods":[[8602,"js/app.js",17677],[17681,"js/uiflow.js",17997],[18001,"js/cop15.js",27666],[27670,"js/inventory.js",34736],[34740,"js/testplan.js",45462],[45466,"js/panel.js",50631],[50635,"js/projects.js",52924],[52928,"js/auth.js",53969],[53973,"js/signatures.js",54174],[54178,"js/firebase-sync.js",60948],[60952,"js/cop_validator.js",64443],[64447,"js/homolog.js",65708],[65712,"js/vets.js",67415],[67419,"js/review.js",67868],[67872,"js/opcards.js",68301],[68305,"js/handoff.js",68579],[68583,"js/ficha.js",69066],[69070,"js/relevo.js",69446],[69450,"js/momentos.js",69587],[69591,"js/bugreport.js",70737]]};
+var BUG_LINE_MAP = {"tag":8599,"mods":[[8602,"js/app.js",17683],[17687,"js/uiflow.js",18003],[18007,"js/cop15.js",27672],[27676,"js/inventory.js",34742],[34746,"js/testplan.js",45468],[45472,"js/panel.js",50637],[50641,"js/projects.js",52930],[52934,"js/auth.js",53975],[53979,"js/signatures.js",54180],[54184,"js/firebase-sync.js",60954],[60958,"js/cop_validator.js",64501],[64505,"js/homolog.js",65766],[65770,"js/vets.js",67473],[67477,"js/review.js",67926],[67930,"js/opcards.js",68359],[68363,"js/handoff.js",68637],[68641,"js/ficha.js",69124],[69128,"js/relevo.js",69504],[69508,"js/momentos.js",69645],[69649,"js/bugreport.js",70795]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
