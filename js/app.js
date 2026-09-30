@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.27.0';
+var APP_VERSION = '2.27.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.27.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.27.1', date: '30 sep 2026', title: 'Doble ciego con las cifras del reporte',
+      bullets: [
+          'Arreglado: la aprobación rechazaba el mismo resultado cuando uno traía todos los decimales (VETS: 6.389859) y el otro tecleaba lo que dice el reporte impreso (6.4).',
+          'Ahora se compara con las cifras del valor más corto: mínimo 2 y máximo 3 cifras significativas. 6.4 coincide con 6.389859; 6.3 no. En CO₂, 126 y 134 siguen sin coincidir.',
+          'Si el gas se captura en otra unidad (p. ej. g/mi), la comparación se hace en esa unidad, que es la que se lee y se teclea.'
+      ] },
     { version: '2.27.0', date: '30 sep 2026', title: 'Vincular pruebas con el plan',
       bullets: [
           'Arreglado: si se planeó una variante (p. ej. rin 16) y se corrió otra de la misma familia (rin 17, otro paquete), la liberación ya la encuentra: acredita la fila de ese día y la marca como sustitución con sus diferencias.',

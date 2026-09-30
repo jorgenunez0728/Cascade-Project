@@ -20,6 +20,23 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.27.1 — Doble ciego con las cifras del reporte (2026-09-30)
+
+### Arreglado
+- **La aprobación rechazaba el mismo resultado.** VETS llenó 6.389859, el reporte impreso dice
+  6.4, el aprobador tecleó 6.4 y la comparación (3 cifras fijas) daba 6.39 ≠ 6.40.
+  Ahora se compara con las cifras del valor **más corto**, con mínimo 2 y máximo 3 cifras
+  significativas: 6.4 coincide con 6.389859; 6.3 no; "6" tampoco (piso de 2).
+- No se bajó a 2 cifras para todo a propósito: en CO₂ eso haría iguales 126 y 134 (los dos se
+  redondean a 130). Con el criterio nuevo siguen siendo distintos, y un entero redondo cuenta sus
+  ceros ("130" no pasa contra 126.37).
+- Si un gas se captura en otra unidad que la del límite (g/mi contra g/km), se compara en la de
+  captura: es la que se lee en el reporte y se teclea.
+
+### Para desarrollo
+- `_libValuesMatch` (PURA): k = clamp(min(cifras de a, cifras de b), 2, 3) con `_libSigDigits`.
+  `_libVerifyApproverMatch` convierte ambos valores a `gasCaptureUnit(g)` antes de comparar.
+
 ## 2.27.0 — Vincular pruebas con el plan (2026-09-30)
 
 ### Arreglado

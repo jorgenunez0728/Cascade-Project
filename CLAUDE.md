@@ -2681,6 +2681,16 @@ abría, y Vincular escondía vehículos).
   todos los diálogos de Mi semana).
 - Pruebas: `tests/vinculo.node.js` (15) y `tests/v2270.e2e.js` (1920×1017 y 427×840).
 
+## 2.27.1 — Doble ciego a la precisión del valor más corto (`js/cop15.js`)
+
+- **`_libValuesMatch` compara a k = clamp(min(cifras de a, cifras de b), 2, 3) cifras
+  significativas** (`_libSigDigits`). Reemplaza las 3 cifras fijas de v18.2, que rechazaban
+  6.4 (reporte) contra 6.389859 (VETS). **No bajarlo a 2 fijas**: en CO₂ haría 126 = 134.
+  Los enteros cuentan sus ceros ("130" = 3 cifras).
+- `_libVerifyApproverMatch` compara en la **unidad de captura** (`gasCaptureUnit`): en la
+  unidad guardada las cifras tecleadas se pierden al convertir (6.4 g/mi → 3.97678… g/km).
+  `vetsCompareValue` (VETS vs tecleado) es otra regla y no cambió.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
