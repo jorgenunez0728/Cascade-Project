@@ -155,7 +155,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Cross-Module Dependencies
 
-- **COP15 → Test Plan**: `tpAutoFeedFromRelease()`, `tpAutoMarkWeeklyCompletion()`
+- **COP15 → Test Plan**: `tpCreditReleaseToWeek()` (evidencia + crédito de la fila, 2.27.0), `tpCreditChoiceOpen()`
 - **COP15 → Inventory**: `invLogTestUsage()`
 - **COP15 → Signatures**: `sigCaptureOpen()` releaser gate in `finishRelease()`
 - **Test Plan → Inventory**: prediction checks inventory for gas/fuel sufficiency
@@ -2639,6 +2639,47 @@ menos **dejó de ser silencioso**.
 - HOY: en una fila angosta (container query < 560px) el ⏰ va en la esquina (`position:absolute`)
   y `.dash-row-main` le reserva `--target-min` a la derecha.
 - Orden de carga: `… ficha.js → relevo.js → momentos.js → bugreport.js`.
+
+## 2.27.0 — Vincular pruebas con el plan (`js/testplan.js`)
+
+Reemplaza lo que v20.1, v20.8 y v23 dicen sobre cómo se acredita una fila. Había CUATRO
+lógicas para "¿qué fila cubre esta prueba?" y ninguna completa (el emparejador caminaba hacia
+semanas pasadas, el alta perdía su fila al cambiar el rin, el modal de sustitución nunca se
+abría, y Vincular escondía vehículos).
+
+- **`tpConfigFit(real, planeada)` (PURA) es LA definición** de `exacta` | `variante` (mismo
+  núcleo `_tpCoreFields`, cambian solo `_tpFlexFields`) | `otra`. `'0'`, `'-'`, `'N/A'` y vacío
+  son lo mismo (`_tpFitNorm`): comparar `'0'` contra `''` como distintos convertía una exacta en
+  variante. `_tpVehicleCfg(v)` da los campos cortos de un vehículo (catálogo, o su `config`).
+- **`tpCreditCandidatesFor(vehicle)` es LA definición de "a qué fila le toca"**: filas ABIERTAS
+  (`_tpRowOpen`: pendiente **o declarada**, sin `linkedVehicleId`) de los planes vigentes de la
+  semana de la **prueba** — nunca otra semana. `auto` solo sin duda: la fila del alta
+  (`fromPlanItem`, si el núcleo coincide), la exacta, o UNA variante ese día / en la semana. Con
+  dos variantes posibles devuelve `why:'ambigua'` y se pregunta (`tpCreditChoiceOpen`).
+- **`_tpCreditRow(plan, item, vehicle, opts)` es el ÚNICO escritor del crédito** (liberación,
+  Vincular, Revisar). Variante u otra → `substitution` con `differences`, `linkedAt`, `via`; un
+  `🔄 Sustituir` previo se conserva en `substitution.swap`. **La fila queda `completed` solo si
+  el vehículo está liberado**: vincular uno en curso la deja "en curso" y la liberación la
+  completa (`why:'ya-vinculada'`). Retira la declaración de ESA fila (`_tpUndeclareTested`).
+- **`tpVehicleLinkIndex()` es LA definición de dónde está acreditado cada vehículo** y solo mira
+  planes VIVOS (`_tpLivePlans` = el vigente de cada semana según `tpWeekPlanFor`). Un vínculo en
+  una propuesta superada no reserva nada. `_tpVehicleLinksElsewhere` queda como envoltura.
+- **Nada se esconde en Vincular**: `tpLinkableVehiclesFor` mide la semana con
+  `_tpVehicleTestDate` (no `archivedAt`) y devuelve `taken` en vez de filtrar. Mover =
+  `tpLinkVehicleToItem(…, {move:true})` → `_tpReleaseVehicleLinks`: la fila anterior vuelve a
+  pendiente (`_tpClearLink`), o se QUITA si era una ⚡ no planeada de Cascade.
+- **`tpWeekCreditSuggestions(weekDate)`** (no escribe) alimenta el aviso "🔗 Revisar" y el chip
+  💡 de la tarjeta: liberados de la semana sueltos, ⚡ no planeados, o acreditando otra semana
+  **por la máquina** (un vínculo con `linkedAt` y `linkedVia !== 'liberacion'` lo puso una persona
+  y no se discute).
+- **El alta conserva `fromPlanItem` si el NÚCLEO coincide** (`variantChanged:true`), no solo con
+  `configCode` idéntico: el aviso del Alta pide cambiar la variante si hace falta.
+- `tpCreditReleaseToWeek` devuelve `credited`, `fit`, `why`, `alternatives` (ya no
+  `substitutionCandidates`). Se retiraron `tpAutoMarkWeeklyCompletion(FromVehicle)`,
+  `tpFindFlexibleMatches`, `tpSubstituteItem` y `#substitutionModal`.
+- `showModal({buttons})`: un botón sin `onclick` CIERRA (antes no hacía nada — "Cerrar" de
+  todos los diálogos de Mi semana).
+- Pruebas: `tests/vinculo.node.js` (15) y `tests/v2270.e2e.js` (1920×1017 y 427×840).
 
 ## Working with this project
 

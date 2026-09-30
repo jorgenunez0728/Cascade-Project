@@ -20,6 +20,53 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.27.0 — Vincular pruebas con el plan (2026-09-30)
+
+### Arreglado
+- **Una variante corrida en lugar de la planeada ya se detecta.** Si la fila decía rin 16 y
+  se corrió una rin 17 (u otro paquete ambiental, otra carrocería) del mismo modelo, motor,
+  transmisión, año, norma y región, la liberación acredita la fila **de ese día** y la marca
+  🔄 sustituida con lo que cambió. Antes entraba como "⚡ no planeada" y la fila seguía en rojo.
+- **"▶ Iniciar" ya no pierde su fila** cuando el técnico cambia el rin en la cascada (justo lo
+  que el aviso del Alta le pide). Si cambia el motor o la norma, ya es otra prueba y no se liga.
+- **La liberación ya no acredita semanas pasadas.** Si la semana de la prueba no tenía la fila,
+  se buscaba hacia atrás y se marcaba como hecha una fila pendiente de otra semana — el vehículo
+  quedaba "tomado" allá sin que se viera.
+- **🔗 Vincular ya no esconde vehículos.** Decía "No hay pruebas registradas en esta semana" con
+  pruebas liberadas en ella: escondía en silencio las que acreditaban otra fila (aun en una
+  propuesta que nadie aceptó) y medía la semana con la fecha de aprobación. Ahora:
+  - la semana se mide con la **fecha de la prueba**;
+  - cada vehículo dice qué tan parecido es: ✓ misma configuración · ≈ misma familia, otra
+    variante (con sus diferencias) · ⚠️ otra configuración;
+  - si ya acredita otra fila, dice cuál y ofrece **Mover aquí** (esa fila vuelve a pendiente;
+    si era una "⚡ no planeada" que solo lo registraba, se quita).
+- El botón "Cerrar" de los diálogos con botones propios no cerraba.
+
+### Nuevo
+- **🔗 Revisar** en Mi semana: cuando una prueba liberada de la semana puede cubrir una fila y
+  no lo hace (suelta, "no planeada", o acreditando por error otra semana), aparece el aviso y la
+  tarjeta ofrece **💡 ¿Es …431949? Acreditar**. "Acreditar las N" lo hace de una vez, con un
+  solo deshacer.
+- **¿A qué fila le tocaba?** Si al liberar hay dos filas posibles (dos variantes el mismo día),
+  la app pregunta en vez de adivinar. Si no contestas, queda como no planeada: no se pierde nada.
+- Una fila **declarada a mano** recibe su vehículo cuando llega (liberación o Vincular) y deja
+  de ser declarada.
+
+### Cambió
+- Vincular un vehículo **en curso** deja la fila "en curso"; se marca hecha al liberarlo.
+- La tarjeta sustituida dice con qué se corrió ("🔄 sustituida · 225/45 R17").
+- "Buscar evidencia en Pruebas" (junto a las declaradas) ahora es **🔗 Buscar su vehículo**.
+
+### Para desarrollo
+- `tpConfigFit(real, planeada)` (PURA) es LA definición de exacta / variante / otra;
+  `tpCreditCandidatesFor(vehicle)` LA de "a qué fila le toca"; `_tpCreditRow` el ÚNICO escritor
+  del crédito; `tpVehicleLinkIndex()` LA de dónde está acreditado cada vehículo (solo planes
+  vivos, `_tpLivePlans`). `tpWeekCreditSuggestions(weekDate)` alimenta Revisar.
+- Se retiraron `tpAutoMarkWeeklyCompletion(FromVehicle)`, `tpFindFlexibleMatches`,
+  `tpSubstituteItem` y el modal `#substitutionModal` (su rama nunca se ejecutaba).
+- `tpCreditReleaseToWeek` devuelve `credited`, `fit`, `why` y `alternatives` (antes
+  `substitutionCandidates`).
+
 ## 2.26.0 — Continuidad y momentos de cierre (2026-09-30)
 
 ### Nuevo

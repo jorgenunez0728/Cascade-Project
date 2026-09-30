@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.26.0';
+var APP_VERSION = '2.27.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,16 @@ var APP_VERSION = '2.26.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.27.0', date: '30 sep 2026', title: 'Vincular pruebas con el plan',
+      bullets: [
+          'Arreglado: si se planeó una variante (p. ej. rin 16) y se corrió otra de la misma familia (rin 17, otro paquete), la liberación ya la encuentra: acredita la fila de ese día y la marca como sustitución con sus diferencias.',
+          'Arreglado: el alta desde "▶ Iniciar" ya no pierde su fila del plan cuando cambias el rin en la cascada.',
+          'Arreglado: la liberación ya no acredita por error una fila pendiente de una semana anterior. Solo cuenta la semana en que se corrió la prueba.',
+          'Arreglado: "🔗 Vincular" ya no dice "no hay pruebas en esta semana" cuando sí las hay. Muestra todas las probadas esa semana (por su fecha de prueba), qué tan parecidas son y, si una ya acredita otra fila, dónde está y un botón "Mover aquí".',
+          'Nuevo: si una prueba liberada de la semana puede cubrir una fila y no lo hace, Mi semana lo dice con "🔗 Revisar" y la tarjeta ofrece "💡 ¿Es …431949? Acreditar".',
+          'Nuevo: si al liberar hay dos filas posibles, la app pregunta a cuál le tocaba en vez de adivinar. Una fila declarada a mano recibe su vehículo cuando llega.',
+          'Vincular un vehículo que sigue en curso deja la fila "en curso"; se completa sola al liberarlo.'
+      ] },
     { version: '2.26.0', date: '30 sep 2026', title: 'Continuidad y momentos de cierre',
       bullets: [
           'La ficha ahora crece desde la fila que tocaste: se ve de dónde salió. Con movimiento reducido se abre como siempre.',
@@ -1873,12 +1883,12 @@ try { densityInit(); } catch (e) {}
 
 // ======================================================================
 // [v15.5] UX unificada para los modales-contenedor legacy
-// (substitutionModal, configModal, invModal, fbModal): ESC y click en el
+// (configModal, invModal, fbModal): ESC y click en el
 // fondo cierran, y hay animación de entrada. Los sitios de apertura/cierre
 // existentes (style.display) siguen funcionando sin cambios — aquí solo se
 // observa el atributo style de cada contenedor.
 // ======================================================================
-var _MODAL_UX_IDS = ['substitutionModal', 'configModal', 'invModal', 'fbModal'];
+var _MODAL_UX_IDS = ['configModal', 'invModal', 'fbModal'];
 
 function _modalUxClose(el) {
     // El escáner de códigos vive dentro de invModal: apagar la cámara al cerrar
@@ -1898,7 +1908,7 @@ var _appLoadedAt = Date.now();
 function _swSafeToReload() {
     if (Date.now() - _appLoadedAt > 15000) return false;
     var openModal = document.querySelector(
-        '#substitutionModal[style*="flex"], #configModal[style*="block"], ' +
+        '#configModal[style*="block"], ' +
         '#invModal[style*="block"], #fbModal[style*="block"], .custom-modal-overlay');
     return !openModal;
 }
@@ -2912,7 +2922,9 @@ function showModal(opts) {
         box.querySelectorAll('[data-modal-btn]').forEach(function(el) {
             el.addEventListener('click', function() {
                 var spec = customBtns[parseInt(el.getAttribute('data-modal-btn'), 10)];
-                if (spec && typeof spec.onclick === 'function') spec.onclick();
+                // [2.27.0] Un botón sin acción ('Cerrar') cierra: antes no hacía nada.
+                if (!spec || typeof spec.onclick !== 'function') { close(); if (onCancel) onCancel(); return; }
+                spec.onclick();
                 // El llamador cierra poniendo display:none sobre 'globalModal';
                 // aquí se completa el cierre (quitar el nodo, devolver el foco).
                 if (overlay.style.display === 'none') close();

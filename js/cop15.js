@@ -1339,11 +1339,25 @@ setAltaDatetimeIfEmpty(true);
         const isAdhoc = !!(adhocEl && adhocEl.checked);
 
         // If this Alta was started from a weekly plan item, link the vehicle
-        // back to that item so tpAutoMarkWeeklyCompletion can find it later.
+        // back to that item so tpCreditReleaseToWeek can find it later.
+        //
+        // [2.27.0] El enlace sobrevive a un cambio de VARIANTE. El aviso del Alta pide
+        // "si este vehículo es otra config, cámbiala" — y al cambiar el rin el enlace se
+        // perdía, así que la liberación ya no encontraba su fila. Ahora basta con que el
+        // NÚCLEO coincida (modelo, motor, transmisión, año, norma, región): la fila se
+        // acreditará como sustitución. Si cambia el núcleo es otra prueba y no se liga.
         var planLink = null;
-        if (window._pendingCop15Preload &&
-            window._pendingCop15Preload.source === 'weekly-plan' &&
-            window._pendingCop15Preload.configCode === configCode) {
+        var _pre = window._pendingCop15Preload;
+        var _preFit = null;
+        if (_pre && _pre.source === 'weekly-plan' && _pre.configCode !== configCode &&
+            typeof tpConfigFit === 'function' && typeof _tpVehicleCfg === 'function' && typeof tpConfigByDesc === 'function') {
+            try {
+                _preFit = tpConfigFit(_tpVehicleCfg({ configCode: configCode, config: config }),
+                                      tpConfigByDesc(_pre.configCode) || _pre.planItem || {});
+            } catch (e) { _preFit = null; }
+        }
+        if (_pre && _pre.source === 'weekly-plan' &&
+            (_pre.configCode === configCode || (_preFit && _preFit.level !== 'otra'))) {
             planLink = {
                 weekIdx: window._pendingCop15Preload.weekIdx,
                 itemIdx: window._pendingCop15Preload.itemIdx,
@@ -1352,7 +1366,8 @@ setAltaDatetimeIfEmpty(true);
                 // vehículos dados de alta antes de esta versión.
                 planId: window._pendingCop15Preload.planId || null,
                 itemUid: window._pendingCop15Preload.itemUid || null,
-                configCode: window._pendingCop15Preload.configCode
+                configCode: window._pendingCop15Preload.configCode,
+                variantChanged: window._pendingCop15Preload.configCode !== configCode
             };
             try {
                 if (!planLink.planId && typeof tpState === 'object' && tpState && tpState.weeklyPlans) {
@@ -1435,6 +1450,12 @@ setAltaDatetimeIfEmpty(true);
 
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
+        if (planLink && planLink.variantChanged && _preFit && typeof tpFitDiffText === 'function') {
+            setTimeout(function() {
+                showToast('Quedó ligado a su fila del plan. Al liberarse la acreditará como sustitución — ' +
+                          tpFitDiffText(_preFit) + '.', 'info', 8000);
+            }, 900);
+        }
 
         // [V7-E1] Track purpose usage
         v7TrackPurposeUsage(newVehicle.purpose);
@@ -4203,15 +4224,22 @@ function approveAndArchive() {
             try {
                 if (typeof tpCreditReleaseToWeek === 'function') {
                     var _cred = tpCreditReleaseToWeek(vehicle, { skipSave: true });
+                    // [2.27.0] El resultado se DICE completo. Antes `appended` se preguntaba
+                    // primero y siempre era cierto sin empate exacto, así que la elección de
+                    // sustitución no se ofrecía jamás (la rama quedaba muerta).
                     if (_cred.unknownConfig) {
                         showToast('⚠️ Esta configuración no está en el plan de producción (' +
                                   (vehicle.configCode || '?') + '): la prueba se registró pero no baja ningún déficit.', 'warning');
-                    } else if (_cred.appended) {
+                    }
+                    if (_cred.matched && _cred.credited && _cred.fit && _cred.fit.level !== 'exacta' && typeof tpFitDiffText === 'function') {
+                        showToast('Plan: acreditó la fila del ' + ((typeof TP_DAY_LABELS === 'object' && TP_DAY_LABELS[_cred.credited.day]) || 'plan') +
+                                  ' como sustitución — ' + tpFitDiffText(_cred.fit) + '. Si no era esa, cámbiala en Mi semana → 🔗 Vincular.', 'info', 9000);
+                    } else if (_cred.appended && _cred.alternatives.length) {
+                        window._pendingCreditChoice = vehicle.id;
+                    } else if (_cred.appended && !_cred.unknownConfig) {
                         showToast('Se agregó a la semana como prueba no planeada — ya cuenta como hecha.', 'info');
                     } else if (_cred.noPlan) {
                         showToast('Esa semana no tiene plan: la prueba cuenta en la cobertura, pero no hay semana donde registrarla.', 'info');
-                    } else if (!_cred.matched && _cred.substitutionCandidates.length > 0) {
-                        window._pendingSubstitution = { configCode: vehicle.configCode, vin: vehicle.vin, matches: _cred.substitutionCandidates };
                     }
                 } else {
                     tpAutoFeedFromRelease(vehicle, { skipSave: true });
@@ -4226,9 +4254,10 @@ function approveAndArchive() {
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
             document.getElementById('approvalVehSelect').value = '';
             document.getElementById('appr-content').style.display = 'none';
-            if (window._pendingSubstitution) {
-                showSubstitutionModal(window._pendingSubstitution);
-                window._pendingSubstitution = null;
+            if (window._pendingCreditChoice != null) {
+                var _pcc = window._pendingCreditChoice;
+                window._pendingCreditChoice = null;
+                if (typeof tpCreditChoiceOpen === 'function') setTimeout(function() { tpCreditChoiceOpen(_pcc); }, 400);
             }
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
@@ -4493,72 +4522,6 @@ function _renderUsedCylinders(vehicle) {
 
 
 
-
-// ======================================================================
-
-// [M10b] FLEXIBLE SUBSTITUTION MODAL
-// ======================================================================
-
-function showSubstitutionModal(data) {
-    var modal = document.getElementById('substitutionModal');
-    if (!modal) return;
-
-    var html = '<div style="font-size:0.85rem;color:var(--muted);margin-bottom: var(--space-lg);">' +
-        'El vehículo <strong style="color:var(--text);">' + escapeHtml(data.vin) + '</strong> con configuración ' +
-        '<span style="font-family:monospace;font-size:0.75rem;background:var(--surface-alt);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);">' + escapeHtml(data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
-        ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
-        '</div>' +
-        '<div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom: var(--space-md);">Configuraciones similares encontradas:</div>';
-
-    data.matches.slice(0, 5).forEach(function(m, idx) {
-        var borderClr = m.diffs.length === 1 ? tokenColor('--ok-fill') : m.diffs.length === 2 ? tokenColor('--warn-fill') : tokenColor('--danger-fill');
-        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius: var(--radius-xl);padding: var(--space-md);margin-bottom: var(--space-md);background:' + borderClr + '05;">';
-        html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text);margin-bottom: var(--space-sm);">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
-
-        // Show differences
-        html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;margin-bottom: var(--space-sm);">';
-        m.diffs.forEach(function(d) {
-            html += '<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
-                d.label + ': <s>' + d.planned + '</s> → <strong>' + d.actual + '</strong></span>';
-        });
-        html += '</div>';
-
-        html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
-        html += '<span style="font-size:0.7rem;color:var(--muted);">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
-        html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
-            'style="margin-left:auto;padding: var(--space-sm) var(--space-lg);font-size:0.8rem;border-radius: var(--radius-lg);">Sustituir</button>';
-        html += '</div></div>';
-    });
-
-    html += '<div style="text-align:center;margin-top: var(--space-md);padding-top: var(--space-md);border-top:1px solid var(--border);">' +
-        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding: var(--space-sm) var(--space-xl);font-size:0.85rem;">No sustituir, solo liberar</button>' +
-        '</div>';
-
-    document.getElementById('substitutionContent').innerHTML = html;
-    modal.style.display = 'flex';
-
-    // Store diffs for applying
-    window._substitutionData = data;
-}
-
-function applySubstitution(planIdx, itemIdx, configCode, vin, matchIdx) {
-    var data = window._substitutionData;
-    if (!data || !data.matches[matchIdx]) return;
-    var m = data.matches[matchIdx];
-
-    if (typeof tpSubstituteItem === 'function') {
-        tpSubstituteItem(planIdx, itemIdx, configCode, vin, m.diffs);
-        showToast('Sustitución aplicada: el vehículo ' + vin + ' toma el lugar de la configuración planeada.', 'success');
-    }
-
-    closeSubstitutionModal();
-}
-
-function closeSubstitutionModal() {
-    var modal = document.getElementById('substitutionModal');
-    if (modal) modal.style.display = 'none';
-    window._substitutionData = null;
-}
 
 // ======================================================================
 
@@ -9569,9 +9532,7 @@ function v7BatchRelease() {
                 if (_c.unknownConfig) _sinConfig.push(vehicle.vin || '?');
                 else if (_c.appended)  _noPlaneadas++;
                 else if (_c.noPlan)    _sinSemana++;
-                else if (!_c.matched && _c.substitutionCandidates.length) {
-                    _sust.push({ configCode: vehicle.configCode, vin: vehicle.vin, matches: _c.substitutionCandidates });
-                }
+                if (_c.appended && _c.alternatives.length) _sust.push(vehicle.id);
             } else if (typeof tpAutoFeedFromRelease === 'function') {
                 tpAutoFeedFromRelease(vehicle, { skipSave: true });
             }
@@ -9607,9 +9568,10 @@ function v7BatchRelease() {
     if (_avisos.length) {
         setTimeout(function() { showToast('Plan: ' + _avisos.join(' · '), 'warning'); }, 1200);
     }
-    if (_sust.length && typeof showSubstitutionModal === 'function') {
-        // Se ofrece la primera; el resto ya quedó registrado en su semana.
-        setTimeout(function() { showSubstitutionModal(_sust[0]); }, 1800);
+    if (_sust.length && typeof tpCreditChoiceOpen === 'function') {
+        // Se pregunta por la primera; el resto queda como no planeada y Mi semana ofrece
+        // acomodarlas (🔗 Revisar).
+        setTimeout(function() { tpCreditChoiceOpen(_sust[0]); }, 1800);
     }
     if (count > 0 && typeof animateConfetti === 'function') animateConfetti();
     v7RenderBatchRelease();
