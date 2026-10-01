@@ -20,6 +20,28 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.28.0 — CO₂: el cálculo paso a paso (2026-10-01)
+
+### Nuevo
+- En **CoP → Validador → CO₂ vs valor declarado**, debajo de la conclusión, hay dos desgloses
+  plegables: **🧮 Apéndice I — el cálculo paso a paso** y **🧮 UN R154 §3.3.1 — el cálculo paso a
+  paso**. Cada uno muestra las fórmulas con los números reales sustituidos: el x de cada vehículo
+  (medido × EvC × FCF ÷ declarado), el promedio X̄, la varianza (cada (xᵢ − X̄)²), s, la fila de
+  la Tabla A2/3, los dos límites (aceptar y rechazar), la comparación con sí/no y el resultado.
+- Se **recalculan mientras tecleas** FCF o Evolution Factor. Es una vista previa: el medidor y la
+  conclusión de arriba siguen con los factores guardados hasta pulsar **Guardar**, y el desglose
+  lo dice con una nota.
+- Cada equipo recuerda si dejaste abierto cada desglose.
+- Los números se verificaron contra la hoja de referencia del laboratorio (`statistika.xlsx`):
+  X̄, VAR, A − VAR, s y los límites de R154 coinciden a 9 decimales.
+
+### Para desarrollo
+- `copCo2StepsHTML(stats, opts)` (PURA) pinta los desgloses **solo a partir de lo que devuelve
+  `copCo2CalcStats`** — no agrega matemática. `copCo2StepsLive()` repinta únicamente
+  `#cop-co2-steps` (nunca `copRender()` en cada tecla). El colapso vive en
+  `uiPref('cards')['cop-co2-steps-ap1' | 'cop-co2-steps-r154']`.
+- `tests/co2.node.js` fija los valores de la hoja de referencia (EvC 0.955, FCF 1.0068).
+
 ## 2.27.3 — CO₂: R154 "sin decidir" ya no se lee como conflicto (2026-09-30)
 
 ### Arreglado

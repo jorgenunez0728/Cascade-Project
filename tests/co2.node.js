@@ -86,5 +86,32 @@ console.log('\n== Imposibles por construcción (por eso "opuestas" es raro) ==')
 console.log('\n== Medidor ==');
 ok('la banda sin decidir se rotula con 4 decimales (1.0095 ≠ 1.0100)', /1\.0095 — sin decidir — 1\.0100/.test(ctx._copCo2GaugeHTML(st)));
 
+console.log('\n== [2.28.0] El cálculo paso a paso ==');
+{
+    // La hoja de referencia del laboratorio (statistika.xlsx): 3 vehículos, EvC 0.955, FCF 1.0068.
+    const XLS = [129.2, 131.1, 131.8].map((m, i) => ({ vin: 'VIN' + i, measured: m, target: 129 }));
+    const sx = ctx.copCo2CalcStats(XLS, 1.0068, 0.955);
+    ok('Excel: Xtests = 0.974164851', near(sx.mean, 0.974164851, 1e-9), sx.mean);
+    ok('Excel: VAR = 0.000100552', near(sx.var, 0.000100552, 1e-9), sx.var);
+    ok('Excel: A − VAR = 1.009899448', near(sx.appendixI.passBound, 1.009899448, 1e-9));
+    ok('Excel: s = 0.01002758', near(sx.s, 0.01002758, 1e-8));
+    ok('Excel: R154 PASS A − (tP1+tP2)·s = 0.988701419', near(sx.r154.passBound, 0.988701419, 1e-8));
+    ok('Excel: R154 FAIL A + (tF1−tF2)·s = 1.02251442', near(sx.r154.failBound, 1.02251442, 1e-8));
+    const h = ctx.copCo2StepsHTML(sx, {});
+    ok('dos desgloses, plegados por omisión', (h.match(/<details/g) || []).length === 2 && !/ open/.test(h));
+    ok('se abre cada uno por separado', /Apéndice I[\s\S]*<\/details>/.test(ctx.copCo2StepsHTML(sx, { openAp: true })) &&
+        (ctx.copCo2StepsHTML(sx, { openR154: true }).match(/ open/g) || []).length === 1);
+    ok('muestra cada x_i sustituido (129.2 × 0.955 × 1.0068)', /129\.2 × 0\.955 × 1\.0068 = 124\.2250/.test(h), h);
+    ok('muestra X̄, VAR y los dos límites del Apéndice I', /0\.974165/.test(h) && /0\.00010055/.test(h) && /1\.009899/.test(h));
+    ok('muestra la fila de la Tabla A2/3 y los límites de R154', /1\.686/.test(h) && /0\.988701/.test(h) && /1\.022514/.test(h));
+    ok('el resultado del desglose es el de copCo2CalcStats', /Resultado: <b>CONCORDANTE/.test(h));
+    ok('la nota de vista previa se pinta en los dos', (ctx.copCo2StepsHTML(sx, { note: 'PREVIA' }).match(/PREVIA/g) || []).length === 2);
+    const pocos = ctx.copCo2CalcStats(XLS.slice(0, 2), 1, 1);
+    let hp = '';
+    try { hp = ctx.copCo2StepsHTML(pocos, {}); } catch (e) { hp = 'THROW ' + e.message; }
+    ok('con 2 vehículos no truena y dice cuántos faltan', /Hacen falta al menos 3/.test(hp) && /VIN0/.test(hp), hp);
+    ok('sin stats devuelve vacío', ctx.copCo2StepsHTML(null) === '');
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;
