@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.27.3';
+var APP_VERSION = '2.28.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.27.3';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.28.0', date: '1 oct 2026', title: 'CO₂: el cálculo paso a paso',
+      bullets: [
+          'Nuevo: en CoP → Validador → CO₂ vs valor declarado hay dos desgloses plegables, "Apéndice I — el cálculo paso a paso" y "UN R154 §3.3.1 — el cálculo paso a paso", con los números reales en cada fórmula: x de cada vehículo, promedio, varianza, s, la fila de la Tabla A2/3, los dos límites y la comparación.',
+          'Se recalculan mientras tecleas FCF o Evolution Factor, como vista previa: el veredicto de arriba sigue con los factores guardados hasta que pulses Guardar, y el desglose lo dice.',
+          'Los números se verificaron contra la hoja de cálculo de referencia del laboratorio.'
+      ] },
     { version: '2.27.3', date: '30 sep 2026', title: 'CO₂: R154 "sin decidir" ya no se lee como conflicto',
       bullets: [
           'Arreglado: en CoP → Validador, cuando el Apéndice I ya aceptaba la familia y UN R154 todavía pedía más vehículos, salía en rojo "las dos pruebas NO coinciden, revisar antes de aceptar". No es una contradicción: R154 es más estricta con pocos ensayos. Ahora sale en ámbar y dice qué pide R154 para decidir.',

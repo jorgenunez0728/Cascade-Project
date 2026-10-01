@@ -230,6 +230,140 @@ function copCo2ConfirmHTML(stats) {
     return '<span style="' + warn + '">ℹ️ ' + txt + '</span>';
 }
 
+// ─── [2.28.0] CO₂ — el cálculo paso a paso ──────────────────────────────────
+// Dos desgloses plegables (Apéndice I y UN R154 §3.3.1) con los números reales
+// sustituidos en cada fórmula, para poder seguirlos a mano o contra el Excel.
+// NO calculan nada propio: leen el resultado de copCo2CalcStats (LA definición)
+// y solo lo muestran. Si un número de aquí no sale de `stats`, está mal.
+
+function _copCo2Fmt(v, d) {
+    return (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—';
+}
+
+function _copCo2Check(cond) {
+    return cond
+        ? '<span class="cop-step-yes">sí ✓</span>'
+        : '<span class="cop-step-no">no ✗</span>';
+}
+
+/**
+ * [2.28.0] PURA. HTML de los dos desgloses de CO₂.
+ * opts: {openAp, openR154, note} — `note` es HTML ya formado (vista previa).
+ */
+function copCo2StepsHTML(stats, opts) {
+    var o = opts || {};
+    if (!stats) return '';
+    var x = stats.x || [];
+    var n = stats.n || 0;
+    var A = stats.A;
+    var esc = function(s) { return (typeof _copEsc === 'function') ? _copEsc(String(s)) : String(s); };
+    var mono = function(s) { return '<code class="cop-step-f">' + s + '</code>'; };
+    var step = function(title, body) { return '<li><b>' + title + '</b>' + body + '</li>'; };
+    var resumen = function(d) {
+        var cls = d === 'PASS' ? 'pass' : d === 'FAIL' ? 'fail' : 'continue';
+        return '<p class="cop-co2-conclusion cop-co2-conclusion--' + cls + '">Resultado: <b>' +
+            _copDecisionWord(d) + '</b></p>';
+    };
+    var html = '';
+    var head = o.note ? '<div class="cop-step-note">' + o.note + '</div>' : '';
+
+    // ── Paso 1 (compartido): normalizar cada vehículo ──
+    var p1 = '<p>' + mono('x<sub>i</sub> = (CO₂ medido × EvC × FCF) ÷ CO₂ declarado') +
+        ' con EvC = ' + stats.evc + ' y FCF = ' + stats.fcf + '.</p>';
+    if (x.length) {
+        p1 += '<div class="cop-step-scroll"><table class="u-cards cop-step-table"><thead><tr>' +
+            '<th>VIN</th><th>CO₂ medido</th><th>× EvC × FCF</th><th>÷ declarado</th><th>xᵢ</th>' +
+            '</tr></thead><tbody>';
+        x.forEach(function(r) {
+            p1 += '<tr><td>' + esc(r.vin || '—') + '</td>' +
+                '<td>' + r.measured + '</td>' +
+                '<td>' + r.measured + ' × ' + stats.evc + ' × ' + stats.fcf + ' = ' + _copCo2Fmt(r.measured * stats.evc * stats.fcf, 4) + '</td>' +
+                '<td>÷ ' + r.target + '</td>' +
+                '<td><b>' + _copCo2Fmt(r.x, 6) + '</b></td></tr>';
+        });
+        p1 += '</tbody></table></div>';
+    } else {
+        p1 += '<p class="u-muted">Ningún vehículo trae CO₂ medido y declarado a la vez.</p>';
+    }
+
+    // ── Apéndice I ──
+    var ap = '';
+    if (n < 3 || typeof stats.mean !== 'number') {
+        ap += '<ol class="cop-steps">' + step('Paso 1 — Normalizar cada vehículo', p1) + '</ol>';
+        ap += '<p class="u-muted">Hacen falta al menos 3 vehículos para seguir (hay ' + n + ').</p>';
+    } else {
+        var sum = x.reduce(function(s, r) { return s + r.x; }, 0);
+        var p2 = '<p>' + mono('X̄ = Σx<sub>i</sub> ÷ n') + '</p><p>' + mono('X̄ = (' +
+            x.map(function(r) { return _copCo2Fmt(r.x, 6); }).join(' + ') + ') ÷ ' + n +
+            ' = ' + _copCo2Fmt(sum, 6) + ' ÷ ' + n + ' = <b>' + _copCo2Fmt(stats.mean, 6) + '</b>') + '</p>';
+
+        var sq = x.map(function(r) { return Math.pow(r.x - stats.mean, 2); });
+        var sqSum = sq.reduce(function(s, v) { return s + v; }, 0);
+        var p3 = '<p>' + mono('VAR = Σ(x<sub>i</sub> − X̄)² ÷ (n − 1)') + ' — varianza muestral.</p><ul class="cop-step-list">' +
+            x.map(function(r, i) {
+                return '<li>' + mono('(' + _copCo2Fmt(r.x, 6) + ' − ' + _copCo2Fmt(stats.mean, 6) + ')² = ' + _copCo2Fmt(sq[i], 8)) + '</li>';
+            }).join('') + '</ul>' +
+            '<p>' + mono('VAR = ' + _copCo2Fmt(sqSum, 8) + ' ÷ ' + (n - 1) + ' = <b>' + _copCo2Fmt(stats.var, 8) + '</b>') + '</p>';
+
+        var a = stats.appendixI;
+        var p4 = '<p>' + mono('Se acepta si X̄ &lt; A − VAR') + '</p><p>' +
+            mono('A − VAR = ' + A + ' − ' + _copCo2Fmt(stats.var, 8) + ' = <b>' + _copCo2Fmt(a.passBound, 6) + '</b>') + '</p>' +
+            '<p>¿' + _copCo2Fmt(stats.mean, 6) + ' &lt; ' + _copCo2Fmt(a.passBound, 6) + '? ' + _copCo2Check(stats.mean < a.passBound) + '</p>';
+
+        var nC = Math.max(3, Math.min(n, 16));
+        var p5 = '<p>' + mono('Se rechaza si X̄ &gt; A − ((n − 3) ÷ 13) × VAR') + '</p><p>' +
+            mono('A − ((' + nC + ' − 3) ÷ 13) × VAR = ' + A + ' − ' + _copCo2Fmt((nC - 3) / 13, 4) + ' × ' +
+                 _copCo2Fmt(stats.var, 8) + ' = <b>' + _copCo2Fmt(a.failBound, 6) + '</b>') + '</p>' +
+            (stats.overSample ? '<p class="u-muted">n = ' + n + ' es mayor que 16: se evalúa con n = 16.</p>' : '') +
+            '<p>¿' + _copCo2Fmt(stats.mean, 6) + ' &gt; ' + _copCo2Fmt(a.failBound, 6) + '? ' + _copCo2Check(stats.mean > a.failBound) + '</p>';
+
+        ap += '<ol class="cop-steps">' +
+            step('Paso 1 — Normalizar cada vehículo', p1) +
+            step('Paso 2 — Promedio', p2) +
+            step('Paso 3 — Varianza', p3) +
+            step('Paso 4 — Límite para aceptar', p4) +
+            step('Paso 5 — Límite para rechazar', p5) +
+            '</ol>' + resumen(a.decision) +
+            (a.decision === 'CONTINUE' ? '<p class="u-muted">Ni acepta ni rechaza: hace falta otro vehículo.</p>' : '');
+    }
+    html += '<details class="cop-step-details"' + (o.openAp ? ' open' : '') +
+        ' ontoggle="if(typeof uiCardToggle===\'function\')uiCardToggle(\'cop-co2-steps-ap1\',this)">' +
+        '<summary>🧮 Apéndice I — el cálculo paso a paso</summary>' + head + ap + '</details>';
+
+    // ── UN R154 §3.3.1 ──
+    var rb = '';
+    if (n < 3 || !stats.r154 || typeof stats.s !== 'number') {
+        rb += '<p class="u-muted">Hacen falta al menos 3 vehículos para calcular X̄ y s (hay ' + n + ').</p>';
+    } else {
+        var r = stats.r154, t = r.table || {};
+        var q1 = '<p>Salen de los pasos 1 a 3 del Apéndice I.</p><p>' +
+            mono('X̄ = <b>' + _copCo2Fmt(stats.mean, 6) + '</b>') + '</p><p>' +
+            mono('s = √VAR = √' + _copCo2Fmt(stats.var, 8) + ' = <b>' + _copCo2Fmt(stats.s, 6) + '</b>') + '</p>';
+        var q2 = '<p>Fila n = ' + r.tableN + (stats.overSample ? ' (n = ' + n + ' es mayor que 16: se usa la fila tope)' : '') + ':</p>' +
+            '<p>' + mono('t<sub>P1</sub> = ' + t.tP1 + ' · t<sub>P2</sub> = ' + t.tP2 + ' · t<sub>F1</sub> = ' + t.tF1 + ' · t<sub>F2</sub> = ' + t.tF2) + '</p>';
+        var kP = t.tP1 + t.tP2, kF = t.tF1 - t.tF2;
+        var q3 = '<p>' + mono('Se acepta si X̄ ≤ A − (t<sub>P1</sub> + t<sub>P2</sub>) × s') + '</p><p>' +
+            mono(A + ' − (' + t.tP1 + ' + ' + t.tP2 + ') × ' + _copCo2Fmt(stats.s, 6) + ' = ' + A + ' − ' +
+                 _copCo2Fmt(kP, 3) + ' × ' + _copCo2Fmt(stats.s, 6) + ' = <b>' + _copCo2Fmt(r.passBound, 6) + '</b>') + '</p>' +
+            '<p>¿' + _copCo2Fmt(stats.mean, 6) + ' ≤ ' + _copCo2Fmt(r.passBound, 6) + '? ' + _copCo2Check(stats.mean <= r.passBound) + '</p>';
+        var q4 = '<p>' + mono('Se rechaza si X̄ &gt; A + (t<sub>F1</sub> − t<sub>F2</sub>) × s') + '</p><p>' +
+            mono(A + ' + (' + t.tF1 + ' − ' + t.tF2 + ') × ' + _copCo2Fmt(stats.s, 6) + ' = ' + A + ' + ' +
+                 _copCo2Fmt(kF, 3) + ' × ' + _copCo2Fmt(stats.s, 6) + ' = <b>' + _copCo2Fmt(r.failBound, 6) + '</b>') + '</p>' +
+            '<p>¿' + _copCo2Fmt(stats.mean, 6) + ' &gt; ' + _copCo2Fmt(r.failBound, 6) + '? ' + _copCo2Check(stats.mean > r.failBound) + '</p>';
+        rb += '<ol class="cop-steps">' +
+            step('Paso 1 — Promedio y desviación estándar', q1) +
+            step('Paso 2 — Factores de la Tabla A2/3', q2) +
+            step('Paso 3 — Límite para aceptar', q3) +
+            step('Paso 4 — Límite para rechazar', q4) +
+            '</ol>' + resumen(r.decision) +
+            (r.decision === 'CONTINUE' ? '<p class="u-muted">Ni acepta ni rechaza: hace falta otro vehículo. Es la confirmación; el veredicto de la familia es el del Apéndice I.</p>' : '');
+    }
+    html += '<details class="cop-step-details"' + (o.openR154 ? ' open' : '') +
+        ' ontoggle="if(typeof uiCardToggle===\'function\')uiCardToggle(\'cop-co2-steps-r154\',this)">' +
+        '<summary>🧮 UN R154 §3.3.1 — el cálculo paso a paso</summary>' + head + rb + '</details>';
+    return html;
+}
+
 // ─── VALORES CRÍTICOS A(n) B(n) — Test t secuencial ─────────────────────────
 var COP_CV = {
     3:  { a: -0.860, b: 2.117 },
@@ -3066,8 +3200,8 @@ function _copBuildCo2HTML() {
 
     // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
     html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
-    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
-    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
+    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.fcf + '" oninput="copCo2StepsLive()"></label>';
+    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" inputmode="decimal" step="0.0001" min="0.0001" value="' + factors.evc + '" oninput="copCo2StepsLive()"></label>';
     html += '<button class="tp-btn tp-btn-primary" onclick="copSetCo2Factors(document.getElementById(\'cop-co2-fcf\').value, document.getElementById(\'cop-co2-evc\').value)">Guardar</button>';
     if (!factors.set) html += '<span class="cop-co2-settings-hint">sin ajustar = 1 (sin corrección)</span>';
     html += '</div>';
@@ -3079,6 +3213,9 @@ function _copBuildCo2HTML() {
         html += _copCo2GaugeHTML(stats);
         html += copCo2ConclusionHTML(stats);
     }
+
+    // [2.28.0] El cálculo paso a paso (plegado); copCo2StepsLive lo repinta al teclear FCF/EvC.
+    html += '<div id="cop-co2-steps" class="cop-co2-steps">' + _copCo2StepsFor(stats, null) + '</div>';
 
     // Tabla por vehículo
     html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
@@ -3126,6 +3263,39 @@ function _copBuildCo2HTML() {
         'Verificar contra el texto oficial (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 y UN R154 §3.3.1) antes de uso en homologación real.</p>';
     html += '</div>';
     return html;
+}
+
+/** [2.28.0] Los desgloses con el colapso que este equipo recuerda (uiPref('cards')). */
+function _copCo2StepsFor(stats, note) {
+    var open = function(id) { return (typeof uiCardOpen === 'function') ? uiCardOpen(id, false) : false; };
+    return copCo2StepsHTML(stats, { openAp: open('cop-co2-steps-ap1'), openR154: open('cop-co2-steps-r154'), note: note });
+}
+
+/**
+ * [2.28.0] Recalcula el paso a paso con lo que se está tecleando en FCF/EvC, sin
+ * guardar. Solo repinta #cop-co2-steps: el medidor y la conclusión de arriba siguen
+ * con los factores GUARDADOS (son lo que cuenta y lo que congela un juicio), y la
+ * nota de vista previa lo dice para que nadie lea el desglose como el veredicto.
+ */
+function copCo2StepsLive() {
+    var host = document.getElementById('cop-co2-steps');
+    if (!host || typeof homoCo2RowsForVins !== 'function') return;
+    var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(function(v) { return v; });
+    var rows = homoCo2RowsForVins(vins);
+    var saved = copCo2Factors();
+    var fEl = document.getElementById('cop-co2-fcf'), eEl = document.getElementById('cop-co2-evc');
+    var f = parseFloat(fEl ? fEl.value : ''), e = parseFloat(eEl ? eEl.value : '');
+    var valid = isFinite(f) && f > 0 && isFinite(e) && e > 0;
+    var note = null, useF = saved.fcf, useE = saved.evc;
+    if (!valid) {
+        note = '⚠ FCF y Evolution Factor tienen que ser números mayores a 0. Mientras tanto se muestran los guardados ' +
+            '(FCF = ' + saved.fcf + ' · EvC = ' + saved.evc + ').';
+    } else if (f !== saved.fcf || e !== saved.evc) {
+        useF = f; useE = e;
+        note = '👁 Vista previa con FCF = ' + f + ' · EvC = ' + e + ', <b>sin guardar</b>. El veredicto de arriba sigue con los ' +
+            'guardados (FCF = ' + saved.fcf + ' · EvC = ' + saved.evc + ') hasta que pulses Guardar.';
+    }
+    host.innerHTML = _copCo2StepsFor(copCo2CalcStats(rows, useF, useE), note);
 }
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {

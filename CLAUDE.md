@@ -2705,6 +2705,17 @@ abría, y Vincular escondía vehículos).
 - `tests/co2.node.js` fija el caso real de la familia CL4 5DR 48V. El texto de conclusión lo
   reusa el PDF del expediente (quitando etiquetas): todo cambio al mensaje se ve también ahí.
 
+## 2.28.0 — CO₂ paso a paso (`js/cop_validator.js`)
+
+- **`copCo2StepsHTML(stats, opts)` (PURA) solo MUESTRA `copCo2CalcStats`.** Los números
+  intermedios que no vienen en `stats` (Σxᵢ, cada (xᵢ − X̄)²) se recomponen de `stats.x` /
+  `stats.mean` para exhibirlos, pero ningún límite ni veredicto se calcula aquí. Si cambia la
+  fórmula, cambia en `copCo2CalcStats` y el desglose la sigue.
+- **El desglose en vivo NO es el veredicto.** `copCo2StepsLive()` (oninput de FCF/EvC) recalcula
+  con lo tecleado y repinta solo `#cop-co2-steps`; el medidor, la conclusión, la tabla y el
+  juicio congelado siguen con los factores GUARDADOS, y la nota de vista previa lo declara.
+  No hacer que la vista previa mueva el medidor: un auditor leería un veredicto sin guardar.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

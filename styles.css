@@ -5283,7 +5283,7 @@ body.cop-present .cop-toolbar    { display: none; }
 
 /* [v24] Pestañas por grupos: una fila de 3–4 grupos y debajo solo las del grupo abierto. */
 .ui-tabgroups { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-sm); padding: var(--space-2xs); background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-.ui-tabgroup { flex: 1 1 auto; min-height: var(--target-min, 44px); padding: var(--space-xs) var(--space-md); border: none; border-radius: var(--radius-md); background: transparent; color: var(--muted); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.ui-tabgroup { flex: 1 1 auto; min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border: none; border-radius: var(--radius-md); background: transparent; color: var(--muted); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
@@ -5388,7 +5388,7 @@ td .ui-num-row > input { min-width: 5rem; }
     font: inherit; color: var(--text); cursor: pointer; min-width: 0;
     background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border);
     border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-md);
-    min-height: var(--target-min, 44px);
+    min-height: var(--target-min);
     transition: background-color var(--dur-fast) ease, box-shadow var(--dur-base) ease;
 }
 .dash-cat-tile:hover { background: var(--surface-alt); }
@@ -5474,7 +5474,7 @@ td .ui-num-row > input { min-width: 5rem; }
 .vets-list { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
 .vets-list li { margin: var(--space-2xs) 0; }
 .vets-list--cols { columns: 2 14rem; column-gap: var(--space-lg); }
-.vets-choice { display: inline-flex; align-items: center; gap: var(--space-2xs); cursor: pointer; min-height: var(--target-min, 44px); }
+.vets-choice { display: inline-flex; align-items: center; gap: var(--space-2xs); cursor: pointer; min-height: var(--target-min); }
 .vets-list .vets-choice { display: inline; min-height: 0; }
 .vets-choice input[type="checkbox"], .vets-choice input[type="radio"] { width: auto; min-height: 0; margin: 0 var(--space-2xs) 0 0; vertical-align: middle; transform: scale(1.25); }
 
@@ -5946,3 +5946,37 @@ body.ficha-open { overflow: hidden; }
 .tp-tab.ui-role-hidden { display: none !important; }
 .ui-tabgroup[hidden], .topbar-icon-btn[hidden] { display: none !important; }
 .pn-roles-table tr.pn-roles-sec th { text-align: left; padding-top: var(--space-md); font-size: var(--fs-sm); background: transparent; }
+
+/* ── [2.28.0] CO₂ — el cálculo paso a paso (Apéndice I y UN R154) ── */
+.cop-co2-steps { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-md); }
+.cop-step-details {
+    border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg);
+    padding: var(--space-xs) var(--space-md);
+}
+.cop-step-details > summary {
+    cursor: pointer; font-size: var(--fs-sm); font-weight: 700; color: var(--text);
+    padding: var(--space-sm) 0; min-height: var(--target-min); display: flex; align-items: center;
+}
+.cop-step-note {
+    font-size: var(--fs-sm); padding: var(--space-sm) var(--space-md); margin: var(--space-xs) 0 var(--space-sm);
+    border-radius: var(--radius-sm); background: var(--info-bg, var(--surface)); color: var(--info-text, var(--text));
+    border-left: 3px solid var(--info-fill, var(--border));
+}
+.cop-steps { margin: 0; padding-left: var(--space-lg); font-size: var(--fs-sm); color: var(--text); }
+.cop-steps > li { margin-bottom: var(--space-md); }
+.cop-steps > li > b:first-child { display: block; margin-bottom: var(--space-xs); }
+.cop-steps p { margin: var(--space-2xs) 0; }
+.cop-step-f {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fs-sm);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: var(--space-2xs) var(--space-xs); overflow-wrap: anywhere; display: inline-block;
+}
+.cop-step-list { margin: var(--space-xs) 0; padding-left: var(--space-lg); }
+.cop-step-scroll { overflow-x: auto; margin: var(--space-xs) 0; }
+.cop-step-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.cop-step-table th, .cop-step-table td {
+    text-align: left; padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border);
+}
+.cop-step-table th { color: var(--muted); font-weight: 600; }
+.cop-step-yes { color: var(--ok-text); font-weight: 700; }
+.cop-step-no  { color: var(--danger-text); font-weight: 700; }
