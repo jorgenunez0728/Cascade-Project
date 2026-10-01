@@ -390,9 +390,18 @@
 <div class="card" id="homo-alta-box" style="display:none;">
   <div class="card-title">🇪🇺 Datos de homologación (dinamómetro y CO₂)</div>
 
+  <!-- [2.29.0] El ICMS de la unidad llena todo sin teclear (homoAltaIcmsPick, homolog.js). -->
+  <div class="homo-icms-load">
+    <button type="button" class="tp-btn tp-btn-primary" onclick="document.getElementById('homo_icms_file').click()">📥 Cargar el ICMS de esta unidad</button>
+    <span class="homo-icms-hint" data-help="homo-icms-help">El Excel que bajas del ICMS con la Work Order (VIN_…xlsx). Llena f0, f1, f2, TM, MR y CO₂ sin teclear.</span>
+    <input type="file" id="homo_icms_file" accept=".xlsx,.csv" hidden aria-label="Archivo del ICMS de esta unidad"
+           onchange="if(typeof homoAltaIcmsPick==='function')homoAltaIcmsPick(event)">
+    <div id="homo-alta-icms" role="status"></div>
+  </div>
+
   <div class="form-group">
-    <label for="homo_mc">MC code / Work Order del ICMS</label>
-    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej.: 8GS6K5G17"
+    <label for="homo_mc">Work Order / MC code del ICMS</label>
+    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej.: E2608A135C02A"
            oninput="if(typeof homoAltaSearchFromInput==='function')homoAltaSearchFromInput()">
     <div id="homo-alta-results" style="margin-top:4px;"></div>
     <div id="homo-alta-status" style="font-size: var(--fs-sm);margin-top:4px;"></div>
@@ -401,32 +410,32 @@
   <div class="form-grid">
     <div class="form-group">
       <label for="homo_f0">f0 (N)</label>
-      <input type="number" step="any" id="homo_f0" placeholder="102.5" inputmode="decimal"
+      <input type="number" step="any" id="homo_f0" placeholder="Ej.: 102.5" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f1">f1 (N/(km/h))</label>
-      <input type="number" step="any" id="homo_f1" placeholder="0.147" inputmode="decimal"
+      <input type="number" step="any" id="homo_f1" placeholder="Ej.: 0.147" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_f2">f2 (N/(km/h)²)</label>
-      <input type="number" step="any" id="homo_f2" placeholder="0.03544" inputmode="decimal"
+      <input type="number" step="any" id="homo_f2" placeholder="Ej.: 0.03544" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_tm">TM — masa de ensayo (kg)</label>
-      <input type="number" step="any" id="homo_tm" placeholder="1507" inputmode="decimal"
+      <input type="number" step="any" id="homo_tm" placeholder="Ej.: 1507" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_mr">MR — masa rotativa (kg)</label>
-      <input type="number" step="any" id="homo_mr" placeholder="44.7" inputmode="decimal"
+      <input type="number" step="any" id="homo_mr" placeholder="Ej.: 44.7" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
     <div class="form-group">
       <label for="homo_co2">CO₂ declarado combinado (g/km)</label>
-      <input type="number" step="any" id="homo_co2" placeholder="132" inputmode="decimal"
+      <input type="number" step="any" id="homo_co2" placeholder="Ej.: 132" inputmode="decimal"
              oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
     </div>
   </div>

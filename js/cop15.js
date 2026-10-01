@@ -1438,13 +1438,19 @@ setAltaDatetimeIfEmpty(true);
         if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
 
         // v17.14: deja constancia de los coeficientes usados y recuerda el enlace
-        // config → MC code, para que el siguiente vehículo igual se autollene.
+        // config → WO. [2.29.0] El enlace ya no autollena: solo se SUGIERE (cada WO
+        // trae sus propios valores) — ver homoAltaSync.
         if (newVehicle.homolog && newVehicle.homolog.f0 != null) {
+            var _h = newVehicle.homolog;
             auditLog('cop15', 'homologacion_capturada', { type: 'vehicle', id: newVehicle.id, label: newVehicle.vin },
-                'f0=' + newVehicle.homolog.f0 + ' f1=' + newVehicle.homolog.f1 + ' f2=' + newVehicle.homolog.f2 +
-                ' TM=' + newVehicle.homolog.tm + ' CO₂ target=' + newVehicle.homolog.co2Target);
-            if (typeof homoLinkConfig === 'function' && newVehicle.homolog.mcCode) {
-                homoLinkConfig(configCode, newVehicle.homolog.mcCode);
+                'f0=' + _h.f0 + ' f1=' + _h.f1 + ' f2=' + _h.f2 +
+                ' TM=' + _h.tm + ' CO₂ target=' + _h.co2Target +
+                (_h.workOrder ? ' WO=' + _h.workOrder : '') +
+                (_h.source === 'icms' ? ' (archivo ICMS «' + (_h.icmsFile || '') + '»' +
+                    (_h.vinCheck === 'no-coincide' ? ', VIN del archivo NO coincide' : '') +
+                    (_h.edited && _h.edited.length ? ', editado a mano: ' + _h.edited.join('/') : '') + ')' : ''));
+            if (typeof homoLinkConfig === 'function' && (_h.workOrder || _h.mcCode)) {
+                homoLinkConfig(configCode, _h.workOrder || _h.mcCode);
             }
         }
 

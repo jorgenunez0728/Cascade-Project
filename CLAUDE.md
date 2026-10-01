@@ -2727,6 +2727,28 @@ abría, y Vincular escondía vehículos).
   `if (typeof Chart === 'undefined') return;` a secas deja una tarjeta en blanco que se
   reporta como "no carga nada".
 
+## 2.29.0 — El ICMS por Work Order (`js/homolog.js`)
+
+- **La identidad del catálogo es la WORK ORDER** (`homoRowKey`), no el MC code: varias WO comparten
+  MC code con f0/TM/CO₂ distintos. `homoFindByKey(mc)` devuelve null si ese MC code es de varias
+  filas: **nunca adivinar entre WO**. El merge de `homolog` en `fbPullApply` usa la misma clave.
+- **`homoIcmsRows(grid)` (PURA) es LA lectura de un archivo del ICMS.** Los sinónimos de
+  `HOMO_IMPORT_FIELDS` son EXACTOS: el archivo trae también los coeficientes NEDC con otros
+  valores, y un sinónimo por "contiene" los tomaría. Lo fija `tests/homolog.node.js` con el
+  archivo real (`tests/fixtures/icms/`). Un formato nuevo del ICMS = su fixture.
+- **El VIN va en el nombre del archivo** (`homoIcmsVinTail`), no adentro. Es lo único que liga
+  un archivo con un vehículo en el lote: la WO no basta (varias unidades comparten WO).
+- **No autollenar el Alta con la unidad anterior de la misma configuración** (`homoAltaSync`
+  solo sugiere): los valores cambian por WO.
+- **El lote no reescribe una prueba enviada o liberada** con valores distintos
+  (`HOMO_LOCKED_STATUS`); solo completa lo vacío. `homoIcmsBatchApply` recalcula el plan y
+  aplica solo la acción que la persona vio. Cada cambio va a la línea de tiempo con
+  `data.modified` y a la auditoría con antes/después.
+- **Un .xlsx que el laboratorio sube se lee con `vetsReadWorkbook`** (vía `homoReadFileGrid`),
+  nunca con SheetJS del CDN.
+- **El DF (factor de deterioro) NO se aplica al veredicto de gases**, por decisión del
+  laboratorio (2-oct-2026), aunque su Excel maestro sí lo hacía.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

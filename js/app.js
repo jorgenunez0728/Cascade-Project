@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.28.1';
+var APP_VERSION = '2.29.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.28.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.29.0', date: '2 oct 2026', title: 'El ICMS de cada unidad, sin teclear',
+      bullets: [
+          'Nuevo: en el Alta (vehículos Europa), "📥 Cargar el ICMS de esta unidad" lee el Excel que bajas del ICMS con la Work Order y llena f0, f1, f2, TM, MR y CO₂ declarado. Antes de usarlos ves los valores y si el VIN del nombre del archivo coincide con el que capturaste.',
+          'Nuevo: en Datos → Homologación puedes cargar de un jalón los ICMS de unidades ya registradas; cada archivo se liga a su vehículo por el VIN del nombre y ves qué se llena antes de aplicar. Una prueba ya enviada o liberada no se reescribe con valores distintos.',
+          'Arreglado: el importador del ICMS no reconocía f0, f1, f2, TM, CO₂ ni consumo del archivo por Work Order (solo la identidad), y el .xlsx necesitaba internet. Ahora se lee sin internet y solo los valores WLTP: los NEDC del mismo archivo se ignoran.',
+          'Arreglado: el catálogo se identificaba por MC code, y varias Work Orders comparten MC code con coeficientes y CO₂ distintos: se pisaban entre sí. Ahora cada Work Order es su propia fila.',
+          'Cambió: el Alta ya no se autollena con los valores de la unidad anterior de la misma configuración (cambian de una WO a otra); solo lo sugiere.'
+      ] },
     { version: '2.28.1', date: '1 oct 2026', title: 'Las gráficas ya no dependen de internet',
       bullets: [
           'Arreglado: CoP → Control SPC se quedaba en blanco (sin carta I ni carta MR). La librería de gráficas se descargaba de un servidor externo que la red del trabajo puede bloquear; ahora viene con la app, igual que el PDF.',

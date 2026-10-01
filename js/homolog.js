@@ -81,9 +81,15 @@ function _homoNorm(s) {
     return String(s == null ? '' : s).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
 }
 
-/** Clave de una fila del catálogo: MC code si existe, si no la Work Order. */
+/**
+ * Identidad de una fila del catálogo: la WORK ORDER; el MC code solo si no hay WO.
+ * [2.29.0] Antes era al revés, y varias WO comparten MC code con coeficientes y CO₂
+ * distintos: en el registro real del laboratorio `8GS6K5G17` aparece en 6 WO con f0
+ * 102.5/113.7/113.9 y CO₂ 129/131/132. Con el MC code como clave, importar esas WO
+ * las colapsaba en UNA fila (ganaba la última) y el Alta autollenaba con esa.
+ */
 function homoRowKey(row) {
-    return _homoNorm(row && (row.mcCode || row.workOrder)) || '';
+    return _homoNorm(row && (row.workOrder || row.mcCode)) || '';
 }
 
 /** LA definición de búsqueda en el catálogo. Devuelve las filas que coinciden. */
@@ -100,16 +106,23 @@ function homoSearch(query, limit) {
     }).slice(0, limit || 50);
 }
 
-/** Fila exacta por MC code / Work Order, o null. */
+/**
+ * Fila exacta por Work Order, o por MC code SOLO si ese MC code es de una sola fila.
+ * [2.29.0] Un MC code con varias WO es ambiguo (cada WO trae sus propios valores):
+ * devuelve null en vez de adivinar.
+ */
 function homoFindByKey(key) {
     homoInit();
     var k = _homoNorm(key);
     if (!k) return null;
-    for (var i = 0; i < homoState.catalog.length; i++) {
-        var r = homoState.catalog[i];
-        if (_homoNorm(r.mcCode) === k || _homoNorm(r.workOrder) === k) return r;
+    var i, byMc = [];
+    for (i = 0; i < homoState.catalog.length; i++) {
+        if (_homoNorm(homoState.catalog[i].workOrder) === k) return homoState.catalog[i];
     }
-    return null;
+    for (i = 0; i < homoState.catalog.length; i++) {
+        if (_homoNorm(homoState.catalog[i].mcCode) === k) byMc.push(homoState.catalog[i]);
+    }
+    return byMc.length === 1 ? byMc[0] : null;
 }
 
 /**
@@ -210,14 +223,18 @@ var HOMO_IMPORT_FIELDS = {
     wvta:        { label: 'WVTA No.',     syn: ['wvtano', 'wvta', 'homologacion', 'typeapproval'] },
     variant:     { label: 'Variant',      syn: ['variant', 'variante'] },
     version:     { label: 'Version',      syn: ['version', 'versión'] },
-    f0:          { label: 'f0',           syn: ['f0', 'f0n', 'coefff0'] },
-    f1:          { label: 'f1',           syn: ['f1', 'f1nkmh', 'coefff1'] },
-    f2:          { label: 'f2',           syn: ['f2', 'f2nkmh2', 'coefff2'] },
-    tm:          { label: 'TM (masa)',    syn: ['tm', 'tmkg', 'testmass', 'testmasskg', 'masadeensayo', 'masa'] },
+    // [2.29.0] El archivo del ICMS por Work Order trae DOS juegos de coeficientes:
+    // "WLTP Driving Resistance f0" y "NEDC Driving Resistance f0" (102.5 contra 88.9
+    // en el ejemplo real). El empate es EXACTO, así que el NEDC nunca entra: no
+    // agregar aquí un sinónimo que pudiera empatar con él.
+    f0:          { label: 'f0',           syn: ['f0', 'f0n', 'coefff0', 'wltpdrivingresistancef0'] },
+    f1:          { label: 'f1',           syn: ['f1', 'f1nkmh', 'coefff1', 'wltpdrivingresistancef1'] },
+    f2:          { label: 'f2',           syn: ['f2', 'f2nkmh2', 'coefff2', 'wltpdrivingresistancef2'] },
+    tm:          { label: 'TM (masa)',    syn: ['tm', 'tmkg', 'testmass', 'testmasskg', 'masadeensayo', 'masa', 'wltpdrivingresistancetm'] },
     // [v23.4] MR: masa rotativa equivalente, la trae el ICMS. ETW (inercia) = TM + MR.
     mr:          { label: 'MR (masa rotativa)', syn: ['mr', 'mrkg', 'rotatingmass', 'rotatingmasskg', 'equivalentrotatingmass', 'masarotativa', 'masarotativakg'] },
-    co2Combined: { label: 'CO₂ combinado', syn: ['combined', 'co2combined', 'co2combinado', 'combinado', 'co2'] },
-    fcCombined:  { label: 'Consumo comb.', syn: ['fuelconsumptioncombined', 'consumocombinado', 'fccombined'] }
+    co2Combined: { label: 'CO₂ combinado', syn: ['combined', 'co2combined', 'co2combinado', 'combinado', 'co2', 'wltpco2combined'] },
+    fcCombined:  { label: 'Consumo comb.', syn: ['fuelconsumptioncombined', 'consumocombinado', 'fccombined', 'wltpfuelconsumptioncombined'] }
 };
 
 function _homoNormHeader(s) {
@@ -251,71 +268,258 @@ function _homoNum(v) {
     return isFinite(n) ? n : null;
 }
 
-/**
- * Aplica una retícula importada al catálogo. Fusiona por MC code / Work Order:
- * reimportar actualiza en vez de duplicar, y una segunda descarga (la de CO₂)
- * completa las filas que ya trajo la primera (la de coeficientes).
- * Devuelve {nuevas, actualizadas, ignoradas}.
- */
-function homoImportApply(grid) {
-    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar la homologación Europa')) return null;
-    homoInit();
-    if (!grid || !grid.length) return { nuevas: 0, actualizadas: 0, ignoradas: 0 };
+// ─── [2.29.0] EL ARCHIVO DEL ICMS POR WORK ORDER ──────────────────────────────
+// El laboratorio baja del ICMS un Excel por unidad (por Work Order): 1 renglón de
+// encabezados y 1 de datos, ~93 columnas, sin VIN adentro — el VIN va en el NOMBRE
+// del archivo ("VIN_432873_1790797415928.xlsx"). Todo lo de abajo es PURO salvo
+// homoReadFileGrid, y se prueba en tests/homolog.node.js con ese archivo real.
 
-    var headerIdx = (typeof _pnProjDetectHeader === 'function') ? _pnProjDetectHeader(grid) : 0;
-    var headers = grid[headerIdx] || [];
-    var map = homoAutoMap(headers);
-    if (map.mcCode === undefined && map.workOrder === undefined) {
+/** Renglón de encabezados: el primero (de los 10 primeros) con MC code o Work Order. PURA. */
+function homoDetectHeaderRow(grid) {
+    var n = Math.min((grid || []).length, 10);
+    for (var i = 0; i < n; i++) {
+        var m = homoAutoMap(grid[i] || []);
+        if (m.mcCode !== undefined || m.workOrder !== undefined) return i;
+    }
+    return -1;
+}
+
+/**
+ * LA definición de leer una retícula del ICMS. PURA.
+ * → {rows:[registro], ignoradas, faltanColumnas:[etiquetas]} o {error}.
+ */
+function homoIcmsRows(grid) {
+    var h = homoDetectHeaderRow(grid);
+    if (h < 0) {
         return { error: 'No se encontró ninguna columna "MC code" ni "Work Order No." — sin eso no se puede saber a qué vehículo pertenece cada fila.' };
     }
-
-    var byKey = {};
-    homoState.catalog.forEach(function(r) { byKey[homoRowKey(r)] = r; });
-
-    var nuevas = 0, actualizadas = 0, ignoradas = 0;
-    var who = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
-    var now = new Date().toISOString();
-
-    for (var i = headerIdx + 1; i < grid.length; i++) {
+    var map = homoAutoMap(grid[h]);
+    var rows = [], ignoradas = 0;
+    for (var i = h + 1; i < grid.length; i++) {
         var cells = grid[i] || [];
         var get = function(f) { return map[f] === undefined ? null : cells[map[f]]; };
         var txt = function(f) { var v = get(f); return v == null ? '' : String(v).trim(); };
-
-        var incoming = {
+        var rec = {
             mcCode: txt('mcCode'), workOrder: txt('workOrder'), ocn: txt('ocn'), wvta: txt('wvta'),
             variant: txt('variant'), version: txt('version'),
             f0: _homoNum(get('f0')), f1: _homoNum(get('f1')), f2: _homoNum(get('f2')), tm: _homoNum(get('tm')),
             mr: _homoNum(get('mr')),
             co2Combined: _homoNum(get('co2Combined')), fcCombined: _homoNum(get('fcCombined'))
         };
-        var key = homoRowKey(incoming);
-        if (!key) { ignoradas++; continue; }
+        if (!homoRowKey(rec)) {
+            if (cells.some(function(c) { return c !== '' && c != null; })) ignoradas++;
+            continue;
+        }
+        rows.push(rec);
+    }
+    var faltan = ['f0', 'f1', 'f2', 'tm', 'mr', 'co2Combined'].filter(function(f) { return map[f] === undefined; })
+        .map(function(f) { return HOMO_IMPORT_FIELDS[f].label; });
+    return { rows: rows, ignoradas: ignoradas, faltanColumnas: faltan };
+}
 
+/** "VIN_432873_1790797415928.xlsx" → "432873" (o '' si el nombre no trae VIN). PURA. */
+function homoIcmsVinTail(fileName) {
+    var m = /VIN[\s_\-.]*([A-HJ-NPR-Z0-9]{6,17})(?![A-Z0-9])/i.exec(String(fileName || ''));
+    return m ? m[1].toUpperCase() : '';
+}
+
+/** ¿El VIN termina con lo que dice el archivo? true/false, o null si falta uno de los dos. PURA. */
+function homoVinMatchesTail(vin, tail) {
+    var v = String(vin || '').trim().toUpperCase(), t = String(tail || '').trim().toUpperCase();
+    if (!v || !t) return null;
+    return v.length >= t.length && v.slice(-t.length) === t;
+}
+
+/** Campos de la ficha de un vehículo que vienen del ICMS: [clave, etiqueta, numérico]. */
+var HOMO_FICHA_FIELDS = [
+    ['workOrder', 'Work Order', false], ['mcCode', 'MC code', false],
+    ['f0', 'f0', true], ['f1', 'f1', true], ['f2', 'f2', true], ['tm', 'TM', true], ['mr', 'MR', true],
+    ['co2Target', 'CO₂ declarado', true], ['fcCombined', 'Consumo declarado', true]
+];
+
+/** Registro del ICMS → ficha de vehículo (`vehicle.homolog`). PURA. */
+function homoFichaFromIcms(row, meta) {
+    meta = meta || {};
+    return {
+        mcCode: row.mcCode || '', workOrder: row.workOrder || '', ocn: row.ocn || '', wvta: row.wvta || '',
+        variant: row.variant || '', version: row.version || '',
+        f0: row.f0, f1: row.f1, f2: row.f2, tm: row.tm, mr: row.mr,
+        co2Target: row.co2Combined, fcCombined: row.fcCombined,
+        source: 'icms', icmsFile: meta.fileName || '', by: meta.by || '', at: meta.at || ''
+    };
+}
+
+/**
+ * Qué cambiaría la ficha del archivo sobre la guardada. PURA.
+ * → {diffs:[{key,label,antes,despues}], blanks:[claves que hoy están vacías y el archivo llena]}.
+ * Lo que el archivo trae vacío nunca cuenta: no borra nada.
+ */
+function homoFichaDiff(cur, next) {
+    cur = cur || {}; next = next || {};
+    var diffs = [], blanks = [];
+    HOMO_FICHA_FIELDS.forEach(function(f) {
+        var k = f[0], a = cur[k], b = next[k];
+        if (b == null || b === '') return;
+        if (a == null || a === '') { blanks.push(k); return; }
+        var same = f[2] ? _homoNum(a) === _homoNum(b) : _homoNorm(a) === _homoNorm(b);
+        if (!same) diffs.push({ key: k, label: f[1], antes: a, despues: b });
+    });
+    return { diffs: diffs, blanks: blanks };
+}
+
+var HOMO_LOCKED_STATUS = { 'pending-approval': true, archived: true };
+
+/**
+ * LA definición de qué hace una carga en lote. PURA.
+ * items = [{fileName, tail, row}]; el VIN del nombre del archivo es lo que liga un
+ * archivo con un vehículo (la Work Order NO: varias unidades comparten WO).
+ * Acciones: llenar (sin ficha) · completar (solo huecos) · corregir (valores
+ * distintos, vehículo todavía abierto) · igual · bloqueado (distintos y ya enviado o
+ * liberado: el archivo no reescribe con qué se corrió) · no-europa · ambigua ·
+ * sin-vin · sin-vehiculo.
+ */
+function homoIcmsBatchPlan(items, vehicles) {
+    var all = (vehicles || []).filter(function(v) { return v && v.vin; });
+    var out = [];
+    (items || []).forEach(function(it, i) {
+        var base = { item: i, fileName: it.fileName, tail: it.tail || '', row: it.row };
+        var ficha = homoFichaFromIcms(it.row, { fileName: it.fileName });
+        if (!it.tail) { out.push(Object.assign(base, { action: 'sin-vin' })); return; }
+        var cand = all.filter(function(v) { return homoVinMatchesTail(v.vin, it.tail) === true; });
+        if (!cand.length) { out.push(Object.assign(base, { action: 'sin-vehiculo' })); return; }
+        if (cand.length > 1) {
+            out.push(Object.assign(base, { action: 'ambigua', vins: cand.map(function(v) { return v.vin; }) }));
+            return;
+        }
+        var v = cand[0];
+        var e = Object.assign(base, { vehicleId: v.id, vin: v.vin, status: v.status || '' });
+        if (!homoIsEurope(v.config && v.config['REGION'])) { out.push(Object.assign(e, { action: 'no-europa' })); return; }
+        var d = homoFichaDiff(v.homolog, ficha);
+        var hasData = !!(v.homolog && HOMO_FICHA_FIELDS.some(function(f) {
+            var x = v.homolog[f[0]]; return x != null && x !== '';
+        }));
+        e.diffs = d.diffs; e.blanks = d.blanks;
+        if (!d.diffs.length && !d.blanks.length) e.action = 'igual';
+        else if (!d.diffs.length) e.action = hasData ? 'completar' : 'llenar';
+        else if (HOMO_LOCKED_STATUS[v.status]) e.action = 'bloqueado';
+        else e.action = 'corregir';
+        out.push(e);
+    });
+    return out;
+}
+
+/** Une registros al catálogo por identidad (WO). Solo pisa lo que trae valor. */
+function _homoCatalogUpsert(records, who, now) {
+    var byKey = {};
+    homoState.catalog.forEach(function(r) { byKey[homoRowKey(r)] = r; });
+    var nuevas = 0, actualizadas = 0;
+    (records || []).forEach(function(src) {
+        var rec = Object.assign({}, src), key = homoRowKey(rec);
+        if (!key) return;
         var existing = byKey[key];
         if (existing) {
             // Solo se rellena/actualiza lo que trae valor: la segunda descarga no
             // borra lo que puso la primera.
-            Object.keys(incoming).forEach(function(k) {
-                var v = incoming[k];
+            Object.keys(rec).forEach(function(k) {
+                var v = rec[k];
                 if (v !== null && v !== '') existing[k] = v;
             });
             existing.at = now; existing.by = who;
             actualizadas++;
         } else {
-            incoming.id = 'homo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-            incoming.at = now; incoming.by = who;
-            homoState.catalog.push(incoming);
-            byKey[key] = incoming;
+            rec.id = 'homo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+            rec.at = now; rec.by = who;
+            homoState.catalog.push(rec);
+            byKey[key] = rec;
             nuevas++;
         }
-    }
+    });
+    return { nuevas: nuevas, actualizadas: actualizadas };
+}
+
+/**
+ * Aplica una retícula importada al catálogo. Fusiona por Work Order (MC code si no
+ * hay WO): reimportar actualiza en vez de duplicar, y una segunda descarga (la de
+ * CO₂) completa las filas que ya trajo la primera (la de coeficientes).
+ * Devuelve {nuevas, actualizadas, ignoradas}.
+ */
+function homoImportApply(grid) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'importar la homologación Europa')) return null;
+    homoInit();
+    if (!grid || !grid.length) return { nuevas: 0, actualizadas: 0, ignoradas: 0 };
+    var parsed = homoIcmsRows(grid);
+    if (parsed.error) return { error: parsed.error };
+
+    var who = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
+    var res = _homoCatalogUpsert(parsed.rows, who, new Date().toISOString());
 
     homoSave();
     if (typeof auditLog === 'function') {
         auditLog('homolog', 'catalogo_importado', { type: 'homolog', label: 'ICMS' },
-            nuevas + ' nuevas, ' + actualizadas + ' actualizadas');
+            res.nuevas + ' nuevas, ' + res.actualizadas + ' actualizadas');
     }
-    return { nuevas: nuevas, actualizadas: actualizadas, ignoradas: ignoradas };
+    return { nuevas: res.nuevas, actualizadas: res.actualizadas, ignoradas: parsed.ignoradas };
+}
+
+/** Hoja del lector propio ({renglón:{columna:valor}}, base 1) → arreglo de renglones. PURA. */
+function _homoGridFromSheet(sheet) {
+    var rows = Object.keys(sheet || {}).map(Number).filter(function(n) { return n > 0; });
+    var max = rows.length ? Math.max.apply(null, rows) : 0, out = [];
+    for (var r = 1; r <= max; r++) {
+        var cells = sheet[r] || sheet[String(r)] || {}, line = [];
+        Object.keys(cells).forEach(function(c) { line[Number(c) - 1] = cells[c]; });
+        for (var i = 0; i < line.length; i++) if (line[i] === undefined) line[i] = '';
+        out.push(line);
+    }
+    return out;
+}
+
+/**
+ * Lee un archivo del ICMS → Promise<retícula>. .xlsx con el lector propio de vets.js
+ * (sin internet: la red del trabajo bloquea el CDN de SheetJS); .csv como texto;
+ * solo el .xls viejo (binario) necesita SheetJS.
+ */
+function homoReadFileGrid(file) {
+    return new Promise(function(resolve, reject) {
+        var name = file && file.name || '';
+        var reader = new FileReader();
+        reader.onerror = function() { reject(new Error('No se pudo leer «' + name + '».')); };
+        if (/\.csv$/i.test(name)) {
+            reader.onload = function() {
+                var g = (typeof _pnProjParseDelimited === 'function') ? _pnProjParseDelimited(reader.result) : null;
+                if (g && g.length) resolve(g); else reject(new Error('No se pudo leer el CSV «' + name + '». Revisa que tenga una fila de encabezados.'));
+            };
+            reader.readAsText(file);
+            return;
+        }
+        if (/\.xls$/i.test(name)) {
+            if (typeof _pnProjLoadXLSX !== 'function') { reject(new Error('Guarda «' + name + '» como .xlsx o .csv e inténtalo de nuevo.')); return; }
+            _pnProjLoadXLSX(function(ok) {
+                if (!ok) { reject(new Error('Los .xls viejos necesitan internet para leerse. Guarda «' + name + '» como .xlsx o .csv.')); return; }
+                reader.onload = function() {
+                    try {
+                        var wb = window.XLSX.read(new Uint8Array(reader.result), { type: 'array' });
+                        resolve(window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }));
+                    } catch (e) { reject(new Error('No se pudo leer «' + name + '». Guárdalo de nuevo como .xlsx o .csv.')); }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+            return;
+        }
+        if (typeof vetsReadWorkbook !== 'function') { reject(new Error('El lector de Excel no está disponible.')); return; }
+        reader.onload = function() {
+            vetsReadWorkbook(new Uint8Array(reader.result), null).then(function(sheets) {
+                var grids = Object.keys(sheets).map(function(k) { return _homoGridFromSheet(sheets[k]); });
+                var best = grids.filter(function(g) { return homoDetectHeaderRow(g) >= 0; })[0] ||
+                    grids.sort(function(a, b) { return b.length - a.length; })[0];
+                if (!best || !best.length) throw new Error('vacío');
+                resolve(best);
+            }).catch(function() {
+                reject(new Error('No se pudo leer «' + name + '». Ábrelo en Excel, guárdalo de nuevo como .xlsx e inténtalo otra vez.'));
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
 }
 
 // ─── ALTA: bloque de captura para vehículos Europa ────────────────────────────
@@ -343,9 +547,13 @@ function _homoAltaConfigCode() {
 }
 
 /**
- * Muestra/oculta el bloque de homologación según la región elegida, y lo
- * autollena si esa configuración ya se ligó antes a un MC code.
+ * Muestra/oculta el bloque de homologación según la región elegida.
  * Se llama desde renderCascadeTree() (cop15.js) en cada cambio de la cascada.
+ *
+ * [2.29.0] Ya NO autollena con la unidad anterior de la misma configuración: los
+ * coeficientes y el CO₂ cambian de una Work Order a otra (tres unidades de la misma
+ * configuración: f0 97.3 / 112 / 111.6, CO₂ 142 / 145 / 144). Solo lo SUGIERE, y la
+ * forma correcta es cargar el ICMS de esta unidad.
  */
 function homoAltaSync() {
     var box = document.getElementById('homo-alta-box');
@@ -356,11 +564,16 @@ function homoAltaSync() {
     box.style.display = isEu ? '' : 'none';
     if (!isEu) return;
 
-    // Autollenado por enlace previo — solo si el operador no ha escrito nada.
     var f0 = document.getElementById('homo_f0');
-    if (f0 && !f0.value) {
+    var st = document.getElementById('homo-alta-status');
+    if (f0 && !f0.value && !_homoAltaIcms && st) {
         var sug = homoSuggestForConfig(_homoAltaConfigCode());
-        if (sug) homoAltaFill(sug, true);
+        st.innerHTML = sug
+            ? '<span class="homo-alta-sug">💡 La última unidad de esta configuración usó la WO <b>' +
+              escapeHtml(sug.workOrder || sug.mcCode) + '</b>. Los coeficientes y el CO₂ cambian de una Work Order a otra: ' +
+              'carga el ICMS de <b>esta</b> unidad. <button type="button" class="tp-btn tp-btn-ghost" ' +
+              'onclick="homoAltaPick(\'' + escapeHtml(homoRowKey(sug)) + '\')">Usar los de esa WO</button></span>'
+            : '';
     }
     homoAltaUpdateStatus();
 }
@@ -371,7 +584,10 @@ function homoAltaFill(row, auto) {
         var el = document.getElementById(id);
         if (el) el.value = (v == null ? '' : v);
     };
-    set('homo_mc', row.mcCode || row.workOrder || '');
+    set('homo_mc', row.workOrder || row.mcCode || '');
+    _homoAltaPicked = row;
+    _homoAltaIcms = null;   // elegir del catálogo reemplaza al archivo cargado
+    var icHost = document.getElementById('homo-alta-icms'); if (icHost) icHost.innerHTML = '';
     set('homo_f0', row.f0);
     set('homo_f1', row.f1);
     set('homo_f2', row.f2);
@@ -382,7 +598,8 @@ function homoAltaFill(row, auto) {
     if (st) {
         st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ ' +
             (auto ? 'Autollenado desde el catálogo' : 'Tomado del catálogo') +
-            ' — <b>' + escapeHtml(row.mcCode || row.workOrder) + '</b></span>';
+            ' — <b>WO ' + escapeHtml(row.workOrder || '—') + '</b>' +
+            (row.mcCode ? ' · MC ' + escapeHtml(row.mcCode) : '') + '</span>';
     }
     homoAltaUpdateStatus();
 }
@@ -406,7 +623,7 @@ function homoAltaSearchFromInput() {
     listEl.innerHTML = hits.map(function(r) {
         return '<button type="button" class="btn-secondary" style="display:block;width:100%;text-align:left;margin:3px 0;padding: var(--space-sm) var(--space-md);font-size: var(--fs-sm);" ' +
             'onclick="homoAltaPick(\'' + escapeHtml(homoRowKey(r)) + '\')">' +
-            '<b>' + escapeHtml(r.mcCode || r.workOrder) + '</b>' +
+            '<b>' + escapeHtml(r.workOrder || r.mcCode) + '</b>' + (r.workOrder && r.mcCode ? ' · ' + escapeHtml(r.mcCode) : '') +
             (r.variant ? ' · ' + escapeHtml(r.variant) : '') +
             (r.version ? '/' + escapeHtml(r.version) : '') +
             '<span style="color:var(--muted);"> — f0 ' + (r.f0 == null ? '—' : r.f0) +
@@ -421,7 +638,7 @@ function homoAltaPick(key) {
     var listEl = document.getElementById('homo-alta-results');
     if (listEl) listEl.innerHTML = '';
     var code = _homoAltaConfigCode();
-    if (code) homoLinkConfig(code, row.mcCode || row.workOrder);
+    if (code) homoLinkConfig(code, row.workOrder || row.mcCode);
 }
 
 /** Aviso (no bloqueante) de qué falta. */
@@ -438,6 +655,9 @@ function homoAltaUpdateStatus() {
     if (d.co2Target == null) missing.push('CO₂ target');
     var inr = homoWltpInertia(d);
     var inrLine = inr ? '<div class="homo-inertia-line">⚙️ Inercia (ETW): <b>' + inr.inertia + ' kg</b> <span>= TM ' + inr.tm + ' + MR ' + inr.mr + '</span></div>' : '';
+    if (d.source === 'icms') inrLine = _homoVinLineHTML(d.vinCheck, _homoAltaIcms && _homoAltaIcms.tail) + inrLine +
+        (d.edited && d.edited.length ? '<div class="homo-icms-note">✏️ Cambiaste a mano: ' + escapeHtml(d.edited.join(', ')) +
+            '. Se guarda lo que está en los campos y queda anotado que difiere del archivo.</div>' : '');
     warn.innerHTML = inrLine + (missing.length
         ? '<span style="color:var(--warn-text,#92400e);">⚠️ Falta: ' + missing.join(', ') +
           '. Puedes registrar igual, pero el CoP no podrá comparar el CO₂ de este vehículo.</span>'
@@ -454,7 +674,7 @@ function homoAltaCollect() {
         var el = document.getElementById(id);
         return el ? String(el.value || '').trim() : '';
     };
-    return {
+    var d = {
         mcCode: txt('homo_mc'),
         f0: num('homo_f0'), f1: num('homo_f1'), f2: num('homo_f2'), tm: num('homo_tm'),
         mr: num('homo_mr'),
@@ -463,6 +683,25 @@ function homoAltaCollect() {
         by: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '',
         at: new Date().toISOString()
     };
+    // [2.29.0] La ficha recuerda DE DÓNDE salió: el archivo del ICMS (con su WO, su
+    // nombre y si el VIN del nombre coincide) o la fila del catálogo elegida.
+    var ic = _homoAltaIcms;
+    if (ic && ic.applied) {
+        var f = homoFichaFromIcms(ic.row, { fileName: ic.fileName });
+        ['mcCode', 'workOrder', 'ocn', 'wvta', 'variant', 'version', 'fcCombined', 'icmsFile'].forEach(function(k) { d[k] = f[k]; });
+        d.source = 'icms';
+        d.edited = [['f0', 'f0'], ['f1', 'f1'], ['f2', 'f2'], ['tm', 'TM'], ['mr', 'MR'], ['co2Target', 'CO₂']]
+            .filter(function(p) { return _homoNum(f[p[0]]) !== d[p[0]]; })
+            .map(function(p) { return p[1]; });
+        var vinEl = document.getElementById('vin');
+        var chk = homoVinMatchesTail(vinEl ? vinEl.value : '', ic.tail);
+        d.vinCheck = chk === true ? 'coincide' : chk === false ? 'no-coincide' : 'sin-dato';
+    } else if (_homoAltaPicked && _homoNorm(d.mcCode) === homoRowKey(_homoAltaPicked)) {
+        d.mcCode = _homoAltaPicked.mcCode || d.mcCode;
+        d.workOrder = _homoAltaPicked.workOrder || '';
+        d.source = 'catalogo';
+    }
+    return d;
 }
 
 /** Limpia el bloque (tras registrar un vehículo). */
@@ -473,6 +712,133 @@ function homoAltaReset() {
     });
     var r = document.getElementById('homo-alta-results'); if (r) r.innerHTML = '';
     var s = document.getElementById('homo-alta-status'); if (s) s.innerHTML = '';
+    var p = document.getElementById('homo-alta-icms'); if (p) p.innerHTML = '';
+    _homoAltaIcms = null; _homoAltaPicked = null;
+    homoAltaUpdateStatus();
+}
+
+// ─── [2.29.0] ALTA: cargar el archivo del ICMS de esta unidad ─────────────────
+
+var _homoAltaIcms = null;    // {fileName, tail, rows, row, applied} — solo el Alta abierta
+var _homoAltaPicked = null;  // fila del catálogo elegida a mano
+
+/** Línea del cruce VIN del archivo ↔ VIN capturado. PURA. */
+function _homoVinLineHTML(check, tail) {
+    if (!tail) return '<div class="homo-icms-vin homo-icms-vin--info">ℹ️ El nombre del archivo no trae VIN: no se puede comprobar que sea de esta unidad.</div>';
+    if (check === 'coincide') return '<div class="homo-icms-vin homo-icms-vin--ok">✅ El archivo es del VIN …' + escapeHtml(tail) + ': coincide con el VIN capturado.</div>';
+    if (check === 'no-coincide') return '<div class="homo-icms-vin homo-icms-vin--bad" role="alert">⚠️ El archivo es del VIN …' + escapeHtml(tail) +
+        ' y el VIN capturado NO termina así. Revisa que sea el ICMS de esta unidad.</div>';
+    return '<div class="homo-icms-vin homo-icms-vin--info">ℹ️ El archivo es del VIN …' + escapeHtml(tail) + '. Escribe el VIN arriba para comprobar que coincide.</div>';
+}
+
+/** Vista previa de un registro del ICMS antes de usarlo. PURA. */
+function homoIcmsPreviewHTML(row, ctx) {
+    ctx = ctx || {};
+    var v = function(x, u) { return x == null ? '<span class="homo-icms-miss">—</span>' : escapeHtml(String(x)) + (u ? ' ' + u : ''); };
+    var inr = homoWltpInertia(row);
+    var html = '<div class="homo-icms-card">';
+    html += '<div class="homo-icms-head">📄 <b>' + escapeHtml(ctx.fileName || 'Archivo del ICMS') + '</b></div>';
+    html += '<div class="homo-icms-id">WO <b>' + escapeHtml(row.workOrder || '—') + '</b>' +
+        (row.mcCode ? ' · MC ' + escapeHtml(row.mcCode) : '') +
+        (row.variant ? ' · ' + escapeHtml(row.variant) + (row.version ? '/' + escapeHtml(row.version) : '') : '') + '</div>';
+    html += _homoVinLineHTML(ctx.check, ctx.tail);
+    html += '<div class="homo-icms-grid">' +
+        '<span>f0</span><b>' + v(row.f0, 'N') + '</b>' +
+        '<span>f1</span><b>' + v(row.f1, 'N/(km/h)') + '</b>' +
+        '<span>f2</span><b>' + v(row.f2, 'N/(km/h)²') + '</b>' +
+        '<span>TM</span><b>' + v(row.tm, 'kg') + '</b>' +
+        '<span>MR</span><b>' + v(row.mr, 'kg') + '</b>' +
+        '<span>Inercia (ETW)</span><b>' + (inr ? inr.inertia + ' kg' : '<span class="homo-icms-miss">—</span>') + '</b>' +
+        '<span>CO₂ declarado</span><b>' + v(row.co2Combined, 'g/km') + '</b>' +
+        '<span>Consumo declarado</span><b>' + v(row.fcCombined, 'L/100 km') + '</b>' +
+        '</div>';
+    if (ctx.faltan && ctx.faltan.length) {
+        html += '<div class="homo-icms-note">⚠️ El archivo no trae: ' + escapeHtml(ctx.faltan.join(', ')) + '.</div>';
+    }
+    html += '<div class="homo-icms-note">Se leen los valores <b>WLTP</b>; los NEDC del mismo archivo se ignoran.</div>';
+    return html + '</div>';
+}
+
+/** Input de archivo del Alta → lee, y muestra la vista previa (no llena nada todavía). */
+function homoAltaIcmsPick(ev) {
+    var input = ev && ev.target, file = input && input.files && input.files[0];
+    if (input) input.value = '';
+    if (!file) return;
+    var host = document.getElementById('homo-alta-icms');
+    if (host) host.innerHTML = '<div class="homo-icms-note">⏳ Leyendo «' + escapeHtml(file.name) + '»…</div>';
+    // El cruce de VIN se vuelve a evaluar si el VIN se escribe después de cargar.
+    var vinEl = document.getElementById('vin');
+    if (vinEl && !vinEl._homoIcmsListen) {
+        vinEl._homoIcmsListen = true;
+        vinEl.addEventListener('input', function() { if (_homoAltaIcms) { homoAltaUpdateStatus(); if (!_homoAltaIcms.applied) homoAltaIcmsShow(); } });
+    }
+    homoReadFileGrid(file).then(function(grid) {
+        var p = homoIcmsRows(grid);
+        if (p.error || !p.rows.length) throw new Error(p.error || 'El archivo no trae ninguna fila con Work Order.');
+        _homoAltaIcms = { fileName: file.name, tail: p.rows.length === 1 ? homoIcmsVinTail(file.name) : '',
+                          rows: p.rows, faltan: p.faltanColumnas, row: p.rows.length === 1 ? p.rows[0] : null, applied: false };
+        homoAltaIcmsShow();
+    }).catch(function(e) {
+        _homoAltaIcms = null;
+        if (host) host.innerHTML = '<div class="homo-icms-vin homo-icms-vin--bad" role="alert">⚠️ ' + escapeHtml(e.message) + '</div>';
+    });
+}
+
+/** Pinta la vista previa (o la lista de WO si el archivo trae varias). */
+function homoAltaIcmsShow(idx) {
+    var ic = _homoAltaIcms, host = document.getElementById('homo-alta-icms');
+    if (!ic || !host) return;
+    if (typeof idx === 'number' && ic.rows[idx]) ic.row = ic.rows[idx];
+    if (!ic.row) {
+        host.innerHTML = '<div class="homo-icms-card"><div class="homo-icms-head">📄 «' + escapeHtml(ic.fileName) + '» trae ' +
+            ic.rows.length + ' Work Orders. ¿Cuál es la de esta unidad?</div>' +
+            ic.rows.map(function(r, i) {
+                return '<button type="button" class="tp-btn tp-btn-ghost homo-icms-pick" onclick="homoAltaIcmsShow(' + i + ')">' +
+                    'WO <b>' + escapeHtml(r.workOrder || '—') + '</b> · f0 ' + (r.f0 == null ? '—' : r.f0) +
+                    ' · CO₂ ' + (r.co2Combined == null ? '—' : r.co2Combined) + '</button>';
+            }).join('') + '</div>';
+        return;
+    }
+    var vinEl = document.getElementById('vin');
+    var chk = homoVinMatchesTail(vinEl ? vinEl.value : '', ic.tail);
+    var check = chk === true ? 'coincide' : chk === false ? 'no-coincide' : 'sin-dato';
+    var html = homoIcmsPreviewHTML(ic.row, { fileName: ic.fileName, tail: ic.tail, check: check, faltan: ic.faltan });
+    html += '<div class="homo-icms-actions">' +
+        '<button type="button" class="tp-btn ' + (check === 'no-coincide' ? 'tp-btn-ghost' : 'tp-btn-primary') + '" onclick="homoAltaIcmsUse()">' +
+        (check === 'no-coincide' ? 'Usar de todos modos' : '✓ Usar estos valores') + '</button>' +
+        '<button type="button" class="tp-btn tp-btn-ghost" onclick="homoAltaIcmsCancel()">Cancelar</button></div>';
+    host.innerHTML = html;
+}
+
+/** Llena los campos del Alta con el registro del archivo (como si se tecleara). */
+function homoAltaIcmsUse() {
+    var ic = _homoAltaIcms;
+    if (!ic || !ic.row) return;
+    var r = ic.row;
+    var set = function(id, v) { var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    set('homo_mc', r.workOrder || r.mcCode || '');
+    set('homo_f0', r.f0); set('homo_f1', r.f1); set('homo_f2', r.f2);
+    set('homo_tm', r.tm); set('homo_mr', r.mr); set('homo_co2', r.co2Combined);
+    ic.applied = true;
+    _homoAltaPicked = null;
+    var host = document.getElementById('homo-alta-icms');
+    if (host) host.innerHTML = '<div class="homo-icms-done">✅ Tomado del ICMS «' + escapeHtml(ic.fileName) + '» — WO <b>' +
+        escapeHtml(r.workOrder || '—') + '</b> <button type="button" class="tp-btn tp-btn-ghost" onclick="homoAltaIcmsCancel(true)">Quitar</button></div>';
+    var st = document.getElementById('homo-alta-status'); if (st) st.innerHTML = '';
+    var lst = document.getElementById('homo-alta-results'); if (lst) lst.innerHTML = '';
+    homoAltaUpdateStatus();
+}
+
+/** Descarta el archivo; con `clear` también vacía los campos que llenó. */
+function homoAltaIcmsCancel(clear) {
+    var host = document.getElementById('homo-alta-icms');
+    if (host) host.innerHTML = '';
+    if (clear) {
+        ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+    }
+    _homoAltaIcms = null;
     homoAltaUpdateStatus();
 }
 
@@ -489,10 +855,18 @@ function pnRenderHomolog(el) {
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-homolog-help"><span>🇪🇺 Catálogo de homologación (ICMS)</span></div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom: var(--space-md);line-height:1.5;">' +
-        'Importa aquí el Excel/CSV que baja el ICMS. Puedes subir las dos descargas por separado ' +
-        '(la de <b>WLTP Driving energy</b> con f0/f1/f2/TM y la de <b>WLTP - ICE/HEV</b> con el CO₂): ' +
-        'se fusionan por <b>MC code</b>, así que la segunda completa las filas de la primera. ' +
-        'Reimportar actualiza, no duplica.</div>';
+        'Importa aquí el Excel/CSV que baja el ICMS. Cada fila se identifica por su <b>Work Order</b> ' +
+        '(varias WO comparten MC code con valores distintos), así que reimportar actualiza, no duplica, ' +
+        'y una segunda descarga completa las filas de la primera.</div>';
+
+    // [2.29.0] Los archivos del ICMS de cada unidad (uno por Work Order, con el VIN en el nombre).
+    html += '<div class="homo-batch-box">';
+    html += '<div class="homo-batch-title" data-help="homo-icms-batch-help">📥 Cargar el ICMS de unidades ya registradas</div>';
+    html += '<div class="homo-batch-text">Selecciona uno o varios archivos <b>VIN_…xlsx</b> del ICMS. Cada uno se liga a su vehículo ' +
+        'por el VIN del nombre, y antes de aplicar ves qué se llena y qué cambiaría.</div>';
+    html += '<input type="file" id="homo-batch-file" accept=".xlsx,.csv" multiple class="form-control" onchange="homoIcmsBatchFiles(event)" ' +
+        'aria-label="Archivos del ICMS por unidad">';
+    html += '</div>';
 
     html += '<div class="inv-row-list-2col" style="margin-bottom: var(--space-md);">';
     html += '<div class="form-group"><label for="homo-file">Archivo del ICMS (.xlsx / .xls / .csv)</label>' +
@@ -606,44 +980,211 @@ function homoImportFile(ev) {
     var file = input.files && input.files[0];
     input.value = '';
     if (!file) return;
-
-    var isCsv = /\.csv$/i.test(file.name);
-    var reader = new FileReader();
     // [v24] Estado de carga a la vista: un .xlsx grande tarda y antes no se veía nada.
     var st = document.getElementById('homo-import-status');
     if (st) st.innerHTML = '<span style="color:var(--muted);">⏳ Leyendo «' + escapeHtml(file.name) + '»…</span>';
-    var fallo = function(msg) { if (st) st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(msg) + '</span>'; showToast(msg, 'error'); };
+    // [2.29.0] El .xlsx se lee con el lector propio (sin internet); antes dependía del
+    // CDN de SheetJS, que la red del trabajo bloquea.
+    homoReadFileGrid(file).then(function(grid) {
+        _homoImportReport(homoImportApply(grid));
+    }).catch(function(e) {
+        console.error('homoImportFile:', e);
+        if (st) st.innerHTML = '<span style="color:var(--tp-red);">' + escapeHtml(e.message) + '</span>';
+        showToast(e.message, 'error');
+    });
+}
 
-    if (isCsv) {
-        reader.onload = function() {
-            var grid = (typeof _pnProjParseDelimited === 'function') ? _pnProjParseDelimited(reader.result) : null;
-            if (!grid) { fallo('No se pudo leer el CSV. Revisa que tenga una fila de encabezados.'); return; }
-            _homoImportReport(homoImportApply(grid));
-        };
-        reader.readAsText(file);
-        return;
-    }
+// ─── [2.29.0] CARGA EN LOTE: el ICMS de unidades ya registradas ───────────────
 
-    // .xlsx/.xls — SheetJS se carga diferido (mismo patrón que el importador de Proyectos)
-    if (typeof _pnProjLoadXLSX !== 'function') { showToast('Importador no disponible.', 'error'); return; }
-    _pnProjLoadXLSX(function(ok) {
-        if (!ok) {
-            fallo('No se pudo cargar el lector de Excel (sin internet). Guarda el archivo como CSV e inténtalo de nuevo.');
+var HOMO_BATCH_ACTIONS = {
+    'llenar':       { label: '➕ Llenar la ficha',   pick: true,  def: true },
+    'completar':    { label: '➕ Completar',          pick: true,  def: true },
+    'corregir':     { label: '✏️ Valores distintos',  pick: true,  def: false },
+    'igual':        { label: '✓ Ya está igual',       pick: false },
+    'bloqueado':    { label: '🔒 No se cambia',        pick: false },
+    'no-europa':    { label: 'No es de Europa',       pick: false },
+    'ambigua':      { label: '⚠️ VIN ambiguo',         pick: false },
+    'sin-vin':      { label: 'Solo al catálogo',      pick: false },
+    'sin-vehiculo': { label: 'Solo al catálogo',      pick: false }
+};
+
+function _homoStatusWord(st) {
+    return st === 'archived' ? 'liberado' : st === 'pending-approval' ? 'en aprobación' : 'en curso';
+}
+
+function _homoFieldLabel(k) {
+    for (var i = 0; i < HOMO_FICHA_FIELDS.length; i++) if (HOMO_FICHA_FIELDS[i][0] === k) return HOMO_FICHA_FIELDS[i][1];
+    return k;
+}
+
+/** La revisión del lote, antes de aplicar. PURA. */
+function homoIcmsBatchHTML(plan, errores) {
+    var html = '';
+    var cnt = {};
+    plan.forEach(function(e) { cnt[e.action] = (cnt[e.action] || 0) + 1; });
+    var listos = (cnt.llenar || 0) + (cnt.completar || 0);
+    html += '<p class="homo-batch-sum">' + plan.length + ' registro(s) leído(s): <b>' + listos + '</b> listo(s) para llenar' +
+        (cnt.corregir ? ', <b>' + cnt.corregir + '</b> con valores distintos (sin marcar)' : '') +
+        (cnt.bloqueado ? ', ' + cnt.bloqueado + ' ya enviado(s) o liberado(s)' : '') + '.</p>';
+    plan.forEach(function(e, i) {
+        var a = HOMO_BATCH_ACTIONS[e.action] || { label: e.action };
+        var who = e.vin ? '<b>' + escapeHtml(e.vin) + '</b> · ' + _homoStatusWord(e.status)
+                : e.tail ? 'VIN …' + escapeHtml(e.tail) : 'sin VIN en el nombre';
+        var detail = '';
+        if (e.action === 'completar' || e.action === 'llenar') {
+            detail = 'Llena: ' + (e.blanks || []).map(_homoFieldLabel).join(', ');
+        } else if (e.action === 'corregir' || e.action === 'bloqueado') {
+            detail = (e.diffs || []).map(function(d) {
+                return escapeHtml(d.label) + ' ' + escapeHtml(String(d.antes)) + ' → <b>' + escapeHtml(String(d.despues)) + '</b>';
+            }).join(' · ');
+            if (e.action === 'bloqueado') detail += '<br>La prueba ya se envió o se liberó con los valores de la ficha: el archivo no los reescribe.';
+            else detail += '<br>Márcalo solo si la ficha del vehículo está mal.';
+        } else if (e.action === 'ambigua') {
+            detail = 'Varios vehículos terminan en …' + escapeHtml(e.tail) + ': ' + escapeHtml((e.vins || []).join(', ')) + '.';
+        } else if (e.action === 'sin-vehiculo') {
+            detail = 'Ningún vehículo registrado termina en …' + escapeHtml(e.tail) + '.';
+        } else if (e.action === 'sin-vin') {
+            detail = 'El nombre del archivo no trae VIN, así que no se liga a ningún vehículo.';
+        } else if (e.action === 'no-europa') {
+            detail = 'La ficha de homologación es solo para región Europa.';
+        }
+        html += '<label class="homo-batch-row homo-batch-row--' + e.action + '">' +
+            '<input type="checkbox" data-homo-batch="' + i + '"' + (a.pick ? (a.def ? ' checked' : '') : ' disabled') + '>' +
+            '<span class="homo-batch-main"><span class="homo-batch-file">' + escapeHtml(e.fileName) + ' · WO ' +
+            escapeHtml(e.row.workOrder || '—') + '</span><span>' + who + '</span>' +
+            '<span class="homo-batch-detail">' + detail + '</span></span>' +
+            '<span class="homo-batch-chip">' + a.label + '</span></label>';
+    });
+    (errores || []).forEach(function(er) {
+        html += '<div class="homo-batch-row homo-batch-row--error" role="alert">⚠️ <b>' + escapeHtml(er.fileName) + '</b>: ' + escapeHtml(er.error) + '</div>';
+    });
+    html += '<p class="homo-batch-foot">Todos los registros leídos se agregan también al catálogo, por Work Order.</p>';
+    return html;
+}
+
+/** Input múltiple de Datos → Homologación. */
+function homoIcmsBatchFiles(ev) {
+    var input = ev && ev.target;
+    var files = Array.prototype.slice.call((input && input.files) || []);
+    if (input) input.value = '';
+    if (!files.length) return;
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'cargar el ICMS a los vehículos')) return;
+    var st = document.getElementById('homo-import-status');
+    if (st) st.innerHTML = '<span style="color:var(--muted);">⏳ Leyendo ' + files.length + ' archivo(s)…</span>';
+    Promise.all(files.map(function(f) {
+        return homoReadFileGrid(f).then(function(g) { return { fileName: f.name, grid: g }; },
+                                         function(e) { return { fileName: f.name, error: e.message }; });
+    })).then(function(res) {
+        var items = [], errores = [];
+        res.forEach(function(r) {
+            if (r.error) { errores.push(r); return; }
+            var p = homoIcmsRows(r.grid);
+            if (p.error || !p.rows.length) { errores.push({ fileName: r.fileName, error: p.error || 'No trae ninguna fila con Work Order.' }); return; }
+            // El VIN del nombre solo identifica al renglón si el archivo trae UNO.
+            var tail = p.rows.length === 1 ? homoIcmsVinTail(r.fileName) : '';
+            p.rows.forEach(function(row) { items.push({ fileName: r.fileName, tail: tail, row: row }); });
+        });
+        if (st) st.innerHTML = '';
+        if (!items.length) {
+            showToast('Ningún archivo se pudo leer: ' + errores.map(function(e) { return e.fileName + ' (' + e.error + ')'; }).join('; '), 'error');
             return;
         }
-        reader.onload = function() {
-            try {
-                var wb = window.XLSX.read(new Uint8Array(reader.result), { type: 'array' });
-                var sheet = wb.Sheets[wb.SheetNames[0]];
-                var grid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
-                _homoImportReport(homoImportApply(grid));
-            } catch (e) {
-                console.error('homoImportFile:', e);
-                fallo('No se pudo leer el archivo. Ábrelo en Excel, guárdalo de nuevo como .xlsx o .csv e inténtalo otra vez.');
-            }
-        };
-        reader.readAsArrayBuffer(file);
+        var plan = homoIcmsBatchPlan(items, (typeof db !== 'undefined' && db.vehicles) || []);
+        showModal({
+            title: 'Cargar ICMS — revisa antes de aplicar', type: 'info',
+            body: homoIcmsBatchHTML(plan, errores),
+            buttons: [
+                { label: 'Cancelar' },
+                { label: 'Aplicar', cls: 'btn-primary', onclick: function() {
+                    var picks = Array.prototype.slice.call(document.querySelectorAll('#globalModal [data-homo-batch]:checked'))
+                        .map(function(el) { var i = parseInt(el.getAttribute('data-homo-batch'), 10); return { i: i, action: plan[i].action }; });
+                    var m = document.getElementById('globalModal'); if (m) m.style.display = 'none';
+                    var out = homoIcmsBatchApply(items, picks);
+                    if (!out) return;
+                    if (out.error) { showToast(out.error, 'error'); return; }
+                    window._homoLastImport = '✅ ICMS: ' + out.aplicados + ' vehículo(s) actualizado(s)' +
+                        (out.saltados.length ? ', ' + out.saltados.length + ' sin aplicar (cambiaron mientras revisabas)' : '') +
+                        ' · catálogo: ' + out.catalogo.nuevas + ' nuevas, ' + out.catalogo.actualizadas + ' actualizadas';
+                    if (typeof pnRender === 'function') pnRender();
+                } }
+            ]
+        });
     });
+}
+
+/**
+ * Escribe el lote. Capa de datos: vuelve a armar el plan contra el `db` de ESTE
+ * instante (el sync pudo cambiar un vehículo mientras se revisaba) y solo aplica lo
+ * que sigue teniendo la misma acción. picks = [{i, action}] (índice de `items` y la
+ * acción que se mostró) o índices sueltos.
+ */
+function homoIcmsBatchApply(items, picks) {
+    if (typeof authRequire === 'function' && !authRequire('homolog.manage', 'cargar el ICMS a los vehículos')) return null;
+    homoInit();
+    var who = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
+    var now = new Date().toISOString();
+    var plan = homoIcmsBatchPlan(items, (typeof db !== 'undefined' && db.vehicles) || []);
+    var aplicados = 0, saltados = [], undo = [];
+    (picks || []).forEach(function(pk) {
+        var i = typeof pk === 'number' ? pk : pk.i;
+        var e = plan[i];
+        if (!e || !HOMO_BATCH_ACTIONS[e.action] || !HOMO_BATCH_ACTIONS[e.action].pick) { saltados.push(i); return; }
+        // Se aplica lo que la persona VIO: si el vehículo cambió mientras revisaba
+        // (p. ej. llegó una ficha por sync y "llenar" pasó a "valores distintos"), se salta.
+        if (typeof pk === 'object' && pk.action && pk.action !== e.action) { saltados.push(i); return; }
+        var v = db.vehicles.filter(function(x) { return x.id === e.vehicleId; })[0];
+        if (!v) { saltados.push(i); return; }
+        var ficha = homoFichaFromIcms(e.row, { fileName: e.fileName, by: who, at: now });
+        var before = v.homolog ? JSON.parse(JSON.stringify(v.homolog)) : null;
+        var next = Object.assign({}, v.homolog || {});
+        var keys = e.action === 'completar' ? e.blanks
+                 : HOMO_FICHA_FIELDS.map(function(f) { return f[0]; });
+        var changes = [];
+        keys.forEach(function(k) {
+            var val = ficha[k];
+            if (val == null || val === '') return;
+            var prev = next[k];
+            var isNum = HOMO_FICHA_FIELDS.some(function(f) { return f[0] === k && f[2]; });
+            if (prev != null && prev !== '' &&
+                (isNum ? _homoNum(prev) === _homoNum(val) : _homoNorm(prev) === _homoNorm(val))) return;
+            changes.push({ campo: _homoFieldLabel(k), key: k, antes: prev == null ? '' : prev, despues: val,
+                           razon: 'Archivo del ICMS «' + e.fileName + '»' });
+            next[k] = val;
+        });
+        ['ocn', 'wvta', 'variant', 'version'].forEach(function(k) { if (!next[k] && ficha[k]) next[k] = ficha[k]; });
+        next.source = 'icms'; next.icmsFile = e.fileName; next.by = who; next.at = now;
+        undo.push({ v: v, homolog: v.homolog, timelineLen: (v.timeline || []).length });
+        v.homolog = next;
+        v.timeline = v.timeline || [];
+        v.timeline.push({
+            timestamp: now, user: who,
+            action: (e.action === 'corregir' ? 'Ficha de homologación corregida' : 'Ficha de homologación cargada') +
+                    ' desde el ICMS (WO ' + (e.row.workOrder || '—') + ')',
+            data: { modified: changes, source: 'icms', icmsFile: e.fileName }
+        });
+        aplicados++;
+        if (typeof auditLog === 'function') {
+            var small = function(h) {
+                var o = {}; if (!h) return null;
+                HOMO_FICHA_FIELDS.forEach(function(f) { if (h[f[0]] != null && h[f[0]] !== '') o[f[0]] = h[f[0]]; });
+                return o;
+            };
+            auditLog('homolog', 'homologacion_icms', { type: 'vehicle', id: v.id, label: v.vin },
+                e.action + ' desde «' + e.fileName + '»: ' + changes.map(function(c) { return c.campo + ' ' + c.antes + '→' + c.despues; }).join(', '),
+                { before: small(before), after: small(next) });
+        }
+    });
+    if (aplicados) {
+        var okSave = (typeof saveDB === 'function') ? saveDB() : true;
+        if (okSave === false) {
+            undo.forEach(function(u) { u.v.homolog = u.homolog; u.v.timeline.length = u.timelineLen; });
+            return { error: 'No se pudo guardar (almacenamiento lleno). No se cambió ningún vehículo.' };
+        }
+    }
+    var cat = _homoCatalogUpsert(items.map(function(it) { return it.row; }), who, now);
+    homoSave();
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+    return { aplicados: aplicados, saltados: saltados, catalogo: cat };
 }
 
 function homoExportCSV() {
@@ -666,8 +1207,9 @@ function homoExportCSV() {
 
 if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     'pn-homolog': { title: 'Homologación Europa', text: 'El catálogo con los coeficientes de dinamómetro (f0/f1/f2/TM) y el CO₂ declarado de cada vehículo europeo, importado del ICMS.', tips: [
-        'Sube el Excel del ICMS una sola vez; el Alta autollena solo a partir de ahí.',
-        'Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',
+        'En el Alta, "📥 Cargar el ICMS de esta unidad" lee el Excel de la Work Order y llena f0, f1, f2, TM, MR y CO₂ sin teclear.',
+        'Aquí puedes cargar de un jalón los ICMS de unidades ya registradas: cada archivo se liga a su vehículo por el VIN del nombre (VIN_…xlsx).',
+        'El catálogo se identifica por Work Order: varias WO comparten MC code con valores distintos.',
         'Reimportar el mismo archivo actualiza las filas, no las duplica.',
         'El veredicto de CO₂ (FCF, Evolution Factor) se ajusta en CoP → Validador, dentro de la mesa de trabajo de cada familia.'
     ]}
@@ -675,8 +1217,10 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     homo_mr: { title: 'MR (masa rotativa)', text: 'Masa rotativa equivalente, tal como viene en el ICMS. La inercia (ETW) que va al dinamómetro es TM + MR, y la app la calcula sola en Operación.' },
-    'pn-homolog-help': { title: 'Catálogo del ICMS', text: 'Cada fila es un vehículo homologado, identificado por su MC code. De ahí salen los coeficientes con los que se carga el dinamómetro y el CO₂ declarado contra el que se compara lo medido.' },
-    'homo_mc': { title: 'MC code', text: 'El código del ICMS que identifica la homologación del vehículo. Escribe unos caracteres y elige de la lista: se autollenan los coeficientes y el CO₂. La próxima vez que registres esta misma configuración se llenará solo.' },
+    'pn-homolog-help': { title: 'Catálogo del ICMS', text: 'Cada fila es una Work Order del ICMS (varias WO comparten MC code con coeficientes y CO₂ distintos). De ahí salen los coeficientes con los que se carga el dinamómetro y el CO₂ declarado contra el que se compara lo medido.' },
+    'homo_mc': { title: 'Work Order / MC code', text: 'Lo más seguro es "📥 Cargar el ICMS de esta unidad". Si no tienes el archivo, escribe la Work Order y elige de la lista. Los valores cambian de una WO a otra, así que no reuses los de otra unidad aunque sea la misma configuración.' },
+    'homo-icms-help': { title: 'Cargar el ICMS de esta unidad', text: 'Elige el Excel que bajas del ICMS con la Work Order de la unidad (VIN_…xlsx). La app lee los valores WLTP (nunca los NEDC del mismo archivo), te los muestra y comprueba que el VIN del nombre del archivo coincida con el que capturaste. Con "Usar estos valores" se llenan los campos; puedes corregirlos y queda anotado.' },
+    'homo-icms-batch-help': { title: 'ICMS de unidades ya registradas', text: 'Selecciona uno o varios archivos del ICMS. Cada uno se liga a su vehículo por el VIN del nombre del archivo (la Work Order no basta: varias unidades comparten WO). Antes de aplicar ves qué se llena; una prueba ya enviada a aprobación o liberada no se reescribe con valores distintos.' },
     'homo_f0': { title: 'f0 (N)', text: 'Coeficiente constante de la resistencia al avance, del apartado WLTP Driving energy del ICMS. Es uno de los tres valores con los que se carga el dinamómetro.' },
     'homo_f1': { title: 'f1 (N/(km/h))', text: 'Coeficiente lineal de la resistencia al avance, del ICMS.' },
     'homo_f2': { title: 'f2 (N/(km/h)²)', text: 'Coeficiente cuadrático de la resistencia al avance, del ICMS.' },
