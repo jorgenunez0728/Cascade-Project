@@ -113,5 +113,18 @@ console.log('\n== [2.28.0] El cálculo paso a paso ==');
     ok('sin stats devuelve vacío', ctx.copCo2StepsHTML(null) === '');
 }
 
+console.log('\n== [2.29.1] sin familia abierta no hay mesa con clave vacía (#175) ==');
+{
+    ctx.copState.familyKey = '';
+    ctx.copState.families = {};
+    const f = ctx.copCo2Factors();
+    ok('copCo2Factors sin familia responde 1/1', f.fcf === 1 && f.evc === 1);
+    ok('y NO crea families[""] (Firestore rechaza un campo vacío)', !Object.prototype.hasOwnProperty.call(ctx.copState.families, ''));
+    const fam = { '': { key: '' }, 'A|B': { key: 'A|B' } };
+    ctx.copCleanFamilies(fam);
+    ok('copCleanFamilies retira la clave vacía que ya estaba guardada', !('' in fam) && 'A|B' in fam);
+    ok('copCleanFamilies tolera null', ctx.copCleanFamilies(null) === null);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;
