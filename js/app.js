@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.28.0';
+var APP_VERSION = '2.28.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,11 @@ var APP_VERSION = '2.28.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.28.1', date: '1 oct 2026', title: 'Las gráficas ya no dependen de internet',
+      bullets: [
+          'Arreglado: CoP → Control SPC se quedaba en blanco (sin carta I ni carta MR). La librería de gráficas se descargaba de un servidor externo que la red del trabajo puede bloquear; ahora viene con la app, igual que el PDF.',
+          'Si una gráfica no se puede dibujar, la pantalla lo dice en su lugar y el error queda listo para el reporte 🐞, en vez de quedarse en blanco.'
+      ] },
     { version: '2.28.0', date: '1 oct 2026', title: 'CO₂: el cálculo paso a paso',
       bullets: [
           'Nuevo: en CoP → Validador → CO₂ vs valor declarado hay dos desgloses plegables, "Apéndice I — el cálculo paso a paso" y "UN R154 §3.3.1 — el cálculo paso a paso", con los números reales en cada fórmula: x de cada vehículo, promedio, varianza, s, la fila de la Tabla A2/3, los dos límites y la comparación.',

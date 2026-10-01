@@ -20,6 +20,26 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.28.1 — Las gráficas ya no dependen de internet (2026-10-01)
+
+### Arreglado
+- **CoP → Control SPC se quedaba en blanco**: se veían n, media y σ, pero ni la carta de
+  individuos ni la de rangos móviles. La librería de gráficas (Chart.js) se descargaba de
+  `cdnjs`, y la red del trabajo bloquea esos servidores (el mismo motivo por el que el PDF ya
+  venía con la app, issue #107). Sin la librería, la carta no se dibujaba y no avisaba nada.
+  Ahora Chart.js viene con la app (`vendor/`), así que las gráficas del Plan, Consumibles y
+  Datos tampoco dependen de esa red.
+- Si una carta SPC no se puede dibujar, la pantalla lo dice en su lugar y el error queda en el
+  reporte 🐞.
+
+### Para desarrollo
+- `vendor/chart.umd.min.js` (Chart.js 4.4.7 del paquete npm) se sirve como archivo aparte, NO
+  se incrusta en el HTML: `deploy.sh` lo copia a `dist/vendor/` y el service worker lo precarga
+  (`LOCAL_ASSETS`).
+- Se retiró `chartjs-plugin-zoom`: ninguna gráfica configuraba `zoom`.
+- `copSpcRenderCharts` envuelve la creación (`_copSpcRenderChartsNow`) y ante un fallo llama
+  `_copSpcChartFail` (mensaje en el lugar de la carta + `_bugRecordError`).
+
 ## 2.28.0 — CO₂: el cálculo paso a paso (2026-10-01)
 
 ### Nuevo

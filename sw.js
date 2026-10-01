@@ -14,8 +14,6 @@ var CDN_ASSETS = [
     // [v23.2] jsPDF salió de esta lista: ya vive en vendor/jspdf.umd.min.js y la
     // app no lo pide al CDN, así que precachearlo era descargar 364 KB para nada
     // en cada versión nueva (el SW borra toda la caché al activarse).
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js',
     'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js',
     'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
     'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
@@ -23,14 +21,23 @@ var CDN_ASSETS = [
     'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'
 ];
 
+// [2.28.1] Librerías servidas por el propio sitio (vendor/). Se precargan para que
+// funcionen sin red desde la primera instalación; después las sirve el network-first.
+var LOCAL_ASSETS = ['./vendor/chart.umd.min.js'];
+
 // Install: precache CDN assets
 self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
             console.log('[SW] Precaching CDN assets...');
-            return cache.addAll(CDN_ASSETS).catch(function(err) {
-                console.warn('[SW] Some CDN assets failed to cache:', err);
-            });
+            return Promise.all([
+                cache.addAll(LOCAL_ASSETS).catch(function(err) {
+                    console.warn('[SW] Local assets failed to cache:', err);
+                }),
+                cache.addAll(CDN_ASSETS).catch(function(err) {
+                    console.warn('[SW] Some CDN assets failed to cache:', err);
+                })
+            ]);
         })
     );
     self.skipWaiting();

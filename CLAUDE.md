@@ -2716,6 +2716,17 @@ abría, y Vincular escondía vehículos).
   juicio congelado siguen con los factores GUARDADOS, y la nota de vista previa lo declara.
   No hacer que la vista previa mueva el medidor: un auditor leería un veredicto sin guardar.
 
+## 2.28.1 — Chart.js viene con la app
+
+- **Chart.js vive en `vendor/chart.umd.min.js`**, como jsPDF y Alpine: la red del trabajo
+  bloquea CDNs. A diferencia de esos dos, **no se incrusta** en el bundle (pesa 200 KB y el
+  arranque tiene presupuesto, 2.17.0): `deploy.sh` lo copia a `dist/vendor/` y el SW lo
+  precarga (`LOCAL_ASSETS`). Una librería nueva que la liberación o una pantalla necesite
+  para funcionar va a `vendor/`, nunca a un CDN.
+- **Una gráfica que no se puede dibujar lo dice en su lugar** (`_copSpcChartFail`). Un
+  `if (typeof Chart === 'undefined') return;` a secas deja una tarjeta en blanco que se
+  reporta como "no carga nada".
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
@@ -2772,7 +2783,7 @@ abría, y Vincular escondía vehículos).
   dispositivo con contraseña de laboratorio (Firebase Email/Password) — juntos, no solo cosméticos.
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
-- **CDN deps**: signature_pad, jsPDF, Chart.js 4.4.7 (+zoom), JsBarcode, html5-qrcode, Firebase SDK.
+- **CDN deps**: signature_pad, JsBarcode, html5-qrcode, Firebase SDK. **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
 - `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. Las
   configuraciones dadas de alta a mano (`kia_manual_configs`, Gestor de Configuraciones) se
   fusionan al final de **`parseCSV()`** vía `_mergeManualConfigsIntoAll()` — **v17.9**: antes solo

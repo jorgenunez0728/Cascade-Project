@@ -22,8 +22,10 @@
          red del trabajo bloquea CDNs (mismo motivo por el que Alpine ya está local).
          Sin él, generateCOP15PDF reventaba tras mostrar "Generando PDF..." (issue #107). -->
     <script src="vendor/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <!-- [2.28.1] Chart.js VENDORIZADO, por el mismo motivo que jsPDF: la red del trabajo
+         bloquea CDNs, y sin Chart.js toda gráfica (Control SPC incluida) salía en blanco
+         sin decir nada. El plugin de zoom se retiró: ninguna gráfica lo configuraba. -->
+    <script src="vendor/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 

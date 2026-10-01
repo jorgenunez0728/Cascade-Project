@@ -425,8 +425,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 //# sourceMappingURL=jspdf.umd.min.js.map
 
 </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <!-- [2.28.1] Chart.js VENDORIZADO, por el mismo motivo que jsPDF: la red del trabajo
+         bloquea CDNs, y sin Chart.js toda gráfica (Control SPC incluida) salía en blanco
+         sin decir nada. El plugin de zoom se retiró: ninguna gráfica lo configuraba. -->
+    <script src="vendor/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
@@ -6421,6 +6423,12 @@ body.ficha-open { overflow: hidden; }
 .cop-step-table th { color: var(--muted); font-weight: 600; }
 .cop-step-yes { color: var(--ok-text); font-weight: 700; }
 .cop-step-no  { color: var(--danger-text); font-weight: 700; }
+
+/* [2.28.1] Carta SPC que no se pudo dibujar: lo dice en su lugar. */
+.cop-spc-chart-fail {
+    margin: 0; padding: var(--space-md); border-radius: var(--radius-md);
+    background: var(--warn-bg); color: var(--warn-text); font-size: var(--fs-sm);
+}
     </style>
 </head>
 
@@ -9099,10 +9107,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610011920';
+var APP_BUILD = '202610012006';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '1140b99a8a372212bfe5b2f1df361d5933118257';
+var APP_COMMIT = 'b2dc0ed58e9118b9c49879db724ef18dbf272448';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9110,7 +9118,7 @@ var APP_COMMIT = '1140b99a8a372212bfe5b2f1df361d5933118257';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.28.0';
+var APP_VERSION = '2.28.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9118,6 +9126,11 @@ var APP_VERSION = '2.28.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.28.1', date: '1 oct 2026', title: 'Las gráficas ya no dependen de internet',
+      bullets: [
+          'Arreglado: CoP → Control SPC se quedaba en blanco (sin carta I ni carta MR). La librería de gráficas se descargaba de un servidor externo que la red del trabajo puede bloquear; ahora viene con la app, igual que el PDF.',
+          'Si una gráfica no se puede dibujar, la pantalla lo dice en su lugar y el error queda listo para el reporte 🐞, en vez de quedarse en blanco.'
+      ] },
     { version: '2.28.0', date: '1 oct 2026', title: 'CO₂: el cálculo paso a paso',
       bullets: [
           'Nuevo: en CoP → Validador → CO₂ vs valor declarado hay dos desgloses plegables, "Apéndice I — el cálculo paso a paso" y "UN R154 §3.3.1 — el cálculo paso a paso", con los números reales en cada fórmula: x de cada vehículo, promedio, varianza, s, la fila de la Tabla A2/3, los dos límites y la comparación.',
@@ -9876,14 +9889,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610011920' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610012006' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610011920' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610012006' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9899,7 +9912,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610011920' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610012006' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -58353,7 +58366,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610011920' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610012006' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -63958,9 +63971,40 @@ function _copSpcDestroyCharts() {
     if (window._copSpcMrChart) { try { window._copSpcMrChart.destroy(); } catch (e) {} window._copSpcMrChart = null; }
 }
 
+/**
+ * [2.28.1] Una carta que no se pudo dibujar lo DICE en su lugar. Antes, sin Chart.js
+ * (bloqueado por la red) o con un error al crearla, la tarjeta quedaba en blanco y
+ * se leía como "no carga nada" (2.10.0: nada falla en silencio).
+ */
+function _copSpcChartFail(msg, err) {
+    ['cop-spc-ichart-wrapper', 'cop-spc-mrchart-wrapper'].forEach(function(id) {
+        var w = document.getElementById(id);
+        if (!w) return;
+        w.style.height = 'auto';
+        w.innerHTML = '<p class="cop-spc-chart-fail" role="alert">⚠️ ' + msg + '</p>';
+    });
+    if (err && typeof _bugRecordError === 'function') {
+        _bugRecordError('spc-chart', err.message || String(err), 'cop_validator.js', 0, 0, err.stack);
+    }
+}
+
 function copSpcRenderCharts() {
     _copSpcDestroyCharts();
-    if (typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') {
+        _copSpcChartFail('No se pudo cargar la librería de gráficas (Chart.js). Los números de arriba sí son ' +
+            'correctos. Recarga la página; si sigue igual, repórtalo con 🐞.');
+        return;
+    }
+    try {
+        _copSpcRenderChartsNow();
+    } catch (err) {
+        _copSpcDestroyCharts();
+        _copSpcChartFail('La carta no se pudo dibujar (' + _copEsc(err && err.message ? err.message : String(err)) +
+            '). Los números de arriba sí son correctos. Repórtalo con 🐞 desde esta pantalla.', err);
+    }
+}
+
+function _copSpcRenderChartsNow() {
     var sel = _copSpcSelection();
     if (!sel.fam || !sel.gas) return;
     var pts = copSpcSeries(sel.fam, sel.gas.field);
@@ -69899,7 +69943,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8633,"mods":[[8636,"js/app.js",17723],[17727,"js/uiflow.js",18043],[18047,"js/cop15.js",27712],[27716,"js/inventory.js",34782],[34786,"js/testplan.js",45508],[45512,"js/panel.js",50677],[50681,"js/projects.js",52970],[52974,"js/auth.js",54015],[54019,"js/signatures.js",54220],[54224,"js/firebase-sync.js",60994],[60998,"js/cop_validator.js",64711],[64715,"js/homolog.js",65976],[65980,"js/vets.js",67683],[67687,"js/review.js",68136],[68140,"js/opcards.js",68569],[68573,"js/handoff.js",68847],[68851,"js/ficha.js",69334],[69338,"js/relevo.js",69714],[69718,"js/momentos.js",69855],[69859,"js/bugreport.js",71005]]};
+var BUG_LINE_MAP = {"tag":8641,"mods":[[8644,"js/app.js",17736],[17740,"js/uiflow.js",18056],[18060,"js/cop15.js",27725],[27729,"js/inventory.js",34795],[34799,"js/testplan.js",45521],[45525,"js/panel.js",50690],[50694,"js/projects.js",52983],[52987,"js/auth.js",54028],[54032,"js/signatures.js",54233],[54237,"js/firebase-sync.js",61007],[61011,"js/cop_validator.js",64755],[64759,"js/homolog.js",66020],[66024,"js/vets.js",67727],[67731,"js/review.js",68180],[68184,"js/opcards.js",68613],[68617,"js/handoff.js",68891],[68895,"js/ficha.js",69378],[69382,"js/relevo.js",69758],[69762,"js/momentos.js",69899],[69903,"js/bugreport.js",71049]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
