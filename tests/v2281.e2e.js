@@ -67,6 +67,38 @@ let browser;
         chk('la carta I y la carta MR se dibujan', s.ichart && s.mr && s.iW > 0 && s.mW > 0, JSON.stringify(s));
         chk('sin aviso de falla cuando todo está bien', !s.fail.length, s.fail.join(' | '));
 
+        // [2.29.1] #173: pasar el mouse cerca de una línea de control (media, UCL, límite)
+        // dejaba el tooltip sin elementos y tronaba "reading 'dataIndex'".
+        const antes = errores.length;
+        for (const id of ['cop-spc-ichart', 'cop-spc-mrchart']) {
+            const box = await page.locator('#' + id).boundingBox();
+            if (!box) continue;
+            for (let fy = 0.05; fy < 1; fy += 0.06)
+                for (let fx = 0.05; fx < 1; fx += 0.09)
+                    await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+        }
+        await page.waitForTimeout(200);
+        const errHover = errores.slice(antes);
+        chk('barrer el mouse sobre las dos cartas no truena (#173)', !errHover.length, errHover.join(' | '));
+        await page.locator('#cop-spc-ichart').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(400);
+        const tip = await page.evaluate(() => {
+            const ch = window._copSpcIChart; if (!ch) return null;
+            const meta = ch.getDatasetMeta(0), el = meta.data[1];
+            const r = ch.canvas.getBoundingClientRect();
+            return { x: r.left + el.x, y: r.top + 4 };
+        });
+        if (tip) {
+            if (vp.mobile) await page.touchscreen.tap(tip.x, tip.y);
+            else await page.mouse.move(tip.x, tip.y);
+            await page.waitForTimeout(150);
+            const t = await page.evaluate(() => {
+                const tt = window._copSpcIChart.tooltip;
+                return { op: tt.opacity, title: (tt.title || []).join(' '), body: (tt.body || []).map(b => b.lines.join(' ')).join(' ') };
+            });
+            chk('lejos del punto, el tooltip sigue mostrando la medición de esa columna', t.op > 0 && /VINSPC1/.test(t.title) && /CO/.test(t.body), JSON.stringify(t));
+        }
+
         // Si la librería faltara, la tarjeta lo dice en vez de quedarse en blanco.
         await page.evaluate(() => { window.__Chart = window.Chart; delete window.Chart; copRender(); });
         await page.waitForTimeout(300);

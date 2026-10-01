@@ -3045,20 +3045,25 @@ function _copSpcRenderChartsNow() {
             data: { labels: labels, datasets: datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
-                interaction: { intersect: false, mode: 'nearest' },
+                // [2.29.1] #173: 'index' y no 'nearest'. Con 'nearest', cerca de una línea de
+                // control el elemento activo era esa línea, el filtro la quitaba y el tooltip
+                // quedaba sin elementos (Chart.js decide mostrarlo ANTES de filtrar).
+                interaction: { intersect: false, mode: 'index' },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         filter: function(item) { return item.datasetIndex === 0; },
                         callbacks: {
                             title: function(items) {
-                                var p = pts[items[0].dataIndex];
+                                var p = items && items.length ? pts[items[0].dataIndex] : null;
+                                if (!p) return '';
                                 return (p.date ? p.date.slice(0, 10) + ' · ' : '') + p.vin;
                             },
                             label: function(item) {
                                 return sel.gas.label + ' = ' + _copSpcFmt(item.parsed.y) + ' ' + dispUnit;
                             },
                             footer: function(items) {
+                                if (!items || !items.length) return '';
                                 var f = flags[items[0].dataIndex] || [];
                                 return f.length ? '⚠ ' + f.map(function(x) { return COP_SPC_RULES[x]; }).join(', ') : 'en control';
                             }
@@ -3094,6 +3099,7 @@ function _copSpcRenderChartsNow() {
             data: { labels: mrLabels, datasets: mrDatasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { intersect: false, mode: 'index' },
                 plugins: {
                     legend: { display: false },
                     tooltip: {

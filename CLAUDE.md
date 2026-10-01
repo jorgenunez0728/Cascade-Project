@@ -2749,6 +2749,13 @@ abría, y Vincular escondía vehículos).
 - **El DF (factor de deterioro) NO se aplica al veredicto de gases**, por decisión del
   laboratorio (2-oct-2026), aunque su Excel maestro sí lo hacía.
 
+## 2.29.1 — Tooltips de Chart.js con `filter` (`js/cop_validator.js`)
+
+- **Un `tooltip.filter` exige `interaction.mode: 'index'`** (o callbacks que toleren una lista
+  vacía). Chart.js 4 decide mostrar el recuadro por los elementos ACTIVOS y filtra después: con
+  `'nearest'` el activo puede ser una línea de referencia, el filtro la quita y `items[0]` es
+  `undefined` (issue #173). Toda gráfica nueva con líneas de referencia + filtro usa `'index'`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

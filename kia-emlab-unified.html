@@ -9172,10 +9172,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610012326';
+var APP_BUILD = '202610012343';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'd9690f4d237d32c404c5749f04f843a0f504e2b9';
+var APP_COMMIT = '20bc127004e7bb17f7c2e5404d8687d6950b07d2';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9183,7 +9183,7 @@ var APP_COMMIT = 'd9690f4d237d32c404c5749f04f843a0f504e2b9';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.29.0';
+var APP_VERSION = '2.29.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9191,6 +9191,11 @@ var APP_VERSION = '2.29.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.29.1', date: '2 oct 2026', title: 'Control SPC: pasar el mouse por la carta ya no truena',
+      bullets: [
+          'Arreglado: en CoP → Control SPC, al pasar el mouse cerca de la línea de la media, del UCL o del límite salía un error (y el aviso de "Reportar"). Ahora el recuadro muestra siempre la medición de esa columna: fecha, VIN, valor y si está en control.',
+          'La carta MR muestra su recuadro igual: basta con estar sobre la columna, no hace falta atinarle al punto.'
+      ] },
     { version: '2.29.0', date: '2 oct 2026', title: 'El ICMS de cada unidad, sin teclear',
       bullets: [
           'Nuevo: en el Alta (vehículos Europa), "📥 Cargar el ICMS de esta unidad" lee el Excel que bajas del ICMS con la Work Order y llena f0, f1, f2, TM, MR y CO₂ declarado. Antes de usarlos ves los valores y si el VIN del nombre del archivo coincide con el que capturaste.',
@@ -9962,14 +9967,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610012326' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610012343' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610012326' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610012343' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9985,7 +9990,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610012326' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610012343' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -58446,7 +58451,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610012326' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610012343' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -64135,20 +64140,25 @@ function _copSpcRenderChartsNow() {
             data: { labels: labels, datasets: datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
-                interaction: { intersect: false, mode: 'nearest' },
+                // [2.29.1] #173: 'index' y no 'nearest'. Con 'nearest', cerca de una línea de
+                // control el elemento activo era esa línea, el filtro la quitaba y el tooltip
+                // quedaba sin elementos (Chart.js decide mostrarlo ANTES de filtrar).
+                interaction: { intersect: false, mode: 'index' },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         filter: function(item) { return item.datasetIndex === 0; },
                         callbacks: {
                             title: function(items) {
-                                var p = pts[items[0].dataIndex];
+                                var p = items && items.length ? pts[items[0].dataIndex] : null;
+                                if (!p) return '';
                                 return (p.date ? p.date.slice(0, 10) + ' · ' : '') + p.vin;
                             },
                             label: function(item) {
                                 return sel.gas.label + ' = ' + _copSpcFmt(item.parsed.y) + ' ' + dispUnit;
                             },
                             footer: function(items) {
+                                if (!items || !items.length) return '';
                                 var f = flags[items[0].dataIndex] || [];
                                 return f.length ? '⚠ ' + f.map(function(x) { return COP_SPC_RULES[x]; }).join(', ') : 'en control';
                             }
@@ -64184,6 +64194,7 @@ function _copSpcRenderChartsNow() {
             data: { labels: mrLabels, datasets: mrDatasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { intersect: false, mode: 'index' },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -70567,7 +70578,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8706,"mods":[[8709,"js/app.js",17809],[17813,"js/uiflow.js",18129],[18133,"js/cop15.js",27804],[27808,"js/inventory.js",34874],[34878,"js/testplan.js",45600],[45604,"js/panel.js",50769],[50773,"js/projects.js",53062],[53066,"js/auth.js",54107],[54111,"js/signatures.js",54312],[54316,"js/firebase-sync.js",61087],[61091,"js/cop_validator.js",64835],[64839,"js/homolog.js",66644],[66648,"js/vets.js",68351],[68355,"js/review.js",68804],[68808,"js/opcards.js",69237],[69241,"js/handoff.js",69515],[69519,"js/ficha.js",70002],[70006,"js/relevo.js",70382],[70386,"js/momentos.js",70523],[70527,"js/bugreport.js",71673]]};
+var BUG_LINE_MAP = {"tag":8706,"mods":[[8709,"js/app.js",17814],[17818,"js/uiflow.js",18134],[18138,"js/cop15.js",27809],[27813,"js/inventory.js",34879],[34883,"js/testplan.js",45605],[45609,"js/panel.js",50774],[50778,"js/projects.js",53067],[53071,"js/auth.js",54112],[54116,"js/signatures.js",54317],[54321,"js/firebase-sync.js",61092],[61096,"js/cop_validator.js",64846],[64850,"js/homolog.js",66655],[66659,"js/vets.js",68362],[68366,"js/review.js",68815],[68819,"js/opcards.js",69248],[69252,"js/handoff.js",69526],[69530,"js/ficha.js",70013],[70017,"js/relevo.js",70393],[70397,"js/momentos.js",70534],[70538,"js/bugreport.js",71684]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

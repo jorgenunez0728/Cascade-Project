@@ -20,6 +20,25 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.29.1 — Control SPC: pasar el mouse por la carta ya no truena (2026-10-02)
+
+### Arreglado
+- **CoP → Control SPC** (issue #173): al pasar el mouse cerca de una línea de control (media,
+  UCL, LCL, zonas σ o límite) salía `Cannot read properties of undefined (reading 'dataIndex')`
+  y el aviso de "Reportar". El error existía desde que hay cartas SPC, pero no se veía porque
+  hasta 2.28.1 las cartas no se dibujaban. Ahora el recuadro muestra siempre la medición de la
+  columna donde está el mouse (fecha, VIN, valor y reglas de Nelson).
+- La carta MR muestra su recuadro con solo estar sobre la columna, igual que la carta I.
+
+### Para desarrollo
+- Las dos cartas usan `interaction: { mode: 'index', intersect: false }`. Con `'nearest'`, el
+  elemento activo podía ser una línea constante; el `tooltip.filter` (solo `datasetIndex 0`)
+  la quitaba y Chart.js 4 llama a los callbacks con la lista vacía (decide mostrar el recuadro
+  por los activos ANTES de filtrar). Los callbacks `title`/`footer` además se protegen contra
+  una lista vacía.
+- `tests/v2281.e2e.js` barre el mouse sobre las dos cartas (escritorio) y toca un punto
+  (teléfono); falla con el código anterior.
+
 ## 2.29.0 — El ICMS de cada unidad, sin teclear (2026-10-02)
 
 ### Nuevo
