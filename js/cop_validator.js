@@ -2961,9 +2961,40 @@ function _copSpcDestroyCharts() {
     if (window._copSpcMrChart) { try { window._copSpcMrChart.destroy(); } catch (e) {} window._copSpcMrChart = null; }
 }
 
+/**
+ * [2.28.1] Una carta que no se pudo dibujar lo DICE en su lugar. Antes, sin Chart.js
+ * (bloqueado por la red) o con un error al crearla, la tarjeta quedaba en blanco y
+ * se leía como "no carga nada" (2.10.0: nada falla en silencio).
+ */
+function _copSpcChartFail(msg, err) {
+    ['cop-spc-ichart-wrapper', 'cop-spc-mrchart-wrapper'].forEach(function(id) {
+        var w = document.getElementById(id);
+        if (!w) return;
+        w.style.height = 'auto';
+        w.innerHTML = '<p class="cop-spc-chart-fail" role="alert">⚠️ ' + msg + '</p>';
+    });
+    if (err && typeof _bugRecordError === 'function') {
+        _bugRecordError('spc-chart', err.message || String(err), 'cop_validator.js', 0, 0, err.stack);
+    }
+}
+
 function copSpcRenderCharts() {
     _copSpcDestroyCharts();
-    if (typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') {
+        _copSpcChartFail('No se pudo cargar la librería de gráficas (Chart.js). Los números de arriba sí son ' +
+            'correctos. Recarga la página; si sigue igual, repórtalo con 🐞.');
+        return;
+    }
+    try {
+        _copSpcRenderChartsNow();
+    } catch (err) {
+        _copSpcDestroyCharts();
+        _copSpcChartFail('La carta no se pudo dibujar (' + _copEsc(err && err.message ? err.message : String(err)) +
+            '). Los números de arriba sí son correctos. Repórtalo con 🐞 desde esta pantalla.', err);
+    }
+}
+
+function _copSpcRenderChartsNow() {
     var sel = _copSpcSelection();
     if (!sel.fam || !sel.gas) return;
     var pts = copSpcSeries(sel.fam, sel.gas.field);

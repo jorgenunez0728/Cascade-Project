@@ -20,6 +20,76 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.29.0 — El ICMS de cada unidad, sin teclear (2026-10-02)
+
+### Nuevo
+- **Alta → 🇪🇺 Datos de homologación → "📥 Cargar el ICMS de esta unidad".** Eliges el Excel
+  que bajas del ICMS con la Work Order (`VIN_…xlsx`) y la app muestra WO, MC code,
+  variante/versión, f0, f1, f2, TM, MR, la inercia (TM + MR), el CO₂ declarado y el consumo.
+  Comprueba que el VIN del nombre del archivo coincida con el que capturaste (si no, lo dice
+  en rojo y el botón cambia a "Usar de todos modos"). Con "Usar estos valores" se llenan los
+  campos; si después corriges uno a mano, queda anotado que difiere del archivo.
+  De ahí en adelante todo es automático, como ya lo era: Operación toma Target A/B/C y la
+  inercia, y el CoP toma el CO₂ declarado.
+- **Datos → Homologación → "Cargar el ICMS de unidades ya registradas".** Seleccionas uno o
+  varios archivos; cada uno se liga a su vehículo por el VIN del nombre. Antes de aplicar ves
+  qué se llena, qué completa y qué valores son distintos. Lo distinto viene sin marcar, y una
+  prueba ya enviada a aprobación o liberada **no** se reescribe con valores distintos (solo se le
+  completan los datos vacíos). Cada cambio queda en la línea de tiempo del vehículo y en el
+  historial, con antes y después.
+
+### Arreglado
+- **El importador del ICMS no leía los números del archivo por Work Order**: reconocía la
+  identidad (MC code, WO, variante) pero no f0, f1, f2, TM, CO₂ ni consumo, porque el ICMS los
+  titula `WLTP Driving Resistance f0`, `WLTP CO2(Combined)`… Ahora sí, y **solo los WLTP**: el
+  mismo archivo trae los NEDC (f0 88.9 contra 102.5 WLTP, TM 1440 contra 1506) y nunca se toman.
+- **El .xlsx del ICMS ya no necesita internet**: se lee con el lector propio de la app (el de
+  VETS). Antes dependía de un servidor externo que la red del trabajo bloquea.
+- **El catálogo se identificaba por MC code, y varias Work Orders lo comparten con valores
+  distintos** (en el registro del laboratorio, `8GS6K5G17` aparece en 6 WO con CO₂ de 129 a 132):
+  importarlas las colapsaba en una sola fila y el Alta autollenaba con la última. Ahora cada
+  Work Order es su propia fila.
+
+### Cambió
+- El Alta **ya no se autollena** con los valores de la unidad anterior de la misma
+  configuración: tres unidades de "5DR 1.6P TGDI LP 2WD 7DCT" tienen f0 de 97.3, 112 y 111.6.
+  Ahora lo sugiere ("la última unidad usó la WO …") con un botón para usarlos si de verdad es
+  la misma WO.
+- La ficha del vehículo guarda también la Work Order, el nombre del archivo del ICMS y si el VIN
+  coincidía.
+- Los campos vacíos de la ficha decían `102.5`, `1507`, `132`… como ejemplo y se confundían con
+  valores ya capturados (y no eran los de la unidad); ahora dicen "Ej.: …".
+
+### Para desarrollo
+- `homoRowKey` = **Work Order** primero (MC code solo sin WO); `homoFindByKey` por MC code solo si
+  es de una fila. El merge de `homolog` en `fbPullApply` usa la misma clave.
+- `homoIcmsRows(grid)` (PURA) es LA lectura del ICMS; `homoImportApply`, el Alta y el lote la usan.
+  Los sinónimos WLTP de `HOMO_IMPORT_FIELDS` son exactos para que el NEDC nunca empate.
+- `homoReadFileGrid(file)` lee .xlsx con `vetsReadWorkbook` (sin CDN); SheetJS queda solo para .xls.
+- `homoIcmsBatchPlan(items, vehicles)` (PURA) decide cada acción; `homoIcmsBatchApply` la vuelve a
+  calcular contra el `db` de ese instante y solo aplica la acción que la persona vio.
+- `tests/homolog.node.js` usa el archivo real `tests/fixtures/icms/VIN_432873_1790797415928.xlsx`.
+
+## 2.28.1 — Las gráficas ya no dependen de internet (2026-10-01)
+
+### Arreglado
+- **CoP → Control SPC se quedaba en blanco**: se veían n, media y σ, pero ni la carta de
+  individuos ni la de rangos móviles. La librería de gráficas (Chart.js) se descargaba de
+  `cdnjs`, y la red del trabajo bloquea esos servidores (el mismo motivo por el que el PDF ya
+  venía con la app, issue #107). Sin la librería, la carta no se dibujaba y no avisaba nada.
+  Ahora Chart.js viene con la app (`vendor/`), así que las gráficas del Plan, Consumibles y
+  Datos tampoco dependen de esa red.
+- Si una carta SPC no se puede dibujar, la pantalla lo dice en su lugar y el error queda en el
+  reporte 🐞.
+
+### Para desarrollo
+- `vendor/chart.umd.min.js` (Chart.js 4.4.7 del paquete npm) se sirve como archivo aparte, NO
+  se incrusta en el HTML: `deploy.sh` lo copia a `dist/vendor/` y el service worker lo precarga
+  (`LOCAL_ASSETS`).
+- Se retiró `chartjs-plugin-zoom`: ninguna gráfica configuraba `zoom`.
+- `copSpcRenderCharts` envuelve la creación (`_copSpcRenderChartsNow`) y ante un fallo llama
+  `_copSpcChartFail` (mensaje en el lugar de la carta + `_bugRecordError`).
+
 ## 2.28.0 — CO₂: el cálculo paso a paso (2026-10-01)
 
 ### Nuevo

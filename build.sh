@@ -44,8 +44,10 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <!--JSPDF_INLINE_PLACEHOLDER-->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <!-- [2.28.1] Chart.js VENDORIZADO, por el mismo motivo que jsPDF: la red del trabajo
+         bloquea CDNs, y sin Chart.js toda gráfica (Control SPC incluida) salía en blanco
+         sin decir nada. El plugin de zoom se retiró: ninguna gráfica lo configuraba. -->
+    <script src="vendor/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 

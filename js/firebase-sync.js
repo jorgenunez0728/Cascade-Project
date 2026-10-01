@@ -2174,15 +2174,16 @@ function fbPullApply(collections, results, showFeedback) {
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
         } else if (col === 'homolog') {
-            // Catálogo de homologación: merge por MC code / Work Order (gana el más
-            // reciente por fila) y unión de los enlaces config→MC code, para que dos
+            // Catálogo de homologación: merge por Work Order (MC code si no hay WO; gana
+            // el más reciente por fila) y unión de los enlaces config→WO, para que dos
             // técnicos importando descargas distintas del ICMS no se pisen.
+            // [2.29.0] WO primero, igual que homoRowKey: varias WO comparten MC code.
             var _localHomo = {}; try { _localHomo = JSON.parse(localStorage.getItem('kia_homolog_v1')) || {}; } catch(e) {}
             var _remoteHomo = remoteData || {};
             var _rowMap = {};
             (_localHomo.catalog || []).concat(_remoteHomo.catalog || []).forEach(function(r) {
                 if (!r) return;
-                var k = String((r.mcCode || r.workOrder || '')).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
+                var k = String((r.workOrder || r.mcCode || '')).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
                 if (!k) return;
                 var prev = _rowMap[k];
                 if (!prev || String(r.at || '') >= String(prev.at || '')) _rowMap[k] = r;

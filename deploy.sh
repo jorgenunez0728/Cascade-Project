@@ -37,6 +37,10 @@ if grep -q "__BUILD_VERSION__" "$DIR/sw.build.js"; then
 fi
 cp "$DIR/sw.build.js" "$DIST/sw.js"
 cp -r "$DIR/icons" "$DIST/"
+# [2.28.1] Chart.js se sirve desde el sitio (no se incrusta en el HTML, para no
+# engordar el arranque): el bundle lo pide como vendor/chart.umd.min.js.
+mkdir -p "$DIST/vendor"
+cp "$DIR/vendor/chart.umd.min.js" "$DIST/vendor/"
 
 echo "   dist/ contents:"
 ls -1 "$DIST"

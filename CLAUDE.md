@@ -2716,6 +2716,39 @@ abría, y Vincular escondía vehículos).
   juicio congelado siguen con los factores GUARDADOS, y la nota de vista previa lo declara.
   No hacer que la vista previa mueva el medidor: un auditor leería un veredicto sin guardar.
 
+## 2.28.1 — Chart.js viene con la app
+
+- **Chart.js vive en `vendor/chart.umd.min.js`**, como jsPDF y Alpine: la red del trabajo
+  bloquea CDNs. A diferencia de esos dos, **no se incrusta** en el bundle (pesa 200 KB y el
+  arranque tiene presupuesto, 2.17.0): `deploy.sh` lo copia a `dist/vendor/` y el SW lo
+  precarga (`LOCAL_ASSETS`). Una librería nueva que la liberación o una pantalla necesite
+  para funcionar va a `vendor/`, nunca a un CDN.
+- **Una gráfica que no se puede dibujar lo dice en su lugar** (`_copSpcChartFail`). Un
+  `if (typeof Chart === 'undefined') return;` a secas deja una tarjeta en blanco que se
+  reporta como "no carga nada".
+
+## 2.29.0 — El ICMS por Work Order (`js/homolog.js`)
+
+- **La identidad del catálogo es la WORK ORDER** (`homoRowKey`), no el MC code: varias WO comparten
+  MC code con f0/TM/CO₂ distintos. `homoFindByKey(mc)` devuelve null si ese MC code es de varias
+  filas: **nunca adivinar entre WO**. El merge de `homolog` en `fbPullApply` usa la misma clave.
+- **`homoIcmsRows(grid)` (PURA) es LA lectura de un archivo del ICMS.** Los sinónimos de
+  `HOMO_IMPORT_FIELDS` son EXACTOS: el archivo trae también los coeficientes NEDC con otros
+  valores, y un sinónimo por "contiene" los tomaría. Lo fija `tests/homolog.node.js` con el
+  archivo real (`tests/fixtures/icms/`). Un formato nuevo del ICMS = su fixture.
+- **El VIN va en el nombre del archivo** (`homoIcmsVinTail`), no adentro. Es lo único que liga
+  un archivo con un vehículo en el lote: la WO no basta (varias unidades comparten WO).
+- **No autollenar el Alta con la unidad anterior de la misma configuración** (`homoAltaSync`
+  solo sugiere): los valores cambian por WO.
+- **El lote no reescribe una prueba enviada o liberada** con valores distintos
+  (`HOMO_LOCKED_STATUS`); solo completa lo vacío. `homoIcmsBatchApply` recalcula el plan y
+  aplica solo la acción que la persona vio. Cada cambio va a la línea de tiempo con
+  `data.modified` y a la auditoría con antes/después.
+- **Un .xlsx que el laboratorio sube se lee con `vetsReadWorkbook`** (vía `homoReadFileGrid`),
+  nunca con SheetJS del CDN.
+- **El DF (factor de deterioro) NO se aplica al veredicto de gases**, por decisión del
+  laboratorio (2-oct-2026), aunque su Excel maestro sí lo hacía.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
@@ -2772,7 +2805,7 @@ abría, y Vincular escondía vehículos).
   dispositivo con contraseña de laboratorio (Firebase Email/Password) — juntos, no solo cosméticos.
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
-- **CDN deps**: signature_pad, jsPDF, Chart.js 4.4.7 (+zoom), JsBarcode, html5-qrcode, Firebase SDK.
+- **CDN deps**: signature_pad, JsBarcode, html5-qrcode, Firebase SDK. **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
 - `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. Las
   configuraciones dadas de alta a mano (`kia_manual_configs`, Gestor de Configuraciones) se
   fusionan al final de **`parseCSV()`** vía `_mergeManualConfigsIntoAll()` — **v17.9**: antes solo
