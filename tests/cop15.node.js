@@ -59,6 +59,8 @@ const ctx = {
 ctx.window = ctx;
 ctx.globalThis = ctx;
 vm.createContext(ctx);
+// [2.30.0] Qué es "en curso"/"histórico" vive en app.js: se toma del código real.
+vm.runInContext(/var VEHICLE_STATUS_HISTORIC = [\s\S]*?\nfunction vehicleListDate\(v\) \{[\s\S]*?\n\}/.exec(fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8'))[0], ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'cop15.js'), 'utf8'),
                 ctx, { filename: 'cop15.js' });
 

@@ -1116,7 +1116,8 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 }
 
     function updateProgressBar() {
-        const total = db.vehicles.length;
+        // [2.30.0] Las pruebas históricas no pasaron por este flujo: no cuentan en el avance.
+        const total = db.vehicles.filter(v => !vehicleIsHistoric(v)).length;
         if(total === 0) {
             document.getElementById('mainProgress').style.width = '0%';
             document.getElementById('progressText').textContent = 'Sin vehículos';
@@ -1177,8 +1178,8 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             }
             // Real-time duplicate check
             var vin = input.value;
-            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
-            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && v.status === 'archived'; });
+            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && vehicleIsLive(v); });
+            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && vehicleIsPastTest(v); });
             var warning = document.getElementById('vin-dup-warning');
             if (!warning) {
                 warning = document.createElement('div');
@@ -1197,7 +1198,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
                 warning.style.background = 'rgba(245,158,11,0.1)';
                 warning.style.color = tokenColor('--warn-text');
                 warning.style.border = '1px solid rgba(245,158,11,0.3)';
-                warning.textContent = '⚠️ VIN existe en archivados (se creará nuevo registro)';
+                warning.textContent = '⚠️ VIN existe en ' + (vehicleIsHistoric(dupArchived) ? 'pruebas históricas' : 'archivados') + ' (se creará nuevo registro)';
             } else {
                 warning.style.display = 'none';
             }
@@ -1225,7 +1226,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             return uiInvalid($('vin'), 'El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Tiene ' + vin.length + '.');
         }
 
-        if(db.vehicles.some(v => v.vin === vin && v.status !== 'archived')) {
+        if(db.vehicles.some(v => v.vin === vin && vehicleIsLive(v))) {
             return uiInvalid($('vin'), 'Este VIN ya está dado de alta y su prueba sigue abierta. Búscalo en Operación.');
         }
 
@@ -2503,8 +2504,9 @@ function cascadeVehicleCardPick(selectId, id) {
 // Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
 // está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
 // Historial → 📝 Completar.
-function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived'; }
+function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived' || status === VEHICLE_STATUS_HISTORIC; }
 function _opReadOnlyMessage(vehicle) {
+  if (vehicleIsHistoric(vehicle)) return 'Es una prueba histórica importada de VETS: no se captura en Operación. Consulta sus resultados en Historial.';
   return vehicle.status === 'archived'
     ? 'Este vehículo ya está archivado. Para agregar datos usa Historial → 📝 Completar.'
     : 'Este vehículo está en aprobación, así que no se puede editar aquí. Si hay que corregir algo, el aprobador lo devuelve al liberador.';
@@ -4603,6 +4605,7 @@ function _renderUsedCylinders(vehicle) {
             {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
             {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'},
             {v:'pending-approval', l: CONFIG.statusLabels['pending-approval'] || 'Pendiente Aprobación'},
+            {v:'historico', l: CONFIG.statusLabels['historico'] || 'Histórico (VETS)'},
             {v:'offplan', l:'Fuera de Plan'}
         ];
         var statusHtml = statusOpts.map(function(o) {
@@ -4616,7 +4619,10 @@ function _renderUsedCylinders(vehicle) {
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
-        '</div>';
+        '</div>' +
+        // [2.30.0] Pruebas anteriores a la plataforma: importar de VETS y confirmarlas.
+        (typeof historicoToolbarHTML === 'function' ? historicoToolbarHTML() : '');
+        if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     }
 
     function histFilterReset() {
@@ -4646,7 +4652,7 @@ function _renderUsedCylinders(vehicle) {
         if (statusF === 'archived') {
             vehicles = vehicles.filter(v => v.status === 'archived');
         } else if (statusF === 'active') {
-            vehicles = vehicles.filter(v => v.status !== 'archived');
+            vehicles = vehicles.filter(v => vehicleIsLive(v));
         } else if (statusF === 'offplan') {
             vehicles = vehicles.filter(v => !!v.adhoc);
         } else if (statusF !== 'all') {
@@ -4668,13 +4674,13 @@ function _renderUsedCylinders(vehicle) {
         // Year filter
         var yearF = window._histFilterYear || '';
         if (yearF) {
-            vehicles = vehicles.filter(v => new Date(v.registeredAt).getFullYear() === parseInt(yearF));
+            vehicles = vehicles.filter(v => new Date(vehicleListDate(v)).getFullYear() === parseInt(yearF));
         }
 
         // Month filter (only if year is set)
         var monthF = window._histFilterMonth || '';
         if (monthF && yearF) {
-            vehicles = vehicles.filter(v => (new Date(v.registeredAt).getMonth() + 1) === parseInt(monthF));
+            vehicles = vehicles.filter(v => (new Date(vehicleListDate(v)).getMonth() + 1) === parseInt(monthF));
         }
 
         if(vehicles.length === 0) {
@@ -4732,8 +4738,9 @@ function _renderUsedCylinders(vehicle) {
                             </td>
                             <td data-label="Propósito">${safePurpose}</td>
                             <td data-label="Estado"><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
-                            <td data-label="Fecha">${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td data-label="Fecha">${new Date(vehicleListDate(v)).toLocaleDateString('es-MX')}${vehicleIsHistoric(v) ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : ''}</td>
                             <td data-label="Emisiones">${(function(){
+                                if (vehicleIsHistoric(v)) return typeof historicoRowBadgeHTML === 'function' ? historicoRowBadgeHTML(v) : '';
                                 var gr = v.testData && v.testData.gasResults;
                                 if (!gr || !gr.liberador) return '<span style="color:var(--muted);font-size: var(--fs-xs);">—</span>';
                                 var libVals = gr.liberador.values || {};
@@ -4742,11 +4749,11 @@ function _renderUsedCylinders(vehicle) {
                                 return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
                             })()}</td>
                             <td class="hist-td-actions">
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">
-                                    PDF
-                                </button>
+                                ${vehicleIsHistoric(v)
+                                    ? '<button class="btn-secondary" onclick="fichaOpen(\'vehiculo\', ' + parseInt(v.id) + ', this)" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Ver los resultados de VETS y su confirmación">Ver</button>'
+                                    : '<button class="btn-secondary" onclick="generateCOP15PDF(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">PDF</button>'}
                                 ${(function(){
-                                    if (!isEmissionsPurpose(v.purpose)) return '';
+                                    if (vehicleIsHistoric(v) || !isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
                                     var _n = _c.missing.length + (_c.soft ? _c.soft.length : 0);
                                     if (!_n) return '';
@@ -4763,12 +4770,6 @@ function _renderUsedCylinders(vehicle) {
             </table>
             ${hasMore ? `<div style="text-align:center;margin-top: var(--space-md);"><button class="btn-secondary" onclick="histShowMore()" style="padding: var(--space-md) var(--space-xl);font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
-    }
-
-    function filterHistory(filter) {
-        window._histFilterStatus = filter;
-        currentFilter = filter;
-        renderHistory();
     }
 
 // ── [R2-M4] Batch PDF Export helpers ──
@@ -4933,7 +4934,7 @@ function refreshAllLists() {
     releaseSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
     if (approvalSelect) approvalSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
 
-    var activeVehicles = db.vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = db.vehicles.filter(function(v) { return vehicleIsLive(v); });
     var readyVehicles  = db.vehicles.filter(function(v) { return v.status === 'ready-release'; });
     var pendingVehicles = db.vehicles.filter(function(v) { return v.status === 'pending-approval'; });
 
@@ -5059,7 +5060,7 @@ function exportAndPurgeArchived() {
 
     // Elimina del db principal
     auditLog('cop15', 'archive_purged', {type:'batch'}, archived.length + ' vehículos archivados purgados');
-    db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
+    db.vehicles = db.vehicles.filter(v => archived.indexOf(v) === -1);   // por identidad (v17.12)
 
     saveDB();
     refreshAllLists();
@@ -5129,7 +5130,7 @@ function executeArchiveImport(targetStatus) {
 
   data.vehicles.forEach(v => {
     if (!v?.vin) return;
-    if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
+    if (db.vehicles.some(x => x.vin === v.vin && vehicleIsLive(x))) { skipped++; return; }
 
     const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
     clone.id = nextVehicleId();
@@ -5505,6 +5506,7 @@ function _histBuildInput(f, idx, value, disabled) {
 function histOpenCompleteModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
   if (!vehicle) { showToast('No encontré ese vehículo: puede que otro dispositivo lo haya archivado o borrado. La lista ya se actualizó.', 'warning'); return; }
+  if (vehicleIsHistoric(vehicle)) { showToast('Una prueba histórica no tiene Hoja COP15-F05 que completar.', 'info'); return; }   // [2.30.0]
   var td = vehicle.testData || {};
   _histCompleteState = { vehicleId: vehicleId, unlockReasons: {}, sigCaptured: {} };
 
@@ -6002,7 +6004,7 @@ function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
             var otros = (ctx.vehicles || []).filter(function(x) {
                 return x && x !== vehicle && String(x.id) !== String(vehicle.id) && String(x.vin || '').toUpperCase() === newVin;
             });
-            if (otros.some(function(x) { return x.status !== 'archived'; })) {
+            if (otros.some(function(x) { return vehicleIsLive(x); })) {
                 out.errors.push('Ya hay otro vehículo EN CURSO con el VIN ' + newVin + '. Corrige o elimina ese primero.');
             } else if (otros.length) {
                 out.warnings.push('Ese VIN ya tiene ' + otros.length + ' prueba(s) archivada(s): este vehículo quedará como un re-ensayo del mismo VIN.');
@@ -6030,7 +6032,21 @@ function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
 
     var td = vehicle.testData || {};
     var firmado = !!(td.signatures && td.signatures.releaser) || vehicle.status === 'pending-approval';
-    if (vehicle.status === 'archived') {
+    if (vehicleIsHistoric(vehicle)) {
+        // [2.30.0] Prueba histórica: antes de confirmarse se corrige con el permiso de
+        // adjuntar VETS (los gases se comparan al confirmar, contra la regulación que
+        // quede). Ya confirmada vale como archivada: firma y sin cambio de regulación.
+        if (vehicle.historic && vehicle.historic.state === 'confirmado') {
+            out.stage = 'historico-confirmado'; out.perm = 'test.retro_edit'; out.requiresSignature = true;
+            if (out.regChanged) {
+                out.errors.push('Esta prueba histórica ya se confirmó comparando sus gases con ' + (out.regBefore || 'la regulación anterior') +
+                    '. Cambiar a ' + (out.regAfter || '—') + ' no es una corrección de alta: elige una configuración con la misma regulación.');
+            }
+        } else {
+            out.stage = 'historico'; out.perm = 'test.vets';
+            if (out.regChanged) out.warnings.push('Cambia la regulación: al confirmar, los gases se compararán contra ' + (out.regAfter || '—') + '.');
+        }
+    } else if (vehicle.status === 'archived') {
         out.stage = 'archivado'; out.perm = 'test.retro_edit'; out.requiresSignature = true;
         if (out.regChanged) {
             out.errors.push('Este vehículo ya está aprobado y el cambio mueve su regulación (' + (out.regBefore || '—') + ' → ' +
@@ -6413,6 +6429,12 @@ function cascadeValueLabel(kind, v) {
 function generateCOP15PDF(vehicleId, opts) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { if (!(opts && opts.silent)) showToast('No hay vehículo seleccionado.', 'error'); return null; }
+  // [2.30.0] Una prueba histórica no pasó por CASCADE: no hay Hoja COP15-F05 que emitir
+  // (recepción, preacondicionamiento y firmas no existen). Su evidencia es el reporte de VETS.
+  if (vehicleIsHistoric(vehicle)) {
+    if (!(opts && opts.silent)) showToast('Es una prueba histórica importada de VETS: no tiene Hoja COP15-F05. Su evidencia es el reporte de VETS.', 'info');
+    return null;
+  }
   if (!(opts && opts.silent)) showOverlayLoading('Generando PDF...');
 
   // Gate: no generar un PDF con campos obligatorios vacíos (salvo regeneración interna tras archivar).
@@ -7512,28 +7534,6 @@ var _reviewSections = [
     ]}
 ];
 
-function quickReviewGoTo(fieldId) {
-    // Close the modal
-    var modal = document.querySelector('.modal-overlay');
-    if (modal) modal.remove();
-
-    var el = document.getElementById(fieldId);
-    if (!el) return;
-
-    // Open the parent accordion
-    var acc = el.closest('details.acc');
-    if (acc && !acc.open) acc.open = true;
-
-    // Scroll and focus
-    setTimeout(function() {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.focus();
-        el.style.outline = '3px solid ' + tokenColor('--info-fill');
-        el.style.outlineOffset = '2px';
-        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
-    }, 150);
-}
-
 // ======================================================================
 // [R2-M6] COPY FROM LAST VEHICLE
 // ======================================================================
@@ -8108,7 +8108,7 @@ function renderKanban() {
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehículos</h3>';
-    var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
+    var totalActive = vehicles.filter(function(v){ return vehicleIsLive(v); }).length;
     html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
@@ -8639,38 +8639,6 @@ function smartFormSuggestDefaults(vehicle) {
 // [R5-M8] Templates — COP15 Operation Templates
 // ══════════════════════════════════════════════════════════════════════
 
-/** Collect current operation form data as a template-ready object. */
-function cop15TemplateCollect() {
-    var data = {};
-    var fields = ['tire_pressure', 'fuel_typein', 'fuel_typepre', 'precond_cycle',
-        'soak_time', 'tank_capacity', 'test_tunnel', 'test_dyno_on', 'test_fan_mode',
-        'test_fan_speed', 'test_fan_flow', 'test_chains', 'test_slings', 'test_hood',
-        'test_rear_rollers', 'test_screen', 'etw', 'tA', 'dA', 'tB', 'dB', 'tC', 'dC'];
-    fields.forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (el && el.value) data[fid] = el.value;
-    });
-    return data;
-}
-
-/** Apply template data to the current operation form. */
-function cop15TemplateApplyData(data) {
-    if (!data) return;
-    Object.keys(data).forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (el) {
-            el.value = data[fid];
-            el.style.outline = '2px dashed #8b5cf6';
-            el.style.outlineOffset = '2px';
-            setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
-        }
-    });
-    markUnsaved();
-    showToast('Plantilla aplicada', 'success');
-}
-
-/** Save current operation as a named template. */
-/** Show COP15 template manager. */
 // ======================================================================
 // [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
 // ======================================================================
@@ -9044,7 +9012,7 @@ function cascadeCloseTooltip() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function getNextStep(vehicle) {
-    if (!vehicle || vehicle.status === 'archived') return null;
+    if (!vehicle || !vehicleIsLive(vehicle)) return null;   // [2.30.0] archivado o histórico
     var td = vehicle.testData || {};
     var p = td.preconditioning || {};
     var status = vehicle.status;
@@ -9108,6 +9076,7 @@ function cascadeVehicleStage(vehicle) {
     var tv = td.testVerification || {};
     var status = vehicle.status;
     if (status === 'archived') return { index: 8, total: 8, label: 'Archivado', done: true };
+    if (status === VEHICLE_STATUS_HISTORIC) return { index: 8, total: 8, label: 'Histórico (VETS)', done: true, historic: true };
 
     var soakDone = !!td.soakCompleted, soakStarted = false;
     try {
@@ -9135,7 +9104,7 @@ function cascadeVehicleStage(vehicle) {
 // etapa: soak activo → fin de soak + 1 día hábil; etapas 2-3 → día de prueba asignado en
 // el plan semanal + 1; etapas 5-7 → hoy/mañana. tone: ok (>mañana) / warn (hoy-mañana) / late.
 function cascadeVehicleETA(vehicle) {
-    if (!vehicle || vehicle.status === 'archived') return null;
+    if (!vehicle || !vehicleIsLive(vehicle)) return null;
     var dateStr = null, source = 'auto';
     if (vehicle.expectedReleaseAt) { dateStr = vehicle.expectedReleaseAt; source = 'manual'; }
     else {
@@ -9247,25 +9216,6 @@ function v7CheckExpiredSoak() {
             setTimeout(function() { v7ShowSoakCompleteModal(); }, 1000);
         }
     } catch(e) {}
-}
-
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
-// ╚══════════════════════════════════════════════════════════════════════╝
-
-function v7ClosePostRelease() {
-    var el = document.getElementById('v7-post-release');
-    if (el) { el.classList.remove('visible'); setTimeout(function() { el.remove(); }, 300); }
-}
-
-function v7PostReleaseRegisterAnother() {
-    v7ClosePostRelease();
-    var tabEl = document.querySelector('.tab[data-tab="alta"]');
-    if (tabEl) tabEl.click();
-    setTimeout(function() {
-        var purposeEl = document.getElementById('vehiclePurpose');
-        if (purposeEl) purposeEl.focus();
-    }, 300);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -9446,7 +9396,7 @@ function v7CheckVinDuplicate(vin) {
     if (!vin || vin.length < 17) return;
     var hint = document.getElementById('v7-vin-hint');
     // Check active vehicles
-    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && vehicleIsLive(v); });
     if (active) {
         if (!hint) hint = _v7CreateVinHint();
         hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehículo</button>';

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.29.2';
+var APP_VERSION = '2.30.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.29.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.30.0', date: '2 oct 2026', title: 'Las pruebas de antes de CASCADE, desde VETS',
+      bullets: [
+          'Nuevo: Pruebas → Historial → "📥 Importar pruebas anteriores (VETS)". Subes de un jalón los Excel de VETS de las pruebas que se corrieron antes de la plataforma y ves archivo por archivo qué se importa: VIN, configuración (sale sola cuando VETS la trae completa; si no, la eliges), propósito y resultados.',
+          'Nuevo: cada una queda como "Histórico (VETS) — por confirmar". Quien aprueba (y no la importó) la revisa una por una —gases contra los límites, verificaciones de VETS, VIN— y decide "Confirmo" o "No confirmo" con motivo. Al final firma una sola vez.',
+          'Una prueba histórica no genera Hoja COP15-F05, no aparece en HOY, la Cola ni el plan, y no se edita en Operación. Solo las confirmadas entran al Control SPC y a la mesa del CoP.',
+          'No se importa mientras haya un equipo activo sin actualizar: lo vería como un vehículo en curso.',
+          'HOY avisa a quien aprueba cuántas pruebas históricas faltan por confirmar.'
+      ] },
     { version: '2.29.2', date: '2 oct 2026', title: 'La nube ya no rechaza los vehículos ni el CoP',
       bullets: [
           'Arreglado: al moverse por el CoP salía un error de "FirebaseError … Unsupported field value: undefined" o "Document fields must not be empty" con el aviso de Reportar. Detrás, la copia de Pruebas para equipos sin actualizar y el CoP de ese equipo dejaban de subirse a la nube.',
@@ -1347,7 +1355,8 @@ let currentFilters = {};
             'testing': 'En Prueba',
             'ready-release': 'Listo para Liberar',
             'pending-approval': 'Pendiente Aprobación',
-            'archived': 'Archivado'
+            'archived': 'Archivado',
+            'historico': 'Histórico (VETS)'
         }
     };
 
@@ -2089,7 +2098,7 @@ function resumeLastSession() {
         if (saved) {
             var ctx = JSON.parse(saved);
             if (ctx && ctx.vehicleId && (Date.now() - ctx.timestamp) < 86400000) {
-                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && v.status !== 'archived'; });
+                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && vehicleIsLive(v); });
                 if (vehicle) {
                     var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
                     _showResumeToast(vehicle, ctx, vinShort);
@@ -2386,6 +2395,30 @@ function vehicleIsTombstoned(v, list) {
 }
 
 /** Une dos listas de marcas sin repetir y con tope (se quedan las más recientes). PURA. */
+// ══════════════════════════════════════════════════════════════════════
+// [2.30.0] Pruebas anteriores a la plataforma (importadas de VETS, js/historico.js).
+// Viven en db.vehicles con status 'historico' para viajar por el sync de un documento
+// por vehículo y aparecer en la búsqueda y la ficha, pero NO son vehículos en curso ni
+// liberados por CASCADE. `vehicleIsLive` es LA definición de "vehículo en curso": nunca
+// volver a escribir `status !== 'archived'` para eso (tests/historico.node.js lo vigila),
+// o un histórico aparece en HOY, la Cola y el plan como si se estuviera probando.
+// ══════════════════════════════════════════════════════════════════════
+var VEHICLE_STATUS_HISTORIC = 'historico';
+/** ¿Es una prueba histórica importada de VETS? PURA. */
+function vehicleIsHistoric(v) { return !!v && v.status === VEHICLE_STATUS_HISTORIC; }
+/** ¿Está en curso (ni archivado ni histórico)? PURA. */
+function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !== VEHICLE_STATUS_HISTORIC; }
+/** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
+function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
+/**
+ * Fecha con la que se lista un vehículo: la de su ALTA, salvo una prueba histórica,
+ * que se dio de alta hoy pero ocurrió cuando dice VETS. PURA.
+ */
+function vehicleListDate(v) {
+    if (vehicleIsHistoric(v) && v.testData && v.testData.testDatetime) return v.testData.testDatetime;
+    return (v && v.registeredAt) || '';
+}
+
 function vehicleTombstonesUnion(a, b) {
     var byKey = {};
     (a || []).concat(b || []).forEach(function(t) {
@@ -3910,7 +3943,7 @@ function switchPlatform(platform, swipeDir) {
     if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
     if (sectionId === 'cop') { if (typeof copRender === 'function') copRender(); }
     if (sectionId === 'cop15') {
-        var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+        var active = db.vehicles.filter(function(v) { return vehicleIsLive(v); }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
         // Restore COP15 active tab
         var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
@@ -4056,7 +4089,7 @@ function dailyDashRender() {
         if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return vehicleIsLive(v); }).sort(function(a,b) {
         var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
         var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
         return tB > tA ? 1 : -1;
@@ -4523,7 +4556,7 @@ function dashCollectActivities() {
     // 4) Vehículos activos: stepper N/8 + soak propio + ETA de liberación
     var soakData = null;
     try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch (e) {}
-    (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).forEach(function(v) {
+    (db.vehicles || []).filter(function(v) { return vehicleIsLive(v); }).forEach(function(v) {
         var st = typeof cascadeVehicleStage === 'function' ? cascadeVehicleStage(v) : null;
         var eta = typeof cascadeVehicleETA === 'function' ? cascadeVehicleETA(v) : null;
         var next = typeof getNextStep === 'function' ? getNextStep(v) : null;
@@ -4557,6 +4590,17 @@ function dashCollectActivities() {
             perm: 'test.approve', notForMe: _dashIsOwnRelease(v), ficha: { kind: 'vehiculo', ref: v.id },
             action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
     });
+
+    // 5b) [2.30.0] Pruebas históricas de VETS por confirmar → Calidad (una sola fila: se
+    // importan en lote). La ve quien puede aprobar; las que importó uno mismo no son suyas.
+    if (typeof historicoPendingFor === 'function') {
+        var _hp = historicoPendingFor();
+        if (_hp.total) acts.push({ id: 'act-historico', cat: 'calidad', icon: '🗄',
+            title: 'Confirmar ' + _hp.total + ' prueba' + (_hp.total > 1 ? 's' : '') + ' histórica' + (_hp.total > 1 ? 's' : '') + ' de VETS',
+            meta: _hp.mine ? (_hp.mine + ' las importaste tú: las confirma otra persona') : 'Anteriores a la plataforma, importadas de VETS',
+            status: 'pendiente', urgency: 2, perm: 'test.approve', notForMe: _hp.forMe === 0,
+            action: { label: 'Revisar', js: 'historicoReviewOpen()' } });
+    }
 
     // 6) Alertas de inventario con deep-link por ítem
     if (typeof invState !== 'undefined' && invState.gases) {
@@ -7517,7 +7561,7 @@ function renderLabDashboard(container) {
 
     // ── COP15 Module ──
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var active = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var active = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var now = Date.now();
     // Ventana rodante de 7 días como timestamp: las comparaciones de abajo usan
     // .getTime() y aritmética sobre este valor, así que debe ser numérico (no la
@@ -7692,7 +7736,7 @@ function autoBackup() {
         try {
             var parsed = JSON.parse(snapshot.db);
             snapshot.vehicleCount = (parsed.vehicles || []).length;
-            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).length;
+            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return vehicleIsLive(v); }).length;
         } catch(e) { snapshot.vehicleCount = 0; snapshot.activeCount = 0; }
 
         var tx = idb.transaction(_backupStoreName, 'readwrite');
@@ -8636,6 +8680,10 @@ document.addEventListener('alpine:init', function() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function v7GoToVehicle(vehicleId, gotoSection) {
+    // [2.30.0] Una prueba histórica no se abre en Operación ni en Liberación: su lugar es
+    // su ficha (resultados de VETS y confirmación).
+    var _hv = (db.vehicles || []).find(function(v) { return v.id == vehicleId; });
+    if (vehicleIsHistoric(_hv) && typeof fichaOpen === 'function') { fichaOpen('vehiculo', _hv.id); return; }
     switchPlatform('cop15');
     setTimeout(function() {
         if (gotoSection === 'approval-tab') {

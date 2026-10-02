@@ -77,7 +77,7 @@ function _fichaVehiculo(id) {
         subtitle: [cfg['Modelo'], cfg['MODEL YEAR (VIN)'], cfg['ENGINE CAPACITY'], cfg['EMISSION REGULATION'], cfg['REGION']].filter(Boolean).join(' · '),
         badges: [], facts: [], relations: [], history: [], stage: st
     };
-    if (st) m.badges.push({ text: st.done ? 'Archivado' : 'Etapa ' + st.index + '/' + st.total + ' · ' + st.label, tone: st.done ? 'ok' : 'info' });
+    if (st && !st.historic) m.badges.push({ text: st.done ? 'Archivado' : 'Etapa ' + st.index + '/' + st.total + ' · ' + st.label, tone: st.done ? 'ok' : 'info' });
     if (v.adhoc) m.badges.push({ text: 'Fuera de plan', tone: 'warn' });
     m.facts.push({ k: 'Propósito', v: (typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose) : v.purpose) || '—' });
     if (eta && !(st && st.done)) m.facts.push({ k: 'Liberación esperada', v: _fichaDate(eta.date) + (eta.source === 'manual' ? ' (fijada)' : ' (estimada)') });
@@ -97,6 +97,8 @@ function _fichaVehiculo(id) {
     (v.timeline || []).slice(-5).reverse().forEach(function(t) {
         m.history.push({ when: t.timestamp, text: t.action + (t.user ? ' · ' + t.user : '') });
     });
+    // [2.30.0] Prueba histórica (VETS): resultados, quién importó y quién confirmó.
+    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && typeof historicoFichaPatch === 'function') historicoFichaPatch(m, v);
     return m;
 }
 

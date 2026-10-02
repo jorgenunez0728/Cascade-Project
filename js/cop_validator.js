@@ -894,6 +894,8 @@ function copSyncVinsFromTests(key) {
 
     vehicles.forEach(function(v) {
         if (!v.vin || copVehicleFamilyKey(v) !== key) return;
+        // [2.30.0] Una prueba histórica de VETS entra solo ya confirmada por quien aprueba.
+        if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
         var vk = String(v.vin).trim().toUpperCase();
         var row = byVin[vk];
         if (!row) {
@@ -2668,6 +2670,9 @@ var COP_SPC_RULES = { R1: 'Fuera de ±3σ', R2: 'Corrimiento (8 de un lado)', R3
 function _copSpcDate(v) {
     var gr = v && v.testData && v.testData.gasResults;
     if (!gr) return '';
+    // [2.30.0] Una prueba histórica se confirma hoy, pero ocurrió cuando dice VETS: la
+    // carta I-MR va en orden de PRUEBA (si no, los rangos móviles se calculan revueltos).
+    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && v.testData.testDatetime) return v.testData.testDatetime;
     var rec = (gr.aprobador && gr.aprobador.values) ? gr.aprobador
             : (gr.liberador && gr.liberador.values) ? gr.liberador : null;
     return (rec && rec.capturedAt) || '';

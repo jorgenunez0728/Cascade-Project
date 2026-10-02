@@ -65,6 +65,7 @@ js/
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
+  historico.js          ← Pruebas anteriores a la plataforma: importar VETS por lote + confirmación del aprobador (~620 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
@@ -96,6 +97,7 @@ CHANGELOG.md            ← Detailed changelog
 | Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
 | Revisión dirigida | `js/review.js` | `review` | `_reviewMarks` (en memoria) | — (`pnState.reviewFlow`, `vehicle.reviewFlow`, `testData.review`) |
 | Importar VETS | `js/vets.js` | `vets` | `_vetsCtx` (solo la pantalla abierta) | — (`pnState.vetsChecks` + `vehicle.testData.vets`) |
+| Pruebas históricas | `js/historico.js` | `historico` | `_historicoImport` / `_historicoReview` (en memoria) | — (`vehicle.historic`, status `historico`) |
 | Avisos de relevo | `js/handoff.js` | `handoff` | `_handoffBase` (foto en memoria) | `kia_handoff_log` |
 | Ficha universal | `js/ficha.js` | `ficha` | `_ficha` (pila de fichas abiertas) | — |
 | Desde tu última vez | `js/relevo.js` | `relevo` | `_relevo` (la última vez de esta sesión) | — (`uiPref('lastSeen')`) |
@@ -180,7 +182,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2767,6 +2769,38 @@ abría, y Vincular escondía vehículos).
   mesa en memoria; `copCleanFamilies` limpia lo ya guardado.
 - `ignoreUndefinedProperties: true` en los settings de Firestore es red de seguridad; el camino
   REST convierte `undefined` en `null`, así que no basta con ella.
+
+## 2.30.0 — Pruebas anteriores a la plataforma (`js/historico.js`)
+
+- **`vehicleIsLive(v)` (app.js) es LA definición de "vehículo en curso".** Nunca volver a
+  escribir `status !== 'archived'` para eso: un histórico aparecería en HOY, la Cola, el plan
+  y Operación. `tests/historico.node.js` lo vigila (solo acepta la forma "si no es archivado,
+  salir", que significa "solo archivados"). `vehicleIsPastTest` = archivado o histórico;
+  `vehicleListDate` = la fecha con que se lista (la de la prueba en un histórico).
+- **Una prueba histórica es un vehículo con `status: 'historico'`** y `vehicle.historic =
+  {state: 'pendiente'|'confirmado'|'rechazado', importedById, file:{name, sha256}, testRef,
+  testDate, confirmation|rejection, history}`. Viaja por el sync de un documento por vehículo
+  como cualquier otro. Todo estado nuevo de un vehículo necesita su etiqueta en
+  `CONFIG.statusLabels`, su rama en `cascadeVehicleStage` y revisar `vehicleIsLive`.
+- **Nada se fecha hacia atrás**: `registeredAt` es el día de la importación; la prueba ocurrió
+  en `testData.testDatetime` (de VETS). Un histórico **nunca** emite Hoja COP15-F05
+  (`generateCOP15PDF` y Completar lo rechazan): no hubo recepción, preacondicionamiento ni firmas.
+- **Importar no es aprobar.** Confirma alguien con `test.approve` que **no** la importó
+  (`importedById`), una firma por ronda (se copia en cada prueba con `batchId`/`batchCount`).
+  `gasResults.aprobador.method = 'confirmacion-historico'` y `matchedLiberador: null`: no hubo
+  doble ciego y el registro no debe afirmarlo. Solo una confirmada tiene `gasResults`, así que
+  solo ella entra al SPC y a la mesa del CoP (`copSyncVinsFromTests` además la filtra).
+- `historicoPlan`, `historicoConfigMatch`, `historicoBuildVehicle`, `historicoReviewModel`,
+  `historicoDecisionCheck`, `historicoOutdatedDevices`, `historicoPendingSummary` son PURAS.
+  Configuración: con menos de `HISTORICO_MIN_CFG_FIELDS` (3) campos útiles de VETS no se
+  propone nada (un "LHD" solo empata con 222).
+- **No se importa con equipos activos anteriores a `HISTORICO_SINCE`** (verían 'historico'
+  como vehículo en curso y editable). Un estado nuevo que viaje por el sync necesita el mismo
+  candado.
+- Corregir alta de un histórico: pendiente → `test.vets` sin firma; confirmado → como
+  archivado (firma, sin cambio de regulación).
+- **Plantillas con acento grave anidadas** (`${c ? \`…\` : \`…\`}`) confunden al lector de
+  `tests/deadcode.node.js`: usar concatenación dentro de `${}`.
 
 ## Working with this project
 

@@ -1317,7 +1317,7 @@ function renderLabOverview(el, opts) {
     }
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var today = localToday();
     var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === today; });
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
@@ -1443,7 +1443,7 @@ function renderLabOverview(el, opts) {
 function pnRenderDashboard(el) {
     // Gather cross-module stats
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var archivedToday = vehicles.filter(function(v) {
         if (v.status !== 'archived' || !v.archivedAt) return false;
         return localDateStr(new Date(v.archivedAt)) === localToday();
@@ -1646,6 +1646,7 @@ function pnRenderUsers(el) {
     operators.forEach(function(op) { opStats[op.name] = { registered: 0, released: 0, active: 0 }; });
     vehicles.forEach(function(v) {
         var regBy = v.registeredBy || '';
+        if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)) return;   // [2.30.0] importar no es dar de alta
         if (opStats[regBy]) {
             if (v.status === 'archived') opStats[regBy].released++;
             else opStats[regBy].active++;
@@ -2222,7 +2223,7 @@ function pnGetActiveAlerts() {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = Date.now();
     vehicles.forEach(function(v) {
-        if (v.status === 'archived') return;
+        if (!vehicleIsLive(v)) return;
         // Desacuerdo liberador/aprobador (doble ciego) sin resolver
         if (v.testData && v.testData.gasResults && v.testData.gasResults.mismatch) {
             var mm = v.testData.gasResults.mismatch;
@@ -3424,7 +3425,7 @@ function _pnCollectCalendarEvents(year, month) {
     // Vehicle release estimates
     if (typeof db !== 'undefined' && db.vehicles) {
         db.vehicles.forEach(function(v) {
-            if (v.status === 'archived') return;
+            if (!vehicleIsLive(v)) return;
             if (v.status === 'ready-release') {
                 // Expected release today or soon
                 var d = new Date();
@@ -3544,7 +3545,7 @@ function _pnCollectTurnoverData() {
     // Vehicles in progress
     if (typeof db !== 'undefined' && db.vehicles) {
         data.vehiclesInProgress = db.vehicles.filter(function(v) {
-            return v.status !== 'archived';
+            return vehicleIsLive(v);
         }).map(function(v) {
             return {
                 vin: (v.vin || '').slice(-8),
@@ -3784,6 +3785,7 @@ function panelAlpineComponent() {
             var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
             var stats = { registered: 0, released: 0, active: 0 };
             vehicles.forEach(function(v) {
+                if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)) return;   // [2.30.0]
                 if ((v.registeredBy || '') === opName) {
                     if (v.status === 'archived') stats.released++;
                     else stats.active++;
@@ -4286,7 +4288,7 @@ function pnRenderExecutive(el) {
     var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) === todayStr; }).length;
     var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= weekAgo; }).length;
     var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
-    var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+    var activeCount = vehicles.filter(function(v) { return vehicleIsLive(v); }).length;
 
     // v16.2: Compliance scorecard — misma definición de cobertura que el badge del Plan y
     // la tarjeta HOY (% de configs vigentes al día vía tpCoverageSummary). Antes esta

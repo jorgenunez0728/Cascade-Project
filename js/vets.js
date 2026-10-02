@@ -42,6 +42,15 @@ var VETS_CONFIG_FIELDS = {
     BODYTYPE: 'BODY TYPE', TRANSMISSION: 'TRANSMISSION', EMISSIONREGULATION: 'EMISSION REGULATION',
     REGION: 'REGION', ENGINECAPACITY: 'ENGINE CAPACITY', TIREASSY: 'TIRE ASSY', MODELYEAR: 'MODEL YEAR (VIN)'
 };
+// [2.30.0] Las 11 columnas del catálogo que VETS guarda en CustomFields. Las usa el
+// importador de pruebas históricas (historico.js) para encontrar la configuración;
+// VETS_CONFIG_FIELDS (arriba) sigue siendo lo que se COMPARA contra el Alta.
+var VETS_CATALOG_FIELDS = {
+    MODELNAME: 'Modelo', MODELYEAR: 'MODEL YEAR (VIN)', TRANSMISSION: 'TRANSMISSION',
+    ENVIRONMENTPACKAGE: 'ENVIRONMENT PACKAGE', EMISSIONREGULATION: 'EMISSION REGULATION', DRIVETYPE: 'DRIVE TYPE',
+    ENGINECAPACITY: 'ENGINE CAPACITY', TIREASSY: 'TIRE ASSY', REGION: 'REGION', BODYTYPE: 'BODY TYPE',
+    ENGINEPACKAGE: 'ENGINE PACKAGE'
+};
 
 // ══════════════════════════════════════════════════════════════════════
 // Lector mínimo de .xlsx (ZIP + XML)
@@ -569,6 +578,11 @@ function vetsExtract(sheets) {
     Object.keys(VETS_CONFIG_FIELDS).forEach(function(k) {
         var cl = _vetsCodeLabel(custom[k]);
         if (cl) rec.config[VETS_CONFIG_FIELDS[k]] = cl;
+    });
+    rec.configAll = {};
+    Object.keys(VETS_CATALOG_FIELDS).forEach(function(k) {
+        var cl = _vetsCodeLabel(custom[k]);
+        if (cl) rec.configAll[VETS_CATALOG_FIELDS[k]] = cl;
     });
 
     _vetsDynoAmbient(rec, td);

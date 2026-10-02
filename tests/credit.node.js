@@ -59,6 +59,8 @@ const sandbox = {
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+// [2.30.0] Qué es "en curso" vive en app.js (vehicleIsLive): se toma del código real.
+vm.runInContext(/var VEHICLE_STATUS_HISTORIC = [\s\S]*?\nfunction vehicleListDate\(v\) \{[\s\S]*?\n\}/.exec(fs.readFileSync('js/app.js', 'utf8'))[0], sandbox);
 const src = fs.readFileSync('js/testplan.js', 'utf8') + '\nvar __getTp = function(){ return tpState; };\n';
 try { vm.runInContext(src, sandbox, { filename: 'testplan.js' }); }
 catch (e) { console.error('NO CARGA:', e.message); process.exit(1); }

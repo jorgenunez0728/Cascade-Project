@@ -42,6 +42,10 @@ var RELEVO_ACTIONS = {
     retro_edit:               { g: 'vehiculos', say: 'completó datos retroactivos de', link: 'vehiculo' },
     vets_importado:           { g: 'vehiculos', say: 'adjuntó la prueba de VETS a', link: 'vehiculo' },
     vets_fallas_decididas:    { g: 'vehiculos', say: 'decidió las fallas de VETS de', link: 'vehiculo' },
+    // [2.30.0] Pruebas históricas: una línea por tipo, no una por prueba (se importan en lote).
+    historico_importado:      { g: 'vehiculos', agg: 'prueba histórica importada de VETS|pruebas históricas importadas de VETS' },
+    historico_confirmado:     { g: 'vehiculos', agg: 'prueba histórica confirmada|pruebas históricas confirmadas' },
+    historico_rechazado:      { g: 'vehiculos', agg: 'prueba histórica no confirmada|pruebas históricas no confirmadas' },
     // Plan
     week_accepted:            { g: 'plan', say: 'aceptó la semana del' },
     week_unaccepted:          { g: 'plan', say: 'reabrió la semana del', tone: 'warn' },
@@ -121,7 +125,7 @@ function relevoDigest(src, since, me) {
 
     // 1) Vehículos: cambio neto de estado.
     (src.vehicles || []).forEach(function(v) {
-        if (!v) return;
+        if (!v || v.status === 'historico') return;   // [2.30.0] lo dice el historial, agregado
         var ahora = v.status;
         var antes = relevoVehicleStatusAt(v, since);
         var cambios = (v.timeline || []).filter(function(t) {
