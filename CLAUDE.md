@@ -2826,10 +2826,17 @@ abría, y Vincular escondía vehículos).
 - **`copCo2Sequence(rows, fcf, evc)` (PURA) es la prueba de CO₂ como la corre la norma**: en orden
   de PRUEBA (no de la mesa), n = 3…16; `first.r154`/`first.appendixI` = el primer n que decidió (la
   decisión de la norma) y `continuedAfter` avisa si se siguió ensayando y el resultado con todos
-  cambió. Fijada al dígito contra el Excel del laboratorio en `tests/iwr.node.js`. **No se prueban
-  subconjuntos** que dejen fuera un ensayo válido: la norma cuenta todos, y buscar entre
-  combinaciones la que pase es elegir el resultado (con 2ⁿ combinaciones alguna pasa por azar). Un
-  ensayo solo sale con un motivo técnico declarado en `copTestUsable`. No agregar ese buscador.
+  cambió. Fijada al dígito contra el Excel del laboratorio en `tests/iwr.node.js`.
+- **`copCo2Combinations(rows, fcf, evc)` (PURA) es la iteración por combinaciones** que pidió el
+  laboratorio (su Excel "statistika"): todo subconjunto de ≥ 3 vehículos que cuentan, numerados
+  en orden de prueba, cada uno evaluado con la fila de la tabla de SU n; devuelve conteos por
+  tamaño y por prueba, las concordantes (mejores primero, hasta `COP_CO2_COMBO_KEEP`) y las que
+  más se acercan (`near`). Tope `COP_CO2_COMBO_MAX` = 18 vehículos (los más recientes; el resto
+  en `dropped`, y se dice). Es análisis del laboratorio: **no cambia el veredicto de la familia
+  ni el juicio**. Se calcula al ABRIR su tarjeta (`copCo2CombosPaint`, memo `_copComboMemo`),
+  nunca en cada repintado del CoP. La prueba elegida para filtrar vive en `uiPref('copCombos')`.
+- **`_copCo2Judge(xs)` es LA fórmula de las dos pruebas de CO₂**; `copCo2CalcStats`, la
+  secuencia y las combinaciones la llaman. No volver a escribir las cotas en otro lado.
 - **Un juicio guardado NUNCA se reescribe**: `copJudgmentStale(j)` lista los VINes con valores que
   hoy no cuentan y se avisa (Validador con botón para guardar de nuevo, tarjeta, Expediente, PDF).
   El juicio nuevo congela `excluded` y `co2.sequence`.

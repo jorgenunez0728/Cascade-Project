@@ -108,6 +108,29 @@ const SEED = () => {
             await page.waitForTimeout(600);
             await page.screenshot({ path: path.join(process.env.SHOT, 'seq-' + vp.width + '.png') });
         }
+        // Combinaciones: se abren, cuentan y se filtran por prueba.
+        s = await page.evaluate(async () => {
+            const d = document.querySelector('#platform-cop details[data-cop-combos]');
+            if (!d) return { ok: false };
+            d.open = true; await new Promise(r => setTimeout(r, 300));
+            const body = document.getElementById('cop-co2-combos-body');
+            const r = { ok: true, txt: body.innerText, filas: body.querySelectorAll('tr[data-cop-combo]').length,
+                        combos: [...body.querySelectorAll('tr[data-cop-combo]')].map(t => t.dataset.copCombo) };
+            const bAp = [...body.querySelectorAll('.cop-combo-tests button')].find(b => /Apéndice/.test(b.textContent));
+            bAp.click(); await new Promise(res => setTimeout(res, 200));
+            r.filasAp = body.querySelectorAll('tr[data-cop-combo]').length;
+            [...body.querySelectorAll('.cop-combo-tests button')].find(b => /UN R154/.test(b.textContent)).click();
+            await new Promise(res => setTimeout(res, 200));
+            return r;
+        });
+        chk('combinaciones: 16 de 3 a 5 vehículos, 4 concordantes con UN R154', s.ok && /16 combinaciones de 3 a 5 vehículos/.test(s.txt) && s.filas === 4, JSON.stringify({ f: s.filas, t: (s.txt || '').slice(0, 200) }));
+        chk('las concordantes con R154 son 1-2-3-4-5, 1-2-3-5, 1-2-4-5 y 1-2-5', (s.combos || []).join(' ') === '1-2-3-4-5 1-2-3-5 1-2-4-5 1-2-5', JSON.stringify(s.combos));
+        chk('con "Apéndice I" lista las 16', s.filasAp === 16, s.filasAp);
+        if (process.env.SHOT) {
+            await page.evaluate(() => { const d = document.querySelector('#platform-cop details[data-cop-combos]'); if (d) d.scrollIntoView({ block: 'start', behavior: 'instant' }); });
+            await page.waitForTimeout(500);
+            await page.screenshot({ path: path.join(process.env.SHOT, 'combos-' + vp.width + '.png') });
+        }
         chk('la secuencia no incluye la prueba mala ni la pendiente', !/VINIWRMALA|VINIWRPEND/.test(s.seq));
 
         // ── SPC y Panorama ────────────────────────────────────────────────

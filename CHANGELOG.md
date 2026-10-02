@@ -20,7 +20,7 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 2.31.0 — Al CoP solo entra lo aprobado y válido, y el CO₂ en orden de prueba (2026-10-02)
+## 2.31.0 — Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones (2026-10-02)
 
 ### Cambió
 - **El trazo de manejo decide si una prueba sirve para CoP.** En WLTP (UN R154) el IWR tiene
@@ -49,8 +49,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   primera). Reproduce al dígito el Excel "statistika" del laboratorio (5 ensayos: pasa si ≤
   1.000854222 → CONCORDANTE; 4 ensayos: 0.996972764 / 1.01621105 → otro ensayo). Va también en
   el juicio guardado y en el PDF del expediente.
-- **No se prueban combinaciones que dejen fuera un ensayo válido** (1-2-4 sin el 3): la norma
-  cuenta todos los ensayos del muestreo, en orden, y la pantalla lo dice.
+- **CO₂ → 🧮 Combinaciones de vehículos — ¿alguna es concordante?** La iteración del Excel
+  "statistika": toda combinación de 3 o más vehículos que cuentan para CoP (1-2-3, 1-2-4,
+  1-2-3-4, …), cada una evaluada con la fila de la tabla de SU n. Dice cuántas hay por tamaño,
+  cuántas son concordantes con UN R154, con el Apéndice I y con las dos, y las lista (las de más
+  vehículos primero); se filtra por prueba. Si ninguna pasa, muestra las que más se acercan. Los
+  vehículos se numeran en orden de prueba (#1 = el más viejo). Se calcula al abrir la tarjeta;
+  con más de 18 vehículos se combinan los 18 más recientes y se dice cuáles quedan fuera. No
+  cambia el veredicto de la familia ni el juicio.
 - **Juicio con ensayos que ya no cuentan**: aviso en el Validador (con "💾 Guardar el juicio de
   nuevo"), la tarjeta de la familia, el Expediente y su PDF. El juicio viejo no se modifica.
 - Se declara al aprobar, en la Revisión dirigida, al confirmar un histórico, en el Historial
@@ -66,7 +72,10 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   `_copRawGasValues` es para comparar.
 - `copMesaRows()` (lo que entra a gases y CO₂), `_copMesaExclusions(key)`, `copExcludedTests`,
   `copCo2RowsFor(vins, key)` (reemplaza a `homoCo2RowsForVins`, retirada),
-  `copCo2Sequence(rows, fcf, evc)` (PURA) + `copCo2SequenceHTML`, `copJudgmentStale(j)`.
+  `copCo2Sequence(rows, fcf, evc)` (PURA) + `copCo2SequenceHTML`, `copCo2Combinations(rows, fcf,
+  evc)` (PURA) + `copCo2CombosHTML` / `copCo2CombosPaint`, `copJudgmentStale(j)`.
+  `_copCo2Judge(xs)` es LA fórmula de las dos pruebas (la usan la muestra completa y las
+  combinaciones).
 - Plan: `tpTestedCountsForReq` suma `!tpTestedCopUnusable(t)`, derivado del vehículo
   (`_tpCopUsableRev` en las claves de `tpGetAnalysis` y `_tpGetPlanHash`).
 - `tests/iwr.node.js` (52) y `tests/v2310.e2e.js`.

@@ -4944,6 +4944,9 @@ details.ui-card:not([open]) > .ui-card-head::after { transform: rotate(-90deg); 
 .cop-seq--pass { color: var(--ok-text); font-weight: var(--weight-bold); }
 .cop-seq--fail { color: var(--danger-text); font-weight: var(--weight-bold); }
 .cop-seq--cont { color: var(--warn-text); }
+.cop-combo-tests { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: var(--space-sm) 0; }
+.cop-combo-legend { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); font-size: var(--fs-xs); margin: var(--space-sm) 0; color: var(--text); }
+.cop-combo-title { font-size: var(--fs-sm); margin: var(--space-md) 0 var(--space-xs); }
 
 /* ── Modo presentación (sala de auditoría) ─────────────────────────── */
 /* Con alcance a body.cop-present: NUNCA subir la escala global, que es la */
@@ -9222,10 +9225,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610022017';
+var APP_BUILD = '202610022026';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'f14ea18c42d6d66561965d1a672385cfa5bdfdce';
+var APP_COMMIT = 'aeb2e71b3e66a5bafd908e14ad06acb00b2be095';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9241,12 +9244,13 @@ var APP_VERSION = '2.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido, y el CO₂ en orden de prueba',
+    { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones',
       bullets: [
           'Cambió: una prueba WLTP con el trazo de manejo fuera de norma —IWR fuera de −2…+4 % o RMSSE sobre 1.3 km/h— se puede aprobar como siempre, pero su resultado ya no entra al Validador, al Control SPC, al Panorama ni al REQ del plan. No depende de cómo se clasificó la falla en VETS.',
           'Cambió: al CoP y al SPC solo entran resultados APROBADOS (archivados o históricos confirmados). Antes contaban también los que esperaban aprobación, con los valores del liberador.',
           'Arreglado: el CO₂ del CoP tomaba el valor del liberador y, si un VIN tenía dos pruebas, cualquiera de las dos. Ahora es el CO₂ aprobado de la prueba que cuenta.',
           'Nuevo: en CO₂ → "Secuencia en orden de prueba": n = 3, 4, 5… como lo corre la norma, con en qué n decidió UN R154 y en cuál el Apéndice I. Si se siguió ensayando después de decidir, lo dice.',
+          'Nuevo: en CO₂ → "🧮 Combinaciones de vehículos": todas las combinaciones de 3 o más vehículos que cuentan (1-2-3, 1-2-4, 1-2-3-4…), cada una con la fila de la tabla de su n, y cuáles salen concordantes con UN R154, con el Apéndice I o con las dos. Si ninguna pasa, muestra las que más se acercan.',
           'Nuevo: si un juicio guardado incluye ensayos que hoy no cuentan, el Validador, la tarjeta, el Expediente y su PDF lo avisan, con un botón para guardarlo de nuevo. El juicio viejo no se modifica.',
           'Se dice dónde: al aprobar, en la Revisión dirigida, al confirmar un histórico, en el Historial (⊘ No cuenta para CoP), en la ficha, el Validador, la carta SPC y el PDF. En la mesa, una fila automática de esas pruebas sale sola; una agregada a mano se queda tachada y fuera del cálculo.'
       ] },
@@ -10040,14 +10044,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610022017' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610022026' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610022017' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610022026' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10063,7 +10067,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610022017' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610022026' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -58574,7 +58578,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610022017' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610022026' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -61289,9 +61293,28 @@ function copCo2CalcStats(rows, fcf, evc) {
     });
     var n = x.length;
     if (n < 3) return { n: n, mean: null, s: null, fcf: f, evc: e, A: COP_CO2_A, decision: 'SIN DATOS', x: x };
+    var j = _copCo2Judge(x.map(function(r) { return r.x; }));
+    return {
+        n: n, mean: j.mean, s: j.s, var: j.var, fcf: f, evc: e, A: COP_CO2_A,
+        overSample: n > 16, x: x,
+        // Compatibilidad de nivel superior = la prueba PRINCIPAL (Apéndice I):
+        // así el resto de la pantalla (gauge, conclusión, congelado del juicio)
+        // no necesita saber que hay dos pruebas para pintar el veredicto de arriba.
+        decision: j.appendixI.decision, passBound: j.appendixI.passBound, failBound: j.appendixI.failBound,
+        appendixI: { decision: j.appendixI.decision, passBound: j.appendixI.passBound, failBound: j.appendixI.failBound, source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4' },
+        r154: { decision: j.r154.decision, passBound: j.r154.passBound, failBound: j.r154.failBound, table: j.r154.table, tableN: j.r154.tableN, source: 'UN R154 (WLTP GTR) §3.3.1 — Tabla A2/3' }
+    };
+}
 
-    var mean = x.reduce(function(s, r) { return s + r.x; }, 0) / n;
-    var vr = x.reduce(function(acc, r) { return acc + Math.pow(r.x - mean, 2); }, 0) / (n - 1);
+/**
+ * [2.31.0] Las dos pruebas sobre una lista de x normalizados (n ≥ 3). PURA. Es LA
+ * fórmula: la usan copCo2CalcStats y copCo2Combinations, así una combinación y la
+ * muestra completa no pueden calcular distinto.
+ */
+function _copCo2Judge(xs) {
+    var n = xs.length;
+    var mean = xs.reduce(function(s, v) { return s + v; }, 0) / n;
+    var vr = xs.reduce(function(acc, v) { return acc + Math.pow(v - mean, 2); }, 0) / (n - 1);
     var s = Math.sqrt(vr);
     var nClamped = Math.max(3, Math.min(n, 16));
 
@@ -61305,17 +61328,9 @@ function copCo2CalcStats(rows, fcf, evc) {
     var r154PassBound = COP_CO2_A - (t.tP1 + t.tP2) * s;
     var r154FailBound = COP_CO2_A + (t.tF1 - t.tF2) * s;
     var r154Decision = mean <= r154PassBound ? 'PASS' : mean > r154FailBound ? 'FAIL' : 'CONTINUE';
-
-    return {
-        n: n, mean: mean, s: s, var: vr, fcf: f, evc: e, A: COP_CO2_A,
-        overSample: n > 16, x: x,
-        // Compatibilidad de nivel superior = la prueba PRINCIPAL (Apéndice I):
-        // así el resto de la pantalla (gauge, conclusión, congelado del juicio)
-        // no necesita saber que hay dos pruebas para pintar el veredicto de arriba.
-        decision: apDecision, passBound: apPassBound, failBound: apFailBound,
-        appendixI: { decision: apDecision, passBound: apPassBound, failBound: apFailBound, source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4' },
-        r154: { decision: r154Decision, passBound: r154PassBound, failBound: r154FailBound, table: t, tableN: nClamped, source: 'UN R154 (WLTP GTR) §3.3.1 — Tabla A2/3' }
-    };
+    return { n: n, mean: mean, s: s, var: vr,
+             appendixI: { decision: apDecision, passBound: apPassBound, failBound: apFailBound },
+             r154: { decision: r154Decision, passBound: r154PassBound, failBound: r154FailBound, table: t, tableN: nClamped } };
 }
 
 /**
@@ -61329,29 +61344,13 @@ function copCo2CalcStats(rows, fcf, evc) {
  *            r154:{decision,passBound,failBound}}], first:{appendixI, r154}, final,
  *    undated, n, continuedAfter:{appendixI, r154}}
  *
- * `first.x` = el primer n en que esa prueba decidió (PASS o FAIL): ésa es la decisión de
- * la norma. Si se siguió ensayando después y el veredicto con todos cambió,
- * `continuedAfter.x` lo dice — no se elige el resultado que convenga.
- *
- * NO prueba subconjuntos (1-2-4 sin el 3, etc.) a propósito: quitar un ensayo válido
- * para que la familia pase no está permitido por la norma (todos los ensayos del
- * muestreo cuentan) y, con tantas combinaciones, alguna "pasaría" por azar. Un ensayo
- * sale del cálculo solo con un motivo técnico declarado (copTestUsable).
+ * `first.x` = el primer n en que esa prueba decidió (PASS o FAIL). Si se siguió
+ * ensayando después y el veredicto con todos cambió, `continuedAfter.x` lo dice.
+ * Las combinaciones de vehículos (cualquier subconjunto) están en copCo2Combinations.
  */
 function copCo2Sequence(rows, fcf, evc) {
-    var valid = [];
-    (rows || []).forEach(function(r, i) {
-        var m = parseFloat(r.measured), t = parseFloat(r.target);
-        if (!isFinite(m) || !isFinite(t) || t === 0) return;
-        valid.push({ vin: r.vin, measured: m, target: t, date: r.date || '', _i: i });
-    });
+    var valid = _copCo2Ordered(rows);
     var undated = valid.filter(function(r) { return !r.date; }).length;
-    valid.sort(function(a, b) {
-        if (!a.date && !b.date) return a._i - b._i;
-        if (!a.date) return 1;
-        if (!b.date) return -1;
-        return a.date < b.date ? -1 : a.date > b.date ? 1 : a._i - b._i;
-    });
     var steps = [], first = { appendixI: null, r154: null };
     for (var k = 1; k <= valid.length; k++) {
         var add = valid[k - 1];
@@ -61415,9 +61414,192 @@ function copCo2SequenceHTML(seq) {
              '<td data-label="Apéndice I" class="' + cls(a && a.decision) + '">' + (a ? _copSeqWord(a.decision) : '') + '</td></tr>';
     });
     h += '</tbody></table></div>';
-    h += '<p class="u-muted-xs">No se prueban combinaciones que dejen fuera un ensayo válido (p. ej. 1-2-4 sin el 3): la norma cuenta todos los ensayos del muestreo, en orden. ' +
-         'Un ensayo solo sale del cálculo con un motivo técnico declarado (IWR o RMSSE fuera de rango, o sin aprobar).</p>';
     return h + '</details>';
+}
+
+/** Pares válidos (CO₂ medido y declarado) en orden de PRUEBA; sin fecha al final. PURA. */
+function _copCo2Ordered(rows) {
+    var valid = [];
+    (rows || []).forEach(function(r, i) {
+        var m = parseFloat(r.measured), t = parseFloat(r.target);
+        if (!isFinite(m) || !isFinite(t) || t === 0) return;
+        valid.push({ vin: r.vin, measured: m, target: t, date: r.date || '', _i: i });
+    });
+    valid.sort(function(a, b) {
+        if (!a.date && !b.date) return a._i - b._i;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return a.date < b.date ? -1 : a.date > b.date ? 1 : a._i - b._i;
+    });
+    return valid;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [2.31.0] COMBINACIONES DE VEHÍCULOS — la iteración del Excel "statistika" del
+// laboratorio: toda combinación de 3 o más vehículos (1-2-3, 1-2-4, 1-2-3-4, …), cada
+// una evaluada con la fila de la tabla de SU n, para saber si alguna logra la
+// concordancia. Los vehículos se numeran en orden de prueba (#1 = el más viejo), igual
+// que en la secuencia. Herramienta de análisis del laboratorio: no cambia el veredicto
+// de la familia (que sigue siendo con todos los ensayos que cuentan) ni el juicio.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var COP_CO2_COMBO_MAX = 18;      // 2^18 = 262 144 combinaciones: lo que un teléfono calcula en ~1 s
+var COP_CO2_COMBO_KEEP = 3000;   // concordantes que se guardan para la lista (se cuentan todas)
+var COP_CO2_COMBO_NEAR = 20;     // las no concordantes que más se acercan, para cuando no hay ninguna
+var COP_CO2_COMBO_POOL = 20000;  // concordantes que se ordenan antes de quedarse con las KEEP mejores
+
+/**
+ * Todas las combinaciones de ≥ 3 vehículos de la mesa y su veredicto de CO₂. PURA.
+ * rows = copCo2RowsFor(…). Con más de COP_CO2_COMBO_MAX vehículos se usan los más
+ * recientes y el resto se reporta en `dropped`.
+ * → {order:[{num, vin, date}], dropped:[{vin, date}], total,
+ *    counts:{r154, appendixI, both}, bySize:{k:{total, r154, appendixI, both}},
+ *    pass:[combo] (concordantes con alguna de las dos, mejores primero, hasta KEEP),
+ *    near:[combo] (las que no pasan con R154 y más se acercan),
+ *    full: combo (todos los vehículos)}
+ * combo = {nums:[1,2,4], vins, n, mean, s, r154:{decision,passBound,failBound},
+ *          appendixI:{decision,passBound,failBound}, margin} — margin = cuánto le falta
+ *          (positivo) o le sobra (negativo) a X̄ para el "pasa si ≤" de R154.
+ */
+function copCo2Combinations(rows, fcf, evc) {
+    var f = (typeof fcf === 'number' && fcf > 0) ? fcf : 1;
+    var e = (typeof evc === 'number' && evc > 0) ? evc : 1;
+    var all = _copCo2Ordered(rows), dropped = [];
+    if (all.length > COP_CO2_COMBO_MAX) {
+        dropped = all.slice(0, all.length - COP_CO2_COMBO_MAX).map(function(r) { return { vin: r.vin, date: r.date }; });
+        all = all.slice(all.length - COP_CO2_COMBO_MAX);
+    }
+    var N = all.length;
+    var order = all.map(function(r, i) { return { num: i + 1, vin: r.vin, date: r.date }; });
+    var xs = all.map(function(r) { return (r.measured * e * f) / r.target; });
+    var out = { order: order, dropped: dropped, total: 0, counts: { r154: 0, appendixI: 0, both: 0 },
+                bySize: {}, pass: [], near: [], full: null, n: N };
+    if (N < 3) return out;
+    var mk = function(idx, j) {
+        return { nums: idx.map(function(i) { return i + 1; }), vins: idx.map(function(i) { return all[i].vin; }),
+                 n: j.n, mean: j.mean, s: j.s,
+                 r154: { decision: j.r154.decision, passBound: j.r154.passBound, failBound: j.r154.failBound },
+                 appendixI: { decision: j.appendixI.decision, passBound: j.appendixI.passBound, failBound: j.appendixI.failBound },
+                 margin: j.mean - j.r154.passBound };
+    };
+    var pass = [], near = [], lim = 1 << N;
+    for (var mask = 1; mask < lim; mask++) {
+        var idx = [];
+        for (var b = 0; b < N; b++) if (mask & (1 << b)) idx.push(b);
+        if (idx.length < 3) continue;
+        var j = _copCo2Judge(idx.map(function(i) { return xs[i]; }));
+        var pr = j.r154.decision === 'PASS', pa = j.appendixI.decision === 'PASS';
+        var k = idx.length, sz = out.bySize[k] = out.bySize[k] || { total: 0, r154: 0, appendixI: 0, both: 0 };
+        out.total++; sz.total++;
+        if (pr) { out.counts.r154++; sz.r154++; }
+        if (pa) { out.counts.appendixI++; sz.appendixI++; }
+        if (pr && pa) { out.counts.both++; sz.both++; }
+        if (mask === lim - 1) out.full = mk(idx, j);
+        if (pr || pa) {
+            if (pass.length < COP_CO2_COMBO_POOL) pass.push(mk(idx, j));
+        } else {
+            var m = j.mean - j.r154.passBound;
+            if (near.length < COP_CO2_COMBO_NEAR || m < near[near.length - 1].margin) {
+                near.push(mk(idx, j));
+                near.sort(function(a, c) { return a.margin - c.margin; });
+                if (near.length > COP_CO2_COMBO_NEAR) near.pop();
+            }
+        }
+    }
+    var rank = function(c) { return (c.r154.decision === 'PASS' ? 2 : 0) + (c.appendixI.decision === 'PASS' ? 1 : 0); };
+    pass.sort(function(a, c) { return (rank(c) - rank(a)) || (c.n - a.n) || (a.margin - c.margin); });
+    out.pass = pass.slice(0, COP_CO2_COMBO_KEEP);
+    out.near = near;
+    return out;
+}
+
+var _copComboMemo = { key: null, data: null };
+function _copCo2CombosFor(rows, fcf, evc) {
+    var key = JSON.stringify([fcf, evc, _copCo2Ordered(rows).map(function(r) { return [r.vin, r.measured, r.target, r.date]; })]);
+    if (_copComboMemo.key !== key) _copComboMemo = { key: key, data: copCo2Combinations(rows, fcf, evc) };
+    return _copComboMemo.data;
+}
+
+/** Qué prueba filtra la lista: 'r154' | 'appendixI' | 'both' (preferencia del equipo). */
+function _copComboTest() {
+    var p = (typeof uiPref === 'function') ? (uiPref('copCombos') || {}) : {};
+    return (p && (p.test === 'appendixI' || p.test === 'both')) ? p.test : 'r154';
+}
+function copComboSetTest(t) {
+    if (typeof uiPref === 'function') uiPref('copCombos', { test: t });
+    copCo2CombosPaint();
+}
+
+/** Lo que va dentro de la tarjeta de combinaciones. PURA (recibe el resultado y la prueba). */
+function copCo2CombosHTML(c, test) {
+    if (!c || c.n < 3) return '<p class="u-muted-xs">Hacen falta al menos 3 vehículos con CO₂ medido y declarado.</p>';
+    var f4 = function(v) { return (v === null || v === undefined || !isFinite(v)) ? '—' : Number(v).toFixed(4); };
+    var cls = function(d) { return d === 'PASS' ? 'cop-seq--pass' : d === 'FAIL' ? 'cop-seq--fail' : 'cop-seq--cont'; };
+    var ok = function(x) { return test === 'both' ? (x.r154.decision === 'PASS' && x.appendixI.decision === 'PASS') : x[test].decision === 'PASS'; };
+    var nombre = { r154: 'UN R154', appendixI: 'el Apéndice I', both: 'las dos pruebas' }[test];
+    var cuenta = test === 'both' ? c.counts.both : c.counts[test];
+    var h = '<p class="cop-seq-lead">' + c.total + ' combinaciones de 3 a ' + c.n + ' vehículos. Concordantes: <b>' + c.counts.r154 + '</b> con UN R154, <b>' +
+            c.counts.appendixI + '</b> con el Apéndice I, <b>' + c.counts.both + '</b> con las dos. Con todos los vehículos: UN R154 ' +
+            _copSeqWord(c.full.r154.decision) + ', Apéndice I ' + _copSeqWord(c.full.appendixI.decision) + '.</p>';
+    if (c.dropped.length) h += '<p class="u-muted-xs">Hay ' + (c.dropped.length + c.n) + ' vehículos: se combinan los ' + c.n + ' más recientes (' + c.dropped.length + ' más viejos no entran: ' + c.dropped.map(function(d) { return _copEsc(d.vin); }).join(', ') + ').</p>';
+    h += '<div class="cop-combo-tests" role="radiogroup" aria-label="Prueba con la que se filtra">' + [['r154', 'UN R154'], ['appendixI', 'Apéndice I'], ['both', 'Las dos']].map(function(o) {
+        return '<button type="button" role="radio" aria-checked="' + (o[0] === test) + '" class="btn btn-sm ' + (o[0] === test ? '' : 'btn-ghost') + '"' +
+               (o[0] === test ? ' style="background:var(--accent-cop);color:#fff;"' : '') + ' onclick="copComboSetTest(\'' + o[0] + '\')">' + o[1] + '</button>';
+    }).join('') + '</div>';
+    // Vehículos por número (orden de prueba)
+    h += '<div class="cop-combo-legend">' + c.order.map(function(o) {
+        return '<span><b>#' + o.num + '</b> <span style="font-family:monospace;">' + _copEsc(o.vin) + '</span>' + (o.date ? ' · ' + _copEsc(String(o.date).slice(0, 10)) : '') + '</span>';
+    }).join('') + '</div>';
+    // Por tamaño
+    h += '<div style="overflow-x:auto;"><table class="cop-seq-table u-cards u-cards-grid"><thead><tr><th>Vehículos</th><th>Combinaciones</th><th>UN R154</th><th>Apéndice I</th><th>Las dos</th></tr></thead><tbody>';
+    Object.keys(c.bySize).sort(function(a, b) { return a - b; }).forEach(function(k) {
+        var z = c.bySize[k];
+        h += '<tr><td data-label="Vehículos">' + k + '</td><td data-label="Combinaciones">' + z.total + '</td><td data-label="UN R154">' + z.r154 +
+             '</td><td data-label="Apéndice I">' + z.appendixI + '</td><td data-label="Las dos">' + z.both + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    var lista = c.pass.filter(ok), titulo;
+    if (lista.length) {
+        titulo = cuenta + ' combinación(es) concordante(s) con ' + nombre + (lista.length < cuenta ? ' — se muestran ' + lista.length : '') + ', las de más vehículos primero';
+    } else {
+        lista = c.near.slice(0, 10);
+        titulo = 'Ninguna combinación es concordante con ' + nombre + '. Las que más se acercan (UN R154):';
+    }
+    var max = 200, mostrar = lista.slice(0, max);
+    h += '<p class="cop-combo-title" data-cop-combo-count="' + cuenta + '"><b>' + titulo + '</b>' + (lista.length > max ? ' (primeras ' + max + ')' : '') + '</p>';
+    h += '<div style="overflow-x:auto;"><table class="cop-seq-table u-cards u-cards-grid"><thead><tr>' +
+         ['Vehículos', 'n', 'X̄', 's', 'R154 pasa si ≤', 'R154 falla si >', 'UN R154', 'Apéndice I'].map(function(t) { return '<th>' + t + '</th>'; }).join('') +
+         '</tr></thead><tbody>';
+    mostrar.forEach(function(x) {
+        h += '<tr data-cop-combo="' + x.nums.join('-') + '"><td data-label="Vehículos" title="' + _copEsc(x.vins.join(', ')) + '">' + x.nums.map(function(n) { return '#' + n; }).join(' ') + '</td>' +
+             '<td data-label="n">' + x.n + '</td><td data-label="X̄">' + f4(x.mean) + '</td><td data-label="s">' + f4(x.s) + '</td>' +
+             '<td data-label="R154 pasa si ≤">' + f4(x.r154.passBound) + '</td><td data-label="R154 falla si >">' + f4(x.r154.failBound) + '</td>' +
+             '<td data-label="UN R154" class="' + cls(x.r154.decision) + '">' + _copSeqWord(x.r154.decision) + '</td>' +
+             '<td data-label="Apéndice I" class="' + cls(x.appendixI.decision) + '">' + _copSeqWord(x.appendixI.decision) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<p class="u-muted-xs">Cada combinación se evalúa con la fila de la tabla de su propio n. El veredicto de la familia arriba sigue siendo con todos los vehículos que cuentan.</p>';
+    return h;
+}
+
+/** Calcula y pinta las combinaciones al abrir su tarjeta (no en cada repintado). */
+function copCo2CombosPaint() {
+    var host = document.getElementById('cop-co2-combos-body');
+    if (!host) return;
+    var det = host.closest ? host.closest('details') : null;
+    if (det && !det.open) return;
+    var vins = copMesaRows().map(function(v) { return v.vin; }).filter(Boolean);
+    var rows = copCo2RowsFor(vins, copState.familyKey);
+    var fx = copCo2Factors();
+    var pintar = function() {
+        if (!host.isConnected) return;
+        host.innerHTML = copCo2CombosHTML(_copCo2CombosFor(rows, fx.fcf, fx.evc), _copComboTest());
+        if (typeof uiTableCards === 'function') { try { uiTableCards(host); } catch (e) {} }
+    };
+    // Con muchos vehículos son cientos de miles de combinaciones: primero se pinta
+    // "Calculando…" y después se ocupa el hilo.
+    if (_copCo2Ordered(rows).length > 12) { host.innerHTML = '<p class="u-muted-xs">Calculando combinaciones…</p>'; setTimeout(pintar, 30); }
+    else pintar();
 }
 
 /** Último juicio guardado de una familia (o null). */
@@ -64874,6 +65056,11 @@ function _copBuildCo2HTML() {
     html += '<div id="cop-co2-steps" class="cop-co2-steps">' + _copCo2StepsFor(stats, null) + '</div>';
     // [2.31.0] La secuencia de la norma: n = 3, 4, 5… en orden de prueba.
     html += copCo2SequenceHTML(copCo2Sequence(rows, factors.fcf, factors.evc));
+    // [2.31.0] Combinaciones de vehículos: se calculan al abrir la tarjeta.
+    if (_copCo2Ordered(rows).length >= 3) {
+        html += '<details class="cop-seq" data-cop-combos="1" ontoggle="if(this.open)copCo2CombosPaint()"><summary>🧮 Combinaciones de vehículos — ¿alguna es concordante?</summary>' +
+                '<div id="cop-co2-combos-body"><p class="u-muted-xs">Calculando…</p></div></details>';
+    }
 
     // Tabla por vehículo
     html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
@@ -72142,7 +72329,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8756,"mods":[[8759,"js/app.js",17927],[17931,"js/uiflow.js",18247],[18251,"js/cop15.js",27872],[27876,"js/inventory.js",34942],[34946,"js/testplan.js",45703],[45707,"js/panel.js",50874],[50878,"js/projects.js",53167],[53171,"js/auth.js",54212],[54216,"js/signatures.js",54417],[54421,"js/firebase-sync.js",61215],[61219,"js/cop_validator.js",65401],[65405,"js/homolog.js",67195],[67199,"js/vets.js",68994],[68998,"js/historico.js",69910],[69914,"js/review.js",70367],[70371,"js/opcards.js",70800],[70804,"js/handoff.js",71078],[71082,"js/ficha.js",71573],[71577,"js/relevo.js",71957],[71961,"js/momentos.js",72098],[72102,"js/bugreport.js",73248]]};
+var BUG_LINE_MAP = {"tag":8759,"mods":[[8762,"js/app.js",17931],[17935,"js/uiflow.js",18251],[18255,"js/cop15.js",27876],[27880,"js/inventory.js",34946],[34950,"js/testplan.js",45707],[45711,"js/panel.js",50878],[50882,"js/projects.js",53171],[53175,"js/auth.js",54216],[54220,"js/signatures.js",54421],[54425,"js/firebase-sync.js",61219],[61223,"js/cop_validator.js",65588],[65592,"js/homolog.js",67382],[67386,"js/vets.js",69181],[69185,"js/historico.js",70097],[70101,"js/review.js",70554],[70558,"js/opcards.js",70987],[70991,"js/handoff.js",71265],[71269,"js/ficha.js",71760],[71764,"js/relevo.js",72144],[72148,"js/momentos.js",72285],[72289,"js/bugreport.js",73435]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

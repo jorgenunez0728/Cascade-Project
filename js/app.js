@@ -483,12 +483,13 @@ var APP_VERSION = '2.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido, y el CO₂ en orden de prueba',
+    { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones',
       bullets: [
           'Cambió: una prueba WLTP con el trazo de manejo fuera de norma —IWR fuera de −2…+4 % o RMSSE sobre 1.3 km/h— se puede aprobar como siempre, pero su resultado ya no entra al Validador, al Control SPC, al Panorama ni al REQ del plan. No depende de cómo se clasificó la falla en VETS.',
           'Cambió: al CoP y al SPC solo entran resultados APROBADOS (archivados o históricos confirmados). Antes contaban también los que esperaban aprobación, con los valores del liberador.',
           'Arreglado: el CO₂ del CoP tomaba el valor del liberador y, si un VIN tenía dos pruebas, cualquiera de las dos. Ahora es el CO₂ aprobado de la prueba que cuenta.',
           'Nuevo: en CO₂ → "Secuencia en orden de prueba": n = 3, 4, 5… como lo corre la norma, con en qué n decidió UN R154 y en cuál el Apéndice I. Si se siguió ensayando después de decidir, lo dice.',
+          'Nuevo: en CO₂ → "🧮 Combinaciones de vehículos": todas las combinaciones de 3 o más vehículos que cuentan (1-2-3, 1-2-4, 1-2-3-4…), cada una con la fila de la tabla de su n, y cuáles salen concordantes con UN R154, con el Apéndice I o con las dos. Si ninguna pasa, muestra las que más se acercan.',
           'Nuevo: si un juicio guardado incluye ensayos que hoy no cuentan, el Validador, la tarjeta, el Expediente y su PDF lo avisan, con un botón para guardarlo de nuevo. El juicio viejo no se modifica.',
           'Se dice dónde: al aprobar, en la Revisión dirigida, al confirmar un histórico, en el Historial (⊘ No cuenta para CoP), en la ficha, el Validador, la carta SPC y el PDF. En la mesa, una fila automática de esas pruebas sale sola; una agregada a mano se queda tachada y fuera del cálculo.'
       ] },

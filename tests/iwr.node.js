@@ -210,7 +210,26 @@ ok('sin fecha va al final y se cuenta', und.undated === 1 && und.steps[4].vin ==
 const tarde = mkCo2([124, 124.2, 124.1, 134, 135, 136]);
 const qt = ctx.copCo2Sequence(tarde, 1, 1);
 ok('si ya había decidido y se siguió ensayando, se declara', qt.first.r154 && qt.first.r154.n === 3 && qt.first.r154.decision === 'PASS' && qt.final.r154.decision !== 'PASS' && qt.continuedAfter.r154 === true, JSON.stringify({ f: qt.first, fin: qt.final.r154.decision, c: qt.continuedAfter }));
-ok('la tabla dice que no se prueban combinaciones que dejen fuera un ensayo válido', /No se prueban combinaciones/.test(ctx.copCo2SequenceHTML(q5)));
+
+console.log('\n== Combinaciones de vehículos ==');
+const cb = ctx.copCo2Combinations(cinco, 1, 1);
+ok('5 vehículos → 16 combinaciones (10 de 3, 5 de 4, 1 de 5)', cb.total === 16 && cb.bySize[3].total === 10 && cb.bySize[4].total === 5 && cb.bySize[5].total === 1, cb.bySize);
+ok('con los números del Excel: 4 concordantes con R154, 16 con el Apéndice I', cb.counts.r154 === 4 && cb.counts.appendixI === 16 && cb.counts.both === 4, cb.counts);
+ok('las concordantes con R154 son 1-2-3-4-5, 1-2-3-5, 1-2-4-5 y 1-2-5 (las de más vehículos primero)',
+   cb.pass.filter(x => x.r154.decision === 'PASS').map(x => x.nums.join('-')).join(' ') === '1-2-3-4-5 1-2-3-5 1-2-4-5 1-2-5',
+   cb.pass.filter(x => x.r154.decision === 'PASS').map(x => x.nums.join('-')));
+const c125 = cb.pass.find(x => x.nums.join('-') === '1-2-5');
+const ref125 = ctx.copCo2CalcStats([cinco[0], cinco[1], cinco[4]], 1, 1);
+ok('cada combinación se evalúa con la fila de SU n (1-2-5 = la de n = 3)', c125.r154.passBound === ref125.r154.passBound && c125.mean === ref125.mean);
+ok('la combinación con todos = el veredicto de la muestra completa', cb.full.r154.decision === s5.r154.decision && cb.full.mean === s5.mean);
+ok('los números son el orden de prueba aunque la mesa venga desordenada', ctx.copCo2Combinations(cinco.slice().reverse(), 1, 1).order.map(o => o.vin).join() === 'V1,V2,V3,V4,V5');
+const nada = ctx.copCo2Combinations(mkCo2([140, 141, 139, 142]), 1, 1);
+ok('si ninguna pasa, lo dice y da las que más se acercan', nada.counts.r154 === 0 && nada.near.length === 5 && /Ninguna combinación es concordante/.test(ctx.copCo2CombosHTML(nada, 'r154')));
+const veinte = ctx.copCo2Combinations(Array.from({ length: 20 }, (_, i) => ({ vin: 'W' + i, measured: 129 + (i % 3) * 0.1, target: 129, date: '2026-02-' + String(i + 1).padStart(2, '0') })), 1, 1);
+ok('con más de 18 vehículos se combinan los 18 más recientes y se dice cuáles quedan fuera', veinte.n === 18 && veinte.dropped.length === 2 && veinte.dropped[0].vin === 'W0' && /no entran/.test(ctx.copCo2CombosHTML(veinte, 'r154')));
+const html = ctx.copCo2CombosHTML(cb, 'r154');
+ok('la pantalla lista las concordantes y su conteo', /4 combinación\(es\) concordante\(s\) con UN R154/.test(html) && (html.match(/data-cop-combo="/g) || []).length === 4);
+ok('filtrar por Apéndice I lista las 16', (ctx.copCo2CombosHTML(cb, 'appendixI').match(/data-cop-combo="/g) || []).length === 16);
 
 console.log('\n== REQ del plan ==');
 const S = ctx.__getTp();
