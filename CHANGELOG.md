@@ -20,6 +20,44 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.31.0 — Una prueba con IWR fuera de rango se acepta, pero no cuenta para CoP (2026-10-02)
+
+### Cambió
+- **El índice de manejo decide si una prueba sirve para CoP.** En WLTP (UN R154) el IWR tiene
+  que quedar entre −2 % y +4 %. Una prueba fuera de ese rango (el caso real: −2.17 %) se puede
+  aprobar como siempre —es decisión de quien aprueba—, pero su resultado **ya no entra** a:
+  - el Validador del CoP (veredicto de gases y de CO₂);
+  - el Control SPC (cartas I-MR y alarmas);
+  - el Panorama (tarjeta de la familia);
+  - el **REQ del plan**: deja de bajar el déficit de su familia, igual que OBD II, para que el
+    plan vuelva a pedir una prueba válida. La prueba sigue registrada como evidencia.
+- La regla **no depende de cómo se clasificó la falla en VETS**: aunque la verificación IWR se
+  marque Informativa o Desacreditada, no cuenta para CoP. Si VETS no tiene la verificación
+  configurada, la app compara el IWR del ciclo contra −2…+4 % por su cuenta.
+- Una FTP75 (México) no se juzga con este criterio: su IWR no tiene ese límite.
+
+### Nuevo
+- **Se declara, no se esconde.** Aviso al aprobar ("se puede aprobar, pero no contará para
+  CoP"), en la Revisión dirigida, al confirmar una prueba histórica, en el Historial
+  (⊘ No cuenta para CoP), en la ficha del vehículo, en el Validador, en la carta SPC, en la
+  tarjeta de la familia y en el expediente PDF. El juicio guardado congela qué se dejó fuera.
+- En la mesa del Validador: una fila automática que venía de esa prueba sale sola al abrir la
+  familia; una fila que alguien agregó a mano se queda tachada y no entra al cálculo. Una
+  re-prueba válida del mismo vehículo sí cuenta.
+
+### Para desarrollo
+- **`copTestUsable(vehicle)`** (cop_validator.js) es LA definición de "este ensayo sirve para
+  CoP" → `{usable, reasons, text}`. La compone `vetsDriveTraceInvalid(summary)` (vets.js, PURA,
+  `VETS_IWR_WLTP`, `vetsIsWltp`).
+- Consumidores: `copSyncVinsFromTests` (no agrega y retira filas `auto` vía
+  `_copRowFromUnusable`), `copMesaRows()` (lo que entra a `copGetPollStats` y al CO₂),
+  `copSpcFamilies`, `copExcludedTests(opts)` (para declarar), `copPortfolioRows` (`excluded`,
+  `excludedN`), `copSaveJudgment` (`excluded` congelado), `copFamilyPDF`.
+- Plan: `tpTestedCountsForReq(t)` suma `!tpTestedCopUnusable(t)`, derivado del vehículo por
+  `vehicleId` (memo `_tpCopUnusableMap`, se invalida con `data:saved` de cop15 vía
+  `_tpCopUsableRev`, que entra a las claves de `tpGetAnalysis` y `_tpGetPlanHash`).
+- `tests/iwr.node.js` (31).
+
 ## 2.30.0 — Las pruebas de antes de CASCADE, desde VETS (2026-10-02)
 
 ### Nuevo

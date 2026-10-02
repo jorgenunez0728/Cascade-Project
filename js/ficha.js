@@ -79,6 +79,12 @@ function _fichaVehiculo(id) {
     };
     if (st && !st.historic) m.badges.push({ text: st.done ? 'Archivado' : 'Etapa ' + st.index + '/' + st.total + ' · ' + st.label, tone: st.done ? 'ok' : 'info' });
     if (v.adhoc) m.badges.push({ text: 'Fuera de plan', tone: 'warn' });
+    // [2.31.0] Aceptada pero no usable para CoP (IWR): se dice en la ficha.
+    var _cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null;
+    if (_cu && !_cu.usable) {
+        m.badges.push({ text: 'No cuenta para CoP', tone: 'warn' });
+        m.facts.push({ k: 'No cuenta para CoP', v: _cu.text });
+    }
     m.facts.push({ k: 'Propósito', v: (typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose) : v.purpose) || '—' });
     if (eta && !(st && st.done)) m.facts.push({ k: 'Liberación esperada', v: _fichaDate(eta.date) + (eta.source === 'manual' ? ' (fijada)' : ' (estimada)') });
     var td = v.testData || {};

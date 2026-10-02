@@ -289,6 +289,8 @@ function historicoReviewModel(v, ctx) {
     var vf = _historicoVin(s.vinFile), ve = _historicoVin(s.vinEcu);
     if (vf && ve && vf !== ve) out.reasons.push('En VETS se tecleó ' + vf + ' y el ECU leyó ' + ve + '.');
     out.needsNote = out.reasons.length > 0;
+    // [2.31.0] Confirmable, pero su resultado no cuenta para CoP (p. ej. IWR fuera de rango).
+    out.copExcluded = (typeof vetsDriveTraceInvalid === 'function') ? vetsDriveTraceInvalid(s).map(function(r) { return r.text; }) : [];
     return out;
 }
 
@@ -663,6 +665,11 @@ function _historicoCard(host, id) {
     if (model.reasons.length) {
         h += '<div class="uf-list is-warn"><b>⚠️ Para confirmar, escribe una observación</b>' +
              model.reasons.map(function(x) { return '<div>' + escapeHtml(x) + '</div>'; }).join('') + '</div>';
+    }
+    if (model.copExcluded && model.copExcluded.length) {
+        h += '<div class="uf-list is-warn" data-hv-cop-excluded="1"><b>⊘ Se puede confirmar, pero no contará para CoP</b>' +
+             model.copExcluded.map(function(x) { return '<div>' + escapeHtml(x) + '</div>'; }).join('') +
+             '<div><small>No entra al validador, al SPC ni al REQ del plan.</small></div></div>';
     }
     if (H.warnings && H.warnings.length) {
         h += '<div class="uf-note">Al importar: ' + H.warnings.map(escapeHtml).join(' · ') + '</div>';

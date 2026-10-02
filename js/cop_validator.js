@@ -887,6 +887,16 @@ function copSelectFamily(key) {
 function copSyncVinsFromTests(key) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var rows = (copState.vehicles && copState.vehicles.length) ? copState.vehicles.slice() : [];
+    // [2.31.0] Una fila AUTOMÁTICA que vino de una prueba que no sirve para CoP sale de la
+    // mesa: la puso la máquina con un dato que ya no vale. Las manuales se quedan (las
+    // decide una persona) y _copMesaExclusions las deja fuera del cálculo.
+    var removed = 0;
+    rows = rows.filter(function(r) {
+        if (r.source !== 'auto' || !r.vin) return true;
+        if (!_copRowFromUnusable(r, key, vehicles)) return true;
+        removed++;
+        return false;
+    });
     var byVin = {};
     rows.forEach(function(r) { if (r.vin) byVin[String(r.vin).trim().toUpperCase()] = r; });
     var nextId = rows.reduce(function(m, r) { return Math.max(m, r.id || 0); }, 0) + 1;
@@ -896,6 +906,8 @@ function copSyncVinsFromTests(key) {
         if (!v.vin || copVehicleFamilyKey(v) !== key) return;
         // [2.30.0] Una prueba histórica de VETS entra solo ya confirmada por quien aprueba.
         if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
+        // [2.31.0] Aceptada pero no usable para CoP (p. ej. IWR fuera de rango): no entra.
+        if (!copTestUsable(v).usable) return;
         var vk = String(v.vin).trim().toUpperCase();
         var row = byVin[vk];
         if (!row) {
@@ -922,7 +934,109 @@ function copSyncVinsFromTests(key) {
 
     while (rows.length < 3) rows.push({ id: nextId++, vin: '', values: {}, source: 'manual' });
     _copSetVehicles(rows);
-    return { added: added, stale: stale };
+    return { added: added, stale: stale, removed: removed };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [2.31.0] ¿ESTE ENSAYO SIRVE PARA CoP?
+//
+// Una prueba se puede aceptar (aprobar, archivar, quedar en el historial y en el F05)
+// y aun así no servir para juzgar la conformidad de la familia: el caso que lo pidió
+// es el índice de manejo de WLTP (IWR fuera de −2…+4 %). copTestUsable es LA
+// definición; la usan la mesa del validador, el SPC, el Panorama, el expediente y el
+// REQ del plan (tpTestedCountsForReq). Lo excluido se DECLARA, nunca se oculta.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** ¿El ensayo de este vehículo sirve para CoP? → {usable, reasons, text}. */
+function copTestUsable(vehicle) {
+    var s = vehicle && vehicle.testData && vehicle.testData.vets;
+    var reasons = (s && typeof vetsDriveTraceInvalid === 'function') ? vetsDriveTraceInvalid(s) : [];
+    return { usable: !reasons.length, reasons: reasons,
+             text: reasons.map(function(r) { return r.text; }).join(' · ') };
+}
+
+function _copVinKey(v) { return String(v || '').trim().toUpperCase(); }
+
+/** ¿Los valores de la fila automática salieron de una prueba no usable de esa familia? */
+function _copRowFromUnusable(row, key, vehicles) {
+    var vk = _copVinKey(row.vin);
+    var mine = vehicles.filter(function(v) { return v && v.vin && _copVinKey(v.vin) === vk && copVehicleFamilyKey(v) === key && _copFinalGasValues(v); });
+    var malas = mine.filter(function(v) { return !copTestUsable(v).usable; });
+    if (!malas.length) return false;
+    if (malas.length === mine.length) return true;          // solo hay pruebas no usables de ese VIN
+    // Hay una re-prueba buena: la fila sale si sus valores son los de la mala (la buena
+    // la vuelve a agregar en la misma pasada).
+    return malas.some(function(v) {
+        var igual = true, alguno = false;
+        Object.keys(row.values || {}).forEach(function(pid) {
+            var cur = _copNum(row.values[pid]), val = copResultValue(v, pid);
+            if (cur === null || val === null) return;
+            alguno = true;
+            if (Math.abs(cur - val) > 1e-9) igual = false;
+        });
+        return alguno && igual;
+    });
+}
+
+/**
+ * VINes de la mesa que NO cuentan: los que en el laboratorio solo tienen ensayos no
+ * usables en esa familia. → {VIN: texto}. Una fila manual con ese VIN se queda en la
+ * tabla (la puso una persona) pero no entra al cálculo.
+ */
+function _copMesaExclusions(key) {
+    var out = {};
+    if (!key) return out;
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var porVin = {};
+    vehicles.forEach(function(v) {
+        if (!v || !v.vin || !_copFinalGasValues(v) || copVehicleFamilyKey(v) !== key) return;
+        var vk = _copVinKey(v.vin), u = copTestUsable(v);
+        var e = porVin[vk] = porVin[vk] || { buenas: 0, texto: '' };
+        if (u.usable) e.buenas++; else e.texto = e.texto || u.text;
+    });
+    Object.keys(porVin).forEach(function(vk) { if (!porVin[vk].buenas && porVin[vk].texto) out[vk] = porVin[vk].texto; });
+    return out;
+}
+
+/** Filas de la mesa que entran al cálculo (gases y CO₂). */
+function copMesaRows() {
+    var ex = _copMesaExclusions(copState.familyKey);
+    return (copState.vehicles || []).filter(function(r) { return !(r && r.vin && ex[_copVinKey(r.vin)]); });
+}
+
+/**
+ * Ensayos con gases finales que NO sirven para CoP, para declararlos.
+ * opts: {familyKey, allScopes} → [{id, vin, familyKey, date, text}]
+ */
+function copExcludedTests(opts) {
+    opts = opts || {};
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var out = [];
+    vehicles.forEach(function(v) {
+        if (!v || !_copFinalGasValues(v)) return;
+        var u = copTestUsable(v);
+        if (u.usable) return;
+        if (!opts.allScopes && !copInScope(v).ok) return;
+        var k = copVehicleFamilyKey(v);
+        if (opts.familyKey && k !== opts.familyKey) return;
+        out.push({ id: v.id, vin: v.vin || '(sin VIN)', familyKey: k, date: _copSpcDate(v), text: u.text });
+    });
+    return out;
+}
+
+/** Aviso de ensayos fuera del cálculo (validador, SPC). '' si no hay. */
+function _copExcludedNoteHTML(list, where) {
+    if (!list || !list.length) return '';
+    var h = '<div class="cop-note cop-note--warn" data-cop-excluded="' + list.length + '">';
+    h += '<div class="cop-note-title">⊘ ' + list.length + ' ensayo(s) aceptado(s) que NO cuentan para ' + _copEsc(where || 'CoP') + '</div>';
+    h += '<ul style="margin: var(--space-xs) 0 0; padding-left: var(--space-lg);">';
+    list.forEach(function(x) {
+        h += '<li><span style="font-family:monospace;">' + _copEsc(x.vin) + '</span>' +
+             (x.date ? ' · ' + _copEsc(String(x.date).slice(0, 10)) : '') + ' — ' + _copEsc(x.text) + '</li>';
+    });
+    h += '</ul><div class="u-muted-xs" style="margin-top: var(--space-xs);">Siguen en el historial y en su F05: la prueba se aceptó. ' +
+         'Lo que no hacen es entrar al veredicto, al SPC ni al REQ del plan.</div></div>';
+    return h;
 }
 // Compatibilidad: el nombre viejo sigue funcionando (ahora fusiona, no reemplaza).
 function copAutoPopulateVins(key) { return copSyncVinsFromTests(key); }
@@ -1052,7 +1166,11 @@ function copSaveJudgment() {
         regulation: copState.regulation, fuelType: copState.fuelType,
         emissionReg: _copFamilyEmissionReg(copState.familyKey),
         activePolls: JSON.parse(JSON.stringify(copState.activePolls)),
-        vehicles: JSON.parse(JSON.stringify(copState.vehicles)),
+        vehicles: JSON.parse(JSON.stringify(copMesaRows())),
+        // [2.31.0] Lo que se dejó fuera, y por qué: el registro tiene que decirlo.
+        excluded: copExcludedTests({ familyKey: copState.familyKey, allScopes: true }).map(function(x) {
+            return { vin: x.vin, date: String(x.date || '').slice(0, 10), reason: x.text };
+        }),
         // ── congelado: sin esto el registro no es reproducible ──
         limitsUsed: copGetActiveLimits().map(function(p) {
             return { id: p.id, label: p.label, limit: p.limit, unit: p.unit, isPn: !!p.isPn };
@@ -1070,7 +1188,7 @@ function copSaveJudgment() {
         // qué se decidió entonces. `co2Source` cita la norma, igual que `cvSource` arriba.
         co2: (function() {
             if (typeof homoCo2RowsForVins !== 'function') return null;
-            var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(Boolean);
+            var vins = copMesaRows().map(function(v) { return v.vin; }).filter(Boolean);
             if (!vins.length) return null;
             var rows = homoCo2RowsForVins(vins);
             var factors = copCo2Factors();
@@ -1090,7 +1208,7 @@ function copSaveJudgment() {
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     // [2.26.0] Concordante: un momento con lo que significa (una vez por juicio). Si no, el toast de siempre.
     var _mom = typeof momentCopFacts === 'function' ? momentCopFacts({ id: copState.saved[0].id, decision: decision,
-        familyLabel: copState.familyLabel, n: (copState.vehicles || []).filter(function(v) { return v && v.vin; }).length }) : null;
+        familyLabel: copState.familyLabel, n: copMesaRows().filter(function(v) { return v && v.vin; }).length }) : null;
     if (!(_mom && typeof momentShow === 'function' && momentShow(_mom)) && typeof showToast === 'function') {
         showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     }
@@ -1233,8 +1351,9 @@ function copLimitsForFamily(emissionReg) {
 }
 
 function copGetPollStats() {
+    var filas = copMesaRows();   // [2.31.0] sin los VINes cuyo ensayo no sirve para CoP
     return copGetActiveLimits().map(function(p) {
-        var rawValues = copState.vehicles.map(function(v) {
+        var rawValues = filas.map(function(v) {
             var raw = v.values[p.id];
             return (raw === '' || raw === undefined) ? NaN : parseFloat(raw);
         });
@@ -1444,6 +1563,14 @@ function copPortfolioRows(opts) {
         }
     });
 
+    // (2b) [2.31.0] Ensayos aceptados que no cuentan para CoP — se declaran por familia.
+    var excludedByFam = {};
+    try {
+        copExcludedTests({ allScopes: true }).forEach(function(x) {
+            (excludedByFam[x.familyKey] = excludedByFam[x.familyKey] || []).push(x);
+        });
+    } catch (e) {}
+
     // (3) Alarmas SPC indexadas UNA vez (el barrido es caro; nunca por familia).
     var alarmsByFam = {};
     try {
@@ -1463,6 +1590,8 @@ function copPortfolioRows(opts) {
 
     var rows = Object.keys(fams).map(function(k) {
         var r = fams[k];
+        r.excluded = excludedByFam[k] || [];
+        r.excludedN = r.excluded.length;
         var fam = r.spcFam || { tests: r.tests, regName: r.regName };
         var gases = r.tests.length ? copFamilyGases(fam) : [];
 
@@ -2240,6 +2369,10 @@ function _copFamCardHTML(r) {
     html += '</div>';
 
     html += '<div class="cop-fam-reason">' + _copEsc(r.risk.reasons[0].text) + '</div>';
+    if (r.excludedN) {
+        html += '<div class="cop-fam-sub" title="' + _copEsc((r.excluded || []).map(function(x) { return x.vin + ': ' + x.text; }).join('\n')) + '">⊘ ' +
+                r.excludedN + ' ensayo(s) aceptado(s) no cuentan para CoP</div>';
+    }
     return html + '</div>';
 }
 
@@ -2527,6 +2660,9 @@ function copBuildValidatorHTML() {
     if (activeLimits.length === 0) {
         html += '<p class="label-title" style="text-align:center;padding: var(--space-xl);">Activa al menos un contaminante para introducir datos.</p>';
     } else {
+        // [2.31.0] Ensayos aceptados de esta familia que no cuentan (se declaran).
+        html += _copExcludedNoteHTML(copExcludedTests({ familyKey: copState.familyKey, allScopes: true }), 'el veredicto de esta familia');
+        var _mesaEx = _copMesaExclusions(copState.familyKey);
         var _stale = (copState.vehicles || []).filter(function(v) { return v.staleAuto; });
         if (_stale.length) {
             html += '<div class="cop-note cop-note--warn">';
@@ -2551,8 +2687,10 @@ function copBuildValidatorHTML() {
 
         // Una fila por VIN
         copState.vehicles.forEach(function(v) {
-            html += '<tr>';
+            var _exTxt = v.vin ? _mesaEx[_copVinKey(v.vin)] : '';
+            html += '<tr' + (_exTxt ? ' class="cop-row--excluded" title="No cuenta para CoP: ' + _copEsc(_exTxt) + '"' : '') + '>';
             html += '<td style="' + _copTd() + 'text-align:left;padding-left: var(--space-md);">';
+            if (_exTxt) html += '<div class="cop-row-excluded-why">⊘ No cuenta: ' + _copEsc(_exTxt) + '</div>';
             html += '<input type="text" aria-label="VIN" value="' + _copEsc(v.vin || '') + '" data-vid="' + v.id + '" ' +
                     'oninput="copSetVin(this)" placeholder="VIN" ' + (v.source === 'auto' ? 'title="Auto desde vehículo probado" ' : '') +
                     'style="width:170px;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);box-sizing:border-box;font-family:monospace;' +
@@ -2701,6 +2839,9 @@ function copSpcFamilies(opts) {
     vehicles.forEach(function(v) {
         var values = _copFinalGasValues(v);
         if (!values) return;
+        // [2.31.0] Un ensayo aceptado pero inválido para CoP (IWR) tampoco entra a la
+        // carta: no es una medición válida del proceso. Se declara con copExcludedTests.
+        if (!copTestUsable(v).usable) return;
         var cfg = v.config || {};
         var mod = cfg['Modelo'], eng = cfg['ENGINE CAPACITY'], reg = cfg['EMISSION REGULATION'];
         if (!mod || !eng || !reg) return;
@@ -2923,6 +3064,9 @@ function copBuildSpcHTML() {
                 (copState.spc[t[0]] ? 'checked' : '') + (t[2] ? '' : ' disabled') + '> ' + t[1] + '</label>';
     });
     html += '</div>';
+
+    // [2.31.0] Ensayos de la familia fuera de la carta (aceptados, inválidos para CoP).
+    if (sel.fam) html += _copExcludedNoteHTML(copExcludedTests({ familyKey: sel.fam.key, allScopes: true }), 'la carta de control');
 
     // Serie + estadística
     var pts = copSpcSeries(sel.fam, sel.gas ? sel.gas.field : '');
@@ -3247,7 +3391,7 @@ function _copCo2GaugeHTML(stats) {
 function _copBuildCo2HTML() {
     if (typeof homoCo2RowsForVins !== 'function') return '';
 
-    var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(function(v) { return v; });
+    var vins = copMesaRows().map(function(v) { return v.vin; }).filter(function(v) { return v; });
     if (!vins.length) return '';
 
     var rows = homoCo2RowsForVins(vins);
@@ -3341,7 +3485,7 @@ function _copCo2StepsFor(stats, note) {
 function copCo2StepsLive() {
     var host = document.getElementById('cop-co2-steps');
     if (!host || typeof homoCo2RowsForVins !== 'function') return;
-    var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(function(v) { return v; });
+    var vins = copMesaRows().map(function(v) { return v.vin; }).filter(function(v) { return v; });
     var rows = homoCo2RowsForVins(vins);
     var saved = copCo2Factors();
     var fEl = document.getElementById('cop-co2-fcf'), eEl = document.getElementById('cop-co2-evc');
@@ -3556,6 +3700,18 @@ function copFamilyPDF(familyKey) {
         doc.setFontSize(8); doc.setTextColor(100);
         doc.text('Juicio emitido el ' + (judgment.date || '').slice(0, 10) + (judgment.by ? ' por ' + judgment.by : ''), ML, y);
         doc.setTextColor(0); y += 6;
+    }
+
+    // [2.31.0] Ensayos aceptados que no entraron al juicio (p. ej. IWR fuera de rango):
+    // se declaran en el expediente. Un juicio anterior a 2.31.0 no trae `excluded`.
+    var _excl = (judgment && Array.isArray(judgment.excluded)) ? judgment.excluded
+        : (!judgment ? copExcludedTests({ familyKey: key, allScopes: true }).map(function(x) { return { vin: x.vin, date: String(x.date || '').slice(0, 10), reason: x.text }; }) : []);
+    if (_excl.length) {
+        doc.setFontSize(7); doc.setTextColor(138, 83, 0);
+        doc.splitTextToSize('Ensayos aceptados que NO entran al juicio (' + _excl.length + '): ' +
+            _excl.map(function(x) { return x.vin + (x.date ? ' (' + x.date + ')' : '') + ' - ' + x.reason; }).join('; ') + '.', CW - 4)
+            .forEach(function(ln) { brk(); doc.text(String(ln).replace(/\u2212/g, '-'), ML + 2, y); y += 3.4; });
+        doc.setTextColor(0); y += 2;
     }
 
     // ── 3. Aviso de riesgo (con su etiqueta honesta) ──────────────────────────

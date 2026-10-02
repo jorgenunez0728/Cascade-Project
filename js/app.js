@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.30.0';
+var APP_VERSION = '2.31.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.30.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.31.0', date: '2 oct 2026', title: 'Una prueba con IWR fuera de rango se acepta, pero no cuenta para CoP',
+      bullets: [
+          'Cambió: una prueba WLTP cuyo índice de manejo (IWR) queda fuera de −2…+4 % se puede aprobar como siempre, pero su resultado ya no entra al Validador del CoP, al Control SPC, al Panorama ni al REQ del plan.',
+          'La regla no depende de cómo se clasificó la falla en VETS: aunque la verificación IWR se marque Informativa o Desacreditada, la prueba no cuenta para CoP. Si VETS no tiene la verificación configurada, la app compara el IWR del ciclo contra −2…+4 % por su cuenta.',
+          'Se dice dónde: al aprobar ("se puede aprobar, pero no contará para CoP"), en la Revisión dirigida, al confirmar una prueba histórica, en el Historial (⊘ No cuenta para CoP), en la ficha del vehículo, en el Validador, en la carta SPC, en la tarjeta de la familia y en el expediente PDF.',
+          'Si ya estaba en la mesa del Validador como fila automática, sale sola al abrir la familia. Una fila que alguien agregó a mano se queda, tachada, y no entra al cálculo. Una re-prueba válida del mismo vehículo sí cuenta.',
+          'Plan: deja de bajar el déficit de su familia (como OBD II), así que el plan vuelve a pedir esa prueba. Sigue registrada como evidencia.',
+          'Una FTP75 (México) no se juzga con este criterio.'
+      ] },
     { version: '2.30.0', date: '2 oct 2026', title: 'Las pruebas de antes de CASCADE, desde VETS',
       bullets: [
           'Nuevo: Pruebas → Historial → "📥 Importar pruebas anteriores (VETS)". Subes de un jalón los Excel de VETS de las pruebas que se corrieron antes de la plataforma y ves archivo por archivo qué se importa: VIN, configuración (sale sola cuando VETS la trae completa; si no, la eliges), propósito y resultados.',

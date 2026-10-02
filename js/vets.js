@@ -740,6 +740,52 @@ function vetsClassifyChecks(checks, policy) {
     });
 }
 
+// [2.31.0] Índice de manejo de WLTP (UN R154, Anexo B6): el IWR tiene que quedar
+// entre −2 % y +4 %. Fuera de ese rango la prueba se puede ACEPTAR (decisión de quien
+// aprueba), pero su resultado no sirve para CoP.
+var VETS_IWR_WLTP = { lo: -2, hi: 4 };
+
+function _vetsIsIwrCheck(name) {
+    return /^(IWR|INERTIAL\s*WORK\s*RATING)$/i.test(String(name || '').trim());
+}
+
+/** ¿La prueba es WLTP? (procedimiento WLTC, nombre WLTP o especificación R154). PURA. */
+function vetsIsWltp(s) {
+    if (!s) return false;
+    return /WLTC|WLTP|R\s*154/i.test([s.procedure, s.testName, s.regulationSpec].join(' '));
+}
+
+/**
+ * Por qué el trazo de manejo invalida la prueba para CoP. PURA.
+ * Recibe el RESUMEN guardado en el vehículo (vetsSummary) y devuelve
+ * [{code:'IWR', value, lo, hi, text}] — vacío si la prueba sirve.
+ *
+ * Dos caminos, a propósito:
+ *  1. La verificación "IWR" de VETS falló (con los límites que tenga en VETS).
+ *  2. En una prueba WLTP, el IWR del ciclo cae fuera de −2…+4 % aunque VETS no tenga la
+ *     verificación configurada (o la tenga mal): la norma no depende de cómo se
+ *     configuró VETS.
+ * Una FTP75 no se juzga por el camino 2: su IWR no tiene ese criterio.
+ * La clasificación de la falla (Importante / Informativa / Desacreditada) decide si la
+ * prueba se APRUEBA; no decide si sirve para CoP.
+ */
+function vetsDriveTraceInvalid(s) {
+    if (!s) return [];
+    var iwr = (s.drive && typeof s.drive.iwr === 'number' && isFinite(s.drive.iwr)) ? s.drive.iwr : null;
+    var R = VETS_IWR_WLTP;
+    var fmt = function(v) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(2) + ' %'; };
+    var fallo = (s.checksFail || []).filter(function(c) { return c && _vetsIsIwrCheck(c.name); })[0];
+    if (fallo) {
+        return [{ code: 'IWR', value: iwr, lo: R.lo, hi: R.hi, source: 'vets',
+                  text: 'IWR ' + (iwr !== null ? fmt(iwr) : 'fuera de rango') + ' — índice de manejo fuera de lo permitido (VETS: ' + (fallo.detail || 'falló') + ')' }];
+    }
+    if (iwr !== null && vetsIsWltp(s) && (iwr < R.lo || iwr > R.hi)) {
+        return [{ code: 'IWR', value: iwr, lo: R.lo, hi: R.hi, source: 'r154',
+                  text: 'IWR ' + fmt(iwr) + ' — fuera de −2…+4 % (UN R154, índice de manejo WLTP)' }];
+    }
+    return [];
+}
+
 /** Texto corto de por qué falló una verificación. PURA. */
 function vetsCheckDetail(c) {
     var lim = (c.lo !== null && c.lo !== undefined && c.hi !== null && c.hi !== undefined) ? c.lo + '–' + c.hi
@@ -1578,6 +1624,12 @@ function vetsRenderApprovalNote(v) {
             pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + '</b>.</div>' +
             '<button type="button" class="btn-primary lib-action-decide" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">⏳ Decidir ' +
             (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS</button>';
+    }
+    // [2.31.0] Aprobar es posible; lo que se avisa es que el resultado no cuenta para CoP.
+    var inv = vetsDriveTraceInvalid(v && v.testData && v.testData.vets);
+    if (inv.length) {
+        h += '<div class="lib-action-row" data-vets-cop-excluded="1">⊘ Esta prueba se puede aprobar, pero <b>no contará para CoP</b> ' +
+            '(validador, SPC ni REQ del plan): ' + inv.map(function(r) { return escapeHtml(r.text); }).join(' · ') + '.</div>';
     }
     el.innerHTML = h;
     el.style.display = h ? '' : 'none';

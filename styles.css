@@ -4487,6 +4487,9 @@ details.ui-card:not([open]) > .ui-card-head::after { transform: rotate(-90deg); 
 .cop-note--warn { border-left-color: var(--warn-fill); background: var(--warn-bg); }
 .cop-note--bad  { border-left-color: var(--danger-fill); background: var(--danger-bg); }
 .cop-note-title { font-weight: var(--weight-bold); margin-bottom: var(--space-xs); }
+/* [2.31.0] Fila de la mesa que no entra al cálculo (ensayo aceptado, inválido para CoP) */
+.cop-row--excluded input { text-decoration: line-through; color: var(--muted); }
+.cop-row-excluded-why { font-size: var(--fs-2xs); color: var(--warn-text); margin-bottom: var(--space-2xs); }
 
 /* ── Modo presentación (sala de auditoría) ─────────────────────────── */
 /* Con alcance a body.cop-present: NUNCA subir la escala global, que es la */

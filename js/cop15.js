@@ -4727,7 +4727,7 @@ function _renderUsedCylinders(vehicle) {
                         return `
                         <tr>
                             <td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : ''}${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
+                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : ''}${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}${(function(){ var _cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null; return (_cu && !_cu.usable) ? '<span class="offplan-badge" data-cop-excluded="1" title="Aceptada, pero no cuenta para CoP ni para el REQ del plan: ' + escapeHtml(_cu.text) + '">⊘ No cuenta para CoP</span>' : ''; })()}</td>
                             <td data-label="Configuración">
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">

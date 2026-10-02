@@ -11,7 +11,8 @@ var _tpCache = { planHash: null, families: null, analysis: null };
 function _tpInvalidateCache() { _tpCache.planHash = null; }
 function _tpGetPlanHash() {
     if (!tpState || !tpState.planData) return '';
-    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0);
+    // [2.31.0] + _tpCopUsableRev: si un ensayo deja de servir para CoP, el conteo cambia.
+    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0) + '_' + (_tpCopUsableRev || 0);
 }
 
 // ======================================================================
@@ -658,7 +659,39 @@ function tpPurposeCountsForReq(purpose) {
 
 /** ¿Esta fila de `testedList` acredita el REQ? */
 function tpTestedCountsForReq(t) {
-    return !!t && tpPurposeCountsForReq(t.purpose);
+    return !!t && tpPurposeCountsForReq(t.purpose) && !tpTestedCopUnusable(t);
+}
+
+// [2.31.0] Una prueba ACEPTADA que no sirve para CoP (copTestUsable, p. ej. IWR fuera
+// de −2…+4 %) tampoco acredita el REQ: el REQ es el número de ensayos de CoP por lote,
+// y contarla dejaría la familia "cubierta" sin un solo ensayo válido nuevo. Mismo
+// patrón que OBD II (v23.1): la evidencia NO se toca, lo que cambia es quién la cuenta.
+// Se DERIVA del vehículo (no se guarda en la fila), así que cubre lo ya registrado.
+var _tpCopUsableRev = 0;
+var _tpCopUnusableMemo = { key: null, vref: null, map: {} };
+if (typeof window !== 'undefined' && window && typeof window.addEventListener === 'function') {
+    window.addEventListener('data:saved', function(e) {
+        var m = e && e.detail && e.detail.module;
+        if (!m || m === 'cop15') _tpCopUsableRev++;
+    });
+}
+function _tpCopUnusableMap() {
+    if (typeof copTestUsable !== 'function' || typeof db === 'undefined' || !db || !Array.isArray(db.vehicles)) return {};
+    var key = db.vehicles.length + ':' + _tpCopUsableRev;
+    if (_tpCopUnusableMemo.key === key && _tpCopUnusableMemo.vref === db.vehicles) return _tpCopUnusableMemo.map;
+    var map = {};
+    db.vehicles.forEach(function(v) {
+        if (!v || v.id == null) return;
+        var u = copTestUsable(v);
+        if (!u.usable) map[String(v.id)] = u.text || 'No sirve para CoP';
+    });
+    _tpCopUnusableMemo = { key: key, vref: db.vehicles, map: map };
+    return map;
+}
+/** Motivo por el que esta fila de `testedList` no sirve para CoP ('' si sirve). */
+function tpTestedCopUnusable(t) {
+    if (!t || t.vehicleId == null || t.source === 'plan-manual') return '';
+    return _tpCopUnusableMap()[String(t.vehicleId)] || '';
 }
 
 /**
@@ -682,7 +715,7 @@ function tpNoReqBreakdown() {
     (tpState.testedList || []).forEach(function(t) {
         if (!t || tpTestedCountsForReq(t)) return;
         out.total++;
-        var p = t.purpose || '(sin propósito)';
+        var p = tpTestedCopUnusable(t) ? 'No sirve para CoP (índice de manejo)' : (t.purpose || '(sin propósito)');
         out.byPurpose[p] = (out.byPurpose[p] || 0) + 1;
     });
     return out;
@@ -1021,7 +1054,7 @@ function tpGetAnalysis() {
     // pasa al palomear y despalomear en el plan.
     var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' +
                    (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '') +
-                   ':' + (tpState._lastSave || 0);
+                   ':' + (tpState._lastSave || 0) + ':' + _tpCopUsableRev;
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
     var result = _tpAnalyze(tpState.testedList);

@@ -2802,6 +2802,29 @@ abría, y Vincular escondía vehículos).
 - **Plantillas con acento grave anidadas** (`${c ? \`…\` : \`…\`}`) confunden al lector de
   `tests/deadcode.node.js`: usar concatenación dentro de `${}`.
 
+## 2.31.0 — Aceptada no es lo mismo que usable para CoP (`js/vets.js`, `js/cop_validator.js`, `js/testplan.js`)
+
+- **`copTestUsable(vehicle)` es LA definición de "este ensayo sirve para CoP"** y todo consumidor
+  de resultados para conformidad la llama: mesa del validador (`copSyncVinsFromTests`,
+  `copMesaRows`), `copSpcFamilies`, Panorama, juicio guardado, expediente y el REQ del plan
+  (`tpTestedCountsForReq` → `tpTestedCopUnusable`). Un motivo nuevo de "aceptada pero no usable"
+  se agrega ahí (hoy solo `vetsDriveTraceInvalid`), no en cada consumidor.
+- **IWR de WLTP: −2…+4 % (UN R154).** `vetsDriveTraceInvalid(summary)` (PURA) excluye si la
+  verificación IWR de VETS falló, o —en una prueba WLTP (`vetsIsWltp`)— si `drive.iwr` cae fuera
+  del rango aunque VETS no la tenga configurada. **La clasificación de la falla (Importante /
+  Informativa / Desacreditada) decide si se APRUEBA, nunca si sirve para CoP.** Una FTP75 no se
+  juzga por `drive.iwr` (su IWR no tiene ese criterio).
+- **Aceptar no cambia**: aprobar, archivar, historial y F05 siguen igual. Lo excluido se
+  DECLARA (`copExcludedTests`, `_copExcludedNoteHTML`, chip en Historial, ficha, aviso al
+  aprobar), nunca desaparece en silencio. El juicio guardado congela `excluded`.
+- **Mesa**: una fila `auto` de un ensayo no usable se retira (la puso la máquina con un dato que
+  ya no vale); una `manual` se queda pero `copMesaRows()` la deja fuera. Un VIN con una
+  re-prueba válida sí cuenta. **Todo cálculo nuevo sobre la mesa usa `copMesaRows()`, no
+  `copState.vehicles`.**
+- **El REQ se DERIVA del vehículo** (no se estampa en `testedList`): cubre lo ya registrado y
+  se corrige solo. `_tpCopUsableRev` sube con `data:saved` de cop15 y entra a las claves de
+  `tpGetAnalysis` y `_tpGetPlanHash`; una caché nueva que cuente probadas debe incluirlo.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
