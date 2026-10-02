@@ -726,7 +726,10 @@ function fbInit() {
         // Configure Firestore settings BEFORE any other operations
         // MUST be called before enablePersistence() or any get/set/onSnapshot
         try {
-            var fsSettings = { merge: true };
+            // [2.29.1] ignoreUndefinedProperties: un `undefined` se descarta, igual que al
+            // guardar en localStorage (JSON). Sin esto, UN campo undefined en cualquier
+            // vehículo hacía que el SDK rechazara el módulo entero (#175).
+            var fsSettings = { merge: true, ignoreUndefinedProperties: true };
             if (!FB_IS_HTTP_ORIGIN) {
                 // On content:// or file:// origins, WebSocket/WebChannel hangs.
                 // Force HTTP long polling — skips WebSocket entirely.
@@ -1371,12 +1374,28 @@ function fbPush(collection, data, onDone, opts) {
         var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
             .collection(collection).doc('current');
 
-        docRef.set({
-            data: data,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            station: fbSync.stationId,
-            writer: FB_DEVICE_ID
-        }).then(function() {
+        // [2.29.1] El SDK valida los datos y LANZA de forma síncrona (campo vacío,
+        // valor no soportado). Dentro de este setTimeout eso era un "Uncaught" con
+        // aviso de Reportar (#175). Se trata como cualquier otro fallo de subida, pero
+        // sin encolar: el mismo dato volvería a fallar en cada reintento.
+        var _setP;
+        try {
+            _setP = docRef.set({
+                data: data,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                station: fbSync.stationId,
+                writer: FB_DEVICE_ID
+            });
+        } catch (setErr) {
+            console.error('Firebase push rechazado (' + collection + '):', setErr);
+            fbSync.status = 'error';
+            fbSync.lastError = 'No se pudo subir ' + collection + ': dato no válido para la nube (' + String(setErr && setErr.message || setErr).slice(0, 160) + ')';
+            fbUpdateIndicator();
+            if (typeof _bugRecordError === 'function') _bugRecordError('fbPush', 'No se pudo subir ' + collection + ': ' + String(setErr && setErr.message || setErr), 'firebase-sync.js', 0, 0, setErr && setErr.stack);
+            if (onDone) onDone(false, fbSync.lastError);
+            return;
+        }
+        _setP.then(function() {
             fbQuotaRecord('write');
             fbSync.lastSync = new Date();
             fbSync.status = 'connected';
@@ -1417,6 +1436,7 @@ function fbPushAll(showFeedback) {
     }
     if (fbSyncModules.cop) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
+        if (copRaw && typeof copCleanFamilies === 'function') copCleanFamilies(copRaw.families);
         if (copRaw) modules.push({col:'cop', data: copRaw});
     }
     if (fbSyncModules.homolog) {
@@ -2536,7 +2556,10 @@ function _fbMergeVehicle(local, remote) {
     if (local.returnHistory || remote.returnHistory) out.returnHistory = _fbUnionLog(local.returnHistory, remote.returnHistory, ['at', 'timestamp', 'date']);
     var pa = _fbMergePaStatus(local.paStatus, remote.paStatus);
     if (pa) out.paStatus = JSON.parse(JSON.stringify(pa));
-    out.updatedAt = winner.updatedAt || out.updatedAt;
+    // [2.29.1] Nunca asignar undefined: sin fecha en ninguna copia, la propiedad no
+    // existía y `out.updatedAt = undefined` la creaba — el SDK rechaza la copia
+    // completa cop15/current entera por ese campo (#175).
+    if (winner.updatedAt) out.updatedAt = winner.updatedAt;
     if (typeof revContentHash === 'function') out._rev = revContentHash(out);
     return { vehicle: out, from: localWins ? 'local' : 'remote' };
 }

@@ -2756,6 +2756,18 @@ abría, y Vincular escondía vehículos).
   `'nearest'` el activo puede ser una línea de referencia, el filtro la quita y `items[0]` es
   `undefined` (issue #173). Toda gráfica nueva con líneas de referencia + filtro usa `'index'`.
 
+## 2.29.2 — Lo que Firestore no acepta (`js/firebase-sync.js`, `js/cop_validator.js`)
+
+- **Firestore rechaza el documento ENTERO** por un solo `undefined` o un nombre de campo vacío
+  (`''` como clave de un mapa), y el SDK lo lanza **síncrono**. En un módulo que viaja como un
+  documento (`cop/current`, la copia `cop15/current`) eso apaga la subida de todo el módulo.
+- **Nunca `obj.k = a || b` en un dato sincronizado** si las dos pueden faltar: crea la llave
+  con `undefined`. Asignar solo si hay valor (`_fbMergeVehicle`, #175).
+- **Nunca usar `''` como clave de un mapa sincronizado.** `copFamilyState('')` devuelve una
+  mesa en memoria; `copCleanFamilies` limpia lo ya guardado.
+- `ignoreUndefinedProperties: true` en los settings de Firestore es red de seguridad; el camino
+  REST convierte `undefined` en `null`, así que no basta con ella.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

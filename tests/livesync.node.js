@@ -288,6 +288,16 @@ console.log('\n== _fbMergeVehicle ==');
     const e1 = A._fbMergeVehicle(x, y), e2 = A._fbMergeVehicle(y, x);
     ok('empate total: los dos equipos eligen LA MISMA versión', A.stableStringify(e1.vehicle) === A.stableStringify(e2.vehicle));
     ok('iguales salvo orden de llaves → "equal"', A._fbMergeVehicle(x, comoFirestore(JSON.parse(JSON.stringify(x)))).from === 'equal');
+
+    // [2.29.1] #175: sin updatedAt en ninguna copia, la fusión creaba `updatedAt: undefined`
+    // y el SDK rechazaba la copia completa cop15/current.
+    const s1 = vehiculoBase(), s2 = vehiculoBase();
+    delete s1.updatedAt; delete s2.updatedAt;
+    s2.testData.odometer = 99;
+    const sf = A._fbMergeVehicle(s1, s2).vehicle;
+    const indef = [];
+    (function scan(o, p) { if (o && typeof o === 'object') Object.keys(o).forEach(k => { if (o[k] === undefined) indef.push(p + k); else scan(o[k], p + k + '.'); }); })(sf, '');
+    ok('sin fecha en ninguna copia: la fusión no deja campos undefined (#175)', !indef.length, indef.join(', '));
 }
 
 // ── #131: una edición en A llega a B ──────────────────────────────────────

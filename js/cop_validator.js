@@ -515,7 +515,7 @@ function copPersist() {
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
             spc: copState.spc, scope: copState.scope,
             present: copState.present, ovFilter: copState.ovFilter,
-            families: copState.families, copSchema: copState.copSchema
+            families: copCleanFamilies(copState.families), copSchema: copState.copSchema
         }));
         _copBumpRev();
         return true;
@@ -532,6 +532,7 @@ function copLoad() {
         ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
+        copCleanFamilies(copState.families);
     }
 }
 var _copLoaded = false;
@@ -674,10 +675,28 @@ var _copPendingRender = false;
 // REGLA: nunca escribir `copState.vehicles = ...` directo. Siempre _copSetVehicles().
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Estado guardado de una familia (lo crea si no existía). */
+/**
+ * [2.29.1] Sin familia abierta NO hay mesa que guardar. Antes se creaba
+ * `families['']` (al pintar el Validador, vía copCo2Factors) y Firestore rechaza un
+ * nombre de campo vacío: cada subida del CoP desde ese equipo fallaba (#175).
+ * PURA: quita la clave vacía de un mapa de familias (devuelve el mismo objeto).
+ */
+function copCleanFamilies(families) {
+    if (families && typeof families === 'object' && Object.prototype.hasOwnProperty.call(families, '')) delete families[''];
+    return families;
+}
+
+/** Estado guardado de una familia (lo crea si no existía). Sin clave: una mesa en memoria. */
 function copFamilyState(key) {
     if (!copState.families) copState.families = {};
     var k = key || '';
+    if (!k) {
+        if (!copState._noFamily) copState._noFamily = {
+            key: '', vehicles: null, activePolls: JSON.parse(JSON.stringify(copState.activePolls || {})),
+            fuelType: copState.fuelType, regulation: copState.regulation, updatedAt: '', updatedBy: ''
+        };
+        return copState._noFamily;
+    }
     if (!copState.families[k]) {
         copState.families[k] = {
             key: k, vehicles: null,
@@ -1115,7 +1134,7 @@ function _copPushNow() {
         if (typeof fbPush !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return;
         if (typeof fbSyncModules === 'undefined' || !fbSyncModules.cop) return;
         var raw = JSON.parse(localStorage.getItem(COP_LS_KEY));
-        if (raw) fbPush('cop', raw);
+        if (raw) { copCleanFamilies(raw.families); fbPush('cop', raw); }
     } catch (e) {}
 }
 function copLoadJudgment(id) {

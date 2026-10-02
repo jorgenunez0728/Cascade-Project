@@ -20,6 +20,33 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.29.2 — La nube ya no rechaza los vehículos ni el CoP (2026-10-02)
+
+### Arreglado
+- **Errores de Firebase al moverse por el CoP** (issue #175): `Unsupported field value:
+  undefined (… cop15/current)` y `Document fields must not be empty (… data.families.``)`,
+  con el aviso de "Reportar". No era el error del tooltip (#173): eran dos subidas a la nube
+  que fallaban en ese equipo.
+  - **Pruebas (`cop15/current`)**: al fusionar dos copias de un vehículo sin fecha de edición
+    quedaba un campo `updatedAt` vacío (`undefined`), y la nube rechazaba la copia completa
+    que leen los equipos sin actualizar. Los documentos por vehículo (2.9.0) sí se subían.
+  - **CoP (`cop/current`)**: abrir el Validador sin familia elegida guardaba una mesa de
+    trabajo sin nombre, y la nube no acepta un campo sin nombre: el CoP de ese equipo
+    (juicios, FCF/EvC, mesas) dejaba de subirse. La mesa sin nombre se retira sola al abrir.
+- Si la nube rechaza un dato, ya no sale como error suelto: lo dice el indicador de
+  sincronización y queda en los errores del reporte 🐞.
+
+### Para desarrollo
+- `_fbMergeVehicle` solo asigna `updatedAt` si hay valor. **Nunca asignar `undefined` a una
+  propiedad de un dato sincronizado**: `x.k = a || b` crea la llave aunque las dos sean vacías.
+- Firestore se inicializa con `ignoreUndefinedProperties: true`: un `undefined` se descarta,
+  igual que en localStorage (JSON). Es la red de seguridad, no la regla.
+- `fbPush` envuelve `docRef.set` en `try/catch`: el SDK valida y lanza **síncrono**; no se
+  encola (el mismo dato fallaría en cada reintento).
+- `copFamilyState('')` devuelve una mesa en memoria (`copState._noFamily`, no se guarda).
+  `copCleanFamilies(map)` (PURA) quita la clave vacía en `copLoad`, `copPersist`,
+  `_copPushNow` y `fbPushAll`.
+
 ## 2.29.1 — Control SPC: pasar el mouse por la carta ya no truena (2026-10-02)
 
 ### Arreglado

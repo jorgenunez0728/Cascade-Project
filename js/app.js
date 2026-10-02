@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.29.1';
+var APP_VERSION = '2.29.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.29.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.29.2', date: '2 oct 2026', title: 'La nube ya no rechaza los vehículos ni el CoP',
+      bullets: [
+          'Arreglado: al moverse por el CoP salía un error de "FirebaseError … Unsupported field value: undefined" o "Document fields must not be empty" con el aviso de Reportar. Detrás, la copia de Pruebas para equipos sin actualizar y el CoP de ese equipo dejaban de subirse a la nube.',
+          'Al abrir el Validador sin familia elegida ya no se guarda una mesa sin nombre; la que ya estuviera guardada se retira sola.',
+          'Si la nube rechaza un dato, ahora se ve en el indicador de sincronización y queda para el reporte 🐞, sin el aviso de error.'
+      ] },
     { version: '2.29.1', date: '2 oct 2026', title: 'Control SPC: pasar el mouse por la carta ya no truena',
       bullets: [
           'Arreglado: en CoP → Control SPC, al pasar el mouse cerca de la línea de la media, del UCL o del límite salía un error (y el aviso de "Reportar"). Ahora el recuadro muestra siempre la medición de esa columna: fecha, VIN, valor y si está en control.',
