@@ -56,6 +56,8 @@ const sandbox = {
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+// [2.30.0] Qué es "en curso" vive en app.js (vehicleIsLive): se toma del código real.
+vm.runInContext(/var VEHICLE_STATUS_HISTORIC = [\s\S]*?\nfunction vehicleListDate\(v\) \{[\s\S]*?\n\}/.exec(fs.readFileSync('js/app.js', 'utf8'))[0], sandbox);
 
 // `tpState` se declara con `let`, asi que NO queda en el objeto global del contexto
 // (a diferencia de las `function`). Un epilogo lo expone para poder manipularlo.

@@ -76,7 +76,7 @@ sed -n '/<body>/,/<!-- JS Modules/{ /<!-- JS Modules/d; p; }' "$DIR/index.html" 
 # Inline all JS modules into a single <script> block
 echo "<script>" >> "$DIR/$OUTPUT"
 
-for jsfile in app.js uiflow.js cop15.js inventory.js testplan.js panel.js projects.js auth.js signatures.js firebase-sync.js cop_validator.js homolog.js vets.js review.js opcards.js handoff.js ficha.js relevo.js momentos.js bugreport.js; do
+for jsfile in app.js uiflow.js cop15.js inventory.js testplan.js panel.js projects.js auth.js signatures.js firebase-sync.js cop_validator.js homolog.js vets.js historico.js review.js opcards.js handoff.js ficha.js relevo.js momentos.js bugreport.js; do
     echo "" >> "$DIR/$OUTPUT"
     # [2.10.0] Marca de módulo: de aquí sale el mapa de líneas del reporte de fallas.
     echo "// @@module js/$jsfile" >> "$DIR/$OUTPUT"

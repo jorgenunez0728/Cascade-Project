@@ -20,6 +20,60 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.30.0 — Las pruebas de antes de CASCADE, desde VETS (2026-10-02)
+
+### Nuevo
+- **Pruebas → Historial → 📥 Importar pruebas anteriores (VETS).** Para las pruebas que se
+  corrieron antes de la plataforma (desde el 18-feb-2025), cuya Hoja COP15-F05 no siempre
+  existe. Se suben de un jalón los Excel de VETS y la app muestra, archivo por archivo:
+  - VIN (el que leyó el ECU manda sobre el tecleado en VETS; si no hay, se escribe);
+  - configuración: sale sola cuando lo que guardó VETS coincide con UNA del catálogo; si
+    coinciden varias o VETS no la trae, se elige;
+  - propósito (uno para todas, o por prueba);
+  - cuántos gases y cuántas verificaciones de VETS fallaron.
+  No se importan: la misma prueba de VETS ya en CASCADE, el mismo archivo dos veces, una
+  prueba que nació en CASCADE ese día (a esa se le adjunta el VETS), una fecha futura o un
+  archivo ilegible. Cada omisión dice por qué.
+- **Confirmación de quien aprueba.** Cada importada queda "Histórico (VETS) — por
+  confirmar". Alguien con permiso de aprobar, **que no sea quien la importó**, la revisa en
+  tarjetas (una por prueba): gases contra los límites de su regulación, verificaciones de VETS
+  que fallaron, VIN. Decide "✔ Confirmo" o "✖ No confirmo" (con motivo). Si hay un gas sobre
+  el límite, una verificación sin clasificar o un VIN dudoso, confirmar pide una observación.
+  Al final **firma una sola vez** y la firma queda en cada prueba decidida, con la fecha de hoy.
+- HOY → Calidad muestra "Confirmar N pruebas históricas" a quien puede hacerlo.
+- La ficha de una prueba histórica muestra fecha de la prueba, prueba de VETS, operador,
+  quién importó, quién confirmó (o por qué no) y sus gases. "↩ Volver a revisar" la regresa a
+  "por confirmar" con motivo.
+
+### Cambió
+- Una prueba histórica **no** es un vehículo en curso: no aparece en HOY, la Cola, Mi semana
+  ni los selectores de Operación/Liberación; no genera Hoja COP15-F05 ni se completa en
+  Historial. Se lista en Historial con la fecha de la prueba (filtro "Histórico (VETS)").
+- Solo las **confirmadas** entran al Control SPC y a la mesa de trabajo del CoP.
+- No se puede importar mientras haya un equipo activo con una versión anterior: vería esas
+  pruebas como vehículos en curso y hasta editables.
+- El relevo ("Desde tu última vez") las cuenta en una línea por tipo, no una por prueba.
+
+### Para desarrollo
+- **`vehicleIsLive(v)` (app.js) es LA definición de "vehículo en curso"**; también
+  `vehicleIsHistoric`, `vehicleIsPastTest` y `vehicleListDate`. Se reemplazaron ~25 filtros
+  `status !== 'archived'`; `tests/historico.node.js` falla si vuelve a aparecer uno.
+- Estado nuevo `status: 'historico'` + `vehicle.historic = {state: 'pendiente'|'confirmado'|
+  'rechazado', importedById, file:{name, sha256}, testRef, testDate, confirmation|rejection}`.
+  Al confirmar: `gasResults.aprobador = {values, method: 'confirmacion-historico',
+  matchedLiberador: null}` (no fue doble ciego y el registro no lo afirma).
+- `js/historico.js` (nuevo, carga después de vets.js): `historicoPlan`, `historicoConfigMatch`,
+  `historicoBuildVehicle`, `historicoReviewModel`, `historicoDecisionCheck`,
+  `historicoOutdatedDevices`, `historicoPendingSummary` son PURAS.
+- `vetsExtract` guarda además `rec.configAll` (las 11 columnas del catálogo que trae VETS).
+- La guardia de código muerto no veía 178 funciones de `cop15.js`: una plantilla con acentos
+  graves anidados desbalanceaba su conteo de llaves. Al corregirlo aparecieron 5 funciones sin
+  ningún llamador (`filterHistory`, `quickReviewGoTo`, `cop15TemplateCollect`,
+  `cop15TemplateApplyData`, `v7PostReleaseRegisterAnother` + `v7ClosePostRelease`) y se borraron.
+- El Control SPC ordena una prueba histórica por la fecha de la PRUEBA (`_copSpcDate`), no por
+  la de su confirmación. Las estadísticas por operador y la barra de avance de Pruebas no las
+  cuentan.
+
 ## 2.29.2 — La nube ya no rechaza los vehículos ni el CoP (2026-10-02)
 
 ### Arreglado

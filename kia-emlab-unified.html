@@ -883,6 +883,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         .status-ready-release { background: #d1fae5; color: #065f46; }
         .status-pending-approval { background: #ede9fe; color: #5b21b6; }
         .status-archived { background: #e5e7eb; color: #374151; }
+        .status-historico { background: #e0f2fe; color: #075985; }   /* [2.30.0] prueba anterior a la plataforma (VETS) */
 
         /* Timeline */
         .timeline { margin-top: var(--space-lg); }
@@ -6485,6 +6486,41 @@ body.ficha-open { overflow: hidden; }
     .homo-batch-row { flex-wrap: wrap; }
     .homo-batch-chip { white-space: normal; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [2.30.0] Pruebas históricas (VETS) — importar por lote y confirmar
+   ══════════════════════════════════════════════════════════════════════ */
+.hv-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin: var(--space-sm) 0; }
+.hv-import { font-size: var(--fs-sm); }
+.hv-intro { color: var(--muted); margin: 0 0 var(--space-sm); }
+.hv-batch { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-bottom: var(--space-sm); }
+.hv-batch label { font-weight: 600; }
+.hv-batch select, .hv-fields select, .hv-fields input { font-size: var(--fs-base); min-width: 0; }
+.hv-sum { margin-bottom: var(--space-sm); }
+.hv-rows { display: flex; flex-direction: column; gap: var(--space-xs); }
+.hv-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-xs); }
+.hv-row.is-ok { border-color: var(--ok-fill); }
+.hv-row.is-warn { border-color: var(--warn-fill); }
+.hv-row.is-bad { border-color: var(--danger-fill); }
+.hv-row.is-muted { opacity: 0.75; }
+.hv-row-head { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; min-width: 0; }
+.hv-file { min-width: 0; overflow-wrap: anywhere; }
+.hv-why { color: var(--text); }
+.hv-warn { color: var(--warn-text); }
+.hv-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: var(--space-sm); }
+.hv-fields label { display: flex; flex-direction: column; gap: var(--space-2xs); min-width: 0; }
+.hv-fields label > span { font-weight: 600; font-size: var(--fs-sm); }
+.hv-actions { position: sticky; bottom: 0; background: var(--surface); padding-top: var(--space-sm); margin-top: var(--space-sm); }
+.hv-chip { display: inline-block; font-weight: 700; font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); white-space: nowrap; }
+.hv-chip.is-ok { background: var(--ok-bg); color: var(--ok-text); }
+.hv-chip.is-warn { background: var(--warn-bg); color: var(--warn-text); }
+.hv-chip.is-bad { background: var(--danger-bg); color: var(--danger-text); }
+.hv-chip.is-muted { background: var(--surface-alt); color: var(--muted); }
+.hv-gas { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; font-size: var(--fs-sm); }
+.hv-gas th, .hv-gas td { text-align: left; padding: var(--space-2xs) var(--space-xs); border-bottom: 1px solid var(--border); }
+.hv-gas tr.is-bad td { color: var(--danger-text); font-weight: 700; }
+.hv-gas small { color: var(--muted); font-weight: 400; }
+.hv-toolbar-title { font-weight: 700; font-size: var(--fs-sm); color: var(--text); }
     </style>
 </head>
 
@@ -9172,10 +9208,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610012351';
+var APP_BUILD = '202610021731';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '821b75ab9062c177487c8499587b5ef1477991a5';
+var APP_COMMIT = '93d1f1ac065b15c81109cb2b7bce5f409e3a2fb1';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9183,7 +9219,7 @@ var APP_COMMIT = '821b75ab9062c177487c8499587b5ef1477991a5';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.29.2';
+var APP_VERSION = '2.30.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9191,6 +9227,14 @@ var APP_VERSION = '2.29.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.30.0', date: '2 oct 2026', title: 'Las pruebas de antes de CASCADE, desde VETS',
+      bullets: [
+          'Nuevo: Pruebas → Historial → "📥 Importar pruebas anteriores (VETS)". Subes de un jalón los Excel de VETS de las pruebas que se corrieron antes de la plataforma y ves archivo por archivo qué se importa: VIN, configuración (sale sola cuando VETS la trae completa; si no, la eliges), propósito y resultados.',
+          'Nuevo: cada una queda como "Histórico (VETS) — por confirmar". Quien aprueba (y no la importó) la revisa una por una —gases contra los límites, verificaciones de VETS, VIN— y decide "Confirmo" o "No confirmo" con motivo. Al final firma una sola vez.',
+          'Una prueba histórica no genera Hoja COP15-F05, no aparece en HOY, la Cola ni el plan, y no se edita en Operación. Solo las confirmadas entran al Control SPC y a la mesa del CoP.',
+          'No se importa mientras haya un equipo activo sin actualizar: lo vería como un vehículo en curso.',
+          'HOY avisa a quien aprueba cuántas pruebas históricas faltan por confirmar.'
+      ] },
     { version: '2.29.2', date: '2 oct 2026', title: 'La nube ya no rechaza los vehículos ni el CoP',
       bullets: [
           'Arreglado: al moverse por el CoP salía un error de "FirebaseError … Unsupported field value: undefined" o "Document fields must not be empty" con el aviso de Reportar. Detrás, la copia de Pruebas para equipos sin actualizar y el CoP de ese equipo dejaban de subirse a la nube.',
@@ -9973,14 +10017,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610012351' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610021731' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610012351' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610021731' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -9996,7 +10040,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610012351' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610021731' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10055,7 +10099,8 @@ let currentFilters = {};
             'testing': 'En Prueba',
             'ready-release': 'Listo para Liberar',
             'pending-approval': 'Pendiente Aprobación',
-            'archived': 'Archivado'
+            'archived': 'Archivado',
+            'historico': 'Histórico (VETS)'
         }
     };
 
@@ -10797,7 +10842,7 @@ function resumeLastSession() {
         if (saved) {
             var ctx = JSON.parse(saved);
             if (ctx && ctx.vehicleId && (Date.now() - ctx.timestamp) < 86400000) {
-                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && v.status !== 'archived'; });
+                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && vehicleIsLive(v); });
                 if (vehicle) {
                     var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
                     _showResumeToast(vehicle, ctx, vinShort);
@@ -11094,6 +11139,30 @@ function vehicleIsTombstoned(v, list) {
 }
 
 /** Une dos listas de marcas sin repetir y con tope (se quedan las más recientes). PURA. */
+// ══════════════════════════════════════════════════════════════════════
+// [2.30.0] Pruebas anteriores a la plataforma (importadas de VETS, js/historico.js).
+// Viven en db.vehicles con status 'historico' para viajar por el sync de un documento
+// por vehículo y aparecer en la búsqueda y la ficha, pero NO son vehículos en curso ni
+// liberados por CASCADE. `vehicleIsLive` es LA definición de "vehículo en curso": nunca
+// volver a escribir `status !== 'archived'` para eso (tests/historico.node.js lo vigila),
+// o un histórico aparece en HOY, la Cola y el plan como si se estuviera probando.
+// ══════════════════════════════════════════════════════════════════════
+var VEHICLE_STATUS_HISTORIC = 'historico';
+/** ¿Es una prueba histórica importada de VETS? PURA. */
+function vehicleIsHistoric(v) { return !!v && v.status === VEHICLE_STATUS_HISTORIC; }
+/** ¿Está en curso (ni archivado ni histórico)? PURA. */
+function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !== VEHICLE_STATUS_HISTORIC; }
+/** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
+function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
+/**
+ * Fecha con la que se lista un vehículo: la de su ALTA, salvo una prueba histórica,
+ * que se dio de alta hoy pero ocurrió cuando dice VETS. PURA.
+ */
+function vehicleListDate(v) {
+    if (vehicleIsHistoric(v) && v.testData && v.testData.testDatetime) return v.testData.testDatetime;
+    return (v && v.registeredAt) || '';
+}
+
 function vehicleTombstonesUnion(a, b) {
     var byKey = {};
     (a || []).concat(b || []).forEach(function(t) {
@@ -12618,7 +12687,7 @@ function switchPlatform(platform, swipeDir) {
     if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
     if (sectionId === 'cop') { if (typeof copRender === 'function') copRender(); }
     if (sectionId === 'cop15') {
-        var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+        var active = db.vehicles.filter(function(v) { return vehicleIsLive(v); }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
         // Restore COP15 active tab
         var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
@@ -12764,7 +12833,7 @@ function dailyDashRender() {
         if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return vehicleIsLive(v); }).sort(function(a,b) {
         var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
         var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
         return tB > tA ? 1 : -1;
@@ -13231,7 +13300,7 @@ function dashCollectActivities() {
     // 4) Vehículos activos: stepper N/8 + soak propio + ETA de liberación
     var soakData = null;
     try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch (e) {}
-    (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).forEach(function(v) {
+    (db.vehicles || []).filter(function(v) { return vehicleIsLive(v); }).forEach(function(v) {
         var st = typeof cascadeVehicleStage === 'function' ? cascadeVehicleStage(v) : null;
         var eta = typeof cascadeVehicleETA === 'function' ? cascadeVehicleETA(v) : null;
         var next = typeof getNextStep === 'function' ? getNextStep(v) : null;
@@ -13265,6 +13334,17 @@ function dashCollectActivities() {
             perm: 'test.approve', notForMe: _dashIsOwnRelease(v), ficha: { kind: 'vehiculo', ref: v.id },
             action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
     });
+
+    // 5b) [2.30.0] Pruebas históricas de VETS por confirmar → Calidad (una sola fila: se
+    // importan en lote). La ve quien puede aprobar; las que importó uno mismo no son suyas.
+    if (typeof historicoPendingFor === 'function') {
+        var _hp = historicoPendingFor();
+        if (_hp.total) acts.push({ id: 'act-historico', cat: 'calidad', icon: '🗄',
+            title: 'Confirmar ' + _hp.total + ' prueba' + (_hp.total > 1 ? 's' : '') + ' histórica' + (_hp.total > 1 ? 's' : '') + ' de VETS',
+            meta: _hp.mine ? (_hp.mine + ' las importaste tú: las confirma otra persona') : 'Anteriores a la plataforma, importadas de VETS',
+            status: 'pendiente', urgency: 2, perm: 'test.approve', notForMe: _hp.forMe === 0,
+            action: { label: 'Revisar', js: 'historicoReviewOpen()' } });
+    }
 
     // 6) Alertas de inventario con deep-link por ítem
     if (typeof invState !== 'undefined' && invState.gases) {
@@ -16225,7 +16305,7 @@ function renderLabDashboard(container) {
 
     // ── COP15 Module ──
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var active = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var active = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var now = Date.now();
     // Ventana rodante de 7 días como timestamp: las comparaciones de abajo usan
     // .getTime() y aritmética sobre este valor, así que debe ser numérico (no la
@@ -16400,7 +16480,7 @@ function autoBackup() {
         try {
             var parsed = JSON.parse(snapshot.db);
             snapshot.vehicleCount = (parsed.vehicles || []).length;
-            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).length;
+            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return vehicleIsLive(v); }).length;
         } catch(e) { snapshot.vehicleCount = 0; snapshot.activeCount = 0; }
 
         var tx = idb.transaction(_backupStoreName, 'readwrite');
@@ -17344,6 +17424,10 @@ document.addEventListener('alpine:init', function() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function v7GoToVehicle(vehicleId, gotoSection) {
+    // [2.30.0] Una prueba histórica no se abre en Operación ni en Liberación: su lugar es
+    // su ficha (resultados de VETS y confirmación).
+    var _hv = (db.vehicles || []).find(function(v) { return v.id == vehicleId; });
+    if (vehicleIsHistoric(_hv) && typeof fichaOpen === 'function') { fichaOpen('vehiculo', _hv.id); return; }
     switchPlatform('cop15');
     setTimeout(function() {
         if (gotoSection === 'approval-tab') {
@@ -19259,7 +19343,8 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 }
 
     function updateProgressBar() {
-        const total = db.vehicles.length;
+        // [2.30.0] Las pruebas históricas no pasaron por este flujo: no cuentan en el avance.
+        const total = db.vehicles.filter(v => !vehicleIsHistoric(v)).length;
         if(total === 0) {
             document.getElementById('mainProgress').style.width = '0%';
             document.getElementById('progressText').textContent = 'Sin vehículos';
@@ -19320,8 +19405,8 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             }
             // Real-time duplicate check
             var vin = input.value;
-            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
-            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && v.status === 'archived'; });
+            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && vehicleIsLive(v); });
+            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && vehicleIsPastTest(v); });
             var warning = document.getElementById('vin-dup-warning');
             if (!warning) {
                 warning = document.createElement('div');
@@ -19340,7 +19425,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
                 warning.style.background = 'rgba(245,158,11,0.1)';
                 warning.style.color = tokenColor('--warn-text');
                 warning.style.border = '1px solid rgba(245,158,11,0.3)';
-                warning.textContent = '⚠️ VIN existe en archivados (se creará nuevo registro)';
+                warning.textContent = '⚠️ VIN existe en ' + (vehicleIsHistoric(dupArchived) ? 'pruebas históricas' : 'archivados') + ' (se creará nuevo registro)';
             } else {
                 warning.style.display = 'none';
             }
@@ -19368,7 +19453,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             return uiInvalid($('vin'), 'El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q. Tiene ' + vin.length + '.');
         }
 
-        if(db.vehicles.some(v => v.vin === vin && v.status !== 'archived')) {
+        if(db.vehicles.some(v => v.vin === vin && vehicleIsLive(v))) {
             return uiInvalid($('vin'), 'Este VIN ya está dado de alta y su prueba sigue abierta. Búscalo en Operación.');
         }
 
@@ -20646,8 +20731,9 @@ function cascadeVehicleCardPick(selectId, id) {
 // Estados en los que Operación solo muestra: el vehículo ya lo tiene el aprobador o
 // está archivado. Para corregir hay que devolverlo (returnToReleaser) o usar
 // Historial → 📝 Completar.
-function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived'; }
+function _opIsReadOnlyStatus(status) { return status === 'pending-approval' || status === 'archived' || status === VEHICLE_STATUS_HISTORIC; }
 function _opReadOnlyMessage(vehicle) {
+  if (vehicleIsHistoric(vehicle)) return 'Es una prueba histórica importada de VETS: no se captura en Operación. Consulta sus resultados en Historial.';
   return vehicle.status === 'archived'
     ? 'Este vehículo ya está archivado. Para agregar datos usa Historial → 📝 Completar.'
     : 'Este vehículo está en aprobación, así que no se puede editar aquí. Si hay que corregir algo, el aprobador lo devuelve al liberador.';
@@ -22746,6 +22832,7 @@ function _renderUsedCylinders(vehicle) {
             {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
             {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'},
             {v:'pending-approval', l: CONFIG.statusLabels['pending-approval'] || 'Pendiente Aprobación'},
+            {v:'historico', l: CONFIG.statusLabels['historico'] || 'Histórico (VETS)'},
             {v:'offplan', l:'Fuera de Plan'}
         ];
         var statusHtml = statusOpts.map(function(o) {
@@ -22759,7 +22846,10 @@ function _renderUsedCylinders(vehicle) {
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
-        '</div>';
+        '</div>' +
+        // [2.30.0] Pruebas anteriores a la plataforma: importar de VETS y confirmarlas.
+        (typeof historicoToolbarHTML === 'function' ? historicoToolbarHTML() : '');
+        if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     }
 
     function histFilterReset() {
@@ -22789,7 +22879,7 @@ function _renderUsedCylinders(vehicle) {
         if (statusF === 'archived') {
             vehicles = vehicles.filter(v => v.status === 'archived');
         } else if (statusF === 'active') {
-            vehicles = vehicles.filter(v => v.status !== 'archived');
+            vehicles = vehicles.filter(v => vehicleIsLive(v));
         } else if (statusF === 'offplan') {
             vehicles = vehicles.filter(v => !!v.adhoc);
         } else if (statusF !== 'all') {
@@ -22811,13 +22901,13 @@ function _renderUsedCylinders(vehicle) {
         // Year filter
         var yearF = window._histFilterYear || '';
         if (yearF) {
-            vehicles = vehicles.filter(v => new Date(v.registeredAt).getFullYear() === parseInt(yearF));
+            vehicles = vehicles.filter(v => new Date(vehicleListDate(v)).getFullYear() === parseInt(yearF));
         }
 
         // Month filter (only if year is set)
         var monthF = window._histFilterMonth || '';
         if (monthF && yearF) {
-            vehicles = vehicles.filter(v => (new Date(v.registeredAt).getMonth() + 1) === parseInt(monthF));
+            vehicles = vehicles.filter(v => (new Date(vehicleListDate(v)).getMonth() + 1) === parseInt(monthF));
         }
 
         if(vehicles.length === 0) {
@@ -22875,8 +22965,9 @@ function _renderUsedCylinders(vehicle) {
                             </td>
                             <td data-label="Propósito">${safePurpose}</td>
                             <td data-label="Estado"><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
-                            <td data-label="Fecha">${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td data-label="Fecha">${new Date(vehicleListDate(v)).toLocaleDateString('es-MX')}${vehicleIsHistoric(v) ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : ''}</td>
                             <td data-label="Emisiones">${(function(){
+                                if (vehicleIsHistoric(v)) return typeof historicoRowBadgeHTML === 'function' ? historicoRowBadgeHTML(v) : '';
                                 var gr = v.testData && v.testData.gasResults;
                                 if (!gr || !gr.liberador) return '<span style="color:var(--muted);font-size: var(--fs-xs);">—</span>';
                                 var libVals = gr.liberador.values || {};
@@ -22885,11 +22976,11 @@ function _renderUsedCylinders(vehicle) {
                                 return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
                             })()}</td>
                             <td class="hist-td-actions">
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">
-                                    PDF
-                                </button>
+                                ${vehicleIsHistoric(v)
+                                    ? '<button class="btn-secondary" onclick="fichaOpen(\'vehiculo\', ' + parseInt(v.id) + ', this)" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Ver los resultados de VETS y su confirmación">Ver</button>'
+                                    : '<button class="btn-secondary" onclick="generateCOP15PDF(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">PDF</button>'}
                                 ${(function(){
-                                    if (!isEmissionsPurpose(v.purpose)) return '';
+                                    if (vehicleIsHistoric(v) || !isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
                                     var _n = _c.missing.length + (_c.soft ? _c.soft.length : 0);
                                     if (!_n) return '';
@@ -22906,12 +22997,6 @@ function _renderUsedCylinders(vehicle) {
             </table>
             ${hasMore ? `<div style="text-align:center;margin-top: var(--space-md);"><button class="btn-secondary" onclick="histShowMore()" style="padding: var(--space-md) var(--space-xl);font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
-    }
-
-    function filterHistory(filter) {
-        window._histFilterStatus = filter;
-        currentFilter = filter;
-        renderHistory();
     }
 
 // ── [R2-M4] Batch PDF Export helpers ──
@@ -23076,7 +23161,7 @@ function refreshAllLists() {
     releaseSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
     if (approvalSelect) approvalSelect.innerHTML = '<option value="">Elige un vehículo…</option>';
 
-    var activeVehicles = db.vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = db.vehicles.filter(function(v) { return vehicleIsLive(v); });
     var readyVehicles  = db.vehicles.filter(function(v) { return v.status === 'ready-release'; });
     var pendingVehicles = db.vehicles.filter(function(v) { return v.status === 'pending-approval'; });
 
@@ -23202,7 +23287,7 @@ function exportAndPurgeArchived() {
 
     // Elimina del db principal
     auditLog('cop15', 'archive_purged', {type:'batch'}, archived.length + ' vehículos archivados purgados');
-    db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
+    db.vehicles = db.vehicles.filter(v => archived.indexOf(v) === -1);   // por identidad (v17.12)
 
     saveDB();
     refreshAllLists();
@@ -23272,7 +23357,7 @@ function executeArchiveImport(targetStatus) {
 
   data.vehicles.forEach(v => {
     if (!v?.vin) return;
-    if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
+    if (db.vehicles.some(x => x.vin === v.vin && vehicleIsLive(x))) { skipped++; return; }
 
     const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
     clone.id = nextVehicleId();
@@ -23648,6 +23733,7 @@ function _histBuildInput(f, idx, value, disabled) {
 function histOpenCompleteModal(vehicleId) {
   var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
   if (!vehicle) { showToast('No encontré ese vehículo: puede que otro dispositivo lo haya archivado o borrado. La lista ya se actualizó.', 'warning'); return; }
+  if (vehicleIsHistoric(vehicle)) { showToast('Una prueba histórica no tiene Hoja COP15-F05 que completar.', 'info'); return; }   // [2.30.0]
   var td = vehicle.testData || {};
   _histCompleteState = { vehicleId: vehicleId, unlockReasons: {}, sigCaptured: {} };
 
@@ -24145,7 +24231,7 @@ function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
             var otros = (ctx.vehicles || []).filter(function(x) {
                 return x && x !== vehicle && String(x.id) !== String(vehicle.id) && String(x.vin || '').toUpperCase() === newVin;
             });
-            if (otros.some(function(x) { return x.status !== 'archived'; })) {
+            if (otros.some(function(x) { return vehicleIsLive(x); })) {
                 out.errors.push('Ya hay otro vehículo EN CURSO con el VIN ' + newVin + '. Corrige o elimina ese primero.');
             } else if (otros.length) {
                 out.warnings.push('Ese VIN ya tiene ' + otros.length + ' prueba(s) archivada(s): este vehículo quedará como un re-ensayo del mismo VIN.');
@@ -24173,7 +24259,21 @@ function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
 
     var td = vehicle.testData || {};
     var firmado = !!(td.signatures && td.signatures.releaser) || vehicle.status === 'pending-approval';
-    if (vehicle.status === 'archived') {
+    if (vehicleIsHistoric(vehicle)) {
+        // [2.30.0] Prueba histórica: antes de confirmarse se corrige con el permiso de
+        // adjuntar VETS (los gases se comparan al confirmar, contra la regulación que
+        // quede). Ya confirmada vale como archivada: firma y sin cambio de regulación.
+        if (vehicle.historic && vehicle.historic.state === 'confirmado') {
+            out.stage = 'historico-confirmado'; out.perm = 'test.retro_edit'; out.requiresSignature = true;
+            if (out.regChanged) {
+                out.errors.push('Esta prueba histórica ya se confirmó comparando sus gases con ' + (out.regBefore || 'la regulación anterior') +
+                    '. Cambiar a ' + (out.regAfter || '—') + ' no es una corrección de alta: elige una configuración con la misma regulación.');
+            }
+        } else {
+            out.stage = 'historico'; out.perm = 'test.vets';
+            if (out.regChanged) out.warnings.push('Cambia la regulación: al confirmar, los gases se compararán contra ' + (out.regAfter || '—') + '.');
+        }
+    } else if (vehicle.status === 'archived') {
         out.stage = 'archivado'; out.perm = 'test.retro_edit'; out.requiresSignature = true;
         if (out.regChanged) {
             out.errors.push('Este vehículo ya está aprobado y el cambio mueve su regulación (' + (out.regBefore || '—') + ' → ' +
@@ -24556,6 +24656,12 @@ function cascadeValueLabel(kind, v) {
 function generateCOP15PDF(vehicleId, opts) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { if (!(opts && opts.silent)) showToast('No hay vehículo seleccionado.', 'error'); return null; }
+  // [2.30.0] Una prueba histórica no pasó por CASCADE: no hay Hoja COP15-F05 que emitir
+  // (recepción, preacondicionamiento y firmas no existen). Su evidencia es el reporte de VETS.
+  if (vehicleIsHistoric(vehicle)) {
+    if (!(opts && opts.silent)) showToast('Es una prueba histórica importada de VETS: no tiene Hoja COP15-F05. Su evidencia es el reporte de VETS.', 'info');
+    return null;
+  }
   if (!(opts && opts.silent)) showOverlayLoading('Generando PDF...');
 
   // Gate: no generar un PDF con campos obligatorios vacíos (salvo regeneración interna tras archivar).
@@ -25655,28 +25761,6 @@ var _reviewSections = [
     ]}
 ];
 
-function quickReviewGoTo(fieldId) {
-    // Close the modal
-    var modal = document.querySelector('.modal-overlay');
-    if (modal) modal.remove();
-
-    var el = document.getElementById(fieldId);
-    if (!el) return;
-
-    // Open the parent accordion
-    var acc = el.closest('details.acc');
-    if (acc && !acc.open) acc.open = true;
-
-    // Scroll and focus
-    setTimeout(function() {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.focus();
-        el.style.outline = '3px solid ' + tokenColor('--info-fill');
-        el.style.outlineOffset = '2px';
-        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
-    }, 150);
-}
-
 // ======================================================================
 // [R2-M6] COPY FROM LAST VEHICLE
 // ======================================================================
@@ -26251,7 +26335,7 @@ function renderKanban() {
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehículos</h3>';
-    var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
+    var totalActive = vehicles.filter(function(v){ return vehicleIsLive(v); }).length;
     html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
@@ -26782,38 +26866,6 @@ function smartFormSuggestDefaults(vehicle) {
 // [R5-M8] Templates — COP15 Operation Templates
 // ══════════════════════════════════════════════════════════════════════
 
-/** Collect current operation form data as a template-ready object. */
-function cop15TemplateCollect() {
-    var data = {};
-    var fields = ['tire_pressure', 'fuel_typein', 'fuel_typepre', 'precond_cycle',
-        'soak_time', 'tank_capacity', 'test_tunnel', 'test_dyno_on', 'test_fan_mode',
-        'test_fan_speed', 'test_fan_flow', 'test_chains', 'test_slings', 'test_hood',
-        'test_rear_rollers', 'test_screen', 'etw', 'tA', 'dA', 'tB', 'dB', 'tC', 'dC'];
-    fields.forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (el && el.value) data[fid] = el.value;
-    });
-    return data;
-}
-
-/** Apply template data to the current operation form. */
-function cop15TemplateApplyData(data) {
-    if (!data) return;
-    Object.keys(data).forEach(function(fid) {
-        var el = document.getElementById(fid);
-        if (el) {
-            el.value = data[fid];
-            el.style.outline = '2px dashed #8b5cf6';
-            el.style.outlineOffset = '2px';
-            setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
-        }
-    });
-    markUnsaved();
-    showToast('Plantilla aplicada', 'success');
-}
-
-/** Save current operation as a named template. */
-/** Show COP15 template manager. */
 // ======================================================================
 // [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
 // ======================================================================
@@ -27187,7 +27239,7 @@ function cascadeCloseTooltip() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function getNextStep(vehicle) {
-    if (!vehicle || vehicle.status === 'archived') return null;
+    if (!vehicle || !vehicleIsLive(vehicle)) return null;   // [2.30.0] archivado o histórico
     var td = vehicle.testData || {};
     var p = td.preconditioning || {};
     var status = vehicle.status;
@@ -27251,6 +27303,7 @@ function cascadeVehicleStage(vehicle) {
     var tv = td.testVerification || {};
     var status = vehicle.status;
     if (status === 'archived') return { index: 8, total: 8, label: 'Archivado', done: true };
+    if (status === VEHICLE_STATUS_HISTORIC) return { index: 8, total: 8, label: 'Histórico (VETS)', done: true, historic: true };
 
     var soakDone = !!td.soakCompleted, soakStarted = false;
     try {
@@ -27278,7 +27331,7 @@ function cascadeVehicleStage(vehicle) {
 // etapa: soak activo → fin de soak + 1 día hábil; etapas 2-3 → día de prueba asignado en
 // el plan semanal + 1; etapas 5-7 → hoy/mañana. tone: ok (>mañana) / warn (hoy-mañana) / late.
 function cascadeVehicleETA(vehicle) {
-    if (!vehicle || vehicle.status === 'archived') return null;
+    if (!vehicle || !vehicleIsLive(vehicle)) return null;
     var dateStr = null, source = 'auto';
     if (vehicle.expectedReleaseAt) { dateStr = vehicle.expectedReleaseAt; source = 'manual'; }
     else {
@@ -27390,25 +27443,6 @@ function v7CheckExpiredSoak() {
             setTimeout(function() { v7ShowSoakCompleteModal(); }, 1000);
         }
     } catch(e) {}
-}
-
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
-// ╚══════════════════════════════════════════════════════════════════════╝
-
-function v7ClosePostRelease() {
-    var el = document.getElementById('v7-post-release');
-    if (el) { el.classList.remove('visible'); setTimeout(function() { el.remove(); }, 300); }
-}
-
-function v7PostReleaseRegisterAnother() {
-    v7ClosePostRelease();
-    var tabEl = document.querySelector('.tab[data-tab="alta"]');
-    if (tabEl) tabEl.click();
-    setTimeout(function() {
-        var purposeEl = document.getElementById('vehiclePurpose');
-        if (purposeEl) purposeEl.focus();
-    }, 300);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -27589,7 +27623,7 @@ function v7CheckVinDuplicate(vin) {
     if (!vin || vin.length < 17) return;
     var hint = document.getElementById('v7-vin-hint');
     // Check active vehicles
-    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && vehicleIsLive(v); });
     if (active) {
         if (!hint) hint = _v7CreateVinHint();
         hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehículo</button>';
@@ -36524,7 +36558,7 @@ function tpUpdateBadges() {
     }
 
     // COP15 badge
-    const active = db.vehicles ? db.vehicles.filter(v => v.status !== 'archived').length : 0;
+    const active = db.vehicles ? db.vehicles.filter(v => vehicleIsLive(v)).length : 0;
     document.getElementById('cop15-count-badge').textContent = active + ' activos';
 }
 
@@ -39269,7 +39303,9 @@ function tpWeekBoardRows(opts) {
         var d = tpItemDay(it); if (d) dayLoad[d] = (dayLoad[d] || 0) + 1;
     });
 
-    var vehiculos = (typeof db === 'object' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    // [2.30.0] Una prueba histórica (VETS, anterior a la plataforma) no respalda filas del plan.
+    var vehiculos = (typeof db === 'object' && db && Array.isArray(db.vehicles))
+        ? db.vehicles.filter(function(v) { return !(typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)); }) : [];
     var ctx = { todayIdx: todayIdx, weekIsPast: weekIsPast, weekIsFuture: weekIsFuture,
                 dayLoad: dayLoad, perSlot: perSlot, workDays: workDays };
 
@@ -39342,7 +39378,7 @@ function tpWeekBoardRows(opts) {
             purpose: item.purpose || null, actualPurpose: item.actualPurpose || null,
             substituted: !!item.substituted, substitution: item.substitution || null,
             carriedOver: !!item.carriedOver, manual: !!item.manual,
-            vehicle: veh && veh.status !== 'archived' ? veh : null,
+            vehicle: veh && vehicleIsLive(veh) ? veh : null,
             // v20.1: `vehicle` sigue significando "vivo, en curso" — de eso dependen el
             // semáforo y la ETA. Pero el vehículo RESUELTO se expone aparte: con dos
             // pruebas idénticas la segunda suele quedar cubierta por uno ya liberado, y
@@ -43020,7 +43056,7 @@ function tpLinkableVehiclesFor(item, opts) {
 
     var out = [];
     db.vehicles.forEach(function(v) {
-        if (!v) return;
+        if (!v || (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v))) return;   // [2.30.0]
         if (item.linkedVehicleId != null && String(item.linkedVehicleId) === String(v.id)) return;
         var fecha = _tpVehicleTestDate(v);
         var enSemana = !rng || (!!fecha && fecha >= rng.d0 && fecha <= rng.d1);
@@ -46931,7 +46967,7 @@ function renderLabOverview(el, opts) {
     }
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var today = localToday();
     var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === today; });
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
@@ -47057,7 +47093,7 @@ function renderLabOverview(el, opts) {
 function pnRenderDashboard(el) {
     // Gather cross-module stats
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var activeVehicles = vehicles.filter(function(v) { return vehicleIsLive(v); });
     var archivedToday = vehicles.filter(function(v) {
         if (v.status !== 'archived' || !v.archivedAt) return false;
         return localDateStr(new Date(v.archivedAt)) === localToday();
@@ -47260,6 +47296,7 @@ function pnRenderUsers(el) {
     operators.forEach(function(op) { opStats[op.name] = { registered: 0, released: 0, active: 0 }; });
     vehicles.forEach(function(v) {
         var regBy = v.registeredBy || '';
+        if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)) return;   // [2.30.0] importar no es dar de alta
         if (opStats[regBy]) {
             if (v.status === 'archived') opStats[regBy].released++;
             else opStats[regBy].active++;
@@ -47836,7 +47873,7 @@ function pnGetActiveAlerts() {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = Date.now();
     vehicles.forEach(function(v) {
-        if (v.status === 'archived') return;
+        if (!vehicleIsLive(v)) return;
         // Desacuerdo liberador/aprobador (doble ciego) sin resolver
         if (v.testData && v.testData.gasResults && v.testData.gasResults.mismatch) {
             var mm = v.testData.gasResults.mismatch;
@@ -49038,7 +49075,7 @@ function _pnCollectCalendarEvents(year, month) {
     // Vehicle release estimates
     if (typeof db !== 'undefined' && db.vehicles) {
         db.vehicles.forEach(function(v) {
-            if (v.status === 'archived') return;
+            if (!vehicleIsLive(v)) return;
             if (v.status === 'ready-release') {
                 // Expected release today or soon
                 var d = new Date();
@@ -49158,7 +49195,7 @@ function _pnCollectTurnoverData() {
     // Vehicles in progress
     if (typeof db !== 'undefined' && db.vehicles) {
         data.vehiclesInProgress = db.vehicles.filter(function(v) {
-            return v.status !== 'archived';
+            return vehicleIsLive(v);
         }).map(function(v) {
             return {
                 vin: (v.vin || '').slice(-8),
@@ -49398,6 +49435,7 @@ function panelAlpineComponent() {
             var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
             var stats = { registered: 0, released: 0, active: 0 };
             vehicles.forEach(function(v) {
+                if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)) return;   // [2.30.0]
                 if ((v.registeredBy || '') === opName) {
                     if (v.status === 'archived') stats.released++;
                     else stats.active++;
@@ -49900,7 +49938,7 @@ function pnRenderExecutive(el) {
     var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) === todayStr; }).length;
     var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= weekAgo; }).length;
     var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
-    var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+    var activeCount = vehicles.filter(function(v) { return vehicleIsLive(v); }).length;
 
     // v16.2: Compliance scorecard — misma definición de cobertura que el badge del Plan y
     // la tarjeta HOY (% de configs vigentes al día vía tpCoverageSummary). Antes esta
@@ -58480,7 +58518,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610012351' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610021731' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -62018,6 +62056,8 @@ function copSyncVinsFromTests(key) {
 
     vehicles.forEach(function(v) {
         if (!v.vin || copVehicleFamilyKey(v) !== key) return;
+        // [2.30.0] Una prueba histórica de VETS entra solo ya confirmada por quien aprueba.
+        if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
         var vk = String(v.vin).trim().toUpperCase();
         var row = byVin[vk];
         if (!row) {
@@ -63792,6 +63832,9 @@ var COP_SPC_RULES = { R1: 'Fuera de ±3σ', R2: 'Corrimiento (8 de un lado)', R3
 function _copSpcDate(v) {
     var gr = v && v.testData && v.testData.gasResults;
     if (!gr) return '';
+    // [2.30.0] Una prueba histórica se confirma hoy, pero ocurrió cuando dice VETS: la
+    // carta I-MR va en orden de PRUEBA (si no, los rangos móviles se calculan revueltos).
+    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && v.testData.testDatetime) return v.testData.testDatetime;
     var rec = (gr.aprobador && gr.aprobador.values) ? gr.aprobador
             : (gr.liberador && gr.liberador.values) ? gr.liberador : null;
     return (rec && rec.capturedAt) || '';
@@ -66748,6 +66791,15 @@ var VETS_CONFIG_FIELDS = {
     BODYTYPE: 'BODY TYPE', TRANSMISSION: 'TRANSMISSION', EMISSIONREGULATION: 'EMISSION REGULATION',
     REGION: 'REGION', ENGINECAPACITY: 'ENGINE CAPACITY', TIREASSY: 'TIRE ASSY', MODELYEAR: 'MODEL YEAR (VIN)'
 };
+// [2.30.0] Las 11 columnas del catálogo que VETS guarda en CustomFields. Las usa el
+// importador de pruebas históricas (historico.js) para encontrar la configuración;
+// VETS_CONFIG_FIELDS (arriba) sigue siendo lo que se COMPARA contra el Alta.
+var VETS_CATALOG_FIELDS = {
+    MODELNAME: 'Modelo', MODELYEAR: 'MODEL YEAR (VIN)', TRANSMISSION: 'TRANSMISSION',
+    ENVIRONMENTPACKAGE: 'ENVIRONMENT PACKAGE', EMISSIONREGULATION: 'EMISSION REGULATION', DRIVETYPE: 'DRIVE TYPE',
+    ENGINECAPACITY: 'ENGINE CAPACITY', TIREASSY: 'TIRE ASSY', REGION: 'REGION', BODYTYPE: 'BODY TYPE',
+    ENGINEPACKAGE: 'ENGINE PACKAGE'
+};
 
 // ══════════════════════════════════════════════════════════════════════
 // Lector mínimo de .xlsx (ZIP + XML)
@@ -67275,6 +67327,11 @@ function vetsExtract(sheets) {
     Object.keys(VETS_CONFIG_FIELDS).forEach(function(k) {
         var cl = _vetsCodeLabel(custom[k]);
         if (cl) rec.config[VETS_CONFIG_FIELDS[k]] = cl;
+    });
+    rec.configAll = {};
+    Object.keys(VETS_CATALOG_FIELDS).forEach(function(k) {
+        var cl = _vetsCodeLabel(custom[k]);
+        if (cl) rec.configAll[VETS_CATALOG_FIELDS[k]] = cl;
     });
 
     _vetsDynoAmbient(rec, td);
@@ -68408,6 +68465,915 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
         text: 'Combustible y distancia que registró el propio vehículo (OBFCM) durante la prueba y la exactitud que calcula VETS '
             + '(Reg. (UE) 2017/1151, Anexo XXII §4.2). Se guarda por vehículo y se ve por familia en CoP → Expediente.' }
 });
+
+
+// @@module js/historico.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.30.0] PRUEBAS ANTERIORES A LA PLATAFORMA — importadas de VETS    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Las pruebas que se corrieron antes de CASCADE (desde el 18-feb-2025) no pasaron
+// por Alta, Operación ni Liberación, y su Hoja COP15-F05 no siempre existe. Lo que sí
+// existe de cada una es el reporte de Excel de STARS VETS: el registro original del
+// equipo de prueba. Este módulo las trae a la plataforma como lo que son.
+//
+// REGLAS:
+//  - Una prueba histórica es un vehículo con status 'historico' (VEHICLE_STATUS_HISTORIC,
+//    app.js). Así viaja por el sync de un documento por vehículo y aparece en la búsqueda,
+//    la ficha y el Historial. `vehicleIsLive` la deja FUERA de todo lo "en curso" (HOY,
+//    Cola, plan, Operación), y nunca se le emite una Hoja COP15-F05: no hubo recepción,
+//    preacondicionamiento ni firmas que poner en ella.
+//  - Nada se inventa ni se fecha hacia atrás. `registeredAt` es el día en que se importó;
+//    la fecha de la prueba es la que dice VETS (`testData.testDatetime`).
+//  - Importar NO es aprobar. Queda `historic.state = 'pendiente'` hasta que alguien con
+//    `test.approve` —que no sea quien la importó— revisa sus resultados y firma. Mismo
+//    principio que liberar/aprobar (nadie aprueba lo que liberó).
+//  - La confirmación NO es doble ciego: los valores no los tecleó nadie, salen del archivo.
+//    Se registra como `method: 'confirmacion-historico'` y `matchedLiberador: null`.
+//  - Una sola firma por ronda de confirmación (se copia en cada prueba que cubre, con el
+//    lote y cuántas eran). Firmar 70 veces la misma decisión no agrega control.
+//  - Solo una CONFIRMADA cuenta para el SPC y la mesa del CoP (tiene gasResults.aprobador).
+//    Una pendiente o no confirmada no tiene resultados finales.
+//  - Un equipo anterior a esta versión vería 'historico' como un vehículo en curso y
+//    editable: no se importa mientras haya equipos activos sin actualizar
+//    (historicoOutdatedDevices).
+//
+// Lo PURO (se prueba en Node, tests/historico.node.js): historicoConfigMatch,
+// historicoPlan, historicoBuildVehicle, historicoReviewModel, historicoDecisionCheck,
+// historicoOutdatedDevices, historicoPendingSummary.
+
+var HISTORICO_SINCE = '2.30.0';
+var HISTORICO_MAX_FILES = 150;
+var HISTORICO_NOTE_MIN = 5;
+// Con menos campos útiles que esto, VETS no identifica la configuración (un "LHD" solo
+// empata con 222): se trata como si no la trajera y se elige del catálogo completo.
+var HISTORICO_MIN_CFG_FIELDS = 3;
+var HISTORICO_STATE_LABELS = { pendiente: 'Por confirmar', confirmado: 'Confirmada', rechazado: 'No confirmada' };
+
+var _historicoImport = null;   // {items, ov:{i:{vin, configCode, purpose}}, purpose}
+var _historicoReview = null;   // {ids, marks:{id:{action, note}}, batchId}
+
+// ══════════════════════════════════════════════════════════════════════
+// Puras
+// ══════════════════════════════════════════════════════════════════════
+
+function _historicoNorm(s) { return String(s == null ? '' : s).toUpperCase().replace(/\s+/g, ''); }
+function _historicoVin(s) { return String(s == null ? '' : s).trim().toUpperCase(); }
+function _historicoIsHist(v) { return !!v && v.status === 'historico'; }
+function _historicoCode(row) { return row ? String(row.codigo_config_text || row.configCode || '') : ''; }
+
+/**
+ * Configuraciones del catálogo que coinciden con lo que VETS guardó. PURA.
+ * configAll = {columna: {code, label}} (vetsExtract). Un campo coincide por su etiqueta
+ * o por su código ("0 - 12V" empata con el "0" del catálogo).
+ * → {exact:[filas], near:[{row, miss:[columnas]}] (solo si no hay exactas), fields:n}
+ */
+function historicoConfigMatch(configAll, catalog) {
+    var keys = Object.keys(configAll || {});
+    var out = { exact: [], near: [], fields: keys.length };
+    if (keys.length < HISTORICO_MIN_CFG_FIELDS) { out.fields = 0; return out; }
+    (catalog || []).forEach(function(row) {
+        if (!row) return;
+        var miss = keys.filter(function(k) {
+            var have = _historicoNorm(row[k]), cl = configAll[k] || {};
+            return !(have && (have === _historicoNorm(cl.label) || (cl.code && have === _historicoNorm(cl.code))));
+        });
+        if (!miss.length) out.exact.push(row);
+        else if (miss.length === 1 && keys.length >= 4) out.near.push({ row: row, miss: miss });
+    });
+    if (out.exact.length) out.near = [];
+    return out;
+}
+
+/** Día de la prueba de un vehículo (AAAA-MM-DD) o ''. PURA. */
+function _historicoTestDay(v) {
+    var td = (v && v.testData) || {};
+    var s = td.testDatetime || (td.preconditioning && td.preconditioning.datetime) || '';
+    return String(s || '').slice(0, 10);
+}
+
+/**
+ * LA definición de qué pasa con cada archivo del lote. PURA.
+ * items: [{fileName, sha256, size, rec | error}] (rec = vetsExtract)
+ * ctx: {vehicles, catalog, ov:{i:{vin, configCode, purpose}}, purpose, today, vinCheck(vin), statusLabel(s)}
+ * → [{i, fileName, action, why, warnings, vin, testRef, testDate, configCode, configFrom,
+ *     configOptions:[{code, miss}], purpose, gasesN, checksFail, dupId}]
+ * action: 'importar' | 'elegir' (falta configuración o propósito) | 'sin-vin' | 'duplicado'
+ *         (ya está en CASCADE) | 'repetido' (dos veces en el lote) | 'en-cascade' (la prueba
+ *         nació en CASCADE ese día) | 'error'.
+ */
+function historicoPlan(items, ctx) {
+    ctx = ctx || {};
+    var vehicles = ctx.vehicles || [], ov = ctx.ov || {}, catalog = ctx.catalog || [];
+    var lab = typeof ctx.statusLabel === 'function' ? ctx.statusLabel : function(s) { return s; };
+    var byCode = {};
+    catalog.forEach(function(r) { var c = _historicoCode(r); if (c) byCode[c] = r; });
+    var refs = {};
+    vehicles.forEach(function(v) {
+        var r = v && v.testData && v.testData.vets && v.testData.vets.testRef;
+        if (r) refs[String(r)] = v;
+    });
+    var seen = {};
+    return (items || []).map(function(it, i) {
+        var o = ov[i] || {};
+        var row = { i: i, fileName: (it && it.fileName) || '', sha256: (it && it.sha256) || '', action: 'importar', why: '',
+                    warnings: [], vin: '', testRef: '', testDate: '', configCode: '', configFrom: '', configOptions: [],
+                    purpose: '', gasesN: 0, checksFail: 0, dupId: null };
+        if (!it || !it.rec) { row.action = 'error'; row.why = (it && it.error) || 'No se pudo leer el archivo.'; return row; }
+        var rec = it.rec;
+        row.testRef = String(rec.testRef || '');
+        row.testDate = String(rec.testStart || '');
+        row.procedure = rec.procedure || '';
+        row.operator = rec.operator || '';
+        row.driver = rec.driver || '';
+        row.gasesN = Object.keys(rec.gases || {}).length;
+        row.checksFail = (rec.checks || []).filter(function(c) { return c && c.status === 'FAIL'; }).length;
+
+        // VIN: el que leyó el ECU manda sobre el tecleado en VETS; una corrección a mano, sobre los dos.
+        var vinF = _historicoVin(rec.vinFile), vinE = _historicoVin(rec.vinEcu);
+        row.vinFile = vinF; row.vinEcu = vinE;
+        row.vin = o.vin ? _historicoVin(o.vin) : (vinE || vinF);
+        if (!o.vin && vinF && vinE && vinF !== vinE) {
+            row.warnings.push('En VETS se tecleó ' + vinF + ' y el ECU leyó ' + vinE + ': se usa el del ECU.');
+        }
+
+        // Duplicados: la misma prueba de VETS ya en CASCADE, o dos veces en el lote.
+        var key = row.testRef ? 'REF:' + row.testRef : 'VIN:' + row.vin + '@' + row.testDate;
+        if (row.testRef && refs[row.testRef]) {
+            var d = refs[row.testRef];
+            row.action = 'duplicado'; row.dupId = d.id;
+            row.why = 'Esta prueba de VETS ya está en CASCADE: VIN ' + (d.vin || '#' + d.id) + ' (' + lab(d.status) + ').';
+        } else if (seen[key] != null) {
+            row.action = 'repetido'; row.why = 'Es la misma prueba que la fila ' + (seen[key] + 1) + '.';
+        }
+        if (seen[key] == null) seen[key] = i;
+
+        if (row.action === 'importar') {
+            if (!row.gasesN) { row.action = 'error'; row.why = 'El archivo no trae resultados de gases.'; }
+            else if (!row.testDate) { row.action = 'error'; row.why = 'El archivo no trae la fecha de la prueba.'; }
+            else if (ctx.today && row.testDate.slice(0, 10) > ctx.today) { row.action = 'error'; row.why = 'La fecha de la prueba (' + row.testDate.slice(0, 10) + ') es posterior a hoy.'; }
+        }
+        if (row.action === 'importar') {
+            if (!row.vin) { row.action = 'sin-vin'; row.why = 'El archivo no trae VIN: escríbelo.'; }
+            else if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(row.vin)) { row.action = 'sin-vin'; row.why = 'El VIN debe tener 17 caracteres: letras y números, sin I, O ni Q.'; }
+            else {
+                var cd = typeof ctx.vinCheck === 'function' ? ctx.vinCheck(row.vin) : null;
+                if (cd && cd.valid === false) row.warnings.push('El dígito verificador del VIN no coincide (se esperaba "' + cd.expected + '").');
+            }
+        }
+        // ¿La prueba nació en CASCADE? Mismo VIN, mismo día, en un vehículo que no es histórico.
+        if (row.action === 'importar' && row.vin) {
+            var day = row.testDate.slice(0, 10);
+            var twin = vehicles.filter(function(v) {
+                return v && !_historicoIsHist(v) && _historicoVin(v.vin) === row.vin && day && _historicoTestDay(v) === day;
+            })[0];
+            if (twin) {
+                row.action = 'en-cascade'; row.dupId = twin.id;
+                row.why = 'Esa prueba ya existe en CASCADE (VIN ' + row.vin + ', ' + day + '): adjunta el archivo de VETS en ese vehículo, no lo importes como histórico.';
+            }
+        }
+
+        // Configuración: la elegida a mano → la única que coincide con VETS → la de ese VIN en CASCADE.
+        var m = historicoConfigMatch(rec.configAll || {}, catalog);
+        row.configOptions = (m.exact.length ? m.exact.map(function(r) { return { code: _historicoCode(r), miss: [] }; })
+                                            : m.near.map(function(n) { return { code: _historicoCode(n.row), miss: n.miss }; })).slice(0, 40);
+        var vinVeh = vehicles.filter(function(v) {
+            return v && !_historicoIsHist(v) && _historicoVin(v.vin) === row.vin && v.configCode && byCode[v.configCode];
+        }).pop();
+        if (o.configCode && byCode[o.configCode]) { row.configCode = o.configCode; row.configFrom = 'elegida'; }
+        else if (m.exact.length === 1) { row.configCode = _historicoCode(m.exact[0]); row.configFrom = 'vets'; }
+        else if (vinVeh) { row.configCode = vinVeh.configCode; row.configFrom = 'vin'; }
+        if (row.configFrom === 'vin' && m.exact.length > 1 &&
+            !m.exact.some(function(r) { return _historicoCode(r) === row.configCode; })) {
+            row.warnings.push('La configuración de ese VIN en CASCADE no coincide con lo que dice VETS: revísala.');
+        }
+        row.purpose = o.purpose || ctx.purpose || '';
+        if (row.action === 'importar' && !row.configCode) {
+            row.action = 'elegir';
+            row.why = m.exact.length > 1 ? 'VETS coincide con ' + m.exact.length + ' configuraciones: elige cuál.'
+                    : m.fields ? 'Lo que trae VETS no coincide exacto con ninguna configuración: elígela.'
+                    : 'VETS no trae la configuración: elígela.';
+        }
+        if (row.action === 'importar' && !row.purpose) { row.action = 'elegir'; row.why = 'Elige el propósito de la prueba.'; }
+        return row;
+    });
+}
+
+/** Conteo del plan. PURA. */
+function historicoPlanSummary(rows) {
+    var s = { total: (rows || []).length, importar: 0, pendientes: 0, omitidas: 0 };
+    (rows || []).forEach(function(r) {
+        if (r.action === 'importar') s.importar++;
+        else if (r.action === 'elegir' || r.action === 'sin-vin') s.pendientes++;
+        else s.omitidas++;
+    });
+    return s;
+}
+
+/**
+ * El vehículo histórico que crea una fila del plan. PURA (todo lo externo en ctx).
+ * ctx: {id, nowIso, who, whoId, deviceId, catalogRow, batchId, summary (vetsSummary)}
+ */
+function historicoBuildVehicle(row, item, ctx) {
+    var rec = item.rec, cfgRow = ctx.catalogRow || {};
+    var cfg = JSON.parse(JSON.stringify(cfgRow));
+    return {
+        id: ctx.id, vin: row.vin, purpose: row.purpose, config: cfg, configCode: row.configCode,
+        status: 'historico', origin: 'vets-historico',
+        registeredBy: ctx.who || '', registeredSessionUser: ctx.who || '', registeredSessionUserId: ctx.whoId != null ? ctx.whoId : null,
+        registeredDeviceId: ctx.deviceId || '', registeredAt: ctx.nowIso,
+        historic: {
+            state: 'pendiente', source: 'vets', batchId: ctx.batchId || '',
+            importedAt: ctx.nowIso, importedBy: ctx.who || '', importedById: ctx.whoId != null ? ctx.whoId : null,
+            file: { name: item.fileName || '', sha256: item.sha256 || '', size: item.size || null },
+            testRef: row.testRef, testDate: row.testDate, configFrom: row.configFrom,
+            warnings: row.warnings.slice()
+        },
+        timeline: [{
+            timestamp: ctx.nowIso, user: ctx.who || '',
+            action: 'Prueba histórica importada de VETS (' + (item.fileName || 'archivo') + ')',
+            data: { status: 'historico', state: 'pendiente', testRef: row.testRef, testDate: row.testDate }
+        }],
+        testData: {
+            testDatetime: rec.testStart || row.testDate,
+            testResponsible: rec.operator || '',
+            vets: ctx.summary || null
+        },
+        notes: []
+    };
+}
+
+/**
+ * Lo que revisa quien confirma una prueba histórica. PURA.
+ * ctx: {profile (perfil de regulación), regName, policy (pnState.vetsChecks), vinCheck(vin)}
+ * → {gases:[{field,label,unit,value,limit,pct,pass}], values:{field:valor}, fails:[{name,level,detail}],
+ *    reasons:[texto] (piden observación), needsNote, block (no se puede confirmar), allPass}
+ */
+function historicoReviewModel(v, ctx) {
+    ctx = ctx || {};
+    var s = (v && v.testData && v.testData.vets) || {};
+    var out = { gases: [], values: {}, fails: [], reasons: [], needsNote: false, block: '', allPass: true };
+    var profile = ctx.profile;
+    if (!profile || !profile.gases || !profile.gases.length) {
+        out.block = 'No hay perfil de regulación para ' + (ctx.regName || 'esta prueba') + ': no hay contra qué comparar sus gases.';
+        out.allPass = false;
+        return out;
+    }
+    var rec = { gases: {} };
+    Object.keys(s.gases || {}).forEach(function(k) { rec.gases[k] = { value: s.gases[k].v, unit: s.gases[k].u }; });
+    profile.gases.forEach(function(g) {
+        var val = typeof vetsGasValue === 'function' ? vetsGasValue(rec, g.field, g.unit) : null;
+        var hasLim = g.limit !== null && g.limit !== undefined && g.limit !== '' && isFinite(Number(g.limit));
+        var lim = hasLim ? Number(g.limit) : null;
+        var row = { field: g.field, label: g.label || g.field, unit: g.unit || '', value: val, limit: lim, pct: null, pass: null };
+        if (val !== null && val !== undefined) {
+            out.values[g.field] = val;
+            if (lim !== null) {
+                row.pct = lim > 0 ? val / lim * 100 : null;
+                row.pass = val <= lim;
+                if (!row.pass) { out.allPass = false; out.reasons.push(row.label + ' sobre el límite (' + val + ' > ' + lim + ' ' + row.unit + ').'); }
+            }
+        } else if (lim !== null) {
+            out.allPass = false;
+            out.reasons.push('El archivo no trae ' + row.label + ', que tiene límite.');
+        }
+        out.gases.push(row);
+    });
+    if (!Object.keys(out.values).length) out.block = 'El archivo no trae ningún gas de esta regulación.';
+    // Verificaciones de VETS que fallaron: la política vigente del laboratorio manda
+    // (alguien pudo clasificarlas después de importar).
+    var pol = {};
+    (ctx.policy || []).forEach(function(p) { if (p && p.id) pol[String(p.id).toUpperCase()] = p.level; });
+    (s.checksFail || []).forEach(function(f) {
+        var lvl = pol[String(f.name || '').toUpperCase()] || f.level || null;
+        out.fails.push({ name: f.name, level: lvl, detail: f.detail || '' });
+        if (lvl !== 'desacreditada' && lvl !== 'informativa') {
+            out.reasons.push('Verificación de VETS que falló ' + (lvl === 'importante' ? '(Importante)' : '(sin clasificar)') + ': ' + f.name + '.');
+        }
+    });
+    var vin = _historicoVin(v && v.vin);
+    if (typeof ctx.vinCheck === 'function' && vin) {
+        var cd = ctx.vinCheck(vin);
+        if (cd && cd.valid === false) out.reasons.push('El dígito verificador del VIN no coincide.');
+    }
+    var vf = _historicoVin(s.vinFile), ve = _historicoVin(s.vinEcu);
+    if (vf && ve && vf !== ve) out.reasons.push('En VETS se tecleó ' + vf + ' y el ECU leyó ' + ve + '.');
+    out.needsNote = out.reasons.length > 0;
+    return out;
+}
+
+/** ¿Se puede aplicar esta decisión? '' = sí, si no el motivo. PURA. */
+function historicoDecisionCheck(model, mark) {
+    if (!mark || !mark.action) return 'Elige "Confirmo" o "No confirmo".';
+    var note = String(mark.note || '').trim();
+    if (mark.action === 'rechazar') {
+        return note.length >= HISTORICO_NOTE_MIN ? '' : 'Escribe por qué no la confirmas (al menos ' + HISTORICO_NOTE_MIN + ' caracteres).';
+    }
+    if (mark.action !== 'confirmar') return 'Decisión desconocida.';
+    if (model && model.block) return model.block;
+    if (model && model.needsNote && note.length < HISTORICO_NOTE_MIN) {
+        return 'Esta prueba tiene observaciones: escribe por qué confirmas sus resultados (al menos ' + HISTORICO_NOTE_MIN + ' caracteres).';
+    }
+    return '';
+}
+
+/**
+ * Equipos activos que todavía no entienden el estado 'historico'. PURA.
+ * view = fbDevicesView(...); cmp = fbVersionCmp.
+ */
+function historicoOutdatedDevices(view, since, cmp) {
+    return ((view && view.rows) || []).filter(function(r) {
+        if (!r || r.own || r.inactive) return false;
+        if (!r.version) return true;
+        return typeof cmp === 'function' ? cmp(r.version, since) < 0 : false;
+    });
+}
+
+/** Pendientes de confirmar: total, cuántas importó `me` y cuántas puede confirmar. PURA. */
+function historicoPendingSummary(vehicles, meId) {
+    var s = { total: 0, mine: 0, forMe: 0, ids: [] };
+    (vehicles || []).forEach(function(v) {
+        if (!_historicoIsHist(v) || !v.historic || v.historic.state !== 'pendiente') return;
+        s.total++;
+        var mine = meId != null && v.historic.importedById != null && String(v.historic.importedById) === String(meId);
+        if (mine) s.mine++; else { s.forMe++; s.ids.push(v.id); }
+    });
+    return s;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Contexto real (lo que las puras reciben)
+// ══════════════════════════════════════════════════════════════════════
+
+function _historicoMe() { return (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) || null; }
+function _historicoWho() { return (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : ''; }
+function _historicoCatalog() { return (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : []; }
+function _historicoStatusLabel(s) { return (typeof CONFIG !== 'undefined' && CONFIG.statusLabels && CONFIG.statusLabels[s]) || s; }
+function _historicoVinCheck(vin) { return typeof vinCheckDigit === 'function' ? vinCheckDigit(vin) : null; }
+function _historicoTodayStr() { return typeof localToday === 'function' ? localToday() : new Date().toISOString().slice(0, 10); }
+
+function historicoPendingFor() {
+    var me = _historicoMe();
+    return historicoPendingSummary((typeof db !== 'undefined' && db.vehicles) || [], me ? me.id : null);
+}
+
+/** Perfil de regulación contra el que se juzga ahora (el congelado si ya se confirmó). */
+function _historicoProfileFor(v) {
+    var conf = v && v.historic && v.historic.confirmation;
+    if (conf && conf.profile && conf.profile.gases) return conf.profile;
+    var reg = typeof _libGetVehicleRegulation === 'function' ? _libGetVehicleRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || '');
+    return reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
+}
+function _historicoRegName(v) {
+    return typeof _libGetVehicleRegulation === 'function' ? _libGetVehicleRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || '');
+}
+function _historicoModelFor(v) {
+    return historicoReviewModel(v, { profile: _historicoProfileFor(v), regName: _historicoRegName(v),
+        policy: typeof vetsPolicy === 'function' ? vetsPolicy() : [], vinCheck: _historicoVinCheck });
+}
+
+/** Equipos activos sin actualizar ([] si no hay sync o no se sabe). */
+function historicoDevicesBlocking() {
+    try {
+        if (typeof fbDevicesView !== 'function' || typeof fbDevicesCache !== 'function' ||
+            typeof fbVehActive !== 'function' || !fbVehActive()) return [];
+        var c = fbDevicesCache();
+        var view = fbDevicesView(c.devices, c.seen, { now: Date.now(), own: typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '',
+            current: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '' });
+        return historicoOutdatedDevices(view, HISTORICO_SINCE, typeof fbVersionCmp === 'function' ? fbVersionCmp : null);
+    } catch (e) { return []; }
+}
+
+function _historicoDevicesGate() {
+    var old = historicoDevicesBlocking();
+    if (!old.length) return true;
+    var lista = old.map(function(r) { return '<li>' + escapeHtml(r.name || r.id) + ' — ' + escapeHtml(r.text || 'versión desconocida') + '</li>'; }).join('');
+    showModal({ title: 'Primero actualiza estos equipos', type: 'warning',
+        body: '<p>Un equipo con una versión anterior a la ' + HISTORICO_SINCE + ' vería las pruebas históricas como vehículos en curso, ' +
+              'en HOY y en la Cola, y hasta podría editarlas en Operación.</p><ul>' + lista + '</ul>' +
+              '<p>Abre CASCADE en cada uno y acepta la actualización (o, si ya no se usa, deja que pase a inactivo). Después vuelve a importar.</p>',
+        buttons: [{ label: 'Entendido', cls: 'btn-primary' }] });
+    return false;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Importar
+// ══════════════════════════════════════════════════════════════════════
+
+function historicoImportStart() {
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.vets', 'importar pruebas anteriores de VETS')) return;
+    if (!_historicoDevicesGate()) return;
+    var inp = document.getElementById('historico-file-input');
+    if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.id = 'historico-file-input'; inp.accept = '.xlsx'; inp.multiple = true; inp.hidden = true;
+        inp.addEventListener('change', function() { historicoOnFilesChosen(inp); });
+        document.body.appendChild(inp);
+    }
+    inp.value = '';
+    inp.click();
+}
+
+function historicoOnFilesChosen(input) {
+    var files = Array.prototype.slice.call((input && input.files) || []);
+    if (!files.length) return;
+    if (files.length > HISTORICO_MAX_FILES) {
+        showToast('Son ' + files.length + ' archivos: importa a lo más ' + HISTORICO_MAX_FILES + ' por lote.', 'warning');
+        return;
+    }
+    var items = [];
+    var n = 0;
+    showToast('Leyendo ' + files.length + ' archivo' + (files.length > 1 ? 's' : '') + ' de VETS…', 'info', 3000);
+    // Uno por uno: cada archivo pesa ~1 MB y un teléfono no tiene memoria para todos a la vez.
+    var next = function() {
+        if (n >= files.length) { historicoImportShow(items); return; }
+        var f = files[n++];
+        var it = { fileName: f.name, size: f.size };
+        items.push(it);
+        if (!/\.xlsx$/i.test(f.name)) { it.error = 'No es un .xlsx de VETS.'; next(); return; }
+        if (f.size > 25 * 1024 * 1024) { it.error = 'Pesa ' + Math.round(f.size / 1048576) + ' MB: no parece el reporte de una prueba.'; next(); return; }
+        f.arrayBuffer().then(function(buf) {
+            return Promise.all([vetsReadWorkbook(new Uint8Array(buf), VETS_SHEETS), _vetsSha256(buf)]);
+        }).then(function(r) {
+            it.rec = vetsExtract(r[0]);
+            it.sha256 = r[1] || '';
+        }).catch(function(err) {
+            it.error = 'No se pudo leer: ' + ((err && err.message) || err);
+        }).then(next);
+    };
+    next();
+}
+
+/** Abre la revisión del lote. `items` = [{fileName, sha256, size, rec | error}]. */
+function historicoImportShow(items) {
+    _historicoImport = { items: items || [], ov: {}, purpose: '' };
+    showModal({ title: '📥 Importar pruebas anteriores (VETS)', type: 'info',
+        body: '<div id="hv-import" class="hv-import"></div>',
+        buttons: [{ label: 'Cerrar' }] });
+    _historicoImportRepaint();
+}
+
+function _historicoPlanNow() {
+    var X = _historicoImport;
+    if (!X) return [];
+    return historicoPlan(X.items, { vehicles: (typeof db !== 'undefined' && db.vehicles) || [], catalog: _historicoCatalog(),
+        ov: X.ov, purpose: X.purpose, today: _historicoTodayStr(), vinCheck: _historicoVinCheck, statusLabel: _historicoStatusLabel });
+}
+
+var HISTORICO_ACTION_LABELS = {
+    importar: { t: 'Se importa', tone: 'ok' }, elegir: { t: 'Falta elegir', tone: 'warn' }, 'sin-vin': { t: 'Falta el VIN', tone: 'warn' },
+    duplicado: { t: 'Ya está en CASCADE', tone: 'muted' }, repetido: { t: 'Repetido en el lote', tone: 'muted' },
+    'en-cascade': { t: 'Nació en CASCADE', tone: 'muted' }, error: { t: 'No se puede leer', tone: 'bad' }
+};
+
+function _historicoPurposeOptions(cur, withEmpty) {
+    var list = typeof TP_PURPOSES_VALID !== 'undefined' ? TP_PURPOSES_VALID : ['COP-Emisiones', 'EO-Emisiones', 'ND-Emisiones', 'Investigacion', 'Correlacion'];
+    return (withEmpty ? '<option value="">Elige…</option>' : '') + list.map(function(p) {
+        var l = typeof uiLabel === 'function' ? uiLabel('purpose', p) : p;
+        return '<option value="' + escapeHtml(p) + '"' + (cur === p ? ' selected' : '') + '>' + escapeHtml(l) + '</option>';
+    }).join('');
+}
+
+function _historicoCfgLabel(code) {
+    var row = _historicoCatalog().filter(function(r) { return _historicoCode(r) === code; })[0];
+    if (!row) return code;
+    return [row['Modelo'], row['MODEL YEAR (VIN)'], row['ENGINE CAPACITY'], row['TRANSMISSION'], row['ENVIRONMENT PACKAGE'] !== '0' ? row['ENVIRONMENT PACKAGE'] : '',
+            row['EMISSION REGULATION'], row['REGION'], row['BODY TYPE'], row['TIRE ASSY']].filter(Boolean).join(' · ');
+}
+
+function _historicoImportRepaint() {
+    var host = document.getElementById('hv-import');
+    if (!host || !_historicoImport) return;
+    var rows = _historicoPlanNow();
+    var s = historicoPlanSummary(rows);
+    var catalog = _historicoCatalog();
+    var h = '<p class="hv-intro">Cada archivo se vuelve una <b>prueba histórica</b>: queda en CASCADE con los resultados de VETS, ' +
+            '<b>por confirmar</b> por alguien con permiso de aprobar que no seas tú. No genera Hoja COP15-F05 ni cuenta como liberada.</p>' +
+            '<div class="hv-batch"><label for="hv-purpose-all">Propósito para todas</label>' +
+            '<select id="hv-purpose-all" onchange="historicoImportSetPurpose(this.value)">' + _historicoPurposeOptions(_historicoImport.purpose, true) + '</select></div>' +
+            '<div class="hv-sum"><b>' + s.importar + '</b> se importan · <b>' + s.pendientes + '</b> piden un dato · <b>' + s.omitidas + '</b> se omiten (de ' + s.total + ')</div>';
+    h += '<div class="hv-rows">';
+    rows.forEach(function(r) {
+        var al = HISTORICO_ACTION_LABELS[r.action] || { t: r.action, tone: '' };
+        h += '<div class="hv-row is-' + al.tone + '">' +
+             '<div class="hv-row-head"><span class="hv-chip is-' + al.tone + '">' + al.t + '</span>' +
+             '<b class="hv-file" title="' + escapeHtml(r.fileName) + '">' + escapeHtml(r.fileName) + '</b>' +
+             (r.testDate ? '<span class="u-muted-xs">prueba ' + escapeHtml(r.testDate.replace('T', ' ')) + '</span>' : '') + '</div>';
+        if (r.why) h += '<div class="hv-why">' + escapeHtml(r.why) + '</div>';
+        if (r.action !== 'error' && r.action !== 'duplicado' && r.action !== 'repetido' && r.action !== 'en-cascade') {
+            h += '<div class="hv-fields">' +
+                 '<label><span>VIN</span><input type="text" maxlength="17" value="' + escapeHtml(r.vin) + '" ' +
+                 'onchange="historicoImportSet(' + r.i + ',\'vin\',this.value)" placeholder="Ej.: 3KPFT51B7TE407968" autocapitalize="characters"></label>' +
+                 '<label><span>Configuración</span><select onchange="historicoImportSet(' + r.i + ',\'configCode\',this.value)">' +
+                 '<option value="">Elige…</option>' +
+                 (r.configOptions.length ? r.configOptions : catalog.map(function(c) { return { code: _historicoCode(c), miss: [] }; }))
+                    .concat(r.configCode && !r.configOptions.some(function(x) { return x.code === r.configCode; }) ? [{ code: r.configCode, miss: [] }] : [])
+                    .map(function(c) {
+                        return '<option value="' + escapeHtml(c.code) + '"' + (c.code === r.configCode ? ' selected' : '') + '>' +
+                               escapeHtml(_historicoCfgLabel(c.code)) + (c.miss.length ? ' (difiere en ' + escapeHtml(c.miss.join(', ')) + ')' : '') + '</option>';
+                    }).join('') +
+                 '</select></label>' +
+                 '<label><span>Propósito</span><select onchange="historicoImportSet(' + r.i + ',\'purpose\',this.value)">' + _historicoPurposeOptions(r.purpose, true) + '</select></label>' +
+                 '</div>';
+            h += '<div class="u-muted-xs">' + r.gasesN + ' gases · ' + (r.checksFail ? r.checksFail + ' verificación(es) de VETS fallaron' : 'verificaciones de VETS sin fallas') +
+                 (r.configFrom === 'vets' ? ' · configuración tomada de VETS' : r.configFrom === 'vin' ? ' · configuración de ese VIN en CASCADE' : '') + '</div>';
+        }
+        if (r.warnings.length) h += '<div class="hv-warn">' + r.warnings.map(function(w) { return '⚠ ' + escapeHtml(w); }).join('<br>') + '</div>';
+        h += '</div>';
+    });
+    h += '</div>';
+    h += '<div class="hv-actions"><button type="button" id="hv-apply" class="btn-primary" onclick="historicoImportApply()">Importar ' + s.importar + ' prueba' + (s.importar === 1 ? '' : 's') + '</button></div>';
+    host.innerHTML = h;
+    var btn = document.getElementById('hv-apply');
+    var why = !s.importar ? 'No hay pruebas listas para importar: revisa las que piden un dato.' : '';
+    if (btn && typeof uiExplainDisabled === 'function') uiExplainDisabled(btn, why);
+    else if (btn) btn.disabled = !!why;
+}
+
+function historicoImportSet(i, k, val) {
+    if (!_historicoImport) return;
+    var o = _historicoImport.ov[i] = _historicoImport.ov[i] || {};
+    o[k] = String(val || '').trim();
+    if (k === 'vin') o.vin = o.vin.toUpperCase();
+    _historicoImportRepaint();
+}
+function historicoImportSetPurpose(val) {
+    if (!_historicoImport) return;
+    _historicoImport.purpose = String(val || '');
+    _historicoImportRepaint();
+}
+
+function historicoImportApply() {
+    var X = _historicoImport;
+    if (!X) return;
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.vets', 'importar pruebas anteriores de VETS')) return;
+    if (!_historicoDevicesGate()) return;
+    var rows = _historicoPlanNow().filter(function(r) { return r.action === 'importar'; });
+    if (!rows.length) { showToast('No hay pruebas listas para importar.', 'warning'); return; }
+    if (typeof _releasePreflightStorage === 'function' && !_releasePreflightStorage('importar pruebas históricas')) return;
+
+    var me = _historicoMe(), who = _historicoWho();
+    var nowIso = new Date().toISOString();
+    var batchId = 'hv-' + Date.now().toString(36);
+    var policy = typeof vetsPolicy === 'function' ? vetsPolicy() : [];
+    var catalog = _historicoCatalog();
+    var added = [];
+    rows.forEach(function(r) {
+        var item = X.items[r.i];
+        var meta = { fileName: item.fileName, sha256: item.sha256 || '', at: nowIso, by: who };
+        var classified = typeof vetsClassifyChecks === 'function' ? vetsClassifyChecks(item.rec.checks, policy) : [];
+        var v = historicoBuildVehicle(r, item, {
+            id: nextVehicleId(), nowIso: nowIso, who: who, whoId: me ? me.id : null,
+            deviceId: typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '',
+            catalogRow: catalog.filter(function(c) { return _historicoCode(c) === r.configCode; })[0],
+            batchId: batchId, summary: typeof vetsSummary === 'function' ? vetsSummary(item.rec, meta, classified, {}) : null
+        });
+        db.vehicles.push(v);
+        added.push({ v: v, rec: item.rec, meta: meta });
+    });
+    if (saveDB() === false) {
+        db.vehicles = db.vehicles.filter(function(v) { return !added.some(function(a) { return a.v === v; }); });
+        showToast('No hay espacio para guardar las pruebas históricas: no se importó nada. Libera espacio en Datos → Sistema.', 'error', 10000);
+        return;
+    }
+    added.forEach(function(a) {
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'historico_importado', { type: 'vehicle', id: a.v.id, label: a.v.vin },
+                'Prueba de VETS ' + (a.v.historic.testRef || '') + ' del ' + String(a.v.historic.testDate || '').slice(0, 10) + ' (' + a.meta.fileName + ')',
+                { before: null, after: { estado: 'historico', confirmacion: 'pendiente', vin: a.v.vin, prueba: a.v.historic.testRef,
+                                         fecha: a.v.historic.testDate, configuracion: a.v.configCode, proposito: a.v.purpose,
+                                         archivo: a.meta.fileName, sha256: a.meta.sha256, lote: batchId } });
+        }
+        if (typeof _vetsStoreFull === 'function') _vetsStoreFull(a.rec, a.meta, a.v);
+    });
+    var m = document.getElementById('globalModal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    _historicoImport = null;
+    showToast(added.length + ' prueba' + (added.length === 1 ? '' : 's') + ' histórica' + (added.length === 1 ? '' : 's') +
+              ' importada' + (added.length === 1 ? '' : 's') + '. Las confirma alguien con permiso de aprobar que no seas tú.', 'success', 8000);
+    if (typeof renderHistory === 'function') { window._histFilterStatus = 'historico'; try { renderHistory(); } catch (e) {} }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Confirmar (quien aprueba)
+// ══════════════════════════════════════════════════════════════════════
+
+function historicoReviewOpen() {
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.approve', 'confirmar pruebas históricas')) return;
+    var p = historicoPendingFor();
+    if (!p.total) { showToast('No hay pruebas históricas por confirmar.', 'info'); return; }
+    if (!p.forMe) { showToast('Las ' + p.total + ' pruebas por confirmar las importaste tú: las confirma otra persona con permiso de aprobar.', 'warning', 8000); return; }
+    var vs = p.ids.map(function(id) { return db.vehicles.filter(function(v) { return v.id == id; })[0]; }).filter(Boolean);
+    vs.sort(function(a, b) { return String(a.historic.testDate || '').localeCompare(String(b.historic.testDate || '')); });
+    _historicoReview = { ids: vs.map(function(v) { return v.id; }), marks: {}, batchId: 'hc-' + Date.now().toString(36) };
+    uiFlowOpen({
+        id: 'historico', title: 'Confirmar pruebas históricas',
+        subtitle: p.mine ? p.mine + ' importada' + (p.mine > 1 ? 's' : '') + ' por ti no aparece' + (p.mine > 1 ? 'n' : '') : '',
+        saveLabel: 'Anotar ▸', closeLabel: 'Salir sin aplicar',
+        steps: vs.map(function(v) {
+            var d = String(v.historic.testDate || '').slice(0, 7);
+            return { key: 'h' + v.id, section: d, title: v.vin,
+                     render: function(host) { _historicoCard(host, v.id); },
+                     save: function(host) { return _historicoCardSave(host, v.id); } };
+        }),
+        onFinal: _historicoFinalHTML,
+        onClose: function(why) {
+            var n = _historicoReview ? Object.keys(_historicoReview.marks).length : 0;
+            if (n && _historicoReview && !_historicoReview.applied) showToast('No se aplicó nada: las ' + n + ' decisiones anotadas se descartaron.', 'info');
+            _historicoReview = null;
+        }
+    });
+}
+
+function _historicoVehicle(id) { return ((typeof db !== 'undefined' && db.vehicles) || []).filter(function(v) { return v.id == id; })[0] || null; }
+
+function _historicoFmt(x) {
+    if (x === null || x === undefined || !isFinite(x)) return '—';
+    var a = Math.abs(x);
+    return a === 0 ? '0' : a >= 100 ? x.toFixed(2) : a >= 1 ? x.toFixed(4) : Number(x.toPrecision(4)).toString();
+}
+
+function _historicoGasTableHTML(model) {
+    return '<table class="hv-gas"><thead><tr><th>Gas</th><th>VETS</th><th>Límite</th><th>%</th><th></th></tr></thead><tbody>' +
+        model.gases.map(function(g) {
+            return '<tr class="' + (g.pass === false ? 'is-bad' : '') + '"><td>' + escapeHtml(g.label) + ' <small>' + escapeHtml(g.unit) + '</small></td>' +
+                '<td>' + _historicoFmt(g.value) + '</td><td>' + (g.limit === null ? '<small>informativo</small>' : _historicoFmt(g.limit)) + '</td>' +
+                '<td>' + (g.pct === null ? '' : Math.round(g.pct) + ' %') + '</td>' +
+                '<td>' + (g.pass === true ? '✓' : g.pass === false ? '✗' : '') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+}
+
+function _historicoCard(host, id) {
+    var v = _historicoVehicle(id);
+    if (!v || !_historicoIsHist(v) || !v.historic || v.historic.state !== 'pendiente') {
+        host.innerHTML = '<p class="uf-note">Esta prueba ya no está por confirmar (otro equipo la cambió). Toca <b>Después</b> para seguir.</p>';
+        return;
+    }
+    var H = v.historic, s = (v.testData && v.testData.vets) || {};
+    var model = _historicoModelFor(v);
+    var mark = (_historicoReview && _historicoReview.marks[id]) || {};
+    var h = '<div class="uf-kicker">Prueba del ' + escapeHtml(String(H.testDate || '').replace('T', ' ')) +
+            (s.procedure ? ' · ' + escapeHtml(s.procedure) : '') + (H.testRef ? ' · VETS ' + escapeHtml(H.testRef) : '') + '</div>' +
+            '<div class="uf-q">' + escapeHtml(v.vin || '') + '</div>' +
+            '<div class="uf-facts">' +
+                '<div><span>Configuración</span><b>' + escapeHtml(_historicoCfgLabel(v.configCode)) + '</b></div>' +
+                '<div><span>Regulación</span><b>' + escapeHtml(_historicoRegName(v) || '—') + '</b></div>' +
+                '<div><span>Propósito</span><b>' + escapeHtml(typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose) : v.purpose) + '</b></div>' +
+                '<div><span>Operador · conductor</span><b>' + escapeHtml((s.operator || '—') + ' · ' + (s.driver || '—')) + '</b></div>' +
+                '<div><span>Importó</span><b>' + escapeHtml((H.importedBy || '—') + ' · ' + String(H.importedAt || '').slice(0, 10)) + '</b></div>' +
+                '<div><span>Archivo</span><b title="Huella SHA-256: ' + escapeHtml(H.file && H.file.sha256 || '') + '">' + escapeHtml(H.file && H.file.name || '—') + '</b></div>' +
+            '</div>';
+    if (model.block) h += '<div class="uf-list is-bad"><b>🔴 No se puede confirmar</b><div>' + escapeHtml(model.block) + '</div></div>';
+    else h += _historicoGasTableHTML(model);
+    if (model.fails.length) {
+        h += '<div class="uf-list is-warn"><b>Verificaciones de VETS que fallaron</b>' + model.fails.map(function(f) {
+            return '<div>' + escapeHtml(f.name) + ' — ' + escapeHtml(f.level ? f.level : 'sin clasificar') + (f.detail ? ' <small>(' + escapeHtml(f.detail) + ')</small>' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    if (model.reasons.length) {
+        h += '<div class="uf-list is-warn"><b>⚠️ Para confirmar, escribe una observación</b>' +
+             model.reasons.map(function(x) { return '<div>' + escapeHtml(x) + '</div>'; }).join('') + '</div>';
+    }
+    if (H.warnings && H.warnings.length) {
+        h += '<div class="uf-note">Al importar: ' + H.warnings.map(escapeHtml).join(' · ') + '</div>';
+    }
+    h += '<div class="uf-choices" role="radiogroup" aria-label="¿Confirmas los resultados?" id="hv-choice">' +
+         _historicoChoiceBtn(id, 'confirmar', '✔ Confirmo los resultados', mark.action) +
+         _historicoChoiceBtn(id, 'rechazar', '✖ No confirmo', mark.action) + '</div>';
+    var noteLabel = mark.action === 'rechazar' ? 'Motivo (obligatorio)' : model.needsNote ? 'Observación (obligatoria)' : 'Observación (opcional)';
+    h += '<label class="uf-field"><span>' + noteLabel + '</span><textarea id="hv-note" rows="2" maxlength="400" ' +
+         'placeholder="' + (mark.action === 'rechazar' ? 'Ej.: el archivo es de otra unidad' : 'Ej.: NOx alto por prueba de investigación, resultado válido') + '">' +
+         escapeHtml(mark.note || '') + '</textarea></label>';
+    host.innerHTML = h;
+}
+
+function _historicoChoiceBtn(id, val, label, cur) {
+    var on = cur === val;
+    return '<button type="button" role="radio" class="uf-choice' + (on ? ' is-on' : '') + '" aria-checked="' + on + '" ' +
+           'onclick="historicoChoose(' + JSON.stringify(id) + ',\'' + val + '\')">' + label + '</button>';
+}
+
+function historicoChoose(id, val) {
+    if (!_historicoReview) return;
+    var host = document.querySelector('#ui-flow .uf-card');
+    var noteEl = host && host.querySelector('#hv-note');
+    var m = _historicoReview.marks[id] = _historicoReview.marks[id] || {};
+    m.action = val;
+    if (noteEl) m.note = noteEl.value;
+    m.pending = true;   // elegida pero no anotada todavía
+    if (host) _historicoCard(host, id);
+}
+
+function _historicoCardSave(host, id) {
+    if (!_historicoReview) return { ok: false, msg: 'La confirmación ya se cerró.' };
+    var v = _historicoVehicle(id);
+    if (!v || !v.historic || v.historic.state !== 'pendiente') return { ok: false, msg: 'Esta prueba ya no está por confirmar: toca "Después".' };
+    var m = _historicoReview.marks[id] = _historicoReview.marks[id] || {};
+    var noteEl = host && host.querySelector('#hv-note');
+    if (noteEl) m.note = noteEl.value;
+    var why = historicoDecisionCheck(_historicoModelFor(v), m);
+    if (why) {
+        var field = (!m.action) ? host.querySelector('#hv-choice') : noteEl;
+        return { ok: false, field: field, msg: why };
+    }
+    delete m.pending;
+    return { ok: true };
+}
+
+function _historicoFinalHTML() {
+    var R = _historicoReview;
+    if (!R) return '';
+    var marks = Object.keys(R.marks).filter(function(id) { return !R.marks[id].pending && R.marks[id].action; });
+    var conf = marks.filter(function(id) { return R.marks[id].action === 'confirmar'; }).length;
+    var rech = marks.length - conf;
+    var h = '<h3 class="uf-final-title">' + (marks.length ? 'Listo para firmar' : 'No anotaste ninguna decisión') + '</h3>' +
+            '<p>' + conf + ' por confirmar · ' + rech + ' por marcar como no confirmada' +
+            (R.ids.length - marks.length ? ' · ' + (R.ids.length - marks.length) + ' sin decidir (se quedan pendientes)' : '') + '.</p>';
+    if (marks.length) {
+        h += '<p class="u-muted-xs">Firmas una sola vez y la firma queda en cada prueba que decidiste, con la fecha de hoy. ' +
+             'Confirmar no es doble ciego: confirmas que los resultados de VETS son los de esa prueba y que se pueden usar.</p>' +
+             '<button type="button" class="btn-primary uf-next" onclick="historicoReviewApply()">✍️ Firmar y aplicar (' + marks.length + ')</button>';
+    }
+    return h;
+}
+
+function historicoReviewApply() {
+    var R = _historicoReview;
+    if (!R) return;
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.approve', 'confirmar pruebas históricas')) return;
+    var ids = Object.keys(R.marks).filter(function(id) { return !R.marks[id].pending && R.marks[id].action; });
+    if (!ids.length) { showToast('No hay decisiones anotadas.', 'warning'); return; }
+    sigCaptureOpen({
+        title: 'Firma de confirmación', role: 'Aprobador',
+        signerName: _historicoWho(), lockName: true,
+        onSave: function(sig) { _historicoApplySigned(ids, sig); }
+    });
+}
+
+function _historicoApplySigned(ids, sig) {
+    var R = _historicoReview;
+    if (!R) return;
+    if (typeof _releasePreflightStorage === 'function' && !_releasePreflightStorage('confirmar pruebas históricas')) return;
+    var me = _historicoMe();
+    var nowIso = new Date().toISOString();
+    var undo = [];   // fotos para revertir si no se puede guardar
+    var done = { confirmado: 0, rechazado: 0, omitidas: [] };
+    if (typeof undoPush === 'function') undoPush('cop15', 'Confirmar pruebas históricas');
+    var conteo = ids.length;
+    ids.forEach(function(id) {
+        var v = _historicoVehicle(id), m = R.marks[id];
+        if (!v || !_historicoIsHist(v) || !v.historic || v.historic.state !== 'pendiente') { done.omitidas.push((v && v.vin) || id + ': ya no estaba por confirmar'); return; }
+        if (me && v.historic.importedById != null && String(v.historic.importedById) === String(me.id)) { done.omitidas.push(v.vin + ': la importaste tú'); return; }
+        var model = _historicoModelFor(v);
+        var why = historicoDecisionCheck(model, m);
+        if (why) { done.omitidas.push(v.vin + ': ' + why); return; }
+        undo.push({ v: v, prev: JSON.parse(JSON.stringify({ historic: v.historic, testData: v.testData, timeline: v.timeline })) });
+        var note = String(m.note || '').trim();
+        var quien = { by: sig.signerName, byId: sig.sessionUserId != null ? sig.sessionUserId : (me ? me.id : null), at: nowIso,
+                      batchId: R.batchId, batchCount: conteo, signature: sig };
+        if (m.action === 'confirmar') {
+            var reg = _historicoRegName(v);
+            var prof = typeof _libGasProfileSnapshot === 'function' ? _libGasProfileSnapshot(_historicoProfileFor(v), reg) : null;
+            v.historic.state = 'confirmado';
+            v.historic.confirmation = Object.assign(quien, { note: note, values: model.values, allPass: model.allPass, profile: prof,
+                                                            reasons: model.reasons.slice() });
+            if (!v.testData) v.testData = {};
+            if (!v.testData.gasResults) v.testData.gasResults = {};
+            // El SPC y el CoP leen los valores finales de aquí (aprobador → liberador).
+            v.testData.gasResults.aprobador = { values: model.values, capturedBy: sig.signerName, capturedAt: nowIso,
+                                                matchedLiberador: null, method: 'confirmacion-historico', source: 'vets' };
+            (v.timeline = v.timeline || []).push({ timestamp: nowIso, user: sig.signerName,
+                action: 'Prueba histórica confirmada (resultados de VETS)' + (note ? ': ' + note : ''),
+                data: { status: 'historico', state: 'confirmado', allPass: model.allPass } });
+            done.confirmado++;
+        } else {
+            v.historic.state = 'rechazado';
+            v.historic.rejection = Object.assign(quien, { reason: note });
+            (v.timeline = v.timeline || []).push({ timestamp: nowIso, user: sig.signerName,
+                action: 'Prueba histórica NO confirmada: ' + note, data: { status: 'historico', state: 'rechazado' } });
+            done.rechazado++;
+        }
+    });
+    if (!undo.length) {
+        showToast('No se aplicó nada: ' + (done.omitidas.join(' · ') || 'sin decisiones'), 'warning', 10000);
+        return;
+    }
+    if (saveDB() === false) {
+        undo.forEach(function(u) { u.v.historic = u.prev.historic; u.v.testData = u.prev.testData; u.v.timeline = u.prev.timeline; });
+        showToast('No hay espacio para guardar y se revirtió la confirmación. Libera espacio en Datos → Sistema y repítela.', 'error', 10000);
+        return;
+    }
+    undo.forEach(function(u) {
+        var v = u.v, H = v.historic, ok = H.state === 'confirmado';
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', ok ? 'historico_confirmado' : 'historico_rechazado', { type: 'vehicle', id: v.id, label: v.vin },
+                (ok ? 'Confirmada' : 'No confirmada') + ' por ' + sig.signerName + (ok ? (H.confirmation.note ? ': ' + H.confirmation.note : '') : ': ' + H.rejection.reason),
+                { before: { estado: 'historico', confirmacion: 'pendiente' },
+                  after: ok ? { confirmacion: 'confirmado', valores: H.confirmation.values, pasa: H.confirmation.allPass, nota: H.confirmation.note || null,
+                                regulacion: H.confirmation.profile ? H.confirmation.profile.name : null, lote: H.confirmation.batchId }
+                            : { confirmacion: 'rechazado', motivo: H.rejection.reason, lote: H.rejection.batchId } });
+        }
+    });
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+    R.applied = true;
+    if (typeof uiFlowClose === 'function') uiFlowClose('done');
+    showToast(done.confirmado + ' confirmada' + (done.confirmado === 1 ? '' : 's') + ' · ' + done.rechazado + ' no confirmada' + (done.rechazado === 1 ? '' : 's') +
+              (done.omitidas.length ? ' · ' + done.omitidas.length + ' sin aplicar: ' + done.omitidas.join(' · ') : ''), done.omitidas.length ? 'warning' : 'success', 9000);
+    if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
+}
+
+/** ↩ Volver a revisar una no confirmada (o una confirmada por error). */
+function historicoReopen(id) {
+    if (typeof _cascadeGate === 'function' && !_cascadeGate('test.approve', 'volver a revisar una prueba histórica')) return;
+    var v = _historicoVehicle(id);
+    if (!v || !_historicoIsHist(v) || !v.historic || v.historic.state === 'pendiente') return;
+    uiPrompt({ title: '↩ Volver a revisar', label: 'La prueba ' + v.vin + ' vuelve a quedar por confirmar. ¿Por qué?',
+               placeholder: 'Ej.: se confirmó con la configuración equivocada', required: true }).then(function(motivo) {
+        motivo = String(motivo || '').trim();
+        if (motivo.length < HISTORICO_NOTE_MIN) { if (motivo) showToast('Escribe el motivo (al menos ' + HISTORICO_NOTE_MIN + ' caracteres).', 'warning'); return; }
+        var prev = JSON.parse(JSON.stringify({ historic: v.historic, testData: v.testData, timeline: v.timeline }));
+        var antes = v.historic.state;
+        (v.historic.history = v.historic.history || []).push({ state: antes, confirmation: v.historic.confirmation || null,
+                                                               rejection: v.historic.rejection || null, reopenedAt: new Date().toISOString(),
+                                                               reopenedBy: _historicoWho(), reason: motivo });
+        v.historic.state = 'pendiente';
+        delete v.historic.confirmation; delete v.historic.rejection;
+        if (v.testData && v.testData.gasResults) delete v.testData.gasResults.aprobador;
+        (v.timeline = v.timeline || []).push({ timestamp: new Date().toISOString(), user: _historicoWho(),
+            action: 'Prueba histórica regresada a "por confirmar": ' + motivo, data: { status: 'historico', state: 'pendiente' } });
+        if (saveDB() === false) { v.historic = prev.historic; v.testData = prev.testData; v.timeline = prev.timeline; showToast('No se pudo guardar.', 'error'); return; }
+        if (typeof auditLog === 'function') auditLog('cop15', 'historico_reabierto', { type: 'vehicle', id: v.id, label: v.vin }, motivo,
+            { before: { confirmacion: antes }, after: { confirmacion: 'pendiente' } });
+        if (typeof copInvalidateCache === 'function') copInvalidateCache();
+        showToast('La prueba volvió a "por confirmar".', 'success');
+        if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Dónde se ve
+// ══════════════════════════════════════════════════════════════════════
+
+/** Celda "Emisiones" del Historial para una prueba histórica. */
+function historicoRowBadgeHTML(v) {
+    var st = (v.historic && v.historic.state) || 'pendiente';
+    var n = Object.keys((v.testData && v.testData.vets && v.testData.vets.gases) || {}).length;
+    var txt = st === 'confirmado' ? '✓ Confirmada' : st === 'rechazado' ? '✖ No confirmada' : '⏳ Por confirmar';
+    var tone = st === 'confirmado' ? 'ok' : st === 'rechazado' ? 'bad' : 'warn';
+    return '<span class="hv-chip is-' + tone + '" title="Prueba histórica de VETS">' + txt + '</span> <span class="u-muted-xs">' + n + ' gases · VETS</span>';
+}
+
+/** Botones del Historial: importar y confirmar. */
+function historicoToolbarHTML() {
+    var can = function(p) { return typeof _cascadeCan === 'function' ? _cascadeCan(p) : true; };
+    var h = '';
+    if (can('test.vets')) h += '<button type="button" class="btn-secondary" onclick="historicoImportStart()" title="Pruebas que se corrieron antes de CASCADE: se importan del Excel de VETS y quedan por confirmar">📥 Importar pruebas anteriores (VETS)</button>';
+    var p = historicoPendingFor();
+    if (p.total && can('test.approve')) {
+        h += '<button type="button" class="' + (p.forMe ? 'btn-primary' : 'btn-secondary') + '" onclick="historicoReviewOpen()">✅ Confirmar pruebas históricas (' + p.forMe + ')</button>';
+    } else if (p.total) {
+        h += '<span class="u-muted-xs">' + p.total + ' prueba' + (p.total > 1 ? 's' : '') + ' histórica' + (p.total > 1 ? 's' : '') + ' por confirmar (las confirma quien aprueba).</span>';
+    }
+    return h ? '<div class="hv-toolbar"><span class="hv-toolbar-title" data-help="historico-help">Pruebas anteriores a CASCADE</span>' + h + '</div>' : '';
+}
+
+/** La ficha universal de un histórico: resultados, quién importó y quién confirmó. */
+function historicoFichaPatch(m, v) {
+    var H = v.historic || {}, s = (v.testData && v.testData.vets) || {};
+    var st = H.state || 'pendiente';
+    m.badges.unshift({ text: 'Histórico (VETS) · ' + (HISTORICO_STATE_LABELS[st] || st), tone: st === 'confirmado' ? 'ok' : st === 'rechazado' ? 'bad' : 'warn' });
+    m.facts = m.facts.filter(function(f) { return f.k !== 'Alta' && f.k !== 'Responsable'; });
+    m.facts.push({ k: 'Fecha de la prueba', v: String(H.testDate || '').replace('T', ' ') || '—' });
+    m.facts.push({ k: 'Prueba de VETS', v: [H.testRef, s.procedure].filter(Boolean).join(' · ') || '—' });
+    m.facts.push({ k: 'Operador · conductor', v: (s.operator || '—') + ' · ' + (s.driver || '—') });
+    m.facts.push({ k: 'Importó', v: (H.importedBy || '—') + ' · ' + String(H.importedAt || '').slice(0, 10) });
+    m.facts.push({ k: 'Archivo', v: (H.file && H.file.name) || '—' });
+    if (H.confirmation) m.facts.push({ k: 'Confirmó', v: H.confirmation.by + ' · ' + String(H.confirmation.at || '').slice(0, 10) + (H.confirmation.note ? ' · ' + H.confirmation.note : '') });
+    if (H.rejection) m.facts.push({ k: 'No confirmó', v: H.rejection.by + ' · ' + String(H.rejection.at || '').slice(0, 10) + ' · ' + H.rejection.reason });
+    var model = _historicoModelFor(v);
+    if (H.confirmation && H.confirmation.values) {
+        model.gases.forEach(function(g) { if (H.confirmation.values[g.field] != null) g.value = H.confirmation.values[g.field]; });
+    }
+    model.gases.forEach(function(g) {
+        if (g.value === null || g.value === undefined) return;
+        m.facts.push({ k: g.label + ' (' + g.unit + ')', v: _historicoFmt(g.value) + (g.pct !== null ? ' · ' + Math.round(g.pct) + ' % del límite' : '') + (g.pass === false ? ' ✗' : '') });
+    });
+    var can = typeof _cascadeCan === 'function' ? _cascadeCan('test.approve') : false;
+    var me = _historicoMe();
+    var mine = me && H.importedById != null && String(H.importedById) === String(me.id);
+    if (st === 'pendiente' && can && !mine) m.next = { label: '✅ Confirmar resultados', js: 'fichaClose();historicoReviewOpen()' };
+    else if (st !== 'pendiente' && can) m.next = { label: '↩ Volver a revisar', js: 'fichaClose();historicoReopen(' + JSON.stringify(v.id) + ')' };
+    else m.next = { label: '📚 Ver en Historial', js: "fichaClose();window._histFilterStatus='historico';dashGo('cop15','dashboard')" };
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') {
+    Object.assign(CASCADE_TOOLTIPS, {
+        'historico-help': { title: 'Pruebas anteriores a la plataforma',
+            text: 'Las pruebas que se corrieron antes de CASCADE se importan del Excel de VETS (el registro original del equipo de prueba). ' +
+                  'Quedan como "Histórico (VETS)": no generan Hoja COP15-F05, no cuentan como liberadas y no aparecen en HOY ni en el plan. ' +
+                  'Alguien con permiso de aprobar —que no sea quien las importó— revisa sus resultados y firma. Solo las confirmadas entran al SPC y al CoP.' }
+    });
+}
 
 
 // @@module js/review.js
@@ -69654,7 +70620,7 @@ function _fichaVehiculo(id) {
         subtitle: [cfg['Modelo'], cfg['MODEL YEAR (VIN)'], cfg['ENGINE CAPACITY'], cfg['EMISSION REGULATION'], cfg['REGION']].filter(Boolean).join(' · '),
         badges: [], facts: [], relations: [], history: [], stage: st
     };
-    if (st) m.badges.push({ text: st.done ? 'Archivado' : 'Etapa ' + st.index + '/' + st.total + ' · ' + st.label, tone: st.done ? 'ok' : 'info' });
+    if (st && !st.historic) m.badges.push({ text: st.done ? 'Archivado' : 'Etapa ' + st.index + '/' + st.total + ' · ' + st.label, tone: st.done ? 'ok' : 'info' });
     if (v.adhoc) m.badges.push({ text: 'Fuera de plan', tone: 'warn' });
     m.facts.push({ k: 'Propósito', v: (typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose) : v.purpose) || '—' });
     if (eta && !(st && st.done)) m.facts.push({ k: 'Liberación esperada', v: _fichaDate(eta.date) + (eta.source === 'manual' ? ' (fijada)' : ' (estimada)') });
@@ -69674,6 +70640,8 @@ function _fichaVehiculo(id) {
     (v.timeline || []).slice(-5).reverse().forEach(function(t) {
         m.history.push({ when: t.timestamp, text: t.action + (t.user ? ' · ' + t.user : '') });
     });
+    // [2.30.0] Prueba histórica (VETS): resultados, quién importó y quién confirmó.
+    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && typeof historicoFichaPatch === 'function') historicoFichaPatch(m, v);
     return m;
 }
 
@@ -70106,6 +71074,10 @@ var RELEVO_ACTIONS = {
     retro_edit:               { g: 'vehiculos', say: 'completó datos retroactivos de', link: 'vehiculo' },
     vets_importado:           { g: 'vehiculos', say: 'adjuntó la prueba de VETS a', link: 'vehiculo' },
     vets_fallas_decididas:    { g: 'vehiculos', say: 'decidió las fallas de VETS de', link: 'vehiculo' },
+    // [2.30.0] Pruebas históricas: una línea por tipo, no una por prueba (se importan en lote).
+    historico_importado:      { g: 'vehiculos', agg: 'prueba histórica importada de VETS|pruebas históricas importadas de VETS' },
+    historico_confirmado:     { g: 'vehiculos', agg: 'prueba histórica confirmada|pruebas históricas confirmadas' },
+    historico_rechazado:      { g: 'vehiculos', agg: 'prueba histórica no confirmada|pruebas históricas no confirmadas' },
     // Plan
     week_accepted:            { g: 'plan', say: 'aceptó la semana del' },
     week_unaccepted:          { g: 'plan', say: 'reabrió la semana del', tone: 'warn' },
@@ -70185,7 +71157,7 @@ function relevoDigest(src, since, me) {
 
     // 1) Vehículos: cambio neto de estado.
     (src.vehicles || []).forEach(function(v) {
-        if (!v) return;
+        if (!v || v.status === 'historico') return;   // [2.30.0] lo dice el historial, agregado
         var ahora = v.status;
         var antes = relevoVehicleStatusAt(v, since);
         var cambios = (v.timeline || []).filter(function(t) {
@@ -70626,7 +71598,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8706,"mods":[[8709,"js/app.js",17820],[17824,"js/uiflow.js",18140],[18144,"js/cop15.js",27815],[27819,"js/inventory.js",34885],[34889,"js/testplan.js",45611],[45615,"js/panel.js",50780],[50784,"js/projects.js",53073],[53077,"js/auth.js",54118],[54122,"js/signatures.js",54323],[54327,"js/firebase-sync.js",61121],[61125,"js/cop_validator.js",64894],[64898,"js/homolog.js",66703],[66707,"js/vets.js",68410],[68414,"js/review.js",68863],[68867,"js/opcards.js",69296],[69300,"js/handoff.js",69574],[69578,"js/ficha.js",70061],[70065,"js/relevo.js",70441],[70445,"js/momentos.js",70582],[70586,"js/bugreport.js",71732]]};
+var BUG_LINE_MAP = {"tag":8742,"mods":[[8745,"js/app.js",17904],[17908,"js/uiflow.js",18224],[18228,"js/cop15.js",27849],[27853,"js/inventory.js",34919],[34923,"js/testplan.js",45647],[45651,"js/panel.js",50818],[50822,"js/projects.js",53111],[53115,"js/auth.js",54156],[54160,"js/signatures.js",54361],[54365,"js/firebase-sync.js",61159],[61163,"js/cop_validator.js",64937],[64941,"js/homolog.js",66746],[66750,"js/vets.js",68467],[68471,"js/historico.js",69376],[69380,"js/review.js",69829],[69833,"js/opcards.js",70262],[70266,"js/handoff.js",70540],[70544,"js/ficha.js",71029],[71033,"js/relevo.js",71413],[71417,"js/momentos.js",71554],[71558,"js/bugreport.js",72704]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

@@ -1636,7 +1636,7 @@ function tpUpdateBadges() {
     }
 
     // COP15 badge
-    const active = db.vehicles ? db.vehicles.filter(v => v.status !== 'archived').length : 0;
+    const active = db.vehicles ? db.vehicles.filter(v => vehicleIsLive(v)).length : 0;
     document.getElementById('cop15-count-badge').textContent = active + ' activos';
 }
 
@@ -4381,7 +4381,9 @@ function tpWeekBoardRows(opts) {
         var d = tpItemDay(it); if (d) dayLoad[d] = (dayLoad[d] || 0) + 1;
     });
 
-    var vehiculos = (typeof db === 'object' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    // [2.30.0] Una prueba histórica (VETS, anterior a la plataforma) no respalda filas del plan.
+    var vehiculos = (typeof db === 'object' && db && Array.isArray(db.vehicles))
+        ? db.vehicles.filter(function(v) { return !(typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v)); }) : [];
     var ctx = { todayIdx: todayIdx, weekIsPast: weekIsPast, weekIsFuture: weekIsFuture,
                 dayLoad: dayLoad, perSlot: perSlot, workDays: workDays };
 
@@ -4454,7 +4456,7 @@ function tpWeekBoardRows(opts) {
             purpose: item.purpose || null, actualPurpose: item.actualPurpose || null,
             substituted: !!item.substituted, substitution: item.substitution || null,
             carriedOver: !!item.carriedOver, manual: !!item.manual,
-            vehicle: veh && veh.status !== 'archived' ? veh : null,
+            vehicle: veh && vehicleIsLive(veh) ? veh : null,
             // v20.1: `vehicle` sigue significando "vivo, en curso" — de eso dependen el
             // semáforo y la ETA. Pero el vehículo RESUELTO se expone aparte: con dos
             // pruebas idénticas la segunda suele quedar cubierta por uno ya liberado, y
@@ -8132,7 +8134,7 @@ function tpLinkableVehiclesFor(item, opts) {
 
     var out = [];
     db.vehicles.forEach(function(v) {
-        if (!v) return;
+        if (!v || (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v))) return;   // [2.30.0]
         if (item.linkedVehicleId != null && String(item.linkedVehicleId) === String(v.id)) return;
         var fecha = _tpVehicleTestDate(v);
         var enSemana = !rng || (!!fecha && fecha >= rng.d0 && fecha <= rng.d1);
