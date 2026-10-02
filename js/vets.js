@@ -740,6 +740,78 @@ function vetsClassifyChecks(checks, policy) {
     });
 }
 
+// [2.31.0] Índices del trazo de manejo de WLTP (UN R154, Anexo B6 §2.6.8.3): el IWR
+// tiene que quedar entre −2 % y +4 % y el RMSSE en 1.3 km/h o menos. Fuera de eso la
+// prueba se puede ACEPTAR (decisión de quien aprueba), pero su resultado no sirve
+// para CoP.
+var VETS_IWR_WLTP = { lo: -2, hi: 4 };
+var VETS_RMSSE_WLTP_KMH = 1.3;
+
+function _vetsIsIwrCheck(name) {
+    return /^(IWR|INERTIAL\s*WORK\s*RATING)$/i.test(String(name || '').trim());
+}
+function _vetsIsRmsseCheck(name) {
+    return /^(RMSSE|ROOT\s*MEAN\s*SQUARED?\s*SPEED\s*ERROR)$/i.test(String(name || '').trim());
+}
+
+/** ¿La prueba es WLTP? (procedimiento WLTC, nombre WLTP o especificación R154). PURA. */
+function vetsIsWltp(s) {
+    if (!s) return false;
+    return /WLTC|WLTP|R\s*154/i.test([s.procedure, s.testName, s.regulationSpec].join(' '));
+}
+
+/** RMSSE en km/h (VETS lo escribe en km/h o mph). null si no hay o la unidad no se conoce. */
+function _vetsRmsseKmh(drive) {
+    if (!drive || typeof drive.rmsse !== 'number' || !isFinite(drive.rmsse)) return null;
+    var u = String(drive.rmsseUnit || 'km/h').toLowerCase().replace(/\s/g, '');
+    if (u === 'km/h' || u === 'kph' || u === 'kmh' || u === '') return drive.rmsse;
+    if (u === 'mph' || u === 'mi/h') return drive.rmsse * 1.609344;
+    return null;
+}
+
+/**
+ * Por qué el trazo de manejo invalida la prueba para CoP. PURA.
+ * Recibe el RESUMEN guardado en el vehículo (vetsSummary) y devuelve
+ * [{code:'IWR'|'RMSSE', value, lo, hi, source, text}] — vacío si la prueba sirve.
+ *
+ * Dos caminos por índice, a propósito:
+ *  1. La verificación de VETS falló (con los límites que tenga en VETS).
+ *  2. En una prueba WLTP, el valor del ciclo cae fuera de la norma aunque VETS no tenga
+ *     la verificación configurada (o la tenga mal): la norma no depende de cómo se
+ *     configuró VETS.
+ * Una FTP75 no se juzga por el camino 2: sus índices no tienen esos criterios.
+ * La clasificación de la falla (Importante / Informativa / Desacreditada) decide si la
+ * prueba se APRUEBA; no decide si sirve para CoP.
+ */
+function vetsDriveTraceInvalid(s) {
+    if (!s) return [];
+    var out = [], wltp = vetsIsWltp(s), drive = s.drive || {};
+    var fails = s.checksFail || [];
+    var fmtPct = function(v) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(2) + ' %'; };
+
+    var iwr = (typeof drive.iwr === 'number' && isFinite(drive.iwr)) ? drive.iwr : null;
+    var R = VETS_IWR_WLTP;
+    var fIwr = fails.filter(function(c) { return c && _vetsIsIwrCheck(c.name); })[0];
+    if (fIwr) {
+        out.push({ code: 'IWR', value: iwr, lo: R.lo, hi: R.hi, source: 'vets',
+                   text: 'IWR ' + (iwr !== null ? fmtPct(iwr) : 'fuera de rango') + ' — índice de manejo fuera de lo permitido (VETS: ' + (fIwr.detail || 'falló') + ')' });
+    } else if (iwr !== null && wltp && (iwr < R.lo || iwr > R.hi)) {
+        out.push({ code: 'IWR', value: iwr, lo: R.lo, hi: R.hi, source: 'r154',
+                   text: 'IWR ' + fmtPct(iwr) + ' — fuera de −2…+4 % (UN R154, índice de manejo WLTP)' });
+    }
+
+    var rm = _vetsRmsseKmh(drive), M = VETS_RMSSE_WLTP_KMH;
+    var fRm = fails.filter(function(c) { return c && _vetsIsRmsseCheck(c.name); })[0];
+    if (fRm) {
+        out.push({ code: 'RMSSE', value: rm, lo: null, hi: M, source: 'vets',
+                   text: 'RMSSE ' + (rm !== null ? rm.toFixed(2) + ' km/h' : 'fuera de rango') + ' — error de velocidad fuera de lo permitido (VETS: ' + (fRm.detail || 'falló') + ')' });
+    } else if (rm !== null && wltp && rm > M) {
+        out.push({ code: 'RMSSE', value: rm, lo: null, hi: M, source: 'r154',
+                   text: 'RMSSE ' + rm.toFixed(2) + ' km/h — sobre 1.3 km/h (UN R154, error de velocidad WLTP)' });
+    }
+    return out;
+}
+
 /** Texto corto de por qué falló una verificación. PURA. */
 function vetsCheckDetail(c) {
     var lim = (c.lo !== null && c.lo !== undefined && c.hi !== null && c.hi !== undefined) ? c.lo + '–' + c.hi
@@ -1578,6 +1650,12 @@ function vetsRenderApprovalNote(v) {
             pend.map(function(p) { return escapeHtml(p.name); }).join(', ') + '</b>.</div>' +
             '<button type="button" class="btn-primary lib-action-decide" onclick="vetsDecideOpen(\'' + String(v.id).replace(/[^\w.-]/g, '') + '\')">⏳ Decidir ' +
             (pend.length === 1 ? 'la falla' : 'las fallas') + ' de VETS</button>';
+    }
+    // [2.31.0] Aprobar es posible; lo que se avisa es que el resultado no cuenta para CoP.
+    var inv = vetsDriveTraceInvalid(v && v.testData && v.testData.vets);
+    if (inv.length) {
+        h += '<div class="lib-action-row" data-vets-cop-excluded="1">⊘ Esta prueba se puede aprobar, pero <b>no contará para CoP</b> ' +
+            '(validador, SPC ni REQ del plan): ' + inv.map(function(r) { return escapeHtml(r.text); }).join(' · ') + '.</div>';
     }
     el.innerHTML = h;
     el.style.display = h ? '' : 'none';

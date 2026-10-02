@@ -193,23 +193,8 @@ function homoMeasuredCo2(vehicle) {
     } catch (e) { return null; }
 }
 
-/** Arma las filas de CO₂ para los VINes que el CoP tiene en pantalla. */
-function homoCo2RowsForVins(vins) {
-    var byVin = {};
-    try {
-        (db.vehicles || []).forEach(function(v) { if (v && v.vin) byVin[String(v.vin).toUpperCase()] = v; });
-    } catch (e) {}
-    return (vins || []).filter(function(v) { return v; }).map(function(vin) {
-        var veh = byVin[String(vin).toUpperCase()];
-        var h = veh ? homoVehicleData(veh) : null;
-        return {
-            vin: vin,
-            measured: veh ? homoMeasuredCo2(veh) : null,
-            target: h ? h.co2Target : null,
-            homolog: h
-        };
-    });
-}
+// [2.31.0] Las filas de CO₂ del CoP las arma copCo2RowsFor (cop_validator.js): el CO₂
+// aprobado del ensayo que cuenta, no el del liberador ni el de cualquier prueba del VIN.
 
 // ─── IMPORTADOR ───────────────────────────────────────────────────────────────
 // Sin formato obligatorio: solo se pide una fila de encabezados. Se aceptan las

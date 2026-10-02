@@ -2802,6 +2802,45 @@ abría, y Vincular escondía vehículos).
 - **Plantillas con acento grave anidadas** (`${c ? \`…\` : \`…\`}`) confunden al lector de
   `tests/deadcode.node.js`: usar concatenación dentro de `${}`.
 
+## 2.31.0 — Aprobado y válido, y el CO₂ en orden de prueba (`js/vets.js`, `js/cop_validator.js`, `js/testplan.js`)
+
+- **Al CoP entra un ensayo si `copTestCounts(v)`**: `copResultApproved(v)` (archivado o histórico
+  confirmado — NUNCA `pending-approval`, cuyos valores del liberador aún pueden devolverse) **y**
+  `copTestUsable(v).usable`. `_copFinalGasValues` ya solo devuelve valores aprobados: todo
+  consumidor de resultados para conformidad o SPC pasa por ahí. `_copRawGasValues` es solo para
+  comparar (p. ej. saber de qué prueba vino una fila).
+- **`copTestUsable(vehicle)` es LA definición de "sirve para CoP"**; un motivo nuevo se agrega ahí
+  (hoy `vetsDriveTraceInvalid`: IWR −2…+4 % y RMSSE ≤ 1.3 km/h de WLTP). **La clasificación de la
+  falla en VETS decide si se APRUEBA, nunca si sirve para CoP.** Una FTP75 no se juzga por los
+  índices del ciclo. Usado también por el REQ del plan (`tpTestedCountsForReq` →
+  `tpTestedCopUnusable`, derivado del vehículo; `_tpCopUsableRev` entra a las claves de
+  `tpGetAnalysis` y `_tpGetPlanHash`, y toda caché nueva que cuente probadas debe incluirlo).
+- **Lo excluido se DECLARA** (`copExcludedTests`, `_copExcludedNoteHTML`, chip en Historial,
+  ficha, aviso al aprobar). **Mesa**: una fila `auto` cuyos valores vienen de un ensayo que no
+  cuenta se retira (`_copRowFromUnusable`); una vacía de una prueba en curso se queda (ahí cae su
+  resultado al aprobarse); una `manual` se queda pero `copMesaRows()` la deja fuera. **Todo cálculo
+  nuevo sobre la mesa usa `copMesaRows()`, no `copState.vehicles`.**
+- **El CO₂ del CoP sale de `copCo2RowsFor(vins, key)`**: el CO₂ aprobado del ensayo que cuenta
+  (el más reciente) + el declarado + la fecha. `homoCo2RowsForVins` se retiró (leía al liberador y
+  tomaba cualquier prueba del VIN).
+- **`copCo2Sequence(rows, fcf, evc)` (PURA) es la prueba de CO₂ como la corre la norma**: en orden
+  de PRUEBA (no de la mesa), n = 3…16; `first.r154`/`first.appendixI` = el primer n que decidió (la
+  decisión de la norma) y `continuedAfter` avisa si se siguió ensayando y el resultado con todos
+  cambió. Fijada al dígito contra el Excel del laboratorio en `tests/iwr.node.js`.
+- **`copCo2Combinations(rows, fcf, evc)` (PURA) es la iteración por combinaciones** que pidió el
+  laboratorio (su Excel "statistika"): todo subconjunto de ≥ 3 vehículos que cuentan, numerados
+  en orden de prueba, cada uno evaluado con la fila de la tabla de SU n; devuelve conteos por
+  tamaño y por prueba, las concordantes (mejores primero, hasta `COP_CO2_COMBO_KEEP`) y las que
+  más se acercan (`near`). Tope `COP_CO2_COMBO_MAX` = 18 vehículos (los más recientes; el resto
+  en `dropped`, y se dice). Es análisis del laboratorio: **no cambia el veredicto de la familia
+  ni el juicio**. Se calcula al ABRIR su tarjeta (`copCo2CombosPaint`, memo `_copComboMemo`),
+  nunca en cada repintado del CoP. La prueba elegida para filtrar vive en `uiPref('copCombos')`.
+- **`_copCo2Judge(xs)` es LA fórmula de las dos pruebas de CO₂**; `copCo2CalcStats`, la
+  secuencia y las combinaciones la llaman. No volver a escribir las cotas en otro lado.
+- **Un juicio guardado NUNCA se reescribe**: `copJudgmentStale(j)` lista los VINes con valores que
+  hoy no cuentan y se avisa (Validador con botón para guardar de nuevo, tarjeta, Expediente, PDF).
+  El juicio nuevo congela `excluded` y `co2.sequence`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

@@ -20,6 +20,66 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.31.0 — Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones (2026-10-02)
+
+### Cambió
+- **El trazo de manejo decide si una prueba sirve para CoP.** En WLTP (UN R154) el IWR tiene
+  que quedar entre −2 % y +4 % y el RMSSE en 1.3 km/h o menos. Una prueba fuera de eso (el caso
+  real: IWR −2.17 %) se puede aprobar como siempre —es decisión de quien aprueba—, pero su
+  resultado **ya no entra** al Validador (gases y CO₂), al Control SPC y sus alarmas, al Panorama
+  ni al **REQ del plan** (deja de bajar el déficit, igual que OBD II; sigue registrada como
+  evidencia).
+- La regla **no depende de cómo se clasificó la falla en VETS** (Importante / Informativa /
+  Desacreditada decide si se aprueba, no si sirve para CoP). Si VETS no tiene la verificación
+  configurada, la app compara el valor del ciclo contra la norma. Una FTP75 (México) no se juzga así.
+- **Al CoP y al SPC solo entran resultados aprobados** (archivados o históricos confirmados).
+  Antes también contaban las pruebas que esperaban aprobación, con los valores del liberador, que
+  todavía podían devolverse.
+
+### Arreglado
+- El CO₂ del CoP leía el valor del **liberador** y, si un VIN tenía dos pruebas, la que estuviera
+  al final de la lista (podía ser la inválida). Ahora es el CO₂ aprobado de la prueba que cuenta.
+- El recuadro del veredicto contaba como "VIN con resultados" filas que no entran al cálculo.
+
+### Nuevo
+- **CO₂ → 🔢 Secuencia en orden de prueba.** La prueba como la corre la norma: con 3 ensayos se
+  evalúa; si no decide, se agrega el siguiente en el orden en que se hicieron y se vuelve a
+  evaluar con los valores de ese n, hasta 16. Muestra en qué n decidió UN R154 y en cuál el
+  Apéndice I, y avisa si se siguió ensayando después de una decisión (para la norma vale la
+  primera). Reproduce al dígito el Excel "statistika" del laboratorio (5 ensayos: pasa si ≤
+  1.000854222 → CONCORDANTE; 4 ensayos: 0.996972764 / 1.01621105 → otro ensayo). Va también en
+  el juicio guardado y en el PDF del expediente.
+- **CO₂ → 🧮 Combinaciones de vehículos — ¿alguna es concordante?** La iteración del Excel
+  "statistika": toda combinación de 3 o más vehículos que cuentan para CoP (1-2-3, 1-2-4,
+  1-2-3-4, …), cada una evaluada con la fila de la tabla de SU n. Dice cuántas hay por tamaño,
+  cuántas son concordantes con UN R154, con el Apéndice I y con las dos, y las lista (las de más
+  vehículos primero); se filtra por prueba. Si ninguna pasa, muestra las que más se acercan. Los
+  vehículos se numeran en orden de prueba (#1 = el más viejo). Se calcula al abrir la tarjeta;
+  con más de 18 vehículos se combinan los 18 más recientes y se dice cuáles quedan fuera. No
+  cambia el veredicto de la familia ni el juicio.
+- **Juicio con ensayos que ya no cuentan**: aviso en el Validador (con "💾 Guardar el juicio de
+  nuevo"), la tarjeta de la familia, el Expediente y su PDF. El juicio viejo no se modifica.
+- Se declara al aprobar, en la Revisión dirigida, al confirmar un histórico, en el Historial
+  (⊘ No cuenta para CoP), en la ficha del vehículo, en el Validador y en la carta SPC. En la mesa,
+  una fila automática de esas pruebas sale sola; una agregada a mano se queda tachada y fuera
+  del cálculo; una re-prueba válida del mismo vehículo sí cuenta.
+
+### Para desarrollo
+- **`copTestUsable(vehicle)`** es LA definición de "sirve para CoP" (compone
+  `vetsDriveTraceInvalid`, PURA: IWR y RMSSE, `VETS_IWR_WLTP`, `VETS_RMSSE_WLTP_KMH`,
+  `vetsIsWltp`). **`copResultApproved(v)`** es LA de "resultado aprobado";
+  **`copTestCounts(v)`** = las dos. `_copFinalGasValues` ya solo devuelve valores aprobados;
+  `_copRawGasValues` es para comparar.
+- `copMesaRows()` (lo que entra a gases y CO₂), `_copMesaExclusions(key)`, `copExcludedTests`,
+  `copCo2RowsFor(vins, key)` (reemplaza a `homoCo2RowsForVins`, retirada),
+  `copCo2Sequence(rows, fcf, evc)` (PURA) + `copCo2SequenceHTML`, `copCo2Combinations(rows, fcf,
+  evc)` (PURA) + `copCo2CombosHTML` / `copCo2CombosPaint`, `copJudgmentStale(j)`.
+  `_copCo2Judge(xs)` es LA fórmula de las dos pruebas (la usan la muestra completa y las
+  combinaciones).
+- Plan: `tpTestedCountsForReq` suma `!tpTestedCopUnusable(t)`, derivado del vehículo
+  (`_tpCopUsableRev` en las claves de `tpGetAnalysis` y `_tpGetPlanHash`).
+- `tests/iwr.node.js` (52) y `tests/v2310.e2e.js`.
+
 ## 2.30.0 — Las pruebas de antes de CASCADE, desde VETS (2026-10-02)
 
 ### Nuevo

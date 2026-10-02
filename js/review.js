@@ -193,6 +193,10 @@ function reviewBlocks(vehicle, ctx) {
         else add('validez', 'warn', c.name + ' — IMPORTANTE: ' + (c.detail || '') + (c.justification ? '. El liberador: "' + c.justification + '"' : ''));
     });
     add('validez', 'ok', (s.checksPass || 0) + ' verificaciones de VETS pasan' + (fails.length ? ', ' + fails.length + ' fallaron' : '') + '.');
+    // [2.31.0] Se puede aceptar; se avisa que el resultado no cuenta para CoP (no exige justificación).
+    if (typeof vetsDriveTraceInvalid === 'function') vetsDriveTraceInvalid(s).forEach(function(r) {
+        add('validez', 'ok', '⊘ No contará para CoP (validador, SPC ni REQ del plan): ' + r.text + '.');
+    });
     var dr = s.drive || {};
     if ((dr.driverErrors || 0) > 0 || (dr.violations || 0) > 0) add('validez', 'warn', 'Errores de manejo: ' + (dr.driverErrors || 0) + ' · violaciones: ' + (dr.violations || 0) + '.');
 
