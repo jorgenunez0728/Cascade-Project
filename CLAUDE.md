@@ -2802,28 +2802,37 @@ abría, y Vincular escondía vehículos).
 - **Plantillas con acento grave anidadas** (`${c ? \`…\` : \`…\`}`) confunden al lector de
   `tests/deadcode.node.js`: usar concatenación dentro de `${}`.
 
-## 2.31.0 — Aceptada no es lo mismo que usable para CoP (`js/vets.js`, `js/cop_validator.js`, `js/testplan.js`)
+## 2.31.0 — Aprobado y válido, y el CO₂ en orden de prueba (`js/vets.js`, `js/cop_validator.js`, `js/testplan.js`)
 
-- **`copTestUsable(vehicle)` es LA definición de "este ensayo sirve para CoP"** y todo consumidor
-  de resultados para conformidad la llama: mesa del validador (`copSyncVinsFromTests`,
-  `copMesaRows`), `copSpcFamilies`, Panorama, juicio guardado, expediente y el REQ del plan
-  (`tpTestedCountsForReq` → `tpTestedCopUnusable`). Un motivo nuevo de "aceptada pero no usable"
-  se agrega ahí (hoy solo `vetsDriveTraceInvalid`), no en cada consumidor.
-- **IWR de WLTP: −2…+4 % (UN R154).** `vetsDriveTraceInvalid(summary)` (PURA) excluye si la
-  verificación IWR de VETS falló, o —en una prueba WLTP (`vetsIsWltp`)— si `drive.iwr` cae fuera
-  del rango aunque VETS no la tenga configurada. **La clasificación de la falla (Importante /
-  Informativa / Desacreditada) decide si se APRUEBA, nunca si sirve para CoP.** Una FTP75 no se
-  juzga por `drive.iwr` (su IWR no tiene ese criterio).
-- **Aceptar no cambia**: aprobar, archivar, historial y F05 siguen igual. Lo excluido se
-  DECLARA (`copExcludedTests`, `_copExcludedNoteHTML`, chip en Historial, ficha, aviso al
-  aprobar), nunca desaparece en silencio. El juicio guardado congela `excluded`.
-- **Mesa**: una fila `auto` de un ensayo no usable se retira (la puso la máquina con un dato que
-  ya no vale); una `manual` se queda pero `copMesaRows()` la deja fuera. Un VIN con una
-  re-prueba válida sí cuenta. **Todo cálculo nuevo sobre la mesa usa `copMesaRows()`, no
-  `copState.vehicles`.**
-- **El REQ se DERIVA del vehículo** (no se estampa en `testedList`): cubre lo ya registrado y
-  se corrige solo. `_tpCopUsableRev` sube con `data:saved` de cop15 y entra a las claves de
-  `tpGetAnalysis` y `_tpGetPlanHash`; una caché nueva que cuente probadas debe incluirlo.
+- **Al CoP entra un ensayo si `copTestCounts(v)`**: `copResultApproved(v)` (archivado o histórico
+  confirmado — NUNCA `pending-approval`, cuyos valores del liberador aún pueden devolverse) **y**
+  `copTestUsable(v).usable`. `_copFinalGasValues` ya solo devuelve valores aprobados: todo
+  consumidor de resultados para conformidad o SPC pasa por ahí. `_copRawGasValues` es solo para
+  comparar (p. ej. saber de qué prueba vino una fila).
+- **`copTestUsable(vehicle)` es LA definición de "sirve para CoP"**; un motivo nuevo se agrega ahí
+  (hoy `vetsDriveTraceInvalid`: IWR −2…+4 % y RMSSE ≤ 1.3 km/h de WLTP). **La clasificación de la
+  falla en VETS decide si se APRUEBA, nunca si sirve para CoP.** Una FTP75 no se juzga por los
+  índices del ciclo. Usado también por el REQ del plan (`tpTestedCountsForReq` →
+  `tpTestedCopUnusable`, derivado del vehículo; `_tpCopUsableRev` entra a las claves de
+  `tpGetAnalysis` y `_tpGetPlanHash`, y toda caché nueva que cuente probadas debe incluirlo).
+- **Lo excluido se DECLARA** (`copExcludedTests`, `_copExcludedNoteHTML`, chip en Historial,
+  ficha, aviso al aprobar). **Mesa**: una fila `auto` cuyos valores vienen de un ensayo que no
+  cuenta se retira (`_copRowFromUnusable`); una vacía de una prueba en curso se queda (ahí cae su
+  resultado al aprobarse); una `manual` se queda pero `copMesaRows()` la deja fuera. **Todo cálculo
+  nuevo sobre la mesa usa `copMesaRows()`, no `copState.vehicles`.**
+- **El CO₂ del CoP sale de `copCo2RowsFor(vins, key)`**: el CO₂ aprobado del ensayo que cuenta
+  (el más reciente) + el declarado + la fecha. `homoCo2RowsForVins` se retiró (leía al liberador y
+  tomaba cualquier prueba del VIN).
+- **`copCo2Sequence(rows, fcf, evc)` (PURA) es la prueba de CO₂ como la corre la norma**: en orden
+  de PRUEBA (no de la mesa), n = 3…16; `first.r154`/`first.appendixI` = el primer n que decidió (la
+  decisión de la norma) y `continuedAfter` avisa si se siguió ensayando y el resultado con todos
+  cambió. Fijada al dígito contra el Excel del laboratorio en `tests/iwr.node.js`. **No se prueban
+  subconjuntos** que dejen fuera un ensayo válido: la norma cuenta todos, y buscar entre
+  combinaciones la que pase es elegir el resultado (con 2ⁿ combinaciones alguna pasa por azar). Un
+  ensayo solo sale con un motivo técnico declarado en `copTestUsable`. No agregar ese buscador.
+- **Un juicio guardado NUNCA se reescribe**: `copJudgmentStale(j)` lista los VINes con valores que
+  hoy no cuentan y se avisa (Validador con botón para guardar de nuevo, tarjeta, Expediente, PDF).
+  El juicio nuevo congela `excluded` y `co2.sequence`.
 
 ## Working with this project
 

@@ -51,16 +51,19 @@ const SEED = () => {
                 if (iwr !== undefined) { r.drive.iwr = iwr; const c = r.checks.find(x => x.name === 'IWR'); c.ave = iwr; c.status = 'FAIL'; c.where = ['ciclo']; }
                 return vetsSummary(r, { fileName: 'x.xlsx' }, vetsClassifyChecks(r.checks, []), {});
             };
-            const mk = (id, vin, co, s, status) => ({ id: id, vin: vin, status: status || 'archived', purpose: 'Emisiones', configCode: code,
+            const mk = (id, vin, co, s, status, co2) => ({ id: id, vin: vin, status: status || 'archived', purpose: 'Emisiones', configCode: code,
                 config: Object.assign({}, cfg), registeredAt: '2026-09-0' + (id % 9 + 1) + 'T09:00:00', archivedAt: '2026-09-1' + (id % 9) + 'T09:00:00',
-                timeline: [], testData: { vets: s, testDatetime: '2026-09-0' + (id % 9 + 1) + 'T10:00', gasResults: {
-                    liberador: { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02, PM: 0.0002 }, capturedAt: '2026-09-0' + (id % 9 + 1) + 'T11:00:00', releasedBy: 'Ana Manager' },
-                    aprobador: status === 'pending-approval' ? undefined : { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02, PM: 0.0002 }, capturedAt: '2026-09-0' + (id % 9 + 1) + 'T12:00:00' } } } });
-            db.vehicles.push(mk(9101, 'VINIWRBUENA000001', 0.30, sum()));
-            db.vehicles.push(mk(9102, 'VINIWRBUENA000002', 0.31, sum()));
-            db.vehicles.push(mk(9103, 'VINIWRBUENA000003', 0.32, sum()));
-            db.vehicles.push(mk(9104, 'VINIWRMALA0000004', 0.90, sum(-2.17)));
-            const p = mk(9105, 'VINIWRPEND0000005', 0.40, sum(-2.17), 'pending-approval');
+                timeline: [], homolog: { co2Target: 129 }, testData: { vets: s, testDatetime: '2026-09-0' + (id % 9 + 1) + 'T10:00', gasResults: {
+                    liberador: { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02, PM: 0.0002, CO2: co2 }, capturedAt: '2026-09-0' + (id % 9 + 1) + 'T11:00:00', releasedBy: 'Ana Manager' },
+                    aprobador: status === 'pending-approval' ? undefined : { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02, PM: 0.0002, CO2: co2 }, capturedAt: '2026-09-0' + (id % 9 + 1) + 'T12:00:00' } } } });
+            // CO₂ de las 5 buenas = el Excel "statistika" del laboratorio (declarado 129).
+            db.vehicles.push(mk(9101, 'VINIWRBUENA000001', 0.30, sum(), null, 129.055651));
+            db.vehicles.push(mk(9102, 'VINIWRBUENA000002', 0.31, sum(), null, 129.35165));
+            db.vehicles.push(mk(9103, 'VINIWRBUENA000003', 0.32, sum(), null, 130.042315));
+            db.vehicles.push(mk(9106, 'VINIWRBUENA000006', 0.33, sum(), null, 127.476989));
+            db.vehicles.push(mk(9107, 'VINIWRBUENA000007', 0.34, sum(), null, 129.162902));
+            db.vehicles.push(mk(9104, 'VINIWRMALA0000004', 0.90, sum(-2.17), null, 140));
+            const p = mk(9105, 'VINIWRPEND0000005', 0.40, sum(-2.17), 'pending-approval', 135);
             delete p.testData.gasResults.aprobador;
             db.vehicles.push(p);
             saveDB();
@@ -71,6 +74,10 @@ const SEED = () => {
         // ── Validador ─────────────────────────────────────────────────────
         await page.evaluate((k) => {
             switchPlatform('cop');
+            // Un juicio guardado ANTES de 2.31.0 que incluyó la prueba mala.
+            copState.saved.unshift({ id: 'cop_e2e_viejo', date: '2026-09-20T10:00:00', familyKey: k, familyLabel: 'e2e', decision: 'PASS',
+                vehicles: [{ id: 1, vin: 'VINIWRBUENA000001', values: { CO: '0.3' }, source: 'auto' }, { id: 2, vin: 'VINIWRMALA0000004', values: { CO: '0.9' }, source: 'auto' }] });
+            copInvalidateCache();
             copSelectFamily(k);
             // Una fila MANUAL con el VIN malo: se queda, tachada, fuera del cálculo.
             copState.vehicles.push({ id: 777, vin: 'VINIWRMALA0000004', values: { CO: '0.9' }, source: 'manual' });
@@ -84,9 +91,24 @@ const SEED = () => {
             co: (copGetPollStats().find(p => p.id === 'CO') || {}).validCount
         }));
         chk('el Validador declara el ensayo que no cuenta, con su IWR', /no cuentan/i.test(s.note) && /VINIWRMALA0000004/.test(s.note) && /2\.17/.test(s.note), s.note);
-        chk('la mesa trae las 3 buenas automáticas y no la mala', ['VINIWRBUENA000001:auto', 'VINIWRBUENA000002:auto', 'VINIWRBUENA000003:auto'].every(x => s.vins.includes(x)) && !s.vins.includes('VINIWRMALA0000004:auto'), JSON.stringify(s.vins));
+        chk('la mesa trae las buenas automáticas y no la mala', ['VINIWRBUENA000001:auto', 'VINIWRBUENA000002:auto', 'VINIWRBUENA000003:auto', 'VINIWRBUENA000006:auto', 'VINIWRBUENA000007:auto'].every(x => s.vins.includes(x)) && !s.vins.includes('VINIWRMALA0000004:auto'), JSON.stringify(s.vins));
         chk('la fila manual con el VIN malo se pinta tachada', s.tachada === 1, s.tachada);
-        chk('el cálculo de CO usa 3 VINes', s.co === 3, s.co);
+        chk('el cálculo de CO usa las 5 que cuentan', s.co === 5, s.co);
+        chk('el veredicto dice n = 5 (la fila tachada no cuenta)', await page.evaluate(() => /n = 5/.test((document.querySelector('#platform-cop .cop-verdict') || {}).innerText || '')));
+        s = await page.evaluate(() => {
+            const d = document.querySelector('#platform-cop details[data-cop-seq]');
+            if (d) d.open = true;
+            return { stale: (document.querySelector('#platform-cop [data-cop-stale]') || {}).innerText || '',
+                     seq: d ? d.innerText : '', filas: d ? d.querySelectorAll('tbody tr').length : 0 };
+        });
+        chk('avisa que el juicio guardado incluye la prueba que ya no cuenta', /incluye 1 ensayo/.test(s.stale) && /VINIWRMALA0000004/.test(s.stale) && /Guardar el juicio de nuevo/.test(s.stale), s.stale);
+        chk('la secuencia de CO₂ va en orden de prueba: 5 filas, R154 decide en n = 5', s.filas === 5 && /UN R154: decide en n = 5 — CONCORDANTE/.test(s.seq), s.seq.slice(0, 300));
+        if (process.env.SHOT) {
+            await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; const d = document.querySelector('#platform-cop details[data-cop-seq]'); if (d) d.scrollIntoView({ block: 'start', behavior: 'instant' }); });
+            await page.waitForTimeout(600);
+            await page.screenshot({ path: path.join(process.env.SHOT, 'seq-' + vp.width + '.png') });
+        }
+        chk('la secuencia no incluye la prueba mala ni la pendiente', !/VINIWRMALA|VINIWRPEND/.test(s.seq));
 
         // ── SPC y Panorama ────────────────────────────────────────────────
         await page.evaluate((k) => { copState.spc.familyKey = k; copSetView('spc'); }, key);
@@ -95,12 +117,13 @@ const SEED = () => {
             note: (document.querySelector('#platform-cop [data-cop-excluded]') || {}).innerText || '',
             n: (copSpcFamilies({ allScopes: true }).find(f => f.key === k) || {}).n
         }), key);
-        chk('la carta SPC tiene 3 ensayos y declara el excluido', s.n === 3 && /carta de control/.test(s.note), JSON.stringify(s));
+        chk('la carta SPC tiene 5 ensayos y declara el excluido', s.n === 5 && /carta de control/.test(s.note), JSON.stringify(s));
         await page.evaluate(() => copSetView('overview'));
         await page.waitForTimeout(400);
         s = await page.evaluate(() => [...document.querySelectorAll('#platform-cop .cop-fam-sub')].map(e => e.innerText).filter(t => /no cuentan para CoP/.test(t)));
-        // 2: la archivada y la que espera aprobación (ya tiene valores del liberador, que el CoP lee desde antes).
-        chk('la tarjeta de la familia dice "⊘ 2 ensayo(s) aceptado(s) no cuentan para CoP"', s.length >= 1 && /⊘ 2 /.test(s[0]), JSON.stringify(s));
+        // 1: la que espera aprobación ya no entra al CoP (solo cuenta lo aprobado).
+        chk('la tarjeta de la familia dice "⊘ 1 ensayo(s) aceptado(s) no cuentan para CoP"', s.length >= 1 && /⊘ 1 /.test(s[0]), JSON.stringify(s));
+        chk('la tarjeta avisa del juicio que hay que volver a guardar', await page.evaluate(() => !!document.querySelector('#platform-cop [data-cop-stale-card]')));
 
         // ── Historial ─────────────────────────────────────────────────────
         await page.evaluate(() => { switchPlatform('cop15'); const t = document.querySelector('.tab[data-tab="dashboard"]'); if (t) t.click(); });

@@ -483,14 +483,14 @@ var APP_VERSION = '2.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '2.31.0', date: '2 oct 2026', title: 'Una prueba con IWR fuera de rango se acepta, pero no cuenta para CoP',
+    { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido, y el CO₂ en orden de prueba',
       bullets: [
-          'Cambió: una prueba WLTP cuyo índice de manejo (IWR) queda fuera de −2…+4 % se puede aprobar como siempre, pero su resultado ya no entra al Validador del CoP, al Control SPC, al Panorama ni al REQ del plan.',
-          'La regla no depende de cómo se clasificó la falla en VETS: aunque la verificación IWR se marque Informativa o Desacreditada, la prueba no cuenta para CoP. Si VETS no tiene la verificación configurada, la app compara el IWR del ciclo contra −2…+4 % por su cuenta.',
-          'Se dice dónde: al aprobar ("se puede aprobar, pero no contará para CoP"), en la Revisión dirigida, al confirmar una prueba histórica, en el Historial (⊘ No cuenta para CoP), en la ficha del vehículo, en el Validador, en la carta SPC, en la tarjeta de la familia y en el expediente PDF.',
-          'Si ya estaba en la mesa del Validador como fila automática, sale sola al abrir la familia. Una fila que alguien agregó a mano se queda, tachada, y no entra al cálculo. Una re-prueba válida del mismo vehículo sí cuenta.',
-          'Plan: deja de bajar el déficit de su familia (como OBD II), así que el plan vuelve a pedir esa prueba. Sigue registrada como evidencia.',
-          'Una FTP75 (México) no se juzga con este criterio.'
+          'Cambió: una prueba WLTP con el trazo de manejo fuera de norma —IWR fuera de −2…+4 % o RMSSE sobre 1.3 km/h— se puede aprobar como siempre, pero su resultado ya no entra al Validador, al Control SPC, al Panorama ni al REQ del plan. No depende de cómo se clasificó la falla en VETS.',
+          'Cambió: al CoP y al SPC solo entran resultados APROBADOS (archivados o históricos confirmados). Antes contaban también los que esperaban aprobación, con los valores del liberador.',
+          'Arreglado: el CO₂ del CoP tomaba el valor del liberador y, si un VIN tenía dos pruebas, cualquiera de las dos. Ahora es el CO₂ aprobado de la prueba que cuenta.',
+          'Nuevo: en CO₂ → "Secuencia en orden de prueba": n = 3, 4, 5… como lo corre la norma, con en qué n decidió UN R154 y en cuál el Apéndice I. Si se siguió ensayando después de decidir, lo dice.',
+          'Nuevo: si un juicio guardado incluye ensayos que hoy no cuentan, el Validador, la tarjeta, el Expediente y su PDF lo avisan, con un botón para guardarlo de nuevo. El juicio viejo no se modifica.',
+          'Se dice dónde: al aprobar, en la Revisión dirigida, al confirmar un histórico, en el Historial (⊘ No cuenta para CoP), en la ficha, el Validador, la carta SPC y el PDF. En la mesa, una fila automática de esas pruebas sale sola; una agregada a mano se queda tachada y fuera del cálculo.'
       ] },
     { version: '2.30.0', date: '2 oct 2026', title: 'Las pruebas de antes de CASCADE, desde VETS',
       bullets: [

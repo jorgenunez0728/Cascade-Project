@@ -4490,6 +4490,17 @@ details.ui-card:not([open]) > .ui-card-head::after { transform: rotate(-90deg); 
 /* [2.31.0] Fila de la mesa que no entra al cálculo (ensayo aceptado, inválido para CoP) */
 .cop-row--excluded input { text-decoration: line-through; color: var(--muted); }
 .cop-row-excluded-why { font-size: var(--fs-2xs); color: var(--warn-text); margin-bottom: var(--space-2xs); }
+/* [2.31.0] Secuencia de la prueba de CO₂ en orden de ensayo */
+.cop-seq { margin-top: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); }
+.cop-seq > summary { cursor: pointer; font-weight: var(--weight-bold); font-size: var(--fs-sm); color: var(--text); }
+.cop-seq-lead { font-size: var(--fs-sm); margin: var(--space-sm) 0; color: var(--text); }
+.cop-seq-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); margin-top: var(--space-sm); }
+.cop-seq-table th, .cop-seq-table td { padding: var(--space-2xs) var(--space-sm); border-bottom: 1px solid var(--border); text-align: left; }
+.cop-seq-table th { color: var(--muted); font-weight: var(--weight-bold); }
+.cop-seq-first td { background: var(--info-tint, var(--info-bg)); font-weight: var(--weight-bold); }
+.cop-seq--pass { color: var(--ok-text); font-weight: var(--weight-bold); }
+.cop-seq--fail { color: var(--danger-text); font-weight: var(--weight-bold); }
+.cop-seq--cont { color: var(--warn-text); }
 
 /* ── Modo presentación (sala de auditoría) ─────────────────────────── */
 /* Con alcance a body.cop-present: NUNCA subir la escala global, que es la */

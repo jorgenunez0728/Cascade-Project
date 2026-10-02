@@ -715,7 +715,7 @@ function tpNoReqBreakdown() {
     (tpState.testedList || []).forEach(function(t) {
         if (!t || tpTestedCountsForReq(t)) return;
         out.total++;
-        var p = tpTestedCopUnusable(t) ? 'No sirve para CoP (índice de manejo)' : (t.purpose || '(sin propósito)');
+        var p = tpTestedCopUnusable(t) ? 'No sirve para CoP (trazo de manejo)' : (t.purpose || '(sin propósito)');
         out.byPurpose[p] = (out.byPurpose[p] || 0) + 1;
     });
     return out;
