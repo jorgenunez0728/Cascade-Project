@@ -122,7 +122,10 @@ t('sin DOM y con vehiclesPerSlot=10, NO cae al maximo fisico', () => {
     eq(fisica.max, 40, 'tope fisico (4 pares x 10):');
     const c = sandbox.tpWeeklyCapacityFor(null, wd);
     eq(c.cap, 8, 'capacidad practica:');
-    eq(c.max, 40, 'tope declarado:');
+    eq(c.max, 20, 'tope declarado (2.33.0: nunca más de TP_WEEK_MAX_TESTS):');
+    S.capacity = 50;
+    eq(sandbox.tpWeeklyCapacityFor(null, wd).cap, 20, 'una semana nunca pasa de 20');
+    S.capacity = 8;
 });
 t('el override de la semana manda sobre el default del laboratorio', () => {
     const wd = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };

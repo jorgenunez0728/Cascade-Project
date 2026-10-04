@@ -1466,6 +1466,13 @@ function fbPushAll(showFeedback) {
 // que el dashboard podía quedar mostrando "No hay plan" aunque el plan sí llegó.
 // Se invalida el tab cache, se bumpea _lastSave (invalida memos y la tira de HOY)
 // y se refrescan familias/badges.
+/** [2.33.0] ¿`incoming` trae marcas de planes borrados que `known` no tiene? PURA. */
+function _fbPlanTombsNewTo(known, incoming) {
+    var k = {};
+    (known || []).forEach(function(t) { if (t && t.planId) k[t.planId] = true; });
+    return (incoming || []).some(function(t) { return t && t.planId && !k[t.planId]; });
+}
+
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
@@ -1740,6 +1747,8 @@ function _fbPullSeed(col, remoteData, pulled) {
          'weekHistory', 'planHistory', 'weeks', 'fixedPlan', 'fixedWeeklyPlan', 'deadline'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
+        // [2.33.0] Las marcas de planes borrados de los dos lados.
+        if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -1784,7 +1793,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
         // 2.0.0: sin esto, un pull cuyo único cambio es una config manual se descartaba.
         (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || []));
-    else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
+    else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged ||
+        // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
+        _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []);
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -2603,6 +2614,9 @@ function _fbLocalHasExtras(col, remote) {
         });
     }
     if (col === 'testplan') {
+        // [2.33.0] Una marca de plan borrado que la nube no tiene se sube (si no, el
+        // otro equipo seguiría trayendo el plan de vuelta).
+        if (_fbPlanTombsNewTo(remote.deletedPlans || [], tpState.deletedPlans || [])) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -3612,6 +3626,12 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                 });
             }
             merged.push('TestPlan: merge completo');
+        }
+        // [2.33.0] Las marcas de planes borrados se UNEN siempre (en cualquier elección) y
+        // se aplican: un plan borrado en cualquier equipo no vuelve por la fusión aditiva.
+        if (typeof tpPlanTombstonesUnion === 'function') {
+            tpState.deletedPlans = tpPlanTombstonesUnion(tpState.deletedPlans, (remoteData.testplan || {}).deletedPlans);
+            if (typeof _tpNormalizePlans === 'function') _tpNormalizePlans();
         }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();

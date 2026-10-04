@@ -20,6 +20,50 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.33.0 — El calendario es el plan; la semana es su zoom (2026-10-04)
+
+### Cambió
+- **Plan abre en el 🗓️ Calendario** y es la vista de planeación. Cada semana del mes tiene un
+  **▸** al inicio que la abre en **Mi semana** —el tablero donde se arma, se mueven las pruebas de
+  día y se vinculan—. El ▸ dice si la semana tiene plan aceptado (✔) o una propuesta (⏳). Desde
+  Mi semana, **🗓️ Calendario** regresa al mes; tocar un día también ofrece "📅 Abrir la semana".
+- **Una semana tiene un solo plan.** "Generar" reemplaza la propuesta que hubiera; si la semana ya
+  tiene un plan aceptado no lo pisa (se mueve, se le agregan pruebas o se borra). Una semana nunca
+  lleva más de **20 pruebas**, aunque la capacidad o los vehículos por par den más.
+- Se retiraron **"🗂 Semanas generadas"**, **"Semanas pasadas"**, **"Generar mes"** (escribía cuatro
+  semanas de un toque) y el botón **"Generar planes semanales"** de Recuperación (podía escribir
+  decenas de semanas). Recuperación queda como pronóstico.
+
+### Arreglado
+- **"No puedo borrar las semanas" (#181).** Un plan borrado regresaba con la sincronización, porque la
+  fusión de planes era aditiva. Ahora borrar deja una marca que viaja por la nube y se aplica en
+  todos los equipos.
+- **Semanas fantasma**: había planes con fecha que no era lunes (p. ej. el 2026-03-04, un miércoles).
+  El tablero solo camina de lunes en lunes y nunca llegaba a ellos, así que no se podían abrir ni
+  borrar. Ahora cada plan queda en el lunes de su semana; también el campo de fecha del armador.
+
+### Nuevo
+- **🗑 Borrar semana** en el tablero de Mi semana, para un plan aceptado o una propuesta, con
+  confirmación y deshacer. Las pruebas ya hechas **no** se borran: siguen contando para la cobertura
+  y siguen en el calendario en su día de prueba.
+
+### Para desarrollo
+- **`tpState.deletedPlans`** = marcas `{planId, weekDate, at, by}` (tope 500). `tpPlanTombstonesUnion`
+  (PURA, simétrica) las une; `_tpNormalizePlans()` las aplica y lleva cada `weekDate` a su lunes
+  (`tpMondayIso`, PURA). Corre en `_tpEnsureState`, o sea al arrancar y tras cada pull. La identidad
+  (`planId`) se fija ANTES de mover la fecha.
+- Sync: `_fbPullSeed` une las marcas de los dos lados; `fbMergeExecute` las une en cualquier elección
+  y aplica; `_fbPlanTombsNewTo` hace que una marca nueva cuente como trabajo en el pull y como
+  "extra" para subir.
+- **`tpDeleteWeek(weekDate)`** es la forma de borrar planes (todos los de la semana, con
+  `plan.manage`, confirmación y `undoableAction`). Se retiraron `tpDeleteWeeklyPlan`,
+  `tpClearProposalsFor`, `tpBuildWeekIndexHTML`, `tpWeekRegionBalance`, `tpGenerateMonthly(Confirm)`,
+  `tpMaterializeRecovery`, `tpCarryOverWeekly` y `tpRenderWeekHistory`.
+- **`TP_WEEK_MAX_TESTS` (20)** acota `tpWeeklyCapacityFor`, `tpSelectWeeklyItems`,
+  `tpSetWeeklyCapacity` y la capacidad por semana.
+- `tpCalendarOpenWeek(iso)` / `tpCalendarOpenMonthOf(iso)`: el zoom entre calendario y tablero.
+- Pruebas: `tests/calendario.node.js` (22), `tests/v2330.e2e.js` (36, 1920×1017 y 427×840).
+
 ## 2.32.1 — Excel para auditoría: Planned y Tested salen del calendario (2026-10-04)
 
 ### Cambió
