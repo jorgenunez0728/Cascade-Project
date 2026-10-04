@@ -20,6 +20,68 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.32.0 — El calendario por día de prueba y el Excel para auditoría (2026-10-04)
+
+### Arreglado
+- **Plan → Calendario ponía las pruebas en el día equivocado.** Leía la fecha `AAAA-MM-DD` en
+  hora UTC, así que en México toda prueba salía **un día antes**; además ponía lo completado en
+  el día en que se palomeó o se liberó, y lo pendiente en el día en que se **generó** el plan.
+  Ahora cada prueba realizada aparece en su **día de prueba** (la fecha de prueba de Operación) y
+  solo ahí: si se probó el martes y se aprobó el jueves, sale el martes.
+- El calendario solo veía la lista de evidencia del plan, así que faltaban las pruebas fuera de
+  plan, las históricas importadas de VETS, las que esperan aprobación y las de vehículos sin código
+  de configuración. Ahora salen todas.
+- **Datos → Calendario no mostraba ninguna prueba realizada** (solo las planeadas pendientes).
+
+### Cambió
+- En el calendario del Plan: verde = realizada (con VIN, que abre la ficha), ámbar = planeada que
+  falta, en su día; gris = de una propuesta sin aceptar. Una prueba **sin fecha de prueba** no se
+  inventa un día: se lista abajo para completarla en Operación o en Historial → 📝 Completar.
+
+### Nuevo
+- **📤 Excel para auditoría** (Plan → Calendario y Datos → 📤 Reportes). Eliges los meses (por
+  omisión enero a diciembre) y descarga un libro en **inglés** con:
+  - **Summary**: por familia, Required / Planned / Tested / Gap / Progress del periodo y las pruebas por mes.
+  - **Projection**: producción por familia y mes (celdas amarillas, editables) y el **Required por
+    lotes acumulados**: cada mes pide las pruebas que agrega su producción acumulada (3 por lote de
+    5 000; el 2.º lote entra arriba de 7 500). Lo producido antes del periodo va en "Produced before".
+  - **Una hoja por mes**: a la izquierda Family / Required / Planned / Tested / Gap; a la derecha el
+    calendario lunes a domingo, cada día con Family (lista desplegable) y VIN (últimos 8). Tested se
+    calcula solo contando la familia en el calendario. Una prueba que no acredita el REQ (OBD II, o
+    que no sirve para CoP) sale entre [corchetes] y no cuenta.
+  - **Test Log**: una fila por prueba con su fecha de prueba, familia, configuración, VIN, propósito,
+    si cuenta para el REQ y su estado; al final, las que no tienen fecha de prueba.
+  - Colores por norma (SULEV, PRE-EURO 7, EURO, BRAZIL, EV) como en el Excel de 2025.
+- **Plantilla en blanco**: el mismo libro sin datos del laboratorio (todas las familias del
+  catálogo), para llenarse a mano el año completo con las mismas fórmulas, listas y colores.
+- Todas las familias de la plataforma (modelo, motor, paquetes, transmisión, año modelo, norma y
+  **carrocería**), no solo las que alguien copió a mano.
+
+### Para desarrollo
+- **`tpCalendarTests(from, to)` es LA definición de "prueba realizada el día X"** (calendario del
+  Plan, de Datos y el libro). Fecha = solo `testData.testDatetime`, nunca `archivedAt`. Fuente 1:
+  `db.vehicles` (archivado, en aprobación, liberado, en prueba con su día ya llegado, histórico no
+  rechazado; sin marca de borrado). Fuente 2: filas de `testedList` sin vehículo en `db`; una
+  declaración va a `weekDate + testDay` de su fila. Sin fecha → `undated`. Marca `countsForReq`
+  con `tpTestedCountsForReq`. `tpCalendarPlanned` = lo pendiente del plan vigente en su día.
+- **`tpFamilyMonthlyRequired(vols, hist)` (PURA)**: `REQ(acum_i) − REQ(acum_{i−1})`; la suma del
+  periodo = `tpFamilyRequired(fin) − tpFamilyRequired(inicio)`. El libro escribe la misma regla
+  como fórmula (`_tpAuditReqF`).
+- **`tpIsoAddDays` / `tpIsoWeekday` / `tpWeekDayIso`**: fechas sin zona horaria. Nunca
+  `new Date('AAAA-MM-DD')` para un día de calendario.
+- **`tpFamilyShortLabel(cfg)`**: nombre corto y único de familia, con carrocería.
+- **`js/xlsxw.js` — `xwBuild(spec)` (PURA, sin compresión) y `xwBuildCompressed(spec, deflate)`**:
+  escritor de .xlsx propio (sin CDN). Estilos, fusiones, listas, formato condicional, paneles,
+  autofiltro, fórmulas con su valor calculado y `fullCalcOnLoad`. Comprime con
+  `CompressionStream('deflate-raw')`; si no hay, sale sin comprimir.
+- **`tpAuditXlsxModel(opts)` → `tpAuditXlsxSpec(model)` (PURA) → `xwBuild*`**. La plantilla y la
+  exportación salen de la misma función. `tools/audit-calendar.node.js` genera la plantilla y el
+  ejemplo con esas mismas funciones.
+- Verificado: 10 813 fórmulas recalculadas en LibreOffice dan exactamente los valores que escribe
+  la app; con producción simulada, 1 548 celdas de Required con un valor falso sembrado se
+  recalcularon al valor de la plataforma.
+- Pruebas: `tests/calendario.node.js` (15), `tests/xlsxw.node.js` (42), `tests/v2320.e2e.js`.
+
 ## 2.31.0 — Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones (2026-10-02)
 
 ### Cambió

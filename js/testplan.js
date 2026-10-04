@@ -9588,10 +9588,231 @@ function tpRunSimulation(capacity, maxWeeks) {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  MONTHLY CALENDAR VIEW                                              ║
+// ║  [2.32.0] CALENDARIO DE PRUEBAS — cada prueba en su DÍA DE PRUEBA     ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+// El calendario anterior ponía lo completado en el día en que se palomeó o liberó
+// (`completedDate`), lo pendiente en el día en que se GENERÓ el plan, y leía
+// 'YYYY-MM-DD' con `new Date()` (UTC): en México toda prueba salía un día antes.
+// Ahora hay UNA definición de "prueba realizada el día X" y la usan el calendario del
+// Plan, el de Datos y el libro de auditoría (.xlsx).
 
-var _tpCalendarMonth = null; // { year, month } — null = current
+/** 'YYYY-MM-DD' + días → 'YYYY-MM-DD', sin zona horaria. PURA. */
+function tpIsoAddDays(iso, n) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return null;
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (n || 0)));
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
+/** Día de la semana (0 = domingo) de 'YYYY-MM-DD', sin zona horaria. PURA. */
+function tpIsoWeekday(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay() : null;
+}
+
+/** La fecha de un día del plan: `weekDate` es el lunes y 'dom' cierra la semana. PURA. */
+function tpWeekDayIso(weekDate, dayKey) {
+    var off = TP_DAY_ORDER.indexOf(dayKey);
+    if (off < 0 || !weekDate) return null;
+    return tpIsoAddDays(weekDate, off === 0 ? 6 : off - 1);
+}
+
+/**
+ * Nombre CORTO y ÚNICO de una familia (todos los campos de tpFamilyKeyForCfg, carrocería
+ * incluida — `tpFamilyLabel` no la trae y 5DR/WGN chocaban). Es el texto de la lista
+ * desplegable del libro de auditoría, así que se puede teclear. PURA.
+ */
+function tpFamilyShortLabel(cfg) {
+    if (!cfg) return '';
+    var nz = function(v) { v = String(v == null ? '' : v).trim(); return (v && v !== '0') ? v : ''; };
+    var eng = nz(cfg.eng).replace(/^(\d{3,4})\s*cc\b\s*/i, function(_, n) { return (Number(n) / 1000).toFixed(1) + ' '; }).trim();
+    var my = nz(cfg.my), m = /^(\d{2,4})/.exec(my);
+    var ep = nz(cfg.ep);
+    var parts = [nz(cfg.mod), eng, nz(cfg.engpkg), ep === 'MILD HEV' ? 'MHEV' : ep, nz(cfg.tx),
+                 m ? 'MY' + m[1] : my, nz(cfg.reg), nz(cfg.body)];
+    return parts.filter(Boolean).join(' ');
+}
+
+/** La configuración (forma de planData) de un vehículo, con la norma normalizada. */
+function _tpCalVehicleCfg(v) {
+    var c = typeof _tpVehicleCfg === 'function' ? _tpVehicleCfg(v) : null;
+    if (c && c.mod) return c;
+    var row = Object.assign({ codigo_config_text: (v && v.configCode) || 'sin-codigo' }, (v && v.config) || {});
+    return tpCfgFromCatalogRow(row);
+}
+
+/** ¿Este vehículo ya es una prueba REALIZADA? (no: registrado, en operación, histórico rechazado) */
+function _tpCalVehicleTested(v, today) {
+    if (!v) return false;
+    if (v.status === 'archived' || v.status === 'pending-approval' || v.status === 'ready-release') return true;
+    if (v.status === 'historico') return !(v.historic && v.historic.state === 'rechazado');
+    // En prueba: cuenta una vez que su día de prueba llegó (la prueba ya ocurrió o está ocurriendo).
+    if (v.status === 'testing') {
+        var d = String((v.testData || {}).testDatetime || '').slice(0, 10);
+        return !!d && d <= today;
+    }
+    return false;
+}
+
+/**
+ * LA definición de "pruebas realizadas por día". La fecha es SIEMPRE la de la PRUEBA
+ * (`testData.testDatetime`), nunca la de liberación, aprobación o archivo: una prueba
+ * del martes aprobada el jueves sale el martes y sólo el martes.
+ *
+ *  · Fuente 1 — db.vehicles (manda): archivados, en aprobación, liberados, en prueba con
+ *    su día ya llegado e históricos no rechazados. Sin `testDatetime` → `undated`
+ *    (se declara, no se inventa un día).
+ *  · Fuente 2 — testedList, SÓLO las filas sin vehículo en db (capturadas a mano o
+ *    importadas). Una declaración del plan va al día de prueba de su fila
+ *    (weekDate + testDay), no al día en que se palomeó.
+ *
+ * `fromIso`/`toIso` (opcionales, inclusivos) acotan `all`/`byDay`; `undated` se devuelve
+ * completo. Devuelve {byDay:{iso:[test]}, all:[test], undated:[test]}.
+ * test = {date, familyKey, familyShort, configCode, vin, purpose, status, source, vehicleId, declared}
+ */
+function tpCalendarTests(fromIso, toIso) {
+    var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    var vehicles = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    var tombs = (typeof db !== 'undefined' && db && Array.isArray(db.deletedVehicles)) ? db.deletedVehicles : [];
+    var all = [], undated = [];
+    var dbIds = {}, dbVins = {};
+    var fam = function(cfg) {
+        return cfg ? { familyKey: tpFamilyKeyForCfg(cfg), familyShort: tpFamilyShortLabel(cfg) } : { familyKey: '', familyShort: '' };
+    };
+    var push = function(t) {
+        _tpCalReqNote(t);
+        if (!t.date) { undated.push(t); return; }
+        if (fromIso && t.date < fromIso) return;
+        if (toIso && t.date > toIso) return;
+        all.push(t);
+    };
+
+    vehicles.forEach(function(v) {
+        if (!v) return;
+        if (v.id != null) dbIds[String(v.id)] = true;
+        if (v.vin) dbVins[v.vin] = true;
+        if (tombs.length && typeof vehicleIsTombstoned === 'function' && vehicleIsTombstoned(v, tombs)) return;
+        if (!_tpCalVehicleTested(v, today)) return;
+        var td = v.testData || {};
+        var d = String(td.testDatetime || '').slice(0, 10);
+        var cfg = _tpCalVehicleCfg(v);
+        var f = fam(cfg);
+        push({
+            date: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null,
+            familyKey: f.familyKey, familyShort: f.familyShort,
+            configCode: v.configCode || (cfg && cfg.desc !== 'sin-codigo' ? cfg.desc : '') || '',
+            vin: v.vin || '', purpose: v.purpose || td.purpose || '',
+            status: v.status === 'historico' ? 'historico-' + ((v.historic && v.historic.state) || 'pendiente') : v.status,
+            source: v.status === 'historico' ? 'vets-historico' : 'cascade',
+            vehicleId: v.id, declared: false
+        });
+    });
+
+    var itemDay = {};   // planId|uid → fecha de prueba de la fila
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (!p) return;
+        var pid = tpPlanId(p);
+        (p.items || []).forEach(function(it, i) {
+            if (!it || !it.testDay) return;
+            var iso = tpWeekDayIso(p.weekDate, it.testDay);
+            if (!iso) return;
+            if (it.uid) itemDay[pid + '|' + it.uid] = iso;
+            itemDay[pid + '|#' + i] = iso;
+        });
+    });
+
+    (tpState.testedList || []).forEach(function(t) {
+        if (!t) return;
+        var vid = tpTestedVehicleId(t), vin = tpTestedVin(t);
+        if (vid != null && dbIds[String(vid)]) return;   // ya cuenta por su vehículo
+        if (vin && dbVins[vin]) return;
+        if (vin && tombs.some(function(x) { return x && x.vin === vin && (vid == null || String(x.id) === String(vid)); })) return;
+        var declared = tpTestedIsDeclared(t);
+        var date = null;
+        if (declared && t.planId) date = itemDay[t.planId + '|' + t.itemUid] || itemDay[t.planId + '|#' + t.itemIdx] || null;
+        if (!date) date = /^\d{4}-\d{2}-\d{2}/.test(String(t.date || '')) ? String(t.date).slice(0, 10) : null;
+        var cfg = tpConfigByDesc(t.configText);
+        var f = fam(cfg);
+        push({
+            date: date, familyKey: f.familyKey, familyShort: f.familyShort || String(t.configText || ''),
+            configCode: t.configText || '', vin: vin || '', purpose: t.purpose || '',
+            status: declared ? 'declarada' : 'registrada', source: t.source || 'manual',
+            vehicleId: null, declared: declared
+        });
+    });
+
+    var cmp = function(a, b) {
+        return String(a.date || '').localeCompare(String(b.date || '')) ||
+               a.familyShort.localeCompare(b.familyShort) || String(a.vin).localeCompare(String(b.vin));
+    };
+    all.sort(cmp); undated.sort(cmp);
+    var byDay = {};
+    all.forEach(function(t) { (byDay[t.date] = byDay[t.date] || []).push(t); });
+    return { byDay: byDay, all: all, undated: undated };
+}
+
+/**
+ * ¿La prueba acredita el REQ de emisiones? Misma regla que la cobertura
+ * (tpTestedCountsForReq: propósito + sirve para CoP). Si no, `reqNote` dice por qué.
+ */
+function _tpCalReqNote(t) {
+    if (!t) return;
+    var row = { purpose: t.purpose || null, vehicleId: t.vehicleId, source: t.declared ? 'plan-manual' : t.source };
+    t.countsForReq = (typeof tpTestedCountsForReq === 'function') ? tpTestedCountsForReq(row) : true;
+    t.reqNote = '';
+    if (!t.countsForReq) {
+        t.reqNote = (typeof tpPurposeCountsForReq === 'function' && !tpPurposeCountsForReq(t.purpose))
+            ? 'purpose' : 'cop-invalid';
+    }
+}
+
+/**
+ * Lo PLANEADO por día (no hecho todavía): filas pendientes del plan VIGENTE de cada semana
+ * (tpWeekPlanFor), en su día de prueba. `proposal` = la semana no tiene plan aceptado.
+ * Devuelve {iso:[{desc, familyShort, proposal, planId, uid}]}.
+ */
+function tpCalendarPlanned(fromIso, toIso) {
+    var out = {}, vistos = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (!p || !p.weekDate || vistos[p.weekDate]) return;
+        vistos[p.weekDate] = true;
+        var r = tpWeekPlanFor(p.weekDate);
+        if (!r) return;
+        (r.plans || []).forEach(function(plan) {
+            (plan.items || []).forEach(function(it) {
+                if (!it || it.completed || !it.testDay) return;
+                var iso = tpWeekDayIso(plan.weekDate, it.testDay);
+                if (!iso || (fromIso && iso < fromIso) || (toIso && iso > toIso)) return;
+                var cfg = tpConfigByDesc(it.desc);
+                (out[iso] = out[iso] || []).push({ desc: it.desc, familyShort: cfg ? tpFamilyShortLabel(cfg) : it.desc,
+                    proposal: !!r.proposal, planId: tpPlanId(plan), uid: it.uid || null });
+            });
+        });
+    });
+    return out;
+}
+
+/**
+ * LA definición del REQ de una familia MES POR MES, por lotes ACUMULADOS. PURA.
+ * El volumen se acumula desde `hist` y cada mes pide lo que su acumulado agrega al REQ:
+ * req_i = tpFamilyRequired(acum_i) − tpFamilyRequired(acum_{i−1}). Así la suma del
+ * periodo es exactamente tpFamilyRequired(hist + Σ meses) — no se reparte a ojo.
+ * El libro de auditoría escribe la misma regla como fórmula de Excel.
+ */
+function tpFamilyMonthlyRequired(vols, hist) {
+    var prevCum = Number(hist) || 0, prevReq = tpFamilyRequired(prevCum);
+    return (vols || []).map(function(v) {
+        var cum = prevCum + (Number(v) || 0);
+        var req = tpFamilyRequired(cum);
+        var out = Math.max(0, req - prevReq);
+        prevCum = cum; prevReq = req;
+        return out;
+    });
+}
+
+// ── Calendario del Plan ──────────────────────────────────────────────────────
+
+var _tpCalendarMonth = null; // { year, month } — null = el mes actual
 
 function tpCalendarNav(delta) {
     if (!_tpCalendarMonth) {
@@ -9604,221 +9825,676 @@ function tpCalendarNav(delta) {
     tpRender();
 }
 
+var TP_CAL_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function _tpCalMonthRange(year, month) {
+    var from = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+    var last = new Date(year, month + 1, 0).getDate();
+    return { from: from, to: year + '-' + String(month + 1).padStart(2, '0') + '-' + String(last).padStart(2, '0'), days: last };
+}
+
+function _tpCalVinTail(vin) { vin = String(vin || ''); return vin.length > 8 ? vin.slice(-8) : vin; }
+
 function tpRenderCalendar(el) {
     var now = new Date();
     if (!_tpCalendarMonth) _tpCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
-    var year = _tpCalendarMonth.year;
-    var month = _tpCalendarMonth.month;
+    var year = _tpCalendarMonth.year, month = _tpCalendarMonth.month;
+    var rng = _tpCalMonthRange(year, month);
+    var tests = tpCalendarTests(rng.from, rng.to);
+    var planned = tpCalendarPlanned(rng.from, rng.to);
+    var todayKey = (typeof localToday === 'function') ? localToday() : localDateStr(now);
+    var nPlan = 0, nProp = 0;
+    Object.keys(planned).forEach(function(k) { planned[k].forEach(function(p) { if (p.proposal) nProp++; else nPlan++; }); });
+    var fams = {};
+    tests.all.forEach(function(t) { fams[t.familyKey] = true; });
 
-    var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    var dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-
-    // Gather events: weekly plan items + tested list results
-    var events = {}; // dateKey -> [{type, label, color, detail}]
-
-    function addEvent(dateKey, type, label, color, detail) {
-        if (!events[dateKey]) events[dateKey] = [];
-        events[dateKey].push({ type: type, label: label, color: color, detail: detail || '' });
-    }
-
-    // Weekly plan items (use acceptedDate or created as base, items show completion dates)
-    var plans = tpState.weeklyPlans || [];
-    plans.forEach(function(w, wi) {
-        var weekStart = new Date(w.created);
-        w.items.forEach(function(item) {
-            if (item.completed && item.completedDate) {
-                var d = new Date(item.completedDate);
-                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
-                addEvent(key, 'completed', shortDesc, '#10b981', 'Sem ' + (wi+1));
-            } else if (!item.completed) {
-                // Pending items: assign to the week's creation date spread
-                var base = new Date(w.created);
-                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
-                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
-                addEvent(key, 'pending', shortDesc, '#f59e0b', 'Sem ' + (wi+1) + ' pendiente');
-            }
-        });
-        // Week marker
-        var ws = new Date(w.created);
-        var wKey = ws.getFullYear() + '-' + String(ws.getMonth()+1).padStart(2,'0') + '-' + String(ws.getDate()).padStart(2,'0');
-        addEvent(wKey, 'week', 'Sem ' + (wi+1) + (w.accepted ? ' (aceptada)' : ''), '#3b82f6', w.items.length + ' items');
-    });
-
-    // Tested list (actual COP results fed into test plan)
-    var tested = tpState.testedList || [];
-    tested.forEach(function(t) {
-        if (t.date) {
-            var d = new Date(t.date);
-            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-            var shortDesc = (t.configText || '').length > 30 ? t.configText.substring(0, 28) + '..' : (t.configText || '?');
-            addEvent(key, 'tested', shortDesc, '#8b5cf6', t.vin || '');
-        }
-    });
-
-    // Build calendar grid
-    var firstDay = new Date(year, month, 1);
-    var lastDay = new Date(year, month + 1, 0);
-    var startDow = (firstDay.getDay() + 6) % 7; // Monday=0
-    var daysInMonth = lastDay.getDate();
-    var todayKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-
-    // Stats for this month
-    var monthEvents = 0, monthCompleted = 0, monthPending = 0, monthTested = 0;
-    for (var dk in events) {
-        if (dk.startsWith(year + '-' + String(month+1).padStart(2,'0'))) {
-            events[dk].forEach(function(e) {
-                if (e.type === 'completed') { monthCompleted++; monthEvents++; }
-                else if (e.type === 'pending') { monthPending++; monthEvents++; }
-                else if (e.type === 'tested') { monthTested++; monthEvents++; }
-            });
-        }
-    }
-
-    var html = '';
-    html += '<div class="tp-card" style="padding: var(--space-lg);">';
-
-    // Header with navigation
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom: var(--space-lg);">';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">◀</button>';
-    html += '<div style="text-align:center;">';
-    html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">' + monthNames[month] + ' ' + year + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + monthCompleted + ' completadas | ' + monthPending + ' pendientes | ' + monthTested + ' probadas</div>';
-    html += '</div>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding: var(--space-xs) var(--space-md);">▶</button>';
-    html += '</div>';
-    // [v24] Volver al mes actual de un toque (antes: tocar ◀/▶ las veces que hiciera falta).
+    var h = '<div class="tp-card tp-cal">';
+    h += '<div class="tp-cal-head">' +
+         '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" aria-label="Mes anterior">◀</button>' +
+         '<div class="tp-cal-title"><div class="tp-cal-month">' + TP_CAL_MONTHS[month] + ' ' + year + '</div>' +
+         '<div class="tp-cal-sub">Cada prueba sale en su <strong>día de prueba</strong>, no en el de liberación o aprobación.</div></div>' +
+         '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" aria-label="Mes siguiente">▶</button></div>';
+    h += '<div class="tp-cal-actions">';
     if (year !== now.getFullYear() || month !== now.getMonth()) {
-        html += '<div style="text-align:center;margin: calc(-1 * var(--space-sm)) 0 var(--space-md);"><button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button></div>';
+        h += '<button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button>';
     }
+    h += '<button class="tp-btn" id="tp-cal-xlsx" onclick="tpAuditXlsxExportOpen()">📤 Excel para auditoría</button></div>';
 
-    // Metrics row
-    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);">';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">' + monthCompleted + '</div><div class="tp-metric-label">Completadas</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">' + monthPending + '</div><div class="tp-metric-label">Pendientes</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">' + monthTested + '</div><div class="tp-metric-label">Probadas</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">' + (monthCompleted + monthTested) + '</div><div class="tp-metric-label">Total</div></div>';
-    html += '</div>';
+    h += '<div class="tp-cal-metrics">' +
+         '<div class="tp-metric"><div class="tp-metric-val tp-cal-ok">' + tests.all.length + '</div><div class="tp-metric-label">Pruebas realizadas</div></div>' +
+         '<div class="tp-metric"><div class="tp-metric-val">' + Object.keys(fams).length + '</div><div class="tp-metric-label">Familias probadas</div></div>' +
+         '<div class="tp-metric"><div class="tp-metric-val tp-cal-warn">' + nPlan + '</div><div class="tp-metric-label">Planeadas pendientes</div></div>' +
+         '<div class="tp-metric"><div class="tp-metric-val tp-cal-dim">' + nProp + '</div><div class="tp-metric-label">En propuesta</div></div></div>';
 
-    // Day headers
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap: var(--space-2xs);margin-bottom: var(--space-xs);">';
-    dayNames.forEach(function(dn) {
-        html += '<div style="text-align:center;font-size: var(--fs-xs);font-weight:700;color:var(--tp-dim);padding:4px 0;">' + dn + '</div>';
-    });
-    html += '</div>';
-
-    // Calendar cells
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap: var(--space-2xs);">';
-
-    // Empty cells before first day
-    for (var e = 0; e < startDow; e++) {
-        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius: var(--radius-md);opacity:0.3;"></div>';
+    h += '<div class="tp-cal-grid" role="grid">';
+    ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(dn) { h += '<div class="tp-cal-dow" role="columnheader">' + dn + '</div>'; });
+    var startDow = (tpIsoWeekday(rng.from) + 6) % 7;   // lunes = 0
+    for (var e = 0; e < startDow; e++) h += '<div class="tp-cal-cell tp-cal-cell--out"></div>';
+    for (var d = 1; d <= rng.days; d++) {
+        var key = rng.from.slice(0, 8) + String(d).padStart(2, '0');
+        var dayTests = tests.byDay[key] || [], dayPlan = planned[key] || [];
+        var wk = (startDow + d - 1) % 7 >= 5;
+        var cls = 'tp-cal-cell' + (key === todayKey ? ' tp-cal-cell--today' : '') + (wk ? ' tp-cal-cell--weekend' : '') +
+                  (dayTests.length ? ' tp-cal-cell--has' : '');
+        var label = d + ' de ' + TP_CAL_MONTHS[month].toLowerCase() + ': ' + dayTests.length + ' prueba(s) realizada(s), ' + dayPlan.length + ' planeada(s)';
+        h += '<button type="button" class="' + cls + '" data-cal-day="' + key + '" aria-label="' + escapeHtml(label) + '" onclick="tpCalendarDayDetail(\'' + key + '\')">';
+        h += '<span class="tp-cal-num">' + d + (dayTests.length ? '<span class="tp-cal-count">' + dayTests.length + '</span>' : '') + '</span>';
+        var pills = dayTests.map(function(t) {
+            return '<span class="tp-cal-pill tp-cal-pill--done" title="' + escapeHtml(t.familyShort + ' · ' + t.vin) + '">' +
+                   escapeHtml(t.familyShort) + (t.vin ? ' · ' + escapeHtml(_tpCalVinTail(t.vin)) : '') + '</span>';
+        }).concat(dayPlan.map(function(p) {
+            return '<span class="tp-cal-pill ' + (p.proposal ? 'tp-cal-pill--prop' : 'tp-cal-pill--plan') + '" title="' +
+                   escapeHtml((p.proposal ? 'Propuesta: ' : 'Planeada: ') + p.desc) + '">' + escapeHtml(p.familyShort) + '</span>';
+        }));
+        h += pills.slice(0, 3).join('');
+        if (pills.length > 3) h += '<span class="tp-cal-more">+' + (pills.length - 3) + '</span>';
+        h += '</button>';
     }
+    var rem = (7 - ((startDow + rng.days) % 7)) % 7;
+    for (var r = 0; r < rem; r++) h += '<div class="tp-cal-cell tp-cal-cell--out"></div>';
+    h += '</div>';
 
-    for (var d = 1; d <= daysInMonth; d++) {
-        var dateKey = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-        var dayEvents = events[dateKey] || [];
-        var isToday = dateKey === todayKey;
-        var isWeekend = ((startDow + d - 1) % 7) >= 5;
-
-        html += '<div style="min-height:60px;background:' + (isToday ? 'rgba(59,130,246,0.15)' : isWeekend ? 'rgba(100,116,139,0.05)' : 'var(--tp-card)') + ';border-radius: var(--radius-md);padding: var(--space-2xs);border:1px solid ' + (isToday ? 'var(--tp-blue)' : 'var(--tp-border)') + ';overflow:hidden;" onclick="tpCalendarDayDetail(\'' + dateKey + '\')">';
-        html += '<div style="font-size: var(--fs-xs);font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? 'var(--tp-blue)' : 'var(--tp-text)') + ';margin-bottom: var(--space-2xs);">' + d + '</div>';
-
-        // Show max 3 events as dots/pills
-        var shown = dayEvents.filter(function(ev) { return ev.type !== 'week'; });
-        var weekEv = dayEvents.find(function(ev) { return ev.type === 'week'; });
-        if (weekEv) {
-            html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-2xs);background:rgba(59,130,246,0.2);color:var(--info-text);border-radius: var(--radius-sm);margin-bottom: var(--space-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
-        }
-        shown.slice(0, 2).forEach(function(ev) {
-            html += '<div style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-2xs);background:' + ev.color + '20;color:' + ev.color + ';border-radius: var(--radius-sm);margin-bottom: var(--space-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
-        });
-        if (shown.length > 2) {
-            html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
-        }
-        html += '</div>';
+    h += '<div class="tp-cal-legend"><span><i class="tp-cal-dot tp-cal-dot--done"></i> Realizada (día de prueba)</span>' +
+         '<span><i class="tp-cal-dot tp-cal-dot--plan"></i> Planeada, pendiente</span>' +
+         '<span><i class="tp-cal-dot tp-cal-dot--prop"></i> En una propuesta sin aceptar</span></div>';
+    if (tests.undated.length) {
+        h += '<p class="tp-cal-undated">⚠️ ' + tests.undated.length + ' prueba' + (tests.undated.length === 1 ? '' : 's') +
+             ' sin fecha de prueba no aparece' + (tests.undated.length === 1 ? '' : 'n') + ' en el calendario: ' +
+             tests.undated.slice(0, 6).map(function(t) {
+                 var lbl = escapeHtml(t.vin || t.configCode || '?');
+                 return (t.vehicleId != null && typeof fichaLinkHTML === 'function') ? fichaLinkHTML('vehiculo', t.vehicleId, lbl) : lbl;
+             }).join(', ') + (tests.undated.length > 6 ? '…' : '') + '. Captura su fecha de prueba en Operación o en Historial → 📝 Completar.</p>';
     }
-
-    // Empty cells after last day
-    var totalCells = startDow + daysInMonth;
-    var remaining = (7 - (totalCells % 7)) % 7;
-    for (var r = 0; r < remaining; r++) {
-        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius: var(--radius-md);opacity:0.3;"></div>';
-    }
-    html += '</div>'; // grid end
-
-    // Legend
-    html += '<div style="display:flex;gap: var(--space-md);margin-top: var(--space-md);justify-content:center;flex-wrap:wrap;">';
-    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span> Completada</div>';
-    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pendiente</div>';
-    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span> Probada (COP)</div>';
-    html += '<div style="display:flex;align-items:center;gap: var(--space-xs);font-size: var(--fs-xs);color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Semana Plan</div>';
-    html += '</div>';
-
-    html += '</div>'; // card end
-
-    // Day detail panel (hidden until click)
-    html += '<div id="tp-calendar-detail"></div>';
-
-    el.innerHTML = html;
+    h += '</div><div id="tp-calendar-detail"></div>';
+    el.innerHTML = h;
 }
 
 function tpCalendarDayDetail(dateKey) {
     var detailEl = document.getElementById('tp-calendar-detail');
     if (!detailEl) return;
-
-    var parts = dateKey.split('-');
-    var dateLabel = parseInt(parts[2]) + '/' + parseInt(parts[1]) + '/' + parts[0];
-
-    // Gather all events for this day
-    var dayEvents = [];
-
-    var plans = tpState.weeklyPlans || [];
-    plans.forEach(function(w, wi) {
-        w.items.forEach(function(item) {
-            if (item.completed && item.completedDate) {
-                var d = new Date(item.completedDate);
-                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                if (key === dateKey) dayEvents.push({ type: 'completed', desc: item.desc, detail: 'Semana ' + (wi+1), color: '#10b981', icon: '✅' });
-            } else if (!item.completed) {
-                var base = new Date(w.created);
-                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
-                if (key === dateKey) dayEvents.push({ type: 'pending', desc: item.desc, detail: 'Semana ' + (wi+1) + ' — pendiente', color: '#f59e0b', icon: '⏳' });
-            }
+    var p = dateKey.split('-');
+    var dateLabel = parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0];
+    var tests = (tpCalendarTests(dateKey, dateKey).byDay[dateKey]) || [];
+    var planned = tpCalendarPlanned(dateKey, dateKey)[dateKey] || [];
+    var total = tests.length + planned.length;
+    var h = '<div class="tp-card tp-cal-detail">';
+    if (!total) {
+        h += '<p class="tp-cal-empty">Sin pruebas el ' + dateLabel + '.</p></div>';
+    } else {
+        h += '<div class="tp-card-title"><span>📋 ' + dateLabel + ' — ' + tests.length + ' realizada' + (tests.length === 1 ? '' : 's') +
+             (planned.length ? ', ' + planned.length + ' planeada' + (planned.length === 1 ? '' : 's') : '') + '</span></div>';
+        tests.forEach(function(t) {
+            var vin = escapeHtml(t.vin || '—');
+            var stLbl = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels && CONFIG.statusLabels[t.status]) ||
+                        (t.status === 'declarada' ? 'Declarada en el plan (sin vehículo)' : t.status === 'registrada' ? 'Registrada a mano' :
+                         /^historico/.test(t.status) ? 'Histórico (VETS)' : t.status);
+            h += '<div class="tp-cal-row"><span class="tp-cal-dot tp-cal-dot--done"></span><div class="tp-cal-row-main">' +
+                 '<div class="tp-cal-row-title">' + escapeHtml(t.familyShort || t.configCode || '?') + '</div>' +
+                 '<div class="tp-cal-row-sub">VIN ' + ((t.vehicleId != null && typeof fichaLinkHTML === 'function') ? fichaLinkHTML('vehiculo', t.vehicleId, vin) : vin) +
+                 ' · ' + escapeHtml(stLbl) + (t.purpose ? ' · ' + escapeHtml(typeof uiLabel === 'function' ? uiLabel('purpose', t.purpose) : t.purpose) : '') + '</div></div></div>';
         });
-    });
+        planned.forEach(function(x) {
+            h += '<div class="tp-cal-row"><span class="tp-cal-dot ' + (x.proposal ? 'tp-cal-dot--prop' : 'tp-cal-dot--plan') + '"></span><div class="tp-cal-row-main">' +
+                 '<div class="tp-cal-row-title">' + escapeHtml(x.familyShort) + '</div>' +
+                 '<div class="tp-cal-row-sub">' + (x.proposal ? 'En una propuesta sin aceptar' : 'Planeada, pendiente') + ' · ' + escapeHtml(x.desc) + '</div></div></div>';
+        });
+        h += '</div>';
+    }
+    detailEl.innerHTML = h;
+    try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+}
 
-    var tested = tpState.testedList || [];
-    tested.forEach(function(t) {
-        if (t.date) {
-            var d = new Date(t.date);
-            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-            if (key === dateKey) dayEvents.push({ type: 'tested', desc: t.configText || '?', detail: 'VIN: ' + (t.vin || '?'), color: '#8b5cf6', icon: '🧪' });
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.32.0] LIBRO DE AUDITORÍA (.xlsx) — el plan de pruebas en Excel    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+// Reemplaza el Excel que el laboratorio armaba a mano en 2025 (una hoja por mes con
+// familias + calendario). Dos piezas:
+//  · tpAuditXlsxModel(opts) — junta los datos de la plataforma (o nada, si es plantilla).
+//  · tpAuditXlsxSpec(model) — PURA: el modelo → el libro (hojas, fórmulas, estilos).
+// La plantilla en blanco y el archivo exportado salen de la MISMA función: por eso son
+// idénticos y el laboratorio puede llenar a mano un año entero con el mismo formato.
+// El libro va en INGLÉS (decisión del laboratorio: lo lee un auditor).
+
+var TP_AUDIT_ACTIVITIES = ['Quality Checks', 'Preconditioning', 'Development Testing', 'Correlation',
+    'Dyno Calibration', 'Equipment Maintenance', 'Training', 'Holiday'];
+var TP_AUDIT_EXTRA_ROWS = 15;   // renglones en blanco para familias que el laboratorio agregue a mano
+var TP_AUDIT_SLOTS = 6;         // renglones por día en el calendario (la exportación crece si hace falta)
+var TP_AUDIT_MAX_MONTHS = 24;
+var _TP_AUDIT_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var _TP_AUDIT_MON_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+var _TP_AUDIT_PURPOSE = { 'Correlacion': 'Correlation', 'Investigacion': 'Investigation', 'COP-Emisiones': 'CoP Emissions',
+    'EO-Emisiones': 'EO Emissions', 'COP-OBD2': 'CoP OBD II', 'EO-OBD2': 'EO OBD II', 'ND-Emisiones': 'ND Emissions', 'ND-OBD2': 'ND OBD II' };
+var _TP_AUDIT_STATUS = { 'archived': 'Approved (archived)', 'pending-approval': 'Released, awaiting approval',
+    'ready-release': 'Tested, to be released', 'testing': 'In test', 'historico-pendiente': 'Historic (VETS), to be confirmed',
+    'historico-confirmado': 'Historic (VETS), confirmed', 'declarada': 'Declared in the plan (no vehicle)', 'registrada': 'Recorded manually' };
+var _TP_AUDIT_SOURCE = { 'cascade': 'Cascade', 'vets-historico': 'VETS import', 'plan-manual': 'Plan (manual)', 'cop15-auto': 'Cascade',
+    'manual': 'Manual' };
+
+/** Los meses de 'YYYY-MM' a 'YYYY-MM' (inclusivo, tope 24). PURA. */
+function tpAuditMonths(fromYm, toYm) {
+    var a = /^(\d{4})-(\d{2})$/.exec(String(fromYm || '')), b = /^(\d{4})-(\d{2})$/.exec(String(toYm || ''));
+    if (!a || !b) return [];
+    var y = +a[1], m = +a[2] - 1, end = (+b[1]) * 12 + (+b[2] - 1), out = [];
+    while (y * 12 + m <= end && out.length < TP_AUDIT_MAX_MONTHS) {
+        var mm = String(m + 1).padStart(2, '0');
+        var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        out.push({ y: y, m: m, ym: y + '-' + mm, label: _TP_AUDIT_MON[m] + '-' + String(y % 100).padStart(2, '0'),
+                   name: _TP_AUDIT_MON_LONG[m] + ' ' + y, from: y + '-' + mm + '-01', to: y + '-' + mm + '-' + String(last).padStart(2, '0') });
+        m++; if (m > 11) { m = 0; y++; }
+    }
+    return out;
+}
+
+/** La etiqueta de una prueba en el calendario: la familia, y entre corchetes si NO acredita el REQ. */
+function _tpAuditTestLabel(t) {
+    var base = t.familyShort || t.configCode || '?';
+    if (t.countsForReq === false) {
+        base += ' [' + (t.reqNote === 'purpose' ? (_TP_AUDIT_PURPOSE[t.purpose] || t.purpose || 'not emissions') : 'not CoP-valid') + ']';
+    }
+    return base;
+}
+
+/**
+ * Los datos del libro. `opts` = {from:'YYYY-MM', to:'YYYY-MM', template:boolean, generated:'YYYY-MM-DD'}.
+ * Plantilla = todas las familias del catálogo, sin producción, sin pruebas, sin plan.
+ */
+function tpAuditXlsxModel(opts) {
+    opts = opts || {};
+    var months = tpAuditMonths(opts.from, opts.to);
+    var template = !!opts.template;
+    var model = { template: template, months: months, families: [], tests: [], undated: [],
+                  activities: TP_AUDIT_ACTIVITIES.slice(), generated: opts.generated || '',
+                  appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' };
+    if (!months.length) return model;
+    var pFrom = months[0].from, pTo = months[months.length - 1].to;
+    var byShort = {}, list = [];
+    var fam = function(cfg, short) {
+        short = short || tpFamilyShortLabel(cfg);
+        if (!short) return null;
+        if (!byShort[short]) {
+            byShort[short] = { short: short, key: cfg ? tpFamilyKeyForCfg(cfg) : '', reg: cfg ? (cfg.reg || '') : '',
+                               configs: 0, start: 0, vols: months.map(function() { return 0; }),
+                               planned: months.map(function() { return 0; }), platformReq: null, hasVolume: false, _descs: {} };
+            list.push(byShort[short]);
         }
+        return byShort[short];
+    };
+    tpConfigCatalog().forEach(function(cfg) {
+        var f = fam(cfg);
+        if (f && cfg.desc && !f._descs[cfg.desc]) { f._descs[cfg.desc] = true; f.configs++; }
     });
 
-    if (dayEvents.length === 0) {
-        detailEl.innerHTML = '<div class="tp-card" style="margin-top: var(--space-sm);text-align:center;padding: var(--space-xl);color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos el ' + dateLabel + '</div>';
-        // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
-        try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
-        return;
+    if (!template) {
+        // Producción: `cfg.m` está alineado con tpMonths(). Lo producido antes del periodo
+        // se suma al arranque del acumulado (los lotes ya exigidos no se vuelven a pedir).
+        var labels = tpMonths().map(function(l) {
+            var p = _tpParseMonthLabel(l);
+            return p ? (2000 + p.yy) + '-' + String(p.mo).padStart(2, '0') : null;
+        });
+        (tpState.planData || []).forEach(function(cfg) {
+            if (!cfg || cfg.paused) return;
+            var f = fam(cfg);
+            if (!f) return;
+            f.start += Number(cfg.hist) || 0;
+            (cfg.m || []).forEach(function(v, i) {
+                var ym = labels[i], n = Number(v) || 0;
+                if (!ym || !n) return;
+                if (ym < months[0].ym) f.start += n;
+                else {
+                    var k = months.findIndex(function(mo) { return mo.ym === ym; });
+                    if (k >= 0) f.vols[k] += n;
+                }
+            });
+            if (f.start || f.vols.some(Boolean)) f.hasVolume = true;
+        });
+        try {
+            tpBuildFamilies().forEach(function(bf) {
+                list.forEach(function(f) { if (f.key === bf.key) f.platformReq = bf.totalRequired; });
+            });
+        } catch (e) {}
+
+        var cal = tpCalendarTests(pFrom, pTo);
+        model.tests = cal.all.map(function(t) {
+            var f = fam(t.familyKey ? tpConfigByDesc(t.configCode) : null, t.familyShort || t.configCode);
+            return Object.assign({}, t, { label: _tpAuditTestLabel(t), family: f ? f.short : t.familyShort });
+        });
+        model.undated = cal.undated.map(function(t) { return Object.assign({}, t, { label: _tpAuditTestLabel(t) }); });
+
+        // Planeadas = filas de planes ACEPTADOS cuyo día de prueba cae en el mes (hechas o no).
+        var vistos = {};
+        (tpState.weeklyPlans || []).forEach(function(p) {
+            if (!p || !p.weekDate || vistos[p.weekDate]) return;
+            vistos[p.weekDate] = true;
+            var r = tpWeekPlanFor(p.weekDate);
+            if (!r || !r.accepted) return;
+            (r.plans || []).forEach(function(plan) {
+                (plan.items || []).forEach(function(it) {
+                    if (!it || !it.testDay) return;
+                    var iso = tpWeekDayIso(plan.weekDate, it.testDay);
+                    if (!iso || iso < pFrom || iso > pTo) return;
+                    var cfg = tpConfigByDesc(it.desc);
+                    var f = fam(cfg, cfg ? null : it.desc);
+                    var k = months.findIndex(function(mo) { return iso >= mo.from && iso <= mo.to; });
+                    if (f && k >= 0) f.planned[k]++;
+                });
+            });
+        });
     }
 
-    var html = '<div class="tp-card" style="margin-top: var(--space-sm);">';
-    html += '<div class="tp-card-title"><span style="font-size:12px;">📋 ' + dateLabel + ' (' + dayEvents.length + ' eventos)</span></div>';
-    dayEvents.forEach(function(ev) {
-        html += '<div style="display:flex;gap: var(--space-sm);align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--tp-border);">';
-        html += '<div style="font-size:14px;">' + ev.icon + '</div>';
-        html += '<div style="flex:1;">';
-        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:' + ev.color + ';">' + ev.desc + '</div>';
-        html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + ev.detail + '</div>';
-        html += '</div></div>';
-    });
-    html += '</div>';
+    var active = function(f) {
+        return f.hasVolume || f.planned.some(Boolean) || model.tests.some(function(t) { return t.family === f.short; });
+    };
+    list.forEach(function(f) { f._active = !template && active(f); delete f._descs; });
+    list.sort(function(a, b) { return (b._active - a._active) || a.short.localeCompare(b.short); });
+    model.families = list;
+    return model;
+}
 
-    detailEl.innerHTML = html;
-    // [v24] El detalle sale al pie del mes: llevarlo a la vista (en teléfono quedaba fuera).
-    try { detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+// ── El libro (PURO) ──────────────────────────────────────────────────────────
+
+var _TP_AX = {
+    title:  { font: { b: true, sz: 16, color: '1F2937' } },
+    sub:    { font: { i: true, sz: 10, color: '4B5563' } },
+    note:   { font: { sz: 10, color: '374151' }, align: { wrap: true, v: 'top' } },
+    h2:     { font: { b: true, sz: 12, color: '1F3A5F' } },
+    hdr:    { font: { b: true, color: 'FFFFFF' }, fill: '1F3A5F', border: 'thin', align: { h: 'center', v: 'center', wrap: true } },
+    hdrL:   { font: { b: true, color: 'FFFFFF' }, fill: '1F3A5F', border: 'thin', align: { v: 'center', wrap: true } },
+    fam:    { border: 'thin', align: { v: 'center' } },
+    famIn:  { border: 'thin', fill: 'FFF9DB', align: { v: 'center' } },
+    txt:    { border: 'thin', align: { h: 'center', v: 'center' } },
+    input:  { border: 'thin', fill: 'FFF9DB', align: { h: 'center' }, numFmt: '#,##0' },
+    calc:   { border: 'thin', fill: 'F3F4F6', align: { h: 'center' }, numFmt: '#,##0' },
+    pct:    { border: 'thin', fill: 'F3F4F6', align: { h: 'center' }, numFmt: '0%' },
+    total:  { border: 'thin', fill: 'E5E7EB', font: { b: true }, align: { h: 'center' }, numFmt: '#,##0' },
+    totalL: { border: 'thin', fill: 'E5E7EB', font: { b: true } },
+    day:    { border: 'thin', fill: 'DBEAFE', font: { b: true, color: '1E3A8A' }, align: { h: 'center' }, numFmt: '[$-409]ddd d mmm' },
+    dayOut: { border: 'thin', fill: 'F3F4F6', font: { color: '9CA3AF' }, align: { h: 'center' }, numFmt: '[$-409]ddd d mmm' },
+    slot:   { border: 'thin', fill: 'FFFDF2', font: { sz: 9 }, align: { v: 'center', wrap: true } },
+    slotV:  { border: 'thin', fill: 'FFFDF2', font: { sz: 9, color: '374151' }, align: { h: 'center', v: 'center' } },
+    slotOut:{ border: 'thin', fill: 'F3F4F6' },
+    date:   { border: 'thin', align: { h: 'center' }, numFmt: 'yyyy-mm-dd' }
+};
+
+// Color por norma (como los colores por región del Excel de 2025). El orden importa:
+// la primera regla que aplica gana el relleno, y PRE-EURO contiene "EURO-".
+var TP_AUDIT_REG_COLORS = [
+    { text: 'SULEV', fill: 'BFDBFE', label: 'SULEV (USA / Canada / Mexico)' },
+    { text: 'PRE-EURO', fill: 'FDBA74', label: 'PRE-EURO 7' },
+    { text: 'EURO-5', fill: 'FED7AA', label: 'EURO-5' },
+    { text: 'EURO-6', fill: 'FED7AA', label: 'EURO-6' },
+    { text: 'EURO-4', fill: 'FEF3C7', label: 'EURO-2 / 3 / 4' },
+    { text: 'EURO-3', fill: 'FEF3C7' },
+    { text: 'EURO-2', fill: 'FEF3C7' },
+    { text: 'BRAZIL', fill: 'BBF7D0', label: 'BRAZIL L8' },
+    { text: '220V', fill: 'E9D5FF', label: 'EV (120V / 220V)' },
+    { text: '120V', fill: 'E9D5FF' }
+];
+
+function _tpAuditCf(sqrefs, activities) {
+    var out = [];
+    sqrefs.forEach(function(sq) {
+        TP_AUDIT_REG_COLORS.forEach(function(c) { out.push({ sqref: sq, type: 'containsText', text: c.text, style: { fill: c.fill } }); });
+        activities.forEach(function(a) { out.push({ sqref: sq, type: 'containsText', text: a, style: { fill: 'E5E7EB' } }); });
+        out.push({ sqref: sq, type: 'containsText', text: '[', style: { font: { color: '6B7280' } } });
+    });
+    return out;
+}
+
+/** `IF(x<=0,0,MAX(1,ROUNDUP((x-2500)/5000,0))*3)` — tpFamilyRequired como fórmula de Excel. */
+function _tpAuditReqF(x) {
+    return 'IF((' + x + ')<=0,0,MAX(1,ROUNDUP(((' + x + ')-' + TP_COP_LOT_ROLLOVER + ')/' + TP_COP_LOT_UNITS + ',0))*' + TP_COP_LOT_TESTS + ')';
+}
+
+function _tpAuditQ(name) { return "'" + String(name).replace(/'/g, "''") + "'"; }
+
+/** El calendario de un mes: semanas lunes→domingo que lo cubren. PURA. */
+function _tpAuditWeeks(mo) {
+    var wd = tpIsoWeekday(mo.from);
+    var start = tpIsoAddDays(mo.from, -((wd + 6) % 7));
+    var weeks = [];
+    for (var d = start; d <= mo.to; d = tpIsoAddDays(d, 7)) {
+        weeks.push([0, 1, 2, 3, 4, 5, 6].map(function(i) { return tpIsoAddDays(d, i); }));
+    }
+    return weeks;
+}
+
+/**
+ * LA definición del libro de auditoría. PURA: modelo → spec de xwBuild.
+ * Hojas: Instructions · Summary · Projection · una por mes · Test Log · Lists (oculta).
+ * Familia i vive en el renglón 5+i de Projection, de cada mes y de Summary.
+ */
+function tpAuditXlsxSpec(model) {
+    var X = _TP_AX;
+    var months = model.months || [], fams = model.families || [], acts = model.activities || [];
+    var nM = months.length, nF = fams.length, nRows = nF + TP_AUDIT_EXTRA_ROWS;
+    var R0 = 5, lastFamRow = R0 + nRows - 1, totRow = lastFamRow + 1;
+    var famAt = function(i) { return i < nF ? fams[i] : null; };
+    var sheets = [];
+
+    // Valores ya calculados (los mismos que darán las fórmulas al abrir el archivo).
+    var reqByFam = fams.map(function(f) { return tpFamilyMonthlyRequired(f.vols, f.start); });
+
+    // Calendario: ubicar cada prueba en su día y medir cuántos renglones necesita cada semana.
+    var testsByDay = {};
+    (model.tests || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
+    var testedCount = months.map(function() { return {}; });
+
+    // ── Projection ──
+    var P = { name: 'Projection', tabColor: '1F3A5F', showGrid: false, cells: [], merges: [], cf: [], freeze: { row: R0, col: 2 },
+              cols: [{ min: 1, max: 1, width: 44 }, { min: 2, max: 2, width: 12 }, { min: 3, max: 3, width: 8 }, { min: 4, max: 4, width: 13 }],
+              rows: { 4: { height: 42 } }, print: { landscape: true, fitWidth: 1 } };
+    var cVol0 = 5, cTot = cVol0 + nM, cReq0 = cTot + 2, cReqTot = cReq0 + nM, cCum = cReqTot + 1, cPlat = cCum + 1;
+    P.cols.push({ min: cVol0, max: cTot, width: 9 }, { min: cTot + 1, max: cTot + 1, width: 2 },
+                { min: cReq0, max: cReqTot - 1, width: 8 }, { min: cReqTot, max: cPlat, width: 12 });
+    P.cells.push({ r: 1, c: 1, v: 'Production projection and required tests', s: X.title });
+    P.cells.push({ r: 2, c: 1, v: 'Yellow cells are input (units produced). Required per month = tests added by the cumulative production of that month: ' +
+        TP_COP_LOT_TESTS + ' tests per lot of ' + TP_COP_LOT_UNITS.toLocaleString('en-US') + ' units; the 2nd lot starts above 7,500 units (' +
+        TP_COP_LOT_ROLLOVER.toLocaleString('en-US') + '-unit offset).', s: X.sub });
+    P.cells.push({ r: 3, c: cVol0, v: 'Production (units)', s: X.h2 }, { r: 3, c: cReq0, v: 'Required tests', s: X.h2 });
+    [['Family', X.hdrL], ['Regulation', X.hdr], ['Configs', X.hdr], ['Produced before ' + (months[0] ? months[0].label : ''), X.hdr]].forEach(function(h, i) {
+        P.cells.push({ r: 4, c: i + 1, v: h[0], s: h[1] });
+    });
+    months.forEach(function(mo, j) {
+        P.cells.push({ r: 4, c: cVol0 + j, v: mo.label, s: X.hdr });
+        P.cells.push({ r: 4, c: cReq0 + j, v: mo.label, s: X.hdr });
+    });
+    P.cells.push({ r: 4, c: cTot, v: 'Total produced', s: X.hdr }, { r: 4, c: cReqTot, v: 'Required in period', s: X.hdr },
+                 { r: 4, c: cCum, v: 'Required to date (cumulative)', s: X.hdr }, { r: 4, c: cPlat, v: 'Platform REQ (whole production plan)', s: X.hdr });
+    for (var i = 0; i < nRows; i++) {
+        var r = R0 + i, f = famAt(i);
+        P.cells.push({ r: r, c: 1, v: f ? f.short : '', s: f ? X.fam : X.famIn });
+        P.cells.push({ r: r, c: 2, v: f ? f.reg : '', s: f ? X.txt : X.famIn });
+        P.cells.push({ r: r, c: 3, v: f ? f.configs : '', s: f ? X.txt : X.famIn });
+        P.cells.push({ r: r, c: 4, v: f && f.start ? f.start : '', s: X.input });
+        var cum = f ? f.start : 0;
+        months.forEach(function(mo, j) {
+            var vol = f ? f.vols[j] : 0;
+            cum += vol;
+            P.cells.push({ r: r, c: cVol0 + j, v: vol || '', s: X.input });
+            var cumF = '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j) + ')';
+            var prevF = j === 0 ? '$D' + r : '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j - 1) + ')';
+            P.cells.push({ r: r, c: cReq0 + j, f: _tpAuditReqF(cumF) + '-' + _tpAuditReqF(prevF), v: f ? reqByFam[i][j] : 0, s: X.calc });
+        });
+        P.cells.push({ r: r, c: cTot, f: '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cTot - 1) + ')', v: cum, s: X.calc });
+        P.cells.push({ r: r, c: cReqTot, f: 'SUM(' + xwRef(r, cReq0) + ':' + xwRef(r, cReqTot - 1) + ')',
+                       v: f ? reqByFam[i].reduce(function(a, b) { return a + b; }, 0) : 0, s: X.calc });
+        P.cells.push({ r: r, c: cCum, f: _tpAuditReqF(xwRef(r, cTot)), v: tpFamilyRequired(cum), s: X.calc });
+        P.cells.push({ r: r, c: cPlat, v: (f && f.platformReq != null) ? f.platformReq : '', s: X.txt });
+    }
+    P.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL }, { r: totRow, c: 2, v: '', s: X.totalL }, { r: totRow, c: 3, v: '', s: X.totalL });
+    for (var c = 4; c <= cPlat; c++) {
+        if (c === cTot + 1) continue;
+        var colSum = 0;
+        P.cells.forEach(function(x) { if (x.c === c && x.r >= R0 && x.r <= lastFamRow && typeof x.v === 'number') colSum += x.v; });
+        P.cells.push({ r: totRow, c: c, f: 'SUM(' + xwRef(R0, c) + ':' + xwRef(lastFamRow, c) + ')', v: colSum, s: X.total });
+    }
+    P.cf = _tpAuditCf(['A' + R0 + ':A' + lastFamRow], acts).concat([
+        { sqref: xwRange(R0, cReq0, lastFamRow, cCum), type: 'expression', formula: xwRef(R0, cReq0) + '=0', style: { font: { color: 'B0B7C3' } } }
+    ]);
+    P.autoFilter = 'A4:' + xwRef(lastFamRow, cPlat);
+    var projReq = function(i, j) { return 'Projection!' + xwRef(R0 + i, cReq0 + j, true); };
+
+    // ── Hojas por mes ──
+    var monthSheets = months.map(function(mo, k) {
+        var S = { name: mo.label, tabColor: '2563EB', showGrid: false, cells: [], merges: [], cf: [], validations: [],
+                  freeze: { row: R0, col: 1 }, rows: { 4: { height: 20 } }, print: { landscape: true, fitWidth: 1 }, zoom: 90,
+                  cols: [{ min: 1, max: 1, width: 42 }, { min: 2, max: 5, width: 10 }, { min: 6, max: 6, width: 2 }] };
+        var C0 = 7;
+        for (var d = 0; d < 7; d++) S.cols.push({ min: C0 + 2 * d, max: C0 + 2 * d, width: 28 }, { min: C0 + 2 * d + 1, max: C0 + 2 * d + 1, width: 10 });
+        S.cells.push({ r: 1, c: 1, v: 'Test Plan — ' + mo.name, s: X.title });
+        S.cells.push({ r: 2, c: 1, v: model.template ? 'Blank template. Yellow cells are input.' :
+            'Generated ' + model.generated + ' from KIA EmLab ' + model.appVersion + '. Yellow cells are input.', s: X.sub });
+        S.cells.push({ r: 1, c: C0, v: 'Calendar — every test on its TEST day', s: X.h2 });
+        S.cells.push({ r: 2, c: C0, v: 'Per day: Family (drop-down list, free text allowed) | VIN (last 8). [brackets] = does not count for the emissions REQ.', s: X.sub });
+        ['Family', 'Required', 'Planned', 'Tested', 'Gap'].forEach(function(h, i) { S.cells.push({ r: 4, c: i + 1, v: h, s: i ? X.hdr : X.hdrL }); });
+        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach(function(dn, d) {
+            S.cells.push({ r: 4, c: C0 + 2 * d, v: dn, s: X.hdr }, { r: 4, c: C0 + 2 * d + 1, v: '', s: X.hdr });
+            S.merges.push(xwRange(4, C0 + 2 * d, 4, C0 + 2 * d + 1));
+        });
+
+        // Calendario.
+        var r = R0, famSq = [];
+        var countLbl = testedCount[k];
+        _tpAuditWeeks(mo).forEach(function(week) {
+            var n = TP_AUDIT_SLOTS;
+            week.forEach(function(iso) { if (iso >= mo.from && iso <= mo.to) n = Math.max(n, (testsByDay[iso] || []).length); });
+            week.forEach(function(iso, d) {
+                var inM = iso >= mo.from && iso <= mo.to, cF = C0 + 2 * d;
+                S.cells.push({ r: r, c: cF, v: { date: iso }, s: inM ? X.day : X.dayOut }, { r: r, c: cF + 1, v: '', s: inM ? X.day : X.dayOut });
+                S.merges.push(xwRange(r, cF, r, cF + 1));
+                var list = inM ? (testsByDay[iso] || []) : [];
+                for (var s = 0; s < n; s++) {
+                    var t = list[s];
+                    S.cells.push({ r: r + 1 + s, c: cF, v: t ? t.label : '', s: inM ? X.slot : X.slotOut });
+                    S.cells.push({ r: r + 1 + s, c: cF + 1, v: t ? _tpCalVinTail(t.vin) : '', s: inM ? X.slotV : X.slotOut });
+                    if (t) { var key = String(t.label).toLowerCase(); countLbl[key] = (countLbl[key] || 0) + 1; }
+                }
+                if (inM) famSq.push(xwRange(r + 1, cF, r + n, cF));
+            });
+            r += n + 1;
+        });
+        var calEnd = r - 1, calRange = xwRange(R0, C0, calEnd, C0 + 13, true);
+        if (famSq.length) S.validations.push({ sqref: famSq.join(' '), list: 'Lists!$A$2:$A$' + (1 + acts.length + nRows), allowOther: true });
+
+        // Tabla de familias (renglón 5+i = familia i, igual que Projection).
+        for (var i = 0; i < nRows; i++) {
+            var rr = R0 + i, f = famAt(i), pr = 'Projection!$A$' + rr;
+            var tested = f ? (countLbl[f.short.toLowerCase()] || 0) : '';
+            var req = f ? reqByFam[i][k] : '';
+            S.cells.push({ r: rr, c: 1, f: 'IF(' + pr + '="","",' + pr + ')', v: f ? f.short : '', s: X.fam });
+            S.cells.push({ r: rr, c: 2, f: 'IF($A' + rr + '="","",' + projReq(i, k) + ')', v: req, s: X.calc });
+            S.cells.push({ r: rr, c: 3, v: f && f.planned[k] ? f.planned[k] : '', s: X.input });
+            S.cells.push({ r: rr, c: 4, f: 'IF($A' + rr + '="","",COUNTIF(' + calRange + ',$A' + rr + '))', v: tested, s: X.calc });
+            S.cells.push({ r: rr, c: 5, f: 'IF($A' + rr + '="","",MAX(0,N($B' + rr + ')-N($D' + rr + ')))',
+                           v: f ? Math.max(0, req - tested) : '', s: X.calc });
+        }
+        S.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL });
+        [2, 3, 4, 5].forEach(function(c) {
+            var sum = 0;
+            S.cells.forEach(function(x) { if (x.c === c && x.r >= R0 && x.r <= lastFamRow && typeof x.v === 'number') sum += x.v; });
+            S.cells.push({ r: totRow, c: c, f: 'SUM(' + xwRef(R0, c) + ':' + xwRef(lastFamRow, c) + ')', v: sum, s: X.total });
+        });
+        S.cells.push({ r: totRow + 1, c: 1, v: 'Calendar entries this month (all, incl. activities)', s: X.sub });
+        var allEntries = 0;
+        Object.keys(countLbl).forEach(function(kk) { allEntries += countLbl[kk]; });
+        if (famSq.length) S.cells.push({ r: totRow + 1, c: 4, f: famSq.map(function(sq) { return 'COUNTA(' + sq + ')'; }).join('+'),
+                                         v: allEntries, s: X.calc });
+        S.cf = _tpAuditCf([xwRange(R0, C0, calEnd, C0 + 13), 'A' + R0 + ':A' + lastFamRow], acts).concat([
+            { sqref: 'B' + R0 + ':E' + lastFamRow, type: 'expression', formula: 'B' + R0 + '=0', style: { font: { color: 'B0B7C3' } } },
+            { sqref: 'E' + R0 + ':E' + lastFamRow, type: 'expression', formula: 'N(E' + R0 + ')>0', style: { font: { b: true, color: 'B3261E' } } }
+        ]);
+        return S;
+    });
+
+    // ── Summary ──
+    var SM = { name: 'Summary', active: true, tabColor: '0F7A3D', showGrid: false, cells: [], merges: [], cf: [], freeze: { row: R0, col: 2 },
+               cols: [{ min: 1, max: 1, width: 44 }, { min: 2, max: 2, width: 12 }, { min: 3, max: 7, width: 10 }, { min: 8, max: 7 + nM, width: 8 }],
+               rows: { 4: { height: 32 } }, print: { landscape: true, fitWidth: 1 } };
+    SM.cells.push({ r: 1, c: 1, v: 'Test Plan ' + (months[0] ? months[0].label : '') + ' to ' + (months[nM - 1] ? months[nM - 1].label : '') + ' — Summary', s: X.title });
+    SM.cells.push({ r: 2, c: 1, v: model.template ? 'Blank template — fill Projection (production) and each month (calendar and Planned).' :
+        'Generated ' + model.generated + ' from KIA EmLab ' + model.appVersion + '. Families = test families of the platform (body type included).', s: X.sub });
+    SM.cells.push({ r: 3, c: 8, v: 'Tested per month', s: X.h2 });
+    ['Family', 'Regulation', 'Required', 'Planned', 'Tested', 'Gap', 'Progress'].forEach(function(h, i) { SM.cells.push({ r: 4, c: i + 1, v: h, s: i ? X.hdr : X.hdrL }); });
+    months.forEach(function(mo, j) { SM.cells.push({ r: 4, c: 8 + j, v: mo.label, s: X.hdr }); });
+    var sumTot = [0, 0, 0, 0];
+    for (var i2 = 0; i2 < nRows; i2++) {
+        var rs = R0 + i2, f2 = famAt(i2), pa = 'Projection!$A$' + rs;
+        var reqT = f2 ? reqByFam[i2].reduce(function(a, b) { return a + b; }, 0) : 0;
+        var plT = f2 ? f2.planned.reduce(function(a, b) { return a + b; }, 0) : 0;
+        var teT = 0;
+        months.forEach(function(mo, j) {
+            var n = f2 ? (testedCount[j][f2.short.toLowerCase()] || 0) : 0;
+            teT += n;
+            SM.cells.push({ r: rs, c: 8 + j, f: 'IF($A' + rs + '="","",' + _tpAuditQ(mo.label) + '!$D$' + rs + ')', v: f2 ? n : '', s: X.calc });
+        });
+        var monthsRef = function(col) { return months.map(function(mo) { return 'N(' + _tpAuditQ(mo.label) + '!$' + col + '$' + rs + ')'; }).join('+') || '0'; };
+        SM.cells.push({ r: rs, c: 1, f: 'IF(' + pa + '="","",' + pa + ')', v: f2 ? f2.short : '', s: X.fam });
+        SM.cells.push({ r: rs, c: 2, f: 'IF(Projection!$B$' + rs + '="","",Projection!$B$' + rs + ')', v: f2 ? f2.reg : '', s: X.txt });
+        SM.cells.push({ r: rs, c: 3, f: 'IF($A' + rs + '="","",' + 'Projection!' + xwRef(rs, cReqTot, true) + ')', v: f2 ? reqT : '', s: X.calc });
+        SM.cells.push({ r: rs, c: 4, f: 'IF($A' + rs + '="","",' + monthsRef('C') + ')', v: f2 ? plT : '', s: X.calc });
+        SM.cells.push({ r: rs, c: 5, f: 'IF($A' + rs + '="","",' + monthsRef('D') + ')', v: f2 ? teT : '', s: X.calc });
+        SM.cells.push({ r: rs, c: 6, f: 'IF($A' + rs + '="","",MAX(0,C' + rs + '-E' + rs + '))', v: f2 ? Math.max(0, reqT - teT) : '', s: X.calc });
+        SM.cells.push({ r: rs, c: 7, f: 'IF(N(C' + rs + ')=0,"",MIN(1,E' + rs + '/C' + rs + '))', v: (f2 && reqT) ? Math.min(1, teT / reqT) : '', s: X.pct });
+        if (f2) { sumTot[0] += reqT; sumTot[1] += plT; sumTot[2] += teT; sumTot[3] += Math.max(0, reqT - teT); }
+    }
+    SM.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL }, { r: totRow, c: 2, v: '', s: X.totalL });
+    [3, 4, 5, 6].forEach(function(c, i) { SM.cells.push({ r: totRow, c: c, f: 'SUM(' + xwRef(R0, c) + ':' + xwRef(lastFamRow, c) + ')', v: sumTot[i], s: X.total }); });
+    SM.cells.push({ r: totRow, c: 7, f: 'IF(C' + totRow + '=0,"",MIN(1,E' + totRow + '/C' + totRow + '))',
+                    v: sumTot[0] ? Math.min(1, sumTot[2] / sumTot[0]) : '', s: X.pct });
+    months.forEach(function(mo, j) {
+        var s = 0; SM.cells.forEach(function(x) { if (x.c === 8 + j && x.r >= R0 && x.r <= lastFamRow && typeof x.v === 'number') s += x.v; });
+        SM.cells.push({ r: totRow, c: 8 + j, f: 'SUM(' + xwRef(R0, 8 + j) + ':' + xwRef(lastFamRow, 8 + j) + ')', v: s, s: X.total });
+    });
+    SM.autoFilter = 'A4:' + xwRef(lastFamRow, 7 + nM);
+    SM.cf = _tpAuditCf(['A' + R0 + ':A' + lastFamRow], acts).concat([
+        { sqref: 'G' + R0 + ':G' + totRow, type: 'expression', formula: 'AND(G' + R0 + '<>"",G' + R0 + '>=1)', style: { fill: 'BBF7D0' } },
+        { sqref: 'G' + R0 + ':G' + totRow, type: 'expression', formula: 'AND(G' + R0 + '<>"",G' + R0 + '<1)', style: { fill: 'FEF3C7' } },
+        { sqref: 'F' + R0 + ':F' + lastFamRow, type: 'expression', formula: 'N(F' + R0 + ')>0', style: { font: { b: true, color: 'B3261E' } } },
+        { sqref: xwRange(R0, 3, lastFamRow, 7 + nM), type: 'expression', formula: 'C' + R0 + '=0', style: { font: { color: 'B0B7C3' } } }
+    ]);
+
+    // ── Test Log ──
+    var TL = { name: 'Test Log', tabColor: '6B7280', showGrid: false, cells: [], cf: [], freeze: { row: R0, col: 1 },
+               cols: [{ min: 1, max: 1, width: 12 }, { min: 2, max: 2, width: 6 }, { min: 3, max: 3, width: 44 }, { min: 4, max: 4, width: 60 },
+                      { min: 5, max: 5, width: 20 }, { min: 6, max: 6, width: 16 }, { min: 7, max: 7, width: 14 }, { min: 8, max: 8, width: 30 }, { min: 9, max: 9, width: 14 }] };
+    TL.cells.push({ r: 1, c: 1, v: 'Test Log — one row per test, dated by its TEST day', s: X.title });
+    TL.cells.push({ r: 2, c: 1, v: 'Release and approval dates are not used: a test run on Tuesday and approved on Thursday is listed on Tuesday.', s: X.sub });
+    var hdrTL = ['Test date', 'Day', 'Family', 'Configuration code', 'VIN', 'Purpose', 'Counts for REQ', 'Status', 'Source'];
+    hdrTL.forEach(function(h, i) { TL.cells.push({ r: 4, c: i + 1, v: h, s: i === 2 || i === 3 ? X.hdrL : X.hdr }); });
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var logRow = function(r, t, dated) {
+        TL.cells.push({ r: r, c: 1, v: dated ? { date: t.date } : '—', s: X.date });
+        TL.cells.push({ r: r, c: 2, v: dated ? DOW[tpIsoWeekday(t.date)] : '', s: X.txt });
+        TL.cells.push({ r: r, c: 3, v: t.familyShort || '', s: X.fam });
+        TL.cells.push({ r: r, c: 4, v: t.configCode || '', s: X.fam });
+        TL.cells.push({ r: r, c: 5, v: t.vin || '', s: X.txt });
+        TL.cells.push({ r: r, c: 6, v: _TP_AUDIT_PURPOSE[t.purpose] || t.purpose || '', s: X.txt });
+        TL.cells.push({ r: r, c: 7, v: t.countsForReq === false ? (t.reqNote === 'purpose' ? 'No (purpose)' : 'No (not CoP-valid)') : 'Yes', s: X.txt });
+        TL.cells.push({ r: r, c: 8, v: _TP_AUDIT_STATUS[t.status] || t.status || '', s: X.fam });
+        TL.cells.push({ r: r, c: 9, v: _TP_AUDIT_SOURCE[t.source] || t.source || '', s: X.txt });
+    };
+    var tests = model.tests || [];
+    tests.forEach(function(t, i) { logRow(R0 + i, t, true); });
+    var lastLog = R0 + Math.max(tests.length, 1) - 1;
+    if (!tests.length) TL.cells.push({ r: R0, c: 1, v: model.template ? '' : 'No tests in the period.', s: X.sub });
+    TL.autoFilter = 'A4:' + xwRef(lastLog, 9);
+    TL.cf = _tpAuditCf(['C' + R0 + ':C' + lastLog], acts).concat([
+        { sqref: 'G' + R0 + ':G' + lastLog, type: 'containsText', text: 'No', style: { font: { b: true, color: '9A5B00' } } }]);
+    if ((model.undated || []).length) {
+        var ru = lastLog + 3;
+        TL.cells.push({ r: ru, c: 1, v: 'Tests without a test date (' + model.undated.length + ') — not placed in any calendar', s: X.h2 });
+        hdrTL.forEach(function(h, i) { TL.cells.push({ r: ru + 1, c: i + 1, v: h, s: X.hdr }); });
+        model.undated.forEach(function(t, i) { logRow(ru + 2 + i, t, false); });
+    }
+
+    // ── Instructions ──
+    var IN = { name: 'Instructions', tabColor: '9CA3AF', showGrid: false, cells: [], cols: [{ min: 1, max: 1, width: 4 }, { min: 2, max: 2, width: 120 }] };
+    var lines = [
+        ['title', 'KIA Emissions Laboratory — Test Plan workbook'],
+        ['sub', model.template ? 'Blank template generated by KIA EmLab ' + model.appVersion + '.'
+                               : 'Generated ' + model.generated + ' by KIA EmLab ' + model.appVersion + ' (Plan → Calendar → Excel for audit).'],
+        ['', ''],
+        ['h2', 'Sheets'],
+        ['', 'Summary — one row per family: Required, Planned and Tested in the period, Gap and Progress, and tests per month.'],
+        ['', 'Projection — units produced per family and month (yellow, input). Required tests are calculated from it.'],
+        ['', 'One sheet per month — left: the families with Required / Planned / Tested / Gap; right: the calendar, Monday to Sunday.'],
+        ['', 'Test Log — every test of the period with its test date, family, configuration, VIN, purpose and status.'],
+        ['', ''],
+        ['h2', 'Rules'],
+        ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
+        ['', 'Required = ' + TP_COP_LOT_TESTS + ' tests per lot of ' + TP_COP_LOT_UNITS.toLocaleString('en-US') + ' units per family; the second lot starts above 7,500 units. ' +
+              'Each month asks for the tests its CUMULATIVE production adds (production before the period is in "Produced before").'],
+        ['', 'Tested = how many times the family appears in the month calendar (exact name). An entry with [brackets] does not count for the emissions REQ (OBD II purpose, or not valid for CoP).'],
+        ['', 'A family is the platform test family: model, engine, engine package, environment package, transmission, model year, regulation and body type.'],
+        ['', ''],
+        ['h2', 'Filling it by hand'],
+        ['', '1. Projection: type the units produced per month (and before the period) for each family. Add new families in the blank yellow rows at the bottom.'],
+        ['', '2. Each month: pick the family from the drop-down list in the day the test was run, and type the last 8 digits of the VIN. ' +
+              'Activities (Quality Checks, Preconditioning, …) are in the same list and do not count as tests.'],
+        ['', '3. Planned (yellow): tests committed for the month. Summary updates by itself.'],
+        ['', ''],
+        ['h2', 'Colors (by regulation)']
+    ];
+    var rI = 1;
+    lines.forEach(function(l) {
+        IN.cells.push({ r: rI, c: 2, v: l[1], s: l[0] === 'title' ? X.title : l[0] === 'sub' ? X.sub : l[0] === 'h2' ? X.h2 : X.note });
+        rI++;
+    });
+    TP_AUDIT_REG_COLORS.filter(function(c) { return c.label; }).forEach(function(c) {
+        IN.cells.push({ r: rI, c: 1, v: '', s: { fill: c.fill, border: 'thin' } }, { r: rI, c: 2, v: c.label, s: X.note });
+        rI++;
+    });
+    IN.cells.push({ r: rI, c: 1, v: '', s: { fill: 'E5E7EB', border: 'thin' } }, { r: rI, c: 2, v: 'Lab activity (not a test)', s: X.note }); rI++;
+    IN.cells.push({ r: rI, c: 1, v: '', s: { fill: 'FFF9DB', border: 'thin' } }, { r: rI, c: 2, v: 'Input cell', s: X.note });
+
+    // ── Lists (oculta): fuente de las listas desplegables ──
+    var L = { name: 'Lists', hidden: true, cells: [{ r: 1, c: 1, v: 'Calendar entries' }], cols: [{ min: 1, max: 1, width: 44 }] };
+    acts.forEach(function(a, i) { L.cells.push({ r: 2 + i, c: 1, v: a }); });
+    for (var i3 = 0; i3 < nRows; i3++) {
+        var f3 = famAt(i3), pa3 = 'Projection!$A$' + (R0 + i3);
+        L.cells.push({ r: 2 + acts.length + i3, c: 1, f: 'IF(' + pa3 + '="","",' + pa3 + ')', v: f3 ? f3.short : '' });
+    }
+
+    sheets.push(IN, SM, P);
+    monthSheets.forEach(function(s) { sheets.push(s); });
+    sheets.push(TL, L);
+    return { title: 'Test Plan', creator: 'KIA EmLab', appVersion: model.appVersion, sheets: sheets };
+}
+
+/** Exportar desde la plataforma: elige el periodo y descarga el .xlsx. */
+function tpAuditXlsxExportOpen() {
+    var y = new Date().getFullYear();
+    var body = '<div class="tp-audit-xlsx">' +
+        '<p class="tp-armar-hint">Un libro de Excel en inglés para el auditor: resumen, proyección, una hoja por mes con su calendario ' +
+        '(cada prueba en su <strong>día de prueba</strong>) y la bitácora de pruebas. Se puede seguir llenando a mano.</p>' +
+        '<div class="tp-audit-xlsx-row"><label for="tp-audit-from">Desde</label><input type="month" id="tp-audit-from" value="' + y + '-01"></div>' +
+        '<div class="tp-audit-xlsx-row"><label for="tp-audit-to">Hasta</label><input type="month" id="tp-audit-to" value="' + y + '-12"></div>' +
+        '<label class="tp-audit-xlsx-check"><input type="checkbox" id="tp-audit-template"> Plantilla en blanco (sin producción ni pruebas del laboratorio)</label>' +
+        '</div>';
+    showModal({ title: '📤 Excel para auditoría', type: 'info', body: body, buttons: [
+        { label: 'Cancelar', cls: '' },
+        { label: '📤 Descargar', cls: 'btn-primary', onclick: function() { tpAuditXlsxExport(); } }
+    ] });
+}
+
+function tpAuditXlsxExport(opts) {
+    opts = opts || {};
+    var gv = function(id) { var e = document.getElementById(id); return e ? e.value : ''; };
+    var from = opts.from || gv('tp-audit-from'), to = opts.to || gv('tp-audit-to');
+    var tplEl = document.getElementById('tp-audit-template');
+    var template = opts.template != null ? !!opts.template : !!(tplEl && tplEl.checked);
+    if (!/^\d{4}-\d{2}$/.test(from) || !/^\d{4}-\d{2}$/.test(to) || from > to) {
+        var bad = document.getElementById(/^\d{4}-\d{2}$/.test(from) ? 'tp-audit-to' : 'tp-audit-from');
+        if (bad && typeof uiInvalid === 'function') return uiInvalid(bad, 'Elige un mes de inicio y uno de fin (el fin no puede ser antes del inicio).');
+        showToast('Elige un mes de inicio y uno de fin.', 'error');
+        return false;
+    }
+    var months = tpAuditMonths(from, to);
+    if (months.length >= TP_AUDIT_MAX_MONTHS && months[months.length - 1].ym !== to) {
+        showToast('El libro llega a lo más a ' + TP_AUDIT_MAX_MONTHS + ' meses; se cortó en ' + months[months.length - 1].label + '.', 'warning');
+    }
+    var model = tpAuditXlsxModel({ from: from, to: to, template: template, generated: (typeof localToday === 'function') ? localToday() : '' });
+    var name = 'Test_Plan_' + (template ? 'Template_' : '') + from + '_' + to + '.xlsx';
+    var m = document.getElementById('globalModal'); if (m) m.remove();
+    return xwBuildCompressed(tpAuditXlsxSpec(model)).then(function(bytes) {
+        _tpAuditDownload(bytes, name);
+        if (typeof auditLog === 'function') auditLog('tp', 'calendario_xlsx_exportado', name,
+            { from: from, to: to, template: template, families: model.families.length, tests: model.tests.length, undated: model.undated.length });
+        showToast('Descargado: ' + name + (model.undated.length ? ' · ' + model.undated.length + ' prueba(s) sin fecha de prueba van al final de Test Log' : ''), 'success');
+        return true;
+    }).catch(function(e) {
+        showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+        return false;
+    });
+}
+
+function _tpAuditDownload(bytes, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
 }
 
 
@@ -10721,7 +11397,10 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'tp-calendar': {
         title: 'Calendario',
-        text: 'Las pruebas planificadas y ejecutadas por día del mes, en un vistazo mensual.'
+        text: 'Cada prueba realizada aparece en su DÍA DE PRUEBA (la fecha de prueba de Operación), nunca en el día en que se liberó o aprobó. En ámbar, lo planeado que falta; en gris, lo de una propuesta sin aceptar.',
+        tips: ['Toca un día para ver sus pruebas con VIN; el VIN abre la ficha del vehículo.',
+               'Una prueba sin fecha de prueba no se puede poner en el calendario: se lista abajo para completarla.',
+               '📤 Excel para auditoría arma el libro en inglés (resumen, proyección, un mes por hoja y la bitácora). Con "Plantilla en blanco" sale el mismo libro vacío para llenarse a mano.']
     },
     'tp-weekhistory': {
         title: 'Historial semanal',
