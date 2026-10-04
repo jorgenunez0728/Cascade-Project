@@ -20,6 +20,25 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.32.1 — Excel para auditoría: Planned y Tested salen del calendario (2026-10-04)
+
+### Cambió
+- **Planned ya no se teclea**: en cada hoja del mes cuenta cuántas veces aparece la familia en el
+  calendario, con o sin VIN. Un mes que se llenó sin plan también tiene su Planned, y Planned nunca
+  queda por debajo de Tested.
+- **Tested cuenta solo las que tienen VIN** en la celda de al lado. Escribir el VIN es lo que
+  convierte una planeada en probada.
+- La exportación pone en el calendario lo **pendiente del plan aceptado**, en su día de prueba y
+  sin VIN. Lo ya hecho no se repite: sale una sola vez, con su VIN.
+- El VIN del calendario son los **últimos 6** (el número de serie), en el Excel y en Plan → Calendario.
+
+### Para desarrollo
+- Planned = `COUNTIF(calendario, familia)`; Tested = `COUNTIFS(columnas de familia, familia,
+  columnas de VIN, "<>")` con los dos rangos corridos una columna (cada familia con su VIN).
+  Los valores ya calculados que escribe `tpAuditXlsxSpec` siguen el mismo criterio.
+- `model.planned`: filas pendientes de planes aceptados (sin las completadas ni las vinculadas a un
+  vehículo que ya aparece como prueba). `TP_VIN_TAIL` = 6.
+
 ## 2.32.0 — El calendario por día de prueba y el Excel para auditoría (2026-10-04)
 
 ### Arreglado

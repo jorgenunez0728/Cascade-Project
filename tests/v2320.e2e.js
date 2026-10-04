@@ -72,7 +72,7 @@ const SEED = () => {
         chk('lo planeado del viernes 18 va en ámbar', cal.d18.plan === 1 && cal.d18.done === 0, JSON.stringify(cal.d18));
         chk('la prueba sin fecha de prueba se declara', /1 prueba sin fecha de prueba/.test(cal.undated) && /KNAE2E0000000NOFE/.test(cal.undated), cal.undated);
         chk('sin desborde horizontal', cal.overflow <= 1, String(cal.overflow));
-        if (!vp.mobile) chk('la píldora trae el VIN corto', /00012345/.test(cal.d15.txt), cal.d15.txt);
+        if (!vp.mobile) chk('la píldora trae los últimos 6 del VIN', /012345/.test(cal.d15.txt) && !/0012345/.test(cal.d15.txt), cal.d15.txt);
 
         await page.click('[data-cal-day="2026-09-15"]');
         await page.waitForTimeout(400);
@@ -101,12 +101,15 @@ const SEED = () => {
             const g = await vetsReadWorkbook(u8, null);
             const sep = g['Sep-26'] || {};
             let martes = '';
-            Object.keys(sep).forEach(r => Object.keys(sep[r]).forEach(c => { if (/\[?00012345/.test(String(sep[r][c]))) martes = r + ':' + c; }));
-            return { hojas: Object.keys(g), martes, log: JSON.stringify(g['Test Log'] || {}).length };
+            Object.keys(sep).forEach(r => Object.keys(sep[r]).forEach(c => { if (String(sep[r][c]) === '012345') martes = r + ':' + c; }));
+            // Viernes 18 (columnas O/P = 15/16): lo planeado del plan aceptado, sin VIN.
+            const vie = { fam: (sep[20] || {})[15] || '', vin: (sep[20] || {})[16] || '' };
+            return { hojas: Object.keys(g), martes, vie, log: JSON.stringify(g['Test Log'] || {}).length };
         }, buf.toString('base64'));
         chk('hojas del libro', leido.hojas.join() === 'Instructions,Summary,Projection,Sep-26,Oct-26,Test Log,Lists', leido.hojas.join());
         // Semana del 14-sep es la 3ª (renglón 5 + 2·7 = 19); martes = columnas I/J (9/10): VIN en 20:10.
-        chk('el VIN quedó en el martes 15 de la hoja Sep-26', leido.martes === '20:10', leido.martes);
+        chk('el VIN (últimos 6) quedó en el martes 15 de la hoja Sep-26', leido.martes === '20:10', leido.martes);
+        chk('lo planeado del viernes 18 está en su día, sin VIN', /^CL4 1\.0 KAPPA PE 6MT MY26 PRE-EURO 7 5DR$/.test(leido.vie.fam) && !leido.vie.vin, JSON.stringify(leido.vie));
         const aud = await page.evaluate(() => (auditGetTrail ? auditGetTrail() : []).filter(e => e.action === 'calendario_xlsx_exportado').length);
         chk('la exportación queda en el historial de cambios', aud >= 1, String(aud));
 

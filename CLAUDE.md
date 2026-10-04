@@ -2869,6 +2869,16 @@ abría, y Vincular escondía vehículos).
 - Al cambiar el libro, verificar con LibreOffice forzando el recálculo (`OOXMLRecalcMode = 0` en
   un perfil propio): los valores recalculados deben ser idénticos a los `v` que escribe la app.
 
+## 2.32.1 — Planned y Tested del libro salen del calendario
+
+- En las hojas del mes **Planned y Tested son fórmulas sobre el calendario**, no captura:
+  Planned = la familia aparece (con o sin VIN), Tested = aparece **con VIN al lado** (COUNTIFS con
+  el rango de familia y el de VIN corridos una columna). Escribir el VIN es lo que hace "probada"
+  una entrada. No volver a poner Planned como celda amarilla: un mes sin plan quedaba en 0.
+- La exportación pone lo pendiente de los planes ACEPTADOS sin VIN (`model.planned`); lo hecho sale
+  una sola vez, como prueba con VIN.
+- `TP_VIN_TAIL` (6) es el VIN corto en todos lados (`_tpCalVinTail`).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).

@@ -9833,7 +9833,9 @@ function _tpCalMonthRange(year, month) {
     return { from: from, to: year + '-' + String(month + 1).padStart(2, '0') + '-' + String(last).padStart(2, '0'), days: last };
 }
 
-function _tpCalVinTail(vin) { vin = String(vin || ''); return vin.length > 8 ? vin.slice(-8) : vin; }
+/** [2.32.1] Los últimos 6 del VIN (el número de serie): con eso el laboratorio reconoce la unidad. */
+var TP_VIN_TAIL = 6;
+function _tpCalVinTail(vin) { vin = String(vin || '').trim(); return vin.length > TP_VIN_TAIL ? vin.slice(-TP_VIN_TAIL) : vin; }
 
 function tpRenderCalendar(el) {
     var now = new Date();
@@ -10003,7 +10005,7 @@ function tpAuditXlsxModel(opts) {
     opts = opts || {};
     var months = tpAuditMonths(opts.from, opts.to);
     var template = !!opts.template;
-    var model = { template: template, months: months, families: [], tests: [], undated: [],
+    var model = { template: template, months: months, families: [], tests: [], undated: [], planned: [],
                   activities: TP_AUDIT_ACTIVITIES.slice(), generated: opts.generated || '',
                   appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' };
     if (!months.length) return model;
@@ -10015,7 +10017,7 @@ function tpAuditXlsxModel(opts) {
         if (!byShort[short]) {
             byShort[short] = { short: short, key: cfg ? tpFamilyKeyForCfg(cfg) : '', reg: cfg ? (cfg.reg || '') : '',
                                configs: 0, start: 0, vols: months.map(function() { return 0; }),
-                               planned: months.map(function() { return 0; }), platformReq: null, hasVolume: false, _descs: {} };
+                               platformReq: null, hasVolume: false, hasPlan: false, _descs: {} };
             list.push(byShort[short]);
         }
         return byShort[short];
@@ -10061,7 +10063,13 @@ function tpAuditXlsxModel(opts) {
         });
         model.undated = cal.undated.map(function(t) { return Object.assign({}, t, { label: _tpAuditTestLabel(t) }); });
 
-        // Planeadas = filas de planes ACEPTADOS cuyo día de prueba cae en el mes (hechas o no).
+        // [2.32.1] Lo PENDIENTE de los planes ACEPTADOS va al calendario en su día de prueba,
+        // SIN VIN: cuenta en Planned y no en Tested. Lo ya hecho no se repite: ya está como
+        // prueba realizada (con VIN). Una fila vinculada a un vehículo que ya aparece como
+        // prueba tampoco se repite.
+        var enCal = {};
+        model.tests.forEach(function(t) { if (t.vehicleId != null) enCal[String(t.vehicleId)] = true; });
+        model.planned = [];
         var vistos = {};
         (tpState.weeklyPlans || []).forEach(function(p) {
             if (!p || !p.weekDate || vistos[p.weekDate]) return;
@@ -10070,20 +10078,26 @@ function tpAuditXlsxModel(opts) {
             if (!r || !r.accepted) return;
             (r.plans || []).forEach(function(plan) {
                 (plan.items || []).forEach(function(it) {
-                    if (!it || !it.testDay) return;
+                    if (!it || !it.testDay || it.completed) return;
+                    if (it.linkedVehicleId != null && enCal[String(it.linkedVehicleId)]) return;
                     var iso = tpWeekDayIso(plan.weekDate, it.testDay);
                     if (!iso || iso < pFrom || iso > pTo) return;
                     var cfg = tpConfigByDesc(it.desc);
                     var f = fam(cfg, cfg ? null : it.desc);
-                    var k = months.findIndex(function(mo) { return iso >= mo.from && iso <= mo.to; });
-                    if (f && k >= 0) f.planned[k]++;
+                    if (!f) return;
+                    f.hasPlan = true;
+                    var pt = { date: iso, familyShort: f.short, configCode: it.desc, vin: '', purpose: it.purpose || '',
+                               countsForReq: !it.purpose || typeof tpPurposeCountsForReq !== 'function' || tpPurposeCountsForReq(it.purpose),
+                               reqNote: 'purpose', planned: true };
+                    pt.label = _tpAuditTestLabel(pt);
+                    model.planned.push(pt);
                 });
             });
         });
     }
 
     var active = function(f) {
-        return f.hasVolume || f.planned.some(Boolean) || model.tests.some(function(t) { return t.family === f.short; });
+        return f.hasVolume || f.hasPlan || model.tests.some(function(t) { return t.family === f.short; });
     };
     list.forEach(function(f) { f._active = !template && active(f); delete f._descs; });
     list.sort(function(a, b) { return (b._active - a._active) || a.short.localeCompare(b.short); });
@@ -10176,9 +10190,13 @@ function tpAuditXlsxSpec(model) {
     var reqByFam = fams.map(function(f) { return tpFamilyMonthlyRequired(f.vols, f.start); });
 
     // Calendario: ubicar cada prueba en su día y medir cuántos renglones necesita cada semana.
+    // Por día: primero lo probado (con VIN), después lo planeado pendiente (sin VIN).
     var testsByDay = {};
-    (model.tests || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
+    (model.tests || []).concat(model.planned || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
+    // Lo que darán las fórmulas: Planned = apariciones de la familia en el calendario (con o
+    // sin VIN); Tested = apariciones con VIN al lado. Mismo criterio que COUNTIF / COUNTIFS.
     var testedCount = months.map(function() { return {}; });
+    var plannedCount = months.map(function() { return {}; });
 
     // ── Projection ──
     var P = { name: 'Projection', tabColor: '1F3A5F', showGrid: false, cells: [], merges: [], cf: [], freeze: { row: R0, col: 2 },
@@ -10243,10 +10261,10 @@ function tpAuditXlsxSpec(model) {
         var C0 = 7;
         for (var d = 0; d < 7; d++) S.cols.push({ min: C0 + 2 * d, max: C0 + 2 * d, width: 28 }, { min: C0 + 2 * d + 1, max: C0 + 2 * d + 1, width: 10 });
         S.cells.push({ r: 1, c: 1, v: 'Test Plan — ' + mo.name, s: X.title });
-        S.cells.push({ r: 2, c: 1, v: model.template ? 'Blank template. Yellow cells are input.' :
-            'Generated ' + model.generated + ' from KIA EmLab ' + model.appVersion + '. Yellow cells are input.', s: X.sub });
+        S.cells.push({ r: 2, c: 1, v: (model.template ? 'Blank template. ' : 'Generated ' + model.generated + ' from KIA EmLab ' + model.appVersion + '. ') +
+            'Planned = times the family appears in the calendar; Tested = only those with a VIN next to it.', s: X.sub });
         S.cells.push({ r: 1, c: C0, v: 'Calendar — every test on its TEST day', s: X.h2 });
-        S.cells.push({ r: 2, c: C0, v: 'Per day: Family (drop-down list, free text allowed) | VIN (last 8). [brackets] = does not count for the emissions REQ.', s: X.sub });
+        S.cells.push({ r: 2, c: C0, v: 'Per day: Family (drop-down list, free text allowed) | VIN (last ' + TP_VIN_TAIL + ' digits). No VIN = planned; with VIN = tested. [brackets] = does not count for the emissions REQ.', s: X.sub });
         ['Family', 'Required', 'Planned', 'Tested', 'Gap'].forEach(function(h, i) { S.cells.push({ r: 4, c: i + 1, v: h, s: i ? X.hdr : X.hdrL }); });
         ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach(function(dn, d) {
             S.cells.push({ r: 4, c: C0 + 2 * d, v: dn, s: X.hdr }, { r: 4, c: C0 + 2 * d + 1, v: '', s: X.hdr });
@@ -10255,7 +10273,7 @@ function tpAuditXlsxSpec(model) {
 
         // Calendario.
         var r = R0, famSq = [];
-        var countLbl = testedCount[k];
+        var countLbl = testedCount[k], countPl = plannedCount[k];
         _tpAuditWeeks(mo).forEach(function(week) {
             var n = TP_AUDIT_SLOTS;
             week.forEach(function(iso) { if (iso >= mo.from && iso <= mo.to) n = Math.max(n, (testsByDay[iso] || []).length); });
@@ -10268,24 +10286,33 @@ function tpAuditXlsxSpec(model) {
                     var t = list[s];
                     S.cells.push({ r: r + 1 + s, c: cF, v: t ? t.label : '', s: inM ? X.slot : X.slotOut });
                     S.cells.push({ r: r + 1 + s, c: cF + 1, v: t ? _tpCalVinTail(t.vin) : '', s: inM ? X.slotV : X.slotOut });
-                    if (t) { var key = String(t.label).toLowerCase(); countLbl[key] = (countLbl[key] || 0) + 1; }
+                    if (t) {
+                        var key = String(t.label).toLowerCase();
+                        countPl[key] = (countPl[key] || 0) + 1;
+                        if (_tpCalVinTail(t.vin)) countLbl[key] = (countLbl[key] || 0) + 1;
+                    }
                 }
                 if (inM) famSq.push(xwRange(r + 1, cF, r + n, cF));
             });
             r += n + 1;
         });
         var calEnd = r - 1, calRange = xwRange(R0, C0, calEnd, C0 + 13, true);
+        // Familia y VIN como dos rangos del mismo tamaño corridos una columna: COUNTIFS empareja
+        // cada celda con la de su derecha (Family ↔ VIN). Las columnas de VIN quedan emparejadas
+        // con la familia del día siguiente, pero un VIN nunca es igual al nombre de una familia.
+        var famRange = xwRange(R0, C0, calEnd, C0 + 12, true), vinRange = xwRange(R0, C0 + 1, calEnd, C0 + 13, true);
         if (famSq.length) S.validations.push({ sqref: famSq.join(' '), list: 'Lists!$A$2:$A$' + (1 + acts.length + nRows), allowOther: true });
 
         // Tabla de familias (renglón 5+i = familia i, igual que Projection).
         for (var i = 0; i < nRows; i++) {
             var rr = R0 + i, f = famAt(i), pr = 'Projection!$A$' + rr;
             var tested = f ? (countLbl[f.short.toLowerCase()] || 0) : '';
+            var planned = f ? (countPl[f.short.toLowerCase()] || 0) : '';
             var req = f ? reqByFam[i][k] : '';
             S.cells.push({ r: rr, c: 1, f: 'IF(' + pr + '="","",' + pr + ')', v: f ? f.short : '', s: X.fam });
             S.cells.push({ r: rr, c: 2, f: 'IF($A' + rr + '="","",' + projReq(i, k) + ')', v: req, s: X.calc });
-            S.cells.push({ r: rr, c: 3, v: f && f.planned[k] ? f.planned[k] : '', s: X.input });
-            S.cells.push({ r: rr, c: 4, f: 'IF($A' + rr + '="","",COUNTIF(' + calRange + ',$A' + rr + '))', v: tested, s: X.calc });
+            S.cells.push({ r: rr, c: 3, f: 'IF($A' + rr + '="","",COUNTIF(' + calRange + ',$A' + rr + '))', v: planned, s: X.calc });
+            S.cells.push({ r: rr, c: 4, f: 'IF($A' + rr + '="","",COUNTIFS(' + famRange + ',$A' + rr + ',' + vinRange + ',"<>"))', v: tested, s: X.calc });
             S.cells.push({ r: rr, c: 5, f: 'IF($A' + rr + '="","",MAX(0,N($B' + rr + ')-N($D' + rr + ')))',
                            v: f ? Math.max(0, req - tested) : '', s: X.calc });
         }
@@ -10297,7 +10324,7 @@ function tpAuditXlsxSpec(model) {
         });
         S.cells.push({ r: totRow + 1, c: 1, v: 'Calendar entries this month (all, incl. activities)', s: X.sub });
         var allEntries = 0;
-        Object.keys(countLbl).forEach(function(kk) { allEntries += countLbl[kk]; });
+        Object.keys(countPl).forEach(function(kk) { allEntries += countPl[kk]; });
         if (famSq.length) S.cells.push({ r: totRow + 1, c: 4, f: famSq.map(function(sq) { return 'COUNTA(' + sq + ')'; }).join('+'),
                                          v: allEntries, s: X.calc });
         S.cf = _tpAuditCf([xwRange(R0, C0, calEnd, C0 + 13), 'A' + R0 + ':A' + lastFamRow], acts).concat([
@@ -10312,7 +10339,7 @@ function tpAuditXlsxSpec(model) {
                cols: [{ min: 1, max: 1, width: 44 }, { min: 2, max: 2, width: 12 }, { min: 3, max: 7, width: 10 }, { min: 8, max: 7 + nM, width: 8 }],
                rows: { 4: { height: 32 } }, print: { landscape: true, fitWidth: 1 } };
     SM.cells.push({ r: 1, c: 1, v: 'Test Plan ' + (months[0] ? months[0].label : '') + ' to ' + (months[nM - 1] ? months[nM - 1].label : '') + ' — Summary', s: X.title });
-    SM.cells.push({ r: 2, c: 1, v: model.template ? 'Blank template — fill Projection (production) and each month (calendar and Planned).' :
+    SM.cells.push({ r: 2, c: 1, v: model.template ? 'Blank template — fill Projection (production) and the calendar of each month. Planned and Tested are counted from the calendar.' :
         'Generated ' + model.generated + ' from KIA EmLab ' + model.appVersion + '. Families = test families of the platform (body type included).', s: X.sub });
     SM.cells.push({ r: 3, c: 8, v: 'Tested per month', s: X.h2 });
     ['Family', 'Regulation', 'Required', 'Planned', 'Tested', 'Gap', 'Progress'].forEach(function(h, i) { SM.cells.push({ r: 4, c: i + 1, v: h, s: i ? X.hdr : X.hdrL }); });
@@ -10321,8 +10348,8 @@ function tpAuditXlsxSpec(model) {
     for (var i2 = 0; i2 < nRows; i2++) {
         var rs = R0 + i2, f2 = famAt(i2), pa = 'Projection!$A$' + rs;
         var reqT = f2 ? reqByFam[i2].reduce(function(a, b) { return a + b; }, 0) : 0;
-        var plT = f2 ? f2.planned.reduce(function(a, b) { return a + b; }, 0) : 0;
-        var teT = 0;
+        var plT = 0, teT = 0;
+        months.forEach(function(mo, j) { if (f2) plT += plannedCount[j][f2.short.toLowerCase()] || 0; });
         months.forEach(function(mo, j) {
             var n = f2 ? (testedCount[j][f2.short.toLowerCase()] || 0) : 0;
             teT += n;
@@ -10405,14 +10432,15 @@ function tpAuditXlsxSpec(model) {
         ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
         ['', 'Required = ' + TP_COP_LOT_TESTS + ' tests per lot of ' + TP_COP_LOT_UNITS.toLocaleString('en-US') + ' units per family; the second lot starts above 7,500 units. ' +
               'Each month asks for the tests its CUMULATIVE production adds (production before the period is in "Produced before").'],
-        ['', 'Tested = how many times the family appears in the month calendar (exact name). An entry with [brackets] does not count for the emissions REQ (OBD II purpose, or not valid for CoP).'],
+        ['', 'Planned = how many times the family appears in the month calendar (exact name), with or without VIN. Tested = only the entries that have a VIN in the cell next to it. ' +
+              'An entry with [brackets] counts for neither (OBD II purpose, or not valid for CoP).'],
         ['', 'A family is the platform test family: model, engine, engine package, environment package, transmission, model year, regulation and body type.'],
         ['', ''],
         ['h2', 'Filling it by hand'],
         ['', '1. Projection: type the units produced per month (and before the period) for each family. Add new families in the blank yellow rows at the bottom.'],
-        ['', '2. Each month: pick the family from the drop-down list in the day the test was run, and type the last 8 digits of the VIN. ' +
+        ['', '2. Each month: pick the family from the drop-down list in the day of the test (planned or run). When the test is run, type the last ' + TP_VIN_TAIL + ' digits of the VIN next to it: from then on it counts as Tested. ' +
               'Activities (Quality Checks, Preconditioning, …) are in the same list and do not count as tests.'],
-        ['', '3. Planned (yellow): tests committed for the month. Summary updates by itself.'],
+        ['', '3. Planned, Tested, Gap and Summary update by themselves. A past month filled without a plan still gets its Planned: every test that appears counts.'],
         ['', ''],
         ['h2', 'Colors (by regulation)']
     ];
