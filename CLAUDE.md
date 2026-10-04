@@ -71,6 +71,7 @@ js/
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
   momentos.js           ← Momentos de cierre: semana cumplida, calibraciones al día, familia concordante (~140 lines)
+  xlsxw.js              ← Escritor de .xlsx propio (sin CDN): estilos, fórmulas, listas, colores (~380 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -182,7 +183,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -2841,6 +2842,33 @@ abría, y Vincular escondía vehículos).
   hoy no cuentan y se avisa (Validador con botón para guardar de nuevo, tarjeta, Expediente, PDF).
   El juicio nuevo congela `excluded` y `co2.sequence`.
 
+## 2.32.0 — El calendario por día de prueba y el libro de auditoría (`js/testplan.js`, `js/xlsxw.js`)
+
+- **`tpCalendarTests(from, to)` es LA definición de "prueba realizada el día X"** y la usan el
+  calendario del Plan, el de Datos y el libro de auditoría. **La fecha es SOLO
+  `testData.testDatetime`**: nunca `archivedAt`, `completedDate` ni el día de aprobación
+  (decisión del laboratorio: probada el martes y aprobada el jueves = martes). No usar
+  `_tpVehicleTestDate` para esto: cae a `archivedAt`. Sin fecha → `undated`, que se DECLARA.
+  Vehículos primero; `testedList` solo aporta filas sin vehículo en `db` (una declaración va a
+  `weekDate + testDay` de su fila, no al día en que se palomeó).
+- **Nunca `new Date('AAAA-MM-DD')` para un día de calendario** (lo lee en UTC: un día antes en
+  México). `tpIsoAddDays` / `tpIsoWeekday` / `tpWeekDayIso` trabajan sobre la cadena.
+- **`tpFamilyMonthlyRequired(vols, hist)` es LA definición del REQ mes por mes** (lotes
+  acumulados). Su fórmula de Excel es `_tpAuditReqF`: si cambia `tpFamilyRequired`, cambian las dos.
+- **`tpFamilyShortLabel(cfg)`**: el nombre de familia del libro (incluye carrocería, a diferencia
+  de `tpFamilyLabel`). Es texto que el laboratorio teclea: no meterle separadores raros.
+- **`xwBuild(spec)` (PURA) / `xwBuildCompressed(spec, deflate)` son LA forma de escribir un .xlsx.**
+  No traer SheetJS para escribir: viene de un CDN (bloqueado) y la versión libre no da estilos.
+  Toda fórmula se escribe CON su valor calculado (`v`) — los visores que no recalculan muestran
+  ese valor —, y `fullCalcOnLoad` hace que Excel/LibreOffice la recalculen al abrir.
+- **`tpAuditXlsxSpec(model)` es PURA y es LA definición del libro.** Plantilla y exportación salen
+  de ella (por eso son idénticas); `tools/audit-calendar.node.js` la llama fuera de la app. La
+  familia i vive en el renglón 5+i de Projection, de cada mes y de Summary: toda hoja nueva que
+  referencie familias respeta ese renglón. Lo que no acredita el REQ va `[entre corchetes]` para
+  que el `COUNTIF` de Tested no lo cuente.
+- Al cambiar el libro, verificar con LibreOffice forzando el recálculo (`OOXMLRecalcMode = 0` en
+  un perfil propio): los valores recalculados deben ser idénticos a los `v` que escribe la app.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `SKIP_PUBLISH=1 ./build.sh` → `node --check` (file + bundle).
@@ -2897,7 +2925,7 @@ abría, y Vincular escondía vehículos).
   dispositivo con contraseña de laboratorio (Firebase Email/Password) — juntos, no solo cosméticos.
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
-- **CDN deps**: signature_pad, JsBarcode, html5-qrcode, Firebase SDK. **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
+- **CDN deps**: signature_pad, JsBarcode, html5-qrcode, Firebase SDK. **Excel**: se escribe con `js/xlsxw.js` (propio, 2.32.0). **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
 - `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. Las
   configuraciones dadas de alta a mano (`kia_manual_configs`, Gestor de Configuraciones) se
   fusionan al final de **`parseCSV()`** vía `_mergeManualConfigsIntoAll()` — **v17.9**: antes solo

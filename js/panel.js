@@ -1030,6 +1030,7 @@ function pnRenderReports(el) {
     var reports = [
         { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
         { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
+        { icon: '🗓️', title: 'Plan de pruebas para auditoría (Excel)', desc: 'Libro en inglés: resumen, proyección y REQ por lotes acumulados, una hoja por mes con su calendario (cada prueba en su día de prueba) y la bitácora. También como plantilla en blanco para llenarse a mano.', actions: [{ label: 'Excel', fn: 'tpAuditXlsxExportOpen' }] },
         { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
         { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
         { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },
@@ -3415,9 +3416,25 @@ function _pnCollectCalendarEvents(year, month) {
                     date: localDateStr(d),
                     type: 'test_plan',
                     color: (vig && !vig.accepted) ? '#94a3b8' : '#3b82f6',
-                    label: '🧪 ' + porDia[dk] + ' prueba(s)' + ((vig && !vig.accepted) ? ' (propuesta)' : ''),
+                    label: '📋 ' + porDia[dk] + ' planeada(s)' + ((vig && !vig.accepted) ? ' (propuesta)' : ''),
                     module: 'Test Plan'
                 });
+            });
+        });
+    }
+
+    // [2.32.0] Pruebas REALIZADAS, en su día de prueba (tpCalendarTests es LA definición:
+    // nunca el día de liberación o aprobación). Antes este calendario no mostraba ninguna.
+    if (typeof tpCalendarTests === 'function') {
+        var _rng = tpCalendarTests(localDateStr(monthStart), localDateStr(monthEnd));
+        Object.keys(_rng.byDay).forEach(function(iso) {
+            var n = _rng.byDay[iso].length;
+            events.push({
+                date: iso,
+                type: 'test_done',
+                color: '#0f7a3d',
+                label: '🧪 ' + n + ' prueba' + (n === 1 ? '' : 's') + ' realizada' + (n === 1 ? '' : 's'),
+                module: 'Test Plan'
             });
         });
     }
@@ -3502,7 +3519,8 @@ function _pnCalendarWeekSummary(events) {
     weekEvents.forEach(function(ev) { counts[ev.type] = (counts[ev.type] || 0) + 1; });
     var parts = [];
     if (counts.calibration) parts.push(counts.calibration + ' calibraciones');
-    if (counts.test_plan) parts.push(counts.test_plan + ' pruebas');
+    if (counts.test_plan) parts.push(counts.test_plan + ' día(s) con pruebas planeadas');
+    if (counts.test_done) parts.push(counts.test_done + ' día(s) con pruebas realizadas');
     if (counts.gas_depletion) parts.push(counts.gas_depletion + ' gases');
     if (counts.release) parts.push(counts.release + ' releases');
     return parts.join(', ');

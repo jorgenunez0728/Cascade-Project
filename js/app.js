@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.31.0';
+var APP_VERSION = '2.32.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.32.0', date: '4 oct 2026', title: 'El calendario por día de prueba y el Excel para auditoría',
+      bullets: [
+          'Arreglado: Plan → Calendario ponía cada prueba un día antes (leía la fecha en hora UTC), ponía lo completado en el día en que se palomeó o liberó y lo pendiente en el día en que se generó el plan. Ahora cada prueba realizada sale en su DÍA DE PRUEBA y solo ahí: si se probó el martes y se aprobó el jueves, sale el martes.',
+          'Cambió: el calendario cuenta todas las pruebas realizadas — liberadas, en aprobación, archivadas, fuera de plan e históricas de VETS — con su VIN. Lo planeado que falta va en ámbar en su día; una propuesta sin aceptar, en gris. Las pruebas sin fecha de prueba se listan abajo para completarlas.',
+          'Nuevo: Datos → Calendario muestra las pruebas realizadas de cada día (antes solo las planeadas).',
+          'Nuevo: 📤 Excel para auditoría (Plan → Calendario y Datos → Reportes). Un libro en inglés para el auditor: resumen por familia, proyección de producción con el REQ por lotes acumulados mes a mes, una hoja por mes con la tabla Required / Planned / Tested / Gap y el calendario (cada prueba en su día de prueba), y la bitácora de pruebas. Todas las familias de la plataforma, carrocería incluida.',
+          'Nuevo: el mismo libro como plantilla en blanco, para llenarlo a mano todo el año: listas desplegables con las familias y actividades, colores por norma y fórmulas que calculan Required y Tested solas.'
+      ] },
     { version: '2.31.0', date: '2 oct 2026', title: 'Al CoP solo entra lo aprobado y válido; CO₂ en secuencia y por combinaciones',
       bullets: [
           'Cambió: una prueba WLTP con el trazo de manejo fuera de norma —IWR fuera de −2…+4 % o RMSSE sobre 1.3 km/h— se puede aprobar como siempre, pero su resultado ya no entra al Validador, al Control SPC, al Panorama ni al REQ del plan. No depende de cómo se clasificó la falla en VETS.',
