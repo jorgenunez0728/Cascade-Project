@@ -21,7 +21,7 @@ no-login operator picker, synced change history).
 | Root Tab | Contains | Internal Section IDs |
 |----------|----------|---------------------|
 | **Hoy** | **2.0.0**: Pulso del laboratorio (5 indicadores) → categorías como recuadros-filtro → Lo siguiente (5 acciones). **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
-| **Plan** | **v23**: abre en **📅 Mi semana** — el tablero por día Y el armador (tarjeta plegable con la propuesta en vivo) en la MISMA pantalla; la pestaña "Armar semana" se eliminó. Más **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
+| **Plan** | **2.33.0**: abre en el **🗓️ Calendario** (vista de planeación); el ▸ de cada semana la abre en **📅 Mi semana** — el tablero por día Y el armador en la MISMA pantalla. Más **🚑 Recuperación** (pronóstico), familias, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ gauge de la banda A(n)–B(n)), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
@@ -2878,6 +2878,22 @@ abría, y Vincular escondía vehículos).
 - La exportación pone lo pendiente de los planes ACEPTADOS sin VIN (`model.planned`); lo hecho sale
   una sola vez, como prueba con VIN.
 - `TP_VIN_TAIL` (6) es el VIN corto en todos lados (`_tpCalVinTail`).
+
+## 2.33.0 — El calendario es el plan; la semana es su zoom (`js/testplan.js`, `js/firebase-sync.js`)
+
+- **Un plan borrado deja marca** (`tpState.deletedPlans`, por `planId`). La fusión de planes es
+  ADITIVA: sin marca, lo borrado regresa en el siguiente pull (#181). Todo borrado de un plan pasa
+  por `tpDeleteWeek` (o por la marca, como el reemplazo de `tpGenerarSemana`); nunca un `splice` o
+  `filter` a secas sobre `weeklyPlans`. Toda fusión nueva de `testplan` une las marcas
+  (`tpPlanTombstonesUnion`) y llama a `_tpNormalizePlans`.
+- **`weekDate` es SIEMPRE un lunes.** `_tpNormalizePlans` lo garantiza en cada arranque y pull, y
+  todo escritor usa `tpMondayIso`. Un plan con otra fecha era inalcanzable desde el tablero.
+- **Una semana = un plan.** Un generador nuevo no empuja otra propuesta a una semana que ya tiene
+  una: la reemplaza (con marca) o se niega si está aceptada o tiene trabajo encima.
+- **`TP_WEEK_MAX_TESTS`** acota toda capacidad semanal. No agregar generadores de varias semanas de
+  un toque: se retiraron "Generar mes" y la materialización de Recuperación a propósito.
+- El calendario es la entrada (`tpCalendarOpenWeek` / `tpCalendarOpenMonthOf`): todo lo que se
+  agregue a la planeación debe ser alcanzable desde ahí.
 
 ## Working with this project
 

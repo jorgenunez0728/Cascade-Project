@@ -134,15 +134,8 @@ const SEED = () => {
         ((document.getElementById('tp-rules-cached')||{}).innerText||'').indexOf('Qué acredita el REQ') !== -1);
     r.casillas = await page.locator('#tp-rules-cached input[onchange*="tpSetReqPurpose"]').count();
 
-    // ── Generar mes: usa el horizonte unificado ──
-    r.mes = await page.evaluate(() => {
-        const antes = tpState.weeklyPlans.length;
-        tpGenerateMonthly('2026-12-07');
-        const nuevos = tpState.weeklyPlans.slice(antes);
-        return { creados: nuevos.length, porSemana: nuevos.map(p => p.items.length),
-                 capacidades: nuevos.map(p => p.capacity), aceptados: nuevos.filter(p => p.accepted).length,
-                 deficits: nuevos.map(p => p.items[0] && p.items[0].deficit) };
-    });
+    // ── [2.33.0] "Generar mes" se retiró (escribía cuatro propuestas de un toque) ──
+    r.mes = await page.evaluate(() => ({ existe: typeof tpGenerateMonthly === 'function' }));
     r.simulador = await page.evaluate(() => { const s = tpRunSimulation(4, 6); return { curva: s.curve.map(c => c.pct), planeadas: s.curve.map(c => c.planned) }; });
 
     // ── #113: editar operadores / volverse liberador ──
@@ -207,11 +200,7 @@ const SEED = () => {
         'tarjeta=' + r.tarjetaReglas + ' casillas=' + r.casillas);
 
     // Un solo lazo greedy
-    chk('Generar Mes crea 4 semanas', r.mes.creados === 4, 'creados=' + r.mes.creados);
-    chk('Generar Mes NO acepta nada solo', r.mes.aceptados === 0, 'aceptados=' + r.mes.aceptados);
-    chk('ninguna semana del mes excede su capacidad',
-        r.mes.porSemana.every((n, k) => n <= (r.mes.capacidades[k] || 99)),
-        JSON.stringify(r.mes));
+    chk('Generar mes ya no existe (2.33.0)', !r.mes.existe);
     chk('la curva del simulador no retrocede',
         r.simulador.curva.every((v, k) => k === 0 || v >= r.simulador.curva[k - 1]),
         JSON.stringify(r.simulador.curva));

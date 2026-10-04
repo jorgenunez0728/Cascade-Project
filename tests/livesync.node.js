@@ -45,7 +45,7 @@ const APP_VARS = ['VEHICLE_TOMBSTONE_MAX'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
-    '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo'];
+    '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPlanTombsNewTo'];
 const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
 const COP_FNS = ['_cascadeEmpty', '_cascadeSame', '_cascadePlain', 'cascadeThreeWay'];
 

@@ -1170,7 +1170,8 @@
     </div>
 
     <div class="tp-tabs" id="tp-tabs-bar" role="tablist" aria-label="Secciones Test Plan">
-        <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-myweek')">📅 Mi semana</button>
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-myweek')">📅 Mi semana</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-recovery')">🚑 Recuperación</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
@@ -1180,8 +1181,6 @@
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-tested');this.closest('.tp-tab-more-wrap').classList.remove('open')">✏️ Probados</button>
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-families');this.closest('.tp-tab-more-wrap').classList.remove('open')">🧬 Familias</button>
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-rules');this.closest('.tp-tab-more-wrap').classList.remove('open')">⚙️ Reglas</button>
-                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekhistory');this.closest('.tp-tab-more-wrap').classList.remove('open')">📋 Historial Sem</button>
-                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-calendar');this.closest('.tp-tab-more-wrap').classList.remove('open')">🗓️ Calendario</button>
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-simulator');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔮 Simulador</button>
             </div>
         </div>

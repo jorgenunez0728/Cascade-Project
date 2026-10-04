@@ -6155,3 +6155,22 @@ body.ficha-open { overflow: hidden; }
 .tp-audit-xlsx-row label { min-width: 64px; font-weight: 700; }
 .tp-audit-xlsx-row input { font-size: var(--fs-base, 16px); padding: var(--space-xs) var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .tp-audit-xlsx-check { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--fs-sm); }
+
+/* ── [2.33.0] Calendario como vista de planeación: una fila por semana con su ▸ ── */
+.tp-cal-grid--weeks { grid-template-columns: 36px repeat(7, minmax(0, 1fr)); }
+.tp-cal-dow--wk { padding: 0; }
+.tp-cal-wk { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2xs);
+    min-height: 72px; font: inherit; cursor: pointer; color: var(--info-text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0; }
+.tp-cal-wk:hover { background: var(--info-bg); border-color: var(--info-fill); }
+.tp-cal-wk:focus-visible { outline: 2px solid var(--info-fill); outline-offset: 1px; }
+.tp-cal-wk-ico { font-size: var(--fs-base, 16px); font-weight: 800; }
+.tp-cal-wk-st { font-size: var(--fs-2xs, 12px); }
+.tp-cal-wk--ok { background: var(--ok-tint); border-color: var(--ok-text); color: var(--ok-text); }
+.tp-cal-wk--prop { background: var(--warn-tint); }
+.tp-cal-detail-acts { display: flex; justify-content: flex-end; margin-top: var(--space-sm); }
+.tp-week-del { color: var(--danger-text); }
+@media (max-width: 640px) {
+    .tp-cal-grid--weeks { grid-template-columns: 28px repeat(7, minmax(0, 1fr)); }
+    .tp-cal-wk { min-height: 52px; }
+}

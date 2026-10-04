@@ -266,5 +266,69 @@ t('el archivo se arma y es determinista', () => {
     ok(a.length > 10000 && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0);
 });
 
+console.log('2.33.0 — una semana = un lunes = un plan, y lo borrado no regresa');
+t('tpMondayIso', () => {
+    eq(sandbox.tpMondayIso('2026-03-04'), '2026-03-02', 'miércoles → su lunes');
+    eq(sandbox.tpMondayIso('2026-03-08'), '2026-03-02', 'domingo → el lunes ANTERIOR (la semana es lun-dom)');
+    eq(sandbox.tpMondayIso('2026-03-02'), '2026-03-02');
+    eq(sandbox.tpMondayIso('nada'), null);
+});
+t('semanas fantasma: una fecha que no es lunes (o sin fecha) se lleva a su lunes, sin cambiar de identidad', () => {
+    S.deletedPlans = []; S.weekHistory = [];
+    S.weeklyPlans = [
+        { id: 1, weekDate: '2026-03-04', accepted: true, created: '2026-03-01T10:00:00', items: [{ uid: 'a', desc: cfgA.desc, testDay: 'mar' }] },
+        { id: 2, created: '2026-03-18T09:00:00', accepted: false, items: [] }                       // sin weekDate (arrastre viejo)
+    ];
+    const id1 = sandbox.tpPlanId(S.weeklyPlans[0]);
+    sandbox._tpNormalizePlans();
+    eq(S.weeklyPlans[0].weekDate, '2026-03-02'); eq(S.weeklyPlans[0].weekDateOriginal, '2026-03-04');
+    eq(S.weeklyPlans[0].planId, id1, 'la identidad se fija antes de mover la fecha');
+    eq(S.weeklyPlans[1].weekDate, '2026-03-16');
+    eq(sandbox._tpNormalizePlans(), 0, 'idempotente');
+    S._lastSave = Date.now() + 5;
+    ok(sandbox.tpWeekPlanFor('2026-03-02') && sandbox.tpWeekPlanFor('2026-03-02').accepted, 'el tablero ya lo encuentra en su lunes');
+});
+t('marcas: unión simétrica, sin repetir, se queda con la fecha más vieja', () => {
+    const a = [{ planId: 'P1', at: '2026-10-01' }, { planId: 'P2', at: '2026-10-02' }];
+    const b = [{ planId: 'P2', at: '2026-09-30' }, { planId: 'P3', at: '2026-10-03' }];
+    const u1 = sandbox.tpPlanTombstonesUnion(a, b), u2 = sandbox.tpPlanTombstonesUnion(b, a);
+    eq(JSON.stringify(u1), JSON.stringify(u2), 'simétrica');
+    eq(u1.map(x => x.planId).join(), 'P3,P1,P2');
+    eq(u1.find(x => x.planId === 'P2').at, '2026-09-30');
+});
+t('borrar la semana: quita TODOS sus planes (aceptado incluido), deja marca, y no toca la evidencia', () => {
+    S.deletedPlans = [];
+    S.weeklyPlans = [
+        { planId: 'PA', weekDate: '2026-09-28', accepted: true, acceptedDate: '2026-09-25T10:00:00', items: [{ uid: 'x', desc: cfgA.desc, testDay: 'mar', completed: true }] },
+        { planId: 'PB', weekDate: '2026-09-28', accepted: false, created: '2026-09-26T10:00:00', items: [] },
+        { planId: 'PC', weekDate: '2026-10-05', accepted: false, items: [] }];
+    S.weekHistory = [{ planId: 'PA' }, { planId: 'PC' }];
+    S.testedList = [{ configText: cfgA.desc, date: '2026-09-29', verified: false, source: 'plan-manual', planId: 'PA', itemUid: 'x' }];
+    sandbox._tpDeleteWeekDo('2026-09-28');
+    eq(S.weeklyPlans.map(p => p.planId).join(), 'PC');
+    eq(S.deletedPlans.map(t => t.planId).sort().join(), 'PA,PB');
+    eq(S.weekHistory.map(w => w.planId).join(), 'PC');
+    eq(S.testedList.length, 1, 'la evidencia se queda');
+    // Un pull que trae el plan borrado de vuelta: la marca lo retira.
+    S.weeklyPlans.push({ planId: 'PA', weekDate: '2026-09-28', accepted: true, items: [] });
+    sandbox._tpNormalizePlans();
+    eq(S.weeklyPlans.map(p => p.planId).join(), 'PC', 'lo borrado no regresa con la sincronización');
+});
+t('sync: detecta marcas nuevas en cualquier dirección', () => {
+    const src = fs.readFileSync('js/firebase-sync.js', 'utf8');
+    const f = /function _fbPlanTombsNewTo\(known, incoming\) \{[\s\S]*?\n\}/.exec(src)[0];
+    const fn = vm.runInNewContext('(' + f + ')');
+    eq(fn([{ planId: 'A' }], [{ planId: 'A' }]), false);
+    eq(fn([{ planId: 'A' }], [{ planId: 'A' }, { planId: 'B' }]), true);
+    eq(fn([], []), false);
+});
+t('una semana nunca pasa de TP_WEEK_MAX_TESTS', () => {
+    eq(sandbox.TP_WEEK_MAX_TESTS, 20);
+    S.vehiclesPerSlot = 10; S.capacity = 78;
+    const wd = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+    eq(sandbox.tpWeeklyCapacityFor('2026-10-05', wd).cap, 20);
+    S.vehiclesPerSlot = 1; S.capacity = 8;
+});
+
 console.log(`calendario: ${pass} ok, ${fail} fallas`);
 if (fail) process.exit(1);

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.32.1';
+var APP_VERSION = '2.33.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.32.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.33.0', date: '4 oct 2026', title: 'El calendario es el plan; la semana es su zoom',
+      bullets: [
+          'Cambió: Plan abre en el 🗓️ Calendario. Cada semana tiene un ▸ al inicio que la abre en Mi semana para armarla, mover pruebas de día y vincularlas (✔ = plan aceptado, ⏳ = propuesta). Desde Mi semana, "🗓️ Calendario" regresa al mes.',
+          'Arreglado: "no puedo borrar las semanas" (#181). Un plan borrado volvía con la sincronización; ahora borrar deja marca y no regresa en ningún equipo. Además había planes con fecha que no era lunes (p. ej. un miércoles) que el tablero nunca encontraba: ahora cada plan queda en el lunes de su semana.',
+          'Nuevo: "🗑 Borrar semana" en el tablero de Mi semana, para un plan aceptado o una propuesta, con confirmación y deshacer. Las pruebas ya hechas no se borran: siguen contando y siguen en el calendario.',
+          'Cambió: una semana tiene UN plan. "Generar" reemplaza la propuesta que hubiera (uno aceptado no se pisa) y una semana nunca lleva más de 20 pruebas.',
+          'Se retiraron "Semanas generadas", "Semanas pasadas", "Generar mes" y el botón de Recuperación que escribía decenas de semanas de un toque. Recuperación sigue como pronóstico.'
+      ] },
     { version: '2.32.1', date: '4 oct 2026', title: 'Excel para auditoría: Planned y Tested salen del calendario',
       bullets: [
           'Cambió: en cada hoja del mes, Planned ya no se teclea: cuenta cuántas veces aparece la familia en el calendario (con o sin VIN), así un mes llenado sin plan también tiene su Planned. Tested cuenta solo las que tienen VIN al lado.',
@@ -6799,7 +6807,7 @@ function uiEnhance(root) {
 var UI_TAB_GROUPS = {
     tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
           groups: [
-            { id: 'semana', label: '📅 Semana', tabs: ['tp-myweek', 'tp-calendar', 'tp-weekhistory'] },
+            { id: 'semana', label: '📅 Semana', tabs: ['tp-calendar', 'tp-myweek'] },
             { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
@@ -6877,7 +6885,7 @@ function uiTabRolesApply() {
 
 // Etiquetas en español claro (solo botones sin insignias adentro).
 var UI_TAB_RELABEL = {
-    'tp-dashboard': '📊 Cobertura', 'tp-weekhistory': '📋 Semanas pasadas',
+    'tp-dashboard': '📊 Cobertura',
     'inv-dashboard': '📊 Resumen', 'inv-maint': '🛠️ Mantenimiento', 'inv-charts': '📈 Gráficas', 'inv-config': '⚙️ Tipos y zonas',
     'pn-dashboard': '📊 Resumen', 'pn-turnaround': '⏱ Tiempos', 'pn-bugs': '🐞 Fallas reportadas'
 };
