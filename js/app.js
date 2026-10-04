@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.32.0';
+var APP_VERSION = '2.32.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.32.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.32.1', date: '4 oct 2026', title: 'Excel para auditoría: Planned y Tested salen del calendario',
+      bullets: [
+          'Cambió: en cada hoja del mes, Planned ya no se teclea: cuenta cuántas veces aparece la familia en el calendario (con o sin VIN), así un mes llenado sin plan también tiene su Planned. Tested cuenta solo las que tienen VIN al lado.',
+          'Cambió: la exportación pone en el calendario lo pendiente del plan aceptado, en su día y sin VIN (suma a Planned, no a Tested). Al probarse, sale con su VIN.',
+          'Cambió: el VIN del calendario es de 6 dígitos (el número de serie), en el Excel y en Plan → Calendario.'
+      ] },
     { version: '2.32.0', date: '4 oct 2026', title: 'El calendario por día de prueba y el Excel para auditoría',
       bullets: [
           'Arreglado: Plan → Calendario ponía cada prueba un día antes (leía la fecha en hora UTC), ponía lo completado en el día en que se palomeó o liberó y lo pendiente en el día en que se generó el plan. Ahora cada prueba realizada sale en su DÍA DE PRUEBA y solo ahí: si se probó el martes y se aprobó el jueves, sale el martes.',

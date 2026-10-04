@@ -218,15 +218,39 @@ t('la prueba del martes cae en la hoja de su mes, en martes, y cuenta en Tested'
     // Semana 1: lunes 31-ago en el renglón 5; la semana del 14 es la 3ª → 5 + 2·(6+1) = 19.
     eq(cell(sep, 'I19').v.date, '2026-09-15', 'renglón de fecha del martes 15');
     eq(cell(sep, 'I20').v, 'CL4 1.6 GAMMA IVT MY26 SULEV 30 5DR');
-    eq(cell(sep, 'J20').v, '00012345', 'VIN: últimos 8');
+    eq(cell(sep, 'J20').v, '012345', 'VIN: últimos 6 (el número de serie)');
     eq(cell(sep, 'I21').v, 'CL4 1.6 GAMMA IVT MY26 SULEV 30 5DR [CoP OBD II]', 'OBD II marcada: no cuenta para el REQ');
     const i = model.families.indexOf(fa), r = 5 + i;
     eq(cell(sep, 'D' + r).v, 1, 'Tested cuenta sólo la de emisiones');
-    ok(/^IF\(\$A\d+="","",COUNTIF\(\$G\$5:\$T\$\d+,\$A\d+\)\)$/.test(cell(sep, 'D' + r).f), 'Tested es fórmula COUNTIF sobre el calendario');
+    ok(/^IF\(\$A\d+="","",COUNTIFS\(\$G\$5:\$S\$\d+,\$A\d+,\$H\$5:\$T\$\d+,"<>"\)\)$/.test(cell(sep, 'D' + r).f), 'Tested = COUNTIFS familia + VIN al lado: ' + cell(sep, 'D' + r).f);
+    ok(/^IF\(\$A\d+="","",COUNTIF\(\$G\$5:\$T\$\d+,\$A\d+\)\)$/.test(cell(sep, 'C' + r).f), 'Planned = COUNTIF de la familia en el calendario');
+    eq(cell(sep, 'C' + r).v, 1, 'Planned: también cuenta lo ya probado (un mes sin plan tiene su Planned)');
     eq(cell(sep, 'B' + r).v, 3, 'Required de septiembre (2 000 acumuladas → 3)');
     eq(spec.sheets[4].cells.filter(x => x.r === r && x.c === 2)[0].v, 3, 'Required de octubre (8 000 acumuladas → 3 más)');
     const tl = spec.sheets[5];
     eq(cell(tl, 'A5').v.date, '2026-09-15'); eq(cell(tl, 'B5').v, 'Tue'); eq(cell(tl, 'G6').v, 'No (purpose)');
+});
+t('lo pendiente del plan aceptado: en su día, sin VIN → Planned sí, Tested no', () => {
+    S.weeklyPlans = [{ id: 'pa', weekDate: '2026-09-14', accepted: true, acceptedDate: '2026-09-11T10:00:00', created: '2026-09-11T09:00:00',
+        items: [{ uid: 'x1', desc: cfgA.desc, testDay: 'vie', completed: false },
+                { uid: 'x2', desc: cfgA.desc, testDay: 'mar', completed: true },                     // hecha: ya está con VIN
+                { uid: 'x3', desc: cfgA.desc, testDay: 'jue', completed: false, linkedVehicleId: 1 }, // vinculada a una que ya aparece
+                { uid: 'x4', desc: cfgA.desc, testDay: 'jue', completed: false, purpose: 'EO-OBD2' }] },
+        { id: 'pp', weekDate: '2026-09-21', accepted: false, created: '2026-09-18T09:00:00', items: [{ uid: 'y1', desc: cfgA.desc, testDay: 'lun' }] }];
+    S._lastSave = Date.now() + 1;
+    const model = sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-09', generated: '2026-10-04' });
+    eq(model.planned.map(p => p.date + ' ' + p.label).join(' | '),
+       '2026-09-18 CL4 1.6 GAMMA IVT MY26 SULEV 30 5DR | 2026-09-17 CL4 1.6 GAMMA IVT MY26 SULEV 30 5DR [EO OBD II]',
+       'solo lo pendiente del plan ACEPTADO, sin repetir lo hecho ni lo vinculado; la propuesta no entra');
+    const spec = sandbox.tpAuditXlsxSpec(model), sep = spec.sheets[3];
+    eq(cell(sep, 'O20').v, 'CL4 1.6 GAMMA IVT MY26 SULEV 30 5DR', 'viernes 18');
+    eq(cell(sep, 'P20').v, '', 'sin VIN');
+    const r = 5 + model.families.findIndex(f => f.key === famA);
+    eq(cell(sep, 'C' + r).v, 2, 'Planned = la del martes (con VIN) + la del viernes (sin VIN)');
+    eq(cell(sep, 'D' + r).v, 1, 'Tested = solo la que tiene VIN');
+    const sm = spec.sheets[1];
+    eq(cell(sm, 'D' + r).v, 2); eq(cell(sm, 'E' + r).v, 1);
+    S.weeklyPlans = [];
 });
 t('plantilla: mismo libro, sin datos del laboratorio', () => {
     const tpl = sandbox.tpAuditXlsxSpec(sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-10', template: true }));
