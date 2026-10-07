@@ -47,10 +47,14 @@ function ok(nombre, cond, detalle) {
 const cfg = (mod, eng, reg, body, region) => ({ 'Modelo': mod, 'ENGINE CAPACITY': eng, 'EMISSION REGULATION': reg,
     'BODY TYPE': body, 'REGION': region, 'TRANSMISSION': 'IVT', 'MODEL YEAR (VIN)': '26 MODEL' });
 let nid = 0;
+// [2.35.1] `date` es la fecha de PRUEBA (testDatetime); el alta es otra (un día después), para
+// que una prueba que se ordenara por alta saliera distinta. Lo que está "En Prueba" no tiene fecha.
 function veh(vin, status, date, c, extra) {
-    return Object.assign({ id: ++nid, vin, status, registeredAt: date, purpose: 'COP-Emisiones',
-        configCode: c['Modelo'] + '-' + c['BODY TYPE'] + '-' + c['EMISSION REGULATION'], config: c,
-        testData: status === 'archived' ? { gasResults: { liberador: { values: { CO: 1, NOx: 0.01 } }, aprobador: { values: { CO: 1 } } } } : {} }, extra || {});
+    const alta = new Date(Date.parse(date) + 86400000).toISOString();
+    const td = status === 'archived' ? { gasResults: { liberador: { values: { CO: 1, NOx: 0.01 } }, aprobador: { values: { CO: 1 } } } } : {};
+    if (status !== 'testing') td.testDatetime = date.slice(0, 16);
+    return Object.assign({ id: ++nid, vin, status, registeredAt: alta, purpose: 'COP-Emisiones',
+        configCode: c['Modelo'] + '-' + c['BODY TYPE'] + '-' + c['EMISSION REGULATION'], config: c, testData: td }, extra || {});
 }
 const eu5 = cfg('CL4', '1000cc KAPPA PE', 'PRE-EURO 7', '5DR', 'EUROPE');
 const euw = cfg('CL4', '1600CC GAMMA-II', 'PRE-EURO 7', 'WGN', 'EUROPE');
@@ -59,7 +63,7 @@ const vs = [
     veh('3KPFX51B7TE431949', 'archived', '2026-09-29T10:00:00', eu5),
     veh('3KPFX51BXTE433243', 'archived', '2026-09-29T09:00:00', eu5),
     veh('3KPFX81C4TE421535', 'archived', '2026-09-23T10:00:00', euw),
-    veh('3KPFX81C2TE421291', 'pending-approval', '2026-09-23T08:00:00', euw, { testData: { gasResults: { liberador: { values: { CO: 1 } } } } }),
+    veh('3KPFX81C2TE421291', 'pending-approval', '2026-09-23T08:00:00', euw, { testData: { testDatetime: '2026-09-23T08:00', gasResults: { liberador: { values: { CO: 1 } } } } }),
     veh('KNDJ23AU0T7000001', 'testing', '2026-10-01T08:00:00', us),
     veh('KNDJ23AU0T7000002', 'archived', '2025-12-15T08:00:00', us, { adhoc: true })
 ];
@@ -74,9 +78,9 @@ ok('una palabra que no está → ninguna', Q({ q: 'cl4 sulev' }).rows.length ===
 ok('sin acentos: "historico" encuentra "Histórico"', ctx._histFoldTxt('Histórico').indexOf('historico') === 0);
 
 console.log('\n== Filtros ==');
-ok('"En curso" = vehicleIsLive', Q({ status: 'active' }).rows.map(r => r.vin).join() === 'KNDJ23AU0T7000001,3KPFX81C2TE421291');
+ok('"En curso" = vehicleIsLive (la que no tiene fecha de prueba, al final)', Q({ status: 'active' }).rows.map(r => r.vin).join() === '3KPFX81C2TE421291,KNDJ23AU0T7000001');
 ok('por modelo', Q({ model: 'SP3' }).rows.length === 2);
-ok('por año y mes', Q({ year: '2026', month: '9' }).rows.length === 4);
+ok('por año y mes', Q({ year: '2026', month: '9' }).rows.length === 4, Q({ year: '2026', month: '9' }).rows.map(r => r.vin + ':' + r.ym).join());
 ok('el mes sin año no filtra', Q({ month: '9' }).rows.length === 6);
 ok('fuera de plan', Q({ flag: 'offplan' }).rows.length === 1);
 ok('liberado sin aprobar', Q({ flag: 'unaverif' }).rows.length === 1 && Q({ flag: 'unaverif' }).rows[0].status === 'pending-approval');
@@ -93,8 +97,13 @@ console.log('\n== Fichas de estado: cuentan con los DEMÁS filtros ==');
 }
 
 console.log('\n== Orden ==');
-ok('por fecha descendente (default)', Q().rows[0].vin === 'KNDJ23AU0T7000001');
-ok('por fecha ascendente', Q({}, { key: 'date', dir: 'asc' }).rows[0].vin === 'KNDJ23AU0T7000002');
+ok('por fecha de prueba descendente (default)', Q().rows[0].vin === '3KPFX51B7TE431949', Q().rows.map(r => r.vin).join());
+ok('por fecha de prueba ascendente', Q({}, { key: 'date', dir: 'asc' }).rows[0].vin === 'KNDJ23AU0T7000002');
+ok('sin fecha de prueba va al final en los dos sentidos', Q().rows.slice(-1)[0].vin === 'KNDJ23AU0T7000001' &&
+    Q({}, { key: 'date', dir: 'asc' }).rows.slice(-1)[0].vin === 'KNDJ23AU0T7000001');
+ok('la fecha es la de la prueba, no la del alta', facts[0].testDay === '2026-09-29' && facts[0].alta === '2026-09-30');
+ok('vehicleTestDate: sin testDatetime no hay fecha', ctx.vehicleTestDate({ registeredAt: '2026-01-01' }) === '' &&
+    ctx.vehicleTestDate({ testData: { testDatetime: '2026-03-04T23:30' } }) === '2026-03-04');
 ok('por VIN ascendente', Q({}, { key: 'vin', dir: 'asc' }).rows[0].vin === '3KPFX51B7TE431949');
 ok('por estado sigue el flujo (registrado → … → archivado)', Q({}, { key: 'status', dir: 'asc' }).rows[0].status === 'testing');
 ok('empate: lo más reciente primero', (() => {
@@ -110,8 +119,9 @@ console.log('\n== Agrupar ==');
     ok('el grupo cuenta en curso y por aprobar', wgn.rows.length === 2 && wgn.live === 1 && wgn.pending === 1);
     ok('la clave del grupo es la de copVehicleFamilyKey cuando existe', typeof ctx.copVehicleFamilyKey !== 'function' || wgn.key === ctx.copVehicleFamilyKey(vs[2]));
     const m = Q({}, null, 'mes').groups;
-    ok('por mes: el más reciente primero', m[0].key === '2026-10' && m[m.length - 1].key === '2025-12');
-    ok('por mes: etiqueta legible', m[0].label === 'Octubre 2026');
+    ok('por mes de prueba: el más reciente primero y "sin fecha de prueba" al final',
+        m[0].key === '2026-09' && m[m.length - 2].key === '2025-12' && m[m.length - 1].label === '(sin fecha de prueba)', m.map(g => g.key).join());
+    ok('por mes: etiqueta legible', m[0].label === 'Septiembre 2026');
     const e = Q({}, null, 'estado').groups;
     ok('por estado: en el orden del flujo', e.map(x => x.key).join() === 'testing,pending-approval,archived');
     ok('dentro del grupo se respeta el orden elegido', Q({}, { key: 'vin', dir: 'desc' }, 'familia').groups

@@ -51,7 +51,7 @@ const SEED = () => {
                 db.vehicles.push({ id: 5000 + i, vin: '3KPFX' + String(100000000000 + i * 7919).slice(-12), status: st, purpose: 'COP-Emisiones',
                     configCode: c['Modelo'] + '-' + c['ENGINE CAPACITY'] + '-' + c['EMISSION REGULATION'] + '-' + c['REGION'] + '-' + c['BODY TYPE'],
                     config: Object.assign({}, c), registeredAt: d.toISOString(), timeline: [],
-                    testData: st === 'testing' ? {} : { gasResults: { liberador: { values: { CO: 0.3, NOx: 0.02 } },
+                    testData: st === 'testing' ? {} : { testDatetime: d.toISOString().slice(0, 16), gasResults: { liberador: { values: { CO: 0.3, NOx: 0.02 } },
                         aprobador: st === 'archived' ? { values: { CO: 0.3, NOx: 0.02 } } : undefined } } });
             }
             saveDB();
@@ -66,6 +66,14 @@ const SEED = () => {
             first: (document.querySelector('#historyList tr.hist-row .hist-vin') || {}).textContent
         }));
         chk('página de 25 de 30', s.rows === 25 && /25 de 30/.test(s.summary), JSON.stringify(s));
+        // [2.35.1] La columna es la fecha de PRUEBA; la que no tiene lo dice (y va al final).
+        s.fecha = await page.evaluate(() => ({
+            th: [...document.querySelectorAll('#historyList th')].map(t => t.textContent).join('|'),
+            ultima: (() => { histSetSort('date', true); histShowMore(true); const rs = [...document.querySelectorAll('#historyList tr.hist-row')];
+                             const t = rs.length ? rs[rs.length - 1].textContent : ''; window._histPageSize = 25; histRefresh(); return t; })()
+        }));
+        chk('la que no tiene fecha de prueba lo dice y va al final', /sin fecha de prueba/.test(s.fecha.ultima), s.fecha.ultima.slice(0, 120));
+        chk('el encabezado dice "Fecha de prueba"', /Fecha de prueba/.test(s.fecha.th), s.fecha.th);
         chk('fichas de estado con conteo', s.chips.some(c => c === 'Todos 30') && s.chips.some(c => c === 'En curso 2') && s.chips.some(c => /^Archivado 28$/.test(c)), s.chips.join(' | '));
 
         // ── Búsqueda: teclear no pierde el foco y filtra ─────────────────

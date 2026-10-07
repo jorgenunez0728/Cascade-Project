@@ -3017,3 +3017,10 @@ The field needs an associated `<label>`. CSS: `.cascade-help-btn`, `.cascade-too
 - Descartar NO deja marca de borrado: la nube nunca tuvo ese registro. Sí se lleva su evidencia
   en `testedList` y su `usageLog`, o Plan y Consumibles subirían lo descartado.
 - Solo protege a equipos con esta versión: uno con código viejo sincroniza antes de actualizarse.
+
+## 2.35.1 — La fecha del Historial es la de la prueba
+
+- **`vehicleTestDate(v)` (app.js, PURA) es el día de la prueba** (`testData.testDatetime` →
+  `'AAAA-MM-DD'`, o `''`). El Historial la usa para mostrar, ordenar, filtrar, agrupar por mes y
+  exportar; sin ella la fila dice "sin fecha de prueba" y va al final en los dos sentidos.
+  `vehicleListDate` (alta, o la prueba solo en un histórico) ya no la usa el Historial.

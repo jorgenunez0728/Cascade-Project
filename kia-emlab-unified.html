@@ -9445,10 +9445,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610072034';
+var APP_BUILD = '202610072105';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '3b63e8d88e7139b0cbb81a8e71481a2f354cbfb8';
+var APP_COMMIT = '9edac6e2763f38f31667e2f7a3140e8e5c083aaf';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9456,7 +9456,7 @@ var APP_COMMIT = '3b63e8d88e7139b0cbb81a8e71481a2f354cbfb8';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.35.0';
+var APP_VERSION = '2.35.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9464,6 +9464,12 @@ var APP_VERSION = '2.35.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.35.1', date: '7 oct 2026', title: 'Historial: la fecha es la de la prueba',
+      bullets: [
+          'Cambió: la columna Fecha del Historial ahora es la Fecha de prueba (la que se le carga a la prueba en Operación o desde VETS), no el día en que se dio de alta en el sistema. Ordenar, filtrar por año/mes, agrupar por mes y el Excel usan esa misma fecha.',
+          'Una prueba que todavía no tiene fecha de prueba lo dice ("sin fecha de prueba") con su fecha de alta debajo, y al ordenar por fecha va siempre al final.',
+          'El Excel trae las dos columnas: Fecha de prueba y Alta.'
+      ] },
     { version: '2.35.0', date: '7 oct 2026', title: 'Revisar antes de subir: un equipo atrasado ya no sube solo lo que traía',
       bullets: [
           'Nuevo: si un equipo lleva más de 3 días sin sincronizarse, al conectarse NO sube lo que traía. Muestra "Revisar antes de subir" con los VIN que la nube no tiene (modelo, estado y fecha de alta) y las lecturas de Consumibles que la nube no tiene.',
@@ -10304,14 +10310,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610072034' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610072105' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610072034' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610072105' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10327,7 +10333,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610072034' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610072105' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11425,6 +11431,15 @@ function vehicleIsHistoric(v) { return !!v && v.status === VEHICLE_STATUS_HISTOR
 function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !== VEHICLE_STATUS_HISTORIC; }
 /** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
 function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
+/**
+ * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale SOLO de
+ * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0): nunca el alta ni el
+ * archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
+ */
+function vehicleTestDate(v) {
+    var s = String((v && v.testData && v.testData.testDatetime) || '');
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
+}
 /**
  * Fecha con la que se lista un vehículo: la de su ALTA, salvo una prueba histórica,
  * que se dio de alta hoy pero ocurrió cuando dice VETS. PURA.
@@ -23074,7 +23089,7 @@ function _renderUsedCylinders(vehicle) {
 // ======================================================================
 
 var HIST_STATUS_ORDER = ['registered', 'in-progress', 'testing', 'ready-release', 'pending-approval', 'archived', 'historico'];
-var HIST_SORTS = { date: 'Fecha', vin: 'VIN', config: 'Configuración', purpose: 'Propósito', status: 'Estado', emis: 'Emisiones' };
+var HIST_SORTS = { date: 'Fecha de prueba', vin: 'VIN', config: 'Configuración', purpose: 'Propósito', status: 'Estado', emis: 'Emisiones' };
 var HIST_GROUPS = { '': 'Sin agrupar', familia: 'Familia', modelo: 'Modelo', regulacion: 'Regulación', region: 'Región',
                     estado: 'Estado', proposito: 'Propósito', mes: 'Mes de la prueba' };
 var HIST_FLAGS = {
@@ -23126,9 +23141,10 @@ function histRowFacts(v) {
     if (hit && hit.mk === mk) return hit.f;
 
     var cfg = v.config || {};
-    var dateIso = vehicleListDate(v) || '';
-    var d = dateIso ? new Date(dateIso) : null;
-    var ts = d && !isNaN(d.getTime()) ? d.getTime() : 0;
+    // [2.35.1] La fecha del Historial es la de la PRUEBA (testData.testDatetime), no el alta.
+    var testDay = typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '';
+    var ts = testDay ? new Date(testDay + 'T12:00:00').getTime() : 0;
+    if (isNaN(ts)) ts = 0;
     var historic = vehicleIsHistoric(v);
 
     var gr = v.testData && v.testData.gasResults;
@@ -23164,8 +23180,8 @@ function histRowFacts(v) {
         famLabel: famParts.join(' · ') || '(sin familia)',
         purpose: v.purpose || '', purposeLabel: purposeLabel,
         status: v.status || '', statusLabel: statusLabel, live: vehicleIsLive(v), historic: historic,
-        dateIso: dateIso, ts: ts,
-        ym: ts ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : '',
+        testDay: testDay, ts: ts, alta: String(v.registeredAt || '').slice(0, 10),
+        ym: testDay ? testDay.slice(0, 7) : '',
         emis: emis, gasCount: gasCount,
         miss: miss, soft: soft,
         copExcluded: !!(cu && !cu.usable), copWhy: cu && !cu.usable ? cu.text : '',
@@ -23215,7 +23231,7 @@ function _histGroupOf(r, mode) {
         return { key: r.status, label: r.statusLabel, ord: String(i < 0 ? 99 : i).padStart(2, '0') };
     }
     if (mode === 'mes') {
-        if (!r.ym) return { key: '—', label: '(sin fecha)', ord: '0000' };
+        if (!r.ym) return { key: '—', label: '(sin fecha de prueba)', ord: '0000', desc: true };
         var m = HIST_MONTHS[parseInt(r.ym.slice(5), 10) - 1] || '';
         return { key: r.ym, label: m.charAt(0).toUpperCase() + m.slice(1) + ' ' + r.ym.slice(0, 4), ord: r.ym, desc: true };
     }
@@ -23251,6 +23267,8 @@ function histApplyQuery(facts, f, sort, group) {
         emis: function(r) { return _histEmisRank(r) * 100 - r.miss; }
     }[sort.key] || function(r) { return r.ts; };
     rows.sort(function(a, b) {
+        // [2.35.1] Sin fecha de prueba va al final en los dos sentidos: no es ni la más vieja ni la más nueva.
+        if (sort.key === 'date' && (!a.ts || !b.ts) && a.ts !== b.ts) return a.ts ? -1 : 1;
         var ka = keyFn(a), kb = keyFn(b);
         var c = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : cmpStr(String(ka), String(kb));
         if (c) return c * sgn;
@@ -23567,8 +23585,9 @@ function _histRowHTML(r, toks) {
         '</td>' +
         '<td data-label="Propósito">' + escapeHtml(r.purposeLabel || r.purpose) + '</td>' +
         '<td data-label="Estado"><span class="status-badge status-' + escapeHtml(r.status) + '">' + escapeHtml(r.statusLabel) + '</span></td>' +
-        '<td data-label="Fecha">' + (r.ts ? new Date(r.ts).toLocaleDateString('es-MX') : '—') +
-            (r.historic ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : '') + '</td>' +
+        '<td data-label="Fecha de prueba">' + (r.ts ? new Date(r.ts).toLocaleDateString('es-MX')
+            : '<span class="u-muted-xs" title="Se carga en Operación (fecha de la prueba) o al adjuntar VETS">sin fecha de prueba</span>' +
+              (r.alta ? '<div class="u-muted-xs">alta ' + new Date(r.alta + 'T12:00:00').toLocaleDateString('es-MX') + '</div>' : '')) + '</td>' +
         '<td data-label="Emisiones">' + emis + '</td>' +
         '<td class="hist-td-actions">' + actions + '</td>' +
     '</tr>';
@@ -23675,7 +23694,7 @@ function _histRenderBody() {
           '<thead><tr>' +
             '<th class="hist-th-chk"><input type="checkbox" onchange="histToggleAll(this.checked)"' + (allVisibleSel ? ' checked' : '') + ' title="Seleccionar las ' + filtered + ' pruebas filtradas" aria-label="Seleccionar las ' + filtered + ' pruebas filtradas"></th>' +
             _histThHTML('vin', 'VIN', P) + _histThHTML('config', 'Configuración', P) + _histThHTML('purpose', 'Propósito', P) +
-            _histThHTML('status', 'Estado', P) + _histThHTML('date', 'Fecha', P) + _histThHTML('emis', 'Emisiones', P) +
+            _histThHTML('status', 'Estado', P) + _histThHTML('date', 'Fecha de prueba', P) + _histThHTML('emis', 'Emisiones', P) +
             '<th>Acciones</th>' +
           '</tr></thead>' + bodyHTML +
         '</table></div>' +
@@ -23739,16 +23758,15 @@ function histExportXlsx() {
     });
 
     var head = ['VIN', 'Familia', 'Código de configuración', 'Modelo', 'Motor', 'Regulación', 'Región', 'Propósito', 'Estado',
-                'Fecha', 'Resultado', 'Datos faltantes del PDF', 'Cuenta para CoP', 'Fuera de plan', 'Test Ref VETS'].concat(gasCols);
+                'Fecha de prueba', 'Alta', 'Resultado', 'Datos faltantes del PDF', 'Cuenta para CoP', 'Fuera de plan', 'Test Ref VETS'].concat(gasCols);
     var H = { font: { b: true, color: 'FFFFFF' }, fill: '1E293B', border: 'thin', align: { v: 'center', wrap: true } };
     var cells = head.map(function(h, i) { return { r: 1, c: i + 1, v: h, s: H }; });
     rows.forEach(function(r, i) {
         var R = i + 2;
         var resultado = r.historic ? 'Histórico (VETS) — ' + ((r.v.historic && r.v.historic.state) || 'pendiente')
                       : r.emis === 'doble' ? 'Liberado y aprobado' : r.emis === 'liberador' ? 'Liberado, sin aprobar' : (r.live ? 'En curso' : 'Sin resultados');
-        var dIso = r.ts ? localDateStr(new Date(r.ts)) : '';
         var vals = [r.vin, r.famLabel, r.configCode, r.model, r.engine, r.reg, r.region, r.purposeLabel || r.purpose, r.statusLabel,
-                    dIso ? { date: dIso } : '', resultado, r.miss || '', r.copExcluded ? 'No — ' + r.copWhy : 'Sí',
+                    r.testDay ? { date: r.testDay } : 'sin fecha de prueba', r.alta ? { date: r.alta } : '', resultado, r.miss || '', r.copExcluded ? 'No — ' + r.copWhy : 'Sí',
                     r.adhoc ? 'Sí' : '', r.testRef];
         vals.forEach(function(v, j) {
             if (v === '' || v == null) return;
@@ -23758,7 +23776,7 @@ function histExportXlsx() {
             if (perRow[i][k] !== undefined && perRow[i][k] !== '') cells.push({ r: R, c: head.length - gasCols.length + j + 1, v: perRow[i][k] });
         });
     });
-    var widths = [20, 44, 34, 10, 18, 14, 12, 18, 18, 12, 22, 12, 22, 10, 14];
+    var widths = [20, 44, 34, 10, 18, 14, 12, 18, 18, 14, 12, 22, 12, 22, 10, 14];
     var spec = { sheets: [{
         name: 'Historial', freeze: { row: 2, col: 2 },
         cols: head.map(function(_, i) { return { min: i + 1, max: i + 1, width: widths[i] || 12 }; }),
@@ -59905,7 +59923,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610072034' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610072105' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -74418,7 +74436,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8979,"mods":[[8982,"js/app.js",18175],[18179,"js/uiflow.js",18495],[18499,"js/cop15.js",28639],[28643,"js/inventory.js",35709],[35713,"js/testplan.js",46972],[46976,"js/panel.js",52161],[52165,"js/projects.js",54454],[54458,"js/auth.js",55499],[55503,"js/signatures.js",55704],[55708,"js/firebase-sync.js",62924],[62928,"js/cop_validator.js",67293],[67297,"js/homolog.js",69087],[69091,"js/vets.js",70886],[70890,"js/historico.js",71802],[71806,"js/review.js",72259],[72263,"js/opcards.js",72692],[72696,"js/handoff.js",72970],[72974,"js/ficha.js",73465],[73469,"js/relevo.js",73849],[73853,"js/momentos.js",73990],[73994,"js/xlsxw.js",74374],[74378,"js/bugreport.js",75524]]};
+var BUG_LINE_MAP = {"tag":8979,"mods":[[8982,"js/app.js",18190],[18194,"js/uiflow.js",18510],[18514,"js/cop15.js",28657],[28661,"js/inventory.js",35727],[35731,"js/testplan.js",46990],[46994,"js/panel.js",52179],[52183,"js/projects.js",54472],[54476,"js/auth.js",55517],[55521,"js/signatures.js",55722],[55726,"js/firebase-sync.js",62942],[62946,"js/cop_validator.js",67311],[67315,"js/homolog.js",69105],[69109,"js/vets.js",70904],[70908,"js/historico.js",71820],[71824,"js/review.js",72277],[72281,"js/opcards.js",72710],[72714,"js/handoff.js",72988],[72992,"js/ficha.js",73483],[73487,"js/relevo.js",73867],[73871,"js/momentos.js",74008],[74012,"js/xlsxw.js",74392],[74396,"js/bugreport.js",75542]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

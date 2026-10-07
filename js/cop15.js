@@ -4576,7 +4576,7 @@ function _renderUsedCylinders(vehicle) {
 // ======================================================================
 
 var HIST_STATUS_ORDER = ['registered', 'in-progress', 'testing', 'ready-release', 'pending-approval', 'archived', 'historico'];
-var HIST_SORTS = { date: 'Fecha', vin: 'VIN', config: 'Configuración', purpose: 'Propósito', status: 'Estado', emis: 'Emisiones' };
+var HIST_SORTS = { date: 'Fecha de prueba', vin: 'VIN', config: 'Configuración', purpose: 'Propósito', status: 'Estado', emis: 'Emisiones' };
 var HIST_GROUPS = { '': 'Sin agrupar', familia: 'Familia', modelo: 'Modelo', regulacion: 'Regulación', region: 'Región',
                     estado: 'Estado', proposito: 'Propósito', mes: 'Mes de la prueba' };
 var HIST_FLAGS = {
@@ -4628,9 +4628,10 @@ function histRowFacts(v) {
     if (hit && hit.mk === mk) return hit.f;
 
     var cfg = v.config || {};
-    var dateIso = vehicleListDate(v) || '';
-    var d = dateIso ? new Date(dateIso) : null;
-    var ts = d && !isNaN(d.getTime()) ? d.getTime() : 0;
+    // [2.35.1] La fecha del Historial es la de la PRUEBA (testData.testDatetime), no el alta.
+    var testDay = typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '';
+    var ts = testDay ? new Date(testDay + 'T12:00:00').getTime() : 0;
+    if (isNaN(ts)) ts = 0;
     var historic = vehicleIsHistoric(v);
 
     var gr = v.testData && v.testData.gasResults;
@@ -4666,8 +4667,8 @@ function histRowFacts(v) {
         famLabel: famParts.join(' · ') || '(sin familia)',
         purpose: v.purpose || '', purposeLabel: purposeLabel,
         status: v.status || '', statusLabel: statusLabel, live: vehicleIsLive(v), historic: historic,
-        dateIso: dateIso, ts: ts,
-        ym: ts ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : '',
+        testDay: testDay, ts: ts, alta: String(v.registeredAt || '').slice(0, 10),
+        ym: testDay ? testDay.slice(0, 7) : '',
         emis: emis, gasCount: gasCount,
         miss: miss, soft: soft,
         copExcluded: !!(cu && !cu.usable), copWhy: cu && !cu.usable ? cu.text : '',
@@ -4717,7 +4718,7 @@ function _histGroupOf(r, mode) {
         return { key: r.status, label: r.statusLabel, ord: String(i < 0 ? 99 : i).padStart(2, '0') };
     }
     if (mode === 'mes') {
-        if (!r.ym) return { key: '—', label: '(sin fecha)', ord: '0000' };
+        if (!r.ym) return { key: '—', label: '(sin fecha de prueba)', ord: '0000', desc: true };
         var m = HIST_MONTHS[parseInt(r.ym.slice(5), 10) - 1] || '';
         return { key: r.ym, label: m.charAt(0).toUpperCase() + m.slice(1) + ' ' + r.ym.slice(0, 4), ord: r.ym, desc: true };
     }
@@ -4753,6 +4754,8 @@ function histApplyQuery(facts, f, sort, group) {
         emis: function(r) { return _histEmisRank(r) * 100 - r.miss; }
     }[sort.key] || function(r) { return r.ts; };
     rows.sort(function(a, b) {
+        // [2.35.1] Sin fecha de prueba va al final en los dos sentidos: no es ni la más vieja ni la más nueva.
+        if (sort.key === 'date' && (!a.ts || !b.ts) && a.ts !== b.ts) return a.ts ? -1 : 1;
         var ka = keyFn(a), kb = keyFn(b);
         var c = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : cmpStr(String(ka), String(kb));
         if (c) return c * sgn;
@@ -5069,8 +5072,9 @@ function _histRowHTML(r, toks) {
         '</td>' +
         '<td data-label="Propósito">' + escapeHtml(r.purposeLabel || r.purpose) + '</td>' +
         '<td data-label="Estado"><span class="status-badge status-' + escapeHtml(r.status) + '">' + escapeHtml(r.statusLabel) + '</span></td>' +
-        '<td data-label="Fecha">' + (r.ts ? new Date(r.ts).toLocaleDateString('es-MX') : '—') +
-            (r.historic ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : '') + '</td>' +
+        '<td data-label="Fecha de prueba">' + (r.ts ? new Date(r.ts).toLocaleDateString('es-MX')
+            : '<span class="u-muted-xs" title="Se carga en Operación (fecha de la prueba) o al adjuntar VETS">sin fecha de prueba</span>' +
+              (r.alta ? '<div class="u-muted-xs">alta ' + new Date(r.alta + 'T12:00:00').toLocaleDateString('es-MX') + '</div>' : '')) + '</td>' +
         '<td data-label="Emisiones">' + emis + '</td>' +
         '<td class="hist-td-actions">' + actions + '</td>' +
     '</tr>';
@@ -5177,7 +5181,7 @@ function _histRenderBody() {
           '<thead><tr>' +
             '<th class="hist-th-chk"><input type="checkbox" onchange="histToggleAll(this.checked)"' + (allVisibleSel ? ' checked' : '') + ' title="Seleccionar las ' + filtered + ' pruebas filtradas" aria-label="Seleccionar las ' + filtered + ' pruebas filtradas"></th>' +
             _histThHTML('vin', 'VIN', P) + _histThHTML('config', 'Configuración', P) + _histThHTML('purpose', 'Propósito', P) +
-            _histThHTML('status', 'Estado', P) + _histThHTML('date', 'Fecha', P) + _histThHTML('emis', 'Emisiones', P) +
+            _histThHTML('status', 'Estado', P) + _histThHTML('date', 'Fecha de prueba', P) + _histThHTML('emis', 'Emisiones', P) +
             '<th>Acciones</th>' +
           '</tr></thead>' + bodyHTML +
         '</table></div>' +
@@ -5241,16 +5245,15 @@ function histExportXlsx() {
     });
 
     var head = ['VIN', 'Familia', 'Código de configuración', 'Modelo', 'Motor', 'Regulación', 'Región', 'Propósito', 'Estado',
-                'Fecha', 'Resultado', 'Datos faltantes del PDF', 'Cuenta para CoP', 'Fuera de plan', 'Test Ref VETS'].concat(gasCols);
+                'Fecha de prueba', 'Alta', 'Resultado', 'Datos faltantes del PDF', 'Cuenta para CoP', 'Fuera de plan', 'Test Ref VETS'].concat(gasCols);
     var H = { font: { b: true, color: 'FFFFFF' }, fill: '1E293B', border: 'thin', align: { v: 'center', wrap: true } };
     var cells = head.map(function(h, i) { return { r: 1, c: i + 1, v: h, s: H }; });
     rows.forEach(function(r, i) {
         var R = i + 2;
         var resultado = r.historic ? 'Histórico (VETS) — ' + ((r.v.historic && r.v.historic.state) || 'pendiente')
                       : r.emis === 'doble' ? 'Liberado y aprobado' : r.emis === 'liberador' ? 'Liberado, sin aprobar' : (r.live ? 'En curso' : 'Sin resultados');
-        var dIso = r.ts ? localDateStr(new Date(r.ts)) : '';
         var vals = [r.vin, r.famLabel, r.configCode, r.model, r.engine, r.reg, r.region, r.purposeLabel || r.purpose, r.statusLabel,
-                    dIso ? { date: dIso } : '', resultado, r.miss || '', r.copExcluded ? 'No — ' + r.copWhy : 'Sí',
+                    r.testDay ? { date: r.testDay } : 'sin fecha de prueba', r.alta ? { date: r.alta } : '', resultado, r.miss || '', r.copExcluded ? 'No — ' + r.copWhy : 'Sí',
                     r.adhoc ? 'Sí' : '', r.testRef];
         vals.forEach(function(v, j) {
             if (v === '' || v == null) return;
@@ -5260,7 +5263,7 @@ function histExportXlsx() {
             if (perRow[i][k] !== undefined && perRow[i][k] !== '') cells.push({ r: R, c: head.length - gasCols.length + j + 1, v: perRow[i][k] });
         });
     });
-    var widths = [20, 44, 34, 10, 18, 14, 12, 18, 18, 12, 22, 12, 22, 10, 14];
+    var widths = [20, 44, 34, 10, 18, 14, 12, 18, 18, 14, 12, 22, 12, 22, 10, 14];
     var spec = { sheets: [{
         name: 'Historial', freeze: { row: 2, col: 2 },
         cols: head.map(function(_, i) { return { min: i + 1, max: i + 1, width: widths[i] || 12 }; }),
