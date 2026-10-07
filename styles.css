@@ -6297,3 +6297,22 @@ body.ficha-open { overflow: hidden; }
     .tp-cal-grid--weeks { grid-template-columns: 28px repeat(7, minmax(0, 1fr)); }
     .tp-cal-wk { min-height: 52px; }
 }
+
+/* ── [2.35.0] Revisión al reconectar ── */
+.fbrev { text-align: left; }
+.fbrev-intro { margin: 0 0 var(--space-md); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.fbrev-sec { margin-bottom: var(--space-md); }
+.fbrev-sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-xs) var(--space-md); margin-bottom: var(--space-xs); font-size: var(--fs-sm); }
+.fbrev-all { font-size: var(--fs-sm); color: var(--muted); }
+.fbrev-link { background: none; border: none; padding: var(--space-xs); color: var(--info-text); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; text-decoration: underline; }
+.fbrev-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); max-height: 40vh; overflow-y: auto; }
+.fbrev-list li + li { border-top: 1px solid var(--border); }
+.fbrev-row { display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); cursor: pointer; min-height: var(--target-min); box-sizing: border-box; }
+.fbrev-row:hover { background: var(--surface-alt); }
+.fbrev-row.is-old { background: var(--warn-tint); }
+.fbrev-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--kia-red); }
+.fbrev-main { display: flex; flex-direction: column; gap: var(--space-2xs); min-width: 0; font-size: var(--fs-sm); }
+.fbrev-vin { letter-spacing: .02em; }
+.fbrev-meta { color: var(--muted); font-size: var(--fs-xs); }
+.fbrev-code { font-family: monospace; font-size: var(--fs-2xs); color: var(--muted); overflow-wrap: anywhere; }
+.fbrev-warn { color: var(--warn-text); font-weight: 700; font-size: var(--fs-xs); }

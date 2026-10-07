@@ -148,6 +148,8 @@ function fbQueueRetry() {
     }
 
     var item = fbOfflineQueue[0];
+    // [2.35.0] Una foto encolada de un módulo en revisión espera (fbReviewFinish la descarta).
+    if (typeof fbReviewHolds === 'function' && fbReviewHolds(item.collection)) return;
     var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection(item.collection).doc('current');
     docRef.set({
@@ -1309,6 +1311,12 @@ function fbUpdateStationMeta() {
 function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estación configurado'); return; }
+    // [2.35.0] Equipo atrasado: no sube hasta que alguien revise lo que trae.
+    if (typeof fbReviewHolds === 'function' && fbReviewHolds(collection)) {
+        fbSync.review.deferred[collection] = true;
+        if (onDone) onDone(false, 'En revisión: este equipo llegó atrasado; revisa lo que trae antes de subirlo');
+        return;
+    }
 
     // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
     // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
@@ -2098,6 +2106,10 @@ function fbPullApply(collections, results, showFeedback) {
         if (!remoteData) return;
 
         if (col === 'cop15' || col === 'testplan' || col === 'inventory') {
+            // [2.35.0] La revisión compara las lecturas locales con las de la nube.
+            if (col === 'inventory' && fbSync.review && fbSync.review.state === 'checking') {
+                try { fbSync.review.remoteInv = JSON.parse(JSON.stringify(remoteData)); } catch (eR) {}
+            }
             try {
                 _fbPullMergeModule(col, remoteData, pulled);
             } catch(e) {
@@ -2268,6 +2280,9 @@ function fbPullApply(collections, results, showFeedback) {
     if (typeof fbAuditAfterPull === 'function') setTimeout(fbAuditAfterPull, 1500);
     // [2.7.0] Límites compartidos: adoptar la versión nueva si este equipo no tiene cambios propios.
     if (typeof fbRegCheck === 'function') setTimeout(function() { fbRegCheck().catch(function() {}); }, 2500);
+    // [2.35.0] Sin vehículos por pieza, la revisión se decide aquí (solo Consumibles).
+    if (fbSync.review && fbSync.review.state === 'checking' && !fbVehActive()) fbReviewEvaluate(null);
+    else if (!fbVehActive()) _fbReviewStampOk();
     // [2.9.0] Vehículos uno por uno: después de fusionar la copia completa (si la hay).
     if (typeof fbVehiclesSync === 'function') {
         setTimeout(function() { fbVehiclesSync({ initial: true }); }, 1000);
@@ -2746,6 +2761,15 @@ function fbUpdateIndicator() {
             '⚠ sin datos — toca para descargar';
         el.onclick = function() { fbPullAll(true); };
         el.title = 'Este dispositivo no tiene datos del laboratorio. Toca para descargarlos.';
+        return;
+    }
+    // [2.35.0] Revisión al reconectar pendiente: este equipo no sube hasta decidir.
+    if (fbSync.review && fbSync.review.state === 'asking') {
+        el.style.color = '#f59e0b';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;margin-right: var(--space-xs);animation:pulse 1s infinite;"></span>' +
+            '⏸ revisar antes de subir';
+        el.onclick = function() { fbReviewOpen(); };
+        el.title = 'Este equipo llegó atrasado y trae datos que la nube no tiene. Toca para revisar qué se sube.';
         return;
     }
     // [v15.6] Sin sesión de laboratorio: el tap abre el prompt de contraseña
@@ -6082,13 +6106,16 @@ function fbVehMetaHasExtras(local, remote) {
  * - deletes: marcas de borrado con id cuyo vehículo YA NO existe aquí (una marca
  *   `vin-corregido` conserva el id del vehículo vivo: esa no borra el documento).
  */
-function fbVehPushPlan(vehicles, tombs, known) {
+function fbVehPushPlan(vehicles, tombs, known, hold) {
     known = known || {};
+    hold = hold || {};
     var upserts = [], deletes = [], vivos = {};
     (vehicles || []).forEach(function(v) {
         if (!v || typeof v !== 'object') return;
         var id = fbVehDocId(v);
         vivos[id] = true;
+        // [2.35.0] Lo que espera la revisión al reconectar no se sube.
+        if (hold[id]) return;
         if (known[id] !== (v._rev || '')) upserts.push(v);
     });
     var vistos = {};
@@ -6246,10 +6273,13 @@ function _fbVehPull(known) {
 /** Sube lo que la nube no tiene, en lotes. El último lote lleva cop15meta. */
 function _fbVehPush(known) {
     var d = (typeof db !== 'undefined' && db) ? db : { vehicles: [] };
-    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs);
-    var meta = fbVehMeta(d);
+    var hold = typeof fbReviewHeldDocs === 'function' ? fbReviewHeldDocs() : {};
+    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs, hold);
+    // [2.35.0] Mientras la revisión está abierta, la meta (configs manuales) tampoco sube.
+    var holdMeta = typeof fbReviewHolds === 'function' && fbReviewHolds('cop15');
+    var meta = holdMeta ? null : fbVehMeta(d);
     var total = plan.upserts.length + plan.deletes.length;
-    if (!total && !known.metaExtra) return Promise.resolve({ sent: 0 });
+    if (!total && (!known.metaExtra || holdMeta)) return Promise.resolve({ sent: 0 });
     var items = plan.upserts.map(function(v) { return { v: v }; }).concat(plan.deletes.map(function(x) { return { del: x }; }));
     var lotes = [];
     for (var i = 0; i < items.length; i += FB_VEH_BATCH) lotes.push(items.slice(i, i + FB_VEH_BATCH));
@@ -6265,12 +6295,12 @@ function _fbVehPush(known) {
             // Una copia congelada: si el técnico edita mientras sube, la edición sale en el siguiente ciclo.
             var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '' }; });
             return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev)).then(function() {
-                for (var n = 1; n < ups.length + dels.length + (last ? 1 : 0); n++) fbQuotaRecord('write');
+                for (var n = 1; n < ups.length + dels.length + (last && meta ? 1 : 0); n++) fbQuotaRecord('write');
                 var at = new Date().toISOString();
                 if (!known.info || typeof known.info !== 'object') known.info = {};
                 revs.forEach(function(r) { known.docs[r.id] = r.rev; known.info[r.id] = { ts: at, w: dev }; });
                 dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev }; });
-                if (last) known.metaExtra = false;
+                if (last && meta) known.metaExtra = false;
                 sent += ups.length + dels.length;
                 _fbVehKnownSave(known);
             });
@@ -6299,9 +6329,14 @@ function fbVehiclesSync(opts) {
             if (!opts.initial) _fbLiveToast('cop15');
             _fbAfterAutoMerge('cop15');
         }
+        // [2.35.0] Primer ciclo de un equipo atrasado: decidir qué preguntar ANTES de subir.
+        if (fbSync.review && fbSync.review.state === 'checking') fbReviewEvaluate(known);
+        // Si todavía no se pudo decidir (falta el pull de Consumibles), este ciclo no sube nada.
+        if (fbSync.review && fbSync.review.state === 'checking') return { sent: 0 };
         return _fbVehPush(known);
     }).then(function(s) {
         res.sent = s.sent;
+        _fbReviewStampOk();
         fbSync.vehLastSync = new Date().toISOString();
         fbSync.vehLastError = '';
         fbSync.vehPulled = true;
@@ -6327,6 +6362,373 @@ function fbVehiclesSyncSoon(ms) {
     if (_fbVehTimer) clearTimeout(_fbVehTimer);
     _fbVehTimer = setTimeout(function() { _fbVehTimer = null; fbVehiclesSync(); }, ms === undefined ? FB_VEH_DEBOUNCE_MS : ms);
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [2.35.0] REVISIÓN AL RECONECTAR                                     ║
+// ║                                                                      ║
+// ║  Un equipo que llega con más de FB_STALE_DAYS días sin sincronizar   ║
+// ║  NO sube solo lo que traía: Pruebas, Plan, Consumibles y CoP quedan  ║
+// ║  detenidos hasta que alguien revisa una ventana (VINs que la nube no ║
+// ║  tiene, lecturas de inventario más viejas que las de la nube). Lo    ║
+// ║  marcado se sube; lo desmarcado se BORRA DE ESTE EQUIPO (sin marca   ║
+// ║  de borrado: la nube nunca lo tuvo), con deshacer.                   ║
+// ║                                                                      ║
+// ║  La nube sigue siendo la copia compartida: esto no es un "equipo     ║
+// ║  master". Solo protege a equipos con esta versión — uno con código   ║
+// ║  viejo sincroniza antes de actualizarse.                             ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+var FB_STALE_DAYS = 3;
+var FB_REVIEW_UNDO_MS = 10000;
+var FB_REVIEW_MODULES = ['cop15', 'testplan', 'inventory', 'cop'];
+var _fbBootAt = new Date().toISOString();
+var _fbReviewFinishTimer = null;
+
+/** ¿Llega atrasado este equipo? `lastOkAt` = ISO de su última sincronización completa. PURA. */
+function fbReviewStaleness(lastOkAt, nowMs, days) {
+    var t = lastOkAt ? Date.parse(lastOkAt) : NaN;
+    if (isNaN(t)) return { stale: true, since: null, days: null };
+    var d = (nowMs - t) / 86400000;
+    return { stale: d > days, since: new Date(t).toISOString(), days: Math.floor(d) };
+}
+
+/**
+ * Lo que este equipo subiría y la nube no tiene. PURA.
+ * src = {vehicles, cloudDocs:{docId:rev}, bootAt, localInv, remoteInv}
+ * - vehicles: los que la nube nunca tuvo y ya existían al abrir la app (lo creado en esta
+ *   sesión es trabajo de hoy y no se pregunta).
+ * - inventory: por cilindro/tanque, las lecturas que la nube no tiene; `older` cuando TODAS
+ *   son anteriores a la última de la nube (se propone no subirlas). Un cilindro/tanque que
+ *   la nube no tiene sale como `newItem`.
+ */
+function fbReviewModel(src) {
+    src = src || {};
+    var docs = src.cloudDocs || {}, bootAt = src.bootAt || '';
+    var vehicles = [];
+    (src.vehicles || []).forEach(function(v) {
+        if (!v || typeof v !== 'object') return;
+        var docId = fbVehDocId(v);
+        if (docs[docId]) return;
+        var stamp = String(v.updatedAt || v.registeredAt || '');
+        if (bootAt && stamp && stamp >= bootAt) return;
+        var cfg = v.config || {};
+        vehicles.push({ docId: docId, id: v.id, vin: String(v.vin || ''), configCode: String(v.configCode || ''),
+                        model: String(cfg['Modelo'] || ''), status: v.status || '',
+                        date: String(v.registeredAt || v.updatedAt || ''), stamp: stamp });
+    });
+    vehicles.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+    var inventory = [];
+    var R = src.remoteInv, L = src.localInv;
+    if (R && L) {
+        var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h'); };
+        var scan = function(kind, locList, remList, keyFn, valKey) {
+            var rm = {};
+            (remList || []).forEach(function(x) { if (x) rm[keyFn(x)] = x; });
+            (locList || []).forEach(function(x) {
+                if (!x) return;
+                var key = keyFn(x), r = rm[key];
+                var name = String(x.name || x.controlNo || x.id || key);
+                if (!r) {
+                    inventory.push({ kind: kind, key: key, name: name, newItem: true, older: false,
+                                     readings: (x.readings || []).filter(Boolean).map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                     cloudLatest: null, behindDays: null });
+                    return;
+                }
+                var have = {}, cloudLatest = '';
+                (r.readings || []).forEach(function(q) { if (q && q.date) { have[rKey(q)] = true; if (q.date > cloudLatest) cloudLatest = q.date; } });
+                var extra = (x.readings || []).filter(function(q) { return q && q.date && !have[rKey(q)]; });
+                if (!extra.length) return;
+                var newest = extra.reduce(function(m, q) { return q.date > m ? q.date : m; }, '');
+                var older = !!cloudLatest && newest < cloudLatest;
+                var behind = older ? Math.round((Date.parse(cloudLatest.slice(0, 10)) - Date.parse(newest.slice(0, 10))) / 86400000) : null;
+                inventory.push({ kind: kind, key: key, name: name, newItem: false, older: older,
+                                 readings: extra.map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                 cloudLatest: cloudLatest || null, behindDays: behind });
+            });
+        };
+        scan('gas', L.gases, R.gases, function(g) { return String(g.controlNo || g.name || ''); }, 'psi');
+        scan('fuel', L.fuelTanks, R.fuelTanks, function(t) { return String(t.id || t.name || ''); }, 'level');
+    }
+    return { vehicles: vehicles, inventory: inventory };
+}
+
+/** ¿Está detenida la subida de este módulo por una revisión? */
+function fbReviewHolds(col) {
+    var r = fbSync.review;
+    return !!(r && (r.state === 'checking' || r.state === 'asking' || r.state === 'applied') && FB_REVIEW_MODULES.indexOf(col) >= 0);
+}
+
+/** Vehículos que no se suben mientras la revisión está abierta: {docId: true}. */
+function fbReviewHeldDocs() {
+    var r = fbSync.review, out = {};
+    if (!r || r.state !== 'asking' || !r.model) return out;
+    r.model.vehicles.forEach(function(v) { out[v.docId] = true; });
+    return out;
+}
+
+function _fbReviewInit() {
+    var k = fbVehKnown();
+    // Equipos que vienen de antes de 2.35.0: la última sincronización se toma de la hora
+    // del último vehículo que trajeron. Si esa hora es vieja, a lo más se revisa una vez
+    // y, si no traen nada propio, no aparece ninguna ventana.
+    if (!k.lastOkAt && k.watermark) { k.lastOkAt = new Date(k.watermark).toISOString(); _fbVehKnownSave(k); }
+    var s = fbReviewStaleness(k.lastOkAt, Date.now(), FB_STALE_DAYS);
+    return { state: s.stale ? 'checking' : 'idle', since: s.since, days: s.days, deferred: {}, model: null, remoteInv: null };
+}
+
+/** Marca la última sincronización completa de este equipo (solo fuera de una revisión). */
+function _fbReviewStampOk() {
+    if (fbSync.review && fbSync.review.state !== 'idle' && fbSync.review.state !== 'done') return;
+    var k = fbVehKnown();
+    k.lastOkAt = new Date().toISOString();
+    _fbVehKnownSave(k);
+}
+
+/** Tras el primer ciclo con la nube: ¿hay algo que preguntar? */
+function fbReviewEvaluate(known) {
+    var r = fbSync.review;
+    if (!r || r.state !== 'checking') return;
+    // Las lecturas se comparan con lo que trajo el pull de Consumibles: sin él, se espera.
+    if (fbSyncModules.inventory && !fbSync._pullCompleted) return;
+    var model = fbReviewModel({
+        vehicles: (typeof db !== 'undefined' && db && db.vehicles) || [],
+        cloudDocs: fbVehActive() ? (known || fbVehKnown()).docs : null,
+        bootAt: _fbBootAt,
+        localInv: (typeof invState !== 'undefined') ? invState : null,
+        remoteInv: r.remoteInv
+    });
+    // Sin vehículos por pieza (Pruebas no se sincroniza) no hay con qué comparar: no se pregunta por vehículos.
+    if (!fbVehActive()) model.vehicles = [];
+    if (!model.vehicles.length && !model.inventory.length) { fbReviewFinish(); return; }
+    r.model = model;
+    r.state = 'asking';
+    fbUpdateIndicator();
+    _fbReviewOpenWhenFree(0);
+}
+
+function _fbReviewOpenWhenFree(tries) {
+    var busy = (typeof _bootStage !== 'undefined' && _bootStage !== 'lista') ||
+               document.getElementById('globalModal') || document.getElementById('ui-flow') || document.getElementById('ficha');
+    if (busy && tries < 30) { setTimeout(function() { _fbReviewOpenWhenFree(tries + 1); }, 2000); return; }
+    fbReviewOpen();
+}
+
+function _fbRevEsc(s) { return typeof escapeHtml === 'function' ? escapeHtml(String(s == null ? '' : s)) : String(s == null ? '' : s); }
+function _fbRevDate(iso) {
+    if (!iso) return '—';
+    var d = new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso);
+    return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function _fbRevAgo(days) {
+    if (days == null) return '';
+    if (days < 14) return days + ' día' + (days === 1 ? '' : 's');
+    if (days < 60) return Math.round(days / 7) + ' semanas';
+    return Math.round(days / 30) + ' meses';
+}
+
+/** La ventana. Lo marcado se sube; lo desmarcado se borra de este equipo. */
+function fbReviewOpen() {
+    var r = fbSync.review;
+    if (!r || r.state !== 'asking' || !r.model) return;
+    if (document.getElementById('globalModal')) return;
+    var m = r.model;
+    var head = r.since
+        ? 'Este equipo no se sincronizaba desde el <strong>' + _fbRevDate(r.since) + '</strong> (hace ' + _fbRevAgo(r.days) + ').'
+        : 'Este equipo no tiene registro de haberse sincronizado antes.';
+    var html = '<p class="fbrev-intro">' + head + ' Antes de subir lo que trae, revisa qué entra a la nube del laboratorio. ' +
+        '<strong>Lo marcado se sube; lo desmarcado se borra de este equipo</strong> (puedes deshacer). Mientras no decidas, este equipo no sube nada de Pruebas, Plan, Consumibles ni CoP.</p>';
+    if (m.vehicles.length) {
+        html += '<div class="fbrev-sec"><div class="fbrev-sec-head"><strong>🚗 ' + m.vehicles.length + ' vehículo' + (m.vehicles.length === 1 ? '' : 's') + ' que la nube no tiene</strong>' +
+            '<span class="fbrev-all"><button type="button" class="fbrev-link" onclick="fbReviewCheckAll(\'veh\', true)">Todos</button> · ' +
+            '<button type="button" class="fbrev-link" onclick="fbReviewCheckAll(\'veh\', false)">Ninguno</button></span></div><ul class="fbrev-list">';
+        m.vehicles.forEach(function(v, i) {
+            var st = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+            html += '<li><label class="fbrev-row"><input type="checkbox" class="fbrev-chk" data-kind="veh" data-i="' + i + '" checked>' +
+                '<span class="fbrev-main"><strong class="fbrev-vin">' + _fbRevEsc(v.vin || '(sin VIN)') + '</strong> ' +
+                '<span class="fbrev-meta">' + _fbRevEsc([v.model, st, 'alta ' + _fbRevDate(v.date)].filter(Boolean).join(' · ')) + '</span>' +
+                '<span class="fbrev-code">' + _fbRevEsc(v.configCode) + '</span></span></label></li>';
+        });
+        html += '</ul></div>';
+    }
+    if (m.inventory.length) {
+        html += '<div class="fbrev-sec"><div class="fbrev-sec-head"><strong>🧪 Consumibles: lecturas que la nube no tiene</strong>' +
+            '<span class="fbrev-all"><button type="button" class="fbrev-link" onclick="fbReviewCheckAll(\'inv\', true)">Todas</button> · ' +
+            '<button type="button" class="fbrev-link" onclick="fbReviewCheckAll(\'inv\', false)">Ninguna</button></span></div><ul class="fbrev-list">';
+        m.inventory.forEach(function(x, i) {
+            var n = x.readings.length, auto = x.readings.filter(function(q) { return q.auto; }).length;
+            var last = x.readings.reduce(function(a, q) { return q.date > a ? q.date : a; }, '');
+            var what = x.newItem
+                ? (x.kind === 'gas' ? 'Cilindro' : 'Tanque') + ' que la nube no tiene (' + n + ' lectura' + (n === 1 ? '' : 's') + ')'
+                : n + ' lectura' + (n === 1 ? '' : 's') + (auto ? ' (' + auto + ' automática' + (auto === 1 ? '' : 's') + ' por prueba)' : '') + ', la más nueva del ' + _fbRevDate(last);
+            var warn = x.older
+                ? '<span class="fbrev-warn">⚠ ' + _fbRevAgo(x.behindDays) + ' más vieja' + (n === 1 ? '' : 's') + ' que la última de la nube (' + _fbRevDate(x.cloudLatest) + '). Se recomienda no subirla' + (n === 1 ? '' : 's') + '.</span>'
+                : (x.cloudLatest ? '<span class="fbrev-meta">Última en la nube: ' + _fbRevDate(x.cloudLatest) + '</span>' : '');
+            html += '<li><label class="fbrev-row' + (x.older ? ' is-old' : '') + '"><input type="checkbox" class="fbrev-chk" data-kind="inv" data-i="' + i + '"' + (x.older ? '' : ' checked') + '>' +
+                '<span class="fbrev-main"><strong>' + _fbRevEsc(x.name) + '</strong> <span class="fbrev-meta">' + _fbRevEsc(what) + '</span>' + warn + '</span></label></li>';
+        });
+        html += '</ul></div>';
+    }
+    showModal({
+        title: 'Revisar antes de subir',
+        type: 'warning',
+        body: '<div class="fbrev">' + html + '</div>',
+        onCancel: function() { fbUpdateIndicator(); },
+        buttons: [
+            { label: 'Decidir después' },
+            { label: 'Aplicar', cls: 'btn-primary', onclick: function() {
+                var keep = { veh: {}, inv: {} };
+                document.querySelectorAll('#globalModal .fbrev-chk').forEach(function(cb) {
+                    if (cb.checked) keep[cb.getAttribute('data-kind')][cb.getAttribute('data-i')] = true;
+                });
+                var gm = document.getElementById('globalModal'); if (gm) gm.style.display = 'none';
+                fbReviewApply(keep);
+            } }
+        ]
+    });
+}
+
+function fbReviewCheckAll(kind, on) {
+    document.querySelectorAll('#globalModal .fbrev-chk[data-kind="' + kind + '"]').forEach(function(cb) { cb.checked = !!on; });
+}
+
+/** Aplica la decisión. keep = {veh:{i:true}, inv:{i:true}} (índices del modelo). */
+function fbReviewApply(keep) {
+    var r = fbSync.review;
+    if (!r || r.state !== 'asking' || !r.model) return;
+    var m = r.model;
+    var dropVeh = m.vehicles.filter(function(v, i) { return !keep.veh[i]; });
+    var dropInv = m.inventory.filter(function(x, i) { return !keep.inv[i]; });
+
+    // Foto para deshacer: solo lo que se toca.
+    var snap = {
+        vehicles: (db.vehicles || []).slice(),
+        tested: (typeof tpState !== 'undefined' && tpState) ? JSON.stringify(tpState.testedList || []) : null,
+        inv: (typeof invState !== 'undefined' && invState) ? JSON.stringify({ gases: invState.gases || [], fuelTanks: invState.fuelTanks || [], usageLog: invState.usageLog || [] }) : null
+    };
+
+    // Vehículos: fuera de este equipo, SIN marca de borrado (la nube nunca los tuvo), y con
+    // ellos su evidencia en el plan y su consumo — si no, el Plan y Consumibles subirían
+    // lo que la ventana acaba de descartar.
+    if (dropVeh.length) {
+        var ids = {}, vins = {};
+        dropVeh.forEach(function(v) { ids[String(v.id)] = true; if (v.vin) vins[v.vin] = true; });
+        db.vehicles = (db.vehicles || []).filter(function(v) { return !(v && ids[String(v.id)] && (!v.vin || vins[v.vin])); });
+        if (typeof activeVehicleId !== 'undefined' && ids[String(activeVehicleId)]) activeVehicleId = null;
+        if (typeof tpState !== 'undefined' && tpState && tpState.testedList) {
+            tpState.testedList = tpState.testedList.filter(function(t) {
+                var vid = typeof tpTestedVehicleId === 'function' ? tpTestedVehicleId(t) : t.vehicleId;
+                var vin = typeof tpTestedVin === 'function' ? tpTestedVin(t) : t.vin;
+                return !((vid !== undefined && vid !== null && ids[String(vid)]) || (vin && vins[vin] && (vid === undefined || vid === null)));
+            });
+        }
+        if (typeof invState !== 'undefined' && invState && invState.usageLog) {
+            invState.usageLog = invState.usageLog.filter(function(u) { return !(u && u.vin && vins[u.vin]); });
+        }
+    }
+    // Consumibles: se quitan las lecturas descartadas (o el cilindro/tanque que la nube no tiene).
+    if (dropInv.length && typeof invState !== 'undefined' && invState) {
+        dropInv.forEach(function(x) {
+            var list = x.kind === 'gas' ? invState.gases : invState.fuelTanks;
+            var keyOf = x.kind === 'gas' ? function(g) { return String(g.controlNo || g.name || ''); } : function(t) { return String(t.id || t.name || ''); };
+            if (!list) return;
+            if (x.newItem) {
+                var keepList = list.filter(function(it) { return !(it && keyOf(it) === x.key); });
+                if (x.kind === 'gas') invState.gases = keepList; else invState.fuelTanks = keepList;
+                return;
+            }
+            var it = list.find(function(y) { return y && keyOf(y) === x.key; });
+            if (!it || !it.readings) return;
+            var gone = {};
+            x.readings.forEach(function(q) { gone[q.date + '|' + (q.auto ? 'a' : 'h')] = true; });
+            it.readings = it.readings.filter(function(q) { return !(q && gone[q.date + '|' + (q.auto ? 'a' : 'h')]); });
+            if (x.kind === 'fuel' && it.readings.length) it.currentLevel = it.readings[it.readings.length - 1].level;
+        });
+    }
+
+    // Guardar: las subidas siguen detenidas (estado 'asking') hasta que pase la ventana de deshacer.
+    try { if (dropVeh.length && typeof saveDB === 'function') saveDB(); } catch (e) {}
+    try { if (dropVeh.length && typeof tpSave === 'function') { tpSave(); if (typeof tpInvalidateCache === 'function') tpInvalidateCache(); } } catch (e) {}
+    try {
+        if ((dropVeh.length || dropInv.length) && typeof invSave === 'function') {
+            if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+            invSave();
+        }
+    } catch (e) {}
+    try { if (typeof refreshAllLists === 'function') refreshAllLists(); if (typeof invRender === 'function') invRender(); } catch (e) {}
+
+    var upVeh = m.vehicles.length - dropVeh.length, upInv = m.inventory.length - dropInv.length;
+    if (typeof auditLog === 'function') {
+        auditLog('sync', 'revision_reconexion', { type: 'device', id: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '', label: 'Revisión al reconectar' },
+            upVeh + ' vehículo(s) subidos, ' + dropVeh.length + ' borrados de este equipo; ' + upInv + ' grupo(s) de lecturas subidos, ' + dropInv.length + ' descartados',
+            { after: { diasSinSync: r.days, subidos: m.vehicles.filter(function(v, i) { return keep.veh[i]; }).map(function(v) { return v.vin; }),
+                       borrados: dropVeh.map(function(v) { return v.vin; }),
+                       lecturasDescartadas: dropInv.map(function(x) { return x.name + ' (' + x.readings.length + ')'; }) } });
+    }
+
+    r.state = 'applied';
+    r.lastSnap = snap;
+    fbUpdateIndicator();
+    var msg = 'Revisión aplicada: ' + upVeh + ' vehículo' + (upVeh === 1 ? '' : 's') + ' por subir' +
+              (dropVeh.length ? ', ' + dropVeh.length + ' borrado' + (dropVeh.length === 1 ? '' : 's') + ' de este equipo' : '') +
+              (m.inventory.length ? '; lecturas: ' + upInv + ' por subir, ' + dropInv.length + ' descartada' + (dropInv.length === 1 ? '' : 's') : '') + '.';
+    if (typeof toastUndo === 'function' && (dropVeh.length || dropInv.length)) {
+        toastUndo(msg, fbReviewUndo);
+        if (_fbReviewFinishTimer) clearTimeout(_fbReviewFinishTimer);
+        _fbReviewFinishTimer = setTimeout(function() { _fbReviewFinishTimer = null; if (fbSync.review.state === 'applied') fbReviewFinish(); }, FB_REVIEW_UNDO_MS);
+    } else {
+        if (typeof showToast === 'function') showToast(msg, 'success');
+        fbReviewFinish();
+    }
+}
+
+/** Deshacer: regresa lo borrado y vuelve a preguntar. */
+function fbReviewUndo() {
+    var r = fbSync.review;
+    if (!r || r.state !== 'applied' || !r.lastSnap) return;
+    if (_fbReviewFinishTimer) { clearTimeout(_fbReviewFinishTimer); _fbReviewFinishTimer = null; }
+    var s = r.lastSnap;
+    db.vehicles = s.vehicles;
+    if (s.tested !== null && typeof tpState !== 'undefined' && tpState) tpState.testedList = JSON.parse(s.tested);
+    if (s.inv !== null && typeof invState !== 'undefined' && invState) {
+        var inv = JSON.parse(s.inv);
+        invState.gases = inv.gases; invState.fuelTanks = inv.fuelTanks; invState.usageLog = inv.usageLog;
+    }
+    r.state = 'asking';
+    try { saveDB(); } catch (e) {}
+    try { if (typeof tpSave === 'function') { tpSave(); if (typeof tpInvalidateCache === 'function') tpInvalidateCache(); } } catch (e) {}
+    try { if (typeof invSave === 'function') invSave(); } catch (e) {}
+    try { if (typeof refreshAllLists === 'function') refreshAllLists(); } catch (e) {}
+    fbUpdateIndicator();
+    setTimeout(fbReviewOpen, 400);
+}
+
+/** Termina la revisión: libera las subidas detenidas y sube el estado ya revisado. */
+function fbReviewFinish() {
+    var r = fbSync.review;
+    if (!r) return;
+    var deferred = Object.keys(r.deferred || {});
+    r.state = 'done';
+    r.model = null; r.lastSnap = null; r.remoteInv = null; r.deferred = {};
+    _fbReviewStampOk();
+    // Una subida que quedó encolada ANTES de decidir trae la foto vieja: se descarta y se
+    // sube el estado actual.
+    if (typeof fbOfflineQueue !== 'undefined' && fbOfflineQueue.length) {
+        for (var i = fbOfflineQueue.length - 1; i >= 0; i--) {
+            if (FB_REVIEW_MODULES.indexOf(fbOfflineQueue[i].collection) >= 0) fbOfflineQueue.splice(i, 1);
+        }
+        if (typeof fbQueueSave === 'function') { try { fbQueueSave(); } catch (e) {} }
+    }
+    var states = { cop15: function() { return db; }, testplan: function() { return tpState; }, inventory: function() { return invState; },
+                   cop: function() { var c = null; try { c = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch (e) {} return c; } };
+    deferred.forEach(function(col) {
+        var data = states[col] ? states[col]() : null;
+        if (data && fbSyncModules[col]) fbPush(col, data);
+    });
+    if (typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon(500);
+    fbUpdateIndicator();
+}
+
+fbSync.review = _fbReviewInit();
 
 /**
  * Sin listener en vivo (modo REST o file://) no hay quién avise: un ciclo cada 5 min

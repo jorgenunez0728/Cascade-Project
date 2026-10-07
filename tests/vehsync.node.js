@@ -90,22 +90,30 @@ function servidor() {
     return S;
 }
 
-function equipo(srv, id) {
+function equipo(srv, id, opts) {
+    opts = opts || {};
     const store = {};
+    // [2.35.0] Un equipo de prueba está "al día" salvo que se pida atrasado (opts.lastOkAt).
+    store.kia_fb_veh_known = JSON.stringify({ docs: {}, lastOkAt: opts.lastOkAt !== undefined ? opts.lastOkAt : new Date().toISOString() });
+    const ui = { modals: [], toasts: [], undo: null, indicator: 0 };
     const ctx = {
         console, JSON, Object, Array, String, Number, Math, Date, RegExp, Error, isNaN, parseInt, parseFloat, Promise,
         encodeURIComponent, unescape,
         setTimeout: () => 0, clearTimeout: () => {}, setInterval: () => 0,
         localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
         fetch: (u, i) => srv.fetch(u, i),
-        refreshAllLists() {}, updateProgressBar() {}, _fbTpUISync() {}, invRender() {}, showToast() {},
+        refreshAllLists() {}, updateProgressBar() {}, _fbTpUISync() {}, invRender() {}, showToast(m) { ui.toasts.push(m); },
+        showModal(o) { ui.modals.push(o); }, toastUndo(m, fn) { ui.toasts.push(m); ui.undo = fn; },
+        fbUpdateIndicator() { ui.indicator++; }, auditLog() {},
+        document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
         fbQuotaCheck: () => ({ allowed: true }), fbQuotaRecord() {}, fbSyncCapacityInvalidate() {},
         _fbIdTokenPromise: () => Promise.resolve('tok'),
         FIREBASE_CONFIG: { projectId: 'p', apiKey: 'k' },
         FB_DEVICE_ID: id, fbSyncModules: { cop15: true, testplan: true, inventory: true },
-        fbSync: { enabled: true, stationId: 'KIA-EMLAB' },
+        fbSync: { enabled: true, stationId: 'KIA-EMLAB', _pullCompleted: true },
         db: { version: '11.0', vehicles: [], lastId: 0 }, tpState: {}, invState: {}
     };
+    if (opts.vehicles) ctx.db.vehicles = opts.vehicles;
     ctx.globalThis = ctx;
     vm.createContext(ctx);
     APP_FNS.forEach(n => vm.runInContext(extraer(SRC.app, n), ctx));
@@ -115,6 +123,7 @@ function equipo(srv, id) {
     FB_VARS.forEach(n => vm.runInContext(constante(SRC.fb, n), ctx));
     vm.runInContext(bloque(SRC.fb, 'var FB_VEH_KNOWN_KEY'), ctx, { filename: 'veh-' + id + '.js' });
     ctx.store = store;
+    ctx.ui = ui;
     return ctx;
 }
 
@@ -376,6 +385,98 @@ const MARGEN = 10 * 60 * 1000;
         ok('un error se muestra con su motivo', m.tone === 'err' && m.lines.indexOf('Sin permiso') >= 0);
     }
 
+
+    console.log('\n== 2.35.0: revisión al reconectar ==');
+    {
+        const S = servidor();
+        const nube = equipo(S, 'dev_nube');
+        nube.db.vehicles = [vehiculo(51), vehiculo(52)]; nube.dedupeVehicleIds(); guardar(nube);
+        await nube.fbVehiclesSync({ initial: true });
+        const hace30 = new Date(Date.now() - 30 * 86400000).toISOString();
+
+        // Equipo viejo: 30 días sin sincronizar, con una prueba "dummy" que la nube nunca tuvo.
+        const viejo = equipo(S, 'dev_viejo', { lastOkAt: hace30,
+            vehicles: [vehiculo(99, { registeredAt: '2026-08-01T10:00:00.000Z' })] });
+        ok('arranca en revisión (más de 3 días sin sincronizar)', viejo.fbSync.review.state === 'checking' && viejo.fbSync.review.days >= 29);
+        viejo.dedupeVehicleIds(); guardar(viejo);
+        let r = await viejo.fbVehiclesSync({ initial: true });
+        const enNube = vin => S.vehDocs().some(d => d.fields.vin.stringValue === vin);
+        ok('trae lo de la nube', !!porVin(viejo, 'KNA000051') && !!porVin(viejo, 'KNA000052'));
+        ok('pregunta, y solo por lo que la nube no tiene', viejo.fbSync.review.state === 'asking' && viejo.ui.modals.length === 1 &&
+            viejo.fbSync.review.model.vehicles.map(v => v.vin).join() === 'KNA000099', JSON.stringify(viejo.fbSync.review.model && viejo.fbSync.review.model.vehicles));
+        ok('mientras no decida, la dummy NO sube', !enNube('KNA000099') && r.sent === 0, JSON.stringify(r));
+        r = await viejo.fbVehiclesSync();
+        ok('ni en el siguiente ciclo', !enNube('KNA000099'));
+        ok('Pruebas, Plan, Consumibles y CoP quedan detenidos', ['cop15', 'testplan', 'inventory', 'cop'].every(c => viejo.fbReviewHolds(c)) && !viejo.fbReviewHolds('panel'));
+        const okAntes = JSON.parse(viejo.store.kia_fb_veh_known).lastOkAt;
+        ok('la última sincronización NO se actualiza mientras está pendiente', okAntes === hace30);
+
+        // "Ninguno": se borra de este equipo, con deshacer.
+        viejo.fbReviewApply({ veh: {}, inv: {} });
+        ok('desmarcada: se borra de este equipo', !porVin(viejo, 'KNA000099') && viejo.db.vehicles.length === 2);
+        ok('sin marca de borrado (la nube nunca la tuvo)', !(viejo.db.deletedVehicles || []).length);
+        ok('ofrece deshacer y sigue detenido durante la ventana', typeof viejo.ui.undo === 'function' && viejo.fbReviewHolds('cop15'));
+        viejo.ui.undo();
+        ok('deshacer la regresa y vuelve a preguntar', !!porVin(viejo, 'KNA000099') && viejo.fbSync.review.state === 'asking');
+        viejo.fbReviewApply({ veh: {}, inv: {} });
+        viejo.fbReviewFinish();
+        ok('al terminar libera las subidas y sella la sincronización', viejo.fbSync.review.state === 'done' && !viejo.fbReviewHolds('cop15') &&
+            JSON.parse(viejo.store.kia_fb_veh_known).lastOkAt > hace30);
+        r = await viejo.fbVehiclesSync();
+        ok('la dummy nunca llegó a la nube', !enNube('KNA000099') && enNube('KNA000051'));
+
+        // "Subir": lo marcado sí sube.
+        const otro = equipo(S, 'dev_otro', { lastOkAt: hace30, vehicles: [vehiculo(77, { registeredAt: '2026-08-02T10:00:00.000Z' })] });
+        otro.dedupeVehicleIds(); guardar(otro);
+        await otro.fbVehiclesSync({ initial: true });
+        otro.fbReviewApply({ veh: { 0: true }, inv: {} });
+        ok('marcada: no hay nada que deshacer y termina sola', otro.fbSync.review.state === 'done' && otro.ui.undo === null);
+        await otro.fbVehiclesSync();
+        ok('y sube', enNube('KNA000077'));
+
+        // Un equipo al día no pregunta nada.
+        const aldia = equipo(S, 'dev_aldia', { vehicles: [vehiculo(66)] });
+        aldia.dedupeVehicleIds(); guardar(aldia);
+        r = await aldia.fbVehiclesSync({ initial: true });
+        ok('un equipo al día sube sin preguntar', aldia.fbSync.review.state === 'idle' && aldia.ui.modals.length === 0 && enNube('KNA000066'));
+
+        // Atrasado pero sin nada propio: no aparece ninguna ventana.
+        const limpio = equipo(S, 'dev_limpio', { lastOkAt: hace30 });
+        await limpio.fbVehiclesSync({ initial: true });
+        ok('atrasado sin nada propio: no pregunta y queda al día', limpio.fbSync.review.state === 'done' && limpio.ui.modals.length === 0);
+
+        // Equipos de antes de 2.35.0: la última sincronización sale de la marca de agua.
+        const S2 = servidor();
+        const antes = equipo(S2, 'dev_antes', { lastOkAt: null });
+        ok('sin registro alguno: se revisa', antes.fbSync.review.state === 'checking');
+        const st = antes.fbReviewStaleness(new Date(Date.now() - 2 * 86400000).toISOString(), Date.now(), 3);
+        ok('2 días: no está atrasado', !st.stale && st.days === 2);
+        ok('4 días: atrasado', antes.fbReviewStaleness(new Date(Date.now() - 4 * 86400000).toISOString(), Date.now(), 3).stale);
+    }
+
+    console.log('\n== 2.35.0: el resumen de Consumibles ==');
+    {
+        const X = equipo(servidor(), 'dev_inv');
+        const local = { gases: [
+            { controlNo: 'G1', name: 'CO 500 ppm', readings: [{ date: '2026-09-01', psi: 1500 }, { date: '2026-09-02', psi: 1480 }] },
+            { controlNo: 'G2', name: 'NOx', readings: [{ date: '2026-09-25', psi: 900 }, { date: '2026-09-29', psi: 880 }] },
+            { controlNo: 'G9', name: 'Dummy', readings: [{ date: '2026-08-01', psi: 2000 }] }],
+            fuelTanks: [{ id: 'T1', name: 'Gasolina E10', readings: [{ date: '2026-09-03', level: 40 }, { date: '2026-09-03', level: 35, auto: true }] }] };
+        const nube = { gases: [
+            { controlNo: 'G1', readings: [{ date: '2026-09-01', psi: 1500 }, { date: '2026-09-23', psi: 1200 }] },
+            { controlNo: 'G2', readings: [{ date: '2026-09-25', psi: 900 }] }],
+            fuelTanks: [{ id: 'T1', readings: [{ date: '2026-09-24', level: 60 }] }] };
+        const m = X.fbReviewModel({ vehicles: [], cloudDocs: {}, localInv: local, remoteInv: nube });
+        const by = k => m.inventory.find(x => x.key === k);
+        ok('lectura que la nube no tiene, 3 semanas más vieja: se marca vieja', by('G1').older && by('G1').readings.length === 1 && by('G1').behindDays === 21, JSON.stringify(by('G1')));
+        ok('lectura más nueva que la de la nube: no es vieja', !by('G2').older && by('G2').readings[0].date === '2026-09-29');
+        ok('cilindro que la nube no tiene', by('G9').newItem);
+        ok('tanque: cuenta también la automática por prueba', by('T1').older && by('T1').readings.length === 2 && by('T1').readings.some(q => q.auto));
+        ok('lo que ya está en la nube no aparece', m.inventory.length === 4);
+        const v = X.fbReviewModel({ vehicles: [{ id: 1, vin: 'A', registeredAt: '2026-01-01' }, { id: 2, vin: 'B', registeredAt: '2099-01-01T00:00:00.000Z' }],
+            cloudDocs: {}, bootAt: '2026-10-07T00:00:00.000Z' });
+        ok('lo creado en esta sesión no se pregunta', v.vehicles.length === 1 && v.vehicles[0].vin === 'A');
+    }
     console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
     process.exitCode = fallaron ? 1 : 0;
 })().catch(e => { console.error(e); process.exit(1); });
