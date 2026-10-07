@@ -171,18 +171,50 @@ t('propuestas: sólo la vigente de la semana y marcada', () => {
     eq(Object.keys(pl).join(), '2026-10-06'); eq(pl['2026-10-06'][0].proposal, true);
 });
 
-console.log('REQ mensual por lotes acumulados');
-t('la suma del periodo = REQ del total', () => {
+console.log('REQ por la regla de la norma (2.36.0)');
+const R3 = { ratio: 3, per: 1000 }, R2 = { ratio: 2, per: 1000 };
+t('la suma del periodo = REQ del total menos el de antes', () => {
     const vols = [1200, 900, 3000, 2600, 500, 4100, 0, 2200];
     const hist = 800;
-    const m = sandbox.tpFamilyMonthlyRequired(vols, hist);
+    const m = sandbox.tpFamilyMonthlyRequired(vols, hist, R3);
     const tot = vols.reduce((a, b) => a + b, hist);
-    eq(m.reduce((a, b) => a + b, 0), sandbox.tpFamilyRequired(tot) - sandbox.tpFamilyRequired(hist));
+    eq(m.reduce((a, b) => a + b, 0), sandbox.tpFamilyRequired(tot, R3) - sandbox.tpFamilyRequired(hist, R3));
 });
-t('el mes que cruza 7 501 pide 3 más; el primer volumen pide 3', () => {
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([100, 7000, 400, 1], 0)), '[3,0,0,3]');
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([0, 0], 0)), '[0,0]');
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([10], 7500)), '[3]', 'hist ya trae 3: 7 510 pide 3 más');
+t('ROUNDUP(unidades × pruebas / N), al menos 1 con producción', () => {
+    eq(sandbox.tpFamilyRequired(0, R3), 0, 'sin volumen no exige');
+    eq(sandbox.tpFamilyRequired(1, R3), 1, 'piso de 1');
+    eq(sandbox.tpFamilyRequired(1000, R3), 3, 'exacto: sin ruido de coma flotante');
+    eq(sandbox.tpFamilyRequired(1001, R3), 4);
+    eq(sandbox.tpFamilyRequired(50015, R3), 151);
+    eq(sandbox.tpFamilyRequired(1000, { ratio: 0.3, per: 100 }), 3, '0.3/100 da 3, no 4');
+    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([100, 233, 0, 1], 0, R3)), '[1,0,0,1]', '334 cruza a 2');
+    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([0, 0], 0, R3)), '[0,0]');
+});
+t('la tasa sale de la regla de la norma, no de un número fijo', () => {
+    // El caso del reporte: CL4 MY26 (94 226 antes + 19 789) y MY27 (1 antes + 50 014),
+    // las dos SULEV 30: la MISMA tasa, la diferencia es solo de volumen.
+    const my26 = sandbox.tpFamilyMonthlyRequired([8756, 8605, 2289, 139], 94226, R3).reduce((a, b) => a + b, 0);
+    const my27 = sandbox.tpFamilyMonthlyRequired([27, 13317, 13895, 12903, 9872], 1, R3).reduce((a, b) => a + b, 0);
+    eq(my26, sandbox.tpFamilyRequired(114015, R3) - sandbox.tpFamilyRequired(94226, R3));
+    eq(my27, 150, 'MY27: 151 al cierre menos 1 que ya pedía la primera unidad');
+    eq(sandbox.tpFamilyRequired(10000, R2), 20, 'otra norma, otra tasa');
+});
+t('tpFamilyRate: una regla tal cual; varias, ponderadas por volumen', () => {
+    const one = sandbox.tpFamilyRate([{ vol: 10, ratio: 3, per: 1000, label: 'USA' }, { vol: 5, ratio: 3, per: 1000, label: 'Canada' }]);
+    eq(one.ratio, 3); eq(one.per, 1000); eq(one.mixed, false); eq(one.labels.join(), 'USA,Canada');
+    const mix = sandbox.tpFamilyRate([{ vol: 3000, ratio: 3, per: 1000, label: 'A' }, { vol: 1000, ratio: 2, per: 1000, label: 'B' }]);
+    eq(mix.mixed, true); eq(mix.per, 1000); eq(mix.ratio, 2.75);
+    const sinVol = sandbox.tpFamilyRate([{ vol: 0, ratio: 3, per: 1000 }, { vol: 0, ratio: 1, per: 500 }]);
+    eq(sinVol.ratio, 2.5, 'sin volumen: promedio simple (3 y 2 por mil)');
+    eq(sandbox.tpFamilyRate([]).ratio, 1, 'sin reglas: 1/1000, como tpGetRule');
+});
+t('tpBuildFamilies usa la regla de Plan → Reglas', () => {
+    const fams = sandbox.tpBuildFamilies();
+    ok(fams.length > 0, 'hay familias');
+    fams.forEach(f => {
+        eq(f.totalRequired, sandbox.tpFamilyRequired(f.activeVol, f.rate), f.key);
+        ok(f.rate && f.rate.per > 0, 'tasa en la familia ' + f.key);
+    });
 });
 
 console.log('Libro de auditoría (.xlsx)');
@@ -225,8 +257,12 @@ t('la prueba del martes cae en la hoja de su mes, en martes, y cuenta en Tested'
     ok(/^IF\(\$A\d+="","",COUNTIFS\(\$G\$5:\$S\$\d+,\$A\d+,\$H\$5:\$T\$\d+,"<>"\)\)$/.test(cell(sep, 'D' + r).f), 'Tested = COUNTIFS familia + VIN al lado: ' + cell(sep, 'D' + r).f);
     ok(/^IF\(\$A\d+="","",COUNTIF\(\$G\$5:\$T\$\d+,\$A\d+\)\)$/.test(cell(sep, 'C' + r).f), 'Planned = COUNTIF de la familia en el calendario');
     eq(cell(sep, 'C' + r).v, 1, 'Planned: también cuenta lo ya probado (un mes sin plan tiene su Planned)');
-    eq(cell(sep, 'B' + r).v, 3, 'Required de septiembre (2 000 acumuladas → 3)');
-    eq(spec.sheets[4].cells.filter(x => x.r === r && x.c === 2)[0].v, 3, 'Required de octubre (8 000 acumuladas → 3 más)');
+    eq(cell(sep, 'B' + r).v, sandbox.tpFamilyRequired(2000, fa.rate), 'Required de septiembre (2 000 acumuladas, con la regla de la norma)');
+    const rule = sandbox.tpGetRule(cfgA), P = spec.sheets[2], pr = 5 + model.families.indexOf(fa);
+    eq(fa.rate.ratio, rule.ratio, 'la tasa de la familia es la de Plan → Reglas'); eq(fa.rate.per, rule.per);
+    eq(cell(P, 'E' + pr).v, rule.ratio, 'Projection: Tests'); eq(cell(P, 'F' + pr).v, rule.per, 'Projection: per units');
+    ok(/ROUND\(\(\$G\d+\+SUM\(H\d+:H\d+\)\)\*\$E\d+\/\$F\d+,6\)/.test(cell(P, 'L' + pr).f), 'la fórmula usa la tasa del renglón: ' + cell(P, 'L' + pr).f);
+    eq(spec.sheets[4].cells.filter(x => x.r === r && x.c === 2)[0].v, sandbox.tpFamilyRequired(8000, fa.rate) - sandbox.tpFamilyRequired(2000, fa.rate), 'Required de octubre: lo que agregan 8 000 acumuladas');
     const tl = spec.sheets[5];
     eq(cell(tl, 'A5').v.date, '2026-09-15'); eq(cell(tl, 'B5').v, 'Tue'); eq(cell(tl, 'G6').v, 'No (purpose)');
 });
@@ -258,7 +294,8 @@ t('plantilla: mismo libro, sin datos del laboratorio', () => {
     const sep = tpl.sheets[3];
     eq(sep.cells.filter(x => x.c >= 7 && x.r > 4 && typeof x.v === 'string' && x.v).length, 0, 'calendario vacío');
     ok(sep.validations.length === 1 && /^Lists!\$A\$2:\$A\$\d+$/.test(sep.validations[0].list), 'lista desplegable');
-    eq(tpl.sheets[2].cells.filter(x => x.r >= 5 && x.c >= 4 && x.c <= 6 && x.v).length, 0, 'producción vacía');
+    eq(tpl.sheets[2].cells.filter(x => x.r >= 5 && x.c >= 7 && x.c <= 9 && x.v).length, 0, 'producción vacía');
+    ok(tpl.sheets[2].cells.some(x => x.r === 5 && x.c === 5 && typeof x.v === 'number' && x.v > 0), 'la plantilla trae la tasa de cada familia');
 });
 t('el archivo se arma y es determinista', () => {
     const model = sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-09', generated: '2026-10-04' });

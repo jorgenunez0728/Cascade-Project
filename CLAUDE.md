@@ -3024,3 +3024,25 @@ The field needs an associated `<label>`. CSS: `.cascade-help-btn`, `.cascade-too
   `'AAAA-MM-DD'`, o `''`). El Historial la usa para mostrar, ordenar, filtrar, agrupar por mes y
   exportar; sin ella la fila dice "sin fecha de prueba" y va al final en los dos sentidos.
   `vehicleListDate` (alta, o la prueba solo en un histórico) ya no la usa el Historial.
+
+## 2.36.0 — El REQ de una familia usa la regla de su norma (`js/testplan.js`)
+
+Reemplaza lo que v20.9 y 2.32.0 dicen sobre la REGLA del REQ de familia (los lotes fijos de 3
+por 5 000). Lo que v20.9 decidió sobre la UNIDAD sigue en pie: el REQ es de la familia, no la
+suma de las variantes.
+
+- **`tpFamilyRate(items)` (PURA) es LA tasa de una familia** y sale de `tpGetRule(cfg)` de cada
+  configuración vigente — las MISMAS reglas de Plan → Reglas que usa `tpCalcRequired`. Nunca
+  volver a escribir una tasa fija para la familia: el laboratorio cambia las reglas en Reglas y
+  las dos preguntas (variante y familia) deben moverse juntas.
+- Una familia NO lleva región en su clave, así que puede juntar regiones con reglas distintas:
+  la tasa se pondera por volumen y sale `mixed: true` (se declara, "Weighted" en el libro).
+- **`tpFamilyRequired(vol, rate)` / `tpFamilyMonthlyRequired(vols, hist, rate)`** — siempre
+  con la tasa. `_tpAuditReqF(x, ratioRef, perRef)` es su fórmula de Excel: si cambia una,
+  cambia la otra (redondeo a 6 decimales antes del techo en las dos).
+- El libro escribe la tasa en Projection (E = Tests, F = per units) como celdas de captura; las
+  fórmulas del renglón las referencian. La tasa con varias reglas va redondeada a 4 decimales y
+  la app calcula con ESE número, para que el recálculo de Excel dé lo mismo.
+- Con una regla lineal la continuidad por MY no cambia el REQ (más allá del piso de 1): un MY
+  nuevo arranca su acumulado en 0 y pide lo mismo por unidad que el anterior.
+

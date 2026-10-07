@@ -666,7 +666,7 @@ function tpTestedCountsForReq(t) {
 }
 
 // [2.31.0] Una prueba ACEPTADA que no sirve para CoP (copTestUsable, p. ej. IWR fuera
-// de −2…+4 %) tampoco acredita el REQ: el REQ es el número de ensayos de CoP por lote,
+// de −2…+4 %) tampoco acredita el REQ: el REQ es el número de ensayos de CoP de la familia,
 // y contarla dejaría la familia "cubierta" sin un solo ensayo válido nuevo. Mismo
 // patrón que OBD II (v23.1): la evidencia NO se toca, lo que cambia es quién la cuenta.
 // Se DERIVA del vehículo (no se guarda en la fila), así que cubre lo ya registrado.
@@ -769,34 +769,76 @@ function tpCalcRequired(cfg, rule) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// [v20.9] EL REQ DE UNA FAMILIA — la unidad de muestreo del CoP es la FAMILIA
+// EL REQ DE UNA FAMILIA — [v20.9] la unidad de muestreo es la FAMILIA ·
+// [2.36.0] la TASA sale de la regla de su norma (Plan → Reglas)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // `tpCalcRequired` (arriba) sigue siendo el REQ POR CONFIGURACIÓN: alimenta al
-// planificador semanal, que decide QUÉ variante correr. Pero la norma no exige un
-// ensayo por variante: exige **3 ensayos por familia por cada lote de 5 000
-// unidades producidas**, y el siguiente lote de 3 no entra hasta SUPERAR 7 501.
-// Sumar el REQ de cada config daba números inflados y distintos entre familias
-// con el mismo volumen (una familia con 5 variantes pedía 5, otra con 2 pedía 2),
-// que es justo lo que el laboratorio reportó.
+// planificador semanal, que decide QUÉ variante correr. La familia NO suma esos REQ
+// (v20.9: cada variante traía su propio piso de 1 y una familia con 5 variantes pedía
+// más que otra con 2 y el mismo volumen): se aplica la tasa UNA vez sobre el volumen
+// de la familia.
 //
-// El escalón NO es `ceil(vol/5000)`: con 7 500 unidades eso ya pediría 6. El punto
-// de quiebre está a la mitad del lote (7 501), así que se corre 2 500 hacia atrás.
-var TP_COP_LOT_UNITS   = 5000;  // unidades por lote
-var TP_COP_LOT_TESTS   = 3;     // ensayos que exige cada lote
-var TP_COP_LOT_ROLLOVER = 2500; // corrimiento: el 2º lote entra en 7 501, no en 5 001
+// Hasta 2.35 esa tasa era una regla fija de lotes (3 por cada 5 000, segundo lote
+// arriba de 7 500) IGUAL PARA TODAS LAS NORMAS — SULEV 30, EURO-5, Brasil y los EV —,
+// y no tenía nada que ver con las reglas por región/norma que el laboratorio edita en
+// Plan → Reglas y que ya usaba el REQ por configuración. Ahora las dos preguntas usan
+// las MISMAS reglas: `tpGetRule(cfg)` de cada configuración de la familia.
+//
+// Una familia puede juntar regiones con reglas distintas (p. ej. USA + Canadá, o
+// México + Australia): su tasa es el promedio ponderado por volumen de las de sus
+// configuraciones (`tpFamilyRate`). Si todas comparten regla, es esa regla tal cual.
 
 /**
- * LA definición de cuántos ensayos exige una familia dado su volumen.
- * Todo consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones.
- *   vol ≤ 7 500 → 3 · 7 501–12 500 → 6 · 12 501–17 500 → 9 …
- * Sin volumen no exige nada (misma regla que tpCalcRequired).
+ * LA tasa de una familia. PURA. `items` = [{vol, ratio, per, label}] (una por
+ * configuración vigente). Devuelve {ratio, per, mixed, labels}: con una sola regla,
+ * la regla exacta; con varias, pruebas por 1 000 unidades ponderadas por volumen
+ * (sin volumen, promedio simple), redondeada a 4 decimales — el libro de auditoría
+ * escribe ESE número, así que la app y la fórmula de Excel dan lo mismo.
  */
-function tpFamilyRequired(vol) {
+function tpFamilyRate(items) {
+    var list = (items || []).filter(function(x) { return x && Number(x.per) > 0 && Number(x.ratio) >= 0; });
+    if (!list.length) return { ratio: 1, per: 1000, mixed: false, labels: ['Sin regla (1/1000 por defecto)'] };
+    var labels = [], vistos = {}, firma = {};
+    list.forEach(function(x) {
+        var l = x.label || (x.ratio + '/' + x.per);
+        if (!vistos[l]) { vistos[l] = true; labels.push(l); }
+        firma[Number(x.ratio) + '/' + Number(x.per)] = true;
+    });
+    if (Object.keys(firma).length === 1) {
+        return { ratio: Number(list[0].ratio), per: Number(list[0].per), mixed: false, labels: labels };
+    }
+    var conVol = list.filter(function(x) { return Number(x.vol) > 0; });
+    var base = conVol.length ? conVol : list;
+    var peso = 0, suma = 0;
+    base.forEach(function(x) {
+        var w = conVol.length ? Number(x.vol) : 1;
+        peso += w; suma += w * Number(x.ratio) * 1000 / Number(x.per);
+    });
+    return { ratio: Math.round((suma / peso) * 10000) / 10000, per: 1000, mixed: true, labels: labels };
+}
+
+/** La tasa de una familia a partir de sus configuraciones (vigentes, con su volumen). */
+function tpFamilyRateForConfigs(cfgs) {
+    return tpFamilyRate((cfgs || []).filter(function(c) { return c && !c.paused; }).map(function(c) {
+        var r = tpGetRule(c);
+        return { vol: (Number(c.total) || 0) + (Number(c.hist) || 0), ratio: r.ratio, per: r.per, label: r.label };
+    }));
+}
+
+/**
+ * LA definición de cuántos ensayos exige una familia dado su volumen y su tasa.
+ * Todo consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones.
+ * Misma forma que `tpCalcRequired`: sin volumen no exige nada; con volumen, al menos 1.
+ * El redondeo a 6 decimales antes del techo es el mismo que escribe el libro
+ * (`_tpAuditReqF`): sin él, 1000 × 0.3/100 daría 3.0000000000000004 → 4.
+ */
+function tpFamilyRequired(vol, rate) {
     var v = Number(vol) || 0;
     if (v <= 0) return 0;
-    var lotes = Math.max(1, Math.ceil((v - TP_COP_LOT_ROLLOVER) / TP_COP_LOT_UNITS));
-    return lotes * TP_COP_LOT_TESTS;
+    var r = rate || { ratio: 1, per: 1000 };
+    var x = Math.round((v * Number(r.ratio) / Number(r.per)) * 1e6) / 1e6;
+    return Math.max(1, Math.ceil(x));
 }
 
 // v16.2: pausar/reactivar una configuración dormant (3+ meses seguidos en 0). Pausada =
@@ -8602,9 +8644,10 @@ function tpBuildFamilies() {
     tpState.planData.forEach(cfg => {
         const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0 };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0, _rateItems:[] };
         }
         const rule = tpGetRule(cfg);
+        if (!cfg.paused) families[key]._rateItems.push({ vol: cfg.total + cfg.hist, ratio: rule.ratio, per: rule.per, label: rule.label });
         // [v23.1] Contra el REQ solo cuentan los propósitos que acreditan (OBD2 no).
         const vins = tpTestedForConfig(cfg.desc);
         const n = vins.length;
@@ -8635,9 +8678,12 @@ function tpBuildFamilies() {
         f.drvs  = [...f.drvs].filter(Boolean).sort();
         f.rgns  = [...f.rgns].filter(Boolean).sort();
         f.configCount = f.configs.length;
-        // v20.9: el REQ de la familia sale de SU volumen por la regla de lotes, no de
-        // sumar el REQ de cada variante — la norma muestrea la familia, no la variante.
-        f.totalRequired = tpFamilyRequired(f.activeVol);
+        // v20.9: el REQ de la familia sale de SU volumen, no de sumar el REQ de cada
+        // variante — la norma muestrea la familia, no la variante. [2.36.0] Con la tasa
+        // de la regla de su norma (Plan → Reglas), no con lotes fijos.
+        f.rate = tpFamilyRate(f._rateItems);
+        delete f._rateItems;
+        f.totalRequired = tpFamilyRequired(f.activeVol, f.rate);
         f.coverage = f.totalRequired > 0 ? Math.min(1, f.totalTested / f.totalRequired) : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
@@ -9559,17 +9605,17 @@ function tpCalendarPlanned(fromIso, toIso) {
 }
 
 /**
- * LA definición del REQ de una familia MES POR MES, por lotes ACUMULADOS. PURA.
+ * LA definición del REQ de una familia MES POR MES, sobre la producción ACUMULADA. PURA.
  * El volumen se acumula desde `hist` y cada mes pide lo que su acumulado agrega al REQ:
- * req_i = tpFamilyRequired(acum_i) − tpFamilyRequired(acum_{i−1}). Así la suma del
- * periodo es exactamente tpFamilyRequired(hist + Σ meses) — no se reparte a ojo.
+ * req_i = tpFamilyRequired(acum_i, tasa) − tpFamilyRequired(acum_{i−1}, tasa). Así la
+ * suma del periodo es exactamente REQ(hist + Σ meses) − REQ(hist) — no se reparte a ojo.
  * El libro de auditoría escribe la misma regla como fórmula de Excel.
  */
-function tpFamilyMonthlyRequired(vols, hist) {
-    var prevCum = Number(hist) || 0, prevReq = tpFamilyRequired(prevCum);
+function tpFamilyMonthlyRequired(vols, hist, rate) {
+    var prevCum = Number(hist) || 0, prevReq = tpFamilyRequired(prevCum, rate);
     return (vols || []).map(function(v) {
         var cum = prevCum + (Number(v) || 0);
-        var req = tpFamilyRequired(cum);
+        var req = tpFamilyRequired(cum, rate);
         var out = Math.max(0, req - prevReq);
         prevCum = cum; prevReq = req;
         return out;
@@ -9812,21 +9858,31 @@ function tpAuditXlsxModel(opts) {
         short = short || tpFamilyShortLabel(cfg);
         if (!short) return null;
         if (!byShort[short]) {
-            byShort[short] = { short: short, key: cfg ? tpFamilyKeyForCfg(cfg) : '', reg: cfg ? (cfg.reg || '') : '',
+            byShort[short] = { short: short, key: cfg ? tpFamilyKeyForCfg(cfg) : '', reg: cfg ? (cfg.reg || '') : '', _cfg: cfg || null,
                                configs: 0, start: 0, vols: months.map(function() { return 0; }),
-                               platformReq: null, hasVolume: false, hasPlan: false, _descs: {} };
+                               platformReq: null, hasVolume: false, hasPlan: false, _descs: {}, _rateItems: [] };
             list.push(byShort[short]);
         }
         return byShort[short];
     };
     tpConfigCatalog().forEach(function(cfg) {
         var f = fam(cfg);
-        if (f && cfg.desc && !f._descs[cfg.desc]) { f._descs[cfg.desc] = true; f.configs++; }
+        if (f && cfg.desc && !f._descs[cfg.desc]) {
+            f._descs[cfg.desc] = true; f.configs++;
+            // [2.36.0] La tasa de la familia = la regla de su norma (Plan → Reglas), ponderada
+            // por el volumen de todo el plan de producción — la misma que tpBuildFamilies.
+            if (!cfg.paused) {
+                var rule = tpGetRule(cfg);
+                f._rateItems.push({ vol: template ? 0 : (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
+                                   ratio: rule.ratio, per: rule.per, label: rule.label });
+            }
+        }
     });
+    list.forEach(function(f) { f.rate = tpFamilyRate(f._rateItems); });
 
     if (!template) {
         // Producción: `cfg.m` está alineado con tpMonths(). Lo producido antes del periodo
-        // se suma al arranque del acumulado (los lotes ya exigidos no se vuelven a pedir).
+        // se suma al arranque del acumulado (las pruebas ya exigidas no se vuelven a pedir).
         var labels = tpMonths().map(function(l) {
             var p = _tpParseMonthLabel(l);
             return p ? (2000 + p.yy) + '-' + String(p.mo).padStart(2, '0') : null;
@@ -9896,7 +9952,10 @@ function tpAuditXlsxModel(opts) {
     var active = function(f) {
         return f.hasVolume || f.hasPlan || model.tests.some(function(t) { return t.family === f.short; });
     };
-    list.forEach(function(f) { f._active = !template && active(f); delete f._descs; });
+    list.forEach(function(f) {
+        if (!f.rate) f.rate = f._cfg ? tpFamilyRateForConfigs([f._cfg]) : tpFamilyRate([]);
+        f._active = !template && active(f); delete f._descs; delete f._rateItems; delete f._cfg;
+    });
     list.sort(function(a, b) { return (b._active - a._active) || a.short.localeCompare(b.short); });
     model.families = list;
     return model;
@@ -9915,6 +9974,7 @@ var _TP_AX = {
     famIn:  { border: 'thin', fill: 'FFF9DB', align: { v: 'center' } },
     txt:    { border: 'thin', align: { h: 'center', v: 'center' } },
     input:  { border: 'thin', fill: 'FFF9DB', align: { h: 'center' }, numFmt: '#,##0' },
+    rate:   { border: 'thin', fill: 'FFF9DB', align: { h: 'center' } },
     calc:   { border: 'thin', fill: 'F3F4F6', align: { h: 'center' }, numFmt: '#,##0' },
     pct:    { border: 'thin', fill: 'F3F4F6', align: { h: 'center' }, numFmt: '0%' },
     total:  { border: 'thin', fill: 'E5E7EB', font: { b: true }, align: { h: 'center' }, numFmt: '#,##0' },
@@ -9952,9 +10012,12 @@ function _tpAuditCf(sqrefs, activities) {
     return out;
 }
 
-/** `IF(x<=0,0,MAX(1,ROUNDUP((x-2500)/5000,0))*3)` — tpFamilyRequired como fórmula de Excel. */
-function _tpAuditReqF(x) {
-    return 'IF((' + x + ')<=0,0,MAX(1,ROUNDUP(((' + x + ')-' + TP_COP_LOT_ROLLOVER + ')/' + TP_COP_LOT_UNITS + ',0))*' + TP_COP_LOT_TESTS + ')';
+/**
+ * `IF(x<=0,0,MAX(1,ROUNDUP(ROUND(x*ratio/per,6),0)))` — tpFamilyRequired como fórmula de
+ * Excel. `ratio` y `per` son referencias a las celdas de la tasa de la familia.
+ */
+function _tpAuditReqF(x, ratio, per) {
+    return 'IF((' + x + ')<=0,0,MAX(1,ROUNDUP(ROUND((' + x + ')*' + ratio + '/' + per + ',6),0)))';
 }
 
 function _tpAuditQ(name) { return "'" + String(name).replace(/'/g, "''") + "'"; }
@@ -9984,7 +10047,7 @@ function tpAuditXlsxSpec(model) {
     var sheets = [];
 
     // Valores ya calculados (los mismos que darán las fórmulas al abrir el archivo).
-    var reqByFam = fams.map(function(f) { return tpFamilyMonthlyRequired(f.vols, f.start); });
+    var reqByFam = fams.map(function(f) { return tpFamilyMonthlyRequired(f.vols, f.start, f.rate); });
 
     // Calendario: ubicar cada prueba en su día y medir cuántos renglones necesita cada semana.
     // Por día: primero lo probado (con VIN), después lo planeado pendiente (sin VIN).
@@ -9996,18 +10059,24 @@ function tpAuditXlsxSpec(model) {
     var plannedCount = months.map(function() { return {}; });
 
     // ── Projection ──
+    // [2.36.0] Cada familia lleva su TASA (la regla de su norma en Plan → Reglas): "Tests"
+    // por cada "per units". Son celdas amarillas: el auditor ve con qué regla se calculó y
+    // una familia agregada a mano escribe la suya.
     var P = { name: 'Projection', tabColor: '1F3A5F', showGrid: false, cells: [], merges: [], cf: [], freeze: { row: R0, col: 2 },
-              cols: [{ min: 1, max: 1, width: 44 }, { min: 2, max: 2, width: 12 }, { min: 3, max: 3, width: 8 }, { min: 4, max: 4, width: 13 }],
+              cols: [{ min: 1, max: 1, width: 44 }, { min: 2, max: 2, width: 12 }, { min: 3, max: 3, width: 8 }, { min: 4, max: 4, width: 26 },
+                     { min: 5, max: 6, width: 8 }, { min: 7, max: 7, width: 13 }],
               rows: { 4: { height: 42 } }, print: { landscape: true, fitWidth: 1 } };
-    var cVol0 = 5, cTot = cVol0 + nM, cReq0 = cTot + 2, cReqTot = cReq0 + nM, cCum = cReqTot + 1, cPlat = cCum + 1;
+    var cRule = 4, cRatio = 5, cPer = 6, cStart = 7;
+    var cVol0 = cStart + 1, cTot = cVol0 + nM, cReq0 = cTot + 2, cReqTot = cReq0 + nM, cCum = cReqTot + 1, cPlat = cCum + 1;
+    var colStart = '$' + xwColName(cStart);
     P.cols.push({ min: cVol0, max: cTot, width: 9 }, { min: cTot + 1, max: cTot + 1, width: 2 },
                 { min: cReq0, max: cReqTot - 1, width: 8 }, { min: cReqTot, max: cPlat, width: 12 });
     P.cells.push({ r: 1, c: 1, v: 'Production projection and required tests', s: X.title });
-    P.cells.push({ r: 2, c: 1, v: 'Yellow cells are input (units produced). Required per month = tests added by the cumulative production of that month: ' +
-        TP_COP_LOT_TESTS + ' tests per lot of ' + TP_COP_LOT_UNITS.toLocaleString('en-US') + ' units; the 2nd lot starts above 7,500 units (' +
-        TP_COP_LOT_ROLLOVER.toLocaleString('en-US') + '-unit offset).', s: X.sub });
-    P.cells.push({ r: 3, c: cVol0, v: 'Production (units)', s: X.h2 }, { r: 3, c: cReq0, v: 'Required tests', s: X.h2 });
-    [['Family', X.hdrL], ['Regulation', X.hdr], ['Configs', X.hdr], ['Produced before ' + (months[0] ? months[0].label : ''), X.hdr]].forEach(function(h, i) {
+    P.cells.push({ r: 2, c: 1, v: 'Yellow cells are input. Each family uses the rule of its regulation (platform: Plan → Rules): Tests per N units produced, ' +
+        'at least 1 once the family has production. Required per month = tests added by the cumulative production of that month.', s: X.sub });
+    P.cells.push({ r: 3, c: cRule, v: 'Rule', s: X.h2 }, { r: 3, c: cVol0, v: 'Production (units)', s: X.h2 }, { r: 3, c: cReq0, v: 'Required tests', s: X.h2 });
+    [['Family', X.hdrL], ['Regulation', X.hdr], ['Configs', X.hdr], ['Rule (Plan → Rules)', X.hdrL], ['Tests', X.hdr], ['per units', X.hdr],
+     ['Produced before ' + (months[0] ? months[0].label : ''), X.hdr]].forEach(function(h, i) {
         P.cells.push({ r: 4, c: i + 1, v: h[0], s: h[1] });
     });
     months.forEach(function(mo, j) {
@@ -10017,28 +10086,34 @@ function tpAuditXlsxSpec(model) {
     P.cells.push({ r: 4, c: cTot, v: 'Total produced', s: X.hdr }, { r: 4, c: cReqTot, v: 'Required in period', s: X.hdr },
                  { r: 4, c: cCum, v: 'Required to date (cumulative)', s: X.hdr }, { r: 4, c: cPlat, v: 'Platform REQ (whole production plan)', s: X.hdr });
     for (var i = 0; i < nRows; i++) {
-        var r = R0 + i, f = famAt(i);
+        var r = R0 + i, f = famAt(i), rate = f ? f.rate : null;
+        var ratioRef = '$' + xwColName(cRatio) + r, perRef = '$' + xwColName(cPer) + r;
+        var reqF = function(x) { return _tpAuditReqF(x, ratioRef, perRef); };
         P.cells.push({ r: r, c: 1, v: f ? f.short : '', s: f ? X.fam : X.famIn });
         P.cells.push({ r: r, c: 2, v: f ? f.reg : '', s: f ? X.txt : X.famIn });
         P.cells.push({ r: r, c: 3, v: f ? f.configs : '', s: f ? X.txt : X.famIn });
-        P.cells.push({ r: r, c: 4, v: f && f.start ? f.start : '', s: X.input });
+        P.cells.push({ r: r, c: cRule, v: rate ? (rate.mixed ? 'Weighted: ' : '') + rate.labels.join(' + ') : '', s: f ? X.fam : X.famIn });
+        P.cells.push({ r: r, c: cRatio, v: rate ? rate.ratio : '', s: X.rate });
+        P.cells.push({ r: r, c: cPer, v: rate ? rate.per : 1000, s: X.input });
+        P.cells.push({ r: r, c: cStart, v: f && f.start ? f.start : '', s: X.input });
         var cum = f ? f.start : 0;
         months.forEach(function(mo, j) {
             var vol = f ? f.vols[j] : 0;
             cum += vol;
             P.cells.push({ r: r, c: cVol0 + j, v: vol || '', s: X.input });
-            var cumF = '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j) + ')';
-            var prevF = j === 0 ? '$D' + r : '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j - 1) + ')';
-            P.cells.push({ r: r, c: cReq0 + j, f: _tpAuditReqF(cumF) + '-' + _tpAuditReqF(prevF), v: f ? reqByFam[i][j] : 0, s: X.calc });
+            var cumF = colStart + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j) + ')';
+            var prevF = j === 0 ? colStart + r : colStart + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cVol0 + j - 1) + ')';
+            P.cells.push({ r: r, c: cReq0 + j, f: reqF(cumF) + '-' + reqF(prevF), v: f ? reqByFam[i][j] : 0, s: X.calc });
         });
-        P.cells.push({ r: r, c: cTot, f: '$D' + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cTot - 1) + ')', v: cum, s: X.calc });
+        P.cells.push({ r: r, c: cTot, f: colStart + r + '+SUM(' + xwRef(r, cVol0) + ':' + xwRef(r, cTot - 1) + ')', v: cum, s: X.calc });
         P.cells.push({ r: r, c: cReqTot, f: 'SUM(' + xwRef(r, cReq0) + ':' + xwRef(r, cReqTot - 1) + ')',
                        v: f ? reqByFam[i].reduce(function(a, b) { return a + b; }, 0) : 0, s: X.calc });
-        P.cells.push({ r: r, c: cCum, f: _tpAuditReqF(xwRef(r, cTot)), v: tpFamilyRequired(cum), s: X.calc });
+        P.cells.push({ r: r, c: cCum, f: reqF(xwRef(r, cTot)), v: tpFamilyRequired(cum, rate), s: X.calc });
         P.cells.push({ r: r, c: cPlat, v: (f && f.platformReq != null) ? f.platformReq : '', s: X.txt });
     }
-    P.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL }, { r: totRow, c: 2, v: '', s: X.totalL }, { r: totRow, c: 3, v: '', s: X.totalL });
-    for (var c = 4; c <= cPlat; c++) {
+    P.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL });
+    for (var c0 = 2; c0 < cStart; c0++) P.cells.push({ r: totRow, c: c0, v: '', s: X.totalL });
+    for (var c = cStart; c <= cPlat; c++) {
         if (c === cTot + 1) continue;
         var colSum = 0;
         P.cells.forEach(function(x) { if (x.c === c && x.r >= R0 && x.r <= lastFamRow && typeof x.v === 'number') colSum += x.v; });
@@ -10227,7 +10302,8 @@ function tpAuditXlsxSpec(model) {
         ['', ''],
         ['h2', 'Rules'],
         ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
-        ['', 'Required = ' + TP_COP_LOT_TESTS + ' tests per lot of ' + TP_COP_LOT_UNITS.toLocaleString('en-US') + ' units per family; the second lot starts above 7,500 units. ' +
+        ['', 'Required = the rule of the family regulation (platform: Plan → Rules), written in Projection as Tests per N units: Required = ROUNDUP(units × Tests / N), at least 1 once there is production. ' +
+              'A family that mixes regions with different rules uses their average weighted by production. ' +
               'Each month asks for the tests its CUMULATIVE production adds (production before the period is in "Produced before").'],
         ['', 'Planned = how many times the family appears in the month calendar (exact name), with or without VIN. Tested = only the entries that have a VIN in the cell next to it. ' +
               'An entry with [brackets] counts for neither (OBD II purpose, or not valid for CoP).'],

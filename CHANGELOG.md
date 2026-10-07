@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.36.0 — El REQ de una familia usa la regla de su norma (2026-10-07)
+
+### Cambió
+- **El REQ de cada familia sale de Plan → Reglas.** Hasta ahora era una regla fija de lotes
+  (3 pruebas por cada 5,000 unidades; el 2.º lote arriba de 7,500) **igual para todas las
+  normas**: SULEV 30, EURO-5, Brasil y los eléctricos pedían lo mismo, y no tenía nada que ver
+  con las reglas por región y norma que el laboratorio edita en Plan → Reglas. Ahora la familia
+  usa esas reglas (pruebas por cada N unidades), las mismas que ya usaba el REQ de cada
+  configuración. Cambia en Plan → Familias, en el CoP (Panorama) y en el Excel para auditoría.
+- Sigue siendo **un REQ por familia**, no la suma de sus variantes: la regla se aplica una vez
+  al volumen de la familia, con un mínimo de 1 en cuanto hay producción.
+- Una familia que junta regiones con reglas distintas usa el **promedio ponderado por
+  producción** de sus reglas, y el Excel lo dice ("Weighted: …").
+- **Excel para auditoría → Projection**: cada familia trae su regla en tres columnas nuevas
+  (Rule, Tests, per units). Tests y per units son amarillas: el auditor ve con qué regla se
+  calculó cada renglón y, si se cambia en el Excel, todo se recalcula. Una familia agregada a
+  mano escribe la suya.
+- Para leer el caso del reporte (CL4 2.0 CVT SULEV 30 4DR): MY26 y MY27 usan la **misma**
+  regla. MY27 pide más pruebas en 2026 porque produce más en el año (50,015 contra 19,789 de
+  MY26); lo que MY26 produjo antes de enero ya pidió sus pruebas.
+
+### Para desarrollo
+- **`tpFamilyRate(items)` (PURA) es LA tasa de una familia**: `items` = `[{vol, ratio, per,
+  label}]` por configuración vigente (`tpGetRule`). Una sola regla → la regla exacta; varias →
+  pruebas por 1,000 ponderadas por volumen (sin volumen, promedio simple), redondeadas a 4
+  decimales. `tpFamilyRateForConfigs(cfgs)` la arma desde configuraciones.
+- **`tpFamilyRequired(vol, rate)`** = `0` sin volumen; si no `max(1, ceil(round6(vol × ratio /
+  per)))`. El redondeo a 6 decimales es el mismo que escribe `_tpAuditReqF(x, ratioRef, perRef)`
+  (sin él 1000 × 0.3/100 daba 4). `tpFamilyMonthlyRequired(vols, hist, rate)`.
+- `tpBuildFamilies` deja la tasa en `f.rate`; `tpAuditXlsxModel` en cada familia del libro.
+- Se retiraron `TP_COP_LOT_UNITS`, `TP_COP_LOT_TESTS` y `TP_COP_LOT_ROLLOVER`.
+- Projection: columnas D (Rule), E (Tests), F (per units), G (Produced before); los meses
+  empiezan en H. Verificado: 1,964 fórmulas recalculadas en LibreOffice dan los valores de la app.
+- Pruebas: `tests/calendario.node.js` (25).
+
 ## 2.35.1 — Historial: la fecha es la de la prueba (2026-10-07)
 
 ### Cambió

@@ -1030,7 +1030,7 @@ function pnRenderReports(el) {
     var reports = [
         { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
         { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
-        { icon: '🗓️', title: 'Plan de pruebas para auditoría (Excel)', desc: 'Libro en inglés: resumen, proyección y REQ por lotes acumulados, una hoja por mes con su calendario (cada prueba en su día de prueba) y la bitácora. También como plantilla en blanco para llenarse a mano.', actions: [{ label: 'Excel', fn: 'tpAuditXlsxExportOpen' }] },
+        { icon: '🗓️', title: 'Plan de pruebas para auditoría (Excel)', desc: 'Libro en inglés: resumen, proyección con el REQ de la regla de cada norma (Plan → Reglas), una hoja por mes con su calendario (cada prueba en su día de prueba) y la bitácora. También como plantilla en blanco para llenarse a mano.', actions: [{ label: 'Excel', fn: 'tpAuditXlsxExportOpen' }] },
         { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
         { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
         { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.35.1';
+var APP_VERSION = '2.36.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '2.35.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.36.0', date: '7 oct 2026', title: 'El REQ de una familia usa la regla de su norma',
+      bullets: [
+          'Cambió: el REQ de cada familia (Plan → Familias, CoP y el Excel para auditoría) ya no es la regla fija de "3 pruebas por cada lote de 5,000" igual para todas las normas. Ahora usa la regla de su región y norma de Plan → Reglas (pruebas por cada N unidades), la misma que ya usaba el REQ por configuración.',
+          'Una familia que junta regiones con reglas distintas (p. ej. Medio Oriente + Rusia) usa el promedio de sus reglas ponderado por producción, y lo dice ("Weighted").',
+          'Excel para auditoría → Projection: cada familia trae su regla (columnas Rule, Tests y per units, amarillas) y las fórmulas de Required la usan. Si se cambia la regla en el Excel, todo se recalcula.',
+          'Importante: MY26 y MY27 ya usaban (y siguen usando) la misma regla. La diferencia entre las dos es de producción: MY27 produce en 2026 2.5 veces lo que MY26.'
+      ] },
     { version: '2.35.1', date: '7 oct 2026', title: 'Historial: la fecha es la de la prueba',
       bullets: [
           'Cambió: la columna Fecha del Historial ahora es la Fecha de prueba (la que se le carga a la prueba en Operación o desde VETS), no el día en que se dio de alta en el sistema. Ordenar, filtrar por año/mes, agrupar por mes y el Excel usan esa misma fecha.',
