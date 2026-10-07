@@ -2985,3 +2985,18 @@ CASCADE_TOOLTIPS.myFieldId = { title: 'Field name', text: 'Explicación en espa�
 ```
 The field needs an associated `<label>`. CSS: `.cascade-help-btn`, `.cascade-tooltip-overlay`,
 `.cascade-tooltip-popup`, `.cascade-tooltip-title`, `.cascade-tooltip-text`, `.cascade-tooltip-close`.
+
+## 2.34.0 — Historial: buscar, ordenar y agrupar (`js/cop15.js`)
+
+- **`histApplyQuery(facts, f, sort, group)` (PURA) es LA definición de lo que muestra el
+  Historial**: filtra, ordena, agrupa y cuenta las fichas de estado (cada ficha cuenta con los
+  DEMÁS filtros puestos). Las filas salen de `histRowFacts(v)` (memo por `_rev`). Un filtro nuevo
+  = campo en `histRowFacts` + condición en `_histPasses` + su ficha en `_histActiveHTML`.
+- **Los filtros NO se persisten** (`window._histFilter*`, memoria de la sesión); el orden, el
+  agrupado y lo plegado sí (`uiPref('hist')`, leer con `histPrefs()`). Un filtro guardado y
+  olvidado escondería pruebas sin aviso.
+- **La selección es `_histSel` (por id), nunca las casillas del DOM**: `histSelectedIds()` es lo
+  que leen PDF en lote, eliminar y Excel. Lo que deja de pasar los filtros sale de la selección.
+- Teclear en la búsqueda llama `histRefreshSoon()` → solo fichas + tabla. Un control que cambie
+  las opciones de la barra (año → meses) repinta con `histRefresh(true)`.
+- Agrupar por familia usa `copVehicleFamilyKey` (la identidad de CoP/SPC) y su 👪 Ficha.

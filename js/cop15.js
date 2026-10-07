@@ -4562,241 +4562,759 @@ function _renderUsedCylinders(vehicle) {
 // [M11] HISTORIAL Y DASHBOARD]
 // ======================================================================
 
-    function renderHistoryFilters() {
-        var bar = document.getElementById('historyFilterBar');
-        if (!bar) return;
+// ======================================================================
+// [2.34.0] HISTORIAL — buscar, filtrar, ordenar y agrupar
+//
+// histRowFacts(v)  → lo que la tabla necesita de UN vehículo, ya derivado (memo).
+// histApplyQuery(facts, f, sort, group) → PURA: filtra, ordena y agrupa.
+// La pantalla solo pinta lo que devuelve.
+//
+// Los FILTROS viven en window._histFilter* (memoria de la sesión, como siempre: un
+// filtro olvidado escondería pruebas en la siguiente visita sin que nadie lo note).
+// El ORDEN y el AGRUPADO sí se recuerdan por equipo (uiPref('hist')): son forma de
+// leer, no esconden nada.
+// ======================================================================
 
-        var statusF = window._histFilterStatus || 'all';
-        var vinQ = window._histFilterVin || '';
-        var purposeF = window._histFilterPurpose || '';
-        var yearF = window._histFilterYear || '';
-        var monthF = window._histFilterMonth || '';
+var HIST_STATUS_ORDER = ['registered', 'in-progress', 'testing', 'ready-release', 'pending-approval', 'archived', 'historico'];
+var HIST_SORTS = { date: 'Fecha', vin: 'VIN', config: 'Configuración', purpose: 'Propósito', status: 'Estado', emis: 'Emisiones' };
+var HIST_GROUPS = { '': 'Sin agrupar', familia: 'Familia', modelo: 'Modelo', regulacion: 'Regulación', region: 'Región',
+                    estado: 'Estado', proposito: 'Propósito', mes: 'Mes de la prueba' };
+var HIST_FLAGS = {
+    completar: '⚠ Faltan datos del PDF',
+    nocop:     '⊘ No cuenta para CoP',
+    sinresult: 'Sin resultados de gases',
+    unaverif:  'Liberado, sin aprobar',
+    offplan:   'Fuera de plan'
+};
+var HIST_PAGE = 25;          // filas por página sin agrupar
+var HIST_GROUP_PAGE = 10;    // filas visibles por grupo antes de "ver más"
+var HIST_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+var _histFactsMemo = {};
+var _histSel = {};           // {id: true} — la selección sobrevive a teclear en la búsqueda
+var _histGroupMore = {};     // {claveGrupo: n filas visibles}
 
-        // Build year options from data
-        var yearsSet = {};
-        (db.vehicles || []).forEach(function(v) {
-            if (v.registeredAt) yearsSet[new Date(v.registeredAt).getFullYear()] = true;
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('data:saved', function() { _histFactsMemo = {}; });
+}
+
+function _histNz(s) { s = String(s == null ? '' : s).trim(); return (s && s !== '0' && s !== '-') ? s : ''; }
+function _histFoldTxt(s) {
+    return typeof _uiFold === 'function' ? _uiFold(s) : String(s || '').toLowerCase();
+}
+
+/** Preferencias de lectura del Historial (por equipo): {sort, dir, group, collapsed, more}. */
+function histPrefs() {
+    var p = typeof uiPref === 'function' ? uiPref('hist') : null;
+    p = (p && typeof p === 'object') ? p : {};
+    return {
+        sort: HIST_SORTS[p.sort] ? p.sort : 'date',
+        dir: p.dir === 'asc' ? 'asc' : 'desc',
+        group: HIST_GROUPS[p.group] !== undefined ? p.group : '',
+        collapsed: (p.collapsed && typeof p.collapsed === 'object') ? p.collapsed : {},
+        more: !!p.more
+    };
+}
+function _histPrefsSet(patch) {
+    var p = histPrefs();
+    Object.keys(patch).forEach(function(k) { p[k] = patch[k]; });
+    if (typeof uiPref === 'function') uiPref('hist', p);
+    return p;
+}
+
+/** Lo que la tabla necesita de UN vehículo. Memo por revisión: se calcula una vez, no en cada tecla. */
+function histRowFacts(v) {
+    var mk = v.id + '|' + (v._rev || '') + '|' + (v.updatedAt || '') + '|' + v.status;
+    var hit = _histFactsMemo[v.id];
+    if (hit && hit.mk === mk) return hit.f;
+
+    var cfg = v.config || {};
+    var dateIso = vehicleListDate(v) || '';
+    var d = dateIso ? new Date(dateIso) : null;
+    var ts = d && !isNaN(d.getTime()) ? d.getTime() : 0;
+    var historic = vehicleIsHistoric(v);
+
+    var gr = v.testData && v.testData.gasResults;
+    var emis = 'sin', gasCount = 0;
+    if (historic) {
+        var hs = (v.historic && v.historic.state) || 'pendiente';
+        emis = hs === 'confirmado' ? 'doble' : (hs === 'rechazado' ? 'sin' : 'liberador');
+    } else if (gr && gr.liberador) {
+        gasCount = Object.keys(gr.liberador.values || {}).length;
+        emis = gr.aprobador ? 'doble' : 'liberador';
+    }
+
+    var miss = 0, soft = 0;
+    if (!historic && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose) && typeof validatePdfCompleteness === 'function') {
+        try { var c = validatePdfCompleteness(v); miss = c.missing.length; soft = c.soft ? c.soft.length : 0; } catch (e) {}
+    }
+    var cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null;
+
+    var famParts = [cfg['Modelo'], cfg['ENGINE CAPACITY'], cfg['ENGINE PACKAGE'], cfg['ENVIRONMENT PACKAGE'],
+                    cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], cfg['EMISSION REGULATION'], cfg['BODY TYPE']].map(_histNz).filter(Boolean);
+    var famKey = typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey(v) : famParts.join('|');
+    var reg = _histNz(cfg['EMISSION REGULATION']);
+    var statusLabel = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status || '';
+    var purposeLabel = typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose || '') : (v.purpose || '');
+    var testRef = (v.testData && v.testData.vets && v.testData.vets.testRef) || (v.historic && v.historic.testRef) || '';
+
+    var f = {
+        id: v.id, v: v,
+        vin: String(v.vin || ''), configCode: String(v.configCode || ''),
+        model: _histNz(cfg['Modelo']), engine: _histNz(cfg['ENGINE CAPACITY']), reg: reg,
+        region: _histNz(cfg['REGION']), body: _histNz(cfg['BODY TYPE']),
+        famKey: famKey && famKey.replace(/\|/g, '') ? famKey : '(sin familia)',
+        famLabel: famParts.join(' · ') || '(sin familia)',
+        purpose: v.purpose || '', purposeLabel: purposeLabel,
+        status: v.status || '', statusLabel: statusLabel, live: vehicleIsLive(v), historic: historic,
+        dateIso: dateIso, ts: ts,
+        ym: ts ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : '',
+        emis: emis, gasCount: gasCount,
+        miss: miss, soft: soft,
+        copExcluded: !!(cu && !cu.usable), copWhy: cu && !cu.usable ? cu.text : '',
+        adhoc: !!v.adhoc, testRef: testRef
+    };
+    f.text = _histFoldTxt([f.vin, f.configCode, f.famLabel, f.region, f.purpose, purposeLabel, statusLabel, testRef]
+        .concat(Object.keys(cfg).map(function(k) { return cfg[k]; })).join(' '));
+    _histFactsMemo[v.id] = { mk: mk, f: f };
+    return f;
+}
+
+/** ¿Pasa la fila los filtros? `skip` deja fuera un filtro (para contar las fichas de estado). PURA. */
+function _histPasses(r, f, toks, skip) {
+    if (skip !== 'status' && f.status && f.status !== 'all') {
+        if (f.status === 'active') { if (!r.live) return false; }
+        else if (r.status !== f.status) return false;
+    }
+    if (f.purpose && r.purpose !== f.purpose) return false;
+    if (f.model && r.model !== f.model) return false;
+    if (f.reg && r.reg !== f.reg) return false;
+    if (f.region && r.region !== f.region) return false;
+    if (f.family && r.famKey !== f.family) return false;
+    if (f.year && (!r.ym || r.ym.slice(0, 4) !== String(f.year))) return false;
+    if (f.month && f.year && (!r.ym || parseInt(r.ym.slice(5), 10) !== parseInt(f.month, 10))) return false;
+    if (f.flag) {
+        if (f.flag === 'completar' && !r.miss) return false;
+        if (f.flag === 'nocop' && !r.copExcluded) return false;
+        if (f.flag === 'sinresult' && (r.emis !== 'sin' || r.live)) return false;
+        if (f.flag === 'unaverif' && r.emis !== 'liberador') return false;
+        if (f.flag === 'offplan' && !r.adhoc) return false;
+    }
+    for (var i = 0; i < toks.length; i++) if (r.text.indexOf(toks[i]) < 0) return false;
+    return true;
+}
+
+function _histEmisRank(r) { return { sin: 0, liberador: 1, doble: 2 }[r.emis] || 0; }
+
+/** Etiqueta y orden de un grupo. PURA. */
+function _histGroupOf(r, mode) {
+    if (mode === 'familia') return { key: r.famKey, label: r.famLabel, ord: r.famLabel };
+    if (mode === 'modelo') return { key: r.model || '—', label: r.model || '(sin modelo)', ord: r.model || '~' };
+    if (mode === 'regulacion') return { key: r.reg || '—', label: r.reg || '(sin regulación)', ord: r.reg || '~' };
+    if (mode === 'region') return { key: r.region || '—', label: r.region || '(sin región)', ord: r.region || '~' };
+    if (mode === 'proposito') return { key: r.purpose || '—', label: r.purposeLabel || '(sin propósito)', ord: r.purposeLabel || '~' };
+    if (mode === 'estado') {
+        var i = HIST_STATUS_ORDER.indexOf(r.status);
+        return { key: r.status, label: r.statusLabel, ord: String(i < 0 ? 99 : i).padStart(2, '0') };
+    }
+    if (mode === 'mes') {
+        if (!r.ym) return { key: '—', label: '(sin fecha)', ord: '0000' };
+        var m = HIST_MONTHS[parseInt(r.ym.slice(5), 10) - 1] || '';
+        return { key: r.ym, label: m.charAt(0).toUpperCase() + m.slice(1) + ' ' + r.ym.slice(0, 4), ord: r.ym, desc: true };
+    }
+    return { key: '', label: '', ord: '' };
+}
+
+/**
+ * PURA. facts = [histRowFacts]; f = filtros; sort = {key, dir}; group = modo ('' = sin agrupar).
+ * Devuelve {rows, groups, counts}: `counts` son las fichas de estado (con todos los demás
+ * filtros aplicados), para que cada ficha diga cuántas hay antes de tocarla.
+ */
+function histApplyQuery(facts, f, sort, group) {
+    f = f || {};
+    sort = sort || { key: 'date', dir: 'desc' };
+    var toks = _histFoldTxt(f.q || '').split(/\s+/).filter(Boolean);
+    var counts = { all: 0, active: 0 };
+    facts.forEach(function(r) {
+        if (!_histPasses(r, f, toks, 'status')) return;
+        counts.all++;
+        if (r.live) counts.active++;
+        counts[r.status] = (counts[r.status] || 0) + 1;
+    });
+    var rows = facts.filter(function(r) { return _histPasses(r, f, toks); });
+
+    var sgn = sort.dir === 'asc' ? 1 : -1;
+    var cmpStr = function(a, b) { return a < b ? -1 : a > b ? 1 : 0; };
+    var keyFn = {
+        date: function(r) { return r.ts; },
+        vin: function(r) { return r.vin; },
+        config: function(r) { return r.famLabel + ' ' + r.configCode; },
+        purpose: function(r) { return r.purposeLabel; },
+        status: function(r) { var i = HIST_STATUS_ORDER.indexOf(r.status); return i < 0 ? 99 : i; },
+        emis: function(r) { return _histEmisRank(r) * 100 - r.miss; }
+    }[sort.key] || function(r) { return r.ts; };
+    rows.sort(function(a, b) {
+        var ka = keyFn(a), kb = keyFn(b);
+        var c = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : cmpStr(String(ka), String(kb));
+        if (c) return c * sgn;
+        // desempate estable: lo más reciente primero, luego el VIN
+        return (b.ts - a.ts) || cmpStr(a.vin, b.vin);
+    });
+
+    var groups = null;
+    if (group && HIST_GROUPS[group] !== undefined) {
+        var byKey = {}, list = [];
+        rows.forEach(function(r) {
+            var g = _histGroupOf(r, group);
+            var gr = byKey[g.key];
+            if (!gr) {
+                gr = byKey[g.key] = { key: g.key, label: g.label, ord: g.ord, desc: !!g.desc, rows: [],
+                                      live: 0, archived: 0, pending: 0, completar: 0, nocop: 0, lastTs: 0 };
+                list.push(gr);
+            }
+            gr.rows.push(r);
+            if (r.live) gr.live++;
+            if (r.status === 'archived' || (r.historic && r.emis === 'doble')) gr.archived++;
+            if (r.status === 'pending-approval') gr.pending++;
+            if (r.miss) gr.completar++;
+            if (r.copExcluded) gr.nocop++;
+            if (r.ts > gr.lastTs) gr.lastTs = r.ts;
         });
-        var years = Object.keys(yearsSet).sort(function(a, b) { return b - a; });
-        var yearOpts = '<option value="">Todos</option>' + years.map(function(y) {
-            return '<option value="' + y + '"' + (yearF === y ? ' selected' : '') + '>' + y + '</option>';
-        }).join('');
+        list.sort(function(a, b) { var c = cmpStr(a.ord, b.ord); return a.desc ? -c : c; });
+        groups = list;
+    }
+    return { rows: rows, groups: groups, counts: counts };
+}
 
-        // Propósitos realmente presentes en los datos (mismo patrón que el filtro de año):
-        // así la lista nunca ofrece un propósito sin registros ni omite uno capturado a mano.
-        var purposeSet = {};
-        (db.vehicles || []).forEach(function(v) { if (v.purpose) purposeSet[v.purpose] = true; });
-        var purposeOpts = '<option value="">Todos</option>' + Object.keys(purposeSet).sort().map(function(pp) {
-            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(uiLabel('purpose', pp)) + '</option>';
-        }).join('');
+function _histFilters() {
+    var st = window._histFilterStatus || 'all';
+    var flag = window._histFilterFlag || '';
+    if (st === 'offplan') { st = 'all'; flag = 'offplan'; }   // enlaces viejos
+    return {
+        q: window._histFilterVin || '', status: st, purpose: window._histFilterPurpose || '',
+        model: window._histFilterModel || '', reg: window._histFilterReg || '', region: window._histFilterRegion || '',
+        family: window._histFilterFamily || '', year: window._histFilterYear || '', month: window._histFilterMonth || '',
+        flag: flag
+    };
+}
 
-        var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        var monthOpts = '<option value="">Todos</option>' + monthNames.map(function(m, i) {
-            var val = String(i + 1);
-            return '<option value="' + val + '"' + (monthF === val ? ' selected' : '') + '>' + m + '</option>';
-        }).join('');
+function _histFacts() { return (db.vehicles || []).map(histRowFacts); }
 
-        var statusOpts = [
-            {v:'all', l:'Todos'},
-            {v:'active', l:'Activos'},
-            {v:'archived', l:'Archivados'},
-            {v:'registered', l: CONFIG.statusLabels['registered'] || 'Registrado'},
-            {v:'in-progress', l: CONFIG.statusLabels['in-progress'] || 'En Progreso'},
-            {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
-            {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'},
-            {v:'pending-approval', l: CONFIG.statusLabels['pending-approval'] || 'Pendiente Aprobación'},
-            {v:'historico', l: CONFIG.statusLabels['historico'] || 'Histórico (VETS)'},
-            {v:'offplan', l:'Fuera de Plan'}
-        ];
-        var statusHtml = statusOpts.map(function(o) {
-            return '<option value="' + o.v + '"' + (statusF === o.v ? ' selected' : '') + '>' + o.l + '</option>';
-        }).join('');
+/** Opciones {valor: n} de un campo, sobre TODOS los vehículos (no se estrechan: así nada desaparece del menú). */
+function _histOptions(facts, field) {
+    var o = {};
+    facts.forEach(function(r) { var k = r[field]; if (k) o[k] = (o[k] || 0) + 1; });
+    return o;
+}
 
-        bar.innerHTML = '<div class="hist-filter-bar">' +
-            '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
-            '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
-            '<div><label>Propósito</label><select data-chips onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
-            '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
-            '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
-            '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding: var(--space-sm) var(--space-lg);">Limpiar</button></div>' +
+function _histSelectHTML(label, varName, cur, opts, labelFn, extra) {
+    var keys = Object.keys(opts).sort(function(a, b) { return String(labelFn ? labelFn(a) : a).localeCompare(String(labelFn ? labelFn(b) : b), 'es', { numeric: true }); });
+    if (cur && opts[cur] === undefined) keys.unshift(cur);
+    return '<label class="hist-f"><span>' + label + '</span><select onchange="window.' + varName + '=this.value;' + (extra || '') + 'histRefresh(true)">' +
+        '<option value="">Todos</option>' +
+        keys.map(function(k) {
+            return '<option value="' + escapeHtml(k) + '"' + (cur === k ? ' selected' : '') + '>' +
+                   escapeHtml(labelFn ? labelFn(k) : k) + (opts[k] ? ' (' + opts[k] + ')' : '') + '</option>';
+        }).join('') + '</select></label>';
+}
+
+function renderHistoryFilters() {
+    var bar = document.getElementById('historyFilterBar');
+    if (!bar) return;
+    var f = _histFilters(), P = histPrefs(), facts = _histFacts();
+
+    var years = {};
+    facts.forEach(function(r) { if (r.ym) years[r.ym.slice(0, 4)] = (years[r.ym.slice(0, 4)] || 0) + 1; });
+    var months = {};
+    if (f.year) facts.forEach(function(r) { if (r.ym && r.ym.slice(0, 4) === f.year) { var m = String(parseInt(r.ym.slice(5), 10)); months[m] = (months[m] || 0) + 1; } });
+    var monthLbl = function(m) { var s = HIST_MONTHS[parseInt(m, 10) - 1] || m; return s.charAt(0).toUpperCase() + s.slice(1); };
+    var flagOpts = {};
+    Object.keys(HIST_FLAGS).forEach(function(k) { flagOpts[k] = 0; });
+    facts.forEach(function(r) {
+        if (r.miss) flagOpts.completar++;
+        if (r.copExcluded) flagOpts.nocop++;
+        if (r.emis === 'sin' && !r.live) flagOpts.sinresult++;
+        if (r.emis === 'liberador') flagOpts.unaverif++;
+        if (r.adhoc) flagOpts.offplan++;
+    });
+    var nMore = ['purpose', 'model', 'reg', 'region', 'family', 'year', 'flag'].filter(function(k) { return !!f[k]; }).length;
+
+    var sortOpts = Object.keys(HIST_SORTS).map(function(k) {
+        return '<option value="' + k + '"' + (P.sort === k ? ' selected' : '') + '>' + HIST_SORTS[k] + '</option>';
+    }).join('');
+    var groupOpts = Object.keys(HIST_GROUPS).map(function(k) {
+        return '<option value="' + k + '"' + (P.group === k ? ' selected' : '') + '>' + HIST_GROUPS[k] + '</option>';
+    }).join('');
+
+    bar.innerHTML =
+        '<div class="hist-toolbar">' +
+          '<label class="hist-search"><span class="sr-only">Buscar en el historial</span>' +
+            '<span class="hist-search-ic" aria-hidden="true">🔍</span>' +
+            '<input type="search" id="hist-filter-vin" value="' + escapeHtml(f.q) + '" autocomplete="off" ' +
+              'placeholder="Buscar VIN (o sus últimos dígitos), configuración, modelo, motor, norma, Test Ref…" ' +
+              'oninput="window._histFilterVin=this.value;histRefreshSoon()" onkeydown="if(event.key===\'Escape\'){this.value=\'\';window._histFilterVin=\'\';histRefresh()}">' +
+          '</label>' +
+          '<label class="hist-f hist-f-inline"><span>Agrupar por</span><select id="hist-group" onchange="histSetGroup(this.value)">' + groupOpts + '</select></label>' +
+          '<label class="hist-f hist-f-inline"><span>Ordenar por</span><span class="hist-sortpick">' +
+            '<select id="hist-sort" onchange="histSetSort(this.value, true)">' + sortOpts + '</select>' +
+            '<button type="button" class="btn-secondary hist-dir" onclick="histSetSort(\'' + P.sort + '\')" ' +
+              'title="' + (P.dir === 'asc' ? 'Ascendente — tocar para invertir' : 'Descendente — tocar para invertir') + '" ' +
+              'aria-label="Invertir el orden">' + (P.dir === 'asc' ? '↑' : '↓') + '</button></span></label>' +
         '</div>' +
+        '<div id="hist-chips" class="hist-chips" role="group" aria-label="Estado"></div>' +
+        '<details class="hist-more"' + (P.more || nMore ? ' open' : '') + ' ontoggle="_histPrefsSet({more:this.open})">' +
+          '<summary>⚙ Más filtros' + (nMore ? ' <span class="hist-badge">' + nMore + '</span>' : '') + '</summary>' +
+          '<div class="hist-filter-bar">' +
+            _histSelectHTML('Familia', '_histFilterFamily', f.family, _histOptions(facts, 'famKey'), function(k) {
+                var r = facts.find(function(x) { return x.famKey === k; }); return r ? r.famLabel : k; }) +
+            _histSelectHTML('Modelo', '_histFilterModel', f.model, _histOptions(facts, 'model')) +
+            _histSelectHTML('Regulación', '_histFilterReg', f.reg, _histOptions(facts, 'reg')) +
+            _histSelectHTML('Región', '_histFilterRegion', f.region, _histOptions(facts, 'region')) +
+            _histSelectHTML('Propósito', '_histFilterPurpose', f.purpose, _histOptions(facts, 'purpose'), function(k) { return typeof uiLabel === 'function' ? uiLabel('purpose', k) : k; }) +
+            _histSelectHTML('Revisión', '_histFilterFlag', f.flag, flagOpts, function(k) { return HIST_FLAGS[k] || k; }) +
+            _histSelectHTML('Año', '_histFilterYear', f.year, years, null, "if(!this.value){window._histFilterMonth='';}") +
+            (f.year ? _histSelectHTML('Mes', '_histFilterMonth', f.month, months, monthLbl) : '') +
+          '</div>' +
+        '</details>' +
+        '<div id="hist-active" class="hist-active"></div>' +
         // [2.30.0] Pruebas anteriores a la plataforma: importar de VETS y confirmarlas.
         (typeof historicoToolbarHTML === 'function' ? historicoToolbarHTML() : '');
-        if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+function histFilterReset() {
+    window._histFilterStatus = 'all';
+    window._histFilterVin = '';
+    window._histFilterPurpose = '';
+    window._histFilterYear = '';
+    window._histFilterMonth = '';
+    window._histFilterModel = '';
+    window._histFilterReg = '';
+    window._histFilterRegion = '';
+    window._histFilterFamily = '';
+    window._histFilterFlag = '';
+    window._histPageSize = HIST_PAGE;
+    _histGroupMore = {};
+    renderHistory();
+}
+
+/** Quita UN filtro (las fichas "✕" de filtros activos). */
+function histClearFilter(name) {
+    window[name] = name === '_histFilterStatus' ? 'all' : '';
+    if (name === '_histFilterYear') window._histFilterMonth = '';
+    histRefresh(true);
+}
+
+function histSetSort(key, fromSelect) {
+    if (!HIST_SORTS[key]) return;
+    var P = histPrefs();
+    var dir = P.sort === key && !fromSelect ? (P.dir === 'asc' ? 'desc' : 'asc')
+            : (key === 'date' || key === 'emis' ? 'desc' : 'asc');
+    if (fromSelect && P.sort === key) dir = P.dir;
+    _histPrefsSet({ sort: key, dir: dir });
+    histRefresh(true);
+}
+
+function histSetGroup(mode) {
+    _histPrefsSet({ group: HIST_GROUPS[mode] !== undefined ? mode : '' });
+    _histGroupMore = {};
+    histRefresh(true);
+}
+
+function histToggleGroup(key) {
+    var P = histPrefs(), ck = P.group + '::' + key;
+    var c = Object.assign({}, P.collapsed);
+    if (c[ck]) delete c[ck]; else c[ck] = 1;
+    _histPrefsSet({ collapsed: c });
+    histRefresh();
+}
+
+function histCollapseAll(collapse) {
+    var P = histPrefs(), c = {};
+    Object.keys(P.collapsed).forEach(function(k) { if (k.indexOf(P.group + '::') !== 0) c[k] = 1; });
+    if (collapse) {
+        var q = histApplyQuery(_histFacts(), _histFilters(), { key: P.sort, dir: P.dir }, P.group);
+        (q.groups || []).forEach(function(g) { c[P.group + '::' + g.key] = 1; });
+    }
+    _histPrefsSet({ collapsed: c });
+    histRefresh();
+}
+
+function histGroupShowMore(key) {
+    _histGroupMore[key] = (_histGroupMore[key] || HIST_GROUP_PAGE) + 25;
+    histRefresh();
+}
+
+function histShowMore(all) {
+    window._histPageSize = all ? 1e9 : (window._histPageSize || HIST_PAGE) + HIST_PAGE;
+    histRefresh();
+}
+
+var _histRefreshTimer = null;
+function histRefreshSoon() {
+    clearTimeout(_histRefreshTimer);
+    _histRefreshTimer = setTimeout(function() { window._histPageSize = HIST_PAGE; histRefresh(); }, 160);
+}
+
+/** Repinta fichas, filtros activos y la tabla — NO la barra (no se pierde el foco al teclear). */
+function histRefresh(rebuildBar) {
+    if (rebuildBar) { renderHistory(); return; }
+    var chips = document.getElementById('hist-chips');
+    if (!chips) { renderHistory(); return; }
+    _histRenderBody();
+}
+
+function renderHistory() {
+    renderHistoryFilters();
+    _histRenderBody();
+}
+
+function _histStatusChipsHTML(counts, cur) {
+    var defs = [{ v: 'all', l: 'Todos' }, { v: 'active', l: 'En curso' }];
+    HIST_STATUS_ORDER.forEach(function(s) {
+        if (counts[s] || cur === s) defs.push({ v: s, l: CONFIG.statusLabels[s] || s });
+    });
+    return defs.map(function(d) {
+        var n = counts[d.v] || 0, on = cur === d.v;
+        return '<button type="button" class="hist-chip' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" ' +
+               'onclick="window._histFilterStatus=\'' + d.v + '\';window._histPageSize=' + HIST_PAGE + ';histRefresh()">' +
+               escapeHtml(d.l) + ' <span class="hist-chip-n">' + n + '</span></button>';
+    }).join('');
+}
+
+function _histActiveHTML(f, facts) {
+    var items = [];
+    var add = function(name, label) {
+        items.push('<button type="button" class="hist-active-chip" onclick="histClearFilter(\'' + name + '\')" title="Quitar este filtro">' +
+                   escapeHtml(label) + ' <span aria-hidden="true">✕</span></button>');
+    };
+    if (f.q) add('_histFilterVin', 'Busca: “' + f.q + '”');
+    if (f.status && f.status !== 'all') add('_histFilterStatus', 'Estado: ' + (f.status === 'active' ? 'En curso' : (CONFIG.statusLabels[f.status] || f.status)));
+    if (f.family) { var r = facts.find(function(x) { return x.famKey === f.family; }); add('_histFilterFamily', 'Familia: ' + (r ? r.famLabel : f.family)); }
+    if (f.model) add('_histFilterModel', 'Modelo: ' + f.model);
+    if (f.reg) add('_histFilterReg', 'Regulación: ' + f.reg);
+    if (f.region) add('_histFilterRegion', 'Región: ' + f.region);
+    if (f.purpose) add('_histFilterPurpose', 'Propósito: ' + (typeof uiLabel === 'function' ? uiLabel('purpose', f.purpose) : f.purpose));
+    if (f.flag) add('_histFilterFlag', HIST_FLAGS[f.flag] || f.flag);
+    if (f.year) add('_histFilterYear', 'Año: ' + f.year + (f.month ? ' · ' + (HIST_MONTHS[parseInt(f.month, 10) - 1] || f.month) : ''));
+    if (!items.length) return '';
+    return items.join('') + (items.length > 1 ? '<button type="button" class="hist-active-clear" onclick="histFilterReset()">Limpiar todo</button>' : '');
+}
+
+function _histThHTML(key, label, P) {
+    var on = P.sort === key;
+    var arrow = on ? (P.dir === 'asc' ? '↑' : '↓') : '↕';
+    return '<th aria-sort="' + (on ? (P.dir === 'asc' ? 'ascending' : 'descending') : 'none') + '">' +
+           '<button type="button" class="hist-th-sort' + (on ? ' is-on' : '') + '" onclick="histSetSort(\'' + key + '\')" ' +
+           'title="Ordenar por ' + escapeHtml(label) + '">' + escapeHtml(label) + ' <span class="hist-th-ic" aria-hidden="true">' + arrow + '</span></button></th>';
+}
+
+function _histHi(text, toks) {
+    var s = escapeHtml(text);
+    if (!toks.length) return s;
+    // Solo resalta coincidencias literales (sin acentos de por medio): el VIN y el código no los llevan.
+    toks.forEach(function(t) {
+        if (t.length < 2) return;
+        var re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+        s = s.replace(re, '<mark class="hist-mark">$1</mark>');
+    });
+    return s;
+}
+
+function _histRowHTML(r, toks) {
+    var v = r.v;
+    var cfg = v.config || {};
+    var modelo = escapeHtml(cfg['Modelo'] || '');
+    var motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+    var reg = escapeHtml(cfg['EMISSION REGULATION'] || '');
+    var body = escapeHtml(_histNz(cfg['BODY TYPE']));
+    var checked = _histSel[v.id] ? ' checked' : '';
+
+    var emis;
+    if (r.historic) emis = typeof historicoRowBadgeHTML === 'function' ? historicoRowBadgeHTML(v) : '';
+    else if (r.emis === 'sin') emis = '<span class="u-muted-xs">' + (r.live ? 'en curso' : '—') + '</span>';
+    else emis = '<div class="hist-emis">' + (r.emis === 'doble'
+            ? '<span class="hist-ok" title="Doble verificación completada">✓✓</span>'
+            : '<span class="hist-warn" title="Solo liberador — falta la aprobación">✓</span>') +
+        '<span class="u-muted-xs">' + r.gasCount + ' gases</span></div>';
+
+    var actions = r.historic
+        ? '<button class="btn-secondary hist-act" onclick="fichaOpen(\'vehiculo\', ' + parseInt(v.id) + ', this)" title="Ver los resultados de VETS y su confirmación">Ver</button>'
+        : '<button class="btn-secondary hist-act" onclick="generateCOP15PDF(' + parseInt(v.id) + ')" title="Generar PDF COP15-F05">PDF</button>';
+    var n = r.miss + r.soft;
+    if (n) {
+        var hard = r.miss > 0;
+        // Solo pendientes suaves (p. ej. SOC de prueba en una liberada antes de existir el
+        // campo): el PDF ya sale, el botón va en gris, no en ámbar.
+        actions += '<button class="btn-secondary hist-act' + (hard ? ' is-warn' : '') + '" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" title="' +
+            (hard ? 'Faltan ' + r.miss + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + n + ' dato(s) opcionales por revisar') +
+            '" aria-label="Completar datos retroactivos (' + n + ' campos)">📝 Completar (' + n + ')</button>';
+    }
+    actions += '<button class="btn-secondary hist-act hist-more-btn" onclick="histRowMenu(' + parseInt(v.id) + ')" title="Más acciones: historial de cambios, corregir alta, eliminar" aria-label="Más acciones">⋯</button>';
+
+    return '<tr class="hist-row' + (checked ? ' is-sel' : '') + '">' +
+        '<td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="' + v.id + '"' + checked + ' onchange="histSelToggle(' + parseInt(v.id) + ', this.checked)" aria-label="Seleccionar ' + escapeHtml(r.vin) + '"></td>' +
+        '<td class="hist-td-vin" data-label="VIN"><button type="button" class="hist-vin" onclick="fichaOpen(\'vehiculo\', ' + parseInt(v.id) + ', this)" title="Abrir la ficha del vehículo">' + _histHi(r.vin, toks) + '</button>' +
+            (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : '') +
+            (r.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : '') +
+            (r.copExcluded ? '<span class="offplan-badge" data-cop-excluded="1" title="Aceptada, pero no cuenta para CoP ni para el REQ del plan: ' + escapeHtml(r.copWhy) + '">⊘ No cuenta para CoP</span>' : '') +
+            (r.testRef ? '<div class="u-muted-xs" title="Test Reference de VETS">VETS ' + _histHi(r.testRef, toks) + '</div>' : '') +
+        '</td>' +
+        '<td data-label="Configuración">' +
+            (modelo ? '<div class="hist-cfg-model">' + modelo + (body ? ' <span class="u-muted-xs">' + body + '</span>' : '') + '</div>' : '') +
+            '<div class="hist-cfg-tags">' +
+                (motor ? '<span class="hist-tag is-eng">' + motor + '</span>' : '') +
+                (reg ? '<span class="hist-tag is-reg">' + reg + '</span>' : '') +
+            '</div>' +
+            '<div class="hist-cfg-code" title="' + escapeHtml(r.configCode) + '">' + _histHi(truncateMiddle(r.configCode, 30), toks) + '</div>' +
+        '</td>' +
+        '<td data-label="Propósito">' + escapeHtml(r.purposeLabel || r.purpose) + '</td>' +
+        '<td data-label="Estado"><span class="status-badge status-' + escapeHtml(r.status) + '">' + escapeHtml(r.statusLabel) + '</span></td>' +
+        '<td data-label="Fecha">' + (r.ts ? new Date(r.ts).toLocaleDateString('es-MX') : '—') +
+            (r.historic ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : '') + '</td>' +
+        '<td data-label="Emisiones">' + emis + '</td>' +
+        '<td class="hist-td-actions">' + actions + '</td>' +
+    '</tr>';
+}
+
+function _histGroupHeadHTML(g, P, collapsed) {
+    var ids = g.rows.map(function(r) { return r.id; });
+    var nSel = ids.filter(function(id) { return _histSel[id]; }).length;
+    var allSel = nSel && nSel === ids.length;
+    var bits = [g.rows.length + (g.rows.length === 1 ? ' prueba' : ' pruebas')];
+    if (g.live) bits.push(g.live + ' en curso');
+    if (g.pending) bits.push(g.pending + ' por aprobar');
+    if (g.lastTs) bits.push('última ' + new Date(g.lastTs).toLocaleDateString('es-MX'));
+    var warns = '';
+    if (g.completar) warns += '<span class="hist-gwarn is-warn" title="Pruebas con datos faltantes para el PDF">⚠ ' + g.completar + ' por completar</span>';
+    if (g.nocop) warns += '<span class="hist-gwarn" title="Pruebas aceptadas que no cuentan para CoP">⊘ ' + g.nocop + ' no cuenta' + (g.nocop > 1 ? 'n' : '') + ' para CoP</span>';
+    var keyArg = escapeHtml(JSON.stringify(g.key)).replace(/'/g, '&#39;');
+    var ficha = (P.group === 'familia' && typeof fichaOpen === 'function' && g.key !== '(sin familia)')
+        ? '<button type="button" class="btn-secondary hist-gficha" onclick="event.stopPropagation();fichaOpen(\'familia\',' + keyArg + ',this)" title="Ver la ficha de la familia: plan, CoP y relaciones">👪 Ficha</button>' : '';
+    return '<tr class="hist-group' + (collapsed ? ' is-collapsed' : '') + '"><td colspan="8">' +
+        '<div class="hist-group-in">' +
+          '<input type="checkbox" class="hist-gchk"' + (allSel ? ' checked' : '') + ' data-partial="' + (nSel && !allSel ? '1' : '') + '" ' +
+            'onchange="histSelGroup(' + keyArg + ', this.checked)" aria-label="Seleccionar las ' + ids.length + ' pruebas del grupo">' +
+          '<button type="button" class="hist-group-toggle" aria-expanded="' + !collapsed + '" onclick="histToggleGroup(' + keyArg + ')">' +
+            '<span class="hist-chev" aria-hidden="true">▾</span>' +
+            '<span class="hist-group-label">' + escapeHtml(g.label) + '</span>' +
+            '<span class="hist-group-meta">' + bits.join(' · ') + (nSel ? ' · ' + nSel + ' seleccionada' + (nSel > 1 ? 's' : '') : '') + '</span>' +
+          '</button>' + warns + ficha +
+        '</div></td></tr>';
+}
+
+function _histRenderBody() {
+    var container = document.getElementById('historyList');
+    if (!container) return;
+    var f = _histFilters(), P = histPrefs(), facts = _histFacts();
+    var total = facts.length;
+    var q = histApplyQuery(facts, f, { key: P.sort, dir: P.dir }, P.group);
+    var toks = String(f.q || '').trim().split(/\s+/).filter(Boolean);
+
+    // La selección solo conserva lo que sigue pasando los filtros: nunca se borra o
+    // exporta algo que ya no está a la vista.
+    var visibleIds = {};
+    q.rows.forEach(function(r) { visibleIds[r.id] = true; });
+    Object.keys(_histSel).forEach(function(id) { if (!visibleIds[id]) delete _histSel[id]; });
+    window._histVisibleIds = q.rows.map(function(r) { return r.id; });
+
+    var chips = document.getElementById('hist-chips');
+    if (chips) chips.innerHTML = _histStatusChipsHTML(q.counts, f.status);
+    var act = document.getElementById('hist-active');
+    if (act) act.innerHTML = _histActiveHTML(f, facts);
+
+    var filtered = q.rows.length;
+    if (!filtered) {
+        container.innerHTML = '<div class="hist-empty"><p><strong>Ninguna prueba coincide.</strong></p>' +
+            '<p class="u-muted">' + total + ' registro' + (total === 1 ? '' : 's') + ' en total. Quita algún filtro o cambia la búsqueda.</p>' +
+            (total ? '<button type="button" class="btn-secondary" onclick="histFilterReset()">Quitar todos los filtros</button>' : '') + '</div>';
+        histUpdateBatchBtn();
+        return;
     }
 
-    function histFilterReset() {
-        window._histFilterStatus = 'all';
-        window._histFilterVin = '';
-        window._histFilterPurpose = '';
-        window._histFilterYear = '';
-        window._histFilterMonth = '';
-        window._histPageSize = 25;
-        renderHistory();
+    var bodyHTML = '', showing = 0, hasMore = false;
+    if (q.groups) {
+        q.groups.forEach(function(g) {
+            var collapsed = !!P.collapsed[P.group + '::' + g.key];
+            var lim = _histGroupMore[g.key] || HIST_GROUP_PAGE;
+            bodyHTML += '<tbody class="hist-gbody">' + _histGroupHeadHTML(g, P, collapsed);
+            if (!collapsed) {
+                g.rows.slice(0, lim).forEach(function(r) { bodyHTML += _histRowHTML(r, toks); showing++; });
+                if (g.rows.length > lim) {
+                    bodyHTML += '<tr class="hist-gmore"><td colspan="8"><button type="button" class="btn-secondary" onclick="histGroupShowMore(' +
+                        escapeHtml(JSON.stringify(g.key)).replace(/'/g, '&#39;') + ')">Ver ' + Math.min(25, g.rows.length - lim) + ' más de este grupo (' + (g.rows.length - lim) + ' restantes)</button></td></tr>';
+                }
+            }
+            bodyHTML += '</tbody>';
+        });
+    } else {
+        var pageSize = window._histPageSize || HIST_PAGE;
+        var page = q.rows.slice(0, pageSize);
+        showing = page.length;
+        hasMore = filtered > pageSize;
+        bodyHTML = '<tbody>' + page.map(function(r) { return _histRowHTML(r, toks); }).join('') + '</tbody>';
     }
 
-    function histShowMore() {
-        window._histPageSize = (window._histPageSize || 25) + 25;
-        renderHistory();
-    }
+    var nGroups = q.groups ? q.groups.length : 0;
+    var nCollapsed = q.groups ? q.groups.filter(function(g) { return P.collapsed[P.group + '::' + g.key]; }).length : 0;
+    var summary = q.groups
+        ? filtered + ' prueba' + (filtered === 1 ? '' : 's') + ' en ' + nGroups + ' grupo' + (nGroups === 1 ? '' : 's') + (filtered !== total ? ' · ' + (total - filtered) + ' oculta' + (total - filtered === 1 ? '' : 's') + ' por los filtros' : '')
+        : 'Mostrando ' + showing + ' de ' + filtered + (filtered !== total ? ' · ' + (total - filtered) + ' oculta' + (total - filtered === 1 ? '' : 's') + ' por los filtros' : '');
+    var allVisibleSel = filtered && Object.keys(_histSel).length === filtered;
 
-    function renderHistory() {
-        renderHistoryFilters();
-        const container = document.getElementById('historyList');
-        const total = db.vehicles.length;
+    container.innerHTML =
+        '<div class="hist-filter-count hist-listbar">' +
+          '<span class="hist-summary">' + summary + '</span>' +
+          (q.groups ? '<button type="button" class="btn-secondary hist-mini" onclick="histCollapseAll(' + (nCollapsed < nGroups ? 'true' : 'false') + ')">' +
+                (nCollapsed < nGroups ? '⊟ Colapsar todo' : '⊞ Expandir todo') + '</button>' : '') +
+          '<span class="hist-listbar-sp"></span>' +
+          '<span id="hist-sel-count" class="hist-sel-count"></span>' +
+          '<button class="btn-secondary hist-mini batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;">PDF seleccionados</button>' +
+          '<button class="btn-secondary hist-mini is-danger" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;">🗑 Eliminar seleccionados</button>' +
+          '<button class="btn-secondary hist-mini" onclick="histExportXlsx()" title="Descargar en Excel lo que se ve (con filtros y orden), con los valores de gases">⬇ Excel</button>' +
+          '<button class="btn-secondary hist-mini" onclick="window.print()" title="Imprimir tabla de historial">🖨️ Imprimir</button>' +
+        '</div>' +
+        '<div class="hist-scroll"><table class="history-table hist-v2' + (q.groups ? ' is-grouped' : '') + '">' +
+          '<thead><tr>' +
+            '<th class="hist-th-chk"><input type="checkbox" onchange="histToggleAll(this.checked)"' + (allVisibleSel ? ' checked' : '') + ' title="Seleccionar las ' + filtered + ' pruebas filtradas" aria-label="Seleccionar las ' + filtered + ' pruebas filtradas"></th>' +
+            _histThHTML('vin', 'VIN', P) + _histThHTML('config', 'Configuración', P) + _histThHTML('purpose', 'Propósito', P) +
+            _histThHTML('status', 'Estado', P) + _histThHTML('date', 'Fecha', P) + _histThHTML('emis', 'Emisiones', P) +
+            '<th>Acciones</th>' +
+          '</tr></thead>' + bodyHTML +
+        '</table></div>' +
+        (hasMore ? '<div class="hist-pager"><button class="btn-secondary" onclick="histShowMore()">Mostrar ' + Math.min(HIST_PAGE, filtered - showing) + ' más (' + (filtered - showing) + ' restantes)</button>' +
+                   '<button class="btn-secondary" onclick="histShowMore(true)">Mostrar todas</button></div>' : '');
 
-        let vehicles = db.vehicles;
-
-        // Status filter
-        var statusF = window._histFilterStatus || 'all';
-        if (statusF === 'archived') {
-            vehicles = vehicles.filter(v => v.status === 'archived');
-        } else if (statusF === 'active') {
-            vehicles = vehicles.filter(v => vehicleIsLive(v));
-        } else if (statusF === 'offplan') {
-            vehicles = vehicles.filter(v => !!v.adhoc);
-        } else if (statusF !== 'all') {
-            vehicles = vehicles.filter(v => v.status === statusF);
-        }
-
-        // VIN search
-        var vinQ = (window._histFilterVin || '').toUpperCase();
-        if (vinQ) {
-            vehicles = vehicles.filter(v => (v.vin || '').toUpperCase().includes(vinQ));
-        }
-
-        // Purpose filter
-        var purposeF = window._histFilterPurpose || '';
-        if (purposeF) {
-            vehicles = vehicles.filter(v => v.purpose === purposeF);
-        }
-
-        // Year filter
-        var yearF = window._histFilterYear || '';
-        if (yearF) {
-            vehicles = vehicles.filter(v => new Date(vehicleListDate(v)).getFullYear() === parseInt(yearF));
-        }
-
-        // Month filter (only if year is set)
-        var monthF = window._histFilterMonth || '';
-        if (monthF && yearF) {
-            vehicles = vehicles.filter(v => (new Date(vehicleListDate(v)).getMonth() + 1) === parseInt(monthF));
-        }
-
-        if(vehicles.length === 0) {
-            container.innerHTML = '<div class="hist-filter-count">' + 0 + ' de ' + total + ' registros</div>' +
-                '<p style="text-align: center; color: var(--muted); padding: var(--space-xl);">No hay registros con estos filtros</p>';
-            return;
-        }
-
-        var filtered = vehicles.length;
-        var pageSize = window._histPageSize || 25;
-        var showing = Math.min(pageSize, filtered);
-        vehicles = vehicles.slice(0, pageSize);
-        var hasMore = filtered > pageSize;
-
-        container.innerHTML = `
-            <div class="hist-filter-count" style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;">
-                <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
-                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;">PDF Seleccionados</button>
-                <button class="btn-secondary" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;background:#7f1d1d;color:#fca5a5;">🗑 Eliminar seleccionados</button>
-                <button class="btn-secondary" onclick="window.print()" style="padding: var(--space-xs) var(--space-md);font-size: var(--fs-sm);font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
-            </div>
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th style="width:30px;"><input type="checkbox" onchange="histToggleAll(this.checked)" title="Seleccionar todos"></th>
-                        <th>VIN</th>
-                        <th>Código Config</th>
-                        <th>Propósito</th>
-                        <th>Estado</th>
-                        <th>Fecha</th>
-                        <th>Emisiones</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${vehicles.map(v => {
-                        const cfg = v.config || {};
-                        const modelo = escapeHtml(cfg['Modelo'] || '');
-                        const motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
-                        const reg = escapeHtml(cfg['EMISSION REGULATION'] || '');
-                        const safeVin = escapeHtml(v.vin);
-                        const safePurpose = escapeHtml(v.purpose);
-                        const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
-                        return `
-                        <tr>
-                            <td class="hist-td-chk"><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td class="hist-td-vin" data-label="VIN"><strong>${safeVin}</strong>${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : ''}${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}${(function(){ var _cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null; return (_cu && !_cu.usable) ? '<span class="offplan-badge" data-cop-excluded="1" title="Aceptada, pero no cuenta para CoP ni para el REQ del plan: ' + escapeHtml(_cu.text) + '">⊘ No cuenta para CoP</span>' : ''; })()}</td>
-                            <td data-label="Configuración">
-                                ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
-                                <div style="display:flex;gap: var(--space-xs);flex-wrap:wrap;margin-top: var(--space-2xs);">
-                                    ${motor ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
-                                    ${reg ? `<span style="font-size:0.7rem;padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
-                                </div>
-                                <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);margin-top: var(--space-2xs);">${safeConfigCode}</div>
-                            </td>
-                            <td data-label="Propósito">${safePurpose}</td>
-                            <td data-label="Estado"><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
-                            <td data-label="Fecha">${new Date(vehicleListDate(v)).toLocaleDateString('es-MX')}${vehicleIsHistoric(v) ? '<div class="u-muted-xs" title="Fecha de la prueba según VETS">prueba</div>' : ''}</td>
-                            <td data-label="Emisiones">${(function(){
-                                if (vehicleIsHistoric(v)) return typeof historicoRowBadgeHTML === 'function' ? historicoRowBadgeHTML(v) : '';
-                                var gr = v.testData && v.testData.gasResults;
-                                if (!gr || !gr.liberador) return '<span style="color:var(--muted);font-size: var(--fs-xs);">—</span>';
-                                var libVals = gr.liberador.values || {};
-                                var gasCount = Object.keys(libVals).length;
-                                var appr = gr.aprobador ? '<span style="color:var(--ok-text);font-size: var(--fs-xs);" title="Doble verificación completada">✓✓</span>' : '<span style="color:var(--warn-text);font-size: var(--fs-xs);" title="Solo liberador">✓</span>';
-                                return '<div style="display:flex;gap: var(--space-xs);align-items:center;">' + appr + '<span style="font-size: var(--fs-xs);color:var(--muted);">' + gasCount + ' gases</span></div>';
-                            })()}</td>
-                            <td class="hist-td-actions">
-                                ${vehicleIsHistoric(v)
-                                    ? '<button class="btn-secondary" onclick="fichaOpen(\'vehiculo\', ' + parseInt(v.id) + ', this)" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Ver los resultados de VETS y su confirmación">Ver</button>'
-                                    : '<button class="btn-secondary" onclick="generateCOP15PDF(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;" title="Generar PDF COP15-F05">PDF</button>'}
-                                ${(function(){
-                                    if (vehicleIsHistoric(v) || !isEmissionsPurpose(v.purpose)) return '';
-                                    var _c = validatePdfCompleteness(v);
-                                    var _n = _c.missing.length + (_c.soft ? _c.soft.length : 0);
-                                    if (!_n) return '';
-                                    // Solo pendientes suaves (p. ej. SOC de prueba en una liberada antes de
-                                    // existir el campo): el PDF ya sale, el botón va en gris, no en ámbar.
-                                    var _hard = _c.missing.length > 0;
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding: var(--space-xs) var(--space-md);font-size:0.75rem;' + (_hard ? 'background:#fef3c7;color:#92400e;' : '') + 'margin-left: var(--space-xs);" title="' + (_hard ? 'Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente' : 'PDF completo; ' + _n + ' dato(s) opcionales por revisar') + '" aria-label="Completar datos retroactivos (' + _n + ' campos)">📝 Completar (' + _n + ')</button>';
-                                })()}
-                                <button class="btn-secondary hist-more-btn" onclick="histRowMenu(${parseInt(v.id)})" title="Más acciones: historial de cambios, eliminar" aria-label="Más acciones">⋯</button>
-                            </td>
-                        </tr>
-                    `}).join('')}
-                </tbody>
-            </table>
-            ${hasMore ? `<div style="text-align:center;margin-top: var(--space-md);"><button class="btn-secondary" onclick="histShowMore()" style="padding: var(--space-md) var(--space-xl);font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
-        `;
-    }
-
-// ── [R2-M4] Batch PDF Export helpers ──
-function histToggleAll(checked) {
-    document.querySelectorAll('.hist-chk').forEach(function(cb) { cb.checked = checked; });
+    container.querySelectorAll('.hist-gchk[data-partial="1"]').forEach(function(cb) { cb.indeterminate = true; });
     histUpdateBatchBtn();
 }
 
+// ── Selección: vive en _histSel (por id), no en el DOM, para sobrevivir a teclear y a
+//    grupos colapsados. "Todos" = las pruebas que pasan los filtros, no la página.
+function histSelToggle(id, on) {
+    if (on) _histSel[id] = true; else delete _histSel[id];
+    var cb = document.querySelector('.hist-chk[data-vid="' + id + '"]');
+    var tr = cb && cb.closest ? cb.closest('tr') : null;
+    if (tr) tr.classList.toggle('is-sel', !!on);
+    if (histPrefs().group) _histRenderBody(); else histUpdateBatchBtn();
+}
+
+function histSelGroup(key, on) {
+    var P = histPrefs();
+    var q = histApplyQuery(_histFacts(), _histFilters(), { key: P.sort, dir: P.dir }, P.group);
+    var g = (q.groups || []).find(function(x) { return x.key === key; });
+    if (!g) return;
+    g.rows.forEach(function(r) { if (on) _histSel[r.id] = true; else delete _histSel[r.id]; });
+    _histRenderBody();
+}
+
+/** Los ids seleccionados, en el orden en que se ven. */
+function histSelectedIds() {
+    return (window._histVisibleIds || []).filter(function(id) { return _histSel[id]; });
+}
+
+/** Excel de lo que se ve: mismos filtros y orden, una columna por gas (en la unidad del límite). */
+function histExportXlsx() {
+    if (typeof xwBuildCompressed !== 'function') { showToast('No se pudo cargar el escritor de Excel. Recarga la página.', 'error'); return; }
+    var P = histPrefs();
+    var q = histApplyQuery(_histFacts(), _histFilters(), { key: P.sort, dir: P.dir }, P.group);
+    var sel = histSelectedIds();
+    var rows = sel.length ? q.rows.filter(function(r) { return _histSel[r.id]; }) : q.rows;
+    if (!rows.length) { showToast('No hay pruebas que exportar con estos filtros.', 'warning'); return; }
+
+    // Columnas de gases: campo + unidad (SULEV 30 está en g/mi y Europa en g/km: nunca en la misma columna).
+    var gasCols = [], gasIdx = {};
+    var perRow = rows.map(function(r) {
+        var gr = r.v.testData && r.v.testData.gasResults;
+        var src = gr && (gr.aprobador && gr.aprobador.values && Object.keys(gr.aprobador.values).length ? gr.aprobador : gr.liberador);
+        var vals = (src && src.values) || {};
+        var prof = Object.keys(vals).length && typeof _libGasProfileForVehicle === 'function' ? _libGasProfileForVehicle(r.v) : null;
+        var units = {};
+        ((prof && prof.gases) || []).forEach(function(g) { units[g.field] = g.unit || ''; });
+        var out = {};
+        Object.keys(vals).forEach(function(field) {
+            var k = field + (units[field] ? ' (' + units[field] + ')' : '');
+            if (gasIdx[k] === undefined) { gasIdx[k] = gasCols.length; gasCols.push(k); }
+            var n = parseFloat(vals[field]);
+            out[k] = isNaN(n) ? vals[field] : n;
+        });
+        return out;
+    });
+
+    var head = ['VIN', 'Familia', 'Código de configuración', 'Modelo', 'Motor', 'Regulación', 'Región', 'Propósito', 'Estado',
+                'Fecha', 'Resultado', 'Datos faltantes del PDF', 'Cuenta para CoP', 'Fuera de plan', 'Test Ref VETS'].concat(gasCols);
+    var H = { font: { b: true, color: 'FFFFFF' }, fill: '1E293B', border: 'thin', align: { v: 'center', wrap: true } };
+    var cells = head.map(function(h, i) { return { r: 1, c: i + 1, v: h, s: H }; });
+    rows.forEach(function(r, i) {
+        var R = i + 2;
+        var resultado = r.historic ? 'Histórico (VETS) — ' + ((r.v.historic && r.v.historic.state) || 'pendiente')
+                      : r.emis === 'doble' ? 'Liberado y aprobado' : r.emis === 'liberador' ? 'Liberado, sin aprobar' : (r.live ? 'En curso' : 'Sin resultados');
+        var dIso = r.ts ? localDateStr(new Date(r.ts)) : '';
+        var vals = [r.vin, r.famLabel, r.configCode, r.model, r.engine, r.reg, r.region, r.purposeLabel || r.purpose, r.statusLabel,
+                    dIso ? { date: dIso } : '', resultado, r.miss || '', r.copExcluded ? 'No — ' + r.copWhy : 'Sí',
+                    r.adhoc ? 'Sí' : '', r.testRef];
+        vals.forEach(function(v, j) {
+            if (v === '' || v == null) return;
+            cells.push({ r: R, c: j + 1, v: v, s: (v && v.date) ? { numFmt: 'dd/mm/yyyy' } : undefined });
+        });
+        gasCols.forEach(function(k, j) {
+            if (perRow[i][k] !== undefined && perRow[i][k] !== '') cells.push({ r: R, c: head.length - gasCols.length + j + 1, v: perRow[i][k] });
+        });
+    });
+    var widths = [20, 44, 34, 10, 18, 14, 12, 18, 18, 12, 22, 12, 22, 10, 14];
+    var spec = { sheets: [{
+        name: 'Historial', freeze: { row: 2, col: 2 },
+        cols: head.map(function(_, i) { return { min: i + 1, max: i + 1, width: widths[i] || 12 }; }),
+        rows: { 1: { height: 30 } },
+        cells: cells,
+        autoFilter: 'A1:' + xwRef(rows.length + 1, head.length),
+        print: { landscape: true, fitWidth: 1 }
+    }] };
+    var name = 'Historial_' + (typeof localToday === 'function' ? localToday() : 'pruebas') + '.xlsx';
+    xwBuildCompressed(spec).then(function(bytes) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+        if (typeof auditLog === 'function') auditLog('cop15', 'historial_xlsx_exportado', name, { rows: rows.length, seleccion: sel.length > 0 });
+        showToast('Descargado: ' + name + ' (' + rows.length + ' prueba' + (rows.length === 1 ? '' : 's') + (sel.length ? ', solo las seleccionadas' : '') + ')', 'success');
+    }).catch(function(e) {
+        showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+    });
+}
+
+// ── [R2-M4] Batch PDF Export helpers ──
+// [2.34.0] "Todos" = las pruebas que pasan los filtros (también las de otra página o de
+// un grupo colapsado), y el contador lo dice. La selección vive en _histSel, no en el DOM.
+function histToggleAll(checked) {
+    (window._histVisibleIds || []).forEach(function(id) { if (checked) _histSel[id] = true; else delete _histSel[id]; });
+    _histRenderBody();
+}
+
+function histSelClear() {
+    _histSel = {};
+    _histRenderBody();
+}
+
 function histUpdateBatchBtn() {
-    var checked = document.querySelectorAll('.hist-chk:checked');
+    var n = histSelectedIds().length;
     var pdfBtn = document.getElementById('batchPdfBtn');
     var delBtn = document.getElementById('batchDeleteBtn');
+    var cnt = document.getElementById('hist-sel-count');
+    if (cnt) cnt.innerHTML = n ? '<strong>' + n + '</strong> seleccionada' + (n > 1 ? 's' : '') +
+        ' <button type="button" class="hist-active-clear" onclick="histSelClear()">Quitar selección</button>' : '';
     if (pdfBtn) {
-        if (checked.length > 0) { pdfBtn.style.display = ''; pdfBtn.textContent = 'PDF ' + checked.length + ' seleccionados'; }
+        if (n > 0) { pdfBtn.style.display = ''; pdfBtn.textContent = 'PDF ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }
         else { pdfBtn.style.display = 'none'; }
     }
     if (delBtn) {
-        if (checked.length > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
+        if (n > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }
         else { delBtn.style.display = 'none'; }
     }
 }
 
 function batchPDFExport() {
-    var ids = [];
-    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
-        ids.push(parseInt(cb.dataset.vid));
-    });
+    var ids = histSelectedIds();
     if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
 
     showConfirm(
@@ -5227,10 +5745,7 @@ function deleteVehicleCascade(vehicleId) {
 
 function batchDeleteVehicles() {
     if (!_cascadeGate('test.delete', 'eliminar vehículos')) return;
-    var ids = [];
-    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
-        ids.push(parseInt(cb.dataset.vid));
-    });
+    var ids = histSelectedIds();
     if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
 
     var vins = ids.map(function(id){
@@ -5260,6 +5775,7 @@ function batchDeleteVehicles() {
                     invState.usageLog = invState.usageLog.filter(function(u){return u.vin !== veh.vin;});
             });
             saveDB();
+            _histSel = {};
             if (typeof tpSave       === 'function') tpSave();
             if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
             if (typeof invSave      === 'function') invSave();
@@ -8818,7 +9334,7 @@ var CASCADE_TOOLTIPS = {
     activeVehSelect: { title: 'Veh\u00edculo activo', text: 'Elige el veh\u00edculo con el que vas a trabajar en esta pesta\u00f1a. Solo aparecen veh\u00edculos que a\u00fan no se han archivado.' },
     releaseVehSelect: { title: 'Veh\u00edculo a liberar', text: 'Elige el veh\u00edculo listo para captura de resultados. Como Liberador, t\u00fa registras el primer juego de valores de gases.' },
     approvalVehSelect: { title: 'Veh\u00edculo pendiente de aprobaci\u00f3n', text: 'Elige el veh\u00edculo que vas a verificar como Aprobador. NO ver\u00e1s los valores que captur\u00f3 el Liberador \u2014 as\u00ed se garantiza el doble ciego.' },
-    'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
+    'hist-filter-help': { title: 'Historial', text: 'Busca por VIN, configuraci\u00f3n, modelo o norma; filtra por estado con las fichas de arriba; ordena tocando el t\u00edtulo de una columna y agrupa por familia, modelo o mes. El orden y el agrupado se recuerdan en este equipo; los filtros no, para que nunca se quede una prueba escondida.' },
     'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
     test_battery_soc: { title: 'SOC al iniciar prueba', text: 'Estado de carga de la batería (0–100 %) justo antes de arrancar la prueba en el dinamómetro, leído en el tablero o con el scanner. Es distinto del SOC de Recepción (al llegar el vehículo): entre ambos pasan el preacondicionamiento y el reposo. Se imprime en el COP15-F05, en Detalles de Prueba.' },
     'op-next-help': { title: 'Siguiente paso', text: 'El botón grande hace lo que sigue para este vehículo: iniciar la prueba, enviarlo a liberación o ir a Liberación. Antes de avanzar revisa que no falte nada y, si falta, te dice qué. «Guardar» guarda sin cambiar de etapa. «Cambiar estado a mano» es solo para corregir (por ejemplo, regresar un vehículo a «En progreso»).' },
@@ -8871,10 +9387,13 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'cop15-dashboard': {
         title: 'Historial',
-        text: 'Vehículos archivados: genera su PDF COP15-F05, completa datos retroactivos (📝) si el PDF pide campos que no existían antes, y consulta su control de cambios (🕘).',
+        text: 'Todas las pruebas: búscalas, ordénalas tocando el título de una columna y agrúpalas por familia, modelo o mes. Genera su PDF COP15-F05, completa datos retroactivos (📝) y consulta su control de cambios (⋯).',
         tips: [
-            'Filtra por Estado, Propósito, VIN o rango de fechas — se combinan entre sí.',
-            'En Estado, la opción "Fuera de Plan" lista las pruebas marcadas como tales al darlas de alta (las que no cuentan para el plan semanal).',
+            'La búsqueda encuentra por VIN (basta con sus últimos dígitos), código de configuración, modelo, motor, norma o Test Ref de VETS; varias palabras se combinan.',
+            'Toca el título de una columna para ordenar por ella; otro toque invierte el orden.',
+            '"Agrupar por" junta las pruebas por familia, modelo, regulación, estado o mes; cada grupo dice cuántas hay y cuántas faltan por completar.',
+            'En "⚙ Más filtros" está "Revisión": pruebas a las que les faltan datos del PDF, que no cuentan para CoP o que están fuera de plan.',
+            '⬇ Excel descarga lo que ves (o solo lo seleccionado), con una columna por gas.',
             'El botón "📝 Completar (N)" solo aparece si al vehículo le faltan campos para el PDF.',
             'El botón 🕘 muestra el historial completo de cambios del vehículo, incluidas ediciones retroactivas con su razón y firma.'
         ]
