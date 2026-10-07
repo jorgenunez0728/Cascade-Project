@@ -20,6 +20,21 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.35.1 — Historial: la fecha es la de la prueba (2026-10-07)
+
+### Cambió
+- La columna **Fecha** del Historial ahora es la **Fecha de prueba**: la que se le carga a la
+  prueba (en Operación, o al adjuntar VETS), no el día en que el vehículo se dio de alta en el
+  sistema. Ordenar, filtrar por año y mes, agrupar por mes y el Excel usan esa misma fecha.
+- Una prueba que todavía no tiene fecha de prueba lo dice ("sin fecha de prueba", con su fecha
+  de alta debajo) y, al ordenar por fecha, va siempre al final.
+- El Excel trae las dos columnas: **Fecha de prueba** y **Alta**.
+
+### Para desarrollo
+- `vehicleTestDate(v)` (app.js, PURA) es el día de la prueba (`testData.testDatetime`,
+  `'AAAA-MM-DD'` o `''`), la misma fecha del calendario (2.32.0). Se toma de la cadena, nunca
+  por `new Date('AAAA-MM-DD')`.
+
 ## 2.35.0 — Revisar antes de subir: un equipo atrasado ya no sube solo lo que traía (2026-10-07)
 
 ### Nuevo

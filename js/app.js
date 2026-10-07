@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.35.0';
+var APP_VERSION = '2.35.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.35.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.35.1', date: '7 oct 2026', title: 'Historial: la fecha es la de la prueba',
+      bullets: [
+          'Cambió: la columna Fecha del Historial ahora es la Fecha de prueba (la que se le carga a la prueba en Operación o desde VETS), no el día en que se dio de alta en el sistema. Ordenar, filtrar por año/mes, agrupar por mes y el Excel usan esa misma fecha.',
+          'Una prueba que todavía no tiene fecha de prueba lo dice ("sin fecha de prueba") con su fecha de alta debajo, y al ordenar por fecha va siempre al final.',
+          'El Excel trae las dos columnas: Fecha de prueba y Alta.'
+      ] },
     { version: '2.35.0', date: '7 oct 2026', title: 'Revisar antes de subir: un equipo atrasado ya no sube solo lo que traía',
       bullets: [
           'Nuevo: si un equipo lleva más de 3 días sin sincronizarse, al conectarse NO sube lo que traía. Muestra "Revisar antes de subir" con los VIN que la nube no tiene (modelo, estado y fecha de alta) y las lecturas de Consumibles que la nube no tiene.',
@@ -2444,6 +2450,15 @@ function vehicleIsHistoric(v) { return !!v && v.status === VEHICLE_STATUS_HISTOR
 function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !== VEHICLE_STATUS_HISTORIC; }
 /** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
 function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
+/**
+ * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale SOLO de
+ * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0): nunca el alta ni el
+ * archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
+ */
+function vehicleTestDate(v) {
+    var s = String((v && v.testData && v.testData.testDatetime) || '');
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
+}
 /**
  * Fecha con la que se lista un vehículo: la de su ALTA, salvo una prueba histórica,
  * que se dio de alta hoy pero ocurrió cuando dice VETS. PURA.
