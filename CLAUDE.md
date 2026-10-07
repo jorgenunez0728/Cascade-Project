@@ -3000,3 +3000,20 @@ The field needs an associated `<label>`. CSS: `.cascade-help-btn`, `.cascade-too
 - Teclear en la búsqueda llama `histRefreshSoon()` → solo fichas + tabla. Un control que cambie
   las opciones de la barra (año → meses) repinta con `histRefresh(true)`.
 - Agrupar por familia usa `copVehicleFamilyKey` (la identidad de CoP/SPC) y su 👪 Ficha.
+
+## 2.35.0 — Revisar antes de subir (`js/firebase-sync.js`)
+
+- **Un equipo atrasado (> `FB_STALE_DAYS` = 3 días sin sincronización completa) no sube solo
+  lo que traía.** La nube sigue siendo la copia compartida: esto NO es un "equipo master" (se
+  descartó a propósito: liberar y aprobar en equipos distintos exige que se vean al momento).
+- **`fbReviewModel(src)` (PURA) es LA definición de qué se pregunta**: vehículos cuyo documento
+  la nube no tiene (`known.docs`) y que existían al abrir la app (`_fbBootAt`), y lecturas de
+  Consumibles que la nube no tiene (`older` si todas son anteriores a la última de la nube).
+- **`kia_fb_veh_known.lastOkAt`** es la última sincronización completa; `_fbReviewStampOk` no
+  la mueve mientras haya revisión. Sin ella el equipo cuenta como atrasado (la toma de
+  `watermark` una vez, para los equipos anteriores).
+- **`fbReviewHolds(col)` detiene TODA subida de `FB_REVIEW_MODULES`** (fbPush, la cola offline
+  y la meta de vehículos). Toda ruta nueva que escriba esos módulos en la nube debe consultarla.
+- Descartar NO deja marca de borrado: la nube nunca tuvo ese registro. Sí se lleva su evidencia
+  en `testedList` y su `usageLog`, o Plan y Consumibles subirían lo descartado.
+- Solo protege a equipos con esta versión: uno con código viejo sincroniza antes de actualizarse.

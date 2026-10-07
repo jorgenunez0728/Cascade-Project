@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.34.0';
+var APP_VERSION = '2.35.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.34.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.35.0', date: '7 oct 2026', title: 'Revisar antes de subir: un equipo atrasado ya no sube solo lo que traía',
+      bullets: [
+          'Nuevo: si un equipo lleva más de 3 días sin sincronizarse, al conectarse NO sube lo que traía. Muestra "Revisar antes de subir" con los VIN que la nube no tiene (modelo, estado y fecha de alta) y las lecturas de Consumibles que la nube no tiene.',
+          'Lo marcado se sube; lo desmarcado se borra de ese equipo, con Deshacer. "Todos" / "Ninguno" marcan la lista entera.',
+          'Una lectura de inventario más vieja que la última de la nube sale desmarcada y avisada ("3 semanas más vieja que la última de la nube").',
+          'Mientras no se decida, ese equipo no sube nada de Pruebas, Plan, Consumibles ni CoP, y el indicador de sincronización dice "⏸ revisar antes de subir" (tocarlo reabre la ventana). Lo de la nube sí baja.',
+          'Un equipo al día no ve ninguna ventana, y lo capturado en la misma sesión nunca se pregunta.',
+          'Límite: solo protege a equipos con esta versión. Un equipo con una versión vieja sincroniza antes de actualizarse.'
+      ] },
     { version: '2.34.0', date: '7 oct 2026', title: 'Historial: buscar, ordenar y agrupar por familia',
       bullets: [
           'Nuevo: una sola búsqueda en Historial encuentra por VIN (bastan sus últimos dígitos), código de configuración, modelo, motor, norma o Test Ref de VETS. Varias palabras se combinan ("cl4 wgn").',

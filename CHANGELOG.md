@@ -20,6 +20,51 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.35.0 — Revisar antes de subir: un equipo atrasado ya no sube solo lo que traía (2026-10-07)
+
+### Nuevo
+- **Revisión al reconectar.** Si un equipo lleva **más de 3 días** sin sincronizarse, al
+  conectarse primero baja lo de la nube y después, en vez de subir lo que traía, muestra
+  **"Revisar antes de subir"**:
+  - los **VIN que la nube no tiene**, con modelo, estado y fecha de alta;
+  - las **lecturas de Consumibles que la nube no tiene**, por cilindro o tanque; si son más
+    viejas que la última de la nube, salen **desmarcadas** y avisadas ("3 semanas más vieja
+    que la última de la nube… se recomienda no subirla").
+- **Lo marcado se sube; lo desmarcado se borra de ese equipo** (con Deshacer en el aviso).
+  "Todos" y "Ninguno" marcan la lista entera. Con los vehículos borrados se van también su
+  evidencia en el plan y su consumo en ese equipo.
+- **"Decidir después"** cierra la ventana; el equipo sigue sin subir y el indicador de
+  sincronización dice **"⏸ revisar antes de subir"** (tocarlo reabre la ventana). La decisión
+  queda en el historial de cambios.
+
+### Cambió
+- Mientras la revisión está pendiente, ese equipo **no sube nada de Pruebas, Plan, Consumibles
+  ni CoP**. Lo de la nube sí baja, así que el equipo se pone al día antes de decidir.
+- Un equipo al día no ve ninguna ventana, y lo capturado en la misma sesión nunca se pregunta.
+  Un equipo atrasado que no trae nada propio tampoco ve ventana.
+
+### Lo que no cubre
+- **Solo protege a equipos con esta versión.** Uno con una versión anterior sincroniza antes
+  de actualizarse; a un equipo guardado mucho tiempo conviene actualizarlo (o borrarle los
+  datos) antes de abrirlo conectado.
+- Lo que ya subió no se retira solo: se borra desde Historial (con marca, para todos los equipos).
+- La revisión pregunta por vehículos y lecturas. Plan, CoP, calibraciones y cilindros
+  editados se detienen mientras está pendiente y después se fusionan como siempre.
+
+### Para desarrollo
+- `fbReviewStaleness(lastOkAt, now, días)` y **`fbReviewModel(src)` (PURAS)** deciden si un
+  equipo llega atrasado y qué se pregunta. `kia_fb_veh_known.lastOkAt` es la última
+  sincronización completa (se toma de `watermark` en equipos anteriores a 2.35.0) y NO se
+  actualiza mientras la revisión está pendiente.
+- `fbReviewHolds(col)` detiene `fbPush` y la cola offline de `FB_REVIEW_MODULES`;
+  `fbVehPushPlan(…, hold)` no sube los vehículos en revisión, y la meta de `cop15meta`
+  tampoco sube mientras tanto.
+- Estados: `idle` → `checking` (hasta el primer ciclo con la nube) → `asking` (ventana) →
+  `applied` (ventana de deshacer, 10 s) → `done`. `fbReviewFinish` descarta lo encolado de los
+  módulos detenidos y sube el estado ya revisado.
+- Borrar en la revisión NO deja marca (`vehicleTombstone`): la nube nunca tuvo ese vehículo.
+- `tests/vehsync.node.js` (+26) y `tests/v2350.e2e.js`.
+
 ## 2.34.0 — Historial: buscar, ordenar y agrupar por familia (2026-10-07)
 
 ### Nuevo
