@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.33.0';
+var APP_VERSION = '2.34.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '2.33.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.34.0', date: '7 oct 2026', title: 'Historial: buscar, ordenar y agrupar por familia',
+      bullets: [
+          'Nuevo: una sola búsqueda en Historial encuentra por VIN (bastan sus últimos dígitos), código de configuración, modelo, motor, norma o Test Ref de VETS. Varias palabras se combinan ("cl4 wgn").',
+          'Nuevo: tocar el título de una columna ordena por ella (otro toque invierte el orden). En el teléfono, "Ordenar por" hace lo mismo.',
+          'Nuevo: "Agrupar por" familia, modelo, regulación, región, estado, propósito o mes. Cada grupo dice cuántas pruebas tiene, cuántas siguen en curso o por aprobar, la fecha de la última y cuántas faltan por completar; se pliega con un toque y la familia abre su 👪 Ficha.',
+          'Nuevo: fichas de estado con su conteo (Todos, En curso, Archivado…) y "⚙ Más filtros": familia, modelo, regulación, región, propósito, año/mes y Revisión (faltan datos del PDF, no cuenta para CoP, liberado sin aprobar, fuera de plan). Cada filtro activo se ve arriba y se quita con su ✕.',
+          'Nuevo: ⬇ Excel descarga lo que se ve (o solo lo seleccionado) con una columna por gas, en su unidad.',
+          'Cambió: el orden y el agrupado se recuerdan en este equipo; los filtros no, para que ninguna prueba se quede escondida en la siguiente visita. La selección ya no se pierde al teclear en la búsqueda.'
+      ] },
     { version: '2.33.0', date: '4 oct 2026', title: 'El calendario es el plan; la semana es su zoom',
       bullets: [
           'Cambió: Plan abre en el 🗓️ Calendario. Cada semana tiene un ▸ al inicio que la abre en Mi semana para armarla, mover pruebas de día y vincularlas (✔ = plan aceptado, ⏳ = propuesta). Desde Mi semana, "🗓️ Calendario" regresa al mes.',
@@ -1427,28 +1436,6 @@ function escapeHtml(text) {
     return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// ── [v15.5] preserveFocus: re-render sin perder el foco ni el caret ──
-// Para listas con filtro en vivo cuyo innerHTML se reconstruye en cada tecla
-// (el input necesita un id para poder re-encontrarlo tras el render).
-function preserveFocus(renderFn) {
-    var ae = document.activeElement;
-    var id = ae ? ae.id : '';
-    var selStart = null, selEnd = null;
-    if (id && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
-        try { selStart = ae.selectionStart; selEnd = ae.selectionEnd; } catch(e) {}
-    }
-    renderFn();
-    if (id) {
-        var el = document.getElementById(id);
-        if (el && el !== document.activeElement) {
-            try {
-                el.focus();
-                if (selStart !== null && el.setSelectionRange) el.setSelectionRange(selStart, selEnd);
-            } catch(e) {}
-        }
-    }
-}
-
 // ── Iniciales de avatar a partir de un nombre (tolera espacios múltiples) ──
 function authInitials(name) {
     return String(name == null ? '' : name).trim().split(/\s+/)
@@ -1856,6 +1843,11 @@ window._histFilterVin = '';
 window._histFilterPurpose = '';
 window._histFilterYear = '';
 window._histFilterMonth = '';
+window._histFilterModel = '';
+window._histFilterReg = '';
+window._histFilterRegion = '';
+window._histFilterFamily = '';
+window._histFilterFlag = '';
 window._histPageSize = 25;
 let currentUnitSystem = 'SI';
 
@@ -1896,7 +1888,8 @@ var UI_PREFS_DEFAULTS = {
     handoff: 'todos',      // [2.15.0] avisos de relevo: 'todos' | 'mios' | 'ninguno'
     dashSnooze: {},        // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
     lastSeen: {},          // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
-    moments: {}            // [2.26.0] momentos de cierre ya mostrados en este equipo: {clave: ISO}
+    moments: {},           // [2.26.0] momentos de cierre ya mostrados en este equipo: {clave: ISO}
+    hist: {}               // [2.34.0] Historial: {sort, dir, group, collapsed, more} — leer con histPrefs()
 };
 
 function _uiPrefsRead() {

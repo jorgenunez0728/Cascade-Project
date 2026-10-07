@@ -20,6 +20,48 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.34.0 — Historial: buscar, ordenar y agrupar por familia (2026-10-07)
+
+### Nuevo
+- **Una sola búsqueda** en Pruebas → Historial: VIN (bastan sus últimos dígitos), código de
+  configuración, modelo, motor, norma o Test Ref de VETS, sin importar mayúsculas ni acentos.
+  Varias palabras se combinan: "cl4 wgn" deja solo las CL4 WGN. Lo encontrado se resalta.
+- **Ordenar por columna**: VIN, Configuración, Propósito, Estado (en el orden del flujo), Fecha y
+  Emisiones. Otro toque invierte el orden. En el teléfono (tarjetas) está "Ordenar por".
+- **Agrupar por** familia, modelo, regulación, región, estado, propósito o mes. Cada grupo dice
+  cuántas pruebas tiene, cuántas siguen en curso o por aprobar, la fecha de la última, cuántas
+  faltan por completar (⚠) y cuántas no cuentan para CoP (⊘). Se pliega con un toque, se
+  selecciona entero con su casilla, y la familia abre su **👪 Ficha**.
+- **Fichas de estado con conteo** (Todos, En curso, Pendiente Aprobación, Archivado…) y
+  **⚙ Más filtros**: familia, modelo, regulación, región, propósito, año/mes y **Revisión**
+  (faltan datos del PDF, no cuenta para CoP, liberado sin aprobar, sin resultados, fuera de plan).
+  Cada filtro activo aparece arriba con su ✕; "Limpiar todo" los quita juntos. La lista dice
+  cuántas pruebas quedan ocultas por los filtros.
+- **⬇ Excel**: lo que se ve (con filtros y orden) o solo lo seleccionado, con una columna por
+  gas en la unidad de su límite (SULEV en g/mi y Europa en g/km nunca comparten columna).
+- El VIN abre la ficha del vehículo.
+
+### Cambió
+- El orden, el agrupado y los grupos plegados se recuerdan **en este equipo**. Los filtros no:
+  un filtro olvidado escondería pruebas en la siguiente visita sin que nadie lo note.
+- La selección ya no se pierde al teclear en la búsqueda o al plegar un grupo. "Seleccionar
+  todo" toma las pruebas que pasan los filtros (también las de la página siguiente) y el contador
+  lo dice; lo que deja de pasar los filtros sale de la selección (nunca se borra o exporta algo
+  que no está a la vista).
+- Los botones de cada fila son más chicos; la tabla cabe sin desplazarse a lo ancho.
+
+### Para desarrollo
+- `histRowFacts(v)` deriva una fila (memo por `_rev`/`updatedAt`/estado, se limpia con
+  `data:saved`). **`histApplyQuery(facts, f, sort, group)` es PURA** y es LA definición de qué se
+  ve: filtra, ordena, agrupa y cuenta las fichas de estado (con todos los demás filtros).
+- La familia del grupo es `copVehicleFamilyKey` (la misma de CoP y SPC).
+- `uiPref('hist')` = `{sort, dir, group, collapsed, more}`; leer con `histPrefs()`.
+- La selección vive en `_histSel` (por id); `histSelectedIds()` la da en el orden visible. Los
+  lotes (PDF, eliminar, Excel) la leen de ahí, no de las casillas del DOM.
+- Teclear en la búsqueda repinta solo fichas + tabla (`histRefresh`), nunca la barra: el campo no
+  pierde el foco.
+- `tests/historial.node.js` (27).
+
 ## 2.33.0 — El calendario es el plan; la semana es su zoom (2026-10-04)
 
 ### Cambió
