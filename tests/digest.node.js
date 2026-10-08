@@ -57,6 +57,16 @@ ok('promedio y máximo', v.avgDays === 6.5 && v.maxDays === 11, v.avgDays + '/' 
 const apr = Object.assign({}, vehicles[0], { status: 'archived', timeline: vehicles[0].timeline.concat([{ timestamp: daysAgo(0, 1), data: { status: 'archived' } }]) });
 ok('al aprobarse deja de estar escalado', !P.digestVehicles([apr], NOW, { escalateDays: 7 }).escalated.length);
 
+console.log('\n== digestCloudVehicles (como los ve la app) ==');
+const dupA = { id: 'x1', vin: 'KNADUP0000000001', status: 'in-progress', registeredAt: daysAgo(3), updatedAt: daysAgo(2), config: cfg('K3', 'SULEV 30'), timeline: [] };
+const dupB = Object.assign({}, dupA, { id: 'x2', status: 'ready-release', updatedAt: daysAgo(1) });
+const borrado = { id: 'x3', vin: 'KNABORRADO000003', status: 'registered', registeredAt: daysAgo(5), config: cfg('Rio', 'EURO 5'), timeline: [] };
+const cv = P.digestCloudVehicles([dupA, dupB, borrado, vehicles[0]], [{ id: 'x3', vin: 'KNABORRADO000003', registeredAt: borrado.registeredAt }]);
+ok('un VIN con dos documentos cuenta UNA vez', cv.vehicles.filter(v => v.vin === dupA.vin).length === 1 && cv.merged === 1);
+ok('gana la edición más reciente (la regla de la app)', cv.vehicles.find(v => v.vin === dupA.vin).status === 'ready-release');
+ok('un vehículo con marca de borrado no cuenta', !cv.vehicles.some(v => v.vin === borrado.vin) && cv.removed === 1);
+ok('lo demás pasa igual', cv.vehicles.length === 2);
+
 console.log('\n== digestApprovedSince ==');
 const a = P.digestApprovedSince(vehicles, daysAgo(1), NOW);
 ok('solo lo aprobado después del último resumen', a.length === 1 && a[0].id === 'e', JSON.stringify(a.map(x => x.id)));

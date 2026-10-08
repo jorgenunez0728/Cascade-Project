@@ -3087,3 +3087,12 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   Una suscripción que responde 404/410 se borra.
 - `plan.acceptedBy` se sella al aceptar (`tpAcceptWeeklyPlan`) y se borra al desaceptar.
 
+## 2.37.1 — El resumen cuenta como la app
+
+- **Los documentos de `vehicles` NO son la lista de vehículos**: la app los junta por VIN y
+  retira los borrados. Todo proceso fuera de la app que lea vehículos de la nube pasa por
+  `digestCloudVehicles` (o hace lo mismo con `_fbMergeVehicle` + `vehicleIsTombstoned` contra
+  `cop15meta.deletedVehicles`), o contará de más.
+- `tools/digest-env.js` carga funciones del código real con `fnSrc(nombre, texto)`; una función de
+  una sola línea se reconoce aparte (si no, la regex se traga la siguiente).
+

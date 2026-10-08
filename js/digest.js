@@ -165,6 +165,30 @@ function digestApprovedAt(v) {
 function _digestSigName(sig) { return (sig && (sig.sessionUserName || sig.signerName)) || ''; }
 
 /**
+ * Los vehículos de la nube como los ve la app. PURA respecto a lo que recibe.
+ * La nube guarda un documento por vehículo (2.9.0), pero la app los junta POR VIN
+ * (`_fbMergeVehicle`) y retira los borrados (`vehicleIsTombstoned` contra
+ * `cop15meta.deletedVehicles`) — sin esto el resumen contaba de más (un VIN con dos
+ * documentos, o un vehículo borrado cuyo documento no quedó marcado).
+ * → {vehicles, merged (copias juntadas), removed (borrados retirados)}
+ */
+function digestCloudVehicles(docsVehicles, tombs) {
+    var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
+    var merge = (typeof _fbMergeVehicle === 'function') ? _fbMergeVehicle : null;
+    var byVin = {}, order = [], removed = 0, merged = 0;
+    (docsVehicles || []).forEach(function(v) {
+        if (!v || !v.vin) return;
+        if (tombs && tombs.length && isTomb(v, tombs)) { removed++; return; }
+        var k = String(v.vin).trim().toUpperCase();
+        if (!byVin[k]) { byVin[k] = v; order.push(k); return; }
+        merged++;
+        byVin[k] = merge ? merge(byVin[k], v).vehicle
+            : (String(v.updatedAt || '') > String(byVin[k].updatedAt || '') ? v : byVin[k]);
+    });
+    return { vehicles: order.map(function(k) { return byVin[k]; }), merged: merged, removed: removed };
+}
+
+/**
  * LA definición de los vehículos activos del resumen. PURA.
  * → {rows (del más viejo al más nuevo), count, avgDays, maxDays, byStage:[{status,label,n}], escalated:[rows]}
  * Escalado = MÁS de `escalateDays` días naturales desde el alta y todavía sin aprobar.

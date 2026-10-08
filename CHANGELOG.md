@@ -20,7 +20,22 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 2.37.0 — Avisos del laboratorio: resumen diario, escalación y plan aceptado (2026-10-08)
+## 2.37.1 — El resumen cuenta los vehículos como la app (2026-10-08)
+
+### Arreglado
+- El resumen diario podía contar **un vehículo de más** que la pantalla de Pruebas (6 contra 5 en
+  la primera prueba). La nube guarda un documento por vehículo y puede tener dos copias del mismo
+  VIN o el documento de uno borrado; la app las junta y los retira, el resumen no lo hacía. Ahora
+  sí, con las mismas reglas.
+
+### Para desarrollo
+- `digestCloudVehicles(docsVehicles, tombs)` (js/digest.js, PURA) arma la vista de la app:
+  junta por VIN con `_fbMergeVehicle` y retira lo que `vehicleIsTombstoned` marca contra
+  `cop15meta.deletedVehicles`. `tools/digest-env.js` carga esas funciones del código real
+  (`fnSrc`, con soporte de funciones de una línea). El log de la vista previa/prueba lista los
+  activos (VIN corto) para comparar con la pantalla.
+
+Avisos del laboratorio: resumen diario, escalación y plan aceptado (2026-10-08)
 
 ### Nuevo
 - **Resumen por correo, lunes a viernes a las 7:00.** Trae los vehículos activos del más viejo

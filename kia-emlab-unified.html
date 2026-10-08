@@ -9453,10 +9453,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610081506';
+var APP_BUILD = '202610082232';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '5c9fc0b4b061f1338b2dabac55ffd075dd8bbdbb';
+var APP_COMMIT = '6c012b6ec58ea75e896fc760860546cd76ff3ad3';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9464,7 +9464,7 @@ var APP_COMMIT = '5c9fc0b4b061f1338b2dabac55ffd075dd8bbdbb';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.0';
+var APP_VERSION = '2.37.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9472,6 +9472,10 @@ var APP_VERSION = '2.37.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.1', date: '8 oct 2026', title: 'El resumen cuenta los vehículos como la app',
+      bullets: [
+          'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.'
+      ] },
     { version: '2.37.0', date: '8 oct 2026', title: 'Avisos del laboratorio: resumen diario, escalación y plan aceptado',
       bullets: [
           'Nuevo: resumen por correo de lunes a viernes a las 7:00 con los vehículos activos (del más viejo al más nuevo, días desde el alta y días en su etapa) y los aprobados desde el último resumen.',
@@ -10334,14 +10338,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610081506' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610082232' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610081506' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610082232' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10357,7 +10361,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610081506' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610082232' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -60260,7 +60264,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610081506' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610082232' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -74536,6 +74540,30 @@ function digestApprovedAt(v) {
 function _digestSigName(sig) { return (sig && (sig.sessionUserName || sig.signerName)) || ''; }
 
 /**
+ * Los vehículos de la nube como los ve la app. PURA respecto a lo que recibe.
+ * La nube guarda un documento por vehículo (2.9.0), pero la app los junta POR VIN
+ * (`_fbMergeVehicle`) y retira los borrados (`vehicleIsTombstoned` contra
+ * `cop15meta.deletedVehicles`) — sin esto el resumen contaba de más (un VIN con dos
+ * documentos, o un vehículo borrado cuyo documento no quedó marcado).
+ * → {vehicles, merged (copias juntadas), removed (borrados retirados)}
+ */
+function digestCloudVehicles(docsVehicles, tombs) {
+    var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
+    var merge = (typeof _fbMergeVehicle === 'function') ? _fbMergeVehicle : null;
+    var byVin = {}, order = [], removed = 0, merged = 0;
+    (docsVehicles || []).forEach(function(v) {
+        if (!v || !v.vin) return;
+        if (tombs && tombs.length && isTomb(v, tombs)) { removed++; return; }
+        var k = String(v.vin).trim().toUpperCase();
+        if (!byVin[k]) { byVin[k] = v; order.push(k); return; }
+        merged++;
+        byVin[k] = merge ? merge(byVin[k], v).vehicle
+            : (String(v.updatedAt || '') > String(byVin[k].updatedAt || '') ? v : byVin[k]);
+    });
+    return { vehicles: order.map(function(k) { return byVin[k]; }), merged: merged, removed: removed };
+}
+
+/**
  * LA definición de los vehículos activos del resumen. PURA.
  * → {rows (del más viejo al más nuevo), count, avgDays, maxDays, byStage:[{status,label,n}], escalated:[rows]}
  * Escalado = MÁS de `escalateDays` días naturales desde el alta y todavía sin aprobar.
@@ -75568,7 +75596,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18214],[18218,"js/uiflow.js",18534],[18538,"js/cop15.js",28681],[28685,"js/inventory.js",35751],[35755,"js/testplan.js",47314],[47318,"js/panel.js",52505],[52509,"js/projects.js",54798],[54802,"js/auth.js",55843],[55847,"js/signatures.js",56048],[56052,"js/firebase-sync.js",63302],[63306,"js/cop_validator.js",67671],[67675,"js/homolog.js",69465],[69469,"js/vets.js",71264],[71268,"js/historico.js",72180],[72184,"js/review.js",72637],[72641,"js/opcards.js",73070],[73074,"js/handoff.js",73348],[73352,"js/ficha.js",73843],[73847,"js/relevo.js",74227],[74231,"js/momentos.js",74368],[74372,"js/digest.js",75140],[75144,"js/xlsxw.js",75524],[75528,"js/bugreport.js",76674]]};
+var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18218],[18222,"js/uiflow.js",18538],[18542,"js/cop15.js",28685],[28689,"js/inventory.js",35755],[35759,"js/testplan.js",47318],[47322,"js/panel.js",52509],[52513,"js/projects.js",54802],[54806,"js/auth.js",55847],[55851,"js/signatures.js",56052],[56056,"js/firebase-sync.js",63306],[63310,"js/cop_validator.js",67675],[67679,"js/homolog.js",69469],[69473,"js/vets.js",71268],[71272,"js/historico.js",72184],[72188,"js/review.js",72641],[72645,"js/opcards.js",73074],[73078,"js/handoff.js",73352],[73356,"js/ficha.js",73847],[73851,"js/relevo.js",74231],[74235,"js/momentos.js",74372],[74376,"js/digest.js",75168],[75172,"js/xlsxw.js",75552],[75556,"js/bugreport.js",76702]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

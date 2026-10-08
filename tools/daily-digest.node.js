@@ -101,6 +101,14 @@ async function readCloud() {
     await login();
     const vehDocs = await listAll('vehicles');
     const parsed = P.fbVehParseDocs(vehDocs);
+    // Como la app: juntar por VIN y retirar los borrados (cop15meta.deletedVehicles).
+    const meta = await getDoc('cop15meta/current');
+    let tombs = [];
+    try { tombs = (JSON.parse((meta && meta.json) || '{}').deletedVehicles) || []; } catch (e) { tombs = []; }
+    const view = P.digestCloudVehicles(parsed.vehicles, tombs);
+    log(`nube: ${vehDocs.length} documentos → ${view.vehicles.length} vehículos` +
+        (view.merged ? ` (${view.merged} copia(s) del mismo VIN juntadas)` : '') +
+        (view.removed ? ` (${view.removed} borrado(s) retirados)` : ''));
     const tpDoc = await rest('GET', 'testplan/current');
     if (!tpDoc || !tpDoc.fields || !tpDoc.fields.data) throw new Error('No se pudo leer el plan (testplan/current).');
     const tpState = P.fbFromFirestoreValue(tpDoc.fields.data);
@@ -110,7 +118,7 @@ async function readCloud() {
     let last = parsed.maxTs || 0;
     const tpT = Date.parse(tpDoc.updateTime || '') || 0;
     if (tpT > last) last = tpT;
-    return { vehicles: parsed.vehicles, tpState, settings, state, subs, lastChangeAt: last ? new Date(last).toISOString() : '' };
+    return { vehicles: view.vehicles, tpState, settings, state, subs, lastChangeAt: last ? new Date(last).toISOString() : '' };
 }
 function readFixture(file) {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -222,6 +230,7 @@ async function main() {
         const ok = await deliver('resumen', { subject: P.digestSubject(d), html: P.digestEmailHTML(d),
             to: TEST ? TEST_TO : d.settings.to, cc: d.escalateTo }, push, data, errors);
         log(`resumen: ${d.vehicles.count} activos, ${d.vehicles.escalated.length} escalados, ${d.approved.length} aprobados`);
+        if (DRY || TEST) log('activos: ' + d.vehicles.rows.map(r => `${r.vin} ${r.label} ${r.daysActive}d`).join(' · '));
         if (ok) { state.lastDigestDate = lp.date; state.lastDigestAt = nowIso; dirty = true; }
     } else {
         log('resumen: no toca (ya salió hoy, fin de semana o antes de las 7:00)');
