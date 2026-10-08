@@ -16,6 +16,10 @@ on:
         description: 'Mandar el resumen aunque ya haya salido hoy'
         type: boolean
         default: false
+      test_to:
+        description: 'Enviar una PRUEBA solo a este correo (si lo llenas, se envía aunque esté marcada la vista previa; sin copia al jefe ni avisos al teléfono)'
+        type: string
+        default: ''
 
 concurrency:
   group: daily-digest
@@ -46,6 +50,7 @@ jobs:
           VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
           FORCE_DIGEST: ${{ github.event_name == 'workflow_dispatch' && inputs.force_digest && '1' || '' }}
+          DIGEST_TEST_TO: ${{ github.event_name == 'workflow_dispatch' && inputs.test_to || '' }}
           DIGEST_OUT: ${{ runner.temp }}
         run: node tools/daily-digest.node.js
 

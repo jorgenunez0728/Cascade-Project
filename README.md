@@ -187,9 +187,10 @@ cron de GitHub puede llegar 5–30 min tarde.
 4. En la app, **Datos → Sistema → 📬 Avisos del laboratorio**: destinatarios, correo(s) de
    escalación, días y un tema de ntfy difícil de adivinar (ej. `emlab-kia-7f3k2q`).
 5. **Prueba**: Actions → "Avisos del laboratorio" → Run workflow. Con *Solo vista previa*
-   marcado no envía nada y deja los HTML como artefacto; desmárcalo y marca *Mandar el resumen
-   aunque ya haya salido hoy* para el envío real. Primero con un solo destinatario: confirma que
-   el correo de Gmail no cae en cuarentena del correo corporativo.
+   marcado no envía nada y deja los HTML como artefacto. Para probar el correo de verdad, escribe
+   tu dirección en *Enviar una PRUEBA solo a este correo*: llegan el resumen y el último plan
+   aceptado con "[Prueba]" en el asunto, sin copia al jefe, sin avisos al teléfono y sin contar
+   como el resumen del día. Confirma que el correo de Gmail no cae en cuarentena del corporativo.
 6. Cada teléfono: app **ntfy** → suscribirse al tema, o en la plataforma **🔔 Activar avisos
    aquí** (aparece después de la primera corrida, que publica la llave pública).
 

@@ -161,6 +161,14 @@ out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026
 ok('ya salió hoy: no repite', /no toca/.test(out) && !/\[DRY\]/.test(out), out);
 out = run({ vehicles, tpState: plansTp, settings, state: { plansSeeded: 'x' } }, { DIGEST_NOW: '2026-10-08T12:30:00Z' });
 ok('antes de las 7:00 no sale', /no toca/.test(out), out);
+let prueba = '';
+try { run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
+          { DIGEST_TEST_TO: 'yo@kia.com', SMTP_USER: '', SMTP_PASS: '' }); }
+catch (e) { prueba = String(e.stdout) + String(e.stderr); }
+ok('prueba: solo al correo de prueba, sin copia, aunque ya haya salido hoy', /MODO PRUEBA/.test(prueba) &&
+   /\[PRUEBA\] resumen: «.*» → yo@kia\.com \(en un envío real iría en copia: jefe@kia\.com\)/.test(prueba), prueba);
+ok('prueba: también el aviso del plan aceptado aunque ya se haya avisado', /\[PRUEBA\] plan: «EmLab · Plan aceptado/.test(prueba), prueba);
+ok('prueba: sin credenciales SMTP lo dice', /Faltan los secretos SMTP_USER/.test(prueba));
 let fallo = false;
 try { run({ vehicles: [], tpState: plansTp, settings, state: {} }); } catch (e) { fallo = e.status === 1 && /no se envía nada/.test(String(e.stderr)); }
 ok('sin vehículos: no envía y termina en error', fallo);

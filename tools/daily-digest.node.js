@@ -24,7 +24,11 @@ const path = require('path');
 const { loadDigestEnv } = require('./digest-env');
 
 const env = process.env;
-const DRY = env.DRY_RUN === '1' || env.DRY_RUN === 'true';
+// Prueba: si hay DIGEST_TEST_TO se manda SOLO a esa(s) dirección(es), con "[Prueba]" en el
+// asunto, sin copia a escalación, sin ntfy ni Web Push y sin tocar digest/state. Manda sobre DRY_RUN.
+const TEST_TO = (env.DIGEST_TEST_TO || '').split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+const TEST = TEST_TO.length > 0;
+const DRY = !TEST && (env.DRY_RUN === '1' || env.DRY_RUN === 'true');
 const FORCE = env.FORCE_DIGEST === '1' || env.FORCE_DIGEST === 'true';
 const OUT = env.DIGEST_OUT || process.cwd();
 const log = (...a) => console.log('[aviso]', ...a);
@@ -171,6 +175,13 @@ async function deliver(kind, mail, push, data, errors) {
             (mail.cc.length ? ' | CC ' + mail.cc.join(', ') : '') + ` | push: ${push.title} — ${push.body} | ${f}`);
         return true;
     }
+    if (TEST) {
+        log(`[PRUEBA] ${kind}: «${mail.subject}» → ${mail.to.join(', ')}` +
+            (mail.cc.length ? ' (en un envío real iría en copia: ' + mail.cc.join(', ') + ')' : ''));
+        try { await sendEmail(mail.to, [], '[Prueba] ' + mail.subject, mail.html, push.title + '\n' + push.body + '\n' + push.url); }
+        catch (e) { errors.push('correo: ' + e.message); }
+        return false;
+    }
     let emailOk = false;
     try { const r = await sendEmail(mail.to, mail.cc, mail.subject, mail.html, push.title + '\n' + push.body + '\n' + push.url); emailOk = true; void r; }
     catch (e) { errors.push('correo: ' + e.message); }
@@ -200,7 +211,8 @@ async function main() {
 
     // 1) Resumen diario
     const lp = P.digestLocalParts(nowIso);
-    const due = FORCE || (lp.dow >= 1 && lp.dow <= 5 && lp.hour >= 7 && state.lastDigestDate !== lp.date);
+    if (TEST) log('MODO PRUEBA: solo a ' + TEST_TO.join(', ') + ' — no se guarda estado, no hay copia, ntfy ni Web Push');
+    const due = TEST || FORCE || (lp.dow >= 1 && lp.dow <= 5 && lp.hour >= 7 && state.lastDigestDate !== lp.date);
     if (due) {
         const d = P.digestCompute({
             vehicles: data.vehicles, planFor: P.tpWeekPlanFor, statusLabels: P.CONFIG.statusLabels,
@@ -208,7 +220,7 @@ async function main() {
         }, nowIso);
         const push = P.digestPushText(d);
         const ok = await deliver('resumen', { subject: P.digestSubject(d), html: P.digestEmailHTML(d),
-            to: d.settings.to, cc: d.escalateTo }, push, data, errors);
+            to: TEST ? TEST_TO : d.settings.to, cc: d.escalateTo }, push, data, errors);
         log(`resumen: ${d.vehicles.count} activos, ${d.vehicles.escalated.length} escalados, ${d.approved.length} aprobados`);
         if (ok) { state.lastDigestDate = lp.date; state.lastDigestAt = nowIso; dirty = true; }
     } else {
@@ -218,7 +230,16 @@ async function main() {
     // 2) Planes aceptados
     const plans = (P.__tpGet().weeklyPlans || []);
     const pending = P.digestPlansToAnnounce(plans, state.notifiedPlans, nowIso, P.tpPlanId);
-    if (!state.plansSeeded) {
+    if (TEST) {
+        // La prueba muestra el aviso del plan aceptado más reciente de esta semana en adelante.
+        const all = P.digestPlansToAnnounce(plans, {}, nowIso, P.tpPlanId);
+        const e = all[all.length - 1];
+        if (e) {
+            const a = P.digestPlanAnnouncement(e);
+            await deliver('plan', { id: a.planId, subject: P.digestPlanSubject(a), html: P.digestPlanEmailHTML(a),
+                to: TEST_TO, cc: [] }, P.digestPlanPushText(a), data, errors);
+        } else log('plan: no hay un plan aceptado de esta semana en adelante para la prueba');
+    } else if (!state.plansSeeded) {
         pending.forEach(e => { state.notifiedPlans[e.planId] = e.plan.acceptedDate; });
         state.plansSeeded = nowIso; dirty = true;
         log(`plan: primera corrida — ${pending.length} plan(es) ya aceptado(s) se registran sin avisar`);
@@ -239,7 +260,7 @@ async function main() {
         if (!p || String(p.weekDate) < keepFrom) { delete state.notifiedPlans[id]; dirty = true; }
     });
 
-    if (dirty && !DRY && !env.DIGEST_FIXTURE) { state.updatedAt = nowIso; await patchDoc('digest/state', state); }
+    if (dirty && !DRY && !TEST && !env.DIGEST_FIXTURE) { state.updatedAt = nowIso; await patchDoc('digest/state', state); }
     if (errors.length) {
         errors.forEach(e => console.error('[aviso] ERROR', e));
         process.exitCode = 1;
