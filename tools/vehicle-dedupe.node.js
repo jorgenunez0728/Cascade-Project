@@ -50,11 +50,26 @@ async function main() {
         (plan.tombstoned ? ` · ${plan.tombstoned} con marca de borrado (no se tocan)` : ''));
     log(`${plan.groups.length} VIN con copias → se retiran ${retires.length} documento(s)` +
         (updates.length ? `, ${updates.length} documento(s) que se quedan reciben la bitácora unida` : ''));
+    // [2.37.2] Quién subió cada copia y con qué versión: si una copia retirada vuelve, dice qué equipo la revivió.
+    const byId = {};
+    docs.forEach(d => { if (d && d._id) byId[d._id] = d; });
+    const devVer = {};
+    if (fbr) {
+        const writers = {};
+        plan.groups.forEach(g => g.copies.forEach(c => { const w = (byId[c.docId] || {}).writer; if (w) writers[w] = true; }));
+        for (const w of Object.keys(writers)) {
+            try { const d = await fbr.getDoc('devices/' + w); devVer[w] = d ? (d.version || d.appVersion || '?') + (d.build ? ' · build ' + d.build : '') : 'sin registro (anterior a 2.14.0)'; }
+            catch (e) { devVer[w] = '?'; }
+        }
+    }
     plan.groups.forEach(g => {
-        log(`${tail(g.vin)}${g.distinctRegs > 1 ? '  ⚠ copias con distinta fecha de alta' : ''}`);
+        log(`${tail(g.vin)}  alta ${day(g.copies[0].registeredAt)}`);
         g.copies.forEach(c => {
+            const d = byId[c.docId] || {};
             log(`    ${c.docId === g.keep ? 'SE QUEDA' : 'se retira'}  ${c.docId}  alta ${day(c.registeredAt)}  ${c.status}` +
-                `  editado ${day(c.updatedAt)}  bitácora ${c.timeline}`);
+                `  editado ${day(c.updatedAt)}  bitácora ${c.timeline}` +
+                `  · subido ${String(d.serverTs || '—').slice(0, 19)} por ${d.writer || '—'}` +
+                (d.writer && devVer[d.writer] ? ` (${devVer[d.writer]})` : ''));
         });
     });
 

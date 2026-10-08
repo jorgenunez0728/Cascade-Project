@@ -3945,6 +3945,25 @@ function loadApproval() {
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
+/**
+ * [2.37.2] El vehículo VIVO de `db` al terminar de firmar. Una firma tarda segundos y en
+ * ese tiempo el sync puede fusionar el vehículo; quien escribe al firmar parte de aquí,
+ * nunca de la referencia que tomó al abrir la firma (#189: el envío a aprobación se
+ * escribía en una copia suelta y había que liberar dos veces).
+ * → {v} o {v:null, why} si ya no existe o cambió de estado (otro equipo lo movió).
+ */
+function cascadeVehicleAfterSign(ref, expectedStatus) {
+    var id = ref && ref.id;
+    var v = (db.vehicles || []).find(function(x) { return x && x.id == id; }) ||
+            (ref && ref.vin ? (db.vehicles || []).find(function(x) { return x && x.vin === ref.vin; }) : null);
+    if (!v) return { v: null, why: 'Este vehículo ya no está en este equipo (¿lo borró otra persona?). No se guardó nada.' };
+    if (expectedStatus && v.status !== expectedStatus) {
+        var lbl = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+        return { v: null, why: 'Mientras firmabas, este vehículo cambió a «' + lbl + '» desde otro equipo. No se guardó tu firma: revisa el vehículo.' };
+    }
+    return { v: v };
+}
+
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
@@ -4018,6 +4037,9 @@ function submitToApproval() {
         signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
         lockName: true,
         onSave: function(sig) {
+            var _now = cascadeVehicleAfterSign(vehicle, 'ready-release');
+            if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+            vehicle = _now.v;
             undoPush('cop15', 'Enviar a Aprobación: ' + vehicle.vin);
             if (!vehicle.testData) vehicle.testData = {};
             if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
@@ -4165,6 +4187,23 @@ function approveAndArchive() {
             // sus propias claves: el plan quedaba marcado como cumplido y el gas
             // descontado, con el vehículo sin archivar. Split-brain entre módulos.
             if (!_releasePreflightStorage('archivar este vehículo')) return;
+            var _now = cascadeVehicleAfterSign(vehicle, 'pending-approval');
+            if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+            vehicle = _now.v;
+            // El doble ciego se verificó contra los valores del liberador de ANTES de firmar:
+            // si cambiaron mientras tanto (sync), se vuelve a verificar contra los de ahora.
+            if (_flow === 'dirigida') {
+                approverValues = JSON.parse(JSON.stringify(((vehicle.testData || {}).gasResults || {}).liberador
+                    ? vehicle.testData.gasResults.liberador.values || {} : {}));
+            } else if (!_match.sinPerfil) {
+                var _libNow = (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
+                    ? vehicle.testData.gasResults.liberador.values : {};
+                _match = _libVerifyApproverMatch(profile, approverValues, _libNow);
+                if (!_match.ok) {
+                    showToast('Los valores del liberador cambiaron mientras firmabas y ya no coinciden con los tuyos. No se archivó: revisa la captura.', 'error', 9000);
+                    return;
+                }
+            }
 
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
@@ -6325,7 +6364,11 @@ function histSaveCompleteModal() {
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
       lockName: true,
-      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig, checklistChanges); },
+      onSave: function(sig) {
+        var _now = cascadeVehicleAfterSign(vehicle, null);
+        if (!_now.v) { showToast(_now.why, 'error', 9000); return; }
+        _histApplyRetro(_now.v, added, modified, addedGases, sigCaptured, sig, checklistChanges);
+      },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });
   } else {

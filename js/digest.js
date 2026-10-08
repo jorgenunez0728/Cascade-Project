@@ -176,8 +176,8 @@ function digestCloudVehicles(docsVehicles, tombs) {
     var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
     var vivos = (docsVehicles || []).filter(function(v) { return v && v.vin && !(tombs && tombs.length && isTomb(v, tombs)); });
     var removed = (docsVehicles || []).filter(function(v) { return v && v.vin; }).length - vivos.length;
-    // LA regla de juntar por VIN es la de la app (fbVehCollapseByVin, firebase-sync.js).
-    var juntos = fbVehCollapseByVin(vivos);
+    // LA regla de juntar copias es la de la app (fbVehCollapseCopies: VIN + fecha de alta).
+    var juntos = fbVehCollapseCopies(vivos);
     return { vehicles: juntos, merged: vivos.length - juntos.length, removed: removed };
 }
 

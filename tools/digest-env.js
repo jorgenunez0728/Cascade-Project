@@ -60,11 +60,11 @@ function loadDigestEnv() {
         ' if (typeof tpWeekPlanInvalidate === "function") tpWeekPlanInvalidate(); };', sb, { filename: 'testplan.js' });
 
     // La app junta los vehículos por VIN y retira los borrados: se cargan SUS funciones.
-    ['stableStringify', 'strHash', 'revContentHash', '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion']
+    ['stableStringify', 'strHash', 'revContentHash', '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleCopyKey']
         .forEach(n => vm.runInContext(fnSrc(n, app), sb));
     const fb = src('firebase-sync.js');
     ['fbFromFirestoreValue', 'fbVehParseDocs', '_fbMergePaStatus', '_fbUnionLog', '_fbVehTime', '_fbMergeVehicle',
-     'fbVehDocId', 'fbVehWrites', 'fbVehDupPlan', 'fbVehCollapseByVin']
+     'fbVehDocId', 'fbVehWrites', 'fbVehDupPlan', 'fbVehCollapseCopies']
         .forEach(n => vm.runInContext(fnSrc(n, fb), sb));
     sb.FIREBASE = {
         apiKey: /apiKey:\s*"([^"]+)"/.exec(fb)[1],

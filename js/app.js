@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.1';
+var APP_VERSION = '2.37.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.37.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.2', date: '8 oct 2026', title: 'Re-ensayos del mismo VIN y el envío a aprobación que se perdía',
+      bullets: [
+          'Arreglado: a veces había que enviar dos veces el mismo vehículo a aprobación. Si mientras se firmaba llegaba la sincronización con la nube (lo normal justo después de marcar el checklist o adjuntar VETS), la firma se guardaba en una copia que ya no era la del equipo y el vehículo se quedaba en Liberación sin aviso (#189). Lo mismo en Aprobar y archivar y en Completar del Historial. Si otro equipo cambió el vehículo de etapa mientras firmabas, la app lo dice y no guarda nada.',
+          'Arreglado: un re-ensayo del mismo VIN podía hacer desaparecer la prueba archivada de ese VIN en los otros equipos. Ahora un vehículo es VIN + fecha de alta: un re-ensayo es su propia prueba.',
+          'Arreglado: un equipo con copias repetidas de un vehículo las volvía a subir a la nube. Cada equipo junta ahora sus copias al arrancar.'
+      ] },
     { version: '2.37.1', date: '8 oct 2026', title: 'Una copia por vehículo en la nube',
       bullets: [
           'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.',
@@ -2586,6 +2592,75 @@ function manualConfigsAfterLoad() {
  * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
  * una pasada sobre db.vehicles; si no hay duplicados no escribe nada.
  */
+/**
+ * [2.37.2] LA identidad de un vehículo entre equipos: VIN + fecha de alta (la regla de las
+ * marcas de borrado, v24.2). Dos registros con la misma clave son COPIAS del mismo vehículo;
+ * un re-ensayo del mismo VIN tiene otra fecha de alta y es otra prueba. PURA.
+ */
+function vehicleCopyKey(v) {
+    return String((v && v.vin) || '') + '|' + String((v && v.registeredAt) || '');
+}
+
+/**
+ * [2.37.2] Junta las copias de un mismo vehículo que haya en `db` (misma vehicleCopyKey, ids
+ * distintos), con la regla de fusión del sync (_fbMergeVehicle). El objeto que se queda es el
+ * PRIMERO (no se cambia su identidad: una pantalla abierta puede tenerlo) con el contenido
+ * fusionado; las referencias al id que se va (plan, evidencia, soak) pasan al que se queda.
+ * Venían de siembras y fusiones anteriores a 2.37.1, y un equipo con copias re-subía a la nube
+ * las que la limpieza ya había retirado. Devuelve [{vin, keptId, goneIds}].
+ */
+function vehicleCollapseCopies() {
+    if (!db || !Array.isArray(db.vehicles)) return [];
+    var first = {}, extra = {};
+    db.vehicles.forEach(function(v) {
+        if (!v || !v.vin) return;
+        var k = vehicleCopyKey(v);
+        if (!first[k]) first[k] = v; else (extra[k] = extra[k] || []).push(v);
+    });
+    var out = [];
+    Object.keys(extra).forEach(function(k) {
+        var keep = first[k], merged = keep, gone = extra[k];
+        var ids = [keep.id].concat(gone.map(function(c) { return c.id; }));
+        gone.forEach(function(c) {
+            merged = (typeof _fbMergeVehicle === 'function') ? _fbMergeVehicle(merged, c).vehicle
+                : (String(c.updatedAt || '') > String(merged.updatedAt || '') ? c : merged);
+        });
+        if (merged !== keep) {
+            merged = JSON.parse(JSON.stringify(merged));
+            Object.keys(keep).forEach(function(f) { if (!Object.prototype.hasOwnProperty.call(merged, f)) delete keep[f]; });
+            Object.keys(merged).forEach(function(f) { keep[f] = merged[f]; });
+        }
+        // El id que queda es el del ganador de la fusión; los demás se van (sin repetir).
+        var goneIds = ids.filter(function(id, i) {
+            return String(id) !== String(keep.id) && ids.map(String).indexOf(String(id)) === i;
+        });
+        out.push({ vin: keep.vin, keptId: keep.id, goneIds: goneIds });
+    });
+    if (!out.length) return out;
+    var gone = [];
+    Object.keys(extra).forEach(function(k) { gone = gone.concat(extra[k]); });
+    db.vehicles = db.vehicles.filter(function(v) { return gone.indexOf(v) < 0; });
+    out.forEach(function(r) {
+        r.goneIds.forEach(function(oldId) {
+            _vehicleIdRepairRefs(r.vin, oldId, r.keptId);
+            _vehicleIdRemapPlan(oldId, r.keptId);
+        });
+    });
+    return out;
+}
+
+/** [2.37.2] Las referencias del plan a un id de vehículo que dejó de existir pasan a `newId`. */
+function _vehicleIdRemapPlan(oldId, newId) {
+    if (typeof tpState === 'undefined' || !tpState || String(oldId) === String(newId)) return 0;
+    var n = 0, o = String(oldId);
+    (tpState.testedList || []).forEach(function(t) { if (t && t.vehicleId !== undefined && String(t.vehicleId) === o) { t.vehicleId = newId; n++; } });
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        (p && p.items || []).forEach(function(it) { if (it && it.linkedVehicleId !== undefined && String(it.linkedVehicleId) === o) { it.linkedVehicleId = newId; n++; } });
+    });
+    if (n && typeof tpSave === 'function') { try { tpSave(); } catch (e) { console.warn('tpSave:', e); } }
+    return n;
+}
+
 function dedupeVehicleIds() {
     if (!db || !Array.isArray(db.vehicles)) return 0;
     // Toda carga de `db` pasa por aquí: es el momento de fijar la huella base (ver revInitMissing)
@@ -2595,6 +2670,17 @@ function dedupeVehicleIds() {
     // 2.0.0: las configs manuales viajan en `db`; tras cada carga se migra lo heredado
     // y se refresca el catálogo del Alta y del Plan.
     try { manualConfigsAfterLoad(); } catch (e) { console.warn('manualConfigsAfterLoad:', e); }
+    var juntadas = [];
+    try { juntadas = vehicleCollapseCopies(); } catch (e) { console.warn('vehicleCollapseCopies:', e); }
+    if (juntadas.length) {
+        try {
+            if (typeof auditLog === 'function') {
+                auditLog('cop15', 'copias_juntadas', { type: 'system', id: 'vehicles', label: 'Identidad de vehículos' },
+                    juntadas.length + ' vehículo(s) tenían copias repetidas en este equipo y se juntaron: ' +
+                    juntadas.map(function(r) { return (r.vin || '?') + ' (quedó ' + r.keptId + ', se fueron ' + r.goneIds.join(', ') + ')'; }).join('; '));
+            }
+        } catch (e) {}
+    }
     var seen = {};
     var repaired = [];
     db.vehicles.forEach(function(v) {
@@ -2609,7 +2695,7 @@ function dedupeVehicleIds() {
             seen[key] = true;
         }
     });
-    if (repaired.length === 0) return 0;
+    if (repaired.length === 0) { if (juntadas.length) saveDB(); return 0; }
     repaired.forEach(function(r) { _vehicleIdRepairRefs(r.vin, r.oldId, r.newId); });
     saveDB();
     try {

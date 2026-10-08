@@ -3095,11 +3095,37 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   `cop15meta.deletedVehicles`), o contará de más.
 - `tools/digest-env.js` carga funciones del código real con `fnSrc(nombre, texto)`; una función de
   una sola línea se reconoce aparte (si no, la regex se traga la siguiente).
-- **Un VIN = un documento vivo en `vehicles`.** La fusión por VIN se queda con una copia y su id;
+- **Un vehículo (VIN + fecha de alta desde 2.37.2) = un documento vivo en `vehicles`.** La fusión por VIN se queda con una copia y su id;
   la otra se RETIRA (`fbVehPushPlan` → `retires`, `fbVehWrites` con `updateMask`): `deleted` +
   `supersededBy`, conservando el `json`. **Retirar no es borrar**: no crea marca de borrado (el
   vehículo sigue vivo con el otro id) y nunca se retira sin conocer el VIN del documento
-  (`known.info[docId].vin`). Todo pull junta las copias con `fbVehCollapseByVin`.
+  (`known.info[docId].vin`). Todo pull junta las copias con `fbVehCollapseCopies` (antes `fbVehCollapseByVin`).
 - `fbVehDupPlan` (PURA) + `tools/vehicle-dedupe.node.js` limpian lo heredado (Run workflow →
   Limpiar duplicados: revisar / aplicar). Los procesos fuera de la app usan `tools/fb-rest.js`.
 
+## 2.37.2 — Un vehículo es VIN + fecha de alta; una firma no escribe en una copia suelta
+
+- **`vehicleCopyKey(v)` (app.js, PURA) es LA identidad de un vehículo entre equipos**: VIN +
+  `registeredAt`, la misma regla de las marcas de borrado (v24.2). Dos registros con la misma
+  clave son COPIAS; un re-ensayo del VIN (otra fecha de alta) es otra prueba. **Nunca volver a
+  empatar vehículos por VIN solo en el sync**: `fbMergeAnalyze`/`fbMergeExecute`,
+  `_fbLocalHasExtras`, `fbVehCollapseCopies`, el retiro de `fbVehPushPlan` y `fbVehDupPlan` usan
+  la clave. Con el VIN solo, un re-ensayo creado en un equipo hacía desaparecer la prueba
+  archivada de ese VIN en el otro (lo fija `tests/livesync.node.js`).
+- Retirar una copia exige conocer la fecha de alta del documento (`known.info[id].reg`, la
+  escribe `fbVehParseDocs`): sin ella no se sabe si es copia o re-ensayo y no se toca.
+- **`vehicleCollapseCopies()` corre en `dedupeVehicleIds()`**: junta las copias que un equipo
+  guardaba de siembras anteriores a 2.37.1 (y que re-subía a la nube después de la limpieza).
+  Se queda el PRIMER objeto con el contenido fusionado y el id del ganador; las referencias del
+  id que se va pasan al que queda (`_vehicleIdRepairRefs` + `_vehicleIdRemapPlan`).
+- **Una fusión de vehículos actualiza el objeto EN SU LUGAR** (`fbAssignInPlace`), nunca
+  `db.vehicles[idx] = …`. Una firma tarda segundos y el sync corre a los 2.5 s de cada guardado:
+  reemplazar el objeto dejaba a `submitToApproval` escribiendo en la copia vieja y el envío se
+  perdía sin aviso (#189).
+- **Todo lo que escribe en un vehículo al volver de una espera (firma, diálogo, `uiPrompt`)
+  lo retoma con `cascadeVehicleAfterSign(ref, estadoEsperado)`**, no con la referencia que tomó
+  antes de esperar. Si el vehículo ya no existe o cambió de estado, no se escribe y se dice por
+  qué. Una siembra (`_fbPullSeed`) sigue reemplazando `db` entero: por eso hacen falta las dos
+  cosas.
+- Un equipo con código anterior a 2.37.2 sigue empatando por VIN solo: un re-ensayo convive bien
+  solo cuando todos los equipos actualizaron.

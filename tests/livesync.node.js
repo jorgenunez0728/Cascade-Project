@@ -40,14 +40,14 @@ function constante(src, nombre) {
 }
 
 const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing',
-    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply'];
+    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply', 'vehicleCopyKey'];
 const APP_VARS = ['VEHICLE_TOMBSTONE_MAX'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
-    '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPlanTombsNewTo'];
+    '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPlanTombsNewTo', 'fbAssignInPlace'];
 const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
-const COP_FNS = ['_cascadeEmpty', '_cascadeSame', '_cascadePlain', 'cascadeThreeWay'];
+const COP_FNS = ['_cascadeEmpty', '_cascadeSame', '_cascadePlain', 'cascadeThreeWay', 'cascadeVehicleAfterSign'];
 
 // ── Reloj y nube falsos ────────────────────────────────────────────────────
 let reloj = Date.parse('2026-09-22T12:00:00.000Z');
@@ -407,6 +407,71 @@ console.log('\n== cascadeThreeWay (Operación) ==');
     const out2 = tw({ a: 'x' }, { a: '' }, { a: 'x' }, '', []);
     ok('borrar un campo a propósito se respeta', out2.a === '');
     ok('vacío, null y undefined cuentan igual', tw({ a: null }, { a: '' }, { a: 'z' }, '', []).a === 'z');
+}
+
+// ── #189: una firma abierta mientras llega una fusión ──────────────────────
+console.log('\n== firma abierta + fusión del sync (#189) ==');
+{
+    arrancar();
+    A.CONFIG = { statusLabels: { 'ready-release': 'Listo para liberar', 'pending-approval': 'Por aprobar' } };
+    A.db.vehicles[0].status = 'ready-release';
+    A.stampRevisions(A.db.vehicles, new FakeDate().toISOString());
+    const nubeVieja = JSON.parse(JSON.stringify(A.db.vehicles[0]));
+    // Liberación: marca el checklist (guardado local, todavía sin subir)…
+    reloj += 60000;
+    A.db.vehicles[0].testData.releaseChecklist = { objects: { kds: 'ok' } };
+    A.stampRevisions(A.db.vehicles, new FakeDate().toISOString());
+    // …y abre la firma de "Enviar a aprobación", que guarda la referencia.
+    const firma = A.db.vehicles[0];
+    // Mientras firma, llega del sync la copia de la nube (anterior al checklist).
+    reloj += 2000;
+    A.fbAutoMerge('cop15', { vehicles: [comoFirestore(nubeVieja)], deletedVehicles: [] }, 'B');
+    correr();
+    ok('la fusión conserva el objeto (la firma no queda escribiendo en una copia suelta)', A.db.vehicles[0] === firma);
+    ok('y gana lo local (el checklist sigue)', !!(A.db.vehicles[0].testData.releaseChecklist || {}).objects);
+    const r = A.cascadeVehicleAfterSign(firma, 'ready-release');
+    ok('al firmar se resuelve el vehículo vivo', r.v === A.db.vehicles[0]);
+    r.v.status = 'pending-approval';
+    ok('el envío queda en db', A.db.vehicles[0].status === 'pending-approval');
+
+    // Si una siembra reemplazó el objeto, se resuelve por id igual.
+    const suelta = A.db.vehicles[0];
+    A.db.vehicles[0] = JSON.parse(JSON.stringify(suelta));
+    ok('reemplazado entero: se encuentra por id', A.cascadeVehicleAfterSign(suelta, 'pending-approval').v === A.db.vehicles[0]);
+    // Otro equipo lo movió de estado mientras se firmaba: no se escribe.
+    A.db.vehicles[0].status = 'archived';
+    const r2 = A.cascadeVehicleAfterSign(suelta, 'pending-approval');
+    ok('cambió de estado en otro equipo: no se escribe y se dice por qué', !r2.v && /cambió/.test(r2.why), r2.why);
+    A.db.vehicles = [];
+    ok('ya no existe: no se escribe', !A.cascadeVehicleAfterSign(suelta, null).v);
+
+    const t = { a: 1, b: 2 }, src = { b: 3, c: 4 };
+    ok('fbAssignInPlace deja el contenido exacto sin cambiar la identidad',
+        A.fbAssignInPlace(t, src) === t && A.stableStringify(t) === A.stableStringify({ b: 3, c: 4 }));
+}
+
+// ── 2.37.2: un re-ensayo del mismo VIN no se mezcla con la prueba archivada ─
+console.log('\n== re-ensayo del mismo VIN entre dos equipos (2.37.2) ==');
+{
+    arrancar();
+    [A, B].forEach(d => { d.db.vehicles[0].status = 'archived'; d.stampRevisions(d.db.vehicles, new FakeDate().toISOString()); });
+    reloj += 60000;
+    A.db.vehicles.push({ id: 'v2', vin: 'KNA123', status: 'registered', purpose: 'CoP', configCode: 'C1',
+        registeredAt: new FakeDate().toISOString(), timeline: [{ timestamp: new FakeDate().toISOString(), action: 'Alta (re-ensayo)' }] });
+    guardar(A);
+    correr();
+    const bIds = B.db.vehicles.map(v => v.id + ':' + v.status).sort().join();
+    ok('el otro equipo tiene las DOS pruebas del VIN', bIds === 'v1:archived,v2:registered', bIds);
+    ok('la archivada sigue archivada en los dos', A.db.vehicles.find(v => v.id === 'v1').status === 'archived' &&
+        B.db.vehicles.find(v => v.id === 'v1').status === 'archived');
+    // Editar el re-ensayo en B no toca la archivada en A.
+    reloj += 60000;
+    B.db.vehicles.find(v => v.id === 'v2').status = 'in-progress';
+    guardar(B);
+    correr();
+    ok('editar el re-ensayo llega a su registro, no al archivado',
+        A.db.vehicles.find(v => v.id === 'v2').status === 'in-progress' && A.db.vehicles.find(v => v.id === 'v1').status === 'archived',
+        A.db.vehicles.map(v => v.id + ':' + v.status).join());
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
