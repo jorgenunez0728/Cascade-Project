@@ -107,3 +107,27 @@ self.addEventListener('fetch', function(event) {
         );
     }
 });
+
+// [2.37.0] Avisos del laboratorio (Web Push). El proceso de GitHub Actions
+// (tools/daily-digest.node.js) envía {title, body, url, tag}; aquí solo se muestra.
+self.addEventListener('push', function(event) {
+    var p = {};
+    try { p = event.data ? event.data.json() : {}; } catch (e) { p = { body: event.data ? event.data.text() : '' }; }
+    event.waitUntil(self.registration.showNotification(p.title || 'EmLab', {
+        body: p.body || '',
+        tag: p.tag || 'emlab-aviso',
+        data: { url: p.url || self.registration.scope }
+    }));
+});
+
+// Tocar la notificación enfoca la app si ya está abierta; si no, la abre.
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    var url = (event.notification.data && event.notification.data.url) || self.registration.scope;
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].url.indexOf(self.registration.scope) === 0 && 'focus' in list[i]) return list[i].focus();
+        }
+        return self.clients.openWindow ? self.clients.openWindow(url) : null;
+    }));
+});

@@ -1,0 +1,64 @@
+name: Avisos del laboratorio (resumen diario y plan aceptado)
+
+# [2.37.0] Cada hora de 7:00 a 17:00 (México, UTC−6 fijo), lunes a viernes. El script decide:
+# el resumen sale UNA vez al día (la primera corrida después de las 7:00) y el aviso de plan
+# sale cuando alguien acepta un plan. El cron de GitHub puede llegar 5–30 min tarde.
+on:
+  schedule:
+    - cron: '0 13-23 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Solo vista previa (no envía nada ni guarda estado)'
+        type: boolean
+        default: true
+      force_digest:
+        description: 'Mandar el resumen aunque ya haya salido hoy'
+        type: boolean
+        default: false
+      test_to:
+        description: 'Enviar una PRUEBA solo a este correo (si lo llenas, se envía aunque esté marcada la vista previa; sin copia al jefe ni avisos al teléfono)'
+        type: string
+        default: ''
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias del envío
+        run: npm install --no-save --no-package-lock --ignore-scripts nodemailer@6.9.16 web-push@3.6.7
+
+      - name: Enviar avisos
+        env:
+          FB_LAB_PASSWORD: ${{ secrets.FB_LAB_PASSWORD }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
+          FORCE_DIGEST: ${{ github.event_name == 'workflow_dispatch' && inputs.force_digest && '1' || '' }}
+          DIGEST_TEST_TO: ${{ github.event_name == 'workflow_dispatch' && inputs.test_to || '' }}
+          DIGEST_OUT: ${{ runner.temp }}
+        run: node tools/daily-digest.node.js
+
+      - name: Guardar la vista previa
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vista-previa-avisos
+          path: ${{ runner.temp }}/*.html
+          if-no-files-found: ignore
+          retention-days: 7

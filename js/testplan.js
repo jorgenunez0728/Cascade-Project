@@ -7397,6 +7397,8 @@ function tpAcceptWeeklyPlan(weekIdx) {
 
     plan.accepted = true;
     plan.acceptedDate = new Date().toISOString();
+    // [2.37.0] Quién aceptó: lo dice el aviso de plan aceptado (js/digest.js).
+    plan.acceptedBy = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
     plan.items.forEach(item => { if (!item.completed) item.status = 'carryover'; });
 
     var h = tpState.weekHistory.findIndex(function(w) { return w && w.planId === pid; });
@@ -7440,6 +7442,7 @@ function tpUnacceptWeeklyPlan(weekIdx) {
         if (typeof undoPush === 'function') undoPush('testplan', 'Desaceptar plan semanal');
         plan.accepted = false;
         delete plan.acceptedDate;
+        delete plan.acceptedBy;
         (plan.items || []).forEach(function(i) { if (i.status === 'carryover') delete i.status; });
         tpState.weekHistory = (tpState.weekHistory || []).filter(function(w) { return !w || w.planId !== pid; });
         if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();

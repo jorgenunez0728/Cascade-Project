@@ -71,6 +71,7 @@ js/
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
   momentos.js           ← Momentos de cierre: semana cumplida, calibraciones al día, familia concordante (~140 lines)
+  digest.js             ← Avisos del laboratorio: resumen diario, escalación, plan aceptado (correo/ntfy/Web Push) (~770 lines)
   xlsxw.js              ← Escritor de .xlsx propio (sin CDN): estilos, fórmulas, listas, colores (~380 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
@@ -103,6 +104,7 @@ CHANGELOG.md            ← Detailed changelog
 | Ficha universal | `js/ficha.js` | `ficha` | `_ficha` (pila de fichas abiertas) | — |
 | Desde tu última vez | `js/relevo.js` | `relevo` | `_relevo` (la última vez de esta sesión) | — (`uiPref('lastSeen')`) |
 | Momentos de cierre | `js/momentos.js` | `moment` | `_momentPrev` (línea base de la sesión) | — (`uiPref('moments')`) |
+| Avisos del laboratorio | `js/digest.js` | `digest` | `_digestUi` (ajustes leídos) | — (`settings/digest`, `pushsubs`, `digest/state` en Firestore) |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -183,7 +185,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -3051,3 +3053,37 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   que deba viajar sigue ese patrón; `familyOverrides` NO se fusiona en `merge_all`.
 - El libro escribe Rule / Tests / per units en Projection (D, E, F) y "Not counted"; lo que no
   cuenta lleva "NOT COUNTED" en D, que el formato condicional pinta en gris.
+
+## 2.37.0 — Avisos del laboratorio (`js/digest.js`, `tools/daily-digest.node.js`)
+
+- **El envío vive fuera de la app**: GitHub Actions (`.github/workflows/daily-digest.yml`, cada
+  hora 13–23 UTC lun–vie) corre `tools/daily-digest.node.js`, que inicia sesión con la cuenta del
+  laboratorio por REST, lee la nube y carga `js/` en un `vm` con **`tools/digest-env.js`** (el
+  mismo entorno de `tests/digest.node.js`). Todo cálculo del aviso va en `js/digest.js`, nunca en
+  el script: así la vista previa de la app y el correo no se separan.
+- **`digestCompute(src, nowIso)` es LA definición del resumen** y es PURA: `src = {vehicles,
+  planFor, statusLabels, settings, lastDigestAt, lastChangeAt}`. `planFor` es `tpWeekPlanFor`
+  (se pasa, no se lee del global). `digestVehicles` = activos (`vehicleIsLive`) y escalados (**más
+  de** `escalateDays` días naturales desde el alta, hasta APROBADO); `digestStageSince` = inicio de
+  la última racha del estado actual en `timeline`; `digestNextWeekPlan` solo se muestra jueves y
+  viernes; "listo" = **aceptado**.
+- **Hora del laboratorio = UTC−6 fijo** (`DIGEST_TZ_OFFSET_MIN`; México sin horario de verano). El
+  proceso corre en UTC: toda fecha del aviso pasa por `digestLocalParts`, nunca por `new Date()`
+  local.
+- **El correo nunca trae valores de gases ni VIN completo** (`digestVinShort`): sale por Gmail,
+  fuera de KIA. Su HTML usa estilos LITERALES (nada de `var(--…)`; lo vigila el test).
+- **Idempotencia**: `digest/state` = `{lastDigestDate, lastDigestAt, notifiedPlans:{planId:
+  acceptedDate}, plansSeeded}`. El resumen sale una vez por día (la primera corrida ≥ 7:00) y se
+  marca solo si el CORREO salió (o no hay destinatarios). Un plan se avisa por `planId +
+  acceptedDate`; la primera corrida registra los ya aceptados **sin enviar**. Sin vehículos o con
+  una lectura fallida **no se envía nada** (código 1).
+- **Ajustes en `settings/digest`** (`fbDigestGetSettings/SaveSettings`, permiso `users.manage`,
+  auditado con antes/después); leerlos con `digestSettingsNormalize`. `vapidPublic` lo escribe el
+  proceso (desde el secreto `VAPID_PUBLIC`) con `updateMask`, y la app lo lee para suscribirse: la
+  llave privada nunca toca el repo ni la app.
+- **Web Push**: `pushsubs/{id}` (`fbPushSubSave/Delete`) guarda operador y rol, para que una ronda
+  futura pueda avisar por EVENTO a quien le toca ("te toca aprobar") sin re-suscribir a nadie.
+  `sw.js` muestra el payload `{title, body, url, tag}` y `notificationclick` enfoca/abre la app.
+  Una suscripción que responde 404/410 se borra.
+- `plan.acceptedBy` se sella al aceptar (`tpAcceptWeeklyPlan`) y se borra al desaceptar.
+

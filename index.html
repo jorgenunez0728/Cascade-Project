@@ -1853,6 +1853,14 @@
                 </div>
             </div>
 
+            <!-- [2.37.0] Avisos del laboratorio (resumen diario, escalación, plan aceptado). Lo
+                 pinta digestPanelRender (js/digest.js) desde pnSwitchTab — mismo caso que la
+                 densidad: el x-show estático de pn-system no pasa por pnRender. -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_digest">📬 Avisos del laboratorio</h4>
+                <div id="pn-digest-card"></div>
+            </div>
+
             <!-- [2.14.0] Equipos del laboratorio: lo pinta fbDevicesRender (firebase-sync.js) al
                  entrar a la pestaña. Estático, fuera de Alpine (mismo criterio que la densidad). -->
             <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
@@ -2278,6 +2286,7 @@
     <script src="js/ficha.js"></script>
     <script src="js/relevo.js"></script>
     <script src="js/momentos.js"></script>
+    <script src="js/digest.js"></script>
     <script src="js/xlsxw.js"></script>
 <script src="js/bugreport.js"></script>
 

@@ -5702,6 +5702,29 @@ function fbBugsSaveSettings(settings, onDone) {
     );
 }
 
+// ── [2.37.0] Avisos del laboratorio (js/digest.js) ─────────────────────
+// Ajustes compartidos en stations/{ws}/settings/digest y una suscripción Web Push por
+// teléfono en stations/{ws}/pushsubs/{id}. Los lee el proceso de GitHub Actions
+// (tools/daily-digest.node.js), que además escribe `vapidPublic` en los ajustes.
+function _fbDigestReady() {
+    var r = fbBugsEnsureReady();
+    return r.ok ? Promise.resolve() : Promise.reject(new Error(r.reason));
+}
+function fbDigestGetSettings() {
+    return _fbDigestReady().then(function() { return _fbBkGet('settings/digest'); });
+}
+function fbDigestSaveSettings(settings) {
+    return _fbDigestReady().then(function() {
+        return _fbBkSet('settings/digest', Object.assign({}, settings, { deviceId: FB_DEVICE_ID }));
+    });
+}
+function fbPushSubSave(id, doc) {
+    return _fbDigestReady().then(function() { return _fbBkSet('pushsubs/' + id, doc); });
+}
+function fbPushSubDelete(id) {
+    return _fbDigestReady().then(function() { return _fbBkDelete('pushsubs/' + id); });
+}
+
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [2.6.0] HISTORIAL INMUTABLE — stations/{ws}/auditlog/{id}          ║
 // ║  Un documento por evento, escrito por REST `documents:commit` con   ║

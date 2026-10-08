@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.37.0 — Avisos del laboratorio: resumen diario, escalación y plan aceptado (2026-10-08)
+
+### Nuevo
+- **Resumen por correo, lunes a viernes a las 7:00.** Trae los vehículos activos del más viejo
+  al más nuevo, con los días desde el alta y los días en la etapa actual (así se ve si está
+  atorado con el liberador o con el aprobador), el conteo por etapa y los aprobados desde el
+  último resumen (el lunes cubre viernes a domingo). El asunto ya dice lo importante:
+  `EmLab · jue 8 oct · 12 activos · 2 escalados · falta plan 12–16 oct`.
+- **Escalación.** Un vehículo con **más de 7 días** desde su alta sin aprobar sale arriba como
+  escalado y el correo del jefe va **en copia** mientras haya alguno; cuando se aprueba deja de ir.
+  Los días son naturales (incluyen fin de semana).
+- **Plan de la semana siguiente.** El jueves el resumen avisa si todavía no está aceptado; el
+  viernes confirma quién lo aceptó o insiste en que sigue pendiente.
+- **Aviso de plan aceptado.** Cuando alguien acepta el plan de una semana llega un correo y una
+  notificación con sus pruebas por día (se revisa cada hora, de 7:00 a 17:00). Si se desacepta y
+  se vuelve a aceptar, llega como "Plan actualizado".
+- **Avisos al teléfono**: por la app gratuita **ntfy** (suscribirse al tema del laboratorio) y por
+  la propia plataforma (**🔔 Activar avisos aquí**; en iPhone, con la app instalada en inicio).
+- **Datos → Sistema → 📬 Avisos del laboratorio**: destinatarios, correos de escalación, días para
+  escalar y tema de ntfy (los cambia quien administra usuarios y queda en el historial), más
+  **👁 Vista previa del resumen** con los datos del equipo.
+
+### Cambió
+- Aceptar un plan ahora guarda **quién** lo aceptó (lo dice el aviso).
+
+### Para desarrollo
+- `js/digest.js` es **PURO** salvo la tarjeta: `digestCompute` es LA definición del resumen,
+  `digestVehicles` la de activos/escalados, `digestNextWeekPlan` la del plan siguiente (sobre
+  `tpWeekPlanFor`) y `digestPlansToAnnounce` la de qué planes avisar.
+- Lo envía `tools/daily-digest.node.js` desde `.github/workflows/daily-digest.yml` (cada hora,
+  lun–vie, 13–23 UTC), cargando `js/` en un `vm` con `tools/digest-env.js` — el mismo entorno de
+  `tests/digest.node.js`. Estado en `stations/KIA-EMLAB/digest/state`, ajustes en
+  `settings/digest`, suscripciones en `pushsubs/{id}`.
+- Secretos de GitHub: `FB_LAB_PASSWORD`, `SMTP_USER`, `SMTP_PASS`, `VAPID_PUBLIC`,
+  `VAPID_PRIVATE`. Ver README → "Avisos del laboratorio — setup una sola vez".
+
 ## 2.36.0 — Solo cuentan las reglas del laboratorio (2026-10-07)
 
 ### Cambió
