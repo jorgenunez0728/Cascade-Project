@@ -170,6 +170,31 @@ lleguen a GitHub hay que darle un token **una sola vez, desde cualquier disposit
 Las capturas se suben a una rama dedicada **`bug-shots`** (se crea sola), nunca a `main`, así que no
 ensucian la historia del proyecto ni disparan despliegues.
 
+## Avisos del laboratorio — setup una sola vez (2.37.0)
+
+El resumen diario, la escalación y el aviso de plan aceptado los envía GitHub Actions
+(`.github/workflows/daily-digest.yml`) cada hora de 7:00 a 17:00 (México), lunes a viernes. El
+cron de GitHub puede llegar 5–30 min tarde.
+
+1. **Gmail del laboratorio**: activa la verificación en dos pasos y crea una *contraseña de
+   aplicación* (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
+2. **Llaves de Web Push**: `npx web-push generate-vapid-keys` (en cualquier equipo con Node).
+3. **Secretos** (GitHub → Settings → Secrets and variables → Actions):
+   - `FB_LAB_PASSWORD`: la contraseña del laboratorio (la misma de los dispositivos);
+   - `SMTP_USER`: el correo Gmail;
+   - `SMTP_PASS`: la contraseña de aplicación;
+   - `VAPID_PUBLIC` y `VAPID_PRIVATE`: las dos llaves del paso 2.
+4. En la app, **Datos → Sistema → 📬 Avisos del laboratorio**: destinatarios, correo(s) de
+   escalación, días y un tema de ntfy difícil de adivinar (ej. `emlab-kia-7f3k2q`).
+5. **Prueba**: Actions → "Avisos del laboratorio" → Run workflow. Con *Solo vista previa*
+   marcado no envía nada y deja los HTML como artefacto; desmárcalo y marca *Mandar el resumen
+   aunque ya haya salido hoy* para el envío real. Primero con un solo destinatario: confirma que
+   el correo de Gmail no cae en cuarentena del correo corporativo.
+6. Cada teléfono: app **ntfy** → suscribirse al tema, o en la plataforma **🔔 Activar avisos
+   aquí** (aparece después de la primera corrida, que publica la llave pública).
+
+El correo nunca trae valores de gases ni VIN completo (sale por un servicio externo a KIA).
+
 ## Seguridad — setup una sola vez (v15.6)
 
 Desde v15.6 los datos en la nube están protegidos por Firebase Authentication +

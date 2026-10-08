@@ -884,6 +884,8 @@ function pnSwitchTab(tabId) {
     if (tabId === 'pn-system') pnDensityRenderChoices();
     // [2.14.0] Equipos del laboratorio: qué versión corre cada uno.
     if (tabId === 'pn-system' && typeof fbDevicesRender === 'function') fbDevicesRender();
+    // [2.37.0] Avisos del laboratorio (js/digest.js).
+    if (tabId === 'pn-system' && typeof digestPanelRender === 'function') digestPanelRender({ refresh: true });
     // [2.7.0] La pestaña de Regulaciones se conserva en caché al volver: sin esto la
     // tarjeta de límites compartidos mostraría la versión de la visita anterior.
     if (tabId === 'pn-regulations') setTimeout(function() { _pnRegSharedPaint(null); pnRegSharedRefresh(); }, 60);
