@@ -3103,3 +3103,14 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
 - `fbVehDupPlan` (PURA) + `tools/vehicle-dedupe.node.js` limpian lo heredado (Run workflow →
   Limpiar duplicados: revisar / aplicar). Los procesos fuera de la app usan `tools/fb-rest.js`.
 
+## 2.37.2 — Una firma abierta no puede quedar escribiendo en una copia suelta
+
+- **Una fusión de vehículos actualiza el objeto EN SU LUGAR** (`fbAssignInPlace`), nunca
+  `db.vehicles[idx] = …`. Una firma tarda segundos y el sync corre a los 2.5 s de cada guardado:
+  reemplazar el objeto dejaba a `submitToApproval` escribiendo en la copia vieja y el envío se
+  perdía sin aviso (#189).
+- **Todo lo que escribe en un vehículo al volver de una espera (firma, diálogo, `uiPrompt`)
+  lo retoma con `cascadeVehicleAfterSign(ref, estadoEsperado)`**, no con la referencia que tomó
+  antes de esperar. Si el vehículo ya no existe o cambió de estado, no se escribe y se dice por
+  qué. Una siembra (`_fbPullSeed`) sigue reemplazando `db` entero: por eso hacen falta las dos
+  cosas.

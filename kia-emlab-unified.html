@@ -9453,10 +9453,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610082243';
+var APP_BUILD = '202610082330';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'f70510aa939d3aac00e2f4ceafa705b934c6ff3e';
+var APP_COMMIT = 'da289063f57e6beb4ba2ca43a7d93efa886c7ed7';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9464,7 +9464,7 @@ var APP_COMMIT = 'f70510aa939d3aac00e2f4ceafa705b934c6ff3e';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.1';
+var APP_VERSION = '2.37.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9472,6 +9472,11 @@ var APP_VERSION = '2.37.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.2', date: '8 oct 2026', title: 'El envío a aprobación no se pierde al firmar',
+      bullets: [
+          'Arreglado: a veces había que enviar dos veces el mismo vehículo a aprobación. Si mientras se firmaba llegaba la sincronización con la nube (lo normal justo después de marcar el checklist o adjuntar VETS), la firma se guardaba en una copia que ya no era la del equipo y el vehículo se quedaba en Liberación sin aviso (#189). Ahora la firma escribe siempre en el vehículo vigente.',
+          'Lo mismo para Aprobar y archivar y para las correcciones retroactivas del Historial. Si otro equipo cambió el vehículo de etapa mientras firmabas, la app ya no escribe a ciegas: te dice qué pasó y no guarda nada.'
+      ] },
     { version: '2.37.1', date: '8 oct 2026', title: 'Una copia por vehículo en la nube',
       bullets: [
           'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.',
@@ -10340,14 +10345,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610082243' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610082330' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610082243' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610082330' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10363,7 +10368,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610082243' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610082330' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -22488,6 +22493,25 @@ function loadApproval() {
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
+/**
+ * [2.37.2] El vehículo VIVO de `db` al terminar de firmar. Una firma tarda segundos y en
+ * ese tiempo el sync puede fusionar el vehículo; quien escribe al firmar parte de aquí,
+ * nunca de la referencia que tomó al abrir la firma (#189: el envío a aprobación se
+ * escribía en una copia suelta y había que liberar dos veces).
+ * → {v} o {v:null, why} si ya no existe o cambió de estado (otro equipo lo movió).
+ */
+function cascadeVehicleAfterSign(ref, expectedStatus) {
+    var id = ref && ref.id;
+    var v = (db.vehicles || []).find(function(x) { return x && x.id == id; }) ||
+            (ref && ref.vin ? (db.vehicles || []).find(function(x) { return x && x.vin === ref.vin; }) : null);
+    if (!v) return { v: null, why: 'Este vehículo ya no está en este equipo (¿lo borró otra persona?). No se guardó nada.' };
+    if (expectedStatus && v.status !== expectedStatus) {
+        var lbl = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+        return { v: null, why: 'Mientras firmabas, este vehículo cambió a «' + lbl + '» desde otro equipo. No se guardó tu firma: revisa el vehículo.' };
+    }
+    return { v: v };
+}
+
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
@@ -22561,6 +22585,9 @@ function submitToApproval() {
         signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
         lockName: true,
         onSave: function(sig) {
+            var _now = cascadeVehicleAfterSign(vehicle, 'ready-release');
+            if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+            vehicle = _now.v;
             undoPush('cop15', 'Enviar a Aprobación: ' + vehicle.vin);
             if (!vehicle.testData) vehicle.testData = {};
             if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
@@ -22708,6 +22735,23 @@ function approveAndArchive() {
             // sus propias claves: el plan quedaba marcado como cumplido y el gas
             // descontado, con el vehículo sin archivar. Split-brain entre módulos.
             if (!_releasePreflightStorage('archivar este vehículo')) return;
+            var _now = cascadeVehicleAfterSign(vehicle, 'pending-approval');
+            if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+            vehicle = _now.v;
+            // El doble ciego se verificó contra los valores del liberador de ANTES de firmar:
+            // si cambiaron mientras tanto (sync), se vuelve a verificar contra los de ahora.
+            if (_flow === 'dirigida') {
+                approverValues = JSON.parse(JSON.stringify(((vehicle.testData || {}).gasResults || {}).liberador
+                    ? vehicle.testData.gasResults.liberador.values || {} : {}));
+            } else if (!_match.sinPerfil) {
+                var _libNow = (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador)
+                    ? vehicle.testData.gasResults.liberador.values : {};
+                _match = _libVerifyApproverMatch(profile, approverValues, _libNow);
+                if (!_match.ok) {
+                    showToast('Los valores del liberador cambiaron mientras firmabas y ya no coinciden con los tuyos. No se archivó: revisa la captura.', 'error', 9000);
+                    return;
+                }
+            }
 
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
@@ -24868,7 +24912,11 @@ function histSaveCompleteModal() {
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
       lockName: true,
-      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig, checklistChanges); },
+      onSave: function(sig) {
+        var _now = cascadeVehicleAfterSign(vehicle, null);
+        if (!_now.v) { showToast(_now.why, 'error', 9000); return; }
+        _histApplyRetro(_now.v, added, modified, addedGases, sigCaptured, sig, checklistChanges);
+      },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });
   } else {
@@ -58651,6 +58699,18 @@ function _fbMergeVehicle(local, remote) {
     return { vehicle: out, from: localWins ? 'local' : 'remote' };
 }
 
+/**
+ * [2.37.2] Deja en `target` exactamente el contenido de `src` SIN cambiar su identidad.
+ * PURA respecto a todo lo que no sea `target`. `src` debe ser una copia propia (la de
+ * _fbMergeVehicle lo es): sus valores quedan compartidos con `target`.
+ */
+function fbAssignInPlace(target, src) {
+    if (!target || !src || target === src) return target;
+    Object.keys(target).forEach(function(k) { if (!Object.prototype.hasOwnProperty.call(src, k)) delete target[k]; });
+    Object.keys(src).forEach(function(k) { target[k] = src[k]; });
+    return target;
+}
+
 /** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
 function _fbModuleFingerprint(col) {
     try {
@@ -59561,7 +59621,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                     var res = _fbMergeVehicle(db.vehicles[idx], c.remote);
                     var winnerSent = !!(res.vehicle.paStatus && res.vehicle.paStatus.vehicle_released && res.vehicle.paStatus.vehicle_released.sent);
                     if (localSent && winnerSent && res.from === 'remote') paPreserved++;
-                    db.vehicles[idx] = res.vehicle;
+                    // [2.37.2] EN SU LUGAR, nunca `db.vehicles[idx] = …`: una firma abierta
+                    // (Enviar a aprobación, Aprobar) guarda la referencia al vehículo; si la
+                    // fusión lo reemplazaba, la firma escribía en la copia suelta y el envío
+                    // se perdía sin aviso (#189).
+                    fbAssignInPlace(db.vehicles[idx], res.vehicle);
                 }
             });
             var summary = 'COP15: +' + analysis.cop15.newItems.length + ' nuevos, ' + analysis.cop15.conflicts.length + ' conflictos resueltos';
@@ -60275,7 +60339,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610082243' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610082330' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -75694,7 +75758,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18220],[18224,"js/uiflow.js",18540],[18544,"js/cop15.js",28687],[28691,"js/inventory.js",35757],[35761,"js/testplan.js",47320],[47324,"js/panel.js",52511],[52515,"js/projects.js",54804],[54808,"js/auth.js",55849],[55853,"js/signatures.js",56054],[56058,"js/firebase-sync.js",63411],[63415,"js/cop_validator.js",67780],[67784,"js/homolog.js",69574],[69578,"js/vets.js",71373],[71377,"js/historico.js",72289],[72293,"js/review.js",72746],[72750,"js/opcards.js",73179],[73183,"js/handoff.js",73457],[73461,"js/ficha.js",73952],[73956,"js/relevo.js",74336],[74340,"js/momentos.js",74477],[74481,"js/digest.js",75266],[75270,"js/xlsxw.js",75650],[75654,"js/bugreport.js",76800]]};
+var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18225],[18229,"js/uiflow.js",18545],[18549,"js/cop15.js",28735],[28739,"js/inventory.js",35805],[35809,"js/testplan.js",47368],[47372,"js/panel.js",52559],[52563,"js/projects.js",54852],[54856,"js/auth.js",55897],[55901,"js/signatures.js",56102],[56106,"js/firebase-sync.js",63475],[63479,"js/cop_validator.js",67844],[67848,"js/homolog.js",69638],[69642,"js/vets.js",71437],[71441,"js/historico.js",72353],[72357,"js/review.js",72810],[72814,"js/opcards.js",73243],[73247,"js/handoff.js",73521],[73525,"js/ficha.js",74016],[74020,"js/relevo.js",74400],[74404,"js/momentos.js",74541],[74545,"js/digest.js",75330],[75334,"js/xlsxw.js",75714],[75718,"js/bugreport.js",76864]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

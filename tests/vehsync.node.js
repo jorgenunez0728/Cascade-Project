@@ -37,7 +37,7 @@ const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions
     '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
-    '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
+    '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute', 'fbAssignInPlace',
     '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPullMergeModule', '_fbPullSeed', '_fbPullLocalScore',
     'fbToFirestoreValue', 'fbFromFirestoreValue', '_fbBugsRestDocToObj', '_fbBugsRestUrl', '_fbBugsRestSend',
     '_fbBkErrText', '_fbBkIsNotFound', '_fbAuditBase', '_fbAuditStation', '_fbStationDocName', '_fbAuditCommit',

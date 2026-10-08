@@ -2594,6 +2594,18 @@ function _fbMergeVehicle(local, remote) {
     return { vehicle: out, from: localWins ? 'local' : 'remote' };
 }
 
+/**
+ * [2.37.2] Deja en `target` exactamente el contenido de `src` SIN cambiar su identidad.
+ * PURA respecto a todo lo que no sea `target`. `src` debe ser una copia propia (la de
+ * _fbMergeVehicle lo es): sus valores quedan compartidos con `target`.
+ */
+function fbAssignInPlace(target, src) {
+    if (!target || !src || target === src) return target;
+    Object.keys(target).forEach(function(k) { if (!Object.prototype.hasOwnProperty.call(src, k)) delete target[k]; });
+    Object.keys(src).forEach(function(k) { target[k] = src[k]; });
+    return target;
+}
+
 /** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
 function _fbModuleFingerprint(col) {
     try {
@@ -3504,7 +3516,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                     var res = _fbMergeVehicle(db.vehicles[idx], c.remote);
                     var winnerSent = !!(res.vehicle.paStatus && res.vehicle.paStatus.vehicle_released && res.vehicle.paStatus.vehicle_released.sent);
                     if (localSent && winnerSent && res.from === 'remote') paPreserved++;
-                    db.vehicles[idx] = res.vehicle;
+                    // [2.37.2] EN SU LUGAR, nunca `db.vehicles[idx] = …`: una firma abierta
+                    // (Enviar a aprobación, Aprobar) guarda la referencia al vehículo; si la
+                    // fusión lo reemplazaba, la firma escribía en la copia suelta y el envío
+                    // se perdía sin aviso (#189).
+                    fbAssignInPlace(db.vehicles[idx], res.vehicle);
                 }
             });
             var summary = 'COP15: +' + analysis.cop15.newItems.length + ' nuevos, ' + analysis.cop15.conflicts.length + ' conflictos resueltos';

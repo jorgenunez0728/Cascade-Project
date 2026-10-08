@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.1';
+var APP_VERSION = '2.37.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,11 @@ var APP_VERSION = '2.37.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.2', date: '8 oct 2026', title: 'El envío a aprobación no se pierde al firmar',
+      bullets: [
+          'Arreglado: a veces había que enviar dos veces el mismo vehículo a aprobación. Si mientras se firmaba llegaba la sincronización con la nube (lo normal justo después de marcar el checklist o adjuntar VETS), la firma se guardaba en una copia que ya no era la del equipo y el vehículo se quedaba en Liberación sin aviso (#189). Ahora la firma escribe siempre en el vehículo vigente.',
+          'Lo mismo para Aprobar y archivar y para las correcciones retroactivas del Historial. Si otro equipo cambió el vehículo de etapa mientras firmabas, la app ya no escribe a ciegas: te dice qué pasó y no guarda nada.'
+      ] },
     { version: '2.37.1', date: '8 oct 2026', title: 'Una copia por vehículo en la nube',
       bullets: [
           'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.',
