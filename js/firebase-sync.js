@@ -1757,6 +1757,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         });
         // [2.33.0] Las marcas de planes borrados de los dos lados.
         if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
+        // [2.36.0] Las familias fuera del conteo, de los dos lados (gana la marca más reciente).
+        if (typeof tpReqFamiliesUnion === 'function') tpState.reqFamilies = tpReqFamiliesUnion(prevTp.reqFamilies, tpState.reqFamilies);
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -1803,7 +1805,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || []));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged ||
         // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
-        _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []);
+        _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
+        // [2.36.0] Un pull cuyo único cambio es sacar/regresar una familia del conteo.
+        (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo((typeof tpState !== 'undefined' && tpState && tpState.reqFamilies) || {}, (remoteData && remoteData.reqFamilies) || {}));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -2594,7 +2598,7 @@ function _fbMergeVehicle(local, remote) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify((db && db.vehicles) || []));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog]));
     } catch (e) {}
     return '';
@@ -2632,6 +2636,8 @@ function _fbLocalHasExtras(col, remote) {
         // [2.33.0] Una marca de plan borrado que la nube no tiene se sube (si no, el
         // otro equipo seguiría trayendo el plan de vuelta).
         if (_fbPlanTombsNewTo(remote.deletedPlans || [], tpState.deletedPlans || [])) return true;
+        // [2.36.0] Una familia sacada/regresada al conteo aquí que la nube no tiene se sube.
+        if (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo(remote.reqFamilies || {}, tpState.reqFamilies || {})) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -3656,6 +3662,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (typeof tpPlanTombstonesUnion === 'function') {
             tpState.deletedPlans = tpPlanTombstonesUnion(tpState.deletedPlans, (remoteData.testplan || {}).deletedPlans);
             if (typeof _tpNormalizePlans === 'function') _tpNormalizePlans();
+        }
+        // [2.36.0] Familias fuera del conteo: se UNEN siempre, como las marcas de planes.
+        if (typeof tpReqFamiliesUnion === 'function') {
+            tpState.reqFamilies = tpReqFamiliesUnion(tpState.reqFamilies, (remoteData.testplan || {}).reqFamilies);
+            if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
         }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();

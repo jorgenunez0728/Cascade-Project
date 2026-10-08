@@ -20,40 +20,60 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 2.36.0 — El REQ de una familia usa la regla de su norma (2026-10-07)
+## 2.36.0 — Solo cuentan las reglas del laboratorio (2026-10-07)
 
 ### Cambió
-- **El REQ de cada familia sale de Plan → Reglas.** Hasta ahora era una regla fija de lotes
-  (3 pruebas por cada 5,000 unidades; el 2.º lote arriba de 7,500) **igual para todas las
-  normas**: SULEV 30, EURO-5, Brasil y los eléctricos pedían lo mismo, y no tenía nada que ver
-  con las reglas por región y norma que el laboratorio edita en Plan → Reglas. Ahora la familia
-  usa esas reglas (pruebas por cada N unidades), las mismas que ya usaba el REQ de cada
-  configuración. Cambia en Plan → Familias, en el CoP (Panorama) y en el Excel para auditoría.
-- Sigue siendo **un REQ por familia**, no la suma de sus variantes: la regla se aplica una vez
-  al volumen de la familia, con un mínimo de 1 en cuanto hay producción.
-- Una familia que junta regiones con reglas distintas usa el **promedio ponderado por
-  producción** de sus reglas, y el Excel lo dice ("Weighted: …").
-- **Excel para auditoría → Projection**: cada familia trae su regla en tres columnas nuevas
-  (Rule, Tests, per units). Tests y per units son amarillas: el auditor ve con qué regla se
-  calculó cada renglón y, si se cambia en el Excel, todo se recalcula. Una familia agregada a
-  mano escribe la suya.
-- Para leer el caso del reporte (CL4 2.0 CVT SULEV 30 4DR): MY26 y MY27 usan la **misma**
-  regla. MY27 pide más pruebas en 2026 porque produce más en el año (50,015 contra 19,789 de
-  MY26); lo que MY26 produjo antes de enero ya pidió sus pruebas.
+- **Solo cuenta para el plan lo que tiene regla en Plan → Reglas.** Antes una configuración sin
+  regla caía a una regla escondida de 1 prueba por cada 1,000 unidades, así que todo el catálogo
+  exigía pruebas. Ahora una configuración sin regla **no exige nada**: no entra al REQ, a la
+  cobertura, al generador de la semana ni al Excel para auditoría. Con las reglas del laboratorio
+  quedan fuera, por ejemplo, Canadá SULEV 30, Brasil, Europa EURO-5, General EURO-2/4/5 y los
+  eléctricos de EE. UU., Canadá y General.
+- Una regla de región con "Todas" cubre todas sus normas: **México / Todas** incluye sus
+  eléctricos (120V) y **Medio Oriente / Todas** incluye EURO-2 y EURO-4.
+- **El REQ de cada familia usa esas mismas reglas** (pruebas por cada N unidades), no la regla
+  fija de lotes (3 por cada 5,000) que era igual para todas las normas. Sigue siendo un REQ por
+  familia: la regla se aplica una vez al volumen de la familia, con mínimo 1 en cuanto hay
+  producción. Si la familia junta regiones, solo cuenta el volumen de las que tienen regla (p. ej.
+  CL4 SULEV 30: EE. UU. sí, Canadá no).
+- **↺ Restaurar** en Reglas pone las seis reglas del laboratorio (EE. UU./SULEV 30 2 por 15,000 ·
+  México 1 por 10,000 · Europa/PRE-EURO 7 3 por 7,500 · Australia 1 por 15,000 · General/EURO-6C
+  1 por 10,000 · Medio Oriente 1 por 10,000), sin regla comodín. **+ Nueva** crea una regla que
+  no cuenta hasta que se le pone ratio.
+
+### Nuevo
+- **🚫 Sacar del conteo** en cada familia (Plan → Familias): aunque su norma tenga regla, la
+  familia deja de exigir pruebas. Pide motivo, queda en el historial de cambios y se ve en todos
+  los equipos. **↩ Que cuente** la regresa. Cada familia dice con qué regla cuenta o por qué no.
+- Plan → Reglas: las configuraciones que no cuentan, agrupadas por región y norma con sus unidades
+  y un botón **+ Regla**; y la lista de familias fuera del conteo con su motivo.
+- **Excel para auditoría → Projection**: columnas Rule, Tests y per units (amarillas) por familia;
+  lo que no cuenta va en gris con "NOT COUNTED" y Tests = 0; la columna **Not counted** dice
+  cuántas unidades del plan no entraron.
 
 ### Para desarrollo
-- **`tpFamilyRate(items)` (PURA) es LA tasa de una familia**: `items` = `[{vol, ratio, per,
-  label}]` por configuración vigente (`tpGetRule`). Una sola regla → la regla exacta; varias →
-  pruebas por 1,000 ponderadas por volumen (sin volumen, promedio simple), redondeadas a 4
-  decimales. `tpFamilyRateForConfigs(cfgs)` la arma desde configuraciones.
-- **`tpFamilyRequired(vol, rate)`** = `0` sin volumen; si no `max(1, ceil(round6(vol × ratio /
-  per)))`. El redondeo a 6 decimales es el mismo que escribe `_tpAuditReqF(x, ratioRef, perRef)`
-  (sin él 1000 × 0.3/100 daba 4). `tpFamilyMonthlyRequired(vols, hist, rate)`.
-- `tpBuildFamilies` deja la tasa en `f.rate`; `tpAuditXlsxModel` en cada familia del libro.
+- **`tpGetRule(cfg)`** ya no tiene un 1/1000 escrito a mano: sin regla devuelve `ratio: 0`,
+  `_matchType: 'sin-regla'`. Orden: región+norma → región+Todas → Todas+norma → Todas+Todas.
+- **`tpReqRuleFor(cfg)` es LA regla con la que una configuración cuenta**: `tpGetRule` + la
+  exclusión de su familia (`_matchType: 'excluida'`, ratio 0). La usan `tpGetAnalysis`,
+  `tpPriorityScore`, `_tpMakeItem`, `tpBuildFamilies`, el libro y la sugerencia del Alta.
+  `tpGetRule` queda para mostrar qué regla empata (Reglas).
+- `tpCalcRequired` / `tpFamilyRequired(vol, rate)` devuelven 0 con ratio 0. `tpFamilyRate(items)`
+  (PURA) ignora lo que no cuenta; sin nada que cuente → `{ratio: 0, none: true}`.
+- `tpBuildFamilies`: `f.reqVol` (lo que cuenta), `f.uncountedVol`, `f.noRuleCount`, `f.rate`,
+  `f.reqStatus` (`cuenta` | `parcial` | `sin-regla` | `excluida`). `f.totalRequired =
+  tpFamilyRequired(f.reqVol, f.rate)`.
+- **`tpState.reqFamilies`** = `{[familyKey]: {excluded, at, by, reason}}`; `tpSetFamilyReqCount`
+  (permiso `plan.manage`, motivo ≥ 5 para sacar, auditoría con antes/después). Volver a contar
+  deja `excluded: false` (marca, no se borra). **`tpReqFamiliesUnion` (PURA, simétrica)** y
+  `tpReqFamiliesNewTo` se usan en `_fbPullSeed`, `hasWork`, `_fbLocalHasExtras`, la fusión y la
+  huella del módulo, como las marcas de planes borrados.
 - Se retiraron `TP_COP_LOT_UNITS`, `TP_COP_LOT_TESTS` y `TP_COP_LOT_ROLLOVER`.
-- Projection: columnas D (Rule), E (Tests), F (per units), G (Produced before); los meses
-  empiezan en H. Verificado: 1,964 fórmulas recalculadas en LibreOffice dan los valores de la app.
-- Pruebas: `tests/calendario.node.js` (25).
+  `_tpAuditReqF(x, ratioRef, perRef)` = `IF(OR(x<=0,N(ratio)<=0),0,MAX(1,ROUNDUP(ROUND(x×ratio/per,6),0)))`.
+- `tpSetFamilyOverride` ya no borra la entrada de la familia al quitar criticidad y fecha si
+  le queda otro dato.
+- Verificado: 1,965 fórmulas recalculadas en LibreOffice dan los valores de la app.
+- Pruebas: `tests/calendario.node.js` (32).
 
 ## 2.35.1 — Historial: la fecha es la de la prueba (2026-10-07)
 

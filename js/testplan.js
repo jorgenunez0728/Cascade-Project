@@ -470,6 +470,7 @@ function _tpEnsureState() {
             { type: 'config', label: 'tpState' }, _resembrado.join(', ')); } catch (e) {}
     }
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
+    if (!tpState.reqFamilies || typeof tpState.reqFamilies !== 'object') tpState.reqFamilies = {}; // [2.36.0]
     if (!tpState.configOverrides) tpState.configOverrides = {};
     if (typeof tpState.capacity !== 'number') tpState.capacity = 8;
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
@@ -481,21 +482,20 @@ function _tpEnsureState() {
     return tpState;
 }
 
-/** Las reglas de ratio por default — extraídas para que _tpEnsureState pueda resembrarlas. */
+/**
+ * Las reglas de ratio por default — extraídas para que _tpEnsureState pueda resembrarlas.
+ * [2.36.0] Son las del laboratorio (7-oct-2026) y NO hay regla comodín: una configuración
+ * sin regla NO cuenta para el plan (ver tpGetRule). Agregar una fila "Todas / Todas" en
+ * Plan → Reglas sería volver a contar todo, y es decisión de quien edita las reglas.
+ */
 function tpDefaultRules() {
     return [
-        {id:1,region:"USA",regulation:"SULEV 30",ratio:3,per:1000,label:"USA / SULEV 30"},
-        {id:2,region:"USA",regulation:"*",ratio:3,per:1000,label:"USA / Otros"},
-        {id:3,region:"CANADA",regulation:"*",ratio:3,per:1000,label:"Canada"},
-        {id:4,region:"EUROPE",regulation:"EURO-6C",ratio:4,per:1000,label:"Europe / EURO-6C"},
-        {id:5,region:"EUROPE",regulation:"*",ratio:3,per:1000,label:"Europe / Otros"},
-        {id:6,region:"MEXICO",regulation:"*",ratio:2,per:1000,label:"Mexico"},
-        {id:7,region:"GENERAL",regulation:"EURO-6C",ratio:3,per:1000,label:"General / EURO-6C"},
-        {id:8,region:"GENERAL",regulation:"*",ratio:2,per:1000,label:"General / Otros"},
-        {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
-        {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
-        {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
-        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Por defecto (todo lo demás)"},
+        {id:1,region:"USA",regulation:"SULEV 30",ratio:2,per:15000,label:"USA / SULEV 30"},
+        {id:2,region:"MEXICO",regulation:"*",ratio:1,per:10000,label:"Mexico"},
+        {id:3,region:"EUROPE",regulation:"PRE-EURO 7",ratio:3,per:7500,label:"EuropeCOP"},
+        {id:4,region:"AUSTRALIA",regulation:"*",ratio:1,per:15000,label:"Australia"},
+        {id:5,region:"GENERAL",regulation:"EURO-6C",ratio:1,per:10000,label:"General"},
+        {id:6,region:"MIDDLE EAST",regulation:"*",ratio:1,per:10000,label:"Middle East"},
     ];
 }
 
@@ -748,24 +748,128 @@ function tpSetStartPurpose(regionKey, value) {
 }
 
 // v16.2: matching normalizado (trim + mayúsculas) — antes una regla con espacios o minúsculas
-// nunca matcheaba y TODO caía silenciosamente a la regla comodín '*'. Ahora además se marca
-// qué tipo de match ocurrió (_matchType), para poder mostrarlo en la UI (gap, Reglas).
+// nunca matcheaba. Se marca qué tipo de match ocurrió (_matchType) para mostrarlo en la UI.
+// [2.36.0] Orden: región+norma exacta → región + "Todas" → "Todas" + norma → "Todas"+"Todas".
+// SIN REGLA NO CUENTA: antes caía a un 1/1000 escrito a mano y toda configuración sin regla
+// exigía pruebas. Ahora devuelve ratio 0 (`_matchType: 'sin-regla'`): fuera del REQ, de la
+// cobertura y del generador. Las reglas de Plan → Reglas son la lista de lo que cuenta.
 function tpGetRule(cfg) {
-    const r = tpState.rules;
+    const r = tpState.rules || [];
     const rgn = _tpNorm(cfg.rgn), reg = _tpNorm(cfg.reg);
+    const isAll = v => { v = _tpNorm(v); return v === '*' || v === ''; };
     let rule = r.find(x => _tpNorm(x.region) === rgn && _tpNorm(x.regulation) === reg);
     if (rule) return Object.assign({}, rule, { _matchType: 'exacta' });
-    rule = r.find(x => _tpNorm(x.region) === rgn && x.regulation === '*');
+    rule = r.find(x => _tpNorm(x.region) === rgn && isAll(x.regulation));
     if (rule) return Object.assign({}, rule, { _matchType: 'region' });
-    rule = r.find(x => x.region === '*');
+    rule = r.find(x => isAll(x.region) && _tpNorm(x.regulation) === reg);
     if (rule) return Object.assign({}, rule, { _matchType: 'comodín' });
-    return { ratio: 1, per: 1000, label: 'Sin regla (1/1000 por defecto)', _matchType: 'default' };
+    rule = r.find(x => isAll(x.region) && isAll(x.regulation));
+    if (rule) return Object.assign({}, rule, { _matchType: 'comodín' });
+    return { ratio: 0, per: 1000, label: 'Sin regla — no cuenta', _matchType: 'sin-regla' };
+}
+
+/**
+ * [2.36.0] LA regla con la que una configuración cuenta para el plan: la de Plan → Reglas,
+ * salvo que su familia esté fuera del conteo (Plan → Familias). Ratio 0 = no cuenta.
+ * Todo cálculo de REQ la usa; tpGetRule queda para mostrar qué regla empata.
+ */
+function tpReqRuleFor(cfg) {
+    const rule = tpGetRule(cfg);
+    if (rule._matchType === 'sin-regla') return rule;
+    const off = tpFamilyReqExcluded(tpFamilyKeyForCfg(cfg));
+    if (off) return Object.assign({}, rule, { ratio: 0, _matchType: 'excluida', _ruleLabel: rule.label,
+                                              label: 'Familia fuera del conteo', _excluded: off });
+    return rule;
 }
 
 function tpCalcRequired(cfg, rule) {
+    if (!rule || !(Number(rule.ratio) > 0) || !(Number(rule.per) > 0)) return 0; // [2.36.0] no cuenta
     const vol = cfg.total + cfg.hist;
     if (vol === 0) return 0; // v16.2: sin volumen no exige piso mínimo de 1 prueba
     return Math.max(1, Math.ceil((vol * rule.ratio) / rule.per));
+}
+
+// ── [2.36.0] Familias fuera del conteo ─────────────────────────────────────────
+// `tpState.reqFamilies` = { [familyKey]: {excluded, at, by, reason} }. Una entrada con
+// excluded:false NO se borra: es la marca de "volvió a contar" y gana por fecha en el sync
+// (si se borrara, la exclusión vieja de otro equipo regresaría). Viaja con testplan y se
+// une con tpReqFamiliesUnion en cada pull, igual que las marcas de planes borrados.
+
+/** La exclusión vigente de una familia, o null si cuenta. */
+function tpFamilyReqExcluded(key) {
+    if (!key) return null;
+    const e = (tpState.reqFamilies || {})[key];
+    return e && e.excluded ? e : null;
+}
+
+/** Une las marcas de dos equipos: por familia gana la de fecha más reciente. PURA y simétrica. */
+function tpReqFamiliesUnion(a, b) {
+    const out = {};
+    [a || {}, b || {}].forEach(function(src) {
+        Object.keys(src).forEach(function(k) {
+            const e = src[k];
+            if (!k || !e || typeof e !== 'object') return;
+            const cur = out[k];
+            const ea = String(e.at || ''), ca = cur ? String(cur.at || '') : '';
+            if (!cur || ea > ca || (ea === ca && JSON.stringify(e) > JSON.stringify(cur))) out[k] = e;
+        });
+    });
+    return out;
+}
+
+/** ¿`incoming` trae alguna marca más nueva que `known`? PURA (la usa el sync). */
+function tpReqFamiliesNewTo(known, incoming) {
+    known = known || {};
+    return Object.keys(incoming || {}).some(function(k) {
+        const e = incoming[k];
+        if (!k || !e) return false;
+        const c = known[k];
+        return !c || String(e.at || '') > String(c.at || '') ||
+               (String(e.at || '') === String(c.at || '') && JSON.stringify(e) > JSON.stringify(c));
+    });
+}
+
+/**
+ * Saca o regresa una familia al conteo del plan. Cambia el REQ de todo el laboratorio:
+ * permiso del plan, motivo al sacarla y auditoría con antes/después.
+ */
+function tpSetFamilyReqCount(key, count, reason) {
+    if (!key) return false;
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', count ? 'regresar una familia al conteo' : 'sacar una familia del conteo')) return false;
+    const before = !tpFamilyReqExcluded(key);
+    if (before === !!count) return true;
+    reason = String(reason || '').trim();
+    if (!count && reason.length < 5) {
+        if (typeof showToast === 'function') showToast('Escribe el motivo (5 letras o más) para sacar la familia del conteo.', 'warning');
+        return false;
+    }
+    if (typeof undoPush === 'function') undoPush('testplan', count ? 'Regresar familia al conteo' : 'Sacar familia del conteo');
+    if (!tpState.reqFamilies || typeof tpState.reqFamilies !== 'object') tpState.reqFamilies = {};
+    const by = (typeof authGetCurrentUser === 'function' && authGetCurrentUser() && authGetCurrentUser().name) || '';
+    tpState.reqFamilies[key] = { excluded: !count, at: new Date().toISOString(), by: by, reason: count ? '' : reason };
+    tpInvalidateCache();
+    tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('testplan', count ? 'familia_cuenta' : 'familia_fuera_del_conteo', { type: 'family', id: key, label: key },
+                 count ? 'Vuelve a contar para el plan' : 'Fuera del conteo del plan: ' + reason,
+                 { before: { cuenta: before }, after: { cuenta: !!count, motivo: count ? '' : reason } });
+    }
+    if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+    tpRender();
+    if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+    if (typeof showToast === 'function') showToast(count ? 'La familia vuelve a contar para el plan' : 'Familia fuera del conteo del plan', 'success');
+    return true;
+}
+
+/** Pide el motivo y saca la familia del conteo. */
+function tpFamilyReqExcludeAsk(key) {
+    if (typeof uiPrompt !== 'function') return;
+    uiPrompt({ title: 'Sacar familia del conteo', label: 'Motivo (queda en el historial de cambios)',
+               placeholder: 'Ej.: no se produce para el mercado que auditamos', required: true, multiline: true,
+               value: '' }).then(function(v) {
+        if (v == null) return;
+        tpSetFamilyReqCount(key, false, v);
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -797,8 +901,9 @@ function tpCalcRequired(cfg, rule) {
  * escribe ESE número, así que la app y la fórmula de Excel dan lo mismo.
  */
 function tpFamilyRate(items) {
-    var list = (items || []).filter(function(x) { return x && Number(x.per) > 0 && Number(x.ratio) >= 0; });
-    if (!list.length) return { ratio: 1, per: 1000, mixed: false, labels: ['Sin regla (1/1000 por defecto)'] };
+    var list = (items || []).filter(function(x) { return x && Number(x.per) > 0 && Number(x.ratio) > 0; });
+    // [2.36.0] Sin ninguna configuración que cuente, la familia no exige nada.
+    if (!list.length) return { ratio: 0, per: 1000, mixed: false, none: true, labels: [] };
     var labels = [], vistos = {}, firma = {};
     list.forEach(function(x) {
         var l = x.label || (x.ratio + '/' + x.per);
@@ -821,7 +926,7 @@ function tpFamilyRate(items) {
 /** La tasa de una familia a partir de sus configuraciones (vigentes, con su volumen). */
 function tpFamilyRateForConfigs(cfgs) {
     return tpFamilyRate((cfgs || []).filter(function(c) { return c && !c.paused; }).map(function(c) {
-        var r = tpGetRule(c);
+        var r = tpReqRuleFor(c);
         return { vol: (Number(c.total) || 0) + (Number(c.hist) || 0), ratio: r.ratio, per: r.per, label: r.label };
     }));
 }
@@ -835,8 +940,8 @@ function tpFamilyRateForConfigs(cfgs) {
  */
 function tpFamilyRequired(vol, rate) {
     var v = Number(vol) || 0;
-    if (v <= 0) return 0;
-    var r = rate || { ratio: 1, per: 1000 };
+    var r = rate || {};
+    if (v <= 0 || !(Number(r.ratio) > 0) || !(Number(r.per) > 0)) return 0; // [2.36.0] no cuenta
     var x = Math.round((v * Number(r.ratio) / Number(r.per)) * 1e6) / 1e6;
     return Math.max(1, Math.ceil(x));
 }
@@ -1030,7 +1135,7 @@ function tpFamilyOverrideFor(cfg) {
 }
 
 function tpPriorityScore(cfg, testedN) {
-    const rule = tpGetRule(cfg);
+    const rule = tpReqRuleFor(cfg);
     const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
     const w = tpState.weights;
     const maxVol = Math.max(...tpState.planData.map(c => c.total + c.hist), 1);
@@ -1121,7 +1226,7 @@ function _tpAnalyze(list) {
         (porDesc[t.configText] || (porDesc[t.configText] = [])).push(t);
     });
     return tpState.planData.map(cfg => {
-        const rule = tpGetRule(cfg);
+        const rule = tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
         // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
         const filas = porDesc[cfg.desc] || [];
@@ -3032,7 +3137,7 @@ function tpRenderRules(el) {
     tpState.planData.forEach(function(c) {
         var rr = tpGetRule(c);
         _tpRuleUsage[rr.label] = (_tpRuleUsage[rr.label] || 0) + 1;
-        if (c.reg && c.rgn && (rr._matchType === 'comodín' || rr._matchType === 'default')) _tpNoSpecificRule.push(c);
+        if (!c.paused && rr._matchType === 'sin-regla') _tpNoSpecificRule.push(c); // [2.36.0] no cuentan
     });
 
     // [v23.1] Qué propósitos acreditan el REQ de emisiones. Vive JUNTO a las reglas de
@@ -3075,9 +3180,9 @@ function tpRenderRules(el) {
 
     const _ratioActions = `<div style="display:flex;gap: var(--space-sm);">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar las reglas del laboratorio? Se reemplazan las de esta lista.',function(){tpState.rules=tpDefaultRules();tpSave();tpRender();if(typeof auditLog==='function')auditLog('testplan','reglas_restauradas',{type:'config',label:'Reglas de ratio'},'Reglas del laboratorio restauradas');},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Restaurar</button>
                 </div>`;
-    const _ratioBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
+    const _ratioBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);"><strong>Solo cuenta para el plan lo que tiene regla aquí</strong>: cuántas pruebas por cada N unidades. Una configuración sin regla no exige pruebas, no entra a la cobertura ni al generador. La regla de región + norma gana sobre la de región con "Todas". Para dejar fuera una familia aunque su norma tenga regla, apágala en Plan → Familias.</p>
             <div>
                 <table class="u-cards tp-table">
                     <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Nombre</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
@@ -3086,7 +3191,7 @@ function tpRenderRules(el) {
                             <tr>
                                 <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].region=this.value;tpSave();">${regions.map(o=>`<option value="${o}" ${r.region===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
                                 <td><select class="tp-select" style="width:100%;font-size: var(--fs-base);" onchange="tpState.rules[${i}].regulation=this.value;tpSave();">${regulations.map(o=>`<option value="${o}" ${r.regulation===o?'selected':''}>${uiLabel('region', o)}</option>`).join('')}</select></td>
-                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="1" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
+                                <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="0" value="${r.ratio}" style="text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" type="number" data-num="step" inputmode="numeric" min="100" step="100" value="${r.per}" style="text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size: var(--fs-base);" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
                                 <td style="text-align:center;font-size: var(--fs-xs);font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
@@ -3098,12 +3203,17 @@ function tpRenderRules(el) {
             </div>
             ${_tpNoSpecificRule.length > 0 ? `
             <details style="margin-top: var(--space-sm);">
-                <summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-amber);font-weight:700;">⚠ ${_tpNoSpecificRule.length} config(s) sin regla específica (usan la regla comodín/default)</summary>
-                <div style="max-height:160px;overflow-y:auto;margin-top: var(--space-sm);font-size: var(--fs-xs);">
-                    ${_tpNoSpecificRule.slice(0,50).map(c => `<div style="padding:3px 0;border-bottom:1px solid var(--tp-border);"><span style="color:var(--tp-dim);">${escapeHtml(c.rgn)} / ${escapeHtml(c.reg)}</span> — ${escapeHtml(c.desc)}</div>`).join('')}
-                    ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
+                <summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-amber);font-weight:700;">⚠ ${_tpNoSpecificRule.length} configuración(es) sin regla — NO cuentan para el plan</summary>
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin: var(--space-sm) 0;">Si alguna sí debe contar, agrégale su regla. Agrupadas por región y norma:</p>
+                <div style="max-height:220px;overflow-y:auto;font-size: var(--fs-sm);">
+                    ${_tpNoRuleGroups(_tpNoSpecificRule).map(g => `<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-2xs) 0;border-bottom:1px solid var(--tp-border);">
+                        <span style="flex:1;min-width:0;"><strong>${escapeHtml(uiLabel('region', g.rgn))} / ${escapeHtml(g.reg || '—')}</strong>
+                        <span style="color:var(--tp-dim);"> · ${g.n} config(s) · ${g.vol.toLocaleString('es-MX')} unidades</span></span>
+                        <button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpAddRule('${escapeHtml(g.rgn).replace(/'/g, "\\'")}','${escapeHtml(g.reg).replace(/'/g, "\\'")}')">+ Regla</button>
+                    </div>`).join('')}
                 </div>
             </details>` : ''}
+            ${_tpExcludedFamiliesHTML()}
         `;
     const _spBody = `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
@@ -3136,7 +3246,7 @@ function tpRenderRules(el) {
     <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
         ${_rqHTML}
         ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
-            count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' sin regla propia' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
+            count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' no cuentan' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
             actions: _ratioActions, body: _ratioBody })}
         <div>
             ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
@@ -3150,11 +3260,44 @@ function tpRenderRules(el) {
     `;
 }
 
-function tpAddRule() {
+// [2.36.0] Una regla nueva nace con ratio 0 (no cuenta) hasta que se escriba el suyo: con
+// "Todas / Todas" y ratio 1 contaba TODO el plan en cuanto se tocaba "+ Nueva".
+function tpAddRule(region, regulation) {
     const maxId = Math.max(0, ...tpState.rules.map(r => r.id)) + 1;
-    tpState.rules.push({id:maxId, region:'*', regulation:'*', ratio:1, per:1000, label:'Nueva regla'});
+    const rgn = region || '*', reg = regulation || '*';
+    tpState.rules.push({id:maxId, region:rgn, regulation:reg, ratio: region ? 1 : 0, per: region ? 10000 : 1000,
+                        label: region ? (rgn + ' / ' + reg) : 'Nueva regla — elige región, norma y ratio'});
     tpSave();
+    if (typeof auditLog === 'function') auditLog('testplan', 'regla_agregada', { type: 'config', label: rgn + ' / ' + reg }, 'Regla de ratio nueva');
     tpRender();
+}
+
+/** [2.36.0] Configuraciones sin regla agrupadas por región y norma (para Reglas). PURA. */
+function _tpNoRuleGroups(cfgs) {
+    const by = {};
+    (cfgs || []).forEach(function(c) {
+        const k = (c.rgn || '') + '|' + (c.reg || '');
+        const g = by[k] || (by[k] = { rgn: c.rgn || '', reg: c.reg || '', n: 0, vol: 0 });
+        g.n++; g.vol += (Number(c.total) || 0) + (Number(c.hist) || 0);
+    });
+    return Object.keys(by).map(function(k) { return by[k]; }).sort(function(a, b) { return b.vol - a.vol || b.n - a.n; });
+}
+
+/** [2.36.0] Las familias fuera del conteo, con su motivo y el botón para regresarlas. */
+function _tpExcludedFamiliesHTML() {
+    const ex = tpState.reqFamilies || {};
+    const keys = Object.keys(ex).filter(function(k) { return ex[k] && ex[k].excluded; });
+    if (!keys.length) return '';
+    return '<div style="margin-top: var(--space-md);padding: var(--space-sm) var(--space-md);border:1px dashed var(--tp-border);border-radius: var(--radius-lg);">' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;margin-bottom: var(--space-xs);">🚫 ' + keys.length + ' familia(s) fuera del conteo</div>' +
+        keys.map(function(k) {
+            const e = ex[k], cfg = (tpState.planData || []).find(function(c) { return tpFamilyKeyForCfg(c) === k; });
+            const name = cfg ? tpFamilyShortLabel(cfg) : k.split('|').filter(function(x) { return x && x !== '0'; }).join(' ');
+            return '<div style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-2xs) 0;border-top:1px solid var(--tp-border);font-size: var(--fs-sm);">' +
+                '<span style="flex:1;min-width:0;"><strong>' + escapeHtml(name) + '</strong><br><span style="color:var(--tp-dim);font-size: var(--fs-xs);">' +
+                escapeHtml(e.reason || '') + (e.by ? ' · ' + escapeHtml(e.by) : '') + (e.at ? ' · ' + escapeHtml(String(e.at).slice(0, 10)) : '') + '</span></span>' +
+                '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpSetFamilyReqCount(\'' + escapeHtml(k).replace(/'/g, "\\'") + '\', true)">↩ Que cuente</button></div>';
+        }).join('') + '</div>';
 }
 
 function tpSaveRulePreset() {
@@ -6459,7 +6602,7 @@ function tpRenderRecovery(el) {
 // excedente en silencio. Ahora las dos entran por aquí y el tope se respeta siempre;
 // lo que no cabe se REPORTA en vez de perderse.
 function _tpMakeItem(cfg, testedCopy, flags) {
-    var rule = tpGetRule(cfg);
+    var rule = tpReqRuleFor(cfg);
     var n = tpTestedCountFor(cfg.desc, testedCopy);
     var req = tpCalcRequired(cfg, rule);
     var sc = tpPriorityScore(cfg, n);
@@ -8644,10 +8787,19 @@ function tpBuildFamilies() {
     tpState.planData.forEach(cfg => {
         const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0, _rateItems:[] };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0, _rateItems:[], reqVol:0, uncountedVol:0, noRuleCount:0 };
         }
-        const rule = tpGetRule(cfg);
-        if (!cfg.paused) families[key]._rateItems.push({ vol: cfg.total + cfg.hist, ratio: rule.ratio, per: rule.per, label: rule.label });
+        // [2.36.0] Cuenta solo lo que tiene regla en Plan → Reglas y no está fuera del conteo.
+        const rule = tpReqRuleFor(cfg);
+        if (!cfg.paused) {
+            if (rule.ratio > 0) {
+                families[key]._rateItems.push({ vol: cfg.total + cfg.hist, ratio: rule.ratio, per: rule.per, label: rule.label });
+                families[key].reqVol += cfg.total + cfg.hist;
+            } else {
+                families[key].uncountedVol += cfg.total + cfg.hist;
+                if (rule._matchType === 'sin-regla') families[key].noRuleCount++;
+            }
+        }
         // [v23.1] Contra el REQ solo cuentan los propósitos que acreditan (OBD2 no).
         const vins = tpTestedForConfig(cfg.desc);
         const n = vins.length;
@@ -8683,7 +8835,12 @@ function tpBuildFamilies() {
         // de la regla de su norma (Plan → Reglas), no con lotes fijos.
         f.rate = tpFamilyRate(f._rateItems);
         delete f._rateItems;
-        f.totalRequired = tpFamilyRequired(f.activeVol, f.rate);
+        // [2.36.0] Solo el volumen de las configuraciones que cuentan (con regla, familia dentro).
+        f.totalRequired = tpFamilyRequired(f.reqVol, f.rate);
+        f.reqExcluded = tpFamilyReqExcluded(f.key);
+        f.reqStatus = f.reqExcluded ? 'excluida'
+                    : f.rate.none ? 'sin-regla'
+                    : f.noRuleCount > 0 ? 'parcial' : 'cuenta';
         f.coverage = f.totalRequired > 0 ? Math.min(1, f.totalTested / f.totalRequired) : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
@@ -8963,13 +9120,43 @@ function tpClearFamilyFilters() {
     tpRefreshFamilies();
 }
 
+// [2.36.0] Chip del estado de conteo de una familia (solo cuando NO cuenta completa).
+function tpFamilyReqChip(f) {
+    if (!f || f.reqStatus === 'cuenta' || !f.reqStatus) return '';
+    if (f.reqStatus === 'excluida') return '<span class="tp-badge" style="background:var(--surface-2,#f1f5f9);color:var(--tp-dim);font-size: var(--fs-xs);" title="Fuera del conteo: ' + escapeHtml((f.reqExcluded && f.reqExcluded.reason) || '') + '">🚫 Fuera del conteo</span>';
+    if (f.reqStatus === 'sin-regla') return '<span class="tp-badge" style="background:var(--surface-2,#f1f5f9);color:var(--tp-dim);font-size: var(--fs-xs);" title="Su región y norma no tienen regla en Plan → Reglas">Sin regla · no cuenta</span>';
+    return '<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);" title="' + f.noRuleCount + ' configuración(es) sin regla no cuentan (' + (f.uncountedVol || 0).toLocaleString('es-MX') + ' unidades)">⚠ ' + f.noRuleCount + ' sin regla</span>';
+}
+
+// [2.36.0] Renglón "Conteo del plan" dentro de la familia: qué regla usa y el interruptor.
+function tpFamilyReqRowHTML(f) {
+    var k = String(f.key || '').replace(/'/g, "\\'");
+    var txt, btn = '';
+    if (f.reqStatus === 'excluida') {
+        txt = '🚫 <strong>Fuera del conteo</strong> — ' + escapeHtml((f.reqExcluded && f.reqExcluded.reason) || '') +
+              (f.reqExcluded && f.reqExcluded.by ? ' <span style="color:var(--tp-dim);">(' + escapeHtml(f.reqExcluded.by) + ')</span>' : '');
+        btn = '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpSetFamilyReqCount(\'' + k + '\', true)">↩ Que cuente</button>';
+    } else if (f.reqStatus === 'sin-regla') {
+        txt = 'No cuenta: <strong>' + escapeHtml((f.rgns || []).join(', ')) + ' / ' + escapeHtml(f.reg || '') + '</strong> no tiene regla en Plan → Reglas.';
+        btn = '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpSwitchTab(\'tp-rules\')">⚙️ Ir a Reglas</button>';
+    } else {
+        var r = f.rate || {};
+        txt = '📏 Cuenta: <strong>' + r.ratio + ' prueba(s) por cada ' + Number(r.per || 0).toLocaleString('es-MX') + ' unidades</strong>' +
+              (r.mixed ? ' (promedio ponderado)' : '') + ' · ' + escapeHtml((r.labels || []).join(' + ')) +
+              (f.noRuleCount ? ' · <span style="color:var(--tp-amber);">' + f.noRuleCount + ' config(s) sin regla no cuentan (' + (f.uncountedVol || 0).toLocaleString('es-MX') + ' u.)</span>' : '');
+        btn = '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpFamilyReqExcludeAsk(\'' + k + '\')">🚫 Sacar del conteo</button>';
+    }
+    return '<div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);border:1px dashed var(--tp-border);border-radius: var(--radius-lg);font-size: var(--fs-sm);">' +
+           '<span style="flex:1;min-width:200px;">' + txt + '</span>' + btn + '</div>';
+}
+
 // Set/clear criticidad o deadline manual de una familia.
 function tpSetFamilyOverride(key, field, value) {
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
     var ov = tpState.familyOverrides[key] || {};
     if (value === '' || value === 'normal' || value == null) { delete ov[field]; }
     else { ov[field] = value; }
-    if (!ov.criticality && !ov.deadline) delete tpState.familyOverrides[key];
+    if (!Object.keys(ov).length) delete tpState.familyOverrides[key];
     else tpState.familyOverrides[key] = ov;
     tpInvalidateCache();
     tpSave();
@@ -9161,13 +9348,15 @@ function tpRenderFamilies(el) {
                     </div>
                     <div style="display:flex;align-items:center;gap: var(--space-xs);">
                         ${(f.pausedCount > 0 || f.dormantCount > 0) ? `<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);" title="${f.pausedCount} pausada(s) que ya no exigen pruebas, ${f.dormantCount} dormida(s) sin decisión (3+ meses en 0)">${f.pausedCount > 0 ? '⏸' + f.pausedCount : ''}${f.dormantCount > 0 ? ' 😴' + f.dormantCount : ''}</span>` : ''}
+                        ${tpFamilyReqChip(f)}
                         ${tpLastTestBadge(f)}
                         ${_evidBtn}
-                        <span style="font-size: var(--fs-sm);font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
+                        <span style="font-size: var(--fs-sm);font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${(f.reqStatus === 'excluida' || f.reqStatus === 'sin-regla') ? '—' : f.totalRequired}</span>
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size: var(--fs-xs);">${Math.round(_fCov*100)}%</span></div>
                     </div>
                 </summary>
                 <div style="padding: var(--space-sm) var(--space-sm);background:var(--tp-dark);border-top:1px solid var(--tp-border);">
+                    ${tpFamilyReqRowHTML(f)}
                     <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
                         <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Criticidad
@@ -9840,6 +10029,15 @@ function _tpAuditTestLabel(t) {
     return base;
 }
 
+/** [2.36.0] Qué regla usa una familia del libro, en inglés y dicho completo. PURA. */
+function _tpAuditRuleText(f) {
+    var nr = Object.keys(f.noRuleRgns || {}).filter(Boolean);
+    if (f.excluded) return 'NOT COUNTED — family excluded in the platform (Plan → Families)' + (f.excluded.reason ? ': ' + f.excluded.reason : '');
+    if (!f.rate || f.rate.none) return 'NOT COUNTED — no rule for its region/regulation (Plan → Rules)';
+    return (f.rate.mixed ? 'Weighted: ' : '') + f.rate.labels.join(' + ') +
+           (nr.length ? ' · not counted (no rule): ' + nr.join(', ') : '');
+}
+
 /**
  * Los datos del libro. `opts` = {from:'YYYY-MM', to:'YYYY-MM', template:boolean, generated:'YYYY-MM-DD'}.
  * Plantilla = todas las familias del catálogo, sin producción, sin pruebas, sin plan.
@@ -9860,7 +10058,8 @@ function tpAuditXlsxModel(opts) {
         if (!byShort[short]) {
             byShort[short] = { short: short, key: cfg ? tpFamilyKeyForCfg(cfg) : '', reg: cfg ? (cfg.reg || '') : '', _cfg: cfg || null,
                                configs: 0, start: 0, vols: months.map(function() { return 0; }),
-                               platformReq: null, hasVolume: false, hasPlan: false, _descs: {}, _rateItems: [] };
+                               platformReq: null, hasVolume: false, hasPlan: false, _descs: {}, _rateItems: [],
+                               uncounted: 0, noRuleRgns: {}, excluded: cfg ? tpFamilyReqExcluded(tpFamilyKeyForCfg(cfg)) : null };
             list.push(byShort[short]);
         }
         return byShort[short];
@@ -9871,10 +10070,15 @@ function tpAuditXlsxModel(opts) {
             f._descs[cfg.desc] = true; f.configs++;
             // [2.36.0] La tasa de la familia = la regla de su norma (Plan → Reglas), ponderada
             // por el volumen de todo el plan de producción — la misma que tpBuildFamilies.
+            // Solo cuenta lo que tiene regla y cuya familia no está fuera del conteo.
             if (!cfg.paused) {
-                var rule = tpGetRule(cfg);
-                f._rateItems.push({ vol: template ? 0 : (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
-                                   ratio: rule.ratio, per: rule.per, label: rule.label });
+                var rule = tpReqRuleFor(cfg);
+                if (rule.ratio > 0) {
+                    f._rateItems.push({ vol: template ? 0 : (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
+                                       ratio: rule.ratio, per: rule.per, label: rule.label });
+                } else if (rule._matchType === 'sin-regla') {
+                    f.noRuleRgns[cfg.rgn || '?'] = true;
+                }
             }
         }
     });
@@ -9891,6 +10095,13 @@ function tpAuditXlsxModel(opts) {
             if (!cfg || cfg.paused) return;
             var f = fam(cfg);
             if (!f) return;
+            // [2.36.0] La producción de lo que no cuenta (sin regla o familia fuera) NO entra
+            // al acumulado: se declara aparte en la columna "Not counted".
+            if (!(tpReqRuleFor(cfg).ratio > 0)) {
+                f.uncounted += (Number(cfg.total) || 0) + (Number(cfg.hist) || 0);
+                if (f.uncounted) f.hasVolume = true;
+                return;
+            }
             f.start += Number(cfg.hist) || 0;
             (cfg.m || []).forEach(function(v, i) {
                 var ym = labels[i], n = Number(v) || 0;
@@ -9954,6 +10165,7 @@ function tpAuditXlsxModel(opts) {
     };
     list.forEach(function(f) {
         if (!f.rate) f.rate = f._cfg ? tpFamilyRateForConfigs([f._cfg]) : tpFamilyRate([]);
+        f.ruleText = _tpAuditRuleText(f);
         f._active = !template && active(f); delete f._descs; delete f._rateItems; delete f._cfg;
     });
     list.sort(function(a, b) { return (b._active - a._active) || a.short.localeCompare(b.short); });
@@ -10013,11 +10225,12 @@ function _tpAuditCf(sqrefs, activities) {
 }
 
 /**
- * `IF(x<=0,0,MAX(1,ROUNDUP(ROUND(x*ratio/per,6),0)))` — tpFamilyRequired como fórmula de
- * Excel. `ratio` y `per` son referencias a las celdas de la tasa de la familia.
+ * `IF(OR(x<=0,N(ratio)<=0),0,MAX(1,ROUNDUP(ROUND(x*ratio/per,6),0)))` — tpFamilyRequired como
+ * fórmula de Excel. `ratio` y `per` son referencias a las celdas de la tasa de la familia;
+ * Tests = 0 (o vacío) es "no cuenta".
  */
 function _tpAuditReqF(x, ratio, per) {
-    return 'IF((' + x + ')<=0,0,MAX(1,ROUNDUP(ROUND((' + x + ')*' + ratio + '/' + per + ',6),0)))';
+    return 'IF(OR((' + x + ')<=0,N(' + ratio + ')<=0),0,MAX(1,ROUNDUP(ROUND((' + x + ')*' + ratio + '/' + per + ',6),0)))';
 }
 
 function _tpAuditQ(name) { return "'" + String(name).replace(/'/g, "''") + "'"; }
@@ -10067,13 +10280,14 @@ function tpAuditXlsxSpec(model) {
                      { min: 5, max: 6, width: 8 }, { min: 7, max: 7, width: 13 }],
               rows: { 4: { height: 42 } }, print: { landscape: true, fitWidth: 1 } };
     var cRule = 4, cRatio = 5, cPer = 6, cStart = 7;
-    var cVol0 = cStart + 1, cTot = cVol0 + nM, cReq0 = cTot + 2, cReqTot = cReq0 + nM, cCum = cReqTot + 1, cPlat = cCum + 1;
+    var cVol0 = cStart + 1, cTot = cVol0 + nM, cReq0 = cTot + 2, cReqTot = cReq0 + nM, cCum = cReqTot + 1, cPlat = cCum + 1, cNot = cPlat + 1;
     var colStart = '$' + xwColName(cStart);
     P.cols.push({ min: cVol0, max: cTot, width: 9 }, { min: cTot + 1, max: cTot + 1, width: 2 },
-                { min: cReq0, max: cReqTot - 1, width: 8 }, { min: cReqTot, max: cPlat, width: 12 });
+                { min: cReq0, max: cReqTot - 1, width: 8 }, { min: cReqTot, max: cNot, width: 12 });
     P.cells.push({ r: 1, c: 1, v: 'Production projection and required tests', s: X.title });
-    P.cells.push({ r: 2, c: 1, v: 'Yellow cells are input. Each family uses the rule of its regulation (platform: Plan → Rules): Tests per N units produced, ' +
-        'at least 1 once the family has production. Required per month = tests added by the cumulative production of that month.', s: X.sub });
+    P.cells.push({ r: 2, c: 1, v: 'Yellow cells are input. Only the rules of the platform (Plan → Rules) count: Tests per N units produced, at least 1 once there is ' +
+        'production. A configuration without a rule, or a family excluded in Plan → Families, does not count (Tests = 0; its units go to "Not counted"). ' +
+        'Required per month = tests added by the cumulative production of that month.', s: X.sub });
     P.cells.push({ r: 3, c: cRule, v: 'Rule', s: X.h2 }, { r: 3, c: cVol0, v: 'Production (units)', s: X.h2 }, { r: 3, c: cReq0, v: 'Required tests', s: X.h2 });
     [['Family', X.hdrL], ['Regulation', X.hdr], ['Configs', X.hdr], ['Rule (Plan → Rules)', X.hdrL], ['Tests', X.hdr], ['per units', X.hdr],
      ['Produced before ' + (months[0] ? months[0].label : ''), X.hdr]].forEach(function(h, i) {
@@ -10084,7 +10298,8 @@ function tpAuditXlsxSpec(model) {
         P.cells.push({ r: 4, c: cReq0 + j, v: mo.label, s: X.hdr });
     });
     P.cells.push({ r: 4, c: cTot, v: 'Total produced', s: X.hdr }, { r: 4, c: cReqTot, v: 'Required in period', s: X.hdr },
-                 { r: 4, c: cCum, v: 'Required to date (cumulative)', s: X.hdr }, { r: 4, c: cPlat, v: 'Platform REQ (whole production plan)', s: X.hdr });
+                 { r: 4, c: cCum, v: 'Required to date (cumulative)', s: X.hdr }, { r: 4, c: cPlat, v: 'Platform REQ (whole production plan)', s: X.hdr },
+                 { r: 4, c: cNot, v: 'Not counted (units, whole plan)', s: X.hdr });
     for (var i = 0; i < nRows; i++) {
         var r = R0 + i, f = famAt(i), rate = f ? f.rate : null;
         var ratioRef = '$' + xwColName(cRatio) + r, perRef = '$' + xwColName(cPer) + r;
@@ -10092,7 +10307,7 @@ function tpAuditXlsxSpec(model) {
         P.cells.push({ r: r, c: 1, v: f ? f.short : '', s: f ? X.fam : X.famIn });
         P.cells.push({ r: r, c: 2, v: f ? f.reg : '', s: f ? X.txt : X.famIn });
         P.cells.push({ r: r, c: 3, v: f ? f.configs : '', s: f ? X.txt : X.famIn });
-        P.cells.push({ r: r, c: cRule, v: rate ? (rate.mixed ? 'Weighted: ' : '') + rate.labels.join(' + ') : '', s: f ? X.fam : X.famIn });
+        P.cells.push({ r: r, c: cRule, v: f ? f.ruleText : '', s: f ? X.fam : X.famIn });
         P.cells.push({ r: r, c: cRatio, v: rate ? rate.ratio : '', s: X.rate });
         P.cells.push({ r: r, c: cPer, v: rate ? rate.per : 1000, s: X.input });
         P.cells.push({ r: r, c: cStart, v: f && f.start ? f.start : '', s: X.input });
@@ -10110,19 +10325,22 @@ function tpAuditXlsxSpec(model) {
                        v: f ? reqByFam[i].reduce(function(a, b) { return a + b; }, 0) : 0, s: X.calc });
         P.cells.push({ r: r, c: cCum, f: reqF(xwRef(r, cTot)), v: tpFamilyRequired(cum, rate), s: X.calc });
         P.cells.push({ r: r, c: cPlat, v: (f && f.platformReq != null) ? f.platformReq : '', s: X.txt });
+        P.cells.push({ r: r, c: cNot, v: f && f.uncounted ? f.uncounted : '', s: X.txt });
     }
     P.cells.push({ r: totRow, c: 1, v: 'Total', s: X.totalL });
     for (var c0 = 2; c0 < cStart; c0++) P.cells.push({ r: totRow, c: c0, v: '', s: X.totalL });
-    for (var c = cStart; c <= cPlat; c++) {
+    for (var c = cStart; c <= cNot; c++) {
         if (c === cTot + 1) continue;
         var colSum = 0;
         P.cells.forEach(function(x) { if (x.c === c && x.r >= R0 && x.r <= lastFamRow && typeof x.v === 'number') colSum += x.v; });
         P.cells.push({ r: totRow, c: c, f: 'SUM(' + xwRef(R0, c) + ':' + xwRef(lastFamRow, c) + ')', v: colSum, s: X.total });
     }
     P.cf = _tpAuditCf(['A' + R0 + ':A' + lastFamRow], acts).concat([
+        // [2.36.0] Lo que no cuenta se lee en gris (la regla lo dice en la columna D).
+        { sqref: xwRange(R0, 1, lastFamRow, cRule), type: 'expression', formula: 'ISNUMBER(SEARCH("NOT COUNTED",$' + xwColName(cRule) + R0 + '))', style: { font: { color: '9CA3AF' } } },
         { sqref: xwRange(R0, cReq0, lastFamRow, cCum), type: 'expression', formula: xwRef(R0, cReq0) + '=0', style: { font: { color: 'B0B7C3' } } }
     ]);
-    P.autoFilter = 'A4:' + xwRef(lastFamRow, cPlat);
+    P.autoFilter = 'A4:' + xwRef(lastFamRow, cNot);
     var projReq = function(i, j) { return 'Projection!' + xwRef(R0 + i, cReq0 + j, true); };
 
     // ── Hojas por mes ──
@@ -10303,6 +10521,7 @@ function tpAuditXlsxSpec(model) {
         ['h2', 'Rules'],
         ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
         ['', 'Required = the rule of the family regulation (platform: Plan → Rules), written in Projection as Tests per N units: Required = ROUNDUP(units × Tests / N), at least 1 once there is production. ' +
+              'ONLY those rules count: a configuration without a rule, or a family excluded in Plan → Families, requires nothing (Tests = 0) and its units are listed as "Not counted". ' +
               'A family that mixes regions with different rules uses their average weighted by production. ' +
               'Each month asks for the tests its CUMULATIVE production adds (production before the period is in "Produced before").'],
         ['', 'Planned = how many times the family appears in the month calendar (exact name), with or without VIN. Tested = only the entries that have a VIN in the cell next to it. ' +
@@ -10409,7 +10628,7 @@ function tpGetAltaSuggestion(configText) {
     const cfg = tpState.planData.find(c => c.desc === configText);
     if (!cfg) return '';
 
-    const rule = tpGetRule(cfg);
+    const rule = tpReqRuleFor(cfg);
     const n = tpState.testedList.filter(t => t.configText === configText).length;
     const req = tpCalcRequired(cfg, rule);
     const deficit = Math.max(0, req - n);
@@ -11285,9 +11504,11 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'tp-rules': {
         title: 'Reglas',
-        text: 'Cuántas pruebas por cada 1000 unidades según región/regulación, pesos de priorización y el propósito precargado por región (COP solo Europa).',
+        text: 'Cuántas pruebas por cada N unidades según región y norma: solo cuenta para el plan lo que tiene regla aquí. También los pesos de priorización y el propósito precargado por región (COP solo Europa).',
         tips: [
-            'Las reglas más específicas (región + regulación exacta) tienen prioridad sobre las genéricas (*).',
+            'Una configuración sin regla no exige pruebas: no entra al REQ, a la cobertura ni al generador.',
+            'La regla de región + norma exacta tiene prioridad sobre la de región con "Todas".',
+            'Para dejar fuera una familia aunque su norma tenga regla: Plan → Familias → 🚫 Sacar del conteo.',
             'Los pesos de priorización deben sumar 100 — el sistema te avisa si no cuadran.',
             'El propósito por región define qué se precarga en Alta al iniciar una prueba desde el plan (editable aquí).'
         ]
@@ -11315,7 +11536,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
     'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
-    'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
+    'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada N unidades producidas, según región y regulación. SOLO cuenta para el plan lo que tiene regla aquí: una configuración sin regla no exige pruebas, no entra a la cobertura, al generador ni al Excel para auditoría. La regla de región + norma exacta gana sobre la de región con "Todas". Para dejar fuera una familia completa aunque su norma tenga regla, usa "🚫 Sacar del conteo" en Plan → Familias (pide motivo y queda en el historial).' },
     'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
     'tp-aging-help': { title: 'Empuje por antigüedad', text: 'Puntos que gana una configuración por cada semana que lleva postergada, para que la cola no se estanque. El tope evita que lo viejo le gane siempre a lo urgente. En 0, la antigüedad deja de influir por completo.' },
     'tp-carryover-help': { title: 'Cola de pendientes', text: 'Lo que quedó sin hacer en semanas anteriores. "Caducan" descarta lo que lleva demasiado tiempo arrastrándose (útil cuando cambian las prioridades) y "Máximo de la semana" limita cuántos lugares puede ocupar la cola, para que siempre quede espacio a lo actual. Ni caducar ni descartar cuentan como probado: el déficit y la cobertura no cambian.' },

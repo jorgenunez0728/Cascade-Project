@@ -206,13 +206,18 @@ t('tpFamilyRate: una regla tal cual; varias, ponderadas por volumen', () => {
     eq(mix.mixed, true); eq(mix.per, 1000); eq(mix.ratio, 2.75);
     const sinVol = sandbox.tpFamilyRate([{ vol: 0, ratio: 3, per: 1000 }, { vol: 0, ratio: 1, per: 500 }]);
     eq(sinVol.ratio, 2.5, 'sin volumen: promedio simple (3 y 2 por mil)');
-    eq(sandbox.tpFamilyRate([]).ratio, 1, 'sin reglas: 1/1000, como tpGetRule');
+    eq(sandbox.tpFamilyRate([]).ratio, 0, 'sin reglas: no cuenta');
+    eq(sandbox.tpFamilyRate([]).none, true);
+    eq(sandbox.tpFamilyRate([{ vol: 50, ratio: 0, per: 1000 }, { vol: 10, ratio: 2, per: 15000, label: 'USA' }]).ratio, 2,
+       'lo que no cuenta (ratio 0) no entra al promedio');
 });
+
 t('tpBuildFamilies usa la regla de Plan → Reglas', () => {
     const fams = sandbox.tpBuildFamilies();
     ok(fams.length > 0, 'hay familias');
     fams.forEach(f => {
-        eq(f.totalRequired, sandbox.tpFamilyRequired(f.activeVol, f.rate), f.key);
+        eq(f.totalRequired, sandbox.tpFamilyRequired(f.reqVol, f.rate), f.key);
+        eq(f.reqVol + f.uncountedVol, f.activeVol, 'lo que cuenta + lo que no = el volumen vigente');
         ok(f.rate && f.rate.per > 0, 'tasa en la familia ' + f.key);
     });
 });
@@ -303,6 +308,100 @@ t('el archivo se arma y es determinista', () => {
     ok(a.length > 10000 && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0);
 });
 
+console.log('2.36.0 — solo cuentan las reglas de Plan → Reglas');
+const cfg = (o) => Object.assign({}, cfgA, o);
+t('las reglas del laboratorio son el default, sin comodín', () => {
+    const d = sandbox.tpDefaultRules();
+    eq(d.length, 6);
+    ok(!d.some(r => r.region === '*' && r.regulation === '*'), 'sin regla Todas/Todas');
+    const usa = d.find(r => r.region === 'USA');
+    eq(usa.ratio + '/' + usa.per, '2/15000');
+    eq(d.find(r => r.regulation === 'PRE-EURO 7').per, 7500);
+});
+t('sin regla: ratio 0, no exige y no entra a la cobertura', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const can = cfg({ desc: 'CAN', rgn: 'CANADA', total: 30000, hist: 0 });
+    const r = sandbox.tpGetRule(can);
+    eq(r._matchType, 'sin-regla'); eq(r.ratio, 0);
+    eq(sandbox.tpCalcRequired(can, r), 0);
+    const bra = cfg({ desc: 'BRA', rgn: 'BRAZIL', reg: 'BRAZIL L8', total: 9000, hist: 0 });
+    eq(sandbox.tpGetRule(bra)._matchType, 'sin-regla', 'Brasil no tiene regla');
+    const eu6 = cfg({ desc: 'EU5', rgn: 'EUROPE', reg: 'EURO-5' });
+    eq(sandbox.tpGetRule(eu6)._matchType, 'sin-regla', 'Europa solo cuenta PRE-EURO 7');
+    eq(sandbox.tpGetRule(cfg({ rgn: 'MEXICO', reg: 'EURO-5' }))._matchType, 'region', 'México / Todas');
+    const usa = cfg({ desc: 'USA', rgn: 'USA', total: 30000, hist: 0 });
+    eq(sandbox.tpCalcRequired(usa, sandbox.tpGetRule(usa)), 4, '30 000 × 2/15 000');
+    // Cobertura: solo cuentan las vigentes (con regla).
+    S.planData = [usa, can]; S.testedList = []; S._lastSave = Date.now();
+    const an = sandbox.tpGetAnalysis();
+    eq(an.find(a => a.desc === 'CAN').required, 0);
+    eq(an.find(a => a.desc === 'USA').required, 4);
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now();
+});
+t('una regla "Todas / Todas" escrita a mano sí cuenta (es decisión de quien edita)', () => {
+    S.rules = sandbox.tpDefaultRules().concat([{ id: 99, region: '*', regulation: '*', ratio: 1, per: 1000, label: 'Todo' }]);
+    eq(sandbox.tpGetRule(cfg({ rgn: 'CANADA' }))._matchType, 'comodín');
+    S.rules = sandbox.tpDefaultRules();
+});
+t('familia USA + Canadá: solo cuenta el volumen de USA', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const u = cfg({ desc: 'U', rgn: 'USA', total: 20000, hist: 10000 });
+    const c = cfg({ desc: 'C', rgn: 'CANADA', total: 40000, hist: 0 });
+    S.planData = [u, c]; S.testedList = []; S._lastSave = Date.now();
+    const f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.reqVol, 30000); eq(f.uncountedVol, 40000); eq(f.noRuleCount, 1);
+    eq(f.reqStatus, 'parcial');
+    eq(f.totalRequired, 4, '30 000 × 2/15 000');
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now();
+});
+t('familia fuera del conteo: no exige, se declara, y regresa', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const u = cfg({ desc: 'U', rgn: 'USA', total: 30000, hist: 0 });
+    S.planData = [u]; S.testedList = []; S.reqFamilies = {}; S._lastSave = Date.now();
+    eq(sandbox.tpSetFamilyReqCount(famA, false, ''), false, 'sin motivo no se saca');
+    eq(sandbox.tpSetFamilyReqCount(famA, false, 'no es mercado auditado'), true);
+    eq(S.reqFamilies[famA].excluded, true);
+    eq(sandbox.tpReqRuleFor(u)._matchType, 'excluida');
+    let f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.totalRequired, 0); eq(f.reqStatus, 'excluida');
+    eq(sandbox.tpGetAnalysis()[0].required, 0, 'la configuración tampoco exige');
+    eq(sandbox.tpGetRule(u)._matchType, 'exacta', 'la regla sigue empatando (para Reglas)');
+    eq(sandbox.tpSetFamilyReqCount(famA, true), true);
+    eq(S.reqFamilies[famA].excluded, false, 'queda la marca de que volvió a contar');
+    f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.totalRequired, 4); eq(f.reqStatus, 'cuenta');
+    S.planData = [cfgA, cfgB]; S.reqFamilies = {}; S._lastSave = Date.now();
+});
+t('sync: gana la marca más reciente, en los dos sentidos', () => {
+    const a = { k1: { excluded: true, at: '2026-10-07T10:00:00Z', reason: 'x' } };
+    const b = { k1: { excluded: false, at: '2026-10-07T11:00:00Z' }, k2: { excluded: true, at: '2026-10-01T00:00:00Z' } };
+    const u1 = sandbox.tpReqFamiliesUnion(a, b), u2 = sandbox.tpReqFamiliesUnion(b, a);
+    eq(JSON.stringify(u1), JSON.stringify(u2) === JSON.stringify(u1) ? JSON.stringify(u1) : 'asimétrica');
+    eq(u1.k1.excluded, false, 'regresó después: cuenta');
+    eq(u1.k2.excluded, true);
+    eq(sandbox.tpReqFamiliesNewTo(a, b), true);
+    eq(sandbox.tpReqFamiliesNewTo(u1, a), false);
+    eq(Object.keys(sandbox.tpReqFamiliesUnion({ '': { excluded: true, at: 'z' } }, null)).length, 0, 'nunca una clave vacía');
+});
+t('libro: lo que no cuenta va a "Not counted" y la tasa en 0', () => {
+    S.rules = sandbox.tpDefaultRules();
+    S.months = ['Aug-26', 'Sep-26', 'Oct-26'];
+    const u = cfg({ desc: 'U', rgn: 'USA', m: [0, 15000, 15000], total: 30000, hist: 0 });
+    const c = cfg({ desc: 'C', rgn: 'CANADA', m: [0, 9000, 0], total: 9000, hist: 0 });
+    const w = Object.assign({}, cfgB, { desc: 'W', rgn: 'CANADA', m: [0, 500, 0], total: 500, hist: 0 });
+    S.planData = [u, c, w]; S.testedList = []; S.weeklyPlans = []; S._lastSave = Date.now();
+    sandbox.tpCatalogInvalidate(); sandbox.db.vehicles = [];
+    const model = sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-10', generated: '2026-10-07' });
+    const fa = model.families.find(f => f.key === famA), fb = model.families.find(f => f.key === sandbox.tpFamilyKeyForCfg(cfgB));
+    eq(fa.vols.join(), '15000,15000', 'solo USA en la producción');
+    eq(fa.uncounted, 9000);
+    ok(/not counted \(no rule\): CANADA/.test(fa.ruleText), fa.ruleText);
+    eq(fb.rate.ratio, 0); ok(/^NOT COUNTED/.test(fb.ruleText), fb.ruleText);
+    const P = sandbox.tpAuditXlsxSpec(model).sheets[2], rb = 5 + model.families.indexOf(fb);
+    eq(cell(P, 'E' + rb).v, 0, 'Tests = 0');
+    ok(P.cells.filter(x => x.r === rb && x.c >= 14 && x.c <= 16 && x.f).every(x => x.v === 0), 'no exige nada');
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now(); sandbox.tpCatalogInvalidate();
+});
 console.log('2.33.0 — una semana = un lunes = un plan, y lo borrado no regresa');
 t('tpMondayIso', () => {
     eq(sandbox.tpMondayIso('2026-03-04'), '2026-03-02', 'miércoles → su lunes');
