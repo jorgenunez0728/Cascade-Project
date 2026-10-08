@@ -20,15 +20,36 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 2.37.1 — El resumen cuenta los vehículos como la app (2026-10-08)
+## 2.37.1 — Una copia por vehículo en la nube (2026-10-08)
 
 ### Arreglado
+- **La nube acumulaba copias del mismo vehículo**: 82 documentos para 53 vehículos el 8 de
+  octubre (19 VIN repetidos con distinto id). La app las juntaba al leer, así que en pantalla no
+  se notaba, pero ocupaban espacio, inflaban lecturas y respaldos. Ahora cada equipo retira la
+  copia superada de un VIN que ya tiene, y un equipo nuevo que recibe dos copias del mismo VIN las
+  guarda como un solo vehículo (antes guardaba las dos). **Retirar no borra**: la copia se queda
+  marcada con la referencia a la que la reemplaza.
 - El resumen diario podía contar **un vehículo de más** que la pantalla de Pruebas (6 contra 5 en
   la primera prueba). La nube guarda un documento por vehículo y puede tener dos copias del mismo
   VIN o el documento de uno borrado; la app las junta y los retira, el resumen no lo hacía. Ahora
   sí, con las mismas reglas.
 
+### Nuevo
+- **Limpiar duplicados** (administración): Actions → "Avisos del laboratorio" → Run workflow →
+  *Limpiar duplicados*: `revisar` muestra qué copia de cada VIN se queda y cuál se retira, sin
+  escribir nada; `aplicar` lo hace.
+
 ### Para desarrollo
+- **Causa**: la fusión por VIN se queda con una copia (y su id) y la otra nunca se retiraba; y
+  `fbMergeAnalyze` metía como nuevos TODOS los documentos de un VIN que el equipo no tenía.
+- `fbVehPushPlan(…, info)` devuelve `retires`: documentos vivos de la nube cuyo VIN (ahora en
+  `kia_fb_veh_known.info[docId].vin`, de `fbVehParseDocs`) este equipo tiene bajo otro id.
+  `fbVehWrites(…, retires)` los marca `deleted` + `supersededBy` con `updateMask` (el `json` se
+  queda). Sin VIN conocido no se retira nada.
+- `fbVehCollapseByVin(vehicles)` (PURA) junta las copias que trae cada pull (`_fbVehPull`), y
+  `fbMergeAnalyze` hace lo mismo con lo nuevo. `digestCloudVehicles` la reusa.
+- `fbVehDupPlan(docs, tombs)` (PURA) es la limpieza de una sola vez; la corre
+  `tools/vehicle-dedupe.node.js` (cliente REST compartido `tools/fb-rest.js`).
 - `digestCloudVehicles(docsVehicles, tombs)` (js/digest.js, PURA) arma la vista de la app:
   junta por VIN con `_fbMergeVehicle` y retira lo que `vehicleIsTombstoned` marca contra
   `cop15meta.deletedVehicles`. `tools/digest-env.js` carga esas funciones del código real

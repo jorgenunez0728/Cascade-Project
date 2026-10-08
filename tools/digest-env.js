@@ -63,7 +63,8 @@ function loadDigestEnv() {
     ['stableStringify', 'strHash', 'revContentHash', '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion']
         .forEach(n => vm.runInContext(fnSrc(n, app), sb));
     const fb = src('firebase-sync.js');
-    ['fbFromFirestoreValue', 'fbVehParseDocs', '_fbMergePaStatus', '_fbUnionLog', '_fbVehTime', '_fbMergeVehicle']
+    ['fbFromFirestoreValue', 'fbVehParseDocs', '_fbMergePaStatus', '_fbUnionLog', '_fbVehTime', '_fbMergeVehicle',
+     'fbVehDocId', 'fbVehWrites', 'fbVehDupPlan', 'fbVehCollapseByVin']
         .forEach(n => vm.runInContext(fnSrc(n, fb), sb));
     sb.FIREBASE = {
         apiKey: /apiKey:\s*"([^"]+)"/.exec(fb)[1],

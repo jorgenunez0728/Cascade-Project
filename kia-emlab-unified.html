@@ -9453,10 +9453,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610082232';
+var APP_BUILD = '202610082243';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '6c012b6ec58ea75e896fc760860546cd76ff3ad3';
+var APP_COMMIT = 'f70510aa939d3aac00e2f4ceafa705b934c6ff3e';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9472,9 +9472,11 @@ var APP_VERSION = '2.37.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '2.37.1', date: '8 oct 2026', title: 'El resumen cuenta los vehículos como la app',
+    { version: '2.37.1', date: '8 oct 2026', title: 'Una copia por vehículo en la nube',
       bullets: [
-          'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.'
+          'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.',
+          'Arreglado: la nube acumulaba copias del mismo vehículo (82 documentos para 53 vehículos). Cada equipo retira ahora la copia superada de un VIN que ya tiene, y un equipo nuevo que recibe dos copias de un VIN las guarda como UN vehículo. Retirar no borra: la copia queda guardada con la referencia a la que la reemplaza.',
+          'Nuevo para administración: Actions → "Avisos del laboratorio" → Run workflow → Limpiar duplicados (revisar / aplicar) limpia de una vez las copias que ya existían; "revisar" solo muestra la lista.'
       ] },
     { version: '2.37.0', date: '8 oct 2026', title: 'Avisos del laboratorio: resumen diario, escalación y plan aceptado',
       bullets: [
@@ -10338,14 +10340,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610082232' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610082243' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610082232' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610082243' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10361,7 +10363,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610082232' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610082243' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -59267,9 +59269,18 @@ function fbMergeAnalyze(remoteData) {
         // [v24.2] Un vehículo borrado (aquí o allá) no es "nuevo": no se ofrece ni se agrega.
         var _tombs = typeof vehicleTombstonesUnion === 'function'
             ? vehicleTombstonesUnion(db.deletedVehicles, remoteData.cop15.deletedVehicles) : [];
+        // [2.37.1] Si la nube trae VARIAS copias de un VIN que este equipo no tiene, entran como
+        // UN vehículo (la misma regla de fusión que con uno local). Antes entraban todas.
+        var newByVin = {};
         remoteVehicles.forEach(function(rv) {
             if (_tombs.length && vehicleIsTombstoned(rv, _tombs)) return;
+            if (!localVINs[rv.vin] && newByVin[rv.vin] !== undefined) {
+                var ni = newByVin[rv.vin];
+                newVehicles[ni] = _fbMergeVehicle(newVehicles[ni], rv).vehicle;
+                return;
+            }
             if (!localVINs[rv.vin]) {
+                newByVin[rv.vin] = newVehicles.length;
                 newVehicles.push(rv);
                 if (rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent) paStatusGains++;
                 if (rv.testData && rv.testData.scannedReportCaptured) paPhotoOnlyRemote++;
@@ -60264,7 +60275,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610082232' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610082243' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -62195,14 +62206,16 @@ function fbVehMetaHasExtras(local, remote) {
  * - deletes: marcas de borrado con id cuyo vehículo YA NO existe aquí (una marca
  *   `vin-corregido` conserva el id del vehículo vivo: esa no borra el documento).
  */
-function fbVehPushPlan(vehicles, tombs, known, hold) {
+function fbVehPushPlan(vehicles, tombs, known, hold, info) {
     known = known || {};
     hold = hold || {};
-    var upserts = [], deletes = [], vivos = {};
+    info = info || {};
+    var upserts = [], deletes = [], retires = [], vivos = {}, docPorVin = {};
     (vehicles || []).forEach(function(v) {
         if (!v || typeof v !== 'object') return;
         var id = fbVehDocId(v);
         vivos[id] = true;
+        if (v.vin && !hold[id]) docPorVin[String(v.vin)] = id;
         // [2.35.0] Lo que espera la revisión al reconectar no se sube.
         if (hold[id]) return;
         if (known[id] !== (v._rev || '')) upserts.push(v);
@@ -62215,11 +62228,22 @@ function fbVehPushPlan(vehicles, tombs, known, hold) {
         vistos[id] = true;
         deletes.push({ docId: id, id: t.id, vin: t.vin || '' });
     });
-    return { upserts: upserts, deletes: deletes };
+    // [2.37.1] Copias superadas: un documento VIVO en la nube cuyo VIN este equipo tiene bajo
+    // OTRO id. La fusión por VIN se quedó con una copia (y su id); la otra quedaba viva para
+    // siempre — 82 documentos para 53 vehículos el 8-oct-2026. Se marca `deleted` con
+    // `supersededBy` SIN borrar su `json` (fbVehWrites): es reversible y no es una marca de
+    // borrado del vehículo, que sigue vivo con el otro id.
+    Object.keys(known).forEach(function(docId) {
+        if (known[docId] === 'deleted' || vivos[docId] || vistos[docId]) return;
+        var vin = info[docId] && info[docId].vin;
+        if (!vin || !docPorVin[vin] || docPorVin[vin] === docId) return;
+        retires.push({ docId: docId, vin: vin, supersededBy: docPorVin[vin] });
+    });
+    return { upserts: upserts, deletes: deletes, retires: retires };
 }
 
 /** Escrituras de un commit. PURA. `meta` (opcional) va al final con la hora del servidor. */
-function fbVehWrites(upserts, deletes, meta, docNameFn, device) {
+function fbVehWrites(upserts, deletes, meta, docNameFn, device, retires) {
     var ts = [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }];
     var w = [];
     (upserts || []).forEach(function(v) {
@@ -62234,6 +62258,13 @@ function fbVehWrites(upserts, deletes, meta, docNameFn, device) {
             vin: { stringValue: String(d.vin || '') }, id: { stringValue: String(d.id) }, rev: { stringValue: 'deleted' },
             deleted: { booleanValue: true }, writer: { stringValue: device || '' }
         } }, updateTransforms: ts });
+    });
+    // [2.37.1] Retirar una copia superada: solo estos campos (updateMask), el `json` se queda.
+    (retires || []).forEach(function(r) {
+        w.push({ update: { name: docNameFn('vehicles/' + r.docId), fields: {
+            deleted: { booleanValue: true }, rev: { stringValue: 'deleted' },
+            supersededBy: { stringValue: String(r.supersededBy || '') }, writer: { stringValue: device || '' }
+        } }, updateMask: { fieldPaths: ['deleted', 'rev', 'supersededBy', 'writer'] }, updateTransforms: ts });
     });
     if (meta) {
         w.push({ update: { name: docNameFn('cop15meta/current'), fields: {
@@ -62256,7 +62287,9 @@ function fbVehParseDocs(docs) {
         if (t > out.maxTs) out.maxTs = t;
         var id = d._id || '';
         // [2.14.0] Cuándo llegó a la nube y desde qué equipo: lo lee el chip ☁ del vehículo.
-        if (id) out.info[id] = { ts: d.serverTs || '', w: d.writer || '' };
+        // [2.37.1] y su VIN: con él, un equipo sabe qué documentos son copias de un vehículo que
+        // ya tiene con otro id (fbVehPushPlan → retires).
+        if (id) out.info[id] = { ts: d.serverTs || '', w: d.writer || '', vin: String(d.vin || '') };
         if (d.deleted) { if (id) out.revs[id] = 'deleted'; return; }
         var v = null;
         try { v = JSON.parse(d.json || 'null'); } catch (e) { v = null; }
@@ -62265,6 +62298,72 @@ function fbVehParseDocs(docs) {
         if (id) out.revs[id] = v._rev || d.rev || '';
     });
     return out;
+}
+
+/**
+ * [2.37.1] Junta las copias de un mismo VIN con la regla de la app (`_fbMergeVehicle`). PURA.
+ * La nube puede traer dos documentos del mismo vehículo con ids distintos; sin esto, un equipo
+ * que no tenía ese VIN los guardaba como DOS vehículos.
+ */
+function fbVehCollapseByVin(vehicles) {
+    var byVin = {}, order = [];
+    (vehicles || []).forEach(function(v) {
+        if (!v || !v.vin) return;
+        var k = String(v.vin);
+        if (!byVin[k]) { byVin[k] = v; order.push(k); return; }
+        byVin[k] = _fbMergeVehicle(byVin[k], v).vehicle;
+    });
+    return order.map(function(k) { return byVin[k]; });
+}
+
+/**
+ * [2.37.1] Limpieza de una sola vez: qué documentos de `vehicles` son copias del MISMO VIN.
+ * PURA. `docs` = objetos planos (fbFromFirestoreValue) con `_id`; `tombs` =
+ * cop15meta.deletedVehicles (lo marcado como borrado no se toca aquí: lo retira la app).
+ * Cada grupo se resuelve con la regla de la app (`_fbMergeVehicle`): el documento del id
+ * ganador se queda —con la bitácora unida si las copias traían algo distinto (`update`)— y
+ * los demás se retiran con `supersededBy` (fbVehWrites, sin borrar su `json`).
+ * → {groups:[{vin, keep, update, merged, retire:[{docId, vin, supersededBy}], copies, distinctRegs}],
+ *    docs, live, tombstoned, vehicles}
+ */
+function fbVehDupPlan(docs, tombs) {
+    var byVin = {}, order = [], live = 0, tombstoned = 0;
+    (docs || []).forEach(function(d) {
+        if (!d || d.deleted) return;
+        var v = null;
+        try { v = JSON.parse(d.json || 'null'); } catch (e) { v = null; }
+        if (!v || typeof v !== 'object' || !v.vin) return;
+        live++;
+        if (tombs && tombs.length && typeof vehicleIsTombstoned === 'function' && vehicleIsTombstoned(v, tombs)) { tombstoned++; return; }
+        var k = String(v.vin);
+        if (!byVin[k]) { byVin[k] = []; order.push(k); }
+        byVin[k].push({ docId: d._id, v: v });
+    });
+    var groups = [];
+    order.forEach(function(k) {
+        var g = byVin[k];
+        if (g.length < 2) return;
+        // Orden estable (por documento) para que dos corridas decidan lo mismo.
+        g.sort(function(a, b) { return a.docId < b.docId ? -1 : (a.docId > b.docId ? 1 : 0); });
+        var merged = g[0].v;
+        for (var i = 1; i < g.length; i++) merged = _fbMergeVehicle(merged, g[i].v).vehicle;
+        var keep = fbVehDocId(merged);
+        var own = g.filter(function(c) { return c.docId === keep; })[0];
+        var regs = {};
+        g.forEach(function(c) { regs[String(c.v.registeredAt || '')] = true; });
+        groups.push({
+            vin: k, keep: keep, merged: merged,
+            update: !own || stableStringify(own.v) !== stableStringify(merged),
+            retire: g.filter(function(c) { return c.docId !== keep; })
+                .map(function(c) { return { docId: c.docId, vin: k, supersededBy: keep }; }),
+            copies: g.map(function(c) {
+                return { docId: c.docId, id: c.v.id, registeredAt: c.v.registeredAt || '', status: c.v.status || '',
+                         updatedAt: c.v.updatedAt || '', timeline: (c.v.timeline || []).length };
+            }),
+            distinctRegs: Object.keys(regs).length
+        });
+    });
+    return { groups: groups, docs: (docs || []).length, live: live, tombstoned: tombstoned, vehicles: order.length };
 }
 
 function fbVehKnown() {
@@ -62331,6 +62430,8 @@ function _fbVehPull(known) {
     var since = full ? 0 : Math.max(0, known.watermark - FB_VEH_MARGIN_MS);
     return Promise.all([_fbVehGetMeta(), _fbVehQuery(since)]).then(function(r) {
         var meta = r[0], parsed = fbVehParseDocs(r[1]);
+        // [2.37.1] Las copias de un mismo VIN que trae la nube entran como UNA (siembra o fusión).
+        parsed.vehicles = fbVehCollapseByVin(parsed.vehicles);
         var cambios = 0;
         if (parsed.vehicles.length || meta) {
             // Lo local de cada equipo (lastId, version) y lo que aún no esté en cop15meta
@@ -62363,13 +62464,15 @@ function _fbVehPull(known) {
 function _fbVehPush(known) {
     var d = (typeof db !== 'undefined' && db) ? db : { vehicles: [] };
     var hold = typeof fbReviewHeldDocs === 'function' ? fbReviewHeldDocs() : {};
-    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs, hold);
+    var plan = fbVehPushPlan(d.vehicles, d.deletedVehicles, known.docs, hold, known.info);
     // [2.35.0] Mientras la revisión está abierta, la meta (configs manuales) tampoco sube.
     var holdMeta = typeof fbReviewHolds === 'function' && fbReviewHolds('cop15');
     var meta = holdMeta ? null : fbVehMeta(d);
-    var total = plan.upserts.length + plan.deletes.length;
+    var total = plan.upserts.length + plan.deletes.length + plan.retires.length;
     if (!total && (!known.metaExtra || holdMeta)) return Promise.resolve({ sent: 0 });
-    var items = plan.upserts.map(function(v) { return { v: v }; }).concat(plan.deletes.map(function(x) { return { del: x }; }));
+    var items = plan.upserts.map(function(v) { return { v: v }; })
+        .concat(plan.deletes.map(function(x) { return { del: x }; }))
+        .concat(plan.retires.map(function(x) { return { ret: x }; }));
     var lotes = [];
     for (var i = 0; i < items.length; i += FB_VEH_BATCH) lotes.push(items.slice(i, i + FB_VEH_BATCH));
     if (!lotes.length) lotes.push([]);
@@ -62380,17 +62483,19 @@ function _fbVehPush(known) {
         chain = chain.then(function() {
             var ups = lote.filter(function(x) { return x.v; }).map(function(x) { return x.v; });
             var dels = lote.filter(function(x) { return x.del; }).map(function(x) { return x.del; });
+            var rets = lote.filter(function(x) { return x.ret; }).map(function(x) { return x.ret; });
             var last = li === lotes.length - 1;
             // Una copia congelada: si el técnico edita mientras sube, la edición sale en el siguiente ciclo.
-            var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '' }; });
-            return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev)).then(function() {
-                for (var n = 1; n < ups.length + dels.length + (last && meta ? 1 : 0); n++) fbQuotaRecord('write');
+            var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '', vin: String(v.vin || '') }; });
+            return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev, rets)).then(function() {
+                for (var n = 1; n < ups.length + dels.length + rets.length + (last && meta ? 1 : 0); n++) fbQuotaRecord('write');
                 var at = new Date().toISOString();
                 if (!known.info || typeof known.info !== 'object') known.info = {};
-                revs.forEach(function(r) { known.docs[r.id] = r.rev; known.info[r.id] = { ts: at, w: dev }; });
+                revs.forEach(function(r) { known.docs[r.id] = r.rev; known.info[r.id] = { ts: at, w: dev, vin: r.vin }; });
                 dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev }; });
+                rets.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev, vin: x.vin }; });
                 if (last && meta) known.metaExtra = false;
-                sent += ups.length + dels.length;
+                sent += ups.length + dels.length + rets.length;
                 _fbVehKnownSave(known);
             });
         });
@@ -74549,18 +74654,11 @@ function _digestSigName(sig) { return (sig && (sig.sessionUserName || sig.signer
  */
 function digestCloudVehicles(docsVehicles, tombs) {
     var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
-    var merge = (typeof _fbMergeVehicle === 'function') ? _fbMergeVehicle : null;
-    var byVin = {}, order = [], removed = 0, merged = 0;
-    (docsVehicles || []).forEach(function(v) {
-        if (!v || !v.vin) return;
-        if (tombs && tombs.length && isTomb(v, tombs)) { removed++; return; }
-        var k = String(v.vin).trim().toUpperCase();
-        if (!byVin[k]) { byVin[k] = v; order.push(k); return; }
-        merged++;
-        byVin[k] = merge ? merge(byVin[k], v).vehicle
-            : (String(v.updatedAt || '') > String(byVin[k].updatedAt || '') ? v : byVin[k]);
-    });
-    return { vehicles: order.map(function(k) { return byVin[k]; }), merged: merged, removed: removed };
+    var vivos = (docsVehicles || []).filter(function(v) { return v && v.vin && !(tombs && tombs.length && isTomb(v, tombs)); });
+    var removed = (docsVehicles || []).filter(function(v) { return v && v.vin; }).length - vivos.length;
+    // LA regla de juntar por VIN es la de la app (fbVehCollapseByVin, firebase-sync.js).
+    var juntos = fbVehCollapseByVin(vivos);
+    return { vehicles: juntos, merged: vivos.length - juntos.length, removed: removed };
 }
 
 /**
@@ -75596,7 +75694,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18218],[18222,"js/uiflow.js",18538],[18542,"js/cop15.js",28685],[28689,"js/inventory.js",35755],[35759,"js/testplan.js",47318],[47322,"js/panel.js",52509],[52513,"js/projects.js",54802],[54806,"js/auth.js",55847],[55851,"js/signatures.js",56052],[56056,"js/firebase-sync.js",63306],[63310,"js/cop_validator.js",67675],[67679,"js/homolog.js",69469],[69473,"js/vets.js",71268],[71272,"js/historico.js",72184],[72188,"js/review.js",72641],[72645,"js/opcards.js",73074],[73078,"js/handoff.js",73352],[73356,"js/ficha.js",73847],[73851,"js/relevo.js",74231],[74235,"js/momentos.js",74372],[74376,"js/digest.js",75168],[75172,"js/xlsxw.js",75552],[75556,"js/bugreport.js",76702]]};
+var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18220],[18224,"js/uiflow.js",18540],[18544,"js/cop15.js",28687],[28691,"js/inventory.js",35757],[35761,"js/testplan.js",47320],[47324,"js/panel.js",52511],[52515,"js/projects.js",54804],[54808,"js/auth.js",55849],[55853,"js/signatures.js",56054],[56058,"js/firebase-sync.js",63411],[63415,"js/cop_validator.js",67780],[67784,"js/homolog.js",69574],[69578,"js/vets.js",71373],[71377,"js/historico.js",72289],[72293,"js/review.js",72746],[72750,"js/opcards.js",73179],[73183,"js/handoff.js",73457],[73461,"js/ficha.js",73952],[73956,"js/relevo.js",74336],[74340,"js/momentos.js",74477],[74481,"js/digest.js",75266],[75270,"js/xlsxw.js",75650],[75654,"js/bugreport.js",76800]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

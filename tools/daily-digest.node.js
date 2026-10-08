@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { loadDigestEnv } = require('./digest-env');
+const { createFbRest } = require('./fb-rest');
 
 const env = process.env;
 // Prueba: si hay DIGEST_TEST_TO se manda SOLO a esa(s) dirección(es), con "[Prueba]" en el
@@ -34,67 +35,10 @@ const OUT = env.DIGEST_OUT || process.cwd();
 const log = (...a) => console.log('[aviso]', ...a);
 
 const P = loadDigestEnv();
-const FB = P.FIREBASE;
-const BASE = `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents/stations/${FB.station}`;
 
-// ── Firestore por REST ─────────────────────────────────────────────────
-let TOKEN = null;
-async function login() {
-    if (!env.FB_LAB_PASSWORD) throw new Error('Falta el secreto FB_LAB_PASSWORD (contraseña del laboratorio).');
-    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB.apiKey}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: FB.labEmail, password: env.FB_LAB_PASSWORD, returnSecureToken: true })
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error('No se pudo iniciar sesión con la cuenta del laboratorio: ' + ((j.error && j.error.message) || r.status));
-    TOKEN = j.idToken;
-}
-async function rest(method, suffix, body, query) {
-    const url = `${BASE}/${suffix}${query ? '?' + query : ''}`;
-    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
-        body: body ? JSON.stringify(body) : undefined });
-    if (r.status === 404 && method === 'GET') return null;
-    const t = await r.text();
-    if (!r.ok) throw new Error(`${method} ${suffix}: ${r.status} ${t.slice(0, 200)}`);
-    return t ? JSON.parse(t) : {};
-}
-const docToObj = doc => {
-    const o = P.fbFromFirestoreValue({ mapValue: { fields: (doc && doc.fields) || {} } }) || {};
-    o._id = doc && doc.name ? doc.name.split('/').pop() : '';
-    o._updateTime = doc && doc.updateTime;
-    return o;
-};
-const toFields = obj => {
-    const f = {};
-    Object.keys(obj).forEach(k => { f[k] = toValue(obj[k]); });
-    return f;
-};
-function toValue(v) {
-    if (v === null || v === undefined) return { nullValue: null };
-    if (typeof v === 'boolean') return { booleanValue: v };
-    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-    if (typeof v === 'string') return { stringValue: v };
-    if (Array.isArray(v)) return { arrayValue: { values: v.map(toValue) } };
-    return { mapValue: { fields: toFields(v) } };
-}
-async function listAll(col) {
-    const out = [];
-    let token = '';
-    do {
-        const res = await rest('GET', col, null, 'pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
-        ((res && res.documents) || []).forEach(d => out.push(docToObj(d)));
-        token = (res && res.nextPageToken) || '';
-    } while (token);
-    return out;
-}
-async function getDoc(suffix) {
-    const d = await rest('GET', suffix);
-    return d ? docToObj(d) : null;
-}
-async function patchDoc(suffix, obj, fieldsOnly) {
-    const q = fieldsOnly ? fieldsOnly.map(f => 'updateMask.fieldPaths=' + encodeURIComponent(f)).join('&') : '';
-    return rest('PATCH', suffix, { fields: toFields(obj) }, q);
-}
+// ── Firestore por REST (tools/fb-rest.js) ──────────────────────────────
+const FBR = createFbRest(P, env.FB_LAB_PASSWORD);
+const { login, rest, listAll, getDoc, patchDoc } = FBR;
 
 // ── Lectura ────────────────────────────────────────────────────────────
 async function readCloud() {

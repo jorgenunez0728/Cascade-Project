@@ -3087,7 +3087,7 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   Una suscripción que responde 404/410 se borra.
 - `plan.acceptedBy` se sella al aceptar (`tpAcceptWeeklyPlan`) y se borra al desaceptar.
 
-## 2.37.1 — El resumen cuenta como la app
+## 2.37.1 — Una copia por vehículo en la nube
 
 - **Los documentos de `vehicles` NO son la lista de vehículos**: la app los junta por VIN y
   retira los borrados. Todo proceso fuera de la app que lea vehículos de la nube pasa por
@@ -3095,4 +3095,11 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   `cop15meta.deletedVehicles`), o contará de más.
 - `tools/digest-env.js` carga funciones del código real con `fnSrc(nombre, texto)`; una función de
   una sola línea se reconoce aparte (si no, la regex se traga la siguiente).
+- **Un VIN = un documento vivo en `vehicles`.** La fusión por VIN se queda con una copia y su id;
+  la otra se RETIRA (`fbVehPushPlan` → `retires`, `fbVehWrites` con `updateMask`): `deleted` +
+  `supersededBy`, conservando el `json`. **Retirar no es borrar**: no crea marca de borrado (el
+  vehículo sigue vivo con el otro id) y nunca se retira sin conocer el VIN del documento
+  (`known.info[docId].vin`). Todo pull junta las copias con `fbVehCollapseByVin`.
+- `fbVehDupPlan` (PURA) + `tools/vehicle-dedupe.node.js` limpian lo heredado (Run workflow →
+  Limpiar duplicados: revisar / aplicar). Los procesos fuera de la app usan `tools/fb-rest.js`.
 

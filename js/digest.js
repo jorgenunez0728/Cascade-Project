@@ -174,18 +174,11 @@ function _digestSigName(sig) { return (sig && (sig.sessionUserName || sig.signer
  */
 function digestCloudVehicles(docsVehicles, tombs) {
     var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
-    var merge = (typeof _fbMergeVehicle === 'function') ? _fbMergeVehicle : null;
-    var byVin = {}, order = [], removed = 0, merged = 0;
-    (docsVehicles || []).forEach(function(v) {
-        if (!v || !v.vin) return;
-        if (tombs && tombs.length && isTomb(v, tombs)) { removed++; return; }
-        var k = String(v.vin).trim().toUpperCase();
-        if (!byVin[k]) { byVin[k] = v; order.push(k); return; }
-        merged++;
-        byVin[k] = merge ? merge(byVin[k], v).vehicle
-            : (String(v.updatedAt || '') > String(byVin[k].updatedAt || '') ? v : byVin[k]);
-    });
-    return { vehicles: order.map(function(k) { return byVin[k]; }), merged: merged, removed: removed };
+    var vivos = (docsVehicles || []).filter(function(v) { return v && v.vin && !(tombs && tombs.length && isTomb(v, tombs)); });
+    var removed = (docsVehicles || []).filter(function(v) { return v && v.vin; }).length - vivos.length;
+    // LA regla de juntar por VIN es la de la app (fbVehCollapseByVin, firebase-sync.js).
+    var juntos = fbVehCollapseByVin(vivos);
+    return { vehicles: juntos, merged: vivos.length - juntos.length, removed: removed };
 }
 
 /**
