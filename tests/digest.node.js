@@ -57,6 +57,16 @@ ok('promedio y máximo', v.avgDays === 6.5 && v.maxDays === 11, v.avgDays + '/' 
 const apr = Object.assign({}, vehicles[0], { status: 'archived', timeline: vehicles[0].timeline.concat([{ timestamp: daysAgo(0, 1), data: { status: 'archived' } }]) });
 ok('al aprobarse deja de estar escalado', !P.digestVehicles([apr], NOW, { escalateDays: 7 }).escalated.length);
 
+console.log('\n== digestCloudVehicles (como los ve la app) ==');
+const dupA = { id: 'x1', vin: 'KNADUP0000000001', status: 'in-progress', registeredAt: daysAgo(3), updatedAt: daysAgo(2), config: cfg('K3', 'SULEV 30'), timeline: [] };
+const dupB = Object.assign({}, dupA, { id: 'x2', status: 'ready-release', updatedAt: daysAgo(1) });
+const borrado = { id: 'x3', vin: 'KNABORRADO000003', status: 'registered', registeredAt: daysAgo(5), config: cfg('Rio', 'EURO 5'), timeline: [] };
+const cv = P.digestCloudVehicles([dupA, dupB, borrado, vehicles[0]], [{ id: 'x3', vin: 'KNABORRADO000003', registeredAt: borrado.registeredAt }]);
+ok('un VIN con dos documentos cuenta UNA vez', cv.vehicles.filter(v => v.vin === dupA.vin).length === 1 && cv.merged === 1);
+ok('gana la edición más reciente (la regla de la app)', cv.vehicles.find(v => v.vin === dupA.vin).status === 'ready-release');
+ok('un vehículo con marca de borrado no cuenta', !cv.vehicles.some(v => v.vin === borrado.vin) && cv.removed === 1);
+ok('lo demás pasa igual', cv.vehicles.length === 2);
+
 console.log('\n== digestApprovedSince ==');
 const a = P.digestApprovedSince(vehicles, daysAgo(1), NOW);
 ok('solo lo aprobado después del último resumen', a.length === 1 && a[0].id === 'e', JSON.stringify(a.map(x => x.id)));
@@ -173,6 +183,22 @@ let fallo = false;
 try { run({ vehicles: [], tpState: plansTp, settings, state: {} }); } catch (e) { fallo = e.status === 1 && /no se envía nada/.test(String(e.stderr)); }
 ok('sin vehículos: no envía y termina en error', fallo);
 fs.rmSync(dir, { recursive: true, force: true });
+
+console.log('\n== limpieza de duplicados (tools/vehicle-dedupe.node.js, sin nube) ==');
+{
+    const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'dedupe-'));
+    const fx = path.join(dir2, 'docs.json');
+    const doc = (id, v) => ({ _id: 'v_' + id, vin: v.vin, json: JSON.stringify(Object.assign({ id }, v)) });
+    const base = { vin: 'KNADEDUPE00000001', status: 'archived', registeredAt: '2026-09-01T10:00:00Z', timeline: [] };
+    fs.writeFileSync(fx, JSON.stringify({ docs: [doc('a', Object.assign({}, base, { updatedAt: '2026-09-02T00:00:00Z' })),
+        doc('b', Object.assign({}, base, { updatedAt: '2026-09-05T00:00:00Z' })), doc('c', { vin: 'KNASOLO0000000002', status: 'registered', timeline: [] })], tombs: [] }));
+    const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'vehicle-dedupe.node.js')],
+        { env: Object.assign({}, process.env, { DEDUPE_FIXTURE: fx }), encoding: 'utf8' });
+    ok('revisa: 3 documentos, 2 vehículos, 1 VIN con copias', /3 documentos · 3 vivos · 2 vehículos distintos/.test(out) && /1 VIN con copias → se retiran 1 documento/.test(out), out);
+    ok('dice cuál se queda (la edición más reciente) y cuál se retira', /SE QUEDA\s+v_b/.test(out) && /se retira\s+v_a/.test(out), out);
+    ok('por defecto solo revisa', /SOLO REVISIÓN: no se escribió nada/.test(out));
+    fs.rmSync(dir2, { recursive: true, force: true });
+}
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exit(1);

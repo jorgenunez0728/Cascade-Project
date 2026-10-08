@@ -196,6 +196,11 @@ cron de GitHub puede llegar 5–30 min tarde.
 
 El correo nunca trae valores de gases ni VIN completo (sale por un servicio externo a KIA).
 
+**Limpiar duplicados (2.37.1, de una sola vez):** el mismo Run workflow tiene *Limpiar
+duplicados*. `revisar` lista, por VIN con varias copias en la nube, cuál se queda y cuál se
+retira, sin escribir nada; `aplicar` lo hace. Retirar no borra: la copia queda marcada con
+`supersededBy`.
+
 ## Seguridad — setup una sola vez (v15.6)
 
 Desde v15.6 los datos en la nube están protegidos por Firebase Authentication +

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.0';
+var APP_VERSION = '2.37.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '2.37.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.1', date: '8 oct 2026', title: 'Una copia por vehículo en la nube',
+      bullets: [
+          'Arreglado: el resumen diario podía contar un vehículo de más (un VIN con dos copias en la nube, o un vehículo borrado). Ahora junta por VIN y retira los borrados igual que la app, así que el número coincide con el de Pruebas.',
+          'Arreglado: la nube acumulaba copias del mismo vehículo (82 documentos para 53 vehículos). Cada equipo retira ahora la copia superada de un VIN que ya tiene, y un equipo nuevo que recibe dos copias de un VIN las guarda como UN vehículo. Retirar no borra: la copia queda guardada con la referencia a la que la reemplaza.',
+          'Nuevo para administración: Actions → "Avisos del laboratorio" → Run workflow → Limpiar duplicados (revisar / aplicar) limpia de una vez las copias que ya existían; "revisar" solo muestra la lista.'
+      ] },
     { version: '2.37.0', date: '8 oct 2026', title: 'Avisos del laboratorio: resumen diario, escalación y plan aceptado',
       bullets: [
           'Nuevo: resumen por correo de lunes a viernes a las 7:00 con los vehículos activos (del más viejo al más nuevo, días desde el alta y días en su etapa) y los aprobados desde el último resumen.',

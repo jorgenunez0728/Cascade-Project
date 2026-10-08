@@ -60,7 +60,9 @@ function servidor() {
             const ts = new Date(S.clock).toISOString();
             S.clock += 1000;
             body.writes.forEach(w => {
-                const f = Object.assign({}, w.update.fields);
+                // Como Firestore: con updateMask solo se escriben esos campos; el resto del documento se queda.
+                const base = w.updateMask && S.docs[w.update.name] ? S.docs[w.update.name].fields : {};
+                const f = Object.assign({}, base, w.update.fields);
                 (w.updateTransforms || []).forEach(t => { f[t.fieldPath] = { timestampValue: ts }; });
                 S.docs[w.update.name] = { name: w.update.name, fields: f };
                 S.writes++;
@@ -477,6 +479,84 @@ const MARGEN = 10 * 60 * 1000;
             cloudDocs: {}, bootAt: '2026-10-07T00:00:00.000Z' });
         ok('lo creado en esta sesión no se pregunta', v.vehicles.length === 1 && v.vehicles[0].vin === 'A');
     }
+    console.log('\n== 2.37.1: copias del mismo VIN con distinto id ==');
+    {
+        const P0 = equipo(servidor(), 'dev_pure2');
+        const parsed = P0.fbVehParseDocs([{ _id: 'v_a', vin: 'KNAX', json: JSON.stringify({ id: 'a', vin: 'KNAX' }), serverTs: '2026-10-01T00:00:00.000Z' }]);
+        ok('el VIN de cada documento queda en info', parsed.info.v_a.vin === 'KNAX');
+        let p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX' }, v_b: { vin: 'KNAX' } });
+        ok('un documento vivo de MI VIN bajo otro id se retira, apuntando al mío',
+            p.retires.length === 1 && p.retires[0].docId === 'v_a' && p.retires[0].supersededBy === 'v_b' && !p.deletes.length, JSON.stringify(p));
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'deleted', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX' } });
+        ok('uno ya retirado no se repite', !p.retires.length);
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_c: 'rc', v_b: 'rb' }, {}, { v_c: { vin: 'OTRO' } });
+        ok('un documento de otro VIN no se toca', !p.retires.length);
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, {});
+        ok('sin saber el VIN del documento, no se retira (nunca a ciegas)', !p.retires.length);
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, { v_b: true }, { v_a: { vin: 'KNAX' } });
+        ok('lo que espera la revisión al reconectar no retira nada', !p.retires.length);
+        const w = P0.fbVehWrites([], [], null, s => s, 'dev', [{ docId: 'v_a', vin: 'KNAX', supersededBy: 'v_b' }]);
+        ok('el retiro escribe SOLO deleted/rev/supersededBy/writer (el json se queda)',
+            w.length === 1 && w[0].updateMask.fieldPaths.join() === 'deleted,rev,supersededBy,writer' && !w[0].update.fields.json);
+
+        // Lo que hay hoy en la nube: el mismo VIN en DOS documentos (el reparo de ids, o datos de
+        // antes de v17.12). "dos" tiene la edición más reciente.
+        const srv2 = servidor();
+        const nombreDoc = id => 'projects/p/databases/(default)/documents/stations/KIA-EMLAB/vehicles/v_' + id;
+        const sembrar = (srvX, v) => { srvX.docs[nombreDoc(v.id)] = { name: nombreDoc(v.id), fields: { json: { stringValue: JSON.stringify(v) },
+            vin: { stringValue: v.vin }, id: { stringValue: v.id }, rev: { stringValue: v._rev || '' }, deleted: { booleanValue: false },
+            serverTs: { timestampValue: '2026-09-28T11:00:00.000Z' } } }; };
+        const vUno = Object.assign(vehiculo(50, { id: 'uno' }), { updatedAt: '2026-09-21T00:00:00.000Z' });
+        const vDos = Object.assign(vehiculo(50, { id: 'dos', testData: { odometer: 99 } }), { updatedAt: '2026-09-25T00:00:00.000Z' });
+        const E1 = equipo(srv2, 'dev_E1');
+        E1.db.vehicles = [JSON.parse(JSON.stringify(vUno))]; E1.dedupeVehicleIds();
+        vUno._rev = E1.db.vehicles[0]._rev;
+        const E2tmp = equipo(srv2, 'dev_tmp'); vDos._rev = E2tmp.revContentHash(vDos);
+        sembrar(srv2, vUno); sembrar(srv2, vDos);
+        await E1.fbVehiclesSync({ initial: true });   // trae las dos, se queda con "dos" y retira "uno"
+        const vivos = srv2.vehDocs().filter(d => !(d.fields.deleted && d.fields.deleted.booleanValue));
+        const ret = srv2.vehDocs().find(d => d.name.endsWith('/v_uno'));
+        ok('en la nube queda UN documento vivo para el VIN', vivos.length === 1 && vivos[0].name.endsWith('/v_dos'), vivos.map(d => d.name).join());
+        ok('el otro queda retirado con supersededBy y SIN perder su json',
+            ret && ret.fields.deleted.booleanValue && ret.fields.supersededBy.stringValue === 'v_dos' && !!ret.fields.json, ret && JSON.stringify(Object.keys(ret.fields)));
+        const E2 = equipo(srv2, 'dev_E2');
+        srv2.avanzar(60000);
+        await E2.fbVehiclesSync({ initial: true });
+        ok('los dos equipos ven UN vehículo, el mismo', E1.db.vehicles.length === 1 && E2.db.vehicles.length === 1 &&
+            E1.db.vehicles[0].id === 'dos' && E2.db.vehicles[0].id === 'dos', E1.db.vehicles.map(v => v.id) + ' / ' + E2.db.vehicles.map(v => v.id));
+        const r2 = await E1.fbVehiclesSync();
+        ok('el siguiente ciclo ya no escribe nada', r2.sent === 0, JSON.stringify(r2));
+
+        // Un equipo nuevo que recibe las DOS copias de un VIN que no tiene.
+        const srv3 = servidor();
+        const N = equipo(srv3, 'dev_N');
+        const vA = Object.assign(vehiculo(60, { id: 'a1' }), { updatedAt: '2026-09-21T00:00:00.000Z' });
+        const vB = Object.assign(vehiculo(60, { id: 'b1' }), { updatedAt: '2026-09-22T00:00:00.000Z' });
+        const docName = id => 'projects/p/databases/(default)/documents/stations/KIA-EMLAB/vehicles/v_' + id;
+        [vA, vB].forEach(v => { srv3.docs[docName(v.id)] = { name: docName(v.id), fields: { json: { stringValue: JSON.stringify(v) },
+            vin: { stringValue: v.vin }, id: { stringValue: v.id }, rev: { stringValue: '' }, deleted: { booleanValue: false },
+            serverTs: { timestampValue: '2026-09-28T12:00:00.000Z' } } }; });
+        await N.fbVehiclesSync({ initial: true });
+        ok('entran como UN vehículo (antes entraban las dos)', N.db.vehicles.length === 1 && N.db.vehicles[0].id === 'b1', N.db.vehicles.map(v => v.id).join());
+
+        // La limpieza de una sola vez.
+        const d = (id, v, extra) => Object.assign({ _id: 'v_' + id, vin: v.vin, json: JSON.stringify(v) }, extra || {});
+        const p1 = Object.assign(vehiculo(70, { id: 'p1' }), { updatedAt: '2026-09-21T00:00:00.000Z' });
+        const p2 = Object.assign(vehiculo(70, { id: 'p2' }), { updatedAt: '2026-09-25T00:00:00.000Z',
+            timeline: [{ timestamp: '2026-09-24T00:00:00.000Z', action: 'Otra' }] });
+        const solo = vehiculo(71, { id: 's1' });
+        const borr = vehiculo(72, { id: 'x1' }), borr2 = vehiculo(72, { id: 'x2' });
+        const plan = P0.fbVehDupPlan([d('p1', p1), d('p2', p2), d('s1', solo), d('x1', borr), d('x2', borr2), d('z', solo, { deleted: true })],
+            [{ id: 'x1', vin: borr.vin, registeredAt: borr.registeredAt }, { id: 'x2', vin: borr.vin, registeredAt: borr.registeredAt }]);
+        const g = plan.groups[0];
+        ok('agrupa por VIN y se queda con la edición más reciente (regla de la app)', plan.groups.length === 1 && g.keep === 'v_p2' &&
+            g.retire.length === 1 && g.retire[0].docId === 'v_p1' && g.retire[0].supersededBy === 'v_p2', JSON.stringify(plan.groups.map(x => [x.keep, x.retire])));
+        ok('el que se queda recibe la bitácora unida', g.update && g.merged.timeline.length === 2);
+        ok('lo marcado como borrado y lo ya retirado no se tocan', plan.tombstoned === 2 && plan.live === 5);
+        ok('es la misma decisión corra donde corra (orden estable)',
+            P0.fbVehDupPlan([d('p2', p2), d('p1', p1)], []).groups[0].keep === 'v_p2');
+    }
+
     console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
     process.exitCode = fallaron ? 1 : 0;
 })().catch(e => { console.error(e); process.exit(1); });

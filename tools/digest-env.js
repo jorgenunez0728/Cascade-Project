@@ -17,6 +17,16 @@ const pick = (re, text, what) => {
     return m[0];
 };
 
+/**
+ * El código de una función de nivel superior: de una sola línea, o de `function nombre(` hasta
+ * la `}` en la columna 0 (sin la regla de una línea, `_vehTombKey` se tragaría a la siguiente).
+ */
+const fnSrc = (name, text) => {
+    const n = name.replace(/\$/g, '\\$');
+    const one = new RegExp('\\nfunction ' + n + '\\([^)]*\\) \\{[^\\n]*\\}[ \\t]*(?=\\n)').exec(text);
+    return one ? one[0] : pick(new RegExp('\\nfunction ' + n + '\\([^)]*\\) \\{[\\s\\S]*?\\n\\}'), text, name);
+};
+
 function loadDigestEnv() {
     const store = {};
     const noop = () => {};
@@ -49,9 +59,13 @@ function loadDigestEnv() {
         '\nvar __tpSet = function(s){ tpState = s; if (typeof _tpEnsureState === "function") _tpEnsureState();' +
         ' if (typeof tpWeekPlanInvalidate === "function") tpWeekPlanInvalidate(); };', sb, { filename: 'testplan.js' });
 
+    // La app junta los vehículos por VIN y retira los borrados: se cargan SUS funciones.
+    ['stableStringify', 'strHash', 'revContentHash', '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion']
+        .forEach(n => vm.runInContext(fnSrc(n, app), sb));
     const fb = src('firebase-sync.js');
-    vm.runInContext(pick(/function fbFromFirestoreValue\(v\) \{[\s\S]*?\n\}/, fb, 'fbFromFirestoreValue'), sb);
-    vm.runInContext(pick(/function fbVehParseDocs\(docs\) \{[\s\S]*?\n\}/, fb, 'fbVehParseDocs'), sb);
+    ['fbFromFirestoreValue', 'fbVehParseDocs', '_fbMergePaStatus', '_fbUnionLog', '_fbVehTime', '_fbMergeVehicle',
+     'fbVehDocId', 'fbVehWrites', 'fbVehDupPlan', 'fbVehCollapseByVin']
+        .forEach(n => vm.runInContext(fnSrc(n, fb), sb));
     sb.FIREBASE = {
         apiKey: /apiKey:\s*"([^"]+)"/.exec(fb)[1],
         projectId: /projectId:\s*"([^"]+)"/.exec(fb)[1],
@@ -63,4 +77,4 @@ function loadDigestEnv() {
     return sb;
 }
 
-module.exports = { loadDigestEnv };
+module.exports = { loadDigestEnv, fnSrc };

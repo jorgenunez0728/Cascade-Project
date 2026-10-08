@@ -20,6 +20,11 @@ on:
         description: 'Enviar una PRUEBA solo a este correo (si lo llenas, se envía aunque esté marcada la vista previa; sin copia al jefe ni avisos al teléfono)'
         type: string
         default: ''
+      limpiar_duplicados:
+        description: 'Limpiar documentos duplicados de vehículos en la nube (en vez de los avisos). "revisar" solo muestra la lista'
+        type: choice
+        options: ['no', 'revisar', 'aplicar']
+        default: 'no'
 
 concurrency:
   group: daily-digest
@@ -41,7 +46,15 @@ jobs:
       - name: Instalar dependencias del envío
         run: npm install --no-save --no-package-lock --ignore-scripts nodemailer@6.9.16 web-push@3.6.7
 
+      - name: Limpiar duplicados de vehículos
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.limpiar_duplicados != 'no' }}
+        env:
+          FB_LAB_PASSWORD: ${{ secrets.FB_LAB_PASSWORD }}
+          DEDUPE_APPLY: ${{ inputs.limpiar_duplicados == 'aplicar' && '1' || '' }}
+        run: node tools/vehicle-dedupe.node.js
+
       - name: Enviar avisos
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.limpiar_duplicados == 'no' }}
         env:
           FB_LAB_PASSWORD: ${{ secrets.FB_LAB_PASSWORD }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -55,7 +68,7 @@ jobs:
         run: node tools/daily-digest.node.js
 
       - name: Guardar la vista previa
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && inputs.limpiar_duplicados == 'no' }}
         uses: actions/upload-artifact@v4
         with:
           name: vista-previa-avisos

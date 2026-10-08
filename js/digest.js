@@ -165,6 +165,23 @@ function digestApprovedAt(v) {
 function _digestSigName(sig) { return (sig && (sig.sessionUserName || sig.signerName)) || ''; }
 
 /**
+ * Los vehículos de la nube como los ve la app. PURA respecto a lo que recibe.
+ * La nube guarda un documento por vehículo (2.9.0), pero la app los junta POR VIN
+ * (`_fbMergeVehicle`) y retira los borrados (`vehicleIsTombstoned` contra
+ * `cop15meta.deletedVehicles`) — sin esto el resumen contaba de más (un VIN con dos
+ * documentos, o un vehículo borrado cuyo documento no quedó marcado).
+ * → {vehicles, merged (copias juntadas), removed (borrados retirados)}
+ */
+function digestCloudVehicles(docsVehicles, tombs) {
+    var isTomb = (typeof vehicleIsTombstoned === 'function') ? vehicleIsTombstoned : function() { return false; };
+    var vivos = (docsVehicles || []).filter(function(v) { return v && v.vin && !(tombs && tombs.length && isTomb(v, tombs)); });
+    var removed = (docsVehicles || []).filter(function(v) { return v && v.vin; }).length - vivos.length;
+    // LA regla de juntar por VIN es la de la app (fbVehCollapseByVin, firebase-sync.js).
+    var juntos = fbVehCollapseByVin(vivos);
+    return { vehicles: juntos, merged: vivos.length - juntos.length, removed: removed };
+}
+
+/**
  * LA definición de los vehículos activos del resumen. PURA.
  * → {rows (del más viejo al más nuevo), count, avgDays, maxDays, byStage:[{status,label,n}], escalated:[rows]}
  * Escalado = MÁS de `escalateDays` días naturales desde el alta y todavía sin aprobar.
