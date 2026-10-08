@@ -20,7 +20,7 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 2.37.2 — El envío a aprobación no se pierde al firmar (2026-10-08)
+## 2.37.2 — Re-ensayos del mismo VIN y el envío a aprobación que se perdía (2026-10-08)
 
 ### Arreglado
 - **A veces había que enviar dos veces el mismo vehículo a aprobación** (#189). Al marcar el
@@ -29,20 +29,29 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   reemplazaba el vehículo por una copia nueva y la firma se guardaba en la copia vieja, que ya
   no era la del equipo: el vehículo seguía en Liberación, sin ningún aviso. Ahora la fusión
   actualiza el vehículo **en su lugar** y la firma escribe siempre en el vehículo vigente.
-- Lo mismo en **Aprobar y archivar** (y el doble ciego se vuelve a verificar si los valores del
-  liberador cambiaron mientras se firmaba) y en **Historial → 📝 Completar**.
-- Si mientras firmabas otro equipo cambió el vehículo de etapa, la app ya no escribe a ciegas:
-  dice qué pasó y no guarda la firma.
+  Lo mismo en **Aprobar y archivar** (el doble ciego se vuelve a verificar si los valores del
+  liberador cambiaron mientras se firmaba) y en **Historial → 📝 Completar**. Si mientras
+  firmabas otro equipo cambió el vehículo de etapa, la app dice qué pasó y no guarda la firma.
+- **Un re-ensayo del mismo VIN podía borrar la prueba archivada en los otros equipos.** La
+  sincronización juntaba los vehículos solo por VIN, así que al dar de alta un re-ensayo, en el
+  otro equipo se mezclaba con la prueba archivada de ese VIN y una de las dos desaparecía (y
+  2.37.1 además la retiraba de la nube). Ahora un vehículo es **VIN + fecha de alta**: las
+  copias del mismo registro se juntan y un re-ensayo es su propia prueba.
+- **Un equipo con copias repetidas de un vehículo las re-subía a la nube** después de la
+  limpieza de 2.37.1 (el VIN …184619 volvió a aparecer). Cada equipo junta ahora sus copias al
+  arrancar; lo que apuntaba a la copia que se va (plan, evidencia) pasa a la que queda.
 
 ### Para desarrollo
-- `fbMergeExecute` (merge_all de cop15) aplica el ganador con **`fbAssignInPlace`**: nunca
-  `db.vehicles[idx] = …`. Toda pantalla que guarda la referencia a un vehículo mientras espera
-  al usuario seguía apuntando al objeto viejo.
-- **`cascadeVehicleAfterSign(ref, estado)`** (cop15.js) es LA forma de retomar el vehículo al
-  volver de una firma o de cualquier espera: lo busca por id (o VIN) en `db` y confirma su
-  estado. Lo usan `submitToApproval`, `approveAndArchive` y la corrección retroactiva.
-- `tests/livesync.node.js`: el caso del #189 (firma abierta + fusión) — falla con el código
-  anterior.
+- **`vehicleCopyKey(v)`** (app.js, PURA) = VIN + `registeredAt`: LA identidad de un vehículo en
+  el sync (fusión, colapso, retiro, limpieza). `fbVehCollapseByVin` → **`fbVehCollapseCopies`**.
+  `fbVehParseDocs` guarda la fecha de alta del documento (`info.reg`); sin ella no se retira.
+- **`vehicleCollapseCopies()`** en `dedupeVehicleIds()` (+ `_vehicleIdRemapPlan`).
+- `fbMergeExecute` aplica el ganador con **`fbAssignInPlace`**: nunca `db.vehicles[idx] = …`.
+- **`cascadeVehicleAfterSign(ref, estado)`** (cop15.js): LA forma de retomar el vehículo al
+  volver de una firma o de cualquier espera.
+- La limpieza (`tools/vehicle-dedupe.node.js`) dice qué equipo y versión subió cada copia.
+- Pruebas: `livesync` (firma abierta + fusión; re-ensayo entre dos equipos — los dos fallan con
+  el código anterior) y `vehsync` (retiro/colapso/limpieza respetan re-ensayos; copias locales).
 
 ## 2.37.1 — Una copia por vehículo en la nube (2026-10-08)
 

@@ -34,7 +34,7 @@ function constante(src, nombre) {
 const bloque = (src, desde) => { const a = src.indexOf(desde); if (a < 0) throw new Error('no encontre ' + desde); return src.slice(a); };
 
 const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing',
-    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply'];
+    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply', 'vehicleCopyKey', 'vehicleCollapseCopies', '_vehicleIdRemapPlan', '_vehicleIdRepairRefs'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute', 'fbAssignInPlace',
@@ -120,7 +120,7 @@ function equipo(srv, id, opts) {
     vm.createContext(ctx);
     APP_FNS.forEach(n => vm.runInContext(extraer(SRC.app, n), ctx));
     vm.runInContext(constante(SRC.app, 'VEHICLE_TOMBSTONE_MAX'), ctx);
-    vm.runInContext('function dedupeVehicleIds() { revInitMissing(db.vehicles); vehicleTombstonesApply(); return 0; }', ctx);
+    vm.runInContext('function dedupeVehicleIds() { revInitMissing(db.vehicles); vehicleTombstonesApply(); vehicleCollapseCopies(); return 0; }', ctx);
     FB_FNS.forEach(n => vm.runInContext(extraer(SRC.fb, n), ctx));
     FB_VARS.forEach(n => vm.runInContext(constante(SRC.fb, n), ctx));
     vm.runInContext(bloque(SRC.fb, 'var FB_VEH_KNOWN_KEY'), ctx, { filename: 'veh-' + id + '.js' });
@@ -484,17 +484,49 @@ const MARGEN = 10 * 60 * 1000;
         const P0 = equipo(servidor(), 'dev_pure2');
         const parsed = P0.fbVehParseDocs([{ _id: 'v_a', vin: 'KNAX', json: JSON.stringify({ id: 'a', vin: 'KNAX' }), serverTs: '2026-10-01T00:00:00.000Z' }]);
         ok('el VIN de cada documento queda en info', parsed.info.v_a.vin === 'KNAX');
-        let p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX' }, v_b: { vin: 'KNAX' } });
+        ok('[2.37.2] y su fecha de alta', parsed.info.v_a.reg === '');
+        let p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX', reg: '' }, v_b: { vin: 'KNAX', reg: '' } });
         ok('un documento vivo de MI VIN bajo otro id se retira, apuntando al mío',
             p.retires.length === 1 && p.retires[0].docId === 'v_a' && p.retires[0].supersededBy === 'v_b' && !p.deletes.length, JSON.stringify(p));
-        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'deleted', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX' } });
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'deleted', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX', reg: '' } });
         ok('uno ya retirado no se repite', !p.retires.length);
-        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_c: 'rc', v_b: 'rb' }, {}, { v_c: { vin: 'OTRO' } });
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_c: 'rc', v_b: 'rb' }, {}, { v_c: { vin: 'OTRO', reg: '' } });
         ok('un documento de otro VIN no se toca', !p.retires.length);
         p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, {});
         ok('sin saber el VIN del documento, no se retira (nunca a ciegas)', !p.retires.length);
-        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, { v_b: true }, { v_a: { vin: 'KNAX' } });
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, { v_b: true }, { v_a: { vin: 'KNAX', reg: '' } });
         ok('lo que espera la revisión al reconectar no retira nada', !p.retires.length);
+        // [2.37.2] Un re-ensayo del mismo VIN (otra fecha de alta) NO es copia.
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', registeredAt: '2026-10-01T10:00:00.000Z', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {},
+            { v_a: { vin: 'KNAX', reg: '2026-03-05T09:00:00.000Z' } });
+        ok('[2.37.2] un re-ensayo del mismo VIN no se retira', !p.retires.length, JSON.stringify(p.retires));
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', registeredAt: '2026-03-05T09:00:00.000Z', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {},
+            { v_a: { vin: 'KNAX', reg: '2026-03-05T09:00:00.000Z' } });
+        ok('[2.37.2] una copia (mismo VIN y misma alta) sí', p.retires.length === 1 && p.retires[0].docId === 'v_a');
+        p = P0.fbVehPushPlan([{ id: 'b', vin: 'KNAX', _rev: 'rb' }], [], { v_a: 'ra', v_b: 'rb' }, {}, { v_a: { vin: 'KNAX' } });
+        ok('[2.37.2] sin la fecha de alta del documento, no se retira', !p.retires.length);
+        const reA = { id: 'r1', vin: 'KNAR', registeredAt: '2026-03-05T09:00:00.000Z', status: 'archived', updatedAt: '2026-03-18T00:00:00.000Z' };
+        const reB = { id: 'r2', vin: 'KNAR', registeredAt: '2026-10-01T10:00:00.000Z', status: 'in-progress', updatedAt: '2026-10-02T00:00:00.000Z' };
+        ok('[2.37.2] al juntar copias, un re-ensayo queda aparte', P0.fbVehCollapseCopies([reA, reB]).length === 2);
+        ok('[2.37.2] la limpieza no agrupa re-ensayos',
+            P0.fbVehDupPlan([{ _id: 'v_r1', vin: 'KNAR', json: JSON.stringify(reA) }, { _id: 'v_r2', vin: 'KNAR', json: JSON.stringify(reB) }], []).groups.length === 0);
+
+        // [2.37.2] Copias dentro de un MISMO equipo (siembras anteriores a 2.37.1): se juntan al cargar.
+        const L = equipo(servidor(), 'dev_L');
+        const c1 = { id: 'c1', vin: 'KNAC', registeredAt: '2026-03-05T09:00:00.000Z', status: 'archived', updatedAt: '2026-03-18T00:00:00.000Z', timeline: [{ timestamp: '2026-03-05T09:00:00.000Z', action: 'Alta' }] };
+        const c2 = { id: 'c2', vin: 'KNAC', registeredAt: '2026-03-05T09:00:00.000Z', status: 'archived', updatedAt: '2026-10-07T00:00:00.000Z', timeline: [{ timestamp: '2026-03-05T09:00:00.000Z', action: 'Alta' }, { timestamp: '2026-10-07T00:00:00.000Z', action: 'Completado' }] };
+        const c3 = { id: 'c3', vin: 'KNAC', registeredAt: '2026-10-01T10:00:00.000Z', status: 'in-progress', updatedAt: '2026-10-02T00:00:00.000Z' };
+        L.db.vehicles = [c1, c2, c3];
+        L.tpState = { testedList: [{ vehicleId: 'c1' }], weeklyPlans: [{ items: [{ linkedVehicleId: 'c1' }] }] };
+        const pantalla = L.db.vehicles[0];
+        L.dedupeVehicleIds();
+        ok('[2.37.2] las copias de un equipo se juntan; el re-ensayo se queda', L.db.vehicles.length === 2 &&
+            L.db.vehicles.some(v => v.id === 'c3'), L.db.vehicles.map(v => v.id).join());
+        const queda = L.db.vehicles.find(v => v.vin === 'KNAC' && v.registeredAt.startsWith('2026-03'));
+        ok('[2.37.2] gana la edición más reciente, sin cambiar el objeto (una pantalla puede tenerlo)',
+            queda === pantalla && queda.id === 'c2' && queda.timeline.length === 2);
+        ok('[2.37.2] el plan y la evidencia que apuntaban al id que se fue pasan al que queda',
+            L.tpState.testedList[0].vehicleId === 'c2' && L.tpState.weeklyPlans[0].items[0].linkedVehicleId === 'c2');
         const w = P0.fbVehWrites([], [], null, s => s, 'dev', [{ docId: 'v_a', vin: 'KNAX', supersededBy: 'v_b' }]);
         ok('el retiro escribe SOLO deleted/rev/supersededBy/writer (el json se queda)',
             w.length === 1 && w[0].updateMask.fieldPaths.join() === 'deleted,rev,supersededBy,writer' && !w[0].update.fields.json);
@@ -549,7 +581,7 @@ const MARGEN = 10 * 60 * 1000;
         const plan = P0.fbVehDupPlan([d('p1', p1), d('p2', p2), d('s1', solo), d('x1', borr), d('x2', borr2), d('z', solo, { deleted: true })],
             [{ id: 'x1', vin: borr.vin, registeredAt: borr.registeredAt }, { id: 'x2', vin: borr.vin, registeredAt: borr.registeredAt }]);
         const g = plan.groups[0];
-        ok('agrupa por VIN y se queda con la edición más reciente (regla de la app)', plan.groups.length === 1 && g.keep === 'v_p2' &&
+        ok('agrupa copias (VIN + alta) y se queda con la edición más reciente (regla de la app)', plan.groups.length === 1 && g.keep === 'v_p2' &&
             g.retire.length === 1 && g.retire[0].docId === 'v_p1' && g.retire[0].supersededBy === 'v_p2', JSON.stringify(plan.groups.map(x => [x.keep, x.retire])));
         ok('el que se queda recibe la bitácora unida', g.update && g.merged.timeline.length === 2);
         ok('lo marcado como borrado y lo ya retirado no se tocan', plan.tombstoned === 2 && plan.live === 5);

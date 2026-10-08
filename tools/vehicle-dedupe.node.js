@@ -63,7 +63,7 @@ async function main() {
         }
     }
     plan.groups.forEach(g => {
-        log(`${tail(g.vin)}${g.distinctRegs > 1 ? '  ⚠ copias con distinta fecha de alta' : ''}`);
+        log(`${tail(g.vin)}  alta ${day(g.copies[0].registeredAt)}`);
         g.copies.forEach(c => {
             const d = byId[c.docId] || {};
             log(`    ${c.docId === g.keep ? 'SE QUEDA' : 'se retira'}  ${c.docId}  alta ${day(c.registeredAt)}  ${c.status}` +

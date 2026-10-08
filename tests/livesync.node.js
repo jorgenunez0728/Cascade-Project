@@ -40,7 +40,7 @@ function constante(src, nombre) {
 }
 
 const APP_FNS = ['stableStringify', 'strHash', 'revContentHash', 'stampRevisions', 'revInitMissing',
-    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply'];
+    '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleTombstone', 'vehicleTombstonesApply', 'vehicleCopyKey'];
 const APP_VARS = ['VEHICLE_TOMBSTONE_MAX'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
@@ -448,6 +448,30 @@ console.log('\n== firma abierta + fusión del sync (#189) ==');
     const t = { a: 1, b: 2 }, src = { b: 3, c: 4 };
     ok('fbAssignInPlace deja el contenido exacto sin cambiar la identidad',
         A.fbAssignInPlace(t, src) === t && A.stableStringify(t) === A.stableStringify({ b: 3, c: 4 }));
+}
+
+// ── 2.37.2: un re-ensayo del mismo VIN no se mezcla con la prueba archivada ─
+console.log('\n== re-ensayo del mismo VIN entre dos equipos (2.37.2) ==');
+{
+    arrancar();
+    [A, B].forEach(d => { d.db.vehicles[0].status = 'archived'; d.stampRevisions(d.db.vehicles, new FakeDate().toISOString()); });
+    reloj += 60000;
+    A.db.vehicles.push({ id: 'v2', vin: 'KNA123', status: 'registered', purpose: 'CoP', configCode: 'C1',
+        registeredAt: new FakeDate().toISOString(), timeline: [{ timestamp: new FakeDate().toISOString(), action: 'Alta (re-ensayo)' }] });
+    guardar(A);
+    correr();
+    const bIds = B.db.vehicles.map(v => v.id + ':' + v.status).sort().join();
+    ok('el otro equipo tiene las DOS pruebas del VIN', bIds === 'v1:archived,v2:registered', bIds);
+    ok('la archivada sigue archivada en los dos', A.db.vehicles.find(v => v.id === 'v1').status === 'archived' &&
+        B.db.vehicles.find(v => v.id === 'v1').status === 'archived');
+    // Editar el re-ensayo en B no toca la archivada en A.
+    reloj += 60000;
+    B.db.vehicles.find(v => v.id === 'v2').status = 'in-progress';
+    guardar(B);
+    correr();
+    ok('editar el re-ensayo llega a su registro, no al archivado',
+        A.db.vehicles.find(v => v.id === 'v2').status === 'in-progress' && A.db.vehicles.find(v => v.id === 'v1').status === 'archived',
+        A.db.vehicles.map(v => v.id + ':' + v.status).join());
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
