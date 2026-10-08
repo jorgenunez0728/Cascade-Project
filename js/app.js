@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.35.1';
+var APP_VERSION = '2.36.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '2.35.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.36.0', date: '7 oct 2026', title: 'Solo cuentan las reglas del laboratorio',
+      bullets: [
+          'Cambió: solo cuenta para el plan lo que tiene regla en Plan → Reglas. Una configuración sin regla (p. ej. Canadá SULEV 30, Brasil, Europa EURO-5) ya no exige pruebas, no entra a la cobertura, al generador de la semana ni al Excel para auditoría. Antes caía a una regla escondida de 1 por cada 1,000.',
+          'Cambió: el REQ de cada familia (Plan → Familias, CoP y Excel) usa esas mismas reglas (pruebas por cada N unidades) en lugar de los lotes fijos de 3 por 5,000 iguales para toda norma.',
+          'Nuevo: 🚫 Sacar del conteo en cada familia (Plan → Familias). Pide motivo, queda en el historial de cambios y se ve en todos los equipos; ↩ Que cuente la regresa. La lista de familias fuera del conteo está también en Plan → Reglas.',
+          'Plan → Reglas agrupa las configuraciones que no cuentan por región y norma, con "+ Regla" para agregar la que falte. ↺ Restaurar pone las seis reglas del laboratorio, sin regla comodín.',
+          'Excel para auditoría → Projection: cada familia trae su regla (Tests y per units, amarillas), en gris y con "NOT COUNTED" lo que no cuenta, y la columna "Not counted" con las unidades que no entraron.'
+      ] },
     { version: '2.35.1', date: '7 oct 2026', title: 'Historial: la fecha es la de la prueba',
       bullets: [
           'Cambió: la columna Fecha del Historial ahora es la Fecha de prueba (la que se le carga a la prueba en Operación o desde VETS), no el día en que se dio de alta en el sistema. Ordenar, filtrar por año/mes, agrupar por mes y el Excel usan esa misma fecha.',

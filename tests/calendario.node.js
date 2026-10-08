@@ -171,18 +171,55 @@ t('propuestas: sólo la vigente de la semana y marcada', () => {
     eq(Object.keys(pl).join(), '2026-10-06'); eq(pl['2026-10-06'][0].proposal, true);
 });
 
-console.log('REQ mensual por lotes acumulados');
-t('la suma del periodo = REQ del total', () => {
+console.log('REQ por la regla de la norma (2.36.0)');
+const R3 = { ratio: 3, per: 1000 }, R2 = { ratio: 2, per: 1000 };
+t('la suma del periodo = REQ del total menos el de antes', () => {
     const vols = [1200, 900, 3000, 2600, 500, 4100, 0, 2200];
     const hist = 800;
-    const m = sandbox.tpFamilyMonthlyRequired(vols, hist);
+    const m = sandbox.tpFamilyMonthlyRequired(vols, hist, R3);
     const tot = vols.reduce((a, b) => a + b, hist);
-    eq(m.reduce((a, b) => a + b, 0), sandbox.tpFamilyRequired(tot) - sandbox.tpFamilyRequired(hist));
+    eq(m.reduce((a, b) => a + b, 0), sandbox.tpFamilyRequired(tot, R3) - sandbox.tpFamilyRequired(hist, R3));
 });
-t('el mes que cruza 7 501 pide 3 más; el primer volumen pide 3', () => {
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([100, 7000, 400, 1], 0)), '[3,0,0,3]');
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([0, 0], 0)), '[0,0]');
-    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([10], 7500)), '[3]', 'hist ya trae 3: 7 510 pide 3 más');
+t('ROUNDUP(unidades × pruebas / N), al menos 1 con producción', () => {
+    eq(sandbox.tpFamilyRequired(0, R3), 0, 'sin volumen no exige');
+    eq(sandbox.tpFamilyRequired(1, R3), 1, 'piso de 1');
+    eq(sandbox.tpFamilyRequired(1000, R3), 3, 'exacto: sin ruido de coma flotante');
+    eq(sandbox.tpFamilyRequired(1001, R3), 4);
+    eq(sandbox.tpFamilyRequired(50015, R3), 151);
+    eq(sandbox.tpFamilyRequired(1000, { ratio: 0.3, per: 100 }), 3, '0.3/100 da 3, no 4');
+    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([100, 233, 0, 1], 0, R3)), '[1,0,0,1]', '334 cruza a 2');
+    eq(JSON.stringify(sandbox.tpFamilyMonthlyRequired([0, 0], 0, R3)), '[0,0]');
+});
+t('la tasa sale de la regla de la norma, no de un número fijo', () => {
+    // El caso del reporte: CL4 MY26 (94 226 antes + 19 789) y MY27 (1 antes + 50 014),
+    // las dos SULEV 30: la MISMA tasa, la diferencia es solo de volumen.
+    const my26 = sandbox.tpFamilyMonthlyRequired([8756, 8605, 2289, 139], 94226, R3).reduce((a, b) => a + b, 0);
+    const my27 = sandbox.tpFamilyMonthlyRequired([27, 13317, 13895, 12903, 9872], 1, R3).reduce((a, b) => a + b, 0);
+    eq(my26, sandbox.tpFamilyRequired(114015, R3) - sandbox.tpFamilyRequired(94226, R3));
+    eq(my27, 150, 'MY27: 151 al cierre menos 1 que ya pedía la primera unidad');
+    eq(sandbox.tpFamilyRequired(10000, R2), 20, 'otra norma, otra tasa');
+});
+t('tpFamilyRate: una regla tal cual; varias, ponderadas por volumen', () => {
+    const one = sandbox.tpFamilyRate([{ vol: 10, ratio: 3, per: 1000, label: 'USA' }, { vol: 5, ratio: 3, per: 1000, label: 'Canada' }]);
+    eq(one.ratio, 3); eq(one.per, 1000); eq(one.mixed, false); eq(one.labels.join(), 'USA,Canada');
+    const mix = sandbox.tpFamilyRate([{ vol: 3000, ratio: 3, per: 1000, label: 'A' }, { vol: 1000, ratio: 2, per: 1000, label: 'B' }]);
+    eq(mix.mixed, true); eq(mix.per, 1000); eq(mix.ratio, 2.75);
+    const sinVol = sandbox.tpFamilyRate([{ vol: 0, ratio: 3, per: 1000 }, { vol: 0, ratio: 1, per: 500 }]);
+    eq(sinVol.ratio, 2.5, 'sin volumen: promedio simple (3 y 2 por mil)');
+    eq(sandbox.tpFamilyRate([]).ratio, 0, 'sin reglas: no cuenta');
+    eq(sandbox.tpFamilyRate([]).none, true);
+    eq(sandbox.tpFamilyRate([{ vol: 50, ratio: 0, per: 1000 }, { vol: 10, ratio: 2, per: 15000, label: 'USA' }]).ratio, 2,
+       'lo que no cuenta (ratio 0) no entra al promedio');
+});
+
+t('tpBuildFamilies usa la regla de Plan → Reglas', () => {
+    const fams = sandbox.tpBuildFamilies();
+    ok(fams.length > 0, 'hay familias');
+    fams.forEach(f => {
+        eq(f.totalRequired, sandbox.tpFamilyRequired(f.reqVol, f.rate), f.key);
+        eq(f.reqVol + f.uncountedVol, f.activeVol, 'lo que cuenta + lo que no = el volumen vigente');
+        ok(f.rate && f.rate.per > 0, 'tasa en la familia ' + f.key);
+    });
 });
 
 console.log('Libro de auditoría (.xlsx)');
@@ -225,8 +262,12 @@ t('la prueba del martes cae en la hoja de su mes, en martes, y cuenta en Tested'
     ok(/^IF\(\$A\d+="","",COUNTIFS\(\$G\$5:\$S\$\d+,\$A\d+,\$H\$5:\$T\$\d+,"<>"\)\)$/.test(cell(sep, 'D' + r).f), 'Tested = COUNTIFS familia + VIN al lado: ' + cell(sep, 'D' + r).f);
     ok(/^IF\(\$A\d+="","",COUNTIF\(\$G\$5:\$T\$\d+,\$A\d+\)\)$/.test(cell(sep, 'C' + r).f), 'Planned = COUNTIF de la familia en el calendario');
     eq(cell(sep, 'C' + r).v, 1, 'Planned: también cuenta lo ya probado (un mes sin plan tiene su Planned)');
-    eq(cell(sep, 'B' + r).v, 3, 'Required de septiembre (2 000 acumuladas → 3)');
-    eq(spec.sheets[4].cells.filter(x => x.r === r && x.c === 2)[0].v, 3, 'Required de octubre (8 000 acumuladas → 3 más)');
+    eq(cell(sep, 'B' + r).v, sandbox.tpFamilyRequired(2000, fa.rate), 'Required de septiembre (2 000 acumuladas, con la regla de la norma)');
+    const rule = sandbox.tpGetRule(cfgA), P = spec.sheets[2], pr = 5 + model.families.indexOf(fa);
+    eq(fa.rate.ratio, rule.ratio, 'la tasa de la familia es la de Plan → Reglas'); eq(fa.rate.per, rule.per);
+    eq(cell(P, 'E' + pr).v, rule.ratio, 'Projection: Tests'); eq(cell(P, 'F' + pr).v, rule.per, 'Projection: per units');
+    ok(/ROUND\(\(\$G\d+\+SUM\(H\d+:H\d+\)\)\*\$E\d+\/\$F\d+,6\)/.test(cell(P, 'L' + pr).f), 'la fórmula usa la tasa del renglón: ' + cell(P, 'L' + pr).f);
+    eq(spec.sheets[4].cells.filter(x => x.r === r && x.c === 2)[0].v, sandbox.tpFamilyRequired(8000, fa.rate) - sandbox.tpFamilyRequired(2000, fa.rate), 'Required de octubre: lo que agregan 8 000 acumuladas');
     const tl = spec.sheets[5];
     eq(cell(tl, 'A5').v.date, '2026-09-15'); eq(cell(tl, 'B5').v, 'Tue'); eq(cell(tl, 'G6').v, 'No (purpose)');
 });
@@ -258,7 +299,8 @@ t('plantilla: mismo libro, sin datos del laboratorio', () => {
     const sep = tpl.sheets[3];
     eq(sep.cells.filter(x => x.c >= 7 && x.r > 4 && typeof x.v === 'string' && x.v).length, 0, 'calendario vacío');
     ok(sep.validations.length === 1 && /^Lists!\$A\$2:\$A\$\d+$/.test(sep.validations[0].list), 'lista desplegable');
-    eq(tpl.sheets[2].cells.filter(x => x.r >= 5 && x.c >= 4 && x.c <= 6 && x.v).length, 0, 'producción vacía');
+    eq(tpl.sheets[2].cells.filter(x => x.r >= 5 && x.c >= 7 && x.c <= 9 && x.v).length, 0, 'producción vacía');
+    ok(tpl.sheets[2].cells.some(x => x.r === 5 && x.c === 5 && typeof x.v === 'number' && x.v > 0), 'la plantilla trae la tasa de cada familia');
 });
 t('el archivo se arma y es determinista', () => {
     const model = sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-09', generated: '2026-10-04' });
@@ -266,6 +308,100 @@ t('el archivo se arma y es determinista', () => {
     ok(a.length > 10000 && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0);
 });
 
+console.log('2.36.0 — solo cuentan las reglas de Plan → Reglas');
+const cfg = (o) => Object.assign({}, cfgA, o);
+t('las reglas del laboratorio son el default, sin comodín', () => {
+    const d = sandbox.tpDefaultRules();
+    eq(d.length, 6);
+    ok(!d.some(r => r.region === '*' && r.regulation === '*'), 'sin regla Todas/Todas');
+    const usa = d.find(r => r.region === 'USA');
+    eq(usa.ratio + '/' + usa.per, '2/15000');
+    eq(d.find(r => r.regulation === 'PRE-EURO 7').per, 7500);
+});
+t('sin regla: ratio 0, no exige y no entra a la cobertura', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const can = cfg({ desc: 'CAN', rgn: 'CANADA', total: 30000, hist: 0 });
+    const r = sandbox.tpGetRule(can);
+    eq(r._matchType, 'sin-regla'); eq(r.ratio, 0);
+    eq(sandbox.tpCalcRequired(can, r), 0);
+    const bra = cfg({ desc: 'BRA', rgn: 'BRAZIL', reg: 'BRAZIL L8', total: 9000, hist: 0 });
+    eq(sandbox.tpGetRule(bra)._matchType, 'sin-regla', 'Brasil no tiene regla');
+    const eu6 = cfg({ desc: 'EU5', rgn: 'EUROPE', reg: 'EURO-5' });
+    eq(sandbox.tpGetRule(eu6)._matchType, 'sin-regla', 'Europa solo cuenta PRE-EURO 7');
+    eq(sandbox.tpGetRule(cfg({ rgn: 'MEXICO', reg: 'EURO-5' }))._matchType, 'region', 'México / Todas');
+    const usa = cfg({ desc: 'USA', rgn: 'USA', total: 30000, hist: 0 });
+    eq(sandbox.tpCalcRequired(usa, sandbox.tpGetRule(usa)), 4, '30 000 × 2/15 000');
+    // Cobertura: solo cuentan las vigentes (con regla).
+    S.planData = [usa, can]; S.testedList = []; S._lastSave = Date.now();
+    const an = sandbox.tpGetAnalysis();
+    eq(an.find(a => a.desc === 'CAN').required, 0);
+    eq(an.find(a => a.desc === 'USA').required, 4);
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now();
+});
+t('una regla "Todas / Todas" escrita a mano sí cuenta (es decisión de quien edita)', () => {
+    S.rules = sandbox.tpDefaultRules().concat([{ id: 99, region: '*', regulation: '*', ratio: 1, per: 1000, label: 'Todo' }]);
+    eq(sandbox.tpGetRule(cfg({ rgn: 'CANADA' }))._matchType, 'comodín');
+    S.rules = sandbox.tpDefaultRules();
+});
+t('familia USA + Canadá: solo cuenta el volumen de USA', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const u = cfg({ desc: 'U', rgn: 'USA', total: 20000, hist: 10000 });
+    const c = cfg({ desc: 'C', rgn: 'CANADA', total: 40000, hist: 0 });
+    S.planData = [u, c]; S.testedList = []; S._lastSave = Date.now();
+    const f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.reqVol, 30000); eq(f.uncountedVol, 40000); eq(f.noRuleCount, 1);
+    eq(f.reqStatus, 'parcial');
+    eq(f.totalRequired, 4, '30 000 × 2/15 000');
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now();
+});
+t('familia fuera del conteo: no exige, se declara, y regresa', () => {
+    S.rules = sandbox.tpDefaultRules();
+    const u = cfg({ desc: 'U', rgn: 'USA', total: 30000, hist: 0 });
+    S.planData = [u]; S.testedList = []; S.reqFamilies = {}; S._lastSave = Date.now();
+    eq(sandbox.tpSetFamilyReqCount(famA, false, ''), false, 'sin motivo no se saca');
+    eq(sandbox.tpSetFamilyReqCount(famA, false, 'no es mercado auditado'), true);
+    eq(S.reqFamilies[famA].excluded, true);
+    eq(sandbox.tpReqRuleFor(u)._matchType, 'excluida');
+    let f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.totalRequired, 0); eq(f.reqStatus, 'excluida');
+    eq(sandbox.tpGetAnalysis()[0].required, 0, 'la configuración tampoco exige');
+    eq(sandbox.tpGetRule(u)._matchType, 'exacta', 'la regla sigue empatando (para Reglas)');
+    eq(sandbox.tpSetFamilyReqCount(famA, true), true);
+    eq(S.reqFamilies[famA].excluded, false, 'queda la marca de que volvió a contar');
+    f = sandbox.tpBuildFamilies().find(x => x.key === famA);
+    eq(f.totalRequired, 4); eq(f.reqStatus, 'cuenta');
+    S.planData = [cfgA, cfgB]; S.reqFamilies = {}; S._lastSave = Date.now();
+});
+t('sync: gana la marca más reciente, en los dos sentidos', () => {
+    const a = { k1: { excluded: true, at: '2026-10-07T10:00:00Z', reason: 'x' } };
+    const b = { k1: { excluded: false, at: '2026-10-07T11:00:00Z' }, k2: { excluded: true, at: '2026-10-01T00:00:00Z' } };
+    const u1 = sandbox.tpReqFamiliesUnion(a, b), u2 = sandbox.tpReqFamiliesUnion(b, a);
+    eq(JSON.stringify(u1), JSON.stringify(u2) === JSON.stringify(u1) ? JSON.stringify(u1) : 'asimétrica');
+    eq(u1.k1.excluded, false, 'regresó después: cuenta');
+    eq(u1.k2.excluded, true);
+    eq(sandbox.tpReqFamiliesNewTo(a, b), true);
+    eq(sandbox.tpReqFamiliesNewTo(u1, a), false);
+    eq(Object.keys(sandbox.tpReqFamiliesUnion({ '': { excluded: true, at: 'z' } }, null)).length, 0, 'nunca una clave vacía');
+});
+t('libro: lo que no cuenta va a "Not counted" y la tasa en 0', () => {
+    S.rules = sandbox.tpDefaultRules();
+    S.months = ['Aug-26', 'Sep-26', 'Oct-26'];
+    const u = cfg({ desc: 'U', rgn: 'USA', m: [0, 15000, 15000], total: 30000, hist: 0 });
+    const c = cfg({ desc: 'C', rgn: 'CANADA', m: [0, 9000, 0], total: 9000, hist: 0 });
+    const w = Object.assign({}, cfgB, { desc: 'W', rgn: 'CANADA', m: [0, 500, 0], total: 500, hist: 0 });
+    S.planData = [u, c, w]; S.testedList = []; S.weeklyPlans = []; S._lastSave = Date.now();
+    sandbox.tpCatalogInvalidate(); sandbox.db.vehicles = [];
+    const model = sandbox.tpAuditXlsxModel({ from: '2026-09', to: '2026-10', generated: '2026-10-07' });
+    const fa = model.families.find(f => f.key === famA), fb = model.families.find(f => f.key === sandbox.tpFamilyKeyForCfg(cfgB));
+    eq(fa.vols.join(), '15000,15000', 'solo USA en la producción');
+    eq(fa.uncounted, 9000);
+    ok(/not counted \(no rule\): CANADA/.test(fa.ruleText), fa.ruleText);
+    eq(fb.rate.ratio, 0); ok(/^NOT COUNTED/.test(fb.ruleText), fb.ruleText);
+    const P = sandbox.tpAuditXlsxSpec(model).sheets[2], rb = 5 + model.families.indexOf(fb);
+    eq(cell(P, 'E' + rb).v, 0, 'Tests = 0');
+    ok(P.cells.filter(x => x.r === rb && x.c >= 14 && x.c <= 16 && x.f).every(x => x.v === 0), 'no exige nada');
+    S.planData = [cfgA, cfgB]; S._lastSave = Date.now(); sandbox.tpCatalogInvalidate();
+});
 console.log('2.33.0 — una semana = un lunes = un plan, y lo borrado no regresa');
 t('tpMondayIso', () => {
     eq(sandbox.tpMondayIso('2026-03-04'), '2026-03-02', 'miércoles → su lunes');

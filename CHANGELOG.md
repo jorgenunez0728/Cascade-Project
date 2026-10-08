@@ -20,6 +20,61 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.36.0 — Solo cuentan las reglas del laboratorio (2026-10-07)
+
+### Cambió
+- **Solo cuenta para el plan lo que tiene regla en Plan → Reglas.** Antes una configuración sin
+  regla caía a una regla escondida de 1 prueba por cada 1,000 unidades, así que todo el catálogo
+  exigía pruebas. Ahora una configuración sin regla **no exige nada**: no entra al REQ, a la
+  cobertura, al generador de la semana ni al Excel para auditoría. Con las reglas del laboratorio
+  quedan fuera, por ejemplo, Canadá SULEV 30, Brasil, Europa EURO-5, General EURO-2/4/5 y los
+  eléctricos de EE. UU., Canadá y General.
+- Una regla de región con "Todas" cubre todas sus normas: **México / Todas** incluye sus
+  eléctricos (120V) y **Medio Oriente / Todas** incluye EURO-2 y EURO-4.
+- **El REQ de cada familia usa esas mismas reglas** (pruebas por cada N unidades), no la regla
+  fija de lotes (3 por cada 5,000) que era igual para todas las normas. Sigue siendo un REQ por
+  familia: la regla se aplica una vez al volumen de la familia, con mínimo 1 en cuanto hay
+  producción. Si la familia junta regiones, solo cuenta el volumen de las que tienen regla (p. ej.
+  CL4 SULEV 30: EE. UU. sí, Canadá no).
+- **↺ Restaurar** en Reglas pone las seis reglas del laboratorio (EE. UU./SULEV 30 2 por 15,000 ·
+  México 1 por 10,000 · Europa/PRE-EURO 7 3 por 7,500 · Australia 1 por 15,000 · General/EURO-6C
+  1 por 10,000 · Medio Oriente 1 por 10,000), sin regla comodín. **+ Nueva** crea una regla que
+  no cuenta hasta que se le pone ratio.
+
+### Nuevo
+- **🚫 Sacar del conteo** en cada familia (Plan → Familias): aunque su norma tenga regla, la
+  familia deja de exigir pruebas. Pide motivo, queda en el historial de cambios y se ve en todos
+  los equipos. **↩ Que cuente** la regresa. Cada familia dice con qué regla cuenta o por qué no.
+- Plan → Reglas: las configuraciones que no cuentan, agrupadas por región y norma con sus unidades
+  y un botón **+ Regla**; y la lista de familias fuera del conteo con su motivo.
+- **Excel para auditoría → Projection**: columnas Rule, Tests y per units (amarillas) por familia;
+  lo que no cuenta va en gris con "NOT COUNTED" y Tests = 0; la columna **Not counted** dice
+  cuántas unidades del plan no entraron.
+
+### Para desarrollo
+- **`tpGetRule(cfg)`** ya no tiene un 1/1000 escrito a mano: sin regla devuelve `ratio: 0`,
+  `_matchType: 'sin-regla'`. Orden: región+norma → región+Todas → Todas+norma → Todas+Todas.
+- **`tpReqRuleFor(cfg)` es LA regla con la que una configuración cuenta**: `tpGetRule` + la
+  exclusión de su familia (`_matchType: 'excluida'`, ratio 0). La usan `tpGetAnalysis`,
+  `tpPriorityScore`, `_tpMakeItem`, `tpBuildFamilies`, el libro y la sugerencia del Alta.
+  `tpGetRule` queda para mostrar qué regla empata (Reglas).
+- `tpCalcRequired` / `tpFamilyRequired(vol, rate)` devuelven 0 con ratio 0. `tpFamilyRate(items)`
+  (PURA) ignora lo que no cuenta; sin nada que cuente → `{ratio: 0, none: true}`.
+- `tpBuildFamilies`: `f.reqVol` (lo que cuenta), `f.uncountedVol`, `f.noRuleCount`, `f.rate`,
+  `f.reqStatus` (`cuenta` | `parcial` | `sin-regla` | `excluida`). `f.totalRequired =
+  tpFamilyRequired(f.reqVol, f.rate)`.
+- **`tpState.reqFamilies`** = `{[familyKey]: {excluded, at, by, reason}}`; `tpSetFamilyReqCount`
+  (permiso `plan.manage`, motivo ≥ 5 para sacar, auditoría con antes/después). Volver a contar
+  deja `excluded: false` (marca, no se borra). **`tpReqFamiliesUnion` (PURA, simétrica)** y
+  `tpReqFamiliesNewTo` se usan en `_fbPullSeed`, `hasWork`, `_fbLocalHasExtras`, la fusión y la
+  huella del módulo, como las marcas de planes borrados.
+- Se retiraron `TP_COP_LOT_UNITS`, `TP_COP_LOT_TESTS` y `TP_COP_LOT_ROLLOVER`.
+  `_tpAuditReqF(x, ratioRef, perRef)` = `IF(OR(x<=0,N(ratio)<=0),0,MAX(1,ROUNDUP(ROUND(x×ratio/per,6),0)))`.
+- `tpSetFamilyOverride` ya no borra la entrada de la familia al quitar criticidad y fecha si
+  le queda otro dato.
+- Verificado: 1,965 fórmulas recalculadas en LibreOffice dan los valores de la app.
+- Pruebas: `tests/calendario.node.js` (32).
+
 ## 2.35.1 — Historial: la fecha es la de la prueba (2026-10-07)
 
 ### Cambió

@@ -3024,3 +3024,30 @@ The field needs an associated `<label>`. CSS: `.cascade-help-btn`, `.cascade-too
   `'AAAA-MM-DD'`, o `''`). El Historial la usa para mostrar, ordenar, filtrar, agrupar por mes y
   exportar; sin ella la fila dice "sin fecha de prueba" y va al final en los dos sentidos.
   `vehicleListDate` (alta, o la prueba solo en un histórico) ya no la usa el Historial.
+
+## 2.36.0 — Solo cuentan las reglas del laboratorio (`js/testplan.js`)
+
+Reemplaza lo que v20.9 y 2.32.0 dicen sobre la REGLA del REQ de familia (los lotes fijos de 3
+por 5 000), y lo que v16.2 dice del fallback de `tpGetRule`. Lo que v20.9 decidió sobre la
+UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
+
+- **Sin regla NO cuenta.** `tpGetRule` ya no cae a un 1/1000 escrito a mano: devuelve ratio 0 y
+  `_matchType: 'sin-regla'`. Plan → Reglas es la LISTA de lo que cuenta. Una regla "Todas /
+  Todas" escrita por el laboratorio sí cuenta todo; el código nunca la inventa (ni
+  `tpDefaultRules`, ni `+ Nueva`, que nace con ratio 0).
+- **`tpReqRuleFor(cfg)` es LA regla con la que una configuración cuenta** (regla + exclusión de
+  su familia). Todo cálculo de REQ, cobertura, generador o libro la usa; `tpGetRule` solo sirve
+  para mostrar qué regla empata. Nunca volver a llamar `tpCalcRequired(cfg, tpGetRule(cfg))`.
+- **`tpFamilyRate(items)` (PURA) es LA tasa de una familia**, de las configuraciones que cuentan.
+  Una familia no lleva región en su clave: si junta regiones, solo entra el volumen de las que
+  tienen regla (`f.reqVol`; lo demás en `f.uncountedVol`) y con varias reglas la tasa se pondera
+  (`mixed`, "Weighted" en el libro, redondeada a 4 decimales y la app calcula con ESE número).
+- **`tpFamilyRequired(vol, rate)` / `tpFamilyMonthlyRequired(vols, hist, rate)`**: 0 con ratio 0.
+  `_tpAuditReqF(x, ratioRef, perRef)` es su fórmula de Excel: si cambia una, cambia la otra.
+- **Familias fuera del conteo: `tpState.reqFamilies`**, por clave de familia, con `{excluded,
+  at, by, reason}`. Regresar deja `excluded:false` (es la marca que gana por fecha; borrarla
+  haría volver la exclusión vieja de otro equipo). Se une en el sync con `tpReqFamiliesUnion`
+  (PURA, simétrica) en los mismos cinco puntos que `deletedPlans`. Toda marca nueva de `tpState`
+  que deba viajar sigue ese patrón; `familyOverrides` NO se fusiona en `merge_all`.
+- El libro escribe Rule / Tests / per units en Projection (D, E, F) y "Not counted"; lo que no
+  cuenta lleva "NOT COUNTED" en D, que el formato condicional pinta en gris.
