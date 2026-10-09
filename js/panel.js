@@ -1016,9 +1016,10 @@ function pnRender(opts) {
 function pnUpdateBadges() {
     var badge = document.getElementById('pn-alerts-badge');
     if (badge) {
-        var count = pnGetActiveAlerts().length;
-        badge.textContent = count > 0 ? count + ' alertas' : 'ok';
-        badge.style.color = count > 0 ? '#fbbf24' : '#34d399';
+        // [3.0.0] Grupos, no filas: "3 alertas" en vez de "88 alertas".
+        var c = pnAlertGroupCounts(pnActiveAlertGroups());
+        badge.textContent = c.total > 0 ? c.total + (c.total === 1 ? ' alerta' : ' alertas') : 'ok';
+        badge.style.color = c.CRITICA > 0 ? '#f87171' : (c.total > 0 ? '#fbbf24' : '#34d399');
     }
 }
 
@@ -1214,7 +1215,8 @@ function labPulseData() {
     var board = null, coverage = null, alerts = [], low = 0, calOver = 0;
     if (typeof tpWeekBoardRows === 'function') { try { board = tpWeekBoardRows({}); } catch (e) { board = null; } }
     if (typeof tpCoverageSummary === 'function') { try { coverage = tpCoverageSummary(); } catch (e) { coverage = null; } }
-    if (typeof pnGetActiveAlerts === 'function') { try { alerts = pnGetActiveAlerts() || []; } catch (e) { alerts = []; } }
+    // [3.0.0] El Pulso cuenta GRUPOS (40 calibraciones vencidas = 1), no filas.
+    if (typeof pnActiveAlertGroups === 'function') { try { alerts = pnActiveAlertGroups() || []; } catch (e) { alerts = []; } }
     if (typeof invState !== 'undefined' && invState.gases && typeof invGasIsLow === 'function')
         low = invState.gases.filter(function(g) { return g && g.status !== 'Empty' && invGasIsLow(g); }).length;
     if (typeof invCalSummary === 'function') { try { calOver = invCalSummary().vencidos || 0; } catch (e) { calOver = 0; } }
@@ -1290,12 +1292,12 @@ function _labPulseHTML(p) {
 
     // 5) Atención
     var a = p.attention;
+    // [3.0.0] Grupos de alertas (pnAlertGroups): rojo solo si algo detiene una prueba.
     var aBits = [];
-    if (a.crit) aBits.push(a.crit + ' crítica' + (a.crit === 1 ? '' : 's'));
-    if (a.high) aBits.push(a.high + ' alta' + (a.high === 1 ? '' : 's'));
-    if (a.lowGases) aBits.push(a.lowGases + ' gas' + (a.lowGases === 1 ? '' : 'es') + ' bajo' + (a.lowGases === 1 ? '' : 's'));
-    if (a.calOverdue) aBits.push(a.calOverdue + ' calib. vencida' + (a.calOverdue === 1 ? '' : 's'));
-    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Alertas activas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
+    if (a.crit) aBits.push(a.crit + ' detiene' + (a.crit === 1 ? '' : 'n') + ' pruebas');
+    if (a.high) aBits.push(a.high + ' por atender');
+    if (a.med) aBits.push(a.med + ' aviso' + (a.med === 1 ? '' : 's'));
+    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Grupos de alertas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
               num(a.total), '', aBits.join(' · ') || 'Sin alertas activas');
 
     return h + '</div>';
@@ -1405,18 +1407,20 @@ function renderLabOverview(el, opts) {
                      tone: tpPct === 100 ? 'ok' : 'warn' }
         });
     }
-    if (has('alerts') && typeof pnGetActiveAlerts === 'function') {
-        var alerts = pnGetActiveAlerts();
-        if (alerts.length) {
+    if (has('alerts') && typeof pnActiveAlertGroups === 'function') {
+        // [3.0.0] Grupos (pnAlertGroups): una línea por tipo, con su conteo.
+        var aGroups = pnActiveAlertGroups();
+        if (aGroups.length) {
             var alertBody = '';
-            alerts.slice(0, 5).forEach(function(a) {
-                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius:var(--radius-md);font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
+            aGroups.slice(0, 5).forEach(function(g) {
+                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + g.color + '20;color:' + g.color + ';border-radius:var(--radius-md);font-weight:700;">' + (g.n > 1 ? g.n : '1') + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + g.icon + ' ' + escapeHtml(g.title) + '</span></div>';
             });
-            if (alerts.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (alerts.length - 5) + ' más...</div>';
+            if (aGroups.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (aGroups.length - 5) + ' grupos más · Datos → Alertas</div>';
+            var aCnt = pnAlertGroupCounts(aGroups);
             html += uiCard({
                 id: 'lo-alerts', icon: '⚠️', title: 'Alertas Activas', accent: 'cop',
                 body: alertBody,
-                count: { label: String(alerts.length), tone: 'danger' }
+                count: { label: String(aCnt.total), tone: aCnt.CRITICA ? 'danger' : 'warn' }
             });
         }
     }
@@ -2219,30 +2223,55 @@ function pnExportShiftLog() {
 // ║  NOTIFICATIONS / ALERTS CENTER                                      ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [3.0.0] COLORES POR NIVEL. Rojo (CRITICA) = SOLO lo que detiene una prueba o un resultado:
+// desacuerdo del doble ciego, cilindro en nivel crítico, instrumento de un equipo de prueba con
+// calibración vencida, vehículo escalado, y la nube que ya no recibe un módulo. Lo demás es
+// ALTA (ámbar) o MEDIA. Antes 40 calibraciones vencidas eran 40 alertas rojas.
+var PN_ALERT_COLORS = { CRITICA: '#ef4444', ALTA: '#f59e0b', MEDIA: '#06b6d4' };
+function _pnAlert(level, kind, source, message, extra) {
+    return Object.assign({ level: level, color: PN_ALERT_COLORS[level] || '#06b6d4', kind: kind, source: source, message: message }, extra || {});
+}
+
 function pnGetActiveAlerts() {
     var alerts = [];
 
     // Check vehicles stuck too long in a status
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = Date.now();
+    // [3.0.0] Escalado = la misma regla del resumen diario (digestVehicles): más de N días
+    // desde el alta sin aprobar. digest.js carga después — guarda typeof.
+    var escalados = {};
+    if (typeof digestVehicles === 'function') {
+        try {
+            var _dSet = (typeof digestSettingsNormalize === 'function' && typeof _digestUi !== 'undefined')
+                ? digestSettingsNormalize(_digestUi.settings || {}) : {};
+            digestVehicles(vehicles, new Date(now).toISOString(), { escalateDays: _dSet.escalateDays }).escalated
+                .forEach(function(r) { escalados[r.id] = r; });
+        } catch (e) {}
+    }
     vehicles.forEach(function(v) {
         if (!vehicleIsLive(v)) return;
+        var vin6 = 'VIN ' + (v.vin || '?').slice(-6);
         // Desacuerdo liberador/aprobador (doble ciego) sin resolver
         if (v.testData && v.testData.gasResults && v.testData.gasResults.mismatch) {
             var mm = v.testData.gasResults.mismatch;
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ': desacuerdo liberador/aprobador en ' + ((mm.gases || []).join(', ') || 'gases') + ' — revisar', source: 'COP15' });
+            alerts.push(_pnAlert('CRITICA', 'doble-ciego', 'COP15', vin6 + ': desacuerdo liberador/aprobador en ' + ((mm.gases || []).join(', ') || 'gases') + ' — revisar', { vehicleId: v.id }));
+        }
+        if (escalados[v.id]) {
+            alerts.push(_pnAlert('CRITICA', 'veh-escalado', 'COP15', vin6 + ': ' + escalados[v.id].daysActive + ' días desde el alta sin aprobar (' + (escalados[v.id].label || v.status) + ')', { vehicleId: v.id, days: escalados[v.id].daysActive }));
+            return;   // escalado ya dice que está detenido; no repetirlo con "sin avanzar"
         }
         var lastAction = v.timeline && v.timeline.length > 0 ? new Date(v.timeline[v.timeline.length - 1].timestamp).getTime() : null;
         if (lastAction) {
             var hours = (now - lastAction) / 3600000;
             if (hours > 48 && v.status === 'registered') {
-                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' registrado hace ' + Math.round(hours) + 'h sin avanzar', source: 'COP15' });
+                alerts.push(_pnAlert('MEDIA', 'veh-detenido', 'COP15', vin6 + ' registrado hace ' + Math.round(hours) + 'h sin avanzar', { vehicleId: v.id }));
             }
             if (hours > 24 && v.status === 'in-progress') {
-                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ' en progreso hace ' + Math.round(hours) + 'h', source: 'COP15' });
+                alerts.push(_pnAlert('ALTA', 'veh-detenido', 'COP15', vin6 + ' en progreso hace ' + Math.round(hours) + 'h', { vehicleId: v.id }));
             }
             if (hours > 12 && v.status === 'ready-release') {
-                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' listo para liberar hace ' + Math.round(hours) + 'h', source: 'COP15' });
+                alerts.push(_pnAlert('MEDIA', 'veh-detenido', 'COP15', vin6 + ' listo para liberar hace ' + Math.round(hours) + 'h', { vehicleId: v.id }));
             }
         }
     });
@@ -2259,21 +2288,21 @@ function pnGetActiveAlerts() {
         var lvl = invGasLevel(g);
         var etiqueta = (g.formula || g.gasType || 'Gas') + (g.controlNo ? ' #' + g.controlNo : '');
         if (lvl.status === 'critico') {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
+            alerts.push(_pnAlert('CRITICA', 'gas-critico', 'Inventario', etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)'));
         } else if (lvl.status === 'bajo') {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
+            alerts.push(_pnAlert('ALTA', 'gas-bajo', 'Inventario', etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar'));
         } else if (typeof invGasReorder === 'function' && g.status !== 'Spare') {
             // v24.3: el criterio con el que el laboratorio COMPRA (tiempo de entrega del
             // proveedor). Solo si no salió ya como bajo/crítico, para no repetirlo.
             var ro = invGasReorder(g);
-            if (ro.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)', source: 'Inventario' });
+            if (ro.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)'));
         }
     });
     // v24.3: tanques de combustible bajo su nivel de reorden (si está capturado)
     if (typeof invFuelReorder === 'function' && typeof invState !== 'undefined') {
         (invState.fuelTanks || []).forEach(function(t) {
             var fr = invFuelReorder(t);
-            if (fr.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel, source: 'Inventario' });
+            if (fr.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel));
         });
     }
 
@@ -2282,14 +2311,22 @@ function pnGetActiveAlerts() {
     // es eq.nextCalDate).
     var invEquip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
     if (typeof invCalStatus === 'function') {
+        // [3.0.0] Rojo solo si el instrumento es de un equipo que DETIENE pruebas
+        // (asset.blocksTesting, el mismo criterio del aviso de Disponibilidad del Plan).
+        var _assets = {};
+        ((typeof invState !== 'undefined' && invState.assets) || []).forEach(function(a) { if (a) _assets[a.id] = a; });
         invEquip.forEach(function(eq) {
             var st = invCalStatus(eq);
+            var asset = eq.assetId ? _assets[eq.assetId] : null;
+            var deprueba = !!(asset && asset.blocksTesting);
+            var nombre = (eq.name || 'instrumento') + (asset ? ' (' + (asset.name || asset.id) + ')' : '');
             if (st.code === 'vencido') {
-                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibración de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert(deprueba ? 'CRITICA' : 'ALTA', deprueba ? 'cal-vencida-prueba' : 'cal-vencida', 'Inventario',
+                    'Calibración de ' + nombre + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', { days: Math.abs(st.days) }));
             } else if (st.code === 'porvencer' && st.days <= 7) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert('ALTA', 'cal-7d', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             } else if (st.code === 'porvencer') {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert('MEDIA', 'cal-porvencer', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             }
         });
     }
@@ -2297,7 +2334,7 @@ function pnGetActiveAlerts() {
     // v16.4: mantenimiento preventivo (COP15-F11) vencido
     if (typeof invMaintOverdue === 'function') {
         invMaintOverdue().forEach(function(o) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek, source: 'Mantenimiento' });
+            alerts.push(_pnAlert('ALTA', 'mtto-vencido', 'Mantenimiento', 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek));
         });
     }
 
@@ -2305,9 +2342,9 @@ function pnGetActiveAlerts() {
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             if (o.blocked && o.step.roadblock) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" bloqueado — ' + o.step.roadblock, source: 'Proyectos' });
+                alerts.push(_pnAlert('ALTA', 'proy-bloqueado', 'Proyectos', 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" bloqueado — ' + o.step.roadblock));
             } else if (o.overdue) {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" vencido (' + o.step.targetDate + ')', source: 'Proyectos' });
+                alerts.push(_pnAlert('MEDIA', 'proy-vencido', 'Proyectos', 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" vencido (' + o.step.targetDate + ')'));
             }
         });
     }
@@ -2319,10 +2356,9 @@ function pnGetActiveAlerts() {
         var _wb = null;
         try { _wb = tpWeekBoardRows({}); } catch (e) { _wb = null; }
         if (_wb && !_wb.plan && (tpState.weeklyPlans || []).length > 0) {
-            alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'No hay plan para la semana en curso — armar uno', source: 'Test Plan' });
+            alerts.push(_pnAlert('MEDIA', 'plan-sin', 'Test Plan', 'No hay plan para la semana en curso — armar uno'));
         } else if (_wb && _wb.plan && _wb.kpis.riesgo > 0) {
-            alerts.push({ level: 'MEDIA', color: '#f59e0b',
-                message: _wb.kpis.riesgo + ' prueba(s) de esta semana en riesgo — ver Plan → Mi semana', source: 'Test Plan' });
+            alerts.push(_pnAlert('MEDIA', 'plan-riesgo', 'Test Plan', _wb.kpis.riesgo + ' prueba(s) de esta semana en riesgo — ver Plan → Mi semana'));
         }
     }
 
@@ -2331,7 +2367,7 @@ function pnGetActiveAlerts() {
     if (typeof copSpcScanAlarms === 'function') {
         try {
             copSpcScanAlarms().forEach(function(a) {
-                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+                alerts.push(_pnAlert('ALTA', 'spc', 'CoP SPC', 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC'));
             });
         } catch (e) {}
     }
@@ -2340,12 +2376,9 @@ function pnGetActiveAlerts() {
     if (typeof invForecastGasNeeds === 'function') {
         try {
             invForecastGasNeeds().forEach(function(f) {
-                alerts.push({
-                    level: f.severidad === 'critical' ? 'CRITICA' : 'ALTA',
-                    color: f.severidad === 'critical' ? '#ef4444' : '#f59e0b',
-                    message: 'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')',
-                    source: 'Consumo'
-                });
+                // [3.0.0] Pronóstico: avisa con tiempo, todavía no detiene una prueba → ámbar.
+                alerts.push(_pnAlert('ALTA', 'consumo', 'Consumo',
+                    'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')'));
             });
         } catch (e) {}
     }
@@ -2353,67 +2386,147 @@ function pnGetActiveAlerts() {
     // [2.3.0] Nube: módulo cerca del límite de un documento (o ya sin subir) y
     // respaldo diario fallando. firebase-sync.js carga después — guardar con typeof.
     if (typeof fbSyncAlerts === 'function') {
-        try { fbSyncAlerts().forEach(function(a) { alerts.push(a); }); } catch (e) {}
+        try { fbSyncAlerts().forEach(function(a) { if (!a.kind) a.kind = 'nube-' + String(a.source || '').toLowerCase(); alerts.push(a); }); } catch (e) {}
     }
 
-    // Sort by severity
-    var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
-    alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
+    // Sort by severity. [3.0.0] Antes `(order[l] || 9)`: CRITICA vale 0, que es falso, y las
+    // críticas se iban al FINAL de la lista (y del reporte exportado).
+    alerts.sort(function(a, b) { return pnAlertLevelRank(a.level) - pnAlertLevelRank(b.level); });
 
     return alerts;
 }
 
-function pnRenderAlerts(el) {
-    var alerts = pnGetActiveAlerts();
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.0.0] ALERTAS AGRUPADAS                                           ║
+// ║  pnGetActiveAlerts devuelve una fila por cosa (40 calibraciones = 40 ║
+// ║  filas) y así siguen saliendo en el reporte exportado. Lo que se LEE ║
+// ║  (Datos → Alertas, Pulso, pestaña DATOS, Resumen del Lab) son GRUPOS:║
+// ║  pnAlertGroups es LA definición y es PURA.                           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+var PN_ALERT_KINDS = {
+    'doble-ciego':        { icon: '⚖️', one: 'Desacuerdo en el doble ciego', many: 'desacuerdos en el doble ciego', go: "dashGo('cop15','liberacion')" },
+    'veh-escalado':       { icon: '⏫', one: 'Vehículo escalado (sin aprobar)', many: 'vehículos escalados (sin aprobar)', go: "dashGo('cop15','liberacion')" },
+    'gas-critico':        { icon: '🧪', one: 'Cilindro en nivel crítico', many: 'cilindros en nivel crítico', go: "dashGo('inventory','inv-gases')" },
+    'cal-vencida-prueba': { icon: '🔧', one: 'Calibración vencida en un equipo de prueba', many: 'calibraciones vencidas en equipos de prueba', go: "dashGo('inventory','inv-equipment')" },
+    'veh-detenido':       { icon: '🚗', one: 'Vehículo sin avanzar', many: 'vehículos sin avanzar', go: "dashGo('cop15','seguimiento')" },
+    'gas-bajo':           { icon: '🧪', one: 'Cilindro bajo', many: 'cilindros bajos', go: "dashGo('inventory','inv-gases')" },
+    'comprar':            { icon: '🛒', one: 'Por comprar', many: 'por comprar', go: "dashGo('inventory','inv-report')" },
+    'consumo':            { icon: '📉', one: 'Gas o combustible insuficiente para el plan', many: 'faltantes para el plan', go: "dashGo('inventory','inv-predict')" },
+    'cal-vencida':        { icon: '🔧', one: 'Calibración vencida', many: 'calibraciones vencidas', go: "dashGo('inventory','inv-equipment')" },
+    'cal-7d':             { icon: '🔧', one: 'Calibración vence esta semana', many: 'calibraciones vencen esta semana', go: "dashGo('inventory','inv-equipment')" },
+    'mtto-vencido':       { icon: '🛠️', one: 'Mantenimiento vencido', many: 'mantenimientos vencidos', go: "dashGo('inventory','inv-maint')" },
+    'spc':                { icon: '📈', one: 'Gas fuera de control (SPC)', many: 'gases fuera de control (SPC)', go: "switchPlatform('cop')" },
+    'proy-bloqueado':     { icon: '🗂️', one: 'Paso de proyecto bloqueado', many: 'pasos de proyecto bloqueados', go: "dashGo('panel','pn-projects')" },
+    'plan-sin':           { icon: '📅', one: 'Sin plan para esta semana', many: 'semanas sin plan', go: "dashGo('testplan','tp-calendar')" },
+    'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
+    'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
+    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
+};
+var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };
+/** Orden de un nivel (CRITICA primero). Ojo: `ORDEN[l] || 9` mandaba CRITICA (0) al final. */
+function pnAlertLevelRank(level) {
+    return Object.prototype.hasOwnProperty.call(PN_ALERT_LEVEL_ORDER, level) ? PN_ALERT_LEVEL_ORDER[level] : 9;
+}
 
-    var html = '';
-
-    // Summary
-    var critical = alerts.filter(function(a) { return a.level === 'CRITICA'; }).length;
-    var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
-    var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
-
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);" data-help="pn-alerts-help">';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--danger-text);">' + critical + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Criticas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (high > 0 ? 'border:2px solid #f59e0b;' : '') + '">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--warn-text);">' + high + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Altas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--info-text);">' + medium + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Medias</div></div>';
-    html += '</div>';
-
-    if (alerts.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);">';
-        html += '<div style="font-size:40px;margin-bottom: var(--space-md);">✅</div>';
-        html += '<div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>';
-        html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top: var(--space-xs);">Todo el laboratorio opera con normalidad.</div>';
-        html += '</div>';
-    } else {
-        // Group by source
-        var bySource = {};
-        alerts.forEach(function(a) {
-            if (!bySource[a.source]) bySource[a.source] = [];
-            bySource[a.source].push(a);
+/**
+ * Agrupa alertas por `kind` (las que no traen kind: por fuente + nivel). PURA.
+ * `ctx` = {calRequired: nº de instrumentos que requieren calibración} para el aviso del F11.
+ * → [{key, kind, level, color, icon, title, n, source, items:[alerta], go, note}], del más grave
+ *   al menos grave y, dentro del nivel, el grupo más grande primero.
+ */
+function pnAlertGroups(alerts, ctx) {
+    ctx = ctx || {};
+    var by = {}, order = [];
+    (alerts || []).forEach(function(a) {
+        if (!a) return;
+        var key = a.kind || (String(a.source || 'Otros') + '|' + String(a.level || 'MEDIA'));
+        if (!by[key]) { by[key] = []; order.push(key); }
+        by[key].push(a);
+    });
+    var groups = order.map(function(key) {
+        var items = by[key].slice().sort(function(x, y) {
+            return pnAlertLevelRank(x.level) - pnAlertLevelRank(y.level) || ((y.days || 0) - (x.days || 0));
         });
-
-        Object.keys(bySource).forEach(function(source) {
-            var sourceAlerts = bySource[source];
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
-            html += '<div class="tp-card">';
-            html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
-
-            sourceAlerts.forEach(function(a) {
-                html += '<div style="display:flex;gap: var(--space-md);align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-                html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius: var(--radius-md);font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
-                html += '<span style="font-size: var(--fs-sm);color:var(--tp-text);">' + a.message + '</span>';
-                html += '</div>';
-            });
-            html += '</div>';
+        var top = items[0], n = items.length;
+        var def = PN_ALERT_KINDS[top.kind] || null;
+        var title = def ? (n === 1 ? def.one : n + ' ' + def.many) : (n === 1 ? top.message : n + ' avisos de ' + (top.source || 'otros'));
+        var g = { key: key, kind: top.kind || '', level: top.level || 'MEDIA', color: top.color || PN_ALERT_COLORS[top.level] || '#06b6d4',
+                  icon: def ? def.icon : '📌', title: title, n: n, source: top.source || '', items: items,
+                  go: def ? def.go : '', note: '' };
+        // Lo más viejo, para que el título agrupado no esconda la gravedad.
+        if (n > 1 && (top.kind === 'cal-vencida' || top.kind === 'cal-vencida-prueba' || top.kind === 'veh-escalado') && top.days) {
+            g.note = top.kind === 'veh-escalado' ? 'El más viejo: ' + top.days + ' días' : 'La más vieja: hace ' + top.days + ' días';
+        }
+        return g;
+    });
+    // Muchas calibraciones vencidas a la vez casi siempre son fechas que no se han traído del
+    // F11, no instrumentos realmente sin calibrar: se dice, y se ofrece importarlo.
+    var calN = groups.filter(function(g) { return g.kind === 'cal-vencida' || g.kind === 'cal-vencida-prueba'; })
+                     .reduce(function(s, g) { return s + g.n; }, 0);
+    if (ctx.calRequired && calN >= 5 && calN / ctx.calRequired >= 0.5) {
+        groups.forEach(function(g) {
+            if (g.kind !== 'cal-vencida' && g.kind !== 'cal-vencida-prueba') return;
+            g.f11 = true;
+            g.note = (g.note ? g.note + ' · ' : '') + calN + ' de ' + ctx.calRequired + ' instrumentos aparecen vencidos: ¿falta importar el F11 más reciente?';
         });
     }
+    groups.sort(function(a, b) {
+        return pnAlertLevelRank(a.level) - pnAlertLevelRank(b.level) || (b.n - a.n);
+    });
+    return groups;
+}
+
+/** Cuántos grupos por nivel. PURA. */
+function pnAlertGroupCounts(groups) {
+    var c = { CRITICA: 0, ALTA: 0, MEDIA: 0, total: 0 };
+    (groups || []).forEach(function(g) { c[g.level] = (c[g.level] || 0) + 1; c.total++; });
+    return c;
+}
+
+/** Los grupos de las alertas vigentes de este equipo (lo que se lee en pantalla). */
+function pnActiveAlertGroups() {
+    var calRequired = 0;
+    if (typeof invState !== 'undefined' && invState.equipment && typeof invCalStatus === 'function') {
+        invState.equipment.forEach(function(eq) { if (eq && invCalStatus(eq).code !== 'noaplica') calRequired++; });
+    }
+    return pnAlertGroups(pnGetActiveAlerts(), { calRequired: calRequired });
+}
+
+/** HTML de los grupos (Datos → Alertas). PURA respecto a sus argumentos. */
+function pnAlertGroupsHTML(groups) {
+    if (!groups || !groups.length) {
+        return '<div class="tp-card pn-al-empty"><div class="pn-al-empty-icon">✅</div>' +
+            '<div class="pn-al-empty-title">Sin alertas</div><div class="u-muted">Todo el laboratorio opera con normalidad.</div></div>';
+    }
+    var LBL = { CRITICA: 'Detiene', ALTA: 'Atender', MEDIA: 'Aviso' };
+    return groups.map(function(g) {
+        var lista = g.items.map(function(a) {
+            return '<li class="pn-al-item"><span class="pn-al-dot" style="background:' + a.color + '"></span>' + escapeHtml(a.message) + '</li>';
+        }).join('');
+        var acciones = (g.go ? '<button type="button" class="tp-btn tp-btn-ghost pn-al-go" onclick="' + g.go + '">Ir ▸</button>' : '') +
+            (g.f11 ? '<button type="button" class="tp-btn tp-btn-ghost pn-al-go" onclick="dashGo(\'inventory\',\'inv-equipment\');setTimeout(function(){if(typeof invCalImportOpen===\'function\')invCalImportOpen();},400)">📥 Importar F11</button>' : '');
+        return '<details class="tp-card pn-al-group lvl-' + g.level + '"' + (g.level === 'CRITICA' ? ' open' : '') + '>' +
+            '<summary class="pn-al-head">' +
+                '<span class="pn-al-chip" style="background:' + g.color + '20;color:' + g.color + '">' + LBL[g.level] + '</span>' +
+                '<span class="pn-al-title">' + g.icon + ' ' + escapeHtml(g.title) + '</span>' +
+                (g.n > 1 ? '<span class="pn-al-n">' + g.n + '</span>' : '') +
+            '</summary>' +
+            (g.note ? '<div class="pn-al-note">' + escapeHtml(g.note) + '</div>' : '') +
+            '<ul class="pn-al-list">' + lista + '</ul>' +
+            (acciones ? '<div class="pn-al-actions">' + acciones + '</div>' : '') +
+        '</details>';
+    }).join('');
+}
+
+function pnRenderAlerts(el) {
+    // [3.0.0] Mismos grupos y mismo HTML que la pestaña Alpine (pnAlertGroupsHTML).
+    var groups = pnActiveAlertGroups();
+    var c = pnAlertGroupCounts(groups);
+    var html = '<div class="pn-al-summary" data-help="pn-alerts-help">' +
+        '<div class="tp-card pn-al-sum' + (c.CRITICA ? ' is-crit' : '') + '"><div class="pn-al-sum-n is-crit">' + c.CRITICA + '</div><div class="pn-al-sum-l">Detienen pruebas</div></div>' +
+        '<div class="tp-card pn-al-sum' + (c.ALTA ? ' is-high' : '') + '"><div class="pn-al-sum-n is-high">' + c.ALTA + '</div><div class="pn-al-sum-l">Por atender</div></div>' +
+        '<div class="tp-card pn-al-sum"><div class="pn-al-sum-n is-med">' + c.MEDIA + '</div><div class="pn-al-sum-l">Avisos</div></div></div>';
+    html += pnAlertGroupsHTML(groups);
 
     // Notification settings
     html += '<div class="tp-card">';
@@ -4058,22 +4171,10 @@ function panelAlpineComponent() {
         },
 
         // ── Computed — Alerts ──
-        activeAlerts: function() { void this._dataVersion; return pnGetActiveAlerts(); },
-        alertsBySource: function() {
-            var alerts = this.activeAlerts();
-            var grouped = {};
-            alerts.forEach(function(a) {
-                if (!grouped[a.source]) grouped[a.source] = [];
-                grouped[a.source].push(a);
-            });
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
-            return Object.keys(grouped).map(function(source) {
-                return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
-            });
-        },
-        alertCount: function(level) {
-            return this.activeAlerts().filter(function(a) { return a.level === level; }).length;
-        },
+        // [3.0.0] La pestaña lee GRUPOS (pnAlertGroups); el reporte exportado sigue fila por fila.
+        alertGroups: function() { void this._dataVersion; return pnActiveAlertGroups(); },
+        alertGroupsHTML: function() { return pnAlertGroupsHTML(this.alertGroups()); },
+        alertCount: function(level) { return pnAlertGroupCounts(this.alertGroups())[level] || 0; },
 
         // ── Computed — System Health ──
         storageData: function() {

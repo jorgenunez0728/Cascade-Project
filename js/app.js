@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.3';
+var APP_VERSION = '3.0.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,16 @@ var APP_VERSION = '2.37.3';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.0', date: '9 oct 2026', title: 'Una sola nube, una sola señal',
+      bullets: [
+          'Nuevo: las alertas se agrupan. 40 calibraciones vencidas son UN recuadro ("40 calibraciones vencidas · la más vieja hace N días") que se abre para ver la lista. La pestaña DATOS, el Pulso de HOY y el Resumen del laboratorio cuentan grupos, no filas.',
+          'Cambió: el rojo es solo para lo que detiene una prueba o un resultado: desacuerdo en el doble ciego, cilindro en nivel crítico, calibración vencida de un equipo de prueba, vehículo escalado (más de 7 días sin aprobar) y la nube que ya no recibe un módulo. Lo demás va en ámbar o como aviso.',
+          'Nuevo: si más de la mitad de los instrumentos aparecen vencidos, el aviso pregunta si falta importar el F11 más reciente y ofrece importarlo.',
+          'Cambió: "Te toca" en HOY muestra lo de hoy. Lo acumulado (calibraciones y mantenimientos vencidos, pasos de proyecto) va abajo en "Pendientes acumulados", con su total y la ronda para resolverlo; sigue en su categoría.',
+          'Cambió: se retiraron las copias completas de vehículos y del historial en la nube (solo las usaban equipos anteriores a 2.9.0). Ya no se descarga ~1 MB al conectar y desaparece la barra roja de Capacidad. Un equipo anterior a 2.9.0 deja de recibir cambios de Pruebas: hay que actualizarlo.',
+          'Nuevo: la tarjeta de Equipos pide ponerle nombre a cada equipo, para saber cuál va atrasado.',
+          'Arreglado: en Datos → Alertas y en su reporte, las críticas aparecían al final de la lista en vez de al principio.'
+      ] },
     { version: '2.37.3', date: '9 oct 2026', title: 'Sin el falso aviso de "no se pudo subir cop15"',
       bullets: [
           'Arreglado: al abrir la app salía en rojo "No se pudo subir cop15 a la nube: ocupa 1014 KB…" aunque todo se estaba subiendo bien (#191). Ese mensaje habla de la copia completa de vehículos, que desde 2.9.0 solo leen los equipos sin actualizar; los cambios de Pruebas viajan vehículo por vehículo. Ya no se avisa en cada arranque: si un equipo viejo deja de recibir cambios, lo dice Datos → Alertas.'
@@ -2745,13 +2755,8 @@ function _auditPersistNow() {
     var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
     _auditTrail = _auditTrail.filter(function(e) { return e.ts >= cutoff; });
     try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(_auditTrail)); _auditDirty = false; } catch(e) {}
-    // Compartir el historial entre dispositivos (fbPush ya coalesce 2s por colección)
-    try {
-        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
-            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
-            fbPush('audit', _auditTrail);
-        }
-    } catch(e) {}
+    // [3.0.0] El caché ya no se sube como espejo (audit/current): cada evento viaja por
+    // la bandeja a stations/KIA-EMLAB/auditlog (2.6.0).
 }
 var _auditPersistDebounced = debounce(_auditPersistNow, 2500);
 
@@ -4305,7 +4310,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona. Si llevabas más de 4 horas fuera, la franja 🕘 Desde tu última vez resume lo que cambió mientras no estabas.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). Lo acumulado (calibraciones y mantenimientos vencidos, pasos de proyecto) no es de hoy: va abajo en "Pendientes acumulados", con su total y la ronda para resolverlo. ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona. Si llevabas más de 4 horas fuera, la franja 🕘 Desde tu última vez resume lo que cambió mientras no estabas.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -4786,7 +4791,7 @@ function dashCollectActivities() {
             var eqr = invEquipmentRoundItems();
             if (eqr.length >= 2) {
                 var eqrVenc = eqr.filter(function(x) { return x.overdue; }).length;
-                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭',
+                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭', debt: 'ronda-equipos',
                     title: 'Ronda de equipos',
                     meta: eqr.length + ' calibraciones y mantenimientos pendientes' + (eqrVenc ? ' · ' + eqrVenc + ' vencidos' : ''),
                     status: eqrVenc ? 'atrasado' : 'pendiente', urgency: eqrVenc ? 3 : 2,
@@ -4795,9 +4800,35 @@ function dashCollectActivities() {
             }
         }
         if (typeof invCalStatus === 'function') {
+            // [3.0.0] Una calibración vencida es deuda acumulada, salvo la de un equipo que
+            // detiene pruebas (asset.blocksTesting): ésa sí es de hoy.
+            var _blk = {};
+            (invState.assets || []).forEach(function(a) { if (a && a.blocksTesting) _blk[a.id] = true; });
+            // [3.0.0] Las de equipos de prueba sí son de hoy, pero en "Te toca" van JUNTAS en una
+            // fila (con 24 vencidas a la vez, casi siempre es el F11 sin importar). Cada una sigue
+            // en la categoría Inventario (`inboxGrouped`); la fila junta solo existe en la bandeja.
+            var _calReq = 0, _calVenc = 0, _calPrueba = [];
+            (invState.equipment || []).forEach(function(e) {
+                var st0 = invCalStatus(e);
+                if (st0.code !== 'noaplica') _calReq++;
+                if (st0.code === 'vencido') { _calVenc++; if (_blk[e.assetId]) _calPrueba.push(e); }
+            });
+            var _juntar = _calPrueba.length >= 2;
+            if (_juntar) {
+                var _f11 = _calReq && _calVenc / _calReq >= 0.5;
+                acts.push({ id: 'act-cal-prueba', cat: 'inventario', icon: '🔧', inboxOnly: true,
+                    title: _calPrueba.length + ' calibraciones vencidas en equipos de prueba',
+                    meta: _f11 ? _calVenc + ' de ' + _calReq + ' instrumentos aparecen vencidos: ¿falta importar el F11 más reciente?'
+                               : 'Dinamómetro, cámara y demás equipos que detienen pruebas',
+                    status: 'atrasado', urgency: 3,
+                    action: _f11
+                        ? { label: '📥 Importar F11', js: "dashGo('inventory','inv-equipment');setTimeout(function(){if(typeof invCalImportOpen==='function')invCalImportOpen();},400)" }
+                        : { label: '🧭 Ronda de equipos', js: "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" } });
+            }
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
                 if (st.code === 'vencido') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    debt: _blk[e.assetId] ? '' : 'cal', inboxGrouped: !!(_juntar && _blk[e.assetId]),
                     title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
                 else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
@@ -4808,7 +4839,7 @@ function dashCollectActivities() {
         // v16.4: mantenimiento preventivo (COP15-F11) — vencidos y programados para esta semana
         if (typeof invMaintOverdue === 'function') {
             invMaintOverdue().forEach(function(o) {
-                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️',
+                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️', debt: 'mtto',
                     title: (o.asset ? o.asset.name + ': ' : '') + o.act.desc + ' — vencido',
                     meta: 'Desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)',
                     assignee: (o.act && o.act.responsible) || '',
@@ -4835,7 +4866,7 @@ function dashCollectActivities() {
     // paso: hecho / nueva fecha / bloqueado). Las filas sueltas se quedan para el check.
     if (typeof pnProjectsReviewCount === 'function') {
         var prN = pnProjectsReviewCount();
-        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭',
+        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭', debt: 'ronda-proyectos',
             title: 'Pendientes de proyectos',
             meta: prN + ' pasos vencidos o bloqueados',
             status: 'atrasado', urgency: 3,
@@ -4844,7 +4875,7 @@ function dashCollectActivities() {
     }
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
-            acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
+            acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️', debt: 'proy',
                 title: o.project.name + ': ' + o.step.title, ficha: { kind: 'proyecto', ref: o.project.id },
                 meta: (o.blocked ? 'Bloqueado' + (o.step.roadblock ? ' — ' + o.step.roadblock : '') : 'Vencido (' + o.step.targetDate + ')') + (o.step.responsible ? ' · 👤 ' + o.step.responsible : ''),
                 // v16.8: sin assignee, el filtro "Solo míos" dejaba pasar TODOS los
@@ -4893,6 +4924,8 @@ function dashCollectActivities() {
                 // tarjeta con su motivo concreto: repetirlos aquí es decir dos veces lo
                 // mismo, una de ellas sin decir cuál prueba.
                 if (a.source === 'Test Plan') return;
+                // [3.0.0] El vehículo escalado ya es su propia fila de vehículos en HOY.
+                if (a.kind === 'veh-escalado') return;
                 var cat = a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
@@ -5016,14 +5049,59 @@ function dashInbox(acts, ctx) {
     var can = typeof ctx.can === 'function' ? ctx.can : function() { return true; };
     var sn = ctx.snooze || {};
     var now = ctx.now || new Date().toISOString();
-    var items = [], snoozed = [], byRole = 0;
+    var items = [], snoozed = [], byRole = 0, debt = [];
     (acts || []).forEach(function(a) {
         if (!a || a.status === 'hecho') return;
         if ((a.perm && !can(a.perm)) || a.notForMe) { byRole++; return; }
+        // [3.0.0] Lo acumulado (calibraciones/mantenimientos vencidos, pasos de proyecto)
+        // no es "lo de hoy": va a su propio bloque, contado, y sigue en su categoría.
+        if (a.debt) { debt.push(a); return; }
+        if (a.inboxGrouped) return;   // [3.0.0] ya va dentro de su fila junta (inboxOnly)
         if (a.id != null && sn[a.id] && String(sn[a.id]) > now) { snoozed.push(a); return; }
         items.push(a);
     });
-    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole };
+    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole, debt: debt };
+}
+
+/**
+ * [3.0.0] Resumen de lo acumulado de `dashInbox(...).debt`. PURA.
+ * → {total, parts:[{key, n, label}], rounds:{equipos, proyectos}} — las rondas no se cuentan
+ *   como pendientes (son la forma de resolverlos).
+ */
+var DASH_DEBT_LABELS = {
+    cal:  ['calibración vencida', 'calibraciones vencidas'],
+    mtto: ['mantenimiento vencido', 'mantenimientos vencidos'],
+    proy: ['paso de proyecto vencido o bloqueado', 'pasos de proyecto vencidos o bloqueados']
+};
+function dashDebtSummary(debt) {
+    var n = { cal: 0, mtto: 0, proy: 0 }, rounds = { equipos: false, proyectos: false };
+    (debt || []).forEach(function(a) {
+        if (a.debt === 'ronda-equipos') rounds.equipos = true;
+        else if (a.debt === 'ronda-proyectos') rounds.proyectos = true;
+        else if (n[a.debt] !== undefined) n[a.debt]++;
+    });
+    var parts = Object.keys(DASH_DEBT_LABELS).filter(function(k) { return n[k]; }).map(function(k) {
+        return { key: k, n: n[k], label: n[k] + ' ' + DASH_DEBT_LABELS[k][n[k] === 1 ? 0 : 1] };
+    });
+    return { total: n.cal + n.mtto + n.proy, parts: parts, rounds: rounds };
+}
+
+/** [3.0.0] Bloque "Pendientes acumulados" de HOY: se dice cuánto hay y cómo resolverlo. */
+function _dashDebtHTML(debt) {
+    var d = dashDebtSummary(debt);
+    if (!d.total) return '';
+    var acc = [];
+    if (d.rounds.equipos || d.parts.some(function(p) { return p.key !== 'proy'; }))
+        acc.push('<button type="button" class="dash-row-action" onclick="' + (d.rounds.equipos ? "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" : "dashGo('inventory','inv-equipment')") + '">🧭 ' + (d.rounds.equipos ? 'Ronda de equipos' : 'Ver equipos') + '</button>');
+    if (d.parts.some(function(p) { return p.key === 'proy'; }))
+        acc.push('<button type="button" class="dash-row-action" onclick="' + (d.rounds.proyectos ? "if(typeof pnProjectsReviewOpen==='function')pnProjectsReviewOpen()" : "dashGo('panel','pn-projects')") + '">🧭 ' + (d.rounds.proyectos ? 'Repasar proyectos' : 'Ver proyectos') + '</button>');
+    return '<div class="dash-debt" role="note">' +
+        '<div class="dash-debt-head"><span class="dash-debt-title">🗃 Pendientes acumulados</span>' +
+        '<span class="dash-chip dash-chip--pendiente">' + d.total + '</span></div>' +
+        '<p class="dash-debt-text">' + escapeHtml(d.parts.map(function(p) { return p.label; }).join(' · ')) +
+        '. No son de hoy: se resuelven en ronda, y siguen en su categoría arriba.</p>' +
+        (acc.length ? '<div class="dash-debt-actions">' + acc.join('') + '</div>' : '') +
+    '</div>';
 }
 
 /** Hasta cuándo pospone "⏰": el inicio de mañana, hora local. PURA (recibe la fecha). */
@@ -5082,7 +5160,8 @@ function dashToggleInboxAll() {
 /** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
 function dashCatSummary(acts) {
     return DASH_CAT_ORDER.map(function(cat) {
-        var rows = (acts || []).filter(function(a) { return a.cat === cat; });
+        // [3.0.0] Una fila `inboxOnly` junta otras de la bandeja: en la categoría ya están.
+        var rows = (acts || []).filter(function(a) { return a.cat === cat && !a.inboxOnly; });
         return { cat: cat, total: rows.length,
                  pend: rows.filter(function(a) { return a.status !== 'hecho'; }).length,
                  late: rows.filter(function(a) { return a.status === 'atrasado'; }).length };
@@ -5152,7 +5231,7 @@ function dashRenderBoard(acts, currentOp) {
 
     if (open) {
         // 2a) La categoría elegida, completa.
-        var rows = shown.filter(function(a) { return a.cat === open; });
+        var rows = shown.filter(function(a) { return a.cat === open && !a.inboxOnly; });
         rows.sort(function(x, y) {
             return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
         });
@@ -5186,6 +5265,7 @@ function dashRenderBoard(acts, currentOp) {
             h += _dashInboxEmptyHTML(inbox);
         }
         h += _dashInboxFootHTML(inbox);
+        h += _dashDebtHTML(inbox.debt);
     }
     h += '</div>';
     return h;
@@ -7800,7 +7880,9 @@ function renderLabDashboard(container) {
 
     // Sort alerts by severity
     var levelOrder = { 'CRITICO': 0, 'ALTO': 1, 'MEDIO': 2, 'BAJO': 3 };
-    alerts.sort(function(a, b) { return (levelOrder[a.level] || 9) - (levelOrder[b.level] || 9); });
+    // [3.0.0] `levelOrder[l] || 9` mandaba CRITICO (0) al final.
+    var _rank = function(l) { return Object.prototype.hasOwnProperty.call(levelOrder, l) ? levelOrder[l] : 9; };
+    alerts.sort(function(a, b) { return _rank(a.level) - _rank(b.level); });
 
     // Render
     var html = '<div class="lab-dash">';

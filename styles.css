@@ -6316,3 +6316,40 @@ body.ficha-open { overflow: hidden; }
 .fbrev-meta { color: var(--muted); font-size: var(--fs-xs); }
 .fbrev-code { font-family: monospace; font-size: var(--fs-2xs); color: var(--muted); overflow-wrap: anywhere; }
 .fbrev-warn { color: var(--warn-text); font-weight: 700; font-size: var(--fs-xs); }
+
+/* ═══ [3.0.0] Alertas agrupadas (pnAlertGroupsHTML) ═══ */
+.pn-al-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.pn-al-sum { text-align: center; padding: var(--space-md); }
+.pn-al-sum.is-crit { border: 2px solid var(--danger-fill); }
+.pn-al-sum.is-high { border: 2px solid var(--warn-fill); }
+.pn-al-sum-n { font-size: var(--fs-xl); font-weight: 800; }
+.pn-al-sum-n.is-crit { color: var(--danger-text); }
+.pn-al-sum-n.is-high { color: var(--warn-text); }
+.pn-al-sum-n.is-med { color: var(--info-text); }
+.pn-al-sum-l { font-size: var(--fs-xs); color: var(--muted); }
+.pn-al-hint { font-size: var(--fs-xs); margin: 0 0 var(--space-sm); }
+.pn-al-group { padding: 0; overflow: hidden; }
+.pn-al-group.lvl-CRITICA { border-left: 4px solid var(--danger-fill); }
+.pn-al-group.lvl-ALTA { border-left: 4px solid var(--warn-fill); }
+.pn-al-group.lvl-MEDIA { border-left: 4px solid var(--info-fill); }
+.pn-al-head { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); cursor: pointer; list-style: none; min-height: var(--target-min, 44px); }
+.pn-al-head::-webkit-details-marker { display: none; }
+.pn-al-chip { font-size: var(--fs-xs); font-weight: 800; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); white-space: nowrap; flex-shrink: 0; }
+.pn-al-title { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+.pn-al-n { font-size: var(--fs-xs); font-weight: 800; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-full, 999px); padding: var(--space-2xs) var(--space-sm); flex-shrink: 0; }
+.pn-al-note { font-size: var(--fs-xs); color: var(--warn-text); background: var(--warn-bg); padding: var(--space-xs) var(--space-md); }
+.pn-al-list { list-style: none; margin: 0; padding: var(--space-xs) var(--space-md); max-height: 18rem; overflow-y: auto; border-top: 1px solid var(--border); }
+.pn-al-item { display: flex; gap: var(--space-sm); align-items: baseline; padding: var(--space-2xs) 0; font-size: var(--fs-sm); color: var(--text); }
+.pn-al-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transform: translateY(-1px); }
+.pn-al-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-xs) var(--space-md) var(--space-sm); }
+.pn-al-go { font-size: var(--fs-sm); }
+.pn-al-empty { text-align: center; padding: var(--space-3xl); }
+.pn-al-empty-icon { font-size: 40px; margin-bottom: var(--space-md); }
+.pn-al-empty-title { font-size: var(--fs-base); font-weight: 700; color: var(--ok-text); }
+
+/* ═══ [3.0.0] HOY: pendientes acumulados (no son de hoy) ═══ */
+.dash-debt { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border: 1px dashed var(--border); border-radius: var(--radius-lg); background: var(--surface-alt, var(--bg)); }
+.dash-debt-head { display: flex; align-items: center; gap: var(--space-sm); }
+.dash-debt-title { font-weight: 800; font-size: var(--fs-sm); color: var(--text); }
+.dash-debt-text { margin: var(--space-xs) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.dash-debt-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }

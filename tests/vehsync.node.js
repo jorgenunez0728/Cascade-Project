@@ -41,8 +41,8 @@ const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatu
     '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPullMergeModule', '_fbPullSeed', '_fbPullLocalScore',
     'fbToFirestoreValue', 'fbFromFirestoreValue', '_fbBugsRestDocToObj', '_fbBugsRestUrl', '_fbBugsRestSend',
     '_fbBkErrText', '_fbBkIsNotFound', '_fbAuditBase', '_fbAuditStation', '_fbStationDocName', '_fbAuditCommit',
-    '_fbAuditAlreadyThere', '_fbUtf8Bytes', 'fbSizeBlockToast'];
-const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
+    '_fbAuditAlreadyThere', '_fbUtf8Bytes', 'fbSizeBlockToast', 'fbModuleDocRetired', 'fbPullCollections'];
+const FB_VARS = ['FB_RETIRED_DOCS', 'FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
 
 // ── Firestore falso ──────────────────────────────────────────────────────
 function servidor() {
@@ -479,16 +479,36 @@ const MARGEN = 10 * 60 * 1000;
             cloudDocs: {}, bootAt: '2026-10-07T00:00:00.000Z' });
         ok('lo creado en esta sesión no se pregunta', v.vehicles.length === 1 && v.vehicles[0].vin === 'A');
     }
-    console.log('\n== 2.37.3: la copia completa que no cabe no avisa en cada arranque (#191) ==');
+    console.log('\n== 3.0.0: las copias completas de vehículos e historial están retiradas ==');
     {
         const T = equipo(servidor(), 'dev_toast');
-        ok('cop15 con vehículos por documento: sin toast, aunque el primer ciclo no haya terminado',
-            T.fbSizeBlockToast('cop15', true, null, 1e12) === false);
-        ok('cop15 sin vehículos por documento (sync de Pruebas apagado): sí avisa',
-            T.fbSizeBlockToast('cop15', false, null, 1e12) === true);
+        ok('cop15 y audit ya no viajan como documento', T.fbModuleDocRetired('cop15') && T.fbModuleDocRetired('audit') &&
+            !T.fbModuleDocRetired('testplan') && !T.fbModuleDocRetired('inventory'));
+        const cols = T.fbPullCollections({ cop15: true, testplan: true, inventory: true, panel: true, cop: true, homolog: true, audit: true });
+        ok('al conectar no se leen cop15/current ni audit/current', cols.join() === 'testplan,inventory,panel,cop,homolog', cols.join());
+        ok('un módulo apagado tampoco se lee', T.fbPullCollections({ testplan: true }).join() === 'testplan');
+        ok('el toast de "no cabe" nunca es de una copia retirada', T.fbSizeBlockToast('cop15', false, null, 1e12) === false);
         ok('otro módulo que no cabe: avisa', T.fbSizeBlockToast('testplan', true, null, 1e12) === true);
         ok('y a lo más cada 10 min', T.fbSizeBlockToast('testplan', true, { at: 1e12 - 60000 }, 1e12) === false &&
             T.fbSizeBlockToast('testplan', true, { at: 1e12 - 700000 }, 1e12) === true);
+    }
+    {
+        // fbPush real con lo mínimo alrededor: pedir la copia retirada NO escribe nada en la
+        // nube; dispara el camino de hoy (ciclo de vehículos / bandeja del historial).
+        const llamadas = [];
+        const ctx = { console, setTimeout: () => { llamadas.push('timer'); }, clearTimeout() {},
+            fbSync: { enabled: true, stationId: 'KIA-EMLAB', debounceTimers: {}, review: {} },
+            fbVehiclesSyncSoon: () => llamadas.push('veh'), fbAuditFlushSoon: () => llamadas.push('audit'),
+            fbReviewHolds: () => false, fbQuotaCheck: () => ({ allowed: true }), _fbPushDataScore: () => 5 };
+        vm.createContext(ctx);
+        vm.runInContext(constante(SRC.fb, 'FB_RETIRED_DOCS'), ctx);
+        ['fbModuleDocRetired', 'fbPush'].forEach(n => vm.runInContext(extraer(SRC.fb, n), ctx));
+        let done = null;
+        ctx.fbPush('cop15', { vehicles: [{ vin: 'X' }] }, ok2 => { done = ok2; });
+        ok('fbPush("cop15") ya no programa una escritura: pide el ciclo de vehículos', llamadas.join() === 'veh' && done === true, llamadas.join());
+        llamadas.length = 0;
+        ctx.fbPush('audit', [{ id: 'e1' }]);
+        ok('fbPush("audit") vacía la bandeja del historial en vez de subir el espejo', llamadas.join() === 'audit', llamadas.join());
     }
     console.log('\n== 2.37.1: copias del mismo VIN con distinto id ==');
     {

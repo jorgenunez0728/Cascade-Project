@@ -1740,49 +1740,23 @@
         <!-- ───── ALERTS TAB ───── -->
         <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
             <div id="help-banner-slot-pn-alerts"></div>
-            <!-- Summary -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
-                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid var(--danger-fill);' : ''">
-                    <div style="font-size:28px;font-weight:800;color:var(--danger-text);" x-text="alertCount('CRITICA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Críticas</div>
+            <!-- [3.0.0] Resumen por GRUPOS: rojo = detiene una prueba o un resultado. -->
+            <div class="pn-al-summary">
+                <div class="tp-card pn-al-sum" :class="alertCount('CRITICA') > 0 ? 'is-crit' : ''">
+                    <div class="pn-al-sum-n is-crit" x-text="alertCount('CRITICA')"></div>
+                    <div class="pn-al-sum-l">Detienen pruebas</div>
                 </div>
-                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('ALTA') > 0 ? 'border:2px solid var(--warn-fill);' : ''">
-                    <div style="font-size:28px;font-weight:800;color:var(--warn-text);" x-text="alertCount('ALTA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Altas</div>
+                <div class="tp-card pn-al-sum" :class="alertCount('ALTA') > 0 ? 'is-high' : ''">
+                    <div class="pn-al-sum-n is-high" x-text="alertCount('ALTA')"></div>
+                    <div class="pn-al-sum-l">Por atender</div>
                 </div>
-                <div class="tp-card" style="text-align:center;padding:14px;">
-                    <div style="font-size:28px;font-weight:800;color:var(--info-text);" x-text="alertCount('MEDIA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Medias</div>
+                <div class="tp-card pn-al-sum">
+                    <div class="pn-al-sum-n is-med" x-text="alertCount('MEDIA')"></div>
+                    <div class="pn-al-sum-l">Avisos</div>
                 </div>
             </div>
-
-            <!-- No alerts -->
-            <template x-if="activeAlerts().length === 0">
-                <div class="tp-card" style="text-align:center;padding:40px;">
-                    <div style="font-size:40px;margin-bottom:10px;">✅</div>
-                    <div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>
-                    <div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>
-                </div>
-            </template>
-
-            <!-- Alerts by source -->
-            <template x-if="activeAlerts().length > 0">
-                <div>
-                    <template x-for="group in alertsBySource()" :key="group.source">
-                        <div class="tp-card">
-                            <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
-                            <template x-for="(a, aIdx) in group.alerts" :key="group.source + '#' + aIdx">
-                                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
-                                    <span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
-                                          :style="{ background: a.color + '20', color: a.color }"
-                                          x-text="a.level"></span>
-                                    <span style="font-size: var(--fs-sm);color:var(--tp-text);" x-text="a.message"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                </div>
-            </template>
+            <p class="u-muted pn-al-hint">Cada recuadro junta las alertas del mismo tipo. Tócalo para ver la lista completa.</p>
+            <div x-html="alertGroupsHTML()"></div>
 
             <!-- Alert actions -->
             <div class="tp-card">
