@@ -41,7 +41,7 @@ const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatu
     '_fbEquipKey', '_fbMergeReadings', '_fbTombsNewTo', '_fbPullMergeModule', '_fbPullSeed', '_fbPullLocalScore',
     'fbToFirestoreValue', 'fbFromFirestoreValue', '_fbBugsRestDocToObj', '_fbBugsRestUrl', '_fbBugsRestSend',
     '_fbBkErrText', '_fbBkIsNotFound', '_fbAuditBase', '_fbAuditStation', '_fbStationDocName', '_fbAuditCommit',
-    '_fbAuditAlreadyThere', '_fbUtf8Bytes'];
+    '_fbAuditAlreadyThere', '_fbUtf8Bytes', 'fbSizeBlockToast'];
 const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
 
 // ── Firestore falso ──────────────────────────────────────────────────────
@@ -478,6 +478,17 @@ const MARGEN = 10 * 60 * 1000;
         const v = X.fbReviewModel({ vehicles: [{ id: 1, vin: 'A', registeredAt: '2026-01-01' }, { id: 2, vin: 'B', registeredAt: '2099-01-01T00:00:00.000Z' }],
             cloudDocs: {}, bootAt: '2026-10-07T00:00:00.000Z' });
         ok('lo creado en esta sesión no se pregunta', v.vehicles.length === 1 && v.vehicles[0].vin === 'A');
+    }
+    console.log('\n== 2.37.3: la copia completa que no cabe no avisa en cada arranque (#191) ==');
+    {
+        const T = equipo(servidor(), 'dev_toast');
+        ok('cop15 con vehículos por documento: sin toast, aunque el primer ciclo no haya terminado',
+            T.fbSizeBlockToast('cop15', true, null, 1e12) === false);
+        ok('cop15 sin vehículos por documento (sync de Pruebas apagado): sí avisa',
+            T.fbSizeBlockToast('cop15', false, null, 1e12) === true);
+        ok('otro módulo que no cabe: avisa', T.fbSizeBlockToast('testplan', true, null, 1e12) === true);
+        ok('y a lo más cada 10 min', T.fbSizeBlockToast('testplan', true, { at: 1e12 - 60000 }, 1e12) === false &&
+            T.fbSizeBlockToast('testplan', true, { at: 1e12 - 700000 }, 1e12) === true);
     }
     console.log('\n== 2.37.1: copias del mismo VIN con distinto id ==');
     {

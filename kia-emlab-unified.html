@@ -9453,10 +9453,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610082341';
+var APP_BUILD = '202610091605';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'ae595172eb4ed4288679d6f8927e7ec164a9b554';
+var APP_COMMIT = 'be2e7e42a15e05b02f0e14372693f6d85ec6f7bc';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9464,7 +9464,7 @@ var APP_COMMIT = 'ae595172eb4ed4288679d6f8927e7ec164a9b554';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.2';
+var APP_VERSION = '2.37.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9472,6 +9472,10 @@ var APP_VERSION = '2.37.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '2.37.3', date: '9 oct 2026', title: 'Sin el falso aviso de "no se pudo subir cop15"',
+      bullets: [
+          'Arreglado: al abrir la app salía en rojo "No se pudo subir cop15 a la nube: ocupa 1014 KB…" aunque todo se estaba subiendo bien (#191). Ese mensaje habla de la copia completa de vehículos, que desde 2.9.0 solo leen los equipos sin actualizar; los cambios de Pruebas viajan vehículo por vehículo. Ya no se avisa en cada arranque: si un equipo viejo deja de recibir cambios, lo dice Datos → Alertas.'
+      ] },
     { version: '2.37.2', date: '8 oct 2026', title: 'Re-ensayos del mismo VIN y el envío a aprobación que se perdía',
       bullets: [
           'Arreglado: a veces había que enviar dos veces el mismo vehículo a aprobación. Si mientras se firmaba llegaba la sincronización con la nube (lo normal justo después de marcar el checklist o adjuntar VETS), la firma se guardaba en una copia que ya no era la del equipo y el vehículo se quedaba en Liberación sin aviso (#189). Lo mismo en Aprobar y archivar y en Completar del Historial. Si otro equipo cambió el vehículo de etapa mientras firmabas, la app lo dice y no guarda nada.',
@@ -10346,14 +10350,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610082341' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610091605' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610082341' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610091605' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10369,7 +10373,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610082341' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610091605' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -56575,6 +56579,20 @@ function fbModuleDocBytes(collection, data, stationId, deviceId) {
         ['stations', stationId || 'KIA-EMLAB', collection || 'current', 'current']);
 }
 
+/**
+ * ¿Avisar con un toast que un módulo ya no cabe en su documento? PURA.
+ * [2.9.0] Pruebas viaja vehículo por vehículo: que la copia completa (cop15/current) no quepa
+ * solo afecta a los equipos sin actualizar, y eso lo dice la alerta de Datos, no un toast.
+ * [2.37.3] Ya no depende de `fbSync.vehPulled`: el primer empuje de la copia sale al
+ * conectar, ANTES de que termine el primer ciclo de vehículos, así que el aviso salía en
+ * cada arranque aunque todo se estuviera subiendo bien (#191). Si el ciclo de vehículos
+ * falla, lo dicen su indicador y el chip ☁ de cada vehículo (2.14.0).
+ */
+function fbSizeBlockToast(collection, vehActive, prevBlock, nowMs) {
+    if (collection === 'cop15' && vehActive) return false;
+    return !prevBlock || nowMs - prevBlock.at > 600000;
+}
+
 // Check payload size before push
 function fbQuotaCheckSize(data, collection) {
     try {
@@ -57531,10 +57549,8 @@ function fbPush(collection, data, onDone, opts) {
         fbSync.sizeBlocked = fbSync.sizeBlocked || {};
         var _prevBlk = fbSync.sizeBlocked[collection];
         fbSync.sizeBlocked[collection] = { bytes: sizeCheck.bytes, at: Date.now() };
-        // [2.9.0] Pruebas ya viaja vehículo por vehículo: que la copia completa no quepa
-        // solo afecta a los equipos sin actualizar, y eso lo dice la alerta, no un toast.
-        var _vehOk = collection === 'cop15' && typeof fbVehActive === 'function' && fbVehActive() && fbSync.vehPulled;
-        if (!_vehOk && (!_prevBlk || Date.now() - _prevBlk.at > 600000)) showToast(sizeCheck.reason, 'error', 12000);
+        var _vehActive = typeof fbVehActive === 'function' && fbVehActive();
+        if (fbSizeBlockToast(collection, _vehActive, _prevBlk, Date.now())) showToast(sizeCheck.reason, 'error', 12000);
         if (onDone) onDone(false, sizeCheck.reason);
         return;
     }
@@ -60424,7 +60440,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610082341' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610091605' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -75847,7 +75863,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18306],[18310,"js/uiflow.js",18626],[18630,"js/cop15.js",28816],[28820,"js/inventory.js",35886],[35890,"js/testplan.js",47449],[47453,"js/panel.js",52640],[52644,"js/projects.js",54933],[54937,"js/auth.js",55978],[55982,"js/signatures.js",56183],[56187,"js/firebase-sync.js",63564],[63568,"js/cop_validator.js",67933],[67937,"js/homolog.js",69727],[69731,"js/vets.js",71526],[71530,"js/historico.js",72442],[72446,"js/review.js",72899],[72903,"js/opcards.js",73332],[73336,"js/handoff.js",73610],[73614,"js/ficha.js",74105],[74109,"js/relevo.js",74489],[74493,"js/momentos.js",74630],[74634,"js/digest.js",75419],[75423,"js/xlsxw.js",75803],[75807,"js/bugreport.js",76953]]};
+var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18310],[18314,"js/uiflow.js",18630],[18634,"js/cop15.js",28820],[28824,"js/inventory.js",35890],[35894,"js/testplan.js",47453],[47457,"js/panel.js",52644],[52648,"js/projects.js",54937],[54941,"js/auth.js",55982],[55986,"js/signatures.js",56187],[56191,"js/firebase-sync.js",63580],[63584,"js/cop_validator.js",67949],[67953,"js/homolog.js",69743],[69747,"js/vets.js",71542],[71546,"js/historico.js",72458],[72462,"js/review.js",72915],[72919,"js/opcards.js",73348],[73352,"js/handoff.js",73626],[73630,"js/ficha.js",74121],[74125,"js/relevo.js",74505],[74509,"js/momentos.js",74646],[74650,"js/digest.js",75435],[75439,"js/xlsxw.js",75819],[75823,"js/bugreport.js",76969]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

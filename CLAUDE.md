@@ -3129,3 +3129,12 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   cosas.
 - Un equipo con código anterior a 2.37.2 sigue empatando por VIN solo: un re-ensayo convive bien
   solo cuando todos los equipos actualizaron.
+
+## 2.37.3 — La copia completa que no cabe no es un error de este equipo
+
+- **`fbSizeBlockToast` (PURA) decide si un módulo que no cabe avisa con toast.** Para `cop15`
+  con vehículos por documento (`fbVehActive()`) nunca: la copia `cop15/current` solo la leen
+  los equipos anteriores a 2.9.0 y eso lo dice `fbSyncAlerts`. No volver a condicionar ese
+  aviso a `fbSync.vehPulled`: el primer empuje de la copia sale al conectar, antes del primer
+  ciclo de vehículos, y el toast salía en cada arranque (#191).
+

@@ -20,6 +20,22 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 2.37.3 — Sin el falso aviso de "no se pudo subir cop15" (2026-10-09)
+
+### Arreglado
+- **Al abrir la app salía en rojo "No se pudo subir cop15 a la nube: ocupa 1014 KB y un
+  documento admite 977 KB"** (#191), aunque los vehículos sí se estaban subiendo. Ese documento
+  es la **copia completa** de vehículos que, desde 2.9.0, solo leen los equipos sin actualizar;
+  cada vehículo viaja en su propio documento. El aviso salía porque la copia se intenta subir
+  al conectar, unos segundos antes de que termine el primer ciclo de vehículos. Ahora no se
+  avisa con un toast; si queda algún equipo anterior a 2.9.0, Datos → Alertas sigue diciendo
+  que ese equipo ya no recibe cambios de Pruebas.
+
+### Para desarrollo
+- **`fbSizeBlockToast(col, vehActive, prevBlock, now)`** (PURA) decide el toast de un módulo
+  que no cabe: nunca para `cop15` con vehículos por documento (ya no depende de
+  `fbSync.vehPulled`), y a lo más cada 10 min para los demás. `tests/vehsync.node.js`.
+
 ## 2.37.2 — Re-ensayos del mismo VIN y el envío a aprobación que se perdía (2026-10-08)
 
 ### Arreglado
