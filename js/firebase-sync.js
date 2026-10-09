@@ -389,6 +389,20 @@ function fbModuleDocBytes(collection, data, stationId, deviceId) {
         ['stations', stationId || 'KIA-EMLAB', collection || 'current', 'current']);
 }
 
+/**
+ * ¿Avisar con un toast que un módulo ya no cabe en su documento? PURA.
+ * [2.9.0] Pruebas viaja vehículo por vehículo: que la copia completa (cop15/current) no quepa
+ * solo afecta a los equipos sin actualizar, y eso lo dice la alerta de Datos, no un toast.
+ * [2.37.3] Ya no depende de `fbSync.vehPulled`: el primer empuje de la copia sale al
+ * conectar, ANTES de que termine el primer ciclo de vehículos, así que el aviso salía en
+ * cada arranque aunque todo se estuviera subiendo bien (#191). Si el ciclo de vehículos
+ * falla, lo dicen su indicador y el chip ☁ de cada vehículo (2.14.0).
+ */
+function fbSizeBlockToast(collection, vehActive, prevBlock, nowMs) {
+    if (collection === 'cop15' && vehActive) return false;
+    return !prevBlock || nowMs - prevBlock.at > 600000;
+}
+
 // Check payload size before push
 function fbQuotaCheckSize(data, collection) {
     try {
@@ -1345,10 +1359,8 @@ function fbPush(collection, data, onDone, opts) {
         fbSync.sizeBlocked = fbSync.sizeBlocked || {};
         var _prevBlk = fbSync.sizeBlocked[collection];
         fbSync.sizeBlocked[collection] = { bytes: sizeCheck.bytes, at: Date.now() };
-        // [2.9.0] Pruebas ya viaja vehículo por vehículo: que la copia completa no quepa
-        // solo afecta a los equipos sin actualizar, y eso lo dice la alerta, no un toast.
-        var _vehOk = collection === 'cop15' && typeof fbVehActive === 'function' && fbVehActive() && fbSync.vehPulled;
-        if (!_vehOk && (!_prevBlk || Date.now() - _prevBlk.at > 600000)) showToast(sizeCheck.reason, 'error', 12000);
+        var _vehActive = typeof fbVehActive === 'function' && fbVehActive();
+        if (fbSizeBlockToast(collection, _vehActive, _prevBlk, Date.now())) showToast(sizeCheck.reason, 'error', 12000);
         if (onDone) onDone(false, sizeCheck.reason);
         return;
     }
