@@ -3110,8 +3110,8 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_fb_veh_known',      label: 'Vehículos ya subidos (huellas)', tier: 'cache',
       note: 'Qué versión de cada vehículo tiene la nube. Se reconstruye leyendo la nube una vez.' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
-      note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
-          + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
+      note: 'Bitácora de fusiones entre dispositivos. Desde 3.0.1 el respaldo para deshacer la última '
+          + 'vive aparte (IndexedDB) y no cuenta aquí. Los datos fusionados NO están aquí — ya viven en cada módulo.' },
     { key: 'kia_viewModes',         label: 'Modo de vista por módulo', tier: 'cache' },
     { key: 'kia_chart_configs',     label: 'Ajustes de gráficas',      tier: 'cache',
       note: 'Colores y tipo de cada gráfica. Vuelven a los valores por defecto.' },

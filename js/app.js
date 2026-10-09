@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.0.0';
+var APP_VERSION = '3.0.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.0.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.1', date: '9 oct 2026', title: 'Almacenamiento: sin el falso 127% y con la mitad de espacio libre',
+      bullets: [
+          'Cambió: el respaldo para "deshacer la última fusión" (una copia completa de los datos, ~1.4 MB) se guarda aparte, en el espacio grande del navegador, y deja de contar contra los 5 MB. En un equipo típico el almacenamiento baja de ~64% a ~35%, y ya no vuelve a subir en cada arranque.',
+          'Arreglado: al abrir la app salía "Almacenamiento al 127%. Considere purgar datos antiguos." en equipos que en realidad van a la mitad. Ese aviso medía el espacio con una fórmula vieja que contaba el doble; ahora solo avisa la medición de Datos → Sistema, y solo a partir del 90%.',
+          'Arreglado: la barra de "Backup & Almacenamiento" usa la misma medición y ya no se sale de su caja.'
+      ] },
     { version: '3.0.0', date: '9 oct 2026', title: 'Una sola nube, una sola señal',
       bullets: [
           'Nuevo: las alertas se agrupan. 40 calibraciones vencidas son UN recuadro ("40 calibraciones vencidas · la más vieja hace N días") que se abre para ver la lista. La pestaña DATOS, el Pulso de HOY y el Resumen del laboratorio cuentan grupos, no filas.',
@@ -6459,17 +6465,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [R4-M1] Load chart configurations ═══
         try { chartConfigLoad(); } catch(e) {}
 
-        // ═══ [R3-M6] Health check at boot — enhanced [Fase 5.3] ═══
-        try {
-            var lsUsage = _getLocalStorageUsage();
-            var lsPercent = Math.round((lsUsage / (5 * 1024 * 1024)) * 100);
-            if (lsPercent > 90) {
-                showToast('Almacenamiento al ' + lsPercent + '%. Considere purgar datos antiguos.', 'warning');
-            } else if (lsPercent > 80) {
-                showToast('Almacenamiento al ' + lsPercent + '%. Considere exportar datos y ejecutar compactación desde Panel > Salud del Sistema.', 'warning');
-            }
-            console.log('Storage: ' + _formatBytes(lsUsage) + ' (' + lsPercent + '%)');
-        } catch(e) { console.error('Health check error:', e); }
+        // [3.0.1] El aviso de almacenamiento lo da storageHousekeeping() con pnStorageScan(),
+        // LA definición del uso (v18.1). Aquí había una segunda medición (longitud × 2, la de
+        // UTF-16) contra 5 MB que contaba el doble y avisaba "127%" en equipos al ~60%.
 
         // ═══ [R3-M1] PWA — Register Service Worker ═══
         if ('serviceWorker' in navigator) {
@@ -8026,21 +8024,12 @@ function _formatBytes(bytes) {
     return (bytes / 1048576).toFixed(2) + ' MB';
 }
 
-function _getLocalStorageUsage() {
-    var total = 0;
-    for (var key in localStorage) {
-        if (localStorage.hasOwnProperty(key)) {
-            total += (localStorage[key].length + key.length) * 2;
-        }
-    }
-    return total;
-}
-
 // ── [Fase 5.3] Run all module compaction functions ──
 function renderBackupStatus(container) {
-    var usage = _getLocalStorageUsage();
-    var maxBytes = 5 * 1024 * 1024;
-    var pct = Math.round((usage / maxBytes) * 100);
+    // [3.0.1] Misma medición que Datos → Sistema (pnStorageScan, v18.1).
+    var _scan = (typeof pnStorageScan === 'function') ? pnStorageScan() : { total: 0, pct: 0 };
+    var usage = _scan.total;
+    var pct = Math.round(_scan.pct);
     var barColor = pct > 90 ? tokenColor('--danger-fill') : pct > 80 ? tokenColor('--warn-fill') : tokenColor('--ok-fill');
 
     var html = '<div class="backup-dashboard">' +
@@ -8051,7 +8040,7 @@ function renderBackupStatus(container) {
         '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);margin-bottom: var(--space-xs);">' +
         '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
         '<div style="height:8px;background:#1e293b;border-radius: var(--radius-md);overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
+        '<div style="height:100%;width:' + Math.min(100, pct) + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
 
     // Backup snapshots (async from IndexedDB)
     html += '<div class="backup-card" id="backupSnapshotsList">' +
