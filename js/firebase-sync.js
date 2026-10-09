@@ -147,6 +147,11 @@ function fbQueueRetry() {
         if (idx > 0) { fbOfflineQueue.splice(idx, 1); fbOfflineQueue.unshift(criticalItem); }
     }
 
+    // [3.0.0] Una foto encolada de una copia retirada (de antes de actualizar) ya no se sube.
+    var _antes = fbOfflineQueue.length;
+    fbOfflineQueue = fbOfflineQueue.filter(function(i) { return i && !fbModuleDocRetired(i.collection); });
+    if (fbOfflineQueue.length !== _antes) { fbQueueSave(); fbUpdateIndicator(); }
+    if (!fbOfflineQueue.length) return;
     var item = fbOfflineQueue[0];
     // [2.35.0] Una foto encolada de un módulo en revisión espera (fbReviewFinish la descarta).
     if (typeof fbReviewHolds === 'function' && fbReviewHolds(item.collection)) return;
@@ -399,7 +404,7 @@ function fbModuleDocBytes(collection, data, stationId, deviceId) {
  * falla, lo dicen su indicador y el chip ☁ de cada vehículo (2.14.0).
  */
 function fbSizeBlockToast(collection, vehActive, prevBlock, nowMs) {
-    if (collection === 'cop15' && vehActive) return false;
+    if (fbModuleDocRetired(collection)) return false;   // [3.0.0] ya no se sube como documento
     return !prevBlock || nowMs - prevBlock.at > 600000;
 }
 
@@ -505,7 +510,7 @@ function fbCapacityRows(mods, limit, stationId, deviceId) {
 function _fbCapacityModules() {
     var mods = [];
     var on = function(c) { return typeof fbSyncModules === 'undefined' || fbSyncModules[c] !== false; };
-    if (on('cop15') && typeof db !== 'undefined' && db) mods.push({ col: 'cop15', data: db });
+    // [3.0.0] Vehículos (uno por documento) e historial (uno por evento) no van aquí.
     if (on('testplan') && typeof tpState !== 'undefined' && tpState) mods.push({ col: 'testplan', data: tpState });
     if (on('inventory') && typeof invState !== 'undefined' && invState) mods.push({ col: 'inventory', data: invState });
     if (on('panel') && typeof pnState !== 'undefined' && pnState) mods.push({ col: 'panel', data: pnState });
@@ -515,7 +520,6 @@ function _fbCapacityModules() {
         var raw = null; try { raw = JSON.parse(localStorage.getItem(p.split(':')[1])); } catch (e) {}
         if (raw) mods.push({ col: c, data: raw });
     });
-    if (on('audit') && typeof auditGetTrail === 'function') mods.push({ col: 'audit', data: auditGetTrail() });
     return mods;
 }
 
@@ -537,14 +541,12 @@ function fbSyncCapacity(force) {
     var rows = [], weight = null;
     try { rows = fbCapacityRows(_fbCapacityModules(), FB_DOC_SAFE_BYTES, st, dev); } catch (e) { rows = []; }
     try { weight = fbVehicleWeight((typeof db !== 'undefined' && db && db.vehicles) || []); } catch (e) { weight = null; }
-    var cop = rows.filter(function(r) { return r.col === 'cop15'; })[0];
     // [2.9.0] Con vehículos uno por uno el tope ya no es "cuántos caben": cada vehículo
-    // tiene su documento. La fila cop15 pasa a ser la copia para equipos sin actualizar
-    // y se suma la del vehículo más pesado (lo único que todavía podría no caber).
+    // tiene su documento, y lo único que todavía podría no caber es el más pesado.
+    // [3.0.0] La copia completa de vehículos ya no existe, así que tampoco su fila.
     var perVehicle = typeof fbVehActive === 'function' && fbVehActive();
-    var vehiclesLeft = (!perVehicle && cop && weight && weight.avg > 0) ? Math.floor(cop.free / weight.avg) : null;
+    var vehiclesLeft = null;
     if (perVehicle) {
-        if (cop) { cop.label = 'Copia completa de vehículos (solo equipos sin actualizar)'; cop.legacy = true; }
         try {
             var big = fbVehLargestDoc((typeof db !== 'undefined' && db && db.vehicles) || []);
             if (big.bytes > 0) {
@@ -574,18 +576,10 @@ function fbSyncAlerts() {
         var cap = syncOn ? fbSyncCapacity() : { rows: [], blocked: [] };
         cap.rows.forEach(function(r) {
             var bloqueado = cap.blocked.indexOf(r.col) >= 0;
-            // [2.9.0] La copia completa solo la leen los equipos sin actualizar: llenarse
-            // no es un problema de este equipo; dejar de caber sí es un aviso para ellos.
-            if (r.legacy) {
-                if (bloqueado) out.push({ level: 'ALTA', color: '#f59e0b', source: 'Sincronización',
-                    message: 'La copia completa de vehículos ya no cabe en un documento: los equipos que sigan en una versión anterior a 2.9.0 dejaron de recibir cambios de Pruebas — actualízalos' });
-                return;
-            }
             if (r.level === 'ok' && !bloqueado) return;
             var crit = bloqueado || r.level === 'critico';
-            var extra = (r.col === 'cop15' && cap.vehiclesLeft !== null) ? ' — caben ~' + cap.vehiclesLeft + ' vehículos más' : '';
             out.push({ level: crit ? 'CRITICA' : 'ALTA', color: crit ? '#ef4444' : '#f59e0b',
-                message: (bloqueado ? 'Ya NO se sube a la nube: ' : 'Nube casi llena: ') + r.label + ' ocupa ' + r.pct + '% de lo que admite un documento' + extra + ' — ver Datos → Sistema',
+                message: (bloqueado ? 'Ya NO se sube a la nube: ' : 'Nube casi llena: ') + r.label + ' ocupa ' + r.pct + '% de lo que admite un documento — ver Datos → Sistema',
                 source: 'Sincronización' });
         });
     } catch (e) {}
@@ -1321,8 +1315,37 @@ function fbUpdateStationMeta() {
     }, 3000);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.0.0] COPIAS COMPLETAS RETIRADAS                                  ║
+// ║  `cop15/current` (todos los vehículos en un documento) y            ║
+// ║  `audit/current` (espejo del historial) existían solo para equipos   ║
+// ║  anteriores a 2.9.0 / 2.6.0. Desde 3.0.0 no se escriben, no se leen  ║
+// ║  al conectar y no se escuchan: los vehículos viajan uno por uno      ║
+// ║  (fbVehiclesSync) y el historial evento por evento (auditlog).      ║
+// ║  Los documentos viejos se quedan en la nube, quietos.               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+var FB_RETIRED_DOCS = ['cop15', 'audit'];
+
+/** ¿Este módulo ya no viaja como un documento completo? PURA. */
+function fbModuleDocRetired(col) { return FB_RETIRED_DOCS.indexOf(col) >= 0; }
+
+/** Los módulos que se leen al conectar (los que sí viajan como un documento). PURA. */
+function fbPullCollections(enabled) {
+    return ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'homolog', 'audit'].filter(function(c) {
+        return enabled[c] && !fbModuleDocRetired(c);
+    });
+}
+
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
 function fbPush(collection, data, onDone, opts) {
+    // [3.0.0] Quien pide subir un módulo retirado obtiene su camino actual: los vehículos
+    // por su ciclo y el historial por su bandeja. Así ningún llamador viejo escribe la copia.
+    if (fbModuleDocRetired(collection)) {
+        if (collection === 'cop15' && typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon();
+        if (collection === 'audit' && typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
+        if (onDone) onDone(true);
+        return;
+    }
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estación configurado'); return; }
     // [2.35.0] Equipo atrasado: no sube hasta que alguien revise lo que trae.
@@ -1444,7 +1467,8 @@ function fbPushAll(showFeedback) {
     // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
     var skippedEmpty = [];
-    if (fbSyncModules.cop15) { if (_fbPushDataScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    // [3.0.0] Los vehículos no viajan en un documento: subir todo = un ciclo de vehículos.
+    if (fbSyncModules.cop15 && typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon(0);
     if (fbSyncModules.testplan) { if (_fbPushDataScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
     if (fbSyncModules.inventory) { if (_fbPushDataScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
     if (fbSyncModules.panel) {
@@ -1463,10 +1487,8 @@ function fbPushAll(showFeedback) {
         var homoRaw = null; try { homoRaw = JSON.parse(localStorage.getItem('kia_homolog_v1')); } catch(e) {}
         if (homoRaw && (homoRaw.catalog || []).length) modules.push({col:'homolog', data: homoRaw});
     }
-    if (fbSyncModules.audit && typeof auditGetTrail === 'function') {
-        var auditArr = auditGetTrail();
-        if (auditArr && auditArr.length) modules.push({col:'audit', data: auditArr});
-    }
+    // [3.0.0] El historial sube evento por evento (bandeja → auditlog).
+    if (fbSyncModules.audit && typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
     if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     var pending = modules.length, errors = [];
@@ -1560,8 +1582,14 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'homolog', 'audit'].filter(function(c) { return fbSyncModules[c]; });
-    if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+    var collections = fbPullCollections(fbSyncModules);
+    if (collections.length === 0) {
+        // [3.0.0] Solo Pruebas/Historial encendidos: no hay documento que leer, pero el cierre
+        // del pull (ciclo de vehículos, historial, _pullCompleted) sí tiene que correr.
+        if (!fbSyncModules.cop15 && !fbSyncModules.audit) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+        fbPullApply([], {}, false);
+        return;
+    }
 
     // Use REST API if SDK transport is broken
     if (fbSync._useREST) {
@@ -2329,7 +2357,7 @@ function fbHookSaves() {
     var _origSaveDB = window.saveDB;
     // [2.9.0] Además de la copia completa (para equipos sin actualizar), un ciclo de
     // vehículos uno por uno: trae lo de la nube y sube solo lo que cambió aquí.
-    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) { fbPush('cop15', db); fbVehiclesSyncSoon(); } return ok; }; }
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(); return ok; }; }
     var _origTpSave = window.tpSave;
     if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origInvSave = window.invSave;
@@ -2350,7 +2378,9 @@ function fbStartListening() {
     if (fbSync._liveSync) return;  // Already active
 
     var _startedAt = Date.now();
-    var cols = ['cop15', 'testplan', 'inventory'];
+    // [3.0.0] Pruebas ya no se escucha aquí: cop15/current está retirado y los vehículos
+    // llegan por la escucha de cop15meta (fbVehiclesSync).
+    var cols = ['testplan', 'inventory'];
 
     cols.forEach(function(col) {
         if (!fbSyncModules[col]) return; // Respect module enable/disable config
@@ -7167,7 +7197,7 @@ function _fbWriterSeen(id, kind, at) {
  * opts = {now, own, current (APP_VERSION), staleDays}
  * → {rows:[{id, name, version, last, own, level, inactive, text}], blockers3}
  *   level: 'al-dia' | 'atrasado' | 'anterior-214' (sube vehículos: ≥2.9.0) | 'sin-confirmar' (podría ser < 2.9.0)
- *   blockers3 = equipos activos que podrían ser anteriores a 2.9.0 (impiden retirar las copias completas).
+ *   blockers3 = equipos activos que podrían ser anteriores a 2.9.0: desde 3.0.0 esos ya no reciben cambios de Pruebas.
  */
 function fbDevicesView(reg, seen, opts) {
     opts = opts || {};
@@ -7262,7 +7292,9 @@ function fbDevicesRender(opts) {
     var v = fbDevicesView(c.devices, c.seen, { now: Date.now(), own: FB_DEVICE_ID,
         current: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' });
     var myName = (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })();
-    var h = '<div class="dev-name-row"><label for="dev-name-input">Nombre de este equipo</label>' +
+    // [3.0.0] Sin nombre, esta tarjeta no sirve para saber QUÉ equipo va atrasado.
+    var h = (!myName ? '<div class="dev-note is-warn">Ponle nombre a este equipo (p. ej. "Tablet celda 2"): así se sabe cuál es cuando aparece atrasado aquí o cuando algo "llegó desde" él.</div>' : '') +
+        '<div class="dev-name-row"><label for="dev-name-input">Nombre de este equipo</label>' +
         '<div class="dev-name-in"><input id="dev-name-input" maxlength="40" value="' + escapeHtml(myName) + '" placeholder="Ej.: Tablet celda 2">' +
         '<button type="button" class="btn-secondary" onclick="fbDeviceNameSave(document.getElementById(\'dev-name-input\').value)">Guardar</button></div>' +
         '<div class="u-muted-xs">Así aparece en los demás equipos cuando algo "llegó desde" aquí.</div></div>';
@@ -7271,7 +7303,8 @@ function fbDevicesRender(opts) {
     } else {
         h += v.blockers3.length
             ? '<div class="dev-note is-warn">⚠ ' + v.blockers3.length + ' equipo' + (v.blockers3.length > 1 ? 's' : '') +
-              ' activo' + (v.blockers3.length > 1 ? 's' : '') + ' sin confirmar versión. Hasta que se actualicen (o dejen de usarse) se sigue escribiendo la copia completa de Pruebas para ellos.</div>'
+              ' activo' + (v.blockers3.length > 1 ? 's' : '') + ' sin confirmar versión. Si es anterior a ' + FB_PER_VEHICLE_SINCE +
+              ', ya no recibe cambios de Pruebas (desde 3.0.0 no hay copia completa): actualízalo abriendo la app.</div>'
             : '<div class="dev-note is-ok">✓ Todos los equipos activos suben vehículos uno por uno.</div>';
         h += '<ul class="dev-list">' + v.rows.map(function(r) {
             return '<li class="dev-row lvl-' + r.level + (r.inactive ? ' is-inactive' : '') + '">' +

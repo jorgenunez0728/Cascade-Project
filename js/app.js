@@ -2745,13 +2745,8 @@ function _auditPersistNow() {
     var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
     _auditTrail = _auditTrail.filter(function(e) { return e.ts >= cutoff; });
     try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(_auditTrail)); _auditDirty = false; } catch(e) {}
-    // Compartir el historial entre dispositivos (fbPush ya coalesce 2s por colección)
-    try {
-        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
-            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
-            fbPush('audit', _auditTrail);
-        }
-    } catch(e) {}
+    // [3.0.0] El caché ya no se sube como espejo (audit/current): cada evento viaja por
+    // la bandeja a stations/KIA-EMLAB/auditlog (2.6.0).
 }
 var _auditPersistDebounced = debounce(_auditPersistNow, 2500);
 
