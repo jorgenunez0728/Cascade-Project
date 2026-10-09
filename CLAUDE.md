@@ -3138,3 +3138,28 @@ UNIDAD sigue en pie: el REQ es de la familia, no la suma de las variantes.
   aviso a `fbSync.vehPulled`: el primer empuje de la copia sale al conectar, antes del primer
   ciclo de vehículos, y el toast salía en cada arranque (#191).
 
+## 3.0.0 — Una sola nube, una sola señal
+
+Reemplaza lo que 2.6.0, 2.9.0 y 2.14.0 dicen de las copias completas (`cop15/current`,
+`audit/current`): **ya no se escriben, no se leen al conectar y no se escuchan.**
+
+- **`FB_RETIRED_DOCS` + `fbModuleDocRetired(col)`** es el único candado. `fbPush` de un módulo
+  retirado no escribe: dispara su camino actual (`fbVehiclesSyncSoon` / `fbAuditFlushSoon`), así
+  ningún llamador viejo revive la copia. **`fbPullCollections(enabled)`** (PURA) es lo que se lee
+  al conectar. Un módulo que deje de viajar como documento se agrega a `FB_RETIRED_DOCS`, no se
+  borra a mano de cada lista.
+- Los documentos viejos se quedan en la nube; nadie con 3.0.0 los lee. Borrarlos es opcional y
+  solo cuando ningún equipo activo sea anterior a 3.0.0.
+- **`pnAlertGroups` (PURA) es LA definición de lo que se LEE de las alertas**: Datos → Alertas,
+  Pulso, pestaña DATOS y Resumen del laboratorio cuentan GRUPOS. `pnGetActiveAlerts` sigue
+  siendo la lista fila por fila (reporte exportado, filas de HOY). **Toda alerta nueva lleva
+  `kind`** (con `_pnAlert`) y su entrada en `PN_ALERT_KINDS`; sin `kind` se agrupa por fuente +
+  nivel y se muestra su propio mensaje.
+- **Rojo (CRITICA) = detiene una prueba o un resultado**: doble ciego, cilindro crítico,
+  calibración vencida de un instrumento de equipo `blocksTesting`, vehículo escalado (regla de
+  `digestVehicles`) y módulo que ya no sube. Una alerta nueva que no detiene nada es ALTA o MEDIA.
+- **Ordenar por nivel con `pnAlertLevelRank`**, nunca `ORDEN[nivel] || 9` (CRITICA = 0 es falso).
+- **"Te toca" es lo de hoy.** Una actividad de HOY que sea deuda acumulada lleva `debt`
+  (`cal` | `mtto` | `proy` | `ronda-equipos` | `ronda-proyectos`): `dashInbox` la pone en `.debt`
+  y `_dashDebtHTML` la resume. Sigue en su categoría (los recuadros cuentan todo).
+

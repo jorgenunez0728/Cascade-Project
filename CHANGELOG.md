@@ -20,6 +20,56 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.0.0 — Una sola nube, una sola señal (2026-10-09)
+
+Es MAYOR porque deja de escribirse la copia completa de vehículos de la nube: un equipo anterior
+a 2.9.0 ya no recibe cambios de Pruebas. Los equipos con 2.9.0 o más nuevos (los dos registrados
+el 9 de octubre) conviven sin problema.
+
+### Nuevo
+- **Alertas agrupadas.** Antes cada instrumento, cilindro o paso de proyecto era una alerta: el
+  laboratorio vivía con "88 alertas" y 43 en rojo. Ahora las del mismo tipo son UN recuadro
+  ("40 calibraciones vencidas · la más vieja hace N días") que se abre para ver la lista y
+  lleva a su pantalla. La pestaña DATOS, el Pulso de HOY y el Resumen del laboratorio cuentan
+  grupos.
+- **¿Falta el F11?** Si más de la mitad de los instrumentos aparecen con la calibración vencida,
+  el recuadro lo pregunta y ofrece importar el F11 más reciente.
+- **Pendientes acumulados.** Calibraciones y mantenimientos vencidos y pasos de proyecto ya no
+  inflan "Te toca": van en su propio bloque de HOY, con su total y la ronda que los resuelve.
+  Siguen contándose en su categoría.
+- La tarjeta de **Equipos** pide ponerle nombre a cada equipo.
+
+### Cambió
+- **El rojo es solo para lo que detiene una prueba o un resultado**: desacuerdo en el doble ciego,
+  cilindro en nivel crítico, calibración vencida de un instrumento cuyo equipo detiene pruebas,
+  vehículo escalado (la misma regla del resumen diario: más de 7 días sin aprobar) y la nube que
+  ya no recibe un módulo. Calibraciones de otros equipos, consumo proyectado, SPC y vehículos
+  detenidos pasan a ámbar; avisos menores en azul.
+- **Se retiraron las copias completas** `cop15/current` (todos los vehículos en un documento,
+  congelada desde que pasó de 1 MB) y `audit/current` (espejo del historial). Ya no se escriben,
+  no se descargan al conectar (~1 MB por arranque) y no se escuchan en vivo. Los vehículos viajan
+  uno por uno (2.9.0) y el historial evento por evento (2.6.0). Los documentos viejos se quedan
+  en la nube, quietos.
+- La tarjeta de **Capacidad** pierde la barra roja permanente y la del historial.
+
+### Arreglado
+- En Datos → Alertas y en el reporte exportado las **críticas salían al final**: el orden usaba
+  `ORDEN[nivel] || 9` y CRITICA vale 0. Lo mismo en la lista de alertas del Dashboard Ejecutivo.
+
+### Para desarrollo
+- **`fbModuleDocRetired(col)` / `FB_RETIRED_DOCS`** (`cop15`, `audit`): `fbPush` de un módulo
+  retirado no escribe — dispara su camino actual (`fbVehiclesSyncSoon` / `fbAuditFlushSoon`).
+  **`fbPullCollections(enabled)`** (PURA) es la lista de lo que se lee al conectar. La cola
+  offline descarta fotos de módulos retirados. El escucha en vivo ya no incluye cop15.
+- **`pnAlertGroups(alerts, ctx)`** (PURA) es LA definición de los grupos; `PN_ALERT_KINDS`
+  nombra cada tipo (`kind`), `pnAlertGroupCounts`, `pnAlertGroupsHTML` (PURA) y
+  `pnActiveAlertGroups()`. `pnGetActiveAlerts` sigue devolviendo una fila por cosa (reporte
+  exportado y HOY), ahora con `kind` y el nivel nuevo (`_pnAlert`). **`pnAlertLevelRank`** es la
+  forma de ordenar por nivel.
+- **`dashInbox(...).debt`**: las actividades con `debt` (`cal`, `mtto`, `proy`, `ronda-*`) no entran
+  a "Te toca"; **`dashDebtSummary(debt)`** (PURA) las resume.
+- `tests/v300.node.js`; `tests/vehsync.node.js` (fbPush retirado, lectura al conectar).
+
 ## 2.37.3 — Sin el falso aviso de "no se pudo subir cop15" (2026-10-09)
 
 ### Arreglado

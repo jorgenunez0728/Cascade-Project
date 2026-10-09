@@ -113,20 +113,20 @@ const SEED = () => {
     chk('el vehículo del otro equipo aparece en este', otro.esta && otro.guardado, JSON.stringify(otro));
     chk('con el aviso de "actualizado desde otro dispositivo"', otro.toast);
 
-    console.log('\n== La copia completa ya no cabe ==');
+    console.log('\n== [3.0.0] La copia completa está retirada ==');
     const lleno = await page.evaluate(async () => {
         window.__toasts = [];
         const _chk = window.fbQuotaCheckSize;
-        window.fbQuotaCheckSize = (d, col) => col === 'cop15' ? { allowed: false, bytes: 1200000, reason: 'Vehículos (COP15) pesa 1.2 MB' } : _chk(d, col);
+        let midio = false;
+        window.fbQuotaCheckSize = (d, col) => { if (col === 'cop15') midio = true; return _chk(d, col); };
         fbPush('cop15', db);
         window.fbQuotaCheckSize = _chk;
         fbSyncCapacityInvalidate();
         const al = pnGetActiveAlerts().filter(a => a.source === 'Sincronización').map(a => a.message);
-        return { toasts: window.__toasts.slice(), al };
+        return { toasts: window.__toasts.slice(), al, midio };
     });
-    chk('no sale el toast de error (este equipo sí sincroniza)', !lleno.toasts.some(t => /1\.2 MB/.test(t)), JSON.stringify(lleno.toasts));
-    chk('la alerta habla de los equipos sin actualizar', lleno.al.some(m => /versión anterior a 2\.9\.0 dejaron de recibir/.test(m)) &&
-        !lleno.al.some(m => /Ya NO se sube/.test(m)), JSON.stringify(lleno.al));
+    chk('fbPush("cop15") ya no intenta subir la copia (ni la mide)', !lleno.midio && !lleno.toasts.some(t => /No se pudo subir cop15/.test(t)), JSON.stringify(lleno));
+    chk('sin alerta de copia completa', !lleno.al.some(m => /copia completa|Ya NO se sube/.test(m)), JSON.stringify(lleno.al));
 
     console.log('\n== Datos → Sistema ==');
     const sis = await page.evaluate(async () => {
@@ -135,7 +135,7 @@ const SEED = () => {
         return document.getElementById('platform-panel').innerText;
     });
     chk('explica que cada vehículo viaja en su documento', /Cada vehículo viaja en su propio documento/.test(sis), sis.slice(0, 400));
-    chk('la copia completa se rotula como de equipos sin actualizar', /Copia completa de vehículos \(solo equipos sin actualizar\)/.test(sis));
+    chk('[3.0.0] Capacidad ya no lista la copia completa', !/Copia completa de vehículos/.test(sis));
     chk('y mide el vehículo más pesado', /Vehículo más pesado/.test(sis));
     chk('ya no cuenta "caben ~N vehículos más"', !/caben ~/.test(sis));
     chk('no dice que este equipo dejó de subir', !/Hay módulos que ya no se están subiendo/.test(sis));

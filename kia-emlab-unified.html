@@ -6759,6 +6759,43 @@ body.ficha-open { overflow: hidden; }
 .fbrev-meta { color: var(--muted); font-size: var(--fs-xs); }
 .fbrev-code { font-family: monospace; font-size: var(--fs-2xs); color: var(--muted); overflow-wrap: anywhere; }
 .fbrev-warn { color: var(--warn-text); font-weight: 700; font-size: var(--fs-xs); }
+
+/* ═══ [3.0.0] Alertas agrupadas (pnAlertGroupsHTML) ═══ */
+.pn-al-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.pn-al-sum { text-align: center; padding: var(--space-md); }
+.pn-al-sum.is-crit { border: 2px solid var(--danger-fill); }
+.pn-al-sum.is-high { border: 2px solid var(--warn-fill); }
+.pn-al-sum-n { font-size: var(--fs-xl); font-weight: 800; }
+.pn-al-sum-n.is-crit { color: var(--danger-text); }
+.pn-al-sum-n.is-high { color: var(--warn-text); }
+.pn-al-sum-n.is-med { color: var(--info-text); }
+.pn-al-sum-l { font-size: var(--fs-xs); color: var(--muted); }
+.pn-al-hint { font-size: var(--fs-xs); margin: 0 0 var(--space-sm); }
+.pn-al-group { padding: 0; overflow: hidden; }
+.pn-al-group.lvl-CRITICA { border-left: 4px solid var(--danger-fill); }
+.pn-al-group.lvl-ALTA { border-left: 4px solid var(--warn-fill); }
+.pn-al-group.lvl-MEDIA { border-left: 4px solid var(--info-fill); }
+.pn-al-head { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); cursor: pointer; list-style: none; min-height: var(--target-min, 44px); }
+.pn-al-head::-webkit-details-marker { display: none; }
+.pn-al-chip { font-size: var(--fs-xs); font-weight: 800; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); white-space: nowrap; flex-shrink: 0; }
+.pn-al-title { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+.pn-al-n { font-size: var(--fs-xs); font-weight: 800; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-full, 999px); padding: var(--space-2xs) var(--space-sm); flex-shrink: 0; }
+.pn-al-note { font-size: var(--fs-xs); color: var(--warn-text); background: var(--warn-bg); padding: var(--space-xs) var(--space-md); }
+.pn-al-list { list-style: none; margin: 0; padding: var(--space-xs) var(--space-md); max-height: 18rem; overflow-y: auto; border-top: 1px solid var(--border); }
+.pn-al-item { display: flex; gap: var(--space-sm); align-items: baseline; padding: var(--space-2xs) 0; font-size: var(--fs-sm); color: var(--text); }
+.pn-al-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transform: translateY(-1px); }
+.pn-al-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-xs) var(--space-md) var(--space-sm); }
+.pn-al-go { font-size: var(--fs-sm); }
+.pn-al-empty { text-align: center; padding: var(--space-3xl); }
+.pn-al-empty-icon { font-size: 40px; margin-bottom: var(--space-md); }
+.pn-al-empty-title { font-size: var(--fs-base); font-weight: 700; color: var(--ok-text); }
+
+/* ═══ [3.0.0] HOY: pendientes acumulados (no son de hoy) ═══ */
+.dash-debt { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border: 1px dashed var(--border); border-radius: var(--radius-lg); background: var(--surface-alt, var(--bg)); }
+.dash-debt-head { display: flex; align-items: center; gap: var(--space-sm); }
+.dash-debt-title { font-weight: 800; font-size: var(--fs-sm); color: var(--text); }
+.dash-debt-text { margin: var(--space-xs) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.dash-debt-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
     </style>
 </head>
 
@@ -8460,49 +8497,23 @@ body.ficha-open { overflow: hidden; }
         <!-- ───── ALERTS TAB ───── -->
         <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
             <div id="help-banner-slot-pn-alerts"></div>
-            <!-- Summary -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
-                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid var(--danger-fill);' : ''">
-                    <div style="font-size:28px;font-weight:800;color:var(--danger-text);" x-text="alertCount('CRITICA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Críticas</div>
+            <!-- [3.0.0] Resumen por GRUPOS: rojo = detiene una prueba o un resultado. -->
+            <div class="pn-al-summary">
+                <div class="tp-card pn-al-sum" :class="alertCount('CRITICA') > 0 ? 'is-crit' : ''">
+                    <div class="pn-al-sum-n is-crit" x-text="alertCount('CRITICA')"></div>
+                    <div class="pn-al-sum-l">Detienen pruebas</div>
                 </div>
-                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('ALTA') > 0 ? 'border:2px solid var(--warn-fill);' : ''">
-                    <div style="font-size:28px;font-weight:800;color:var(--warn-text);" x-text="alertCount('ALTA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Altas</div>
+                <div class="tp-card pn-al-sum" :class="alertCount('ALTA') > 0 ? 'is-high' : ''">
+                    <div class="pn-al-sum-n is-high" x-text="alertCount('ALTA')"></div>
+                    <div class="pn-al-sum-l">Por atender</div>
                 </div>
-                <div class="tp-card" style="text-align:center;padding:14px;">
-                    <div style="font-size:28px;font-weight:800;color:var(--info-text);" x-text="alertCount('MEDIA')"></div>
-                    <div style="font-size: var(--fs-xs);color:var(--tp-dim);">Medias</div>
+                <div class="tp-card pn-al-sum">
+                    <div class="pn-al-sum-n is-med" x-text="alertCount('MEDIA')"></div>
+                    <div class="pn-al-sum-l">Avisos</div>
                 </div>
             </div>
-
-            <!-- No alerts -->
-            <template x-if="activeAlerts().length === 0">
-                <div class="tp-card" style="text-align:center;padding:40px;">
-                    <div style="font-size:40px;margin-bottom:10px;">✅</div>
-                    <div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>
-                    <div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>
-                </div>
-            </template>
-
-            <!-- Alerts by source -->
-            <template x-if="activeAlerts().length > 0">
-                <div>
-                    <template x-for="group in alertsBySource()" :key="group.source">
-                        <div class="tp-card">
-                            <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
-                            <template x-for="(a, aIdx) in group.alerts" :key="group.source + '#' + aIdx">
-                                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
-                                    <span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
-                                          :style="{ background: a.color + '20', color: a.color }"
-                                          x-text="a.level"></span>
-                                    <span style="font-size: var(--fs-sm);color:var(--tp-text);" x-text="a.message"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                </div>
-            </template>
+            <p class="u-muted pn-al-hint">Cada recuadro junta las alertas del mismo tipo. Tócalo para ver la lista completa.</p>
+            <div x-html="alertGroupsHTML()"></div>
 
             <!-- Alert actions -->
             <div class="tp-card">
@@ -9453,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610091605';
+var APP_BUILD = '202610091635';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'be2e7e42a15e05b02f0e14372693f6d85ec6f7bc';
+var APP_COMMIT = 'a1df92e0c8e819ba1dac88c0941222eaa7c5aabb';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9464,7 +9475,7 @@ var APP_COMMIT = 'be2e7e42a15e05b02f0e14372693f6d85ec6f7bc';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '2.37.3';
+var APP_VERSION = '3.0.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9472,6 +9483,16 @@ var APP_VERSION = '2.37.3';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.0', date: '9 oct 2026', title: 'Una sola nube, una sola señal',
+      bullets: [
+          'Nuevo: las alertas se agrupan. 40 calibraciones vencidas son UN recuadro ("40 calibraciones vencidas · la más vieja hace N días") que se abre para ver la lista. La pestaña DATOS, el Pulso de HOY y el Resumen del laboratorio cuentan grupos, no filas.',
+          'Cambió: el rojo es solo para lo que detiene una prueba o un resultado: desacuerdo en el doble ciego, cilindro en nivel crítico, calibración vencida de un equipo de prueba, vehículo escalado (más de 7 días sin aprobar) y la nube que ya no recibe un módulo. Lo demás va en ámbar o como aviso.',
+          'Nuevo: si más de la mitad de los instrumentos aparecen vencidos, el aviso pregunta si falta importar el F11 más reciente y ofrece importarlo.',
+          'Cambió: "Te toca" en HOY muestra lo de hoy. Lo acumulado (calibraciones y mantenimientos vencidos, pasos de proyecto) va abajo en "Pendientes acumulados", con su total y la ronda para resolverlo; sigue en su categoría.',
+          'Cambió: se retiraron las copias completas de vehículos y del historial en la nube (solo las usaban equipos anteriores a 2.9.0). Ya no se descarga ~1 MB al conectar y desaparece la barra roja de Capacidad. Un equipo anterior a 2.9.0 deja de recibir cambios de Pruebas: hay que actualizarlo.',
+          'Nuevo: la tarjeta de Equipos pide ponerle nombre a cada equipo, para saber cuál va atrasado.',
+          'Arreglado: en Datos → Alertas y en su reporte, las críticas aparecían al final de la lista en vez de al principio.'
+      ] },
     { version: '2.37.3', date: '9 oct 2026', title: 'Sin el falso aviso de "no se pudo subir cop15"',
       bullets: [
           'Arreglado: al abrir la app salía en rojo "No se pudo subir cop15 a la nube: ocupa 1014 KB…" aunque todo se estaba subiendo bien (#191). Ese mensaje habla de la copia completa de vehículos, que desde 2.9.0 solo leen los equipos sin actualizar; los cambios de Pruebas viajan vehículo por vehículo. Ya no se avisa en cada arranque: si un equipo viejo deja de recibir cambios, lo dice Datos → Alertas.'
@@ -10350,14 +10371,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610091605' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610091635' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610091605' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610091635' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10373,7 +10394,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610091605' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610091635' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11734,13 +11755,8 @@ function _auditPersistNow() {
     var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
     _auditTrail = _auditTrail.filter(function(e) { return e.ts >= cutoff; });
     try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(_auditTrail)); _auditDirty = false; } catch(e) {}
-    // Compartir el historial entre dispositivos (fbPush ya coalesce 2s por colección)
-    try {
-        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
-            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
-            fbPush('audit', _auditTrail);
-        }
-    } catch(e) {}
+    // [3.0.0] El caché ya no se sube como espejo (audit/current): cada evento viaja por
+    // la bandeja a stations/KIA-EMLAB/auditlog (2.6.0).
 }
 var _auditPersistDebounced = debounce(_auditPersistNow, 2500);
 
@@ -13294,7 +13310,7 @@ function _dashRegisterHelp() {
     if (typeof CASCADE_TOOLTIPS === 'undefined') return;
     _dashHelpRegistered = true;
     Object.assign(CASCADE_TOOLTIPS, {
-        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona. Si llevabas más de 4 horas fuera, la franja 🕘 Desde tu última vez resume lo que cambió mientras no estabas.' },
+        'dash-board-help': { title: 'Te toca', text: 'Lo que te toca a TI ahora, lo atrasado primero: solo lo que tu rol puede hacer (aprobar lo que tú liberaste no aparece). Lo acumulado (calibraciones y mantenimientos vencidos, pasos de proyecto) no es de hoy: va abajo en "Pendientes acumulados", con su total y la ronda para resolverlo. ⏰ o deslizar la fila a la izquierda la pospone hasta mañana: sale de tu bandeja pero sigue en su categoría, y nunca se marca como hecha. Los recuadros de arriba son las categorías completas, con todo lo del laboratorio. Tocar el nombre de algo (un vehículo, un cilindro, un instrumento, un proyecto) abre su ficha: cómo va, qué sigue y con qué se relaciona. Si llevabas más de 4 horas fuera, la franja 🕘 Desde tu última vez resume lo que cambió mientras no estabas.' },
         'dash-pulse-help': { title: 'Pulso del laboratorio', text: 'Cinco indicadores para saber cómo va el laboratorio sin bajar: la semana (hechas contra lo planeado y cuántas en riesgo), los vehículos en curso por etapa, las liberaciones de hoy contra los 6 días previos, la cobertura del REQ (con el % solo verificado al lado) y las alertas activas. Cada recuadro abre su pantalla.' },
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
@@ -13775,7 +13791,7 @@ function dashCollectActivities() {
             var eqr = invEquipmentRoundItems();
             if (eqr.length >= 2) {
                 var eqrVenc = eqr.filter(function(x) { return x.overdue; }).length;
-                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭',
+                acts.push({ id: 'act-eqround', cat: 'inventario', icon: '🧭', debt: 'ronda-equipos',
                     title: 'Ronda de equipos',
                     meta: eqr.length + ' calibraciones y mantenimientos pendientes' + (eqrVenc ? ' · ' + eqrVenc + ' vencidos' : ''),
                     status: eqrVenc ? 'atrasado' : 'pendiente', urgency: eqrVenc ? 3 : 2,
@@ -13784,9 +13800,35 @@ function dashCollectActivities() {
             }
         }
         if (typeof invCalStatus === 'function') {
+            // [3.0.0] Una calibración vencida es deuda acumulada, salvo la de un equipo que
+            // detiene pruebas (asset.blocksTesting): ésa sí es de hoy.
+            var _blk = {};
+            (invState.assets || []).forEach(function(a) { if (a && a.blocksTesting) _blk[a.id] = true; });
+            // [3.0.0] Las de equipos de prueba sí son de hoy, pero en "Te toca" van JUNTAS en una
+            // fila (con 24 vencidas a la vez, casi siempre es el F11 sin importar). Cada una sigue
+            // en la categoría Inventario (`inboxGrouped`); la fila junta solo existe en la bandeja.
+            var _calReq = 0, _calVenc = 0, _calPrueba = [];
+            (invState.equipment || []).forEach(function(e) {
+                var st0 = invCalStatus(e);
+                if (st0.code !== 'noaplica') _calReq++;
+                if (st0.code === 'vencido') { _calVenc++; if (_blk[e.assetId]) _calPrueba.push(e); }
+            });
+            var _juntar = _calPrueba.length >= 2;
+            if (_juntar) {
+                var _f11 = _calReq && _calVenc / _calReq >= 0.5;
+                acts.push({ id: 'act-cal-prueba', cat: 'inventario', icon: '🔧', inboxOnly: true,
+                    title: _calPrueba.length + ' calibraciones vencidas en equipos de prueba',
+                    meta: _f11 ? _calVenc + ' de ' + _calReq + ' instrumentos aparecen vencidos: ¿falta importar el F11 más reciente?'
+                               : 'Dinamómetro, cámara y demás equipos que detienen pruebas',
+                    status: 'atrasado', urgency: 3,
+                    action: _f11
+                        ? { label: '📥 Importar F11', js: "dashGo('inventory','inv-equipment');setTimeout(function(){if(typeof invCalImportOpen==='function')invCalImportOpen();},400)" }
+                        : { label: '🧭 Ronda de equipos', js: "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" } });
+            }
             (invState.equipment || []).forEach(function(e) {
                 var st = invCalStatus(e);
                 if (st.code === 'vencido') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    debt: _blk[e.assetId] ? '' : 'cal', inboxGrouped: !!(_juntar && _blk[e.assetId]),
                     title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
                 else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
@@ -13797,7 +13839,7 @@ function dashCollectActivities() {
         // v16.4: mantenimiento preventivo (COP15-F11) — vencidos y programados para esta semana
         if (typeof invMaintOverdue === 'function') {
             invMaintOverdue().forEach(function(o) {
-                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️',
+                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️', debt: 'mtto',
                     title: (o.asset ? o.asset.name + ': ' : '') + o.act.desc + ' — vencido',
                     meta: 'Desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)',
                     assignee: (o.act && o.act.responsible) || '',
@@ -13824,7 +13866,7 @@ function dashCollectActivities() {
     // paso: hecho / nueva fecha / bloqueado). Las filas sueltas se quedan para el check.
     if (typeof pnProjectsReviewCount === 'function') {
         var prN = pnProjectsReviewCount();
-        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭',
+        if (prN >= 2) acts.push({ id: 'act-projround', cat: 'proyectos', icon: '🧭', debt: 'ronda-proyectos',
             title: 'Pendientes de proyectos',
             meta: prN + ' pasos vencidos o bloqueados',
             status: 'atrasado', urgency: 3,
@@ -13833,7 +13875,7 @@ function dashCollectActivities() {
     }
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
-            acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
+            acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️', debt: 'proy',
                 title: o.project.name + ': ' + o.step.title, ficha: { kind: 'proyecto', ref: o.project.id },
                 meta: (o.blocked ? 'Bloqueado' + (o.step.roadblock ? ' — ' + o.step.roadblock : '') : 'Vencido (' + o.step.targetDate + ')') + (o.step.responsible ? ' · 👤 ' + o.step.responsible : ''),
                 // v16.8: sin assignee, el filtro "Solo míos" dejaba pasar TODOS los
@@ -13882,6 +13924,8 @@ function dashCollectActivities() {
                 // tarjeta con su motivo concreto: repetirlos aquí es decir dos veces lo
                 // mismo, una de ellas sin decir cuál prueba.
                 if (a.source === 'Test Plan') return;
+                // [3.0.0] El vehículo escalado ya es su propia fila de vehículos en HOY.
+                if (a.kind === 'veh-escalado') return;
                 var cat = a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
@@ -14005,14 +14049,59 @@ function dashInbox(acts, ctx) {
     var can = typeof ctx.can === 'function' ? ctx.can : function() { return true; };
     var sn = ctx.snooze || {};
     var now = ctx.now || new Date().toISOString();
-    var items = [], snoozed = [], byRole = 0;
+    var items = [], snoozed = [], byRole = 0, debt = [];
     (acts || []).forEach(function(a) {
         if (!a || a.status === 'hecho') return;
         if ((a.perm && !can(a.perm)) || a.notForMe) { byRole++; return; }
+        // [3.0.0] Lo acumulado (calibraciones/mantenimientos vencidos, pasos de proyecto)
+        // no es "lo de hoy": va a su propio bloque, contado, y sigue en su categoría.
+        if (a.debt) { debt.push(a); return; }
+        if (a.inboxGrouped) return;   // [3.0.0] ya va dentro de su fila junta (inboxOnly)
         if (a.id != null && sn[a.id] && String(sn[a.id]) > now) { snoozed.push(a); return; }
         items.push(a);
     });
-    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole };
+    return { items: dashNextUp(items, items.length), snoozed: snoozed, byRole: byRole, debt: debt };
+}
+
+/**
+ * [3.0.0] Resumen de lo acumulado de `dashInbox(...).debt`. PURA.
+ * → {total, parts:[{key, n, label}], rounds:{equipos, proyectos}} — las rondas no se cuentan
+ *   como pendientes (son la forma de resolverlos).
+ */
+var DASH_DEBT_LABELS = {
+    cal:  ['calibración vencida', 'calibraciones vencidas'],
+    mtto: ['mantenimiento vencido', 'mantenimientos vencidos'],
+    proy: ['paso de proyecto vencido o bloqueado', 'pasos de proyecto vencidos o bloqueados']
+};
+function dashDebtSummary(debt) {
+    var n = { cal: 0, mtto: 0, proy: 0 }, rounds = { equipos: false, proyectos: false };
+    (debt || []).forEach(function(a) {
+        if (a.debt === 'ronda-equipos') rounds.equipos = true;
+        else if (a.debt === 'ronda-proyectos') rounds.proyectos = true;
+        else if (n[a.debt] !== undefined) n[a.debt]++;
+    });
+    var parts = Object.keys(DASH_DEBT_LABELS).filter(function(k) { return n[k]; }).map(function(k) {
+        return { key: k, n: n[k], label: n[k] + ' ' + DASH_DEBT_LABELS[k][n[k] === 1 ? 0 : 1] };
+    });
+    return { total: n.cal + n.mtto + n.proy, parts: parts, rounds: rounds };
+}
+
+/** [3.0.0] Bloque "Pendientes acumulados" de HOY: se dice cuánto hay y cómo resolverlo. */
+function _dashDebtHTML(debt) {
+    var d = dashDebtSummary(debt);
+    if (!d.total) return '';
+    var acc = [];
+    if (d.rounds.equipos || d.parts.some(function(p) { return p.key !== 'proy'; }))
+        acc.push('<button type="button" class="dash-row-action" onclick="' + (d.rounds.equipos ? "if(typeof invStartEquipmentRound==='function')invStartEquipmentRound()" : "dashGo('inventory','inv-equipment')") + '">🧭 ' + (d.rounds.equipos ? 'Ronda de equipos' : 'Ver equipos') + '</button>');
+    if (d.parts.some(function(p) { return p.key === 'proy'; }))
+        acc.push('<button type="button" class="dash-row-action" onclick="' + (d.rounds.proyectos ? "if(typeof pnProjectsReviewOpen==='function')pnProjectsReviewOpen()" : "dashGo('panel','pn-projects')") + '">🧭 ' + (d.rounds.proyectos ? 'Repasar proyectos' : 'Ver proyectos') + '</button>');
+    return '<div class="dash-debt" role="note">' +
+        '<div class="dash-debt-head"><span class="dash-debt-title">🗃 Pendientes acumulados</span>' +
+        '<span class="dash-chip dash-chip--pendiente">' + d.total + '</span></div>' +
+        '<p class="dash-debt-text">' + escapeHtml(d.parts.map(function(p) { return p.label; }).join(' · ')) +
+        '. No son de hoy: se resuelven en ronda, y siguen en su categoría arriba.</p>' +
+        (acc.length ? '<div class="dash-debt-actions">' + acc.join('') + '</div>' : '') +
+    '</div>';
 }
 
 /** Hasta cuándo pospone "⏰": el inicio de mañana, hora local. PURA (recibe la fecha). */
@@ -14071,7 +14160,8 @@ function dashToggleInboxAll() {
 /** Resumen por categoría para los tiles: {cat, total, pend, late}. PURA. */
 function dashCatSummary(acts) {
     return DASH_CAT_ORDER.map(function(cat) {
-        var rows = (acts || []).filter(function(a) { return a.cat === cat; });
+        // [3.0.0] Una fila `inboxOnly` junta otras de la bandeja: en la categoría ya están.
+        var rows = (acts || []).filter(function(a) { return a.cat === cat && !a.inboxOnly; });
         return { cat: cat, total: rows.length,
                  pend: rows.filter(function(a) { return a.status !== 'hecho'; }).length,
                  late: rows.filter(function(a) { return a.status === 'atrasado'; }).length };
@@ -14141,7 +14231,7 @@ function dashRenderBoard(acts, currentOp) {
 
     if (open) {
         // 2a) La categoría elegida, completa.
-        var rows = shown.filter(function(a) { return a.cat === open; });
+        var rows = shown.filter(function(a) { return a.cat === open && !a.inboxOnly; });
         rows.sort(function(x, y) {
             return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
         });
@@ -14175,6 +14265,7 @@ function dashRenderBoard(acts, currentOp) {
             h += _dashInboxEmptyHTML(inbox);
         }
         h += _dashInboxFootHTML(inbox);
+        h += _dashDebtHTML(inbox.debt);
     }
     h += '</div>';
     return h;
@@ -16789,7 +16880,9 @@ function renderLabDashboard(container) {
 
     // Sort alerts by severity
     var levelOrder = { 'CRITICO': 0, 'ALTO': 1, 'MEDIO': 2, 'BAJO': 3 };
-    alerts.sort(function(a, b) { return (levelOrder[a.level] || 9) - (levelOrder[b.level] || 9); });
+    // [3.0.0] `levelOrder[l] || 9` mandaba CRITICO (0) al final.
+    var _rank = function(l) { return Object.prototype.hasOwnProperty.call(levelOrder, l) ? levelOrder[l] : 9; };
+    alerts.sort(function(a, b) { return _rank(a.level) - _rank(b.level); });
 
     // Render
     var html = '<div class="lab-dash">';
@@ -48472,9 +48565,10 @@ function pnRender(opts) {
 function pnUpdateBadges() {
     var badge = document.getElementById('pn-alerts-badge');
     if (badge) {
-        var count = pnGetActiveAlerts().length;
-        badge.textContent = count > 0 ? count + ' alertas' : 'ok';
-        badge.style.color = count > 0 ? '#fbbf24' : '#34d399';
+        // [3.0.0] Grupos, no filas: "3 alertas" en vez de "88 alertas".
+        var c = pnAlertGroupCounts(pnActiveAlertGroups());
+        badge.textContent = c.total > 0 ? c.total + (c.total === 1 ? ' alerta' : ' alertas') : 'ok';
+        badge.style.color = c.CRITICA > 0 ? '#f87171' : (c.total > 0 ? '#fbbf24' : '#34d399');
     }
 }
 
@@ -48670,7 +48764,8 @@ function labPulseData() {
     var board = null, coverage = null, alerts = [], low = 0, calOver = 0;
     if (typeof tpWeekBoardRows === 'function') { try { board = tpWeekBoardRows({}); } catch (e) { board = null; } }
     if (typeof tpCoverageSummary === 'function') { try { coverage = tpCoverageSummary(); } catch (e) { coverage = null; } }
-    if (typeof pnGetActiveAlerts === 'function') { try { alerts = pnGetActiveAlerts() || []; } catch (e) { alerts = []; } }
+    // [3.0.0] El Pulso cuenta GRUPOS (40 calibraciones vencidas = 1), no filas.
+    if (typeof pnActiveAlertGroups === 'function') { try { alerts = pnActiveAlertGroups() || []; } catch (e) { alerts = []; } }
     if (typeof invState !== 'undefined' && invState.gases && typeof invGasIsLow === 'function')
         low = invState.gases.filter(function(g) { return g && g.status !== 'Empty' && invGasIsLow(g); }).length;
     if (typeof invCalSummary === 'function') { try { calOver = invCalSummary().vencidos || 0; } catch (e) { calOver = 0; } }
@@ -48746,12 +48841,12 @@ function _labPulseHTML(p) {
 
     // 5) Atención
     var a = p.attention;
+    // [3.0.0] Grupos de alertas (pnAlertGroups): rojo solo si algo detiene una prueba.
     var aBits = [];
-    if (a.crit) aBits.push(a.crit + ' crítica' + (a.crit === 1 ? '' : 's'));
-    if (a.high) aBits.push(a.high + ' alta' + (a.high === 1 ? '' : 's'));
-    if (a.lowGases) aBits.push(a.lowGases + ' gas' + (a.lowGases === 1 ? '' : 'es') + ' bajo' + (a.lowGases === 1 ? '' : 's'));
-    if (a.calOverdue) aBits.push(a.calOverdue + ' calib. vencida' + (a.calOverdue === 1 ? '' : 's'));
-    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Alertas activas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
+    if (a.crit) aBits.push(a.crit + ' detiene' + (a.crit === 1 ? '' : 'n') + ' pruebas');
+    if (a.high) aBits.push(a.high + ' por atender');
+    if (a.med) aBits.push(a.med + ' aviso' + (a.med === 1 ? '' : 's'));
+    h += tile(a.crit ? 'danger' : (a.high ? 'warn' : 'ok'), "dashGo('panel','pn-alerts')", 'Grupos de alertas de todos los módulos. Toca para abrir Datos → Alertas.', '⚠️ Atención',
               num(a.total), '', aBits.join(' · ') || 'Sin alertas activas');
 
     return h + '</div>';
@@ -48861,18 +48956,20 @@ function renderLabOverview(el, opts) {
                      tone: tpPct === 100 ? 'ok' : 'warn' }
         });
     }
-    if (has('alerts') && typeof pnGetActiveAlerts === 'function') {
-        var alerts = pnGetActiveAlerts();
-        if (alerts.length) {
+    if (has('alerts') && typeof pnActiveAlertGroups === 'function') {
+        // [3.0.0] Grupos (pnAlertGroups): una línea por tipo, con su conteo.
+        var aGroups = pnActiveAlertGroups();
+        if (aGroups.length) {
             var alertBody = '';
-            alerts.slice(0, 5).forEach(function(a) {
-                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius:var(--radius-md);font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
+            aGroups.slice(0, 5).forEach(function(g) {
+                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + g.color + '20;color:' + g.color + ';border-radius:var(--radius-md);font-weight:700;">' + (g.n > 1 ? g.n : '1') + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + g.icon + ' ' + escapeHtml(g.title) + '</span></div>';
             });
-            if (alerts.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (alerts.length - 5) + ' más...</div>';
+            if (aGroups.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (aGroups.length - 5) + ' grupos más · Datos → Alertas</div>';
+            var aCnt = pnAlertGroupCounts(aGroups);
             html += uiCard({
                 id: 'lo-alerts', icon: '⚠️', title: 'Alertas Activas', accent: 'cop',
                 body: alertBody,
-                count: { label: String(alerts.length), tone: 'danger' }
+                count: { label: String(aCnt.total), tone: aCnt.CRITICA ? 'danger' : 'warn' }
             });
         }
     }
@@ -49675,30 +49772,55 @@ function pnExportShiftLog() {
 // ║  NOTIFICATIONS / ALERTS CENTER                                      ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [3.0.0] COLORES POR NIVEL. Rojo (CRITICA) = SOLO lo que detiene una prueba o un resultado:
+// desacuerdo del doble ciego, cilindro en nivel crítico, instrumento de un equipo de prueba con
+// calibración vencida, vehículo escalado, y la nube que ya no recibe un módulo. Lo demás es
+// ALTA (ámbar) o MEDIA. Antes 40 calibraciones vencidas eran 40 alertas rojas.
+var PN_ALERT_COLORS = { CRITICA: '#ef4444', ALTA: '#f59e0b', MEDIA: '#06b6d4' };
+function _pnAlert(level, kind, source, message, extra) {
+    return Object.assign({ level: level, color: PN_ALERT_COLORS[level] || '#06b6d4', kind: kind, source: source, message: message }, extra || {});
+}
+
 function pnGetActiveAlerts() {
     var alerts = [];
 
     // Check vehicles stuck too long in a status
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = Date.now();
+    // [3.0.0] Escalado = la misma regla del resumen diario (digestVehicles): más de N días
+    // desde el alta sin aprobar. digest.js carga después — guarda typeof.
+    var escalados = {};
+    if (typeof digestVehicles === 'function') {
+        try {
+            var _dSet = (typeof digestSettingsNormalize === 'function' && typeof _digestUi !== 'undefined')
+                ? digestSettingsNormalize(_digestUi.settings || {}) : {};
+            digestVehicles(vehicles, new Date(now).toISOString(), { escalateDays: _dSet.escalateDays }).escalated
+                .forEach(function(r) { escalados[r.id] = r; });
+        } catch (e) {}
+    }
     vehicles.forEach(function(v) {
         if (!vehicleIsLive(v)) return;
+        var vin6 = 'VIN ' + (v.vin || '?').slice(-6);
         // Desacuerdo liberador/aprobador (doble ciego) sin resolver
         if (v.testData && v.testData.gasResults && v.testData.gasResults.mismatch) {
             var mm = v.testData.gasResults.mismatch;
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ': desacuerdo liberador/aprobador en ' + ((mm.gases || []).join(', ') || 'gases') + ' — revisar', source: 'COP15' });
+            alerts.push(_pnAlert('CRITICA', 'doble-ciego', 'COP15', vin6 + ': desacuerdo liberador/aprobador en ' + ((mm.gases || []).join(', ') || 'gases') + ' — revisar', { vehicleId: v.id }));
+        }
+        if (escalados[v.id]) {
+            alerts.push(_pnAlert('CRITICA', 'veh-escalado', 'COP15', vin6 + ': ' + escalados[v.id].daysActive + ' días desde el alta sin aprobar (' + (escalados[v.id].label || v.status) + ')', { vehicleId: v.id, days: escalados[v.id].daysActive }));
+            return;   // escalado ya dice que está detenido; no repetirlo con "sin avanzar"
         }
         var lastAction = v.timeline && v.timeline.length > 0 ? new Date(v.timeline[v.timeline.length - 1].timestamp).getTime() : null;
         if (lastAction) {
             var hours = (now - lastAction) / 3600000;
             if (hours > 48 && v.status === 'registered') {
-                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' registrado hace ' + Math.round(hours) + 'h sin avanzar', source: 'COP15' });
+                alerts.push(_pnAlert('MEDIA', 'veh-detenido', 'COP15', vin6 + ' registrado hace ' + Math.round(hours) + 'h sin avanzar', { vehicleId: v.id }));
             }
             if (hours > 24 && v.status === 'in-progress') {
-                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ' en progreso hace ' + Math.round(hours) + 'h', source: 'COP15' });
+                alerts.push(_pnAlert('ALTA', 'veh-detenido', 'COP15', vin6 + ' en progreso hace ' + Math.round(hours) + 'h', { vehicleId: v.id }));
             }
             if (hours > 12 && v.status === 'ready-release') {
-                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' listo para liberar hace ' + Math.round(hours) + 'h', source: 'COP15' });
+                alerts.push(_pnAlert('MEDIA', 'veh-detenido', 'COP15', vin6 + ' listo para liberar hace ' + Math.round(hours) + 'h', { vehicleId: v.id }));
             }
         }
     });
@@ -49715,21 +49837,21 @@ function pnGetActiveAlerts() {
         var lvl = invGasLevel(g);
         var etiqueta = (g.formula || g.gasType || 'Gas') + (g.controlNo ? ' #' + g.controlNo : '');
         if (lvl.status === 'critico') {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
+            alerts.push(_pnAlert('CRITICA', 'gas-critico', 'Inventario', etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)'));
         } else if (lvl.status === 'bajo') {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
+            alerts.push(_pnAlert('ALTA', 'gas-bajo', 'Inventario', etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar'));
         } else if (typeof invGasReorder === 'function' && g.status !== 'Spare') {
             // v24.3: el criterio con el que el laboratorio COMPRA (tiempo de entrega del
             // proveedor). Solo si no salió ya como bajo/crítico, para no repetirlo.
             var ro = invGasReorder(g);
-            if (ro.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)', source: 'Inventario' });
+            if (ro.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar ' + etiqueta + ': ' + ro.psi + ' psi ≤ límite ' + Math.round(ro.reorderPsi) + ' psi (reposición ' + ro.leadDays + ' días)'));
         }
     });
     // v24.3: tanques de combustible bajo su nivel de reorden (si está capturado)
     if (typeof invFuelReorder === 'function' && typeof invState !== 'undefined') {
         (invState.fuelTanks || []).forEach(function(t) {
             var fr = invFuelReorder(t);
-            if (fr.needsPurchase) alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel, source: 'Inventario' });
+            if (fr.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel));
         });
     }
 
@@ -49738,14 +49860,22 @@ function pnGetActiveAlerts() {
     // es eq.nextCalDate).
     var invEquip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
     if (typeof invCalStatus === 'function') {
+        // [3.0.0] Rojo solo si el instrumento es de un equipo que DETIENE pruebas
+        // (asset.blocksTesting, el mismo criterio del aviso de Disponibilidad del Plan).
+        var _assets = {};
+        ((typeof invState !== 'undefined' && invState.assets) || []).forEach(function(a) { if (a) _assets[a.id] = a; });
         invEquip.forEach(function(eq) {
             var st = invCalStatus(eq);
+            var asset = eq.assetId ? _assets[eq.assetId] : null;
+            var deprueba = !!(asset && asset.blocksTesting);
+            var nombre = (eq.name || 'instrumento') + (asset ? ' (' + (asset.name || asset.id) + ')' : '');
             if (st.code === 'vencido') {
-                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibración de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert(deprueba ? 'CRITICA' : 'ALTA', deprueba ? 'cal-vencida-prueba' : 'cal-vencida', 'Inventario',
+                    'Calibración de ' + nombre + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', { days: Math.abs(st.days) }));
             } else if (st.code === 'porvencer' && st.days <= 7) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert('ALTA', 'cal-7d', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             } else if (st.code === 'porvencer') {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibración de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+                alerts.push(_pnAlert('MEDIA', 'cal-porvencer', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             }
         });
     }
@@ -49753,7 +49883,7 @@ function pnGetActiveAlerts() {
     // v16.4: mantenimiento preventivo (COP15-F11) vencido
     if (typeof invMaintOverdue === 'function') {
         invMaintOverdue().forEach(function(o) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek, source: 'Mantenimiento' });
+            alerts.push(_pnAlert('ALTA', 'mtto-vencido', 'Mantenimiento', 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek));
         });
     }
 
@@ -49761,9 +49891,9 @@ function pnGetActiveAlerts() {
     if (typeof pnProjectsOverdueSteps === 'function') {
         pnProjectsOverdueSteps().forEach(function(o) {
             if (o.blocked && o.step.roadblock) {
-                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" bloqueado — ' + o.step.roadblock, source: 'Proyectos' });
+                alerts.push(_pnAlert('ALTA', 'proy-bloqueado', 'Proyectos', 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" bloqueado — ' + o.step.roadblock));
             } else if (o.overdue) {
-                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" vencido (' + o.step.targetDate + ')', source: 'Proyectos' });
+                alerts.push(_pnAlert('MEDIA', 'proy-vencido', 'Proyectos', 'Proyecto "' + o.project.name + '": paso "' + o.step.title + '" vencido (' + o.step.targetDate + ')'));
             }
         });
     }
@@ -49775,10 +49905,9 @@ function pnGetActiveAlerts() {
         var _wb = null;
         try { _wb = tpWeekBoardRows({}); } catch (e) { _wb = null; }
         if (_wb && !_wb.plan && (tpState.weeklyPlans || []).length > 0) {
-            alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'No hay plan para la semana en curso — armar uno', source: 'Test Plan' });
+            alerts.push(_pnAlert('MEDIA', 'plan-sin', 'Test Plan', 'No hay plan para la semana en curso — armar uno'));
         } else if (_wb && _wb.plan && _wb.kpis.riesgo > 0) {
-            alerts.push({ level: 'MEDIA', color: '#f59e0b',
-                message: _wb.kpis.riesgo + ' prueba(s) de esta semana en riesgo — ver Plan → Mi semana', source: 'Test Plan' });
+            alerts.push(_pnAlert('MEDIA', 'plan-riesgo', 'Test Plan', _wb.kpis.riesgo + ' prueba(s) de esta semana en riesgo — ver Plan → Mi semana'));
         }
     }
 
@@ -49787,7 +49916,7 @@ function pnGetActiveAlerts() {
     if (typeof copSpcScanAlarms === 'function') {
         try {
             copSpcScanAlarms().forEach(function(a) {
-                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+                alerts.push(_pnAlert('ALTA', 'spc', 'CoP SPC', 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC'));
             });
         } catch (e) {}
     }
@@ -49796,12 +49925,9 @@ function pnGetActiveAlerts() {
     if (typeof invForecastGasNeeds === 'function') {
         try {
             invForecastGasNeeds().forEach(function(f) {
-                alerts.push({
-                    level: f.severidad === 'critical' ? 'CRITICA' : 'ALTA',
-                    color: f.severidad === 'critical' ? '#ef4444' : '#f59e0b',
-                    message: 'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')',
-                    source: 'Consumo'
-                });
+                // [3.0.0] Pronóstico: avisa con tiempo, todavía no detiene una prueba → ámbar.
+                alerts.push(_pnAlert('ALTA', 'consumo', 'Consumo',
+                    'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')'));
             });
         } catch (e) {}
     }
@@ -49809,67 +49935,147 @@ function pnGetActiveAlerts() {
     // [2.3.0] Nube: módulo cerca del límite de un documento (o ya sin subir) y
     // respaldo diario fallando. firebase-sync.js carga después — guardar con typeof.
     if (typeof fbSyncAlerts === 'function') {
-        try { fbSyncAlerts().forEach(function(a) { alerts.push(a); }); } catch (e) {}
+        try { fbSyncAlerts().forEach(function(a) { if (!a.kind) a.kind = 'nube-' + String(a.source || '').toLowerCase(); alerts.push(a); }); } catch (e) {}
     }
 
-    // Sort by severity
-    var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
-    alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
+    // Sort by severity. [3.0.0] Antes `(order[l] || 9)`: CRITICA vale 0, que es falso, y las
+    // críticas se iban al FINAL de la lista (y del reporte exportado).
+    alerts.sort(function(a, b) { return pnAlertLevelRank(a.level) - pnAlertLevelRank(b.level); });
 
     return alerts;
 }
 
-function pnRenderAlerts(el) {
-    var alerts = pnGetActiveAlerts();
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.0.0] ALERTAS AGRUPADAS                                           ║
+// ║  pnGetActiveAlerts devuelve una fila por cosa (40 calibraciones = 40 ║
+// ║  filas) y así siguen saliendo en el reporte exportado. Lo que se LEE ║
+// ║  (Datos → Alertas, Pulso, pestaña DATOS, Resumen del Lab) son GRUPOS:║
+// ║  pnAlertGroups es LA definición y es PURA.                           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+var PN_ALERT_KINDS = {
+    'doble-ciego':        { icon: '⚖️', one: 'Desacuerdo en el doble ciego', many: 'desacuerdos en el doble ciego', go: "dashGo('cop15','liberacion')" },
+    'veh-escalado':       { icon: '⏫', one: 'Vehículo escalado (sin aprobar)', many: 'vehículos escalados (sin aprobar)', go: "dashGo('cop15','liberacion')" },
+    'gas-critico':        { icon: '🧪', one: 'Cilindro en nivel crítico', many: 'cilindros en nivel crítico', go: "dashGo('inventory','inv-gases')" },
+    'cal-vencida-prueba': { icon: '🔧', one: 'Calibración vencida en un equipo de prueba', many: 'calibraciones vencidas en equipos de prueba', go: "dashGo('inventory','inv-equipment')" },
+    'veh-detenido':       { icon: '🚗', one: 'Vehículo sin avanzar', many: 'vehículos sin avanzar', go: "dashGo('cop15','seguimiento')" },
+    'gas-bajo':           { icon: '🧪', one: 'Cilindro bajo', many: 'cilindros bajos', go: "dashGo('inventory','inv-gases')" },
+    'comprar':            { icon: '🛒', one: 'Por comprar', many: 'por comprar', go: "dashGo('inventory','inv-report')" },
+    'consumo':            { icon: '📉', one: 'Gas o combustible insuficiente para el plan', many: 'faltantes para el plan', go: "dashGo('inventory','inv-predict')" },
+    'cal-vencida':        { icon: '🔧', one: 'Calibración vencida', many: 'calibraciones vencidas', go: "dashGo('inventory','inv-equipment')" },
+    'cal-7d':             { icon: '🔧', one: 'Calibración vence esta semana', many: 'calibraciones vencen esta semana', go: "dashGo('inventory','inv-equipment')" },
+    'mtto-vencido':       { icon: '🛠️', one: 'Mantenimiento vencido', many: 'mantenimientos vencidos', go: "dashGo('inventory','inv-maint')" },
+    'spc':                { icon: '📈', one: 'Gas fuera de control (SPC)', many: 'gases fuera de control (SPC)', go: "switchPlatform('cop')" },
+    'proy-bloqueado':     { icon: '🗂️', one: 'Paso de proyecto bloqueado', many: 'pasos de proyecto bloqueados', go: "dashGo('panel','pn-projects')" },
+    'plan-sin':           { icon: '📅', one: 'Sin plan para esta semana', many: 'semanas sin plan', go: "dashGo('testplan','tp-calendar')" },
+    'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
+    'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
+    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
+};
+var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };
+/** Orden de un nivel (CRITICA primero). Ojo: `ORDEN[l] || 9` mandaba CRITICA (0) al final. */
+function pnAlertLevelRank(level) {
+    return Object.prototype.hasOwnProperty.call(PN_ALERT_LEVEL_ORDER, level) ? PN_ALERT_LEVEL_ORDER[level] : 9;
+}
 
-    var html = '';
-
-    // Summary
-    var critical = alerts.filter(function(a) { return a.level === 'CRITICA'; }).length;
-    var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
-    var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
-
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap: var(--space-sm);margin-bottom: var(--space-md);" data-help="pn-alerts-help">';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--danger-text);">' + critical + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Criticas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);' + (high > 0 ? 'border:2px solid #f59e0b;' : '') + '">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--warn-text);">' + high + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Altas</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding: var(--space-lg);">';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--info-text);">' + medium + '</div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Medias</div></div>';
-    html += '</div>';
-
-    if (alerts.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding: var(--space-3xl);">';
-        html += '<div style="font-size:40px;margin-bottom: var(--space-md);">✅</div>';
-        html += '<div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>';
-        html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top: var(--space-xs);">Todo el laboratorio opera con normalidad.</div>';
-        html += '</div>';
-    } else {
-        // Group by source
-        var bySource = {};
-        alerts.forEach(function(a) {
-            if (!bySource[a.source]) bySource[a.source] = [];
-            bySource[a.source].push(a);
+/**
+ * Agrupa alertas por `kind` (las que no traen kind: por fuente + nivel). PURA.
+ * `ctx` = {calRequired: nº de instrumentos que requieren calibración} para el aviso del F11.
+ * → [{key, kind, level, color, icon, title, n, source, items:[alerta], go, note}], del más grave
+ *   al menos grave y, dentro del nivel, el grupo más grande primero.
+ */
+function pnAlertGroups(alerts, ctx) {
+    ctx = ctx || {};
+    var by = {}, order = [];
+    (alerts || []).forEach(function(a) {
+        if (!a) return;
+        var key = a.kind || (String(a.source || 'Otros') + '|' + String(a.level || 'MEDIA'));
+        if (!by[key]) { by[key] = []; order.push(key); }
+        by[key].push(a);
+    });
+    var groups = order.map(function(key) {
+        var items = by[key].slice().sort(function(x, y) {
+            return pnAlertLevelRank(x.level) - pnAlertLevelRank(y.level) || ((y.days || 0) - (x.days || 0));
         });
-
-        Object.keys(bySource).forEach(function(source) {
-            var sourceAlerts = bySource[source];
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
-            html += '<div class="tp-card">';
-            html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
-
-            sourceAlerts.forEach(function(a) {
-                html += '<div style="display:flex;gap: var(--space-md);align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-                html += '<span style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius: var(--radius-md);font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
-                html += '<span style="font-size: var(--fs-sm);color:var(--tp-text);">' + a.message + '</span>';
-                html += '</div>';
-            });
-            html += '</div>';
+        var top = items[0], n = items.length;
+        var def = PN_ALERT_KINDS[top.kind] || null;
+        var title = def ? (n === 1 ? def.one : n + ' ' + def.many) : (n === 1 ? top.message : n + ' avisos de ' + (top.source || 'otros'));
+        var g = { key: key, kind: top.kind || '', level: top.level || 'MEDIA', color: top.color || PN_ALERT_COLORS[top.level] || '#06b6d4',
+                  icon: def ? def.icon : '📌', title: title, n: n, source: top.source || '', items: items,
+                  go: def ? def.go : '', note: '' };
+        // Lo más viejo, para que el título agrupado no esconda la gravedad.
+        if (n > 1 && (top.kind === 'cal-vencida' || top.kind === 'cal-vencida-prueba' || top.kind === 'veh-escalado') && top.days) {
+            g.note = top.kind === 'veh-escalado' ? 'El más viejo: ' + top.days + ' días' : 'La más vieja: hace ' + top.days + ' días';
+        }
+        return g;
+    });
+    // Muchas calibraciones vencidas a la vez casi siempre son fechas que no se han traído del
+    // F11, no instrumentos realmente sin calibrar: se dice, y se ofrece importarlo.
+    var calN = groups.filter(function(g) { return g.kind === 'cal-vencida' || g.kind === 'cal-vencida-prueba'; })
+                     .reduce(function(s, g) { return s + g.n; }, 0);
+    if (ctx.calRequired && calN >= 5 && calN / ctx.calRequired >= 0.5) {
+        groups.forEach(function(g) {
+            if (g.kind !== 'cal-vencida' && g.kind !== 'cal-vencida-prueba') return;
+            g.f11 = true;
+            g.note = (g.note ? g.note + ' · ' : '') + calN + ' de ' + ctx.calRequired + ' instrumentos aparecen vencidos: ¿falta importar el F11 más reciente?';
         });
     }
+    groups.sort(function(a, b) {
+        return pnAlertLevelRank(a.level) - pnAlertLevelRank(b.level) || (b.n - a.n);
+    });
+    return groups;
+}
+
+/** Cuántos grupos por nivel. PURA. */
+function pnAlertGroupCounts(groups) {
+    var c = { CRITICA: 0, ALTA: 0, MEDIA: 0, total: 0 };
+    (groups || []).forEach(function(g) { c[g.level] = (c[g.level] || 0) + 1; c.total++; });
+    return c;
+}
+
+/** Los grupos de las alertas vigentes de este equipo (lo que se lee en pantalla). */
+function pnActiveAlertGroups() {
+    var calRequired = 0;
+    if (typeof invState !== 'undefined' && invState.equipment && typeof invCalStatus === 'function') {
+        invState.equipment.forEach(function(eq) { if (eq && invCalStatus(eq).code !== 'noaplica') calRequired++; });
+    }
+    return pnAlertGroups(pnGetActiveAlerts(), { calRequired: calRequired });
+}
+
+/** HTML de los grupos (Datos → Alertas). PURA respecto a sus argumentos. */
+function pnAlertGroupsHTML(groups) {
+    if (!groups || !groups.length) {
+        return '<div class="tp-card pn-al-empty"><div class="pn-al-empty-icon">✅</div>' +
+            '<div class="pn-al-empty-title">Sin alertas</div><div class="u-muted">Todo el laboratorio opera con normalidad.</div></div>';
+    }
+    var LBL = { CRITICA: 'Detiene', ALTA: 'Atender', MEDIA: 'Aviso' };
+    return groups.map(function(g) {
+        var lista = g.items.map(function(a) {
+            return '<li class="pn-al-item"><span class="pn-al-dot" style="background:' + a.color + '"></span>' + escapeHtml(a.message) + '</li>';
+        }).join('');
+        var acciones = (g.go ? '<button type="button" class="tp-btn tp-btn-ghost pn-al-go" onclick="' + g.go + '">Ir ▸</button>' : '') +
+            (g.f11 ? '<button type="button" class="tp-btn tp-btn-ghost pn-al-go" onclick="dashGo(\'inventory\',\'inv-equipment\');setTimeout(function(){if(typeof invCalImportOpen===\'function\')invCalImportOpen();},400)">📥 Importar F11</button>' : '');
+        return '<details class="tp-card pn-al-group lvl-' + g.level + '"' + (g.level === 'CRITICA' ? ' open' : '') + '>' +
+            '<summary class="pn-al-head">' +
+                '<span class="pn-al-chip" style="background:' + g.color + '20;color:' + g.color + '">' + LBL[g.level] + '</span>' +
+                '<span class="pn-al-title">' + g.icon + ' ' + escapeHtml(g.title) + '</span>' +
+                (g.n > 1 ? '<span class="pn-al-n">' + g.n + '</span>' : '') +
+            '</summary>' +
+            (g.note ? '<div class="pn-al-note">' + escapeHtml(g.note) + '</div>' : '') +
+            '<ul class="pn-al-list">' + lista + '</ul>' +
+            (acciones ? '<div class="pn-al-actions">' + acciones + '</div>' : '') +
+        '</details>';
+    }).join('');
+}
+
+function pnRenderAlerts(el) {
+    // [3.0.0] Mismos grupos y mismo HTML que la pestaña Alpine (pnAlertGroupsHTML).
+    var groups = pnActiveAlertGroups();
+    var c = pnAlertGroupCounts(groups);
+    var html = '<div class="pn-al-summary" data-help="pn-alerts-help">' +
+        '<div class="tp-card pn-al-sum' + (c.CRITICA ? ' is-crit' : '') + '"><div class="pn-al-sum-n is-crit">' + c.CRITICA + '</div><div class="pn-al-sum-l">Detienen pruebas</div></div>' +
+        '<div class="tp-card pn-al-sum' + (c.ALTA ? ' is-high' : '') + '"><div class="pn-al-sum-n is-high">' + c.ALTA + '</div><div class="pn-al-sum-l">Por atender</div></div>' +
+        '<div class="tp-card pn-al-sum"><div class="pn-al-sum-n is-med">' + c.MEDIA + '</div><div class="pn-al-sum-l">Avisos</div></div></div>';
+    html += pnAlertGroupsHTML(groups);
 
     // Notification settings
     html += '<div class="tp-card">';
@@ -51514,22 +51720,10 @@ function panelAlpineComponent() {
         },
 
         // ── Computed — Alerts ──
-        activeAlerts: function() { void this._dataVersion; return pnGetActiveAlerts(); },
-        alertsBySource: function() {
-            var alerts = this.activeAlerts();
-            var grouped = {};
-            alerts.forEach(function(a) {
-                if (!grouped[a.source]) grouped[a.source] = [];
-                grouped[a.source].push(a);
-            });
-            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊', 'Proyectos': '🗂️', 'Sincronización': '☁️', 'Respaldo': '💾' };
-            return Object.keys(grouped).map(function(source) {
-                return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
-            });
-        },
-        alertCount: function(level) {
-            return this.activeAlerts().filter(function(a) { return a.level === level; }).length;
-        },
+        // [3.0.0] La pestaña lee GRUPOS (pnAlertGroups); el reporte exportado sigue fila por fila.
+        alertGroups: function() { void this._dataVersion; return pnActiveAlertGroups(); },
+        alertGroupsHTML: function() { return pnAlertGroupsHTML(this.alertGroups()); },
+        alertCount: function(level) { return pnAlertGroupCounts(this.alertGroups())[level] || 0; },
 
         // ── Computed — System Health ──
         storageData: function() {
@@ -56337,6 +56531,11 @@ function fbQueueRetry() {
         if (idx > 0) { fbOfflineQueue.splice(idx, 1); fbOfflineQueue.unshift(criticalItem); }
     }
 
+    // [3.0.0] Una foto encolada de una copia retirada (de antes de actualizar) ya no se sube.
+    var _antes = fbOfflineQueue.length;
+    fbOfflineQueue = fbOfflineQueue.filter(function(i) { return i && !fbModuleDocRetired(i.collection); });
+    if (fbOfflineQueue.length !== _antes) { fbQueueSave(); fbUpdateIndicator(); }
+    if (!fbOfflineQueue.length) return;
     var item = fbOfflineQueue[0];
     // [2.35.0] Una foto encolada de un módulo en revisión espera (fbReviewFinish la descarta).
     if (typeof fbReviewHolds === 'function' && fbReviewHolds(item.collection)) return;
@@ -56589,7 +56788,7 @@ function fbModuleDocBytes(collection, data, stationId, deviceId) {
  * falla, lo dicen su indicador y el chip ☁ de cada vehículo (2.14.0).
  */
 function fbSizeBlockToast(collection, vehActive, prevBlock, nowMs) {
-    if (collection === 'cop15' && vehActive) return false;
+    if (fbModuleDocRetired(collection)) return false;   // [3.0.0] ya no se sube como documento
     return !prevBlock || nowMs - prevBlock.at > 600000;
 }
 
@@ -56695,7 +56894,7 @@ function fbCapacityRows(mods, limit, stationId, deviceId) {
 function _fbCapacityModules() {
     var mods = [];
     var on = function(c) { return typeof fbSyncModules === 'undefined' || fbSyncModules[c] !== false; };
-    if (on('cop15') && typeof db !== 'undefined' && db) mods.push({ col: 'cop15', data: db });
+    // [3.0.0] Vehículos (uno por documento) e historial (uno por evento) no van aquí.
     if (on('testplan') && typeof tpState !== 'undefined' && tpState) mods.push({ col: 'testplan', data: tpState });
     if (on('inventory') && typeof invState !== 'undefined' && invState) mods.push({ col: 'inventory', data: invState });
     if (on('panel') && typeof pnState !== 'undefined' && pnState) mods.push({ col: 'panel', data: pnState });
@@ -56705,7 +56904,6 @@ function _fbCapacityModules() {
         var raw = null; try { raw = JSON.parse(localStorage.getItem(p.split(':')[1])); } catch (e) {}
         if (raw) mods.push({ col: c, data: raw });
     });
-    if (on('audit') && typeof auditGetTrail === 'function') mods.push({ col: 'audit', data: auditGetTrail() });
     return mods;
 }
 
@@ -56727,14 +56925,12 @@ function fbSyncCapacity(force) {
     var rows = [], weight = null;
     try { rows = fbCapacityRows(_fbCapacityModules(), FB_DOC_SAFE_BYTES, st, dev); } catch (e) { rows = []; }
     try { weight = fbVehicleWeight((typeof db !== 'undefined' && db && db.vehicles) || []); } catch (e) { weight = null; }
-    var cop = rows.filter(function(r) { return r.col === 'cop15'; })[0];
     // [2.9.0] Con vehículos uno por uno el tope ya no es "cuántos caben": cada vehículo
-    // tiene su documento. La fila cop15 pasa a ser la copia para equipos sin actualizar
-    // y se suma la del vehículo más pesado (lo único que todavía podría no caber).
+    // tiene su documento, y lo único que todavía podría no caber es el más pesado.
+    // [3.0.0] La copia completa de vehículos ya no existe, así que tampoco su fila.
     var perVehicle = typeof fbVehActive === 'function' && fbVehActive();
-    var vehiclesLeft = (!perVehicle && cop && weight && weight.avg > 0) ? Math.floor(cop.free / weight.avg) : null;
+    var vehiclesLeft = null;
     if (perVehicle) {
-        if (cop) { cop.label = 'Copia completa de vehículos (solo equipos sin actualizar)'; cop.legacy = true; }
         try {
             var big = fbVehLargestDoc((typeof db !== 'undefined' && db && db.vehicles) || []);
             if (big.bytes > 0) {
@@ -56764,18 +56960,10 @@ function fbSyncAlerts() {
         var cap = syncOn ? fbSyncCapacity() : { rows: [], blocked: [] };
         cap.rows.forEach(function(r) {
             var bloqueado = cap.blocked.indexOf(r.col) >= 0;
-            // [2.9.0] La copia completa solo la leen los equipos sin actualizar: llenarse
-            // no es un problema de este equipo; dejar de caber sí es un aviso para ellos.
-            if (r.legacy) {
-                if (bloqueado) out.push({ level: 'ALTA', color: '#f59e0b', source: 'Sincronización',
-                    message: 'La copia completa de vehículos ya no cabe en un documento: los equipos que sigan en una versión anterior a 2.9.0 dejaron de recibir cambios de Pruebas — actualízalos' });
-                return;
-            }
             if (r.level === 'ok' && !bloqueado) return;
             var crit = bloqueado || r.level === 'critico';
-            var extra = (r.col === 'cop15' && cap.vehiclesLeft !== null) ? ' — caben ~' + cap.vehiclesLeft + ' vehículos más' : '';
             out.push({ level: crit ? 'CRITICA' : 'ALTA', color: crit ? '#ef4444' : '#f59e0b',
-                message: (bloqueado ? 'Ya NO se sube a la nube: ' : 'Nube casi llena: ') + r.label + ' ocupa ' + r.pct + '% de lo que admite un documento' + extra + ' — ver Datos → Sistema',
+                message: (bloqueado ? 'Ya NO se sube a la nube: ' : 'Nube casi llena: ') + r.label + ' ocupa ' + r.pct + '% de lo que admite un documento — ver Datos → Sistema',
                 source: 'Sincronización' });
         });
     } catch (e) {}
@@ -57511,8 +57699,37 @@ function fbUpdateStationMeta() {
     }, 3000);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.0.0] COPIAS COMPLETAS RETIRADAS                                  ║
+// ║  `cop15/current` (todos los vehículos en un documento) y            ║
+// ║  `audit/current` (espejo del historial) existían solo para equipos   ║
+// ║  anteriores a 2.9.0 / 2.6.0. Desde 3.0.0 no se escriben, no se leen  ║
+// ║  al conectar y no se escuchan: los vehículos viajan uno por uno      ║
+// ║  (fbVehiclesSync) y el historial evento por evento (auditlog).      ║
+// ║  Los documentos viejos se quedan en la nube, quietos.               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+var FB_RETIRED_DOCS = ['cop15', 'audit'];
+
+/** ¿Este módulo ya no viaja como un documento completo? PURA. */
+function fbModuleDocRetired(col) { return FB_RETIRED_DOCS.indexOf(col) >= 0; }
+
+/** Los módulos que se leen al conectar (los que sí viajan como un documento). PURA. */
+function fbPullCollections(enabled) {
+    return ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'homolog', 'audit'].filter(function(c) {
+        return enabled[c] && !fbModuleDocRetired(c);
+    });
+}
+
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
 function fbPush(collection, data, onDone, opts) {
+    // [3.0.0] Quien pide subir un módulo retirado obtiene su camino actual: los vehículos
+    // por su ciclo y el historial por su bandeja. Así ningún llamador viejo escribe la copia.
+    if (fbModuleDocRetired(collection)) {
+        if (collection === 'cop15' && typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon();
+        if (collection === 'audit' && typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
+        if (onDone) onDone(true);
+        return;
+    }
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estación configurado'); return; }
     // [2.35.0] Equipo atrasado: no sube hasta que alguien revise lo que trae.
@@ -57634,7 +57851,8 @@ function fbPushAll(showFeedback) {
     // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
     var skippedEmpty = [];
-    if (fbSyncModules.cop15) { if (_fbPushDataScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    // [3.0.0] Los vehículos no viajan en un documento: subir todo = un ciclo de vehículos.
+    if (fbSyncModules.cop15 && typeof fbVehiclesSyncSoon === 'function') fbVehiclesSyncSoon(0);
     if (fbSyncModules.testplan) { if (_fbPushDataScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
     if (fbSyncModules.inventory) { if (_fbPushDataScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
     if (fbSyncModules.panel) {
@@ -57653,10 +57871,8 @@ function fbPushAll(showFeedback) {
         var homoRaw = null; try { homoRaw = JSON.parse(localStorage.getItem('kia_homolog_v1')); } catch(e) {}
         if (homoRaw && (homoRaw.catalog || []).length) modules.push({col:'homolog', data: homoRaw});
     }
-    if (fbSyncModules.audit && typeof auditGetTrail === 'function') {
-        var auditArr = auditGetTrail();
-        if (auditArr && auditArr.length) modules.push({col:'audit', data: auditArr});
-    }
+    // [3.0.0] El historial sube evento por evento (bandeja → auditlog).
+    if (fbSyncModules.audit && typeof fbAuditFlushSoon === 'function') fbAuditFlushSoon();
     if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     var pending = modules.length, errors = [];
@@ -57750,8 +57966,14 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'homolog', 'audit'].filter(function(c) { return fbSyncModules[c]; });
-    if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+    var collections = fbPullCollections(fbSyncModules);
+    if (collections.length === 0) {
+        // [3.0.0] Solo Pruebas/Historial encendidos: no hay documento que leer, pero el cierre
+        // del pull (ciclo de vehículos, historial, _pullCompleted) sí tiene que correr.
+        if (!fbSyncModules.cop15 && !fbSyncModules.audit) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+        fbPullApply([], {}, false);
+        return;
+    }
 
     // Use REST API if SDK transport is broken
     if (fbSync._useREST) {
@@ -58519,7 +58741,7 @@ function fbHookSaves() {
     var _origSaveDB = window.saveDB;
     // [2.9.0] Además de la copia completa (para equipos sin actualizar), un ciclo de
     // vehículos uno por uno: trae lo de la nube y sube solo lo que cambió aquí.
-    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) { fbPush('cop15', db); fbVehiclesSyncSoon(); } return ok; }; }
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(); return ok; }; }
     var _origTpSave = window.tpSave;
     if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origInvSave = window.invSave;
@@ -58540,7 +58762,9 @@ function fbStartListening() {
     if (fbSync._liveSync) return;  // Already active
 
     var _startedAt = Date.now();
-    var cols = ['cop15', 'testplan', 'inventory'];
+    // [3.0.0] Pruebas ya no se escucha aquí: cop15/current está retirado y los vehículos
+    // llegan por la escucha de cop15meta (fbVehiclesSync).
+    var cols = ['testplan', 'inventory'];
 
     cols.forEach(function(col) {
         if (!fbSyncModules[col]) return; // Respect module enable/disable config
@@ -60440,7 +60664,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610091605' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610091635' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -63357,7 +63581,7 @@ function _fbWriterSeen(id, kind, at) {
  * opts = {now, own, current (APP_VERSION), staleDays}
  * → {rows:[{id, name, version, last, own, level, inactive, text}], blockers3}
  *   level: 'al-dia' | 'atrasado' | 'anterior-214' (sube vehículos: ≥2.9.0) | 'sin-confirmar' (podría ser < 2.9.0)
- *   blockers3 = equipos activos que podrían ser anteriores a 2.9.0 (impiden retirar las copias completas).
+ *   blockers3 = equipos activos que podrían ser anteriores a 2.9.0: desde 3.0.0 esos ya no reciben cambios de Pruebas.
  */
 function fbDevicesView(reg, seen, opts) {
     opts = opts || {};
@@ -63452,7 +63676,9 @@ function fbDevicesRender(opts) {
     var v = fbDevicesView(c.devices, c.seen, { now: Date.now(), own: FB_DEVICE_ID,
         current: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' });
     var myName = (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })();
-    var h = '<div class="dev-name-row"><label for="dev-name-input">Nombre de este equipo</label>' +
+    // [3.0.0] Sin nombre, esta tarjeta no sirve para saber QUÉ equipo va atrasado.
+    var h = (!myName ? '<div class="dev-note is-warn">Ponle nombre a este equipo (p. ej. "Tablet celda 2"): así se sabe cuál es cuando aparece atrasado aquí o cuando algo "llegó desde" él.</div>' : '') +
+        '<div class="dev-name-row"><label for="dev-name-input">Nombre de este equipo</label>' +
         '<div class="dev-name-in"><input id="dev-name-input" maxlength="40" value="' + escapeHtml(myName) + '" placeholder="Ej.: Tablet celda 2">' +
         '<button type="button" class="btn-secondary" onclick="fbDeviceNameSave(document.getElementById(\'dev-name-input\').value)">Guardar</button></div>' +
         '<div class="u-muted-xs">Así aparece en los demás equipos cuando algo "llegó desde" aquí.</div></div>';
@@ -63461,7 +63687,8 @@ function fbDevicesRender(opts) {
     } else {
         h += v.blockers3.length
             ? '<div class="dev-note is-warn">⚠ ' + v.blockers3.length + ' equipo' + (v.blockers3.length > 1 ? 's' : '') +
-              ' activo' + (v.blockers3.length > 1 ? 's' : '') + ' sin confirmar versión. Hasta que se actualicen (o dejen de usarse) se sigue escribiendo la copia completa de Pruebas para ellos.</div>'
+              ' activo' + (v.blockers3.length > 1 ? 's' : '') + ' sin confirmar versión. Si es anterior a ' + FB_PER_VEHICLE_SINCE +
+              ', ya no recibe cambios de Pruebas (desde 3.0.0 no hay copia completa): actualízalo abriendo la app.</div>'
             : '<div class="dev-note is-ok">✓ Todos los equipos activos suben vehículos uno por uno.</div>';
         h += '<ul class="dev-list">' + v.rows.map(function(r) {
             return '<li class="dev-row lvl-' + r.level + (r.inactive ? ' is-inactive' : '') + '">' +
@@ -75863,7 +76090,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8987,"mods":[[8990,"js/app.js",18310],[18314,"js/uiflow.js",18630],[18634,"js/cop15.js",28820],[28824,"js/inventory.js",35890],[35894,"js/testplan.js",47453],[47457,"js/panel.js",52644],[52648,"js/projects.js",54937],[54941,"js/auth.js",55982],[55986,"js/signatures.js",56187],[56191,"js/firebase-sync.js",63580],[63584,"js/cop_validator.js",67949],[67953,"js/homolog.js",69743],[69747,"js/vets.js",71542],[71546,"js/historico.js",72458],[72462,"js/review.js",72915],[72919,"js/opcards.js",73348],[73352,"js/handoff.js",73626],[73630,"js/ficha.js",74121],[74125,"js/relevo.js",74505],[74509,"js/momentos.js",74646],[74650,"js/digest.js",75435],[75439,"js/xlsxw.js",75819],[75823,"js/bugreport.js",76969]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18403],[18407,"js/uiflow.js",18723],[18727,"js/cop15.js",28913],[28917,"js/inventory.js",35983],[35987,"js/testplan.js",47546],[47550,"js/panel.js",52838],[52842,"js/projects.js",55131],[55135,"js/auth.js",56176],[56180,"js/signatures.js",56381],[56385,"js/firebase-sync.js",63807],[63811,"js/cop_validator.js",68176],[68180,"js/homolog.js",69970],[69974,"js/vets.js",71769],[71773,"js/historico.js",72685],[72689,"js/review.js",73142],[73146,"js/opcards.js",73575],[73579,"js/handoff.js",73853],[73857,"js/ficha.js",74348],[74352,"js/relevo.js",74732],[74736,"js/momentos.js",74873],[74877,"js/digest.js",75662],[75666,"js/xlsxw.js",76046],[76050,"js/bugreport.js",77196]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
