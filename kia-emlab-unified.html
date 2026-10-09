@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610091635';
+var APP_BUILD = '202610091656';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'a1df92e0c8e819ba1dac88c0941222eaa7c5aabb';
+var APP_COMMIT = 'cb5bd0cf2266783cd6ed9a63d39d7c57a75b5be5';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = 'a1df92e0c8e819ba1dac88c0941222eaa7c5aabb';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.0.0';
+var APP_VERSION = '3.0.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,11 @@ var APP_VERSION = '3.0.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.1', date: '9 oct 2026', title: 'Sin el falso "Almacenamiento al 127%"',
+      bullets: [
+          'Arreglado: al abrir la app salía "Almacenamiento al 127%. Considere purgar datos antiguos." en equipos que en realidad van a la mitad. Ese aviso medía el espacio con una fórmula vieja que contaba el doble; ahora solo avisa la medición de Datos → Sistema, y solo a partir del 90%.',
+          'Arreglado: la barra de "Backup & Almacenamiento" usa la misma medición y ya no se sale de su caja.'
+      ] },
     { version: '3.0.0', date: '9 oct 2026', title: 'Una sola nube, una sola señal',
       bullets: [
           'Nuevo: las alertas se agrupan. 40 calibraciones vencidas son UN recuadro ("40 calibraciones vencidas · la más vieja hace N días") que se abre para ver la lista. La pestaña DATOS, el Pulso de HOY y el Resumen del laboratorio cuentan grupos, no filas.',
@@ -10371,14 +10376,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610091635' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610091656' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610091635' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610091656' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10394,7 +10399,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610091635' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610091656' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -15459,17 +15464,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [R4-M1] Load chart configurations ═══
         try { chartConfigLoad(); } catch(e) {}
 
-        // ═══ [R3-M6] Health check at boot — enhanced [Fase 5.3] ═══
-        try {
-            var lsUsage = _getLocalStorageUsage();
-            var lsPercent = Math.round((lsUsage / (5 * 1024 * 1024)) * 100);
-            if (lsPercent > 90) {
-                showToast('Almacenamiento al ' + lsPercent + '%. Considere purgar datos antiguos.', 'warning');
-            } else if (lsPercent > 80) {
-                showToast('Almacenamiento al ' + lsPercent + '%. Considere exportar datos y ejecutar compactación desde Panel > Salud del Sistema.', 'warning');
-            }
-            void 0;
-        } catch(e) { void 0; }
+        // [3.0.1] El aviso de almacenamiento lo da storageHousekeeping() con pnStorageScan(),
+        // LA definición del uso (v18.1). Aquí había una segunda medición (longitud × 2, la de
+        // UTF-16) contra 5 MB que contaba el doble y avisaba "127%" en equipos al ~60%.
 
         // ═══ [R3-M1] PWA — Register Service Worker ═══
         if ('serviceWorker' in navigator) {
@@ -17026,21 +17023,12 @@ function _formatBytes(bytes) {
     return (bytes / 1048576).toFixed(2) + ' MB';
 }
 
-function _getLocalStorageUsage() {
-    var total = 0;
-    for (var key in localStorage) {
-        if (localStorage.hasOwnProperty(key)) {
-            total += (localStorage[key].length + key.length) * 2;
-        }
-    }
-    return total;
-}
-
 // ── [Fase 5.3] Run all module compaction functions ──
 function renderBackupStatus(container) {
-    var usage = _getLocalStorageUsage();
-    var maxBytes = 5 * 1024 * 1024;
-    var pct = Math.round((usage / maxBytes) * 100);
+    // [3.0.1] Misma medición que Datos → Sistema (pnStorageScan, v18.1).
+    var _scan = (typeof pnStorageScan === 'function') ? pnStorageScan() : { total: 0, pct: 0 };
+    var usage = _scan.total;
+    var pct = Math.round(_scan.pct);
     var barColor = pct > 90 ? tokenColor('--danger-fill') : pct > 80 ? tokenColor('--warn-fill') : tokenColor('--ok-fill');
 
     var html = '<div class="backup-dashboard">' +
@@ -17051,7 +17039,7 @@ function renderBackupStatus(container) {
         '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);margin-bottom: var(--space-xs);">' +
         '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
         '<div style="height:8px;background:#1e293b;border-radius: var(--radius-md);overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
+        '<div style="height:100%;width:' + Math.min(100, pct) + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
 
     // Backup snapshots (async from IndexedDB)
     html += '<div class="backup-card" id="backupSnapshotsList">' +
@@ -60664,7 +60652,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610091635' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610091656' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76090,7 +76078,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18403],[18407,"js/uiflow.js",18723],[18727,"js/cop15.js",28913],[28917,"js/inventory.js",35983],[35987,"js/testplan.js",47546],[47550,"js/panel.js",52838],[52842,"js/projects.js",55131],[55135,"js/auth.js",56176],[56180,"js/signatures.js",56381],[56385,"js/firebase-sync.js",63807],[63811,"js/cop_validator.js",68176],[68180,"js/homolog.js",69970],[69974,"js/vets.js",71769],[71773,"js/historico.js",72685],[72689,"js/review.js",73142],[73146,"js/opcards.js",73575],[73579,"js/handoff.js",73853],[73857,"js/ficha.js",74348],[74352,"js/relevo.js",74732],[74736,"js/momentos.js",74873],[74877,"js/digest.js",75662],[75666,"js/xlsxw.js",76046],[76050,"js/bugreport.js",77196]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18391],[18395,"js/uiflow.js",18711],[18715,"js/cop15.js",28901],[28905,"js/inventory.js",35971],[35975,"js/testplan.js",47534],[47538,"js/panel.js",52826],[52830,"js/projects.js",55119],[55123,"js/auth.js",56164],[56168,"js/signatures.js",56369],[56373,"js/firebase-sync.js",63795],[63799,"js/cop_validator.js",68164],[68168,"js/homolog.js",69958],[69962,"js/vets.js",71757],[71761,"js/historico.js",72673],[72677,"js/review.js",73130],[73134,"js/opcards.js",73563],[73567,"js/handoff.js",73841],[73845,"js/ficha.js",74336],[74340,"js/relevo.js",74720],[74724,"js/momentos.js",74861],[74865,"js/digest.js",75650],[75654,"js/xlsxw.js",76034],[76038,"js/bugreport.js",77184]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

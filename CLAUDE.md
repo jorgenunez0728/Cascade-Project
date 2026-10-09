@@ -3163,3 +3163,10 @@ Reemplaza lo que 2.6.0, 2.9.0 y 2.14.0 dicen de las copias completas (`cop15/cur
   (`cal` | `mtto` | `proy` | `ronda-equipos` | `ronda-proyectos`): `dashInbox` la pone en `.debt`
   y `_dashDebtHTML` la resume. Sigue en su categoría (los recuadros cuentan todo).
 
+## 3.0.1 — Una sola medición del almacenamiento
+
+- Había DOS mediciones de localStorage: `pnStorageScan()` (UTF-8, la de Datos → Sistema) y
+  `_getLocalStorageUsage()` (longitud × 2, el tamaño en UTF-16) contra el MISMO tope de 5 MiB. La
+  segunda contaba el doble y avisaba "127%" en un equipo al ~60%. Se retiró: **todo aviso o barra de
+  almacenamiento lee `pnStorageScan()`**. Un porcentaje > 100 es imposible (el navegador rechaza la
+  escritura antes): si una medición lo da, la medición está mal.

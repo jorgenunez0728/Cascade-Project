@@ -20,6 +20,23 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.0.1 — Sin el falso "Almacenamiento al 127%" (2026-10-09)
+
+### Arreglado
+- Al abrir la app salía **"Almacenamiento al 127%. Considere purgar datos antiguos."** en equipos
+  que en realidad van a la mitad de su espacio. Un porcentaje mayor a 100 es imposible: si el
+  equipo se pasara del límite, el navegador ya no dejaría guardar. Ese aviso medía con una fórmula
+  vieja que contaba cada letra como dos bytes contra un límite de 5 MB, o sea el doble de lo real.
+  Ahora solo avisa la medición de **Datos → Sistema** (la misma que lista qué ocupa cada cosa), y
+  solo a partir del 90%.
+- La barra de "Backup & Almacenamiento" usa esa misma medición y ya no se sale de su caja.
+
+### Para desarrollo
+- Se retiró `_getLocalStorageUsage` (longitud × 2 contra 5 MiB) y el chequeo de arranque que la
+  usaba. **`pnStorageScan()` es LA definición del uso de almacenamiento (v18.1)**: el aviso de
+  arranque es el de `storageHousekeeping()` y `renderBackupStatus` lee `pnStorageScan()`. No volver
+  a medir localStorage por fuera.
+
 ## 3.0.0 — Una sola nube, una sola señal (2026-10-09)
 
 Es MAYOR porque deja de escribirse la copia completa de vehículos de la nube: un equipo anterior
