@@ -3826,6 +3826,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
     }
 
     // Record in merge history
+    // [3.0.1] La foto para deshacer (db + tpState + invState, ~1.4 MB) va a IndexedDB; en
+    // localStorage queda solo la bitácora. Antes la foto ocupaba casi la mitad del
+    // almacenamiento del equipo y se reescribía en cada pull al conectar.
     if (merged.length > 0 && !opts.noHistory) {
         var record = {
             id: 'merge_' + Date.now(),
@@ -3833,20 +3836,20 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             fromStation: window._fbMergeRemoteId || '?',
             toStation: fbSync.stationId,
             actions: merged,
-            snapshot: snapshot
+            snapshotIn: 'idb'
         };
-        var hist = fbMergeGetHistory();
-        hist.push(record);
-        hist = _fbMergeTrimHistory(hist);
-        try {
-            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
-        } catch(e) {
-            // Sin espacio, la bitácora es lo primero que se sacrifica: nunca a costa
-            // de que la fusión en sí no se pueda guardar.
-            console.warn('fbMerge: no cupo la bitácora de fusión', e);
-            try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify([record])); } catch(e2) {}
-        }
-
+        _fbMergeHistoryWrite(_fbMergeTrimHistory(fbMergeGetHistory().concat([record])));
+        _fbMergeSnapPut(record.id, snapshot, function(ok) {
+            if (ok) return;
+            // Sin IndexedDB (navegación privada, bloqueado): la foto vuelve a la bitácora,
+            // como antes de 3.0.1, para no perder el "deshacer".
+            var h = fbMergeGetHistory();
+            var r = h.filter(function(x) { return x && x.id === record.id; })[0];
+            if (!r) return;
+            delete r.snapshotIn;
+            r.snapshot = snapshot;
+            _fbMergeHistoryWrite(h);
+        });
     }
     if (merged.length > 0) {
         if (!opts.quiet) showToast('Merge completado: ' + merged.join(' | '), 'success');
@@ -3875,12 +3878,110 @@ function _fbMergeTrimHistory(hist) {
     if (hist.length > FB_MERGE_HISTORY_MAX) hist = hist.slice(-FB_MERGE_HISTORY_MAX);
     var cut = hist.length - FB_MERGE_SNAPSHOT_KEEP;
     for (var i = 0; i < cut; i++) {
-        if (hist[i] && hist[i].snapshot) {
+        if (hist[i] && (hist[i].snapshot || hist[i].snapshotIn)) {
             delete hist[i].snapshot;
+            delete hist[i].snapshotIn;       // [3.0.1] la foto de IndexedDB es solo de la última
             hist[i].snapshotPurged = true;   // la UI puede decir "ya no se puede deshacer"
         }
     }
     return hist;
+}
+
+/** Guarda la bitácora; sin espacio, se sacrifica ella antes que la fusión. */
+function _fbMergeHistoryWrite(hist) {
+    try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist)); return true; }
+    catch(e) {
+        console.warn('fbMerge: no cupo la bitácora de fusión', e);
+        try {
+            var last = hist[hist.length - 1];
+            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(last ? [last] : []));
+        } catch(e2) {}
+        return false;
+    }
+}
+
+// ── [3.0.1] Foto para deshacer la última fusión, en IndexedDB ──
+// Un solo registro ('last') con el id de la fusión a la que pertenece: una foto que no
+// corresponde al último registro de la bitácora no se usa nunca.
+var FB_MERGE_IDB = 'kia_emlab_merge_undo';
+var FB_MERGE_IDB_STORE = 'snap';
+
+function _fbMergeIdb(cb) {
+    var done = false;
+    function fin(x) { if (!done) { done = true; cb(x); } }
+    try {
+        if (typeof indexedDB === 'undefined' || !indexedDB) return fin(null);
+        var req = indexedDB.open(FB_MERGE_IDB, 1);
+        req.onupgradeneeded = function(e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(FB_MERGE_IDB_STORE)) idb.createObjectStore(FB_MERGE_IDB_STORE);
+        };
+        req.onsuccess = function(e) { fin(e.target.result); };
+        req.onerror = function() { fin(null); };
+        req.onblocked = function() { fin(null); };
+    } catch(e) { fin(null); }
+}
+
+function _fbMergeSnapPut(id, snapshot, cb) {
+    cb = cb || function() {};
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(false);
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).put({ id: id, at: new Date().toISOString(), snapshot: snapshot }, 'last');
+            tx.oncomplete = function() { idb.close(); cb(true); };
+            tx.onerror = tx.onabort = function() { try { idb.close(); } catch(e) {} cb(false); };
+        } catch(e) { cb(false); }
+    });
+}
+
+/** Devuelve (cb) la foto de la fusión `id`, o null si la guardada es de otra. */
+function _fbMergeSnapGet(id, cb) {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(null);
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readonly');
+            var rq = tx.objectStore(FB_MERGE_IDB_STORE).get('last');
+            rq.onsuccess = function() {
+                var r = rq.result;
+                idb.close();
+                cb(r && r.id === id ? r.snapshot : null);
+            };
+            rq.onerror = function() { idb.close(); cb(null); };
+        } catch(e) { cb(null); }
+    });
+}
+
+function _fbMergeSnapDelete() {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).delete('last');
+            tx.oncomplete = function() { idb.close(); };
+        } catch(e) {}
+    });
+}
+
+/**
+ * [3.0.1] Mueve a IndexedDB la foto que un equipo anterior dejó dentro de la bitácora.
+ * Solo la quita de localStorage cuando ya quedó guardada allá.
+ */
+function _fbMergeMoveInlineSnapshot() {
+    var hist = fbMergeGetHistory();
+    var last = hist[hist.length - 1];
+    if (!last || !last.snapshot) return;
+    if (!last.id) { last.id = 'merge_' + (Date.parse(last.timestamp || '') || Date.now()); _fbMergeHistoryWrite(hist); }
+    var id = last.id;
+    _fbMergeSnapPut(id, last.snapshot, function(ok) {
+        if (!ok) return;
+        var h = fbMergeGetHistory();
+        var r = h.filter(function(x) { return x && x.id === id; })[0];
+        if (!r || !r.snapshot) return;
+        delete r.snapshot;
+        r.snapshotIn = 'idb';
+        if (_fbMergeHistoryWrite(h) && typeof pnStorageScanInvalidate === 'function') pnStorageScanInvalidate();
+    });
 }
 
 function fbMergeGetHistory() {
@@ -3902,8 +4003,9 @@ function fbMergePurgeOldSnapshots() {
     try { hist = JSON.parse(raw) || []; } catch(e) { return 0; }
     var trimmed = _fbMergeTrimHistory(hist);
     var out = JSON.stringify(trimmed);
-    if (out.length >= before) return 0;
+    if (out.length >= before) { _fbMergeMoveInlineSnapshot(); return 0; }
     try { localStorage.setItem(FB_MERGE_HISTORY_KEY, out); } catch(e) { return 0; }
+    _fbMergeMoveInlineSnapshot();
     var freed = before - out.length;
     if (freed > 51200 && typeof auditLog === 'function') {
         auditLog('sistema', 'merge_history_purge', { type: 'sistema', id: 'kia_merge_history', label: 'Historial de fusiones' },
@@ -3919,38 +4021,44 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
-    if (!last.snapshot) {
-        // Solo se conserva el respaldo de la fusión más reciente (ver
-        // _fbMergeTrimHistory): 20 copias completas llenaban el almacenamiento.
-        showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+    if (last.snapshot) { _fbMergeUndoWith(last, last.snapshot); return; }
+    if (last.snapshotIn === 'idb') {
+        _fbMergeSnapGet(last.id, function(snap) {
+            if (!snap) { showToast('No se encontró el respaldo de esa fusión en este equipo: ya no se puede deshacer.', 'warning'); return; }
+            _fbMergeUndoWith(last, snap);
+        });
         return;
     }
+    // Solo se conserva el respaldo de la fusión más reciente (ver _fbMergeTrimHistory):
+    // 20 copias completas llenaban el almacenamiento.
+    showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+}
+
+function _fbMergeUndoWith(last, snap) {
     showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        // Restore snapshot
-        if (last.snapshot) {
-            if (last.snapshot.cop15) {
-                db = last.snapshot.cop15;
-                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-            }
-            if (last.snapshot.testplan) {
-                tpState = last.snapshot.testplan;
-                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                _fbTpUISync();
-            }
-            if (last.snapshot.inventory) {
-                invState = last.snapshot.inventory;
-                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-                if (typeof invRender === 'function') invRender();
-            }
+        if (snap.cop15) {
+            db = snap.cop15;
+            if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
+            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+            refreshAllLists();
+        }
+        if (snap.testplan) {
+            tpState = snap.testplan;
+            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+            _fbTpUISync();
+        }
+        if (snap.inventory) {
+            invState = snap.inventory;
+            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+            if (typeof invRender === 'function') invRender();
         }
 
-        // Remove from history
-        hist.pop();
-        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        // Quitar ESE registro (por id: la bitácora pudo cambiar mientras se confirmaba).
+        var hist = fbMergeGetHistory().filter(function(r) { return !(r && r.id === last.id && r.timestamp === last.timestamp); });
+        _fbMergeHistoryWrite(hist);
+        _fbMergeSnapDelete();
 
         showToast('Fusion deshecha. Datos restaurados.', 'success');
         fbPushAll();

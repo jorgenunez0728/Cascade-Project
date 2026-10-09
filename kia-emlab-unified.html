@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610091656';
+var APP_BUILD = '202610091702';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'cb5bd0cf2266783cd6ed9a63d39d7c57a75b5be5';
+var APP_COMMIT = 'bf9181810acd240c63f21afe497e2aebbaa04f89';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9483,8 +9483,9 @@ var APP_VERSION = '3.0.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.0.1', date: '9 oct 2026', title: 'Sin el falso "Almacenamiento al 127%"',
+    { version: '3.0.1', date: '9 oct 2026', title: 'Almacenamiento: sin el falso 127% y con la mitad de espacio libre',
       bullets: [
+          'Cambió: el respaldo para "deshacer la última fusión" (una copia completa de los datos, ~1.4 MB) se guarda aparte, en el espacio grande del navegador, y deja de contar contra los 5 MB. En un equipo típico el almacenamiento baja de ~64% a ~35%, y ya no vuelve a subir en cada arranque.',
           'Arreglado: al abrir la app salía "Almacenamiento al 127%. Considere purgar datos antiguos." en equipos que en realidad van a la mitad. Ese aviso medía el espacio con una fórmula vieja que contaba el doble; ahora solo avisa la medición de Datos → Sistema, y solo a partir del 90%.',
           'Arreglado: la barra de "Backup & Almacenamiento" usa la misma medición y ya no se sale de su caja.'
       ] },
@@ -10376,14 +10377,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610091656' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610091702' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610091656' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610091702' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10399,7 +10400,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610091656' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610091702' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -50647,8 +50648,8 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_fb_veh_known',      label: 'Vehículos ya subidos (huellas)', tier: 'cache',
       note: 'Qué versión de cada vehículo tiene la nube. Se reconstruye leyendo la nube una vez.' },
     { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
-      note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
-          + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
+      note: 'Bitácora de fusiones entre dispositivos. Desde 3.0.1 el respaldo para deshacer la última '
+          + 'vive aparte (IndexedDB) y no cuenta aquí. Los datos fusionados NO están aquí — ya viven en cada módulo.' },
     { key: 'kia_viewModes',         label: 'Modo de vista por módulo', tier: 'cache' },
     { key: 'kia_chart_configs',     label: 'Ajustes de gráficas',      tier: 'cache',
       note: 'Colores y tipo de cada gráfica. Vuelven a los valores por defecto.' },
@@ -60198,6 +60199,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
     }
 
     // Record in merge history
+    // [3.0.1] La foto para deshacer (db + tpState + invState, ~1.4 MB) va a IndexedDB; en
+    // localStorage queda solo la bitácora. Antes la foto ocupaba casi la mitad del
+    // almacenamiento del equipo y se reescribía en cada pull al conectar.
     if (merged.length > 0 && !opts.noHistory) {
         var record = {
             id: 'merge_' + Date.now(),
@@ -60205,20 +60209,20 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             fromStation: window._fbMergeRemoteId || '?',
             toStation: fbSync.stationId,
             actions: merged,
-            snapshot: snapshot
+            snapshotIn: 'idb'
         };
-        var hist = fbMergeGetHistory();
-        hist.push(record);
-        hist = _fbMergeTrimHistory(hist);
-        try {
-            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
-        } catch(e) {
-            // Sin espacio, la bitácora es lo primero que se sacrifica: nunca a costa
-            // de que la fusión en sí no se pueda guardar.
-            void 0;
-            try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify([record])); } catch(e2) {}
-        }
-
+        _fbMergeHistoryWrite(_fbMergeTrimHistory(fbMergeGetHistory().concat([record])));
+        _fbMergeSnapPut(record.id, snapshot, function(ok) {
+            if (ok) return;
+            // Sin IndexedDB (navegación privada, bloqueado): la foto vuelve a la bitácora,
+            // como antes de 3.0.1, para no perder el "deshacer".
+            var h = fbMergeGetHistory();
+            var r = h.filter(function(x) { return x && x.id === record.id; })[0];
+            if (!r) return;
+            delete r.snapshotIn;
+            r.snapshot = snapshot;
+            _fbMergeHistoryWrite(h);
+        });
     }
     if (merged.length > 0) {
         if (!opts.quiet) showToast('Merge completado: ' + merged.join(' | '), 'success');
@@ -60247,12 +60251,110 @@ function _fbMergeTrimHistory(hist) {
     if (hist.length > FB_MERGE_HISTORY_MAX) hist = hist.slice(-FB_MERGE_HISTORY_MAX);
     var cut = hist.length - FB_MERGE_SNAPSHOT_KEEP;
     for (var i = 0; i < cut; i++) {
-        if (hist[i] && hist[i].snapshot) {
+        if (hist[i] && (hist[i].snapshot || hist[i].snapshotIn)) {
             delete hist[i].snapshot;
+            delete hist[i].snapshotIn;       // [3.0.1] la foto de IndexedDB es solo de la última
             hist[i].snapshotPurged = true;   // la UI puede decir "ya no se puede deshacer"
         }
     }
     return hist;
+}
+
+/** Guarda la bitácora; sin espacio, se sacrifica ella antes que la fusión. */
+function _fbMergeHistoryWrite(hist) {
+    try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist)); return true; }
+    catch(e) {
+        void 0;
+        try {
+            var last = hist[hist.length - 1];
+            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(last ? [last] : []));
+        } catch(e2) {}
+        return false;
+    }
+}
+
+// ── [3.0.1] Foto para deshacer la última fusión, en IndexedDB ──
+// Un solo registro ('last') con el id de la fusión a la que pertenece: una foto que no
+// corresponde al último registro de la bitácora no se usa nunca.
+var FB_MERGE_IDB = 'kia_emlab_merge_undo';
+var FB_MERGE_IDB_STORE = 'snap';
+
+function _fbMergeIdb(cb) {
+    var done = false;
+    function fin(x) { if (!done) { done = true; cb(x); } }
+    try {
+        if (typeof indexedDB === 'undefined' || !indexedDB) return fin(null);
+        var req = indexedDB.open(FB_MERGE_IDB, 1);
+        req.onupgradeneeded = function(e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(FB_MERGE_IDB_STORE)) idb.createObjectStore(FB_MERGE_IDB_STORE);
+        };
+        req.onsuccess = function(e) { fin(e.target.result); };
+        req.onerror = function() { fin(null); };
+        req.onblocked = function() { fin(null); };
+    } catch(e) { fin(null); }
+}
+
+function _fbMergeSnapPut(id, snapshot, cb) {
+    cb = cb || function() {};
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(false);
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).put({ id: id, at: new Date().toISOString(), snapshot: snapshot }, 'last');
+            tx.oncomplete = function() { idb.close(); cb(true); };
+            tx.onerror = tx.onabort = function() { try { idb.close(); } catch(e) {} cb(false); };
+        } catch(e) { cb(false); }
+    });
+}
+
+/** Devuelve (cb) la foto de la fusión `id`, o null si la guardada es de otra. */
+function _fbMergeSnapGet(id, cb) {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(null);
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readonly');
+            var rq = tx.objectStore(FB_MERGE_IDB_STORE).get('last');
+            rq.onsuccess = function() {
+                var r = rq.result;
+                idb.close();
+                cb(r && r.id === id ? r.snapshot : null);
+            };
+            rq.onerror = function() { idb.close(); cb(null); };
+        } catch(e) { cb(null); }
+    });
+}
+
+function _fbMergeSnapDelete() {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).delete('last');
+            tx.oncomplete = function() { idb.close(); };
+        } catch(e) {}
+    });
+}
+
+/**
+ * [3.0.1] Mueve a IndexedDB la foto que un equipo anterior dejó dentro de la bitácora.
+ * Solo la quita de localStorage cuando ya quedó guardada allá.
+ */
+function _fbMergeMoveInlineSnapshot() {
+    var hist = fbMergeGetHistory();
+    var last = hist[hist.length - 1];
+    if (!last || !last.snapshot) return;
+    if (!last.id) { last.id = 'merge_' + (Date.parse(last.timestamp || '') || Date.now()); _fbMergeHistoryWrite(hist); }
+    var id = last.id;
+    _fbMergeSnapPut(id, last.snapshot, function(ok) {
+        if (!ok) return;
+        var h = fbMergeGetHistory();
+        var r = h.filter(function(x) { return x && x.id === id; })[0];
+        if (!r || !r.snapshot) return;
+        delete r.snapshot;
+        r.snapshotIn = 'idb';
+        if (_fbMergeHistoryWrite(h) && typeof pnStorageScanInvalidate === 'function') pnStorageScanInvalidate();
+    });
 }
 
 function fbMergeGetHistory() {
@@ -60274,8 +60376,9 @@ function fbMergePurgeOldSnapshots() {
     try { hist = JSON.parse(raw) || []; } catch(e) { return 0; }
     var trimmed = _fbMergeTrimHistory(hist);
     var out = JSON.stringify(trimmed);
-    if (out.length >= before) return 0;
+    if (out.length >= before) { _fbMergeMoveInlineSnapshot(); return 0; }
     try { localStorage.setItem(FB_MERGE_HISTORY_KEY, out); } catch(e) { return 0; }
+    _fbMergeMoveInlineSnapshot();
     var freed = before - out.length;
     if (freed > 51200 && typeof auditLog === 'function') {
         auditLog('sistema', 'merge_history_purge', { type: 'sistema', id: 'kia_merge_history', label: 'Historial de fusiones' },
@@ -60291,38 +60394,44 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
-    if (!last.snapshot) {
-        // Solo se conserva el respaldo de la fusión más reciente (ver
-        // _fbMergeTrimHistory): 20 copias completas llenaban el almacenamiento.
-        showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+    if (last.snapshot) { _fbMergeUndoWith(last, last.snapshot); return; }
+    if (last.snapshotIn === 'idb') {
+        _fbMergeSnapGet(last.id, function(snap) {
+            if (!snap) { showToast('No se encontró el respaldo de esa fusión en este equipo: ya no se puede deshacer.', 'warning'); return; }
+            _fbMergeUndoWith(last, snap);
+        });
         return;
     }
+    // Solo se conserva el respaldo de la fusión más reciente (ver _fbMergeTrimHistory):
+    // 20 copias completas llenaban el almacenamiento.
+    showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+}
+
+function _fbMergeUndoWith(last, snap) {
     showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        // Restore snapshot
-        if (last.snapshot) {
-            if (last.snapshot.cop15) {
-                db = last.snapshot.cop15;
-                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-            }
-            if (last.snapshot.testplan) {
-                tpState = last.snapshot.testplan;
-                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                _fbTpUISync();
-            }
-            if (last.snapshot.inventory) {
-                invState = last.snapshot.inventory;
-                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-                if (typeof invRender === 'function') invRender();
-            }
+        if (snap.cop15) {
+            db = snap.cop15;
+            if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
+            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+            refreshAllLists();
+        }
+        if (snap.testplan) {
+            tpState = snap.testplan;
+            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+            _fbTpUISync();
+        }
+        if (snap.inventory) {
+            invState = snap.inventory;
+            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+            if (typeof invRender === 'function') invRender();
         }
 
-        // Remove from history
-        hist.pop();
-        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        // Quitar ESE registro (por id: la bitácora pudo cambiar mientras se confirmaba).
+        var hist = fbMergeGetHistory().filter(function(r) { return !(r && r.id === last.id && r.timestamp === last.timestamp); });
+        _fbMergeHistoryWrite(hist);
+        _fbMergeSnapDelete();
 
         showToast('Fusion deshecha. Datos restaurados.', 'success');
         fbPushAll();
@@ -60652,7 +60761,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610091656' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610091702' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76078,7 +76187,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18391],[18395,"js/uiflow.js",18711],[18715,"js/cop15.js",28901],[28905,"js/inventory.js",35971],[35975,"js/testplan.js",47534],[47538,"js/panel.js",52826],[52830,"js/projects.js",55119],[55123,"js/auth.js",56164],[56168,"js/signatures.js",56369],[56373,"js/firebase-sync.js",63795],[63799,"js/cop_validator.js",68164],[68168,"js/homolog.js",69958],[69962,"js/vets.js",71757],[71761,"js/historico.js",72673],[72677,"js/review.js",73130],[73134,"js/opcards.js",73563],[73567,"js/handoff.js",73841],[73845,"js/ficha.js",74336],[74340,"js/relevo.js",74720],[74724,"js/momentos.js",74861],[74865,"js/digest.js",75650],[75654,"js/xlsxw.js",76034],[76038,"js/bugreport.js",77184]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18392],[18396,"js/uiflow.js",18712],[18716,"js/cop15.js",28902],[28906,"js/inventory.js",35972],[35976,"js/testplan.js",47535],[47539,"js/panel.js",52827],[52831,"js/projects.js",55120],[55124,"js/auth.js",56165],[56169,"js/signatures.js",56370],[56374,"js/firebase-sync.js",63904],[63908,"js/cop_validator.js",68273],[68277,"js/homolog.js",70067],[70071,"js/vets.js",71866],[71870,"js/historico.js",72782],[72786,"js/review.js",73239],[73243,"js/opcards.js",73672],[73676,"js/handoff.js",73950],[73954,"js/ficha.js",74445],[74449,"js/relevo.js",74829],[74833,"js/momentos.js",74970],[74974,"js/digest.js",75759],[75763,"js/xlsxw.js",76143],[76147,"js/bugreport.js",77293]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

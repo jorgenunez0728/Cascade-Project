@@ -20,7 +20,16 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.0.1 — Sin el falso "Almacenamiento al 127%" (2026-10-09)
+## 3.0.1 — Almacenamiento: sin el falso 127% y con la mitad de espacio libre (2026-10-09)
+
+### Cambió
+- El **"Historial de fusiones"** era casi la mitad del almacenamiento del equipo (1.43 MB de 3.19 MB
+  en la estación del laboratorio). Casi todo era una sola cosa: la copia completa de los datos que
+  se guarda para poder **deshacer la última fusión**, y que se reescribe cada vez que el equipo se
+  conecta. "Liberar regenerables" la borraba, pero volvía en el siguiente arranque. Ahora esa copia
+  se guarda en el espacio grande del navegador (IndexedDB, el mismo donde ya viven los respaldos
+  automáticos) y no cuenta contra los 5 MB. Deshacer sigue funcionando igual. En esa estación el
+  uso baja de ~64% a ~35%.
 
 ### Arreglado
 - Al abrir la app salía **"Almacenamiento al 127%. Considere purgar datos antiguos."** en equipos
@@ -36,6 +45,13 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   usaba. **`pnStorageScan()` es LA definición del uso de almacenamiento (v18.1)**: el aviso de
   arranque es el de `storageHousekeeping()` y `renderBackupStatus` lee `pnStorageScan()`. No volver
   a medir localStorage por fuera.
+- La foto de `fbMergeExecute` va a IndexedDB (`kia_emlab_merge_undo`, un solo registro `'last'`
+  con el `id` de su fusión): `_fbMergeSnapPut/Get/Delete`. En la bitácora el registro lleva
+  `snapshotIn: 'idb'`; sin IndexedDB la foto vuelve a la bitácora (comportamiento anterior).
+  `_fbMergeMoveInlineSnapshot` (desde `fbMergePurgeOldSnapshots`, al arrancar) mueve la foto que
+  traiga un equipo anterior y solo la quita de localStorage cuando ya quedó guardada allá.
+  `fbMergeUndo` lee la foto por `id`: una que no corresponda al último registro no se usa.
+- `tests/v301.e2e.js`.
 
 ## 3.0.0 — Una sola nube, una sola señal (2026-10-09)
 

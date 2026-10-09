@@ -483,8 +483,9 @@ var APP_VERSION = '3.0.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.0.1', date: '9 oct 2026', title: 'Sin el falso "Almacenamiento al 127%"',
+    { version: '3.0.1', date: '9 oct 2026', title: 'Almacenamiento: sin el falso 127% y con la mitad de espacio libre',
       bullets: [
+          'Cambió: el respaldo para "deshacer la última fusión" (una copia completa de los datos, ~1.4 MB) se guarda aparte, en el espacio grande del navegador, y deja de contar contra los 5 MB. En un equipo típico el almacenamiento baja de ~64% a ~35%, y ya no vuelve a subir en cada arranque.',
           'Arreglado: al abrir la app salía "Almacenamiento al 127%. Considere purgar datos antiguos." en equipos que en realidad van a la mitad. Ese aviso medía el espacio con una fórmula vieja que contaba el doble; ahora solo avisa la medición de Datos → Sistema, y solo a partir del 90%.',
           'Arreglado: la barra de "Backup & Almacenamiento" usa la misma medición y ya no se sale de su caja.'
       ] },
