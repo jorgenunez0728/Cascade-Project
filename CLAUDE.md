@@ -3201,3 +3201,21 @@ Reemplaza lo que 2.6.0, 2.9.0 y 2.14.0 dicen de las copias completas (`cop15/cur
   `gasCaptureUnit(g)`: el selector "Unidad del reporte" cambia la unidad por contenedor.
 - El F05 imprime en la unidad de captura **solo** con `regionCapture` (México); Europa sigue en la
   unidad guardada y su huella (`tests/f05.e2e.js`) no cambia.
+
+## 3.2.0 — México se juzga con la NOM-042 C-VP (la regla de región también elige la norma)
+
+Matiza lo que dice 3.1.0 ("no cambia límites"): una regla de región puede además decir con QUÉ
+norma se juzga, porque el alta de México nunca trae la correcta (la empresa los arma como EURO-5).
+
+- **`LAB_REGION_CAPTURE[región].regulation = {from, to}` + `labRegionRegulation` (PURA)**.
+  `_libGetVehicleRegulation` la aplica DESPUÉS de `regulationOverride` y ANTES del alta. **La
+  regulación del alta sigue siendo la identidad** (`copVehicleFamilyKey`, `tpFamilyKeyForCfg`,
+  `copInScope`, reglas del plan): nunca usar la de la región para agrupar.
+- **Un perfil que una regla necesita va en `DEFAULT_REGULATION_PROFILES` y
+  `getRegulationProfile` cae a `labRegionBuiltinProfile`** si el conjunto del laboratorio no lo
+  tiene: con límites publicados, los de fábrica no se reinyectan (2.7.0) y sin respaldo la
+  liberación de México quedaría sin perfil. Regulaciones ofrece agregarlo (`pnRegAddBuiltin`).
+- **Lo que se CITA es `_libJudgedRegulation(vehicle)`** (nombre del perfil congelado, o el
+  vigente): PDF y aprobación. Una prueba liberada con EURO-5 no se re-etiqueta como NOM-042.
+- **Sin factor de deterioro**: se compara el valor crudo (decisión del laboratorio, igual que
+  2.29.0). El reporte de certificación NOM-042 aplica DF e incertidumbre; eso no entra aquí.
