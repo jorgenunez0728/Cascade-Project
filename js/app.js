@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.1.0';
+var APP_VERSION = '3.2.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.1.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.2.0', date: '11 oct 2026', title: 'México se juzga con la NOM-042 C-VP',
+      bullets: [
+          'Cambió: los vehículos de México salen como EURO-5 en el sistema porque así los arma la empresa, pero ahora se juzgan con su regulación real, la NOM-042 C-VP: CO 2.11, NOx 0.068 y NMHC 0.047 g/km. El THC se captura como informativo (sin límite). Los demás EURO-5 siguen con los límites normales.',
+          'Se compara el valor crudo del reporte, sin factor de deterioro ni incertidumbre, por decisión del laboratorio. Se sigue tecleando en g/mi, con g/km como opción.',
+          'Liberación dice "Comparando contra NOM-042 C-VP (regulación de México; el alta dice EURO-5)". La hoja F05 y la aprobación citan la norma con la que se juzgó: una prueba liberada con EURO-5 antes de esta versión se sigue citando como EURO-5.',
+          'Nuevo: si los límites publicados del laboratorio no traen la NOM-042 C-VP, se usan los de la app y Datos → Regulaciones ofrece agregarla para poder editarla y publicarla.'
+      ] },
     { version: '3.1.0', date: '11 oct 2026', title: 'Vehículos de México: 4 gases en g/mi',
       bullets: [
           'Cambió: en los vehículos de México (región MEXICO), aunque la regulación diga EURO-5, Liberación, Aprobación y Completar piden únicamente CO, THC, NOx y NMHC, y en g/mi, que es como viene su reporte. Los límites son los mismos de EURO-5, convertidos a g/mi a la vista (CO 1.609, THC 0.161, NOx 0.097, NMHC 0.109).',
@@ -1553,6 +1560,18 @@ var REGS_LS_KEY = 'kia_regulations_v1';
 var _regulationsData = null;
 
 var DEFAULT_REGULATION_PROFILES = [
+    // [3.2.0] Vehículos de México: en el sistema salen como EURO-5 (así los arma la empresa),
+    // pero su regulación es la NOM-042-SEMARNAT C-VP. LAB_REGION_CAPTURE.MEXICO hace el cambio;
+    // valores crudos (sin factor de deterioro) contra estos límites. THC es informativo.
+    {
+        id: 'reg_nom042_cvp', name: 'NOM-042 C-VP', shortName: 'NOM-042 C-VP',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 2.11 },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: null },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.068 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.047 }
+        ]
+    },
     {
         id: 'reg_euro5', name: 'EURO-5', shortName: 'EURO-5',
         gases: [
@@ -1733,8 +1752,35 @@ function gasInputStep(unit) {
 // perfil (g/km), así que el juicio no cambia. `units` = lo que ofrece el selector (la primera
 // es la de omisión).
 var LAB_REGION_CAPTURE = {
-    MEXICO: { label: 'México', gases: ['CO', 'THC', 'NOx', 'NMHC'], unit: 'g/mi', units: ['g/mi', 'g/km'] }
+    // [3.2.0] `regulation`: el alta dice EURO-5 pero se juzga con la NOM-042 C-VP.
+    MEXICO: { label: 'México', gases: ['CO', 'THC', 'NOx', 'NMHC'], unit: 'g/mi', units: ['g/mi', 'g/km'],
+              regulation: { from: ['EURO-5'], to: 'NOM-042 C-VP' } }
 };
+
+/**
+ * [3.2.0] (PURA) La regulación con la que se juzga un vehículo por su REGIÓN cuando el alta trae
+ * otra (México: EURO-5 → NOM-042 C-VP), o null si no aplica. La regulación del alta sigue siendo
+ * la identidad (familias, CoP, plan); esto solo decide contra qué límites se compara.
+ */
+function labRegionRegulation(catalogReg, region) {
+    var rule = LAB_REGION_CAPTURE[labRegionKey(region)];
+    var m = rule && rule.regulation;
+    if (!m) return null;
+    var reg = String(catalogReg || '').trim().toUpperCase();
+    return (m.from || []).some(function(f) { return String(f).trim().toUpperCase() === reg; }) ? m.to : null;
+}
+
+/** [3.2.0] Perfiles de fábrica que una regla de región necesita (respaldo si el laboratorio aún no los tiene). */
+function labRegionBuiltinProfile(name) {
+    var norm = String(name || '').trim().toUpperCase();
+    var target = Object.keys(LAB_REGION_CAPTURE).some(function(k) {
+        var m = LAB_REGION_CAPTURE[k].regulation;
+        return m && String(m.to).trim().toUpperCase() === norm;
+    });
+    if (!target) return null;
+    var d = DEFAULT_REGULATION_PROFILES.filter(function(p) { return String(p.name).trim().toUpperCase() === norm; })[0];
+    return d ? JSON.parse(JSON.stringify(d)) : null;
+}
 
 /** Clave de región para las reglas de captura (mayúsculas, sin acentos; MX = México). */
 function labRegionKey(region) {
@@ -1840,7 +1886,7 @@ function getRegulationProfile(regulationName) {
     var norm = regulationName.trim().toUpperCase();
     return data.profiles.find(function(p) {
         return p.name.toUpperCase() === norm || p.shortName.toUpperCase() === norm;
-    }) || null;
+    }) || (typeof labRegionBuiltinProfile === 'function' ? labRegionBuiltinProfile(regulationName) : null);
 }
 
 function getAllRegulationProfiles() {

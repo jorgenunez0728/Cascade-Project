@@ -192,5 +192,23 @@ console.log('\n== _libPickGasProfile: congelado → vigente → retirado → der
         ctx.gasUnitChoices(null, [{ unit: 'g/km' }, { unit: 'g/mi' }]) === null);
 }
 
+// ── [3.2.0] México se arma como EURO-5 pero se juzga con la NOM-042 C-VP ──
+{
+    ['labRegionRegulation', 'labRegionBuiltinProfile'].forEach(n => vm.runInContext(extraer('app.js', n), ctx));
+    ok('México + EURO-5 → NOM-042 C-VP', ctx.labRegionRegulation('EURO-5', 'MEXICO') === 'NOM-042 C-VP');
+    ok('"euro-5 " y "México" también', ctx.labRegionRegulation(' euro-5 ', 'México') === 'NOM-042 C-VP');
+    ok('México eléctrico (120V) no cambia', ctx.labRegionRegulation('120V', 'MEXICO') === null);
+    ok('Europa EURO-5 sigue con EURO-5', ctx.labRegionRegulation('EURO-5', 'EUROPE') === null);
+    const nom = ctx.labRegionBuiltinProfile('nom-042 c-vp');
+    const lim = nom && nom.gases.map(g => g.field + ':' + g.limit + ' ' + g.unit).join(',');
+    ok('la NOM-042 C-VP de fábrica: CO 2.11, THC informativo, NOx 0.068, NMHC 0.047 g/km',
+        lim === 'CO:2.11 g/km,THC:null g/km,NOx:0.068 g/km,NMHC:0.047 g/km', lim);
+    ok('el respaldo es una copia (editarla no toca la de fábrica)', nom !== ctx.DEFAULT_REGULATION_PROFILES.find(p => p.name === 'NOM-042 C-VP'));
+    ok('una regulación que ninguna regla usa no tiene respaldo', ctx.labRegionBuiltinProfile('EURO-5') === null);
+    const mx = ctx.regProfileForRegion(nom, 'MEXICO');
+    ok('con la regla de México: 4 gases en g/mi, THC sigue sin límite',
+        mx.gases.length === 4 && mx.gases.every(g => g.captureUnit === 'g/mi') && mx.gases[1].limit === null);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

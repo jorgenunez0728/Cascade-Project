@@ -1,6 +1,8 @@
-// Verificación en navegador de 3.1.0 — vehículos de México: aunque la regulación diga EURO-5,
-// se capturan solo CO, THC, NOx y NMHC y en g/mi (con opción a g/km), en Liberación,
-// Aprobación y Completar. Europa sigue igual.
+// Verificación en navegador de 3.1.0 / 3.2.0 — vehículos de México: aunque el alta diga EURO-5,
+// se juzgan con la NOM-042 C-VP (CO 2.11, NOx 0.068, NMHC 0.047 g/km; THC informativo) y se
+// capturan CO, THC, NOx y NMHC en g/mi (opción g/km), en Liberación, Aprobación y Completar.
+// El conjunto de límites del laboratorio ya está publicado y NO trae la NOM-042: se usa la de
+// fábrica y Regulaciones ofrece agregarla. Europa sigue igual.
 const { chromium } = require('playwright');
 const path = require('path');
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -23,7 +25,7 @@ const SEED = () => {
         { id: 'ana', name: 'Ana Signataria', role: 'Signatario', active: true },
         { id: 'beto', name: 'Beto Signatario', role: 'Assistant Manager / Manager', active: true }], tasks: [], projects: [], alerts: [] }));
     // El EURO-5 del laboratorio teclea en mg/km (así lo usa Europa).
-    localStorage.setItem('kia_regulations_v1', JSON.stringify({ migr: { sulev30: 1 }, profiles: [
+    localStorage.setItem('kia_regulations_v1', JSON.stringify({ migr: { sulev30: 1 }, shared: { version: 3, hash: 'x' }, profiles: [
         { id: 'reg_euro5', name: 'EURO-5', shortName: 'EURO-5', gases: [
             { field: 'CO', label: 'CO', unit: 'g/km', limit: 1.0, captureUnit: 'mg/km' },
             { field: 'CO2', label: 'CO₂', unit: 'g/km', limit: null },
@@ -71,37 +73,39 @@ const SEED = () => {
         const box = document.getElementById('lib-gas-entry-content');
         const cell = (k, f) => (box.querySelector('[data-' + k + 'cell="' + f + '"]') || {}).innerText || '';
         return { campos: [...box.querySelectorAll('.lib-gas-input')].map(i => i.dataset.field).join(','),
-                 uCO: cell('u', 'CO'), lCO: cell('l', 'CO'), sel: (document.getElementById('lib-gas-entry-content-unit') || {}).value || null };
+                 uCO: cell('u', 'CO'), lCO: cell('l', 'CO'), lTHC: cell('l', 'THC'), basis: box.innerText.slice(0, 300), sel: (document.getElementById('lib-gas-entry-content-unit') || {}).value || null };
     }, id);
 
     console.log('\n== Liberación de un vehículo de México ==');
     const l = await abrirLib('mxR');
     chk('pide solo CO, THC, NOx y NMHC', l.campos === 'CO,THC,NOx,NMHC', l.campos);
-    chk('en g/mi por omisión, con el límite convertido (1 g/km = 1.609344 g/mi)', /^g\/mi/.test(l.uCO) && l.lCO.trim() === '1.609344' && l.sel === 'g/mi', JSON.stringify(l));
+    chk('se juzga con la NOM-042 C-VP, en g/mi por omisión (CO 2.11 g/km = 3.3957 g/mi)',
+        /^g\/mi/.test(l.uCO) && Math.abs(parseFloat(l.lCO) - 2.11 * 1.609344) < 1e-6 && l.sel === 'g/mi' && /NOM-042 C-VP/.test(l.basis) && /EURO-5/.test(l.basis), JSON.stringify(l));
+    chk('THC es informativo (sin límite)', l.lTHC.trim() === '—', l.lTHC);
     for (const [f, v] of [['CO', '0.5'], ['THC', '0.05'], ['NOx', '0.05'], ['NMHC', '0.05']])
         await page.fill('#lib-gas-entry-content .lib-gas-input[data-field="' + f + '"]', v);
     let st = await page.evaluate(() => document.getElementById('lib-gas-status-CO').innerText);
-    chk('0.5 g/mi de CO pasa (31% del límite)', /PASA/.test(st) && /31/.test(st), st);
+    chk('0.5 g/mi de CO pasa (15% del límite NOM-042)', /PASA/.test(st) && /15/.test(st), st);
 
     // Tocar la ficha g/km (el toque real, no el <select>)
     await page.locator('#lib-gas-entry-content .lib-unit-pick button', { hasText: /^g\/km$/ }).click();
     const k = await page.evaluate(() => ({ u: document.querySelector('#lib-gas-entry-content [data-ucell="CO"]').innerText,
         l: document.querySelector('#lib-gas-entry-content [data-lcell="CO"]').innerText, s: document.getElementById('lib-gas-status-CO').innerText,
         v: document.querySelector('#lib-gas-entry-content .lib-gas-input[data-field="CO"]').value }));
-    chk('al cambiar a g/km, la unidad y el límite cambian y el número se relee (0.5 g/km = 50%)',
-        /^g\/km/.test(k.u) && k.l.trim() === '1' && /50/.test(k.s) && k.v === '0.5', JSON.stringify(k));
+    chk('al cambiar a g/km, la unidad y el límite cambian y el número se relee (0.5 g/km = 24%)',
+        /^g\/km/.test(k.u) && k.l.trim() === '2.11' && /24/.test(k.s) && k.v === '0.5', JSON.stringify(k));
     await page.locator('#lib-gas-entry-content .lib-unit-pick button', { hasText: /^g\/mi$/ }).click();
 
     const env = await page.evaluate(() => {
         const v = db.vehicles.find(x => x.id === 'mxR');
         const prof = _libCaptureProfileFor(v);
         const vals = _libCollectGasValues(prof, 'lib-gas-entry-content');
-        const snap = _libGasProfileSnapshot(_libProfileWithCapUnits(prof, 'lib-gas-entry-content'), 'EURO-5');
+        const snap = _libGasProfileSnapshot(_libProfileWithCapUnits(prof, 'lib-gas-entry-content'), _libGetVehicleRegulation(v));
         return { co: vals.CO, snap };
     });
     chk('se guarda en g/km (0.5 g/mi = 0.3107 g/km)', Math.abs(env.co - 0.5 / 1.609344) < 1e-9, String(env.co));
-    chk('la foto congelada dice México, 4 gases, g/mi',
-        env.snap.regionCapture === 'MEXICO' && env.snap.gases.length === 4 && env.snap.gases.every(g => g.captureUnit === 'g/mi'), JSON.stringify(env.snap.gases.map(g => g.field + ':' + g.captureUnit)));
+    chk('la foto congelada dice NOM-042 C-VP, México, 4 gases, g/mi',
+        env.snap.name === 'NOM-042 C-VP' && env.snap.regionCapture === 'MEXICO' && env.snap.gases.length === 4 && env.snap.gases.every(g => g.captureUnit === 'g/mi'), JSON.stringify(env.snap));
 
     console.log('\n== Aprobación de una de México liberada antes de 3.1.0 ==');
     const a = await page.evaluate(() => {
@@ -110,9 +114,11 @@ const SEED = () => {
         libSwitchSubtab('aprobador'); s.value = 'mxP'; loadApproval();
         const box = document.getElementById('appr-gas-entry-content');
         return { campos: [...box.querySelectorAll('.lib-gas-input')].map(i => i.dataset.field).join(','),
-                 u: (box.querySelector('[data-ucell="CO"]') || {}).innerText || '', sel: (document.getElementById('appr-gas-entry-content-unit') || {}).value || null };
+                 u: (box.querySelector('[data-ucell="CO"]') || {}).innerText || '', sel: (document.getElementById('appr-gas-entry-content-unit') || {}).value || null,
+                 info: (document.getElementById('approvalInfo') || {}).innerText || '' };
     });
     chk('el aprobador ve los mismos 4 gases, en g/mi', a.campos === 'CO,THC,NOx,NMHC' && /^g\/mi/.test(a.u) && a.sel === 'g/mi', JSON.stringify(a));
+    chk('una liberada con EURO-5 antes de 3.2.0 se sigue citando como EURO-5 (lo que se juzgó)', /Regulación: EURO-5/.test(a.info) && !/NOM-042/.test(a.info), a.info);
     const ap = await page.evaluate(() => {
         const g = (x) => (x * 1.609344).toPrecision(3);
         const put = (f, v) => { document.querySelector('#appr-gas-entry-content .lib-gas-input[data-field="' + f + '"]').value = v; };
@@ -134,7 +140,23 @@ const SEED = () => {
                  gases: [...document.querySelectorAll('[id^="hist-gas-"][data-gfield]')].map(i => i.dataset.gfield).join(','),
                  lbl: (document.getElementById('hist-gas-unitlbl-CO') || {}).innerText || '' };
     });
-    chk('pide los 4 gases en g/mi, con g/km como opción', c.gases === 'CO,THC,NOx,NMHC' && c.sel === 'g/mi' && c.opts === 'g/mi,g/km' && /límite 1\.609344/.test(c.lbl), JSON.stringify(c));
+    chk('pide los gases con límite NOM-042 (CO, NOx, NMHC) en g/mi, con g/km como opción',
+        c.gases === 'CO,NOx,NMHC' && c.sel === 'g/mi' && c.opts === 'g/mi,g/km' && /límite 3\.39/.test(c.lbl), JSON.stringify(c));
+
+    console.log('\n== Regulaciones: ofrecer agregar la NOM-042 ==');
+    const r = await page.evaluate(() => {
+        const ov = document.getElementById('hist-complete-overlay'); if (ov) ov.remove();
+        const host = document.createElement('div'); pnRenderRegulations(host);
+        const card = host.innerText.includes('NOM-042 C-VP — vehículos de México');
+        const before = loadRegulations().profiles.some(p => p.name === 'NOM-042 C-VP');
+        pnRegAddBuiltin('NOM-042 C-VP');
+        const after = loadRegulations().profiles.find(p => p.name === 'NOM-042 C-VP');
+        const host2 = document.createElement('div'); pnRenderRegulations(host2);
+        return { card, before, after: after && after.gases.map(g => g.field + ':' + g.limit).join(','), card2: host2.innerText.includes('NOM-042 C-VP — vehículos de México') };
+    });
+    chk('sin el perfil publicado, Regulaciones lo dice y ofrece agregarlo', r.card && !r.before, JSON.stringify(r));
+    chk('agregarlo lo deja editable con los límites del reporte y quita el aviso',
+        r.after === 'CO:2.11,THC:null,NOx:0.068,NMHC:0.047' && !r.card2, JSON.stringify(r));
 
     chk('sin errores de página ni diálogos nativos', errores.length === 0, errores.join(' | '));
     await browser.close();

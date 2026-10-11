@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.2.0 — México se juzga con la NOM-042 C-VP (2026-10-11)
+
+### Cambió
+- Los vehículos de **México** salen en el sistema como **EURO-5** porque así los arma la
+  empresa, pero su regulación es la **NOM-042-SEMARNAT C-VP**. Desde esta versión se juzgan
+  con ella: **CO 2.11, NOx 0.068 y NMHC 0.047 g/km**; el **THC** se captura como informativo.
+  Los demás vehículos EURO-5 siguen con los límites normales.
+- Se compara el **valor crudo** del reporte, sin factor de deterioro ni incertidumbre (lo del
+  reporte de certificación es otro cálculo). Se sigue tecleando en g/mi, con g/km como opción.
+- Liberación lo dice: "Comparando contra NOM-042 C-VP (regulación de México; el alta dice
+  EURO-5 porque así se arma)".
+- La hoja **F05** y la aprobación citan la norma con la que **se juzgó**. Una prueba liberada con
+  EURO-5 antes de esta versión se sigue citando y juzgando como EURO-5.
+
+### Nuevo
+- Si los límites publicados del laboratorio no traen la NOM-042 C-VP, la app usa los suyos y
+  **Datos → Regulaciones** muestra una tarjeta para agregarla a los perfiles, para poder editarla
+  y que quede publicada para todos.
+
+### Para desarrollo
+- `LAB_REGION_CAPTURE.MEXICO.regulation = {from: ['EURO-5'], to: 'NOM-042 C-VP'}` y
+  `labRegionRegulation(regAlta, región)` (PURA). `_libGetVehicleRegulation` la aplica después de
+  la elección manual (`regulationOverride`) y antes del dato del alta. La regulación del alta
+  sigue siendo la identidad: familias, CoP y plan no cambian.
+- `labRegionBuiltinProfile(nombre)`: copia del perfil de fábrica que una regla necesita.
+  `getRegulationProfile` cae a ella cuando el conjunto del laboratorio no lo tiene (con límites
+  compartidos, los perfiles de fábrica nuevos no se reinyectan; 2.7.0).
+- `_libJudgedRegulation(vehicle)`: la norma del perfil congelado, o la vigente. Es la que se cita
+  en el PDF y en la aprobación.
+- Con regla de región, el selector "Unidad del reporte" aplica a todos sus gases, también a los
+  informativos (THC).
+- `pnRegBuiltinMissingHTML` / `pnRegAddBuiltin` (panel.js).
+- `tests/gases.node.js` (+8) y `tests/v310.e2e.js` (ampliado: NOM-042, conjunto publicado sin el
+  perfil y la tarjeta de Regulaciones).
+
 ## 3.1.0 — Vehículos de México: 4 gases en g/mi (2026-10-11)
 
 ### Cambió

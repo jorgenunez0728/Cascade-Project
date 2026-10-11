@@ -4651,6 +4651,9 @@ function pnRenderRegulations(el) {
     // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
     // refresca contra la nube al abrir.
     html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
+    // [3.2.0] Perfiles que una regla de región usa (México → NOM-042 C-VP) y que este conjunto
+    // no tiene: se juzga con los de fábrica, y aquí se ofrece agregarlos para poder editarlos.
+    html += pnRegBuiltinMissingHTML(profiles);
     // [2.8.0] Activación de la revisión dirigida (review.js)
     if (typeof reviewSettingsCardHTML === 'function') html += reviewSettingsCardHTML();
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
@@ -4861,6 +4864,45 @@ function _pnRegGasSummary(p) {
 }
 
 function pnRegAddNew() { if (!_pnRegGate()) return; _pnRegShowModal(null); }
+
+/** [3.2.0] Tarjeta: perfiles de una regla de región que no están en el conjunto del laboratorio. */
+function pnRegBuiltinMissingHTML(profiles) {
+    if (typeof LAB_REGION_CAPTURE === 'undefined' || typeof labRegionBuiltinProfile !== 'function') return '';
+    var have = {};
+    (profiles || []).forEach(function(p) { if (p && p.name) have[String(p.name).trim().toUpperCase()] = true; });
+    var html = '';
+    Object.keys(LAB_REGION_CAPTURE).forEach(function(k) {
+        var r = LAB_REGION_CAPTURE[k], m = r.regulation;
+        if (!m || have[String(m.to).trim().toUpperCase()]) return;
+        var d = labRegionBuiltinProfile(m.to);
+        if (!d) return;
+        var lims = d.gases.map(function(g) { return g.label + (g.limit != null ? ' ' + g.limit : ' (informativo)'); }).join(' · ');
+        html += '<div class="tp-card" style="margin-bottom: var(--space-md);border-left:4px solid var(--warn-fill);">' +
+            '<div style="font-weight:700;font-size:13px;">' + escapeHtml(m.to) + ' — vehículos de ' + escapeHtml(r.label || k) + '</div>' +
+            '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin: var(--space-xs) 0 var(--space-sm);">' +
+            'Se arman como ' + escapeHtml((m.from || []).join(', ')) + ' pero se juzgan con esta norma. No está entre tus perfiles, así que se usan ' +
+            'los límites de la app (' + escapeHtml(d.gases[0].unit) + '): ' + escapeHtml(lims) + '. Agrégalo para poder editarlo y que quede publicado.</div>' +
+            '<button class="tp-btn tp-btn-primary" onclick="pnRegAddBuiltin(\'' + escapeHtml(m.to) + '\')" style="font-size: var(--fs-sm);">+ Agregar a los perfiles</button></div>';
+    });
+    return html;
+}
+
+/** [3.2.0] Agrega a los perfiles del laboratorio el de fábrica que usa una regla de región. */
+function pnRegAddBuiltin(name) {
+    if (!_pnRegGate()) return;
+    var d = labRegionBuiltinProfile(name);
+    if (!d) return;
+    var data = loadRegulations();
+    if (data.profiles.some(function(p) { return String(p.name).trim().toUpperCase() === String(name).trim().toUpperCase(); })) { pnSwitchTab('pn-regulations'); return; }
+    d.createdAt = new Date().toISOString();
+    data.profiles.push(d);
+    saveRegulations();
+    if (typeof auditLog === 'function') auditLog('pn', 'regulacion_creada', { type: 'regulation', id: d.id, label: d.name },
+        'Límites: ' + _pnRegGasSummary(d) + ' (de fábrica, regla de región)', { before: null, after: _pnRegGasMap(d) });
+    pnSwitchTab('pn-regulations');
+    showToast('Perfil ' + d.name + ' agregado', 'success');
+    pnRegAfterLocalEdit('nuevo perfil ' + d.name);
+}
 
 function pnRegEdit(id) {
     if (!_pnRegGate()) return;

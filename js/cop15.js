@@ -2950,9 +2950,25 @@ function libSwitchSubtab(tab) {
 function _libGetVehicleRegulation(vehicle) {
     if (!vehicle) return null;
     if (vehicle.regulationOverride && vehicle.regulationOverride.name) return vehicle.regulationOverride.name;
+    // [3.2.0] Regla de la región: México se arma como EURO-5 pero se juzga con la NOM-042 C-VP.
+    var _rr = typeof labRegionRegulation === 'function'
+        ? labRegionRegulation(vehicle.config && vehicle.config['EMISSION REGULATION'], vehicle.config && (vehicle.config['REGION'] || vehicle.config.rgn)) : null;
+    if (_rr) return _rr;
     if (vehicle.config && vehicle.config['EMISSION REGULATION']) return vehicle.config['EMISSION REGULATION'];
     if (vehicle.regulation) return vehicle.regulation;
     return null;
+}
+
+/**
+ * [3.2.0] La norma con la que SE JUZGÓ un vehículo ya liberado: la del perfil congelado al
+ * liberar; si no hay, la de comparación vigente. Es la que se cita (PDF, aprobación): una prueba
+ * de México liberada con EURO-5 antes de 3.2.0 no debe aparecer como NOM-042.
+ */
+function _libJudgedRegulation(vehicle) {
+    var fp = vehicle && vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador
+        && vehicle.testData.gasResults.liberador.profile;
+    if (fp && fp.name && !fp.derived) return fp.name;
+    return _libGetVehicleRegulation(vehicle);
 }
 
 // Regulación tal como quedó registrada en el alta (sin la elección manual).
@@ -3005,7 +3021,10 @@ function _libRegBasisHTML(vehicle, regName) {
     var html = '<div style="background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);font-size:12px;color:#1e3a8a;">';
     html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">' +
         '<span style="flex:1;min-width:160px;">⚖️ Comparando contra <strong>' + escapeHtml(regName) + '</strong>' +
-        (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>' : '') +
+        (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>'
+         // [3.2.0] Regla de la región: el alta dice EURO-5 porque así se arma el vehículo.
+         : (typeof labRegionRegulation === 'function' && labRegionRegulation(catalogReg, _libVehicleRegion(vehicle))
+            ? ' <span style="color:var(--muted);">(regulación de México; el alta dice "' + escapeHtml(catalogReg) + '" porque así se arma)</span>' : '')) +
         '</span>';
     if (canChange) {
         html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-xs) var(--space-md);" onclick="libRegPickerToggle()">Cambiar</button>';
@@ -3354,12 +3373,13 @@ function _libCaptureProfileFor(vehicle, regName) {
 }
 
 // ── [3.1.0] "Unidad del reporte" en Liberación / Aprobación ───────────────────
-// La unidad elegida vive por contenedor y solo aplica a los gases con límite (un
-// informativo como el CO₂ conserva la suya). Se borra en cada pintado nuevo.
+// La unidad elegida vive por contenedor y se borra en cada pintado nuevo. Solo hay selector
+// con regla de región (México), y ahí aplica a TODOS sus gases, informativos incluidos (THC):
+// el reporte trae todo en la misma unidad.
 var _libCapOverride = {};
 function _libCapUnitFor(g, containerId) {
     var u = containerId && _libCapOverride[containerId];
-    if (u && _libGasHasLimit(g) && GAS_UNIT_FACTORS[u] && GAS_UNIT_FACTORS[g.unit]) return u;
+    if (u && GAS_UNIT_FACTORS[u] && GAS_UNIT_FACTORS[g.unit]) return u;
     return gasCaptureUnit(g);
 }
 
@@ -3964,7 +3984,7 @@ function loadApproval() {
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
-        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
@@ -7570,8 +7590,9 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // [v17.10] La regulación del PDF es la MISMA contra la que se validó en pantalla
   // (_libGetVehicleRegulation respeta la elegida a mano por el liberador); antes se
   // releía el dato del alta y el documento podía citar una norma distinta.
-  const regName = (typeof _libGetVehicleRegulation === 'function')
-      ? (_libGetVehicleRegulation(vehicle) || '')
+  // [3.2.0] La norma con la que se JUZGÓ (la del perfil congelado si existe).
+  const regName = (typeof _libJudgedRegulation === 'function')
+      ? (_libJudgedRegulation(vehicle) || '')
       : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
   // [2.2.0] Límites con los que se liberó (perfil congelado), no los de hoy.
   const regProfile = hasGas ? _libGasProfileForVehicle(vehicle) : null;

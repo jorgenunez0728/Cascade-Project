@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610112044';
+var APP_BUILD = '202610112100';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '734240207d3d5eecf94bd6bf63c056b101bba8b8';
+var APP_COMMIT = '327e267ec8aaf750c9ee5be4822d323a35ad4166';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = '734240207d3d5eecf94bd6bf63c056b101bba8b8';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.1.0';
+var APP_VERSION = '3.2.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,13 @@ var APP_VERSION = '3.1.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.2.0', date: '11 oct 2026', title: 'México se juzga con la NOM-042 C-VP',
+      bullets: [
+          'Cambió: los vehículos de México salen como EURO-5 en el sistema porque así los arma la empresa, pero ahora se juzgan con su regulación real, la NOM-042 C-VP: CO 2.11, NOx 0.068 y NMHC 0.047 g/km. El THC se captura como informativo (sin límite). Los demás EURO-5 siguen con los límites normales.',
+          'Se compara el valor crudo del reporte, sin factor de deterioro ni incertidumbre, por decisión del laboratorio. Se sigue tecleando en g/mi, con g/km como opción.',
+          'Liberación dice "Comparando contra NOM-042 C-VP (regulación de México; el alta dice EURO-5)". La hoja F05 y la aprobación citan la norma con la que se juzgó: una prueba liberada con EURO-5 antes de esta versión se sigue citando como EURO-5.',
+          'Nuevo: si los límites publicados del laboratorio no traen la NOM-042 C-VP, se usan los de la app y Datos → Regulaciones ofrece agregarla para poder editarla y publicarla.'
+      ] },
     { version: '3.1.0', date: '11 oct 2026', title: 'Vehículos de México: 4 gases en g/mi',
       bullets: [
           'Cambió: en los vehículos de México (región MEXICO), aunque la regulación diga EURO-5, Liberación, Aprobación y Completar piden únicamente CO, THC, NOx y NMHC, y en g/mi, que es como viene su reporte. Los límites son los mismos de EURO-5, convertidos a g/mi a la vista (CO 1.609, THC 0.161, NOx 0.097, NMHC 0.109).',
@@ -10389,14 +10396,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610112044' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610112044' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10412,7 +10419,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610112044' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610112100' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10553,6 +10560,18 @@ var REGS_LS_KEY = 'kia_regulations_v1';
 var _regulationsData = null;
 
 var DEFAULT_REGULATION_PROFILES = [
+    // [3.2.0] Vehículos de México: en el sistema salen como EURO-5 (así los arma la empresa),
+    // pero su regulación es la NOM-042-SEMARNAT C-VP. LAB_REGION_CAPTURE.MEXICO hace el cambio;
+    // valores crudos (sin factor de deterioro) contra estos límites. THC es informativo.
+    {
+        id: 'reg_nom042_cvp', name: 'NOM-042 C-VP', shortName: 'NOM-042 C-VP',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 2.11 },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: null },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.068 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.047 }
+        ]
+    },
     {
         id: 'reg_euro5', name: 'EURO-5', shortName: 'EURO-5',
         gases: [
@@ -10733,8 +10752,35 @@ function gasInputStep(unit) {
 // perfil (g/km), así que el juicio no cambia. `units` = lo que ofrece el selector (la primera
 // es la de omisión).
 var LAB_REGION_CAPTURE = {
-    MEXICO: { label: 'México', gases: ['CO', 'THC', 'NOx', 'NMHC'], unit: 'g/mi', units: ['g/mi', 'g/km'] }
+    // [3.2.0] `regulation`: el alta dice EURO-5 pero se juzga con la NOM-042 C-VP.
+    MEXICO: { label: 'México', gases: ['CO', 'THC', 'NOx', 'NMHC'], unit: 'g/mi', units: ['g/mi', 'g/km'],
+              regulation: { from: ['EURO-5'], to: 'NOM-042 C-VP' } }
 };
+
+/**
+ * [3.2.0] (PURA) La regulación con la que se juzga un vehículo por su REGIÓN cuando el alta trae
+ * otra (México: EURO-5 → NOM-042 C-VP), o null si no aplica. La regulación del alta sigue siendo
+ * la identidad (familias, CoP, plan); esto solo decide contra qué límites se compara.
+ */
+function labRegionRegulation(catalogReg, region) {
+    var rule = LAB_REGION_CAPTURE[labRegionKey(region)];
+    var m = rule && rule.regulation;
+    if (!m) return null;
+    var reg = String(catalogReg || '').trim().toUpperCase();
+    return (m.from || []).some(function(f) { return String(f).trim().toUpperCase() === reg; }) ? m.to : null;
+}
+
+/** [3.2.0] Perfiles de fábrica que una regla de región necesita (respaldo si el laboratorio aún no los tiene). */
+function labRegionBuiltinProfile(name) {
+    var norm = String(name || '').trim().toUpperCase();
+    var target = Object.keys(LAB_REGION_CAPTURE).some(function(k) {
+        var m = LAB_REGION_CAPTURE[k].regulation;
+        return m && String(m.to).trim().toUpperCase() === norm;
+    });
+    if (!target) return null;
+    var d = DEFAULT_REGULATION_PROFILES.filter(function(p) { return String(p.name).trim().toUpperCase() === norm; })[0];
+    return d ? JSON.parse(JSON.stringify(d)) : null;
+}
 
 /** Clave de región para las reglas de captura (mayúsculas, sin acentos; MX = México). */
 function labRegionKey(region) {
@@ -10840,7 +10886,7 @@ function getRegulationProfile(regulationName) {
     var norm = regulationName.trim().toUpperCase();
     return data.profiles.find(function(p) {
         return p.name.toUpperCase() === norm || p.shortName.toUpperCase() === norm;
-    }) || null;
+    }) || (typeof labRegionBuiltinProfile === 'function' ? labRegionBuiltinProfile(regulationName) : null);
 }
 
 function getAllRegulationProfiles() {
@@ -21733,9 +21779,25 @@ function libSwitchSubtab(tab) {
 function _libGetVehicleRegulation(vehicle) {
     if (!vehicle) return null;
     if (vehicle.regulationOverride && vehicle.regulationOverride.name) return vehicle.regulationOverride.name;
+    // [3.2.0] Regla de la región: México se arma como EURO-5 pero se juzga con la NOM-042 C-VP.
+    var _rr = typeof labRegionRegulation === 'function'
+        ? labRegionRegulation(vehicle.config && vehicle.config['EMISSION REGULATION'], vehicle.config && (vehicle.config['REGION'] || vehicle.config.rgn)) : null;
+    if (_rr) return _rr;
     if (vehicle.config && vehicle.config['EMISSION REGULATION']) return vehicle.config['EMISSION REGULATION'];
     if (vehicle.regulation) return vehicle.regulation;
     return null;
+}
+
+/**
+ * [3.2.0] La norma con la que SE JUZGÓ un vehículo ya liberado: la del perfil congelado al
+ * liberar; si no hay, la de comparación vigente. Es la que se cita (PDF, aprobación): una prueba
+ * de México liberada con EURO-5 antes de 3.2.0 no debe aparecer como NOM-042.
+ */
+function _libJudgedRegulation(vehicle) {
+    var fp = vehicle && vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador
+        && vehicle.testData.gasResults.liberador.profile;
+    if (fp && fp.name && !fp.derived) return fp.name;
+    return _libGetVehicleRegulation(vehicle);
 }
 
 // Regulación tal como quedó registrada en el alta (sin la elección manual).
@@ -21788,7 +21850,10 @@ function _libRegBasisHTML(vehicle, regName) {
     var html = '<div style="background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius: var(--radius-xl);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);font-size:12px;color:#1e3a8a;">';
     html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;">' +
         '<span style="flex:1;min-width:160px;">⚖️ Comparando contra <strong>' + escapeHtml(regName) + '</strong>' +
-        (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>' : '') +
+        (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>'
+         // [3.2.0] Regla de la región: el alta dice EURO-5 porque así se arma el vehículo.
+         : (typeof labRegionRegulation === 'function' && labRegionRegulation(catalogReg, _libVehicleRegion(vehicle))
+            ? ' <span style="color:var(--muted);">(regulación de México; el alta dice "' + escapeHtml(catalogReg) + '" porque así se arma)</span>' : '')) +
         '</span>';
     if (canChange) {
         html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-xs) var(--space-md);" onclick="libRegPickerToggle()">Cambiar</button>';
@@ -22137,12 +22202,13 @@ function _libCaptureProfileFor(vehicle, regName) {
 }
 
 // ── [3.1.0] "Unidad del reporte" en Liberación / Aprobación ───────────────────
-// La unidad elegida vive por contenedor y solo aplica a los gases con límite (un
-// informativo como el CO₂ conserva la suya). Se borra en cada pintado nuevo.
+// La unidad elegida vive por contenedor y se borra en cada pintado nuevo. Solo hay selector
+// con regla de región (México), y ahí aplica a TODOS sus gases, informativos incluidos (THC):
+// el reporte trae todo en la misma unidad.
 var _libCapOverride = {};
 function _libCapUnitFor(g, containerId) {
     var u = containerId && _libCapOverride[containerId];
-    if (u && _libGasHasLimit(g) && GAS_UNIT_FACTORS[u] && GAS_UNIT_FACTORS[g.unit]) return u;
+    if (u && GAS_UNIT_FACTORS[u] && GAS_UNIT_FACTORS[g.unit]) return u;
     return gasCaptureUnit(g);
 }
 
@@ -22747,7 +22813,7 @@ function loadApproval() {
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
-        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
@@ -26353,8 +26419,9 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // [v17.10] La regulación del PDF es la MISMA contra la que se validó en pantalla
   // (_libGetVehicleRegulation respeta la elegida a mano por el liberador); antes se
   // releía el dato del alta y el documento podía citar una norma distinta.
-  const regName = (typeof _libGetVehicleRegulation === 'function')
-      ? (_libGetVehicleRegulation(vehicle) || '')
+  // [3.2.0] La norma con la que se JUZGÓ (la del perfil congelado si existe).
+  const regName = (typeof _libJudgedRegulation === 'function')
+      ? (_libJudgedRegulation(vehicle) || '')
       : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
   // [2.2.0] Límites con los que se liberó (perfil congelado), no los de hoy.
   const regProfile = hasGas ? _libGasProfileForVehicle(vehicle) : null;
@@ -52413,6 +52480,9 @@ function pnRenderRegulations(el) {
     // [2.7.0] Límites compartidos del laboratorio: se pinta con lo último visto y se
     // refresca contra la nube al abrir.
     html += '<div id="reg-shared-card">' + pnRegSharedCardHTML(null) + '</div>';
+    // [3.2.0] Perfiles que una regla de región usa (México → NOM-042 C-VP) y que este conjunto
+    // no tiene: se juzga con los de fábrica, y aquí se ofrece agregarlos para poder editarlos.
+    html += pnRegBuiltinMissingHTML(profiles);
     // [2.8.0] Activación de la revisión dirigida (review.js)
     if (typeof reviewSettingsCardHTML === 'function') html += reviewSettingsCardHTML();
     // [2.5.0] Tratamiento de las verificaciones de VETS (vets.js)
@@ -52623,6 +52693,45 @@ function _pnRegGasSummary(p) {
 }
 
 function pnRegAddNew() { if (!_pnRegGate()) return; _pnRegShowModal(null); }
+
+/** [3.2.0] Tarjeta: perfiles de una regla de región que no están en el conjunto del laboratorio. */
+function pnRegBuiltinMissingHTML(profiles) {
+    if (typeof LAB_REGION_CAPTURE === 'undefined' || typeof labRegionBuiltinProfile !== 'function') return '';
+    var have = {};
+    (profiles || []).forEach(function(p) { if (p && p.name) have[String(p.name).trim().toUpperCase()] = true; });
+    var html = '';
+    Object.keys(LAB_REGION_CAPTURE).forEach(function(k) {
+        var r = LAB_REGION_CAPTURE[k], m = r.regulation;
+        if (!m || have[String(m.to).trim().toUpperCase()]) return;
+        var d = labRegionBuiltinProfile(m.to);
+        if (!d) return;
+        var lims = d.gases.map(function(g) { return g.label + (g.limit != null ? ' ' + g.limit : ' (informativo)'); }).join(' · ');
+        html += '<div class="tp-card" style="margin-bottom: var(--space-md);border-left:4px solid var(--warn-fill);">' +
+            '<div style="font-weight:700;font-size:13px;">' + escapeHtml(m.to) + ' — vehículos de ' + escapeHtml(r.label || k) + '</div>' +
+            '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin: var(--space-xs) 0 var(--space-sm);">' +
+            'Se arman como ' + escapeHtml((m.from || []).join(', ')) + ' pero se juzgan con esta norma. No está entre tus perfiles, así que se usan ' +
+            'los límites de la app (' + escapeHtml(d.gases[0].unit) + '): ' + escapeHtml(lims) + '. Agrégalo para poder editarlo y que quede publicado.</div>' +
+            '<button class="tp-btn tp-btn-primary" onclick="pnRegAddBuiltin(\'' + escapeHtml(m.to) + '\')" style="font-size: var(--fs-sm);">+ Agregar a los perfiles</button></div>';
+    });
+    return html;
+}
+
+/** [3.2.0] Agrega a los perfiles del laboratorio el de fábrica que usa una regla de región. */
+function pnRegAddBuiltin(name) {
+    if (!_pnRegGate()) return;
+    var d = labRegionBuiltinProfile(name);
+    if (!d) return;
+    var data = loadRegulations();
+    if (data.profiles.some(function(p) { return String(p.name).trim().toUpperCase() === String(name).trim().toUpperCase(); })) { pnSwitchTab('pn-regulations'); return; }
+    d.createdAt = new Date().toISOString();
+    data.profiles.push(d);
+    saveRegulations();
+    if (typeof auditLog === 'function') auditLog('pn', 'regulacion_creada', { type: 'regulation', id: d.id, label: d.name },
+        'Límites: ' + _pnRegGasSummary(d) + ' (de fábrica, regla de región)', { before: null, after: _pnRegGasMap(d) });
+    pnSwitchTab('pn-regulations');
+    showToast('Perfil ' + d.name + ' agregado', 'success');
+    pnRegAfterLocalEdit('nuevo perfil ' + d.name);
+}
 
 function pnRegEdit(id) {
     if (!_pnRegGate()) return;
@@ -60985,7 +61094,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610112044' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610112100' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76415,7 +76524,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18460],[18464,"js/uiflow.js",18780],[18784,"js/cop15.js",29126],[29130,"js/inventory.js",36196],[36200,"js/testplan.js",47759],[47763,"js/panel.js",53051],[53055,"js/projects.js",55344],[55348,"js/auth.js",56389],[56393,"js/signatures.js",56594],[56598,"js/firebase-sync.js",64128],[64132,"js/cop_validator.js",68497],[68501,"js/homolog.js",70291],[70295,"js/vets.js",72092],[72096,"js/historico.js",73010],[73014,"js/review.js",73467],[73471,"js/opcards.js",73900],[73904,"js/handoff.js",74178],[74182,"js/ficha.js",74673],[74677,"js/relevo.js",75057],[75061,"js/momentos.js",75198],[75202,"js/digest.js",75987],[75991,"js/xlsxw.js",76371],[76375,"js/bugreport.js",77521]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18506],[18510,"js/uiflow.js",18826],[18830,"js/cop15.js",29193],[29197,"js/inventory.js",36263],[36267,"js/testplan.js",47826],[47830,"js/panel.js",53160],[53164,"js/projects.js",55453],[55457,"js/auth.js",56498],[56502,"js/signatures.js",56703],[56707,"js/firebase-sync.js",64237],[64241,"js/cop_validator.js",68606],[68610,"js/homolog.js",70400],[70404,"js/vets.js",72201],[72205,"js/historico.js",73119],[73123,"js/review.js",73576],[73580,"js/opcards.js",74009],[74013,"js/handoff.js",74287],[74291,"js/ficha.js",74782],[74786,"js/relevo.js",75166],[75170,"js/momentos.js",75307],[75311,"js/digest.js",76096],[76100,"js/xlsxw.js",76480],[76484,"js/bugreport.js",77630]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
