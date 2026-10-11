@@ -3262,17 +3262,22 @@ function _libVerifyReleaseValues(profile, values) {
 /** [2.2.0] Copia congelada del perfil con el que se liberó (nombre + gases + límites). */
 function _libGasProfileSnapshot(profile, regName) {
     if (!profile || !profile.gases) return null;
-    return {
+    var snap = {
         name: regName || profile.name || '',
         gases: profile.gases.map(function(g) {
             var o = { field: g.field, label: g.label || g.field, unit: g.unit || '', limit: _libGasHasLimit(g) ? Number(g.limit) : null };
             if (g.captureUnit) o.captureUnit = g.captureUnit;
             return o;
         }),
+        // [3.1.0] Se liberó con la regla de captura de la región (México: 4 gases, g/mi).
+        regionCapture: profile.regionCapture || undefined,
         frozenAt: new Date().toISOString(),
         // [2.7.0] Con qué versión de los límites del laboratorio coincidía (null = distintos o sin publicar).
         labVersion: _libLabVersionNow()
     };
+    // Firestore rechaza un documento con un `undefined` adentro (2.29.2).
+    if (!snap.regionCapture) delete snap.regionCapture;
+    return snap;
 }
 
 function _libLabVersionNow() {
@@ -3327,7 +3332,92 @@ function _libGasProfileForVehicle(vehicle) {
     var regName = _libGetVehicleRegulation(vehicle);
     var current = regName && typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
     var retired = typeof REG_PROFILES_RETIRED !== 'undefined' ? REG_PROFILES_RETIRED : [];
-    return _libPickGasProfile(lib && lib.profile, current, retired, lib && lib.values, regName);
+    var picked = _libPickGasProfile(lib && lib.profile, current, retired, lib && lib.values, regName);
+    // [3.1.0] Regla de la región (México: 4 gases, g/mi). Lo ya capturado se conserva.
+    return typeof regProfileForRegion === 'function'
+        ? regProfileForRegion(picked, _libVehicleRegion(vehicle), lib && lib.values) : picked;
+}
+
+/** [3.1.0] Región del vehículo (la del alta). */
+function _libVehicleRegion(vehicle) {
+    return String((vehicle && vehicle.config && (vehicle.config['REGION'] || vehicle.config.rgn)) || '');
+}
+
+/**
+ * [3.1.0] LA definición de los gases que el liberador CAPTURA ahora: el perfil vigente de su
+ * regulación con la regla de la región aplicada (México: CO, THC, NOx y NMHC en g/mi).
+ */
+function _libCaptureProfileFor(vehicle, regName) {
+    regName = regName || _libGetVehicleRegulation(vehicle);
+    var p = regName && typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
+    return typeof regProfileForRegion === 'function' ? regProfileForRegion(p, _libVehicleRegion(vehicle)) : p;
+}
+
+// ── [3.1.0] "Unidad del reporte" en Liberación / Aprobación ───────────────────
+// La unidad elegida vive por contenedor y solo aplica a los gases con límite (un
+// informativo como el CO₂ conserva la suya). Se borra en cada pintado nuevo.
+var _libCapOverride = {};
+function _libCapUnitFor(g, containerId) {
+    var u = containerId && _libCapOverride[containerId];
+    if (u && _libGasHasLimit(g) && GAS_UNIT_FACTORS[u] && GAS_UNIT_FACTORS[g.unit]) return u;
+    return gasCaptureUnit(g);
+}
+
+/** [3.1.0] El perfil con la unidad que se eligió en ese contenedor (lo que se congela al enviar). */
+function _libProfileWithCapUnits(profile, containerId) {
+    if (!profile || !profile.gases) return profile;
+    return Object.assign({}, profile, { gases: profile.gases.map(function(g) {
+        var cu = _libCapUnitFor(g, containerId);
+        var o = Object.assign({}, g);
+        if (cu && cu !== g.unit) o.captureUnit = cu; else delete o.captureUnit;
+        return o;
+    }) });
+}
+
+function _libUnitPickerHTML(containerId, profile) {
+    if (!profile || !profile.regionCapture || typeof gasUnitChoices !== 'function') return '';
+    var units = gasUnitChoices(profile);
+    if (!units || units.length < 2) return '';
+    var rule = LAB_REGION_CAPTURE[profile.regionCapture] || {};
+    var first = profile.gases.filter(_libGasHasLimit)[0];
+    var cur = first ? _libCapUnitFor(first, containerId) : units[0];
+    var sid = containerId + '-unit';
+    return '<div class="form-group lib-unit-pick" style="margin-bottom: var(--space-sm);">' +
+        '<label for="' + sid + '" style="font-size: var(--fs-sm);font-weight:600;">Unidad del reporte</label>' +
+        '<select id="' + sid + '" data-chips onchange="libGasUnitChange(\'' + containerId + '\', this.value)">' +
+        units.map(function(u) { return '<option value="' + u + '"' + (u === cur ? ' selected' : '') + '>' + u + '</option>'; }).join('') +
+        '</select>' +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">' +
+        (rule.label ? 'Vehículo de ' + escapeHtml(rule.label) + ': se capturan ' + escapeHtml((rule.gases || []).join(', ')) + '. ' : '') +
+        'Los límites se convierten a la unidad elegida; el resultado se guarda en la del límite.</div></div>';
+}
+
+/** [3.1.0] Cambiar la unidad: el número tecleado se relee en la nueva y se recalcula el estado. */
+function libGasUnitChange(containerId, unit) {
+    _libCapOverride[containerId] = unit;
+    var box = document.getElementById(containerId);
+    if (!box) return;
+    var first = null;
+    box.querySelectorAll('.lib-gas-input[data-field]').forEach(function(inp) {
+        var f = inp.getAttribute('data-field');
+        var g = (inp._libGas) || null;
+        if (!g) return;
+        var cu = _libCapUnitFor(g, containerId);
+        inp.step = gasInputStep(cu);
+        var uc = box.querySelector('[data-ucell="' + f + '"]'), lc = box.querySelector('[data-lcell="' + f + '"]');
+        if (uc) uc.innerHTML = _libUnitCellHTML(g, cu);
+        if (lc) lc.innerHTML = _libLimitCellHTML(g, cu);
+        if (!first) first = inp;
+    });
+    if (first) first.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function _libUnitCellHTML(g, cu) {
+    return escapeHtml(cu) + (cu !== g.unit ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '');
+}
+function _libLimitCellHTML(g, cu) {
+    var dl = (g.limit !== null && g.limit !== undefined) ? gasConvert(g.limit, g.unit, cu) : null;
+    return dl !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dl + '</span>' : '<span style="color:var(--muted);">—</span>';
 }
 
 // Tracks whether the approver mismatch alarm (toast) has already fired this episode.
@@ -3335,6 +3425,7 @@ var _libMismatchAlarmKey = null;
 
 
 function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallback) {
+    delete _libCapOverride[containerId];   // [3.1.0] cada pintado nuevo arranca en la unidad de omisión
     var el = document.getElementById(containerId);
     if (!el) return;
     var html = '<table class="u-cards u-cards-grid" style="width:100%;border-collapse:collapse;font-size:13px;">';
@@ -3348,23 +3439,25 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
     profile.gases.forEach(function(g) {
         // Se teclea y se muestra en la unidad de captura; el valor guardado sigue
         // siendo el de g.unit (ver [M-GASUNITS] en app.js).
-        var capUnit = gasCaptureUnit(g);
-        var converted = capUnit !== g.unit;
+        var capUnit = _libCapUnitFor(g, containerId);
         var stored = existingValues && existingValues[g.field] != null ? existingValues[g.field] : '';
         var val = stored === '' ? '' : gasConvert(stored, g.unit, capUnit);
-        var dispLimit = (g.limit !== null && g.limit !== undefined) ? gasConvert(g.limit, g.unit, capUnit) : null;
         html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" id="lib-gas-row-' + g.field + '">';
         html += '<td style="padding: var(--space-sm) var(--space-sm);font-weight:600;">' + escapeHtml(g.label) + '</td>';
-        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);color:var(--muted);">' + escapeHtml(capUnit)
-             +  (converted ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '')
-             +  '</td>';
-        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
+        html += '<td data-ucell="' + escapeHtml(g.field) + '" style="text-align:center;padding: var(--space-sm) var(--space-sm);color:var(--muted);">' + _libUnitCellHTML(g, capUnit) + '</td>';
+        html += '<td data-lcell="' + escapeHtml(g.field) + '" style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + _libLimitCellHTML(g, capUnit) + '</td>';
         html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" inputmode="decimal" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
         html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" id="lib-gas-status-' + g.field + '">—</td>';
         html += '</tr>';
     });
     html += '</tbody></table>';
-    el.innerHTML = html;
+    el.innerHTML = _libUnitPickerHTML(containerId, profile) + html;
+    // [3.1.0] Cada casilla recuerda su gas, para que cambiar la unidad la relea sin repintar
+    // (repintar borraría las notas que Liberación agrega arriba de la tabla).
+    profile.gases.forEach(function(g) {
+        var inp = el.querySelector('.lib-gas-input[data-field="' + g.field + '"]');
+        if (inp) inp._libGas = g;
+    });
     if (existingValues && Object.keys(existingValues).length > 0) _libUpdateGasStatuses(profile, containerId);
 }
 
@@ -3378,7 +3471,7 @@ function _libUpdateGasStatuses(profile, containerId) {
         // Se teclea en la unidad de captura, pero TODO lo que sigue (límite,
         // rangos de plausibilidad, economía de combustible) está en g.unit.
         var typed = _libNormalizeVal(input.value);
-        var val = typed === null ? null : gasConvert(typed, gasCaptureUnit(g), g.unit);
+        var val = typed === null ? null : gasConvert(typed, _libCapUnitFor(g, containerId), g.unit);
         var row = document.getElementById('lib-gas-row-' + g.field);
         if (val === null) { statusEl.innerHTML = '<span style="color:var(--muted);">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
@@ -3424,7 +3517,7 @@ function _libCollectGasValues(profile, containerId) {
         var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
         if (!input) return;
         var typed = _libNormalizeVal(input.value);
-        values[g.field] = typed === null ? null : gasConvert(typed, gasCaptureUnit(g), g.unit);
+        values[g.field] = typed === null ? null : gasConvert(typed, _libCapUnitFor(g, containerId), g.unit);
     });
     return values;
 }
@@ -3433,7 +3526,7 @@ function libOnGasChange() {
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle) return;
     var regName = _libGetVehicleRegulation(vehicle);
-    var profile = regName ? getRegulationProfile(regName) : null;
+    var profile = regName ? _libCaptureProfileFor(vehicle, regName) : null;
     if (!profile) return;
     _libUpdateGasStatuses(profile, 'lib-gas-entry-content');
     var btn = document.getElementById('release-archive-btn');
@@ -3801,7 +3894,7 @@ function loadRelease() {
         '</div>';
 
     var regName = _libGetVehicleRegulation(vehicle);
-    var profile = regName ? getRegulationProfile(regName) : null;
+    var profile = regName ? _libCaptureProfileFor(vehicle, regName) : null;
     var gasCard = document.getElementById('lib-gas-entry-card');
     var btn = document.getElementById('release-archive-btn');
 
@@ -3996,8 +4089,10 @@ function submitToApproval() {
         // en Aprobación (candado en approveAndArchive).
     }
     var regName = _libGetVehicleRegulation(vehicle);
-    var profile = isEm && regName ? getRegulationProfile(regName) : null;
+    var profile = isEm && regName ? _libCaptureProfileFor(vehicle, regName) : null;
     var gasValues = profile ? _libCollectGasValues(profile, 'lib-gas-entry-content') : {};
+    // [3.1.0] Se congela con la unidad que el liberador usó (la del selector).
+    var _profFrozen = profile ? _libProfileWithCapUnits(profile, 'lib-gas-entry-content') : null;
     // [2.2.0] EL CANDADO VA EN LA CAPA DE DATOS: una prueba de emisiones no se envía
     // sin perfil, sin todos los gases con límite, ni con uno que no pase.
     if (isEm) {
@@ -4053,7 +4148,7 @@ function submitToApproval() {
                     // [2.2.0] El perfil CONGELADO: aprobación y PDF verifican y juzgan
                     // contra lo que el liberador vio, aunque el perfil cambie después o el
                     // equipo del aprobador tenga otro.
-                    profile: _libGasProfileSnapshot(profile, regName)
+                    profile: _libGasProfileSnapshot(_profFrozen, regName)
                 };
                 _libAuditImplausibleValues(vehicle, gasValues, 'liberador');
             }
@@ -6133,7 +6228,7 @@ function histOpenCompleteModal(vehicleId) {
       html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
       // [3.0.2] La unidad en que viene el reporte, a la vista y elegible: el de Europa suele venir
       // en mg/km y el límite está en g/km. Un número en la unidad equivocada es 1000 veces otro.
-      var _gu = _histGasUnitChoices(missingGases);
+      var _gu = gasUnitChoices(profile, missingGases);
       var _guDef = _gu ? _histGasCaptureUnit(missingGases[0], vehicle) : null;
       if (_gu && _gu.indexOf(_guDef) < 0) _guDef = _gu[0];
       if (_gu) {
@@ -6304,20 +6399,6 @@ function _histGasCaptureUnit(g, vehicle) {
     if (m) return gasCaptureUnit(m);
   } catch (e) {}
   return gasCaptureUnit(g);
-}
-
-/**
- * [3.0.2] Unidades que se ofrecen para los gases faltantes: g y mg de la misma distancia, solo si
- * todos se guardan en km o todos en millas (si no, cada gas usa la suya y no hay selector).
- */
-function _histGasUnitChoices(gases) {
-  var dist = null;
-  for (var i = 0; i < gases.length; i++) {
-    var m = /^m?g\/(km|mi)$/.exec(gases[i].unit || '');
-    if (!m || (dist && dist !== m[1])) return null;
-    dist = m[1];
-  }
-  return dist ? ['mg/' + dist, 'g/' + dist] : null;
 }
 
 function _histGasUnitLabelHTML(g, cu) {
@@ -7574,6 +7655,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     gasEntries.forEach(function(g) {
       const val = liberadorGas.values[g.field];
       const hasVal = val !== null && val !== undefined && val !== '';
+      // [3.1.0] Con regla de región (México) la hoja se lee en la unidad del reporte (g/mi):
+      // PASA/FALLA y el % se calculan con lo guardado; solo se convierte lo que se imprime.
+      const _pu = (regProfile && regProfile.regionCapture && typeof gasCaptureUnit === 'function') ? gasCaptureUnit(g) : (g.unit || '');
+      const _pv = (x) => (_pu && _pu !== g.unit && typeof gasConvert === 'function') ? gasConvert(x, g.unit, _pu) : x;
       const hasLim = g.limit !== null && g.limit !== undefined;
       const passStr = (hasLim && hasVal) ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA') : '';
       const passClr = passStr === 'PASA' ? [4,120,87] : passStr === 'FALLA' ? [200,30,30] : [100,116,139];
@@ -7581,10 +7666,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       // PN vive en 1e10–1e11: sin notación científica sale "600000000000".
       const fmtN = n => (Math.abs(n) >= 1e6 ? Number(n).toExponential(2) : String(n));
       const limitStr = !hasLim ? 'Sin límite (informativo)'
-          : '<= ' + fmtN(g.limit) + '   ' + (passStr || '—') + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
+          : '<= ' + fmtN(_pu !== g.unit ? _pv(g.limit) : g.limit) + '   ' + (passStr || '—') + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
       cell(gx[0], cy, gw[0], gRowH, g.label, {font:'bold', sz:5.5, align:'center'});
-      cell(gx[1], cy, gw[1], gRowH, g.unit || '', {sz:5, align:'center'});
-      cell(gx[2], cy, gw[2], gRowH, hasVal ? (isFinite(parseFloat(val)) ? fmtN(val) : String(val)) : '—', {font:'bold', sz:6, align:'center'});
+      cell(gx[1], cy, gw[1], gRowH, _pu || g.unit || '', {sz:5, align:'center'});
+      cell(gx[2], cy, gw[2], gRowH, hasVal ? (isFinite(parseFloat(val)) ? fmtN(_pu !== g.unit ? _pv(parseFloat(val)) : val) : String(val)) : '—', {font:'bold', sz:6, align:'center'});
       cell(gx[3], cy, gw[3], gRowH, limitStr, {font: hasLim ? 'bold' : 'italic', sz:5, align:'center', color: passClr});
       cy += gRowH;
     });

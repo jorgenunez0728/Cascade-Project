@@ -20,6 +20,39 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.1.0 — Vehículos de México: 4 gases en g/mi (2026-10-11)
+
+### Cambió
+- En los **vehículos de México** (región MEXICO), aunque la regulación diga **EURO-5**, la
+  captura pide **únicamente CO, THC, NOx y NMHC**, y **en g/mi**, que es como viene su reporte.
+  Aplica en Liberación, en Aprobación, al adjuntar VETS, en las pruebas históricas y en
+  Historial → 📝 Completar.
+- Los **límites son los mismos de EURO-5**, solo se muestran convertidos a g/mi: CO 1.609,
+  THC 0.161, NOx 0.097, NMHC 0.109. Lo que se guarda sigue en g/km y el PASA / FALLA es el mismo.
+- La hoja **COP15-F05** de un vehículo de México imprime los resultados y el límite en g/mi.
+  La de Europa no cambia.
+- Una prueba de México que ya tenía otro gas capturado (por ejemplo CO₂) lo conserva: la
+  evidencia no desaparece.
+
+### Nuevo
+- Selector **"Unidad del reporte: g/mi | g/km"** en esos vehículos, con g/mi de omisión. Al
+  cambiarlo, el número tecleado se relee en la otra unidad y el estado se recalcula. La unidad
+  que usó el liberador queda congelada con la prueba, así que el aprobador arranca en la misma.
+
+### Para desarrollo
+- `LAB_REGION_CAPTURE` (app.js) es LA regla de captura por región; `regProfileForRegion(perfil,
+  región, valores)` (PURA) la aplica: gases de la regla + los ya capturados, `captureUnit` de la
+  región y `regionCapture` en el perfil. Un perfil que ya trae `regionCapture` (congelado tras
+  3.1.0) pasa tal cual. `gasUnitChoices(perfil, gases)` (PURA) da las unidades del selector.
+- `_libCaptureProfileFor(vehicle)` (cop15.js) es el perfil de CAPTURA (Liberación, envío, VETS);
+  `_libGasProfileForVehicle` aplica la misma regla a lo ya liberado. `historico.js` también.
+- El selector de Liberación/Aprobación vive por contenedor (`_libCapOverride`,
+  `_libCapUnitFor(g, contenedor)`), solo cambia los gases con límite y se reinicia en cada
+  pintado. `libGasUnitChange` actualiza en su lugar (repintar borraría las notas de arriba).
+  `submitToApproval` congela `_libProfileWithCapUnits(...)`, y `_libGasProfileSnapshot` guarda
+  `regionCapture`.
+- `tests/gases.node.js` (+11) y `tests/v310.e2e.js`.
+
 ## 3.0.2 — Completar pruebas anteriores en mg/km (2026-10-11)
 
 ### Arreglado

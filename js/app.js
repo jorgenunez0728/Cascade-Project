@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.0.2';
+var APP_VERSION = '3.1.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.0.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.1.0', date: '11 oct 2026', title: 'Vehículos de México: 4 gases en g/mi',
+      bullets: [
+          'Cambió: en los vehículos de México (región MEXICO), aunque la regulación diga EURO-5, Liberación, Aprobación y Completar piden únicamente CO, THC, NOx y NMHC, y en g/mi, que es como viene su reporte. Los límites son los mismos de EURO-5, convertidos a g/mi a la vista (CO 1.609, THC 0.161, NOx 0.097, NMHC 0.109).',
+          'Nuevo: selector "Unidad del reporte: g/mi | g/km" en esos vehículos, con g/mi de omisión. Al cambiarlo, el número tecleado se relee en la otra unidad y el PASA / FALLA se recalcula.',
+          'Cambió: la hoja COP15-F05 de un vehículo de México muestra los resultados en g/mi, como el reporte. Europa no cambia.',
+          'Lo que se guarda no cambia: los resultados siguen en g/km y se juzgan con los mismos límites.'
+      ] },
     { version: '3.0.2', date: '11 oct 2026', title: 'Completar pruebas anteriores en mg/km',
       bullets: [
           'Arreglado: en Historial → 📝 Completar, los resultados de emisiones se pedían en g/km aunque el reporte de Europa viene en mg/km. Ahora se teclean en la misma unidad que en Liberación (mg/km, con el límite convertido: CO 1000, NOx 60…) y se guardan en g/km como siempre.',
@@ -1717,6 +1724,62 @@ function gasCaptureUnit(gas) {
 /** Paso del <input type=number> acorde a la magnitud de la unidad. */
 function gasInputStep(unit) {
     return (unit === 'mg/km' || unit === 'mg/mi') ? '0.1' : '0.0001';
+}
+
+// ── [3.1.0] Captura por REGIÓN, por encima del perfil de la regulación ─────────
+// Los vehículos de México se registran con regulación "EURO-5" (mismos límites), pero su
+// reporte trae solo CO, THC, NOx y NMHC, y en g/mi. Es una regla del laboratorio sobre QUÉ
+// se teclea y EN QUÉ unidad: los límites y la unidad en que se guarda siguen siendo los del
+// perfil (g/km), así que el juicio no cambia. `units` = lo que ofrece el selector (la primera
+// es la de omisión).
+var LAB_REGION_CAPTURE = {
+    MEXICO: { label: 'México', gases: ['CO', 'THC', 'NOx', 'NMHC'], unit: 'g/mi', units: ['g/mi', 'g/km'] }
+};
+
+/** Clave de región para las reglas de captura (mayúsculas, sin acentos; MX = México). */
+function labRegionKey(region) {
+    var r = String(region || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return r === 'MX' ? 'MEXICO' : r;
+}
+
+/**
+ * [3.1.0] (PURA) LA forma de aplicar la regla de captura de la región a un perfil. Deja los
+ * gases de la regla MÁS los que ya tengan valor capturado (la evidencia no desaparece) y les
+ * pone la unidad de captura de la región. Un perfil que ya trae `regionCapture` (congelado
+ * al liberar con la regla aplicada) pasa tal cual: manda la unidad que el liberador eligió.
+ */
+function regProfileForRegion(profile, region, values) {
+    if (!profile || !Array.isArray(profile.gases) || profile.regionCapture) return profile;
+    var key = labRegionKey(region), rule = LAB_REGION_CAPTURE[key];
+    if (!rule) return profile;
+    var want = rule.gases.map(function(f) { return String(f).toUpperCase(); });
+    var has = function(f) { var x = values && values[f]; return x !== null && x !== undefined && x !== ''; };
+    var gases = profile.gases.filter(function(g) {
+        return want.indexOf(String(g.field || '').toUpperCase()) >= 0 || has(g.field);
+    }).map(function(g) {
+        var o = Object.assign({}, g);
+        if (GAS_UNIT_FACTORS[rule.unit] && GAS_UNIT_FACTORS[g.unit]) o.captureUnit = rule.unit;
+        return o;
+    });
+    return Object.assign({}, profile, { gases: gases, regionCapture: key });
+}
+
+/**
+ * [3.1.0] (PURA) Unidades que ofrece el selector "Unidad del reporte": las de la regla de la
+ * región si el perfil la trae; si no, g y mg de la misma distancia (km o mi) cuando todos los
+ * gases se guardan en la misma; si se mezclan, ninguna (cada gas usa la suya).
+ */
+function gasUnitChoices(profile, gases) {
+    var rule = profile && profile.regionCapture && LAB_REGION_CAPTURE[profile.regionCapture];
+    if (rule && rule.units) return rule.units.filter(function(u) { return !!GAS_UNIT_FACTORS[u]; });
+    gases = gases || (profile && profile.gases) || [];
+    var dist = null;
+    for (var i = 0; i < gases.length; i++) {
+        var m = /^m?g\/(km|mi)$/.exec(gases[i].unit || '');
+        if (!m || (dist && dist !== m[1])) return null;
+        dist = m[1];
+    }
+    return dist ? ['mg/' + dist, 'g/' + dist] : null;
 }
 
 function loadRegulations() {

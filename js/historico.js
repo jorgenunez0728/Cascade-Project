@@ -354,7 +354,9 @@ function _historicoProfileFor(v) {
     var conf = v && v.historic && v.historic.confirmation;
     if (conf && conf.profile && conf.profile.gases) return conf.profile;
     var reg = typeof _libGetVehicleRegulation === 'function' ? _libGetVehicleRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || '');
-    return reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
+    var p = reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
+    // [3.1.0] Regla de la región (México: CO, THC, NOx y NMHC, en g/mi).
+    return typeof regProfileForRegion === 'function' ? regProfileForRegion(p, (v.config || {})['REGION']) : p;
 }
 function _historicoRegName(v) {
     return typeof _libGetVehicleRegulation === 'function' ? _libGetVehicleRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || '');

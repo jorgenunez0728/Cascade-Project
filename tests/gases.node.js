@@ -164,5 +164,33 @@ console.log('\n== _libPickGasProfile: congelado → vigente → retirado → der
     ok('sin perfil y sin valores → null (la aprobación se detiene)', pick(null, null, {}, 'XYZ') === null);
 }
 
+// ── [3.1.0] México: 4 gases, en g/mi, aunque la regulación diga EURO-5 ───
+{
+    if (typeof ctx.GAS_UNIT_FACTORS === 'undefined') vm.runInContext(extraerVar('app.js', 'GAS_UNIT_FACTORS'), ctx);
+    vm.runInContext(extraerVar('app.js', 'LAB_REGION_CAPTURE'), ctx);
+    ['labRegionKey', 'regProfileForRegion', 'gasUnitChoices'].forEach(n => vm.runInContext(extraer('app.js', n), ctx));
+    const euro5 = ctx.DEFAULT_REGULATION_PROFILES.find(p => p.name === 'EURO-5');
+    const conCap = Object.assign({}, euro5, { gases: euro5.gases.map(g => Object.assign({}, g, { captureUnit: g.limit != null ? 'mg/km' : undefined })) });
+    const mx = ctx.regProfileForRegion(conCap, 'MEXICO');
+    const campos = p => p.gases.map(g => g.field).join(',');
+    ok('México pide solo CO, THC, NOx y NMHC (sin CO₂)', campos(mx) === 'CO,THC,NOx,NMHC', campos(mx));
+    ok('México se teclea en g/mi aunque el perfil europeo diga mg/km', mx.gases.every(g => g.captureUnit === 'g/mi'));
+    ok('los límites y la unidad guardada no cambian (el juicio es el mismo)',
+        mx.gases.every(g => { const o = euro5.gases.find(x => x.field === g.field); return o.limit === g.limit && o.unit === g.unit; }));
+    ok('el perfil original no se toca', conCap.gases.length === 5 && conCap.gases[0].captureUnit === 'mg/km');
+    ok('"México" con acento y "MX" son lo mismo',
+        ctx.regProfileForRegion(euro5, 'México').regionCapture === 'MEXICO' && ctx.regProfileForRegion(euro5, ' mx ').regionCapture === 'MEXICO');
+    ok('Europa queda igual (mismo objeto)', ctx.regProfileForRegion(conCap, 'EUROPE') === conCap);
+    const conCo2 = ctx.regProfileForRegion(euro5, 'MEXICO', { CO: 0.2, CO2: 140 });
+    ok('un gas ya capturado fuera de la regla se conserva (la evidencia no desaparece)', campos(conCo2) === 'CO,CO2,THC,NOx,NMHC', campos(conCo2));
+    const congelado = Object.assign({}, mx, { gases: mx.gases.map(g => { const o = Object.assign({}, g); delete o.captureUnit; return o; }) });
+    ok('un perfil congelado con la regla pasa tal cual (manda la unidad que eligió el liberador)',
+        ctx.regProfileForRegion(congelado, 'MEXICO') === congelado);
+    ok('el selector de México ofrece g/mi (primero) y g/km', ctx.gasUnitChoices(mx).join() === 'g/mi,g/km');
+    ok('sin regla, el selector ofrece mg y g de la misma distancia', ctx.gasUnitChoices(euro5, euro5.gases.filter(g => g.limit != null)).join() === 'mg/km,g/km');
+    ok('sin regla y con unidades mezcladas, no hay selector',
+        ctx.gasUnitChoices(null, [{ unit: 'g/km' }, { unit: 'g/mi' }]) === null);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);
