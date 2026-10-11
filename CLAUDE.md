@@ -3174,3 +3174,13 @@ Reemplaza lo que 2.6.0, 2.9.0 y 2.14.0 dicen de las copias completas (`cop15/cur
   Get/Delete`), no en `kia_merge_history`: era el 45% del almacenamiento y se reescribía en cada
   pull. La bitácora marca `snapshotIn: 'idb'` y la foto se empata por `id`. **Lo pesado y opcional
   (fotos, respaldos) va a IndexedDB**; localStorage queda para el dato que la app lee síncrono.
+
+## 3.0.2 — Todo lugar donde se teclea un gas usa la unidad de captura
+
+- **Historial → Completar teclea los gases en la unidad de captura** (`_histGasCaptureUnit`) y
+  guarda en `g.unit` (`_histGasStoredValue`), igual que Liberación (`_libCollectGasValues`, v18.2).
+  **Toda pantalla nueva donde se teclee un gas** convierte en la frontera de lectura con
+  `gasConvert(typed, unidadCaptura, g.unit)`; nunca guarda lo tecleado tal cual.
+- Un perfil congelado anterior a la unidad de captura no la trae: se toma la del perfil vigente
+  para el mismo gas y la misma unidad guardada. Y la unidad queda **a la vista y elegible**
+  (selector "Unidad del reporte"): un número en la unidad equivocada es 1000 veces otro.

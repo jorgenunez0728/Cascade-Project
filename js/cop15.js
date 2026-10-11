@@ -6131,11 +6131,26 @@ function histOpenCompleteModal(vehicleId) {
       html += '<details class="hist-section" open>';
       html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Resultados de Emisiones <span style="color:var(--warn-text);font-weight:800;">· ' + missingGases.length + ' faltantes</span></summary>';
       html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
+      // [3.0.2] La unidad en que viene el reporte, a la vista y elegible: el de Europa suele venir
+      // en mg/km y el límite está en g/km. Un número en la unidad equivocada es 1000 veces otro.
+      var _gu = _histGasUnitChoices(missingGases);
+      var _guDef = _gu ? _histGasCaptureUnit(missingGases[0], vehicle) : null;
+      if (_gu && _gu.indexOf(_guDef) < 0) _guDef = _gu[0];
+      if (_gu) {
+        html += '<div class="form-group" style="margin-bottom: var(--space-sm);"><label for="hist-gas-unit" style="font-size: var(--fs-sm);font-weight:600;">Unidad del reporte</label>' +
+                '<select id="hist-gas-unit" data-chips onchange="histGasUnitChange(this.value)">' +
+                _gu.map(function(u) { return '<option value="' + u + '"' + (u === _guDef ? ' selected' : '') + '>' + u + '</option>'; }).join('') +
+                '</select></div>';
+      }
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
       missingGases.forEach(function(g) {
+        // [3.0.2] Se teclea en la unidad de captura, como en Liberación (el reporte de Europa
+        // viene en mg/km y el límite está en g/km); se guarda en g.unit.
+        var cu = _guDef || _histGasCaptureUnit(g, vehicle);
+        var dispLim = gasConvert(g.limit, g.unit, cu);
         html += '<tr class="hist-field-missing"><td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(g.label) +
-                ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
-        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
+                ' <span id="hist-gas-unitlbl-' + escapeHtml(g.field) + '">' + _histGasUnitLabelHTML(g, cu) + '</span></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="' + gasInputStep(cu) + '" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" data-gunit="' + escapeHtml(g.unit) + '" data-gcap="' + escapeHtml(cu) + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
         html += '<td style="padding: var(--space-xs) var(--space-sm);width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
       });
       html += '</table></details>';
@@ -6274,12 +6289,68 @@ function _histOnReasonInput(idx) {
   if (ta) ta.style.borderColor = hasReason ? tokenColor('--ok-fill') : tokenColor('--warn-fill');
 }
 
+/**
+ * [3.0.2] Unidad en que se teclea un gas al completar: la de captura del perfil de la prueba; si
+ * ese perfil (congelado antes de que existiera la unidad de captura) no la trae, la del perfil
+ * vigente de su regulación para el MISMO gas y la misma unidad guardada. Es solo presentación:
+ * el valor siempre se guarda en g.unit.
+ */
+function _histGasCaptureUnit(g, vehicle) {
+  if (g && g.captureUnit && typeof GAS_UNIT_FACTORS !== 'undefined' && GAS_UNIT_FACTORS[g.captureUnit]) return g.captureUnit;
+  try {
+    var reg = (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(vehicle) : '';
+    var cur = reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
+    var m = cur && (cur.gases || []).filter(function(x) { return x.field === g.field && x.unit === g.unit; })[0];
+    if (m) return gasCaptureUnit(m);
+  } catch (e) {}
+  return gasCaptureUnit(g);
+}
+
+/**
+ * [3.0.2] Unidades que se ofrecen para los gases faltantes: g y mg de la misma distancia, solo si
+ * todos se guardan en km o todos en millas (si no, cada gas usa la suya y no hay selector).
+ */
+function _histGasUnitChoices(gases) {
+  var dist = null;
+  for (var i = 0; i < gases.length; i++) {
+    var m = /^m?g\/(km|mi)$/.exec(gases[i].unit || '');
+    if (!m || (dist && dist !== m[1])) return null;
+    dist = m[1];
+  }
+  return dist ? ['mg/' + dist, 'g/' + dist] : null;
+}
+
+function _histGasUnitLabelHTML(g, cu) {
+  return '<span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(cu) + ' · límite ' + gasConvert(g.limit, g.unit, cu) + ')</span>' +
+         (cu !== g.unit ? '<div style="font-size: var(--fs-2xs);color:var(--muted);font-weight:400;">se guarda en ' + escapeHtml(g.unit) + '</div>' : '');
+}
+
+/** [3.0.2] Cambiar la unidad del reporte: lo tecleado se relee en la unidad nueva. */
+function histGasUnitChange(cu) {
+  document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
+    var unit = inp.getAttribute('data-gunit');
+    inp.setAttribute('data-gcap', cu);
+    inp.step = gasInputStep(cu);
+    var lbl = document.getElementById('hist-gas-unitlbl-' + inp.getAttribute('data-gfield'));
+    if (lbl) lbl.innerHTML = _histGasUnitLabelHTML({ unit: unit, limit: parseFloat(inp.getAttribute('data-glimit')) }, cu);
+    histGasInput(inp);
+  });
+}
+
+/** [3.0.2] Lo tecleado en un gas de Completar, ya en la unidad en que se guarda. */
+function _histGasStoredValue(input) {
+  var typed = _libNormalizeVal(input.value);
+  if (typed === null) return null;
+  var cap = input.getAttribute('data-gcap'), unit = input.getAttribute('data-gunit');
+  return (cap && unit) ? gasConvert(typed, cap, unit) : typed;
+}
+
 function histGasInput(input) {
   var field = input.getAttribute('data-gfield');
   var limit = parseFloat(input.getAttribute('data-glimit'));
   var statusEl = document.getElementById('hist-gas-status-' + field);
   if (!statusEl) return;
-  var val = _libNormalizeVal(input.value);
+  var val = _histGasStoredValue(input);
   if (val === null) { statusEl.innerHTML = '—'; return; }
   var pass = val <= limit;
   var pctStr = _libPctOfLimitStr(val, limit) || '';
@@ -6346,7 +6417,7 @@ function histSaveCompleteModal() {
 
   var addedGases = {};
   document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
-    var v = _libNormalizeVal(inp.value);
+    var v = _histGasStoredValue(inp);
     if (v !== null) addedGases[inp.getAttribute('data-gfield')] = v;
   });
 

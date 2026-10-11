@@ -20,6 +20,28 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.0.2 — Completar pruebas anteriores en mg/km (2026-10-11)
+
+### Arreglado
+- En **Historial → 📝 Completar**, los resultados de emisiones faltantes se pedían en la unidad
+  del límite (g/km), mientras que el reporte de Europa trae mg/km y en Liberación ya se tecleaban
+  en mg/km. Era fácil escribir "250" de CO pensando en mg/km y que se guardara como 250 g/km.
+  Ahora se teclean igual que en Liberación: en mg/km, con el límite convertido a la vista
+  (CO 1000, THC 100, NOx 60, NMHC 68), y se guardan en g/km como siempre.
+
+### Nuevo
+- Un selector **"Unidad del reporte: mg/km | g/km"** arriba de esos gases, por si algún reporte
+  viene en la otra unidad. Al cambiarlo, el PASA / FALLA se recalcula con el número tecleado.
+
+### Para desarrollo
+- `_histGasCaptureUnit(g, vehicle)`: la unidad de captura del perfil de la prueba; si el perfil
+  congelado no la trae (se liberó antes de configurarla), la del perfil vigente de su regulación
+  para el mismo gas y la misma unidad guardada. Solo presentación.
+- `_histGasStoredValue(input)` convierte lo tecleado (`data-gcap` → `data-gunit`) con `gasConvert`;
+  lo usan el estado en vivo (`histGasInput`) y el guardado (`histSaveCompleteModal`).
+  `_histGasUnitChoices` ofrece g y mg de la misma distancia (km o mi), o nada si se mezclan.
+- `tests/v302.e2e.js` (1920×1017 y 427×840).
+
 ## 3.0.1 — Almacenamiento: sin el falso 127% y con la mitad de espacio libre (2026-10-09)
 
 ### Cambió
