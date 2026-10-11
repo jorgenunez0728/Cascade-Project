@@ -3184,3 +3184,20 @@ Reemplaza lo que 2.6.0, 2.9.0 y 2.14.0 dicen de las copias completas (`cop15/cur
 - Un perfil congelado anterior a la unidad de captura no la trae: se toma la del perfil vigente
   para el mismo gas y la misma unidad guardada. Y la unidad queda **a la vista y elegible**
   (selector "Unidad del reporte"): un número en la unidad equivocada es 1000 veces otro.
+
+## 3.1.0 — Captura por región: México son 4 gases en g/mi
+
+- **`LAB_REGION_CAPTURE` (app.js) es LA regla de QUÉ se teclea y EN QUÉ unidad por región**,
+  por encima del perfil de la regulación (México = CO, THC, NOx, NMHC en g/mi, opción g/km).
+  **No cambia límites ni la unidad guardada**: el juicio sigue siendo el del perfil. Una región
+  nueva con otro reporte = una entrada aquí, no un perfil de regulación duplicado.
+- **`regProfileForRegion(perfil, región, valores)` (PURA) es LA forma de aplicarla**: conserva
+  los gases ya capturados (la evidencia no desaparece) y marca `regionCapture`. Un perfil con
+  `regionCapture` ya aplicado (congelado al liberar) pasa tal cual: manda la unidad del liberador.
+- **El liberador captura con `_libCaptureProfileFor(vehicle)`**, nunca con
+  `getRegulationProfile()` directo; lo ya liberado sigue con `_libGasProfileForVehicle`, que
+  aplica la misma regla. Todo camino nuevo que pida gases usa una de las dos.
+- **Toda lectura o escritura de un `.lib-gas-input` usa `_libCapUnitFor(g, contenedor)`**, no
+  `gasCaptureUnit(g)`: el selector "Unidad del reporte" cambia la unidad por contenedor.
+- El F05 imprime en la unidad de captura **solo** con `regionCapture` (México); Europa sigue en la
+  unidad guardada y su huella (`tests/f05.e2e.js`) no cambia.

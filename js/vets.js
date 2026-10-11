@@ -1250,6 +1250,8 @@ function _vetsVehicle() {
 }
 
 function _vetsProfile(v) {
+    // [3.1.0] Los gases que el liberador captura (con la regla de la región: México = 4 gases, g/mi).
+    if (typeof _libCaptureProfileFor === 'function') return _libCaptureProfileFor(v);
     var reg = (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : '';
     return reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
 }
@@ -1590,7 +1592,7 @@ function vetsApply(vehicleId, d) {
         view.profile.gases.forEach(function(g) {
             if (!(g.field in gasFill)) return;
             var inp = document.querySelector('#lib-gas-entry-content .lib-gas-input[data-field="' + g.field + '"]');
-            if (inp) inp.value = String(parseFloat(gasConvert(gasFill[g.field], g.unit, gasCaptureUnit(g)).toPrecision(6)));
+            if (inp) inp.value = String(parseFloat(gasConvert(gasFill[g.field], g.unit, typeof _libCapUnitFor === 'function' ? _libCapUnitFor(g, 'lib-gas-entry-content') : gasCaptureUnit(g)).toPrecision(6)));
         });
         if (typeof libOnGasChange === 'function') libOnGasChange();
     }
