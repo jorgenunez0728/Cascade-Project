@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610091702';
+var APP_BUILD = '202610112005';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'bf9181810acd240c63f21afe497e2aebbaa04f89';
+var APP_COMMIT = '2b37c6541f26c74022e73c991d8ff1cfc0a74957';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = 'bf9181810acd240c63f21afe497e2aebbaa04f89';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.0.1';
+var APP_VERSION = '3.0.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,11 @@ var APP_VERSION = '3.0.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.2', date: '11 oct 2026', title: 'Completar pruebas anteriores en mg/km',
+      bullets: [
+          'Arreglado: en Historial → 📝 Completar, los resultados de emisiones se pedían en g/km aunque el reporte de Europa viene en mg/km. Ahora se teclean en la misma unidad que en Liberación (mg/km, con el límite convertido: CO 1000, NOx 60…) y se guardan en g/km como siempre.',
+          'Nuevo: arriba de esos gases hay un selector "Unidad del reporte: mg/km | g/km" por si un reporte viene en la otra unidad; al cambiarlo, el PASA / FALLA se recalcula con el mismo número.'
+      ] },
     { version: '3.0.1', date: '9 oct 2026', title: 'Almacenamiento: sin el falso 127% y con la mitad de espacio libre',
       bullets: [
           'Cambió: el respaldo para "deshacer la última fusión" (una copia completa de los datos, ~1.4 MB) se guarda aparte, en el espacio grande del navegador, y deja de contar contra los 5 MB. En un equipo típico el almacenamiento baja de ~64% a ~35%, y ya no vuelve a subir en cada arranque.',
@@ -10377,14 +10382,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610091702' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610112005' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610091702' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610112005' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10400,7 +10405,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610091702' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610112005' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -24846,11 +24851,26 @@ function histOpenCompleteModal(vehicleId) {
       html += '<details class="hist-section" open>';
       html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Resultados de Emisiones <span style="color:var(--warn-text);font-weight:800;">· ' + missingGases.length + ' faltantes</span></summary>';
       html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
+      // [3.0.2] La unidad en que viene el reporte, a la vista y elegible: el de Europa suele venir
+      // en mg/km y el límite está en g/km. Un número en la unidad equivocada es 1000 veces otro.
+      var _gu = _histGasUnitChoices(missingGases);
+      var _guDef = _gu ? _histGasCaptureUnit(missingGases[0], vehicle) : null;
+      if (_gu && _gu.indexOf(_guDef) < 0) _guDef = _gu[0];
+      if (_gu) {
+        html += '<div class="form-group" style="margin-bottom: var(--space-sm);"><label for="hist-gas-unit" style="font-size: var(--fs-sm);font-weight:600;">Unidad del reporte</label>' +
+                '<select id="hist-gas-unit" data-chips onchange="histGasUnitChange(this.value)">' +
+                _gu.map(function(u) { return '<option value="' + u + '"' + (u === _guDef ? ' selected' : '') + '>' + u + '</option>'; }).join('') +
+                '</select></div>';
+      }
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
       missingGases.forEach(function(g) {
+        // [3.0.2] Se teclea en la unidad de captura, como en Liberación (el reporte de Europa
+        // viene en mg/km y el límite está en g/km); se guarda en g.unit.
+        var cu = _guDef || _histGasCaptureUnit(g, vehicle);
+        var dispLim = gasConvert(g.limit, g.unit, cu);
         html += '<tr class="hist-field-missing"><td style="padding: var(--space-xs) var(--space-sm);width:42%;font-weight:600;">' + escapeHtml(g.label) +
-                ' <span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
-        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
+                ' <span id="hist-gas-unitlbl-' + escapeHtml(g.field) + '">' + _histGasUnitLabelHTML(g, cu) + '</span></td>';
+        html += '<td style="padding: var(--space-xs) var(--space-sm);"><input type="number" inputmode="decimal" step="' + gasInputStep(cu) + '" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" data-gunit="' + escapeHtml(g.unit) + '" data-gcap="' + escapeHtml(cu) + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding: var(--space-xs) var(--space-sm);"></td>';
         html += '<td style="padding: var(--space-xs) var(--space-sm);width:150px;font-size: var(--fs-xs);" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
       });
       html += '</table></details>';
@@ -24989,12 +25009,68 @@ function _histOnReasonInput(idx) {
   if (ta) ta.style.borderColor = hasReason ? tokenColor('--ok-fill') : tokenColor('--warn-fill');
 }
 
+/**
+ * [3.0.2] Unidad en que se teclea un gas al completar: la de captura del perfil de la prueba; si
+ * ese perfil (congelado antes de que existiera la unidad de captura) no la trae, la del perfil
+ * vigente de su regulación para el MISMO gas y la misma unidad guardada. Es solo presentación:
+ * el valor siempre se guarda en g.unit.
+ */
+function _histGasCaptureUnit(g, vehicle) {
+  if (g && g.captureUnit && typeof GAS_UNIT_FACTORS !== 'undefined' && GAS_UNIT_FACTORS[g.captureUnit]) return g.captureUnit;
+  try {
+    var reg = (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(vehicle) : '';
+    var cur = reg && typeof getRegulationProfile === 'function' ? getRegulationProfile(reg) : null;
+    var m = cur && (cur.gases || []).filter(function(x) { return x.field === g.field && x.unit === g.unit; })[0];
+    if (m) return gasCaptureUnit(m);
+  } catch (e) {}
+  return gasCaptureUnit(g);
+}
+
+/**
+ * [3.0.2] Unidades que se ofrecen para los gases faltantes: g y mg de la misma distancia, solo si
+ * todos se guardan en km o todos en millas (si no, cada gas usa la suya y no hay selector).
+ */
+function _histGasUnitChoices(gases) {
+  var dist = null;
+  for (var i = 0; i < gases.length; i++) {
+    var m = /^m?g\/(km|mi)$/.exec(gases[i].unit || '');
+    if (!m || (dist && dist !== m[1])) return null;
+    dist = m[1];
+  }
+  return dist ? ['mg/' + dist, 'g/' + dist] : null;
+}
+
+function _histGasUnitLabelHTML(g, cu) {
+  return '<span style="color:var(--muted);font-size: var(--fs-xs);">(' + escapeHtml(cu) + ' · límite ' + gasConvert(g.limit, g.unit, cu) + ')</span>' +
+         (cu !== g.unit ? '<div style="font-size: var(--fs-2xs);color:var(--muted);font-weight:400;">se guarda en ' + escapeHtml(g.unit) + '</div>' : '');
+}
+
+/** [3.0.2] Cambiar la unidad del reporte: lo tecleado se relee en la unidad nueva. */
+function histGasUnitChange(cu) {
+  document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
+    var unit = inp.getAttribute('data-gunit');
+    inp.setAttribute('data-gcap', cu);
+    inp.step = gasInputStep(cu);
+    var lbl = document.getElementById('hist-gas-unitlbl-' + inp.getAttribute('data-gfield'));
+    if (lbl) lbl.innerHTML = _histGasUnitLabelHTML({ unit: unit, limit: parseFloat(inp.getAttribute('data-glimit')) }, cu);
+    histGasInput(inp);
+  });
+}
+
+/** [3.0.2] Lo tecleado en un gas de Completar, ya en la unidad en que se guarda. */
+function _histGasStoredValue(input) {
+  var typed = _libNormalizeVal(input.value);
+  if (typed === null) return null;
+  var cap = input.getAttribute('data-gcap'), unit = input.getAttribute('data-gunit');
+  return (cap && unit) ? gasConvert(typed, cap, unit) : typed;
+}
+
 function histGasInput(input) {
   var field = input.getAttribute('data-gfield');
   var limit = parseFloat(input.getAttribute('data-glimit'));
   var statusEl = document.getElementById('hist-gas-status-' + field);
   if (!statusEl) return;
-  var val = _libNormalizeVal(input.value);
+  var val = _histGasStoredValue(input);
   if (val === null) { statusEl.innerHTML = '—'; return; }
   var pass = val <= limit;
   var pctStr = _libPctOfLimitStr(val, limit) || '';
@@ -25061,7 +25137,7 @@ function histSaveCompleteModal() {
 
   var addedGases = {};
   document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
-    var v = _libNormalizeVal(inp.value);
+    var v = _histGasStoredValue(inp);
     if (v !== null) addedGases[inp.getAttribute('data-gfield')] = v;
   });
 
@@ -60761,7 +60837,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610091702' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610112005' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76187,7 +76263,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18392],[18396,"js/uiflow.js",18712],[18716,"js/cop15.js",28902],[28906,"js/inventory.js",35972],[35976,"js/testplan.js",47535],[47539,"js/panel.js",52827],[52831,"js/projects.js",55120],[55124,"js/auth.js",56165],[56169,"js/signatures.js",56370],[56374,"js/firebase-sync.js",63904],[63908,"js/cop_validator.js",68273],[68277,"js/homolog.js",70067],[70071,"js/vets.js",71866],[71870,"js/historico.js",72782],[72786,"js/review.js",73239],[73243,"js/opcards.js",73672],[73676,"js/handoff.js",73950],[73954,"js/ficha.js",74445],[74449,"js/relevo.js",74829],[74833,"js/momentos.js",74970],[74974,"js/digest.js",75759],[75763,"js/xlsxw.js",76143],[76147,"js/bugreport.js",77293]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18397],[18401,"js/uiflow.js",18717],[18721,"js/cop15.js",28978],[28982,"js/inventory.js",36048],[36052,"js/testplan.js",47611],[47615,"js/panel.js",52903],[52907,"js/projects.js",55196],[55200,"js/auth.js",56241],[56245,"js/signatures.js",56446],[56450,"js/firebase-sync.js",63980],[63984,"js/cop_validator.js",68349],[68353,"js/homolog.js",70143],[70147,"js/vets.js",71942],[71946,"js/historico.js",72858],[72862,"js/review.js",73315],[73319,"js/opcards.js",73748],[73752,"js/handoff.js",74026],[74030,"js/ficha.js",74521],[74525,"js/relevo.js",74905],[74909,"js/momentos.js",75046],[75050,"js/digest.js",75835],[75839,"js/xlsxw.js",76219],[76223,"js/bugreport.js",77369]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

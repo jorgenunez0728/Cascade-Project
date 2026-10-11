@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.0.1';
+var APP_VERSION = '3.0.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,11 @@ var APP_VERSION = '3.0.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.0.2', date: '11 oct 2026', title: 'Completar pruebas anteriores en mg/km',
+      bullets: [
+          'Arreglado: en Historial → 📝 Completar, los resultados de emisiones se pedían en g/km aunque el reporte de Europa viene en mg/km. Ahora se teclean en la misma unidad que en Liberación (mg/km, con el límite convertido: CO 1000, NOx 60…) y se guardan en g/km como siempre.',
+          'Nuevo: arriba de esos gases hay un selector "Unidad del reporte: mg/km | g/km" por si un reporte viene en la otra unidad; al cambiarlo, el PASA / FALLA se recalcula con el mismo número.'
+      ] },
     { version: '3.0.1', date: '9 oct 2026', title: 'Almacenamiento: sin el falso 127% y con la mitad de espacio libre',
       bullets: [
           'Cambió: el respaldo para "deshacer la última fusión" (una copia completa de los datos, ~1.4 MB) se guarda aparte, en el espacio grande del navegador, y deja de contar contra los 5 MB. En un equipo típico el almacenamiento baja de ~64% a ~35%, y ya no vuelve a subir en cada arranque.',
