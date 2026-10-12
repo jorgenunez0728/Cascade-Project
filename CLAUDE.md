@@ -3238,3 +3238,11 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   fila asentada sola la CONFIRMA (`histChecklistSet`, `histChecklistConfirmAll`).
 - El F05 no se imprime con huecos en el checklist: `generateCOP15PDF` lo rechaza como a un campo
   faltante (la fila F05 sigue siendo de `validatePdfCompleteness`).
+
+## 3.2.2 — Firmas del F05 en pruebas capturadas después
+
+- En una prueba anterior al checklist (`releaseIsBeforeChecklist`), el F05 imprime la firma del
+  liberador **sin fecha** y la del aprobador como **"Registro en plataforma: dd/mm/aaaa"**
+  (`_pdfDayDMY`, sin hora), por decisión del laboratorio. Las pruebas normales siguen con fecha y
+  hora. **Nunca se cambia la fecha guardada de una firma**: las horas exactas quedan en
+  `signatures.*.signedAt`, la línea de tiempo y la auditoría; esto solo decide qué imprime la hoja.

@@ -7206,6 +7206,14 @@ function cascadeValueLabel(kind, v) {
   return m[String(v)] || String(v);
 }
 
+/** [3.2.2] Día local de una fecha ISO como dd/mm/aaaa (PURA). '' si no es fecha. */
+function _pdfDayDMY(iso) {
+  var d = new Date(iso);
+  if (!iso || isNaN(d.getTime())) return '';
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
 function generateCOP15PDF(vehicleId, opts) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { if (!(opts && opts.silent)) showToast('No hay vehículo seleccionado.', 'error'); return null; }
@@ -7771,6 +7779,11 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
 
   const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
   const _sigColW = CW * 0.3;
+  // [3.2.2] Prueba anterior al checklist (capturada en la plataforma después de la prueba):
+  // el liberador sale sin fecha y el aprobador con la fecha de registro en la plataforma,
+  // sin hora (decisión del laboratorio). Las horas exactas siguen en la línea de tiempo y la
+  // auditoría. La fecha de la prueba es la del encabezado.
+  const _sigLegacy = releaseIsBeforeChecklist(vehicle);
 
   // Sub-cell: Liberador
   cell(ML+CW*0.4, bottomLibY, _sigColW, _sigH, '', {});
@@ -7780,7 +7793,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.4+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
       setF('normal', 4); doc.setTextColor(60,60,60);
       doc.text(_sigs.releaser.signerName || '', ML+CW*0.4+1, bottomLibY+15);
-      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.4+1, bottomLibY+18); } catch(e) {}
+      if (!_sigLegacy) { try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.4+1, bottomLibY+18); } catch(e) {} }
   } else {
       setF('italic', 4); doc.setTextColor(160,160,160);
       doc.text('(sin firma)', ML+CW*0.4+1, bottomLibY+10);
@@ -7794,7 +7807,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       try { doc.addImage(_sigs.approver.dataUrl, 'PNG', ML+CW*0.4+_sigColW+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
       setF('normal', 4); doc.setTextColor(60,60,60);
       doc.text(_sigs.approver.signerName || '', ML+CW*0.4+_sigColW+1, bottomLibY+15);
-      try { doc.text(new Date(_sigs.approver.signedAt).toLocaleString('es-MX'), ML+CW*0.4+_sigColW+1, bottomLibY+18); } catch(e) {}
+      try {
+          doc.text(_sigLegacy ? 'Registro en plataforma: ' + _pdfDayDMY(_sigs.approver.signedAt || vehicle.archivedAt)
+                              : new Date(_sigs.approver.signedAt).toLocaleString('es-MX'), ML+CW*0.4+_sigColW+1, bottomLibY+18);
+      } catch(e) {}
   } else {
       setF('italic', 4); doc.setTextColor(160,160,160);
       doc.text('Pendiente de aprobación', ML+CW*0.4+_sigColW+1, bottomLibY+10);

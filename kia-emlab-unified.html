@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610121508';
+var APP_BUILD = '202610121619';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '4e625eecef75ef58c16a1017e47b58c646b52dde';
+var APP_COMMIT = '78bcb22f07f1d39f2ec65977275353e93f4cb693';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = '4e625eecef75ef58c16a1017e47b58c646b52dde';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.2.1';
+var APP_VERSION = '3.2.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,11 @@ var APP_VERSION = '3.2.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.2.2', date: '12 oct 2026', title: 'Firmas del F05 en pruebas capturadas después',
+      bullets: [
+          'Cambió: en una prueba anterior al checklist (capturada en la plataforma después de realizada), la hoja F05 ya no imprime la fecha y hora de cada firma. El liberador sale sin fecha y el aprobador con "Registro en plataforma: dd/mm/aaaa". La fecha de la prueba sigue en el encabezado.',
+          'Las pruebas normales no cambian: siguen con fecha y hora en las dos firmas. Las horas exactas siguen en la línea de tiempo y la auditoría.'
+      ] },
     { version: '3.2.1', date: '12 oct 2026', title: 'El checklist del F05 ya no sale en blanco en pruebas completadas después',
       bullets: [
           'Arreglado: una prueba anterior al checklist (antes del 22 sep) que se archivó o se completó tarde —por ejemplo, probada en febrero y archivada en octubre, o con la firma del liberador capturada en Historial → Completar— imprimía la hoja F05 con la columna Confirmación vacía en los objetos a retirar y en VETS, OBFCM y Coast/Down. Ahora cuenta la fecha de la PRUEBA y esas filas se asientan como siempre: Retirado / Adjunto, y No aplica según la región.',
@@ -10404,14 +10409,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610121508' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610121619' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610121508' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610121619' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10427,7 +10432,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610121508' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610121619' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -26043,6 +26048,14 @@ function cascadeValueLabel(kind, v) {
   return m[String(v)] || String(v);
 }
 
+/** [3.2.2] Día local de una fecha ISO como dd/mm/aaaa (PURA). '' si no es fecha. */
+function _pdfDayDMY(iso) {
+  var d = new Date(iso);
+  if (!iso || isNaN(d.getTime())) return '';
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
 function generateCOP15PDF(vehicleId, opts) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { if (!(opts && opts.silent)) showToast('No hay vehículo seleccionado.', 'error'); return null; }
@@ -26608,6 +26621,11 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
 
   const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
   const _sigColW = CW * 0.3;
+  // [3.2.2] Prueba anterior al checklist (capturada en la plataforma después de la prueba):
+  // el liberador sale sin fecha y el aprobador con la fecha de registro en la plataforma,
+  // sin hora (decisión del laboratorio). Las horas exactas siguen en la línea de tiempo y la
+  // auditoría. La fecha de la prueba es la del encabezado.
+  const _sigLegacy = releaseIsBeforeChecklist(vehicle);
 
   // Sub-cell: Liberador
   cell(ML+CW*0.4, bottomLibY, _sigColW, _sigH, '', {});
@@ -26617,7 +26635,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.4+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
       setF('normal', 4); doc.setTextColor(60,60,60);
       doc.text(_sigs.releaser.signerName || '', ML+CW*0.4+1, bottomLibY+15);
-      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.4+1, bottomLibY+18); } catch(e) {}
+      if (!_sigLegacy) { try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.4+1, bottomLibY+18); } catch(e) {} }
   } else {
       setF('italic', 4); doc.setTextColor(160,160,160);
       doc.text('(sin firma)', ML+CW*0.4+1, bottomLibY+10);
@@ -26631,7 +26649,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       try { doc.addImage(_sigs.approver.dataUrl, 'PNG', ML+CW*0.4+_sigColW+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
       setF('normal', 4); doc.setTextColor(60,60,60);
       doc.text(_sigs.approver.signerName || '', ML+CW*0.4+_sigColW+1, bottomLibY+15);
-      try { doc.text(new Date(_sigs.approver.signedAt).toLocaleString('es-MX'), ML+CW*0.4+_sigColW+1, bottomLibY+18); } catch(e) {}
+      try {
+          doc.text(_sigLegacy ? 'Registro en plataforma: ' + _pdfDayDMY(_sigs.approver.signedAt || vehicle.archivedAt)
+                              : new Date(_sigs.approver.signedAt).toLocaleString('es-MX'), ML+CW*0.4+_sigColW+1, bottomLibY+18);
+      } catch(e) {}
   } else {
       setF('italic', 4); doc.setTextColor(160,160,160);
       doc.text('Pendiente de aprobación', ML+CW*0.4+_sigColW+1, bottomLibY+10);
@@ -61161,7 +61182,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610121508' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610121619' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76591,7 +76612,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18514],[18518,"js/uiflow.js",18834],[18838,"js/cop15.js",29260],[29264,"js/inventory.js",36330],[36334,"js/testplan.js",47893],[47897,"js/panel.js",53227],[53231,"js/projects.js",55520],[55524,"js/auth.js",56565],[56569,"js/signatures.js",56770],[56774,"js/firebase-sync.js",64304],[64308,"js/cop_validator.js",68673],[68677,"js/homolog.js",70467],[70471,"js/vets.js",72268],[72272,"js/historico.js",73186],[73190,"js/review.js",73643],[73647,"js/opcards.js",74076],[74080,"js/handoff.js",74354],[74358,"js/ficha.js",74849],[74853,"js/relevo.js",75233],[75237,"js/momentos.js",75374],[75378,"js/digest.js",76163],[76167,"js/xlsxw.js",76547],[76551,"js/bugreport.js",77697]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18519],[18523,"js/uiflow.js",18839],[18843,"js/cop15.js",29281],[29285,"js/inventory.js",36351],[36355,"js/testplan.js",47914],[47918,"js/panel.js",53248],[53252,"js/projects.js",55541],[55545,"js/auth.js",56586],[56590,"js/signatures.js",56791],[56795,"js/firebase-sync.js",64325],[64329,"js/cop_validator.js",68694],[68698,"js/homolog.js",70488],[70492,"js/vets.js",72289],[72293,"js/historico.js",73207],[73211,"js/review.js",73664],[73668,"js/opcards.js",74097],[74101,"js/handoff.js",74375],[74379,"js/ficha.js",74870],[74874,"js/relevo.js",75254],[75258,"js/momentos.js",75395],[75399,"js/digest.js",76184],[76188,"js/xlsxw.js",76568],[76572,"js/bugreport.js",77718]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

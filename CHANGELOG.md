@@ -20,6 +20,22 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.2.2 — Firmas del F05 en pruebas capturadas después (2026-10-12)
+
+### Cambió
+- En una prueba **anterior al checklist** (capturada en la plataforma después de realizada), la
+  hoja F05 ya no imprime la fecha y hora de cada firma: el **liberador** sale sin fecha y el
+  **aprobador** con **"Registro en plataforma: dd/mm/aaaa"**, sin hora. La fecha de la prueba
+  sigue en el encabezado de la hoja.
+- Las pruebas normales no cambian (fecha y hora en las dos firmas). Las horas exactas de cada
+  firma siguen en la línea de tiempo y la auditoría de la plataforma.
+
+### Para desarrollo
+- `generateCOP15PDF` decide con `releaseIsBeforeChecklist(v)` (el mismo criterio del checklist
+  asentado solo). `_pdfDayDMY(iso)` (PURA) da el día local `dd/mm/aaaa`.
+- Huella del F05 regenerada: solo cambian las dos líneas de fecha de las firmas (el vehículo de
+  referencia es anterior al checklist).
+
 ## 3.2.1 — El checklist del F05 ya no sale en blanco en pruebas completadas después (2026-10-12)
 
 ### Arreglado
