@@ -3229,5 +3229,12 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   dejaba el checklist del F05 en blanco.
 - **Todo dato capturado en un llenado retroactivo debe marcarse `retro`**, y ninguna regla que
   dependa de "cuándo se liberó" debe leer una fecha `retro`.
+- **El F05 ya no imprime la leyenda de checklist retroactivo** (decisión del laboratorio): lo
+  asentado solo se declara en la app (Completar: "auto · anterior al checklist"), y lo
+  confirmado queda en la línea de tiempo y la auditoría. Esto reemplaza "el PDF lo declara en el
+  pie" de v23.3.
+- **Completar cuenta el checklist** (`histRowFacts`: vacías → `miss`, asentadas solas → `soft`):
+  sin eso el botón desaparecía en cuanto el formulario estaba completo. Elegir el valor de una
+  fila asentada sola la CONFIRMA (`histChecklistSet`, `histChecklistConfirmAll`).
 - El F05 no se imprime con huecos en el checklist: `generateCOP15PDF` lo rechaza como a un campo
   faltante (la fila F05 sigue siendo de `validatePdfCompleteness`).

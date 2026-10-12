@@ -42,11 +42,15 @@ const SEED = () => {
     localStorage.setItem('kia_panel_v1', JSON.stringify({ operators: [{ id: 'ana', name: 'Ana Signataria', role: 'Signatario', active: true }], tasks: [], projects: [], alerts: [] }));
     localStorage.setItem('kia_db_v11', JSON.stringify({ lastId: 2, vehicles: [
         // Prueba de febrero, archivada en octubre, firma del liberador retroactiva (hoy)
-        veh('vfeb', '3KPFX51BXTE290469', '2026-02-13T15:30:00.000Z', '2026-10-09T18:00:00.000Z',
+        veh(9101, '3KPFX51BXTE290469', '2026-02-13T15:30:00.000Z', '2026-10-09T18:00:00.000Z',
             sig('Ana Signataria', 'Liberador', '2026-10-12T15:00:00.000Z', true)),
         // Prueba nueva (octubre) archivada con el checklist en blanco
-        veh('voct', '3KPFX51BXTE290470', '2026-10-01T15:30:00.000Z', '2026-10-05T18:00:00.000Z',
-            sig('Ana Signataria', 'Liberador', '2026-10-02T15:00:00.000Z', false))
+        veh(9102, '3KPFX51BXTE290470', '2026-10-01T15:30:00.000Z', '2026-10-05T18:00:00.000Z',
+            sig('Ana Signataria', 'Liberador', '2026-10-02T15:00:00.000Z', false)),
+        // México, anterior al checklist: OBFCM y Coast/Down siguen "No aplica" automático
+        Object.assign(veh(9103, '3KPFX51BXTE290471', '2026-03-10T15:30:00.000Z', '2026-03-12T18:00:00.000Z',
+            sig('Ana Signataria', 'Liberador', '2026-03-11T15:00:00.000Z', false)), { config: { Modelo: 'CL4', REGION: 'MEXICO',
+            'EMISSION REGULATION': 'EURO-5', 'BODY TYPE': '5DR', 'ENGINE CAPACITY': '1.0', TRANSMISSION: '6MT', 'MODEL YEAR (VIN)': '2026', 'DRIVE TYPE': 'L - LHD' } })
     ] }));
     localStorage.setItem('kia_fb_sync_modules', JSON.stringify({}));
     localStorage.setItem('kia_help_dismissed', JSON.stringify({ '*': true }));
@@ -76,21 +80,22 @@ const SEED = () => {
                 _histSetPath(veh, f.path, f.num ? 10 : (opt || 'X'));
             });
         });
-        const v = db.vehicles.find(x => x.id === 'vfeb');
+        const v = db.vehicles.find(x => x.id === 9101);
         const st = releaseChecklistRows(v);
-        const doc = generateCOP15PDF('vfeb', { returnDoc: true, silent: true });
+        const doc = generateCOP15PDF(9101, { returnDoc: true, silent: true });
         const pdf = doc ? doc.output() : '';
         const count = (t) => (pdf.match(new RegExp('\\(' + t + '\\) Tj', 'g')) || []).length;
         // El botón PDF del Historial (sin silent): un archivado nuevo con huecos no se imprime
         const g0 = document.getElementById('globalModal'); if (g0) g0.remove();
-        const nuevo = generateCOP15PDF('voct');
+        const nuevo = generateCOP15PDF(9102);
         const modal = document.getElementById('globalModal');
         const modalTxt = modal ? modal.textContent : '';
         if (modal) modal.remove();
-        const feb = generateCOP15PDF('vfeb');
+        const feb = generateCOP15PDF(9101);
         return {
             legacy: releaseIsBeforeChecklist(v), blanks: st.objects.concat(st.docs).filter(x => !x.value).map(x => x.key),
             retirado: count('Retirado'), adjunto: count('Adjunto'), noAplica: count('No aplica'), completa: count('Completa'),
+            pieRetro: /retroactiv|asentad|anterior al/i.test(pdf),
             pdfOk: !!doc, nuevoBloqueado: nuevo === null, modalTxt, febGenera: feb !== null
         };
     });
@@ -104,6 +109,40 @@ const SEED = () => {
     ok('el botón PDF sí genera la prueba de febrero', r.febGenera);
     ok('un archivado nuevo con el checklist vacío no imprime un F05 con huecos', r.nuevoBloqueado);
     ok('y dice dónde completarlo', /Checklist de liberación/.test(r.modalTxt) && /Completar/.test(r.modalTxt) && /KDS con VCI/.test(r.modalTxt), r.modalTxt.slice(0, 200));
+    ok('el pie del PDF no menciona llenado retroactivo', r.pieRetro === false);
+
+    // Completar: el botón aparece por el checklist y confirmar queda registrado en la app
+    const c = await page.evaluate(() => {
+        document.querySelector('.tab[data-tab="dashboard"]').click();
+        if (typeof histRefresh === 'function') histRefresh(true);
+        const btn = [...document.querySelectorAll('button')].find(b => /histOpenCompleteModal\(9101\)/.test(b.getAttribute('onclick') || ''));
+        histOpenCompleteModal(9101);
+        const det = [...document.querySelectorAll('#hist-complete-root details')].find(d => /Checklist de liberación/.test(d.textContent));
+        const abierta = !!(det && det.open);
+        const tieneBoton = /Confirmar todo como está/.test(det ? det.textContent : '');
+        histChecklistConfirmAll();
+        const pend = Object.keys(_histCompleteState.checklist || {}).length;
+        histSaveCompleteModal();
+        const v = db.vehicles.find(x => x.id === 9101);
+        const st = releaseChecklistRows(v);
+        const tl = (v.timeline || []).slice(-1)[0] || {};
+        const mx = releaseChecklistRows(db.vehicles.find(x => x.id === 9103));
+        const k = (st2, key) => st2.objects.concat(st2.docs).find(x => x.key === key);
+        return { boton: !!btn, abierta, tieneBoton, pend,
+                 guardado: !!(v.testData.releaseChecklist.objects && v.testData.releaseChecklist.objects.kds === 'ok' && v.testData.releaseChecklist.docs.obfcm === 'ok'),
+                 yaNoAuto: st.objects.concat(st.docs).every(x => !x.legacy),
+                 linea: (tl.data && tl.data.added || []).filter(x => /^Checklist/.test(x)).length,
+                 mxObfcm: k(mx, 'obfcm').value + '/' + k(mx, 'obfcm').auto, mxCoast: k(mx, 'coast').value + '/' + k(mx, 'coast').auto,
+                 mxKds: k(mx, 'kds').value + '/' + !!k(mx, 'kds').legacy };
+    });
+    ok('Historial ofrece 📝 Completar por el checklist (aunque el formulario esté completo)', c.boton);
+    ok('la sección del checklist abre sola y trae "Confirmar todo"', c.abierta && c.tieneBoton);
+    ok('confirmar todo marca las 8 filas asentadas solas', c.pend === 8, 'pendientes ' + c.pend);
+    ok('al guardar quedan escritas en el vehículo', c.guardado);
+    ok('y ya no cuentan como automáticas', c.yaNoAuto);
+    ok('la línea de tiempo registra las 8 confirmaciones', c.linea === 8, 'líneas ' + c.linea);
+    ok('México: OBFCM y Coast/Down siguen No aplica automático', c.mxObfcm === 'na/true' && c.mxCoast === 'na/true', c.mxObfcm + ' ' + c.mxCoast);
+    ok('México anterior al checklist: objetos asentados solos', c.mxKds === 'ok/true', c.mxKds);
     ok('sin errores de página', errores.length === 0, errores.slice(0, 3).join(' | '));
     await browser.close();
     console.log(fallas ? fallas + ' fallaron' : 'v321: todo bien');

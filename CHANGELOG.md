@@ -33,8 +33,21 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   y **No aplica** según la región. El pie del PDF sigue declarando que se asentó
   retroactivamente.
 - Una firma capturada en Completar ya no cambia la fecha de liberación de la prueba.
+- **Historial → 📝 Completar no pedía el checklist**: el botón solo aparecía por campos del
+  formulario, así que una prueba con el formulario completo nunca dejaba llenarlo. Ahora el
+  checklist también cuenta.
+
+### Nuevo
+- En Completar, las filas asentadas solas (prueba anterior al checklist) se pueden **confirmar**
+  tocando su opción, o todas con **✔ Confirmar todo como está**. Lo confirmado queda guardado a
+  nombre de quien lo hizo, en la línea de tiempo y la auditoría. OBFCM y Coast/Down siguen siendo
+  **solo de Europa** (fuera de Europa: No aplica, sin editar).
 
 ### Cambió
+- El pie de la hoja F05 ya **no** dice "Checklist de liberación asentado retroactivamente". El
+  registro sigue en la app: Completar marca qué filas se asentaron solas y la línea de tiempo y
+  la auditoría guardan lo confirmado. La huella del F05 se actualizó por este cambio (solo esa
+  línea del pie).
 - Un archivado **nuevo** con el checklist incompleto ya no genera un F05 con huecos: el botón
   PDF dice qué filas faltan y que se completan en Historial → 📝 Completar.
 
@@ -42,6 +55,9 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - `releaseIsBeforeChecklist(v)` usa la fecha más antigua de `testData.testDatetime`, la firma
   del liberador **sin `retro`** y `archivedAt`, y solo aplica a `pending-approval`/`archived`
   (en Liberación nunca se asienta nada solo).
+- `histRowFacts` suma al conteo de Completar las filas del checklist vacías (`miss`) y las
+  asentadas solas (`soft`). `histChecklistSet` CONFIRMA una fila asentada sola al elegir su mismo
+  valor; `histChecklistConfirmAll` confirma todas.
 - `generateCOP15PDF` rechaza (salvo `silent` sobre archivado y `returnDoc`/`returnBase64`) si
   `releaseChecklistRows(v).missing` trae filas además de la F05.
 - `tests/v321.e2e.js` reproduce el caso real y verifica el texto impreso en el PDF; la huella del

@@ -487,6 +487,8 @@ var APP_VERSION_HISTORY = [
       bullets: [
           'Arreglado: una prueba anterior al checklist (antes del 22 sep) que se archivó o se completó tarde —por ejemplo, probada en febrero y archivada en octubre, o con la firma del liberador capturada en Historial → Completar— imprimía la hoja F05 con la columna Confirmación vacía en los objetos a retirar y en VETS, OBFCM y Coast/Down. Ahora cuenta la fecha de la PRUEBA y esas filas se asientan como siempre: Retirado / Adjunto, y No aplica según la región.',
           'Una firma capturada en Completar ya no cambia la fecha de liberación de la prueba.',
+          'Nuevo: Historial → Completar ahora pide el checklist de liberación aunque el formulario ya esté completo. Las filas asentadas solas se pueden confirmar una por una o con "Confirmar todo como está", y quedan registradas a tu nombre. OBFCM y Coast/Down siguen siendo solo de Europa.',
+          'Cambió: el pie de la hoja F05 ya no dice "Checklist asentado retroactivamente"; el registro sigue en la app (Completar, línea de tiempo y auditoría).',
           'Cambió: un archivado nuevo con el checklist incompleto ya no genera un F05 con huecos; el botón PDF dice qué filas faltan y que se completan en Historial → Completar.'
       ] },
     { version: '3.2.0', date: '11 oct 2026', title: 'México se juzga con la NOM-042 C-VP',
