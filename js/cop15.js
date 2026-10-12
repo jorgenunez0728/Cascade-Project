@@ -3691,15 +3691,32 @@ var RELEASE_CHECKLIST = {
 // mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
 var RELEASE_CHECKLIST_SINCE = '2026-09-22';
 
-/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+/**
+ * ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)?
+ * [3.2.1] Cuenta la fecha MÁS ANTIGUA entre la prueba, la firma del liberador y el
+ * archivado. Antes solo miraba la firma (o el archivado), y las dos se mueven en un
+ * llenado retroactivo: la firma capturada en Historial → 📝 Completar lleva la fecha
+ * de HOY (`retro: true`) y una prueba de febrero archivada en octubre dejaba de
+ * contar como anterior — el F05 salía con el checklist en blanco. Una firma `retro`
+ * no fecha la liberación y no se usa. Solo aplica a lo ya liberado: un vehículo en
+ * Liberación nunca se asienta solo, aunque su prueba sea anterior.
+ */
 function releaseIsBeforeChecklist(vehicle) {
     if (!vehicle) return false;
+    if (['archived', 'pending-approval'].indexOf(vehicle.status) === -1) return false;
     var td = vehicle.testData || {};
-    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
-    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
-    var d = new Date(ref);
-    if (isNaN(d.getTime())) return vehicle.status === 'archived';
-    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.testDatetime, (rs && !rs.retro) ? rs.signedAt : null, vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    if (!first) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    return first < RELEASE_CHECKLIST_SINCE;
 }
 
 var RELEASE_CHECKLIST_TEXT = {
@@ -7176,6 +7193,18 @@ function generateCOP15PDF(vehicleId, opts) {
     var _comp = validatePdfCompleteness(vehicle);
     if (!_comp.ok) {
       if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_comp.missing); }
+      return null;
+    }
+    // [3.2.1] El checklist de liberación tampoco puede salir en blanco. La fila F05 ya
+    // la cubre validatePdfCompleteness; lo demás lo marca quien liberó (o, si ya está
+    // archivado, se fija en Historial → 📝 Completar).
+    var _clGate = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
+    if (_clGate.length) {
+      if (!(opts && opts.silent)) {
+        hideOverlayLoading();
+        var _clSec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
+        _showPdfMissingPopup(_clGate.map(function(r) { return { section: _clSec, label: r.label }; }));
+      }
       return null;
     }
   }

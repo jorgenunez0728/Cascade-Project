@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610112100';
+var APP_BUILD = '202610121453';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '327e267ec8aaf750c9ee5be4822d323a35ad4166';
+var APP_COMMIT = '71a56948cf48cabd5426c2937d38cff398e7d2f6';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = '327e267ec8aaf750c9ee5be4822d323a35ad4166';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.2.0';
+var APP_VERSION = '3.2.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,12 @@ var APP_VERSION = '3.2.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.2.1', date: '12 oct 2026', title: 'El checklist del F05 ya no sale en blanco en pruebas completadas después',
+      bullets: [
+          'Arreglado: una prueba anterior al checklist (antes del 22 sep) que se archivó o se completó tarde —por ejemplo, probada en febrero y archivada en octubre, o con la firma del liberador capturada en Historial → Completar— imprimía la hoja F05 con la columna Confirmación vacía en los objetos a retirar y en VETS, OBFCM y Coast/Down. Ahora cuenta la fecha de la PRUEBA y esas filas se asientan como siempre: Retirado / Adjunto, y No aplica según la región.',
+          'Una firma capturada en Completar ya no cambia la fecha de liberación de la prueba.',
+          'Cambió: un archivado nuevo con el checklist incompleto ya no genera un F05 con huecos; el botón PDF dice qué filas faltan y que se completan en Historial → Completar.'
+      ] },
     { version: '3.2.0', date: '11 oct 2026', title: 'México se juzga con la NOM-042 C-VP',
       bullets: [
           'Cambió: los vehículos de México salen como EURO-5 en el sistema porque así los arma la empresa, pero ahora se juzgan con su regulación real, la NOM-042 C-VP: CO 2.11, NOx 0.068 y NMHC 0.047 g/km. El THC se captura como informativo (sin límite). Los demás EURO-5 siguen con los límites normales.',
@@ -10396,14 +10402,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610121453' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610121453' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10419,7 +10425,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610112100' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610121453' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -22520,15 +22526,32 @@ var RELEASE_CHECKLIST = {
 // mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
 var RELEASE_CHECKLIST_SINCE = '2026-09-22';
 
-/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+/**
+ * ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)?
+ * [3.2.1] Cuenta la fecha MÁS ANTIGUA entre la prueba, la firma del liberador y el
+ * archivado. Antes solo miraba la firma (o el archivado), y las dos se mueven en un
+ * llenado retroactivo: la firma capturada en Historial → 📝 Completar lleva la fecha
+ * de HOY (`retro: true`) y una prueba de febrero archivada en octubre dejaba de
+ * contar como anterior — el F05 salía con el checklist en blanco. Una firma `retro`
+ * no fecha la liberación y no se usa. Solo aplica a lo ya liberado: un vehículo en
+ * Liberación nunca se asienta solo, aunque su prueba sea anterior.
+ */
 function releaseIsBeforeChecklist(vehicle) {
     if (!vehicle) return false;
+    if (['archived', 'pending-approval'].indexOf(vehicle.status) === -1) return false;
     var td = vehicle.testData || {};
-    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
-    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
-    var d = new Date(ref);
-    if (isNaN(d.getTime())) return vehicle.status === 'archived';
-    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.testDatetime, (rs && !rs.retro) ? rs.signedAt : null, vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    if (!first) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    return first < RELEASE_CHECKLIST_SINCE;
 }
 
 var RELEASE_CHECKLIST_TEXT = {
@@ -26005,6 +26028,18 @@ function generateCOP15PDF(vehicleId, opts) {
     var _comp = validatePdfCompleteness(vehicle);
     if (!_comp.ok) {
       if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_comp.missing); }
+      return null;
+    }
+    // [3.2.1] El checklist de liberación tampoco puede salir en blanco. La fila F05 ya
+    // la cubre validatePdfCompleteness; lo demás lo marca quien liberó (o, si ya está
+    // archivado, se fija en Historial → 📝 Completar).
+    var _clGate = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
+    if (_clGate.length) {
+      if (!(opts && opts.silent)) {
+        hideOverlayLoading();
+        var _clSec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
+        _showPdfMissingPopup(_clGate.map(function(r) { return { section: _clSec, label: r.label }; }));
+      }
       return null;
     }
   }
@@ -61094,7 +61129,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610112100' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610121453' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76524,7 +76559,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18506],[18510,"js/uiflow.js",18826],[18830,"js/cop15.js",29193],[29197,"js/inventory.js",36263],[36267,"js/testplan.js",47826],[47830,"js/panel.js",53160],[53164,"js/projects.js",55453],[55457,"js/auth.js",56498],[56502,"js/signatures.js",56703],[56707,"js/firebase-sync.js",64237],[64241,"js/cop_validator.js",68606],[68610,"js/homolog.js",70400],[70404,"js/vets.js",72201],[72205,"js/historico.js",73119],[73123,"js/review.js",73576],[73580,"js/opcards.js",74009],[74013,"js/handoff.js",74287],[74291,"js/ficha.js",74782],[74786,"js/relevo.js",75166],[75170,"js/momentos.js",75307],[75311,"js/digest.js",76096],[76100,"js/xlsxw.js",76480],[76484,"js/bugreport.js",77630]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18512],[18516,"js/uiflow.js",18832],[18836,"js/cop15.js",29228],[29232,"js/inventory.js",36298],[36302,"js/testplan.js",47861],[47865,"js/panel.js",53195],[53199,"js/projects.js",55488],[55492,"js/auth.js",56533],[56537,"js/signatures.js",56738],[56742,"js/firebase-sync.js",64272],[64276,"js/cop_validator.js",68641],[68645,"js/homolog.js",70435],[70439,"js/vets.js",72236],[72240,"js/historico.js",73154],[73158,"js/review.js",73611],[73615,"js/opcards.js",74044],[74048,"js/handoff.js",74322],[74326,"js/ficha.js",74817],[74821,"js/relevo.js",75201],[75205,"js/momentos.js",75342],[75346,"js/digest.js",76131],[76135,"js/xlsxw.js",76515],[76519,"js/bugreport.js",77665]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

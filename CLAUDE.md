@@ -3219,3 +3219,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   vigente): PDF y aprobación. Una prueba liberada con EURO-5 no se re-etiqueta como NOM-042.
 - **Sin factor de deterioro**: se compara el valor crudo (decisión del laboratorio, igual que
   2.29.0). El reporte de certificación NOM-042 aplica DF e incertidumbre; eso no entra aquí.
+
+## 3.2.1 — La fecha de "anterior al checklist" es la de la prueba
+
+- **`releaseIsBeforeChecklist(v)` toma la fecha MÁS ANTIGUA** entre `testData.testDatetime`, la
+  firma del liberador y `archivedAt`, y solo responde `true` en `pending-approval`/`archived`.
+  **Una firma con `retro: true` (capturada en Completar) no fecha la liberación**: lleva el día en
+  que se capturó. Antes una prueba de febrero archivada en octubre, o con firma retroactiva,
+  dejaba el checklist del F05 en blanco.
+- **Todo dato capturado en un llenado retroactivo debe marcarse `retro`**, y ninguna regla que
+  dependa de "cuándo se liberó" debe leer una fecha `retro`.
+- El F05 no se imprime con huecos en el checklist: `generateCOP15PDF` lo rechaza como a un campo
+  faltante (la fila F05 sigue siendo de `validatePdfCompleteness`).
