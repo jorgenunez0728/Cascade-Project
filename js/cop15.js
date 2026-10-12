@@ -5357,10 +5357,12 @@ function _histRenderBody() {
                 (nCollapsed < nGroups ? '⊟ Colapsar todo' : '⊞ Expandir todo') + '</button>' : '') +
           '<span class="hist-listbar-sp"></span>' +
           '<span id="hist-sel-count" class="hist-sel-count"></span>' +
-          '<button class="btn-secondary hist-mini batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;">PDF seleccionados</button>' +
+          '<button class="btn-secondary hist-mini" id="histSelAllBtn" onclick="histToggleAll(' + (allVisibleSel ? 'false' : 'true') + ')" title="Seleccionar todas las pruebas que pasan los filtros (también las de otras páginas)">' +
+                (allVisibleSel ? '☐ Quitar todas' : '☑ Seleccionar todas (' + filtered + ')') + '</button>' +
+          '<button class="btn-secondary hist-mini batch-pdf-btn" id="batchPdfBtn" onclick="histPrintF05()" title="Imprimir la hoja COP15-F05 de las seleccionadas, o de todas las que se ven si no hay selección">🖨️ Imprimir F05</button>' +
           '<button class="btn-secondary hist-mini is-danger" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;">🗑 Eliminar seleccionados</button>' +
           '<button class="btn-secondary hist-mini" onclick="histExportXlsx()" title="Descargar en Excel lo que se ve (con filtros y orden), con los valores de gases">⬇ Excel</button>' +
-          '<button class="btn-secondary hist-mini" onclick="window.print()" title="Imprimir tabla de historial">🖨️ Imprimir</button>' +
+          '<button class="btn-secondary hist-mini" onclick="window.print()" title="Imprimir la tabla del historial (no las hojas F05)">🖨️ Tabla</button>' +
         '</div>' +
         '<div class="hist-scroll"><table class="history-table hist-v2' + (q.groups ? ' is-grouped' : '') + '">' +
           '<thead><tr>' +
@@ -5491,9 +5493,16 @@ function histUpdateBatchBtn() {
     var cnt = document.getElementById('hist-sel-count');
     if (cnt) cnt.innerHTML = n ? '<strong>' + n + '</strong> seleccionada' + (n > 1 ? 's' : '') +
         ' <button type="button" class="hist-active-clear" onclick="histSelClear()">Quitar selección</button>' : '';
+    var allBtn = document.getElementById('histSelAllBtn');
+    if (allBtn) {
+        var nAll = (window._histVisibleIds || []).length, allOn = nAll > 0 && n === nAll;
+        allBtn.textContent = allOn ? '☐ Quitar todas' : '☑ Seleccionar todas (' + nAll + ')';
+        allBtn.setAttribute('onclick', 'histToggleAll(' + (allOn ? 'false' : 'true') + ')');
+    }
     if (pdfBtn) {
-        if (n > 0) { pdfBtn.style.display = ''; pdfBtn.textContent = 'PDF ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }
-        else { pdfBtn.style.display = 'none'; }
+        var nVis = (window._histVisibleIds || []).length;
+        pdfBtn.style.display = nVis || n ? '' : 'none';
+        pdfBtn.textContent = n ? '🖨️ Imprimir F05 (' + n + ')' : '🖨️ Imprimir F05 de todas (' + nVis + ')';
     }
     if (delBtn) {
         if (n > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }
@@ -5501,127 +5510,109 @@ function histUpdateBatchBtn() {
     }
 }
 
-function batchPDFExport() {
-    var ids = histSelectedIds();
-    if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
+// ── [3.3.0] Imprimir hojas COP15-F05 en lote ──────────────────────────────────
+// Un solo PDF con la hoja F05 REAL de cada prueba (generateCOP15PDF con intoDoc), y de ahí
+// directo al diálogo de impresión. Sin selección = todas las pruebas que pasan los filtros.
+// Lo que no puede emitir su hoja (f05Readiness) NO se imprime a medias: se omite y se dice
+// cuál y por qué. Antes "PDF seleccionados" armaba una página resumida que no era el F05.
 
-    showConfirm(
-        '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
-        '<p style="font-size: var(--fs-sm);color:var(--muted);">Cada vehículo será una página del PDF.</p>',
-        function() { _doBatchPDF(ids); },
-        { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
-    );
+/** PURA: reparte una lista de vehículos en imprimibles y omitidos (con su motivo). */
+function histPrintPlan(vehicles) {
+    var ok = [], skip = [];
+    (vehicles || []).forEach(function(v) {
+        var r = f05Readiness(v);
+        if (r.ok) ok.push(v); else skip.push({ v: v, text: r.text, why: r.why });
+    });
+    return { ok: ok, skip: skip };
 }
 
-function _doBatchPDF(ids) {
-    if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') {
-        showToast('jsPDF no disponible', 'error');
+function histPrintTargets() {
+    var sel = histSelectedIds();
+    var ids = sel.length ? sel : (window._histVisibleIds || []).slice();
+    return { selected: sel.length > 0, ids: ids,
+             vehicles: ids.map(function(id) { return db.vehicles.find(function(v) { return v.id == id; }); }).filter(Boolean) };
+}
+
+function histPrintF05() {
+    var t = histPrintTargets();
+    if (!t.vehicles.length) { showToast('No hay pruebas a la vista para imprimir. Quita filtros o elige otras.', 'warning'); return; }
+    var plan = histPrintPlan(t.vehicles);
+    var scope = t.selected ? 'seleccionada' + (t.ids.length === 1 ? '' : 's') : 'a la vista (con los filtros puestos)';
+    var html = '<p class="miss-intro"><strong>' + plan.ok.length + '</strong> de ' + t.vehicles.length + ' prueba' +
+        (t.vehicles.length === 1 ? '' : 's') + ' ' + scope + ' tienen su hoja COP15-F05 lista. Salen en un solo PDF, una hoja por prueba.</p>';
+    if (plan.skip.length) {
+        html += '<div class="miss-sec"><div class="miss-sec-title">No se imprimen (' + plan.skip.length + ')</div>' +
+            plan.skip.slice(0, 40).map(function(x) {
+                return '<div class="miss-link miss-link--static">' + escapeHtml(x.v.vin || 'Sin VIN') + ' — ' + escapeHtml(x.text) + '</div>';
+            }).join('') + (plan.skip.length > 40 ? '<div class="u-muted-xs">… y ' + (plan.skip.length - 40) + ' más</div>' : '') +
+            '<div class="u-muted-xs">Las que tienen faltantes se completan en 📝 Completar; después ya se pueden imprimir.</div></div>';
+    }
+    if (!plan.ok.length) {
+        showModal({ title: 'Nada que imprimir', body: html, buttons: [{ label: 'Entendido', cls: 'btn-primary' }] });
         return;
     }
-    var jsPDF = (window.jspdf && window.jspdf.jsPDF) || jspdf.jsPDF;
-    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
-    var total = ids.length;
+    var ids = plan.ok.map(function(v) { return v.id; });
+    showModal({ title: '🖨️ Imprimir ' + ids.length + ' hoja' + (ids.length === 1 ? '' : 's') + ' F05', body: html, buttons: [
+        { label: 'Cancelar' },
+        { label: '⬇ Descargar PDF', onclick: function() { _histPrintBuild(ids, 'download'); } },
+        { label: '🖨️ Imprimir', cls: 'btn-primary', onclick: function() { _histPrintBuild(ids, 'print'); } }
+    ] });
+}
+
+function _histPrintBuild(ids, mode) {
+    if (!window.jspdf || !window.jspdf.jsPDF) { showToast('No se pudo cargar el generador de PDF. Recarga la página.', 'error'); return; }
+    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var total = ids.length, idx = 0, done = 0, failed = [];
     var overlay = document.createElement('div');
     overlay.id = 'batch-pdf-overlay';
-    overlay.innerHTML = '<div class="batch-pdf-progress"><div class="batch-pdf-title">Generando PDF...</div>' +
+    overlay.innerHTML = '<div class="batch-pdf-progress"><div class="batch-pdf-title">Armando las hojas F05…</div>' +
         '<div class="batch-pdf-bar"><div class="batch-pdf-fill" id="batchPdfFill"></div></div>' +
         '<div id="batchPdfStatus" style="font-size:12px;color:var(--muted);">0/' + total + '</div></div>';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
     document.body.appendChild(overlay);
-
-    var idx = 0;
-    function next() {
-        if (idx >= total) {
-            overlay.remove();
-            var dateStr = localToday();
-            doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
-            showToast(total + ' vehículos exportados a PDF', 'success');
-            return;
-        }
-        if (idx > 0) doc.addPage();
-        var vehicle = db.vehicles.find(function(v) { return v.id === ids[idx]; });
-        if (vehicle) {
-            _renderVehiclePDFPage(doc, vehicle);
-        }
+    function step() {
+        if (idx >= total) { overlay.remove(); _histPrintFinish(doc, done, failed, mode); return; }
+        var v = db.vehicles.find(function(x) { return x.id == ids[idx]; });
+        try {
+            var out = v && generateCOP15PDF(v.id, { returnDoc: true, silent: true, intoDoc: doc, intoDocHasPages: done > 0 });
+            if (out) done++; else failed.push(v ? v.vin : String(ids[idx]));
+        } catch (e) { failed.push(v ? v.vin : String(ids[idx])); }
         idx++;
-        var fill = document.getElementById('batchPdfFill');
-        var st = document.getElementById('batchPdfStatus');
-        if (fill) fill.style.width = Math.round((idx/total)*100) + '%';
+        var fill = document.getElementById('batchPdfFill'), st = document.getElementById('batchPdfStatus');
+        if (fill) fill.style.width = Math.round(idx / total * 100) + '%';
         if (st) st.textContent = idx + '/' + total;
-        setTimeout(next, 50);
+        setTimeout(step, 20);
     }
-    next();
+    step();
 }
 
-function _renderVehiclePDFPage(doc, vehicle) {
-    var ML = 14, y = 14;
-    var W = doc.internal.pageSize.getWidth();
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('KIA EmLab — COP15-F05', ML, y); y += 6;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('VIN: ' + (vehicle.vin || 'N/A') + '  |  Config: ' + (vehicle.configCode || 'N/A'), ML, y); y += 5;
-    doc.text('Propósito: ' + (vehicle.purpose || '') + '  |  Estado: ' + (vehicle.status || '') + '  |  Fecha: ' + new Date(vehicle.registeredAt).toLocaleDateString('es-MX'), ML, y); y += 7;
-
-    // Preconditioning data
-    var td = vehicle.testData || {};
-    var p = td.preconditioning || {};
-    var tv = td.testVerification || {};
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Preacondicionamiento', ML, y); y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    var preRows = [
-        ['Responsable: ' + (p.responsible || '-'), 'Fecha: ' + (p.datetime || '-'), 'Ciclo: ' + (p.cycle || '-')],
-        ['Presión llantas: ' + (p.tirePressurePsi || '-') + ' psi', 'Comb. entrada: ' + (p.fuelTypeIn || '-'), 'Nivel: ' + (p.fuelLevelFractionIn || '-')],
-        ['Soak (h): ' + (p.soakTimeH != null ? p.soakTimeH : '-'), 'Precond OK: ' + (p.ok || '-'), 'Odo pretest: ' + (p.odoPretestKm || '-') + ' km']
-    ];
-    preRows.forEach(function(row) {
-        var colW = (W - ML*2) / row.length;
-        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
-        y += 4;
-    });
-    y += 3;
-
-    // Test verification
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Verificación de Prueba', ML, y); y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    var tvRows = [
-        ['Responsable: ' + (td.testResponsible || '-'), 'Fecha: ' + (td.testDatetime || '-'), 'Túnel: ' + (tv.tunnel || '-')],
-        ['Dinamómetro: ' + (tv.dyno || '-'), 'Ventilador: ' + (tv.fanMode || '-') + ' ' + (tv.fanSpeedKmh || '-') + 'km/h', 'Inercia: ' + (tv.inertiaOk || '-')],
-        ['Cadenas: ' + (tv.chains || '-'), 'Eslingas: ' + (tv.slings || '-'), 'Cofre: ' + (tv.hood || '-')]
-    ];
-    tvRows.forEach(function(row) {
-        var colW = (W - ML*2) / row.length;
-        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
-        y += 4;
-    });
-    y += 3;
-
-    // Coefficients
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Coeficientes', ML, y); y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('ETW: ' + (td.etw || '-') + '  A: ' + (td.targetA || '-') + '/' + (td.dynoA || '-') +
-             '  B: ' + (td.targetB || '-') + '/' + (td.dynoB || '-') +
-             '  C: ' + (td.targetC || '-') + '/' + (td.dynoC || '-'), ML, y);
-    y += 6;
-
-    // Footer
-    doc.setFontSize(7);
-    doc.setTextColor(150);
-    doc.text('Generado: ' + new Date().toLocaleString('es-MX') + '  |  KIA EmLab Batch Export', ML, doc.internal.pageSize.getHeight() - 8);
-    doc.setTextColor(0);
+function _histPrintFinish(doc, done, failed, mode) {
+    if (!done) { showToast('No se pudo generar ninguna hoja. Usa 🐞 para reportarlo.', 'error'); return; }
+    if (typeof auditLog === 'function') auditLog('cop15', 'f05_lote', { type: 'batch', id: 'f05', label: done + ' hojas' },
+        (mode === 'print' ? 'Impresión' : 'Descarga') + ' de ' + done + ' hoja(s) COP15-F05 desde Historial');
+    var fname = 'COP15-F05_lote_' + localToday() + '_' + done + '.pdf';
+    var note = failed.length ? ' (' + failed.length + ' no se pudieron armar: ' + failed.slice(0, 3).join(', ') + (failed.length > 3 ? '…' : '') + ')' : '';
+    if (mode === 'download') { doc.save(fname); showToast(done + ' hoja(s) F05 descargadas' + note, failed.length ? 'warning' : 'success'); return; }
+    // Imprimir: el PDF se carga en un marco oculto y se abre el diálogo de impresión del
+    // navegador. Si el navegador no deja (teléfonos), se abre el PDF para imprimir desde ahí.
+    var url;
+    try { url = URL.createObjectURL(doc.output('blob')); } catch (e) { doc.save(fname); return; }
+    var old = document.getElementById('hist-print-frame'); if (old) old.remove();
+    var fr = document.createElement('iframe');
+    fr.id = 'hist-print-frame';
+    fr.setAttribute('aria-hidden', 'true');
+    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;';
+    fr.onload = function() {
+        setTimeout(function() {
+            try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+            catch (e) { var w = window.open(url, '_blank'); if (!w) doc.save(fname); }
+        }, 250);
+    };
+    fr.src = url;
+    document.body.appendChild(fr);
+    window._histPrintLast = { url: url, pages: done, failed: failed.length };
+    showToast('Abriendo la impresión de ' + done + ' hoja(s) F05' + note + '. Si no aparece, usa ⬇ Descargar PDF.', failed.length ? 'warning' : 'info', 8000);
 }
-
 
 function refreshAllLists() {
     var kanbanPanel = document.getElementById('panel-kanban');
@@ -7214,6 +7205,31 @@ function _pdfDayDMY(iso) {
   return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
 }
 
+/**
+ * [3.3.0] LA definición de "este vehículo puede emitir su Hoja COP15-F05". La usan el
+ * botón PDF (generateCOP15PDF) y la impresión en lote del Historial. Devuelve
+ * {ok:true} o {ok:false, why, text, missing:[{section,label,refId?}]}.
+ *  - Un histórico no tiene F05 (2.30.0) y un propósito que no es de emisiones tampoco.
+ *  - Faltantes del formulario: validatePdfCompleteness.
+ *  - Checklist de liberación en blanco (3.2.1): la fila F05 ya la cubre lo anterior.
+ */
+function f05Readiness(vehicle) {
+  if (!vehicle) return { ok: false, why: 'sin-vehiculo', text: 'ya no existe', missing: [] };
+  if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(vehicle))
+    return { ok: false, why: 'historico', text: 'prueba histórica (su evidencia es el reporte de VETS)', missing: [] };
+  if (!isEmissionsPurpose(vehicle.purpose))
+    return { ok: false, why: 'proposito', text: 'propósito ' + (vehicle.purpose || 'sin dato') + ' (el F05 es solo de emisiones)', missing: [] };
+  var comp = validatePdfCompleteness(vehicle);
+  if (!comp.ok) return { ok: false, why: 'campos', text: 'faltan ' + comp.missing.length + ' campo' + (comp.missing.length === 1 ? '' : 's'), missing: comp.missing };
+  var cl = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
+  if (cl.length) {
+    var sec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
+    return { ok: false, why: 'checklist', text: 'checklist incompleto (' + cl.length + ')',
+             missing: cl.map(function(r) { return { section: sec, label: r.label }; }) };
+  }
+  return { ok: true, why: '', text: '', missing: [] };
+}
+
 function generateCOP15PDF(vehicleId, opts) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { if (!(opts && opts.silent)) showToast('No hay vehículo seleccionado.', 'error'); return null; }
@@ -7227,21 +7243,9 @@ function generateCOP15PDF(vehicleId, opts) {
 
   // Gate: no generar un PDF con campos obligatorios vacíos (salvo regeneración interna tras archivar).
   if (isEmissionsPurpose(vehicle.purpose) && !(opts && (opts.returnDoc || opts.returnBase64)) && !(opts && opts.silent && vehicle.status === 'archived')) {
-    var _comp = validatePdfCompleteness(vehicle);
-    if (!_comp.ok) {
-      if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_comp.missing); }
-      return null;
-    }
-    // [3.2.1] El checklist de liberación tampoco puede salir en blanco. La fila F05 ya
-    // la cubre validatePdfCompleteness; lo demás lo marca quien liberó (o, si ya está
-    // archivado, se fija en Historial → 📝 Completar).
-    var _clGate = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
-    if (_clGate.length) {
-      if (!(opts && opts.silent)) {
-        hideOverlayLoading();
-        var _clSec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
-        _showPdfMissingPopup(_clGate.map(function(r) { return { section: _clSec, label: r.label }; }));
-      }
+    var _ready = f05Readiness(vehicle);
+    if (!_ready.ok) {
+      if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_ready.missing); }
       return null;
     }
   }
@@ -7276,7 +7280,11 @@ function generateCOP15PDF(vehicleId, opts) {
     return null;
   }
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+  // [3.3.0] opts.intoDoc: la hoja se agrega a un documento ya abierto (impresión en lote).
+  // Sin él, todo es idéntico a antes (la huella del F05 lo vigila).
+  const doc = (opts && opts.intoDoc) || new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+  if (opts && opts.intoDoc && opts.intoDocHasPages) doc.addPage('letter', 'landscape');
+  const _p0 = doc.getNumberOfPages();   // primera página de ESTA hoja
 
   // ---------- Constantes de página ----------
   const W  = doc.internal.pageSize.getWidth();   // ~279.4
@@ -7303,7 +7311,7 @@ function generateCOP15PDF(vehicleId, opts) {
   // hacen que jsPDF espacie letra por letra TODA la cadena ("P A S A", "C O ,").
   // Todo texto de este documento pasa por _pdfSafe, incluido el que escriben
   // las llamadas directas a doc.text.
-  const _rawText = doc.text.bind(doc);
+  const _rawText = doc._f05RawText || (doc._f05RawText = doc.text.bind(doc));   // un solo envoltorio por documento
   doc.text = function(t) {
     const args = Array.prototype.slice.call(arguments);
     args[0] = Array.isArray(t) ? t.map(_pdfSafe) : _pdfSafe(t);
@@ -7827,9 +7835,9 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   const _footTxt = _dual
       ? 'Documento generado por CASCADE — Archivado con doble firma (Liberador + Aprobador)'
       : 'Documento generado por CASCADE — PRELIMINAR: pendiente de aprobación';
-  const _nPages = doc.getNumberOfPages();
+  const _nPages = doc.getNumberOfPages() - _p0 + 1;   // páginas de ESTA hoja
   for (let pg = 1; pg <= _nPages; pg++) {
-    doc.setPage(pg);
+    doc.setPage(_p0 + pg - 1);
     doc.setDrawColor(...RED); doc.setLineWidth(0.5); doc.line(ML, fY, ML+CW, fY);
     doc.setTextColor(...RED); setF('bold', 5.5);
     doc.text(_footTxt, ML+CW/2, fY+3.5, {align:'center'});
@@ -7839,9 +7847,10 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
     if (_nPages > 1) doc.text('Página ' + pg + ' de ' + _nPages, ML+CW-2, fY+7, {align:'right'});
   }
-  doc.setPage(1);
+  doc.setPage(_p0);
   doc.setTextColor(...BLACK); setF('normal', 5.5);
   doc.text('Page: 1 of ' + _nPages + '    Dept: QA', ix+2, _pageLineY);
+  doc.setPage(doc.getNumberOfPages());
 
   // =====================================================
   //  GUARDAR
