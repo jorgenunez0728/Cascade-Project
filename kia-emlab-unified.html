@@ -9464,10 +9464,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610112100';
+var APP_BUILD = '202610121508';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '327e267ec8aaf750c9ee5be4822d323a35ad4166';
+var APP_COMMIT = '4e625eecef75ef58c16a1017e47b58c646b52dde';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9475,7 @@ var APP_COMMIT = '327e267ec8aaf750c9ee5be4822d323a35ad4166';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.2.0';
+var APP_VERSION = '3.2.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9483,14 @@ var APP_VERSION = '3.2.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.2.1', date: '12 oct 2026', title: 'El checklist del F05 ya no sale en blanco en pruebas completadas después',
+      bullets: [
+          'Arreglado: una prueba anterior al checklist (antes del 22 sep) que se archivó o se completó tarde —por ejemplo, probada en febrero y archivada en octubre, o con la firma del liberador capturada en Historial → Completar— imprimía la hoja F05 con la columna Confirmación vacía en los objetos a retirar y en VETS, OBFCM y Coast/Down. Ahora cuenta la fecha de la PRUEBA y esas filas se asientan como siempre: Retirado / Adjunto, y No aplica según la región.',
+          'Una firma capturada en Completar ya no cambia la fecha de liberación de la prueba.',
+          'Nuevo: Historial → Completar ahora pide el checklist de liberación aunque el formulario ya esté completo. Las filas asentadas solas se pueden confirmar una por una o con "Confirmar todo como está", y quedan registradas a tu nombre. OBFCM y Coast/Down siguen siendo solo de Europa.',
+          'Cambió: el pie de la hoja F05 ya no dice "Checklist asentado retroactivamente"; el registro sigue en la app (Completar, línea de tiempo y auditoría).',
+          'Cambió: un archivado nuevo con el checklist incompleto ya no genera un F05 con huecos; el botón PDF dice qué filas faltan y que se completan en Historial → Completar.'
+      ] },
     { version: '3.2.0', date: '11 oct 2026', title: 'México se juzga con la NOM-042 C-VP',
       bullets: [
           'Cambió: los vehículos de México salen como EURO-5 en el sistema porque así los arma la empresa, pero ahora se juzgan con su regulación real, la NOM-042 C-VP: CO 2.11, NOx 0.068 y NMHC 0.047 g/km. El THC se captura como informativo (sin límite). Los demás EURO-5 siguen con los límites normales.',
@@ -10396,14 +10404,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610121508' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610112100' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610121508' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10419,7 +10427,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610112100' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610121508' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -22520,15 +22528,32 @@ var RELEASE_CHECKLIST = {
 // mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
 var RELEASE_CHECKLIST_SINCE = '2026-09-22';
 
-/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+/**
+ * ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)?
+ * [3.2.1] Cuenta la fecha MÁS ANTIGUA entre la prueba, la firma del liberador y el
+ * archivado. Antes solo miraba la firma (o el archivado), y las dos se mueven en un
+ * llenado retroactivo: la firma capturada en Historial → 📝 Completar lleva la fecha
+ * de HOY (`retro: true`) y una prueba de febrero archivada en octubre dejaba de
+ * contar como anterior — el F05 salía con el checklist en blanco. Una firma `retro`
+ * no fecha la liberación y no se usa. Solo aplica a lo ya liberado: un vehículo en
+ * Liberación nunca se asienta solo, aunque su prueba sea anterior.
+ */
 function releaseIsBeforeChecklist(vehicle) {
     if (!vehicle) return false;
+    if (['archived', 'pending-approval'].indexOf(vehicle.status) === -1) return false;
     var td = vehicle.testData || {};
-    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
-    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
-    var d = new Date(ref);
-    if (isNaN(d.getTime())) return vehicle.status === 'archived';
-    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.testDatetime, (rs && !rs.retro) ? rs.signedAt : null, vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    if (!first) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    return first < RELEASE_CHECKLIST_SINCE;
 }
 
 var RELEASE_CHECKLIST_TEXT = {
@@ -23631,6 +23656,20 @@ function histRowFacts(v) {
     if (!historic && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose) && typeof validatePdfCompleteness === 'function') {
         try { var c = validatePdfCompleteness(v); miss = c.missing.length; soft = c.soft ? c.soft.length : 0; } catch (e) {}
     }
+    // [3.2.1] El checklist de liberación también se completa ahí: una fila vacía falta para
+    // el PDF; una asentada sola (prueba anterior al checklist) se puede confirmar a mano.
+    var clMiss = 0, clAuto = 0;
+    if (!historic && (v.status === 'archived' || v.status === 'pending-approval') &&
+        typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose)) {
+        try {
+            var cl = releaseChecklistRows(v);
+            cl.objects.concat(cl.docs).forEach(function(r) {
+                if (r.auto) return;
+                if (!r.value) clMiss++; else if (r.legacy) clAuto++;
+            });
+        } catch (e) {}
+    }
+    miss += clMiss; soft += clAuto;
     var cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null;
 
     var famParts = [cfg['Modelo'], cfg['ENGINE CAPACITY'], cfg['ENGINE PACKAGE'], cfg['ENVIRONMENT PACKAGE'],
@@ -25108,12 +25147,13 @@ function histOpenCompleteModal(vehicleId) {
       (status === 'archived' || status === 'pending-approval')) {
     var _cl = releaseChecklistRows(vehicle);
     var _clPend = _cl.objects.concat(_cl.docs).filter(function(r) { return !r.auto && (r.legacy || !r.value); }).length;
-    html += '<details class="hist-section" ' + (_cl.missing.length ? 'open' : '') + '>';
+    html += '<details class="hist-section" ' + (_clPend ? 'open' : '') + '>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Checklist de liberación' +
             (_cl.missing.length ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + _cl.missing.length + ' faltantes</span>'
              : _cl.legacy ? ' <span style="color:var(--muted);">· asentado automáticamente (' + _clPend + ' filas)</span>'
              : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
-    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Corrige las que no correspondan; lo que fijes aquí manda sobre lo automático.</div>';
+    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Confírmalas o corrígelas si sabes cómo quedó cada una; lo que fijes aquí manda sobre lo automático y queda registrado a tu nombre.</div>' +
+        '<button type="button" class="btn btn-sm btn-ghost" style="margin-bottom: var(--space-sm);" onclick="histChecklistConfirmAll()">✔ Confirmar todo como está</button>';
     html += '<div id="hist-checklist">' + _histChecklistRowsHTML(vehicle) + '</div></details>';
   }
 
@@ -25182,7 +25222,7 @@ function _histChecklistRowsHTML(vehicle) {
       }).join('');
     }
     var tag = pend[k] ? '<small>Se guardará al confirmar</small>'
-            : r.legacy ? '<small>auto · anterior al checklist</small>'
+            : r.legacy ? '<small>auto · anterior al checklist — toca una opción para confirmarla</small>'
             : r.auto ? '<small>Automático · ' + escapeHtml(r.reason) + '</small>'
             : (r.value ? '<small>Capturado por el liberador</small>' : '');
     return '<div class="relcl-row' + (cur ? '' : ' is-missing') + '"><div class="relcl-label">' + escapeHtml(r.label) + tag + '</div>' +
@@ -25199,9 +25239,23 @@ function histChecklistSet(group, key, val) {
   var k = group + ':' + key;
   var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
   var row = releaseChecklistRows(vehicle)[group].find(function(r) { return r.key === key; });
-  // Volver a elegir lo que ya vale (derivado o guardado) no es un cambio.
-  if (row && row.value === val && !pend[k]) return;
-  if (pend[k] === val || (row && row.value === val)) delete pend[k]; else pend[k] = val;
+  if (pend[k] === val) delete pend[k];                         // tocar lo elegido lo quita
+  else if (row && row.value === val && !row.legacy) delete pend[k]; // ya guardado: no es cambio
+  else pend[k] = val;   // [3.2.1] en una fila asentada sola, elegir su valor la CONFIRMA
+  var host = document.getElementById('hist-checklist');
+  if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
+}
+
+// [3.2.1] Confirma de un toque todas las filas asentadas solas con el valor que muestran.
+function histChecklistConfirmAll() {
+  if (!_histCompleteState) return;
+  var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
+  if (!vehicle) return;
+  var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
+  var st = releaseChecklistRows(vehicle);
+  ['objects', 'docs'].forEach(function(group) {
+    st[group].forEach(function(r) { if (r.legacy && !pend[group + ':' + r.key]) pend[group + ':' + r.key] = r.value; });
+  });
   var host = document.getElementById('hist-checklist');
   if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
 }
@@ -26007,6 +26061,18 @@ function generateCOP15PDF(vehicleId, opts) {
       if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_comp.missing); }
       return null;
     }
+    // [3.2.1] El checklist de liberación tampoco puede salir en blanco. La fila F05 ya
+    // la cubre validatePdfCompleteness; lo demás lo marca quien liberó (o, si ya está
+    // archivado, se fija en Historial → 📝 Completar).
+    var _clGate = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
+    if (_clGate.length) {
+      if (!(opts && opts.silent)) {
+        hideOverlayLoading();
+        var _clSec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
+        _showPdfMissingPopup(_clGate.map(function(r) { return { section: _clSec, label: r.label }; }));
+      }
+      return null;
+    }
   }
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
@@ -26589,8 +26655,9 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     doc.setTextColor(...RED); setF('bold', 5.5);
     doc.text(_footTxt, ML+CW/2, fY+3.5, {align:'center'});
     doc.setTextColor(150,150,150); setF('normal', 4.5);
-    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX') +
-        (_cl.legacy ? ' | Checklist de liberación asentado retroactivamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')' : ''), ML+2, fY+7);
+    // [3.2.1] Sin leyenda de checklist retroactivo, por decisión del laboratorio: lo asentado
+    // solo y lo confirmado en Completar quedan en la app (Completar, línea de tiempo, auditoría).
+    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
     if (_nPages > 1) doc.text('Página ' + pg + ' de ' + _nPages, ML+CW-2, fY+7, {align:'right'});
   }
   doc.setPage(1);
@@ -61094,7 +61161,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610112100' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610121508' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76524,7 +76591,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18506],[18510,"js/uiflow.js",18826],[18830,"js/cop15.js",29193],[29197,"js/inventory.js",36263],[36267,"js/testplan.js",47826],[47830,"js/panel.js",53160],[53164,"js/projects.js",55453],[55457,"js/auth.js",56498],[56502,"js/signatures.js",56703],[56707,"js/firebase-sync.js",64237],[64241,"js/cop_validator.js",68606],[68610,"js/homolog.js",70400],[70404,"js/vets.js",72201],[72205,"js/historico.js",73119],[73123,"js/review.js",73576],[73580,"js/opcards.js",74009],[74013,"js/handoff.js",74287],[74291,"js/ficha.js",74782],[74786,"js/relevo.js",75166],[75170,"js/momentos.js",75307],[75311,"js/digest.js",76096],[76100,"js/xlsxw.js",76480],[76484,"js/bugreport.js",77630]]};
+var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18514],[18518,"js/uiflow.js",18834],[18838,"js/cop15.js",29260],[29264,"js/inventory.js",36330],[36334,"js/testplan.js",47893],[47897,"js/panel.js",53227],[53231,"js/projects.js",55520],[55524,"js/auth.js",56565],[56569,"js/signatures.js",56770],[56774,"js/firebase-sync.js",64304],[64308,"js/cop_validator.js",68673],[68677,"js/homolog.js",70467],[70471,"js/vets.js",72268],[72272,"js/historico.js",73186],[73190,"js/review.js",73643],[73647,"js/opcards.js",74076],[74080,"js/handoff.js",74354],[74358,"js/ficha.js",74849],[74853,"js/relevo.js",75233],[75237,"js/momentos.js",75374],[75378,"js/digest.js",76163],[76167,"js/xlsxw.js",76547],[76551,"js/bugreport.js",77697]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

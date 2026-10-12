@@ -240,6 +240,26 @@ console.log('\n== releaseChecklistRows ==');
     ok('liberado hoy NO es anterior al checklist', ctx.releaseIsBeforeChecklist(hoy) === false);
     ok('sin liberar NO es anterior al checklist', ctx.releaseIsBeforeChecklist({ status: 'ready-release', testData: {} }) === false);
     ok('archivado muy viejo sin fechas SÍ es anterior', ctx.releaseIsBeforeChecklist({ status: 'archived', testData: {} }) === true);
+    // [3.2.1] Caso real (3KPFX51BXTE290469): prueba del 13-feb archivada el 9-oct, firma
+    // del liberador capturada en Completar (fecha de hoy, retro). Antes salía en blanco.
+    const tardio = { status: 'archived', purpose: 'COP-Emisiones', config: { REGION: 'EUROPE' }, archivedAt: '2026-10-09T18:00:00',
+        testData: { testDatetime: '2026-02-13T09:30', signatures: { releaser: { signedAt: '2026-10-12T10:00:00', retro: true } },
+                    releaseChecklist: { retro: true, by: 'X', at: '2026-10-12T10:00:00' } } };
+    ok('prueba de febrero archivada en octubre = anterior al checklist', ctx.releaseIsBeforeChecklist(tardio) === true);
+    const stT = rows(tardio);
+    ok('prueba tardía: ningún objeto ni evidencia queda en blanco',
+        stT.objects.concat(stT.docs).filter(r => r.key !== 'f05').every(r => r.value === 'ok' || r.value === 'na'),
+        JSON.stringify(stT.objects.concat(stT.docs).map(r => r.key + '=' + r.value)));
+    ok('prueba tardía de Europa: OBFCM y Coast/Down Adjunto, F02/F03 No aplica',
+        byKey(stT, 'obfcm').value === 'ok' && byKey(stT, 'coast').value === 'ok' && byKey(stT, 'f02').value === 'na');
+    const retroSola = { status: 'archived', archivedAt: '2026-09-10T12:00:00',
+        testData: { signatures: { releaser: { signedAt: '2026-10-12T10:00:00', retro: true } } } };
+    ok('una firma retroactiva no mueve la fecha de liberación', ctx.releaseIsBeforeChecklist(retroSola) === true);
+    const enLib = { status: 'ready-release', testData: { testDatetime: '2026-02-13T09:30' } };
+    ok('en Liberación nunca se asienta solo aunque la prueba sea vieja', ctx.releaseIsBeforeChecklist(enLib) === false);
+    const nueva = { status: 'archived', archivedAt: '2026-10-05T12:00:00',
+        testData: { testDatetime: '2026-10-01T09:00', signatures: { releaser: { signedAt: '2026-10-02T10:00:00' } } } };
+    ok('prueba nueva (octubre) NO se asienta sola', ctx.releaseIsBeforeChecklist(nueva) === false);
     const vMx = Object.assign({ purpose: 'COP-Emisiones', config: { REGION: 'MEXICO' } }, JSON.parse(JSON.stringify(viejo)));
     const stMx = rows(vMx);
     ok('prueba vieja: objetos asentados como Retirado y marcados legacy',

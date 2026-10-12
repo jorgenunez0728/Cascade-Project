@@ -3691,15 +3691,32 @@ var RELEASE_CHECKLIST = {
 // mano en Historial → 📝 Completar manda sobre esto, y el PDF lo declara.
 var RELEASE_CHECKLIST_SINCE = '2026-09-22';
 
-/** ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)? */
+/**
+ * ¿Este vehículo se liberó antes de que existiera el checklist (y el SOC de prueba)?
+ * [3.2.1] Cuenta la fecha MÁS ANTIGUA entre la prueba, la firma del liberador y el
+ * archivado. Antes solo miraba la firma (o el archivado), y las dos se mueven en un
+ * llenado retroactivo: la firma capturada en Historial → 📝 Completar lleva la fecha
+ * de HOY (`retro: true`) y una prueba de febrero archivada en octubre dejaba de
+ * contar como anterior — el F05 salía con el checklist en blanco. Una firma `retro`
+ * no fecha la liberación y no se usa. Solo aplica a lo ya liberado: un vehículo en
+ * Liberación nunca se asienta solo, aunque su prueba sea anterior.
+ */
 function releaseIsBeforeChecklist(vehicle) {
     if (!vehicle) return false;
+    if (['archived', 'pending-approval'].indexOf(vehicle.status) === -1) return false;
     var td = vehicle.testData || {};
-    var ref = (td.signatures && td.signatures.releaser && td.signatures.releaser.signedAt) || vehicle.archivedAt || null;
-    if (!ref) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
-    var d = new Date(ref);
-    if (isNaN(d.getTime())) return vehicle.status === 'archived';
-    return localDateStr(d) < RELEASE_CHECKLIST_SINCE;
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.testDatetime, (rs && !rs.retro) ? rs.signedAt : null, vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    if (!first) return vehicle.status === 'archived'; // archivado muy viejo, sin fechas
+    return first < RELEASE_CHECKLIST_SINCE;
 }
 
 var RELEASE_CHECKLIST_TEXT = {
@@ -4802,6 +4819,20 @@ function histRowFacts(v) {
     if (!historic && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose) && typeof validatePdfCompleteness === 'function') {
         try { var c = validatePdfCompleteness(v); miss = c.missing.length; soft = c.soft ? c.soft.length : 0; } catch (e) {}
     }
+    // [3.2.1] El checklist de liberación también se completa ahí: una fila vacía falta para
+    // el PDF; una asentada sola (prueba anterior al checklist) se puede confirmar a mano.
+    var clMiss = 0, clAuto = 0;
+    if (!historic && (v.status === 'archived' || v.status === 'pending-approval') &&
+        typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose)) {
+        try {
+            var cl = releaseChecklistRows(v);
+            cl.objects.concat(cl.docs).forEach(function(r) {
+                if (r.auto) return;
+                if (!r.value) clMiss++; else if (r.legacy) clAuto++;
+            });
+        } catch (e) {}
+    }
+    miss += clMiss; soft += clAuto;
     var cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null;
 
     var famParts = [cfg['Modelo'], cfg['ENGINE CAPACITY'], cfg['ENGINE PACKAGE'], cfg['ENVIRONMENT PACKAGE'],
@@ -6279,12 +6310,13 @@ function histOpenCompleteModal(vehicleId) {
       (status === 'archived' || status === 'pending-approval')) {
     var _cl = releaseChecklistRows(vehicle);
     var _clPend = _cl.objects.concat(_cl.docs).filter(function(r) { return !r.auto && (r.legacy || !r.value); }).length;
-    html += '<details class="hist-section" ' + (_cl.missing.length ? 'open' : '') + '>';
+    html += '<details class="hist-section" ' + (_clPend ? 'open' : '') + '>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Checklist de liberación' +
             (_cl.missing.length ? ' <span style="color:var(--warn-text);font-weight:800;">· ' + _cl.missing.length + ' faltantes</span>'
              : _cl.legacy ? ' <span style="color:var(--muted);">· asentado automáticamente (' + _clPend + ' filas)</span>'
              : ' <span style="color:var(--ok-text);">✓</span>') + '</summary>';
-    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Corrige las que no correspondan; lo que fijes aquí manda sobre lo automático.</div>';
+    if (_cl.legacy) html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">Prueba liberada antes del ' + RELEASE_CHECKLIST_SINCE + ': las filas marcadas "auto" se llenaron solas. Confírmalas o corrígelas si sabes cómo quedó cada una; lo que fijes aquí manda sobre lo automático y queda registrado a tu nombre.</div>' +
+        '<button type="button" class="btn btn-sm btn-ghost" style="margin-bottom: var(--space-sm);" onclick="histChecklistConfirmAll()">✔ Confirmar todo como está</button>';
     html += '<div id="hist-checklist">' + _histChecklistRowsHTML(vehicle) + '</div></details>';
   }
 
@@ -6353,7 +6385,7 @@ function _histChecklistRowsHTML(vehicle) {
       }).join('');
     }
     var tag = pend[k] ? '<small>Se guardará al confirmar</small>'
-            : r.legacy ? '<small>auto · anterior al checklist</small>'
+            : r.legacy ? '<small>auto · anterior al checklist — toca una opción para confirmarla</small>'
             : r.auto ? '<small>Automático · ' + escapeHtml(r.reason) + '</small>'
             : (r.value ? '<small>Capturado por el liberador</small>' : '');
     return '<div class="relcl-row' + (cur ? '' : ' is-missing') + '"><div class="relcl-label">' + escapeHtml(r.label) + tag + '</div>' +
@@ -6370,9 +6402,23 @@ function histChecklistSet(group, key, val) {
   var k = group + ':' + key;
   var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
   var row = releaseChecklistRows(vehicle)[group].find(function(r) { return r.key === key; });
-  // Volver a elegir lo que ya vale (derivado o guardado) no es un cambio.
-  if (row && row.value === val && !pend[k]) return;
-  if (pend[k] === val || (row && row.value === val)) delete pend[k]; else pend[k] = val;
+  if (pend[k] === val) delete pend[k];                         // tocar lo elegido lo quita
+  else if (row && row.value === val && !row.legacy) delete pend[k]; // ya guardado: no es cambio
+  else pend[k] = val;   // [3.2.1] en una fila asentada sola, elegir su valor la CONFIRMA
+  var host = document.getElementById('hist-checklist');
+  if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
+}
+
+// [3.2.1] Confirma de un toque todas las filas asentadas solas con el valor que muestran.
+function histChecklistConfirmAll() {
+  if (!_histCompleteState) return;
+  var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
+  if (!vehicle) return;
+  var pend = _histCompleteState.checklist || (_histCompleteState.checklist = {});
+  var st = releaseChecklistRows(vehicle);
+  ['objects', 'docs'].forEach(function(group) {
+    st[group].forEach(function(r) { if (r.legacy && !pend[group + ':' + r.key]) pend[group + ':' + r.key] = r.value; });
+  });
   var host = document.getElementById('hist-checklist');
   if (host) host.innerHTML = _histChecklistRowsHTML(vehicle);
 }
@@ -7178,6 +7224,18 @@ function generateCOP15PDF(vehicleId, opts) {
       if (!(opts && opts.silent)) { hideOverlayLoading(); _showPdfMissingPopup(_comp.missing); }
       return null;
     }
+    // [3.2.1] El checklist de liberación tampoco puede salir en blanco. La fila F05 ya
+    // la cubre validatePdfCompleteness; lo demás lo marca quien liberó (o, si ya está
+    // archivado, se fija en Historial → 📝 Completar).
+    var _clGate = releaseChecklistRows(vehicle).missing.filter(function(r) { return r.key !== 'f05'; });
+    if (_clGate.length) {
+      if (!(opts && opts.silent)) {
+        hideOverlayLoading();
+        var _clSec = vehicle.status === 'archived' ? 'Checklist de liberación (Historial → 📝 Completar)' : 'Checklist de liberación';
+        _showPdfMissingPopup(_clGate.map(function(r) { return { section: _clSec, label: r.label }; }));
+      }
+      return null;
+    }
   }
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
@@ -7760,8 +7818,9 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     doc.setTextColor(...RED); setF('bold', 5.5);
     doc.text(_footTxt, ML+CW/2, fY+3.5, {align:'center'});
     doc.setTextColor(150,150,150); setF('normal', 4.5);
-    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX') +
-        (_cl.legacy ? ' | Checklist de liberación asentado retroactivamente (prueba anterior al ' + RELEASE_CHECKLIST_SINCE + ')' : ''), ML+2, fY+7);
+    // [3.2.1] Sin leyenda de checklist retroactivo, por decisión del laboratorio: lo asentado
+    // solo y lo confirmado en Completar quedan en la app (Completar, línea de tiempo, auditoría).
+    doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
     if (_nPages > 1) doc.text('Página ' + pg + ' de ' + _nPages, ML+CW-2, fY+7, {align:'right'});
   }
   doc.setPage(1);
