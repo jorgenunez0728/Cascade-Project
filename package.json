@@ -1,6 +1,6 @@
 {
   "name": "cascade-project",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "KIA EmLab — Emissions Laboratory Management System",
   "private": true,
   "scripts": {

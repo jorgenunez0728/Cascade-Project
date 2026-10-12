@@ -96,6 +96,11 @@ const SEED = () => {
             legacy: releaseIsBeforeChecklist(v), blanks: st.objects.concat(st.docs).filter(x => !x.value).map(x => x.key),
             retirado: count('Retirado'), adjunto: count('Adjunto'), noAplica: count('No aplica'), completa: count('Completa'),
             pieRetro: /retroactiv|asentad|anterior al/i.test(pdf),
+            // [3.2.2] firmas: el liberador sin fecha, el aprobador con el día de registro sin hora
+            registro: (pdf.match(/\(Registro en plataforma: (\d\d\/\d\d\/\d{4})\) Tj/) || [])[1] || '',
+            horasFeb: (pdf.match(/\d{1,2}\/\d{1,2}\/2026, \d{1,2}:\d\d:\d\d/g) || []).filter(x => !/^12\/10\/2026/.test(x)).length,
+            nuevoTxt: (() => { const d2 = generateCOP15PDF(9102, { returnDoc: true, silent: true }); const t = d2 ? d2.output() : '';
+                return { registro: /Registro en plataforma/.test(t), horas: (t.match(/\d{1,2}\/\d{1,2}\/2026, \d{1,2}:\d\d:\d\d/g) || []).filter(x => !/^12\/10\/2026/.test(x)).length }; })(),
             pdfOk: !!doc, nuevoBloqueado: nuevo === null, modalTxt, febGenera: feb !== null
         };
     });
@@ -110,6 +115,9 @@ const SEED = () => {
     ok('un archivado nuevo con el checklist vacío no imprime un F05 con huecos', r.nuevoBloqueado);
     ok('y dice dónde completarlo', /Checklist de liberación/.test(r.modalTxt) && /Completar/.test(r.modalTxt) && /KDS con VCI/.test(r.modalTxt), r.modalTxt.slice(0, 200));
     ok('el pie del PDF no menciona llenado retroactivo', r.pieRetro === false);
+    ok('firma del aprobador: "Registro en plataforma" con día, sin hora', r.registro === '09/10/2026', r.registro);
+    ok('ninguna firma con hora en la prueba anterior al checklist', r.horasFeb === 0, 'horas ' + r.horasFeb);
+    ok('una prueba nueva conserva fecha y hora de las dos firmas', !r.nuevoTxt.registro && r.nuevoTxt.horas === 2, JSON.stringify(r.nuevoTxt));
 
     // Completar: el botón aparece por el checklist y confirmar queda registrado en la app
     const c = await page.evaluate(() => {
