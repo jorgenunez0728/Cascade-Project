@@ -3246,3 +3246,17 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   (`_pdfDayDMY`, sin hora), por decisión del laboratorio. Las pruebas normales siguen con fecha y
   hora. **Nunca se cambia la fecha guardada de una firma**: las horas exactas quedan en
   `signatures.*.signedAt`, la línea de tiempo y la auditoría; esto solo decide qué imprime la hoja.
+
+## 3.3.0 — Imprimir las hojas F05 en lote (`js/cop15.js`)
+
+- **`f05Readiness(v)` es LA definición de "este vehículo puede emitir su Hoja COP15-F05"**
+  (`{ok, why, text, missing}`): histórico, propósito, `validatePdfCompleteness`, checklist. La usa
+  el gate de `generateCOP15PDF` y la impresión en lote; una regla nueva para emitir el F05 va ahí.
+- **Un lote de F05 se arma con `generateCOP15PDF(id, {returnDoc, silent, intoDoc,
+  intoDocHasPages})`**, nunca con una página "resumida" aparte (eso hacía el lote viejo y no era
+  el F05). Con `intoDoc` la hoja numera solo sus páginas (`_p0`) y `doc.text` se envuelve una sola
+  vez por documento (`doc._f05RawText`): envolverlo por hoja anidaría `_pdfSafe`.
+- `returnDoc`/`silent` saltan el gate: todo llamador que junte hojas debe filtrar antes con
+  `f05Readiness` (`histPrintPlan`), o imprimiría hojas con huecos.
+- Imprimir = `iframe` oculto con `blob:` + `contentWindow.print()`; si falla, se abre o descarga.
+  El lote se audita (`f05_lote`).

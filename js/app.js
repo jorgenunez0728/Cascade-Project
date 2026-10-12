@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.2.2';
+var APP_VERSION = '3.3.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.2.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.3.0', date: '12 oct 2026', title: 'Imprimir las hojas F05 en lote desde el Historial',
+      bullets: [
+          'Nuevo: Historial → "☑ Seleccionar todas" marca todas las pruebas que pasan los filtros (también las de otras páginas y de grupos plegados).',
+          'Nuevo: "🖨️ Imprimir F05" arma un solo PDF con la hoja COP15-F05 real de cada prueba seleccionada (o de todas las que se ven si no seleccionaste ninguna) y abre el diálogo de impresión. También se puede descargar.',
+          'Antes de imprimir dice cuántas salen y cuáles no y por qué (formulario o checklist incompleto, prueba histórica, propósito que no es de emisiones). Ninguna hoja sale a medias.',
+          'Cambió: el "PDF seleccionados" anterior armaba una página resumida que no era el F05; se reemplazó. El botón de imprimir la tabla ahora dice "🖨️ Tabla".'
+      ] },
     { version: '3.2.2', date: '12 oct 2026', title: 'Firmas del F05 en pruebas capturadas después',
       bullets: [
           'Cambió: en una prueba anterior al checklist (capturada en la plataforma después de realizada), la hoja F05 ya no imprime la fecha y hora de cada firma. El liberador sale sin fecha y el aprobador con "Registro en plataforma: dd/mm/aaaa". La fecha de la prueba sigue en el encabezado.',

@@ -20,6 +20,34 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.3.0 — Imprimir las hojas F05 en lote desde el Historial (2026-10-12)
+
+### Nuevo
+- **Historial → ☑ Seleccionar todas**: marca todas las pruebas que pasan los filtros, también
+  las de otras páginas y las de grupos plegados. Vuelve a tocarlo para quitarlas.
+- **🖨️ Imprimir F05**: arma **un solo PDF** con la hoja COP15-F05 real de cada prueba
+  seleccionada —o de todas las que se ven, si no hay selección— y abre el diálogo de impresión
+  del navegador. También ofrece **⬇ Descargar PDF**.
+- Antes de imprimir dice **cuántas salen y cuáles no, y por qué** (formulario o checklist
+  incompleto, prueba histórica, propósito que no es de emisiones). Ninguna hoja sale a medias:
+  las incompletas se completan en 📝 Completar y después ya se imprimen.
+- La impresión o descarga en lote queda en el historial de cambios.
+
+### Cambió
+- El botón "PDF seleccionados" anterior armaba una página resumida que **no** era el F05; lo
+  reemplaza Imprimir F05. El que imprime la tabla del Historial ahora dice **🖨️ Tabla**.
+
+### Para desarrollo
+- **`f05Readiness(v)` es LA definición de "puede emitir su F05"** (histórico, propósito,
+  `validatePdfCompleteness`, checklist). La usan `generateCOP15PDF` y el lote.
+- `generateCOP15PDF(id, {returnDoc, silent, intoDoc, intoDocHasPages})` agrega la hoja a un
+  documento ya abierto; numera solo sus propias páginas y envuelve `doc.text` una sola vez por
+  documento (`doc._f05RawText`). Sin `intoDoc` la salida es idéntica (huella del F05 sin cambio).
+- `histPrintPlan(vehicles)` (PURA) reparte en imprimibles y omitidos. Se imprime con un
+  `iframe` oculto sobre un `blob:`; si el navegador no deja, se abre el PDF o se descarga.
+- Se retiraron `batchPDFExport`, `_doBatchPDF` y `_renderVehiclePDFPage`.
+- `tests/v330.e2e.js`.
+
 ## 3.2.2 — Firmas del F05 en pruebas capturadas después (2026-10-12)
 
 ### Cambió
