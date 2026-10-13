@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.3.0';
+var APP_VERSION = '3.4.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,8 @@ var APP_VERSION = '3.3.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.4.0', date: '13 oct 2026', title: 'Versión propia de CASCADE',
+      bullets: ['Cascade muestra su versión real (antes "v1.0615" fijo) con su historial, en Pruebas y en Datos → Sistema.'] },
     { version: '3.3.0', date: '12 oct 2026', title: 'Imprimir las hojas F05 en lote desde el Historial',
       bullets: [
           'Nuevo: Historial → "☑ Seleccionar todas" marca todas las pruebas que pasan los filtros (también las de otras páginas y de grupos plegados).',
@@ -1413,6 +1415,111 @@ var APP_VERSION_HISTORY = [
         'Registro de vehículos COP15, plan de pruebas, inventario de laboratorio, sincronización con Firebase.'
     ]}
 ];
+
+// [3.4.0] Versión de CASCADE (Alta → Operación → Liberación → Aprobación → F05), aparte de la
+// de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
+// MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
+// toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
+var CASCADE_VERSION = '4.8.1';
+var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.1', date: '12 oct 2026', app: '3.3.0', title: 'F05: checklist, firmas e impresión en lote',
+      bullets: ['Checklist y firmas correctos en pruebas capturadas después; imprimir F05 en lote.'] },
+    { version: '4.8.0', date: '11 oct 2026', app: '3.2.0', title: 'México: 4 gases en g/mi y NOM-042',
+      bullets: ['CO, THC, NOx y NMHC en g/mi, juzgados con la NOM-042 C-VP.'] },
+    { version: '4.7.1', date: '8 oct 2026', app: '2.37.2', title: 'Historial: buscar y agrupar',
+      bullets: ['Buscar, ordenar y agrupar el Historial; el envío a aprobación ya no se pierde al firmar.'] },
+    { version: '4.7.0', date: '2 oct 2026', app: '2.31.0', title: 'Pruebas históricas e IWR',
+      bullets: ['Importar pruebas anteriores de VETS; una prueba con IWR fuera de rango no cuenta para CoP.'] },
+    { version: '4.6.1', date: '1 oct 2026', app: '2.29.0', title: 'Doble ciego con cifras del reporte; ICMS por unidad',
+      bullets: ['Comparación a la precisión del valor más corto; coeficientes del ICMS por VIN.'] },
+    { version: '4.6.0', date: '29 sep 2026', app: '2.20.0', title: 'Libera el Técnico, aprueba el Signatario',
+      bullets: ['Nadie aprueba lo que liberó; Operación en tarjetas en el teléfono.'] },
+    { version: '4.5.0', date: '28 sep 2026', app: '2.8.0', title: 'VETS, corregir alta y revisión dirigida',
+      bullets: ['Importar la prueba de VETS, corregir VIN o configuración, gases por regulación y revisión dirigida.'] },
+    { version: '4.4.1', date: '25 sep 2026', app: 'v24.5', title: 'Sync y catálogo único',
+      bullets: ['Lo capturado ya no se pierde con el sync; el Alta y el Plan usan el mismo catálogo.'] },
+    { version: '4.4.0', date: '22 sep 2026', app: 'v23.4', title: 'F05 en una hoja y Operación más simple',
+      bullets: ['Checklist de liberación, F05 en una hoja, siguiente paso y campos calculados.'] },
+    { version: '4.3.1', date: '2 sep 2026', app: 'v23', title: 'Lo liberado aparece en el plan',
+      bullets: ['Cada liberación acredita su fila del plan.'] },
+    { version: '4.3.0', date: '25 ago 2026', app: 'v18.2', title: 'Devolver al liberador',
+      bullets: ['Devolver con motivo, elegir la regulación al liberar y homologación Europa en el Alta.'] },
+    { version: '4.2.0', date: '30 jul 2026', title: 'Permisos por rol',
+      bullets: ['Liberar y aprobar requieren permiso; quien libera no aprueba.'] },
+    { version: '4.1.1', date: '15 jul 2026', app: 'v16.1', title: 'Regulaciones sin perfil',
+      bullets: ['El Alta acepta EVs y regulaciones sin perfil.'] },
+    { version: '4.1.0', date: '5 jul 2026', app: 'v15.8', title: 'F05 completo y Completar archivados',
+      bullets: ['No se envía con el F05 incompleto; % del límite; completar pruebas archivadas.'] },
+    { version: '4.0.0', date: '21 may 2026', title: 'Doble ciego interno',
+      bullets: ['El aprobador captura sin ver al liberador; reemplaza a Power Automate.'] },
+    { version: '3.1.1', date: '30 abr 2026', title: 'F05 y foto en un PDF',
+      bullets: ['F05 y hoja de resultados en un PDF; borrar vehículos; fecha de alta editable.'] },
+    { version: '3.1.0', date: '16 abr 2026', title: 'Firmas digitales',
+      bullets: ['Firma del liberador y del aprobador; iniciar la prueba desde el plan.'] },
+    { version: '3.0.0', date: '13 abr 2026', title: 'Aprobación por Power Automate',
+      bullets: ['Aprobación en Teams; foto de la hoja de resultados obligatoria.'] },
+    { version: '2.2.0', date: '30 mar 2026', title: 'Autoguardado y siguiente paso',
+      bullets: ['Autoguardado, ayudas de campo y siguiente paso sugerido.'] },
+    { version: '2.1.0', date: '10 mar 2026', title: 'Cola e Historial',
+      bullets: ['Cola por etapa, Historial con filtros y árbol de configuraciones.'] },
+    { version: '2.0.0', date: '2 mar 2026', title: 'Plataforma compartida',
+      bullets: ['Los vehículos se comparten entre equipos; temporizador de soak.'] },
+    { version: '1.0615', legacy: true, date: 'antes de mar 2026', title: 'Archivo original',
+      bullets: ['Cascade como un solo archivo HTML.'] }
+];
+
+/** [3.4.0] El historial de versiones de Cascade como HTML. PURA (sin DOM). */
+function cascadeVersionHistoryHTML(history, current) {
+    var h = history || CASCADE_VERSION_HISTORY, cur = current || CASCADE_VERSION;
+    var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var out = '<div class="cv-hist" style="text-align:left;">' +
+        '<p style="color:var(--muted);font-size:var(--fs-xs);margin:0 0 var(--space-sm);line-height:var(--lh-base);">' +
+        'MAYOR = cómo se aprueba (3 Power Automate, 4 doble ciego) · MENOR = un paso, campo o regla · PARCHE = lo demás.</p>';
+    var vioLegacy = false;
+    h.forEach(function(e, i) {
+        if (e.legacy && !vioLegacy) {
+            vioLegacy = true;
+            out += '<div style="margin:var(--space-md) 0 var(--space-xs);padding-top:var(--space-sm);border-top:1px dashed var(--border);' +
+                   'color:var(--muted);font-size:var(--fs-xs);font-weight:700;">Numeración anterior (el archivo original)</div>';
+        }
+        var actual = e.version === cur;
+        out += '<details' + (actual ? ' open' : '') + ' style="border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:var(--space-xs);overflow:hidden;">' +
+            '<summary style="cursor:pointer;padding:var(--space-sm) var(--space-md);font-size:var(--fs-sm);display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;">' +
+            '<b style="color:var(--text);">' + esc(e.version) + '</b>' +
+            '<span style="color:var(--muted);flex:1;min-width:0;">' + esc(e.title) + '</span>' +
+            '<span style="color:var(--muted);font-size:var(--fs-xs);">' + esc(e.date) + (e.app ? ' · plataforma ' + esc(/^\d/.test(e.app) ? 'v' + e.app : e.app) : '') + '</span>' +
+            (actual ? '<span style="background:var(--ok-bg);color:var(--ok-text);padding:0 var(--space-sm);border-radius:var(--radius-md);font-size:var(--fs-xs);font-weight:800;">ACTUAL</span>' : '') +
+            '</summary><ul style="margin:0;padding:var(--space-xs) var(--space-md) var(--space-sm) var(--space-xl);font-size:var(--fs-xs);color:var(--muted);line-height:var(--lh-base);">' +
+            (e.bullets || []).map(function(b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></details>';
+    });
+    return out + '</div>';
+}
+
+/** Pinta la versión en la barra de Cascade (Pruebas). */
+function cascadeVersionRender() {
+    var el = document.getElementById('cascade-version-pill');
+    if (!el) return;
+    el.textContent = 'CASCADE ' + CASCADE_VERSION;
+    el.title = 'Versión del procedimiento CASCADE (plataforma v' + APP_VERSION + ') — toca para ver qué trajo cada versión';
+}
+
+/** Abre el historial de versiones de Cascade. */
+function cascadeVersionShow() {
+    showModal({
+        title: '🧪 CASCADE ' + CASCADE_VERSION,
+        message: '<div style="max-height:60vh;overflow:auto;">' + cascadeVersionHistoryHTML() + '</div>',
+        confirmText: 'Cerrar',
+        showCancel: false,
+        type: 'info'
+    });
+}
+
+/** Datos → Sistema: tarjeta con el historial de Cascade (fuera de Alpine, como la densidad). */
+function cascadeVersionPanelRender() {
+    var el = document.getElementById('pn-cascade-versions');
+    if (el) el.innerHTML = cascadeVersionHistoryHTML();
+}
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
@@ -6474,6 +6581,7 @@ function storageFreeBytes() {
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }
+        try { cascadeVersionRender(); } catch(e) { console.error('cascade version error:', e); }
 
         // [2.11.0] La bienvenida ya está en pantalla desde el HTML (#auth-overlay).
         // Red de seguridad: este temporizador corre en cuanto initializeSystem termina

@@ -20,6 +20,15 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.4.0 — Versión propia de CASCADE (2026-10-13)
+
+### Nuevo
+- Cascade muestra su versión real (**4.8.1**) en lugar del "v1.0615" fijo. Al tocarla se ve su
+  historial; también está en Datos → Sistema.
+
+### Para desarrollo
+- `CASCADE_VERSION` / `CASCADE_VERSION_HISTORY` (app.js). Ver CLAUDE.md → Versionado.
+
 ## 3.3.0 — Imprimir las hojas F05 en lote desde el Historial (2026-10-12)
 
 ### Nuevo

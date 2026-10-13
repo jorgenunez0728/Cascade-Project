@@ -2259,6 +2259,17 @@ body{ overflow-x: hidden; }
 .app-version-pill:hover { background: rgba(255,255,255,0.16); }
 .app-version-pill strong { font-weight: 800; }
 .app-version-pill-dot { color: #10b981; margin-left: 4px; }
+
+/* [3.4.0] Versión de CASCADE en la barra de Pruebas: mismo lenguaje que el pill de la
+   plataforma (fondo oscuro del .topbar), tocable para ver su historial. */
+.cascade-version-pill {
+    margin-left: var(--space-sm); padding: var(--space-xs) var(--space-sm); min-height: 28px;
+    font: inherit; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.02em; color: #e2e8f0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; vertical-align: middle;
+    transition: background var(--dur-fast) ease;
+}
+.cascade-version-pill:hover { background: rgba(255,255,255,0.16); }
 .app-version-pill-badge {
     background: #f59e0b; color: #000; padding: 1px 7px; border-radius: 8px;
     font-weight: 800; margin-left: 6px; font-size: var(--fs-sm);
@@ -6458,7 +6469,7 @@ body.ficha-open { overflow: hidden; }
    ══════════════════════════════════════════════════════════════════════ */
 .veh-cloud {
     display: inline-flex; align-items: center; gap: var(--space-xs);
-    margin-left: var(--space-sm); padding: var(--space-2xs) var(--space-sm);
+    margin-left: var(--space-sm); padding: var(--space-xs) var(--space-sm); min-height: 28px;
     border: 1px solid transparent; border-radius: var(--radius-xl);
     font: inherit; font-size: var(--fs-sm); font-weight: 700; line-height: 1.3;
     background: var(--info-bg); color: var(--info-text); cursor: pointer; vertical-align: middle;
@@ -6931,7 +6942,8 @@ body.ficha-open { overflow: hidden; }
 <div class="platform-section" id="platform-cop15" role="region" aria-label="COP15 Cascade">
 
 <div class="topbar">
-    <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
+    <div><strong>KIA Laboratorio de Emisiones</strong> <!-- [3.4.0] Versión de CASCADE con significado: CASCADE_VERSION (app.js), la pinta cascadeVersionRender. -->
+        <button type="button" id="cascade-version-pill" class="cascade-version-pill u-hit" onclick="cascadeVersionShow()">CASCADE</button>
 
     <span style="display:none;"></span></div>
     <div id="progressText">Sistema Inicializado</div>
@@ -8571,6 +8583,13 @@ body.ficha-open { overflow: hidden; }
                 </template>
             </div>
 
+            <!-- [3.4.0] Historial de versiones de CASCADE. Lo pinta cascadeVersionPanelRender (app.js)
+                 desde pnSwitchTab — estático, fuera de Alpine (mismo criterio que la densidad). -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_cascade_versions">🧪 Versiones de CASCADE</h4>
+                <div id="pn-cascade-versions"></div>
+            </div>
+
             <!-- v22.0: Densidad de la interfaz. Va aquí y no en una pantalla de ajustes
                  aparte porque el efecto se ve al instante en la propia pantalla: se elige
                  mirando el resultado. Estático (no depende de pnState), así que no necesita
@@ -9464,10 +9483,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610121657';
+var APP_BUILD = '202610132027';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '5eb2b49858f3e3f4b82e2452ba1b7f0fe3d7501a';
+var APP_COMMIT = '7026f98207370fdc75c97826d31189f81d2b055a';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9475,7 +9494,7 @@ var APP_COMMIT = '5eb2b49858f3e3f4b82e2452ba1b7f0fe3d7501a';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.3.0';
+var APP_VERSION = '3.4.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9483,6 +9502,8 @@ var APP_VERSION = '3.3.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.4.0', date: '13 oct 2026', title: 'Versión propia de CASCADE',
+      bullets: ['Cascade muestra su versión real (antes "v1.0615" fijo) con su historial, en Pruebas y en Datos → Sistema.'] },
     { version: '3.3.0', date: '12 oct 2026', title: 'Imprimir las hojas F05 en lote desde el Historial',
       bullets: [
           'Nuevo: Historial → "☑ Seleccionar todas" marca todas las pruebas que pasan los filtros (también las de otras páginas y de grupos plegados).',
@@ -10414,16 +10435,121 @@ var APP_VERSION_HISTORY = [
     ]}
 ];
 
+// [3.4.0] Versión de CASCADE (Alta → Operación → Liberación → Aprobación → F05), aparte de la
+// de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
+// MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
+// toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
+var CASCADE_VERSION = '4.8.1';
+var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.1', date: '12 oct 2026', app: '3.3.0', title: 'F05: checklist, firmas e impresión en lote',
+      bullets: ['Checklist y firmas correctos en pruebas capturadas después; imprimir F05 en lote.'] },
+    { version: '4.8.0', date: '11 oct 2026', app: '3.2.0', title: 'México: 4 gases en g/mi y NOM-042',
+      bullets: ['CO, THC, NOx y NMHC en g/mi, juzgados con la NOM-042 C-VP.'] },
+    { version: '4.7.1', date: '8 oct 2026', app: '2.37.2', title: 'Historial: buscar y agrupar',
+      bullets: ['Buscar, ordenar y agrupar el Historial; el envío a aprobación ya no se pierde al firmar.'] },
+    { version: '4.7.0', date: '2 oct 2026', app: '2.31.0', title: 'Pruebas históricas e IWR',
+      bullets: ['Importar pruebas anteriores de VETS; una prueba con IWR fuera de rango no cuenta para CoP.'] },
+    { version: '4.6.1', date: '1 oct 2026', app: '2.29.0', title: 'Doble ciego con cifras del reporte; ICMS por unidad',
+      bullets: ['Comparación a la precisión del valor más corto; coeficientes del ICMS por VIN.'] },
+    { version: '4.6.0', date: '29 sep 2026', app: '2.20.0', title: 'Libera el Técnico, aprueba el Signatario',
+      bullets: ['Nadie aprueba lo que liberó; Operación en tarjetas en el teléfono.'] },
+    { version: '4.5.0', date: '28 sep 2026', app: '2.8.0', title: 'VETS, corregir alta y revisión dirigida',
+      bullets: ['Importar la prueba de VETS, corregir VIN o configuración, gases por regulación y revisión dirigida.'] },
+    { version: '4.4.1', date: '25 sep 2026', app: 'v24.5', title: 'Sync y catálogo único',
+      bullets: ['Lo capturado ya no se pierde con el sync; el Alta y el Plan usan el mismo catálogo.'] },
+    { version: '4.4.0', date: '22 sep 2026', app: 'v23.4', title: 'F05 en una hoja y Operación más simple',
+      bullets: ['Checklist de liberación, F05 en una hoja, siguiente paso y campos calculados.'] },
+    { version: '4.3.1', date: '2 sep 2026', app: 'v23', title: 'Lo liberado aparece en el plan',
+      bullets: ['Cada liberación acredita su fila del plan.'] },
+    { version: '4.3.0', date: '25 ago 2026', app: 'v18.2', title: 'Devolver al liberador',
+      bullets: ['Devolver con motivo, elegir la regulación al liberar y homologación Europa en el Alta.'] },
+    { version: '4.2.0', date: '30 jul 2026', title: 'Permisos por rol',
+      bullets: ['Liberar y aprobar requieren permiso; quien libera no aprueba.'] },
+    { version: '4.1.1', date: '15 jul 2026', app: 'v16.1', title: 'Regulaciones sin perfil',
+      bullets: ['El Alta acepta EVs y regulaciones sin perfil.'] },
+    { version: '4.1.0', date: '5 jul 2026', app: 'v15.8', title: 'F05 completo y Completar archivados',
+      bullets: ['No se envía con el F05 incompleto; % del límite; completar pruebas archivadas.'] },
+    { version: '4.0.0', date: '21 may 2026', title: 'Doble ciego interno',
+      bullets: ['El aprobador captura sin ver al liberador; reemplaza a Power Automate.'] },
+    { version: '3.1.1', date: '30 abr 2026', title: 'F05 y foto en un PDF',
+      bullets: ['F05 y hoja de resultados en un PDF; borrar vehículos; fecha de alta editable.'] },
+    { version: '3.1.0', date: '16 abr 2026', title: 'Firmas digitales',
+      bullets: ['Firma del liberador y del aprobador; iniciar la prueba desde el plan.'] },
+    { version: '3.0.0', date: '13 abr 2026', title: 'Aprobación por Power Automate',
+      bullets: ['Aprobación en Teams; foto de la hoja de resultados obligatoria.'] },
+    { version: '2.2.0', date: '30 mar 2026', title: 'Autoguardado y siguiente paso',
+      bullets: ['Autoguardado, ayudas de campo y siguiente paso sugerido.'] },
+    { version: '2.1.0', date: '10 mar 2026', title: 'Cola e Historial',
+      bullets: ['Cola por etapa, Historial con filtros y árbol de configuraciones.'] },
+    { version: '2.0.0', date: '2 mar 2026', title: 'Plataforma compartida',
+      bullets: ['Los vehículos se comparten entre equipos; temporizador de soak.'] },
+    { version: '1.0615', legacy: true, date: 'antes de mar 2026', title: 'Archivo original',
+      bullets: ['Cascade como un solo archivo HTML.'] }
+];
+
+/** [3.4.0] El historial de versiones de Cascade como HTML. PURA (sin DOM). */
+function cascadeVersionHistoryHTML(history, current) {
+    var h = history || CASCADE_VERSION_HISTORY, cur = current || CASCADE_VERSION;
+    var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var out = '<div class="cv-hist" style="text-align:left;">' +
+        '<p style="color:var(--muted);font-size:var(--fs-xs);margin:0 0 var(--space-sm);line-height:var(--lh-base);">' +
+        'MAYOR = cómo se aprueba (3 Power Automate, 4 doble ciego) · MENOR = un paso, campo o regla · PARCHE = lo demás.</p>';
+    var vioLegacy = false;
+    h.forEach(function(e, i) {
+        if (e.legacy && !vioLegacy) {
+            vioLegacy = true;
+            out += '<div style="margin:var(--space-md) 0 var(--space-xs);padding-top:var(--space-sm);border-top:1px dashed var(--border);' +
+                   'color:var(--muted);font-size:var(--fs-xs);font-weight:700;">Numeración anterior (el archivo original)</div>';
+        }
+        var actual = e.version === cur;
+        out += '<details' + (actual ? ' open' : '') + ' style="border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:var(--space-xs);overflow:hidden;">' +
+            '<summary style="cursor:pointer;padding:var(--space-sm) var(--space-md);font-size:var(--fs-sm);display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;">' +
+            '<b style="color:var(--text);">' + esc(e.version) + '</b>' +
+            '<span style="color:var(--muted);flex:1;min-width:0;">' + esc(e.title) + '</span>' +
+            '<span style="color:var(--muted);font-size:var(--fs-xs);">' + esc(e.date) + (e.app ? ' · plataforma ' + esc(/^\d/.test(e.app) ? 'v' + e.app : e.app) : '') + '</span>' +
+            (actual ? '<span style="background:var(--ok-bg);color:var(--ok-text);padding:0 var(--space-sm);border-radius:var(--radius-md);font-size:var(--fs-xs);font-weight:800;">ACTUAL</span>' : '') +
+            '</summary><ul style="margin:0;padding:var(--space-xs) var(--space-md) var(--space-sm) var(--space-xl);font-size:var(--fs-xs);color:var(--muted);line-height:var(--lh-base);">' +
+            (e.bullets || []).map(function(b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></details>';
+    });
+    return out + '</div>';
+}
+
+/** Pinta la versión en la barra de Cascade (Pruebas). */
+function cascadeVersionRender() {
+    var el = document.getElementById('cascade-version-pill');
+    if (!el) return;
+    el.textContent = 'CASCADE ' + CASCADE_VERSION;
+    el.title = 'Versión del procedimiento CASCADE (plataforma v' + APP_VERSION + ') — toca para ver qué trajo cada versión';
+}
+
+/** Abre el historial de versiones de Cascade. */
+function cascadeVersionShow() {
+    showModal({
+        title: '🧪 CASCADE ' + CASCADE_VERSION,
+        message: '<div style="max-height:60vh;overflow:auto;">' + cascadeVersionHistoryHTML() + '</div>',
+        confirmText: 'Cerrar',
+        showCancel: false,
+        type: 'info'
+    });
+}
+
+/** Datos → Sistema: tarjeta con el historial de Cascade (fuera de Alpine, como la densidad). */
+function cascadeVersionPanelRender() {
+    var el = document.getElementById('pn-cascade-versions');
+    if (el) el.innerHTML = cascadeVersionHistoryHTML();
+}
+
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610121657' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610132027' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610121657' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610132027' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10439,7 +10565,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610121657' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610132027' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -15474,6 +15600,7 @@ function storageFreeBytes() {
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { void 0; }
+        try { cascadeVersionRender(); } catch(e) { void 0; }
 
         // [2.11.0] La bienvenida ya está en pantalla desde el HTML (#auth-overlay).
         // Red de seguridad: este temporizador corre en cuanto initializeSystem termina
@@ -48815,6 +48942,7 @@ function pnSwitchTab(tabId) {
     // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
     // estático de pn-system, que no pasa por pnRender.
     if (tabId === 'pn-system') pnDensityRenderChoices();
+    if (tabId === 'pn-system' && typeof cascadeVersionPanelRender === 'function') cascadeVersionPanelRender();   // [3.4.0]
     // [2.14.0] Equipos del laboratorio: qué versión corre cada uno.
     if (tabId === 'pn-system' && typeof fbDevicesRender === 'function') fbDevicesRender();
     // [2.37.0] Avisos del laboratorio (js/digest.js).
@@ -53260,6 +53388,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
+    'pn_cascade_versions': { title: 'Versiones de CASCADE', text: 'CASCADE es el procedimiento de la prueba (Alta, Operación, Liberación, Aprobación y F05) y tiene su propia versión. MAYOR = cómo se aprueba; MENOR = un paso, campo o regla; PARCHE = lo demás.' },
     'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });
 
@@ -61198,7 +61327,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610121657' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610132027' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76628,7 +76757,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":8998,"mods":[[9001,"js/app.js",18526],[18530,"js/uiflow.js",18846],[18850,"js/cop15.js",29297],[29301,"js/inventory.js",36367],[36371,"js/testplan.js",47930],[47934,"js/panel.js",53264],[53268,"js/projects.js",55557],[55561,"js/auth.js",56602],[56606,"js/signatures.js",56807],[56811,"js/firebase-sync.js",64341],[64345,"js/cop_validator.js",68710],[68714,"js/homolog.js",70504],[70508,"js/vets.js",72305],[72309,"js/historico.js",73223],[73227,"js/review.js",73680],[73684,"js/opcards.js",74113],[74117,"js/handoff.js",74391],[74395,"js/ficha.js",74886],[74890,"js/relevo.js",75270],[75274,"js/momentos.js",75411],[75415,"js/digest.js",76200],[76204,"js/xlsxw.js",76584],[76588,"js/bugreport.js",77734]]};
+var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18653],[18657,"js/uiflow.js",18973],[18977,"js/cop15.js",29424],[29428,"js/inventory.js",36494],[36498,"js/testplan.js",48057],[48061,"js/panel.js",53393],[53397,"js/projects.js",55686],[55690,"js/auth.js",56731],[56735,"js/signatures.js",56936],[56940,"js/firebase-sync.js",64470],[64474,"js/cop_validator.js",68839],[68843,"js/homolog.js",70633],[70637,"js/vets.js",72434],[72438,"js/historico.js",73352],[73356,"js/review.js",73809],[73813,"js/opcards.js",74242],[74246,"js/handoff.js",74520],[74524,"js/ficha.js",75015],[75019,"js/relevo.js",75399],[75403,"js/momentos.js",75540],[75544,"js/digest.js",76329],[76333,"js/xlsxw.js",76713],[76717,"js/bugreport.js",77863]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

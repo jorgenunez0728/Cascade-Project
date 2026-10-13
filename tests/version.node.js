@@ -17,7 +17,7 @@ const APP = fs.readFileSync(path.join(RAIZ, 'js', 'app.js'), 'utf8');
 function extraerVar(nombre) {
     const i0 = APP.indexOf('\nvar ' + nombre + ' =');
     if (i0 < 0) throw new Error('no encontré var ' + nombre);
-    const fin = nombre === 'APP_VERSION' ? APP.indexOf(';', i0) : APP.indexOf('\n];', i0) + 3;
+    const fin = (nombre === 'APP_VERSION' || nombre === 'CASCADE_VERSION') ? APP.indexOf(';', i0) : APP.indexOf('\n];', i0) + 3;
     return APP.slice(i0 + 1, fin + 1);
 }
 const ctx = {};
@@ -65,6 +65,27 @@ const m = /^## (\d[^\s]*) —/m.exec(CL);
 ok('la primera versión del CHANGELOG es APP_VERSION', m && m[1] === V, m && m[1]);
 const PKG = JSON.parse(fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8'));
 ok('package.json.version === APP_VERSION', PKG.version === V, PKG.version);
+
+// ── [3.4.0] Versión de CASCADE ───────────────────────────────────────────────
+console.log('\n== CASCADE_VERSION y su historial ==');
+const cctx = {};
+vm.createContext(cctx);
+vm.runInContext(extraerVar('CASCADE_VERSION') + '\n' + extraerVar('CASCADE_VERSION_HISTORY') +
+    '\nthis.CV = CASCADE_VERSION; this.CH = CASCADE_VERSION_HISTORY;', cctx);
+const CV = cctx.CV, CH = cctx.CH;
+ok('CASCADE_VERSION tiene tres números', TRES.test(CV), CV);
+ok('la primera entrada del historial de Cascade ES la versión actual', CH[0] && CH[0].version === CV && !CH[0].legacy);
+ok('toda entrada trae {version, date, title, bullets}', CH.every(e => e && e.version && e.date && e.title &&
+    Array.isArray(e.bullets) && e.bullets.length));
+const cNuevas = CH.filter(e => !e.legacy);
+ok('van de la más reciente a la más vieja, sin repetir, con tres números',
+    cNuevas.every((e, i) => TRES.test(e.version) && (i === 0 || cmp(cNuevas[i - 1].version, e.version) > 0)));
+const cPrimVieja = CH.findIndex(e => e.legacy);
+ok('la numeración anterior va al final y no usa tres números',
+    cPrimVieja > 0 && CH.slice(cPrimVieja).every(e => e.legacy && !TRES.test(e.version)));
+const appVers = new Set(H.map(e => e.version));
+ok('cada `app` de tres números existe en APP_VERSION_HISTORY',
+    cNuevas.every(e => !e.app || !TRES.test(e.app) || appVers.has(e.app)));
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron\n');
 process.exit(fallaron ? 1 : 0);

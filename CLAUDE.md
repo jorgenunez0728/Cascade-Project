@@ -2938,6 +2938,10 @@ abría, y Vincular escondía vehículos).
   anterior" en CHANGELOG. **No se renumera ni se reescribe.**
 - Comentarios de código nuevos citan la versión con tres números: `// [2.1.0] …` (nunca `v2.1`,
   que se confundiría con el estilo viejo).
+- **CASCADE tiene su propia versión** (`CASCADE_VERSION` + `CASCADE_VERSION_HISTORY`, app.js).
+  Sube solo si la ronda cambia el procedimiento de la prueba (Alta, Operación, Liberación,
+  Aprobación, F05): MAYOR = cómo se aprueba, MENOR = un paso/campo/regla, PARCHE = lo demás.
+  Entrada `{version, date, app, title, bullets}` al principio, breve.
 - **La versión no es el build.** `APP_BUILD` (fecha de compilación, la inyecta `build.sh`) es lo
   que usa el aviso de "hay actualización"; la versión dice qué trae. El topbar muestra las dos.
 
