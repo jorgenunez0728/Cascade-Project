@@ -20,6 +20,19 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.6.0 — Instrumentos en calibración (2026-10-13)
+
+### Nuevo
+- Consumibles → Equipos: **🚚 En calibración** en los instrumentos vencidos o por vencer. Se
+  captura la fecha de envío, el regreso esperado (opcional) y el proveedor.
+- Mientras está fuera sale como **En calibración** (azul, filtro propio) y deja de contar como
+  vencido en alertas, HOY y el resumen. Si pasa la fecha de regreso esperada, avisa.
+- Al volver: **✅ Calibrado** termina el envío solo; **↩ Regresó** si regresó sin calibrar.
+
+### Para desarrollo
+- `invCalStatus` devuelve `encalibracion` (con `late`) si hay `eq.calOut`; escritores
+  `invCalSendOut` / `invCalBack`; `_invApplyCalibration` lo limpia. Sync: `_fbMergeEquipCalOut`.
+
 ## 3.5.0 — Resumen al inicio y al final del turno (2026-10-13)
 
 ### Cambió

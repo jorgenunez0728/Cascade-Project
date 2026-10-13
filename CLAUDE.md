@@ -3276,3 +3276,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   "toca" y el envío vuelve a decidir con la misma regla.
 - El estado se guarda **justo después** de enviar el correo, no al final: si algo falla después,
   la siguiente corrida no repite el correo.
+
+## 3.6.0 — Instrumentos en calibración (`js/inventory.js`)
+
+- **`eq.calOut = {at, by, expectedBack, provider, note}`** = enviado a calibrar. `invCalStatus`
+  devuelve `encalibracion` (con `late` = días después del regreso esperado): NO es `vencido`, así
+  que alertas, HOY, ronda y resumen lo dejan fuera solos. Con `late > 0` hay alerta `cal-regreso`
+  (ALTA) y fila de HOY. Escritores: `invCalSendOut` / `invCalBack` (`inventory.manage`, auditados);
+  **`_invApplyCalibration` lo termina** (también la importación del F11).
+- Sync: el conflicto de un instrumento también compara `calOut`; `_fbMergeEquipCalOut` (PURA,
+  simétrica) toma el lado con `updatedAt` más reciente —también si lo quitó— y lo descarta si hay
+  una calibración del día del envío o posterior.
+
