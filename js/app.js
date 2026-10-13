@@ -484,7 +484,7 @@ var APP_VERSION = '3.5.0';
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
     { version: '3.5.0', date: '13 oct 2026', title: 'Resumen al inicio y al final del turno',
-      bullets: ['El resumen sale dos veces por día hábil: 7:00 y 17:00 ("cierre de turno"). Cada uno una sola vez; ya no se revisa cada hora.'] },
+      bullets: ['El resumen sale al inicio (7:00) y al final del turno (16:00, "cierre de turno"), una sola vez cada uno. Se intenta cada 5 min en esa hora y, en cuanto sale, ya no se vuelve a intentar.'] },
     { version: '3.4.0', date: '13 oct 2026', title: 'Versión propia de CASCADE',
       bullets: ['Cascade muestra su versión real (antes "v1.0615" fijo) con su historial, en Pruebas y en Datos → Sistema.'] },
     { version: '3.3.0', date: '12 oct 2026', title: 'Imprimir las hojas F05 en lote desde el Historial',

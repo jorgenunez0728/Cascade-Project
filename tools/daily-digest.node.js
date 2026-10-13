@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [2.37.0] Avisos del laboratorio — lo corre GitHub Actions al inicio  ║
-// ║  (7:00) y al final del turno (17:00), México, lunes a viernes [3.5.0] ║
+// ║  (7:00) y al final del turno (16:00), México, lunes a viernes [3.5.0] ║
 // ║  (.github/workflows/daily-digest.yml).                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 // Cada corrida:
@@ -176,7 +176,11 @@ async function main() {
             to: TEST ? TEST_TO : d.settings.to, cc: d.escalateTo }, push, data, errors);
         log(`resumen: ${d.vehicles.count} activos, ${d.vehicles.escalated.length} escalados, ${d.approved.length} aprobados`);
         if (DRY || TEST) log('activos: ' + d.vehicles.rows.map(r => `${r.vin} ${r.label} ${r.daysActive}d`).join(' · '));
-        if (ok) { state.lastDigestDate = lp.date; state.lastDigestSlot = slot; state.lastDigestAt = nowIso; dirty = true; }
+        if (ok) {
+            state.lastDigestDate = lp.date; state.lastDigestSlot = slot; state.lastDigestAt = nowIso; dirty = true;
+            // [3.5.0] Guardar YA: si algo falla después, la siguiente corrida no repite el correo.
+            if (!DRY && !TEST && !env.DIGEST_FIXTURE) { state.updatedAt = nowIso; await patchDoc('digest/state', state); dirty = false; }
+        }
     } else {
         log('resumen: no toca (ya salió el de este turno, fin de semana o antes de las 7:00)');
     }

@@ -23,12 +23,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 ## 3.5.0 — Resumen al inicio y al final del turno (2026-10-13)
 
 ### Cambió
-- El resumen del laboratorio sale dos veces por día hábil: al inicio (7:00) y al final del turno
-  (17:00, con "cierre de turno" en el asunto). Ya no se revisa cada hora: dos corridas por día.
-- El aviso de plan aceptado sale en esas mismas dos corridas.
+- El resumen sale al inicio (7:00) y al final del turno (16:00, "cierre de turno" en el asunto),
+  una sola vez cada uno. Se intenta cada 5 min de 7:00 a 8:00 y de 16:00 a 17:00; en cuanto sale,
+  las siguientes corridas de ese turno se detienen sin enviar nada.
+- El aviso de plan aceptado sale junto con el resumen.
 
 ### Para desarrollo
-- `digestSlotDue(lp, state)` (PURA, digest.js) decide el turno; `digest/state.lastDigestSlot`.
+- `digestSlotDue(lp, state)` (PURA, digest.js); `digest/state.lastDigestSlot`.
+- `tools/digest-check.node.js`: verificador que solo lee `digest/state` antes del envío.
 
 ## 3.4.0 — Versión propia de CASCADE (2026-10-13)
 
