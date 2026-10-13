@@ -882,6 +882,7 @@ function pnSwitchTab(tabId) {
     // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
     // estático de pn-system, que no pasa por pnRender.
     if (tabId === 'pn-system') pnDensityRenderChoices();
+    if (tabId === 'pn-system' && typeof cascadeVersionPanelRender === 'function') cascadeVersionPanelRender();   // [3.4.0]
     // [2.14.0] Equipos del laboratorio: qué versión corre cada uno.
     if (tabId === 'pn-system' && typeof fbDevicesRender === 'function') fbDevicesRender();
     // [2.37.0] Avisos del laboratorio (js/digest.js).
@@ -5327,5 +5328,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-roles-matrix': { title: 'Roles y permisos', text: 'Qué puede hacer cada rol del laboratorio, de menor a mayor autoridad: Practicante, Técnico, Especialista / Especialista Sr, Signatario y Assistant Manager / Manager. Esta tabla sale de la misma definición que el sistema hace cumplir: si una acción dice "—" para un rol, el sistema la bloquea y lo deja registrado. El rol de cada persona se cambia en Operadores.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
+    'pn_cascade_versions': { title: 'Versiones de CASCADE', text: 'CASCADE es el procedimiento con el que se hace cada prueba (Alta, Operación, Liberación, Aprobación y la Hoja COP15-F05) y lleva su propio número, aparte del de la plataforma. Cambia solo cuando cambia cómo se registra, se libera, se aprueba o se documenta una prueba. MAYOR = cómo se aprueba (4 = doble ciego interno); MENOR = un paso, un campo, una regla o lo que dice el F05; PARCHE = arreglos. Cada prueba guarda con qué versión se dio de alta, se liberó y se aprobó (🕘 en Historial); en las anteriores a 4.29.0 se estima por fecha y se marca con ≈.' },
     'pn-version-history-help': { title: 'Historial de versiones', text: 'La versión se lee MAYOR.MENOR.PARCHE (por ejemplo 2.3.1). MAYOR cambia solo cuando todos los equipos del laboratorio deben actualizar juntos o hay un rediseño que requiere capacitación; MENOR, con cada novedad que se ve o se usa (una pantalla, un indicador, una regla de cálculo); PARCHE, con arreglos. La más reciente va arriba, marcada ACTUAL; debajo del separador está la numeración anterior (v15.5–v24.4). El pill "KIA EmLab v…" del menú ⋯ del topbar también trae aquí.' }
 });

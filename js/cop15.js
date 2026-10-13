@@ -1420,6 +1420,9 @@ setAltaDatetimeIfEmpty(true);
             // vehículo termina con las reglas con las que empezó. Sin sello = doble ciego.
             reviewFlow: (typeof reviewFlowSealFor === 'function' && typeof reviewFlowSettings === 'function' &&
                          reviewFlowSealFor(reviewFlowSettings(), registeredAtIso)) ? 'dirigida' : undefined,
+            // [3.4.0] Con qué versión de Cascade se dio de alta (liberación y aprobación se
+            // sellan en su momento con cascadeVersionStamp).
+            cascadeVersions: { alta: String(CASCADE_VERSION) },
             timeline: [
                 {
                     timestamp: registeredAtIso,
@@ -4192,6 +4195,7 @@ function submitToApproval() {
             if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
             vehicle.testData.signatures.releaser = sig;
             vehicle.status = 'pending-approval';
+            cascadeVersionStamp(vehicle, 'liberacion');   // [3.4.0]
             // El aviso de devolución se apaga al reenviar; returnHistory se conserva
             // como registro permanente de cuántas veces rebotó y por qué.
             var _wasReturn = !!vehicle.pendingReturn;
@@ -4366,6 +4370,7 @@ function approveAndArchive() {
                 vehicle.testData.signatures.approver = sig;
                 vehicle.status = 'archived';
                 vehicle.archivedAt = new Date().toISOString();
+                cascadeVersionStamp(vehicle, 'aprobacion');   // [3.4.0]
                 vehicle.timeline.push({
                     timestamp: new Date().toISOString(),
                     user: sig.signerName || 'Aprobador',
@@ -7114,6 +7119,12 @@ function histShowTimelineModal(vehicleId) {
   if (!vehicle) return;
   var tl = (vehicle.timeline || []).slice().reverse();
   var html = '<div style="text-align:left;font-size:12px;max-height:380px;overflow:auto;">';
+  // [3.4.0] Con qué versión de Cascade se hizo cada paso (≈ = estimada por fecha).
+  var _cvLine = cascadeVersionsLine(cascadeVersionsOf(vehicle));
+  if (_cvLine) {
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom: var(--space-sm);">🧪 CASCADE · ' + escapeHtml(_cvLine) +
+            (/≈/.test(_cvLine) ? ' <span title="Sin sello: se estima con la versión publicada ese día">(≈ estimada por fecha)</span>' : '') + '</div>';
+  }
   if (!tl.length) {
     html += '<div style="color:var(--muted);padding: var(--space-md);text-align:center;">Sin eventos registrados.</div>';
   } else {

@@ -2938,6 +2938,12 @@ abría, y Vincular escondía vehículos).
   anterior" en CHANGELOG. **No se renumera ni se reescribe.**
 - Comentarios de código nuevos citan la versión con tres números: `// [2.1.0] …` (nunca `v2.1`,
   que se confundiría con el estilo viejo).
+- **CASCADE tiene su propia versión** (`CASCADE_VERSION`, desde 3.4.0; ver la sección 3.4.0).
+  Toda ronda que cambie cómo se registra, se captura, se libera, se aprueba o se documenta
+  una prueba (Alta, Operación, Liberación, Aprobación, Historial → Completar, F05) sube
+  **también** `CASCADE_VERSION` + su entrada al principio de `CASCADE_VERSION_HISTORY`
+  (con `iso` = fecha de publicación y `app` = la versión de la plataforma que la trae). Una
+  ronda que no toca el procedimiento NO la sube.
 - **La versión no es el build.** `APP_BUILD` (fecha de compilación, la inyecta `build.sh`) es lo
   que usa el aviso de "hay actualización"; la versión dice qué trae. El topbar muestra las dos.
 
@@ -3260,3 +3266,23 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   `f05Readiness` (`histPrintPlan`), o imprimiría hojas con huecos.
 - Imprimir = `iframe` oculto con `blob:` + `contentWindow.print()`; si falla, se abre o descarga.
   El lote se audita (`f05_lote`).
+
+## 3.4.0 — La versión de CASCADE (`js/app.js`, `js/cop15.js`)
+
+- **`CASCADE_VERSION` / `CASCADE_VERSION_HISTORY` (app.js) son la versión del PROCEDIMIENTO**, no
+  de la plataforma. MAYOR = cambia CÓMO se aprueba (2 plataforma compartida, 3 Power Automate,
+  4 doble ciego interno); MENOR = un paso, un campo, una regla de juicio, quién puede hacer qué,
+  o lo que dice el F05; PARCHE = arreglos. El "v1.0615" del archivo original queda como
+  numeración anterior (`legacy`); 2.0.0 → 4.28.0 se reconstruyó del historial de `cop15.js`.
+- **`cascadeVersionsOf(v)` (PURA) es LA definición** de con qué versión se hizo cada paso de una
+  prueba. Sello: `vehicle.cascadeVersions = {alta, liberacion, aprobacion}`, escrito SOLO con
+  `cascadeVersionStamp(v, paso)` (alta en `saveNewVehicle`, liberación en `submitToApproval`,
+  aprobación en `approveAndArchive`). Sin sello se ESTIMA por fecha (`cascadeVersionAt`, el
+  `iso` de cada entrada) y se marca `estimated` — en pantalla con ≈. Nunca presentar una
+  estimación como sello: un equipo pudo correr un build más viejo.
+- Liberación y aprobación solo cuentan si el vehículo llegó ahí (una devolución deja el sello
+  viejo hasta reenviar). Una firma `retro` no fecha la liberación (regla de 3.2.1). Un
+  histórico no pasó por Cascade.
+- **El F05 no imprime la versión** a propósito: cambiaría la hoja aprobada y su huella
+  (`tests/f05.e2e.js`). Agregarla es decisión del laboratorio.
+

@@ -20,6 +20,31 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.4.0 — La versión de CASCADE significa algo (2026-10-13)
+
+### Nuevo
+- **CASCADE tiene su propia versión** (hoy **4.29.0**), aparte de la de la plataforma. CASCADE es
+  el procedimiento con el que se hace cada prueba —Alta, Operación, Liberación, Aprobación y la
+  Hoja COP15-F05— y su número cambia solo cuando cambia ese procedimiento.
+- El texto **"v1.0615 EmLab CASCADE System"** de la barra de Pruebas estaba fijo desde el archivo
+  original (1-mar-2026) y no medía nada. Ahora es un botón **CASCADE 4.29.0** que abre el
+  historial de versiones de Cascade, reconstruido desde aquel archivo.
+- **Cómo se lee**: el primer número cambia cuando cambia **cómo se aprueba** una prueba
+  (2 = plataforma compartida, 3 = Power Automate, 4 = doble ciego interno); el segundo con un
+  paso, un campo, una regla de juicio, quién puede hacer qué o lo que dice el F05; el tercero
+  con arreglos.
+- **Cada prueba guarda con qué versión de Cascade** se dio de alta, se liberó y se aprobó. Se ve
+  en Historial → 🕘. En las pruebas anteriores a esta versión se **estima** con la versión
+  publicada ese día y se marca con **≈**: un equipo pudo correr una compilación más vieja.
+- Datos → Sistema muestra también el historial de versiones de CASCADE.
+
+### Para desarrollo
+- `CASCADE_VERSION` / `CASCADE_VERSION_HISTORY` (app.js), con `{version, iso, date, title, app,
+  bullets}`; `tests/version.node.js` verifica forma, orden, fechas y que `app` exista.
+- `cascadeVersionsOf(v)` (PURA) es LA definición de con qué versión se hizo cada paso; el sello
+  vive en `vehicle.cascadeVersions = {alta, liberacion, aprobacion}` (`cascadeVersionStamp`).
+- El F05 **no** imprime la versión: cambiaría la hoja aprobada (`tests/f05.e2e.js`).
+
 ## 3.3.0 — Imprimir las hojas F05 en lote desde el Historial (2026-10-12)
 
 ### Nuevo
