@@ -2,7 +2,7 @@
 // ║  3.4.0 — La versión de CASCADE                                       ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 // El botón de la barra de Pruebas dice la versión real y abre su historial; Datos →
-// Sistema lo muestra; el 🕘 de una prueba dice con qué versión se hizo cada paso.
+// Sistema lo muestra.
 const { chromium } = require('playwright');
 const path = require('path');
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -60,22 +60,8 @@ const SEED = () => {
         await page.waitForTimeout(300);
         const modal = await page.locator('#globalModal').textContent();
         ok('el botón abre el historial con la actual y el archivo original',
-            modal.includes(v) && modal.includes('ACTUAL') && modal.includes('1.0615') && modal.includes('Doble ciego interno'));
+            modal.includes(v) && modal.includes('ACTUAL') && modal.includes('1.0615') && modal.includes('Doble ciego interno') && modal.includes('Cerrar'));
         if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'v340-historial-' + vp.width + '.png') });
-        await page.evaluate(() => { const m = document.getElementById('globalModal'); if (m) m.remove(); });
-
-        await page.evaluate(() => histShowTimelineModal(9201));
-        await page.waitForTimeout(300);
-        let t = await page.locator('#globalModal').textContent();
-        ok('🕘 de una prueba vieja: versiones estimadas con ≈', /Alta ≈4\.0\.0 · Liberación ≈4\.11\.1 · Aprobación ≈4\.11\.1/.test(t),
-            t.slice(0, 160));
-        ok('y dice que son estimadas', t.includes('estimada por fecha'));
-        await page.evaluate(() => { const m = document.getElementById('globalModal'); if (m) m.remove(); });
-        await page.evaluate(() => histShowTimelineModal(9202));
-        await page.waitForTimeout(300);
-        t = await page.locator('#globalModal').textContent();
-        ok('🕘 de una prueba sellada: sin ≈', t.includes('Alta 4.29.0 · Liberación 4.29.0 · Aprobación 4.29.0') && !t.includes('estimada'));
-        if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'v340-timeline-' + vp.width + '.png') });
         await page.evaluate(() => { const m = document.getElementById('globalModal'); if (m) m.remove(); });
 
         await page.evaluate(() => dashGo('panel', 'pn-system'));

@@ -483,13 +483,8 @@ var APP_VERSION = '3.4.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.4.0', date: '13 oct 2026', title: 'La versión de CASCADE significa algo',
-      bullets: [
-          'Nuevo: CASCADE (Alta → Operación → Liberación → Aprobación y la Hoja COP15-F05) tiene su propia versión, hoy 4.29.0. El "v1.0615" de la barra de Pruebas estaba fijo desde el archivo original y no medía nada; ahora es un botón que muestra qué trajo cada versión de Cascade, desde ese archivo.',
-          'Cómo se lee: el primer número cambia cuando cambia cómo se aprueba una prueba (3 = Power Automate, 4 = doble ciego interno); el segundo con un paso, un campo, una regla de juicio o lo que dice el F05; el tercero con arreglos.',
-          'Nuevo: cada prueba guarda con qué versión de Cascade se dio de alta, se liberó y se aprobó (Historial → 🕘). En las pruebas anteriores se estima con la versión publicada ese día y se marca con ≈.',
-          'Nuevo: Datos → Sistema muestra también el historial de versiones de CASCADE.'
-      ] },
+    { version: '3.4.0', date: '13 oct 2026', title: 'Versión propia de CASCADE',
+      bullets: ['Cascade muestra su versión real (antes "v1.0615" fijo) con su historial, en Pruebas y en Datos → Sistema.'] },
     { version: '3.3.0', date: '12 oct 2026', title: 'Imprimir las hojas F05 en lote desde el Historial',
       bullets: [
           'Nuevo: Historial → "☑ Seleccionar todas" marca todas las pruebas que pasan los filtros (también las de otras páginas y de grupos plegados).',
@@ -1421,207 +1416,57 @@ var APP_VERSION_HISTORY = [
     ]}
 ];
 
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [3.4.0] Versión de CASCADE (Alta → Operación → Liberación →          ║
-// ║  Aprobación → Historial y la Hoja COP15-F05)                          ║
-// ╚══════════════════════════════════════════════════════════════════════╝
-// Cascade lleva su propio número porque es el PROCEDIMIENTO con el que se hace cada
-// prueba (y el nombre con que el F05 está registrado en el sistema de gestión). La
-// versión de la plataforma cambia por cualquier pantalla; la de Cascade, solo cuando
-// cambia cómo se registra, se captura, se libera, se aprueba o se documenta una prueba.
-//   MAYOR  — cambia CÓMO se aprueba una prueba (lo que prueba que el resultado es
-//            correcto). 2 = plataforma compartida, 3 = Power Automate, 4 = doble ciego
-//            interno. Un auditor que lee "aprobada con Cascade 4.x" sabe con qué método.
-//   MENOR  — un paso, un campo, una regla de juicio, quién puede hacer qué, o lo que
-//            dice el F05.   PARCHE — arreglos sin cambiar el procedimiento.
-// Antes del 1-mar-2026 Cascade era un solo archivo HTML que decía "v1.0615"; ese número
-// no se sabe qué medía y queda como numeración anterior. La historia 2.0.0 → 4.28.0 se
-// reconstruyó de los cambios a js/cop15.js. Cada entrada trae `iso` (fecha en que se
-// publicó, para estimar la versión de una prueba vieja) y `app` (versión de la
-// plataforma que la trajo). tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.29.0';
+// [3.4.0] Versión de CASCADE (Alta → Operación → Liberación → Aprobación → F05), aparte de la
+// de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
+// MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
+// toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
+var CASCADE_VERSION = '4.8.1';
 var CASCADE_VERSION_HISTORY = [
-    { version: '4.29.0', iso: '2026-10-13', date: '13 oct 2026', app: '3.4.0', title: 'La versión de Cascade significa algo',
-      bullets: [
-          'La versión de Cascade tiene su propia numeración (MAYOR.MENOR.PARCHE) y su historial, desde el archivo original.',
-          'Cada prueba registra con qué versión de Cascade se dio de alta, se liberó y se aprobó. En las pruebas anteriores se estima por fecha y se dice que es estimada.'
-      ] },
-    { version: '4.28.0', iso: '2026-10-12', date: '12 oct 2026', app: '3.3.0', title: 'Imprimir las hojas F05 en lote',
-      bullets: ['Historial: seleccionar todas e imprimir en un solo PDF la Hoja COP15-F05 real de cada prueba; dice cuáles no salen y por qué.'] },
-    { version: '4.27.2', iso: '2026-10-12', date: '12 oct 2026', app: '3.2.2', title: 'Firmas del F05 en pruebas capturadas después',
-      bullets: ['Una prueba anterior al checklist imprime al liberador sin fecha y al aprobador con "Registro en plataforma".'] },
-    { version: '4.27.1', iso: '2026-10-12', date: '12 oct 2026', app: '3.2.1', title: 'El checklist del F05 ya no sale en blanco',
-      bullets: ['Cuenta la fecha de la prueba, no la de archivado o de una firma retroactiva; Completar pide el checklist que falte.'] },
-    { version: '4.27.0', iso: '2026-10-11', date: '11 oct 2026', app: '3.2.0', title: 'México se juzga con la NOM-042 C-VP',
-      bullets: ['Los vehículos de México se juzgan con la NOM-042 C-VP aunque el alta diga EURO-5; lo ya liberado conserva la norma con que se juzgó.'] },
-    { version: '4.26.0', iso: '2026-10-11', date: '11 oct 2026', app: '3.1.0', title: 'México: 4 gases en g/mi',
-      bullets: ['Liberación de México pide CO, THC, NOx y NMHC en g/mi (como el reporte), con opción g/km.'] },
-    { version: '4.25.3', iso: '2026-10-11', date: '11 oct 2026', app: '3.0.2', title: 'Completar en la unidad del reporte',
-      bullets: ['Historial → Completar teclea los gases en la unidad de captura (mg/km) y guarda en la del límite.'] },
-    { version: '4.25.2', iso: '2026-10-08', date: '8 oct 2026', app: '2.37.2', title: 'El envío a aprobación no se pierde al firmar',
-      bullets: ['Firmar mientras llegaba un cambio de la nube podía perder el envío sin aviso (#189). Arreglado.'] },
-    { version: '4.25.1', iso: '2026-10-07', date: '7 oct 2026', app: '2.35.1', title: 'Historial: la fecha es la de la prueba',
-      bullets: ['El Historial muestra, ordena y agrupa por el día de la prueba, no por el del alta.'] },
-    { version: '4.25.0', iso: '2026-10-07', date: '7 oct 2026', app: '2.34.0', title: 'Historial: buscar, ordenar y agrupar',
-      bullets: ['Búsqueda por VIN, configuración o Test Ref; fichas por estado; agrupar por familia, mes o modelo.'] },
-    { version: '4.24.0', iso: '2026-10-02', date: '2 oct 2026', app: '2.31.0', title: 'IWR fuera de rango: se aprueba, no cuenta para CoP',
-      bullets: ['Una prueba con IWR/RMSSE fuera de rango puede aprobarse, pero se declara que no cuenta para CoP.'] },
-    { version: '4.23.0', iso: '2026-10-02', date: '2 oct 2026', app: '2.30.0', title: 'Pruebas anteriores a la plataforma',
-      bullets: ['Se importan de VETS por lote como "histórico" y las confirma quien aprueba. No emiten F05.'] },
-    { version: '4.22.0', iso: '2026-10-01', date: '1 oct 2026', app: '2.29.0', title: 'El ICMS de cada unidad, sin teclear',
-      bullets: ['Europa: f0/f1/f2, TM y CO₂ por Work Order desde el archivo del ICMS de cada VIN.'] },
-    { version: '4.21.0', iso: '2026-09-30', date: '30 sep 2026', app: '2.27.1', title: 'Doble ciego con las cifras del reporte',
-      bullets: ['Se compara a la precisión del valor más corto (6.4 = 6.389859).', 'El checklist dice "Reporte STARS VETS"; el alta conserva su fila del plan aunque cambie la variante.'] },
-    { version: '4.20.0', iso: '2026-09-29', date: '29 sep 2026', app: '2.20.0', title: 'Libera el Técnico, aprueba el Signatario',
-      bullets: ['Técnico y hacia arriba liberan; Signatario y Manager aprueban. Nadie aprueba lo que liberó.', 'Las fallas de VETS las decide quien aprueba, al aprobar.'] },
-    { version: '4.19.0', iso: '2026-09-29', date: '29 sep 2026', app: '2.19.0', title: 'El Técnico adjunta VETS y llena el checklist',
-      bullets: ['Adjuntar la prueba de VETS y marcar el checklist de liberación son permisos aparte de liberar.'] },
-    { version: '4.18.0', iso: '2026-09-29', date: '29 sep 2026', app: '2.13.0', title: 'Operación en tarjetas',
-      bullets: ['En el teléfono, Operación pregunta un campo a la vez.', 'Un error de captura se marca en el campo, no en un aviso que se va.'] },
-    { version: '4.17.0', iso: '2026-09-28', date: '28 sep 2026', app: '2.8.0', title: 'Revisión dirigida',
-      bullets: ['Segundo método de aprobación (opcional, se sella en el alta): aprobar revisando bloque por bloque en vez de reteclear.'] },
-    { version: '4.16.0', iso: '2026-09-28', date: '28 sep 2026', app: '2.5.0', title: 'Importar la prueba de STARS VETS',
-      bullets: ['El .xlsx de VETS llena gases, dinamómetro y fecha en Liberación; las verificaciones de VETS se clasifican.'] },
-    { version: '4.15.0', iso: '2026-09-28', date: '28 sep 2026', app: '2.4.0', title: 'Corregir el alta',
-      bullets: ['Cambiar VIN o configuración de un vehículo registrado sin borrarlo, con motivo y firma según la etapa.'] },
-    { version: '4.14.0', iso: '2026-09-26', date: '26 sep 2026', app: '2.2.0', title: 'Cada regulación pide sus gases',
-      bullets: ['El perfil de gases se congela al liberar: aprobación y F05 juzgan con lo que vio el liberador.'] },
-    { version: '4.13.0', iso: '2026-09-26', date: '26 sep 2026', app: '2.1.0', title: 'Roles del laboratorio; el F05 dice CASCADE',
-      bullets: ['Permisos por rol con candado en la capa de datos.', 'La Hoja COP15-F05 pasa a revisión 8 y su pie dice "Documento generado por CASCADE".'] },
-    { version: '4.12.0', iso: '2026-09-25', date: '25 sep 2026', app: 'v24.5', title: 'Un solo catálogo de configuraciones',
-      bullets: ['El Alta y el Plan ven las mismas configuraciones; las dadas de alta a mano viajan entre equipos.', 'Selectores y números de un toque en toda la cascada.'] },
-    { version: '4.11.1', iso: '2026-09-23', date: '23 sep 2026', app: 'v24.2', title: 'Lo capturado ya no se pierde con el sync',
-      bullets: ['El checklist de liberación ya no se borra, un vehículo borrado no regresa y Operación no pisa lo de otro equipo.'] },
-    { version: '4.11.0', iso: '2026-09-22', date: '22 sep 2026', app: 'v23.4', title: 'Cascade más simple',
-      bullets: ['Operación: botón "Siguiente paso", faltantes por sección, reposo y "cumple" calculados, ETW = TM + MR del ICMS.', 'Vacío ya no es 0 en el dinamómetro; Operación ya no borra gases ni firmas.'] },
-    { version: '4.10.0', iso: '2026-09-22', date: '22 sep 2026', app: 'v23.3', title: 'El F05 en una hoja, con checklist de liberación',
-      bullets: ['La Hoja COP15-F05 cabe en una hoja y sale completa.', 'Checklist de liberación (objetos retirados, evidencia adjunta). Liberación por lote en pausa.'] },
-    { version: '4.9.0', iso: '2026-09-02', date: '2 sep 2026', app: 'v23', title: 'Lo liberado aparece en el plan',
-      bullets: ['Toda liberación acredita su fila del plan de la semana de la prueba, o se agrega como no planeada.'] },
-    { version: '4.8.0', iso: '2026-08-25', date: '25 ago 2026', app: 'v18.2', title: 'Devolver al liberador',
-      bullets: ['El aprobador puede devolver con motivo; el liberador recaptura y vuelve a firmar.', 'Los gases se teclean en la unidad del reporte.'] },
-    { version: '4.7.0', iso: '2026-08-24', date: '24 ago 2026', app: 'v17.14', title: 'Homologación Europa desde el Alta',
-      bullets: ['f0/f1/f2, TM y CO₂ declarado del ICMS se capturan al dar de alta.'] },
-    { version: '4.6.0', iso: '2026-08-21', date: '21 ago 2026', app: 'v17.10', title: 'Regulación elegida al liberar; "Fuera de plan"',
-      bullets: ['El liberador puede elegir contra qué regulación se comparan los gases.', '"Fuera de plan" reemplaza a "ad-hoc"; filtros de propósito y estado en Historial; ids únicos entre equipos.'] },
-    { version: '4.5.0', iso: '2026-07-30', date: '30 jul 2026', title: 'Permisos por rol y cuatro ojos',
-      bullets: ['Liberar y aprobar requieren permiso; quien libera no aprueba. PIN reforzado y firma ligada a la sesión.'] },
-    { version: '4.4.0', iso: '2026-07-15', date: '15 jul 2026', app: 'v16.1', title: 'Regulaciones sin perfil seleccionables',
-      bullets: ['El alta acepta EVs (220V/120V) y regulaciones sin perfil; la celda vacía se autorrellena.'] },
-    { version: '4.3.0', iso: '2026-07-05', date: '5 jul 2026', app: 'v15.8', title: 'Completar pruebas archivadas',
-      bullets: ['Historial → Completar: llenar lo que faltaba de una prueba archivada, con razón y firma para cambiar lo existente.'] },
-    { version: '4.2.0', iso: '2026-07-03', date: '3 jul 2026', app: 'v15.7', title: '% del límite y valores improbables',
-      bullets: ['La captura de gases muestra el % del límite, avisa valores fuera de rango plausible y la economía de combustible informativa.'] },
-    { version: '4.1.1', iso: '2026-07-02', date: '2 jul 2026', title: 'Fechas en hora local y liberación más rápida',
-      bullets: ['Las fechas se guardan en hora del laboratorio; textos escapados; los guardados de la liberación se agrupan.'] },
-    { version: '4.1.0', iso: '2026-06-02', date: '2 jun 2026', title: 'El F05 no sale con huecos',
-      bullets: ['No se envía a aprobación con campos del F05 vacíos.', 'El doble ciego compara a 3 cifras significativas; buscador de configuración; siguiente paso en aprobación.'] },
-    { version: '4.0.0', iso: '2026-05-21', date: '21 may 2026', title: 'Doble ciego interno',
-      bullets: ['El aprobador teclea los gases sin ver los del liberador y la plataforma compara; reemplaza a Power Automate.', 'Perfiles de regulación con límites; estado "en aprobación" entre liberado y archivado.'] },
-    { version: '3.4.0', iso: '2026-04-30', date: '30 abr 2026', title: 'Borrar vehículos',
-      bullets: ['Borrar un vehículo (o varios) limpia también su evidencia en el plan y en Consumibles.'] },
-    { version: '3.3.0', iso: '2026-04-27', date: '27 abr 2026', title: 'F05 + hoja de resultados en un PDF',
-      bullets: ['La Hoja COP15-F05 y la foto de la hoja de resultados viajan como un solo PDF; se puede reenviar.'] },
-    { version: '3.2.0', iso: '2026-04-22', date: '22 abr 2026', title: 'Fecha y hora del alta editables',
-      bullets: ['El alta registra la fecha y hora tecleadas, no solo el momento de guardar.'] },
-    { version: '3.1.0', iso: '2026-04-16', date: '16 abr 2026', title: 'Firmas digitales e inicio desde el plan',
-      bullets: ['Firma digital del liberador y del aprobador.', '"Iniciar prueba" desde el plan precarga el alta; casilla para pruebas fuera del plan.'] },
-    { version: '3.0.0', iso: '2026-04-13', date: '13 abr 2026', title: 'Aprobación por Power Automate',
-      bullets: ['El alta y la liberación disparan la aprobación en Teams.', 'La foto de la hoja de resultados es obligatoria para liberar emisiones.'] },
-    { version: '2.8.0', iso: '2026-03-30', date: '30 mar 2026', title: 'Flujo inteligente',
-      bullets: ['Recuerda el vehículo activo, sugiere el siguiente paso y descuenta gas al terminar la prueba.'] },
-    { version: '2.7.0', iso: '2026-03-19', date: '19 mar 2026', title: 'Ayudas de campo',
-      bullets: ['Botón "?" junto a los campos difíciles (ETW, DTC, inercia, ciclos).'] },
-    { version: '2.6.0', iso: '2026-03-18', date: '18 mar 2026', title: 'Auditoría y trazabilidad de gases',
-      bullets: ['Historial de cambios centralizado; cada prueba queda ligada a los lotes de gas que usó.'] },
-    { version: '2.5.0', iso: '2026-03-11', date: '11 mar 2026', title: 'Autoguardado y formularios por etapa',
-      bullets: ['Guardado silencioso al salir de un campo; las secciones se abren según el estado del vehículo.'] },
-    { version: '2.4.0', iso: '2026-03-10', date: '10 mar 2026', title: 'Árbol de la cascada y línea de tiempo',
-      bullets: ['La configuración se elige en un árbol visual; línea de tiempo por vehículo, revisión rápida, fechas sugeridas, PDF en lote.'] },
-    { version: '2.3.0', iso: '2026-03-09', date: '9 mar 2026', title: 'Captura desde el teléfono',
-      bullets: ['Objetivos táctiles, aviso de cambios sin guardar, VIN duplicado en vivo y dígito verificador.'] },
-    { version: '2.2.0', iso: '2026-03-05', date: '5 mar 2026', title: 'Historial con filtros',
-      bullets: ['Filtros por estado, VIN, año y mes; la cola muestra modelo, motor y regulación.'] },
-    { version: '2.1.0', iso: '2026-03-03', date: '3 mar 2026', title: 'La Cola',
-      bullets: ['Tablero de vehículos por etapa: registrado, en proceso, en prueba, listo.'] },
-    { version: '2.0.0', iso: '2026-03-02', date: '2 mar 2026', title: 'Cascade en la plataforma compartida',
-      bullets: ['Cascade deja de ser un archivo por equipo: los vehículos se comparten entre equipos por la nube.', 'Temporizador de soak; la liberación se revierte completa si algo falla.'] },
-    { version: '1.0615', legacy: true, iso: null, date: 'antes de mar 2026', title: 'El archivo original',
-      bullets: ['Cascade como un solo archivo HTML: Alta, Operación, Liberación y la Hoja COP15-F05. Su número "v1.0615" quedó fijo y no se sabe qué medía.'] }
+    { version: '4.8.1', date: '12 oct 2026', app: '3.3.0', title: 'F05: checklist, firmas e impresión en lote',
+      bullets: ['Checklist y firmas correctos en pruebas capturadas después; imprimir F05 en lote.'] },
+    { version: '4.8.0', date: '11 oct 2026', app: '3.2.0', title: 'México: 4 gases en g/mi y NOM-042',
+      bullets: ['CO, THC, NOx y NMHC en g/mi, juzgados con la NOM-042 C-VP.'] },
+    { version: '4.7.1', date: '8 oct 2026', app: '2.37.2', title: 'Historial: buscar y agrupar',
+      bullets: ['Buscar, ordenar y agrupar el Historial; el envío a aprobación ya no se pierde al firmar.'] },
+    { version: '4.7.0', date: '2 oct 2026', app: '2.31.0', title: 'Pruebas históricas e IWR',
+      bullets: ['Importar pruebas anteriores de VETS; una prueba con IWR fuera de rango no cuenta para CoP.'] },
+    { version: '4.6.1', date: '1 oct 2026', app: '2.29.0', title: 'Doble ciego con cifras del reporte; ICMS por unidad',
+      bullets: ['Comparación a la precisión del valor más corto; coeficientes del ICMS por VIN.'] },
+    { version: '4.6.0', date: '29 sep 2026', app: '2.20.0', title: 'Libera el Técnico, aprueba el Signatario',
+      bullets: ['Nadie aprueba lo que liberó; Operación en tarjetas en el teléfono.'] },
+    { version: '4.5.0', date: '28 sep 2026', app: '2.8.0', title: 'VETS, corregir alta y revisión dirigida',
+      bullets: ['Importar la prueba de VETS, corregir VIN o configuración, gases por regulación y revisión dirigida.'] },
+    { version: '4.4.1', date: '25 sep 2026', app: 'v24.5', title: 'Sync y catálogo único',
+      bullets: ['Lo capturado ya no se pierde con el sync; el Alta y el Plan usan el mismo catálogo.'] },
+    { version: '4.4.0', date: '22 sep 2026', app: 'v23.4', title: 'F05 en una hoja y Operación más simple',
+      bullets: ['Checklist de liberación, F05 en una hoja, siguiente paso y campos calculados.'] },
+    { version: '4.3.1', date: '2 sep 2026', app: 'v23', title: 'Lo liberado aparece en el plan',
+      bullets: ['Cada liberación acredita su fila del plan.'] },
+    { version: '4.3.0', date: '25 ago 2026', app: 'v18.2', title: 'Devolver al liberador',
+      bullets: ['Devolver con motivo, elegir la regulación al liberar y homologación Europa en el Alta.'] },
+    { version: '4.2.0', date: '30 jul 2026', title: 'Permisos por rol',
+      bullets: ['Liberar y aprobar requieren permiso; quien libera no aprueba.'] },
+    { version: '4.1.1', date: '15 jul 2026', app: 'v16.1', title: 'Regulaciones sin perfil',
+      bullets: ['El Alta acepta EVs y regulaciones sin perfil.'] },
+    { version: '4.1.0', date: '5 jul 2026', app: 'v15.8', title: 'F05 completo y Completar archivados',
+      bullets: ['No se envía con el F05 incompleto; % del límite; completar pruebas archivadas.'] },
+    { version: '4.0.0', date: '21 may 2026', title: 'Doble ciego interno',
+      bullets: ['El aprobador captura sin ver al liberador; reemplaza a Power Automate.'] },
+    { version: '3.1.1', date: '30 abr 2026', title: 'F05 y foto en un PDF',
+      bullets: ['F05 y hoja de resultados en un PDF; borrar vehículos; fecha de alta editable.'] },
+    { version: '3.1.0', date: '16 abr 2026', title: 'Firmas digitales',
+      bullets: ['Firma del liberador y del aprobador; iniciar la prueba desde el plan.'] },
+    { version: '3.0.0', date: '13 abr 2026', title: 'Aprobación por Power Automate',
+      bullets: ['Aprobación en Teams; foto de la hoja de resultados obligatoria.'] },
+    { version: '2.2.0', date: '30 mar 2026', title: 'Autoguardado y siguiente paso',
+      bullets: ['Autoguardado, ayudas de campo y siguiente paso sugerido.'] },
+    { version: '2.1.0', date: '10 mar 2026', title: 'Cola e Historial',
+      bullets: ['Cola por etapa, Historial con filtros y árbol de configuraciones.'] },
+    { version: '2.0.0', date: '2 mar 2026', title: 'Plataforma compartida',
+      bullets: ['Los vehículos se comparten entre equipos; temporizador de soak.'] },
+    { version: '1.0615', legacy: true, date: 'antes de mar 2026', title: 'Archivo original',
+      bullets: ['Cascade como un solo archivo HTML.'] }
 ];
-
-// Los tres momentos de una prueba que llevan versión de Cascade.
-var CASCADE_VERSION_STEPS = [
-    { key: 'alta',       label: 'Alta' },
-    { key: 'liberacion', label: 'Liberación' },
-    { key: 'aprobacion', label: 'Aprobación' }
-];
-
-/** Día del laboratorio ('AAAA-MM-DD', UTC−6 fijo como digest.js) de una marca de tiempo.
- *  Una fecha sin zona ('2026-10-12T09:30') ya es hora local: se toma tal cual. PURA. */
-function _cascadeLabDay(ts) {
-    var s = String(ts || '');
-    if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return '';
-    if (s.length <= 10 || !/(Z|[+-]\d{2}:?\d{2})$/.test(s)) return s.slice(0, 10);
-    var t = Date.parse(s);
-    return isNaN(t) ? '' : new Date(t - 6 * 3600 * 1000).toISOString().slice(0, 10);
-}
-
-/** [3.4.0] La versión de Cascade publicada en un día ('AAAA-MM-DD'): la más reciente con
- *  `iso` ≤ día; antes de la primera, la numeración anterior. PURA. Es una ESTIMACIÓN: un
- *  equipo pudo correr un build más viejo ese día. */
-function cascadeVersionAt(day, history) {
-    var h = history || CASCADE_VERSION_HISTORY, d = String(day || '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
-    for (var i = 0; i < h.length; i++) if (!h[i].legacy && h[i].iso && h[i].iso <= d) return h[i].version;
-    for (var j = 0; j < h.length; j++) if (h[j].legacy) return h[j].version;
-    return null;
-}
-
-/** [3.4.0] LA definición de con qué versión de Cascade se hizo cada paso de una prueba.
- *  Usa el sello (`vehicle.cascadeVersions`) y, sin sello, estima por fecha y lo marca
- *  `estimated`. Una prueba histórica no pasó por Cascade: `historico:true`, sin pasos.
- *  Liberación y aprobación solo cuentan si el vehículo ya llegó ahí (una devolución deja
- *  el sello viejo hasta reenviar). PURA. */
-function cascadeVersionsOf(v, history) {
-    if (!v) return null;
-    if (v.status === 'historico') return { historico: true, steps: [] };
-    var sello = v.cascadeVersions || {}, td = v.testData || {}, gr = td.gasResults || {}, sg = td.signatures || {};
-    var enviado = v.status === 'pending-approval' || v.status === 'archived';
-    var lib = gr.liberador || null, rel = sg.releaser || null;
-    var fechas = {
-        alta: v.registeredAt || '',
-        liberacion: !enviado ? '' : ((lib && lib.retro) || (rel && rel.retro)) ? ''
-                  : ((rel && rel.signedAt) || (lib && lib.capturedAt) || ''),
-        aprobacion: v.status === 'archived' ? (v.archivedAt || '') : ''
-    };
-    var steps = [];
-    CASCADE_VERSION_STEPS.forEach(function(s) {
-        if (s.key !== 'alta' && !enviado) return;
-        if (s.key === 'aprobacion' && v.status !== 'archived') return;
-        if (sello[s.key]) { steps.push({ key: s.key, label: s.label, version: String(sello[s.key]), estimated: false }); return; }
-        var ver = cascadeVersionAt(_cascadeLabDay(fechas[s.key]), history);
-        steps.push({ key: s.key, label: s.label, version: ver, estimated: true });
-    });
-    return { historico: false, steps: steps };
-}
-
-/** [3.4.0] Sella la versión de Cascade de un paso en el vehículo. Solo escribe una cadena
- *  (nunca undefined: Firestore rechaza el documento, 2.29.2). */
-function cascadeVersionStamp(v, step) {
-    if (!v || !step) return;
-    if (!v.cascadeVersions || typeof v.cascadeVersions !== 'object') v.cascadeVersions = {};
-    v.cascadeVersions[step] = String(CASCADE_VERSION);
-}
-
-/** Una línea legible: "Alta 4.29.0 · Liberación ≈4.27.2 …". PURA. */
-function cascadeVersionsLine(info) {
-    if (!info) return '';
-    if (info.historico) return 'Prueba histórica: no pasó por Cascade';
-    return info.steps.map(function(s) {
-        return s.label + ' ' + (s.version ? (s.estimated ? '≈' : '') + s.version : 'sin dato');
-    }).join(' · ');
-}
 
 /** [3.4.0] El historial de versiones de Cascade como HTML. PURA (sin DOM). */
 function cascadeVersionHistoryHTML(history, current) {
@@ -1630,9 +1475,7 @@ function cascadeVersionHistoryHTML(history, current) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
     var out = '<div class="cv-hist" style="text-align:left;">' +
         '<p style="color:var(--muted);font-size:var(--fs-xs);margin:0 0 var(--space-sm);line-height:var(--lh-base);">' +
-        '<b>Cómo se lee:</b> MAYOR.MENOR.PARCHE. El primero cambia cuando cambia <i>cómo se aprueba</i> una prueba ' +
-        '(3 = Power Automate, 4 = doble ciego interno); el segundo con un paso, un campo, una regla de juicio o lo que dice el F05; ' +
-        'el tercero con arreglos. Cada prueba guarda con qué versión se dio de alta, se liberó y se aprobó.</p>';
+        'MAYOR = cómo se aprueba (3 Power Automate, 4 doble ciego) · MENOR = un paso, campo o regla · PARCHE = lo demás.</p>';
     var vioLegacy = false;
     h.forEach(function(e, i) {
         if (e.legacy && !vioLegacy) {
