@@ -171,6 +171,38 @@ out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026
 ok('ya salió hoy: no repite', /no toca/.test(out) && !/\[DRY\]/.test(out), out);
 out = run({ vehicles, tpState: plansTp, settings, state: { plansSeeded: 'x' } }, { DIGEST_NOW: '2026-10-08T12:30:00Z' });
 ok('antes de las 7:00 no sale', /no toca/.test(out), out);
+// [3.5.0] Turnos: inicio (7:00–16:59) y fin (17:00 en adelante), uno de cada uno por día.
+out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', lastDigestSlot: 'inicio', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
+          { DIGEST_NOW: '2026-10-08T22:05:00Z' });
+ok('fin de turno: sale el de cierre aunque ya salió el de inicio', /\[DRY\] resumen: «EmLab · jue 8 oct · cierre de turno/.test(out), out);
+out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', lastDigestSlot: 'fin', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
+          { DIGEST_NOW: '2026-10-08T22:10:00Z' });
+ok('el de cierre no se repite', /no toca/.test(out) && !/\[DRY\]/.test(out), out);
+{
+    const lp = iso => P.digestLocalParts(iso);
+    ok('turno: 7:07 → inicio', P.digestSlotDue(lp('2026-10-13T13:07:00Z'), {}) === 'inicio');
+    ok('turno: inicio ya salió a media mañana → nada', P.digestSlotDue(lp('2026-10-13T13:35:00Z'), { lastDigestDate: '2026-10-13', lastDigestSlot: 'inicio' }) === null);
+    ok('turno: estado anterior sin lastDigestSlot cuenta como inicio', P.digestSlotDue(lp('2026-10-13T16:00:00Z'), { lastDigestDate: '2026-10-13' }) === null);
+    ok('turno: si el de inicio no salió, a las 16:00 sale solo el de fin', P.digestSlotDue(lp('2026-10-13T22:00:00Z'), {}) === 'fin');
+    ok('turno: 15:55 sigue siendo inicio', P.digestSlotDue(lp('2026-10-13T21:55:00Z'), {}) === 'inicio');
+    ok('turno: sábado no sale', P.digestSlotDue(lp('2026-10-17T13:07:00Z'), {}) === null);
+}
+{
+    // Verificador: sin nube, con el estado en un archivo.
+    const d3 = fs.mkdtempSync(path.join(os.tmpdir(), 'dgchk-'));
+    const fx = path.join(d3, 'st.json'), go = path.join(d3, 'out.txt');
+    const chk = (st, now) => {
+        fs.writeFileSync(fx, JSON.stringify(st)); fs.writeFileSync(go, '');
+        execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'digest-check.node.js')],
+            { env: Object.assign({}, process.env, { DIGEST_STATE_FIXTURE: fx, DIGEST_NOW: now, GITHUB_OUTPUT: go }), encoding: 'utf8' });
+        return fs.readFileSync(go, 'utf8').trim();
+    };
+    ok('verificador: 7:05 sin enviar → due=true', chk({}, '2026-10-13T13:05:00Z') === 'due=true');
+    ok('verificador: 7:10 ya enviado → due=false', chk({ lastDigestDate: '2026-10-13', lastDigestSlot: 'inicio' }, '2026-10-13T13:10:00Z') === 'due=false');
+    ok('verificador: 16:00 con el de inicio enviado → due=true', chk({ lastDigestDate: '2026-10-13', lastDigestSlot: 'inicio' }, '2026-10-13T22:00:00Z') === 'due=true');
+    ok('verificador: 16:20 con el de fin enviado → due=false', chk({ lastDigestDate: '2026-10-13', lastDigestSlot: 'fin' }, '2026-10-13T22:20:00Z') === 'due=false');
+    fs.rmSync(d3, { recursive: true, force: true });
+}
 let prueba = '';
 try { run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
           { DIGEST_TEST_TO: 'yo@kia.com', SMTP_USER: '', SMTP_PASS: '' }); }

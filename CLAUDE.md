@@ -3264,3 +3264,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   `f05Readiness` (`histPrintPlan`), o imprimiría hojas con huecos.
 - Imprimir = `iframe` oculto con `blob:` + `contentWindow.print()`; si falla, se abre o descarga.
   El lote se audita (`f05_lote`).
+
+## 3.5.0 — Resumen por turno (`js/digest.js`, `tools/digest-check.node.js`)
+
+- **`digestSlotDue(lp, state)` (PURA) es LA regla de qué resumen toca**: `inicio` (7:00–15:59) o
+  `fin` (16:00+), uno de cada uno por día hábil (`DIGEST_SHIFT`, `digest/state.lastDigestSlot`).
+  Si el de inicio no salió, a las 16:00 sale solo el de fin. Sin `lastDigestSlot` = inicio.
+- El workflow intenta cada 5 min (7:00–7:55 y 16:00–16:55) porque GitHub omite y atrasa sus
+  tareas programadas. Primero corre el verificador (`digest-check`, solo lee `digest/state`, sin
+  instalar nada); si el turno ya salió, el envío no arranca. Ante un error de lectura responde
+  "toca" y el envío vuelve a decidir con la misma regla.
+- El estado se guarda **justo después** de enviar el correo, no al final: si algo falla después,
+  la siguiente corrida no repite el correo.

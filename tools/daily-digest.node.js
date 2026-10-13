@@ -1,12 +1,12 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [2.37.0] Avisos del laboratorio — lo corre GitHub Actions cada hora  ║
-// ║  de 7:00 a 17:00 (México), lunes a viernes                            ║
+// ║  [2.37.0] Avisos del laboratorio — lo corre GitHub Actions al inicio  ║
+// ║  (7:00) y al final del turno (16:00), México, lunes a viernes [3.5.0] ║
 // ║  (.github/workflows/daily-digest.yml).                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 // Cada corrida:
 //   1. Inicia sesión con la cuenta del laboratorio y lee de la nube: vehículos (un
 //      documento por vehículo), testplan/current, settings/digest, pushsubs y digest/state.
-//   2. RESUMEN: si es día hábil, ya son las 7:00 y hoy no ha salido → lo envía por correo
+//   2. RESUMEN: si es día hábil y el de este turno no ha salido (digestSlotDue) → lo envía por correo
 //      (con el jefe en copia si hay escalados), ntfy y Web Push.
 //   3. PLAN: por cada plan aceptado que no se haya avisado → correo + ntfy + Web Push.
 //      La primera vez solo registra los ya aceptados (no bombardea al estrenarse).
@@ -164,20 +164,25 @@ async function main() {
     // 1) Resumen diario
     const lp = P.digestLocalParts(nowIso);
     if (TEST) log('MODO PRUEBA: solo a ' + TEST_TO.join(', ') + ' — no se guarda estado, no hay copia, ntfy ni Web Push');
-    const due = TEST || FORCE || (lp.dow >= 1 && lp.dow <= 5 && lp.hour >= 7 && state.lastDigestDate !== lp.date);
-    if (due) {
+    const slotDue = P.digestSlotDue(lp, state);
+    const slot = slotDue || (lp.hour >= P.DIGEST_SHIFT.fin ? 'fin' : 'inicio');
+    if (TEST || FORCE || slotDue) {
         const d = P.digestCompute({
             vehicles: data.vehicles, planFor: P.tpWeekPlanFor, statusLabels: P.CONFIG.statusLabels,
-            settings: data.settings, lastDigestAt: state.lastDigestAt || '', lastChangeAt: data.lastChangeAt
+            settings: data.settings, lastDigestAt: state.lastDigestAt || '', lastChangeAt: data.lastChangeAt, slot
         }, nowIso);
         const push = P.digestPushText(d);
         const ok = await deliver('resumen', { subject: P.digestSubject(d), html: P.digestEmailHTML(d),
             to: TEST ? TEST_TO : d.settings.to, cc: d.escalateTo }, push, data, errors);
         log(`resumen: ${d.vehicles.count} activos, ${d.vehicles.escalated.length} escalados, ${d.approved.length} aprobados`);
         if (DRY || TEST) log('activos: ' + d.vehicles.rows.map(r => `${r.vin} ${r.label} ${r.daysActive}d`).join(' · '));
-        if (ok) { state.lastDigestDate = lp.date; state.lastDigestAt = nowIso; dirty = true; }
+        if (ok) {
+            state.lastDigestDate = lp.date; state.lastDigestSlot = slot; state.lastDigestAt = nowIso; dirty = true;
+            // [3.5.0] Guardar YA: si algo falla después, la siguiente corrida no repite el correo.
+            if (!DRY && !TEST && !env.DIGEST_FIXTURE) { state.updatedAt = nowIso; await patchDoc('digest/state', state); dirty = false; }
+        }
     } else {
-        log('resumen: no toca (ya salió hoy, fin de semana o antes de las 7:00)');
+        log('resumen: no toca (ya salió el de este turno, fin de semana o antes de las 7:00)');
     }
 
     // 2) Planes aceptados

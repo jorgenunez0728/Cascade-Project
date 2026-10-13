@@ -1,11 +1,13 @@
 name: Avisos del laboratorio (resumen diario y plan aceptado)
 
-# [2.37.0] Cada hora de 7:00 a 17:00 (México, UTC−6 fijo), lunes a viernes. El script decide:
-# el resumen sale UNA vez al día (la primera corrida después de las 7:00) y el aviso de plan
-# sale cuando alguien acepta un plan. El cron de GitHub puede llegar 5–30 min tarde.
+# [3.5.0] Inicio de turno (7:00–7:55) y fin de turno (16:00–16:55), cada 5 min, lunes a viernes
+# (México, UTC−6 fijo). Tantos intentos porque GitHub omite y atrasa sus tareas programadas.
+# El verificador (tools/digest-check.node.js) lee solo digest/state: si el resumen de ese turno
+# ya salió, el envío ni arranca. Nunca sale dos veces el mismo turno (digestSlotDue).
 on:
   schedule:
-    - cron: '0 13-23 * * 1-5'
+    - cron: '*/5 13 * * 1-5'
+    - cron: '*/5 22 * * 1-5'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -31,7 +33,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      due: ${{ steps.v.outputs.due }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: ¿Ya salió el resumen de este turno?
+        id: v
+        env:
+          FB_LAB_PASSWORD: ${{ secrets.FB_LAB_PASSWORD }}
+        run: node tools/digest-check.node.js
+
   digest:
+    needs: check
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.check.outputs.due == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

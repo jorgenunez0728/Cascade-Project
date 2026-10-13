@@ -16,6 +16,8 @@
 // México (centro) sin horario de verano desde 2022: UTC−6 fijo. El proceso corre en UTC.
 var DIGEST_TZ_OFFSET_MIN = -360;
 var DIGEST_ESCALATE_DAYS_DEFAULT = 7;
+// [3.5.0] Dos resúmenes por día hábil: al inicio y al final del turno (hora del laboratorio).
+var DIGEST_SHIFT = { inicio: 7, fin: 16 };
 var DIGEST_APP_URL = 'https://kia-emlab-test-system.web.app';
 var DIGEST_VIN_TAIL = 6;
 var DIGEST_STAGE_ORDER = ['registered', 'in-progress', 'testing', 'ready-release', 'pending-approval'];
@@ -48,6 +50,21 @@ function digestLocalParts(iso) {
         y: d.getUTCFullYear(), m: d.getUTCMonth(), day: d.getUTCDate(), dow: d.getUTCDay(),
         hour: d.getUTCHours(), minute: d.getUTCMinutes(), hhmm: p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes())
     };
+}
+
+/**
+ * [3.5.0] Qué resumen toca ahora: 'inicio' (7:00–15:59), 'fin' (16:00 en adelante) o null
+ * (fin de semana, antes de las 7:00 o ese turno ya salió). Si el de inicio no salió y ya es
+ * hora del de fin, sale solo el de fin. Un estado anterior a 3.5.0 (sin lastDigestSlot)
+ * cuenta como inicio. PURA.
+ */
+function digestSlotDue(lp, state) {
+    if (!lp || lp.dow < 1 || lp.dow > 5 || lp.hour < DIGEST_SHIFT.inicio) return null;
+    var slot = lp.hour < DIGEST_SHIFT.fin ? 'inicio' : 'fin';
+    var st = state || {};
+    var sent = st.lastDigestDate === lp.date ? (st.lastDigestSlot || 'inicio') : '';
+    if (sent === 'fin' || (sent === 'inicio' && slot === 'inicio')) return null;
+    return slot;
 }
 
 /** 'AAAA-MM-DD' + n días, sobre la cadena (sin zona horaria). PURA. */
@@ -313,7 +330,7 @@ function digestPlanAnnouncement(entry) {
 
 /**
  * LA definición del resumen diario. PURA.
- * src = {vehicles, planFor, statusLabels, settings, lastDigestAt, lastChangeAt}
+ * src = {vehicles, planFor, statusLabels, settings, lastDigestAt, lastChangeAt, slot}
  */
 function digestCompute(src, nowIso) {
     src = src || {};
@@ -336,7 +353,7 @@ function digestCompute(src, nowIso) {
         now: nowIso, date: lp ? lp.date : '', dow: lp ? lp.dow : 0,
         dateLabel: lp ? DIGEST_DOW_LONG[lp.dow] + ' ' + lp.day + ' de ' + DIGEST_MONTH_LONG[lp.m] : '',
         subjectDate: lp ? digestShortDate(lp.date) : '',
-        hhmm: lp ? lp.hhmm : '',
+        hhmm: lp ? lp.hhmm : '', slot: src.slot === 'fin' ? 'fin' : 'inicio',
         vehicles: veh, approved: approved, since: since,
         sinceMonday: !src.lastDigestAt && lp && lp.dow === 1,
         nextPlan: digestNextWeekPlan(src.planFor, nowIso),
@@ -359,6 +376,7 @@ function _digestWhenLabel(iso, nowIso) {
 /** Asunto del resumen: lleva la acción, se lee desde la bandeja. PURA. */
 function digestSubject(d) {
     var parts = ['EmLab', d.subjectDate];
+    if (d.slot === 'fin') parts.push('cierre de turno');
     var v = d.vehicles;
     parts.push(v.count + (v.count === 1 ? ' activo' : ' activos'));
     if (v.escalated.length) parts.push(v.escalated.length + (v.escalated.length === 1 ? ' escalado' : ' escalados'));
@@ -522,7 +540,7 @@ function digestEmailHTML(d) {
         h += '<tr><td style="padding:8px 12px;font-size:13px;background:' + (ok ? _DG.greenBg : _DG.amberBg) +
             ';color:' + (ok ? _DG.green : _DG.amber) + ';">' + msg + '</td></tr>';
     }
-    return _digestWrap(h, digestPushText(d).body, 'Sale de lunes a viernes a las 7:00. Los días cuentan desde el alta, en días naturales (incluye fin de semana).');
+    return _digestWrap(h, digestPushText(d).body, 'Sale de lunes a viernes al inicio (7:00) y al final del turno (16:00). Los días cuentan desde el alta, en días naturales (incluye fin de semana).');
 }
 
 /** El correo del aviso de plan aceptado. PURA. */
@@ -718,7 +736,7 @@ function digestPanelRender(opts) {
     var h = '';
     if (_digestUi.loading) h += '<div class="u-muted" style="font-size:var(--fs-xs);">Leyendo los ajustes de la nube…</div>';
     if (_digestUi.loadError) h += '<div style="font-size:var(--fs-xs);color:var(--warn-text);">No se pudieron leer los ajustes de la nube. Conecta este equipo y vuelve a abrir esta pestaña.</div>';
-    h += '<p style="font-size:var(--fs-sm);color:var(--text);margin:0 0 var(--space-sm) 0;">De lunes a viernes a las 7:00 llega un resumen de los vehículos activos, ' +
+    h += '<p style="font-size:var(--fs-sm);color:var(--text);margin:0 0 var(--space-sm) 0;">De lunes a viernes llega un resumen de los vehículos activos al inicio (7:00) y al final del turno (16:00), ' +
         'con escalación de los que llevan más de ' + s.escalateDays + ' días sin aprobar. Jueves y viernes también dice si falta el plan de la semana siguiente, ' +
         'y cuando alguien acepta un plan llega un aviso con sus pruebas por día.</p>';
     h += '<div class="form-group"><label for="dg-to">Destinatarios del resumen</label>' +
@@ -777,7 +795,7 @@ function _digestPaintPushRow() {
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
-        'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen diario (lunes a viernes, 7:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
+        'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen (lunes a viernes, 7:00 y 16:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
         'dg-esc': { title: 'Escalación', text: 'Correos que se agregan EN COPIA solo los días en que hay vehículos con más días de los indicados desde su alta sin aprobar. Dejan de recibirlo cuando esos vehículos se aprueban.' },
         'dg-days': { title: 'Escalar después de', text: 'Días naturales desde el alta (incluye fin de semana). Con 7, un vehículo se escala a partir del día 8 sin aprobar.' },
         'dg-ntfy': { title: 'Tema de ntfy', text: 'Nombre del canal en la app gratuita ntfy. Quien se suscriba a ese tema recibe la notificación del resumen. Usa un nombre difícil de adivinar: cualquiera que lo conozca puede leerlo (solo trae conteos, nunca VINs completos ni valores).' },
