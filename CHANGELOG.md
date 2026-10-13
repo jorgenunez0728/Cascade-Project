@@ -20,6 +20,16 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.5.0 — Resumen al inicio y al final del turno (2026-10-13)
+
+### Cambió
+- El resumen del laboratorio sale dos veces por día hábil: al inicio (7:00) y al final del turno
+  (17:00, con "cierre de turno" en el asunto). Ya no se revisa cada hora: dos corridas por día.
+- El aviso de plan aceptado sale en esas mismas dos corridas.
+
+### Para desarrollo
+- `digestSlotDue(lp, state)` (PURA, digest.js) decide el turno; `digest/state.lastDigestSlot`.
+
 ## 3.4.0 — Versión propia de CASCADE (2026-10-13)
 
 ### Nuevo

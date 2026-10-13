@@ -3264,3 +3264,12 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   `f05Readiness` (`histPrintPlan`), o imprimiría hojas con huecos.
 - Imprimir = `iframe` oculto con `blob:` + `contentWindow.print()`; si falla, se abre o descarga.
   El lote se audita (`f05_lote`).
+
+## 3.5.0 — Resumen por turno (`js/digest.js`)
+
+- **`digestSlotDue(lp, state)` (PURA) es LA regla de qué resumen toca**: `inicio` (7:00–16:59) o
+  `fin` (17:00+), uno de cada uno por día hábil (`DIGEST_SHIFT`, `digest/state.lastDigestSlot`).
+  Si el de inicio no salió, a las 17:00 sale solo el de fin. Sin `lastDigestSlot` = inicio.
+- El workflow corre dos veces (7:07 y 17:07): GitHub omite y atrasa mucho sus tareas
+  programadas, así que un turno puede no salir. El aviso de plan aceptado va en esas corridas.
+

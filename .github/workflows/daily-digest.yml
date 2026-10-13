@@ -1,11 +1,12 @@
 name: Avisos del laboratorio (resumen diario y plan aceptado)
 
-# [2.37.0] Cada hora de 7:00 a 17:00 (México, UTC−6 fijo), lunes a viernes. El script decide:
-# el resumen sale UNA vez al día (la primera corrida después de las 7:00) y el aviso de plan
-# sale cuando alguien acepta un plan. El cron de GitHub puede llegar 5–30 min tarde.
+# [3.5.0] Dos corridas por día hábil (México, UTC−6 fijo): inicio de turno 7:07 y fin 17:07.
+# El minuto 7 (no el 0) porque GitHub atrasa u omite más las tareas en punto. Cada corrida manda
+# el resumen de su turno si no ha salido (digestSlotDue) y los planes aceptados pendientes.
 on:
   schedule:
-    - cron: '0 13-23 * * 1-5'
+    - cron: '7 13 * * 1-5'
+    - cron: '7 23 * * 1-5'
   workflow_dispatch:
     inputs:
       dry_run:

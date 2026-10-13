@@ -171,6 +171,21 @@ out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026
 ok('ya salió hoy: no repite', /no toca/.test(out) && !/\[DRY\]/.test(out), out);
 out = run({ vehicles, tpState: plansTp, settings, state: { plansSeeded: 'x' } }, { DIGEST_NOW: '2026-10-08T12:30:00Z' });
 ok('antes de las 7:00 no sale', /no toca/.test(out), out);
+// [3.5.0] Turnos: inicio (7:00–16:59) y fin (17:00 en adelante), uno de cada uno por día.
+out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', lastDigestSlot: 'inicio', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
+          { DIGEST_NOW: '2026-10-08T23:07:00Z' });
+ok('fin de turno: sale el de cierre aunque ya salió el de inicio', /\[DRY\] resumen: «EmLab · jue 8 oct · cierre de turno/.test(out), out);
+out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', lastDigestSlot: 'fin', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
+          { DIGEST_NOW: '2026-10-08T23:40:00Z' });
+ok('el de cierre no se repite', /no toca/.test(out) && !/\[DRY\]/.test(out), out);
+{
+    const lp = iso => P.digestLocalParts(iso);
+    ok('turno: 7:07 → inicio', P.digestSlotDue(lp('2026-10-13T13:07:00Z'), {}) === 'inicio');
+    ok('turno: inicio ya salió a media mañana → nada', P.digestSlotDue(lp('2026-10-13T17:00:00Z'), { lastDigestDate: '2026-10-13', lastDigestSlot: 'inicio' }) === null);
+    ok('turno: estado anterior sin lastDigestSlot cuenta como inicio', P.digestSlotDue(lp('2026-10-13T16:00:00Z'), { lastDigestDate: '2026-10-13' }) === null);
+    ok('turno: si el de inicio no salió, a las 17:00 sale solo el de fin', P.digestSlotDue(lp('2026-10-13T23:07:00Z'), {}) === 'fin');
+    ok('turno: sábado no sale', P.digestSlotDue(lp('2026-10-17T13:07:00Z'), {}) === null);
+}
 let prueba = '';
 try { run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } },
           { DIGEST_TEST_TO: 'yo@kia.com', SMTP_USER: '', SMTP_PASS: '' }); }
