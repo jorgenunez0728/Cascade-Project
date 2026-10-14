@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.6.0';
+var APP_VERSION = '3.7.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,8 @@ var APP_VERSION = '3.6.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.7.0', date: '14 oct 2026', title: 'Re-test: "Copiar config" también trae el ICMS',
+      bullets: ['Alta: en un re-test de un VIN ya probado, "Copiar config" llena también la Work Order, f0, f1, f2, TM, MR y CO₂ de su prueba anterior (configuraciones de Europa). Queda anotado de qué prueba salió y si se cambió algo a mano.'] },
     { version: '3.6.0', date: '13 oct 2026', title: 'Instrumentos en calibración',
       bullets: ['Equipos: botón "🚚 En calibración" para lo que se fue a calibrar y no ha regresado. Deja de salir como vencido; si pasa su regreso esperado, avisa. Al volver: ✅ Calibrado (o "↩ Regresó" si no lo calibraron).'] },
     { version: '3.5.0', date: '13 oct 2026', title: 'Resumen al inicio y al final del turno',
@@ -1424,8 +1426,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.1';
+var CASCADE_VERSION = '4.8.2';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.2', date: '14 oct 2026', app: '3.7.0', title: 'Re-test copia el ICMS',
+      bullets: ['"Copiar config" del re-test también llena los datos del ICMS de la prueba anterior del VIN.'] },
     { version: '4.8.1', date: '12 oct 2026', app: '3.3.0', title: 'F05: checklist, firmas e impresión en lote',
       bullets: ['Checklist y firmas correctos en pruebas capturadas después; imprimir F05 en lote.'] },
     { version: '4.8.0', date: '11 oct 2026', app: '3.2.0', title: 'México: 4 gases en g/mi y NOM-042',

@@ -20,6 +20,30 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.7.0 — Re-test: "Copiar config" también trae el ICMS (2026-10-14)
+
+### Nuevo
+- Pruebas → Alta: al teclear un VIN que ya tiene una prueba archivada, **Copiar config** ahora
+  también llena el bloque **Datos de homologación** (Work Order, f0, f1, f2, TM, MR y CO₂) con
+  los de la prueba anterior de ese VIN, si la configuración es de Europa. Mismo VIN = misma unidad
+  y misma Work Order, así que ya no hay que volver a cargarlo.
+- El bloque dice de qué prueba salió (fecha, WO, archivo). La Work Order de un VIN no cambia
+  nunca, así que el ICMS de un re-test es siempre el mismo. Cargar un ICMS a mano sigue
+  funcionando y reemplaza lo copiado.
+- Lo que cambies a mano después de copiar queda anotado ("difiere de la prueba anterior").
+
+### Arreglado
+- Copiar config tomaba la configuración de la **primera** prueba archivada del VIN; ahora toma la
+  más reciente.
+
+### Para desarrollo
+- `homoPreviousFichaForVin(vehicles, vin)` (PURA): la prueba archivada más reciente del VIN con
+  coeficientes. `homoAltaFromPrevious(vin)` llena el Alta y deja `_homoAltaPrev`;
+  `homoAltaCollect` guarda `source: 'retest'`, `fromVehicleId`, `prevSource` y `edited`, y
+  conserva WO / archivo / `vinCheck` de la ficha anterior. Elegir del catálogo, cargar un ICMS,
+  Quitar o limpiar el Alta lo olvidan.
+- CASCADE 4.8.2.
+
 ## 3.6.0 — Instrumentos en calibración (2026-10-13)
 
 ### Nuevo

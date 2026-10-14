@@ -1449,6 +1449,8 @@ setAltaDatetimeIfEmpty(true);
                 (_h.workOrder ? ' WO=' + _h.workOrder : '') +
                 (_h.source === 'icms' ? ' (archivo ICMS «' + (_h.icmsFile || '') + '»' +
                     (_h.vinCheck === 'no-coincide' ? ', VIN del archivo NO coincide' : '') +
+                    (_h.edited && _h.edited.length ? ', editado a mano: ' + _h.edited.join('/') : '') + ')' : '') +
+                (_h.source === 'retest' ? ' (copiado de la prueba anterior del VIN, vehículo ' + _h.fromVehicleId +
                     (_h.edited && _h.edited.length ? ', editado a mano: ' + _h.edited.join('/') : '') + ')' : ''));
             if (typeof homoLinkConfig === 'function' && (_h.workOrder || _h.mcCode)) {
                 homoLinkConfig(configCode, _h.workOrder || _h.mcCode);
@@ -10252,10 +10254,19 @@ function _v7CreateVinHint() {
 }
 
 function v7CopyArchivedConfig(vin) {
-    var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
+    // [3.7.0] La prueba anterior MÁS RECIENTE del VIN (antes, la primera del arreglo).
+    var archived = null;
+    (db.vehicles || []).forEach(function(v) {
+        if (v.vin === vin && v.status === 'archived' &&
+            (!archived || String(v.registeredAt || '') > String(archived.registeredAt || ''))) archived = v;
+    });
     if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
     v7ApplySmartConfig(archived.configCode);
-    showToast('Configuración copiada del vehículo anterior', 'success');
+    // [3.7.0] Mismo VIN = misma unidad: también trae la ficha del ICMS (f0/f1/f2/TM/MR/CO₂)
+    // de su prueba anterior. Solo aplica si la configuración es de Europa.
+    var homo = typeof homoAltaFromPrevious === 'function' && homoAltaFromPrevious(vin);
+    showToast(homo ? 'Configuración y datos del ICMS copiados de la prueba anterior'
+                   : 'Configuración copiada del vehículo anterior', 'success');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
