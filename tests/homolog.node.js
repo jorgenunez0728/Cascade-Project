@@ -193,6 +193,29 @@ console.log('\n== homoWltpInertia ==');
         ctx.homoAltaReset();
         d = ctx.homoAltaCollect();
         ok('limpiar el Alta olvida el re-test', d.source === 'alta' && d.f0 === null);
+
+        console.log('\n== [3.7.1] El ICMS del re-test se llena solo con el VIN ==');
+        ctx.document.getElementById = id => els[id] || null;
+        els.vin.value = VIN.slice(0, 10);
+        ok('VIN incompleto: no llena', ctx.homoAltaAutoPrev() === false && els.homo_f0.value === '');
+        els.vin.value = VIN;
+        ok('VIN completo con prueba anterior: llena solo', ctx.homoAltaAutoPrev() === true && els.homo_f0.value === 102.5 && ctx.homoAltaPrevActive());
+        ok('no se vuelve a llenar encima', ctx.homoAltaAutoPrev() === false);
+        els.vin.value = 'OTRO';
+        ctx.homoAltaAutoPrev();
+        ok('si el VIN cambia, retira la ficha del VIN anterior', els.homo_f0.value === '' && els.homo_mc.value === '' && !ctx.homoAltaPrevActive());
+        els.vin.value = VIN; ctx.homoAltaAutoPrev();
+        ctx.homoAltaPrevRemove();
+        ok('Quitar vacía los campos', els.homo_f0.value === '' && !ctx.homoAltaPrevActive());
+        ok('y no la vuelve a poner para ese VIN', ctx.homoAltaAutoPrev() === false && els.homo_f0.value === '');
+        ctx.homoAltaReset();
+        els.homo_f0.value = '99';
+        ok('nunca pisa lo que ya se tecleó', ctx.homoAltaAutoPrev() === false && els.homo_f0.value === '99');
+        ctx.homoAltaReset();
+        ctx.currentFilters = { REGION: 'MEXICO' };
+        ok('fuera de Europa no llena solo', ctx.homoAltaAutoPrev() === false && els.homo_f0.value === '');
+        ctx.currentFilters = { REGION: 'EUROPE' };
+        ctx.document.getElementById = getEl;
         ctx.document.getElementById = getEl;
     }
 

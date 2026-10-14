@@ -20,6 +20,24 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.7.1 — Re-test: el ICMS se llena solo (2026-10-14)
+
+### Cambió
+- Pruebas → Alta: al teclear un VIN que ya tiene una prueba archivada, el bloque **Datos de
+  homologación** se llena **solo** con la Work Order, f0, f1, f2, TM, MR y CO₂ de esa prueba, en
+  cuanto la configuración es de Europa. Ya no hace falta tocar **Copiar config** para eso (el
+  botón sigue copiando la configuración).
+- Nunca pisa lo que ya tecleaste, cargaste del ICMS o elegiste del catálogo.
+- **Quitar** vacía lo copiado y no lo vuelve a poner para ese VIN. Si cambias el VIN, lo copiado
+  del VIN anterior se retira.
+
+### Para desarrollo
+- `homoAltaAutoPrev()` corre en `homoAltaSync` (cada cambio de la cascada) y el listener del VIN
+  llama a `homoAltaSync` en cada tecla. `_homoAltaPrev` guarda el `vin`; `_homoAltaPrevOff`
+  recuerda el VIN al que se le quitó. `homoAltaPrevRemove` / `homoAltaPrevActive`.
+- `v7CopyArchivedConfig` ya no llena el ICMS: solo lo reporta.
+- `tests/v371.e2e.js` (Chromium): re-test, cambio de VIN, Quitar. CASCADE 4.8.3.
+
 ## 3.7.0 — Re-test: "Copiar config" también trae el ICMS (2026-10-14)
 
 ### Nuevo

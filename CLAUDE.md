@@ -3297,3 +3297,12 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
 - `homoPreviousFichaForVin` (PURA) elige la prueba archivada más reciente con coeficientes. La
   ficha copiada se guarda con `source: 'retest'` + `fromVehicleId`: nunca se presenta como si se
   hubiera cargado el ICMS en esta prueba.
+
+## 3.7.1 — El ICMS del re-test se llena solo (`js/homolog.js`)
+
+- **`homoAltaAutoPrev()` es LA regla del autollenado**: VIN completo + Europa + bloque vacío +
+  sin ICMS cargado ni fila del catálogo elegida → ficha de la prueba anterior del VIN. Lo llama
+  `homoAltaSync`, y el listener `input` del VIN llama a `homoAltaSync` en cada tecla. Un camino
+  nuevo que cambie el VIN o la región del Alta debe pasar por `homoAltaSync`.
+- **Una ficha copiada pertenece a SU VIN** (`_homoAltaPrev.vin`): si el VIN cambia, se retira.
+  "Quitar" marca ese VIN en `_homoAltaPrevOff` para no volver a llenarlo.
