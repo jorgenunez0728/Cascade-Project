@@ -156,6 +156,46 @@ console.log('\n== homoWltpInertia ==');
     ok('si no se puede guardar, no queda nada a medias', out3.error && v8.homolog === null && v8.timeline.length === 0, JSON.stringify(out3));
     saveOk = true;
 
+    console.log('\n== [3.7.0] Re-test: la ficha del ICMS viaja con "Copiar config" ==');
+    {
+        const VIN = '3KPFU8118VE000122';
+        const fichaVieja = { workOrder: 'WO-OLD', mcCode: 'MC1', f0: 90, f1: 0.1, f2: 0.03, tm: 1500, mr: 40, co2Target: 140, source: 'icms', icmsFile: 'VIN_000122_a.xlsx', vinCheck: 'coincide' };
+        const fichaNueva = { workOrder: 'WO-NEW', mcCode: 'MC2', f0: 102.5, f1: 0.147, f2: 0.03544, tm: 1568, mr: 44.7, co2Target: 129, fcCombined: 5.6, source: 'icms', icmsFile: 'VIN_000122.xlsx', vinCheck: 'coincide' };
+        const lista = [
+            { id: 101, vin: VIN, status: 'archived', registeredAt: '2026-03-01T10:00:00Z', homolog: fichaVieja },
+            { id: 102, vin: VIN, status: 'archived', registeredAt: '2026-06-01T10:00:00Z', homolog: fichaNueva },
+            { id: 103, vin: VIN, status: 'archived', registeredAt: '2026-09-01T10:00:00Z', homolog: { source: 'alta' } },
+            { id: 104, vin: VIN, status: 'registered', registeredAt: '2026-10-01T10:00:00Z', homolog: { f0: 1 } },
+            { id: 105, vin: 'OTRO', status: 'archived', registeredAt: '2026-10-02T10:00:00Z', homolog: { f0: 7 } }
+        ];
+        const p = ctx.homoPreviousFichaForVin(lista, VIN);
+        ok('toma la prueba archivada más reciente CON coeficientes (no la vacía, no la en curso, no otro VIN)', p && p.vehicle.id === 102, p && p.vehicle.id);
+        ok('sin prueba anterior → null', ctx.homoPreviousFichaForVin(lista, 'NADA') === null && ctx.homoPreviousFichaForVin(lista, '') === null);
+
+        const els = {};
+        ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2', 'vin'].forEach(id => { els[id] = { value: '' }; });
+        ['homo-alta-status', 'homo-alta-icms', 'homo-alta-results', 'homo-alta-warn'].forEach(id => { els[id] = { innerHTML: '' }; });
+        const getEl = ctx.document.getElementById;
+        ctx.document.getElementById = id => els[id] || null;
+        ctx.db.vehicles = lista;
+        ctx.currentFilters = { REGION: 'MEXICO' };
+        ok('fuera de Europa no llena nada', ctx.homoAltaFromPrevious(VIN) === false && els.homo_f0.value === '');
+        ctx.currentFilters = { REGION: 'EUROPE' };
+        ok('en Europa llena los campos con la ficha anterior', ctx.homoAltaFromPrevious(VIN) === true &&
+            els.homo_mc.value === 'WO-NEW' && els.homo_f0.value === 102.5 && els.homo_mr.value === 44.7 && els.homo_co2.value === 129 &&
+            /prueba anterior/.test(els['homo-alta-status'].innerHTML));
+        let d = ctx.homoAltaCollect();
+        ok('la ficha registra de dónde salió (re-test, vehículo, WO, archivo)', d.source === 'retest' && d.fromVehicleId === 102 &&
+            d.workOrder === 'WO-NEW' && d.icmsFile === 'VIN_000122.xlsx' && d.fcCombined === 5.6 && d.edited.length === 0, JSON.stringify(d));
+        els.homo_f0.value = '103';
+        d = ctx.homoAltaCollect();
+        ok('editar a mano queda anotado', d.source === 'retest' && d.f0 === 103 && d.edited.join() === 'f0');
+        ctx.homoAltaReset();
+        d = ctx.homoAltaCollect();
+        ok('limpiar el Alta olvida el re-test', d.source === 'alta' && d.f0 === null);
+        ctx.document.getElementById = getEl;
+    }
+
     console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
     process.exit(fallaron ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -572,6 +572,7 @@ function homoAltaFill(row, auto) {
     set('homo_mc', row.workOrder || row.mcCode || '');
     _homoAltaPicked = row;
     _homoAltaIcms = null;   // elegir del catálogo reemplaza al archivo cargado
+    _homoAltaPrev = null;
     var icHost = document.getElementById('homo-alta-icms'); if (icHost) icHost.innerHTML = '';
     set('homo_f0', row.f0);
     set('homo_f1', row.f1);
@@ -643,6 +644,8 @@ function homoAltaUpdateStatus() {
     if (d.source === 'icms') inrLine = _homoVinLineHTML(d.vinCheck, _homoAltaIcms && _homoAltaIcms.tail) + inrLine +
         (d.edited && d.edited.length ? '<div class="homo-icms-note">✏️ Cambiaste a mano: ' + escapeHtml(d.edited.join(', ')) +
             '. Se guarda lo que está en los campos y queda anotado que difiere del archivo.</div>' : '');
+    if (d.source === 'retest' && d.edited && d.edited.length) inrLine += '<div class="homo-icms-note">✏️ Cambiaste a mano: ' +
+        escapeHtml(d.edited.join(', ')) + '. Se guarda lo que está en los campos y queda anotado que difiere de la prueba anterior.</div>';
     warn.innerHTML = inrLine + (missing.length
         ? '<span style="color:var(--warn-text,#92400e);">⚠️ Falta: ' + missing.join(', ') +
           '. Puedes registrar igual, pero el CoP no podrá comparar el CO₂ de este vehículo.</span>'
@@ -681,6 +684,19 @@ function homoAltaCollect() {
         var vinEl = document.getElementById('vin');
         var chk = homoVinMatchesTail(vinEl ? vinEl.value : '', ic.tail);
         d.vinCheck = chk === true ? 'coincide' : chk === false ? 'no-coincide' : 'sin-dato';
+    } else if (_homoAltaPrev && _homoNorm(d.mcCode) === _homoNorm(_homoAltaPrev.ficha.workOrder || _homoAltaPrev.ficha.mcCode)) {
+        // [3.7.0] Re-test: la ficha viene de la prueba anterior del MISMO VIN. Se
+        // conserva su procedencia (WO, archivo) y queda dicho de qué vehículo salió.
+        var pv = _homoAltaPrev.ficha;
+        ['mcCode', 'workOrder', 'ocn', 'wvta', 'variant', 'version', 'fcCombined', 'icmsFile', 'vinCheck'].forEach(function(k) {
+            if (pv[k] != null && pv[k] !== '') d[k] = pv[k];
+        });
+        d.source = 'retest';
+        d.prevSource = pv.source || '';
+        d.fromVehicleId = _homoAltaPrev.vehicleId;
+        d.edited = [['f0', 'f0'], ['f1', 'f1'], ['f2', 'f2'], ['tm', 'TM'], ['mr', 'MR'], ['co2Target', 'CO₂']]
+            .filter(function(p) { return _homoNum(pv[p[0]]) !== d[p[0]]; })
+            .map(function(p) { return p[1]; });
     } else if (_homoAltaPicked && _homoNorm(d.mcCode) === homoRowKey(_homoAltaPicked)) {
         d.mcCode = _homoAltaPicked.mcCode || d.mcCode;
         d.workOrder = _homoAltaPicked.workOrder || '';
@@ -698,7 +714,7 @@ function homoAltaReset() {
     var r = document.getElementById('homo-alta-results'); if (r) r.innerHTML = '';
     var s = document.getElementById('homo-alta-status'); if (s) s.innerHTML = '';
     var p = document.getElementById('homo-alta-icms'); if (p) p.innerHTML = '';
-    _homoAltaIcms = null; _homoAltaPicked = null;
+    _homoAltaIcms = null; _homoAltaPicked = null; _homoAltaPrev = null;
     homoAltaUpdateStatus();
 }
 
@@ -706,6 +722,53 @@ function homoAltaReset() {
 
 var _homoAltaIcms = null;    // {fileName, tail, rows, row, applied} — solo el Alta abierta
 var _homoAltaPicked = null;  // fila del catálogo elegida a mano
+var _homoAltaPrev = null;    // [3.7.0] {vehicleId, ficha} — re-test: ficha copiada de la prueba anterior del VIN
+
+/**
+ * [3.7.0] La prueba anterior de un VIN cuya ficha de homologación sirve para el
+ * re-test: la más reciente (por fecha de alta) con coeficientes. PURA.
+ * Mismo VIN = misma unidad física = mismo archivo del ICMS (el VIN va en su nombre).
+ */
+function homoPreviousFichaForVin(vehicles, vin) {
+    if (!vin) return null;
+    var best = null;
+    (vehicles || []).forEach(function(v) {
+        if (!v || v.vin !== vin || v.status !== 'archived') return;
+        var h = v.homolog;
+        if (!h || !HOMO_FICHA_FIELDS.some(function(f) { return f[2] && h[f[0]] != null && h[f[0]] !== ''; })) return;
+        if (!best || String(v.registeredAt || '') > String(best.registeredAt || '')) best = v;
+    });
+    return best ? { vehicle: best, ficha: best.homolog } : null;
+}
+
+/**
+ * [3.7.0] Llena el bloque del Alta con la ficha de la prueba anterior del mismo VIN
+ * (botón "Copiar config" del re-test). Devuelve true si llenó algo.
+ */
+function homoAltaFromPrevious(vin) {
+    if (!homoAltaIsEurope()) return false;
+    var prev = homoPreviousFichaForVin(typeof db !== 'undefined' ? db.vehicles : [], vin);
+    if (!prev) return false;
+    var h = prev.ficha;
+    var set = function(id, v) { var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    set('homo_mc', h.workOrder || h.mcCode || '');
+    set('homo_f0', h.f0); set('homo_f1', h.f1); set('homo_f2', h.f2);
+    set('homo_tm', h.tm); set('homo_mr', h.mr); set('homo_co2', h.co2Target);
+    _homoAltaIcms = null; _homoAltaPicked = null;
+    _homoAltaPrev = { vehicleId: prev.vehicle.id, ficha: h };
+    ['homo-alta-icms', 'homo-alta-results'].forEach(function(id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    var st = document.getElementById('homo-alta-status');
+    if (st) {
+        var fecha = typeof vehicleTestDate === 'function' ? vehicleTestDate(prev.vehicle) : '';
+        st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ Copiado de la prueba anterior de este VIN' +
+            (fecha ? ' (' + escapeHtml(fecha) + ')' : '') +
+            (h.workOrder ? ' — <b>WO ' + escapeHtml(h.workOrder) + '</b>' : '') +
+            (h.icmsFile ? ' · archivo «' + escapeHtml(h.icmsFile) + '»' : '') +
+            '. Si la unidad tiene otra Work Order, carga su ICMS nuevo.</span>';
+    }
+    homoAltaUpdateStatus();
+    return true;
+}
 
 /** Línea del cruce VIN del archivo ↔ VIN capturado. PURA. */
 function _homoVinLineHTML(check, tail) {
@@ -805,7 +868,7 @@ function homoAltaIcmsUse() {
     set('homo_f0', r.f0); set('homo_f1', r.f1); set('homo_f2', r.f2);
     set('homo_tm', r.tm); set('homo_mr', r.mr); set('homo_co2', r.co2Combined);
     ic.applied = true;
-    _homoAltaPicked = null;
+    _homoAltaPicked = null; _homoAltaPrev = null;
     var host = document.getElementById('homo-alta-icms');
     if (host) host.innerHTML = '<div class="homo-icms-done">✅ Tomado del ICMS «' + escapeHtml(ic.fileName) + '» — WO <b>' +
         escapeHtml(r.workOrder || '—') + '</b> <button type="button" class="tp-btn tp-btn-ghost" onclick="homoAltaIcmsCancel(true)">Quitar</button></div>';
@@ -822,6 +885,7 @@ function homoAltaIcmsCancel(clear) {
         ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2'].forEach(function(id) {
             var el = document.getElementById(id); if (el) el.value = '';
         });
+        _homoAltaPrev = null;
     }
     _homoAltaIcms = null;
     homoAltaUpdateStatus();
