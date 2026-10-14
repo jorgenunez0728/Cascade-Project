@@ -3291,8 +3291,8 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
 ## 3.7.0 — Re-test copia la ficha del ICMS (`js/homolog.js`)
 
 - **Matiza 2.29.0** ("no autollenar con la unidad anterior de la misma configuración"): eso sigue
-  valiendo entre UNIDADES distintas. Para el **mismo VIN** (re-test) sí se copia, porque es la
-  misma unidad y el mismo archivo del ICMS. Solo lo hace el botón "Copiar config" del aviso de
+  valiendo entre UNIDADES distintas. Para el **mismo VIN** (re-test) sí se copia: **la Work Order
+  es fija por VIN y no cambia nunca** (confirmado por el laboratorio), así que su ICMS tampoco. Solo lo hace el botón "Copiar config" del aviso de
   re-test, nunca solo.
 - `homoPreviousFichaForVin` (PURA) elige la prueba archivada más reciente con coeficientes. La
   ficha copiada se guarda con `source: 'retest'` + `fromVehicleId`: nunca se presenta como si se

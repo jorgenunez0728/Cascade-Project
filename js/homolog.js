@@ -727,7 +727,8 @@ var _homoAltaPrev = null;    // [3.7.0] {vehicleId, ficha} — re-test: ficha co
 /**
  * [3.7.0] La prueba anterior de un VIN cuya ficha de homologación sirve para el
  * re-test: la más reciente (por fecha de alta) con coeficientes. PURA.
- * Mismo VIN = misma unidad física = mismo archivo del ICMS (el VIN va en su nombre).
+ * La Work Order es fija por VIN y no cambia nunca (dato del laboratorio): mismo VIN =
+ * misma WO = mismo ICMS.
  */
 function homoPreviousFichaForVin(vehicles, vin) {
     if (!vin) return null;
@@ -764,7 +765,7 @@ function homoAltaFromPrevious(vin) {
             (fecha ? ' (' + escapeHtml(fecha) + ')' : '') +
             (h.workOrder ? ' — <b>WO ' + escapeHtml(h.workOrder) + '</b>' : '') +
             (h.icmsFile ? ' · archivo «' + escapeHtml(h.icmsFile) + '»' : '') +
-            '. Si la unidad tiene otra Work Order, carga su ICMS nuevo.</span>';
+            '.</span>';
     }
     homoAltaUpdateStatus();
     return true;

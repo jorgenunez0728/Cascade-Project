@@ -26,9 +26,10 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - Pruebas → Alta: al teclear un VIN que ya tiene una prueba archivada, **Copiar config** ahora
   también llena el bloque **Datos de homologación** (Work Order, f0, f1, f2, TM, MR y CO₂) con
   los de la prueba anterior de ese VIN, si la configuración es de Europa. Mismo VIN = misma unidad
-  y mismo archivo del ICMS, así que ya no hay que volver a cargarlo.
-- El bloque dice de qué prueba salió (fecha, WO, archivo). Si la unidad tiene otra Work Order,
-  se carga su ICMS nuevo como siempre y reemplaza lo copiado.
+  y misma Work Order, así que ya no hay que volver a cargarlo.
+- El bloque dice de qué prueba salió (fecha, WO, archivo). La Work Order de un VIN no cambia
+  nunca, así que el ICMS de un re-test es siempre el mismo. Cargar un ICMS a mano sigue
+  funcionando y reemplaza lo copiado.
 - Lo que cambies a mano después de copiar queda anotado ("difiere de la prueba anterior").
 
 ### Arreglado
