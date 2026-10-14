@@ -36,7 +36,7 @@ function extraer(nombre) {
 const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat };
 vm.createContext(ctx);
 ['_fbEquipKey', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
- '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem']
+ '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem', '_fbMergeEquipCalOut']
     .forEach(n => vm.runInContext(extraer(n), ctx, { filename: 'firebase-sync.js' }));
 
 let pasaron = 0, fallaron = 0;
@@ -242,6 +242,20 @@ console.log('\n== v24.3: fusión de cilindros y tanques ==');
     ok('tanque: poner el nivel de reorden SÍ es diferencia (antes: mismas lecturas y nivel → ignorado)', ctx._fbInvItemDiffers(t1, t2));
     ok('tanque: el nivel de reorden viaja', ctx._fbMergeInvItem(t1, t2).reorderLevel === 200);
     ok('initialPsi del otro lado no se pierde', ctx._fbMergeInvItem(Object.assign({}, base, { initialPsi: 2200, updatedAt: '1' }), Object.assign({}, base, { updatedAt: '2' })).initialPsi === 2200);
+}
+
+console.log('\n== [3.6.0] Enviado a calibrar entre equipos (_fbMergeEquipCalOut) ==');
+{
+    const out = { at: '2026-10-01', expectedBack: '2026-10-20' };
+    const m1 = ctx._fbMergeEquipCalOut({ lastCalDate: '2025-02-21' }, { updatedAt: '2026-10-01T10:00Z' }, { updatedAt: '2026-10-01T12:00Z', calOut: out });
+    ok('el envío hecho en otro equipo llega', m1.calOut && m1.calOut.at === '2026-10-01');
+    const m2 = ctx._fbMergeEquipCalOut({ lastCalDate: '2025-02-21', calOut: out }, { updatedAt: '2026-10-05T10:00Z' }, { updatedAt: '2026-10-01T12:00Z', calOut: out });
+    ok('"regresó" (sin calOut) más reciente gana', !m2.calOut);
+    const m3 = ctx._fbMergeEquipCalOut({ lastCalDate: '2026-10-03' }, { updatedAt: '2026-10-01T10:00Z', calOut: out }, { updatedAt: '2026-10-01T09:00Z' });
+    ok('una calibración posterior al envío lo termina', !m3.calOut);
+    const a = ctx._fbMergeEquipCalOut({}, { updatedAt: '1', calOut: out }, { updatedAt: '2' });
+    const b = ctx._fbMergeEquipCalOut({}, { updatedAt: '2' }, { updatedAt: '1', calOut: out });
+    ok('simétrica: los dos equipos llegan a lo mismo', !a.calOut && !b.calOut);
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

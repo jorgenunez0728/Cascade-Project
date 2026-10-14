@@ -2324,6 +2324,9 @@ function pnGetActiveAlerts() {
             if (st.code === 'vencido') {
                 alerts.push(_pnAlert(deprueba ? 'CRITICA' : 'ALTA', deprueba ? 'cal-vencida-prueba' : 'cal-vencida', 'Inventario',
                     'Calibración de ' + nombre + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', { days: Math.abs(st.days) }));
+            } else if (st.code === 'encalibracion' && st.late > 0) {
+                // [3.6.0] Fuera a calibrar: solo avisa si ya pasó su regreso esperado.
+                alerts.push(_pnAlert('ALTA', 'cal-regreso', 'Inventario', nombre + ' no ha regresado de calibración (' + st.late + ' dias de atraso)', { days: st.late }));
             } else if (st.code === 'porvencer' && st.days <= 7) {
                 alerts.push(_pnAlert('ALTA', 'cal-7d', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             } else if (st.code === 'porvencer') {
@@ -2421,6 +2424,7 @@ var PN_ALERT_KINDS = {
     'plan-sin':           { icon: '📅', one: 'Sin plan para esta semana', many: 'semanas sin plan', go: "dashGo('testplan','tp-calendar')" },
     'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
     'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
+    'cal-regreso':        { icon: '🚚', one: 'Instrumento no ha regresado de calibración', many: 'instrumentos no han regresado de calibración', go: "dashGo('inventory','inv-equipment')" },
     'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
 };
 var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };

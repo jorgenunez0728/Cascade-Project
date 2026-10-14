@@ -226,7 +226,8 @@ function _fichaInstrumento(id) {
         subtitle: [e.magnitude, asset ? asset.name : '', e.kmmId ? 'KMM ' + e.kmmId : ''].filter(Boolean).join(' · '),
         badges: [], facts: [], relations: [], history: []
     };
-    if (st) m.badges.push({ text: st.label, tone: { vencido: 'bad', porvencer: 'warn', vigente: 'ok' }[st.code] || 'muted' });
+    if (st) m.badges.push({ text: st.label, tone: { vencido: 'bad', porvencer: 'warn', vigente: 'ok' }[st.code] || (st.code === 'encalibracion' && st.late ? 'warn' : 'muted') });
+    if (e.calOut && e.calOut.at) m.facts.push({ k: 'Enviado a calibrar', v: _fichaDate(e.calOut.at) + (e.calOut.provider ? ' · ' + e.calOut.provider : '') });
     if (e.serialNo) m.facts.push({ k: 'Serie', v: e.serialNo });
     if (e.calFreq) m.facts.push({ k: 'Frecuencia', v: e.calFreq });
     if (e.lastCalDate) m.facts.push({ k: 'Última calibración', v: _fichaDate(e.lastCalDate) });

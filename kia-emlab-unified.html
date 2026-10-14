@@ -9483,10 +9483,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610132051';
+var APP_BUILD = '202610132106';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '6bb94a98f05c8a32e170251dfc0ef6106843927d';
+var APP_COMMIT = 'b0a3e4e1aeb1d81bb8b993581d25a0f9b56b3d21';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9494,7 +9494,7 @@ var APP_COMMIT = '6bb94a98f05c8a32e170251dfc0ef6106843927d';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.5.0';
+var APP_VERSION = '3.6.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9502,6 +9502,8 @@ var APP_VERSION = '3.5.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.6.0', date: '13 oct 2026', title: 'Instrumentos en calibración',
+      bullets: ['Equipos: botón "🚚 En calibración" para lo que se fue a calibrar y no ha regresado. Deja de salir como vencido; si pasa su regreso esperado, avisa. Al volver: ✅ Calibrado (o "↩ Regresó" si no lo calibraron).'] },
     { version: '3.5.0', date: '13 oct 2026', title: 'Resumen al inicio y al final del turno',
       bullets: ['El resumen sale al inicio (7:00) y al final del turno (16:00, "cierre de turno"), una sola vez cada uno. Se intenta cada 5 min en esa hora y, en cuanto sale, ya no se vuelve a intentar.'] },
     { version: '3.4.0', date: '13 oct 2026', title: 'Versión propia de CASCADE',
@@ -10544,14 +10546,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610132051' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610132106' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610132051' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610132106' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10567,7 +10569,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610132051' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610132106' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -14099,6 +14101,9 @@ function dashCollectActivities() {
                     debt: _blk[e.assetId] ? '' : 'cal', inboxGrouped: !!(_juntar && _blk[e.assetId]),
                     title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+                else if (st.code === 'encalibracion' && st.late > 0) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🚚', debt: 'cal',
+                    title: e.name + ': no ha regresado de calibración', meta: st.late + ' días después del regreso esperado', status: 'atrasado', urgency: 2, ficha: { kind: 'instrumento', ref: e.id },
+                    action: { label: 'Ver', js: "dashGo('inventory','inv-equipment')" } });
                 else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
                     title: e.name + ': calibrar en ' + st.days + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: st.days <= 7 ? 2 : 1, ficha: { kind: 'instrumento', ref: e.id },
                     action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
@@ -29646,6 +29651,15 @@ function _invMigrateF11() {
 function invCalStatus(eq) {
     if (!eq) return { code: 'noaplica', days: null, color: '#94a3b8', label: 'N/A' };
     if (eq.requiresCal === 'No') return { code: 'noaplica', days: null, color: '#94a3b8', label: 'No aplica' };
+    // [3.6.0] Enviado a calibrar y aún no regresa: no es "vencido" (ya se atendió), pero si
+    // pasa la fecha de regreso esperada se dice (`late`). Lo limpia registrar la calibración.
+    if (eq.calOut && eq.calOut.at) {
+        var back = eq.calOut.expectedBack || '';
+        var late = back ? Math.round((new Date(localToday() + 'T00:00:00') - new Date(back + 'T00:00:00')) / 86400000) : 0;
+        if (late > 0) return { code: 'encalibracion', late: late, days: null, color: '#f59e0b', label: 'En calibración · regreso atrasado ' + late + 'd' };
+        return { code: 'encalibracion', late: 0, days: null, color: '#3b82f6',
+                 label: 'En calibración' + (back ? ' · regresa ' + back.slice(8, 10) + '/' + back.slice(5, 7) : '') };
+    }
     if (!eq.nextCalDate) return { code: 'sinregistro', days: null, color: '#64748b', label: 'Sin registro' };
     var days = Math.round((new Date(eq.nextCalDate + 'T00:00:00') - new Date(localToday() + 'T00:00:00')) / 86400000);
     if (days < 0) return { code: 'vencido', days: days, color: '#ef4444', label: 'Vencido ' + Math.abs(days) + 'd' };
@@ -29664,7 +29678,7 @@ function invCalNextDate(lastISO, freq) {
 
 // Réplica viva de la hoja Dashboard del F11 (sección Calibración).
 function invCalSummary() {
-    var total = invState.equipment.length, requiere = 0, vigentes = 0, porVencer = 0, vencidos = 0, sinRegistro = 0;
+    var total = invState.equipment.length, requiere = 0, vigentes = 0, porVencer = 0, vencidos = 0, sinRegistro = 0, enCalibracion = 0;
     invState.equipment.forEach(function(eq) {
         if (eq.requiresCal === 'No') return;
         requiere++;
@@ -29673,9 +29687,10 @@ function invCalSummary() {
         else if (st.code === 'porvencer') porVencer++;
         else if (st.code === 'vencido') vencidos++;
         else if (st.code === 'sinregistro') sinRegistro++;
+        else if (st.code === 'encalibracion') enCalibracion++;
     });
     var pct = requiere > 0 ? Math.round((vigentes / requiere) * 1000) / 10 : 0;
-    return { total: total, requiere: requiere, vigentes: vigentes, porVencer: porVencer, vencidos: vencidos, sinRegistro: sinRegistro, pct: pct };
+    return { total: total, requiere: requiere, vigentes: vigentes, porVencer: porVencer, vencidos: vencidos, sinRegistro: sinRegistro, enCalibracion: enCalibracion, pct: pct };
 }
 
 // Semana del año (1-52), partición simple estilo Excel WEEKNUM (semana 1 = la que contiene el 1-ene).
@@ -29835,6 +29850,79 @@ function invCalRegister(eqId, opts) {
     if (typeof fbPostCalibration === 'function') fbPostCalibration(eq.name);
     if (!opts.silent && typeof showToast === 'function') showToast('Calibración registrada', 'success');
     return eq;
+}
+
+// [3.6.0] Enviado a calibrar: quita la alerta de vencido mientras el instrumento está fuera.
+// `eq.calOut = {at, by, expectedBack, provider, note}`. Lo limpia registrar la calibración
+// (_invApplyCalibration) o "Regresó sin calibrar" (invCalBack).
+function invCalSendOut(eqId, opts) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'enviar a calibrar')) return null;
+    opts = opts || {};
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq) return null;
+    var who = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Laboratorio';
+    var out = { at: opts.date || localToday(), by: who };
+    if (opts.expectedBack) out.expectedBack = opts.expectedBack;
+    if (opts.provider) out.provider = opts.provider;
+    if (opts.note) out.note = opts.note;
+    eq.calOut = out;
+    eq.updatedAt = new Date().toISOString();
+    invSave();
+    if (typeof auditLog === 'function') auditLog('inv', 'enviado_a_calibrar', { type: 'equipment', id: eqId, label: eq.name },
+        (out.provider ? out.provider + ' · ' : '') + (out.expectedBack ? 'regresa ' + out.expectedBack : 'sin fecha de regreso'));
+    return eq;
+}
+
+/** Regresó sin registrar calibración (o se canceló el envío): vuelve a su semáforo normal. */
+function invCalBack(eqId) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'marcar que regresó')) return null;
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq || !eq.calOut) return null;
+    delete eq.calOut;
+    eq.updatedAt = new Date().toISOString();
+    invSave();
+    if (typeof auditLog === 'function') auditLog('inv', 'regreso_sin_calibrar', { type: 'equipment', id: eqId, label: eq.name }, 'Sin registrar calibración');
+    return eq;
+}
+
+function invShowCalOutModal(eqId) {
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius: var(--radius-2xl);padding: var(--space-xl);position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="Cerrar">✕</button>' +
+        '<h3 style="margin:0 0 4px;color:var(--text);">🚚 Enviar a calibrar</h3>' +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-bottom: var(--space-lg);">' + escapeHtml(eq.name) + (eq.magnitude ? ' — ' + escapeHtml(eq.magnitude) : '') +
+        '<br>Mientras esté fuera no aparece como vencido. Al regresar, toca ✅ Calibrado.</div>' +
+        '<div style="display:flex;flex-direction:column;gap: var(--space-md);">' +
+        '<div><label for="inv-calout-date" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha de envío</label><input id="inv-calout-date" type="date" value="' + localToday() + '" max="' + localToday() + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label for="inv-calout-back" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Regreso esperado <small>(opcional)</small></label><input id="inv-calout-back" type="date" value="" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '<div><label for="inv-calout-prov" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Proveedor</label><input id="inv-calout-prov" value="' + escapeHtml(eq.calLab || '') + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
+        '<button onclick="invSaveCalOut(\x27' + eqId + '\x27)" style="flex:1;padding: var(--space-md);background:#1d4ed8;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Enviar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+}
+
+function invSaveCalOut(eqId) {
+    var date = document.getElementById('inv-calout-date').value;
+    var back = document.getElementById('inv-calout-back').value;
+    if (!date) return uiInvalid(document.getElementById('inv-calout-date'), 'Pon la fecha en que salió.');
+    if (back && back < date) return uiInvalid(document.getElementById('inv-calout-back'), 'El regreso no puede ser antes del envío.');
+    if (!invCalSendOut(eqId, { date: date, expectedBack: back, provider: document.getElementById('inv-calout-prov').value.trim() })) return;
+    document.getElementById('invModal').style.display = 'none';
+    showToast('Marcado como en calibración', 'success');
+    invRender(); invUpdateBadges();
+}
+
+function invCalBackConfirm(eqId) {
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq) return;
+    showConfirmDialog({ title: '↩ Regresó sin calibrar', type: 'warning', confirmText: 'Sí, regresó', cancelText: 'Cancelar',
+        message: (eq.name || 'El instrumento') + ' vuelve a su estado normal (vencido si ya pasó su fecha). Si sí lo calibraron, mejor toca ✅ Calibrado.' })
+        .then(function(ok) { if (ok && invCalBack(eqId)) { showToast('Regresó: vuelve a su estado normal', 'info'); invRender(); invUpdateBadges(); } });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -31832,7 +31920,7 @@ function invRenderEquipment(el) {
 
     html += '<div style="margin-bottom: var(--space-sm);"><input type="text" aria-label="Buscar instrumento, KMM o equipo" placeholder="Buscar instrumento, KMM, equipo..." value="' + escapeHtml(window._invEqSearch || '') + '" oninput="window._invEqSearch=this.value;_invDebouncedRender();" style="width:100%;padding: var(--space-sm) var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-lg);font-size: var(--fs-sm);"></div>';
 
-    var chips = [['all', 'Todos'], ['vencido', '🔴 Vencidos'], ['porvencer', '🟠 Por vencer'], ['vigente', '🟢 Vigentes'], ['noaplica', '⚪ No aplica']];
+    var chips = [['all', 'Todos'], ['vencido', '🔴 Vencidos'], ['porvencer', '🟠 Por vencer'], ['encalibracion', '🔵 En calibración'], ['vigente', '🟢 Vigentes'], ['noaplica', '⚪ No aplica']];
     html += '<div style="display:flex;gap: var(--space-xs);margin-bottom: var(--space-md);flex-wrap:wrap;">';
     chips.forEach(function(c) {
         var active = filter === c[0];
@@ -31857,8 +31945,8 @@ function invRenderEquipment(el) {
     if (groups.length === 0) {
         html += '<div style="text-align:center;padding: var(--space-xl);color:var(--tp-dim);">Sin instrumentos que coincidan.</div>';
     } else {
-        var order = { vencido: 4, sinregistro: 3, porvencer: 2, vigente: 1, noaplica: 0 };
-        var colorOf = { vencido: '#ef4444', sinregistro: '#64748b', porvencer: '#f59e0b', vigente: '#10b981', noaplica: '#94a3b8' };
+        var order = { vencido: 5, sinregistro: 4, porvencer: 3, encalibracion: 2, vigente: 1, noaplica: 0 };
+        var colorOf = { vencido: '#ef4444', sinregistro: '#64748b', porvencer: '#f59e0b', encalibracion: '#3b82f6', vigente: '#10b981', noaplica: '#94a3b8' };
         groups.forEach(function(g) {
             var worst = 'noaplica';
             g.items.forEach(function(e) { var c = invCalStatus(e).code; if (order[c] > order[worst]) worst = c; });
@@ -31879,7 +31967,12 @@ function invRenderEquipment(el) {
                 html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (e.kmmId ? 'KMM ' + escapeHtml(e.kmmId) + ' · ' : '') + (e.nextCalDate ? 'próxima ' + e.nextCalDate : 'sin fecha') + '</div></div>';
                 html += '<div style="display:flex;gap: var(--space-xs);align-items:center;">';
                 html += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-sm);border-radius: var(--radius-md);background:' + st.color + '20;color:' + st.color + ';">' + st.label + '</span>';
-                if (e.requiresCal !== 'No') html += '<button class="tp-btn tp-btn-primary" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">✅ Calibrado</button>';
+                if (e.requiresCal !== 'No') {
+                    // [3.6.0] Fuera a calibrar: "Regresó" en lugar de "Enviar".
+                    if (st.code === 'encalibracion') html += '<button class="tp-btn tp-btn-ghost" onclick="invCalBackConfirm(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);" title="Regresó sin registrar calibración">↩ Regresó</button>';
+                    else if (st.code !== 'vigente') html += '<button class="tp-btn tp-btn-ghost" onclick="invShowCalOutModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);" title="Se fue a calibrar y aún no regresa">🚚 En calibración</button>';
+                    html += '<button class="tp-btn tp-btn-primary" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size: var(--fs-sm);padding: var(--space-xs) var(--space-sm);">✅ Calibrado</button>';
+                }
                 html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size: var(--fs-sm);" title="Editar" aria-label="Editar instrumento">✏️</button>';
                 html += '</div></div>';
             });
@@ -35715,6 +35808,8 @@ function _invApplyCalibration(eq, o) {
         if (!dup) eq.calHistory.push({ date: eq.lastCalDate, certNo: cert, provider: eq.calLab || '',
                                        by: o.by || 'Laboratorio', at: new Date().toISOString() });
     }
+    // [3.6.0] Regresó calibrado: termina el envío a calibrar.
+    if (o.date && eq.calOut) delete eq.calOut;
     eq.updatedAt = new Date().toISOString();
     return eq;
 }
@@ -50386,6 +50481,9 @@ function pnGetActiveAlerts() {
             if (st.code === 'vencido') {
                 alerts.push(_pnAlert(deprueba ? 'CRITICA' : 'ALTA', deprueba ? 'cal-vencida-prueba' : 'cal-vencida', 'Inventario',
                     'Calibración de ' + nombre + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', { days: Math.abs(st.days) }));
+            } else if (st.code === 'encalibracion' && st.late > 0) {
+                // [3.6.0] Fuera a calibrar: solo avisa si ya pasó su regreso esperado.
+                alerts.push(_pnAlert('ALTA', 'cal-regreso', 'Inventario', nombre + ' no ha regresado de calibración (' + st.late + ' dias de atraso)', { days: st.late }));
             } else if (st.code === 'porvencer' && st.days <= 7) {
                 alerts.push(_pnAlert('ALTA', 'cal-7d', 'Inventario', 'Calibración de ' + nombre + ' vence en ' + st.days + ' dias', { days: st.days }));
             } else if (st.code === 'porvencer') {
@@ -50483,6 +50581,7 @@ var PN_ALERT_KINDS = {
     'plan-sin':           { icon: '📅', one: 'Sin plan para esta semana', many: 'semanas sin plan', go: "dashGo('testplan','tp-calendar')" },
     'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
     'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
+    'cal-regreso':        { icon: '🚚', one: 'Instrumento no ha regresado de calibración', many: 'instrumentos no han regresado de calibración', go: "dashGo('inventory','inv-equipment')" },
     'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
 };
 var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };
@@ -58884,6 +58983,19 @@ function _fbMergeByIdNewest(locales, remotas, cap) {
 // Los equipos ya traen identidad estable: `id` (`"eq_th0033"`) y `f11Id`. Se
 // prefiere ésa; `serialNo`/`name` quedan sólo como último recurso para un
 // registro viejo sin id, y con prefijo para que no se confundan entre sí.
+/**
+ * [3.6.0] "Enviado a calibrar" de un instrumento al fusionar dos copias. PURA (escribe en
+ * `merged`). Gana el lado editado más recientemente (`updatedAt`, también cuando lo QUITÓ), y
+ * una calibración registrada el día del envío o después lo termina: ya regresó.
+ */
+function _fbMergeEquipCalOut(merged, local, remote) {
+    var src = String((remote && remote.updatedAt) || '') > String((local && local.updatedAt) || '') ? remote : local;
+    var out = src && src.calOut;
+    if (out && out.at && merged.lastCalDate && merged.lastCalDate >= String(out.at).slice(0, 10)) out = null;
+    if (out) merged.calOut = out; else delete merged.calOut;
+    return merged;
+}
+
 function _fbEquipKey(e) {
     if (!e) return '';
     if (e.id) return 'id:' + e.id;
@@ -60369,7 +60481,8 @@ function fbMergeAnalyze(remoteData) {
             // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
             // se detectaban altas nuevas — una calibración registrada en otro dispositivo nunca
             // se traía de vuelta).
-            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length);
+            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length)
+                || stableStringify(le.calOut || null) !== stableStringify(re.calOut || null);   // [3.6.0] enviado a calibrar
             if (isDiff) equipConflicts.push({ key: key, local: le, remote: re });
             else dupEquip.push(key);
         });
@@ -60700,6 +60813,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (c.local.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
             (c.remote.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
             mergedEq.calHistory = Object.keys(histByKey).map(function(k) { return histByKey[k]; }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+            _fbMergeEquipCalOut(mergedEq, c.local, c.remote);
             invState.equipment[idx] = mergedEq;
         }
 
@@ -61329,7 +61443,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610132051' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610132106' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -74751,7 +74865,8 @@ function _fichaInstrumento(id) {
         subtitle: [e.magnitude, asset ? asset.name : '', e.kmmId ? 'KMM ' + e.kmmId : ''].filter(Boolean).join(' · '),
         badges: [], facts: [], relations: [], history: []
     };
-    if (st) m.badges.push({ text: st.label, tone: { vencido: 'bad', porvencer: 'warn', vigente: 'ok' }[st.code] || 'muted' });
+    if (st) m.badges.push({ text: st.label, tone: { vencido: 'bad', porvencer: 'warn', vigente: 'ok' }[st.code] || (st.code === 'encalibracion' && st.late ? 'warn' : 'muted') });
+    if (e.calOut && e.calOut.at) m.facts.push({ k: 'Enviado a calibrar', v: _fichaDate(e.calOut.at) + (e.calOut.provider ? ' · ' + e.calOut.provider : '') });
     if (e.serialNo) m.facts.push({ k: 'Serie', v: e.serialNo });
     if (e.calFreq) m.facts.push({ k: 'Frecuencia', v: e.calFreq });
     if (e.lastCalDate) m.facts.push({ k: 'Última calibración', v: _fichaDate(e.lastCalDate) });
@@ -76777,7 +76892,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18655],[18659,"js/uiflow.js",18975],[18979,"js/cop15.js",29426],[29430,"js/inventory.js",36496],[36500,"js/testplan.js",48059],[48063,"js/panel.js",53395],[53399,"js/projects.js",55688],[55692,"js/auth.js",56733],[56737,"js/signatures.js",56938],[56942,"js/firebase-sync.js",64472],[64476,"js/cop_validator.js",68841],[68845,"js/homolog.js",70635],[70639,"js/vets.js",72436],[72440,"js/historico.js",73354],[73358,"js/review.js",73811],[73815,"js/opcards.js",74244],[74248,"js/handoff.js",74522],[74526,"js/ficha.js",75017],[75021,"js/relevo.js",75401],[75405,"js/momentos.js",75542],[75546,"js/digest.js",76349],[76353,"js/xlsxw.js",76733],[76737,"js/bugreport.js",77883]]};
+var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18660],[18664,"js/uiflow.js",18980],[18984,"js/cop15.js",29431],[29435,"js/inventory.js",36591],[36595,"js/testplan.js",48154],[48158,"js/panel.js",53494],[53498,"js/projects.js",55787],[55791,"js/auth.js",56832],[56836,"js/signatures.js",57037],[57041,"js/firebase-sync.js",64586],[64590,"js/cop_validator.js",68955],[68959,"js/homolog.js",70749],[70753,"js/vets.js",72550],[72554,"js/historico.js",73468],[73472,"js/review.js",73925],[73929,"js/opcards.js",74358],[74362,"js/handoff.js",74636],[74640,"js/ficha.js",75132],[75136,"js/relevo.js",75516],[75520,"js/momentos.js",75657],[75661,"js/digest.js",76464],[76468,"js/xlsxw.js",76848],[76852,"js/bugreport.js",77998]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

@@ -306,5 +306,21 @@ console.log('\n== invFuelWeeklyUsage ==');
     ok('nivel de reorden: solo si está capturado', ctx.invFuelReorder({ currentLevel: 150 }).needsPurchase === false && ctx.invFuelReorder({ currentLevel: 150, reorderLevel: 200 }).needsPurchase === true);
 }
 
+// ── [3.6.0] Enviado a calibrar ───────────────────────────────────────────
+console.log('\n== En calibración (invCalStatus con calOut) ==');
+{
+    const venc = { id: 'x', name: 'Humidity sensor', requiresCal: 'Si', calFreq: 'Anual', lastCalDate: '2025-02-21', nextCalDate: '2026-02-21' };
+    ok('sin envío: vencido', ctx.invCalStatus(venc).code === 'vencido');
+    const fuera = Object.assign({}, venc, { calOut: { at: '2026-09-20', expectedBack: '2026-10-10' } });
+    const s1 = ctx.invCalStatus(fuera);
+    ok('enviado: "en calibración", ya no vencido, sin atraso', s1.code === 'encalibracion' && s1.late === 0 && /regresa 10\/10/.test(s1.label), JSON.stringify(s1));
+    const s2 = ctx.invCalStatus(Object.assign({}, venc, { calOut: { at: '2026-09-01', expectedBack: '2026-09-20' } }));
+    ok('regreso esperado vencido: dice el atraso', s2.code === 'encalibracion' && s2.late === 4 && /atrasado 4d/.test(s2.label), JSON.stringify(s2));
+    ok('sin fecha de regreso: nunca atrasado', ctx.invCalStatus(Object.assign({}, venc, { calOut: { at: '2026-01-01' } })).late === 0);
+    ok('"No aplica" manda sobre el envío', ctx.invCalStatus(Object.assign({}, fuera, { requiresCal: 'No' })).code === 'noaplica');
+    const reg = ctx._invApplyCalibration(Object.assign({}, fuera), { date: '2026-09-24', certNo: 'C-1' });
+    ok('registrar la calibración termina el envío', !reg.calOut && ctx.invCalStatus(reg).code === 'vigente', JSON.stringify(reg.calOut));
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

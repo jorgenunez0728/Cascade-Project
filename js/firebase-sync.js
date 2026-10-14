@@ -1943,6 +1943,19 @@ function _fbMergeByIdNewest(locales, remotas, cap) {
 // Los equipos ya traen identidad estable: `id` (`"eq_th0033"`) y `f11Id`. Se
 // prefiere ésa; `serialNo`/`name` quedan sólo como último recurso para un
 // registro viejo sin id, y con prefijo para que no se confundan entre sí.
+/**
+ * [3.6.0] "Enviado a calibrar" de un instrumento al fusionar dos copias. PURA (escribe en
+ * `merged`). Gana el lado editado más recientemente (`updatedAt`, también cuando lo QUITÓ), y
+ * una calibración registrada el día del envío o después lo termina: ya regresó.
+ */
+function _fbMergeEquipCalOut(merged, local, remote) {
+    var src = String((remote && remote.updatedAt) || '') > String((local && local.updatedAt) || '') ? remote : local;
+    var out = src && src.calOut;
+    if (out && out.at && merged.lastCalDate && merged.lastCalDate >= String(out.at).slice(0, 10)) out = null;
+    if (out) merged.calOut = out; else delete merged.calOut;
+    return merged;
+}
+
 function _fbEquipKey(e) {
     if (!e) return '';
     if (e.id) return 'id:' + e.id;
@@ -3428,7 +3441,8 @@ function fbMergeAnalyze(remoteData) {
             // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
             // se detectaban altas nuevas — una calibración registrada en otro dispositivo nunca
             // se traía de vuelta).
-            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length);
+            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length)
+                || stableStringify(le.calOut || null) !== stableStringify(re.calOut || null);   // [3.6.0] enviado a calibrar
             if (isDiff) equipConflicts.push({ key: key, local: le, remote: re });
             else dupEquip.push(key);
         });
@@ -3759,6 +3773,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (c.local.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
             (c.remote.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
             mergedEq.calHistory = Object.keys(histByKey).map(function(k) { return histByKey[k]; }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+            _fbMergeEquipCalOut(mergedEq, c.local, c.remote);
             invState.equipment[idx] = mergedEq;
         }
 
