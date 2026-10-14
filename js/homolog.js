@@ -547,6 +547,7 @@ function homoAltaSync() {
 
     var isEu = homoAltaIsEurope();
     box.style.display = isEu ? '' : 'none';
+    homoAltaAutoPrev();   // [3.7.1] re-test: el ICMS del VIN se llena solo (solo Europa)
     if (!isEu) return;
 
     var f0 = document.getElementById('homo_f0');
@@ -714,7 +715,7 @@ function homoAltaReset() {
     var r = document.getElementById('homo-alta-results'); if (r) r.innerHTML = '';
     var s = document.getElementById('homo-alta-status'); if (s) s.innerHTML = '';
     var p = document.getElementById('homo-alta-icms'); if (p) p.innerHTML = '';
-    _homoAltaIcms = null; _homoAltaPicked = null; _homoAltaPrev = null;
+    _homoAltaIcms = null; _homoAltaPicked = null; _homoAltaPrev = null; _homoAltaPrevOff = '';
     homoAltaUpdateStatus();
 }
 
@@ -722,7 +723,47 @@ function homoAltaReset() {
 
 var _homoAltaIcms = null;    // {fileName, tail, rows, row, applied} — solo el Alta abierta
 var _homoAltaPicked = null;  // fila del catálogo elegida a mano
-var _homoAltaPrev = null;    // [3.7.0] {vehicleId, ficha} — re-test: ficha copiada de la prueba anterior del VIN
+var _homoAltaPrev = null;    // [3.7.0] {vehicleId, vin, ficha} — re-test: ficha copiada de la prueba anterior del VIN
+var _homoAltaPrevOff = '';   // [3.7.1] VIN al que se le quitó la ficha copiada: no se vuelve a llenar solo
+var HOMO_ALTA_FIELDS = ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2'];
+
+function _homoAltaClearFields() {
+    HOMO_ALTA_FIELDS.forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+/**
+ * [3.7.1] El ICMS de un re-test se llena SOLO: la Work Order es fija por VIN y no cambia
+ * nunca, así que el VIN basta. Se llama desde homoAltaSync (cada cambio de la cascada y
+ * cada tecla del VIN). Nunca pisa lo que la persona ya tecleó, cargó o eligió, y si el
+ * VIN cambia, retira la ficha copiada del VIN anterior.
+ */
+function homoAltaAutoPrev() {
+    var vinEl = document.getElementById('vin');
+    var vin = vinEl ? String(vinEl.value || '').trim().toUpperCase() : '';
+    if (_homoAltaPrev && _homoAltaPrev.vin !== vin) {
+        _homoAltaClearFields();
+        _homoAltaPrev = null;
+        var st = document.getElementById('homo-alta-status'); if (st) st.innerHTML = '';
+    }
+    if (vin !== _homoAltaPrevOff) _homoAltaPrevOff = '';
+    if (vin.length !== 17 || _homoAltaPrev || _homoAltaIcms || _homoAltaPicked || vin === _homoAltaPrevOff) return false;
+    var vacio = HOMO_ALTA_FIELDS.every(function(id) { var el = document.getElementById(id); return !el || !String(el.value || '').trim(); });
+    if (!vacio) return false;
+    return homoAltaFromPrevious(vin);
+}
+
+/** [3.7.1] ¿El bloque tiene hoy la ficha copiada de la prueba anterior del VIN? */
+function homoAltaPrevActive() { return !!_homoAltaPrev; }
+
+/** [3.7.1] "Quitar" de la ficha copiada: vacía los campos y no la vuelve a poner para ese VIN. */
+function homoAltaPrevRemove() {
+    if (!_homoAltaPrev) return;
+    _homoAltaPrevOff = _homoAltaPrev.vin;
+    _homoAltaPrev = null;
+    _homoAltaClearFields();
+    var st = document.getElementById('homo-alta-status'); if (st) st.innerHTML = '';
+    homoAltaUpdateStatus();
+}
 
 /**
  * [3.7.0] La prueba anterior de un VIN cuya ficha de homologación sirve para el
@@ -756,16 +797,17 @@ function homoAltaFromPrevious(vin) {
     set('homo_f0', h.f0); set('homo_f1', h.f1); set('homo_f2', h.f2);
     set('homo_tm', h.tm); set('homo_mr', h.mr); set('homo_co2', h.co2Target);
     _homoAltaIcms = null; _homoAltaPicked = null;
-    _homoAltaPrev = { vehicleId: prev.vehicle.id, ficha: h };
+    _homoAltaPrev = { vehicleId: prev.vehicle.id, vin: vin, ficha: h };
+    _homoAltaPrevOff = '';
     ['homo-alta-icms', 'homo-alta-results'].forEach(function(id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
     var st = document.getElementById('homo-alta-status');
     if (st) {
         var fecha = typeof vehicleTestDate === 'function' ? vehicleTestDate(prev.vehicle) : '';
-        st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ Copiado de la prueba anterior de este VIN' +
+        st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ Llenado con la prueba anterior de este VIN' +
             (fecha ? ' (' + escapeHtml(fecha) + ')' : '') +
             (h.workOrder ? ' — <b>WO ' + escapeHtml(h.workOrder) + '</b>' : '') +
             (h.icmsFile ? ' · archivo «' + escapeHtml(h.icmsFile) + '»' : '') +
-            '.</span>';
+            '. <button type="button" class="tp-btn tp-btn-ghost" onclick="homoAltaPrevRemove()">Quitar</button></span>';
     }
     homoAltaUpdateStatus();
     return true;

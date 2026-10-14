@@ -950,6 +950,8 @@ function initCascadeTree() {
                 }
                 // [V7-E4] Check duplicates
                 if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
+                // [3.7.1] Re-test: el ICMS del VIN se llena solo (y se retira si el VIN cambia).
+                if (typeof homoAltaSync === 'function') homoAltaSync();
             });
             vinInput.addEventListener('blur', function() {
                 validateField(vinInput, {
@@ -10262,9 +10264,9 @@ function v7CopyArchivedConfig(vin) {
     });
     if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
     v7ApplySmartConfig(archived.configCode);
-    // [3.7.0] Mismo VIN = misma unidad: también trae la ficha del ICMS (f0/f1/f2/TM/MR/CO₂)
-    // de su prueba anterior. Solo aplica si la configuración es de Europa.
-    var homo = typeof homoAltaFromPrevious === 'function' && homoAltaFromPrevious(vin);
+    // [3.7.1] El ICMS ya no depende de este botón: se llena solo con el VIN (homoAltaAutoPrev,
+    // vía homoAltaSync al aplicar la config). Aquí solo se dice si quedó.
+    var homo = typeof homoAltaPrevActive === 'function' && homoAltaPrevActive();
     showToast(homo ? 'Configuración y datos del ICMS copiados de la prueba anterior'
                    : 'Configuración copiada del vehículo anterior', 'success');
 }

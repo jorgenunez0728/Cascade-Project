@@ -9483,10 +9483,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610142337';
+var APP_BUILD = '202610142341';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '3bfb152403cd7481506217deff7b2b579d9b7f31';
+var APP_COMMIT = 'e732028e890c0baacf613c19e7aa352de88ef6a6';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9494,7 +9494,7 @@ var APP_COMMIT = '3bfb152403cd7481506217deff7b2b579d9b7f31';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.7.0';
+var APP_VERSION = '3.7.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9502,6 +9502,8 @@ var APP_VERSION = '3.7.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.7.1', date: '14 oct 2026', title: 'Re-test: el ICMS se llena solo',
+      bullets: ['Alta: al teclear un VIN que ya tiene una prueba archivada, los datos del ICMS (WO, f0, f1, f2, TM, MR, CO₂) se llenan solos en cuanto la configuración es de Europa; ya no hace falta "Copiar config" para eso. "Quitar" los vacía; si cambias el VIN, se retiran.'] },
     { version: '3.7.0', date: '14 oct 2026', title: 'Re-test: "Copiar config" también trae el ICMS',
       bullets: ['Alta: en un re-test de un VIN ya probado, "Copiar config" llena también la Work Order, f0, f1, f2, TM, MR y CO₂ de su prueba anterior (configuraciones de Europa). Queda anotado de qué prueba salió y si se cambió algo a mano.'] },
     { version: '3.6.0', date: '13 oct 2026', title: 'Instrumentos en calibración',
@@ -10445,8 +10447,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.2';
+var CASCADE_VERSION = '4.8.3';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.3', date: '14 oct 2026', app: '3.7.1', title: 'Re-test: ICMS automático',
+      bullets: ['El ICMS de un re-test se llena solo con el VIN.'] },
     { version: '4.8.2', date: '14 oct 2026', app: '3.7.0', title: 'Re-test copia el ICMS',
       bullets: ['"Copiar config" del re-test también llena los datos del ICMS de la prueba anterior del VIN.'] },
     { version: '4.8.1', date: '12 oct 2026', app: '3.3.0', title: 'F05: checklist, firmas e impresión en lote',
@@ -10550,14 +10554,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610142337' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610142341' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610142337' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610142341' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10573,7 +10577,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610142337' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610142341' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -19937,6 +19941,8 @@ function initCascadeTree() {
                 }
                 // [V7-E4] Check duplicates
                 if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
+                // [3.7.1] Re-test: el ICMS del VIN se llena solo (y se retira si el VIN cambia).
+                if (typeof homoAltaSync === 'function') homoAltaSync();
             });
             vinInput.addEventListener('blur', function() {
                 validateField(vinInput, {
@@ -29249,9 +29255,9 @@ function v7CopyArchivedConfig(vin) {
     });
     if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
     v7ApplySmartConfig(archived.configCode);
-    // [3.7.0] Mismo VIN = misma unidad: también trae la ficha del ICMS (f0/f1/f2/TM/MR/CO₂)
-    // de su prueba anterior. Solo aplica si la configuración es de Europa.
-    var homo = typeof homoAltaFromPrevious === 'function' && homoAltaFromPrevious(vin);
+    // [3.7.1] El ICMS ya no depende de este botón: se llena solo con el VIN (homoAltaAutoPrev,
+    // vía homoAltaSync al aplicar la config). Aquí solo se dice si quedó.
+    var homo = typeof homoAltaPrevActive === 'function' && homoAltaPrevActive();
     showToast(homo ? 'Configuración y datos del ICMS copiados de la prueba anterior'
                    : 'Configuración copiada del vehículo anterior', 'success');
 }
@@ -61458,7 +61464,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610142337' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610142341' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69520,6 +69526,7 @@ function homoAltaSync() {
 
     var isEu = homoAltaIsEurope();
     box.style.display = isEu ? '' : 'none';
+    homoAltaAutoPrev();   // [3.7.1] re-test: el ICMS del VIN se llena solo (solo Europa)
     if (!isEu) return;
 
     var f0 = document.getElementById('homo_f0');
@@ -69687,7 +69694,7 @@ function homoAltaReset() {
     var r = document.getElementById('homo-alta-results'); if (r) r.innerHTML = '';
     var s = document.getElementById('homo-alta-status'); if (s) s.innerHTML = '';
     var p = document.getElementById('homo-alta-icms'); if (p) p.innerHTML = '';
-    _homoAltaIcms = null; _homoAltaPicked = null; _homoAltaPrev = null;
+    _homoAltaIcms = null; _homoAltaPicked = null; _homoAltaPrev = null; _homoAltaPrevOff = '';
     homoAltaUpdateStatus();
 }
 
@@ -69695,7 +69702,47 @@ function homoAltaReset() {
 
 var _homoAltaIcms = null;    // {fileName, tail, rows, row, applied} — solo el Alta abierta
 var _homoAltaPicked = null;  // fila del catálogo elegida a mano
-var _homoAltaPrev = null;    // [3.7.0] {vehicleId, ficha} — re-test: ficha copiada de la prueba anterior del VIN
+var _homoAltaPrev = null;    // [3.7.0] {vehicleId, vin, ficha} — re-test: ficha copiada de la prueba anterior del VIN
+var _homoAltaPrevOff = '';   // [3.7.1] VIN al que se le quitó la ficha copiada: no se vuelve a llenar solo
+var HOMO_ALTA_FIELDS = ['homo_mc', 'homo_f0', 'homo_f1', 'homo_f2', 'homo_tm', 'homo_mr', 'homo_co2'];
+
+function _homoAltaClearFields() {
+    HOMO_ALTA_FIELDS.forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+/**
+ * [3.7.1] El ICMS de un re-test se llena SOLO: la Work Order es fija por VIN y no cambia
+ * nunca, así que el VIN basta. Se llama desde homoAltaSync (cada cambio de la cascada y
+ * cada tecla del VIN). Nunca pisa lo que la persona ya tecleó, cargó o eligió, y si el
+ * VIN cambia, retira la ficha copiada del VIN anterior.
+ */
+function homoAltaAutoPrev() {
+    var vinEl = document.getElementById('vin');
+    var vin = vinEl ? String(vinEl.value || '').trim().toUpperCase() : '';
+    if (_homoAltaPrev && _homoAltaPrev.vin !== vin) {
+        _homoAltaClearFields();
+        _homoAltaPrev = null;
+        var st = document.getElementById('homo-alta-status'); if (st) st.innerHTML = '';
+    }
+    if (vin !== _homoAltaPrevOff) _homoAltaPrevOff = '';
+    if (vin.length !== 17 || _homoAltaPrev || _homoAltaIcms || _homoAltaPicked || vin === _homoAltaPrevOff) return false;
+    var vacio = HOMO_ALTA_FIELDS.every(function(id) { var el = document.getElementById(id); return !el || !String(el.value || '').trim(); });
+    if (!vacio) return false;
+    return homoAltaFromPrevious(vin);
+}
+
+/** [3.7.1] ¿El bloque tiene hoy la ficha copiada de la prueba anterior del VIN? */
+function homoAltaPrevActive() { return !!_homoAltaPrev; }
+
+/** [3.7.1] "Quitar" de la ficha copiada: vacía los campos y no la vuelve a poner para ese VIN. */
+function homoAltaPrevRemove() {
+    if (!_homoAltaPrev) return;
+    _homoAltaPrevOff = _homoAltaPrev.vin;
+    _homoAltaPrev = null;
+    _homoAltaClearFields();
+    var st = document.getElementById('homo-alta-status'); if (st) st.innerHTML = '';
+    homoAltaUpdateStatus();
+}
 
 /**
  * [3.7.0] La prueba anterior de un VIN cuya ficha de homologación sirve para el
@@ -69729,16 +69776,17 @@ function homoAltaFromPrevious(vin) {
     set('homo_f0', h.f0); set('homo_f1', h.f1); set('homo_f2', h.f2);
     set('homo_tm', h.tm); set('homo_mr', h.mr); set('homo_co2', h.co2Target);
     _homoAltaIcms = null; _homoAltaPicked = null;
-    _homoAltaPrev = { vehicleId: prev.vehicle.id, ficha: h };
+    _homoAltaPrev = { vehicleId: prev.vehicle.id, vin: vin, ficha: h };
+    _homoAltaPrevOff = '';
     ['homo-alta-icms', 'homo-alta-results'].forEach(function(id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
     var st = document.getElementById('homo-alta-status');
     if (st) {
         var fecha = typeof vehicleTestDate === 'function' ? vehicleTestDate(prev.vehicle) : '';
-        st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ Copiado de la prueba anterior de este VIN' +
+        st.innerHTML = '<span style="color:var(--ok-text,#166534);">✅ Llenado con la prueba anterior de este VIN' +
             (fecha ? ' (' + escapeHtml(fecha) + ')' : '') +
             (h.workOrder ? ' — <b>WO ' + escapeHtml(h.workOrder) + '</b>' : '') +
             (h.icmsFile ? ' · archivo «' + escapeHtml(h.icmsFile) + '»' : '') +
-            '.</span>';
+            '. <button type="button" class="tp-btn tp-btn-ghost" onclick="homoAltaPrevRemove()">Quitar</button></span>';
     }
     homoAltaUpdateStatus();
     return true;
@@ -76972,7 +77020,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18664],[18668,"js/uiflow.js",18984],[18988,"js/cop15.js",29446],[29450,"js/inventory.js",36606],[36610,"js/testplan.js",48169],[48173,"js/panel.js",53509],[53513,"js/projects.js",55802],[55806,"js/auth.js",56847],[56851,"js/signatures.js",57052],[57056,"js/firebase-sync.js",64601],[64605,"js/cop_validator.js",68970],[68974,"js/homolog.js",70829],[70833,"js/vets.js",72630],[72634,"js/historico.js",73548],[73552,"js/review.js",74005],[74009,"js/opcards.js",74438],[74442,"js/handoff.js",74716],[74720,"js/ficha.js",75212],[75216,"js/relevo.js",75596],[75600,"js/momentos.js",75737],[75741,"js/digest.js",76544],[76548,"js/xlsxw.js",76928],[76932,"js/bugreport.js",78078]]};
+var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18668],[18672,"js/uiflow.js",18988],[18992,"js/cop15.js",29452],[29456,"js/inventory.js",36612],[36616,"js/testplan.js",48175],[48179,"js/panel.js",53515],[53519,"js/projects.js",55808],[55812,"js/auth.js",56853],[56857,"js/signatures.js",57058],[57062,"js/firebase-sync.js",64607],[64611,"js/cop_validator.js",68976],[68980,"js/homolog.js",70877],[70881,"js/vets.js",72678],[72682,"js/historico.js",73596],[73600,"js/review.js",74053],[74057,"js/opcards.js",74486],[74490,"js/handoff.js",74764],[74768,"js/ficha.js",75260],[75264,"js/relevo.js",75644],[75648,"js/momentos.js",75785],[75789,"js/digest.js",76592],[76596,"js/xlsxw.js",76976],[76980,"js/bugreport.js",78126]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
