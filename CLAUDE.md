@@ -3306,3 +3306,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   nuevo que cambie el VIN o la región del Alta debe pasar por `homoAltaSync`.
 - **Una ficha copiada pertenece a SU VIN** (`_homoAltaPrev.vin`): si el VIN cambia, se retira.
   "Quitar" marca ese VIN en `_homoAltaPrevOff` para no volver a llenarlo.
+
+## 3.8.0 — Corregir una prueba de formato simple (`js/cop15.js`)
+
+- **`histCompleteFields(vehicle)` es LA lista de campos que se completan o corrigen**:
+  `PDF_REQUIRED_FIELDS` (emisiones) o `SIMPLE_REQUIRED_FIELDS` (todo propósito que no es de
+  emisiones). Un campo nuevo del formato simple va en ese descriptor; nunca volver a escribir sus
+  campos a mano en `validatePdfCompleteness`.
+- **Un modal o una regla que sirva a "todas las pruebas" no puede suponer emisiones**: gases,
+  checklist y firma del aprobador solo existen en emisiones (`isEm` en `histOpenCompleteModal`).
+  Antes Completar solo se ofrecía para emisiones, y una OBD II archivada no se podía corregir.
+- `vehicleTestDate` lee `testData.simple.datetime` como respaldo. `tpCalendarTests` sigue con
+  `testDatetime` solo (2.32.0); llevar las pruebas de formato simple al calendario es otra decisión.

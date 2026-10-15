@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.7.1';
+var APP_VERSION = '3.8.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.7.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.8.0', date: '15 oct 2026', title: 'Corregir pruebas de OBD II y otros formatos simples',
+      bullets: ['Historial: una prueba archivada de formato simple (OBD II, EO, ND…) sin fecha, operador o firma muestra "📝 Completar" y se llena ahí, con su historial de cambios. Antes no había forma de corregirla.',
+                'El menú ⋯ de una prueba archivada ofrece "📝 Corregir datos de la prueba" aunque no le falte nada (cambiar lo guardado pide razón y firma).',
+                'La fecha de una prueba de formato simple ya aparece en el Historial (antes decía "sin fecha de prueba").'] },
     { version: '3.7.1', date: '14 oct 2026', title: 'Re-test: el ICMS se llena solo',
       bullets: ['Alta: al teclear un VIN que ya tiene una prueba archivada, los datos del ICMS (WO, f0, f1, f2, TM, MR, CO₂) se llenan solos en cuanto la configuración es de Europa; ya no hace falta "Copiar config" para eso. "Quitar" los vacía; si cambias el VIN, se retiran.'] },
     { version: '3.7.0', date: '14 oct 2026', title: 'Re-test: "Copiar config" también trae el ICMS',
@@ -1428,8 +1432,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.3';
+var CASCADE_VERSION = '4.8.4';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
+      bullets: ['Historial → Completar funciona también para OBD II y otros formatos simples.'] },
     { version: '4.8.3', date: '14 oct 2026', app: '3.7.1', title: 'Re-test: ICMS automático',
       bullets: ['El ICMS de un re-test se llena solo con el VIN.'] },
     { version: '4.8.2', date: '14 oct 2026', app: '3.7.0', title: 'Re-test copia el ICMS',
@@ -2752,12 +2758,15 @@ function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !=
 /** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
 function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
 /**
- * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale SOLO de
- * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0): nunca el alta ni el
- * archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
+ * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale de
+ * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0) o, en una prueba de
+ * formato simple, de testData.simple.datetime: nunca el alta ni el archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
  */
 function vehicleTestDate(v) {
-    var s = String((v && v.testData && v.testData.testDatetime) || '');
+    // [3.8.0] Una prueba de formato simple (OBD II, EO…) guarda su fecha en testData.simple:
+    // sin este respaldo el Historial la decía "sin fecha de prueba" aunque la tuviera.
+    var td = (v && v.testData) || {};
+    var s = String(td.testDatetime || (td.simple && td.simple.datetime) || '');
     return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
 }
 /**

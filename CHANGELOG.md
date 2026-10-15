@@ -20,6 +20,31 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.8.0 — Corregir pruebas de OBD II y otros formatos simples (2026-10-15)
+
+### Nuevo
+- Pruebas → Historial: una prueba archivada de **formato simple** (OBD II, EO, ND… todo lo que
+  no es de emisiones) a la que le falta la fecha, el operador o la firma ahora muestra
+  **📝 Completar** y se llena ahí. El modal pide solo lo de ese formato: operador, fecha y hora
+  de la prueba y la firma de quien la liberó. No lleva gases, checklist ni Hoja COP15-F05.
+- Menú **⋯** de una prueba archivada: **📝 Corregir datos de la prueba**, aunque no le falte
+  nada. Lo ya guardado sigue 🔒: cambiarlo pide razón y firma, y queda en el historial de
+  cambios y en la auditoría.
+
+### Arreglado
+- Una prueba de formato simple archivada no se podía corregir por ningún lado: Operación ya no
+  edita archivados, y Completar solo existía para emisiones.
+- El Historial decía "sin fecha de prueba" en las pruebas de formato simple aunque tuvieran fecha:
+  la buscaba en el campo de emisiones.
+
+### Para desarrollo
+- `SIMPLE_REQUIRED_FIELDS` es el descriptor del formato simple (como `PDF_REQUIRED_FIELDS`) y
+  `histCompleteFields(v)` elige cuál usar; lo leen `validatePdfCompleteness`, el modal Completar
+  y su guardado. `histRowFacts` cuenta faltantes del formato simple en archivados y por aprobar.
+- `vehicleTestDate` cae a `testData.simple.datetime`. El calendario del Plan
+  (`tpCalendarTests`) no cambió: sigue leyendo solo `testDatetime`.
+- `tests/v380.e2e.js` (Chromium). CASCADE 4.8.4.
+
 ## 3.7.1 — Re-test: el ICMS se llena solo (2026-10-14)
 
 ### Cambió
