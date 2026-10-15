@@ -529,5 +529,14 @@ t('quitar un uid que ya no existe lo dice y no toca nada', () => {
     eq(S.weeklyPlans[0].items.length, 3);
 });
 
+console.log('\n== [3.9.0] Training no entra al plan ni al REQ ==');
+t('Training no es propósito del plan y su liberación no deja evidencia', () => {
+    eq(vm.runInContext('TP_PURPOSES_VALID.indexOf("Training")', sandbox), -1);
+    const antes = (S.testedList || []).length;
+    eq(sandbox.tpAutoFeedFromRelease({ id: 9901, vin: 'KNDJ23AU0T7009901', configCode: 'CFG-X', purpose: 'Training', status: 'archived',
+        testData: { simple: { datetime: '2026-10-14T09:00' } } }, { skipSave: true }), false);
+    eq((S.testedList || []).length, antes);
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

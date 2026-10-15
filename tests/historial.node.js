@@ -24,6 +24,7 @@ const ctx = {
     auditLog: noop, escapeHtml: s => String(s), emitEvent: noop,
     CASCADE_TOOLTIPS: {}, allConfigurations: [],
     isEmissionsPurpose: p => /emisiones/i.test(String(p || '')),
+    isTrainingPurpose: p => p === 'Training',
     getRegulationProfile: () => null, localDateStr: d => new Date(d || Date.now()).toISOString().slice(0, 10),
     CONFIG: { statusLabels: { registered: 'Registrado', 'in-progress': 'En Progreso', testing: 'En Prueba',
               'ready-release': 'Listo para Liberar', 'pending-approval': 'Pendiente Aprobación', archived: 'Archivado', historico: 'Histórico (VETS)' } },
@@ -147,6 +148,28 @@ console.log('\n== [3.8.0] Prueba de formato simple (OBD II) ==');
         ctx.histCompleteFields(obdSinFecha) === ctx.SIMPLE_REQUIRED_FIELDS && ctx.histCompleteFields(vs[0]) === ctx.PDF_REQUIRED_FIELDS);
     const enCurso = { id: 903, vin: 'KNDJ23AU0T7000903', status: 'testing', purpose: 'EO-OBD2', testData: {} };
     ok('una OBD II en curso no cuenta faltantes (se llena en Operación)', ctx.histRowFacts(enCurso).miss === 0);
+}
+
+console.log('\n== [3.9.0] Training ==');
+{
+    const sig = { releaser: { dataUrl: 'data:image/png;base64,AA', signerName: 'Ana' } };
+    const base = { id: 950, vin: 'KNDJ23AU0T7000950', status: 'archived', purpose: 'Training', registeredAt: '2026-10-14T10:00:00Z',
+        config: cfg('CL4', '2000cc NU-PE', 'SULEV 30', '5DR', 'MEXICO') };
+    const tr = (training, datetime) => Object.assign({}, base, { testData: { simple: { datetime: datetime, training: training }, signatures: sig } });
+    ok('histCompleteFields de un Training es el descriptor de Training (sin operador)',
+        ctx.histCompleteFields(base) === ctx.TRAINING_REQUIRED_FIELDS && !ctx.TRAINING_REQUIRED_FIELDS.some(f => /operator/.test(f.path)));
+    const vacio = ctx.validatePdfCompleteness(tr({}, ''));
+    ok('vacío: faltan fecha, Errores, Violations, IWR y si se midieron gases (sin FE ni CO₂ todavía)',
+        vacio.missing.map(m => m.label).join('|') === 'Fecha de la prueba|Errores|Violations|IWR (%)|¿Se midieron gases?', vacio.missing.map(m => m.label).join('|'));
+    const sinGases = ctx.validatePdfCompleteness(tr({ errors: 0, violations: 0, iwrPct: -0.4, gases: 'no' }, '2026-10-14T09:00'));
+    ok('Errores y Violations en 0 cuentan como capturados; sin gases no pide FE ni CO₂', sinGases.ok, JSON.stringify(sinGases.missing));
+    const conGases = ctx.validatePdfCompleteness(tr({ errors: 1, violations: 0, iwrPct: 1.1, gases: 'yes' }, '2026-10-14T09:00'));
+    ok('si se midieron gases pide Fuel Economy y CO₂', conGases.missing.map(m => m.label).join('|') === 'Fuel Economy|CO₂', JSON.stringify(conGases.missing));
+    const html = ctx.trainingSummaryHTML({ errors: 2, violations: 1, iwrPct: 3.5, gases: 'yes', fe: 15.2, feUnit: 'km/L', co2: 145, co2Unit: 'g/km' });
+    ok('el resumen dice los cinco datos con unidades', /Errores:<\/strong> 2/.test(html) && /IWR:<\/strong> 3.5 %/.test(html) &&
+        /15.2 km\/L/.test(html) && /145 g\/km/.test(html), html);
+    ok('sin gases, el resumen lo dice', /no se midieron/.test(ctx.trainingSummaryHTML({ errors: 0, violations: 0, iwrPct: 0, gases: 'no' })));
+    ok('su fecha es la del formato simple', ctx.histRowFacts(tr({ errors: 0, violations: 0, iwrPct: 0, gases: 'no' }, '2026-10-14T09:00')).testDay === '2026-10-14');
 }
 
 console.log('\n== Preferencias ==');
