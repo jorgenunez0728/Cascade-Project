@@ -128,6 +128,27 @@ console.log('\n== Agrupar ==');
         .every(gr => gr.rows.every((r, i) => !i || gr.rows[i - 1].vin >= r.vin)));
 }
 
+console.log('\n== [3.8.0] Prueba de formato simple (OBD II) ==');
+{
+    const sig = { releaser: { dataUrl: 'data:image/png;base64,AA', signerName: 'Ana' } };
+    const obdSinFecha = { id: 901, vin: '3KPFU5DE6TE292900', status: 'archived', purpose: 'EO-OBD2', registeredAt: '2026-02-23T10:00:00Z',
+        config: cfg('CL4', '2000cc NU-PE', 'SULEV 30', '5DR', 'MEXICO'), testData: { simple: { operator: 'Ana', datetime: '' }, signatures: sig } };
+    const obdConFecha = { id: 902, vin: 'KNDJ23AU0T7000900', status: 'archived', purpose: 'EO-OBD2', registeredAt: '2026-02-23T10:00:00Z',
+        config: cfg('CL4', '2000cc NU-PE', 'SULEV 30', '5DR', 'MEXICO'), testData: { simple: { operator: 'Ana', datetime: '2026-02-24T09:15' }, signatures: sig } };
+    ok('vehicleTestDate lee la fecha del formato simple', ctx.vehicleTestDate(obdConFecha) === '2026-02-24');
+    ok('… y emisiones sigue leyendo testDatetime', ctx.vehicleTestDate({ testData: { testDatetime: '2026-03-04T10:00', simple: { datetime: '2026-01-01T00:00' } } }) === '2026-03-04');
+    const fs1 = ctx.histRowFacts(obdSinFecha), fs2 = ctx.histRowFacts(obdConFecha);
+    ok('una OBD II archivada sin fecha cuenta 1 faltante (sale "📝 Completar")', fs1.miss === 1, JSON.stringify({ miss: fs1.miss, soft: fs1.soft }));
+    ok('… y con fecha no le falta nada y muestra su día', fs2.miss === 0 && fs2.testDay === '2026-02-24');
+    const c = ctx.validatePdfCompleteness(obdSinFecha);
+    ok('el faltante es la fecha de la prueba y lleva al campo del formato simple',
+        c.missing.length === 1 && c.missing[0].label === 'Fecha/Hora de la prueba' && c.missing[0].refId === 'simple_datetime', JSON.stringify(c.missing));
+    ok('histCompleteFields: formato simple vs emisiones',
+        ctx.histCompleteFields(obdSinFecha) === ctx.SIMPLE_REQUIRED_FIELDS && ctx.histCompleteFields(vs[0]) === ctx.PDF_REQUIRED_FIELDS);
+    const enCurso = { id: 903, vin: 'KNDJ23AU0T7000903', status: 'testing', purpose: 'EO-OBD2', testData: {} };
+    ok('una OBD II en curso no cuenta faltantes (se llena en Operación)', ctx.histRowFacts(enCurso).miss === 0);
+}
+
 console.log('\n== Preferencias ==');
 ok('histPrefs sin nada guardado: fecha ↓ y sin agrupar', (() => { const p = ctx.histPrefs(); return p.sort === 'date' && p.dir === 'desc' && p.group === ''; })());
 

@@ -9483,10 +9483,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610142341';
+var APP_BUILD = '202610151448';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'e732028e890c0baacf613c19e7aa352de88ef6a6';
+var APP_COMMIT = '745d1cfa8624405fd915ded940d3ae4be56e9a0f';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9494,7 +9494,7 @@ var APP_COMMIT = 'e732028e890c0baacf613c19e7aa352de88ef6a6';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.7.1';
+var APP_VERSION = '3.8.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9502,6 +9502,10 @@ var APP_VERSION = '3.7.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.8.0', date: '15 oct 2026', title: 'Corregir pruebas de OBD II y otros formatos simples',
+      bullets: ['Historial: una prueba archivada de formato simple (OBD II, EO, ND…) sin fecha, operador o firma muestra "📝 Completar" y se llena ahí, con su historial de cambios. Antes no había forma de corregirla.',
+                'El menú ⋯ de una prueba archivada ofrece "📝 Corregir datos de la prueba" aunque no le falte nada (cambiar lo guardado pide razón y firma).',
+                'La fecha de una prueba de formato simple ya aparece en el Historial (antes decía "sin fecha de prueba").'] },
     { version: '3.7.1', date: '14 oct 2026', title: 'Re-test: el ICMS se llena solo',
       bullets: ['Alta: al teclear un VIN que ya tiene una prueba archivada, los datos del ICMS (WO, f0, f1, f2, TM, MR, CO₂) se llenan solos en cuanto la configuración es de Europa; ya no hace falta "Copiar config" para eso. "Quitar" los vacía; si cambias el VIN, se retiran.'] },
     { version: '3.7.0', date: '14 oct 2026', title: 'Re-test: "Copiar config" también trae el ICMS',
@@ -10447,8 +10451,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.3';
+var CASCADE_VERSION = '4.8.4';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
+      bullets: ['Historial → Completar funciona también para OBD II y otros formatos simples.'] },
     { version: '4.8.3', date: '14 oct 2026', app: '3.7.1', title: 'Re-test: ICMS automático',
       bullets: ['El ICMS de un re-test se llena solo con el VIN.'] },
     { version: '4.8.2', date: '14 oct 2026', app: '3.7.0', title: 'Re-test copia el ICMS',
@@ -10554,14 +10560,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610142341' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610151448' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610142341' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610151448' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10577,7 +10583,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610142341' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610151448' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11771,12 +11777,15 @@ function vehicleIsLive(v) { return !!v && v.status !== 'archived' && v.status !=
 /** ¿Ya es una prueba que ocurrió (liberada en CASCADE o histórica)? PURA. */
 function vehicleIsPastTest(v) { return !!v && (v.status === 'archived' || v.status === VEHICLE_STATUS_HISTORIC); }
 /**
- * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale SOLO de
- * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0): nunca el alta ni el
- * archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
+ * [2.35.1] El DÍA de la prueba ('AAAA-MM-DD') o '' si todavía no tiene. Sale de
+ * testData.testDatetime (la misma fecha que usa el calendario, 2.32.0) o, en una prueba de
+ * formato simple, de testData.simple.datetime: nunca el alta ni el archivado. Se toma la cadena, sin pasar por Date (un 'AAAA-MM-DD' se leería en UTC). PURA.
  */
 function vehicleTestDate(v) {
-    var s = String((v && v.testData && v.testData.testDatetime) || '');
+    // [3.8.0] Una prueba de formato simple (OBD II, EO…) guarda su fecha en testData.simple:
+    // sin este respaldo el Historial la decía "sin fecha de prueba" aunque la tuviera.
+    var td = (v && v.testData) || {};
+    var s = String(td.testDatetime || (td.simple && td.simple.datetime) || '');
     return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
 }
 /**
@@ -23811,7 +23820,10 @@ function histRowFacts(v) {
     }
 
     var miss = 0, soft = 0;
-    if (!historic && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose) && typeof validatePdfCompleteness === 'function') {
+    // [3.8.0] También en formato simple (sin fecha, sin operador, sin firma): antes solo
+    // emisiones contaba, y una OBD II archivada incompleta no tenía botón para completarse.
+    if (!historic && typeof isEmissionsPurpose === 'function' && typeof validatePdfCompleteness === 'function' &&
+        (isEmissionsPurpose(v.purpose) || v.status === 'archived' || v.status === 'pending-approval')) {
         try { var c = validatePdfCompleteness(v); miss = c.missing.length; soft = c.soft ? c.soft.length : 0; } catch (e) {}
     }
     // [3.2.1] El checklist de liberación también se completa ahí: una fila vacía falta para
@@ -25047,6 +25059,20 @@ var PDF_REQUIRED_FIELDS = [
     soft: function(td, v) { return releaseIsBeforeChecklist(v); } }
 ];
 
+// [3.8.0] Lo mismo para una prueba de FORMATO SIMPLE (OBD II, EO, Durabilidad…: todo
+// propósito que no es de emisiones). Su Operación son tres campos; sin este descriptor
+// Historial → Completar no tenía nada que mostrar y una prueba archivada sin fecha (o con
+// la fecha mal) no se podía corregir por ningún lado.
+var SIMPLE_REQUIRED_FIELDS = [
+  { path: 'testData.simple.operator', label: 'Operador',              section: 'Operación', refId: 'simple_operator' },
+  { path: 'testData.simple.datetime', label: 'Fecha/Hora de la prueba', section: 'Operación', refId: 'simple_datetime' }
+];
+
+/** [3.8.0] Los campos que se completan/corrigen de un vehículo: de emisiones o de formato simple. */
+function histCompleteFields(vehicle) {
+  return (vehicle && !isEmissionsPurpose(vehicle.purpose)) ? SIMPLE_REQUIRED_FIELDS : PDF_REQUIRED_FIELDS;
+}
+
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
 // El setter crea los objetos intermedios (vehículos viejos pueden no tenerlos).
 function _histGetPath(obj, path) {
@@ -25083,9 +25109,7 @@ function validatePdfCompleteness(vehicle) {
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    var sp = td.simple || {};
-    req(sp.operator, 'Operador', 'Recepción');
-    req(sp.datetime, 'Fecha/Hora', 'Recepción');
+    SIMPLE_REQUIRED_FIELDS.forEach(function(f) { req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId); });
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
     return { ok: missing.length === 0, missing: missing, soft: soft };
   }
@@ -25202,9 +25226,13 @@ function histOpenCompleteModal(vehicleId) {
 
   var status = vehicle.status;
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
-  var regName = _libGetVehicleRegulation(vehicle);
-  var profile = _libGasProfileForVehicle(vehicle);
+  // [3.8.0] Una prueba de formato simple no tiene gases, checklist ni firma de aprobador:
+  // solo sus campos de Operación y la firma de quien la liberó.
+  var isEm = isEmissionsPurpose(vehicle.purpose);
+  var fields = histCompleteFields(vehicle);
+  var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
   var comp = validatePdfCompleteness(vehicle);
+  var docName = isEm ? 'el PDF' : 'la prueba';
 
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
   html += '<div class="hist-complete-box">';
@@ -25213,14 +25241,15 @@ function histOpenCompleteModal(vehicleId) {
   html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom: var(--space-xs);"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">' +
-          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. ' : 'El PDF ya se puede generar. ') +
+          (isEm ? '' : 'Prueba de formato simple (' + escapeHtml((typeof uiLabel === 'function' ? uiLabel('purpose', vehicle.purpose || '') : vehicle.purpose) || 'sin propósito') + '): no lleva gases ni Hoja COP15-F05. ') +
+          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos de ' + docName + '. ' : (isEm ? 'El PDF ya se puede generar. ' : 'No le falta nada; abajo puedes corregir lo ya guardado. ')) +
           (comp.soft && comp.soft.length ? '<b>' + comp.soft.length + '</b> dato(s) no existían cuando se liberó esta prueba: llénalos solo si tienes el dato. ' : '') +
           'Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
   _histCompleteState.checklist = {};
 
   // Campos del descriptor, agrupados por sección
   var bySection = {};
-  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+  fields.forEach(function(f, idx) {
     if (f.when && !f.when(td, vehicle)) return;
     (bySection[f.section] = bySection[f.section] || []).push({ f: f, idx: idx });
   });
@@ -25309,7 +25338,7 @@ function histOpenCompleteModal(vehicleId) {
   // Firmas faltantes
   var sigs = td.signatures || {};
   var needSigR = needsReleaserSig && !(sigs.releaser && sigs.releaser.dataUrl);
-  var needSigA = status === 'archived' && !(sigs.approver && sigs.approver.dataUrl);
+  var needSigA = isEm && status === 'archived' && !(sigs.approver && sigs.approver.dataUrl);
   if (needSigR || needSigA) {
     html += '<details class="hist-section" open>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Firmas <span style="color:var(--warn-text);font-weight:800;">· faltantes</span></summary>';
@@ -25517,7 +25546,7 @@ function histSaveCompleteModal() {
   var td = vehicle.testData || {};
 
   var added = [], modified = [], invalid = false;
-  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+  histCompleteFields(vehicle).forEach(function(f, idx) {
     var input = document.getElementById('hist-f-' + idx);
     if (!input) return;
     var cur = _histGetPath(vehicle, f.path);
@@ -25657,7 +25686,8 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
   if (typeof refreshAllLists === 'function') refreshAllLists();
   var comp = validatePdfCompleteness(vehicle);
-  showToast(comp.ok ? '✓ Datos completados — el PDF ya se puede generar' : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
+  var _okMsg = isEmissionsPurpose(vehicle.purpose) ? '✓ Datos completados — el PDF ya se puede generar' : '✓ Datos de la prueba guardados';
+  showToast(comp.ok ? _okMsg : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
 }
 
 // [v23.4] Menú ⋯ de una fila del Historial: agrupa las acciones poco frecuentes y aleja
@@ -25670,7 +25700,9 @@ function histRowMenu(vehicleId) {
   showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
     buttons: [
       { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
-    ].concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
+    ].concat((v.status === 'archived' && !vehicleIsHistoric(v) && _cascadeCan('test.retro_edit'))   // [3.8.0]
+      ? [{ label: '📝 Corregir datos de la prueba…', onclick: function() { close(); setTimeout(function() { histOpenCompleteModal(id); }, 220); } }]
+      : []).concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
       ? [{ label: '✏️ Corregir alta (VIN / configuración)…', onclick: function() { close(); setTimeout(function() { vehicleCorrectAltaOpen(id); }, 220); } }]
       : []).concat((v.status === 'archived' && isEmissionsPurpose(v.purpose) && _cascadeCan('test.retro_edit') && typeof vetsAttachStart === 'function')   // [2.5.0]
       ? [{ label: '🔎 Comparar con VETS…', onclick: function() { close(); setTimeout(function() { vetsAttachStart('comparar', id); }, 220); } }]
@@ -61464,7 +61496,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610142341' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610151448' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -77020,7 +77052,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18668],[18672,"js/uiflow.js",18988],[18992,"js/cop15.js",29452],[29456,"js/inventory.js",36612],[36616,"js/testplan.js",48175],[48179,"js/panel.js",53515],[53519,"js/projects.js",55808],[55812,"js/auth.js",56853],[56857,"js/signatures.js",57058],[57062,"js/firebase-sync.js",64607],[64611,"js/cop_validator.js",68976],[68980,"js/homolog.js",70877],[70881,"js/vets.js",72678],[72682,"js/historico.js",73596],[73600,"js/review.js",74053],[74057,"js/opcards.js",74486],[74490,"js/handoff.js",74764],[74768,"js/ficha.js",75260],[75264,"js/relevo.js",75644],[75648,"js/momentos.js",75785],[75789,"js/digest.js",76592],[76596,"js/xlsxw.js",76976],[76980,"js/bugreport.js",78126]]};
+var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18677],[18681,"js/uiflow.js",18997],[19001,"js/cop15.js",29484],[29488,"js/inventory.js",36644],[36648,"js/testplan.js",48207],[48211,"js/panel.js",53547],[53551,"js/projects.js",55840],[55844,"js/auth.js",56885],[56889,"js/signatures.js",57090],[57094,"js/firebase-sync.js",64639],[64643,"js/cop_validator.js",69008],[69012,"js/homolog.js",70909],[70913,"js/vets.js",72710],[72714,"js/historico.js",73628],[73632,"js/review.js",74085],[74089,"js/opcards.js",74518],[74522,"js/handoff.js",74796],[74800,"js/ficha.js",75292],[75296,"js/relevo.js",75676],[75680,"js/momentos.js",75817],[75821,"js/digest.js",76624],[76628,"js/xlsxw.js",77008],[77012,"js/bugreport.js",78158]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

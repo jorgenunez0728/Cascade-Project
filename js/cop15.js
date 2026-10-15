@@ -4820,7 +4820,10 @@ function histRowFacts(v) {
     }
 
     var miss = 0, soft = 0;
-    if (!historic && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose) && typeof validatePdfCompleteness === 'function') {
+    // [3.8.0] También en formato simple (sin fecha, sin operador, sin firma): antes solo
+    // emisiones contaba, y una OBD II archivada incompleta no tenía botón para completarse.
+    if (!historic && typeof isEmissionsPurpose === 'function' && typeof validatePdfCompleteness === 'function' &&
+        (isEmissionsPurpose(v.purpose) || v.status === 'archived' || v.status === 'pending-approval')) {
         try { var c = validatePdfCompleteness(v); miss = c.missing.length; soft = c.soft ? c.soft.length : 0; } catch (e) {}
     }
     // [3.2.1] El checklist de liberación también se completa ahí: una fila vacía falta para
@@ -6056,6 +6059,20 @@ var PDF_REQUIRED_FIELDS = [
     soft: function(td, v) { return releaseIsBeforeChecklist(v); } }
 ];
 
+// [3.8.0] Lo mismo para una prueba de FORMATO SIMPLE (OBD II, EO, Durabilidad…: todo
+// propósito que no es de emisiones). Su Operación son tres campos; sin este descriptor
+// Historial → Completar no tenía nada que mostrar y una prueba archivada sin fecha (o con
+// la fecha mal) no se podía corregir por ningún lado.
+var SIMPLE_REQUIRED_FIELDS = [
+  { path: 'testData.simple.operator', label: 'Operador',              section: 'Operación', refId: 'simple_operator' },
+  { path: 'testData.simple.datetime', label: 'Fecha/Hora de la prueba', section: 'Operación', refId: 'simple_datetime' }
+];
+
+/** [3.8.0] Los campos que se completan/corrigen de un vehículo: de emisiones o de formato simple. */
+function histCompleteFields(vehicle) {
+  return (vehicle && !isEmissionsPurpose(vehicle.purpose)) ? SIMPLE_REQUIRED_FIELDS : PDF_REQUIRED_FIELDS;
+}
+
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
 // El setter crea los objetos intermedios (vehículos viejos pueden no tenerlos).
 function _histGetPath(obj, path) {
@@ -6092,9 +6109,7 @@ function validatePdfCompleteness(vehicle) {
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    var sp = td.simple || {};
-    req(sp.operator, 'Operador', 'Recepción');
-    req(sp.datetime, 'Fecha/Hora', 'Recepción');
+    SIMPLE_REQUIRED_FIELDS.forEach(function(f) { req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId); });
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
     return { ok: missing.length === 0, missing: missing, soft: soft };
   }
@@ -6211,9 +6226,13 @@ function histOpenCompleteModal(vehicleId) {
 
   var status = vehicle.status;
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
-  var regName = _libGetVehicleRegulation(vehicle);
-  var profile = _libGasProfileForVehicle(vehicle);
+  // [3.8.0] Una prueba de formato simple no tiene gases, checklist ni firma de aprobador:
+  // solo sus campos de Operación y la firma de quien la liberó.
+  var isEm = isEmissionsPurpose(vehicle.purpose);
+  var fields = histCompleteFields(vehicle);
+  var profile = isEm ? _libGasProfileForVehicle(vehicle) : null;
   var comp = validatePdfCompleteness(vehicle);
+  var docName = isEm ? 'el PDF' : 'la prueba';
 
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
   html += '<div class="hist-complete-box">';
@@ -6222,14 +6241,15 @@ function histOpenCompleteModal(vehicleId) {
   html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom: var(--space-xs);"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size: var(--fs-sm);color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-md);">' +
-          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. ' : 'El PDF ya se puede generar. ') +
+          (isEm ? '' : 'Prueba de formato simple (' + escapeHtml((typeof uiLabel === 'function' ? uiLabel('purpose', vehicle.purpose || '') : vehicle.purpose) || 'sin propósito') + '): no lleva gases ni Hoja COP15-F05. ') +
+          (comp.missing.length ? 'Faltan <b>' + comp.missing.length + '</b> campos de ' + docName + '. ' : (isEm ? 'El PDF ya se puede generar. ' : 'No le falta nada; abajo puedes corregir lo ya guardado. ')) +
           (comp.soft && comp.soft.length ? '<b>' + comp.soft.length + '</b> dato(s) no existían cuando se liberó esta prueba: llénalos solo si tienes el dato. ' : '') +
           'Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
   _histCompleteState.checklist = {};
 
   // Campos del descriptor, agrupados por sección
   var bySection = {};
-  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+  fields.forEach(function(f, idx) {
     if (f.when && !f.when(td, vehicle)) return;
     (bySection[f.section] = bySection[f.section] || []).push({ f: f, idx: idx });
   });
@@ -6318,7 +6338,7 @@ function histOpenCompleteModal(vehicleId) {
   // Firmas faltantes
   var sigs = td.signatures || {};
   var needSigR = needsReleaserSig && !(sigs.releaser && sigs.releaser.dataUrl);
-  var needSigA = status === 'archived' && !(sigs.approver && sigs.approver.dataUrl);
+  var needSigA = isEm && status === 'archived' && !(sigs.approver && sigs.approver.dataUrl);
   if (needSigR || needSigA) {
     html += '<details class="hist-section" open>';
     html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Firmas <span style="color:var(--warn-text);font-weight:800;">· faltantes</span></summary>';
@@ -6526,7 +6546,7 @@ function histSaveCompleteModal() {
   var td = vehicle.testData || {};
 
   var added = [], modified = [], invalid = false;
-  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+  histCompleteFields(vehicle).forEach(function(f, idx) {
     var input = document.getElementById('hist-f-' + idx);
     if (!input) return;
     var cur = _histGetPath(vehicle, f.path);
@@ -6666,7 +6686,8 @@ function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, chan
   if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
   if (typeof refreshAllLists === 'function') refreshAllLists();
   var comp = validatePdfCompleteness(vehicle);
-  showToast(comp.ok ? '✓ Datos completados — el PDF ya se puede generar' : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
+  var _okMsg = isEmissionsPurpose(vehicle.purpose) ? '✓ Datos completados — el PDF ya se puede generar' : '✓ Datos de la prueba guardados';
+  showToast(comp.ok ? _okMsg : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
 }
 
 // [v23.4] Menú ⋯ de una fila del Historial: agrupa las acciones poco frecuentes y aleja
@@ -6679,7 +6700,9 @@ function histRowMenu(vehicleId) {
   showModal({ title: escapeHtml(v.vin || ''), body: '<p class="miss-intro">' + escapeHtml(v.configCode || '') + '</p>',
     buttons: [
       { label: '🕘 Historial y cambios', cls: 'btn-primary', onclick: function() { close(); setTimeout(function() { histShowTimelineModal(id); }, 220); } }
-    ].concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
+    ].concat((v.status === 'archived' && !vehicleIsHistoric(v) && _cascadeCan('test.retro_edit'))   // [3.8.0]
+      ? [{ label: '📝 Corregir datos de la prueba…', onclick: function() { close(); setTimeout(function() { histOpenCompleteModal(id); }, 220); } }]
+      : []).concat((_cascadeCan('test.register') || _cascadeCan('test.retro_edit'))   // [2.4.0]
       ? [{ label: '✏️ Corregir alta (VIN / configuración)…', onclick: function() { close(); setTimeout(function() { vehicleCorrectAltaOpen(id); }, 220); } }]
       : []).concat((v.status === 'archived' && isEmissionsPurpose(v.purpose) && _cascadeCan('test.retro_edit') && typeof vetsAttachStart === 'function')   // [2.5.0]
       ? [{ label: '🔎 Comparar con VETS…', onclick: function() { close(); setTimeout(function() { vetsAttachStart('comparar', id); }, 220); } }]
