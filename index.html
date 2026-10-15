@@ -219,6 +219,7 @@
                     <optgroup label="Otras actividades">
                         <option value="Correlacion">Correlación</option>
                         <option value="Investigacion">Investigación</option>
+                        <option value="Training">Training</option>
                     </optgroup>
                 </select>
             </div>
@@ -939,7 +940,7 @@
 <summary>📝 Operación (Formato Simple)</summary>
   <div class="acc-body">
       <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group" id="simple-operator-group">
           <label>Operador</label>
           <select id="simple_operator" data-chips>
             <option value="">Seleccionar…</option>
@@ -947,8 +948,59 @@
         </div>
 
         <div class="form-group">
-          <label>Fecha/Hora</label>
+          <label for="simple_datetime" id="simple-datetime-label">Fecha/Hora</label>
           <input type="datetime-local" id="simple_datetime">
+        </div>
+      </div>
+
+      <!-- [3.9.0] Training: solo el resultado del manejo y, si se midieron, FE y CO₂. -->
+      <div id="training-block" style="display:none;">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="tr_errors">Errores</label>
+            <input type="number" id="tr_errors" inputmode="numeric" min="0" step="1" placeholder="Ej.: 0">
+          </div>
+          <div class="form-group">
+            <label for="tr_violations">Violations</label>
+            <input type="number" id="tr_violations" inputmode="numeric" min="0" step="1" placeholder="Ej.: 0">
+          </div>
+          <div class="form-group">
+            <label for="tr_iwr">IWR (%)</label>
+            <input type="number" id="tr_iwr" inputmode="decimal" step="any" placeholder="Ej.: 1.2">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="tr_gases">¿Se midieron gases?</label>
+          <select id="tr_gases" data-chips onchange="trainingGasesToggle()">
+            <option value="">Seleccionar…</option>
+            <option value="yes">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div id="tr-gases-block" style="display:none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="tr_fe">Fuel Economy</label>
+              <div class="tr-unit-row">
+                <input type="number" id="tr_fe" inputmode="decimal" step="any" min="0" placeholder="Ej.: 15.2">
+                <select id="tr_fe_unit" aria-label="Unidad de Fuel Economy">
+                  <option value="km/L">km/L</option>
+                  <option value="mpg">mpg</option>
+                  <option value="L/100km">L/100 km</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="tr_co2">CO₂</label>
+              <div class="tr-unit-row">
+                <input type="number" id="tr_co2" inputmode="decimal" step="any" min="0" placeholder="Ej.: 145">
+                <select id="tr_co2_unit" aria-label="Unidad de CO₂">
+                  <option value="g/km">g/km</option>
+                  <option value="g/mi">g/mi</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

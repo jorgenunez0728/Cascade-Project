@@ -109,7 +109,9 @@ function _opcGroups(vehicle) {
         return !all.some(function(o) { return o !== el && o.contains(el); });
     });
     var td = (vehicle && vehicle.testData) || {};
-    var req = (typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : []).filter(function(f) {
+    // [3.9.0] Los obligatorios del propósito del vehículo (emisiones, formato simple o Training).
+    var req = (typeof histCompleteFields === 'function' ? histCompleteFields(vehicle)
+               : (typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : [])).filter(function(f) {
         return f.refId && !(f.when && !f.when(td, vehicle));
     });
     return units.map(function(el, i) {

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.8.0';
+var APP_VERSION = '3.9.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,9 @@ var APP_VERSION = '3.8.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.9.0', date: '15 oct 2026', title: 'Training',
+      bullets: ['Nuevo propósito "Training" en Otras actividades. Operación pide solo la fecha de la prueba, Errores, Violations e IWR %, y si se midieron gases; si sí, Fuel Economy y CO₂ con su unidad.',
+                'Un Training no entra al plan semanal, no cuenta para el REQ ni la cobertura, no va al CoP y no lleva Hoja COP15-F05. Se libera y se aprueba como cualquier prueba de formato simple.'] },
     { version: '3.8.0', date: '15 oct 2026', title: 'Corregir pruebas de OBD II y otros formatos simples',
       bullets: ['Historial: una prueba archivada de formato simple (OBD II, EO, ND…) sin fecha, operador o firma muestra "📝 Completar" y se llena ahí, con su historial de cambios. Antes no había forma de corregirla.',
                 'El menú ⋯ de una prueba archivada ofrece "📝 Corregir datos de la prueba" aunque no le falte nada (cambiar lo guardado pide razón y firma).',
@@ -1432,8 +1435,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.4';
+var CASCADE_VERSION = '4.9.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
+      bullets: ['Propósito Training: fecha, Errores, Violations, IWR % y, si se midieron, Fuel Economy y CO₂.'] },
     { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
       bullets: ['Historial → Completar funciona también para OBD II y otros formatos simples.'] },
     { version: '4.8.3', date: '14 oct 2026', app: '3.7.1', title: 'Re-test: ICMS automático',
@@ -4071,6 +4076,12 @@ function truncateMiddle(str, max = 34) {
 function isEmissionsPurpose(purpose) {
   return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones' || purpose === 'ND-Emisiones';
 }
+
+// [3.9.0] Training: práctica de manejo en el dinamómetro. Formato simple (no es de
+// emisiones), fuera del plan y del REQ (no está en TP_PURPOSES_VALID), sin F05. Pide solo
+// fecha, Errores, Violations, IWR % y, si se midieron gases, Fuel Economy y CO₂.
+var TRAINING_PURPOSE = 'Training';
+function isTrainingPurpose(purpose) { return purpose === TRAINING_PURPOSE; }
 
 function nowLocalDatetimeValue() {
   const d = new Date();
@@ -7525,7 +7536,8 @@ var UI_LABELS = {
     purpose: {
         'Correlacion': 'Correlación', 'Investigacion': 'Investigación',
         'COP-Emisiones': 'CoP · Emisiones', 'EO-Emisiones': 'EO · Emisiones', 'ND-Emisiones': 'Nuevo desarrollo · Emisiones',
-        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II'
+        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II',
+        'Training': 'Training'
     },
     region: {
         'EUROPE': 'Europa', 'EUROPA': 'Europa', 'MIDDLE EAST': 'Medio Oriente', 'USA': 'EE. UU.', 'MEXICO': 'México',

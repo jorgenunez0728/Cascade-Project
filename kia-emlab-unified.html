@@ -5719,6 +5719,10 @@ body.cop-present .cop-toolbar    { display: none; }
 /* ── Números de un toque (app.js: uiNumEnhance) ── */
 .ui-num { display: flex; flex-direction: column; gap: var(--space-xs); }
 .ui-num-row { display: flex; align-items: stretch; gap: var(--space-xs); }
+/* [3.9.0] Training: número + su unidad en la misma fila. El input necesita min-width:0 o desborda. */
+.tr-unit-row { display: flex; align-items: stretch; gap: var(--space-xs); }
+.tr-unit-row > input { flex: 1; width: 0; min-width: 0; }
+.tr-unit-row > select { flex: 0 0 auto; width: auto; }
 .ui-num-row > input { flex: 1; min-width: 0; text-align: center; font-size: var(--fs-base); font-weight: 700; }
 .ui-num-big .ui-num-row > input { text-align: left; }
 .ui-num-btn { min-width: var(--target-min); min-height: var(--target-min); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: 1.4rem; font-weight: 700; line-height: 1; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast); }
@@ -6987,6 +6991,7 @@ body.ficha-open { overflow: hidden; }
                     <optgroup label="Otras actividades">
                         <option value="Correlacion">Correlación</option>
                         <option value="Investigacion">Investigación</option>
+                        <option value="Training">Training</option>
                     </optgroup>
                 </select>
             </div>
@@ -7707,7 +7712,7 @@ body.ficha-open { overflow: hidden; }
 <summary>📝 Operación (Formato Simple)</summary>
   <div class="acc-body">
       <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group" id="simple-operator-group">
           <label>Operador</label>
           <select id="simple_operator" data-chips>
             <option value="">Seleccionar…</option>
@@ -7715,8 +7720,59 @@ body.ficha-open { overflow: hidden; }
         </div>
 
         <div class="form-group">
-          <label>Fecha/Hora</label>
+          <label for="simple_datetime" id="simple-datetime-label">Fecha/Hora</label>
           <input type="datetime-local" id="simple_datetime">
+        </div>
+      </div>
+
+      <!-- [3.9.0] Training: solo el resultado del manejo y, si se midieron, FE y CO₂. -->
+      <div id="training-block" style="display:none;">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="tr_errors">Errores</label>
+            <input type="number" id="tr_errors" inputmode="numeric" min="0" step="1" placeholder="Ej.: 0">
+          </div>
+          <div class="form-group">
+            <label for="tr_violations">Violations</label>
+            <input type="number" id="tr_violations" inputmode="numeric" min="0" step="1" placeholder="Ej.: 0">
+          </div>
+          <div class="form-group">
+            <label for="tr_iwr">IWR (%)</label>
+            <input type="number" id="tr_iwr" inputmode="decimal" step="any" placeholder="Ej.: 1.2">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="tr_gases">¿Se midieron gases?</label>
+          <select id="tr_gases" data-chips onchange="trainingGasesToggle()">
+            <option value="">Seleccionar…</option>
+            <option value="yes">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div id="tr-gases-block" style="display:none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="tr_fe">Fuel Economy</label>
+              <div class="tr-unit-row">
+                <input type="number" id="tr_fe" inputmode="decimal" step="any" min="0" placeholder="Ej.: 15.2">
+                <select id="tr_fe_unit" aria-label="Unidad de Fuel Economy">
+                  <option value="km/L">km/L</option>
+                  <option value="mpg">mpg</option>
+                  <option value="L/100km">L/100 km</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="tr_co2">CO₂</label>
+              <div class="tr-unit-row">
+                <input type="number" id="tr_co2" inputmode="decimal" step="any" min="0" placeholder="Ej.: 145">
+                <select id="tr_co2_unit" aria-label="Unidad de CO₂">
+                  <option value="g/km">g/km</option>
+                  <option value="g/mi">g/mi</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -9483,10 +9539,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610151448';
+var APP_BUILD = '202610151548';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '745d1cfa8624405fd915ded940d3ae4be56e9a0f';
+var APP_COMMIT = '5a9dbb54997d3b5e7f740bf76dd8121fb1040c77';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9494,7 +9550,7 @@ var APP_COMMIT = '745d1cfa8624405fd915ded940d3ae4be56e9a0f';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.8.0';
+var APP_VERSION = '3.9.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9502,6 +9558,9 @@ var APP_VERSION = '3.8.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.9.0', date: '15 oct 2026', title: 'Training',
+      bullets: ['Nuevo propósito "Training" en Otras actividades. Operación pide solo la fecha de la prueba, Errores, Violations e IWR %, y si se midieron gases; si sí, Fuel Economy y CO₂ con su unidad.',
+                'Un Training no entra al plan semanal, no cuenta para el REQ ni la cobertura, no va al CoP y no lleva Hoja COP15-F05. Se libera y se aprueba como cualquier prueba de formato simple.'] },
     { version: '3.8.0', date: '15 oct 2026', title: 'Corregir pruebas de OBD II y otros formatos simples',
       bullets: ['Historial: una prueba archivada de formato simple (OBD II, EO, ND…) sin fecha, operador o firma muestra "📝 Completar" y se llena ahí, con su historial de cambios. Antes no había forma de corregirla.',
                 'El menú ⋯ de una prueba archivada ofrece "📝 Corregir datos de la prueba" aunque no le falte nada (cambiar lo guardado pide razón y firma).',
@@ -10451,8 +10510,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.8.4';
+var CASCADE_VERSION = '4.9.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
+      bullets: ['Propósito Training: fecha, Errores, Violations, IWR % y, si se midieron, Fuel Economy y CO₂.'] },
     { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
       bullets: ['Historial → Completar funciona también para OBD II y otros formatos simples.'] },
     { version: '4.8.3', date: '14 oct 2026', app: '3.7.1', title: 'Re-test: ICMS automático',
@@ -10560,14 +10621,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610151448' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610151548' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610151448' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610151548' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10583,7 +10644,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610151448' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610151548' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -13090,6 +13151,12 @@ function truncateMiddle(str, max = 34) {
 function isEmissionsPurpose(purpose) {
   return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones' || purpose === 'ND-Emisiones';
 }
+
+// [3.9.0] Training: práctica de manejo en el dinamómetro. Formato simple (no es de
+// emisiones), fuera del plan y del REQ (no está en TP_PURPOSES_VALID), sin F05. Pide solo
+// fecha, Errores, Violations, IWR % y, si se midieron gases, Fuel Economy y CO₂.
+var TRAINING_PURPOSE = 'Training';
+function isTrainingPurpose(purpose) { return purpose === TRAINING_PURPOSE; }
 
 function nowLocalDatetimeValue() {
   const d = new Date();
@@ -16544,7 +16611,8 @@ var UI_LABELS = {
     purpose: {
         'Correlacion': 'Correlación', 'Investigacion': 'Investigación',
         'COP-Emisiones': 'CoP · Emisiones', 'EO-Emisiones': 'EO · Emisiones', 'ND-Emisiones': 'Nuevo desarrollo · Emisiones',
-        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II'
+        'COP-OBD2': 'CoP · OBD II', 'EO-OBD2': 'EO · OBD II', 'ND-OBD2': 'Nuevo desarrollo · OBD II',
+        'Training': 'Training'
     },
     region: {
         'EUROPE': 'Europa', 'EUROPA': 'Europa', 'MIDDLE EAST': 'Medio Oriente', 'USA': 'EE. UU.', 'MEXICO': 'México',
@@ -20505,6 +20573,16 @@ function updateOperationBlocksByPurpose(purpose) {
   const em = isEmissionsPurpose(purpose);
   emBlock.style.display = em ? 'block' : 'none';
   simpleBlock.style.display = em ? 'none' : 'block';
+  // [3.9.0] Es el único bloque de una prueba de formato simple: abrirlo ahorra un toque.
+  if (!em) simpleBlock.open = true;
+  // [3.9.0] Training pide solo fecha y resultado: sin operador (la sesión ya lo atribuye).
+  const tr = typeof isTrainingPurpose === 'function' && isTrainingPurpose(purpose);
+  const trBlock = document.getElementById('training-block');
+  if (trBlock) trBlock.style.display = tr ? 'block' : 'none';
+  const opGroup = document.getElementById('simple-operator-group');
+  if (opGroup) opGroup.style.display = tr ? 'none' : '';
+  const dtLbl = document.getElementById('simple-datetime-label');
+  if (dtLbl) dtLbl.textContent = tr ? 'Fecha de la prueba' : 'Fecha/Hora';
 
   // Si no es emisiones, oculta verificación en prueba por seguridad
   if (!em) {
@@ -20586,6 +20664,7 @@ function loadVehicle() {
     document.getElementById('simple_operator').value = s.operator || '';
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
+    trainingFormFill(s.training);
     autoFillOperators();
     opNextStepRender();
     return;
@@ -21132,6 +21211,17 @@ function validateReadyForReleaseSimple() {
   clearMissingMarks();
   const missing = [];
 
+  // [3.9.0] Training: fecha + Errores, Violations, IWR y si se midieron gases (FE y CO₂ si sí).
+  var _v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+  if (_v && isTrainingPurpose(_v.purpose)) {
+    var _td = { simple: { training: trainingFromForm(), datetime: document.getElementById('simple_datetime').value } };
+    TRAINING_REQUIRED_FIELDS.forEach(function(f) {
+      if (f.when && !f.when(_td)) return;
+      if (_histBlank(_histGetPath({ testData: _td }, f.path))) addMissing(missing, f.refId, f.label);
+    });
+    return missing;
+  }
+
   // mínimos para modo simple:
   if (isEmptyValue(document.getElementById('simple_operator')))
     addMissing(missing, 'simple_operator', 'Operador (Formato Simple)');
@@ -21573,6 +21663,8 @@ function saveProgress(opts) {
       notes: document.getElementById('simple_notes')?.value || '',
       lastUpdated: new Date().toISOString()
     };
+    // [3.9.0] Resultado del Training (solo en ese propósito).
+    if (isTrainingPurpose(vehicle.purpose)) vehicle.testData.simple.training = trainingFromForm();
 
       // Un valor vacío (estado que el select no representa) conserva el estado actual.
     const newStatus = _opStatusFromForm(vehicle);
@@ -22916,6 +23008,7 @@ function loadRelease() {
             '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
             '<strong>Operador:</strong> ' + escapeHtml(s.operator || 'N/A') + '<br>' +
             '<strong>Fecha/Hora:</strong> ' + escapeHtml(s.datetime || 'N/A') + '<br>' +
+            (isTrainingPurpose(vehicle.purpose) ? trainingSummaryHTML(s.training) : '') +
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
@@ -23022,6 +23115,10 @@ function loadApproval() {
         (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
         '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
         (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
+        (isTrainingPurpose(vehicle.purpose)   // [3.9.0]
+            ? '<strong>Fecha de la prueba:</strong> ' + escapeHtml((testData.simple && testData.simple.datetime) || 'N/A') + '<br>' +
+              trainingSummaryHTML(testData.simple && testData.simple.training)
+            : '') +
         '</div>';
 
     var regName = _libGetVehicleRegulation(vehicle);
@@ -25068,9 +25165,72 @@ var SIMPLE_REQUIRED_FIELDS = [
   { path: 'testData.simple.datetime', label: 'Fecha/Hora de la prueba', section: 'Operación', refId: 'simple_datetime' }
 ];
 
+// [3.9.0] Training: el formato simple de lo que se pide. Sin operador (la sesión lo
+// atribuye) y con FE y CO₂ solo si se midieron gases. Sus unidades no se piden aparte:
+// tienen valor por omisión en la pantalla.
+function _trGases(td) { return !!(td && td.simple && td.simple.training && td.simple.training.gases === 'yes'); }
+var TRAINING_REQUIRED_FIELDS = [
+  { path: 'testData.simple.datetime',           label: 'Fecha de la prueba',     section: 'Training', refId: 'simple_datetime' },
+  { path: 'testData.simple.training.errors',     label: 'Errores',                section: 'Training', refId: 'tr_errors', num: true },
+  { path: 'testData.simple.training.violations', label: 'Violations',             section: 'Training', refId: 'tr_violations', num: true },
+  { path: 'testData.simple.training.iwrPct',     label: 'IWR (%)',                section: 'Training', refId: 'tr_iwr', num: true },
+  { path: 'testData.simple.training.gases',      label: '¿Se midieron gases?',    section: 'Training', refId: 'tr_gases' },
+  { path: 'testData.simple.training.fe',         label: 'Fuel Economy',           section: 'Training', refId: 'tr_fe', num: true, when: _trGases },
+  { path: 'testData.simple.training.co2',        label: 'CO₂',                    section: 'Training', refId: 'tr_co2', num: true, when: _trGases }
+];
+
 /** [3.8.0] Los campos que se completan/corrigen de un vehículo: de emisiones o de formato simple. */
 function histCompleteFields(vehicle) {
+  if (vehicle && isTrainingPurpose(vehicle.purpose)) return TRAINING_REQUIRED_FIELDS;   // [3.9.0]
   return (vehicle && !isEmissionsPurpose(vehicle.purpose)) ? SIMPLE_REQUIRED_FIELDS : PDF_REQUIRED_FIELDS;
+}
+
+/** [3.9.0] Lo que hay en la pantalla de Training, como se guarda. Vacío = null, nunca 0. */
+function trainingFromForm() {
+  var val = function(id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+  var num = function(id) { var x = val(id); return x === '' ? null : _libNormalizeVal(x); };
+  var gases = val('tr_gases');
+  var out = { errors: num('tr_errors'), violations: num('tr_violations'), iwrPct: num('tr_iwr'), gases: gases || '' };
+  if (gases === 'yes') {
+    out.fe = num('tr_fe'); out.feUnit = val('tr_fe_unit') || 'km/L';
+    out.co2 = num('tr_co2'); out.co2Unit = val('tr_co2_unit') || 'g/km';
+  }
+  return out;
+}
+
+/** [3.9.0] Pinta un resultado guardado en la pantalla de Training. */
+function trainingFormFill(tr) {
+  tr = tr || {};
+  var set = function(id, v) { var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  set('tr_errors', tr.errors); set('tr_violations', tr.violations); set('tr_iwr', tr.iwrPct);
+  set('tr_gases', tr.gases || '');
+  set('tr_fe', tr.fe); set('tr_fe_unit', tr.feUnit || 'km/L');
+  set('tr_co2', tr.co2); set('tr_co2_unit', tr.co2Unit || 'g/km');
+  trainingGasesToggle();
+}
+
+/** [3.9.0] FE y CO₂ solo aparecen si se midieron gases. */
+function trainingGasesToggle() {
+  var sel = document.getElementById('tr_gases'), blk = document.getElementById('tr-gases-block');
+  if (blk) blk.style.display = (sel && sel.value === 'yes') ? '' : 'none';
+}
+
+/** [3.9.0] Resultado de un Training en líneas para Liberación, Aprobación e Historial. PURA. */
+function trainingSummaryHTML(tr) {
+  tr = tr || {};
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(x) { return String(x); };
+  var show = function(v) { return (v === null || v === undefined || v === '') ? '—' : esc(String(v)); };
+  var h = '<strong>Errores:</strong> ' + show(tr.errors) + ' · <strong>Violations:</strong> ' + show(tr.violations) +
+          ' · <strong>IWR:</strong> ' + (tr.iwrPct == null || tr.iwrPct === '' ? '—' : show(tr.iwrPct) + ' %') + '<br>';
+  if (tr.gases === 'yes') {
+    h += '<strong>Fuel Economy:</strong> ' + show(tr.fe) + (tr.fe != null && tr.fe !== '' ? ' ' + esc(tr.feUnit || '') : '') +
+         ' · <strong>CO₂:</strong> ' + show(tr.co2) + (tr.co2 != null && tr.co2 !== '' ? ' ' + esc(tr.co2Unit || '') : '') + '<br>';
+  } else if (tr.gases === 'no') {
+    h += '<strong>Gases:</strong> no se midieron<br>';
+  } else {
+    h += '<strong>Gases:</strong> sin dato<br>';
+  }
+  return h;
 }
 
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
@@ -25109,7 +25269,10 @@ function validatePdfCompleteness(vehicle) {
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    SIMPLE_REQUIRED_FIELDS.forEach(function(f) { req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId); });
+    histCompleteFields(vehicle).forEach(function(f) {
+      if (f.when && !f.when(td, vehicle)) return;
+      req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId);
+    });
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
     return { ok: missing.length === 0, missing: missing, soft: soft };
   }
@@ -28029,7 +28192,7 @@ function renderKanban() {
                     else if (v.purpose.includes('COP') && v.purpose.includes('OBD')) purposeBorder = '#8b5cf6';
                     else if (v.purpose.includes('EO')) purposeBorder = tokenColor('--warn-fill');
                     else if (v.purpose.includes('ND')) purposeBorder = tokenColor('--ok-fill');
-                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion')) purposeBorder = '#64748b';
+                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion') || v.purpose === 'Training') purposeBorder = '#64748b';
                     else purposeBorder = '#0ea5e9';
                 }
 
@@ -28662,6 +28825,11 @@ var CASCADE_TOOLTIPS = {
 
     simple_operator: { title: 'Operador', text: 'Qui\u00e9n realiz\u00f3 este registro simple (para prop\u00f3sitos que no requieren el protocolo completo de emisiones, como Correlaci\u00f3n o Investigaci\u00f3n).' },
     simple_datetime: { title: 'Fecha/Hora', text: 'Momento del registro.' },
+    // [3.9.0] Training
+    tr_errors: { title: 'Errores', text: 'Errores del manejo que reporta el sistema del dinamómetro al terminar el ciclo. Escribe 0 si no hubo.' },
+    tr_violations: { title: 'Violations', text: 'Salidas de la banda de velocidad (violations) que reporta el sistema al terminar el ciclo. Escribe 0 si no hubo.' },
+    tr_iwr: { title: 'IWR (%)', text: 'Inertial Work Rating del ciclo, en %. Puede ser negativo. Para una prueba de WLTP válida va de −2 a +4 %; en un Training solo se registra.' },
+    tr_gases: { title: '¿Se midieron gases?', text: 'Si en este Training se midieron emisiones, elige Sí y captura Fuel Economy y CO₂ con su unidad. No entran al CoP ni a ninguna estadística de emisiones.' },
     simple_notes: { title: 'Comentarios / Observaciones', text: 'Notas generales sobre este registro. D\u00e9jalo vac\u00edo si no aplica.' },
 
     op_status: { title: 'Estado del veh\u00edculo', text: 'Etapa actual del veh\u00edculo en el flujo del laboratorio. C\u00e1mbiala manualmente solo si necesitas corregir el flujo autom\u00e1tico \u2014 normalmente avanza sola conforme completas cada bloque.' },
@@ -61496,7 +61664,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610151448' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610151548' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -74197,7 +74365,9 @@ function _opcGroups(vehicle) {
         return !all.some(function(o) { return o !== el && o.contains(el); });
     });
     var td = (vehicle && vehicle.testData) || {};
-    var req = (typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : []).filter(function(f) {
+    // [3.9.0] Los obligatorios del propósito del vehículo (emisiones, formato simple o Training).
+    var req = (typeof histCompleteFields === 'function' ? histCompleteFields(vehicle)
+               : (typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : [])).filter(function(f) {
         return f.refId && !(f.when && !f.when(td, vehicle));
     });
     return units.map(function(el, i) {
@@ -77052,7 +77222,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9017,"mods":[[9020,"js/app.js",18677],[18681,"js/uiflow.js",18997],[19001,"js/cop15.js",29484],[29488,"js/inventory.js",36644],[36648,"js/testplan.js",48207],[48211,"js/panel.js",53547],[53551,"js/projects.js",55840],[55844,"js/auth.js",56885],[56889,"js/signatures.js",57090],[57094,"js/firebase-sync.js",64639],[64643,"js/cop_validator.js",69008],[69012,"js/homolog.js",70909],[70913,"js/vets.js",72710],[72714,"js/historico.js",73628],[73632,"js/review.js",74085],[74089,"js/opcards.js",74518],[74522,"js/handoff.js",74796],[74800,"js/ficha.js",75292],[75296,"js/relevo.js",75676],[75680,"js/momentos.js",75817],[75821,"js/digest.js",76624],[76628,"js/xlsxw.js",77008],[77012,"js/bugreport.js",78158]]};
+var BUG_LINE_MAP = {"tag":9073,"mods":[[9076,"js/app.js",18745],[18749,"js/uiflow.js",19065],[19069,"js/cop15.js",29652],[29656,"js/inventory.js",36812],[36816,"js/testplan.js",48375],[48379,"js/panel.js",53715],[53719,"js/projects.js",56008],[56012,"js/auth.js",57053],[57057,"js/signatures.js",57258],[57262,"js/firebase-sync.js",64807],[64811,"js/cop_validator.js",69176],[69180,"js/homolog.js",71077],[71081,"js/vets.js",72878],[72882,"js/historico.js",73796],[73800,"js/review.js",74253],[74257,"js/opcards.js",74688],[74692,"js/handoff.js",74966],[74970,"js/ficha.js",75462],[75466,"js/relevo.js",75846],[75850,"js/momentos.js",75987],[75991,"js/digest.js",76794],[76798,"js/xlsxw.js",77178],[77182,"js/bugreport.js",78328]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

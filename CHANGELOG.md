@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.9.0 — Training (2026-10-15)
+
+### Nuevo
+- Pruebas → Alta: propósito **Training** en **Otras actividades**.
+- En Operación, un Training pide solo:
+  - la **fecha de la prueba**;
+  - **Errores**, **Violations** e **IWR (%)**;
+  - **¿Se midieron gases?** Si la respuesta es Sí, pide **Fuel Economy** (km/L, mpg o
+    L/100 km) y **CO₂** (g/km o g/mi).
+- No pide operador: la sesión ya registra quién lo hizo. Para pasar a "Listo para liberación"
+  tienen que estar esos datos (FE y CO₂ solo si se midieron gases).
+- Liberación, Aprobación e Historial → Completar muestran y corrigen esos mismos datos.
+
+### Cambió
+- En una prueba de formato simple (OBD II, Correlación, Investigación, Training), el bloque de
+  Operación ya viene abierto: es el único que tiene.
+
+### Lo que un Training NO hace
+- No entra al plan semanal ni acredita el REQ o la cobertura.
+- No va al CoP ni al Control SPC: su FE y su CO₂ no son resultados verificados.
+- No lleva Hoja COP15-F05.
+
+### Para desarrollo
+- `TRAINING_PURPOSE` / `isTrainingPurpose` (app.js). Formato simple (`isEmissionsPurpose` es
+  false), y queda FUERA de `TP_PURPOSES_VALID` a propósito: así no deja evidencia en
+  `testedList` ni crédito en el plan.
+- Datos en `testData.simple.training = {errors, violations, iwrPct, gases:'yes'|'no', fe, feUnit,
+  co2, co2Unit}`. Vacío es `null`, nunca 0. Nunca en `gasResults`.
+- `TRAINING_REQUIRED_FIELDS` (con `when` para FE/CO₂) es lo que elige `histCompleteFields` y lo
+  que valida "Listo para liberación". `validatePdfCompleteness` (formato simple) y
+  `opcards.js` ya leen `histCompleteFields`.
+- `trainingFromForm` / `trainingFormFill` / `trainingGasesToggle`; `trainingSummaryHTML`
+  (PURA) pinta el resultado.
+- `tests/v390.e2e.js` (Chromium). CASCADE 4.9.0.
+
 ## 3.8.0 — Corregir pruebas de OBD II y otros formatos simples (2026-10-15)
 
 ### Nuevo

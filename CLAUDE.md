@@ -3318,3 +3318,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   Antes Completar solo se ofrecía para emisiones, y una OBD II archivada no se podía corregir.
 - `vehicleTestDate` lee `testData.simple.datetime` como respaldo. `tpCalendarTests` sigue con
   `testDatetime` solo (2.32.0); llevar las pruebas de formato simple al calendario es otra decisión.
+
+## 3.9.0 — Training (`js/app.js`, `js/cop15.js`)
+
+- **`isTrainingPurpose(p)` (app.js)**. Training es formato simple y queda **fuera de
+  `TP_PURPOSES_VALID` a propósito**: con eso `tpAutoFeedFromRelease` / `tpCreditReleaseToWeek` no
+  dejan evidencia ni crédito, y el REQ y la cobertura no lo ven. No agregarlo a esa lista sin
+  decidir antes qué cuenta (`tpPurposeCountsForReq` trata un propósito desconocido como "cuenta").
+- **Su FE y su CO₂ viven en `testData.simple.training`, nunca en `gasResults`**: lo que está en
+  `gasResults` lo leen el CoP, el SPC y el F05 como resultado verificado.
+- `TRAINING_REQUIRED_FIELDS` es su descriptor (lo devuelve `histCompleteFields`); un campo con
+  `when` se evalúa con `td = vehicle.testData`. Toda pantalla que pregunte qué es obligatorio en
+  una prueba usa `histCompleteFields(vehicle)`, no `PDF_REQUIRED_FIELDS` directo.

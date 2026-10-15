@@ -1505,6 +1505,16 @@ function updateOperationBlocksByPurpose(purpose) {
   const em = isEmissionsPurpose(purpose);
   emBlock.style.display = em ? 'block' : 'none';
   simpleBlock.style.display = em ? 'none' : 'block';
+  // [3.9.0] Es el único bloque de una prueba de formato simple: abrirlo ahorra un toque.
+  if (!em) simpleBlock.open = true;
+  // [3.9.0] Training pide solo fecha y resultado: sin operador (la sesión ya lo atribuye).
+  const tr = typeof isTrainingPurpose === 'function' && isTrainingPurpose(purpose);
+  const trBlock = document.getElementById('training-block');
+  if (trBlock) trBlock.style.display = tr ? 'block' : 'none';
+  const opGroup = document.getElementById('simple-operator-group');
+  if (opGroup) opGroup.style.display = tr ? 'none' : '';
+  const dtLbl = document.getElementById('simple-datetime-label');
+  if (dtLbl) dtLbl.textContent = tr ? 'Fecha de la prueba' : 'Fecha/Hora';
 
   // Si no es emisiones, oculta verificación en prueba por seguridad
   if (!em) {
@@ -1586,6 +1596,7 @@ function loadVehicle() {
     document.getElementById('simple_operator').value = s.operator || '';
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
+    trainingFormFill(s.training);
     autoFillOperators();
     opNextStepRender();
     return;
@@ -2132,6 +2143,17 @@ function validateReadyForReleaseSimple() {
   clearMissingMarks();
   const missing = [];
 
+  // [3.9.0] Training: fecha + Errores, Violations, IWR y si se midieron gases (FE y CO₂ si sí).
+  var _v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
+  if (_v && isTrainingPurpose(_v.purpose)) {
+    var _td = { simple: { training: trainingFromForm(), datetime: document.getElementById('simple_datetime').value } };
+    TRAINING_REQUIRED_FIELDS.forEach(function(f) {
+      if (f.when && !f.when(_td)) return;
+      if (_histBlank(_histGetPath({ testData: _td }, f.path))) addMissing(missing, f.refId, f.label);
+    });
+    return missing;
+  }
+
   // mínimos para modo simple:
   if (isEmptyValue(document.getElementById('simple_operator')))
     addMissing(missing, 'simple_operator', 'Operador (Formato Simple)');
@@ -2573,6 +2595,8 @@ function saveProgress(opts) {
       notes: document.getElementById('simple_notes')?.value || '',
       lastUpdated: new Date().toISOString()
     };
+    // [3.9.0] Resultado del Training (solo en ese propósito).
+    if (isTrainingPurpose(vehicle.purpose)) vehicle.testData.simple.training = trainingFromForm();
 
       // Un valor vacío (estado que el select no representa) conserva el estado actual.
     const newStatus = _opStatusFromForm(vehicle);
@@ -3916,6 +3940,7 @@ function loadRelease() {
             '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
             '<strong>Operador:</strong> ' + escapeHtml(s.operator || 'N/A') + '<br>' +
             '<strong>Fecha/Hora:</strong> ' + escapeHtml(s.datetime || 'N/A') + '<br>' +
+            (isTrainingPurpose(vehicle.purpose) ? trainingSummaryHTML(s.training) : '') +
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
@@ -4022,6 +4047,10 @@ function loadApproval() {
         (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
         '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
         (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
+        (isTrainingPurpose(vehicle.purpose)   // [3.9.0]
+            ? '<strong>Fecha de la prueba:</strong> ' + escapeHtml((testData.simple && testData.simple.datetime) || 'N/A') + '<br>' +
+              trainingSummaryHTML(testData.simple && testData.simple.training)
+            : '') +
         '</div>';
 
     var regName = _libGetVehicleRegulation(vehicle);
@@ -6068,9 +6097,72 @@ var SIMPLE_REQUIRED_FIELDS = [
   { path: 'testData.simple.datetime', label: 'Fecha/Hora de la prueba', section: 'Operación', refId: 'simple_datetime' }
 ];
 
+// [3.9.0] Training: el formato simple de lo que se pide. Sin operador (la sesión lo
+// atribuye) y con FE y CO₂ solo si se midieron gases. Sus unidades no se piden aparte:
+// tienen valor por omisión en la pantalla.
+function _trGases(td) { return !!(td && td.simple && td.simple.training && td.simple.training.gases === 'yes'); }
+var TRAINING_REQUIRED_FIELDS = [
+  { path: 'testData.simple.datetime',           label: 'Fecha de la prueba',     section: 'Training', refId: 'simple_datetime' },
+  { path: 'testData.simple.training.errors',     label: 'Errores',                section: 'Training', refId: 'tr_errors', num: true },
+  { path: 'testData.simple.training.violations', label: 'Violations',             section: 'Training', refId: 'tr_violations', num: true },
+  { path: 'testData.simple.training.iwrPct',     label: 'IWR (%)',                section: 'Training', refId: 'tr_iwr', num: true },
+  { path: 'testData.simple.training.gases',      label: '¿Se midieron gases?',    section: 'Training', refId: 'tr_gases' },
+  { path: 'testData.simple.training.fe',         label: 'Fuel Economy',           section: 'Training', refId: 'tr_fe', num: true, when: _trGases },
+  { path: 'testData.simple.training.co2',        label: 'CO₂',                    section: 'Training', refId: 'tr_co2', num: true, when: _trGases }
+];
+
 /** [3.8.0] Los campos que se completan/corrigen de un vehículo: de emisiones o de formato simple. */
 function histCompleteFields(vehicle) {
+  if (vehicle && isTrainingPurpose(vehicle.purpose)) return TRAINING_REQUIRED_FIELDS;   // [3.9.0]
   return (vehicle && !isEmissionsPurpose(vehicle.purpose)) ? SIMPLE_REQUIRED_FIELDS : PDF_REQUIRED_FIELDS;
+}
+
+/** [3.9.0] Lo que hay en la pantalla de Training, como se guarda. Vacío = null, nunca 0. */
+function trainingFromForm() {
+  var val = function(id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+  var num = function(id) { var x = val(id); return x === '' ? null : _libNormalizeVal(x); };
+  var gases = val('tr_gases');
+  var out = { errors: num('tr_errors'), violations: num('tr_violations'), iwrPct: num('tr_iwr'), gases: gases || '' };
+  if (gases === 'yes') {
+    out.fe = num('tr_fe'); out.feUnit = val('tr_fe_unit') || 'km/L';
+    out.co2 = num('tr_co2'); out.co2Unit = val('tr_co2_unit') || 'g/km';
+  }
+  return out;
+}
+
+/** [3.9.0] Pinta un resultado guardado en la pantalla de Training. */
+function trainingFormFill(tr) {
+  tr = tr || {};
+  var set = function(id, v) { var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  set('tr_errors', tr.errors); set('tr_violations', tr.violations); set('tr_iwr', tr.iwrPct);
+  set('tr_gases', tr.gases || '');
+  set('tr_fe', tr.fe); set('tr_fe_unit', tr.feUnit || 'km/L');
+  set('tr_co2', tr.co2); set('tr_co2_unit', tr.co2Unit || 'g/km');
+  trainingGasesToggle();
+}
+
+/** [3.9.0] FE y CO₂ solo aparecen si se midieron gases. */
+function trainingGasesToggle() {
+  var sel = document.getElementById('tr_gases'), blk = document.getElementById('tr-gases-block');
+  if (blk) blk.style.display = (sel && sel.value === 'yes') ? '' : 'none';
+}
+
+/** [3.9.0] Resultado de un Training en líneas para Liberación, Aprobación e Historial. PURA. */
+function trainingSummaryHTML(tr) {
+  tr = tr || {};
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(x) { return String(x); };
+  var show = function(v) { return (v === null || v === undefined || v === '') ? '—' : esc(String(v)); };
+  var h = '<strong>Errores:</strong> ' + show(tr.errors) + ' · <strong>Violations:</strong> ' + show(tr.violations) +
+          ' · <strong>IWR:</strong> ' + (tr.iwrPct == null || tr.iwrPct === '' ? '—' : show(tr.iwrPct) + ' %') + '<br>';
+  if (tr.gases === 'yes') {
+    h += '<strong>Fuel Economy:</strong> ' + show(tr.fe) + (tr.fe != null && tr.fe !== '' ? ' ' + esc(tr.feUnit || '') : '') +
+         ' · <strong>CO₂:</strong> ' + show(tr.co2) + (tr.co2 != null && tr.co2 !== '' ? ' ' + esc(tr.co2Unit || '') : '') + '<br>';
+  } else if (tr.gases === 'no') {
+    h += '<strong>Gases:</strong> no se midieron<br>';
+  } else {
+    h += '<strong>Gases:</strong> sin dato<br>';
+  }
+  return h;
 }
 
 // Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
@@ -6109,7 +6201,10 @@ function validatePdfCompleteness(vehicle) {
   var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    SIMPLE_REQUIRED_FIELDS.forEach(function(f) { req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId); });
+    histCompleteFields(vehicle).forEach(function(f) {
+      if (f.when && !f.when(td, vehicle)) return;
+      req(_histGetPath(vehicle, f.path), f.label, f.section, false, f.refId);
+    });
     if (needsReleaserSig) req(td.signatures && td.signatures.releaser && td.signatures.releaser.dataUrl, 'Firma del Liberador', 'Firmas');
     return { ok: missing.length === 0, missing: missing, soft: soft };
   }
@@ -9029,7 +9124,7 @@ function renderKanban() {
                     else if (v.purpose.includes('COP') && v.purpose.includes('OBD')) purposeBorder = '#8b5cf6';
                     else if (v.purpose.includes('EO')) purposeBorder = tokenColor('--warn-fill');
                     else if (v.purpose.includes('ND')) purposeBorder = tokenColor('--ok-fill');
-                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion')) purposeBorder = '#64748b';
+                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion') || v.purpose === 'Training') purposeBorder = '#64748b';
                     else purposeBorder = '#0ea5e9';
                 }
 
@@ -9662,6 +9757,11 @@ var CASCADE_TOOLTIPS = {
 
     simple_operator: { title: 'Operador', text: 'Qui\u00e9n realiz\u00f3 este registro simple (para prop\u00f3sitos que no requieren el protocolo completo de emisiones, como Correlaci\u00f3n o Investigaci\u00f3n).' },
     simple_datetime: { title: 'Fecha/Hora', text: 'Momento del registro.' },
+    // [3.9.0] Training
+    tr_errors: { title: 'Errores', text: 'Errores del manejo que reporta el sistema del dinamómetro al terminar el ciclo. Escribe 0 si no hubo.' },
+    tr_violations: { title: 'Violations', text: 'Salidas de la banda de velocidad (violations) que reporta el sistema al terminar el ciclo. Escribe 0 si no hubo.' },
+    tr_iwr: { title: 'IWR (%)', text: 'Inertial Work Rating del ciclo, en %. Puede ser negativo. Para una prueba de WLTP válida va de −2 a +4 %; en un Training solo se registra.' },
+    tr_gases: { title: '¿Se midieron gases?', text: 'Si en este Training se midieron emisiones, elige Sí y captura Fuel Economy y CO₂ con su unidad. No entran al CoP ni a ninguna estadística de emisiones.' },
     simple_notes: { title: 'Comentarios / Observaciones', text: 'Notas generales sobre este registro. D\u00e9jalo vac\u00edo si no aplica.' },
 
     op_status: { title: 'Estado del veh\u00edculo', text: 'Etapa actual del veh\u00edculo en el flujo del laboratorio. C\u00e1mbiala manualmente solo si necesitas corregir el flujo autom\u00e1tico \u2014 normalmente avanza sola conforme completas cada bloque.' },
