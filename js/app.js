@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.9.0';
+var APP_VERSION = '3.9.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,8 @@ var APP_VERSION = '3.9.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.9.1', date: '15 oct 2026', title: 'El F05 dice la revisión de su fecha',
+      bullets: ['La Hoja COP15-F05 imprime la revisión del formato vigente el día de la prueba: antes del 4 de mayo de 2026 dice Revisión 7 (28-11-2025); desde ese día, Revisión 8 (04-05-2026). Antes todas decían Revisión 8.'] },
     { version: '3.9.0', date: '15 oct 2026', title: 'Training',
       bullets: ['Nuevo propósito "Training" en Otras actividades. Operación pide solo la fecha de la prueba, Errores, Violations e IWR %, y si se midieron gases; si sí, Fuel Economy y CO₂ con su unidad.',
                 'Un Training no entra al plan semanal, no cuenta para el REQ ni la cobertura, no va al CoP y no lleva Hoja COP15-F05. Se libera y se aprueba como cualquier prueba de formato simple.'] },
@@ -1435,8 +1437,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.0';
+var CASCADE_VERSION = '4.9.1';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
+      bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
       bullets: ['Propósito Training: fecha, Errores, Violations, IWR % y, si se midieron, Fuel Economy y CO₂.'] },
     { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
