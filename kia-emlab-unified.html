@@ -9539,10 +9539,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610151548';
+var APP_BUILD = '202610151907';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '5a9dbb54997d3b5e7f740bf76dd8121fb1040c77';
+var APP_COMMIT = '419dfbd78548e147394b0837b9047f9c7571a356';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9550,7 +9550,7 @@ var APP_COMMIT = '5a9dbb54997d3b5e7f740bf76dd8121fb1040c77';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.9.0';
+var APP_VERSION = '3.9.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9558,6 +9558,8 @@ var APP_VERSION = '3.9.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.9.1', date: '15 oct 2026', title: 'El F05 dice la revisión de su fecha',
+      bullets: ['La Hoja COP15-F05 imprime la revisión del formato vigente el día de la prueba: antes del 4 de mayo de 2026 dice Revisión 7 (28-11-2025); desde ese día, Revisión 8 (04-05-2026). Antes todas decían Revisión 8.'] },
     { version: '3.9.0', date: '15 oct 2026', title: 'Training',
       bullets: ['Nuevo propósito "Training" en Otras actividades. Operación pide solo la fecha de la prueba, Errores, Violations e IWR %, y si se midieron gases; si sí, Fuel Economy y CO₂ con su unidad.',
                 'Un Training no entra al plan semanal, no cuenta para el REQ ni la cobertura, no va al CoP y no lleva Hoja COP15-F05. Se libera y se aprueba como cualquier prueba de formato simple.'] },
@@ -10510,8 +10512,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.0';
+var CASCADE_VERSION = '4.9.1';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
+      bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
       bullets: ['Propósito Training: fecha, Errores, Violations, IWR % y, si se midieron, Fuel Economy y CO₂.'] },
     { version: '4.8.4', date: '15 oct 2026', app: '3.8.0', title: 'Completar pruebas de formato simple',
@@ -10621,14 +10625,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610151548' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610151907' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610151548' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610151907' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -10644,7 +10648,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610151548' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610151907' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -22815,6 +22819,51 @@ function releaseIsBeforeChecklist(vehicle) {
     return first < RELEASE_CHECKLIST_SINCE;
 }
 
+// [3.9.1] Revisiones del formato COP15-F05 registradas en el sistema de gestión, de la
+// más vieja a la más nueva. Una hoja lleva la revisión VIGENTE el día en que se llenó, no
+// la de hoy: una prueba de marzo de 2026 se hizo con la Rev 7 y su F05 no debe decir 8.
+// Entre la 7 y la 8 solo cambió el encabezado (la plantilla Rev 7 la generaba esta misma
+// app). Una revisión nueva = una entrada al final, con el día en que entra en vigor.
+var F05_REVISIONS = [
+    { rev: '7', since: '2025-11-28', emission: '28-11-2025' },
+    { rev: '8', since: '2026-05-04', emission: '04-05-2026' }
+];
+
+/**
+ * [3.9.1] Día ('AAAA-MM-DD') con que se elige la revisión del F05 de un vehículo: el MÁS
+ * ANTIGUO de los que tiene la hoja (recepción, preacondicionamiento, prueba, firma del
+ * liberador, archivado) — la hoja se empieza a llenar en la recepción. Una firma `retro`
+ * (capturada en Completar) lleva el día de la captura y no cuenta. Sin ninguna fecha, ''.
+ */
+function f05RefDay(vehicle) {
+    var td = (vehicle && vehicle.testData) || {};
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.datetime, td.preconditioning && td.preconditioning.datetime, td.testDatetime,
+                (rs && !rs.retro) ? rs.signedAt : null, vehicle && vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    return first;
+}
+
+/**
+ * [3.9.1] LA definición de qué revisión del F05 imprime una hoja. PURA. `day` vacío =
+ * hoy (la vigente). Antes de la primera revisión registrada se usa la más vieja que se
+ * conoce: no se inventa una revisión que no está en la lista.
+ */
+function f05RevisionFor(day, list, today) {
+    list = list || F05_REVISIONS;
+    var d = day || today || localDateStr(new Date());
+    var pick = list[0];
+    list.forEach(function(r) { if (r.since <= d) pick = r; });
+    return pick;
+}
+
 var RELEASE_CHECKLIST_TEXT = {
     objects: { ok: 'Retirado', na: 'No se instaló' },
     docs:    { ok: 'Adjunto',  na: 'No aplica' }
@@ -26551,9 +26600,10 @@ function generateCOP15PDF(vehicleId, opts) {
   doc.setTextColor(...BLACK); setF('normal', 5.5);
   const hoy = new Date().toLocaleDateString('es-MX');
   doc.text('Document#: COP15-F05', ix+2, y+4.5);
-  // [2.1.2] Revisión y fecha de emisión del formato registrado en el sistema de gestión.
-  doc.text('Revisión: 8', ix+2, y+7.5);
-  doc.text('Emission date: 04-05-2026', ix+2, y+10.5);
+  // [3.9.1] Revisión y fecha de emisión del formato vigente el día de la hoja (f05RevisionFor).
+  const _f05Rev = f05RevisionFor(f05RefDay(vehicle));
+  doc.text('Revisión: ' + _f05Rev.rev, ix+2, y+7.5);
+  doc.text('Emission date: ' + _f05Rev.emission, ix+2, y+10.5);
   const _pageLineY = y + 13.5; // se escribe al final, cuando ya se sabe cuántas páginas hay
   y += 18;
 
@@ -61664,7 +61714,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610151548' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610151907' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -77222,7 +77272,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9073,"mods":[[9076,"js/app.js",18745],[18749,"js/uiflow.js",19065],[19069,"js/cop15.js",29652],[29656,"js/inventory.js",36812],[36816,"js/testplan.js",48375],[48379,"js/panel.js",53715],[53719,"js/projects.js",56008],[56012,"js/auth.js",57053],[57057,"js/signatures.js",57258],[57262,"js/firebase-sync.js",64807],[64811,"js/cop_validator.js",69176],[69180,"js/homolog.js",71077],[71081,"js/vets.js",72878],[72882,"js/historico.js",73796],[73800,"js/review.js",74253],[74257,"js/opcards.js",74688],[74692,"js/handoff.js",74966],[74970,"js/ficha.js",75462],[75466,"js/relevo.js",75846],[75850,"js/momentos.js",75987],[75991,"js/digest.js",76794],[76798,"js/xlsxw.js",77178],[77182,"js/bugreport.js",78328]]};
+var BUG_LINE_MAP = {"tag":9073,"mods":[[9076,"js/app.js",18749],[18753,"js/uiflow.js",19069],[19073,"js/cop15.js",29702],[29706,"js/inventory.js",36862],[36866,"js/testplan.js",48425],[48429,"js/panel.js",53765],[53769,"js/projects.js",56058],[56062,"js/auth.js",57103],[57107,"js/signatures.js",57308],[57312,"js/firebase-sync.js",64857],[64861,"js/cop_validator.js",69226],[69230,"js/homolog.js",71127],[71131,"js/vets.js",72928],[72932,"js/historico.js",73846],[73850,"js/review.js",74303],[74307,"js/opcards.js",74738],[74742,"js/handoff.js",75016],[75020,"js/ficha.js",75512],[75516,"js/relevo.js",75896],[75900,"js/momentos.js",76037],[76041,"js/digest.js",76844],[76848,"js/xlsxw.js",77228],[77232,"js/bugreport.js",78378]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

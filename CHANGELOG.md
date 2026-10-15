@@ -20,6 +20,25 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.9.1 — El F05 dice la revisión de su fecha (2026-10-15)
+
+### Arreglado
+- La **Hoja COP15-F05** imprime la **revisión del formato vigente el día de la prueba**, no la
+  de hoy. Una prueba anterior al **4 de mayo de 2026** sale con **Revisión: 7 · Emission date:
+  28-11-2025**; desde ese día, **Revisión: 8 · 04-05-2026**. Desde 2.1.2 todas decían
+  Revisión 8, también las de antes. El resto de la hoja no cambia (entre la 7 y la 8 solo
+  cambió el encabezado).
+- El día que cuenta es el más antiguo de la hoja (recepción, preacondicionamiento, prueba,
+  firma del liberador o archivado). Una firma capturada después en Historial → Completar no
+  mueve la fecha.
+
+### Para desarrollo
+- `F05_REVISIONS` (cop15.js) es la lista de revisiones `{rev, since, emission}`; una revisión
+  nueva = una entrada al final. `f05RevisionFor(día)` (PURA) es LA definición de qué revisión
+  lleva una hoja y `f05RefDay(vehicle)` el día con que se elige. Antes de la primera revisión
+  registrada se usa la más vieja conocida.
+- `tests/f05.e2e.js` verifica Rev 8 / Rev 7 sobre el PDF real; la huella aprobada no cambió.
+
 ## 3.9.0 — Training (2026-10-15)
 
 ### Nuevo

@@ -3747,6 +3747,51 @@ function releaseIsBeforeChecklist(vehicle) {
     return first < RELEASE_CHECKLIST_SINCE;
 }
 
+// [3.9.1] Revisiones del formato COP15-F05 registradas en el sistema de gestión, de la
+// más vieja a la más nueva. Una hoja lleva la revisión VIGENTE el día en que se llenó, no
+// la de hoy: una prueba de marzo de 2026 se hizo con la Rev 7 y su F05 no debe decir 8.
+// Entre la 7 y la 8 solo cambió el encabezado (la plantilla Rev 7 la generaba esta misma
+// app). Una revisión nueva = una entrada al final, con el día en que entra en vigor.
+var F05_REVISIONS = [
+    { rev: '7', since: '2025-11-28', emission: '28-11-2025' },
+    { rev: '8', since: '2026-05-04', emission: '04-05-2026' }
+];
+
+/**
+ * [3.9.1] Día ('AAAA-MM-DD') con que se elige la revisión del F05 de un vehículo: el MÁS
+ * ANTIGUO de los que tiene la hoja (recepción, preacondicionamiento, prueba, firma del
+ * liberador, archivado) — la hoja se empieza a llenar en la recepción. Una firma `retro`
+ * (capturada en Completar) lleva el día de la captura y no cuenta. Sin ninguna fecha, ''.
+ */
+function f05RefDay(vehicle) {
+    var td = (vehicle && vehicle.testData) || {};
+    var rs = td.signatures && td.signatures.releaser;
+    var refs = [td.datetime, td.preconditioning && td.preconditioning.datetime, td.testDatetime,
+                (rs && !rs.retro) ? rs.signedAt : null, vehicle && vehicle.archivedAt];
+    var first = '';
+    refs.forEach(function(ref) {
+        if (!ref) return;
+        var d = new Date(ref);
+        if (isNaN(d.getTime())) return;
+        var day = localDateStr(d);
+        if (!first || day < first) first = day;
+    });
+    return first;
+}
+
+/**
+ * [3.9.1] LA definición de qué revisión del F05 imprime una hoja. PURA. `day` vacío =
+ * hoy (la vigente). Antes de la primera revisión registrada se usa la más vieja que se
+ * conoce: no se inventa una revisión que no está en la lista.
+ */
+function f05RevisionFor(day, list, today) {
+    list = list || F05_REVISIONS;
+    var d = day || today || localDateStr(new Date());
+    var pick = list[0];
+    list.forEach(function(r) { if (r.since <= d) pick = r; });
+    return pick;
+}
+
 var RELEASE_CHECKLIST_TEXT = {
     objects: { ok: 'Retirado', na: 'No se instaló' },
     docs:    { ok: 'Adjunto',  na: 'No aplica' }
@@ -7483,9 +7528,10 @@ function generateCOP15PDF(vehicleId, opts) {
   doc.setTextColor(...BLACK); setF('normal', 5.5);
   const hoy = new Date().toLocaleDateString('es-MX');
   doc.text('Document#: COP15-F05', ix+2, y+4.5);
-  // [2.1.2] Revisión y fecha de emisión del formato registrado en el sistema de gestión.
-  doc.text('Revisión: 8', ix+2, y+7.5);
-  doc.text('Emission date: 04-05-2026', ix+2, y+10.5);
+  // [3.9.1] Revisión y fecha de emisión del formato vigente el día de la hoja (f05RevisionFor).
+  const _f05Rev = f05RevisionFor(f05RefDay(vehicle));
+  doc.text('Revisión: ' + _f05Rev.rev, ix+2, y+7.5);
+  doc.text('Emission date: ' + _f05Rev.emission, ix+2, y+10.5);
   const _pageLineY = y + 13.5; // se escribe al final, cuando ya se sabe cuántas páginas hay
   y += 18;
 

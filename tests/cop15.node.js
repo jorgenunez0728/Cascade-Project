@@ -401,5 +401,29 @@ console.log('\n== vehicleAltaCorrectionPlan ==');
     ok('Europa con ficha de homologación: pide revisarla', r.warnings.some(w => /homologación/.test(w)));
 }
 
+// ── [3.9.1] Revisión del F05 según el día de la hoja ──────────────────────
+console.log('\n== f05RevisionFor / f05RefDay ==');
+{
+    const R = ctx.f05RevisionFor, D = ctx.f05RefDay;
+    ok('prueba de marzo 2026 = Rev 7 del 28-11-2025', R('2026-03-10').rev === '7' && R('2026-03-10').emission === '28-11-2025');
+    ok('el 3 de mayo todavía es Rev 7', R('2026-05-03').rev === '7');
+    ok('desde el 4 de mayo = Rev 8 del 04-05-2026', R('2026-05-04').rev === '8' && R('2026-05-04').emission === '04-05-2026');
+    ok('sin fecha = la vigente hoy', R('', null, '2026-10-15').rev === '8');
+    ok('antes de la primera revisión conocida = la más vieja (no se inventa)', R('2025-06-01').rev === '7');
+    ok('una revisión nueva al final entra en vigor sola',
+        R('2027-02-01', ctx.F05_REVISIONS.concat([{ rev: '9', since: '2027-01-15', emission: '15-01-2027' }])).rev === '9');
+    // Caso del laboratorio: prueba de febrero archivada en octubre con firma retroactiva.
+    const tardio = { status: 'archived', archivedAt: '2026-10-09T18:00:00',
+        testData: { datetime: '2026-02-12T08:00', testDatetime: '2026-02-13T09:30',
+                    signatures: { releaser: { signedAt: '2026-10-12T10:00:00', retro: true } } } };
+    ok('el día de la hoja es el más antiguo (recepción), no el archivado', D(tardio) === '2026-02-12');
+    ok('prueba tardía imprime Rev 7', R(D(tardio)).rev === '7');
+    const retro = { archivedAt: '2026-10-09T18:00:00', testData: { signatures: { releaser: { signedAt: '2026-01-01T10:00:00', retro: true } } } };
+    ok('una firma retroactiva no fecha la hoja', D(retro) === '2026-10-09');
+    ok('sin fechas = vacío', D({ testData: {} }) === '' && D(null) === '');
+    const nueva = { testData: { datetime: '2026-09-18T15:00:00', testDatetime: '2026-09-20T16:01:00' } };
+    ok('prueba de septiembre 2026 imprime Rev 8', R(D(nueva)).rev === '8');
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

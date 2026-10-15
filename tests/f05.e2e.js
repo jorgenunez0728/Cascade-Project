@@ -93,11 +93,29 @@ function normalizar(pdf) {
     const out = await page.evaluate(() => {
         const doc = generateCOP15PDF('vf05', { returnDoc: true, silent: true });
         if (!doc) return { err: 'generateCOP15PDF no devolvió documento' };
-        return { pdf: doc.output(), pages: doc.getNumberOfPages() };
+        // [3.9.1] La misma hoja con fechas de febrero 2026 debe salir con la Rev 7.
+        const v = db.vehicles.find(x => x.id === 'vf05');
+        const viejo = JSON.parse(JSON.stringify(v));
+        viejo.id = 'vf05-feb'; viejo.archivedAt = '2026-02-20T16:00:00.000Z';
+        viejo.testData.datetime = '2026-02-16T15:00:00.000Z';
+        viejo.testData.preconditioning.datetime = '2026-02-17T14:00:00.000Z';
+        viejo.testData.testDatetime = '2026-02-18T16:01:00.000Z';
+        Object.keys(viejo.testData.signatures || {}).forEach(k => { viejo.testData.signatures[k].signedAt = '2026-02-18T17:30:00.000Z'; });
+        db.vehicles.push(viejo);
+        const docFeb = generateCOP15PDF('vf05-feb', { returnDoc: true, silent: true });
+        db.vehicles.pop();
+        const feb = docFeb ? docFeb.output() : '';
+        return { pdf: doc.output(), pages: doc.getNumberOfPages(), feb };
     });
     await browser.close();
 
     if (out.err) { console.log('  FALLA  ' + out.err); process.exitCode = 1; return; }
+    const rev = (pdf, n, fecha) => new RegExp('n: ' + n + '\\)').test(pdf) && pdf.includes('Emission date: ' + fecha);
+    const okRev8 = rev(out.pdf, 8, '04-05-2026');
+    console.log((okRev8 ? '  ok  ' : '  FALLA  ') + 'prueba de septiembre 2026: Revisión 8 del 04-05-2026');
+    const okRev7 = rev(out.feb, 7, '28-11-2025') && !out.feb.includes('04-05-2026');
+    console.log((okRev7 ? '  ok  ' : '  FALLA  ') + 'prueba de febrero 2026: Revisión 7 del 28-11-2025');
+    if (!okRev8 || !okRev7) process.exitCode = 1;
     const norm = normalizar(out.pdf);
     const sha = crypto.createHash('sha256').update(norm, 'latin1').digest('hex');
     const actual = { sha256: sha, bytes: norm.length, pages: out.pages };

@@ -3330,3 +3330,15 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
 - `TRAINING_REQUIRED_FIELDS` es su descriptor (lo devuelve `histCompleteFields`); un campo con
   `when` se evalúa con `td = vehicle.testData`. Toda pantalla que pregunte qué es obligatorio en
   una prueba usa `histCompleteFields(vehicle)`, no `PDF_REQUIRED_FIELDS` directo.
+
+## 3.9.1 — La revisión del F05 es la de su fecha (`js/cop15.js`)
+
+- **`f05RevisionFor(día)` (PURA) es LA definición de qué revisión y fecha de emisión imprime el
+  encabezado del F05** (`F05_REVISIONS`, `{rev, since, emission}`). Reemplaza lo que 2.1.2 dice
+  ("revisión y fecha escritas en el encabezado"): nunca volver a escribir la revisión fija. Una
+  revisión nueva = una entrada al final con el día en que entra en vigor; si cambia también el
+  DISEÑO de la hoja, las pruebas anteriores tendrían que seguir saliendo con el diseño viejo
+  (ronda propia, con aprobación del laboratorio y `F05_UPDATE=1`).
+- **`f05RefDay(vehicle)`** = el día más antiguo de la hoja (recepción → archivado), sin firmas
+  `retro` (regla de 3.2.1).
+
