@@ -3394,18 +3394,37 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   (`invRoomLifecycle`), nunca se guarda.
 - Cámara, vista y etiquetas son preferencias del equipo (`uiPref('roomCam' | 'invMapView' |
   'roomLabels')`), no se sincronizan.
-- **Entrar a una zona = vuelo de cámara + vista de frente.** `zone.face` es el giro desde el
-  que se ve de frente (su muro queda al fondo); `invRoomFocusCam` es LA cámara de esa vista y
-  `_invRoomFly` la interpola (`invRoomCamLerp`, ~750 ms, sin animación con movimiento
-  reducido) repintando SOLO la escena (`_invRoomPaintScene`). Al llegar se abre `#rm-front`,
-  que NO es la escena 3D: es `invRoomFrontSVG`, un dibujo de frente — en 3D la fila de adelante
-  de un buffer tapa la de atrás y las etiquetas se volvían a encimar. Mientras se vuela o se
-  está en una zona, `_invRoomCamSave` no guarda (la preferencia del equipo es la vista
-  general) y `_invRoom.prevCam` es la "vista anterior". Una zona nueva necesita su `face`.
+- **Entrar a una zona = la MISMA escena con otra cámara.** `zone.face` es el giro desde el que
+  se ve de frente; `invRoomFocusCam` es LA cámara (en pantalla angosta, `opts.view/minGapPx`
+  acerca más y arranca por la izquierda) y `_invRoomFly(from, to, onFrame, done)` la interpola
+  (~820 ms, sin animación con movimiento reducido) repintando SOLO la escena. `onFrame(k)` mueve
+  lo que acompaña al vuelo con el mismo `k`: `_invRoom.explode` (`{zona: 0..1}`, un buffer se
+  abre mientras otro se cierra) y `_invRoom.offOpacity` (la variable CSS `--rm-off`: el resto se
+  desvanece; NO con transición CSS, la escena se reconstruye en cada cuadro). **Nunca volver a
+  una "vista de frente" dibujada aparte**: el cruce entre dos dibujos se leía como dos modelos
+  (lo pidió así el laboratorio).
+- **Durante el vuelo la escena va en modo ligero** (`opts.lite`): lo que se desvanece lleva
+  solo cuerpo y tapa, sin posiciones vacías, tableros, marcadores, recuadros ni loseta, y no se
+  mide el SVG (`getScreenCTM` fuerza recálculo de diseño). Es lo que da 60 cuadros/s en
+  escritorio. Algo nuevo que se agregue a la escena debe saltarse en `lite` si no es de la zona.
+- **Un buffer abierto queda en UNA fila** (`invRoomExplodeOffset`): la fila del fondo se
+  desliza a un lado. Se probó separar las filas hacia el fondo y no sirve: la escena se hace
+  honda, la cámara se aleja y los datos se enciman.
+- **Los datos grandes** (`_invRoomFocusLabel`) tienen tamaño fijo en pantalla (la letra se
+  divide entre `pxPerUnit`) y su detalle depende del espacio real entre cilindros (`full` ≥ 64
+  px, `mid` ≥ 40, `min`); tras acercar o alejar a mano se vuelven a medir (`_invRoomApplyCam`).
+- **El tablero mide la pantalla** (`_invRoomFitStage`): alto = ventana − lo que se queda pegado
+  arriba (`.platform-bar` + la `.tp-header` de la sección) − la barra de abajo, y se alinea con
+  `scrollIntoView` + `scroll-margin-top` (no `window.scrollTo`: el desplazamiento suave se
+  interrumpía y en el teléfono no llegaba). Un `<svg>` absoluto necesita alto explícito:
+  `height: auto` no lo estira entre `top` y `bottom`.
+- **La ventana flotante** (`#rm-panel`, `_invRoomPlacePop`) se coloca junto al elemento
+  elegido (derecha si cabe, si no izquierda) y se recoloca con cada movimiento de cámara; en
+  el teléfono es una hoja abajo (CSS). Lo secundario va en `<details class="rm-more">`.
 - En la vista general los no conectados NO llevan etiqueta suelta: la tapa da el color y el
   recuadro de la zona resume (`invRoomZoneSummary`). El recuadro es tocable (`.rm-chip`,
-  `data-zone`) y entra a la zona; ojo, el panel lateral puede taparlo (para eso está la barra
-  "Ver de frente").
+  `data-zone`) y entra a la zona; ojo, la ventana flotante puede taparlo (para eso están los
+  botones de zona de la fila de arriba).
 - Pendiente declarado: la gasolina todavía no está en el plano (se extiende si el diseño
   convence) y la ronda de lectura aún no confirma la posición ("¿sigue en A03?").
 

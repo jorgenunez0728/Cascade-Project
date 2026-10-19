@@ -36,16 +36,21 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   se guardó a medias no se presenta como lleno. En la vista general no llevan etiquetas sueltas
   (en 3D se encimaban): el **recuadro de cada zona las resume** ("E · 6/14 · 4 llenos · 1 a
   medias · 1 vacío"; en una pared, "2 críticos · 1 bajo").
-- **Entrar a una zona**: tocar su recuadro, o su botón en la barra **Ver de frente** (Todo · A ·
-  B · … · H), hace que la cámara **vuele** hasta quedar frente a esa pared o rack y se abre la
-  **vista de frente**: los cilindros grandes, en fila, con su tablero, barrita, %, psi y número
-  de control; los buffers como fila del fondo y fila del frente, con el grande en la punta
-  hacia la pared C. Ahí se toca un cilindro para su estado y su lectura, igual que en 3D.
-  **← Vista anterior** regresa volando; **‹ ›** pasa a la zona vecina; Esc también regresa.
-  En el teléfono la vista de frente se desliza de lado.
-- **Tocar un cilindro** abre su estado: nivel, presión, consumo, vigencia, últimas lecturas y en
-  qué paso va (**recepción → conectado → en uso → vacío**). Ahí mismo se **guarda la lectura de
-  hoy** y se **cambia el estatus**.
+- **Todo en un tablero**: el cuarto ocupa la pantalla y la página se acomoda sola para verlo
+  completo. Arriba, **una sola fila** con los indicadores, las zonas (**🔭 · A · B · … · H**),
+  📥 Recibir y ▦ Retícula; la cámara a un lado; abajo la leyenda y **⚠ Atención**, que abre la
+  lista de lo bajo, vencido o por pedir y de lo que no se ve en el plano.
+- **La lectura en una ventana flotante** junto al cilindro tocado: nivel, % y psi, el campo de
+  la lectura con **Guardar**, el estatus y Mover / Ficha / Editar; consumo, vigencia, ciclo y
+  últimas lecturas plegados en **Más**. Si se mueve la vista, la ventana lo sigue; en el
+  teléfono sale abajo.
+- **Entrar a una zona**: tocar su recuadro o su botón hace que la cámara **vuele en el mismo
+  3D** hasta quedar de frente; lo demás del cuarto se desvanece mientras se vuela y, al llegar,
+  aparecen **los datos grandes** debajo de cada cilindro (código, nombre, %, psi, control; en un
+  buffer, Lleno / Vacío). Un **buffer se abre**: su fila del fondo se desliza a un lado y los 14
+  quedan en una sola fila de frente, como una pared; al salir se vuelve a cerrar.
+  **← Vista anterior** regresa volando, **‹ ›** pasa a la zona vecina, ⌂ y Esc también salen.
+  En el teléfono se acerca más (pocos cilindros a la vez) y el resto se recorre deslizando.
 - **Moverlo**: con el ratón se arrastra; con el dedo se mantiene presionado y se arrastra; o se
   toca **↔ Mover** y luego la posición libre. Tocar una posición libre de una pared ofrece
   **acomodar ahí** lo que está en recepción.
@@ -72,9 +77,12 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   bajo/crítico; el amarillo (`INV_ROOM_HALF_PCT` = 50) es solo visual, no alerta.
   **`invRoomStockTag`** es la etiqueta de los no conectados (`INV_ROOM_FULL_PCT` = 90).
 - Entrar a una zona: `invRoomFocusCam` (LA cámara de frente: gira a `zone.face`, baja la
-  inclinación y encuadra), `invRoomCamLerp` (vuelo por el camino corto), `invRoomFrontRows` y
-  `invRoomFrontSVG` (la vista de frente), `invRoomZoneSummary` (el resumen del recuadro). La
+  inclinación y encuadra; en pantalla angosta se acerca más), `invRoomCamLerp` (vuelo por el
+  camino corto), `invRoomExplodeOffset` (el buffer abierto en una fila), `invRoomZoneSummary`
+  (el resumen del recuadro). Es la MISMA escena de principio a fin: no hay dibujo aparte. La
   cámara de una zona no se guarda como preferencia; "vista anterior" es la de antes de entrar.
+- Fluidez medida: escritorio 60 cuadros/s; teléfono con CPU 2× ~30 y 4× ~15. Durante el vuelo
+  lo que se desvanece va en versión ligera y no se fuerza recálculo de diseño.
 - Puras (`tests/cuarto.node.js`): `invRoomScene` (LA escena: posición de cada código, ocupante y
   lo que no cabe, con motivo), `invRoomZoneSlots`, `invRoomParseCode`, `invRoomProject` (LA
   proyección: giro `az`, inclinación `el`), `invRoomSceneSVG`, `invRoomKpis`,

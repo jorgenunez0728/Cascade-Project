@@ -65,10 +65,13 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     await page.locator('#rm-svg .rm-cyl[data-code="C02"] .rm-dome').click({ force: true });
     await page.waitForTimeout(300);
     const pan = await page.evaluate(() => { const h = document.getElementById('rm-panel'); return { vis: !h.hidden, txt: h.innerText }; });
-    ok('tocar un cilindro abre su estado (posición, nivel, consumo, ciclo)', pan.vis && /C02/.test(pan.txt) && /Presión/.test(pan.txt) && /Conectado/.test(pan.txt), pan.txt.slice(0, 160));
-    ok('el cilindro elegido queda a la vista (el panel no lo tapa)', await page.evaluate(id => {
+    ok('tocar un cilindro abre una ventana flotante con su nivel y la lectura ahí mismo', pan.vis && /C02/.test(pan.txt) && /psi/.test(pan.txt) && /Guardar/.test(pan.txt) && /Más: consumo/.test(pan.txt), pan.txt.slice(0, 160));
+    ok('…lo demás (consumo, vigencia, ciclo) va plegado en "Más"', await page.evaluate(() => { const d = document.querySelector('#rm-panel details.rm-more'); return !!d && !d.open && /Presión/.test(d.textContent) && !!d.querySelector('.rm-steps'); }));
+    ok('la ventana queda junto al cilindro, sin taparlo', await page.evaluate(id => {
         const n = document.querySelector('#rm-svg .rm-cyl[data-gas-id="' + id + '"]').getBoundingClientRect();
-        return n.right < document.getElementById('rm-panel').getBoundingClientRect().left; }, idC02));
+        const pr = document.getElementById('rm-panel').getBoundingClientRect();
+        const tapa = !(n.right <= pr.left || n.left >= pr.right || n.bottom <= pr.top || n.top >= pr.bottom);
+        return !tapa && Math.min(Math.abs(pr.left - n.right), Math.abs(n.left - pr.right)) < 60; }, idC02));
 
     // La lectura, ahí mismo
     await page.fill('#rm-psi', '3010');
@@ -92,7 +95,7 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     ok('el estatus se cambia desde el panel, con línea de tiempo y auditoría', st.st === 'Spare' && st.tl && st.aud, JSON.stringify(st));
 
     // Recibir un cilindro nuevo: solo recepción
-    await page.locator('.rm-top-actions button', { hasText: 'Recibir cilindro' }).click();
+    await page.locator('.rm-top-actions button', { hasText: 'Recibir' }).click();
     await page.waitForTimeout(300);
     const alta = await page.evaluate(() => { const s = document.getElementById('inv-g-zone');
         const zs = Array.from(s.options).map(o => o.value).filter(Boolean); return { zonas: Array.from(new Set(zs.map(z => z[0]))).join(''), val: s.value }; });
@@ -116,9 +119,10 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     const mov = await page.evaluate(id => { const g = invState.gases.find(x => x.id === id);
         return { zone: g.zone, tl: g.timeline[g.timeline.length - 1].action, aud: auditGetView().find(e => e.action === 'gas_moved') }; }, nuevo.id);
     ok('↔ Mover + tocar la posición libre lo reubica (línea de tiempo + auditoría con antes/después)', mov.zone === libre && /Reubicado: G0\d → /.test(mov.tl) && mov.aud && mov.aud.before && mov.aud.after && mov.aud.after.zone === libre, JSON.stringify({ z: mov.zone, tl: mov.tl, a: mov.aud && mov.aud.details }));
-    ok('el panel avanza el ciclo a "Conectado" y sugiere marcarlo En uso', await page.evaluate(() => /Conectado/.test(document.querySelector('.rm-step--now').innerText) && /márcalo/.test(document.getElementById('rm-panel').innerText)));
+    ok('el panel avanza el ciclo a "Conectado" y sugiere marcarlo En uso', await page.evaluate(() => /Conectado/.test(document.querySelector('.rm-step--now').textContent) && /márcalo/.test(document.getElementById('rm-panel').innerText)));
 
-    // Arrastrar con el ratón, de recepción (buffer) a una pared
+    // Arrastrar con el ratón, de recepción (buffer) a una pared (con la ventana cerrada: si no, tapa)
+    await page.evaluate(() => invRoomClose());
     const desdeE = await page.evaluate(() => { const s = invRoomScene(INV_ROOM_LAYOUT, invState.zones, invState.gases).slots.find(x => x.gasId && x.zone === 'E'); return s && s.code; });
     const destino = await page.evaluate(() => invRoomScene(INV_ROOM_LAYOUT, invState.zones, invState.gases).slots.filter(s => !s.gasId && s.zone === 'A').pop().code);
     const idE = await gasAt(page, desdeE);
@@ -141,6 +145,7 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
         antes === await page.evaluate(id => invState.gases.find(x => x.id === id).zone, ocupada));
 
     // Cámara
+    await page.evaluate(() => invRoomClose());
     const z0 = await page.evaluate(() => _invRoom.cam.zoom);
     const st1 = await centro(page.locator('#rm-svg'));
     await page.mouse.move(st1.x, st1.y);
@@ -170,31 +175,36 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     const chipC = await centro(page.locator('#rm-svg .rm-chip[data-zone="C"] rect'));
     await page.mouse.click(chipC.x, chipC.y);
     await page.waitForTimeout(250);
-    ok('tocar el recuadro de una zona arranca el vuelo de la cámara hacia ella', await page.evaluate(() => _invRoom.flying === 'C' && document.getElementById('rm-front').hidden));
+    const vuelo = await page.evaluate(() => ({ f: _invRoom.flying, az: _invRoom.cam.az, off: _invRoom.offOpacity }));
+    ok('tocar el recuadro de una zona arranca el vuelo de la cámara hacia ella (a medio camino, en el mismo 3D)', vuelo.f === 'C' && vuelo.az < 25 && vuelo.az > -90 && vuelo.off > 0.1 && vuelo.off < 1, JSON.stringify(vuelo));
     await page.waitForTimeout(900);
-    const fr = await page.evaluate(() => ({ focus: _invRoom.focus, az: _invRoom.cam.az, vis: !document.getElementById('rm-front').hidden,
-        cyl: document.querySelectorAll('#rm-front .rmf-cyl').length, head: document.querySelector('.rm-front-head').innerText, nav: document.querySelector('#rm-zonenav [data-zone="C"]').getAttribute('aria-pressed') }));
-    ok('al llegar, la pared C de frente: sus cilindros grandes, en fila', fr.focus === 'C' && fr.az === -90 && fr.vis && fr.cyl === 12, JSON.stringify(fr).slice(0, 200));
+    const fr = await page.evaluate(() => ({ focus: _invRoom.focus, az: _invRoom.cam.az, flbl: document.querySelectorAll('#rm-svg .rm-flbl').length,
+        mismo: !!document.querySelector('#rm-svg .rm-cyl[data-code="C05"]'), off: !!document.querySelector('#rm-svg .rm-cyl.rm-off[data-code="B01"]'),
+        head: document.getElementById('rm-focusbar').innerText, nav: document.querySelector('#rm-zonenav [data-zone="C"]').getAttribute('aria-pressed') }));
+    ok('al llegar, la pared C de frente en el MISMO 3D: el resto desvanecido y datos grandes en sus 12', fr.focus === 'C' && fr.az === -90 && fr.mismo && fr.off && fr.flbl === 12, JSON.stringify(fr).slice(0, 200));
     ok('con "← Vista anterior", zona vecina y su botón marcado arriba', /Vista anterior/.test(fr.head) && /‹ B/.test(fr.head) && /D ›/.test(fr.head) && fr.nav === 'true');
+    ok('los datos de cada cilindro no se enciman', await page.evaluate(() => { const r = Array.from(document.querySelectorAll('#rm-svg .rm-fl-val')).map(t => t.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+        return r.length === 12 && r.every((x, i) => i === 0 || x.left >= r[i - 1].right - 1); }));
     if (SHOTS) await page.locator('#rm-stage').screenshot({ path: path.join(SHOTS, 'v3100-frente.png') });
-    await page.locator('#rm-front .rmf-cyl[data-code="C05"]').click();
+    await page.locator('#rm-svg .rm-cyl[data-code="C05"] .rm-dome').click({ force: true });
     await page.waitForTimeout(300);
-    ok('de frente, tocar un cilindro abre su estado', await page.evaluate(() => /C05/.test(document.getElementById('rm-panel').innerText) && !!document.querySelector('#rm-front .rmf-cyl--sel[data-code="C05"]')));
+    ok('de frente, tocar un cilindro abre su ventana', await page.evaluate(() => /C05/.test(document.getElementById('rm-panel').innerText) && !!document.querySelector('#rm-svg .rm-cyl--sel[data-code="C05"]')));
     await page.fill('#rm-psi', '1500');
     await page.locator('.rm-read-btn').click();
     await page.waitForTimeout(300);
     ok('…y guardar su lectura sin salir de la vista de frente', await page.evaluate(() => { const g = invState.gases.find(x => x.zone === 'C05'); const r = g.readings[g.readings.length - 1];
-        return r.psi === 1500 && r.source === 'cuarto' && _invRoom.focus === 'C' && /1500 psi/.test(document.getElementById('rm-front').innerHTML); }));
+        return r.psi === 1500 && r.source === 'cuarto' && _invRoom.focus === 'C' && /1500 psi/.test(document.getElementById('rm-svg').innerHTML); }));
     await page.evaluate(() => invRoomClose());
-    await page.locator('#rm-front button', { hasText: 'D ›' }).click();
+    await page.locator('#rm-focusbar button', { hasText: 'D ›' }).click();
     await page.waitForTimeout(1200);
-    ok('› pasa a la zona vecina volando', await page.evaluate(() => _invRoom.focus === 'D' && document.querySelectorAll('#rm-front .rmf-cyl, #rm-front .rmf-slot').length === 2));
+    ok('› pasa a la zona vecina volando', await page.evaluate(() => _invRoom.focus === 'D' && document.querySelectorAll('#rm-svg .rm-flbl').length === 2));
     await page.locator('#rm-zonenav button[data-zone="E"]').click();
     await page.waitForTimeout(1200);
-    ok('el botón de cada zona entra directo (E: dos filas y su grande hacia C)', await page.evaluate(() => _invRoom.focus === 'E' && /Fila del fondo/.test(document.getElementById('rm-front').innerHTML) && /Fila del frente/.test(document.getElementById('rm-front').innerHTML)));
-    await page.locator('#rm-front .rm-front-back').click();
+    ok('el botón de cada zona entra directo; el buffer se abre en una fila de 14, con su etiqueta', await page.evaluate(() => _invRoom.focus === 'E' && _invRoom.explode.E === 1 &&
+        document.querySelectorAll('#rm-svg .rm-flbl').length === 14 && /rm-stag--/.test(document.getElementById('rm-svg').innerHTML)));
+    await page.locator('#rm-focusbar .rm-focus-back').click();
     await page.waitForTimeout(1200);
-    ok('"← Vista anterior" regresa volando a la vista de antes de entrar', await page.evaluate(c => !_invRoom.focus && document.getElementById('rm-front').hidden && JSON.stringify(_invRoom.cam) === c, camAntes));
+    ok('"← Vista anterior" regresa volando a la vista de antes de entrar (y el rack se cierra)', await page.evaluate(c => !_invRoom.focus && document.getElementById('rm-focusbar').hidden && !_invRoom.explode && JSON.stringify(_invRoom.cam) === c, camAntes));
     ok('la cámara de una zona no se guarda como preferencia', await page.evaluate(() => (uiPref('roomCam') || {}).az !== -90 && (uiPref('roomCam') || {}).az !== 0));
     await page.locator('#rm-zonenav button[data-zone="A"]').click();
     await page.waitForTimeout(1200);
@@ -203,7 +213,7 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     ok('Esc también regresa', await page.evaluate(() => !_invRoom.focus));
 
     // Retícula de ida y vuelta
-    await page.locator('.rm-top-actions button', { hasText: 'Retícula' }).click();
+    await page.locator('.rm-top-actions button[aria-label="Retícula"]').click();
     await page.waitForTimeout(300);
     ok('▦ Retícula muestra las tarjetas de siempre', await page.evaluate(() => !!document.querySelector('.inv-zonemap-grid') && !document.getElementById('rm-svg')));
     await page.locator('.inv-zonemap-toolbar button', { hasText: 'Ver el cuarto' }).click();
@@ -232,10 +242,12 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     // Vista de frente en el teléfono: la pared se recorre de lado
     await page.locator('#rm-zonenav button[data-zone="C"]').tap();
     await page.waitForTimeout(1300);
-    const tel = await page.evaluate(() => { const b = document.querySelector('#rm-front .rm-front-body'); return { f: _invRoom.focus, scroll: b.scrollWidth > b.clientWidth + 20, page: document.documentElement.scrollWidth <= innerWidth + 1 }; });
-    ok('en el teléfono la vista de frente se desliza de lado (sin mover la página)', tel.f === 'C' && tel.scroll && tel.page, JSON.stringify(tel));
+    const tel = await page.evaluate(() => { const st = document.getElementById('rm-svg').getBoundingClientRect();
+        const r = Array.from(document.querySelectorAll('#rm-svg .rm-fl-val')).map(t => t.getBoundingClientRect()).filter(x => x.right > st.left && x.left < st.right).sort((a, b) => a.left - b.left);
+        return { f: _invRoom.focus, vis: r.length, fuera: document.querySelectorAll('#rm-svg .rm-fl-val').length - r.length, junto: r.every((x, i) => i === 0 || x.left >= r[i - 1].right - 1), page: document.documentElement.scrollWidth <= innerWidth + 1 }; });
+    ok('en el teléfono se acerca más: pocos cilindros a la vez, sus datos sin encimarse, el resto se recorre deslizando', tel.f === 'C' && tel.vis >= 3 && tel.vis <= 7 && tel.fuera > 0 && tel.junto && tel.page, JSON.stringify(tel));
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'v3100-frente-telefono.png') });
-    await page.locator('#rm-front .rm-front-back').tap();
+    await page.locator('#rm-focusbar .rm-focus-back').tap();
     await page.waitForTimeout(1300);
 
     // Dedo: arrastrar sin mantener = mover la vista; mantener presionado = mover el cilindro

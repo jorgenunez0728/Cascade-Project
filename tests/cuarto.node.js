@@ -151,30 +151,42 @@ ok('sin nada que decir, vacío', ctx.invRoomZoneSummary(sl('B'), {}, 'wall') ===
 
 console.log('\n== Entrar a una zona ==');
 let fc = ctx.invRoomFocusCam(L, sc, 'C');
-ok('la pared C se ve de frente (cámara girada -90°, baja) y de cerca', fc.az === -90 && fc.el < 30 && fc.zoom > 1.2, JSON.stringify(fc));
+ok('la pared C se ve de frente (cámara girada -90°, baja) y de cerca', fc.az === -90 && fc.el < 30 && fc.zoom > 1.1, JSON.stringify(fc));
 const fbox = ctx.invRoomBox(L, fc), cC = sc.slots.filter(x => x.zone === 'C');
 const mid = ctx.invRoomProject(cC[5].x, (cC[5].y + cC[6].y) / 2, 0.6, fc, C);
 const bcx = fbox.x + fbox.w / 2, scx = bcx + fc.panX + fc.zoom * (mid.x - bcx);
 ok('…y la zona queda al centro de la vista', Math.abs(scx - bcx) < fbox.w * 0.08, (scx - bcx).toFixed(1));
+ok('la cámara de un buffer lo ve de frente, como una pared', ctx.invRoomFocusCam(L, sc, 'E').el <= 15 && ctx.invRoomFocusCam(L, sc, 'E').az === 0);
 ok('cada zona tiene su lado para verla de frente', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].every(z => typeof L.zones[z].face === 'number'));
 ok('el buffer se ve de frente desde la entrada', ctx.invRoomFocusCam(L, sc, 'E').az === 0);
+const fcTel = ctx.invRoomFocusCam(L, sc, 'C', { view: { w: 400, h: 500 }, minGapPx: 58 }), fcPc = ctx.invRoomFocusCam(L, sc, 'C', { view: { w: 1300, h: 600 }, minGapPx: 58 });
+ok('en el teléfono se acerca más (sus datos no se enciman) y arranca por la izquierda de la zona', fcTel.zoom > fcPc.zoom * 1.5 && fcTel.panX > fcPc.panX, JSON.stringify([fcTel.zoom, fcPc.zoom]));
 ok('zona que no existe → null', ctx.invRoomFocusCam(L, sc, 'Z') === null);
 let lp = ctx.invRoomCamLerp({ az: 170, el: 40, zoom: 1, panX: 0, panY: 0 }, { az: -170, el: 20, zoom: 3, panX: 10, panY: -10 }, 0.5);
 ok('el vuelo gira por el camino corto (170° → -170° pasa por 180°)', Math.abs(lp.az - 180) < 1e-9 && lp.el === 30 && lp.zoom === 2 && lp.panX === 5);
-let fr = ctx.invRoomFrontRows(L.zones.C, 12);
-ok('pared de frente: una fila, C01 a la izquierda', fr.length === 1 && fr[0].idx.length === 12 && fr[0].idx[0] === 0);
-fr = ctx.invRoomFrontRows(L.zones.E, 14);
-ok('buffer de frente: fila del fondo y del frente, cada una con su grande al final (hacia C)',
-    fr.length === 2 && fr[0].label === 'Fila del fondo' && JSON.stringify(fr[0].idx) === '[0,1,2,3,4,5,12]' && JSON.stringify(fr[1].idx) === '[6,7,8,9,10,11,13]');
-ok('diablito de frente: sus dos', ctx.invRoomFrontRows(L.zones.G, 2)[0].idx.length === 2);
-look.g2.name = 'CO/N2 50 ppm'; look.g2.ctrl = 'CO-50'; look.g2.psi = 3100;
-let fv = ctx.invRoomFrontSVG(sc, 'C', look, { sel: 'g2' });
-ok('vista de frente de C: 1 cilindro y 11 posiciones libres', (fv.svg.match(/class="rmf-cyl/g) || []).length === 1 && (fv.svg.match(/class="rmf-slot/g) || []).length === 11 && fv.cols === 12);
-ok('…con barrita de nivel, %, psi, control y tablero', /clip-path="url\(#rmf-c-C12\)"/.test(fv.svg) && />90%</.test(fv.svg) && />3100 psi</.test(fv.svg) && />CO-50</.test(fv.svg) && />CO 50</.test(fv.svg) && /class="rmf-reg"/.test(fv.svg));
-ok('…y el elegido resaltado', /rmf-cyl rmf-cyl--sel/.test(fv.svg));
-fv = ctx.invRoomFrontSVG(sc, 'E', look, {});
-ok('vista de frente del buffer: etiqueta y sin barrita', />Vacío</.test(fv.svg) && !/rmf-c-E/.test(fv.svg) && /Fila del frente/.test(fv.svg));
-ok('vista de frente sin valores raros', !/NaN|undefined|Infinity/.test(fv.svg + ctx.invRoomFrontSVG(sc, 'G', look, {}).svg + ctx.invRoomFrontSVG(sc, 'H', look, {}).svg));
+const opened = n => { const z = ctx.invRoomZoneSlots(L.zones.E, 14).pts[n - 1], o = ctx.invRoomExplodeOffset(L.zones.E, n, 1); return [z.x + o[0], z.y + o[1]]; };
+const fila = [1, 2, 3, 4, 5, 6, 13, 7, 8, 9, 10, 11, 12, 14].map(opened);
+ok('al abrir el buffer, los 14 quedan en UNA fila de frente (sobre la línea de la fila del frente)', fila.every(p => near(p[1], L.zones.E.rows[1][1])));
+ok('…en orden: la del fondo (con su grande) a un lado y la del frente al otro, sin encimarse', fila.every((p, i) => i === 0 || p[0] - fila[i - 1][0] >= 0.35));
+ok('…a medio vuelo, a medio camino; cerrado o en una pared, nada', near(ctx.invRoomExplodeOffset(L.zones.E, 1, 0.5)[0], ctx.invRoomExplodeOffset(L.zones.E, 1, 1)[0] / 2) &&
+    JSON.stringify(ctx.invRoomExplodeOffset(L.zones.E, 1, 0)) === '[0,0]' && JSON.stringify(ctx.invRoomExplodeOffset(L.zones.C, 1, 1)) === '[0,0]');
+const fE = ctx.invRoomFocusCam(L, sc, 'E');
+const scEo = ctx.invRoomSceneSVG(sc, fE, look, { focus: 'E', explode: { E: 1 } });
+const scEc = ctx.invRoomSceneSVG(sc, fE, look, { focus: 'E', explode: { E: 0 } });
+const xDe = (svg, code) => { const m = new RegExp('data-code="' + code + '"[^>]*>(?:<title>[^<]*</title>)?<path class="rm-body" d="M([-0-9.]+)').exec(svg); return m ? parseFloat(m[1]) : NaN; };
+ok('en la escena, abierto, la fila del fondo se desliza a un lado', Math.abs(xDe(scEo.svg, 'E02') - xDe(scEc.svg, 'E02')) > 20, xDe(scEo.svg, 'E02') + ' vs ' + xDe(scEc.svg, 'E02'));
+look.g2.ctrl = 'CO-50'; look.g2.psi = 3100;
+let fl = ctx.invRoomSceneSVG(sc, fc, look, { focus: 'C', focusLabels: 'C', pxPerUnit: 3 });
+ok('al llegar a una zona: datos grandes debajo de cada cilindro (código, nombre, %, psi, control)', /class="rm-flbl"/.test(fl.svg) && /rm-fl-val[^>]*>90%</.test(fl.svg) && />3100 psi</.test(fl.svg) && />CO-50</.test(fl.svg));
+ok('…a tamaño fijo en pantalla (la letra se divide entre los px por unidad)', /rm-fl-val" x="[^"]+" y="[^"]+" style="font-size:5\.00px/.test(fl.svg));
+ok('…y sin la etiqueta chica de esa zona', !/class="rm-lbl" x="[^"]+" y="[^"]+">CO 50/.test(fl.svg));
+fl = ctx.invRoomSceneSVG(sc, fc, look, { focus: 'C', focusLabels: 'C', pxPerUnit: 0.3 });
+ok('con poco espacio entre cilindros (teléfono) solo el % para que no se encimen', /rm-fl-val/.test(fl.svg) && !/rm-fl-name/.test(fl.svg) && !/rm-fl-code/.test(fl.svg));
+ok('en la zona, las posiciones libres dicen "libre"', /rm-fl-free[^>]*>libre</.test(ctx.invRoomSceneSVG(sc, fc, look, { focus: 'C', focusLabels: 'C', pxPerUnit: 3 }).svg));
+fl = ctx.invRoomSceneSVG(sc, fE, look, { focus: 'E', explode: { E: 1 }, focusLabels: 'E', pxPerUnit: 3 });
+ok('en un buffer, los datos llevan la etiqueta Lleno / Vacío', /class="rm-stag rm-stag--empty"/.test(fl.svg));
+ok('dentro de una zona, los recuadros de todas se esconden (la barra de la zona dice lo mismo)', (fl.svg.match(/class="rm-chip [^"]*rm-off/g) || []).length === (fl.svg.match(/class="rm-chip /g) || []).length);
+ok('escena con rack abierto sin valores raros', !/NaN|undefined|Infinity/.test(fl.svg));
 out = ctx.invRoomSceneSVG(sc, ctx.CAM0, look, { focus: 'C' });
 ok('al entrar a C el resto del cuarto se desvanece', /data-gas-id="g1" data-code="A01"/.test(out.svg) && /rm-off" data-gas-id="g1"/.test(out.svg) && !/rm-off" data-gas-id="g2"/.test(out.svg));
 

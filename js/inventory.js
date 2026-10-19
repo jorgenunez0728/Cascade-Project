@@ -7178,12 +7178,12 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
     ]},
     'inv-zonemap': { title: 'Cuarto de gases', text: 'El cuarto de gases en 3D o visto desde arriba: cada cilindro en su posición real, con su nivel como relleno y su estado como color. Toca uno para ver su estado y tomar la lectura.', tips: [
-        'Toca un cilindro: ves su nivel, consumo, vigencia y puedes guardar la lectura de hoy ahí mismo.',
+        'Toca un cilindro: se abre una ventana junto a él con su nivel y la lectura de hoy (Guardar); consumo, vigencia y ciclo van en "Más".',
         'Para moverlo: con el ratón, arrástralo; con el dedo, mantenlo presionado y arrástralo — o toca ↔ Mover y luego la posición libre.',
         'Los cilindros nuevos llegan a recepción (diablito o buffer). Toca una posición libre de una pared para acomodar ahí uno de recepción.',
         'Los botones de la izquierda acercan, giran e inclinan la vista; ⌂ vuelve a la vista inicial y ⬒ alterna plano y 3D.',
         'Los recuadros de arriba resaltan en el plano los cilindros bajos, por pedir, vencidos o sin leer hoy.',
-        'Toca el recuadro de una zona (o su botón en "Ver de frente") para acercarte y verla de frente, con cada cilindro grande y sus datos. "← Vista anterior" regresa.'
+        'Toca el recuadro de una zona (o su letra en la fila de arriba) y la cámara se acerca hasta verla de frente, con los datos de cada cilindro; un buffer se abre en una sola fila. "← Vista anterior" regresa.'
     ]},
     'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
         'Cambia entre PSI por Cilindro, Combustible y Comparar Gases con los botones superiores.',
