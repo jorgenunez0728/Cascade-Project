@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.9.1';
+var APP_VERSION = '3.10.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,17 @@ var APP_VERSION = '3.9.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.10.0', date: '19 oct 2026', title: 'El cuarto de gases en 3D',
+      bullets: ['Consumibles → 🗺️ Cuarto: el cuarto de gases dibujado como es (paredes A, B y C, buffers E y F, diablito G y el cuartito de inflamables D y H), con cada cilindro en su posición.',
+                'Los conectados a la pared son una barrita de nivel: verde arriba de la mitad, amarilla a la mitad o menos, anaranjada en bajo (≤ 30 %) y roja en crítico (≤ 15 %), con el % en su etiqueta. Los críticos, vencidos y por pedir llevan marcador.',
+                'En los buffers y el diablito no hay barrita: la tapa dice si está lleno, a medias, vacío o vencido, y el recuadro de la zona lo resume ("4 llenos · 1 vacío") sin encimar etiquetas.',
+                'Todo en un tablero de una pantalla: indicadores y zonas en una sola fila arriba, cámara a un lado, leyenda y "Atención" abajo.',
+                'Toca un cilindro: una ventana flotante junto a él con su nivel, la lectura de hoy (Guardar) y el estatus; lo demás va en "Más".',
+                'Toca una zona (su recuadro o su botón arriba) y la cámara vuela, en el mismo 3D, hasta verla de frente con los datos grandes de cada cilindro; un buffer se abre en una sola fila. "← Vista anterior" regresa y ‹ › pasa a la zona vecina.',
+                'Toca un cilindro: ves su nivel, consumo, vigencia y en qué paso va (recepción → conectado → en uso → vacío), guardas la lectura de hoy y cambias su estatus ahí mismo.',
+                'Para moverlo: arrástralo (en el teléfono, mantenlo presionado), o toca ↔ Mover y luego la posición libre. Tocar una posición libre de una pared ofrece acomodar ahí lo que está en recepción.',
+                'Un cilindro nuevo llega a recepción: el alta solo ofrece el diablito y los buffers, y lo deja En almacén.',
+                'La vista se acerca, gira, se inclina o pasa a plano con los botones de la izquierda; en el teléfono arranca en plano. Los recuadros de arriba resaltan lo bajo, por pedir, vencido o sin leer hoy.'] },
     { version: '3.9.1', date: '15 oct 2026', title: 'El F05 dice la revisión de su fecha',
       bullets: ['La Hoja COP15-F05 imprime la revisión del formato vigente el día de la prueba: antes del 4 de mayo de 2026 dice Revisión 7 (28-11-2025); desde ese día, Revisión 8 (04-05-2026). Antes todas decían Revisión 8.'] },
     { version: '3.9.0', date: '15 oct 2026', title: 'Training',
@@ -2220,7 +2231,10 @@ var UI_PREFS_DEFAULTS = {
     dashSnooze: {},        // [2.23.0] HOY "Te toca": {persona: {idFila: hastaISO}} — posponer
     lastSeen: {},          // [2.25.0] relevo: {persona: ISO de su última vez en ESTE equipo}
     moments: {},           // [2.26.0] momentos de cierre ya mostrados en este equipo: {clave: ISO}
-    hist: {}               // [2.34.0] Historial: {sort, dir, group, collapsed, more} — leer con histPrefs()
+    hist: {},              // [2.34.0] Historial: {sort, dir, group, collapsed, more} — leer con histPrefs()
+    invMapView: 'cuarto',  // [3.10.0] Consumibles → Cuarto: 'cuarto' (isométrico) | 'reticula'
+    roomCam: null,         // [3.10.0] cámara del cuarto {az, el, zoom, panX, panY} — leer con invRoomCamNormalize
+    roomLabels: null       // [3.10.0] etiquetas en el cuarto (null = sí en escritorio, no en teléfono)
 };
 
 function _uiPrefsRead() {
@@ -7300,10 +7314,10 @@ var UI_TAB_GROUPS = {
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
           groups: [
-            { id: 'diario', label: '📏 Día a día', tabs: ['inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
+            { id: 'diario', label: '📏 Día a día', tabs: ['inv-zonemap', 'inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
             { id: 'equipos', label: '🔧 Equipos', tabs: ['inv-equipment', 'inv-maint'] },
             { id: 'analisis', label: '📈 Análisis', tabs: ['inv-predict', 'inv-charts', 'inv-report', 'inv-trace'] },
-            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-zonemap', 'inv-config'] } ] },
+            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-config'] } ] },
     pn: { bar: 'pn-tabs-bar', sw: 'pnSwitchTab', state: function() { return typeof pnState !== 'undefined' && pnState.activeTab; },
           groups: [
             { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },

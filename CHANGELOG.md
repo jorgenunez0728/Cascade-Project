@@ -20,6 +20,83 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.10.0 — El cuarto de gases en 3D (2026-10-19)
+
+### Nuevo
+- **Consumibles → 🗺️ Cuarto** (ahora en la barra principal, ya no en ⋯ Más): el cuarto de gases
+  dibujado como es, visto en 3D o desde arriba. Pared izquierda **A** (12), fondo **B** (4),
+  pared derecha **C** (12), buffers **E** y **F** (6 por lado + 2 grandes), diablito **G** (2) y
+  el cuartito de inflamables (**D** conectados, **H** sin conectar), con sus cuatro puertas.
+- Cada cilindro está en su posición. Los **conectados a la pared** son una **barrita de nivel**:
+  verde arriba de la mitad, **amarilla** a la mitad o menos, **anaranjada** en bajo (≤ 30 %) y
+  **roja** en crítico (≤ 15 %), con el % en su etiqueta y la tapa del mismo color (se lee aunque
+  la fila se vea a lo largo). Los críticos, vencidos y por pedir llevan un marcador encima.
+- En los **buffers, el diablito y los sin conectar** no hay barrita: la tapa lleva el color de
+  **Lleno** (90 % o más, o nuevo sin lecturas), **a medias**, **Vacío** o **Vencido** — uno que
+  se guardó a medias no se presenta como lleno. En la vista general no llevan etiquetas sueltas
+  (en 3D se encimaban): el **recuadro de cada zona las resume** ("E · 6/14 · 4 llenos · 1 a
+  medias · 1 vacío"; en una pared, "2 críticos · 1 bajo").
+- **Todo en un tablero**: el cuarto ocupa la pantalla y la página se acomoda sola para verlo
+  completo. Arriba, **una sola fila** con los indicadores, las zonas (**🔭 · A · B · … · H**),
+  📥 Recibir y ▦ Retícula; la cámara a un lado; abajo la leyenda y **⚠ Atención**, que abre la
+  lista de lo bajo, vencido o por pedir y de lo que no se ve en el plano.
+- **La lectura en una ventana flotante** junto al cilindro tocado: nivel, % y psi, el campo de
+  la lectura con **Guardar**, el estatus y Mover / Ficha / Editar; consumo, vigencia, ciclo y
+  últimas lecturas plegados en **Más**. Si se mueve la vista, la ventana lo sigue; en el
+  teléfono sale abajo.
+- **Entrar a una zona**: tocar su recuadro o su botón hace que la cámara **vuele en el mismo
+  3D** hasta quedar de frente; lo demás del cuarto se desvanece mientras se vuela y, al llegar,
+  aparecen **los datos grandes** debajo de cada cilindro (código, nombre, %, psi, control; en un
+  buffer, Lleno / Vacío). Un **buffer se abre**: su fila del fondo se desliza a un lado y los 14
+  quedan en una sola fila de frente, como una pared; al salir se vuelve a cerrar.
+  **← Vista anterior** regresa volando, **‹ ›** pasa a la zona vecina, ⌂ y Esc también salen.
+  En el teléfono se acerca más (pocos cilindros a la vez) y el resto se recorre deslizando.
+- **Moverlo**: con el ratón se arrastra; con el dedo se mantiene presionado y se arrastra; o se
+  toca **↔ Mover** y luego la posición libre. Tocar una posición libre de una pared ofrece
+  **acomodar ahí** lo que está en recepción.
+- **Recepción obligatoria**: un cilindro nuevo (📥 Recibir cilindro) solo puede llegar al
+  **diablito o a un buffer**, propone el primer lugar libre del diablito y queda **En almacén**.
+- Arriba, recuadros con **conectados, en recepción, bajos, por pedir, vencidos y leídos hoy**;
+  tocar uno resalta esos cilindros en el plano.
+- La vista se **acerca, gira, inclina** o pasa a **plano** con los botones; ⌂ vuelve a la vista
+  inicial. Se recuerda en cada equipo. En el teléfono arranca en plano.
+- Debajo, la lista de lo que necesita atención y de lo que **no se ve en el plano** (sin
+  posición, posición repetida, zona que no existe), para corregirlo con ↔ Acomodar.
+- La retícula de tarjetas de antes sigue a un toque (▦ Retícula).
+
+### Arreglado
+- Mover un cilindro **no quedaba en el historial de cambios**; ahora sí, con antes y después.
+- Una zona de **dos letras** guardaba la posición del cilindro como vacía.
+
+### Para desarrollo
+- `js/cuarto.js` (prefijo `invRoom*`), cargado después de `inventory.js`. **`INV_ROOM_LAYOUT`** es
+  LA definición de dónde está cada zona en el cuarto (horneado, como `CSV_CONFIGURATIONS`); el
+  número de posiciones sigue siendo `invState.zones[].slots` y la posición sigue siendo
+  `gas.zone`. El plano no guarda nada propio.
+- **`invRoomLevelTone`** (semáforo de los conectados) usa los umbrales de `invGasLevel` para
+  bajo/crítico; el amarillo (`INV_ROOM_HALF_PCT` = 50) es solo visual, no alerta.
+  **`invRoomStockTag`** es la etiqueta de los no conectados (`INV_ROOM_FULL_PCT` = 90).
+- Entrar a una zona: `invRoomFocusCam` (LA cámara de frente: gira a `zone.face`, baja la
+  inclinación y encuadra; en pantalla angosta se acerca más), `invRoomCamLerp` (vuelo por el
+  camino corto), `invRoomExplodeOffset` (el buffer abierto en una fila), `invRoomZoneSummary`
+  (el resumen del recuadro). Es la MISMA escena de principio a fin: no hay dibujo aparte. La
+  cámara de una zona no se guarda como preferencia; "vista anterior" es la de antes de entrar.
+- Fluidez medida: escritorio 60 cuadros/s; teléfono con CPU 2× ~30 y 4× ~15. Durante el vuelo
+  lo que se desvanece va en versión ligera y no se fuerza recálculo de diseño.
+- Puras (`tests/cuarto.node.js`): `invRoomScene` (LA escena: posición de cada código, ocupante y
+  lo que no cabe, con motivo), `invRoomZoneSlots`, `invRoomParseCode`, `invRoomProject` (LA
+  proyección: giro `az`, inclinación `el`), `invRoomSceneSVG`, `invRoomKpis`,
+  `invRoomLifecycle`, `invRoomReceptionZones`, `invRoomNearestSlot`, `invRoomCamNormalize`.
+- Los escritores son los de siempre: `invAddReading` (origen `cuarto`), `invDropCylinder`
+  (ahora con `authRequire`, auditoría `gas_moved` y devuelve si movió) y **`invGasSetStatus`**,
+  nuevo: LA forma de cambiar el estatus de un cilindro fuera de su formulario.
+- `invZonePosition(code)` reemplaza a `code.slice(1)` / `substring(1)`.
+- Preferencias por equipo (no se sincronizan): `uiPref('invMapView')`, `uiPref('roomCam')`,
+  `uiPref('roomLabels')`.
+- Lo decorativo del SVG lleva `pointer-events: none`: el muro de frente se pinta encima de los
+  cilindros y se quedaba con el toque.
+- E2E: `tests/v3100.e2e.js` (1440×950 y 427×840, con toques reales vía CDP).
+
 ## 3.9.1 — El F05 dice la revisión de su fecha (2026-10-15)
 
 ### Arreglado
