@@ -3380,6 +3380,9 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   arrastrar desplaza la vista y **mantener presionado 320 ms** mueve (si no, no habría cómo
   desplazarse). Dos dedos = pellizco. El SVG lleva `touch-action: none`. Teclado: cilindros y
   posiciones son `tabindex=0`; Enter/Espacio = tocar, Esc = cancelar.
+- Etiqueta fija solo en los cilindros de pared: en buffers, diablito y cuartito van pegados y se
+  enciman desde cualquier ángulo, así que ahí el nombre va en `<title>` (al pasar el ratón) y en
+  el panel. `chipOffset` en el layout separa la etiqueta de una zona cuando choca con la vecina.
 - El ciclo del cilindro (recepción → conectado → en uso → vacío) se **deriva**
   (`invRoomLifecycle`), nunca se guarda.
 - Cámara, vista y etiquetas son preferencias del equipo (`uiPref('roomCam' | 'invMapView' |

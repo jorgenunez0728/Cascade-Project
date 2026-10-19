@@ -28,6 +28,8 @@ ok('paredes A, B, C y D están conectadas a tablero', ['A', 'B', 'C', 'D'].every
 ok('E y F son buffers; G el diablito; H sin conectar', L.zones.E.kind === 'buffer' && L.zones.F.kind === 'buffer' && L.zones.G.kind === 'cart' && L.zones.H.kind === 'loose');
 ok('cuatro puertas (entrada, fondo, abajo a la izquierda, inflamables por fuera)', L.doors.length === 4);
 ok('D y H están dentro del cuartito de inflamables', L.zones.D.room === 'inflamables' && L.zones.H.room === 'inflamables');
+ok('el diablito descansa en la pared del cuarto de inflamables, a lo largo de ella', L.zones.G.back[0] === 3.2 + 0.02 && L.zones.G.back[2] === L.zones.G.back[0] &&
+    L.zones.G.points[0][0] === L.zones.G.points[1][0] && L.walls.some(w => w[0] === 3.2 && w[2] === 3.2));
 
 console.log('\n== Posiciones de cada zona ==');
 let r = ctx.invRoomZoneSlots(L.zones.C, 12);

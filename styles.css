@@ -6442,7 +6442,7 @@ body.ficha-open { overflow: hidden; }
 .rm-pin text { font-size: 10px; font-weight: 800; fill: #fff; text-anchor: middle; pointer-events: none; }
 .rm-pin { pointer-events: none; }
 .rm-lbl { font-size: 10px; font-weight: 700; fill: #334155; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: rgba(255, 255, 255, 0.92); stroke-width: 3px; }
-.rm-labels-off .rm-lbl, .rm-stage:not(.rm-near) .rm-lbl--dense { display: none; }
+.rm-labels-off .rm-lbl { display: none; }
 .rm-chip { pointer-events: none; }
 .rm-chip rect { fill: rgba(15, 23, 42, 0.82); }
 .rm-chip--buffer rect { fill: rgba(161, 98, 7, 0.88); }

@@ -58,8 +58,9 @@ var INV_ROOM_LAYOUT = {
              rows: [[2.0, 1.75, 3.1, 1.75], [2.0, 2.09, 3.1, 2.09]], perRow: 6, big: [[3.5, 1.75], [3.5, 2.09]] },
         F: { kind: 'buffer', label: 'Buffer 2', rack: [1.86, 3.0, 3.24, 3.68],
              rows: [[2.0, 3.17, 3.1, 3.17], [2.0, 3.51, 3.1, 3.51]], perRow: 6, big: [[3.5, 3.17], [3.5, 3.51]] },
-        G: { kind: 'cart', label: 'Diablito', cart: [3.5, 5.42, 4.1, 5.82], points: [[3.65, 5.62], [3.95, 5.62]] },
-        H: { kind: 'loose', label: 'Inflamables · sin conectar', from: [2.95, 5.5], to: [2.95, 6.35], room: 'inflamables' }
+        // Recargado en la pared del cuarto de inflamables (lado de la entrada); `back` es su respaldo.
+        G: { kind: 'cart', label: 'Diablito', cart: [3.22, 5.45, 3.62, 6.05], back: [3.22, 5.45, 3.22, 6.05], points: [[3.44, 5.6], [3.44, 5.9]], chipOffset: [0.45, 0] },
+        H: { kind: 'loose', label: 'Inflamables · sin conectar', from: [2.95, 5.5], to: [2.95, 6.35], room: 'inflamables', chipOffset: [-0.45, 0] }
     }
 };
 
@@ -316,7 +317,8 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         if (def.cart) {
             var k = def.cart;
             floorL.push('<polygon class="rm-cart-plate" points="' + _invRoomPts([[k[0], k[1]], [k[2], k[1]], [k[2], k[3]], [k[0], k[3]]].map(function(c) { return P(c[0], c[1], 0.04); })) + '"/>');
-            var u1 = P(k[0], k[1], 0), u2 = P(k[2], k[1], 0), u3 = P(k[2], k[1], 1.0), u4 = P(k[0], k[1], 1.0);
+            var bk = def.back || [k[0], k[1], k[2], k[1]];
+            var u1 = P(bk[0], bk[1], 0), u2 = P(bk[2], bk[3], 0), u3 = P(bk[2], bk[3], 1.0), u4 = P(bk[0], bk[1], 1.0);
             solid.push({ d: (u1.d + u2.d) / 2 - 0.01, s: '<polygon class="rm-cart" points="' + _invRoomPts([u1, u2, u3, u4]) + '"/>' });
         }
     });
@@ -356,7 +358,7 @@ function invRoomSceneSVG(scene, cam, look, opts) {
             solid.push({ d: pm.d - 0.001, s: '<polygon class="rm-reg" points="' + _invRoomPts(pc) + '"/>' +
                 '<path class="rm-hose" d="M' + pm.x.toFixed(1) + ' ' + pm.y.toFixed(1) + ' Q' + ((pm.x + t.x) / 2).toFixed(1) + ' ' + (Math.max(pm.y, t.y) + 14).toFixed(1) + ' ' + t.x.toFixed(1) + ' ' + (t.y - 3).toFixed(1) + '"/>' });
         }
-        g += '<g class="rm-cyl rm-cyl--' + L.tone + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '">';
+        g += '<g class="rm-cyl rm-cyl--' + L.tone + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '"><title>' + _invRoomEsc(L.aria || s.code) + '</title>';
         // cuerpo (metal) + nivel (color del estado) + domo + válvula
         g += '<path class="rm-body" d="M' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'L' + (t.x - rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (t.x + rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (b.x + rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'A' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' 0 0 1 ' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'Z"/>';
         if (!top && pct > 0) {
@@ -379,8 +381,10 @@ function invRoomSceneSVG(scene, cam, look, opts) {
             over.push({ d: b.d, s: '<g class="rm-pin' + (L.dim ? ' rm-dim' : '') + '" aria-hidden="true"><path d="M' + pin.x.toFixed(1) + ' ' + pin.y.toFixed(1) + 'c-5 -7 -8 -10 -8 -14a8 8 0 1 1 16 0c0 4 -3 7 -8 14z" fill="' + pt.fill + '" stroke="#fff" stroke-width="1.5"/>' +
                 '<text x="' + pin.x.toFixed(1) + '" y="' + (pin.y - 10).toFixed(1) + '">!</text></g>' });
         }
-        if (opts.labels !== false && L.short) {
-            over.push({ d: b.d, s: '<text class="rm-lbl' + (s.kind === 'wall' ? '' : ' rm-lbl--dense') + (L.dim ? ' rm-dim' : '') + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(L.short) + '</text>' });
+        // En buffers, diablito y cuartito los cilindros van pegados y sus etiquetas se enciman
+        // desde cualquier ángulo: ahí el nombre sale al pasar el ratón (<title>) y en el panel.
+        if (opts.labels !== false && L.short && s.kind === 'wall') {
+            over.push({ d: b.d, s: '<text class="rm-lbl' + (L.dim ? ' rm-dim' : '') + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(L.short) + '</text>' });
         }
     });
 
@@ -393,6 +397,7 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         ss.forEach(function(s) { cx += s.x; cy += s.y; });
         cx /= ss.length; cy /= ss.length;
         if (def.wall) { cx -= def.wall[0] * 0.45; cy -= def.wall[1] * 0.45; }
+        if (def.chipOffset) { cx += def.chipOffset[0]; cy += def.chipOffset[1]; }
         var p = P(cx, cy, def.kind === 'wall' ? 1.55 : 1.3);
         var txt = z.id + ' · ' + z.used + '/' + z.total;
         var w = txt.length * 7.4 + 18;
@@ -592,9 +597,6 @@ function _invRoomApplyCam() {
     var cam = _invRoomCam();
     var cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     g.setAttribute('transform', 'translate(' + (cx + cam.panX).toFixed(1) + ' ' + (cy + cam.panY).toFixed(1) + ') scale(' + cam.zoom.toFixed(3) + ') translate(' + (-cx).toFixed(1) + ' ' + (-cy).toFixed(1) + ')');
-    // En los buffers los cilindros van pegados: sus etiquetas solo caben de cerca o desde arriba.
-    var st = document.getElementById('rm-stage');
-    if (st) st.classList.toggle('rm-near', cam.zoom >= 1.6 || cam.el >= 80);
 }
 
 function _invRoomPaintKpis(scene, info) {
