@@ -1259,6 +1259,7 @@
         </div>
         <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
             <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap')">🗺️ Cuarto</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Captura</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
@@ -1268,7 +1269,6 @@
                 <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
                 <div class="tp-tab-more-menu" role="menu">
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔮 Predicción</button>
-                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap');this.closest('.tp-tab-more-wrap').classList.remove('open')">🗺️ Mapa</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts');this.closest('.tp-tab-more-wrap').classList.remove('open')">📈 Graficas</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config');this.closest('.tp-tab-more-wrap').classList.remove('open')">⚙️ Config</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report');this.closest('.tp-tab-more-wrap').classList.remove('open')">📧 Reporte</button>
@@ -2303,6 +2303,7 @@
 <script src="js/uiflow.js"></script>
 <script src="js/cop15.js"></script>
 <script src="js/inventory.js"></script>
+<script src="js/cuarto.js"></script>
 <script src="js/testplan.js"></script>
 <script src="js/panel.js"></script>
 <!-- v16.8: Proyectos usa pnState/pnSave/pnRender de panel.js — debe cargar después -->

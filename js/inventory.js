@@ -853,6 +853,18 @@ function _invNextFreeSlot() {
     }
     return '';
 }
+// [3.10.0] Primer hueco libre recorriendo las zonas EN EL ORDEN dado (recepción).
+function _invNextFreeSlotIn(zoneIds) {
+    for (var k = 0; k < zoneIds.length; k++) {
+        var z = invState.zones.find(function(x) { return x.id === zoneIds[k]; });
+        if (!z) continue;
+        for (var i = 1; i <= z.slots; i++) {
+            var code = z.id + (i < 10 ? '0' : '') + i;
+            if (!invState.gases.some(function(g) { return g.zone === code; })) return code;
+        }
+    }
+    return '';
+}
 // v16.5: autollenado — trazabilidad/proveedor del último cilindro dado de alta
 function _invLastGasTraceSupplier() {
     if (!invState.gases.length) return { traceability: 'EPA', supplier: '' };
@@ -1317,12 +1329,18 @@ function invShowAddGas(editId) {
     var g = editId ? invState.gases.find(function(x){return x.id===editId;}) : null;
     var isEdit = !!g;
     var title = isEdit ? 'Modificar Cilindro' : 'Nuevo Cilindro';
-    var nextFree = isEdit ? '' : _invNextFreeSlot();
+    // [3.10.0] Recepción obligatoria: un cilindro NUEVO nace en el diablito o en un
+    // buffer (decisión del laboratorio) y de ahí se acomoda en 🗺️ Cuarto.
+    var recZones = (!isEdit && typeof invRoomReceptionZones === 'function') ? invRoomReceptionZones(invState.zones) : [];
+    var nextFree = isEdit ? '' : (recZones.length ? _invNextFreeSlotIn(recZones) : _invNextFreeSlot());
     var lastTS = isEdit ? { traceability: g.traceability, supplier: g.supplier } : _invLastGasTraceSupplier();
     var inpStyle = 'width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);';
     var lblStyle = 'font-size: var(--fs-sm);color:var(--muted);font-weight:600;';
 
-    var zoneOpts = invState.zones.map(function(z) {
+    var zoneList = recZones.length
+        ? recZones.map(function(id) { return invState.zones.find(function(z) { return z.id === id; }); }).filter(Boolean)
+        : invState.zones;
+    var zoneOpts = zoneList.map(function(z) {
         var opts = '';
         for (var i = 1; i <= z.slots; i++) {
             var code = z.id + (i<10?'0':'') + i;
@@ -1346,8 +1364,10 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + gasTypeOpts + '</select></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--space-sm);">' +
         '<div><label style="' + lblStyle + '">Conc. Nominal</label><select id="inv-g-conc" style="' + inpStyle + '"></select></div>' +
-        '<div><label style="' + lblStyle + '">Zona + Posici\u00f3n *</label><select id="inv-g-zone" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + zoneOpts + '</select></div>' +
+        '<div><label for="inv-g-zone" style="' + lblStyle + '">' + (recZones.length ? 'Recepci\u00f3n *' : 'Zona + Posici\u00f3n *') + '</label><select id="inv-g-zone" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + zoneOpts + '</select></div>' +
         '</div>' +
+        (recZones.length ? '<div style="font-size: var(--fs-sm);color:var(--muted);">Llega al diablito o a un buffer. Despu\u00e9s se acomoda en su lugar desde \ud83d\uddfa\ufe0f Cuarto.' +
+            (nextFree ? '' : ' <b style="color:var(--danger-text);">No hay lugar libre en recepci\u00f3n: acomoda un cilindro primero.</b>') + '</div>' : '') +
         '<div><label style="' + lblStyle + '">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="' + inpStyle + '"></div>' +
         '</div>' +
         '<details style="margin-top: var(--space-md);"><summary style="font-size: var(--fs-sm);color:var(--muted);font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (control, estatus, lote, trazabilidad\u2026)</summary>' +
@@ -1355,7 +1375,8 @@ function invShowAddGas(editId) {
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Control <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size: var(--fs-sm);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-md);padding: var(--space-2xs) var(--space-sm);cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-g-status" data-chips style="' + inpStyle + '">' + ['In use', 'Stock', 'Spare', 'Empty'].map(function(st) {
             // [v24] El valor guardado sigue en inglés (lo filtran ~20 sitios); se lee en español.
-            var on = g ? g.status === st : st === 'In use';
+            // [3.10.0] Lo que llega a recepción está en almacén, no conectado.
+            var on = g ? g.status === st : st === (recZones.length ? 'Stock' : 'In use');
             return '<option value="' + st + '"' + (on ? ' selected' : '') + '>' + uiLabel('gasStatus', st) + '</option>';
         }).join('') + '</select></div>' +
         '<div><label style="' + lblStyle + '">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="' + inpStyle + '"></div>' +
@@ -1397,6 +1418,15 @@ function invSaveGas(editId) {
     var controlNo = document.getElementById('inv-g-control').value.trim();
     var zone = document.getElementById('inv-g-zone').value;
     if (!controlNo) { showToast('No. Control es requerido', 'error'); return; }
+    if (!editId && typeof invRoomReceptionZones === 'function') {
+        var _rec = invRoomReceptionZones(invState.zones);
+        var _zp = typeof invRoomParseCode === 'function' ? invRoomParseCode(zone, invState.zones.map(function(z) { return z.id; })) : null;
+        if (_rec.length && (!_zp || _rec.indexOf(_zp.zone) < 0)) {
+            return uiInvalid(document.getElementById('inv-g-zone'), _invNextFreeSlotIn(_rec)
+                ? 'Elige su lugar en recepción (diablito o buffer).'
+                : 'No hay lugar libre en el diablito ni en los buffers: acomoda o retira un cilindro primero.');
+        }
+    }
 
     var gasType = document.getElementById('inv-g-type').value;
     var gt = invState.gasTypes.find(function(t){ return t.name === gasType; });
@@ -1411,7 +1441,7 @@ function invSaveGas(editId) {
         traceability: document.getElementById('inv-g-trace').value,
         validUntil: document.getElementById('inv-g-valid').value,
         zone: zone,
-        position: zone ? parseInt(zone.slice(1)) : 0,
+        position: invZonePosition(zone),
         status: document.getElementById('inv-g-status').value,
         regDate: document.getElementById('inv-g-regdate').value,
         barcode: invGenerateSerial(controlNo),
@@ -4962,9 +4992,18 @@ function _invCylColor(gas) {
 }
 
 function invRenderZoneMap(el) {
+    // [3.10.0] La vista por defecto es el cuarto isométrico (js/cuarto.js); la retícula
+    // de tarjetas se queda como alternativa de un toque.
+    if (typeof invRoomRender === 'function' && (typeof uiPref !== 'function' || uiPref('invMapView') !== 'reticula')) {
+        invRoomRender(el);
+        return;
+    }
     var search = (window._invZoneMapSearch || '').toLowerCase();
 
     var html = '<div class="inv-zonemap-toolbar" data-help="inv-zonemap-help">';
+    if (typeof invRoomRender === 'function') {
+        html += '<button type="button" class="tp-btn tp-btn-ghost" onclick="invRoomSetView(\'cuarto\')" style="white-space:nowrap;">🗺️ Ver el cuarto</button>';
+    }
     html += '<input type="text" aria-label="Buscar cilindro, fórmula o zona" placeholder="Buscar cilindro, fórmula, zona…" value="' + escapeHtml(window._invZoneMapSearch || '') + '" oninput="window._invZoneMapSearch=this.value;_invDebouncedRender();" style="flex:1;min-width:140px;padding: var(--space-sm) var(--space-md);border:1px solid var(--tp-border);border-radius: var(--radius-xl);font-size:12px;">';
     if (_invUndoStack.length > 0) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="invUndoLastMove()" style="font-size: var(--fs-sm);white-space:nowrap;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
@@ -5053,13 +5092,15 @@ function invInitZoneDrag(container) {
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
-    if (!gas) return;
+    if (!gas || !targetCode || gas.zone === targetCode) return false;
+    // [3.10.0] El candado va en la capa de datos (lo llaman la retícula y el cuarto).
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'mover cilindros')) return false;
 
     // Check if target is occupied
     var occupant = invState.gases.find(function(g) { return g.zone === targetCode; });
     if (occupant) {
         showToast('Posicion ' + targetCode + ' ocupada', 'warning');
-        return;
+        return false;
     }
 
     // Push to undo stack before moving
@@ -5068,16 +5109,54 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
 
     // Move cylinder
     gas.zone = targetCode;
-    // Update position number from code
-    gas.position = parseInt(targetCode.substring(1), 10);
+    gas.position = invZonePosition(targetCode);
     // Timeline entry
     if (!gas.timeline) gas.timeline = [];
-    gas.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + sourceCode + ' → ' + targetCode });
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + (sourceCode || 'sin posición') + ' → ' + targetCode });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'gas_moved', { type: 'gas', id: gas.id, label: gas.controlNo }, (gas.formula || '') + ': ' + (sourceCode || 'sin posición') + ' → ' + targetCode,
+                 { before: { zone: sourceCode || '' }, after: { zone: targetCode } });
+    }
 
     invSave();
     invRender();
     if (typeof fbPushModule === 'function') fbPushModule('inventory');
     showToast(gas.formula + ' movido a ' + targetCode, 'success');
+    return true;
+}
+
+/** [3.10.0] Número de posición de un código (A03 → 3, AB12 → 12). Una zona puede tener
+ *  dos letras (invSaveZoneModal lo permite) y `code.slice(1)` daba NaN. */
+function invZonePosition(code) {
+    var m = /(\d+)$/.exec(String(code || ''));
+    return m ? parseInt(m[1], 10) : 0;
+}
+
+var INV_GAS_STATUSES = ['In use', 'Stock', 'Spare', 'Empty'];
+/**
+ * [3.10.0] LA forma de cambiar el estatus de un cilindro fuera de su formulario
+ * (el cuarto lo usa para avanzar el ciclo: recepción → conectado → en uso → vacío).
+ * Deja línea de tiempo y auditoría con antes/después; el sello lo pone invSave().
+ */
+function invGasSetStatus(gasId, status, opts) {
+    opts = opts || {};
+    if (INV_GAS_STATUSES.indexOf(status) < 0) return { ok: false, reason: 'Estatus desconocido' };
+    var g = (invState.gases || []).find(function(x) { return x && x.id === gasId; });
+    if (!g) return { ok: false, reason: 'Cilindro no encontrado' };
+    if (g.status === status) return { ok: true, unchanged: true };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'cambiar el estatus de un cilindro')) return { ok: false, reason: 'Sin permiso' };
+    var before = g.status;
+    g.status = status;
+    if (!g.timeline) g.timeline = [];
+    g.timeline.push({ date: new Date().toISOString(), action: 'Cambio estatus: ' + before + ' → ' + status });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'gas_status', { type: 'gas', id: g.id, label: g.controlNo }, (g.formula || '') + ': ' + before + ' → ' + status + (opts.via ? ' · ' + opts.via : ''),
+                 { before: { status: before }, after: { status: status } });
+    }
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    if (typeof showToast === 'function') showToast((g.formula || 'Cilindro') + ' #' + (g.controlNo || '') + ': ' + (typeof uiLabel === 'function' ? uiLabel('gasStatus', status) : status), 'success');
+    return { ok: true, before: before };
 }
 
 function invUndoLastMove() {
@@ -5089,7 +5168,7 @@ function invUndoLastMove() {
     var occupant = invState.gases.find(function(g) { return g.zone === last.fromZone && g.id !== last.gasId; });
     if (occupant) { showToast('Posicion ' + last.fromZone + ' ya ocupada — no se puede deshacer', 'warning'); return; }
     gas.zone = last.fromZone;
-    gas.position = parseInt(last.fromZone.substring(1), 10);
+    gas.position = invZonePosition(last.fromZone);
     if (!gas.timeline) gas.timeline = [];
     gas.timeline.push({ date: new Date().toISOString(), action: 'Deshecho: ' + last.toZone + ' → ' + last.fromZone });
     invSave(); invRender();
@@ -7098,10 +7177,12 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Registra el nivel real de vez en cuando con el botón 📏 para corregir desviaciones.',
         'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
     ]},
-    'inv-zonemap': { title: 'Mapa', text: 'Cilindros agrupados por zona, coloreados por nivel/vencimiento — toca uno para ver su detalle.', tips: [
-        'Mantén presionado un cilindro y arrástralo a otra posición para reubicarlo (touch o mouse).',
-        'Toca un cilindro para ver su detalle rápido; toca una posición vacía para ver que está libre.',
-        'El botón ↶ Deshacer revierte el último movimiento si te equivocas.'
+    'inv-zonemap': { title: 'Cuarto de gases', text: 'El cuarto de gases en 3D o visto desde arriba: cada cilindro en su posición real, con su nivel como relleno y su estado como color. Toca uno para ver su estado y tomar la lectura.', tips: [
+        'Toca un cilindro: ves su nivel, consumo, vigencia y puedes guardar la lectura de hoy ahí mismo.',
+        'Para moverlo: con el ratón, arrástralo; con el dedo, mantenlo presionado y arrástralo — o toca ↔ Mover y luego la posición libre.',
+        'Los cilindros nuevos llegan a recepción (diablito o buffer). Toca una posición libre de una pared para acomodar ahí uno de recepción.',
+        'Los botones de la izquierda acercan, giran e inclinan la vista; ⌂ vuelve a la vista inicial y ⬒ alterna plano y 3D.',
+        'Los recuadros de arriba resaltan en el plano los cilindros bajos, por pedir, vencidos o sin leer hoy.'
     ]},
     'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
         'Cambia entre PSI por Cilindro, Combustible y Comparar Gases con los botones superiores.',

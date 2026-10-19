@@ -20,6 +20,55 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.10.0 — El cuarto de gases en 3D (2026-10-19)
+
+### Nuevo
+- **Consumibles → 🗺️ Cuarto** (ahora en la barra principal, ya no en ⋯ Más): el cuarto de gases
+  dibujado como es, visto en 3D o desde arriba. Pared izquierda **A** (12), fondo **B** (4),
+  pared derecha **C** (12), buffers **E** y **F** (6 por lado + 2 grandes), diablito **G** (2) y
+  el cuartito de inflamables (**D** conectados, **H** sin conectar), con sus cuatro puertas.
+- Cada cilindro está en su posición. **El relleno es su nivel** y **el color, su estado**
+  (normal, bajo, crítico, vencido, vacío, sin lecturas). Los críticos, vencidos y por pedir
+  llevan un marcador encima.
+- **Tocar un cilindro** abre su estado: nivel, presión, consumo, vigencia, últimas lecturas y en
+  qué paso va (**recepción → conectado → en uso → vacío**). Ahí mismo se **guarda la lectura de
+  hoy** y se **cambia el estatus**.
+- **Moverlo**: con el ratón se arrastra; con el dedo se mantiene presionado y se arrastra; o se
+  toca **↔ Mover** y luego la posición libre. Tocar una posición libre de una pared ofrece
+  **acomodar ahí** lo que está en recepción.
+- **Recepción obligatoria**: un cilindro nuevo (📥 Recibir cilindro) solo puede llegar al
+  **diablito o a un buffer**, propone el primer lugar libre del diablito y queda **En almacén**.
+- Arriba, recuadros con **conectados, en recepción, bajos, por pedir, vencidos y leídos hoy**;
+  tocar uno resalta esos cilindros en el plano.
+- La vista se **acerca, gira, inclina** o pasa a **plano** con los botones; ⌂ vuelve a la vista
+  inicial. Se recuerda en cada equipo. En el teléfono arranca en plano.
+- Debajo, la lista de lo que necesita atención y de lo que **no se ve en el plano** (sin
+  posición, posición repetida, zona que no existe), para corregirlo con ↔ Acomodar.
+- La retícula de tarjetas de antes sigue a un toque (▦ Retícula).
+
+### Arreglado
+- Mover un cilindro **no quedaba en el historial de cambios**; ahora sí, con antes y después.
+- Una zona de **dos letras** guardaba la posición del cilindro como vacía.
+
+### Para desarrollo
+- `js/cuarto.js` (prefijo `invRoom*`), cargado después de `inventory.js`. **`INV_ROOM_LAYOUT`** es
+  LA definición de dónde está cada zona en el cuarto (horneado, como `CSV_CONFIGURATIONS`); el
+  número de posiciones sigue siendo `invState.zones[].slots` y la posición sigue siendo
+  `gas.zone`. El plano no guarda nada propio.
+- Puras (`tests/cuarto.node.js`): `invRoomScene` (LA escena: posición de cada código, ocupante y
+  lo que no cabe, con motivo), `invRoomZoneSlots`, `invRoomParseCode`, `invRoomProject` (LA
+  proyección: giro `az`, inclinación `el`), `invRoomSceneSVG`, `invRoomKpis`,
+  `invRoomLifecycle`, `invRoomReceptionZones`, `invRoomNearestSlot`, `invRoomCamNormalize`.
+- Los escritores son los de siempre: `invAddReading` (origen `cuarto`), `invDropCylinder`
+  (ahora con `authRequire`, auditoría `gas_moved` y devuelve si movió) y **`invGasSetStatus`**,
+  nuevo: LA forma de cambiar el estatus de un cilindro fuera de su formulario.
+- `invZonePosition(code)` reemplaza a `code.slice(1)` / `substring(1)`.
+- Preferencias por equipo (no se sincronizan): `uiPref('invMapView')`, `uiPref('roomCam')`,
+  `uiPref('roomLabels')`.
+- Lo decorativo del SVG lleva `pointer-events: none`: el muro de frente se pinta encima de los
+  cilindros y se quedaba con el toque.
+- E2E: `tests/v3100.e2e.js` (1440×950 y 427×840, con toques reales vía CDP).
+
 ## 3.9.1 — El F05 dice la revisión de su fecha (2026-10-15)
 
 ### Arreglado

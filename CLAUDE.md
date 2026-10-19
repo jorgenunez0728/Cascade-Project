@@ -57,6 +57,7 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
+  cuarto.js             ← 🗺️ Cuarto de gases: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~1,050 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
@@ -90,6 +91,7 @@ CHANGELOG.md            ← Detailed changelog
 | COP15 Cascade | `js/cop15.js` | — | Uses `db` from app.js | — |
 | Test Plan Manager | `js/testplan.js` | `tp` | `tpState` | `kia_testplan_v1` |
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
+| Cuarto de gases | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam')`, `invMapView`, `roomLabels`) |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
 | Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
@@ -184,7 +186,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
+`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
 `signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
@@ -3341,4 +3343,47 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   (ronda propia, con aprobación del laboratorio y `F05_UPDATE=1`).
 - **`f05RefDay(vehicle)`** = el día más antiguo de la hoja (recepción → archivado), sin firmas
   `retro` (regla de 3.2.1).
+
+## 3.10.0 — El cuarto de gases en 3D (`js/cuarto.js`)
+
+- **`INV_ROOM_LAYOUT` es LA definición de dónde está cada zona en el cuarto** (paredes, buffers,
+  diablito, cuartito de inflamables, puertas, muros). Está horneado a propósito (criterio de
+  v20.4): el cuarto no cambia entre equipos. **El plano no guarda nada propio**: la posición
+  sigue siendo `gas.zone` y el número de posiciones `invState.zones[].slots`. Una zona de línea
+  (`from`→`to`) reparte las que tenga; un buffer llena sus filas y luego los grandes; lo que no
+  se puede dibujar sale en `extra` / `unplaced` y **se declara** (regla v22.5).
+- La numeración de una pared va **de izquierda a derecha como se ve de frente** (A01 junto a la
+  puerta de abajo, C01 al fondo). Si el laboratorio numera distinto, se invierte `from`/`to` de
+  esa zona; nada más cambia.
+- **`invRoomScene(layout, zones, gases)` es LA escena** y es PURA: todo consumidor que pregunte
+  "¿qué cilindro está en qué lugar del cuarto?" la llama. `invRoomParseCode` empata con el id
+  de zona más largo (una zona puede tener 2 letras); **`invZonePosition(code)` (inventory.js)**
+  es la forma de sacar el número de posición — nunca `code.slice(1)`.
+- **`invRoomProject(x, y, z, cam, centro)` es LA proyección** (giro `az`, inclinación `el`,
+  90 = plano); `d` es la profundidad y la escena se pinta de menor a mayor (algoritmo del
+  pintor). Zoom y desplazamiento NO reproyectan: son el `transform` de `#rm-cam`. Girar o
+  inclinar sí repinta.
+- Un muro cuya normal apunta lejos de quien mira es de fondo (sólido); el resto es translúcido
+  (`invRoomWallIsBack`). **Todo lo decorativo del SVG lleva `pointer-events: none`**: el muro
+  de frente se pinta encima de los cilindros y se quedaba con el toque. Y las clases del SVG no
+  se comparten con las del DOM (`.rm-reg` es el tablero; `.rm-panel` el panel lateral).
+- **Los escritores son los de Consumibles**: `invAddReading` (origen `'cuarto'`),
+  `invDropCylinder` (con `authRequire`, auditoría `gas_moved` con antes/después, devuelve
+  `true`/`false`) y **`invGasSetStatus(id, status, opts)`**, LA forma de cambiar el estatus
+  fuera del formulario. El sello `updatedAt` lo pone `invSave()` (`stampRevisions`, v24.3): no
+  hay que sellarlo a mano.
+- **Recepción obligatoria**: `invRoomReceptionZones()` (kinds `cart`, `buffer`; diablito
+  primero). El alta de un cilindro NUEVO solo ofrece esas zonas, propone la primera libre
+  (`_invNextFreeSlotIn`) y nace `Stock`; `invSaveGas` lo rechaza en el campo si no.
+  Las importaciones (F11, reporte de consumibles) no pasan por el formulario y no se tocaron.
+- Gestos (`_invRoomBindStage`): con ratón, arrastrar un cilindro lo mueve; con el dedo,
+  arrastrar desplaza la vista y **mantener presionado 320 ms** mueve (si no, no habría cómo
+  desplazarse). Dos dedos = pellizco. El SVG lleva `touch-action: none`. Teclado: cilindros y
+  posiciones son `tabindex=0`; Enter/Espacio = tocar, Esc = cancelar.
+- El ciclo del cilindro (recepción → conectado → en uso → vacío) se **deriva**
+  (`invRoomLifecycle`), nunca se guarda.
+- Cámara, vista y etiquetas son preferencias del equipo (`uiPref('roomCam' | 'invMapView' |
+  'roomLabels')`), no se sincronizan.
+- Pendiente declarado: la gasolina todavía no está en el plano (se extiende si el diseño
+  convence) y la ronda de lectura aún no confirma la posición ("¿sigue en A03?").
 
