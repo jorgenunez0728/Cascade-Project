@@ -6461,7 +6461,11 @@ body.ficha-open { overflow: hidden; }
 .rm-pin { pointer-events: none; }
 .rm-lbl { font-size: 10px; font-weight: 700; fill: #334155; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: rgba(255, 255, 255, 0.92); stroke-width: 3px; }
 .rm-labels-off .rm-lbl { display: none; }
-.rm-chip { pointer-events: none; }
+.rm-chip { cursor: pointer; outline: none; }
+.rm-chip:hover rect, .rm-chip:focus-visible rect { stroke: #fff; stroke-width: 2; filter: brightness(1.15); }
+.rm-chip-sub { font-size: 9.5px !important; font-weight: 600 !important; fill: rgba(255, 255, 255, 0.88) !important; }
+.rm-off { opacity: 0.1; pointer-events: none; transition: opacity var(--dur-slow); }
+.rm-flying .rm-svg { pointer-events: none; }
 .rm-chip rect { fill: rgba(15, 23, 42, 0.82); }
 .rm-chip--buffer rect { fill: rgba(161, 98, 7, 0.88); }
 .rm-chip--cart rect { fill: rgba(21, 128, 61, 0.9); }
@@ -6572,3 +6576,71 @@ body.ficha-open { overflow: hidden; }
   .rm-row { grid-template-columns: 48px minmax(0, 1fr); }
   .rm-row-tags { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* [3.10.0] Entrar a una zona: barra de zonas + vista de frente */
+.rm-zonenav { order: 4; flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+.rm-zonenav-l { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); margin-right: var(--space-xs); }
+.rm-zbtn { display: inline-flex; align-items: baseline; gap: var(--space-xs); min-height: var(--target-min); padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast); }
+.rm-zbtn b { font-size: var(--fs-md); }
+.rm-zbtn span { font-size: var(--fs-2xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.rm-zbtn:hover { border-color: var(--accent-inventory); }
+.rm-zbtn--on { background: var(--accent-inventory); border-color: var(--accent-inventory); color: #fff; }
+.rm-zbtn--on span { color: rgba(255, 255, 255, 0.85); }
+
+.rm-front { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+  background: radial-gradient(120% 90% at 50% 0%, #f8fafc 0%, #e9eef5 100%);
+  opacity: 0; transform: scale(0.96); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
+.rm-front[hidden] { display: none; }
+.rm-front.is-in { opacity: 1; transform: none; }
+.rm-front-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 255, 255, 0.94); border-bottom: 1px solid var(--border); }
+.rm-front-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.rm-front-title b { font-size: var(--fs-md); color: var(--text); }
+.rm-front-title span { font-size: var(--fs-sm); color: var(--muted); }
+.rm-front-steps { display: flex; gap: var(--space-xs); }
+.rm-front-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-sm); -webkit-overflow-scrolling: touch; }
+.rm-front-svg { width: 100%; height: 100%; display: block; }
+.rm-focused .rm-moving { top: 72px; }
+.rm-focused .rm-panel-host { top: 72px; }
+
+.rmf-floor { stroke: #cbd5e1; stroke-width: 2; }
+.rmf-wallband { fill: rgba(148, 163, 184, 0.12); }
+.rmf-rowlbl { font-size: 13px; font-weight: 700; fill: #475569; }
+.rmf-reg rect { fill: #e2e8f0; stroke: #64748b; stroke-width: 1.2; }
+.rmf-reg circle { fill: #fff; stroke: #64748b; stroke-width: 1.2; }
+.rmf-reg--idle { opacity: 0.45; }
+.rmf-hose { fill: none; stroke: #94a3b8; stroke-width: 2.5; }
+.rmf-cyl { cursor: pointer; outline: none; }
+.rmf-hit { fill: transparent; transition: fill var(--dur-fast); }
+.rmf-cyl:hover .rmf-hit { fill: rgba(13, 148, 136, 0.06); }
+.rmf-cyl--sel .rmf-hit, .rmf-cyl:focus-visible .rmf-hit { fill: rgba(13, 148, 136, 0.12); stroke: var(--accent-inventory); stroke-width: 2; }
+.rmf-cyl--move .rmf-hit { stroke-dasharray: 6 4; }
+.rmf-body { fill: url(#rmf-metal); }
+.rmf-outline { fill: none; stroke: #64748b; stroke-width: 1.5; }
+.rmf-cap { stroke: none; }
+.rmf-tick { stroke: rgba(15, 23, 42, 0.35); stroke-width: 1.5; }
+.rmf-valve { fill: #475569; }
+.rmf-pin { font-size: 13px; font-weight: 800; fill: #fff; text-anchor: middle; pointer-events: none; }
+.rmf-code { font-size: 12px; font-weight: 800; fill: #64748b; text-anchor: middle; }
+.rmf-name { font-size: 13px; font-weight: 800; fill: #0f172a; text-anchor: middle; }
+.rmf-ctrl { font-size: 11px; fill: #64748b; text-anchor: middle; }
+.rmf-val { font-size: 15px; font-weight: 800; text-anchor: middle; font-variant-numeric: tabular-nums; }
+.rmf-slot { cursor: pointer; outline: none; }
+.rmf-slot path { fill: rgba(148, 163, 184, 0.08); stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 6 4; }
+.rmf-free { font-size: 12px; fill: #94a3b8; text-anchor: middle; }
+.rmf-slot:hover path, .rmf-slot:focus-visible path, .rmf-slot--sel path,
+.rm-moving-on .rmf-slot path { stroke: var(--accent-inventory); fill: rgba(13, 148, 136, 0.12); stroke-dasharray: none; }
+.rm-front .rm-stag text { font-size: 11px; }
+
+@media (max-width: 700px) {
+  .rm-zonenav-l { flex-basis: 100%; }
+  .rm-zbtn { padding: var(--space-2xs) var(--space-sm); }
+  .rm-front-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-xs); padding: var(--space-xs) var(--space-sm); }
+  .rm-front-steps { justify-self: end; }
+  .rm-front-title { grid-column: 1 / -1; grid-row: 2; }
+  .rm-front-title b { font-size: var(--fs-sm); }
+  .rm-focused .rm-panel-host { top: auto; }
+}
+

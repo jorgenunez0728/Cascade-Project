@@ -47,20 +47,21 @@ var INV_ROOM_LAYOUT = {
     // kind: 'wall' = conectado a un tablero · 'buffer' = stock/vacíos · 'cart' = diablito
     //       'loose' = sin conectar dentro de un cuartito.
     // Una zona de línea (`from`→`to`) reparte las posiciones que tenga, sean cuantas sean;
-    // la numeración va de izquierda a derecha COMO SE VE LA PARED DE FRENTE.
+    // la numeración va de izquierda a derecha COMO SE VE LA PARED DE FRENTE. `face` = giro de
+    // la cámara para verla de frente (al entrar a la zona).
     zones: {
-        A: { kind: 'wall', label: 'Pared izquierda', from: [0.32, 4.25], to: [0.32, 0.4], wall: [-1, 0] },
-        B: { kind: 'wall', label: 'Pared del fondo', from: [2.7, 0.32], to: [3.9, 0.32], wall: [0, -1] },
-        C: { kind: 'wall', label: 'Pared derecha', from: [5.48, 1.15], to: [5.48, 4.8], wall: [1, 0] },
-        D: { kind: 'wall', label: 'Inflamables · conectados', from: [1.3, 5.38], to: [1.75, 5.38], wall: [0, -1], room: 'inflamables' },
+        A: { kind: 'wall', label: 'Pared izquierda', from: [0.32, 4.25], to: [0.32, 0.4], wall: [-1, 0], face: 90 },
+        B: { kind: 'wall', label: 'Pared del fondo', from: [2.7, 0.32], to: [3.9, 0.32], wall: [0, -1], face: 0 },
+        C: { kind: 'wall', label: 'Pared derecha', from: [5.48, 1.15], to: [5.48, 4.8], wall: [1, 0], face: -90 },
+        D: { kind: 'wall', label: 'Inflamables · conectados', from: [1.3, 5.38], to: [1.75, 5.38], wall: [0, -1], room: 'inflamables', face: 0 },
         // Corren de izquierda a derecha, con los dos grandes del lado de la pared C.
         E: { kind: 'buffer', label: 'Buffer 1', rack: [1.86, 1.58, 3.24, 2.26],
-             rows: [[2.0, 1.75, 3.1, 1.75], [2.0, 2.09, 3.1, 2.09]], perRow: 6, big: [[3.5, 1.75], [3.5, 2.09]], chipOffset: [-1.05, 0] },
+             rows: [[2.0, 1.75, 3.1, 1.75], [2.0, 2.09, 3.1, 2.09]], perRow: 6, big: [[3.5, 1.75], [3.5, 2.09]], chipOffset: [-1.05, 0], face: 0 },
         F: { kind: 'buffer', label: 'Buffer 2', rack: [1.86, 3.0, 3.24, 3.68],
-             rows: [[2.0, 3.17, 3.1, 3.17], [2.0, 3.51, 3.1, 3.51]], perRow: 6, big: [[3.5, 3.17], [3.5, 3.51]], chipOffset: [-1.05, 0] },
+             rows: [[2.0, 3.17, 3.1, 3.17], [2.0, 3.51, 3.1, 3.51]], perRow: 6, big: [[3.5, 3.17], [3.5, 3.51]], chipOffset: [-1.05, 0], face: 0 },
         // Recargado en la pared del cuarto de inflamables (lado de la entrada); `back` es su respaldo.
-        G: { kind: 'cart', label: 'Diablito', cart: [3.22, 5.45, 3.62, 6.05], back: [3.22, 5.45, 3.22, 6.05], points: [[3.44, 5.6], [3.44, 5.9]], chipOffset: [0.45, 0] },
-        H: { kind: 'loose', label: 'Inflamables · sin conectar', from: [2.95, 5.5], to: [2.95, 6.35], room: 'inflamables', chipOffset: [-0.45, 0] }
+        G: { kind: 'cart', label: 'Diablito', cart: [3.22, 5.45, 3.62, 6.05], back: [3.22, 5.45, 3.22, 6.05], points: [[3.44, 5.9], [3.44, 5.6]], chipOffset: [0.45, 0], face: 90 },
+        H: { kind: 'loose', label: 'Inflamables · sin conectar', from: [2.95, 5.5], to: [2.95, 6.35], room: 'inflamables', chipOffset: [-0.45, 0], face: -90 }
     }
 };
 
@@ -369,10 +370,11 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         var h = s.big ? 1.0 : 0.85;
         var b = P(s.x, s.y, 0), t = P(s.x, s.y, h);
         var rx = r * S, ry = r * S * sinE;
+        var off = opts.focus && s.zone !== opts.focus ? ' rm-off' : '';   // al entrar a una zona, lo demás se desvanece
         (chips[s.zone] = chips[s.zone] || []).push(s);
 
         if (!s.gasId) {
-            var cls = 'rm-slot' + (opts.selSlot === s.code ? ' rm-slot--sel' : '');
+            var cls = 'rm-slot' + (opts.selSlot === s.code ? ' rm-slot--sel' : '') + off;
             floorL.push('<g class="' + cls + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + s.code + ': posición libre">' +
                 '<ellipse cx="' + b.x.toFixed(1) + '" cy="' + b.y.toFixed(1) + '" rx="' + (rx * 1.15).toFixed(1) + '" ry="' + (ry * 1.15 + 0.5).toFixed(1) + '"/>' +
                 '<text x="' + b.x.toFixed(1) + '" y="' + (b.y + 4).toFixed(1) + '">' + s.n + '</text></g>');
@@ -393,11 +395,11 @@ function invRoomSceneSVG(scene, cam, look, opts) {
             var ux = -def.wall[1], uy = def.wall[0];
             var pc = [P(px - ux * 0.09, py - uy * 0.09, 0.98), P(px + ux * 0.09, py + uy * 0.09, 0.98), P(px + ux * 0.09, py + uy * 0.09, 1.14), P(px - ux * 0.09, py - uy * 0.09, 1.14)];
             var pm = P(px, py, 0.98);
-            solid.push({ d: pm.d - 0.001, s: '<polygon class="rm-reg" points="' + _invRoomPts(pc) + '"/>' +
-                '<path class="rm-hose" d="M' + pm.x.toFixed(1) + ' ' + pm.y.toFixed(1) + ' Q' + ((pm.x + t.x) / 2).toFixed(1) + ' ' + (Math.max(pm.y, t.y) + 14).toFixed(1) + ' ' + t.x.toFixed(1) + ' ' + (t.y - 3).toFixed(1) + '"/>' });
+            solid.push({ d: pm.d - 0.001, s: '<polygon class="rm-reg' + off + '" points="' + _invRoomPts(pc) + '"/>' +
+                '<path class="rm-hose' + off + '" d="M' + pm.x.toFixed(1) + ' ' + pm.y.toFixed(1) + ' Q' + ((pm.x + t.x) / 2).toFixed(1) + ' ' + (Math.max(pm.y, t.y) + 14).toFixed(1) + ' ' + t.x.toFixed(1) + ' ' + (t.y - 3).toFixed(1) + '"/>' });
         }
         var gauge = s.kind === 'wall';   // solo los conectados muestran la barrita de nivel
-        g += '<g class="rm-cyl rm-cyl--' + L.tone + (gauge ? ' rm-cyl--gauge' : ' rm-cyl--stock') + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '"><title>' + _invRoomEsc(L.aria || s.code) + '</title>';
+        g += '<g class="rm-cyl rm-cyl--' + L.tone + (gauge ? ' rm-cyl--gauge' : ' rm-cyl--stock') + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + off + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '"><title>' + _invRoomEsc(L.aria || s.code) + '</title>';
         // cuerpo (metal) + nivel (color del estado) + domo + válvula
         g += '<path class="rm-body" d="M' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'L' + (t.x - rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (t.x + rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (b.x + rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'A' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' 0 0 1 ' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'Z"/>';
         if (gauge && !top && pct > 0) {
@@ -413,32 +415,25 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         g += '</g>';
         solid.push({ d: b.d, s: g });
 
-        // Fuera de pared: una etiqueta (Lleno / Vacío / Vencido / %) en vez de barrita y marcador.
-        if (!gauge && L.tag) {
-            var tp = top ? { x: t.x, y: t.y - rx - 9 } : P(s.x, s.y, h + 0.2);
-            var tw = String(L.tag.text).length * 5.6 + 12;
-            // Vacío y Vencido siempre (piden acción); Lleno y el % de cerca o en plano: en un buffer
-            // visto en 3D las etiquetas se enciman y la tapa ya dice lo mismo con su color.
-            var soft = L.tag.tone === 'ok' || L.tag.tone === 'muted';
-            over.push({ d: b.d, s: '<g class="rm-stag rm-stag--' + L.tag.tone + (soft ? ' rm-stag--soft' : '') + (L.dim ? ' rm-dim' : '') + '" aria-hidden="true"><rect x="' + (tp.x - tw / 2).toFixed(1) + '" y="' + (tp.y - 8).toFixed(1) + '" width="' + tw.toFixed(1) + '" height="15" rx="7.5"/>' +
-                '<text x="' + tp.x.toFixed(1) + '" y="' + (tp.y + 3).toFixed(1) + '">' + _invRoomEsc(L.tag.text) + '</text></g>' });
-        }
+        // Fuera de pared NO hay etiqueta suelta en la vista general: en un buffer visto en 3D se
+        // enciman. La tapa lleva el color, el recuadro de la zona los resume y la vista de frente
+        // (al entrar a la zona) los dice uno por uno.
         // Marcador (como los pines del tablero de almacén): crítico, vencido o pedir ya
         if (gauge && L.pin) {
             var pin = top ? { x: t.x, y: t.y - rx - 6 } : P(s.x, s.y, h + 0.42);
             var pt = INV_ROOM_TONES[L.pin === 'pedir' ? 'mid' : 'low'];
-            over.push({ d: b.d, s: '<g class="rm-pin' + (L.dim ? ' rm-dim' : '') + '" aria-hidden="true"><path d="M' + pin.x.toFixed(1) + ' ' + pin.y.toFixed(1) + 'c-5 -7 -8 -10 -8 -14a8 8 0 1 1 16 0c0 4 -3 7 -8 14z" fill="' + pt.fill + '" stroke="#fff" stroke-width="1.5"/>' +
+            over.push({ d: b.d, s: '<g class="rm-pin' + (L.dim ? ' rm-dim' : '') + off + '" aria-hidden="true"><path d="M' + pin.x.toFixed(1) + ' ' + pin.y.toFixed(1) + 'c-5 -7 -8 -10 -8 -14a8 8 0 1 1 16 0c0 4 -3 7 -8 14z" fill="' + pt.fill + '" stroke="#fff" stroke-width="1.5"/>' +
                 '<text x="' + pin.x.toFixed(1) + '" y="' + (pin.y - 10).toFixed(1) + '">!</text></g>' });
         }
         // En buffers, diablito y cuartito los cilindros van pegados y sus etiquetas se enciman
         // desde cualquier ángulo: ahí el nombre sale al pasar el ratón (<title>) y en el panel.
         if (opts.labels !== false && L.short && gauge) {
             var lt = L.short + (L.tone !== 'none' && L.tone !== 'empty' ? ' · ' + Math.round(L.pct || 0) + '%' : '');
-            over.push({ d: b.d, s: '<text class="rm-lbl' + (L.dim ? ' rm-dim' : '') + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(lt) + '</text>' });
+            over.push({ d: b.d, s: '<text class="rm-lbl' + (L.dim ? ' rm-dim' : '') + off + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(lt) + '</text>' });
         }
     });
 
-    // Etiqueta de cada zona, flotando sobre su grupo
+    // Recuadro de cada zona: ocupación + resumen (se toca para entrar a la zona)
     scene.zones.forEach(function(z) {
         var ss = chips[z.id];
         if (!ss || !ss.length) return;
@@ -448,24 +443,22 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         cx /= ss.length; cy /= ss.length;
         if (def.wall) { cx -= def.wall[0] * 0.45; cy -= def.wall[1] * 0.45; }
         if (def.chipOffset) { cx += def.chipOffset[0]; cy += def.chipOffset[1]; }
-        var p = P(cx, cy, def.kind === 'wall' ? 1.55 : 1.3);
+        // Un buffer va en el piso junto a su rack: flotando alto, el de F quedaba a la altura de E.
+        var p = P(cx, cy, def.kind === 'wall' ? 1.55 : def.kind === 'buffer' ? 0.1 : 1.3);
         var txt = z.id + ' · ' + z.used + '/' + z.total;
-        var w = txt.length * 7.4 + 18;
-        over.push({ d: 98, s: '<g class="rm-chip rm-chip--' + (def.kind || 'x') + '" aria-hidden="true"><rect x="' + (p.x - w / 2).toFixed(1) + '" y="' + (p.y - 11).toFixed(1) + '" width="' + w.toFixed(1) + '" height="22" rx="11"/>' +
-            '<text x="' + p.x.toFixed(1) + '" y="' + (p.y + 4).toFixed(1) + '">' + _invRoomEsc(txt) + '</text></g>' });
+        var sub = invRoomZoneSummary(ss, look, def.kind);
+        var w = Math.max(txt.length * 7.4, sub.length * 5.6) + 22, hh = sub ? 34 : 22;
+        var off = opts.focus && opts.focus !== z.id ? ' rm-off' : '';
+        over.push({ d: 98, s: '<g class="rm-chip rm-chip--' + (def.kind || 'x') + off + '" data-zone="' + z.id + '" tabindex="0" role="button" aria-label="Ver de frente la zona ' + z.id + ' (' + _invRoomEsc(z.label) + '): ' + z.used + ' de ' + z.total + (sub ? ', ' + _invRoomEsc(sub) : '') + '">' +
+            '<rect x="' + (p.x - w / 2).toFixed(1) + '" y="' + (p.y - hh / 2).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + hh + '" rx="11"/>' +
+            '<text x="' + p.x.toFixed(1) + '" y="' + (p.y + (sub ? -2 : 4)).toFixed(1) + '">' + _invRoomEsc(txt) + '</text>' +
+            (sub ? '<text class="rm-chip-sub" x="' + p.x.toFixed(1) + '" y="' + (p.y + 11).toFixed(1) + '">' + _invRoomEsc(sub) + '</text>' : '') + '</g>' });
     });
 
     var byD = function(a, b) { return a.d - b.d; };
     solid.sort(byD); over.sort(byD);
 
-    // Caja de la escena (para el viewBox): las esquinas del piso a ras y a la altura del muro.
-    var xs = [], ys = [];
-    layout.floor.concat.apply(layout.floor, (layout.rooms || []).map(function(r) { return r.floor; })).forEach(function(p) {
-        [0, WH + 0.6].forEach(function(z) { var q = P(p[0], p[1], z); xs.push(q.x); ys.push(q.y); });
-    });
-    var pad = 30;
-    var box = { x: Math.min.apply(null, xs) - pad, y: Math.min.apply(null, ys) - pad,
-                w: Math.max.apply(null, xs) - Math.min.apply(null, xs) + pad * 2, h: Math.max.apply(null, ys) - Math.min.apply(null, ys) + pad * 2 + 20 };
+    var box = invRoomBox(layout, cam);
 
     var grads = Object.keys(INV_ROOM_TONES).map(function(k) {
         var t = INV_ROOM_TONES[k];
@@ -479,6 +472,49 @@ function invRoomSceneSVG(scene, cam, look, opts) {
              '<g class="rm-solid-layer">' + solid.map(function(x) { return x.s; }).join('') + '</g>' +
              '<g class="rm-over-layer">' + over.map(function(x) { return x.s; }).join('') + '</g>'
     };
+}
+
+/** Caja de la escena (el viewBox) para una cámara: las esquinas del piso a ras y a la altura del muro. PURA. */
+function invRoomBox(layout, cam) {
+    layout = layout || INV_ROOM_LAYOUT;
+    var C = invRoomCenter(layout), xs = [], ys = [];
+    layout.floor.concat.apply(layout.floor, (layout.rooms || []).map(function(r) { return r.floor; })).forEach(function(p) {
+        [0, 1.25 + 0.6].forEach(function(z) { var q = invRoomProject(p[0], p[1], z, cam, C); xs.push(q.x); ys.push(q.y); });
+    });
+    var pad = 30;
+    return { x: Math.min.apply(null, xs) - pad, y: Math.min.apply(null, ys) - pad,
+             w: Math.max.apply(null, xs) - Math.min.apply(null, xs) + pad * 2, h: Math.max.apply(null, ys) - Math.min.apply(null, ys) + pad * 2 + 20 };
+}
+
+/**
+ * Resumen de una zona para su recuadro. PURA. Conectados: cuántos van bajos o críticos.
+ * Buffers/diablito/sin conectar: cuántos llenos, a medias, vacíos y vencidos.
+ */
+function invRoomZoneSummary(slots, look, kind) {
+    var c = { lleno: 0, medias: 0, vacio: 0, vencido: 0, bajo: 0, critico: 0 };
+    (slots || []).forEach(function(s) {
+        var L = s.gasId && look ? look[s.gasId] : null;
+        if (!L) return;
+        if (kind === 'wall') { if (L.tone === 'low') c.critico++; else if (L.tone === 'mid') c.bajo++; return; }
+        var t = L.tag && L.tag.text;
+        if (!t) return;
+        if (t === 'Lleno') c.lleno++;
+        else if (t === 'Vacío') c.vacio++;
+        else if (t === 'Vencido') c.vencido++;
+        else c.medias++;
+    });
+    var pl = function(n, uno, varios) { return n + ' ' + (n === 1 ? uno : varios); };
+    var out = [];
+    if (kind === 'wall') {
+        if (c.critico) out.push(pl(c.critico, 'crítico', 'críticos'));
+        if (c.bajo) out.push(pl(c.bajo, 'bajo', 'bajos'));
+    } else {
+        if (c.lleno) out.push(pl(c.lleno, 'lleno', 'llenos'));
+        if (c.medias) out.push(c.medias + ' a medias');
+        if (c.vacio) out.push(pl(c.vacio, 'vacío', 'vacíos'));
+        if (c.vencido) out.push(pl(c.vencido, 'vencido', 'vencidos'));
+    }
+    return out.join(' · ');
 }
 
 /** Indicadores de la franja de arriba. PURA (recibe la escena y el estado ya resuelto). */
@@ -511,6 +547,157 @@ function invRoomFilterMatch(filter, i) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// Entrar a una zona: la cámara vuela hasta quedar de frente y luego se ve "de frente"
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * La cámara que deja una zona de frente y llenando la vista. PURA.
+ * Gira a `face` (la zona queda al fondo), baja la inclinación y encuadra sus posiciones.
+ */
+function invRoomFocusCam(layout, scene, zoneId) {
+    layout = layout || INV_ROOM_LAYOUT;
+    var def = layout.zones[zoneId];
+    if (!def) return null;
+    var cam = { az: def.face || 0, el: def.kind === 'wall' ? 18 : 32, zoom: 1, panX: 0, panY: 0 };
+    var C = invRoomCenter(layout), box = invRoomBox(layout, cam), xs = [], ys = [];
+    (scene && scene.slots || []).forEach(function(s) {
+        if (s.zone !== zoneId) return;
+        [0, 1.2].forEach(function(z) { var q = invRoomProject(s.x, s.y, z, cam, C); xs.push(q.x); ys.push(q.y); });
+    });
+    if (!xs.length) return cam;
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var zoom = Math.max(0.5, Math.min(5, Math.min(box.w * 0.8 / (x1 - x0 + 60), box.h * 0.7 / (y1 - y0 + 60))));
+    var bc = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    cam.zoom = zoom;
+    cam.panX = -zoom * ((x0 + x1) / 2 - bc.x);
+    cam.panY = -zoom * ((y0 + y1) / 2 - bc.y);
+    return cam;
+}
+
+/** Un paso del vuelo de la cámara (t de 0 a 1, ya suavizado). Gira por el camino corto. PURA. */
+function invRoomCamLerp(a, b, t) {
+    var daz = ((b.az - a.az + 540) % 360) - 180;
+    var L = function(x, y) { return x + (y - x) * t; };
+    return { az: a.az + daz * t, el: L(a.el, b.el), zoom: L(a.zoom, b.zoom), panX: L(a.panX, b.panX), panY: L(a.panY, b.panY) };
+}
+
+/**
+ * Cómo se acomodan las posiciones de una zona vista de frente, de izquierda a derecha. PURA.
+ * Pared: una fila. Buffer: la fila del fondo y la del frente, cada una con su grande al final
+ * (hacia la pared C). Devuelve índices de posición (0 = la 01).
+ */
+function invRoomFrontRows(def, n) {
+    n = Math.max(0, parseInt(n, 10) || 0);
+    if (!def) return [];
+    var all = function(m) { var a = []; for (var i = 0; i < m; i++) a.push(i); return a; };
+    if (def.rows) {
+        var per = def.perRow || 6, nr = def.rows.length, out = [];
+        def.rows.forEach(function(r, i) {
+            var idx = [];
+            for (var k = i * per; k < (i + 1) * per; k++) if (k < n) idx.push(k);
+            var big = nr * per + i;
+            if (def.big && def.big[i] && big < n) idx.push(big);
+            out.push({ label: nr === 2 ? (i === 0 ? 'Fila del fondo' : 'Fila del frente') : 'Fila ' + (i + 1), idx: idx });
+        });
+        return out;
+    }
+    if (def.points) return [{ label: '', idx: all(Math.min(n, def.points.length)) }];
+    return [{ label: '', idx: all(n) }];
+}
+
+/**
+ * La zona vista de frente como SVG: cada cilindro grande, con su tablero, nivel y datos. PURA.
+ * `look[id]` = {tone, pct, tag, pin, name, ctrl, psi, aria}. Devuelve {w, h, cols, svg}.
+ */
+function invRoomFrontSVG(scene, zoneId, look, opts) {
+    opts = opts || {};
+    var layout = opts.layout || INV_ROOM_LAYOUT;
+    var def = layout.zones[zoneId] || {};
+    var z = (scene.zones || []).find(function(x) { return x.id === zoneId; });
+    if (!z) return { w: 0, h: 0, cols: 0, svg: '' };
+    var byIdx = {};
+    scene.slots.forEach(function(s) { if (s.zone === zoneId) byIdx[s.n - 1] = s; });
+    var rows = invRoomFrontRows(def, z.drawn);
+    var gauge = def.kind === 'wall';
+    var COL = 94, PAD = 24, TOP = gauge ? 70 : 20, CH = 200, BIG = 232, LAB = gauge ? 98 : 84, RHEAD = rows.length > 1 ? 26 : 0;
+    var cols = Math.max.apply(null, rows.map(function(r) { return r.idx.length; }).concat([1]));
+    var rowH = RHEAD + TOP + BIG + LAB;
+    var W = PAD * 2 + cols * COL, H = rows.length * rowH + PAD;
+    var e = _invRoomEsc, f = function(v) { return v.toFixed(1); };
+    var out = ['<defs><linearGradient id="rmf-metal" x1="0" x2="1"><stop offset="0" stop-color="#94a3b8"/><stop offset="0.38" stop-color="#f8fafc"/><stop offset="1" stop-color="#a8b3c4"/></linearGradient>' +
+        Object.keys(INV_ROOM_TONES).map(function(k) { var t = INV_ROOM_TONES[k];
+            return '<linearGradient id="rmf-g-' + k + '" x1="0" x2="1"><stop offset="0" stop-color="' + t.dark + '"/><stop offset="0.45" stop-color="' + t.light + '"/><stop offset="1" stop-color="' + t.fill + '"/></linearGradient>'; }).join('') + '</defs>'];
+    rows.forEach(function(row, ri) {
+        var y0 = PAD / 2 + ri * rowH;
+        var base = y0 + RHEAD + TOP + BIG;
+        if (row.label) out.push('<text class="rmf-rowlbl" x="' + PAD + '" y="' + (y0 + 17) + '">' + e(row.label) + '</text>');
+        out.push('<line class="rmf-floor" x1="' + (PAD / 2) + '" y1="' + f(base + 2) + '" x2="' + (W - PAD / 2) + '" y2="' + f(base + 2) + '"/>');
+        if (gauge) out.push('<rect class="rmf-wallband" x="' + (PAD / 2) + '" y="' + f(y0 + RHEAD + 6) + '" width="' + (W - PAD) + '" height="40" rx="6"/>');
+        row.idx.forEach(function(i, j) {
+            var s = byIdx[i];
+            if (!s) return;
+            var cx = PAD + COL * (j + 0.5);
+            var big = !!s.big, w = big ? 58 : 46, h = big ? BIG : CH, top = base - h, r = w / 2;
+            var body = 'M' + f(cx - r) + ' ' + f(base) + 'L' + f(cx - r) + ' ' + f(top + r) + 'A' + f(r) + ' ' + f(r) + ' 0 0 1 ' + f(cx + r) + ' ' + f(top + r) + 'L' + f(cx + r) + ' ' + f(base) + 'Z';
+            if (gauge) {
+                var py = y0 + RHEAD + 12;
+                out.push('<g class="rmf-reg' + (s.gasId ? '' : ' rmf-reg--idle') + '" aria-hidden="true"><rect x="' + f(cx - 22) + '" y="' + f(py) + '" width="44" height="28" rx="4"/>' +
+                    '<circle cx="' + f(cx - 9) + '" cy="' + f(py + 12) + '" r="7"/><circle cx="' + f(cx + 9) + '" cy="' + f(py + 12) + '" r="7"/></g>');
+                if (s.gasId) out.push('<path class="rmf-hose" d="M' + f(cx) + ' ' + f(py + 28) + ' C' + f(cx + 26) + ' ' + f(py + 60) + ' ' + f(cx + 22) + ' ' + f(top - 30) + ' ' + f(cx) + ' ' + f(top - 12) + '"/>');
+            }
+            if (!s.gasId) {
+                out.push('<g class="rmf-slot' + (opts.selSlot === s.code ? ' rmf-slot--sel' : '') + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + s.code + ': posición libre">' +
+                    '<path d="' + body + '"/><text class="rmf-code" x="' + f(cx) + '" y="' + f(base + 20) + '">' + s.code + '</text>' +
+                    '<text class="rmf-free" x="' + f(cx) + '" y="' + f(base - h / 2) + '">libre</text></g>');
+                return;
+            }
+            var L = look[s.gasId] || {};
+            var tone = INV_ROOM_TONES[L.tone] || INV_ROOM_TONES.none;
+            var sel = opts.sel === s.gasId, mov = opts.moving === s.gasId;
+            var g = '<g class="rmf-cyl' + (sel ? ' rmf-cyl--sel' : '') + (mov ? ' rmf-cyl--move' : '') + (L.dim ? ' rm-dim' : '') + '" data-gas-id="' + e(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + e(L.aria || s.code) + '">';
+            g += '<rect class="rmf-hit" x="' + f(cx - COL / 2 + 3) + '" y="' + f(top - 24) + '" width="' + (COL - 6) + '" height="' + f(h + 24 + LAB - 6) + '" rx="10"/>';
+            g += '<path class="rmf-body" d="' + body + '"/>';
+            if (gauge) {
+                var pct = Math.max(0, Math.min(1, (L.pct || 0) / 100)), fh = (h - 6) * pct;
+                g += '<clipPath id="rmf-c-' + s.code + '"><path d="' + body + '"/></clipPath>';
+                if (fh > 0) g += '<rect clip-path="url(#rmf-c-' + s.code + ')" fill="url(#rmf-g-' + (L.tone || 'none') + ')" x="' + f(cx - r) + '" y="' + f(base - fh) + '" width="' + w + '" height="' + f(fh) + '"/>';
+                [0.25, 0.5, 0.75].forEach(function(q) { var ty = base - (h - 6) * q; g += '<line class="rmf-tick" x1="' + f(cx + r - 7) + '" y1="' + f(ty) + '" x2="' + f(cx + r) + '" y2="' + f(ty) + '"/>'; });
+                g += '<path class="rmf-outline" d="' + body + '"/>';
+            } else {
+                var capFill = INV_ROOM_TAG_DOME[(L.tag || {}).tone] || '#e2e8f0';
+                g += '<path class="rmf-cap" style="fill:' + capFill + '" d="M' + f(cx - r) + ' ' + f(top + r) + 'A' + f(r) + ' ' + f(r) + ' 0 0 1 ' + f(cx + r) + ' ' + f(top + r) + 'Z"/>';
+                g += '<path class="rmf-outline" d="' + body + '"/>';
+            }
+            g += '<rect class="rmf-valve" x="' + f(cx - 7) + '" y="' + f(top - 12) + '" width="14" height="14" rx="3"/>';
+            if (gauge && L.pin) {
+                var pc = INV_ROOM_TONES[L.pin === 'pedir' ? 'mid' : 'low'];
+                g += '<circle cx="' + f(cx + r - 2) + '" cy="' + f(top + 4) + '" r="10" fill="' + pc.fill + '" stroke="#fff" stroke-width="2"/><text class="rmf-pin" x="' + f(cx + r - 2) + '" y="' + f(top + 8) + '">!</text>';
+            }
+            // Datos debajo, un dato por renglón (en una columna de 94 no cabe "CO/N2 100 ppm · 95% · 1900 psi")
+            g += '<text class="rmf-code" x="' + f(cx) + '" y="' + f(base + 19) + '">' + s.code + '</text>';
+            var nm = String(L.short || ''); if (nm.length > 11) nm = nm.slice(0, 10) + '…';   // el completo va en el panel y en <title>
+            g += '<title>' + e(L.aria || s.code) + '</title>';
+            g += '<text class="rmf-name" x="' + f(cx) + '" y="' + f(base + 36) + '">' + e(nm) + '</text>';
+            if (gauge) {
+                var v = L.tone === 'empty' ? 'Vacío' : L.tone === 'none' ? 'Sin lecturas' : Math.round(L.pct || 0) + '%';
+                g += '<text class="rmf-val" style="fill:' + tone.dark + '" x="' + f(cx) + '" y="' + f(base + 55) + '">' + e(v) + '</text>';
+                if (L.psi != null) g += '<text class="rmf-ctrl" x="' + f(cx) + '" y="' + f(base + 71) + '">' + e(L.psi + ' psi') + '</text>';
+                g += '<text class="rmf-ctrl" x="' + f(cx) + '" y="' + f(base + 86) + '">' + e(L.ctrl || '') + '</text>';
+            } else {
+                g += '<text class="rmf-ctrl" x="' + f(cx) + '" y="' + f(base + 51) + '">' + e(L.ctrl || '') + '</text>';
+                if (L.tag) {
+                    var tw = String(L.tag.text).length * 6.4 + 16;
+                    g += '<g class="rm-stag rm-stag--' + L.tag.tone + '"><rect x="' + f(cx - tw / 2) + '" y="' + f(base + 59) + '" width="' + f(tw) + '" height="17" rx="8.5"/><text x="' + f(cx) + '" y="' + f(base + 71.5) + '">' + e(L.tag.text) + '</text></g>';
+                }
+            }
+            g += '</g>';
+            out.push(g);
+        });
+    });
+    return { w: W, h: H, cols: cols, svg: out.join('') };
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // Pantalla (DOM)
 // ══════════════════════════════════════════════════════════════════════
 var _invRoom = { sel: null, selSlot: null, moving: null, filter: null, cam: null };
@@ -522,6 +709,7 @@ function _invRoomCam() {
 }
 var _invRoomCamSaveT = null;
 function _invRoomCamSave() {
+    if (_invRoom.focus || _invRoom.flying) return;   // la cámara de una zona no es la preferencia del equipo
     clearTimeout(_invRoomCamSaveT);
     _invRoomCamSaveT = setTimeout(function() { try { if (typeof uiPref === 'function') uiPref('roomCam', _invRoom.cam); } catch (e) {} }, 400);
 }
@@ -553,6 +741,7 @@ function _invRoomInfo(scene) {
             expired: ex.status === 'expired', reorder: reorder, counts: counts, readToday: readToday, kind: kindOf[g.id] || null,
             pin: tone === 'low' || ex.status === 'expired' ? 'alerta' : reorder ? 'pedir' : '',
             tag: invRoomStockTag(lx),
+            name: ((g.formula || g.gasType || '') + ' ' + (g.concNominal || '')).trim().slice(0, 18), ctrl: g.controlNo || '', psi: lvl.psi != null ? lvl.psi : null,
             aria: (g.zone || '') + ': ' + (g.formula || '') + ' ' + (g.concNominal || '') + ', ' + (INV_ROOM_TONES[tone] || {}).label +
                   (g.status !== 'Empty' && lvl.pct != null ? ' ' + lvl.pct + '%' : '') + (readToday ? ', leído hoy' : '')
         };
@@ -574,6 +763,7 @@ function invRoomRender(el) {
           '<div class="rm-top">' +
             '<h3 class="rm-title" data-help="inv-room-help">🗺️ Cuarto de gases</h3>' +
             '<div class="rm-kpis" id="rm-kpis" role="group" aria-label="Indicadores del cuarto de gases"></div>' +
+            '<div class="rm-zonenav" id="rm-zonenav" role="toolbar" aria-label="Ver una zona de frente"></div>' +
             '<div class="rm-top-actions">' +
               '<button type="button" class="tp-btn tp-btn-ghost" onclick="invShowAddGas()" title="Un cilindro nuevo llega a recepción (diablito o buffer)">📥 Recibir cilindro</button>' +
               '<button type="button" class="tp-btn tp-btn-ghost" onclick="invRoomSetView(\'reticula\')" title="Ver las zonas como tarjetas">▦ Retícula</button>' +
@@ -592,6 +782,7 @@ function invRoomRender(el) {
               '<button type="button" onclick="invRoomResetCam()" aria-label="Vista inicial" title="Vista inicial">⌂</button>' +
               '<button type="button" id="rm-btn-lbl" onclick="invRoomToggleLabels()" aria-pressed="' + labels + '" aria-label="Etiquetas" title="Etiquetas">🏷</button>' +
             '</div>' +
+            '<div class="rm-front" id="rm-front" hidden></div>' +
             '<div class="rm-moving" id="rm-moving" hidden></div>' +
             '<div class="rm-panel-host" id="rm-panel" hidden></div>' +
           '</div>' +
@@ -607,6 +798,7 @@ function invRoomRender(el) {
         '</div>';
     invRoomPaint();
     _invRoomBindStage();
+    _invRoomBindFront();
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
@@ -623,26 +815,43 @@ function invRoomPaint() {
     var info = _invRoomInfo(scene);
     if (_invRoom.sel && !_invRoomGas(_invRoom.sel)) _invRoom.sel = null;
     if (_invRoom.moving && !_invRoomGas(_invRoom.moving)) _invRoom.moving = null;
+    _invRoom.scene = scene; _invRoom.info = info;
+    _invRoom.look = _invRoomLook(info);
+    _invRoomPaintScene();
+    svg.classList.toggle('rm-is-moving', !!_invRoom.moving);
+    var stg = document.getElementById('rm-stage');
+    if (stg) stg.classList.toggle('rm-moving-on', !!_invRoom.moving);
+    var pb = document.getElementById('rm-btn-plan');
+    if (pb) pb.textContent = _invRoomCam().el >= 80 ? '⬒' : '⬓';
+    _invRoomPaintKpis(scene, info);
+    _invRoomPaintZoneNav(scene);
+    _invRoomPaintMoving();
+    _invRoomPaintFront();
+    invRoomPanelPaint();
+    _invRoomPaintList(scene, info);
+}
+
+function _invRoomLook(info) {
     var look = {};
     Object.keys(info).forEach(function(id) {
         var i = info[id];
-        look[id] = { tone: i.tone, pct: i.pct, short: i.short, pin: i.pin, tag: i.tag, aria: i.aria, dim: !!_invRoom.filter && !invRoomFilterMatch(_invRoom.filter, i) };
+        look[id] = { tone: i.tone, pct: i.pct, short: i.short, pin: i.pin, tag: i.tag, aria: i.aria, name: i.name, ctrl: i.ctrl, psi: i.psi,
+                     dim: !!_invRoom.filter && !invRoomFilterMatch(_invRoom.filter, i) };
     });
+    return look;
+}
+
+/** Solo la escena 3D (lo que cambia en cada cuadro del vuelo de la cámara). */
+function _invRoomPaintScene() {
+    var svg = document.getElementById('rm-svg'), g = document.getElementById('rm-cam');
+    if (!svg || !g || !_invRoom.scene) return;
     var cam = _invRoomCam();
-    var out = invRoomSceneSVG(scene, cam, look, { sel: _invRoom.sel, selSlot: _invRoom.selSlot, moving: _invRoom.moving, labels: true });
+    var out = invRoomSceneSVG(_invRoom.scene, cam, _invRoom.look || {}, { sel: _invRoom.sel, selSlot: _invRoom.selSlot, moving: _invRoom.moving,
+        labels: true, focus: _invRoom.focus || _invRoom.flying || null });
     svg.setAttribute('viewBox', out.box.x.toFixed(1) + ' ' + out.box.y.toFixed(1) + ' ' + out.box.w.toFixed(1) + ' ' + out.box.h.toFixed(1));
     _invRoom.box = out.box;
-    var g = document.getElementById('rm-cam');
     g.innerHTML = out.svg;
     _invRoomApplyCam();
-    svg.classList.toggle('rm-is-moving', !!_invRoom.moving);
-    var pb = document.getElementById('rm-btn-plan');
-    if (pb) pb.textContent = cam.el >= 80 ? '⬒' : '⬓';
-    _invRoom.scene = scene; _invRoom.info = info;
-    _invRoomPaintKpis(scene, info);
-    _invRoomPaintMoving();
-    invRoomPanelPaint();
-    _invRoomPaintList(scene, info);
 }
 
 function _invRoomApplyCam() {
@@ -842,6 +1051,7 @@ function invRoomSelect(id) {
 /** Si el panel tapa el cilindro elegido, recorre la vista lo justo (no se guarda). */
 function _invRoomKeepVisible(id) {
     try {
+        if (_invRoom.focus) return;
         var n = document.querySelector('#rm-svg .rm-cyl[data-gas-id="' + String(id).replace(/"/g, '') + '"]');
         var host = document.getElementById('rm-panel'), st = document.getElementById('rm-stage');
         if (!n || !host || host.hidden || !st) return;
@@ -972,9 +1182,11 @@ function _invRoomBindStage() {
             _invRoomPtr = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: _invRoomCam().zoom };
             return;
         }
+        if (_invRoom.flying) return;
         var cyl = e.target.closest && e.target.closest('.rm-cyl');
         var slot = e.target.closest && e.target.closest('.rm-slot');
-        _invRoomPtr = { mode: 'pending', x0: e.clientX, y0: e.clientY, cyl: cyl ? cyl.getAttribute('data-gas-id') : null,
+        var chip = e.target.closest && e.target.closest('.rm-chip');
+        _invRoomPtr = { mode: 'pending', x0: e.clientX, y0: e.clientY, cyl: cyl ? cyl.getAttribute('data-gas-id') : null, chip: chip ? chip.getAttribute('data-zone') : null,
                         slot: slot ? slot.getAttribute('data-code') : null, pan0: { x: _invRoomCam().panX, y: _invRoomCam().panY }, type: e.pointerType };
         if (_invRoomPtr.cyl) {
             var p = _invRoomPtr;
@@ -1023,7 +1235,8 @@ function _invRoomBindStage() {
         _invRoomPtr = null;
         if (e.type === 'pointercancel') { _invRoomGhost(null); return; }
         if (p.mode === 'pending') {
-            if (p.cyl) _invRoomTapGas(p.cyl);
+            if (p.chip && !_invRoom.moving) invRoomFocus(p.chip);
+            else if (p.cyl) _invRoomTapGas(p.cyl);
             else if (p.slot) _invRoomTapSlot(p.slot);
             else if (_invRoom.sel || _invRoom.selSlot) { if (!_invRoom.moving) invRoomClose(); }
         } else if (p.mode === 'pan') {
@@ -1058,8 +1271,10 @@ function _invRoomBindStage() {
 
     // Teclado: Enter/Espacio sobre un cilindro o una posición = tocarlo.
     svg.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { if (_invRoom.moving) invRoomMoveCancel(); else invRoomClose(); return; }
+        if (e.key === 'Escape') { if (_invRoom.moving) invRoomMoveCancel(); else if (_invRoom.sel || _invRoom.selSlot) invRoomClose(); else if (_invRoom.focus) invRoomUnfocus(); return; }
         if (e.key !== 'Enter' && e.key !== ' ') return;
+        var chipK = e.target.closest && e.target.closest('.rm-chip');
+        if (chipK) { e.preventDefault(); invRoomFocus(chipK.getAttribute('data-zone')); return; }
         var cyl = e.target.closest && e.target.closest('.rm-cyl');
         var slot = e.target.closest && e.target.closest('.rm-slot');
         if (!cyl && !slot) return;
@@ -1105,6 +1320,157 @@ function _invRoomGhost(pt, target) {
     c.innerHTML = '<circle cx="' + pt.x.toFixed(1) + '" cy="' + pt.y.toFixed(1) + '" r="13"/>' +
         '<text x="' + pt.x.toFixed(1) + '" y="' + (pt.y - 20).toFixed(1) + '">' + (target ? target.code : 'suelta en una posición libre') + '</text>';
     g.appendChild(c);
+}
+
+// ── Entrar a una zona (DOM) ──────────────────────────────────────────
+function _invRoomReduceMotion() {
+    try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+}
+
+var _invRoomFlyTok = 0;
+/** Vuela la cámara de `from` a `to` (≈0.75 s, suave), repintando solo la escena. */
+function _invRoomFly(from, to, done) {
+    var tok = ++_invRoomFlyTok;
+    var stage = document.getElementById('rm-stage');
+    if (_invRoomReduceMotion()) { _invRoom.cam = to; _invRoomPaintScene(); if (done) done(); return; }
+    if (stage) stage.classList.add('rm-flying');
+    var t0 = null, DUR = 750;
+    var ease = function(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+    var step = function(ts) {
+        if (tok !== _invRoomFlyTok) return;
+        if (t0 === null) t0 = ts;
+        var t = Math.min(1, (ts - t0) / DUR);
+        _invRoom.cam = invRoomCamLerp(from, to, ease(t));
+        _invRoomPaintScene();
+        if (t < 1) { requestAnimationFrame(step); return; }
+        _invRoom.cam = to;
+        if (stage) stage.classList.remove('rm-flying');
+        if (done) done();
+    };
+    requestAnimationFrame(step);
+}
+
+/** Entra a una zona: vuela hasta verla de frente y abre la vista de frente. */
+function invRoomFocus(zoneId) {
+    var scene = _invRoom.scene || _invRoomSceneNow();
+    var to = invRoomFocusCam(INV_ROOM_LAYOUT, scene, zoneId);
+    if (!to) return;
+    var from = Object.assign({}, _invRoomCam());
+    if (!_invRoom.focus && !_invRoom.flying) _invRoom.prevCam = Object.assign({}, from);   // "vista anterior" = la general
+    _invRoom.selSlot = null;
+    _invRoom.focus = null;
+    _invRoom.flying = zoneId;
+    _invRoomFrontHide(true);
+    _invRoomPaintZoneNav(scene);
+    _invRoomFly(from, to, function() {
+        _invRoom.flying = null;
+        _invRoom.focus = zoneId;
+        invRoomPaint();
+        var b = document.querySelector('#rm-front .rm-front-back');
+        if (b) { try { b.focus({ preventScroll: true }); } catch (e) {} }
+    });
+}
+
+/** Regresa a la vista anterior (la general), volando de regreso. */
+function invRoomUnfocus() {
+    if (!_invRoom.focus && !_invRoom.flying) return;
+    var from = Object.assign({}, _invRoomCam());
+    var to = _invRoom.prevCam || invRoomCamNormalize(null, _invRoomNarrow());
+    var was = _invRoom.focus || _invRoom.flying;
+    _invRoom.flying = was; _invRoom.focus = null; _invRoom.selSlot = null;
+    _invRoomFrontHide();
+    _invRoomFly(from, to, function() {
+        _invRoom.flying = null; _invRoom.prevCam = null;
+        invRoomPaint();
+        var chip = document.querySelector('#rm-zonenav [data-zone="' + was + '"]');
+        if (chip) { try { chip.focus({ preventScroll: true }); } catch (e) {} }
+    });
+}
+
+/** La zona vecina (‹ ›) sin pasar por la vista general. */
+function invRoomFocusStep(dir) {
+    var ids = ((_invRoom.scene || {}).zones || []).filter(function(z) { return z.inPlan && z.drawn; }).map(function(z) { return z.id; });
+    var i = ids.indexOf(_invRoom.focus);
+    if (i < 0 || !ids.length) return;
+    invRoomFocus(ids[(i + dir + ids.length) % ids.length]);
+}
+
+function _invRoomPaintZoneNav(scene) {
+    var host = document.getElementById('rm-zonenav');
+    if (!host) return;
+    var cur = _invRoom.focus || _invRoom.flying;
+    var zs = (scene.zones || []).filter(function(z) { return z.inPlan && z.drawn; });
+    host.innerHTML = '<span class="rm-zonenav-l">Ver de frente:</span>' +
+        '<button type="button" class="rm-zbtn' + (!cur ? ' rm-zbtn--on' : '') + '" aria-pressed="' + !cur + '" onclick="invRoomUnfocus()" title="Todo el cuarto">🔭 Todo</button>' +
+        zs.map(function(z) {
+            var on = cur === z.id;
+            return '<button type="button" class="rm-zbtn rm-zbtn--' + (z.kind || 'x') + (on ? ' rm-zbtn--on' : '') + '" data-zone="' + z.id + '" aria-pressed="' + on + '" onclick="invRoomFocus(\'' + z.id + '\')" title="' + _invRoomEsc(z.label) + ' · ' + z.used + '/' + z.total + '">' +
+                '<b>' + z.id + '</b><span>' + z.used + '/' + z.total + '</span></button>';
+        }).join('');
+}
+
+function _invRoomPaintFront() {
+    var host = document.getElementById('rm-front'), stage = document.getElementById('rm-stage');
+    if (stage) stage.classList.toggle('rm-focused', !!_invRoom.focus);
+    if (!host) return;
+    if (!_invRoom.focus) { if (!_invRoom.flying) { host.hidden = true; host.classList.remove('is-in'); host.innerHTML = ''; } return; }
+    var scene = _invRoom.scene, zid = _invRoom.focus;
+    var z = scene.zones.find(function(x) { return x.id === zid; });
+    var def = INV_ROOM_LAYOUT.zones[zid] || {};
+    var fr = invRoomFrontSVG(scene, zid, _invRoom.look || {}, { sel: _invRoom.sel, selSlot: _invRoom.selSlot, moving: _invRoom.moving });
+    var sub = invRoomZoneSummary(scene.slots.filter(function(s) { return s.zone === zid; }), _invRoom.look || {}, def.kind);
+    var ids = scene.zones.filter(function(x) { return x.inPlan && x.drawn; }).map(function(x) { return x.id; });
+    var i = ids.indexOf(zid), prev = ids[(i - 1 + ids.length) % ids.length], next = ids[(i + 1) % ids.length];
+    var scroll = host.querySelector('.rm-front-body');
+    var sx = scroll ? scroll.scrollLeft : 0;
+    host.innerHTML =
+        '<div class="rm-front-head">' +
+          '<button type="button" class="tp-btn rm-front-back" onclick="invRoomUnfocus()">← Vista anterior</button>' +
+          '<div class="rm-front-title"><b>' + zid + ' · ' + _invRoomEsc(z ? z.label : '') + '</b><span>' + (z ? z.used + ' de ' + z.total + ' ocupadas' : '') + (sub ? ' · ' + _invRoomEsc(sub) : '') + '</span></div>' +
+          '<div class="rm-front-steps">' +
+            '<button type="button" class="tp-btn tp-btn-ghost" onclick="invRoomFocusStep(-1)" aria-label="Zona anterior: ' + prev + '">‹ ' + prev + '</button>' +
+            '<button type="button" class="tp-btn tp-btn-ghost" onclick="invRoomFocusStep(1)" aria-label="Zona siguiente: ' + next + '">' + next + ' ›</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rm-front-body"><svg class="rm-front-svg" viewBox="0 0 ' + fr.w + ' ' + fr.h + '" preserveAspectRatio="xMidYMid meet" style="min-width:' + Math.round(fr.cols * 62 + 40) + 'px" role="group" aria-label="Zona ' + zid + ' de frente">' + fr.svg + '</svg></div>';
+    var sc2 = host.querySelector('.rm-front-body');
+    if (sc2 && sx) sc2.scrollLeft = sx;
+    if (host.hidden) {
+        host.hidden = false;
+        void host.offsetWidth;   // que la transición arranque desde el estado inicial
+    }
+    host.classList.add('is-in');
+}
+
+function _invRoomFrontHide(instant) {
+    var host = document.getElementById('rm-front'), stage = document.getElementById('rm-stage');
+    if (stage) stage.classList.remove('rm-focused');
+    if (!host || host.hidden) return;
+    host.classList.remove('is-in');
+    if (instant || _invRoomReduceMotion()) { host.hidden = true; host.innerHTML = ''; return; }
+    setTimeout(function() { if (!_invRoom.focus) { host.hidden = true; host.innerHTML = ''; } }, 230);
+}
+
+function _invRoomBindFront() {
+    var host = document.getElementById('rm-front');
+    if (!host || host._rmBound) return;
+    host._rmBound = true;
+    var hit = function(t) {
+        var c = t.closest && t.closest('.rmf-cyl'), sl = t.closest && t.closest('.rmf-slot');
+        if (c) { _invRoomTapGas(c.getAttribute('data-gas-id')); return c.getAttribute('data-code'); }
+        if (sl) { _invRoomTapSlot(sl.getAttribute('data-code')); return sl.getAttribute('data-code'); }
+        return null;
+    };
+    host.addEventListener('click', function(e) { hit(e.target); });
+    host.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { e.preventDefault(); if (_invRoom.moving) invRoomMoveCancel(); else if (_invRoom.sel || _invRoom.selSlot) invRoomClose(); else invRoomUnfocus(); return; }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        if (!(e.target.closest && (e.target.closest('.rmf-cyl') || e.target.closest('.rmf-slot')))) return;
+        e.preventDefault();
+        var code = hit(e.target);
+        var again = code && document.querySelector('#rm-front [data-code="' + code + '"]');
+        if (again) { try { again.focus({ preventScroll: true }); } catch (err) {} }
+    });
 }
 
 // ── Ayuda ────────────────────────────────────────────────────────────

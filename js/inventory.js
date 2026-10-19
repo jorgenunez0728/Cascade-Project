@@ -7182,7 +7182,8 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Para moverlo: con el ratón, arrástralo; con el dedo, mantenlo presionado y arrástralo — o toca ↔ Mover y luego la posición libre.',
         'Los cilindros nuevos llegan a recepción (diablito o buffer). Toca una posición libre de una pared para acomodar ahí uno de recepción.',
         'Los botones de la izquierda acercan, giran e inclinan la vista; ⌂ vuelve a la vista inicial y ⬒ alterna plano y 3D.',
-        'Los recuadros de arriba resaltan en el plano los cilindros bajos, por pedir, vencidos o sin leer hoy.'
+        'Los recuadros de arriba resaltan en el plano los cilindros bajos, por pedir, vencidos o sin leer hoy.',
+        'Toca el recuadro de una zona (o su botón en "Ver de frente") para acercarte y verla de frente, con cada cilindro grande y sus datos. "← Vista anterior" regresa.'
     ]},
     'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
         'Cambia entre PSI por Cilindro, Combustible y Comparar Gases con los botones superiores.',

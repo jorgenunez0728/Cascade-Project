@@ -36,6 +36,10 @@ async function abrir(browser, vp, extra) {
     await page.evaluate(() => { document.querySelectorAll('.toast, .toast-container > *').forEach(t => t.remove()); });
     await page.locator('#inv-tabs-bar .tp-tab', { hasText: 'Cuarto' }).click();
     await page.waitForTimeout(500);
+    // El plano empieza abajo de los indicadores y la barra de zonas: llevarlo a la vista
+    // (scroll-behavior: smooth, hay que esperar antes de medir).
+    await page.evaluate(() => document.getElementById('rm-stage').scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(600);
     return { context, page, errores };
 }
 const gasAt = (page, code) => page.evaluate(c => { const g = invState.gases.find(x => x.zone === c); return g ? g.id : null; }, code);
@@ -159,6 +163,45 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
         document.querySelectorAll('#rm-svg .rm-cyl').length === invRoomScene(INV_ROOM_LAYOUT, invState.zones, invState.gases).slots.filter(s => s.gasId).length));
     await page.locator('.rm-kpi', { hasText: 'Leídos hoy' }).click();
 
+    // Entrar a una zona: tocar su recuadro → vuelo → vista de frente
+    await page.evaluate(() => { invRoomClose(); invRoomResetCam(); document.getElementById('rm-stage').scrollIntoView({ block: 'start' }); });
+    await page.waitForTimeout(600);
+    const camAntes = await page.evaluate(() => JSON.stringify(_invRoom.cam));
+    const chipC = await centro(page.locator('#rm-svg .rm-chip[data-zone="C"] rect'));
+    await page.mouse.click(chipC.x, chipC.y);
+    await page.waitForTimeout(250);
+    ok('tocar el recuadro de una zona arranca el vuelo de la cámara hacia ella', await page.evaluate(() => _invRoom.flying === 'C' && document.getElementById('rm-front').hidden));
+    await page.waitForTimeout(900);
+    const fr = await page.evaluate(() => ({ focus: _invRoom.focus, az: _invRoom.cam.az, vis: !document.getElementById('rm-front').hidden,
+        cyl: document.querySelectorAll('#rm-front .rmf-cyl').length, head: document.querySelector('.rm-front-head').innerText, nav: document.querySelector('#rm-zonenav [data-zone="C"]').getAttribute('aria-pressed') }));
+    ok('al llegar, la pared C de frente: sus cilindros grandes, en fila', fr.focus === 'C' && fr.az === -90 && fr.vis && fr.cyl === 12, JSON.stringify(fr).slice(0, 200));
+    ok('con "← Vista anterior", zona vecina y su botón marcado arriba', /Vista anterior/.test(fr.head) && /‹ B/.test(fr.head) && /D ›/.test(fr.head) && fr.nav === 'true');
+    if (SHOTS) await page.locator('#rm-stage').screenshot({ path: path.join(SHOTS, 'v3100-frente.png') });
+    await page.locator('#rm-front .rmf-cyl[data-code="C05"]').click();
+    await page.waitForTimeout(300);
+    ok('de frente, tocar un cilindro abre su estado', await page.evaluate(() => /C05/.test(document.getElementById('rm-panel').innerText) && !!document.querySelector('#rm-front .rmf-cyl--sel[data-code="C05"]')));
+    await page.fill('#rm-psi', '1500');
+    await page.locator('.rm-read-btn').click();
+    await page.waitForTimeout(300);
+    ok('…y guardar su lectura sin salir de la vista de frente', await page.evaluate(() => { const g = invState.gases.find(x => x.zone === 'C05'); const r = g.readings[g.readings.length - 1];
+        return r.psi === 1500 && r.source === 'cuarto' && _invRoom.focus === 'C' && /1500 psi/.test(document.getElementById('rm-front').innerHTML); }));
+    await page.evaluate(() => invRoomClose());
+    await page.locator('#rm-front button', { hasText: 'D ›' }).click();
+    await page.waitForTimeout(1200);
+    ok('› pasa a la zona vecina volando', await page.evaluate(() => _invRoom.focus === 'D' && document.querySelectorAll('#rm-front .rmf-cyl, #rm-front .rmf-slot').length === 2));
+    await page.locator('#rm-zonenav button[data-zone="E"]').click();
+    await page.waitForTimeout(1200);
+    ok('el botón de cada zona entra directo (E: dos filas y su grande hacia C)', await page.evaluate(() => _invRoom.focus === 'E' && /Fila del fondo/.test(document.getElementById('rm-front').innerHTML) && /Fila del frente/.test(document.getElementById('rm-front').innerHTML)));
+    await page.locator('#rm-front .rm-front-back').click();
+    await page.waitForTimeout(1200);
+    ok('"← Vista anterior" regresa volando a la vista de antes de entrar', await page.evaluate(c => !_invRoom.focus && document.getElementById('rm-front').hidden && JSON.stringify(_invRoom.cam) === c, camAntes));
+    ok('la cámara de una zona no se guarda como preferencia', await page.evaluate(() => (uiPref('roomCam') || {}).az !== -90 && (uiPref('roomCam') || {}).az !== 0));
+    await page.locator('#rm-zonenav button[data-zone="A"]').click();
+    await page.waitForTimeout(1200);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1200);
+    ok('Esc también regresa', await page.evaluate(() => !_invRoom.focus));
+
     // Retícula de ida y vuelta
     await page.locator('.rm-top-actions button', { hasText: 'Retícula' }).click();
     await page.waitForTimeout(300);
@@ -185,6 +228,15 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
     ok('el campo de la lectura mide ≥ 16 px (iOS no hace zoom)', fs >= 16, fs);
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'v3100-telefono.png') });
     await page.evaluate(() => invRoomClose());
+
+    // Vista de frente en el teléfono: la pared se recorre de lado
+    await page.locator('#rm-zonenav button[data-zone="C"]').tap();
+    await page.waitForTimeout(1300);
+    const tel = await page.evaluate(() => { const b = document.querySelector('#rm-front .rm-front-body'); return { f: _invRoom.focus, scroll: b.scrollWidth > b.clientWidth + 20, page: document.documentElement.scrollWidth <= innerWidth + 1 }; });
+    ok('en el teléfono la vista de frente se desliza de lado (sin mover la página)', tel.f === 'C' && tel.scroll && tel.page, JSON.stringify(tel));
+    if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'v3100-frente-telefono.png') });
+    await page.locator('#rm-front .rm-front-back').tap();
+    await page.waitForTimeout(1300);
 
     // Dedo: arrastrar sin mantener = mover la vista; mantener presionado = mover el cilindro
     const cdp = await context.newCDPSession(page);

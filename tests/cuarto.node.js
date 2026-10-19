@@ -136,9 +136,47 @@ look.g8.tag = { text: 'Vacío', tone: 'empty' }; look.g3.tag = { text: 'Lleno', 
 out = ctx.invRoomSceneSVG(sc, ctx.CAM0, look, {});
 const cylDe = id => { const i = out.svg.indexOf('data-gas-id="' + id + '"'); return out.svg.slice(i, out.svg.indexOf('</g>', i)); };
 ok('el de pared lleva barrita de nivel; el del buffer no', /rm-level/.test(cylDe('g2')) && !/rm-level/.test(cylDe('g8')) && /rm-cyl--gauge/.test(out.svg) && /rm-cyl--stock/.test(out.svg));
-ok('el del buffer y el del diablito llevan etiqueta (Vacío / Lleno)', /rm-stag--empty[^>]*>[\s\S]*?>Vacío</.test(out.svg) && />Lleno</.test(out.svg));
+ok('en la vista general no hay etiquetas sueltas de buffer (se enciman): las resume el recuadro', !/class="rm-stag/.test(out.svg));
+ok('el recuadro de la zona resume llenos y vacíos', /class="rm-chip-sub"[^>]*>1 vacío</.test(out.svg) && /G · 1\/2<\/text><text class="rm-chip-sub"[^>]*>1 lleno</.test(out.svg));
+ok('el recuadro de una zona se toca para entrar', /class="rm-chip rm-chip--buffer" data-zone="E" tabindex="0" role="button"/.test(out.svg));
 ok('la etiqueta del de pared suma su %', />CO 50 · 90%</.test(out.svg));
 ok('fuera de pared no hay marcador aunque esté crítico', (out.svg.match(/class="rm-pin/g) || []).length === 1);
+
+console.log('\n== Resumen de zona ==');
+const sl = code => sc.slots.filter(x => x.zone === code);
+ok('conectados: críticos y bajos', ctx.invRoomZoneSummary(sl('A'), { g1: { tone: 'low' } }, 'wall') === '1 crítico');
+ok('buffer: llenos · a medias · vacíos · vencidos', ctx.invRoomZoneSummary([{ gasId: 'a' }, { gasId: 'b' }, { gasId: 'c' }, { gasId: 'd' }, { gasId: 'e' }],
+    { a: { tag: { text: 'Lleno' } }, b: { tag: { text: 'Lleno' } }, c: { tag: { text: '40%' } }, d: { tag: { text: 'Vacío' } }, e: { tag: { text: 'Vencido' } } }, 'buffer') === '2 llenos · 1 a medias · 1 vacío · 1 vencido');
+ok('sin nada que decir, vacío', ctx.invRoomZoneSummary(sl('B'), {}, 'wall') === '');
+
+console.log('\n== Entrar a una zona ==');
+let fc = ctx.invRoomFocusCam(L, sc, 'C');
+ok('la pared C se ve de frente (cámara girada -90°, baja) y de cerca', fc.az === -90 && fc.el < 30 && fc.zoom > 1.2, JSON.stringify(fc));
+const fbox = ctx.invRoomBox(L, fc), cC = sc.slots.filter(x => x.zone === 'C');
+const mid = ctx.invRoomProject(cC[5].x, (cC[5].y + cC[6].y) / 2, 0.6, fc, C);
+const bcx = fbox.x + fbox.w / 2, scx = bcx + fc.panX + fc.zoom * (mid.x - bcx);
+ok('…y la zona queda al centro de la vista', Math.abs(scx - bcx) < fbox.w * 0.08, (scx - bcx).toFixed(1));
+ok('cada zona tiene su lado para verla de frente', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].every(z => typeof L.zones[z].face === 'number'));
+ok('el buffer se ve de frente desde la entrada', ctx.invRoomFocusCam(L, sc, 'E').az === 0);
+ok('zona que no existe → null', ctx.invRoomFocusCam(L, sc, 'Z') === null);
+let lp = ctx.invRoomCamLerp({ az: 170, el: 40, zoom: 1, panX: 0, panY: 0 }, { az: -170, el: 20, zoom: 3, panX: 10, panY: -10 }, 0.5);
+ok('el vuelo gira por el camino corto (170° → -170° pasa por 180°)', Math.abs(lp.az - 180) < 1e-9 && lp.el === 30 && lp.zoom === 2 && lp.panX === 5);
+let fr = ctx.invRoomFrontRows(L.zones.C, 12);
+ok('pared de frente: una fila, C01 a la izquierda', fr.length === 1 && fr[0].idx.length === 12 && fr[0].idx[0] === 0);
+fr = ctx.invRoomFrontRows(L.zones.E, 14);
+ok('buffer de frente: fila del fondo y del frente, cada una con su grande al final (hacia C)',
+    fr.length === 2 && fr[0].label === 'Fila del fondo' && JSON.stringify(fr[0].idx) === '[0,1,2,3,4,5,12]' && JSON.stringify(fr[1].idx) === '[6,7,8,9,10,11,13]');
+ok('diablito de frente: sus dos', ctx.invRoomFrontRows(L.zones.G, 2)[0].idx.length === 2);
+look.g2.name = 'CO/N2 50 ppm'; look.g2.ctrl = 'CO-50'; look.g2.psi = 3100;
+let fv = ctx.invRoomFrontSVG(sc, 'C', look, { sel: 'g2' });
+ok('vista de frente de C: 1 cilindro y 11 posiciones libres', (fv.svg.match(/class="rmf-cyl/g) || []).length === 1 && (fv.svg.match(/class="rmf-slot/g) || []).length === 11 && fv.cols === 12);
+ok('…con barrita de nivel, %, psi, control y tablero', /clip-path="url\(#rmf-c-C12\)"/.test(fv.svg) && />90%</.test(fv.svg) && />3100 psi</.test(fv.svg) && />CO-50</.test(fv.svg) && />CO 50</.test(fv.svg) && /class="rmf-reg"/.test(fv.svg));
+ok('…y el elegido resaltado', /rmf-cyl rmf-cyl--sel/.test(fv.svg));
+fv = ctx.invRoomFrontSVG(sc, 'E', look, {});
+ok('vista de frente del buffer: etiqueta y sin barrita', />Vacío</.test(fv.svg) && !/rmf-c-E/.test(fv.svg) && /Fila del frente/.test(fv.svg));
+ok('vista de frente sin valores raros', !/NaN|undefined|Infinity/.test(fv.svg + ctx.invRoomFrontSVG(sc, 'G', look, {}).svg + ctx.invRoomFrontSVG(sc, 'H', look, {}).svg));
+out = ctx.invRoomSceneSVG(sc, ctx.CAM0, look, { focus: 'C' });
+ok('al entrar a C el resto del cuarto se desvanece', /data-gas-id="g1" data-code="A01"/.test(out.svg) && /rm-off" data-gas-id="g1"/.test(out.svg) && !/rm-off" data-gas-id="g2"/.test(out.svg));
 
 console.log('\n== Indicadores y filtro ==');
 const info = { g1: { tone: 'low', counts: true, readToday: false, kind: 'wall' }, g2: { tone: 'mid', counts: true, readToday: true, reorder: true, kind: 'wall' },

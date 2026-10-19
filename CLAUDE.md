@@ -3394,6 +3394,18 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   (`invRoomLifecycle`), nunca se guarda.
 - Cámara, vista y etiquetas son preferencias del equipo (`uiPref('roomCam' | 'invMapView' |
   'roomLabels')`), no se sincronizan.
+- **Entrar a una zona = vuelo de cámara + vista de frente.** `zone.face` es el giro desde el
+  que se ve de frente (su muro queda al fondo); `invRoomFocusCam` es LA cámara de esa vista y
+  `_invRoomFly` la interpola (`invRoomCamLerp`, ~750 ms, sin animación con movimiento
+  reducido) repintando SOLO la escena (`_invRoomPaintScene`). Al llegar se abre `#rm-front`,
+  que NO es la escena 3D: es `invRoomFrontSVG`, un dibujo de frente — en 3D la fila de adelante
+  de un buffer tapa la de atrás y las etiquetas se volvían a encimar. Mientras se vuela o se
+  está en una zona, `_invRoomCamSave` no guarda (la preferencia del equipo es la vista
+  general) y `_invRoom.prevCam` es la "vista anterior". Una zona nueva necesita su `face`.
+- En la vista general los no conectados NO llevan etiqueta suelta: la tapa da el color y el
+  recuadro de la zona resume (`invRoomZoneSummary`). El recuadro es tocable (`.rm-chip`,
+  `data-zone`) y entra a la zona; ojo, el panel lateral puede taparlo (para eso está la barra
+  "Ver de frente").
 - Pendiente declarado: la gasolina todavía no está en el plano (se extiende si el diseño
   convence) y la ronda de lectura aún no confirma la posición ("¿sigue en A03?").
 

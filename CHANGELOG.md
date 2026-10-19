@@ -31,10 +31,18 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   verde arriba de la mitad, **amarilla** a la mitad o menos, **anaranjada** en bajo (≤ 30 %) y
   **roja** en crítico (≤ 15 %), con el % en su etiqueta y la tapa del mismo color (se lee aunque
   la fila se vea a lo largo). Los críticos, vencidos y por pedir llevan un marcador encima.
-- En los **buffers, el diablito y los sin conectar** no hay barrita: la tapa y una etiqueta
-  dicen **Lleno** (90 % o más, o nuevo sin lecturas), **Vacío**, **Vencido** o **a medias con
-  su %** — uno que se guardó a medias no se presenta como lleno. Vacío y Vencido siempre se
-  leen; Lleno y el % aparecen al acercar o en plano (en 3D se enciman).
+- En los **buffers, el diablito y los sin conectar** no hay barrita: la tapa lleva el color de
+  **Lleno** (90 % o más, o nuevo sin lecturas), **a medias**, **Vacío** o **Vencido** — uno que
+  se guardó a medias no se presenta como lleno. En la vista general no llevan etiquetas sueltas
+  (en 3D se encimaban): el **recuadro de cada zona las resume** ("E · 6/14 · 4 llenos · 1 a
+  medias · 1 vacío"; en una pared, "2 críticos · 1 bajo").
+- **Entrar a una zona**: tocar su recuadro, o su botón en la barra **Ver de frente** (Todo · A ·
+  B · … · H), hace que la cámara **vuele** hasta quedar frente a esa pared o rack y se abre la
+  **vista de frente**: los cilindros grandes, en fila, con su tablero, barrita, %, psi y número
+  de control; los buffers como fila del fondo y fila del frente, con el grande en la punta
+  hacia la pared C. Ahí se toca un cilindro para su estado y su lectura, igual que en 3D.
+  **← Vista anterior** regresa volando; **‹ ›** pasa a la zona vecina; Esc también regresa.
+  En el teléfono la vista de frente se desliza de lado.
 - **Tocar un cilindro** abre su estado: nivel, presión, consumo, vigencia, últimas lecturas y en
   qué paso va (**recepción → conectado → en uso → vacío**). Ahí mismo se **guarda la lectura de
   hoy** y se **cambia el estatus**.
@@ -63,6 +71,10 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - **`invRoomLevelTone`** (semáforo de los conectados) usa los umbrales de `invGasLevel` para
   bajo/crítico; el amarillo (`INV_ROOM_HALF_PCT` = 50) es solo visual, no alerta.
   **`invRoomStockTag`** es la etiqueta de los no conectados (`INV_ROOM_FULL_PCT` = 90).
+- Entrar a una zona: `invRoomFocusCam` (LA cámara de frente: gira a `zone.face`, baja la
+  inclinación y encuadra), `invRoomCamLerp` (vuelo por el camino corto), `invRoomFrontRows` y
+  `invRoomFrontSVG` (la vista de frente), `invRoomZoneSummary` (el resumen del recuadro). La
+  cámara de una zona no se guarda como preferencia; "vista anterior" es la de antes de entrar.
 - Puras (`tests/cuarto.node.js`): `invRoomScene` (LA escena: posición de cada código, ocupante y
   lo que no cabe, con motivo), `invRoomZoneSlots`, `invRoomParseCode`, `invRoomProject` (LA
   proyección: giro `az`, inclinación `el`), `invRoomSceneSVG`, `invRoomKpis`,
