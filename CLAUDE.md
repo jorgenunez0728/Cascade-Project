@@ -3380,6 +3380,13 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   arrastrar desplaza la vista y **mantener presionado 320 ms** mueve (si no, no habría cómo
   desplazarse). Dos dedos = pellizco. El SVG lleva `touch-action: none`. Teclado: cilindros y
   posiciones son `tabindex=0`; Enter/Espacio = tocar, Esc = cancelar.
+- **Conectados (kind `wall`) = barrita de nivel; el resto = etiqueta.** `invRoomLevelTone` es
+  LA definición del color: anaranjado y rojo son `invGasLevel().status` (`bajo`/`critico`),
+  nunca otros umbrales — el plano no puede decir "bien" de lo que las alertas dan por bajo
+  (v21.1). El amarillo (`INV_ROOM_HALF_PCT`) es solo visual. `invRoomStockTag` es LA etiqueta
+  de un no conectado: "Lleno" solo con ≥ `INV_ROOM_FULL_PCT` o sin lecturas; uno a medias dice
+  su %. La tapa lleva el color (se ve aunque la fila tape las barritas) y va como `style`, no
+  como atributo `fill`: la regla `.rm-dome` le ganaría al atributo.
 - Etiqueta fija solo en los cilindros de pared: en buffers, diablito y cuartito van pegados y se
   enciman desde cualquier ángulo, así que ahí el nombre va en `<title>` (al pasar el ratón) y en
   el panel. `chipOffset` en el layout separa la etiqueta de una zona cuando choca con la vecina.

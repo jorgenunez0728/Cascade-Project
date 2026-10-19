@@ -484,7 +484,9 @@ var APP_VERSION = '3.10.0';
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
     { version: '3.10.0', date: '19 oct 2026', title: 'El cuarto de gases en 3D',
-      bullets: ['Consumibles → 🗺️ Cuarto: el cuarto de gases dibujado como es (paredes A, B y C, buffers E y F, diablito G y el cuartito de inflamables D y H), con cada cilindro en su posición. El relleno es el nivel y el color, el estado; los críticos, vencidos y por pedir llevan marcador.',
+      bullets: ['Consumibles → 🗺️ Cuarto: el cuarto de gases dibujado como es (paredes A, B y C, buffers E y F, diablito G y el cuartito de inflamables D y H), con cada cilindro en su posición.',
+                'Los conectados a la pared son una barrita de nivel: verde arriba de la mitad, amarilla a la mitad o menos, anaranjada en bajo (≤ 30 %) y roja en crítico (≤ 15 %), con el % en su etiqueta. Los críticos, vencidos y por pedir llevan marcador.',
+                'En los buffers y el diablito no hay barrita: la tapa y una etiqueta dicen si está Lleno, Vacío, Vencido o a medias (con su %), para saber cuál sirve para el cambio.',
                 'Toca un cilindro: ves su nivel, consumo, vigencia y en qué paso va (recepción → conectado → en uso → vacío), guardas la lectura de hoy y cambias su estatus ahí mismo.',
                 'Para moverlo: arrástralo (en el teléfono, mantenlo presionado), o toca ↔ Mover y luego la posición libre. Tocar una posición libre de una pared ofrece acomodar ahí lo que está en recepción.',
                 'Un cilindro nuevo llega a recepción: el alta solo ofrece el diablito y los buffers, y lo deja En almacén.',

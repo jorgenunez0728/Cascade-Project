@@ -27,9 +27,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   dibujado como es, visto en 3D o desde arriba. Pared izquierda **A** (12), fondo **B** (4),
   pared derecha **C** (12), buffers **E** y **F** (6 por lado + 2 grandes), diablito **G** (2) y
   el cuartito de inflamables (**D** conectados, **H** sin conectar), con sus cuatro puertas.
-- Cada cilindro está en su posición. **El relleno es su nivel** y **el color, su estado**
-  (normal, bajo, crítico, vencido, vacío, sin lecturas). Los críticos, vencidos y por pedir
-  llevan un marcador encima.
+- Cada cilindro está en su posición. Los **conectados a la pared** son una **barrita de nivel**:
+  verde arriba de la mitad, **amarilla** a la mitad o menos, **anaranjada** en bajo (≤ 30 %) y
+  **roja** en crítico (≤ 15 %), con el % en su etiqueta y la tapa del mismo color (se lee aunque
+  la fila se vea a lo largo). Los críticos, vencidos y por pedir llevan un marcador encima.
+- En los **buffers, el diablito y los sin conectar** no hay barrita: la tapa y una etiqueta
+  dicen **Lleno** (90 % o más, o nuevo sin lecturas), **Vacío**, **Vencido** o **a medias con
+  su %** — uno que se guardó a medias no se presenta como lleno. Vacío y Vencido siempre se
+  leen; Lleno y el % aparecen al acercar o en plano (en 3D se enciman).
 - **Tocar un cilindro** abre su estado: nivel, presión, consumo, vigencia, últimas lecturas y en
   qué paso va (**recepción → conectado → en uso → vacío**). Ahí mismo se **guarda la lectura de
   hoy** y se **cambia el estatus**.
@@ -55,6 +60,9 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   LA definición de dónde está cada zona en el cuarto (horneado, como `CSV_CONFIGURATIONS`); el
   número de posiciones sigue siendo `invState.zones[].slots` y la posición sigue siendo
   `gas.zone`. El plano no guarda nada propio.
+- **`invRoomLevelTone`** (semáforo de los conectados) usa los umbrales de `invGasLevel` para
+  bajo/crítico; el amarillo (`INV_ROOM_HALF_PCT` = 50) es solo visual, no alerta.
+  **`invRoomStockTag`** es la etiqueta de los no conectados (`INV_ROOM_FULL_PCT` = 90).
 - Puras (`tests/cuarto.node.js`): `invRoomScene` (LA escena: posición de cada código, ocupante y
   lo que no cabe, con motivo), `invRoomZoneSlots`, `invRoomParseCode`, `invRoomProject` (LA
   proyección: giro `az`, inclinación `el`), `invRoomSceneSVG`, `invRoomKpis`,

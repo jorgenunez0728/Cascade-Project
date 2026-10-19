@@ -86,6 +86,18 @@ ok('en un buffer o el diablito = recepción/stock', ctx.invRoomLifecycle({ statu
 ok('en una pared sin usar = conectado; en uso = en uso', ctx.invRoomLifecycle({ status: 'Stock' }, 'wall') === 'conectado' && ctx.invRoomLifecycle({ status: 'In use' }, 'wall') === 'enuso');
 ok('vacío manda sobre el lugar', ctx.invRoomLifecycle({ status: 'Empty' }, 'wall') === 'vacio');
 
+console.log('\n== Semáforo de nivel (conectados) y etiqueta (buffers) ==');
+const T = (pct, levelStatus, status) => ctx.invRoomLevelTone({ pct, levelStatus, status: status || 'In use' });
+ok('verde arriba de la mitad', T(80, 'ok') === 'ok' && T(51, 'ok') === 'ok');
+ok('amarillo a la mitad o menos (solo visual)', T(50, 'ok') === 'half' && T(31, 'ok') === 'half');
+ok('anaranjado y rojo son los umbrales de las alertas (invGasLevel), no otros', T(30, 'bajo') === 'mid' && T(15, 'critico') === 'low' && T(40, 'bajo') === 'mid');
+ok('vacío y sin lecturas', T(0, 'ok', 'Empty') === 'empty' && T(null, 'sinlecturas') === 'none');
+const TG = x => ctx.invRoomStockTag(Object.assign({ status: 'Stock', levelStatus: 'ok' }, x));
+ok('buffer: lleno de 90% para arriba o nuevo sin lecturas', TG({ pct: 95 }).text === 'Lleno' && TG({ pct: null, levelStatus: 'sinlecturas' }).text === 'Lleno');
+ok('buffer: marcado vacío → Vacío (aunque diga otro %)', TG({ status: 'Empty', pct: 60 }).text === 'Vacío');
+ok('buffer: uno guardado a medias NO dice "Lleno", dice su %', TG({ pct: 40 }).text === '40%');
+ok('buffer: vencido y casi vacío se dicen', TG({ pct: 95, expired: true }).text === 'Vencido' && /casi vacío/.test(TG({ pct: 8, levelStatus: 'critico' }).text));
+
 console.log('\n== Proyección y cámara ==');
 const C = ctx.invRoomCenter(L);
 let q = ctx.invRoomProject(C[0] + 1, C[1] + 2, 5, { az: 0, el: 90 }, C);
@@ -112,7 +124,7 @@ ok('cada cilindro lleva su id y su código', /data-gas-id="g2" data-code="C12"/.
 ok('el color sale del estado (crítico, vacío)', /rm-cyl--low/.test(out.svg) && /rm-cyl--empty/.test(out.svg));
 ok('crítico lleva marcador', /class="rm-pin/.test(out.svg));
 ok('el seleccionado lleva su anillo', /rm-selring/.test(out.svg) && /rm-cyl--sel/.test(out.svg));
-ok('lo filtrado queda atenuado, no escondido', /rm-cyl rm-cyl--none rm-dim/.test(out.svg));
+ok('lo filtrado queda atenuado, no escondido', /rm-cyl rm-cyl--none rm-cyl--stock rm-dim/.test(out.svg));
 ok('etiqueta de zona con su ocupación', /A · 1\/12/.test(out.svg) && /G · 1\/2/.test(out.svg));
 ok('la caja de la escena es finita', ['x', 'y', 'w', 'h'].every(k => isFinite(out.box[k])) && out.box.w > 0 && out.box.h > 0);
 const iFront = out.svg.indexOf('data-gas-id="g1"'), iBack = out.svg.indexOf('data-gas-id="g8"');
@@ -120,6 +132,13 @@ ok('se pinta de atrás hacia adelante (A01, junto a la entrada, después del buf
 out = ctx.invRoomSceneSVG(sc, { az: 0, el: 90, zoom: 1, panX: 0, panY: 0 }, look, {});
 ok('desde arriba el nivel es un anillo', /class="rm-ring"/.test(out.svg) && !/class="rm-level"/.test(out.svg));
 ok('sin valores raros en la geometría', !/NaN|undefined|Infinity/.test(out.svg));
+look.g8.tag = { text: 'Vacío', tone: 'empty' }; look.g3.tag = { text: 'Lleno', tone: 'ok' };
+out = ctx.invRoomSceneSVG(sc, ctx.CAM0, look, {});
+const cylDe = id => { const i = out.svg.indexOf('data-gas-id="' + id + '"'); return out.svg.slice(i, out.svg.indexOf('</g>', i)); };
+ok('el de pared lleva barrita de nivel; el del buffer no', /rm-level/.test(cylDe('g2')) && !/rm-level/.test(cylDe('g8')) && /rm-cyl--gauge/.test(out.svg) && /rm-cyl--stock/.test(out.svg));
+ok('el del buffer y el del diablito llevan etiqueta (Vacío / Lleno)', /rm-stag--empty[^>]*>[\s\S]*?>Vacío</.test(out.svg) && />Lleno</.test(out.svg));
+ok('la etiqueta del de pared suma su %', />CO 50 · 90%</.test(out.svg));
+ok('fuera de pared no hay marcador aunque esté crítico', (out.svg.match(/class="rm-pin/g) || []).length === 1);
 
 console.log('\n== Indicadores y filtro ==');
 const info = { g1: { tone: 'low', counts: true, readToday: false, kind: 'wall' }, g2: { tone: 'mid', counts: true, readToday: true, reorder: true, kind: 'wall' },

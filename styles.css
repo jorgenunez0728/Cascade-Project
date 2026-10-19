@@ -6420,6 +6420,24 @@ body.ficha-open { overflow: hidden; }
 .rm-floor-layer > :not(.rm-slot), .rm-wall, .rm-wall-cap, .rm-rack, .rm-cart, .rm-reg, .rm-hose, .rm-door-lbl { pointer-events: none; }
 .rm-cyl { cursor: pointer; outline: none; transition: opacity var(--dur-base); }
 .rm-body { fill: url(#rm-g-metal); stroke: #64748b; stroke-width: 1; }
+/* Conectados: el cuerpo es una barrita de nivel — lo vacío pálido, lo lleno de color. */
+.rm-cyl--gauge .rm-body { fill: #f1f5f9; stroke: #94a3b8; }
+.rm-stag rect { fill: #475569; stroke: #fff; stroke-width: 1.5; }
+.rm-stag text { font-size: 9.5px; font-weight: 800; fill: #fff; text-anchor: middle; }
+.rm-stag--ok rect { fill: #059669; }
+.rm-stag--empty rect { fill: #64748b; }
+.rm-stag--bad rect { fill: #dc2626; }
+.rm-stag--muted rect { fill: #fff; stroke: #94a3b8; }
+.rm-stag--muted text { fill: #334155; }
+.rm-stag { pointer-events: none; }
+.rm-stage:not(.rm-near) .rm-stag--soft { display: none; }
+.rm-cyl--gauge .rm-dome, .rm-cyl--stock .rm-dome { stroke: #475569; }
+.rm-legend-tag--bad { background: #dc2626; }
+.rm-legend-h { color: var(--text); font-weight: 700; }
+.rm-legend-tag { padding: 0 var(--space-xs); border-radius: var(--radius-full); font-weight: 800; color: #fff; background: #475569; }
+.rm-legend-tag--ok { background: #059669; }
+.rm-legend-tag--empty { background: #64748b; }
+.rm-legend-tag--muted { background: #fff; color: #334155; box-shadow: 0 0 0 1px #94a3b8 inset; }
 .rm-dome { fill: #e2e8f0; stroke: #64748b; stroke-width: 1; }
 .rm-valve { fill: #475569; }
 .rm-ring { fill: none; stroke-width: 4; stroke-linecap: round; }

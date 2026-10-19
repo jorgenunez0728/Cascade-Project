@@ -55,9 +55,9 @@ var INV_ROOM_LAYOUT = {
         D: { kind: 'wall', label: 'Inflamables · conectados', from: [1.3, 5.38], to: [1.75, 5.38], wall: [0, -1], room: 'inflamables' },
         // Corren de izquierda a derecha, con los dos grandes del lado de la pared C.
         E: { kind: 'buffer', label: 'Buffer 1', rack: [1.86, 1.58, 3.24, 2.26],
-             rows: [[2.0, 1.75, 3.1, 1.75], [2.0, 2.09, 3.1, 2.09]], perRow: 6, big: [[3.5, 1.75], [3.5, 2.09]] },
+             rows: [[2.0, 1.75, 3.1, 1.75], [2.0, 2.09, 3.1, 2.09]], perRow: 6, big: [[3.5, 1.75], [3.5, 2.09]], chipOffset: [-1.05, 0] },
         F: { kind: 'buffer', label: 'Buffer 2', rack: [1.86, 3.0, 3.24, 3.68],
-             rows: [[2.0, 3.17, 3.1, 3.17], [2.0, 3.51, 3.1, 3.51]], perRow: 6, big: [[3.5, 3.17], [3.5, 3.51]] },
+             rows: [[2.0, 3.17, 3.1, 3.17], [2.0, 3.51, 3.1, 3.51]], perRow: 6, big: [[3.5, 3.17], [3.5, 3.51]], chipOffset: [-1.05, 0] },
         // Recargado en la pared del cuarto de inflamables (lado de la entrada); `back` es su respaldo.
         G: { kind: 'cart', label: 'Diablito', cart: [3.22, 5.45, 3.62, 6.05], back: [3.22, 5.45, 3.22, 6.05], points: [[3.44, 5.6], [3.44, 5.9]], chipOffset: [0.45, 0] },
         H: { kind: 'loose', label: 'Inflamables · sin conectar', from: [2.95, 5.5], to: [2.95, 6.35], room: 'inflamables', chipOffset: [-0.45, 0] }
@@ -237,14 +237,52 @@ function invRoomWallIsBack(nx, ny, cam) {
 }
 
 // ── Pintado ──────────────────────────────────────────────────────────
+// Semáforo de nivel de los cilindros de pared: verde → amarillo → anaranjado → rojo.
+// Anaranjado y rojo SON los umbrales de invGasLevel (INV_LEVEL_LOW_PCT / _CRITICAL_PCT): el
+// plano no puede decir "bien" de lo que las alertas ya dan por bajo (v21.1). El amarillo
+// (a la mitad o menos) es solo visual y no dispara nada.
+var INV_ROOM_HALF_PCT = 50;
+var INV_ROOM_FULL_PCT = 90;   // buffers: de aquí para arriba se etiqueta "Lleno"
 var INV_ROOM_TONES = {
-    ok:      { fill: '#10b981', dark: '#047857', light: '#6ee7b7', label: 'Normal' },
-    mid:     { fill: '#f59e0b', dark: '#b45309', light: '#fcd34d', label: 'Bajo' },
+    ok:      { fill: '#10b981', dark: '#047857', light: '#6ee7b7', label: 'Más de la mitad' },
+    half:    { fill: '#eab308', dark: '#a16207', light: '#fde047', label: 'A la mitad o menos' },
+    mid:     { fill: '#f97316', dark: '#c2410c', light: '#fdba74', label: 'Bajo' },
     low:     { fill: '#ef4444', dark: '#991b1b', light: '#fca5a5', label: 'Crítico' },
-    expired: { fill: '#be123c', dark: '#881337', light: '#fda4af', label: 'Vencido' },
     empty:   { fill: '#94a3b8', dark: '#475569', light: '#cbd5e1', label: 'Vacío' },
     none:    { fill: '#94a3b8', dark: '#64748b', light: '#e2e8f0', label: 'Sin lecturas' }
 };
+
+/** Color del nivel. PURA: recibe {status, pct, levelStatus} (levelStatus = invGasLevel().status). */
+function invRoomLevelTone(x) {
+    if (!x) return 'none';
+    if (x.status === 'Empty') return 'empty';
+    if (x.levelStatus === 'sinlecturas' || x.pct == null) return 'none';
+    if (x.levelStatus === 'critico') return 'low';
+    if (x.levelStatus === 'bajo') return 'mid';
+    return x.pct <= INV_ROOM_HALF_PCT ? 'half' : 'ok';
+}
+
+/**
+ * Etiqueta de un cilindro que NO está conectado (buffer, diablito, sin conectar): lo que
+ * importa ahí es si sirve para cambiar uno de pared o hay que devolverlo. PURA.
+ * "Lleno" solo si de verdad lo está (o es nuevo, sin lecturas): uno guardado a medias dice su %.
+ */
+function invRoomStockTag(x) {
+    if (!x) return null;
+    if (x.status === 'Empty') return { text: 'Vacío', tone: 'empty' };
+    if (x.expired) return { text: 'Vencido', tone: 'bad' };
+    if (x.levelStatus === 'sinlecturas' || x.pct == null || x.pct >= INV_ROOM_FULL_PCT) return { text: 'Lleno', tone: 'ok' };
+    if (x.levelStatus === 'critico') return { text: x.pct + '% · casi vacío', tone: 'bad' };
+    return { text: x.pct + '%', tone: 'muted' };
+}
+
+// La tapa lleva el color: en una fila vista a lo largo, cada cilindro tapa la barrita del
+// siguiente, pero las tapas siempre se ven. Conectado = color del nivel; fuera = su etiqueta.
+var INV_ROOM_TAG_DOME = { ok: '#34d399', empty: '#94a3b8', bad: '#f87171', muted: '#ffffff' };
+function _invRoomDomeFill(gauge, tone, tag) {
+    var f = gauge ? tone.light : (tag && INV_ROOM_TAG_DOME[tag.tone]);
+    return f ? ' style="fill:' + f + '"' : '';   // estilo, no atributo: la regla .rm-dome le ganaría
+}
 
 function _invRoomPts(arr) { return arr.map(function(p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' '); }
 function _invRoomEsc(s) {
@@ -358,14 +396,15 @@ function invRoomSceneSVG(scene, cam, look, opts) {
             solid.push({ d: pm.d - 0.001, s: '<polygon class="rm-reg" points="' + _invRoomPts(pc) + '"/>' +
                 '<path class="rm-hose" d="M' + pm.x.toFixed(1) + ' ' + pm.y.toFixed(1) + ' Q' + ((pm.x + t.x) / 2).toFixed(1) + ' ' + (Math.max(pm.y, t.y) + 14).toFixed(1) + ' ' + t.x.toFixed(1) + ' ' + (t.y - 3).toFixed(1) + '"/>' });
         }
-        g += '<g class="rm-cyl rm-cyl--' + L.tone + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '"><title>' + _invRoomEsc(L.aria || s.code) + '</title>';
+        var gauge = s.kind === 'wall';   // solo los conectados muestran la barrita de nivel
+        g += '<g class="rm-cyl rm-cyl--' + L.tone + (gauge ? ' rm-cyl--gauge' : ' rm-cyl--stock') + (L.dim ? ' rm-dim' : '') + (sel ? ' rm-cyl--sel' : '') + '" data-gas-id="' + _invRoomEsc(s.gasId) + '" data-code="' + s.code + '" tabindex="0" role="button" aria-label="' + _invRoomEsc(L.aria || s.code) + '"><title>' + _invRoomEsc(L.aria || s.code) + '</title>';
         // cuerpo (metal) + nivel (color del estado) + domo + válvula
         g += '<path class="rm-body" d="M' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'L' + (t.x - rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (t.x + rx).toFixed(1) + ' ' + t.y.toFixed(1) + 'L' + (b.x + rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'A' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' 0 0 1 ' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'Z"/>';
-        if (!top && pct > 0) {
+        if (gauge && !top && pct > 0) {
             g += '<path class="rm-level" fill="url(#rm-g-' + L.tone + ')" d="M' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'L' + (lv.x - rx).toFixed(1) + ' ' + lv.y.toFixed(1) + 'A' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' 0 0 0 ' + (lv.x + rx).toFixed(1) + ' ' + lv.y.toFixed(1) + 'L' + (b.x + rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'A' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' 0 0 1 ' + (b.x - rx).toFixed(1) + ' ' + b.y.toFixed(1) + 'Z"/>';
         }
-        g += '<ellipse class="rm-dome" cx="' + t.x.toFixed(1) + '" cy="' + t.y.toFixed(1) + '" rx="' + rx.toFixed(1) + '" ry="' + (ry + 0.3).toFixed(1) + '"' + (top ? ' fill="' + tone.light + '"' : '') + '/>';
-        if (top) {
+        g += '<ellipse class="rm-dome" cx="' + t.x.toFixed(1) + '" cy="' + t.y.toFixed(1) + '" rx="' + rx.toFixed(1) + '" ry="' + (ry + 0.3).toFixed(1) + '"' + _invRoomDomeFill(gauge, tone, L.tag) + '/>';
+        if (top && gauge) {
             var circ = 2 * Math.PI * rx * 0.78;
             g += '<circle class="rm-ring" cx="' + t.x.toFixed(1) + '" cy="' + t.y.toFixed(1) + '" r="' + (rx * 0.78).toFixed(1) + '" stroke="' + tone.fill + '" stroke-dasharray="' + (circ * pct).toFixed(1) + ' ' + circ.toFixed(1) + '" transform="rotate(-90 ' + t.x.toFixed(1) + ' ' + t.y.toFixed(1) + ')"/>';
         }
@@ -374,8 +413,18 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         g += '</g>';
         solid.push({ d: b.d, s: g });
 
+        // Fuera de pared: una etiqueta (Lleno / Vacío / Vencido / %) en vez de barrita y marcador.
+        if (!gauge && L.tag) {
+            var tp = top ? { x: t.x, y: t.y - rx - 9 } : P(s.x, s.y, h + 0.2);
+            var tw = String(L.tag.text).length * 5.6 + 12;
+            // Vacío y Vencido siempre (piden acción); Lleno y el % de cerca o en plano: en un buffer
+            // visto en 3D las etiquetas se enciman y la tapa ya dice lo mismo con su color.
+            var soft = L.tag.tone === 'ok' || L.tag.tone === 'muted';
+            over.push({ d: b.d, s: '<g class="rm-stag rm-stag--' + L.tag.tone + (soft ? ' rm-stag--soft' : '') + (L.dim ? ' rm-dim' : '') + '" aria-hidden="true"><rect x="' + (tp.x - tw / 2).toFixed(1) + '" y="' + (tp.y - 8).toFixed(1) + '" width="' + tw.toFixed(1) + '" height="15" rx="7.5"/>' +
+                '<text x="' + tp.x.toFixed(1) + '" y="' + (tp.y + 3).toFixed(1) + '">' + _invRoomEsc(L.tag.text) + '</text></g>' });
+        }
         // Marcador (como los pines del tablero de almacén): crítico, vencido o pedir ya
-        if (L.pin) {
+        if (gauge && L.pin) {
             var pin = top ? { x: t.x, y: t.y - rx - 6 } : P(s.x, s.y, h + 0.42);
             var pt = INV_ROOM_TONES[L.pin === 'pedir' ? 'mid' : 'low'];
             over.push({ d: b.d, s: '<g class="rm-pin' + (L.dim ? ' rm-dim' : '') + '" aria-hidden="true"><path d="M' + pin.x.toFixed(1) + ' ' + pin.y.toFixed(1) + 'c-5 -7 -8 -10 -8 -14a8 8 0 1 1 16 0c0 4 -3 7 -8 14z" fill="' + pt.fill + '" stroke="#fff" stroke-width="1.5"/>' +
@@ -383,8 +432,9 @@ function invRoomSceneSVG(scene, cam, look, opts) {
         }
         // En buffers, diablito y cuartito los cilindros van pegados y sus etiquetas se enciman
         // desde cualquier ángulo: ahí el nombre sale al pasar el ratón (<title>) y en el panel.
-        if (opts.labels !== false && L.short && s.kind === 'wall') {
-            over.push({ d: b.d, s: '<text class="rm-lbl' + (L.dim ? ' rm-dim' : '') + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(L.short) + '</text>' });
+        if (opts.labels !== false && L.short && gauge) {
+            var lt = L.short + (L.tone !== 'none' && L.tone !== 'empty' ? ' · ' + Math.round(L.pct || 0) + '%' : '');
+            over.push({ d: b.d, s: '<text class="rm-lbl' + (L.dim ? ' rm-dim' : '') + '" x="' + b.x.toFixed(1) + '" y="' + (b.y + ry + 13).toFixed(1) + '">' + _invRoomEsc(lt) + '</text>' });
         }
     });
 
@@ -492,9 +542,8 @@ function _invRoomInfo(scene) {
         var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 0, status: 'sinlecturas' };
         var ex = typeof invGasExpiry === 'function' ? invGasExpiry(g) : { status: 'unknown' };
         var ro = typeof invGasReorder === 'function' ? invGasReorder(g) : { status: 'ok' };
-        var tone = g.status === 'Empty' ? 'empty'
-            : ex.status === 'expired' ? 'expired'
-            : lvl.status === 'critico' ? 'low' : lvl.status === 'bajo' ? 'mid' : lvl.status === 'sinlecturas' ? 'none' : 'ok';
+        var lx = { status: g.status, pct: lvl.pct, levelStatus: lvl.status, expired: ex.status === 'expired' };
+        var tone = invRoomLevelTone(lx);
         var counts = g.status !== 'Empty';
         var readToday = counts && typeof invFindReadingOn === 'function' && !!invFindReadingOn(g, today);
         var reorder = counts && ro.status === 'comprar';
@@ -502,7 +551,8 @@ function _invRoomInfo(scene) {
         info[g.id] = {
             tone: tone, pct: g.status === 'Empty' ? 0 : (lvl.pct || 0), short: short.slice(0, 14),
             expired: ex.status === 'expired', reorder: reorder, counts: counts, readToday: readToday, kind: kindOf[g.id] || null,
-            pin: tone === 'low' || tone === 'expired' ? 'alerta' : reorder ? 'pedir' : '',
+            pin: tone === 'low' || ex.status === 'expired' ? 'alerta' : reorder ? 'pedir' : '',
+            tag: invRoomStockTag(lx),
             aria: (g.zone || '') + ': ' + (g.formula || '') + ' ' + (g.concNominal || '') + ', ' + (INV_ROOM_TONES[tone] || {}).label +
                   (g.status !== 'Empty' && lvl.pct != null ? ' ' + lvl.pct + '%' : '') + (readToday ? ', leído hoy' : '')
         };
@@ -546,7 +596,11 @@ function invRoomRender(el) {
             '<div class="rm-panel-host" id="rm-panel" hidden></div>' +
           '</div>' +
           '<div class="rm-legend" aria-hidden="true">' +
-            ['ok', 'mid', 'low', 'expired', 'empty', 'none'].map(function(k) { return '<span><i style="background:' + INV_ROOM_TONES[k].fill + '"></i>' + INV_ROOM_TONES[k].label + '</span>'; }).join('') +
+            '<b class="rm-legend-h">Conectados:</b>' +
+            [['ok', '> ' + INV_ROOM_HALF_PCT + '%'], ['half', '≤ ' + INV_ROOM_HALF_PCT + '%'], ['mid', '≤ ' + (typeof INV_LEVEL_LOW_PCT !== 'undefined' ? INV_LEVEL_LOW_PCT : 30) + '% bajo'],
+             ['low', '≤ ' + (typeof INV_LEVEL_CRITICAL_PCT !== 'undefined' ? INV_LEVEL_CRITICAL_PCT : 15) + '% crítico'], ['none', 'sin lecturas']].map(function(k) {
+                return '<span><i style="background:' + INV_ROOM_TONES[k[0]].fill + '"></i>' + k[1] + '</span>'; }).join('') +
+            '<b class="rm-legend-h">Buffers y diablito (tapa):</b><span class="rm-legend-tag rm-legend-tag--ok">Lleno</span><span class="rm-legend-tag rm-legend-tag--muted">a medias</span><span class="rm-legend-tag rm-legend-tag--empty">Vacío</span><span class="rm-legend-tag rm-legend-tag--bad">Vencido</span>' +
             '<span class="rm-legend-hint">' + (narrow ? 'Pellizca para acercar · mantén presionado un cilindro para moverlo' : 'Rueda = acercar · arrastra el piso para mover la vista · arrastra un cilindro para reubicarlo') + '</span>' +
           '</div>' +
           '<div class="rm-list" id="rm-list"></div>' +
@@ -572,7 +626,7 @@ function invRoomPaint() {
     var look = {};
     Object.keys(info).forEach(function(id) {
         var i = info[id];
-        look[id] = { tone: i.tone, pct: i.pct, short: i.short, pin: i.pin, aria: i.aria, dim: !!_invRoom.filter && !invRoomFilterMatch(_invRoom.filter, i) };
+        look[id] = { tone: i.tone, pct: i.pct, short: i.short, pin: i.pin, tag: i.tag, aria: i.aria, dim: !!_invRoom.filter && !invRoomFilterMatch(_invRoom.filter, i) };
     });
     var cam = _invRoomCam();
     var out = invRoomSceneSVG(scene, cam, look, { sel: _invRoom.sel, selSlot: _invRoom.selSlot, moving: _invRoom.moving, labels: true });
@@ -597,6 +651,8 @@ function _invRoomApplyCam() {
     var cam = _invRoomCam();
     var cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     g.setAttribute('transform', 'translate(' + (cx + cam.panX).toFixed(1) + ' ' + (cy + cam.panY).toFixed(1) + ') scale(' + cam.zoom.toFixed(3) + ') translate(' + (-cx).toFixed(1) + ' ' + (-cy).toFixed(1) + ')');
+    var st = document.getElementById('rm-stage');
+    if (st) st.classList.toggle('rm-near', cam.zoom >= 1.6 || cam.el >= 80);
 }
 
 function _invRoomPaintKpis(scene, info) {
