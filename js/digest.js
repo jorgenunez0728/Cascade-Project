@@ -68,15 +68,23 @@ function digestSlotDue(lp, state) {
 }
 
 /**
- * [3.12.0] ¿Toca el estatus CoP semanal? El viernes desde el cierre del turno (16:00), una vez
- * por semana y solo con destinatarios. Devuelve el lunes de la semana o null. PURA.
+ * [3.12.0] ¿Toca el estatus CoP semanal? Sale el VIERNES desde las 7:00 (para compartirlo ese
+ * día) con el corte de ese viernes, y si no se logró enviar se sigue intentando en cada corrida
+ * —como el resumen— hasta que salga o llegue el viernes siguiente. Solo con destinatarios.
+ * La primera vez (sin `lastCopWeek`) solo sale el mismo viernes: no se manda una semana vieja
+ * al estrenarse. Devuelve {week: lunes, cut: viernes} o null. PURA.
  */
 function digestCopDue(lp, state, settings) {
-    if (!lp || lp.dow !== 5 || lp.hour < DIGEST_SHIFT.fin) return null;
+    if (!lp) return null;
     var to = settings && settings.copTo;
     if (!to || !to.length) return null;
-    var week = digestMondayOf(lp.date);
-    return (state && state.lastCopWeek === week) ? null : week;
+    var back = lp.dow === 5 ? (lp.hour >= DIGEST_SHIFT.inicio ? 0 : 7) : (lp.dow === 6 ? 1 : lp.dow + 2);
+    var cut = digestAddDays(lp.date, -back);
+    var week = digestMondayOf(cut);
+    var st = state || {};
+    if (st.lastCopWeek === week) return null;
+    if (!st.lastCopWeek && cut !== lp.date) return null;
+    return { week: week, cut: cut };
 }
 
 /** 'AAAA-MM-DD' + n días, sobre la cadena (sin zona horaria). PURA. */
@@ -151,7 +159,7 @@ function digestSettingsNormalize(s) {
     return {
         to: Array.isArray(s.to) ? digestParseEmails(s.to.join(' ')) : digestParseEmails(s.to),
         escalateTo: Array.isArray(s.escalateTo) ? digestParseEmails(s.escalateTo.join(' ')) : digestParseEmails(s.escalateTo),
-        // [3.12.0] Estatus CoP semanal (viernes al cierre): su propia lista — suele ser corporativo.
+        // [3.12.0] Estatus CoP semanal (viernes 7:00): su propia lista — suele ser corporativo.
         copTo: Array.isArray(s.copTo) ? digestParseEmails(s.copTo.join(' ')) : digestParseEmails(s.copTo),
         escalateDays: (isNaN(days) || days < 1) ? DIGEST_ESCALATE_DAYS_DEFAULT : Math.min(days, 90),
         ntfyTopic: String(s.ntfyTopic || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64),
@@ -849,7 +857,7 @@ function digestPanelRender(opts) {
         '<textarea id="dg-to" rows="2" placeholder="Ej.: laboratorio@kia.com, ana@kia.com"' + dis + '>' + _digestEsc(s.to.join(', ')) + '</textarea></div>';
     h += '<div class="form-group"><label for="dg-esc">Escalación (en copia solo mientras haya vehículos escalados)</label>' +
         '<textarea id="dg-esc" rows="2" placeholder="Ej.: jefe@kia.com"' + dis + '>' + _digestEsc(s.escalateTo.join(', ')) + '</textarea></div>';
-    h += '<div class="form-group"><label for="dg-cop">Estatus CoP semanal (viernes, al cierre del turno)</label>' +
+    h += '<div class="form-group"><label for="dg-cop">Estatus CoP semanal (viernes, 7:00)</label>' +
         '<textarea id="dg-cop" rows="2" placeholder="Ej.: corporativo@kia.com — vacío = no se envía"' + dis + '>' + _digestEsc(s.copTo.join(', ')) + '</textarea></div>';
     h += '<div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">' +
         '<div class="form-group" style="flex:0 1 160px;"><label for="dg-days">Escalar después de (días)</label>' +
@@ -905,7 +913,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
         'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen (lunes a viernes, 7:00 y 16:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
         'dg-esc': { title: 'Escalación', text: 'Correos que se agregan EN COPIA solo los días en que hay vehículos con más días de los indicados desde su alta sin aprobar. Dejan de recibirlo cuando esos vehículos se aprueban.' },
-        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes, al cierre del turno, el estatus CoP del año calendario (Europa y Medio Oriente): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
+        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (Europa y Medio Oriente): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
         'dg-days': { title: 'Escalar después de', text: 'Días naturales desde el alta (incluye fin de semana). Con 7, un vehículo se escala a partir del día 8 sin aprobar.' },
         'dg-ntfy': { title: 'Tema de ntfy', text: 'Nombre del canal en la app gratuita ntfy. Quien se suscriba a ese tema recibe la notificación del resumen. Usa un nombre difícil de adivinar: cualquiera que lo conozca puede leerlo (solo trae conteos, nunca VINs completos ni valores).' },
         'pn_digest': { title: 'Avisos del laboratorio', text: 'Resumen diario por correo y al teléfono, escalación a un jefe de los vehículos atorados y aviso cuando se acepta el plan de una semana. Lo envía un proceso automático en la nube con los datos sincronizados.' }

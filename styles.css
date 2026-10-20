@@ -4315,6 +4315,7 @@ body.cop-rep-open { overflow: hidden; }
 .cop-rep-cut input { font-size: var(--fs-base); padding: var(--space-2xs) var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
 .cop-rep-actions { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-left: auto; }
 .cop-rep-note { font-size: var(--fs-2xs); color: var(--muted); padding: var(--space-2xs) var(--space-lg); background: var(--surface-2, var(--surface)); }
+.cop-rep-left { margin-top: var(--space-2xs); color: var(--muted); }
 .cop-rep-frame { flex: 1; width: 100%; border: 0; background: #ffffff; }
 .cop-rep-prod-wrap { overflow-x: auto; max-width: 100%; }
 .cop-rep-prod { border-collapse: collapse; font-size: var(--fs-2xs); }

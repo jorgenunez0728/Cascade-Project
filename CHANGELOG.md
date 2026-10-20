@@ -44,10 +44,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   familia se ve como tarjeta.
 - **✏️ Producción real**: lo producido de verdad, mes por mes y por familia, manda sobre el plan
   importado. El reporte declara los meses que el plan no trae (hoy: enero a mayo de 2026).
-- **⚙️ Familias**: sacar una familia del reporte (unidades piloto, una que corporativo no pide)
-  con su motivo. No se borra nada: sale al pie del reporte y se regresa con un toque.
-- **Envío automático**: cada viernes desde las 16:00 sale el estatus por correo a la lista
-  **Estatus CoP semanal** (Datos → Sistema → Avisos del laboratorio). Vacía, no se envía.
+- **Familias fuera del reporte**: una familia sin producción en el año no va al reporte, aunque
+  tenga ensayos. **⚙️ Familias** deja sacar otras (unidades piloto, una que corporativo no pide)
+  con su motivo; no se borra nada y se regresa con un toque. Lo que queda fuera **no se menciona
+  en el reporte que se comparte**: la app lo lista en la barra del visor.
+- **Envío automático**: cada **viernes a las 7:00** sale el estatus por correo a la lista
+  **Estatus CoP semanal** (Datos → Sistema → Avisos del laboratorio), con el corte de ese
+  viernes, para compartirlo ese día. Si GitHub no lo logra enviar, se sigue intentando en cada
+  corrida (como el resumen) hasta que salga. Vacía, no se envía.
 
 ### Para desarrollo
 - `js/copreport.js` (nuevo, va después de `cop_validator.js`). PURAS: `copLotRequired`,
@@ -58,7 +62,7 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   modelo o calendario); la usan la mesa, las exclusiones y el CO₂ del validador.
 - `copState.yearProd` / `yearCuts` / `yearExclude` viajan en `cop/current` y se UNEN en el pull.
 - `tools/digest-env.js` carga el código real de `vets.js`, `cop_validator.js` y `copreport.js`;
-  `digestCopDue` (PURA) decide el envío; `digest/state.lastCopWeek` / `copLastCut`.
+  `digestCopDue` (PURA) decide el envío (`{week, cut}`); `digest/state.lastCopWeek` / `copLastCut`.
 
 ## 3.11.0 — El cuarto de gasolina (2026-10-20)
 

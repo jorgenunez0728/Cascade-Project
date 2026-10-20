@@ -3526,11 +3526,17 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
 - Escribir producción real o excluir familias pide `plan.manage` en la capa de datos y se audita
   con antes/después (`produccion_real`, `reporte_familias`); el corte audita `cop_corte_semanal`
   una vez por semana.
-- **Envío automático**: `digestCopDue(lp, state, settings)` (digest.js, PURA) = viernes ≥ 16:00, una
-  vez por semana (`digest/state.lastCopWeek`) y solo con `settings.copTo`. `tools/daily-digest`
+- **Una familia sin producción en el año no va al reporte** (aunque tenga ensayos: `m.noProduction`),
+  y **lo que queda fuera —sin producción, excluidas, fuera del alcance— NO se menciona en el HTML
+  compartido** (decisión del laboratorio). Solo la app lo lista (`_copRepLeftOutHTML`, barra del visor).
+- **Envío automático**: `digestCopDue(lp, state, settings)` (digest.js, PURA) → `{week, cut}` = el
+  viernes más reciente desde las 7:00 (corte = ese viernes), una vez por semana
+  (`digest/state.lastCopWeek`) y solo con `settings.copTo`. **Si falla se reintenta en cada corrida
+  hasta que salga** (lunes–jueves siguen con el corte del viernes); sin `lastCopWeek` solo sale el
+  mismo viernes, para no mandar una semana vieja al estrenarse. `tools/daily-digest`
   lee `cop/current` y `settings/regulations` (perfiles publicados → `__setRegProfiles`) y calcula
   con el código REAL (`tools/digest-env.js` carga `vets.js`, `cop_validator.js` y `copreport.js`):
   sus números son los de la app (lo fija `tests/digest.node.js`). No escribe en `cop/current`; si
   la app no guardó corte la semana pasada, compara contra `digest/state.copLastCut`. El verificador
-  (`digest-check`) también cuenta el estatus CoP.
+  (`digest-check`, que también lee `settings/digest`) cuenta el estatus CoP.
 

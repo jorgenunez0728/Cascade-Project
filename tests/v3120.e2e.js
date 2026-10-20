@@ -77,7 +77,9 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     const m = await page.evaluate(() => { const m = copYearReportModel({ force: true }); return m.rows.map(r => ({ g: r.group.id, vol: r.vol, req: r.req, done: r.done, mys: r.mys.join('+') })); });
     const r5 = m.find(r => r.g === '5dr');
     ok('MY26 + MY27 del 5 puertas son una familia: 8,900 u → 6 ensayos, 3 hechos (el de 2025 no cuenta)', r5 && r5.vol === 8900 && r5.req === 6 && r5.done === 3 && r5.mys === '26 MODEL+27 MODEL', JSON.stringify(r5));
-    ok('Medio Oriente: solo lo del alcance (EURO-5); el EURO-4 se declara fuera', m.filter(r => r.g === '4dr').length === 1 && /Fuera del alcance CoP/.test(t) && /EURO-4/.test(t));
+    const nota = await page.evaluate(() => document.querySelector('#cop-rep .cop-rep-note').innerText);
+    ok('Medio Oriente: solo lo del alcance (EURO-5); lo de fuera NO se menciona en el reporte, la app sí lo lista', m.filter(r => r.g === '4dr').length === 1 &&
+        !/EURO-4/.test(t) && !/Fuera del alcance/.test(t) && /fuera del alcance CoP: .*EURO-4/.test(nota), nota);
     ok('el corte de la semana queda guardado', await page.evaluate(() => !!(copState.yearCuts && copState.yearCuts[copRepMonday(localToday())])));
     ok('el reporte no trae VINs', !/KNAE2E/.test(t));
 
@@ -102,7 +104,8 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     await page.locator('#globalModal button', { hasText: 'Guardar' }).click();
     await page.waitForTimeout(800);
     t = await frameText(page);
-    ok('la familia sale del conteo y se declara con su motivo', /Fuera de este reporte por decisión del laboratorio/.test(t) && /Unidades piloto/.test(t) &&
+    const nota2 = await page.evaluate(() => document.querySelector('#cop-rep .cop-rep-note').innerText);
+    ok('la familia sale del conteo sin mencionarse en el reporte; la app la lista con su motivo', !/Unidades piloto/.test(t) && /excluidas por el laboratorio: .*Unidades piloto/.test(nota2) &&
         await page.evaluate(() => copYearReportModel({ force: true }).rows.every(r => r.group.id !== 'wgn')));
     await page.locator('#cop-rep .cop-rep-close').click();
 

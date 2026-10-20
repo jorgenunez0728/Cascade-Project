@@ -93,6 +93,11 @@ const two = { fams: { [yk]: { key: yk, mod: 'CL4', body: '5DR', regions: { EUROP
 const many = [1, 2, 3, 4, 5, 6].map(i => t('2026-06-0' + i, 'X' + i));
 const MG = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: two, tests: many, verdictOf: () => null });
 ok('6 ensayos en una familia no cubren la otra: 50%, no 100%', Math.abs(MG.total.progress - 0.5) < 1e-9 && MG.total.pending === 3, MG.total.progress);
+const NP = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: { fams: { [yk]: Object.assign({}, two.fams[yk], { vol: 0, m: [0] }) }, missing: [] }, tests: many.slice(0, 2) });
+ok('con ensayos pero sin producción en el año: fuera del reporte (solo se lista en noProduction)', NP.rows.length === 0 && NP.noProduction.length === 1 && NP.total.req === 0);
+ok('lo excluido y lo de fuera del alcance NO se mencionan en el reporte', (() => {
+    const H2 = C.copYearReportHTML(Object.assign({}, MG, { excluded: [{ label: 'FAM-X', vol: 5, done: 0, reason: 'piloto' }], outOfScope: [{ label: 'FAM-Y', vol: 9 }] }), {});
+    return H2.indexOf('FAM-X') < 0 && H2.indexOf('FAM-Y') < 0 && H2.indexOf('piloto') < 0; })());
 ok('una familia sin nada en el año no sale', C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: { fams: { [yk]: Object.assign({}, two.fams[yk], { vol: 0, m: [0] }) }, missing: [] }, tests: [] }).rows.length === 0);
 const MX = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: two, tests: many, exclude: { [yk2]: { excluded: true, reason: 'unidades piloto' } } });
 ok('una familia excluida no cuenta y se declara con su motivo', MX.rows.length === 1 && MX.excluded.length === 1 && MX.excluded[0].reason === 'unidades piloto' && MX.total.req === 3);

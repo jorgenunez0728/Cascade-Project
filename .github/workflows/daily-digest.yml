@@ -19,7 +19,7 @@ on:
         type: boolean
         default: false
       force_cop:
-        description: 'Mandar el estatus CoP semanal aunque no sea viernes o ya haya salido'
+        description: 'Mandar el estatus CoP semanal (sale solo los viernes 7:00) aunque ya haya salido'
         type: boolean
         default: false
       test_to:

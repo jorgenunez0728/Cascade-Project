@@ -10,8 +10,9 @@
 //      (con el jefe en copia si hay escalados), ntfy y Web Push.
 //   3. PLAN: por cada plan aceptado que no se haya avisado → correo + ntfy + Web Push.
 //      La primera vez solo registra los ya aceptados (no bombardea al estrenarse).
-//   4. [3.12.0] ESTATUS CoP: el viernes desde las 16:00, una vez por semana, a la lista de
-//      «Estatus CoP semanal» (digestCopDue) — solo correo. Es el reporte de Datos → Reportes.
+//   4. [3.12.0] ESTATUS CoP: el viernes desde las 7:00, una vez por semana, a la lista de
+//      «Estatus CoP semanal» (digestCopDue) — solo correo, con el corte de ese viernes. Si
+//      falla se reintenta en cada corrida hasta que salga. Es el reporte de Datos → Reportes.
 //   5. Guarda digest/state.
 // Si una lectura falla o no hay vehículos, NO envía nada (un resumen en ceros por un error
 // de lectura sería peor que ninguno) y termina con código 1: GitHub avisa al dueño del repo.
@@ -236,12 +237,13 @@ async function main() {
     }
 
     // 3) [3.12.0] Estatus CoP semanal
-    const copWeek = P.digestCopDue(lp, state, data.settings);
-    if (TEST || FORCE_COP || copWeek) {
+    const copDue = P.digestCopDue(lp, state, data.settings);
+    if (TEST || FORCE_COP || copDue) {
         if (!data.cop) errors.push('CoP: no se pudo leer cop/current — el estatus no salió');
         else if (!TEST && !data.settings.copTo.length) log('CoP: sin destinatarios (Datos → Sistema → Avisos → Estatus CoP semanal) — no se envía');
         else {
-            const week = P.digestMondayOf(lp.date), prevWeek = P.digestAddDays(week, -7);
+            const cutIso = copDue ? copDue.cut : lp.date;
+            const week = P.digestMondayOf(cutIso), prevWeek = P.digestAddDays(week, -7);
             const cop = JSON.parse(JSON.stringify(data.cop));
             // Sin corte de la semana pasada en la app, se compara contra lo que salió en el correo anterior.
             cop.yearCuts = cop.yearCuts || {};
@@ -249,7 +251,7 @@ async function main() {
             P.db.vehicles = data.vehicles;
             P.__copSet(cop);
             P.__setRegProfiles(data.regProfiles);
-            const m = P.copYearReportModel({ cutIso: lp.date, force: true });
+            const m = P.copYearReportModel({ cutIso, force: true });
             const html = P.copYearReportHTML(m, { generatedAt: lp.date + ' ' + lp.hhmm, generatedBy: 'envío automático' });
             const subject = P.copRepSubject(m);
             log(`CoP: ${m.total.done}/${m.total.req} ensayos, ${Math.round(m.total.progress * 100)}% (+${m.total.added} esta semana), ${m.rows.length} familias`);

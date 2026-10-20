@@ -4758,6 +4758,7 @@ body.cop-rep-open { overflow: hidden; }
 .cop-rep-cut input { font-size: var(--fs-base); padding: var(--space-2xs) var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
 .cop-rep-actions { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-left: auto; }
 .cop-rep-note { font-size: var(--fs-2xs); color: var(--muted); padding: var(--space-2xs) var(--space-lg); background: var(--surface-2, var(--surface)); }
+.cop-rep-left { margin-top: var(--space-2xs); color: var(--muted); }
 .cop-rep-frame { flex: 1; width: 100%; border: 0; background: #ffffff; }
 .cop-rep-prod-wrap { overflow-x: auto; max-width: 100%; }
 .cop-rep-prod { border-collapse: collapse; font-size: var(--fs-2xs); }
@@ -9979,10 +9980,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610200202';
+var APP_BUILD = '202610200214';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '4f3fe8dcce2b07ae199df0c5bb74a4be7ba61fd2';
+var APP_COMMIT = 'bde9041d3f841f0b537cca064ae2c92695487e82';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10006,8 +10007,8 @@ var APP_VERSION_HISTORY = [
                 'Compara contra la semana anterior: cada vez que se abre se guarda el corte de la semana, y la semana siguiente se compara contra ese.',
                 'Se imprime o guarda como PDF, se copia con formato para pegarlo en un correo o se descarga; en el teléfono cada familia se ve como tarjeta.',
                 '✏️ Producción real: el plan importado no trae enero–mayo 2026; lo producido de verdad se captura ahí, mes por mes, y manda sobre el plan. El reporte dice qué meses faltan.',
-                '⚙️ Familias: se puede sacar una familia del reporte (por ejemplo, unidades piloto) con su motivo; sale declarada al pie, no se borra nada.',
-                'Envío automático: cada viernes al cierre del turno sale el estatus por correo a la lista "Estatus CoP semanal" (Datos → Sistema → Avisos). Vacía, no se envía.'] },
+                'Una familia sin producción en el año no va al reporte. ⚙️ Familias deja sacar otras (por ejemplo, unidades piloto) con su motivo. Lo que queda fuera no se menciona en el reporte que se comparte; la app lo lista aparte.',
+                'Envío automático: cada viernes a las 7:00 sale el estatus por correo a la lista "Estatus CoP semanal" (Datos → Sistema → Avisos), listo para compartirlo ese día. Si no se logra enviar, se sigue intentando hasta que salga. Vacía, no se envía.'] },
     { version: '3.11.0', date: '20 oct 2026', title: 'El cuarto de gasolina',
       bullets: ['Consumibles → 🗺️ Cuarto tiene ahora dos mapas: 🧪 Gases y ⛽ Gasolina (el selector va al principio de la barra y la elección se recuerda en el equipo).',
                 'El cuarto de gasolina como es: seis tarimas de cuatro tambos (T1 a T6), las boyas de premium como un solo tambo (B), el drenaje y la puerta.',
@@ -11099,14 +11100,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610200202' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610200214' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610200202' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610200214' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11122,7 +11123,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610200202' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610200214' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -64806,7 +64807,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610200202' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610200214' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -72579,11 +72580,14 @@ function copYearReportCompute(src) {
     });
     var cutMonth = Number(String(cut).slice(5, 7));
     var cutYear = Number(String(cut).slice(0, 4));
-    var rows = [], excludedOut = [];
+    var rows = [], excludedOut = [], noProduction = [];
     var excl = src.exclude || {};
     Object.keys(byKey).forEach(function(k) {
         var e = byKey[k], f = e.fam;
         if (!f.vol && !e.tests.length) return;            // familia del alcance sin nada en el año
+        // Sin producción en el año no va al reporte (decisión del laboratorio, oct-2026), aunque
+        // tenga ensayos: la regla de lotes es sobre lo producido. Solo la app lo lista aparte.
+        if (!f.vol) { noProduction.push({ key: k, label: copRepFamilyLabel(f), done: e.tests.length }); return; }
         // Fuera del reporte por decisión del laboratorio: se DECLARA (con su motivo), no se cuenta.
         if (excl[k] && excl[k].excluded) {
             excludedOut.push({ key: k, label: copRepFamilyLabel(f), vol: f.vol, done: e.tests.length,
@@ -72663,6 +72667,7 @@ function copYearReportCompute(src) {
         })(),
         nonCopPurposes: nonCop,
         excluded: excludedOut.sort(function(a, b) { return b.vol - a.vol; }),
+        noProduction: noProduction,
         outOfScope: src.outOfScope || []
     };
 }
@@ -72880,16 +72885,8 @@ function copYearReportHTML(m, opts) {
     foot.push('<b>Cuentan</b> los ensayos aprobados y válidos para CoP con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
     var nc = Object.keys(m.nonCopPurposes);
     if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
-    if (m.excluded && m.excluded.length) {
-        foot.push('<b>Fuera de este reporte por decisión del laboratorio:</b> ' + m.excluded.map(function(x) {
-            return _crEsc(x.label) + ' (' + _crNum(x.vol) + ' u, ' + x.done + ' ensayo' + (x.done === 1 ? '' : 's') + (x.reason ? ' — ' + _crEsc(x.reason) : '') + ')';
-        }).join('; ') + '.');
-    }
-    if (m.outOfScope.length) {
-        foot.push('Fuera del alcance CoP (norma de emisiones), con producción en ' + m.year + ': ' + m.outOfScope.map(function(o) {
-            return _crEsc(o.label) + ' (' + _crNum(o.vol) + ')';
-        }).join('; ') + '.');
-    }
+    // Lo que quedó fuera (excluidas, sin producción, fuera del alcance) NO se menciona en el
+    // reporte que se comparte (decisión del laboratorio): la app lo lista en su barra.
     h += '<div style="margin:22px 10px 0;padding:12px 14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.6;">' + foot.join('<br>') +
          '<br>Comparación contra el corte del ' + _crEsc(_crDay(m.prevCut)) + (m.prevFromSaved ? ' (corte guardado)' : '') + '.' +
          (opts.generatedAt ? ' Generado ' + _crEsc(opts.generatedAt) + (opts.generatedBy ? ' por ' + _crEsc(opts.generatedBy) : '') + '.' : '') + '</div>';
@@ -73069,7 +73066,7 @@ function copRepOpen(cutIso) {
           '</div>' +
         '</div>' +
         '<div class="cop-rep-note">' + (saved ? '📌 Corte de la semana ' + r.model.week + ' guardado: la próxima semana se compara contra este.'
-                                              : 'Consulta de un corte anterior: no se guarda.') + '</div>' +
+                                              : 'Consulta de un corte anterior: no se guarda.') + _copRepLeftOutHTML(r.model) + '</div>' +
         '<iframe class="cop-rep-frame" title="Reporte CoP ' + r.model.year + '"></iframe>';
     host.querySelector('iframe').srcdoc = r.doc;
     host.classList.add('is-open');
@@ -73082,6 +73079,15 @@ function copRepOpen(cutIso) {
     if (pb && typeof uiExplainDisabled === 'function') uiExplainDisabled(pb, canEdit ? '' : 'Capturar la producción real pide el permiso de administrar el plan.');
     var fb = document.getElementById('cop-rep-fam-btn');
     if (fb && typeof uiExplainDisabled === 'function') uiExplainDisabled(fb, canEdit ? '' : 'Decidir qué familias van al reporte pide el permiso de administrar el plan.');
+}
+
+/** Lo que NO va en el reporte compartido, para que el laboratorio lo vea (solo en la app). */
+function _copRepLeftOutHTML(m) {
+    var parts = [];
+    if (m.excluded.length) parts.push('excluidas por el laboratorio: ' + m.excluded.map(function(x) { return _crEsc(x.label) + (x.reason ? ' (' + _crEsc(x.reason) + ')' : ''); }).join('; '));
+    if (m.noProduction.length) parts.push('sin producción en ' + m.year + ' (con ensayos): ' + m.noProduction.map(function(x) { return _crEsc(x.label); }).join('; '));
+    if (m.outOfScope.length) parts.push('fuera del alcance CoP: ' + m.outOfScope.map(function(x) { return _crEsc(x.label) + ' (' + _crNum(x.vol) + ')'; }).join('; '));
+    return parts.length ? '<div class="cop-rep-left">No van en el reporte — ' + parts.join(' · ') + '.</div>' : '';
 }
 
 function copRepClose() {
@@ -80189,15 +80195,23 @@ function digestSlotDue(lp, state) {
 }
 
 /**
- * [3.12.0] ¿Toca el estatus CoP semanal? El viernes desde el cierre del turno (16:00), una vez
- * por semana y solo con destinatarios. Devuelve el lunes de la semana o null. PURA.
+ * [3.12.0] ¿Toca el estatus CoP semanal? Sale el VIERNES desde las 7:00 (para compartirlo ese
+ * día) con el corte de ese viernes, y si no se logró enviar se sigue intentando en cada corrida
+ * —como el resumen— hasta que salga o llegue el viernes siguiente. Solo con destinatarios.
+ * La primera vez (sin `lastCopWeek`) solo sale el mismo viernes: no se manda una semana vieja
+ * al estrenarse. Devuelve {week: lunes, cut: viernes} o null. PURA.
  */
 function digestCopDue(lp, state, settings) {
-    if (!lp || lp.dow !== 5 || lp.hour < DIGEST_SHIFT.fin) return null;
+    if (!lp) return null;
     var to = settings && settings.copTo;
     if (!to || !to.length) return null;
-    var week = digestMondayOf(lp.date);
-    return (state && state.lastCopWeek === week) ? null : week;
+    var back = lp.dow === 5 ? (lp.hour >= DIGEST_SHIFT.inicio ? 0 : 7) : (lp.dow === 6 ? 1 : lp.dow + 2);
+    var cut = digestAddDays(lp.date, -back);
+    var week = digestMondayOf(cut);
+    var st = state || {};
+    if (st.lastCopWeek === week) return null;
+    if (!st.lastCopWeek && cut !== lp.date) return null;
+    return { week: week, cut: cut };
 }
 
 /** 'AAAA-MM-DD' + n días, sobre la cadena (sin zona horaria). PURA. */
@@ -80272,7 +80286,7 @@ function digestSettingsNormalize(s) {
     return {
         to: Array.isArray(s.to) ? digestParseEmails(s.to.join(' ')) : digestParseEmails(s.to),
         escalateTo: Array.isArray(s.escalateTo) ? digestParseEmails(s.escalateTo.join(' ')) : digestParseEmails(s.escalateTo),
-        // [3.12.0] Estatus CoP semanal (viernes al cierre): su propia lista — suele ser corporativo.
+        // [3.12.0] Estatus CoP semanal (viernes 7:00): su propia lista — suele ser corporativo.
         copTo: Array.isArray(s.copTo) ? digestParseEmails(s.copTo.join(' ')) : digestParseEmails(s.copTo),
         escalateDays: (isNaN(days) || days < 1) ? DIGEST_ESCALATE_DAYS_DEFAULT : Math.min(days, 90),
         ntfyTopic: String(s.ntfyTopic || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64),
@@ -80970,7 +80984,7 @@ function digestPanelRender(opts) {
         '<textarea id="dg-to" rows="2" placeholder="Ej.: laboratorio@kia.com, ana@kia.com"' + dis + '>' + _digestEsc(s.to.join(', ')) + '</textarea></div>';
     h += '<div class="form-group"><label for="dg-esc">Escalación (en copia solo mientras haya vehículos escalados)</label>' +
         '<textarea id="dg-esc" rows="2" placeholder="Ej.: jefe@kia.com"' + dis + '>' + _digestEsc(s.escalateTo.join(', ')) + '</textarea></div>';
-    h += '<div class="form-group"><label for="dg-cop">Estatus CoP semanal (viernes, al cierre del turno)</label>' +
+    h += '<div class="form-group"><label for="dg-cop">Estatus CoP semanal (viernes, 7:00)</label>' +
         '<textarea id="dg-cop" rows="2" placeholder="Ej.: corporativo@kia.com — vacío = no se envía"' + dis + '>' + _digestEsc(s.copTo.join(', ')) + '</textarea></div>';
     h += '<div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">' +
         '<div class="form-group" style="flex:0 1 160px;"><label for="dg-days">Escalar después de (días)</label>' +
@@ -81026,7 +81040,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
         'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen (lunes a viernes, 7:00 y 16:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
         'dg-esc': { title: 'Escalación', text: 'Correos que se agregan EN COPIA solo los días en que hay vehículos con más días de los indicados desde su alta sin aprobar. Dejan de recibirlo cuando esos vehículos se aprueban.' },
-        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes, al cierre del turno, el estatus CoP del año calendario (Europa y Medio Oriente): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
+        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (Europa y Medio Oriente): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
         'dg-days': { title: 'Escalar después de', text: 'Días naturales desde el alta (incluye fin de semana). Con 7, un vehículo se escala a partir del día 8 sin aprobar.' },
         'dg-ntfy': { title: 'Tema de ntfy', text: 'Nombre del canal en la app gratuita ntfy. Quien se suscriba a ese tema recibe la notificación del resumen. Usa un nombre difícil de adivinar: cualquiera que lo conozca puede leerlo (solo trae conteos, nunca VINs completos ni valores).' },
         'pn_digest': { title: 'Avisos del laboratorio', text: 'Resumen diario por correo y al teléfono, escalación a un jefe de los vehículos atorados y aviso cuando se acepta el plan de una semana. Lo envía un proceso automático en la nube con los datos sincronizados.' }
@@ -81462,7 +81476,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9513,"mods":[[9516,"js/app.js",19229],[19233,"js/uiflow.js",19549],[19553,"js/cop15.js",30182],[30186,"js/inventory.js",37870],[37874,"js/cuarto.js",39939],[39943,"js/testplan.js",51502],[51506,"js/panel.js",56844],[56848,"js/projects.js",59137],[59141,"js/auth.js",60182],[60186,"js/signatures.js",60387],[60391,"js/firebase-sync.js",67949],[67953,"js/cop_validator.js",72376],[72380,"js/copreport.js",73307],[73311,"js/homolog.js",75208],[75212,"js/vets.js",77009],[77013,"js/historico.js",77927],[77931,"js/review.js",78384],[78388,"js/opcards.js",78819],[78823,"js/handoff.js",79097],[79101,"js/ficha.js",79593],[79597,"js/relevo.js",79977],[79981,"js/momentos.js",80118],[80122,"js/digest.js",81034],[81038,"js/xlsxw.js",81418],[81422,"js/bugreport.js",82568]]};
+var BUG_LINE_MAP = {"tag":9514,"mods":[[9517,"js/app.js",19230],[19234,"js/uiflow.js",19550],[19554,"js/cop15.js",30183],[30187,"js/inventory.js",37871],[37875,"js/cuarto.js",39940],[39944,"js/testplan.js",51503],[51507,"js/panel.js",56845],[56849,"js/projects.js",59138],[59142,"js/auth.js",60183],[60187,"js/signatures.js",60388],[60392,"js/firebase-sync.js",67950],[67954,"js/cop_validator.js",72377],[72381,"js/copreport.js",73313],[73317,"js/homolog.js",75214],[75218,"js/vets.js",77015],[77019,"js/historico.js",77933],[77937,"js/review.js",78390],[78394,"js/opcards.js",78825],[78829,"js/handoff.js",79103],[79107,"js/ficha.js",79599],[79603,"js/relevo.js",79983],[79987,"js/momentos.js",80124],[80128,"js/digest.js",81048],[81052,"js/xlsxw.js",81432],[81436,"js/bugreport.js",82582]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

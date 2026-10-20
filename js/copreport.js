@@ -200,11 +200,14 @@ function copYearReportCompute(src) {
     });
     var cutMonth = Number(String(cut).slice(5, 7));
     var cutYear = Number(String(cut).slice(0, 4));
-    var rows = [], excludedOut = [];
+    var rows = [], excludedOut = [], noProduction = [];
     var excl = src.exclude || {};
     Object.keys(byKey).forEach(function(k) {
         var e = byKey[k], f = e.fam;
         if (!f.vol && !e.tests.length) return;            // familia del alcance sin nada en el año
+        // Sin producción en el año no va al reporte (decisión del laboratorio, oct-2026), aunque
+        // tenga ensayos: la regla de lotes es sobre lo producido. Solo la app lo lista aparte.
+        if (!f.vol) { noProduction.push({ key: k, label: copRepFamilyLabel(f), done: e.tests.length }); return; }
         // Fuera del reporte por decisión del laboratorio: se DECLARA (con su motivo), no se cuenta.
         if (excl[k] && excl[k].excluded) {
             excludedOut.push({ key: k, label: copRepFamilyLabel(f), vol: f.vol, done: e.tests.length,
@@ -284,6 +287,7 @@ function copYearReportCompute(src) {
         })(),
         nonCopPurposes: nonCop,
         excluded: excludedOut.sort(function(a, b) { return b.vol - a.vol; }),
+        noProduction: noProduction,
         outOfScope: src.outOfScope || []
     };
 }
@@ -501,16 +505,8 @@ function copYearReportHTML(m, opts) {
     foot.push('<b>Cuentan</b> los ensayos aprobados y válidos para CoP con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
     var nc = Object.keys(m.nonCopPurposes);
     if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
-    if (m.excluded && m.excluded.length) {
-        foot.push('<b>Fuera de este reporte por decisión del laboratorio:</b> ' + m.excluded.map(function(x) {
-            return _crEsc(x.label) + ' (' + _crNum(x.vol) + ' u, ' + x.done + ' ensayo' + (x.done === 1 ? '' : 's') + (x.reason ? ' — ' + _crEsc(x.reason) : '') + ')';
-        }).join('; ') + '.');
-    }
-    if (m.outOfScope.length) {
-        foot.push('Fuera del alcance CoP (norma de emisiones), con producción en ' + m.year + ': ' + m.outOfScope.map(function(o) {
-            return _crEsc(o.label) + ' (' + _crNum(o.vol) + ')';
-        }).join('; ') + '.');
-    }
+    // Lo que quedó fuera (excluidas, sin producción, fuera del alcance) NO se menciona en el
+    // reporte que se comparte (decisión del laboratorio): la app lo lista en su barra.
     h += '<div style="margin:22px 10px 0;padding:12px 14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.6;">' + foot.join('<br>') +
          '<br>Comparación contra el corte del ' + _crEsc(_crDay(m.prevCut)) + (m.prevFromSaved ? ' (corte guardado)' : '') + '.' +
          (opts.generatedAt ? ' Generado ' + _crEsc(opts.generatedAt) + (opts.generatedBy ? ' por ' + _crEsc(opts.generatedBy) : '') + '.' : '') + '</div>';
@@ -690,7 +686,7 @@ function copRepOpen(cutIso) {
           '</div>' +
         '</div>' +
         '<div class="cop-rep-note">' + (saved ? '📌 Corte de la semana ' + r.model.week + ' guardado: la próxima semana se compara contra este.'
-                                              : 'Consulta de un corte anterior: no se guarda.') + '</div>' +
+                                              : 'Consulta de un corte anterior: no se guarda.') + _copRepLeftOutHTML(r.model) + '</div>' +
         '<iframe class="cop-rep-frame" title="Reporte CoP ' + r.model.year + '"></iframe>';
     host.querySelector('iframe').srcdoc = r.doc;
     host.classList.add('is-open');
@@ -703,6 +699,15 @@ function copRepOpen(cutIso) {
     if (pb && typeof uiExplainDisabled === 'function') uiExplainDisabled(pb, canEdit ? '' : 'Capturar la producción real pide el permiso de administrar el plan.');
     var fb = document.getElementById('cop-rep-fam-btn');
     if (fb && typeof uiExplainDisabled === 'function') uiExplainDisabled(fb, canEdit ? '' : 'Decidir qué familias van al reporte pide el permiso de administrar el plan.');
+}
+
+/** Lo que NO va en el reporte compartido, para que el laboratorio lo vea (solo en la app). */
+function _copRepLeftOutHTML(m) {
+    var parts = [];
+    if (m.excluded.length) parts.push('excluidas por el laboratorio: ' + m.excluded.map(function(x) { return _crEsc(x.label) + (x.reason ? ' (' + _crEsc(x.reason) + ')' : ''); }).join('; '));
+    if (m.noProduction.length) parts.push('sin producción en ' + m.year + ' (con ensayos): ' + m.noProduction.map(function(x) { return _crEsc(x.label); }).join('; '));
+    if (m.outOfScope.length) parts.push('fuera del alcance CoP: ' + m.outOfScope.map(function(x) { return _crEsc(x.label) + ' (' + _crNum(x.vol) + ')'; }).join('; '));
+    return parts.length ? '<div class="cop-rep-left">No van en el reporte — ' + parts.join(' · ') + '.</div>' : '';
 }
 
 function copRepClose() {

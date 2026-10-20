@@ -281,11 +281,16 @@ console.log('\n== [3.12.0] Estatus CoP semanal ==');
 {
     const S = P.digestSettingsNormalize({ copTo: 'hq@kia.com, mal' });
     ok('la lista del estatus CoP es propia y se limpia', S.copTo.length === 1 && S.copTo[0] === 'hq@kia.com');
-    const vie16 = P.digestLocalParts('2026-10-23T22:05:00Z'), vie15 = P.digestLocalParts('2026-10-23T21:30:00Z'), jue = P.digestLocalParts('2026-10-22T22:05:00Z');
-    ok('toca el viernes desde las 16:00 (devuelve el lunes de la semana)', P.digestCopDue(vie16, {}, S) === '2026-10-19');
-    ok('no antes de las 16:00 ni otro día', P.digestCopDue(vie15, {}, S) === null && P.digestCopDue(jue, {}, S) === null);
-    ok('una vez por semana', P.digestCopDue(vie16, { lastCopWeek: '2026-10-19' }, S) === null && P.digestCopDue(vie16, { lastCopWeek: '2026-10-12' }, S) === '2026-10-19');
-    ok('sin destinatarios no toca', P.digestCopDue(vie16, {}, P.digestSettingsNormalize({})) === null);
+    const L = iso => P.digestLocalParts(iso);
+    const vie7 = L('2026-10-23T13:05:00Z'), vie6 = L('2026-10-23T12:30:00Z'), vie16 = L('2026-10-23T22:05:00Z'), lun = L('2026-10-26T13:05:00Z'), jue = L('2026-10-29T22:05:00Z');
+    const due = (lp, st) => { const d = P.digestCopDue(lp, st, S); return d ? d.week + '/' + d.cut : null; };
+    ok('sale el viernes desde las 7:00, con el corte de ese viernes', due(vie7, { lastCopWeek: '2026-10-12' }) === '2026-10-19/2026-10-23');
+    ok('a las 6:30 del viernes todavía toca la semana anterior (si no salió)', due(vie6, { lastCopWeek: '2026-10-05' }) === '2026-10-12/2026-10-16' && due(vie6, { lastCopWeek: '2026-10-12' }) === null);
+    ok('ya enviada esa semana, no se repite', due(vie16, { lastCopWeek: '2026-10-19' }) === null);
+    ok('si no se logró el viernes, se sigue intentando (viernes 16:00, lunes, jueves) con el corte del viernes', due(vie16, { lastCopWeek: '2026-10-12' }) === '2026-10-19/2026-10-23' &&
+        due(lun, { lastCopWeek: '2026-10-12' }) === '2026-10-19/2026-10-23' && due(jue, { lastCopWeek: '2026-10-12' }) === '2026-10-19/2026-10-23');
+    ok('la primera vez solo sale el mismo viernes (no manda una semana vieja al estrenarse)', due(vie7, {}) === '2026-10-19/2026-10-23' && due(lun, {}) === null);
+    ok('sin destinatarios no toca', P.digestCopDue(vie7, {}, P.digestSettingsNormalize({})) === null);
     // El proceso de la nube calcula con el código REAL del CoP (mismos gases, límites y veredicto).
     const yk = P.copYearKeyOf('CL4|1000cc KAPPA PE|6MT|26 MODEL|PRE-EURO 7|||5DR', 2026);
     const veh = (i, my, d, co) => ({ id: 'v' + i, vin: 'KNAX' + i, status: 'archived', purpose: 'COP-Emisiones',
