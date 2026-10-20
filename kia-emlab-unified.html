@@ -10117,10 +10117,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610201737';
+var APP_BUILD = '202610201859';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '0351e08a9ea416594d079424d5e9bacbfe0765ff';
+var APP_COMMIT = '4f02574a630b3f48f0cda7720438336ec3fc8bd6';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10128,7 +10128,7 @@ var APP_COMMIT = '0351e08a9ea416594d079424d5e9bacbfe0765ff';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.15.0';
+var APP_VERSION = '3.16.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10136,6 +10136,13 @@ var APP_VERSION = '3.15.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.16.0', date: '20 oct 2026', title: 'Dos lecturas al día, la Lista de consumibles y el COP Master',
+      bullets: ['Cada cilindro lleva dos lecturas por día: la de la mañana y la de la tarde. La captura, la ronda y el mapa del cuarto eligen el turno por la hora (desde la 1 p. m. es la tarde) y se puede cambiar. Capturar el mismo turno otra vez reemplaza; las dos del día se conservan. HOY dice cuántos van en el turno en curso.',
+                'Consumibles → Reporte → 📊 Lista de consumibles: la lista de stock del laboratorio semana por semana, con su tendencia, el consumo, el límite inferior y el "Comprar". 📤 Excel la descarga en el mismo formato, llena sola: lo anterior a la plataforma sale del histórico importado y lo demás de las lecturas (en verde).',
+                '📥 Importar histórico: sube la Lista de stock en Excel y se guardan todas sus semanas (desde diciembre 2025). No se convierten en lecturas de cilindro.',
+                'CoP → 📥 COP Master: sube el COP Master del laboratorio. Llena PM y PN de las pruebas liberadas sin VETS, la ficha del ICMS del vehículo y el EvC/FCF de la familia. CO, THC, NOx, NMHC y CO₂ solo se comparan con lo aprobado y se avisa si difieren; no se reescriben.',
+                'Con PM y PN del COP Master, la hoja de HQ sale con los seis gases.',
+                'Cambió: en el modelo de consumo por prueba, una prueba del día cuenta en un solo tramo entre lecturas (antes, la de un día con lectura se contaba en dos tramos seguidos).'] },
     { version: '3.15.0', date: '20 oct 2026', title: 'La hoja de CoP de corporativo, con un clic',
       bullets: ['CoP → Validador → 💾 Juicios guardados → 📤 Excel HQ (y en 🗂️ Expediente → 📤 Excel para HQ): descarga la hoja de evaluación estadística que pide corporativo, llena con el juicio de la familia. Dos hojas, gases y CO₂, con las mismas celdas y fórmulas de su formato; al abrirla, Excel recalcula y da los mismos números que la plataforma.',
                 'Cambió el veredicto de gases del CoP: ahora es el de UN R154 §2.1.1, el mismo de la hoja de corporativo. Cada valor se multiplica por su factor de deterioro asignado (CO 1.5, THC 1.3, NMHC 1.3, NOx 1.6, PM 1, PN 1) y el promedio se compara contra A·L − VAR/L, con A = 1.05. Antes se usaba el estadístico U de R83.',
@@ -11271,14 +11278,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610201737' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610201859' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610201737' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610201859' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11294,7 +11301,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610201737' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610201859' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -14616,9 +14623,11 @@ function dashCollectActivities() {
         var rd = invReadingStatusToday();
         if (rd.inUseTotal > 0) {
             var rdDone = rd.capturedToday >= rd.inUseTotal;
-            acts.push({ id: 'act-gasread', cat: 'inventario', icon: '🧪',
-                title: 'Toma de gases del día',
-                meta: rd.capturedToday + '/' + rd.inUseTotal + ' cilindros capturados',
+            acts.push({ id: rd.shiftNow === 'pm' ? 'act-gasread-pm' : 'act-gasread', cat: 'inventario', icon: '🧪',
+                // [3.16.0] Dos tomas al día: cuenta la del turno en curso y se dice la otra.
+                title: 'Toma de gases — ' + (rd.shiftNow === 'pm' ? 'tarde' : 'mañana'),
+                meta: rd.capturedToday + '/' + rd.inUseTotal + ' cilindros capturados' +
+                      (rd.shiftNow === 'pm' ? ' · mañana: ' + rd.capturedAm + '/' + rd.inUseTotal : ''),
                 status: rdDone ? 'hecho' : 'pendiente',
                 progress: { done: rd.capturedToday, total: rd.inUseTotal },
                 urgency: rdDone ? 0 : 2,
@@ -31460,12 +31469,13 @@ function invGasBurnRate(g) {
     var vacio = { dailyPsi: 0, weeklyPsi: 0, daysToLow: null, lowPsi: 0, n: 0, span: 0 };
     if (!g || !g.readings) return vacio;
     var rs = g.readings.filter(function(r) { return r && !r.auto && r.date && typeof r.psi === 'number'; })
-                       .sort(function(a, b) { return a.date.localeCompare(b.date); });
+                       .sort(invReadingCmp);
     if (rs.length < 2) return vacio;
 
     var caida = 0, dias = 0;
     for (var i = 1; i < rs.length; i++) {
-        var d = (new Date(rs[i].date) - new Date(rs[i - 1].date)) / 86400000;
+        // [3.16.0] Mañana y tarde del mismo día también son un tramo (8 h).
+        var d = invReadingDays(rs[i]) - invReadingDays(rs[i - 1]);
         if (!(d > 0)) continue;
         var drop = rs[i - 1].psi - rs[i].psi;
         if (drop < 0) continue;          // recarga: no es consumo
@@ -31619,16 +31629,19 @@ function invConsumablesReportRows() {
 // Returns { inUseTotal, capturedToday, daysSinceLast } — null-safe even if
 // the inventory module / localStorage has not been initialized yet.
 function invReadingStatusToday() {
-    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
+    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null, shiftNow: 'am', capturedAm: 0, capturedPm: 0 };
     if (typeof invState === 'undefined' || !invState) return safe;
     var todayISO = localToday();
     var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
     // v21: busca la lectura de HOY en toda la serie, no solo en la última. Con la
     // captura retrofechada (pasar la libreta de ayer) la última lectura puede ser de
     // otro día aunque la de hoy exista, y el contador de HOY se quedaba corto.
-    var capturedToday = inUse.filter(function(g){
-        return (g.readings || []).some(function(r){ return r && r.date === todayISO; });
-    }).length;
+    // [3.16.0] Por turno: lo que cuenta HOY es el turno en curso (mañana o tarde).
+    var shiftNow = invShiftNow();
+    var hasShift = function(g, sh) { return !!invFindReadingOn(g, todayISO, sh); };
+    var capturedAm = inUse.filter(function(g) { return hasShift(g, 'am'); }).length;
+    var capturedPm = inUse.filter(function(g) { return hasShift(g, 'pm'); }).length;
+    var capturedToday = shiftNow === 'pm' ? capturedPm : capturedAm;
 
     // Most recent reading date: prefer lastReadingDate, else scan readings.
     var lastDate = invState.lastReadingDate || null;
@@ -31645,7 +31658,8 @@ function invReadingStatusToday() {
         var diff = (new Date(todayISO) - new Date(lastDate)) / 86400000;
         daysSinceLast = Math.max(0, Math.round(diff));
     }
-    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast };
+    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast,
+             shiftNow: shiftNow, capturedAm: capturedAm, capturedPm: capturedPm };
 }
 
 // ══════════════════════════════════════════════════
@@ -32348,15 +32362,16 @@ function invMapQuickReadSave(gasId) {
 
     // v21: validar/deduplicar/auditar/reentrenar vive en invAddReading. Aquí solo
     // queda la decisión de UI: preguntar antes de pisar la lectura de ese día.
-    var existing = invFindReadingOn(gas, date);
+    var shift = date === localToday() ? invShiftNow() : 'am';
+    var existing = invFindReadingOn(gas, date, shift);
     function _doSaveMapRead() {
-        var res = invAddReading(gasId, psi, { date: date, source: 'mapa' });
+        var res = invAddReading(gasId, psi, { date: date, shift: shift, source: 'mapa' });
         if (!res.ok) { showToast(res.reason, 'error'); return; }
         invShowTimeline(gasId);
     }
 
     if (existing) {
-        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe la lectura de la ' + invShiftLabel(shift).toLowerCase() + ' del ' + date + ' (' + existing.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
     } else {
         _doSaveMapRead();
     }
@@ -32400,6 +32415,36 @@ function invWarnReading(msg, title) {
     if (typeof showToast === 'function') showToast('⚠ ' + (title ? title + ' — ' : '') + msg, 'warning');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.16.0] Dos lecturas por día: mañana y tarde (inicio y fin de turno)
+//
+// La identidad de una lectura es FECHA + TURNO. Una lectura sin `shift` (todas las
+// anteriores a 3.16.0) cuenta como de la mañana: así lo ya capturado no cambia de lugar
+// y la tarde de ese día se puede agregar sin pisarla. La serie se guarda SIEMPRE en
+// orden (fecha, turno): invGasLevel, las gráficas y el resto leen "la última" del final.
+// ══════════════════════════════════════════════════════════════════════
+var INV_SHIFTS = { am: { label: 'Mañana', short: 'Mañ.', hour: 9 }, pm: { label: 'Tarde', short: 'Tarde', hour: 17 } };
+var INV_SHIFT_PM_FROM_HOUR = 13;    // desde la 1 p. m. una lectura nueva es de la tarde
+
+/** Turno de una lectura ('am' | 'pm'). Sin turno = mañana. PURA. */
+function invReadingShift(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; }
+/** Llave de identidad de una lectura humana: 'AAAA-MM-DD|am'. PURA. */
+function invReadingKey(r) { return String((r && r.date) || '') + '|' + invReadingShift(r); }
+/** Orden cronológico de dos lecturas (fecha, después turno). PURA. */
+function invReadingCmp(a, b) { return invReadingKey(a).localeCompare(invReadingKey(b)); }
+/** Momento aproximado de una lectura en días (para ritmos): mañana 9 h, tarde 17 h. PURA. */
+function invReadingDays(r) {
+    var t = Date.parse(String((r && r.date) || '').slice(0, 10) + 'T00:00:00Z');
+    if (!isFinite(t)) return NaN;
+    return t / 86400000 + INV_SHIFTS[invReadingShift(r)].hour / 24;
+}
+/** Turno que corresponde a una captura nueva hecha ahora. */
+function invShiftNow(date) {
+    var h = (date instanceof Date ? date : new Date()).getHours();
+    return h >= INV_SHIFT_PM_FROM_HOUR ? 'pm' : 'am';
+}
+function invShiftLabel(sh) { return (INV_SHIFTS[sh] || INV_SHIFTS.am).label; }
+
 /**
  * La lectura HUMANA de ese día, si existe.
  *
@@ -32409,9 +32454,12 @@ function invWarnReading(msg, title) {
  * al recapturar es la lectura humana, y las estimaciones de ese día se retiran
  * (ver `_invDropAutoReadingsOn`) porque ya quedaron superadas por el manómetro.
  */
-function invFindReadingOn(gas, date) {
+function invFindReadingOn(gas, date, shift) {
     if (!gas || !gas.readings) return null;
-    return gas.readings.find(function(r) { return r && r.date === date && !r.auto; }) || null;
+    // [3.16.0] Con turno: la de ESE turno. Sin turno: cualquiera del día (la más reciente).
+    var del = gas.readings.filter(function(r) { return r && r.date === date && !r.auto; });
+    if (shift) return del.find(function(r) { return invReadingShift(r) === shift; }) || null;
+    return del.length ? del[del.length - 1] : null;
 }
 
 /** Retira las estimaciones automáticas de una fecha: ya hay medición real de ese día. */
@@ -32435,12 +32483,14 @@ function _invDropAutoReadingsOn(owner, date) {
  *
  * @returns {string|null} el motivo del aviso, o null si la lectura es plausible.
  */
-function invReadingWarning(gas, psi, date) {
+function invReadingWarning(gas, psi, date, shift) {
     if (!gas || typeof psi !== 'number' || !isFinite(psi)) return null;
     var prev = null;
+    // [3.16.0] La anterior es la de antes en (fecha, turno): la mañana cuenta para la tarde.
+    var me = { date: date, shift: shift || 'am' };
     (gas.readings || []).forEach(function(r) {
-        if (!r || !r.date || r.date === date) return;      // la que se reemplaza no compara contra sí misma
-        if (r.date < date && (!prev || r.date > prev.date)) prev = r;
+        if (!r || !r.date || r.auto) return;
+        if (invReadingCmp(r, me) < 0 && (!prev || invReadingCmp(r, prev) > 0)) prev = r;
     });
 
     // La nominal sale del MÁXIMO histórico, no de la primera lectura: si el cilindro
@@ -32491,11 +32541,13 @@ function invAddReading(gasId, psi, opts) {
     if (val < 0) return { ok: false, reason: 'La presión no puede ser negativa' };
 
     var date = opts.date || localToday();
+    // [3.16.0] Turno: el que se eligió; si no, el de la hora (hoy) o la mañana (retrofechada).
+    var shift = opts.shift === 'pm' || opts.shift === 'am' ? opts.shift : (date === localToday() ? invShiftNow() : 'am');
     var by = opts.by || ((typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : 'Laboratorio');
-    var warning = invReadingWarning(gas, val, date);
+    var warning = invReadingWarning(gas, val, date, shift);
 
     if (!gas.readings) gas.readings = [];
-    var existing = invFindReadingOn(gas, date);
+    var existing = invFindReadingOn(gas, date, shift);
     _invDropAutoReadingsOn(gas, date);   // la medición real sustituye a las estimaciones del día
     var replaced = null;
     var reading;
@@ -32503,18 +32555,20 @@ function invAddReading(gasId, psi, opts) {
     if (existing) {
         // Reemplaza en vez de duplicar. La captura diaria SÍ duplicaba (creaba un par
         // con caída 0 que el EWMA leía como consumo real); ahora ningún camino puede.
-        replaced = { date: existing.date, psi: existing.psi, by: existing.by || '' };
+        replaced = { date: existing.date, psi: existing.psi, by: existing.by || '', shift: invReadingShift(existing) };
         existing.psi = val;
         existing.by = by;
+        existing.shift = shift;
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
         reading = { date: date, psi: val, by: by };
+        reading.shift = shift;
         if (opts.source) reading.source = opts.source;
         gas.readings.push(reading);
         // El orden cronológico es un supuesto de invGasLevel, del EWMA y de las gráficas;
         // retrofechar (capturar de papel) insertaría fuera de orden sin esto.
-        gas.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+        gas.readings.sort(invReadingCmp);
     }
 
     if (!invState.lastReadingDate || date > invState.lastReadingDate) invState.lastReadingDate = date;
@@ -32527,7 +32581,7 @@ function invAddReading(gasId, psi, opts) {
 
     if (typeof auditLog === 'function') {
         auditLog('inv', 'gas_reading', { type: 'gas', id: gas.id, label: gas.controlNo },
-                 gas.formula + ': ' + val + ' psi (' + date + ') · ' + by +
+                 gas.formula + ': ' + val + ' psi (' + date + ' ' + invShiftLabel(shift).toLowerCase() + ') · ' + by +
                  (replaced ? ' · reemplaza ' + replaced.psi + ' psi' : '') +
                  (warning ? ' · ⚠ ' + warning : ''));
     }
@@ -32538,10 +32592,10 @@ function invAddReading(gasId, psi, opts) {
     }
 
     if (!opts.silent && typeof showToast === 'function') {
-        showToast(gas.formula + ' #' + gas.controlNo + ': ' + val + ' psi' + (replaced ? ' (reemplazada)' : '') +
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + val + ' psi · ' + invShiftLabel(shift).toLowerCase() + (replaced ? ' (reemplazada)' : '') +
                   (warning ? ' · ⚠ ' + warning : ''), warning ? 'warning' : 'success');
     }
-    return { ok: true, reading: reading, replaced: replaced, warning: warning, gas: gas };
+    return { ok: true, reading: reading, replaced: replaced, warning: warning, gas: gas, shift: shift };
 }
 
 /** Banda de cordura del combustible. Pura, misma lógica y mismo criterio que el gas. */
@@ -32648,6 +32702,11 @@ function invRenderReadings(el) {
             '<label for="inv-capture-date" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">📅 Fecha de estas lecturas</label>' +
             '<input type="date" id="inv-capture-date" value="' + localToday() + '" max="' + localToday() + '" ' +
             'class="tp-input" style="width:auto;min-height:var(--target-min);font-size: var(--fs-base);">' +
+            // [3.16.0] Dos lecturas por día: la de la mañana y la de la tarde.
+            '<label for="inv-capture-shift" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">Turno</label>' +
+            '<select id="inv-capture-shift" data-chips data-help="inv-capture-shift" class="tp-input" style="width:auto;">' +
+            ['am', 'pm'].map(function(sh) { return '<option value="' + sh + '"' + (sh === invShiftNow() ? ' selected' : '') + '>' + invShiftLabel(sh) + '</option>'; }).join('') +
+            '</select>' +
             '</div>';
 
     if (invState.gases.length === 0) {
@@ -32671,7 +32730,7 @@ function invRenderReadings(el) {
             if (last5.length > 0) {
                 // Restos del tema oscuro: `color:#fff` sobre fondo claro = el número de la
                 // última lectura era INVISIBLE.
-                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
+                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + (x.auto ? '' : ' ' + INV_SHIFTS[invReadingShift(x)].short) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
             } else { r += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
             r += '</div>';
             r += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
@@ -32712,13 +32771,13 @@ function invRenderReadings(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Últimas lecturas</span></div>';
     var allReadings = [];
     invState.gases.forEach(function(g) {
-        (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, psi:r.psi, zone:g.zone}); });
+        (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, shift:invReadingShift(r), auto:!!r.auto, psi:r.psi, zone:g.zone}); });
     });
-    allReadings.sort(function(a,b){ return b.date.localeCompare(a.date); });
+    allReadings.sort(function(a,b){ return invReadingCmp(b, a); });
     if (allReadings.length > 0) {
-        html += '<div style="max-height:200px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>Fecha</th><th>Gas</th><th>Zona</th><th>psi</th></tr></thead><tbody>';
+        html += '<div style="max-height:200px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>Fecha</th><th>Turno</th><th>Gas</th><th>Zona</th><th>psi</th></tr></thead><tbody>';
         allReadings.slice(0,30).forEach(function(r) {
-            html += '<tr><td style="font-size: var(--fs-xs);">' + r.date + '</td><td style="font-size: var(--fs-sm);">' + r.gas + '</td><td style="font-size: var(--fs-sm);">' + (r.zone||'') + '</td><td style="font-weight:700;">' + r.psi + '</td></tr>';
+            html += '<tr><td style="font-size: var(--fs-xs);">' + r.date + '</td><td style="font-size: var(--fs-xs);">' + (r.auto ? 'auto' : invShiftLabel(r.shift)) + '</td><td style="font-size: var(--fs-sm);">' + r.gas + '</td><td style="font-size: var(--fs-sm);">' + (r.zone||'') + '</td><td style="font-weight:700;">' + r.psi + '</td></tr>';
         });
         html += '</tbody></table></div>';
     } else { html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Sin lecturas registradas.</div>'; }
@@ -32732,13 +32791,15 @@ function invSaveDailyCapture() {
     // al día siguiente, y antes esto clavaba localToday() sin manera de retrofechar.
     var dEl = document.getElementById('inv-capture-date');
     var date = (dEl && dEl.value) ? dEl.value : localToday();
+    var sEl = document.getElementById('inv-capture-shift');
+    var shift = (sEl && (sEl.value === 'pm' || sEl.value === 'am')) ? sEl.value : invShiftNow();
     var count = 0, fuelCount = 0, avisos = [];
 
     (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
         if (!inp || inp.value === '') return;
         // silent + skipSave: un solo guardado y un solo toast al final del lote.
-        var res = invAddReading(g.id, inp.value, { date: date, source: 'captura', silent: true, skipSave: true });
+        var res = invAddReading(g.id, inp.value, { date: date, shift: shift, source: 'captura', silent: true, skipSave: true });
         if (res.ok) { count++; if (res.warning) avisos.push(g.controlNo + ': ' + res.warning); }
     });
     (invState.fuelTanks || []).forEach(function(t) {
@@ -32749,11 +32810,11 @@ function invSaveDailyCapture() {
     });
 
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
-    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
+    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date + ' ' + invShiftLabel(shift).toLowerCase()}, count + ' gases, ' + fuelCount + ' combustibles');
     invUpdateConsumptionModel(); // v15.9: re-aprender con la información nueva del día
     invSave(); invRender();
     if (avisos.length) invWarnReading(avisos.join(' · '), avisos.length + ' lectura(s) con aviso');
-    showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
+    showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ', ' + invShiftLabel(shift).toLowerCase() + ')', 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -32989,16 +33050,17 @@ function invQuickReadSave(gasId) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
-    var existingToday = invFindReadingOn(gas, date);
+    var shift = date === localToday() ? invShiftNow() : 'am';
+    var existingToday = invFindReadingOn(gas, date, shift);
     function _doSaveQuickRead() {
-        var res = invAddReading(gasId, psi, { date: date, source: 'escaneo' });
+        var res = invAddReading(gasId, psi, { date: date, shift: shift, source: 'escaneo' });
         if (!res.ok) { showToast(res.reason, 'error'); return; }
         invRender();
         document.getElementById('invModal').style.display = 'none';
     }
 
     if (existingToday) {
-        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe la lectura de la ' + invShiftLabel(shift).toLowerCase() + ' del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
     } else {
         _doSaveQuickRead();
     }
@@ -34293,7 +34355,7 @@ function invCalcConsumptionRates() {
         // sí reflejan consumo real aunque en medio haya lecturas auto.
         var g = gasFormulas[formula][0];
         var readings = (g.readings || []).filter(function(r) { return !r.auto; })
-            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+            .slice().sort(invReadingCmp);
         if (readings.length < 2) return;
 
         // EWMA en línea, cronológico. est[reg] = estimado vigente (para reparto proporcional
@@ -34314,6 +34376,10 @@ function invCalcConsumptionRates() {
         for (var i = 0; i < readings.length - 1; i++) {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
+            // [3.16.0] Una prueba del día D cuenta a mediodía: cae entre la lectura de la mañana
+            // y la de la tarde de ese día, y en UN solo tramo (antes, con los dos extremos
+            // incluidos, una prueba del día de la lectura se contaba en dos tramos seguidos).
+            var t1 = invReadingDays(readings[i]), t2 = invReadingDays(readings[i + 1]);
             var psiDrop = readings[i].psi - readings[i + 1].psi;
             // v15.9: drop de 0 CON pruebas en medio = observación legítima de consumo cero
             // ("este gas no se usa en este tipo de prueba") — antes se descartaba y el gas
@@ -34321,7 +34387,8 @@ function invCalcConsumptionRates() {
             if (psiDrop < 0) continue;
 
             var testsBetween = formulaLog.filter(function(l) {
-                return l.date >= d1 && l.date <= d2;
+                var tt = Date.parse(String(l.date || '').slice(0, 10) + 'T12:00:00Z') / 86400000;
+                return tt > t1 && tt <= t2;
             });
             if (testsBetween.length === 0) continue;
 
@@ -34748,6 +34815,10 @@ function invRenderReport(el) {
         html += '<div style="padding: var(--space-md);color:var(--ok-text);">Todas las calibraciones vigentes (más de 60 días).</div>';
     }
     html += '</div>';
+    // [3.16.0] La Lista de consumibles del laboratorio: tendencia semanal + Excel en su formato.
+    if (typeof invConsListCardHTML === 'function') {
+        try { html += invConsListCardHTML(); } catch (e) { html += '<div class="tp-card u-muted">No se pudo armar la lista de consumibles: ' + escapeHtml(e && e.message || String(e)) + '</div>'; }
+    }
     el.innerHTML = html;
 }
 
@@ -36717,12 +36788,13 @@ function invDetectAnomalies() {
     var anomalies = [];
     invState.gases.forEach(function(g) {
         if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
-        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var rdgs = g.readings.filter(function(r) { return r && !r.auto; }).sort(invReadingCmp);
 
         // Calculate average daily drop rate from all consecutive pairs
         var drops = [];
         for (var i = 1; i < rdgs.length; i++) {
-            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            // [3.16.0] Mañana→tarde son 8 h: medio día como mínimo, no un día entero.
+            var daysDiff = Math.max(0.33, invReadingDays(rdgs[i]) - invReadingDays(rdgs[i-1]));
             var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
             if (psiDrop > 0) drops.push(psiDrop / daysDiff);
         }
@@ -37706,9 +37778,9 @@ function invPredictDepletion(g) {
         return null;
     }
 
-    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var rdgs = g.readings.slice().sort(invReadingCmp);
     var first = rdgs[0], last = rdgs[rdgs.length - 1];
-    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var daysDiff = Math.max(1, Math.round(invReadingDays(last) - invReadingDays(first)));
     var totalDrop = first.psi - last.psi;
     if (totalDrop <= 0) return null;
 
@@ -37797,7 +37869,7 @@ function _invRoundPersist() {
     try {
         if (!_readingRound) { localStorage.removeItem(INV_ROUND_LS_KEY); return; }
         localStorage.setItem(INV_ROUND_LS_KEY, JSON.stringify({
-            index: _readingRound.index, date: _readingRound.date,
+            index: _readingRound.index, date: _readingRound.date, shift: _readingRound.shift,
             startTime: _readingRound.startTime, results: _readingRound.results,
             ids: _readingRound.items.map(_invRoundKey)
         }));
@@ -37819,7 +37891,7 @@ function invStartReadingRound(opts) {
         if (prev && prev.index > 0 && prev.index < items.length && typeof showConfirmDialog === 'function') {
             showConfirmDialog({
                 title: '🔄 Tienes una ronda a medias',
-                message: 'Ibas en el punto ' + (prev.index + 1) + ' de ' + items.length + ' (' + (prev.date || '') + ').\n\n¿Retomarla donde la dejaste?',
+                message: 'Ibas en el punto ' + (prev.index + 1) + ' de ' + items.length + ' (' + (prev.date || '') + ', ' + invShiftLabel(prev.shift || 'am').toLowerCase() + ').\n\n¿Retomarla donde la dejaste?',
                 type: 'info', confirmText: 'Retomar', cancelText: 'Empezar de nuevo'
             }).then(function(ok) {
                 invStartReadingRound(ok ? { resume: prev } : { fresh: true });
@@ -37835,6 +37907,8 @@ function invStartReadingRound(opts) {
         results: (r && Array.isArray(r.results)) ? r.results : [],
         startTime: (r && r.startTime) || Date.now(),
         date: (r && r.date) || localToday(),
+        // [3.16.0] La ronda es de UN turno: la de la mañana o la de la tarde.
+        shift: (r && (r.shift === 'pm' || r.shift === 'am')) ? r.shift : invShiftNow(),
         audited: false
     };
     _invRoundPersist();
@@ -37847,7 +37921,7 @@ function invStartReadingRound(opts) {
     uiFlowOpen({
         id: 'gasRound',
         title: '🔄 Ronda de lecturas',
-        subtitle: _readingRound.date,
+        subtitle: _readingRound.date + ' · ' + invShiftLabel(_readingRound.shift),
         steps: items.map(_invRoundStep),
         state: state,
         startAt: _readingRound.index,
@@ -37874,9 +37948,13 @@ function _invRoundStep(item) {
     };
 }
 
-/** Última lectura ANTERIOR a la fecha de la ronda (si se regresa a un punto, la de hoy no cuenta). */
-function _invRoundPrevReading(ref, esFuel, date) {
-    var ls = (ref.readings || []).filter(function(x) { return x && x.date !== date; });
+/** Última lectura ANTERIOR a la de la ronda (si se regresa a un punto, la de este turno no cuenta). */
+function _invRoundPrevReading(ref, esFuel, date, shift) {
+    // [3.16.0] Gas: anterior en (fecha, turno) — la de la mañana cuenta para la ronda de la tarde.
+    var me = { date: date, shift: shift || 'am' };
+    var ls = (ref.readings || []).filter(function(x) {
+        return x && !x.auto && (esFuel ? x.date !== date : invReadingCmp(x, me) < 0);
+    });
     var u = ls.length ? ls[ls.length - 1] : null;
     return u ? (esFuel ? u.level : u.psi) : '';
 }
@@ -37890,7 +37968,7 @@ function _invRoundRenderCard(host, item) {
     }
     var esFuel = item.kind === 'fuel';
     var unidad = esFuel ? (ref.unit || 'L') : 'PSI';
-    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date, _readingRound.shift);
     var mine = (_readingRound.results || []).filter(function(x) { return !x.skipped && x.kind + ':' + x.id === _invRoundKey(item); })[0];
     var titulo = esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas');
     var sub = esFuel
@@ -37923,7 +38001,7 @@ function _invRoundRenderCard(host, item) {
         if (!w || !_readingRound) return;
         var v = parseFloat(inp.value);
         if (isNaN(v)) { w.textContent = ''; return; }
-        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
+        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date, _readingRound.shift);
         w.textContent = msg ? '⚠ ' + msg : '';
     });
 }
@@ -37954,12 +38032,12 @@ function _invRoundSaveCard(host, item) {
     if (raw === '' || isNaN(val)) {
         return { ok: false, field: inp, msg: 'Escribe la lectura, toca "= Igual" o "Después" si no se pudo leer.' };
     }
-    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date, _readingRound.shift);
     // Por el motor único — valida, deduplica por fecha, atribuye, audita y reentrena.
     // skipSave: la ronda guarda una sola vez (al llegar al resumen o al salir).
     var res = esFuel
         ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
-        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
+        : invAddReading(item.id, val, { date: _readingRound.date, shift: _readingRound.shift, source: 'ronda', silent: true, skipSave: true });
     if (!res.ok) return { ok: false, field: inp, msg: res.reason };
 
     var prevNum = prevVal === '' ? 0 : (Number(prevVal) || 0);
@@ -38017,7 +38095,7 @@ function _invRoundFinalHTML(model) {
     });
 
     if (!_readingRound.audited && capturadas.length && typeof auditLog === 'function') {
-        auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date },
+        auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date + ' ' + invShiftLabel(_readingRound.shift).toLowerCase() },
                  capturadas.length + ' lectura(s), ' + saltadas.length + ' saltada(s)');
         _readingRound.audited = true;
     }
@@ -38210,6 +38288,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
     'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Cada tarjeta es una zona; arrastra un cilindro entre posiciones para reubicarlo.' },
     'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' },
+    'inv-capture-shift': { title: 'Turno', text: 'Cada cilindro lleva DOS lecturas al día: la de la mañana (inicio de turno) y la de la tarde (fin de turno). Se elige sola por la hora (desde la 1 p. m. es la de la tarde); cámbiala si estás pasando la libreta. Capturar el mismo turno dos veces reemplaza, no duplica.' },
     'inv-capture-date': { title: 'Fecha de estas lecturas', text: 'La fecha a la que pertenece TODO lo que captures en esta pantalla. Déjala en hoy si estás capturando al momento; cámbiala a la del recorrido si estás pasando lo que anotaste en papel. Si ya existe una lectura de ese día para un cilindro, se reemplaza en vez de duplicarse.' }
 });
 
@@ -39132,7 +39211,7 @@ function _invRoomInfo(scene) {
         var lx = { status: g.status, pct: lvl.pct, levelStatus: lvl.status, expired: ex.status === 'expired' };
         var tone = invRoomLevelTone(lx);
         var counts = g.status !== 'Empty';
-        var readToday = counts && typeof invFindReadingOn === 'function' && !!invFindReadingOn(g, today);
+        var readToday = counts && typeof invFindReadingOn === 'function' && !!invFindReadingOn(g, today, typeof invShiftNow === 'function' ? invShiftNow() : undefined);
         var reorder = counts && ro.status === 'comprar';
         var short = String(g.formula || g.gasType || '?').split('/')[0] + (g.concNominal ? ' ' + String(g.concNominal).replace(/\s*ppm/i, '') : '');
         info[g.id] = {
@@ -39485,7 +39564,10 @@ function _invRoomGasPanelHTML(id) {
     var i = (_invRoom.info || {})[id] || {};
     var tone = INV_ROOM_TONES[i.tone] || INV_ROOM_TONES.none;
     var today = typeof localToday === 'function' ? localToday() : '';
-    var todayR = typeof invFindReadingOn === 'function' ? invFindReadingOn(g, today) : null;
+    // [3.16.0] La lectura de ESTE turno (mañana o tarde).
+    var shNow = typeof invShiftNow === 'function' ? invShiftNow() : 'am';
+    var shTxt = typeof invShiftLabel === 'function' ? invShiftLabel(shNow).toLowerCase() : '';
+    var todayR = typeof invFindReadingOn === 'function' ? invFindReadingOn(g, today, shNow) : null;
     var last = (g.readings || []).filter(function(r) { return r && !r.auto; }).slice(-1)[0];
     var e = _invRoomEsc;
     var h = '<div class="rm-panel rm-pop" role="region" aria-label="Cilindro ' + e(g.controlNo || '') + '">';
@@ -39499,7 +39581,7 @@ function _invRoomGasPanelHTML(id) {
     // Lectura: lo primero, ahí mismo
     if (g.status !== 'Empty') {
         h += '<form class="rm-read" onsubmit="return invRoomSaveReading(event)">' +
-             '<label for="rm-psi" class="rm-read-l">' + (todayR ? '✓ Leído hoy: <b>' + todayR.psi + ' psi</b> — corregir' : 'Lectura de hoy (psi)') + '</label>' +
+             '<label for="rm-psi" class="rm-read-l">' + (todayR ? '✓ Leído (' + shTxt + '): <b>' + todayR.psi + ' psi</b> — corregir' : 'Lectura de la ' + shTxt + ' (psi)') + '</label>' +
              '<div class="rm-read-row"><input id="rm-psi" type="number" inputmode="decimal" min="0" step="any" placeholder="Ej.: 1250" value="' + (todayR ? todayR.psi : '') + '">' +
              (last && !todayR ? '<button type="button" class="rm-same" onclick="document.getElementById(\'rm-psi\').value=\'' + last.psi + '\';document.getElementById(\'rm-psi\').focus()" title="Repetir la última lectura (' + e(last.date) + ')">= ' + last.psi + '</button>' : '') +
              '<button type="submit" class="btn btn-primary rm-read-btn">Guardar</button></div></form>';
@@ -41653,6 +41735,618 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
         'site-help': { title: 'Laboratorio en el mapa', text: 'La celda de pruebas y el cuarto de acondicionamiento como se ven desde arriba. Toca un cajón para poner una unidad por su VIN (si tiene alta en la plataforma se liga sola; si no, queda como "sin alta"). Toca una unidad para ver su etapa, cuánto le falta de reposo y abrirla en Pruebas. Los equipos se acomodan con ✏️ Editar plano y se ligan a su equipo del F11 para ver si su calibración o su mantenimiento están al día.' }
     });
 }
+
+
+// @@module js/conslist.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  conslist.js — Lista de Consumibles: histórico semanal + Excel (3.16.0)║
+// ╚══════════════════════════════════════════════════════════════════════╝
+// El laboratorio lleva la "Lista de stock de consumibles" en Excel: un renglón por
+// consumible y, por cada semana del año, el inventario (PSI de todos sus cilindros
+// sumados: "=2000+1100" es el de repuesto + el que está en uso). De ahí salen el consumo
+// por semana, el promedio, el límite inferior y el "Comprar".
+//
+// Aquí se hacen tres cosas:
+//   1. Importar ese Excel como HISTÓRICO (invState.consHistory): lo que el laboratorio
+//      reportó cada semana antes de capturar en la plataforma. No se convierte en lecturas
+//      de cilindro: es un total por consumible, y meterlo como lectura envenenaría el nivel
+//      y el ritmo de cada cilindro.
+//   2. invConsListModel (PURA): el año completo, semana por semana. Gana lo importado; lo
+//      que no está importado sale de las lecturas de la plataforma (la última de cada
+//      cilindro hasta el cierre de esa semana, sumada por consumible).
+//   3. invConsListXlsxSpec (PURA): el mismo formato, con xlsxw.js — un clic, sin capturar.
+//
+// La semana de un mes es "Semana k" como en el Excel del laboratorio. Lo importado conserva
+// su numeración tal cual (no es regular: julio trae 5 semanas, junio 4); un mes sin nada
+// importado usa las semanas que empiezan en ese mes (los lunes del mes).
+
+var INV_CONS_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
+                       'septiembre', 'octubre', 'noviembre', 'diciembre'];
+var INV_CONS_MONTH_LABELS = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+                             'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+var INV_CONS_STALE_DAYS = 30;   // un cilindro sin lecturas en 30 días ya no cuenta para esa semana
+
+function _icFold(s) {
+    return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+/** Llave de un consumible por su nombre en la lista (sin acentos, espacios ni mayúsculas). PURA. */
+function invConsRowKey(label) { return _icFold(label).replace(/[^a-z0-9.%]+/g, ''); }
+
+function _icNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var s = String(v).trim().replace(/,/g, '');
+    if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(s)) return null;
+    var n = parseFloat(s);
+    return isFinite(n) ? n : null;
+}
+function _icPad(n) { return (n < 10 ? '0' : '') + n; }
+/** Id de una semana: 'AAAA-MM-Sk' (ordena cronológicamente como texto). PURA. */
+function invConsWeekId(y, m, k) { return y + '-' + _icPad(m) + '-S' + k; }
+function _icDaysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+/** Lunes (día del mes) de cada semana que EMPIEZA en ese mes. PURA. */
+function _icMondaysIn(y, m) {
+    var out = [], n = _icDaysIn(y, m);
+    for (var d = 1; d <= n; d++) if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 1) out.push(d);
+    return out;
+}
+/** Último día ('AAAA-MM-DD') que cubre la semana k de K del mes. PURA. */
+function invConsWeekEnd(y, m, k, K) {
+    var n = _icDaysIn(y, m);
+    var d = k >= K ? n : Math.max(1, Math.round(n * k / K));
+    return y + '-' + _icPad(m) + '-' + _icPad(d);
+}
+
+// ── 1. Leer el Excel del laboratorio ─────────────────────────────────────
+
+/**
+ * La Lista de Consumibles (retícula 0-based de renglones) → {rows, weeks, notes} o {error}.
+ * PURA. Se lee por ETIQUETA (encabezados "Consumible", "Semana k", "Actual Inventory"…),
+ * nunca por posición: el archivo crece cada mes.
+ */
+function invConsListParse(grid) {
+    grid = grid || [];
+    var H = -1;
+    for (var i = 0; i < Math.min(grid.length, 20) && H < 0; i++) {
+        if ((grid[i] || []).some(function(c) { return _icFold(c) === 'consumible'; })) H = i;
+    }
+    if (H < 0) return { error: 'No encontré el encabezado "Consumible". ¿Es la Lista de stock de consumibles del laboratorio?' };
+    var hr = grid[H] || [], mr = grid[H + 1] || [], wr = grid[H + 2] || [];
+    var colOf = function(row, test) {
+        for (var c = 0; c < row.length; c++) if (test(_icFold(row[c]))) return c;
+        return -1;
+    };
+    var cTipo = colOf(hr, function(s) { return /^tipo de/.test(s); });
+    var cName = colOf(hr, function(s) { return s === 'consumible'; });
+    var cItem = colOf(hr, function(s) { return /no\.? de item/.test(s); });
+    var cCode = colOf(hr, function(s) { return s === 'codigo'; });
+    var cIni = colOf(wr, function(s) { return /stock inicial/.test(s); });
+    var cAct = colOf(wr, function(s) { return /stock actual/.test(s); });
+    var cLead = colOf(hr, function(s) { return /tiempo de reposicion/.test(s); });
+    var cLim = colOf(hr, function(s) { return /^limite inferior( \(psi\))?$/.test(s); });
+    var cCons = colOf(hr, function(s) { return /consumo/.test(s) && /\d{4}/.test(s); });
+    if (cName < 0) return { error: 'No encontré la columna "Consumible".' };
+
+    // Las columnas de inventario: "Semana k" bajo un mes, antes del bloque de consumo.
+    var cols = [], year = null, month = null, notes = [];
+    for (var c = 0; c < Math.max(hr.length, wr.length); c++) {
+        if (cCons >= 0 && c >= cCons) break;
+        var y = /(20\d\d)/.exec(String(hr[c] == null ? '' : hr[c]));
+        if (y) year = +y[1];
+        var mf = _icFold(mr[c]);
+        var mi = INV_CONS_MONTHS.indexOf(mf);
+        if (mi >= 0) month = mi + 1;
+        var w = /semana\s*(\d+)/.exec(_icFold(wr[c]));
+        if (!w || !year || !month) continue;
+        cols.push({ col: c, y: year, m: month, k: +w[1], headerYear: year });
+    }
+    // Un diciembre justo antes de un enero es del año anterior a ese enero, diga lo que diga
+    // su encabezado (el del laboratorio dice "2024" antes de enero 2026).
+    for (var j = 0; j < cols.length; j++) {
+        if (cols[j].m !== 12) continue;
+        var next = cols.slice(j + 1).filter(function(x) { return x.m !== 12; })[0];
+        if (next && next.m === 1 && cols[j].y !== next.y - 1) {
+            if (!notes.some(function(n) { return n.indexOf('diciembre') >= 0; })) {
+                notes.push('El encabezado del bloque de diciembre dice ' + cols[j].y + '; se tomó como diciembre ' + (next.y - 1) + ' (es el mes anterior a enero ' + next.y + ').');
+            }
+            cols[j].y = next.y - 1;
+        }
+    }
+    var seen = {};
+    cols = cols.filter(function(x) {
+        x.id = invConsWeekId(x.y, x.m, x.k);
+        if (seen[x.id]) return false;
+        seen[x.id] = true; return true;
+    });
+    if (!cols.length) return { error: 'No encontré columnas "Semana" bajo los meses.' };
+
+    var rows = [], cat = '';
+    for (var r = H + 3; r < grid.length; r++) {
+        var line = grid[r] || [];
+        var name = String(line[cName] == null ? '' : line[cName]).replace(/\s+/g, ' ').trim();
+        if (cTipo >= 0 && String(line[cTipo] || '').trim()) cat = String(line[cTipo]).replace(/\s+/g, ' ').trim();
+        if (!name) break;                              // la tabla termina en el primer renglón vacío
+        var weeks = {}, n = 0;
+        cols.forEach(function(x) {
+            var v = _icNum(line[x.col]);
+            if (v !== null) { weeks[x.id] = v; n++; }
+        });
+        var limTxt = cLim >= 0 && line[cLim] != null && _icNum(line[cLim]) === null && !/^#/.test(String(line[cLim])) ? String(line[cLim]).trim() : '';
+        var item = cItem >= 0 ? String(line[cItem] == null ? '' : line[cItem]).trim() : '';
+        rows.push({
+            id: invConsRowKey(name), label: name, category: cat,
+            item: /^#/.test(item) ? '' : item,
+            code: cCode >= 0 ? String(line[cCode] == null ? '' : line[cCode]).trim() : '',
+            stockIni: cIni >= 0 ? _icNum(line[cIni]) : null, stockAct: cAct >= 0 ? _icNum(line[cAct]) : null,
+            leadDays: cLead >= 0 ? _icNum(line[cLead]) : null, limitText: limTxt,
+            order: rows.length, weeks: weeks, nWeeks: n,
+            // Las semanas que el archivo DECLARA (aunque estén vacías): octubre trae 4 columnas
+            // aunque solo 2 tengan valor, y así se respeta su acomodo.
+            layout: cols.map(function(x) { return x.id; })
+        });
+    }
+    return { rows: rows, weeks: cols, notes: notes };
+}
+
+/** Une el histórico de dos equipos: por renglón, gana el de `updatedAt` más reciente. PURA y simétrica. */
+function invConsHistoryUnion(a, b) { return invFuelTypesUnion(a || [], b || []); }
+/** ¿`incoming` trae un renglón nuevo o más reciente? PURA. */
+function invConsHistoryNewTo(base, incoming) { return invFuelTypesNewTo(base || [], incoming || []); }
+
+/**
+ * Guarda lo importado como histórico. Por renglón (consumible): sus semanas se UNEN con las
+ * que ya había (lo del archivo gana en la misma semana). Pide `inventory.manage` y se audita.
+ */
+function invConsHistoryApply(parsed, meta) {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'importar el histórico de consumibles')) return null;
+    if (!parsed || !parsed.rows) return null;
+    meta = meta || {};
+    var now = new Date().toISOString();
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : '';
+    var cur = (invState.consHistory || []).slice();
+    var byId = {};
+    cur.forEach(function(r, i) { if (r && r.id) byId[r.id] = i; });
+    var nuevos = 0, actualizados = 0, semanas = 0;
+    parsed.rows.forEach(function(r) {
+        var prev = byId[r.id] !== undefined ? cur[byId[r.id]] : null;
+        var weeks = Object.assign({}, prev && prev.weeks || {}, r.weeks);
+        semanas += Object.keys(r.weeks).length;
+        var rec = Object.assign({}, prev || {}, {
+            id: r.id, label: r.label, category: r.category, item: r.item, code: r.code,
+            stockIni: r.stockIni, stockAct: r.stockAct, leadDays: r.leadDays, limitText: r.limitText,
+            order: r.order, weeks: weeks, layout: r.layout || [], file: meta.fileName || '', by: who, updatedAt: now
+        });
+        if (prev) { cur[byId[r.id]] = rec; actualizados++; } else { cur.push(rec); byId[r.id] = cur.length - 1; nuevos++; }
+    });
+    var before = (invState.consHistory || []).length;
+    invState.consHistory = cur;
+    if (typeof invSave === 'function') invSave();
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'historico_consumibles', { type: 'inventory', label: meta.fileName || 'Lista de consumibles' },
+            parsed.rows.length + ' consumibles, ' + semanas + ' valores semanales (' + nuevos + ' nuevos, ' + actualizados + ' actualizados)',
+            { before: { renglones: before }, after: { renglones: cur.length, semanas: parsed.weeks.length } });
+    }
+    return { nuevos: nuevos, actualizados: actualizados, semanas: semanas };
+}
+
+// ── 2. El modelo del año ─────────────────────────────────────────────────
+
+/** Cilindros (incluidos los vacíos) del consumible de un renglón. */
+function _icCylsFor(label, gases) {
+    var all = (gases || []).filter(Boolean);
+    if (typeof invMatchGasByLabel !== 'function' || typeof invGasConsumableKey !== 'function') return [];
+    var m = invMatchGasByLabel(label, all);
+    if (!m.gas) {
+        // invMatchGasByLabel solo mira los no vacíos: un consumible cuyos cilindros ya se
+        // vaciaron también tiene historia.
+        var clones = all.map(function(g) { return Object.assign({}, g, { status: g.status === 'Empty' ? 'Stock' : g.status, _orig: g }); });
+        m = invMatchGasByLabel(label, clones);
+        if (m.gas && m.gas._orig) m.gas = m.gas._orig;
+    }
+    if (!m.gas) return [];
+    var k = invGasConsumableKey(m.gas);
+    return all.filter(function(g) { return invGasConsumableKey(g) === k; });
+}
+
+/**
+ * Inventario de un consumible al cierre de una semana, de las lecturas de la plataforma. PURA.
+ * Suma la última lectura humana (hasta `end`, la de la tarde si hay dos) de cada cilindro
+ * que todavía estaba en servicio (leído en los `INV_CONS_STALE_DAYS` días anteriores).
+ * null = ningún cilindro tiene lectura para esa semana.
+ */
+function invConsAppValue(cyls, end) {
+    var endMs = Date.parse(end + 'T23:59:59Z'), total = 0, n = 0;
+    (cyls || []).forEach(function(g) {
+        var last = null;
+        (g.readings || []).forEach(function(r) {
+            if (!r || r.auto || !r.date || typeof r.psi !== 'number' || r.date > end) return;
+            if (!last || invReadingCmp(r, last) > 0) last = r;
+        });
+        if (!last) return;
+        if ((endMs - Date.parse(last.date + 'T00:00:00Z')) / 86400000 > INV_CONS_STALE_DAYS) return;
+        total += last.psi; n++;
+    });
+    return n ? total : null;
+}
+
+/**
+ * LA definición de la Lista de Consumibles de un año. PURA.
+ * src = {year, today:'AAAA-MM-DD', history:[renglón], gases:[cilindro], reportLabel(g)}
+ * → {year, months:[{y,m,label,weeks:[{id,k,end,future}]}], rows:[{…, cells:{id:{v,src}}, actual, …}], notes}
+ * El primer mes es el diciembre anterior (así lo lleva el laboratorio).
+ */
+function invConsListModel(src) {
+    var year = src.year, today = src.today;
+    var hist = (src.history || []).filter(function(r) { return r && r.id && !r.deleted; })
+        .slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+    var histK = {};       // 'AAAA-MM' → semanas que trae lo importado
+    hist.forEach(function(r) {
+        Object.keys(r.weeks || {}).concat(r.layout || []).forEach(function(id) {
+            var mm = /^(\d{4})-(\d{2})-S(\d+)$/.exec(id);
+            if (!mm) return;
+            var key = mm[1] + '-' + mm[2];
+            histK[key] = Math.max(histK[key] || 0, +mm[3]);
+        });
+    });
+    var months = [];
+    var addMonth = function(y, m) {
+        var key = y + '-' + _icPad(m);
+        var K = histK[key] || _icMondaysIn(y, m).length;
+        var weeks = [];
+        for (var k = 1; k <= K; k++) {
+            var end = invConsWeekEnd(y, m, k, K);
+            var start = k === 1 ? y + '-' + _icPad(m) + '-01' : _icNextDay(invConsWeekEnd(y, m, k - 1, K));
+            weeks.push({ id: invConsWeekId(y, m, k), k: k, start: start, end: end, future: !!today && start > today });
+        }
+        months.push({ y: y, m: m, label: INV_CONS_MONTH_LABELS[m - 1], weeks: weeks, fromHistory: !!histK[key] });
+    };
+    addMonth(year - 1, 12);
+    for (var m = 1; m <= 12; m++) addMonth(year, m);
+    var allWeeks = [];
+    months.forEach(function(mo) { mo.weeks.forEach(function(w) { allWeeks.push(w); }); });
+
+    var gases = src.gases || [];
+    var label = src.reportLabel || function(g) { return g.gasType || g.formula || ''; };
+    var rows = [], used = {};
+    var build = function(base, cyls) {
+        var cells = {};
+        allWeeks.forEach(function(w) {
+            var hv = base.weeks && base.weeks[w.id];
+            if (typeof hv === 'number') { cells[w.id] = { v: hv, src: 'hist' }; return; }
+            if (w.future || !cyls.length) return;
+            var av = invConsAppValue(cyls, today && w.end > today ? today : w.end);
+            if (av !== null) cells[w.id] = { v: av, src: 'app' };
+        });
+        var filled = allWeeks.filter(function(w) { return cells[w.id]; });
+        var last = filled.length ? filled[filled.length - 1] : null;
+        var lead = base.leadDays;
+        if (!(lead > 0) && cyls.length && typeof invGasLeadDays === 'function') lead = invGasLeadDays(cyls[0]);
+        return Object.assign({}, base, { cells: cells, actual: last ? cells[last.id].v : null, actualWeek: last ? last.id : null,
+                                         leadDays: lead > 0 ? lead : null, nCyl: cyls.length });
+    };
+    hist.forEach(function(r) {
+        var cyls = _icCylsFor(r.label, gases);
+        cyls.forEach(function(g) { used[g.id] = true; });
+        rows.push(build(r, cyls));
+    });
+    // Consumibles de la plataforma que la lista no tiene: van al final, con sus lecturas.
+    var extra = {};
+    gases.forEach(function(g) {
+        if (!g || used[g.id] || g.status === 'Empty' || typeof invGasConsumableKey !== 'function') return;
+        var k = invGasConsumableKey(g);
+        (extra[k] = extra[k] || []).push(g);
+    });
+    Object.keys(extra).sort().forEach(function(k) {
+        var cyls = extra[k], lbl = label(cyls[0]);
+        rows.push(build({ id: invConsRowKey(lbl), label: lbl, category: cyls[0].gasCategory || 'Gases', item: '', code: '',
+                          stockIni: null, stockAct: cyls.length, leadDays: null, limitText: '', weeks: {}, fromApp: true }, cyls));
+    });
+
+    // Consumo por semana (como el Excel: MAX(0, anterior − actual), una recarga cuenta 0) y su promedio.
+    var yearWeeks = allWeeks.filter(function(w) { return w.id.slice(0, 4) === String(year); });
+    rows.forEach(function(r) {
+        var cons = [];
+        for (var i = 1; i < yearWeeks.length; i++) {
+            var a = r.cells[yearWeeks[i - 1].id], b = r.cells[yearWeeks[i].id];
+            cons.push(a && b ? Math.max(0, a.v - b.v) : null);
+        }
+        r.consumption = cons;
+        var vals = cons.filter(function(x) { return x !== null; });
+        r.weeklyAvg = vals.length ? vals.reduce(function(s, x) { return s + x; }, 0) / vals.length : null;
+        r.dailyAvg = r.weeklyAvg === null ? null : r.weeklyAvg / 5;
+        r.lowerLimit = r.dailyAvg === null || !(r.leadDays > 0) ? null : r.dailyAvg * r.leadDays * 1.3;
+        r.lowerAdj = r.lowerLimit === null ? null : (r.lowerLimit < 500 ? 500 : r.dailyAvg * r.leadDays);
+        r.status = r.actual === null || r.lowerLimit === null ? '' : (r.actual > r.lowerLimit ? 'OK' : 'Comprar');
+        r.hasData = Object.keys(r.cells).length > 0;
+    });
+    return { year: year, today: today, months: months, weeks: allWeeks, yearWeeks: yearWeeks, rows: rows,
+             hasHistory: hist.length > 0 };
+}
+function _icNextDay(iso) {
+    var d = new Date(Date.parse(iso + 'T00:00:00Z') + 86400000);
+    return d.getUTCFullYear() + '-' + _icPad(d.getUTCMonth() + 1) + '-' + _icPad(d.getUTCDate());
+}
+
+// ── 3. El Excel ──────────────────────────────────────────────────────────
+
+/** El libro (PURA). Mismo acomodo que la Lista de stock del laboratorio, con fórmulas y sus valores. */
+function invConsListXlsxSpec(model) {
+    var B = '000000';
+    var st = function(o) {
+        o = o || {};
+        var x = { font: { name: 'Aptos Narrow', sz: o.sz || 11, b: !!o.b, color: o.color || '000000' },
+                  align: { h: o.h || 'center', v: 'center', wrap: !!o.wrap } };
+        if (o.fill) x.fill = o.fill;
+        if (o.numFmt) x.numFmt = o.numFmt;
+        if (o.border !== false) { x.border = 'thin'; x.borderColor = B; }
+        return x;
+    };
+    var HEAD = 'BDD7EE', HEAD2 = 'DDEBF7', APP = 'E2F0D9', CONS = 'FCE4D6', SUMM = 'FFF2CC';
+    var cells = [], merges = [], cols = [], rowsInfo = {};
+    var put = function(r, c, v, s, f) { var cell = { r: r, c: c, v: v, s: s }; if (f) cell.f = f; cells.push(cell); return cell; };
+    var ref = xwRef, rng = xwRange;
+    var H = 6, ROW0 = 9;
+    // Columnas fijas
+    var C_TIPO = 1, C_NAME = 2, C_ITEM = 3, C_CODE = 4, C_INI = 5, C_ACT = 6, C_W0 = 7;
+    cols.push({ min: 1, width: 17 }, { min: 2, width: 60 }, { min: 3, width: 9 }, { min: 4, width: 15 }, { min: 5, width: 11 }, { min: 6, width: 11 });
+
+    put(1, 2, 'LISTA DE STOCK DE CONSUMIBLES DEL LABORATORIO DE EMISIONES', { sz: 18, b: true, h: 'left', border: false });
+    put(2, 2, 'Generado por la plataforma el ' + (model.today || '') + ' · semanas en verde = lecturas de la plataforma; las demás = histórico importado.',
+        { sz: 10, h: 'left', border: false, color: '595959' });
+    rowsInfo[1] = { height: 24 };
+
+    [[C_TIPO, 'Tipo de\n consumible'], [C_NAME, 'Consumible'], [C_ITEM, 'No de item'], [C_CODE, 'CODIGO']].forEach(function(x) {
+        for (var r = H; r <= H + 2; r++) put(r, x[0], r === H ? x[1] : '', st({ b: true, fill: HEAD, wrap: true }));
+        merges.push(rng(H, x[0], H + 2, x[0]));
+    });
+    put(H, C_INI, '', st({ fill: HEAD })); put(H + 1, C_INI, '', st({ fill: HEAD })); put(H + 2, C_INI, 'STOCK INICIAL\n (UNIDAD)', st({ b: true, fill: HEAD, wrap: true }));
+    put(H, C_ACT, '', st({ fill: HEAD })); put(H + 1, C_ACT, '', st({ fill: HEAD })); put(H + 2, C_ACT, 'STOCK ACTUAL\n(Unidad)', st({ b: true, fill: HEAD, wrap: true }));
+    rowsInfo[H] = { height: 30 }; rowsInfo[H + 2] = { height: 43 };
+
+    // Inventario por semana
+    var colOfWeek = {}, c = C_W0;
+    var blocks = [];
+    model.months.forEach(function(mo) {
+        var c0 = c;
+        mo.weeks.forEach(function(w) { colOfWeek[w.id] = c; cols.push({ min: c, width: 9.5 }); c++; });
+        blocks.push({ mo: mo, c0: c0, c1: c - 1 });
+    });
+    var cInvEnd = c - 1;
+    // Fila del año: el diciembre anterior lleva su año; el resto "AAAA INVENTORY"
+    var yb = blocks.filter(function(b) { return b.mo.y === model.year; });
+    var pb = blocks.filter(function(b) { return b.mo.y !== model.year; });
+    pb.forEach(function(b) { for (var cc = b.c0; cc <= b.c1; cc++) put(H, cc, cc === b.c0 ? b.mo.y : '', st({ b: true, sz: 18, fill: HEAD })); if (b.c1 > b.c0) merges.push(rng(H, b.c0, H, b.c1)); });
+    if (yb.length) {
+        for (var cc = yb[0].c0; cc <= yb[yb.length - 1].c1; cc++) put(H, cc, cc === yb[0].c0 ? model.year + ' INVENTORY' : '', st({ b: true, sz: 18, fill: HEAD }));
+        merges.push(rng(H, yb[0].c0, H, yb[yb.length - 1].c1));
+    }
+    blocks.forEach(function(b) {
+        for (var cc = b.c0; cc <= b.c1; cc++) put(H + 1, cc, cc === b.c0 ? b.mo.label : '', st({ b: true, fill: HEAD2 }));
+        if (b.c1 > b.c0) merges.push(rng(H + 1, b.c0, H + 1, b.c1));
+        b.mo.weeks.forEach(function(w) { put(H + 2, colOfWeek[w.id], 'Semana ' + w.k, st({ b: true })); });
+    });
+
+    // Consumo: un periodo por cada par de semanas seguidas del año
+    var yw = model.yearWeeks;
+    var cCons0 = cInvEnd + 1, nPer = Math.max(0, yw.length - 1);
+    for (var p = 0; p < nPer; p++) cols.push({ min: cCons0 + p, width: 9 });
+    if (nPer) {
+        for (var p2 = 0; p2 < nPer; p2++) {
+            put(H, cCons0 + p2, p2 === 0 ? model.year + ' CONSUMO' : '', st({ b: true, sz: 18, fill: CONS }));
+            put(H + 2, cCons0 + p2, 'Period ' + (p2 + 1), st({ b: true, fill: CONS }));
+        }
+        merges.push(rng(H, cCons0, H, cCons0 + nPer - 1));
+        // Mes del periodo (el de la semana con que termina)
+        var pm = null, pStart = 0;
+        for (var p3 = 0; p3 <= nPer; p3++) {
+            var mid = p3 < nPer ? yw[p3 + 1].id.slice(0, 7) : null;
+            if (mid !== pm) {
+                if (pm !== null) {
+                    for (var q = pStart; q < p3; q++) put(H + 1, cCons0 + q, q === pStart ? INV_CONS_MONTH_LABELS[+pm.slice(5) - 1] : '', st({ b: true, fill: CONS }));
+                    if (p3 - 1 > pStart) merges.push(rng(H + 1, cCons0 + pStart, H + 1, cCons0 + p3 - 1));
+                }
+                pm = mid; pStart = p3;
+            }
+        }
+    }
+    var cS = cCons0 + nPer;      // resumen
+    var SUM = [['Actual Inventory', 13], ['CONSUMO SEMANAL PROMEDIO (PSI)', 14], ['CONSUMO DIARIO PROMEDIO (PSI)', 14],
+               ['TIEMPO DE REPOSICION (Días)', 13], ['Limite Inferior (PSI)', 13], ['Limite Inferior \nAjustado (PSI)', 13], ['Status', 11]];
+    SUM.forEach(function(x, i) {
+        cols.push({ min: cS + i, width: x[1] });
+        for (var r = H; r <= H + 2; r++) put(r, cS + i, r === H ? x[0] : '', st({ b: true, fill: SUMM, wrap: true }));
+        merges.push(rng(H, cS + i, H + 2, cS + i));
+    });
+
+    // Renglones
+    var r = ROW0, catStart = ROW0, catName = null;
+    var closeCat = function(endRow) {
+        if (catName === null) return;
+        for (var rr = catStart; rr <= endRow; rr++) put(rr, C_TIPO, rr === catStart ? catName : '', st({ b: true, wrap: true }));
+        if (endRow > catStart) merges.push(rng(catStart, C_TIPO, endRow, C_TIPO));
+    };
+    model.rows.forEach(function(row) {
+        var cat = row.category || '';
+        if (cat !== catName) { closeCat(r - 1); catName = cat; catStart = r; }
+        put(r, C_NAME, row.label, st({ h: 'left' }));
+        put(r, C_ITEM, row.item || '', st({}));
+        put(r, C_CODE, row.code || '', st({}));
+        put(r, C_INI, row.stockIni == null ? '' : row.stockIni, st({ b: true }));
+        put(r, C_ACT, row.stockAct == null ? '' : row.stockAct, st({ b: true }));
+        model.weeks.forEach(function(w) {
+            var cl = row.cells[w.id];
+            put(r, colOfWeek[w.id], cl ? cl.v : '', st({ b: true, fill: cl && cl.src === 'app' ? APP : null, numFmt: '0' }));
+        });
+        for (var p = 0; p < nPer; p++) {
+            var A = ref(r, colOfWeek[yw[p].id]), Bc = ref(r, colOfWeek[yw[p + 1].id]);
+            var cv = row.consumption[p];
+            put(r, cCons0 + p, cv === null ? '' : cv, st({ b: true, numFmt: '0' }), 'IF(OR(' + A + '="",' + Bc + '=""),"",MAX(0,' + A + '-' + Bc + '))');
+        }
+        var consRange = nPer ? rng(r, cCons0, r, cCons0 + nPer - 1) : null;
+        var gasRow = row.hasData;
+        // Actual
+        if (row.actualWeek) put(r, cS, row.actual, st({ b: true, numFmt: '0' }), ref(r, colOfWeek[row.actualWeek]));
+        else put(r, cS, '', st({}));
+        if (gasRow && consRange) {
+            put(r, cS + 1, row.weeklyAvg === null ? '' : row.weeklyAvg, st({ b: true, numFmt: '0.0' }), 'IFERROR(AVERAGE(' + consRange + '),"")');
+            put(r, cS + 2, row.dailyAvg === null ? '' : row.dailyAvg, st({ b: true, numFmt: '0.0' }), 'IF(' + ref(r, cS + 1) + '="","",' + ref(r, cS + 1) + '/5)');
+        } else { put(r, cS + 1, '', st({})); put(r, cS + 2, '', st({})); }
+        put(r, cS + 3, row.leadDays == null ? '' : row.leadDays, st({ b: true }));
+        if (gasRow && consRange && row.leadDays > 0) {
+            var DG = ref(r, cS + 2), DH = ref(r, cS + 3), DI = ref(r, cS + 4), DE = ref(r, cS);
+            put(r, cS + 4, row.lowerLimit === null ? '' : row.lowerLimit, st({ b: true, numFmt: '0.00' }), 'IF(' + DG + '="","",' + DG + '*' + DH + '*1.3)');
+            put(r, cS + 5, row.lowerAdj === null ? '' : row.lowerAdj, st({ b: true, numFmt: '0.00' }), 'IF(' + DI + '="","",IF(' + DI + '<500,500,' + DG + '*' + DH + '))');
+            put(r, cS + 6, row.status, st({ b: true, color: row.status === 'Comprar' ? 'C00000' : '006100' }),
+                'IF(OR(' + DE + '="",' + DI + '=""),"",IF(' + DE + '>' + DI + ',"OK","Comprar"))');
+        } else {
+            put(r, cS + 4, row.limitText || '', st({ b: true }));
+            put(r, cS + 5, '', st({})); put(r, cS + 6, '', st({}));
+        }
+        r++;
+    });
+    closeCat(r - 1);
+    return { sheets: [{ name: 'Sheet1', showGrid: true, zoom: 70, cols: cols, rows: rowsInfo, cells: cells, merges: merges,
+                        freeze: { row: ROW0, col: C_W0 }, print: { landscape: true, fitWidth: 1 } }],
+             creator: 'KIA EmLab' };
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────
+
+function _icModelNow(year) {
+    return invConsListModel({
+        year: year || +localToday().slice(0, 4), today: localToday(),
+        history: invState.consHistory || [], gases: invState.gases || [],
+        reportLabel: typeof invGasReportLabel === 'function' ? invGasReportLabel : null
+    });
+}
+
+/** La tarjeta de Consumibles → Reporte: tendencia por consumible + Excel + importar histórico. */
+function invConsListCardHTML() {
+    var year = +(window._icYear || localToday().slice(0, 4));
+    var m = _icModelNow(year);
+    var e = escapeHtml;
+    var hist = (invState.consHistory || []).filter(function(x) { return x && !x.deleted; });
+    var lastImp = hist.reduce(function(a, x) { return (x.updatedAt || '') > (a.updatedAt || '') ? x : a; }, {});
+    var h = '<div class="tp-card"><div class="tp-card-title" data-help="inv-conslist-help"><span>📊 Lista de consumibles — ' + year + '</span>' +
+        '<span style="display:flex;flex-wrap:wrap;gap: var(--space-xs);margin-left:auto;">' +
+        '<select aria-label="Año" onchange="window._icYear=this.value;invRender()" class="tp-input" style="width:auto;">' +
+        [year - 1, year, year + 1].map(function(y) { return '<option' + (y === year ? ' selected' : '') + '>' + y + '</option>'; }).join('') + '</select>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="invConsHistoryImportOpen()" style="font-size: var(--fs-sm);">📥 Importar histórico</button>' +
+        '<button class="tp-btn tp-btn-primary" onclick="invConsListExport()" style="font-size: var(--fs-sm);">📤 Excel</button></span></div>';
+    h += '<div class="u-muted" style="font-size: var(--fs-xs);margin-bottom: var(--space-sm);">' +
+        (hist.length ? 'Histórico: ' + hist.length + ' consumibles' + (lastImp.file ? ' · de «' + e(lastImp.file) + '»' : '') + (lastImp.updatedAt ? ' · ' + e(String(lastImp.updatedAt).slice(0, 10)) : '') + '. '
+                     : 'Sin histórico importado: el Excel sale solo con las lecturas de la plataforma. ') +
+        'Cada semana es el inventario al cierre (la última lectura de cada cilindro, la de la tarde si hay dos), sumado por consumible.</div>';
+    var withData = m.rows.filter(function(r) { return r.hasData; });
+    if (!withData.length) {
+        h += '<div class="u-muted">Todavía no hay semanas con datos en ' + year + '.</div></div>';
+        return h;
+    }
+    h += '<div style="overflow-x:auto;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);"><thead><tr>' +
+        '<th style="text-align:left;">Consumible</th><th>Tendencia (PSI por semana)</th><th>Actual</th><th>Consumo semanal</th><th>Límite inferior</th><th>Status</th></tr></thead><tbody>';
+    withData.forEach(function(r) {
+        var pts = m.weeks.filter(function(w) { return r.cells[w.id]; }).map(function(w) { return { v: r.cells[w.id].v, src: r.cells[w.id].src, id: w.id }; });
+        h += '<tr style="border-top:1px solid var(--border);"><td style="text-align:left;">' + e(r.label) + (r.fromApp ? ' <span class="u-chip">solo plataforma</span>' : '') + '</td>' +
+            '<td>' + _icSpark(pts) + '</td><td style="font-weight:700;text-align:center;">' + (r.actual === null ? '—' : Math.round(r.actual)) + '</td>' +
+            '<td style="text-align:center;">' + (r.weeklyAvg === null ? '—' : r.weeklyAvg.toFixed(1)) + '</td>' +
+            '<td style="text-align:center;">' + (r.lowerLimit === null ? '—' : r.lowerLimit.toFixed(1)) + '</td>' +
+            '<td style="text-align:center;">' + (r.status ? '<span class="u-chip ' + (r.status === 'OK' ? 'u-chip--ok' : 'u-chip--warn') + '">' + r.status + '</span>' : '—') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="u-muted" style="font-size: var(--fs-xs);margin-top: var(--space-xs);">El Excel trae los mismos números y sus fórmulas (consumo = MAX(0, semana anterior − esta); límite = consumo diario × días de reposición × 1.3). Las semanas que salen de la plataforma van en verde.</div>';
+    return h + '</div>';
+}
+
+function _icSpark(pts) {
+    if (!pts.length) return '';
+    var W = 160, Hh = 32, max = Math.max.apply(null, pts.map(function(p) { return p.v; }).concat([1]));
+    var step = pts.length > 1 ? W / (pts.length - 1) : 0;
+    var path = pts.map(function(p, i) { return (i ? 'L' : 'M') + (i * step).toFixed(1) + ' ' + (Hh - 2 - (p.v / max) * (Hh - 4)).toFixed(1); }).join(' ');
+    var dots = pts.map(function(p, i) {
+        return p.src === 'app' ? '<circle cx="' + (i * step).toFixed(1) + '" cy="' + (Hh - 2 - (p.v / max) * (Hh - 4)).toFixed(1) + '" r="1.8" fill="var(--ok-fill)"/>' : '';
+    }).join('');
+    return '<svg width="' + W + '" height="' + Hh + '" viewBox="-2 0 ' + (W + 4) + ' ' + Hh + '" role="img" aria-label="Tendencia semanal"><path d="' + path + '" fill="none" stroke="var(--accent-inv, #0ea5e9)" stroke-width="1.5"/>' + dots + '</svg>';
+}
+
+/** Un clic: el Excel del año elegido, llenado solo. */
+function invConsListExport() {
+    var year = +(window._icYear || localToday().slice(0, 4));
+    var m = _icModelNow(year);
+    var name = 'Lista_de_Consumibles_' + year + '_' + localToday() + '.xlsx';
+    return xwBuildCompressed(invConsListXlsxSpec(m)).then(function(bytes) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+        if (typeof auditLog === 'function') auditLog('inv', 'lista_consumibles_xlsx', { type: 'inventory', label: name },
+            m.rows.length + ' consumibles · ' + m.weeks.length + ' semanas');
+        showToast('Descargado: ' + name, 'success');
+        return true;
+    }).catch(function(e) {
+        showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+        return false;
+    });
+}
+
+var _icPending = null;
+function invConsHistoryImportOpen() {
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'importar el histórico de consumibles')) return;
+    _icPending = null;
+    showModal({
+        title: '📥 Importar histórico de consumibles',
+        body: '<p>Sube la <b>Lista de stock de consumibles</b> (.xlsx). Se guardan las semanas que trae como histórico de cada consumible: ' +
+              'no se convierten en lecturas de cilindro. Volver a subirla actualiza, no duplica.</p>' +
+              '<input type="file" accept=".xlsx" onchange="invConsHistoryFile(event)" aria-label="Archivo de la lista de consumibles">' +
+              '<div id="ic-preview" style="margin-top: var(--space-md);"></div>',
+        buttons: [{ label: 'Cancelar' }, { label: 'Importar', cls: 'btn-primary', onclick: invConsHistoryConfirm }]
+    });
+}
+
+function invConsHistoryFile(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    var box = document.getElementById('ic-preview');
+    if (!f || !box) return;
+    box.innerHTML = '<p class="u-muted">Leyendo ' + escapeHtml(f.name) + '…</p>';
+    var rd = new FileReader();
+    rd.onload = function() {
+        vetsReadWorkbook(new Uint8Array(rd.result), null).then(function(sheets) {
+            var best = null;
+            Object.keys(sheets).forEach(function(k) {
+                var p = invConsListParse(_homoGridFromSheet(sheets[k]));
+                if (!p.error && (!best || p.rows.length > best.rows.length)) best = p;
+            });
+            if (!best) throw new Error('No encontré la tabla (encabezados "Consumible" y "Semana").');
+            _icPending = { parsed: best, fileName: f.name };
+            var conDatos = best.rows.filter(function(r) { return r.nWeeks; });
+            var y0 = best.weeks[0], y1 = best.weeks[best.weeks.length - 1];
+            box.innerHTML = '<p><b>' + best.rows.length + '</b> consumibles (' + conDatos.length + ' con semanas) · <b>' + best.weeks.length + '</b> semanas, de ' +
+                INV_CONS_MONTH_LABELS[y0.m - 1].toLowerCase() + ' ' + y0.y + ' a ' + INV_CONS_MONTH_LABELS[y1.m - 1].toLowerCase() + ' ' + y1.y + '.</p>' +
+                best.notes.map(function(n) { return '<p class="u-muted">ℹ️ ' + escapeHtml(n) + '</p>'; }).join('') +
+                '<ul style="max-height:200px;overflow:auto;">' + conDatos.slice(0, 40).map(function(r) {
+                    return '<li>' + escapeHtml(r.label) + ' — ' + r.nWeeks + ' semanas</li>';
+                }).join('') + '</ul>';
+        }).catch(function(err) {
+            _icPending = null;
+            box.innerHTML = '<p style="color:var(--danger-text);">' + escapeHtml(err && err.message || String(err)) + '</p>';
+        });
+    };
+    rd.readAsArrayBuffer(f);
+}
+
+function invConsHistoryConfirm() {
+    if (!_icPending) { showToast('Primero elige el archivo.', 'warning'); return; }
+    var res = invConsHistoryApply(_icPending.parsed, { fileName: _icPending.fileName });
+    _icPending = null;
+    var m = document.getElementById('globalModal'); if (m) m.remove();
+    if (!res) return;
+    showToast('Histórico importado: ' + (res.nuevos + res.actualizados) + ' consumibles, ' + res.semanas + ' valores semanales.', 'success');
+    if (typeof invRender === 'function') invRender();
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'inv-conslist-help': { title: 'Lista de consumibles', text: 'La lista de stock del laboratorio, semana por semana: el inventario de cada consumible al cierre de la semana (todos sus cilindros sumados), cuánto se consumió, el promedio y si ya hay que comprar. Lo anterior a la plataforma sale del histórico importado; lo demás, de las lecturas. 📤 Excel la descarga en el mismo formato.' }
+});
 
 
 // @@module js/testplan.js
@@ -64174,7 +64868,7 @@ function _fbPullLocalScore(col) {
         // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
         if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + _n(t.readings); });
         // v23.2: el consumo por prueba y los catálogos editables tampoco se contaban.
-        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes) + _n(st.fuelTypes);
+        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes) + _n(st.fuelTypes) + _n(st.consHistory);
         return s;
     }
 
@@ -64284,7 +64978,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // `lastReadingDate`. Ninguno viajaba, con la misma forma exacta del defecto de
         // `fuelTanks` que se arregló en v21.1.
         ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed',
-         'usageLog', 'zones', 'gasTypes', 'lastReadingDate', 'fuelTypes'].forEach(function(k) {
+         'usageLog', 'zones', 'gasTypes', 'lastReadingDate', 'fuelTypes', 'consHistory'].forEach(function(k) {
             if ((invState[k] === undefined || invState[k] === null ||
                  (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
                 invState[k] = prevInv[k];
@@ -64332,7 +65026,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [3.11.0] Un pull cuyo único cambio es el catálogo de tipos de gasolina.
         (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo((typeof invState !== 'undefined' && invState && invState.fuelTypes) || [], (remoteData && remoteData.fuelTypes) || [])) ||
         // [3.14.0] Un pull cuyo único cambio es un equipo del plano del laboratorio.
-        (typeof siteListNewTo === 'function' && siteListNewTo((typeof invState !== 'undefined' && invState && invState.siteItems) || [], (remoteData && remoteData.siteItems) || []));
+        (typeof siteListNewTo === 'function' && siteListNewTo((typeof invState !== 'undefined' && invState && invState.siteItems) || [], (remoteData && remoteData.siteItems) || [])) ||
+        // [3.16.0] Un pull cuyo único cambio es el histórico de la lista de consumibles.
+        (typeof invConsHistoryNewTo === 'function' && invConsHistoryNewTo((typeof invState !== 'undefined' && invState && invState.consHistory) || [], (remoteData && remoteData.consHistory) || []));
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -65157,7 +65853,7 @@ function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || []]));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
-        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || []]));
+        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
 }
@@ -65220,10 +65916,11 @@ function _fbLocalHasExtras(col, remote) {
         });
     }
     if (col === 'inventory') {
-        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[r.date + '|' + (r.auto ? 'a' : 'h')] = true; }); return m; };
+        var _rk = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
+        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = true; }); return m; };
         var faltaLectura = function(loc, rem) {
             var rf = fechas(rem && rem.readings);
-            return (loc.readings || []).some(function(r) { return r && r.date && !rf[r.date + '|' + (r.auto ? 'a' : 'h')]; });
+            return (loc.readings || []).some(function(r) { return r && r.date && !rf[_rk(r)]; });
         };
         var rg = _fbGasIndex(remote.gases);
         if ((invState.gases || []).some(function(g) { var r = rg.find(g); return !r || faltaLectura(g, r); })) return true;
@@ -65240,6 +65937,8 @@ function _fbLocalHasExtras(col, remote) {
         if (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo(remote.fuelTypes || [], invState.fuelTypes || [])) return true;
         // [3.14.0] Un equipo del plano acomodado aquí que la nube no tiene.
         if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteItems || [], invState.siteItems || [])) return true;
+        // [3.16.0] Histórico de consumibles importado aquí que la nube no tiene.
+        if (typeof invConsHistoryNewTo === 'function' && invConsHistoryNewTo(remote.consHistory || [], invState.consHistory || [])) return true;
         var rtk = {};
         (remote.fuelTanks || []).forEach(function(t) { rtk[t.id || t.name] = t; });
         return (invState.fuelTanks || []).some(function(t) { var r = rtk[t.id || t.name]; return !r || faltaLectura(t, r); });
@@ -65716,16 +66415,21 @@ function fbMergeLoadStation(stationId, callback) {
 // conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
 // así que fallaba callada.
 function _fbMergeReadings(locales, remotas, campo) {
-    var porFecha = {};
-    (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+    // [3.16.0] Una lectura HUMANA se identifica por fecha + turno (mañana/tarde; sin turno =
+    // mañana): dos del mismo día ya no colapsan en una. Las automáticas siguen siendo una por
+    // fecha y se retiran del día que tiene alguna humana (el manómetro manda sobre la estimación).
+    var sh = function(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; };
+    var key = function(r) { return r.date + '|' + (r.auto ? 'auto' : sh(r)); };
+    var porClave = {};
+    (remotas || []).forEach(function(r) { if (r && r.date) porClave[key(r)] = r; });
     (locales || []).forEach(function(r) {
         if (!r || !r.date) return;
-        var otra = porFecha[r.date];
-        if (!otra) { porFecha[r.date] = r; return; }
-        if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
-        else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+        porClave[key(r)] = r;             // misma clave: gana la local (antes: también)
     });
-    return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+    var humanas = {};
+    Object.keys(porClave).forEach(function(k) { var r = porClave[k]; if (!r.auto) humanas[r.date] = true; });
+    return Object.keys(porClave).sort().map(function(k) { return porClave[k]; })
+        .filter(function(r) { return !(r.auto && humanas[r.date]); });
 }
 
 // [3.14.2] LA identidad de un cilindro entre equipos: `id`, después No. de control, después
@@ -66321,6 +67025,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
+            if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
                         analysis.inventory.newEquip.length + ' equipos, +' +
                         (analysis.inventory.newFuelTanks || []).length + ' tanques');
@@ -66370,6 +67075,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // [3.11.0] Catálogo de tipos de gasolina: por id, gana el editado más reciente (con marcas de borrado).
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
+            if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();
@@ -66940,7 +67646,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610201737' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610201859' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69284,7 +69990,7 @@ function fbReviewModel(src) {
     var inventory = [];
     var R = src.remoteInv, L = src.localInv;
     if (R && L) {
-        var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h'); };
+        var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
         var scan = function(kind, locList, remList, keyFn, valKey, finder) {
             var rm = {};
             (remList || []).forEach(function(x) { if (x) rm[keyFn(x)] = x; });
@@ -69294,7 +70000,7 @@ function fbReviewModel(src) {
                 var name = String(x.name || x.controlNo || x.id || key);
                 if (!r) {
                     inventory.push({ kind: kind, key: key, name: name, newItem: true, older: false,
-                                     readings: (x.readings || []).filter(Boolean).map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                     readings: (x.readings || []).filter(Boolean).map(function(q) { return { date: q.date, shift: q.shift, value: q[valKey], auto: !!q.auto }; }),
                                      cloudLatest: null, behindDays: null });
                     return;
                 }
@@ -69306,7 +70012,7 @@ function fbReviewModel(src) {
                 var older = !!cloudLatest && newest < cloudLatest;
                 var behind = older ? Math.round((Date.parse(cloudLatest.slice(0, 10)) - Date.parse(newest.slice(0, 10))) / 86400000) : null;
                 inventory.push({ kind: kind, key: key, name: name, newItem: false, older: older,
-                                 readings: extra.map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                 readings: extra.map(function(q) { return { date: q.date, shift: q.shift, value: q[valKey], auto: !!q.auto }; }),
                                  cloudLatest: cloudLatest || null, behindDays: behind });
             });
         };
@@ -69503,8 +70209,9 @@ function fbReviewApply(keep) {
             var it = list.find(function(y) { return y && keyOf(y) === x.key; });
             if (!it || !it.readings) return;
             var gone = {};
-            x.readings.forEach(function(q) { gone[q.date + '|' + (q.auto ? 'a' : 'h')] = true; });
-            it.readings = it.readings.filter(function(q) { return !(q && gone[q.date + '|' + (q.auto ? 'a' : 'h')]); });
+            var gk = function(q) { return q.date + '|' + (q.auto ? 'a' : 'h' + (q.shift === 'pm' ? 'pm' : 'am')); };
+            x.readings.forEach(function(q) { gone[gk(q)] = true; });
+            it.readings = it.readings.filter(function(q) { return !(q && gone[gk(q)]); });
             if (x.kind === 'fuel' && it.readings.length) it.currentLevel = it.readings[it.readings.length - 1].level;
         });
     }
@@ -71618,7 +72325,12 @@ function copVetsPmPn(vehicle, pollId) {
     if (!vehicle || !copResultApproved(vehicle)) return null;
     var g = vehicle.testData && vehicle.testData.vets && vehicle.testData.vets.gases && vehicle.testData.vets.gases[pollId];
     var v = g ? _copNum(g.v) : null;
-    if (v === null) return null;
+    if (v === null) {
+        // [3.16.0] Sin VETS: lo que se cargó del COP Master (testData.extResults, ya en g/km y #/km).
+        var ext = vehicle.testData && vehicle.testData.extResults;
+        var ev = ext && ext.values ? _copNum(ext.values[pollId]) : null;
+        return ev;
+    }
     var u = String(g.u || '').trim().toLowerCase();
     if (pollId === 'PN') return (!u || u === '#/km') ? v : null;
     var F = { 'g/km': 1, 'mg/km': 0.001 };
@@ -72899,6 +73611,9 @@ function copBuildDossierHTML() {
                 'onclick="copFamilyPDF()">📄 Expediente PDF</button>';
         html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copExportFamilyCSV()">CSV</button>';
     }
+    if (typeof copMasterImportOpen === 'function') {
+        html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copMasterImportOpen()" title="PM/PN, ficha del ICMS y EvC/FCF desde el COP Master del laboratorio">📥 COP Master</button>';
+    }
     // [3.15.0] La hoja de HQ del juicio más reciente de la familia (aunque la familia ya no esté en el plan).
     var _hqJ = key ? (copState.saved || []).find(function(j) { return _copJudgmentMatchesFamily(j, key) && !j.evidencePurged; }) : null;
     if (_hqJ && typeof copHqXlsxExport === 'function') {
@@ -73408,7 +74123,8 @@ function copBuildValidatorHTML() {
     // ── Juicios guardados ──────────────────────────────────────────────────────
     if (copState.saved && copState.saved.length) {
         html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-        html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">💾 Juicios guardados (' + copState.saved.length + ')</div>';
+        html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;"><span>💾 Juicios guardados (' + copState.saved.length + ')</span>' +
+                (typeof copMasterImportOpen === 'function' ? '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:auto;font-size: var(--fs-sm);" onclick="copMasterImportOpen()" title="PM/PN, ficha del ICMS y EvC/FCF desde el COP Master del laboratorio">📥 COP Master</button>' : '') + '</div>';
         copState.saved.forEach(function(r) {
             var decTxt = r.decision === 'PASS' ? 'CONCORDANTE' : r.decision === 'FAIL' ? 'NO CONCORDANTE' : r.decision === 'CONTINUE' ? 'INCOMPLETO' : r.decision;
             html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';
@@ -75948,7 +76664,7 @@ function copHqModelFor(j) {
             if (used[p.id] || faltan < raw.length) {
                 warnings.push(_copHqGasName(p.id) + ': falta el valor de ' + faltan + ' de ' + raw.length + ' vehículo(s); la hoja sale sin ese gas.');
             } else if (p.id === 'PM' || p.id === 'PN') {
-                warnings.push(_copHqGasName(p.id) + ': ninguna prueba trae su valor en VETS; la hoja sale sin ese gas.');
+                warnings.push(_copHqGasName(p.id) + ': ninguna prueba trae su valor (ni de VETS ni del COP Master); la hoja sale sin ese gas. Impórtalo con 📥 COP Master.');
             }
             return;
         }
@@ -76057,6 +76773,380 @@ function copHqXlsxExport(id) {
         showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
         return false;
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [3.16.0] COP Master del laboratorio (compilado de los exports del ICMS)
+//
+// El laboratorio lleva un Excel "COP Master — Emisiones" con un renglón por prueba: los
+// resultados crudos (CO, THC, NOx, NMHC, PM, PN en mg/km o #/km, CO₂ en g/km), el EvC y el
+// FCF con que se corrigió el CO₂, y a la derecha el renglón completo del export del ICMS
+// de esa Work Order. Importarlo llena lo que la plataforma no tenía:
+//   · PM y PN de las pruebas liberadas sin VETS → vehicle.testData.extResults (evidencia
+//     aparte: NUNCA se escribe en gasResults, que es lo que firmaron liberador y aprobador);
+//   · la ficha del ICMS del vehículo (homoIcmsBatchPlan / homoIcmsBatchApply, las de siempre);
+//   · el EvC/FCF de la familia, si el Master trae uno solo para toda la familia.
+// Lo demás (CO, THC, NOx, NMHC, CO₂) solo se COMPARA contra lo aprobado y se avisa si difiere.
+// ══════════════════════════════════════════════════════════════════════
+
+var COP_MASTER_GASES = [
+    ['CO', /^raw co \(mg\/km\)$/, 0.001], ['THC', /^raw thc \(mg\/km\)$/, 0.001],
+    ['NOx', /^raw nox \(mg\/km\)$/, 0.001], ['NMHC', /^raw nmhc \(mg\/km\)$/, 0.001]
+];
+
+function _cmFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function _cmNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var s = String(v).trim();
+    if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(s)) return null;
+    var n = parseFloat(s); return isFinite(n) ? n : null;
+}
+/** Fecha de Excel (número de serie o texto) → 'AAAA-MM-DD'. PURA. */
+function _cmDate(v) {
+    var n = _cmNum(v);
+    if (n !== null && n > 20000 && n < 80000) {
+        var d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+        return d.toISOString().slice(0, 10);
+    }
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+    return m ? m[0] : '';
+}
+
+/**
+ * La hoja Registro_COP (retícula 0-based) → {rows, error}. PURA. Se lee por ENCABEZADO.
+ * rows = [{rowNo, vin, date, wo, raw:{CO,THC,NOx,NMHC,PM (g/km), PN (#/km)}, co2:{raw, evc, fcf, declared}, icms}]
+ */
+function copMasterParse(grid) {
+    grid = grid || [];
+    var H = -1;
+    for (var i = 0; i < Math.min(grid.length, 10) && H < 0; i++) {
+        var f = (grid[i] || []).map(_cmFold);
+        if (f.indexOf('vin') >= 0 && f.indexOf('fecha de prueba') >= 0) H = i;
+    }
+    if (H < 0) return { error: 'No encontré los encabezados "VIN" y "Fecha de prueba". ¿Es la hoja Registro_COP del COP Master?' };
+    var hdr = (grid[H] || []).map(_cmFold);
+    var col = function(re) { for (var c = 0; c < hdr.length; c++) if (re.test(hdr[c])) return c; return -1; };
+    var cVin = hdr.indexOf('vin'), cDate = hdr.indexOf('fecha de prueba');
+    var cWo = col(/^work order no\.?$/), cCo2 = col(/^raw co2 \(g\/km\)$/), cEvc = col(/^evc$/), cFcf = col(/^fcf$/);
+    var cDecl = col(/^co2 declarado icms/), cPm = col(/^pm \(mg\/km\)$/), cPn = col(/^pn \(#\/km\)$/);
+    var cIcms = col(/^company code$/);
+    var gasCols = COP_MASTER_GASES.map(function(g) { return { id: g[0], c: col(g[1]), k: g[2] }; });
+    var icmsHead = cIcms >= 0 ? (grid[H] || []).slice(cIcms) : null;
+    var rows = [];
+    for (var r = H + 1; r < grid.length; r++) {
+        var line = grid[r] || [];
+        var vin = String(line[cVin] == null ? '' : line[cVin]).trim().toUpperCase();
+        if (!/^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) continue;
+        var raw = {};
+        gasCols.forEach(function(g) { var v = g.c >= 0 ? _cmNum(line[g.c]) : null; if (v !== null) raw[g.id] = v * g.k; });
+        var pm = cPm >= 0 ? _cmNum(line[cPm]) : null, pn = cPn >= 0 ? _cmNum(line[cPn]) : null;
+        if (pm !== null) raw.PM = pm * 0.001;
+        if (pn !== null) raw.PN = pn;
+        var icms = null;
+        if (icmsHead && typeof homoIcmsRows === 'function') {
+            var p = homoIcmsRows([icmsHead, line.slice(cIcms)]);
+            if (!p.error && p.rows.length) icms = p.rows[0];
+        }
+        rows.push({
+            rowNo: r + 1, vin: vin, date: _cmDate(line[cDate]),
+            wo: cWo >= 0 ? String(line[cWo] == null ? '' : line[cWo]).trim() : '',
+            raw: raw,
+            co2: { raw: cCo2 >= 0 ? _cmNum(line[cCo2]) : null, evc: cEvc >= 0 ? _cmNum(line[cEvc]) : null,
+                   fcf: cFcf >= 0 ? _cmNum(line[cFcf]) : null, declared: cDecl >= 0 ? _cmNum(line[cDecl]) : null },
+            icms: icms
+        });
+    }
+    if (!rows.length) return { error: 'La hoja no tiene renglones con VIN.' };
+    return { rows: rows };
+}
+
+/** ¿El valor del Master coincide con el capturado, a la precisión con que se capturó? PURA. */
+function copMasterSameValue(stored, master) {
+    var a = _cmNum(stored);
+    if (a === null || master === null || master === undefined) return null;
+    var s = String(stored);
+    var dec = /e/i.test(s) ? 6 : (s.split('.')[1] || '').length;
+    var p = Math.pow(10, dec);
+    if (Math.round(master * p) / p === Math.round(a * p) / p) return true;
+    return Math.abs(master - a) <= Math.max(Math.abs(a), Math.abs(master)) * 0.005;   // 0.5 %
+}
+
+function _cmExt(v) { return (v && v.testData && v.testData.extResults && v.testData.extResults.values) || {}; }
+function _cmVets(v, k) {
+    var g = v && v.testData && v.testData.vets && v.testData.vets.gases && v.testData.vets.gases[k];
+    return g ? g : null;
+}
+
+/**
+ * Qué haría la importación con cada renglón. PURA (recibe los vehículos).
+ * → [{row, vehicleId, vin, status, approved, action:'sin-vehiculo'|'ambigua'|'ok', pmpn:'llenar'|'corregir'|'igual'|'vets'|'sin-dato',
+ *     pmpnValues, checks:[{gas, master, stored, same}], ficha:{action,…}|null, familyKey}]
+ */
+function copMasterPlan(rows, vehicles, opts) {
+    opts = opts || {};
+    var all = (vehicles || []).filter(function(v) { return v && v.vin; });
+    var testDate = opts.testDate || (typeof vehicleTestDate === 'function' ? vehicleTestDate : function(v) { return ((v.testData || {}).testDatetime || '').slice(0, 10); });
+    var famKey = opts.familyKey || (typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey : function() { return ''; });
+    var approved = opts.approved || (typeof copResultApproved === 'function' ? copResultApproved : function(v) { return v.status === 'archived'; });
+    return (rows || []).map(function(row) {
+        var e = { row: row, vin: row.vin };
+        var cand = all.filter(function(v) { return String(v.vin).trim().toUpperCase() === row.vin; });
+        if (cand.length > 1 && row.date) {
+            var mismoDia = cand.filter(function(v) { return testDate(v) === row.date; });
+            if (mismoDia.length === 1) cand = mismoDia;
+        }
+        if (!cand.length) { e.action = 'sin-vehiculo'; return e; }
+        if (cand.length > 1) { e.action = 'ambigua'; e.vehicles = cand.map(function(v) { return v.id; }); return e; }
+        var v = cand[0];
+        e.action = 'ok'; e.vehicleId = v.id; e.status = v.status || ''; e.approved = !!approved(v);
+        e.familyKey = famKey(v);
+        e.dateMismatch = !!(row.date && testDate(v) && testDate(v) !== row.date);
+        // PM / PN
+        var want = {}, ext = _cmExt(v), diffs = [], need = false, vetsHas = false;
+        ['PM', 'PN'].forEach(function(k) {
+            if (row.raw[k] === undefined) return;
+            if (_cmVets(v, k)) { vetsHas = true; return; }
+            want[k] = row.raw[k];
+            if (ext[k] === undefined || ext[k] === null) need = true;
+            else if (!copMasterSameValue(ext[k], row.raw[k])) diffs.push(k);
+        });
+        e.pmpnValues = want;
+        e.pmpn = !Object.keys(want).length ? (vetsHas ? 'vets' : 'sin-dato') : diffs.length ? 'corregir' : need ? 'llenar' : 'igual';
+        // Comparación con lo aprobado
+        var gr = (v.testData && v.testData.gasResults) || {};
+        var vals = (gr.aprobador && gr.aprobador.values) || (gr.liberador && gr.liberador.values) || {};
+        var prof = gr.liberador && gr.liberador.profile && gr.liberador.profile.gases || [];
+        var unitOf = function(f) { var g = prof.filter(function(x) { return x.field === f; })[0]; return g && g.unit || 'g/km'; };
+        e.checks = [];
+        COP_MASTER_GASES.forEach(function(g) {
+            var id = g[0];
+            if (row.raw[id] === undefined || vals[id] === undefined || vals[id] === '') return;
+            var m = row.raw[id];
+            if (typeof gasConvert === 'function') m = gasConvert(m, 'g/km', unitOf(id));
+            e.checks.push({ gas: id, master: m, stored: vals[id], unit: unitOf(id), same: copMasterSameValue(vals[id], m) });
+        });
+        var co2 = vals.CO2 !== undefined ? vals.CO2 : vals.co2;
+        if (row.co2.raw !== null && co2 !== undefined && co2 !== '') {
+            e.checks.push({ gas: 'CO2', master: row.co2.raw, stored: co2, unit: 'g/km', same: copMasterSameValue(co2, row.co2.raw) });
+        }
+        // Ficha del ICMS
+        e.ficha = null;
+        if (row.icms && typeof homoIcmsBatchPlan === 'function') {
+            var item = { fileName: 'COP Master · renglón ' + row.rowNo, tail: row.vin, row: row.icms };
+            var pl = homoIcmsBatchPlan([item], [v])[0];
+            e.ficha = { action: pl.action, diffs: pl.diffs || [], blanks: pl.blanks || [], item: item };
+            // La Work Order capturada en el campo "MC code" (y la WO vacía): no es un coeficiente
+            // distinto, es la etiqueta equivocada. Se reacomoda aunque la prueba esté cerrada.
+            if (pl.action === 'bloqueado' && pl.diffs && pl.diffs.length && pl.diffs.every(function(d) {
+                return d.key === 'mcCode' && _cmFold(d.antes) === _cmFold(row.icms.workOrder) && !(v.homolog && v.homolog.workOrder);
+            })) e.ficha.action = 'reetiquetar';
+        }
+        return e;
+    });
+}
+
+/** EvC/FCF por familia, de los renglones que encontraron vehículo: uno solo por familia o nada. PURA. */
+function copMasterFactors(plan) {
+    var fam = {};
+    (plan || []).forEach(function(e) {
+        if (e.action !== 'ok' || !e.familyKey || e.row.co2.evc === null || e.row.co2.fcf === null) return;
+        var f = fam[e.familyKey] = fam[e.familyKey] || { key: e.familyKey, values: {} };
+        f.values[e.row.co2.evc + '|' + e.row.co2.fcf] = { evc: e.row.co2.evc, fcf: e.row.co2.fcf };
+    });
+    return Object.keys(fam).map(function(k) {
+        var vs = Object.keys(fam[k].values).map(function(x) { return fam[k].values[x]; });
+        return { key: k, unique: vs.length === 1, evc: vs.length === 1 ? vs[0].evc : null, fcf: vs.length === 1 ? vs[0].fcf : null, variants: vs };
+    });
+}
+
+/**
+ * Aplica lo que la persona vio (`plan`) contra el db de ESTE momento. PM/PN con `cop.judge`;
+ * la ficha del ICMS con `homolog.manage` (por homoIcmsBatchApply, que lo pide); los factores
+ * de familia con `cop.judge`. Todo a la línea de tiempo y a la auditoría con antes/después.
+ */
+function copMasterApply(plan, opts) {
+    opts = opts || {};
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'importar el COP Master')) return null;
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : '';
+    var now = new Date().toISOString();
+    var fresh = copMasterPlan(plan.map(function(e) { return e.row; }), db.vehicles || []);
+    var pmpn = 0, undo = [];
+    fresh.forEach(function(e, i) {
+        var seen = plan[i];
+        if (e.action !== 'ok' || !(e.pmpn === 'llenar' || e.pmpn === 'corregir')) return;
+        if (seen && seen.pmpn !== e.pmpn) return;               // cambió mientras se revisaba
+        var v = (db.vehicles || []).filter(function(x) { return x.id === e.vehicleId; })[0];
+        if (!v) return;
+        v.testData = v.testData || {};
+        var before = v.testData.extResults ? JSON.parse(JSON.stringify(v.testData.extResults)) : null;
+        undo.push({ v: v, ext: v.testData.extResults, tl: (v.timeline || []).length });
+        var values = Object.assign({}, (before && before.values) || {}, e.pmpnValues);
+        v.testData.extResults = { source: 'cop-master', file: opts.fileName || '', row: e.row.rowNo, by: who, at: now,
+                                  values: values, units: { PM: 'g/km', PN: '#/km' } };
+        v.timeline = v.timeline || [];
+        v.timeline.push({ timestamp: now, user: who,
+            action: 'PM/PN cargados del COP Master (renglón ' + e.row.rowNo + ')',
+            data: { modified: Object.keys(e.pmpnValues).map(function(k) {
+                return { campo: k, key: k, antes: before && before.values && before.values[k] != null ? before.values[k] : '', despues: e.pmpnValues[k],
+                         razon: 'COP Master «' + (opts.fileName || '') + '»' };
+            }), source: 'cop-master' } });
+        if (typeof auditLog === 'function') auditLog('cop', 'cop_master_pmpn', { type: 'vehicle', id: v.id, label: v.vin },
+            'PM/PN del COP Master (renglón ' + e.row.rowNo + ')', { before: before && before.values, after: values });
+        pmpn++;
+    });
+    if (pmpn && typeof saveDB === 'function' && saveDB() === false) {
+        undo.forEach(function(u) { u.v.testData.extResults = u.ext; u.v.timeline.length = u.tl; });
+        return { error: 'No se pudo guardar (almacenamiento lleno). No se cambió ningún vehículo.' };
+    }
+    // Fichas del ICMS: solo llenar/completar/corregir (un vehículo enviado o liberado con
+    // valores distintos queda 'bloqueado' y no se toca).
+    var fichas = 0, fichaErr = '';
+    var picks = [], items = [];
+    fresh.forEach(function(e) {
+        if (e.action !== 'ok' || !e.ficha || !/^(llenar|completar|corregir)$/.test(e.ficha.action)) return;
+        picks.push({ i: items.length, action: e.ficha.action });
+        items.push(Object.assign({}, e.ficha.item, { fileName: (opts.fileName || 'COP Master') + ' · renglón ' + e.row.rowNo }));
+    });
+    var canHomo = typeof authCan !== 'function' || authCan('homolog.manage');
+    var reet = fresh.filter(function(e) { return e.action === 'ok' && e.ficha && e.ficha.action === 'reetiquetar'; });
+    if (reet.length && opts.fichas !== false) {
+        if (!canHomo) fichaErr = 'Las fichas del ICMS piden el permiso de homologación: quedaron sin cargar.';
+        else {
+            var changed = 0, undoH = [];
+            reet.forEach(function(e) {
+                var v = (db.vehicles || []).filter(function(x) { return x.id === e.vehicleId; })[0];
+                if (!v || !v.homolog) return;
+                var before = JSON.parse(JSON.stringify(v.homolog));
+                undoH.push({ v: v, h: v.homolog, tl: (v.timeline || []).length });
+                var next = Object.assign({}, v.homolog), mods = [];
+                var ficha = homoFichaFromIcms(e.row.icms, {});
+                next.workOrder = before.mcCode; mods.push({ campo: 'Work Order', key: 'workOrder', antes: '', despues: before.mcCode, razon: 'Estaba capturada en el campo MC code' });
+                next.mcCode = ficha.mcCode; mods.push({ campo: 'MC code', key: 'mcCode', antes: before.mcCode, despues: ficha.mcCode, razon: 'MC code del ICMS (COP Master)' });
+                (e.ficha.blanks || []).forEach(function(k) {
+                    if (k === 'workOrder' || ficha[k] == null || ficha[k] === '') return;
+                    next[k] = ficha[k]; mods.push({ campo: k, key: k, antes: '', despues: ficha[k], razon: 'Vacío; del ICMS (COP Master)' });
+                });
+                ['ocn', 'wvta', 'variant', 'version'].forEach(function(k) { if (!next[k] && ficha[k]) next[k] = ficha[k]; });
+                v.homolog = next;
+                v.timeline = v.timeline || [];
+                v.timeline.push({ timestamp: now, user: who, action: 'Ficha de homologación reacomodada desde el COP Master (la WO estaba en el campo MC code)',
+                                  data: { modified: mods, source: 'cop-master' } });
+                if (typeof auditLog === 'function') auditLog('homolog', 'homologacion_icms', { type: 'vehicle', id: v.id, label: v.vin },
+                    'reetiquetar desde el COP Master: ' + mods.map(function(m) { return m.campo + ' ' + m.antes + '→' + m.despues; }).join(', '),
+                    { before: { mcCode: before.mcCode, workOrder: before.workOrder || '' }, after: { mcCode: next.mcCode, workOrder: next.workOrder } });
+                changed++;
+            });
+            if (changed && typeof saveDB === 'function' && saveDB() === false) {
+                undoH.forEach(function(u) { u.v.homolog = u.h; u.v.timeline.length = u.tl; });
+                fichaErr = 'No se pudo guardar el reacomodo de fichas (almacenamiento lleno).';
+            } else fichas += changed;
+        }
+    }
+    if (items.length && opts.fichas !== false && typeof homoIcmsBatchApply === 'function') {
+        if (canHomo) {
+            var hr = homoIcmsBatchApply(items, picks);
+            if (hr && hr.error) fichaErr = hr.error; else if (hr) fichas += hr.aplicados;
+        } else fichaErr = 'Las fichas del ICMS piden el permiso de homologación: quedaron sin cargar.';
+    }
+    // Factores de familia
+    var fams = 0;
+    if (opts.factors !== false && typeof copFamilyState === 'function') {
+        copMasterFactors(fresh).forEach(function(f) {
+            if (!f.unique) return;
+            var st = copFamilyState(f.key);
+            if (st.co2Evc === f.evc && st.co2Fcf === f.fcf) return;
+            var before = { evc: st.co2Evc || null, fcf: st.co2Fcf || null };
+            st.co2Evc = f.evc; st.co2Fcf = f.fcf; st.updatedAt = now; st.updatedBy = who;
+            fams++;
+            if (typeof auditLog === 'function') auditLog('cop', 'co2_factors_set', { type: 'cop', label: f.key },
+                'Del COP Master: FCF=' + f.fcf + ' · Evolution Factor=' + f.evc, { before: before, after: { evc: f.evc, fcf: f.fcf } });
+        });
+        if (fams && typeof copPersist === 'function') { copPersist(); if (typeof _copPushNow === 'function') _copPushNow(); }
+    }
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+    return { pmpn: pmpn, fichas: fichas, familias: fams, fichaErr: fichaErr };
+}
+
+// ── UI ──
+var _cmPending = null;
+function copMasterImportOpen() {
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'importar el COP Master')) return;
+    _cmPending = null;
+    showModal({
+        title: '📥 Importar COP Master (ICMS)',
+        body: '<p>Sube el <b>COP Master — Emisiones</b> (.xlsx). De cada renglón se toman PM y PN para las pruebas que no los traen de VETS, ' +
+              'la ficha del ICMS del vehículo y el EvC/FCF de la familia. CO, THC, NOx, NMHC y CO₂ solo se comparan con lo aprobado: no se reescriben.</p>' +
+              '<input type="file" accept=".xlsx" onchange="copMasterFile(event)" aria-label="Archivo COP Master">' +
+              '<div id="cm-preview" style="margin-top: var(--space-md);"></div>',
+        buttons: [{ label: 'Cancelar' }, { label: 'Importar', cls: 'btn-primary', onclick: copMasterConfirm }]
+    });
+}
+
+function copMasterFile(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    var box = document.getElementById('cm-preview');
+    if (!f || !box) return;
+    box.innerHTML = '<p class="u-muted">Leyendo ' + escapeHtml(f.name) + '…</p>';
+    var rd = new FileReader();
+    rd.onload = function() {
+        vetsReadWorkbook(new Uint8Array(rd.result), null).then(function(sheets) {
+            var parsed = null;
+            var names = Object.keys(sheets).sort(function(a, b) { return (/registro/i.test(b) ? 1 : 0) - (/registro/i.test(a) ? 1 : 0); });
+            names.some(function(k) { var p = copMasterParse(_homoGridFromSheet(sheets[k])); if (!p.error) { parsed = p; return true; } return false; });
+            if (!parsed) throw new Error('No encontré la hoja Registro_COP (encabezados "VIN" y "Fecha de prueba").');
+            var plan = copMasterPlan(parsed.rows, (typeof db !== 'undefined' && db.vehicles) || []);
+            _cmPending = { plan: plan, fileName: f.name };
+            box.innerHTML = copMasterPreviewHTML(plan);
+        }).catch(function(err) {
+            _cmPending = null;
+            box.innerHTML = '<p style="color:var(--danger-text);">' + escapeHtml(err && err.message || String(err)) + '</p>';
+        });
+    };
+    rd.readAsArrayBuffer(f);
+}
+
+/** Vista previa: qué pasa con cada renglón. PURA (solo arma HTML). */
+function copMasterPreviewHTML(plan) {
+    var e = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s); };
+    var PM = { llenar: 'Se llenan', corregir: 'Se corrigen', igual: 'Ya están', vets: 'Vienen de VETS', 'sin-dato': '—' };
+    var FI = { llenar: 'Se llena', completar: 'Se completa', corregir: 'Se corrige', igual: 'Igual', reetiquetar: 'Se reacomoda (la WO estaba como MC code)', bloqueado: 'Distinta (prueba cerrada: no se toca)', 'no-europa': 'No es Europa', ambigua: 'Ambigua', 'sin-vehiculo': '—' };
+    var ok = plan.filter(function(x) { return x.action === 'ok'; });
+    var diffs = 0;
+    var h = '<p><b>' + plan.length + '</b> renglones · <b>' + ok.length + '</b> con vehículo en la plataforma.</p>';
+    h += '<div style="overflow:auto;max-height:320px;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);"><thead><tr>' +
+        '<th>Renglón</th><th>VIN</th><th>Fecha</th><th>PM / PN</th><th>Ficha ICMS</th><th>Contra lo aprobado</th></tr></thead><tbody>';
+    plan.forEach(function(x) {
+        var chk = (x.checks || []).filter(function(c) { return c.same === false; });
+        diffs += chk.length;
+        h += '<tr style="border-top:1px solid var(--border);"><td>' + x.row.rowNo + '</td><td>' + e(x.vin) + '</td><td>' + e(x.row.date) + (x.dateMismatch ? ' ⚠' : '') + '</td>';
+        if (x.action !== 'ok') { h += '<td colspan="3" class="u-muted">' + (x.action === 'ambigua' ? 'Varias pruebas de ese VIN: no se adivina' : 'Sin vehículo en la plataforma') + '</td></tr>'; return; }
+        h += '<td>' + PM[x.pmpn] + (x.approved ? '' : ' <span class="u-muted">(prueba sin aprobar)</span>') + '</td>' +
+             '<td>' + (x.ficha ? (FI[x.ficha.action] || x.ficha.action) + (x.ficha.action === 'bloqueado' ? ': ' + e(x.ficha.diffs.filter(function(d) { return d.key !== 'mcCode'; }).map(function(d) { return d.label + ' ' + d.antes + ' vs ' + d.despues; }).join(', ')) : '') : '—') + '</td>' +
+             '<td>' + (chk.length ? '<span style="color:var(--warn-text);">⚠ ' + chk.map(function(c) { return c.gas + ' ' + c.stored + ' vs ' + (+c.master.toPrecision(4)); }).join(', ') + '</span>'
+                                  : ((x.checks || []).length ? '✓ coincide' : '—')) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    var fam = copMasterFactors(plan);
+    if (fam.length) {
+        h += '<p style="margin-top: var(--space-sm);"><b>EvC / FCF por familia:</b> ' + fam.map(function(f) {
+            return e(String(f.key).split('|').slice(0, 3).join(' ')) + ' → ' + (f.unique ? 'EvC ' + f.evc + ' · FCF ' + f.fcf : 'varios valores, no se cambia');
+        }).join('; ') + '</p>';
+    }
+    if (diffs) h += '<p style="color:var(--warn-text);">⚠ ' + diffs + ' valor(es) del Master no coinciden con lo aprobado. No se cambian: revísalos (puede ser otra prueba del mismo VIN).</p>';
+    return h;
+}
+
+function copMasterConfirm() {
+    if (!_cmPending) { showToast('Primero elige el archivo.', 'warning'); return; }
+    var res = copMasterApply(_cmPending.plan, { fileName: _cmPending.fileName });
+    _cmPending = null;
+    var m = document.getElementById('globalModal'); if (m) m.remove();
+    if (!res) return;
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast('COP Master: PM/PN en ' + res.pmpn + ' prueba(s), ' + res.fichas + ' ficha(s) del ICMS, factores de ' + res.familias + ' familia(s).' +
+              (res.fichaErr ? ' ' + res.fichaErr : ''), res.fichaErr ? 'warning' : 'success', 9000);
+    if (typeof copRender === 'function') copRender();
 }
 
 
@@ -84234,7 +85324,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19404],[19408,"js/uiflow.js",19724],[19728,"js/cop15.js",30357],[30361,"js/inventory.js",38214],[38218,"js/cuarto.js",40342],[40346,"js/sitio.js",41655],[41659,"js/testplan.js",53495],[53499,"js/panel.js",58837],[58841,"js/projects.js",61130],[61134,"js/auth.js",62214],[62218,"js/signatures.js",62419],[62423,"js/firebase-sync.js",70084],[70088,"js/cop_validator.js",74614],[74618,"js/copreport.js",75620],[75624,"js/cophq.js",76060],[76064,"js/homolog.js",77961],[77965,"js/vets.js",79764],[79768,"js/historico.js",80682],[80686,"js/review.js",81139],[81143,"js/opcards.js",81574],[81578,"js/handoff.js",81852],[81856,"js/ficha.js",82357],[82361,"js/relevo.js",82741],[82745,"js/momentos.js",82882],[82886,"js/digest.js",83806],[83810,"js/xlsxw.js",84190],[84194,"js/bugreport.js",85340]]};
+var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19413],[19417,"js/uiflow.js",19733],[19737,"js/cop15.js",30366],[30370,"js/inventory.js",38293],[38297,"js/cuarto.js",40424],[40428,"js/sitio.js",41737],[41741,"js/conslist.js",42349],[42353,"js/testplan.js",54189],[54193,"js/panel.js",59531],[59535,"js/projects.js",61824],[61828,"js/auth.js",62908],[62912,"js/signatures.js",63113],[63117,"js/firebase-sync.js",70791],[70795,"js/cop_validator.js",75330],[75334,"js/copreport.js",76336],[76340,"js/cophq.js",77150],[77154,"js/homolog.js",79051],[79055,"js/vets.js",80854],[80858,"js/historico.js",81772],[81776,"js/review.js",82229],[82233,"js/opcards.js",82664],[82668,"js/handoff.js",82942],[82946,"js/ficha.js",83447],[83451,"js/relevo.js",83831],[83835,"js/momentos.js",83972],[83976,"js/digest.js",84896],[84900,"js/xlsxw.js",85280],[85284,"js/bugreport.js",86430]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

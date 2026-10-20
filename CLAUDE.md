@@ -59,6 +59,7 @@ js/
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   cuarto.js             ← 🗺️ Cuartos de gases y de gasolina: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~2,050 lines)
   sitio.js              ← 🚗 Laboratorio en el mapa: celda + acondicionamiento, unidades por VIN, equipos editables (~1,100 lines)
+  conslist.js           ← Lista de consumibles: histórico semanal importado + el Excel en el formato del laboratorio (~560 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
@@ -96,6 +97,7 @@ CHANGELOG.md            ← Detailed changelog
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Cuartos de gases y gasolina | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam' \| 'roomCamFuel' \| 'roomWhich')`, `invMapView`, `roomLabels`) |
 | Laboratorio en el mapa | `js/sitio.js` | `site` | `_site` (selección/cámara en memoria) | — (`invState.siteItems`, `db.siteUnits`, `vehicle.site`; `uiPref('roomCamLab')`) |
+| Lista de consumibles | `js/conslist.js` | `invCons*` | `invState.consHistory` | — (dentro de `kia_lab_inventory`) |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
 | CoP año calendario | `js/copreport.js` | `copRep`, `copYear*` | `copState.yearProd/yearCuts/yearExclude` | — (dentro de `kia_cop_v1`) |
@@ -192,7 +194,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
+`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
 `signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
@@ -3694,4 +3696,64 @@ que v20.2/2.27.3 dicen de cuál prueba de CO₂ es la principal.
   PN (`VETS_GAS_COLUMNS.PN`).
 - **Un cambio a la hoja se verifica con LibreOffice forzando el recálculo** (`tests/cophq.node.js`
   lo hace si hay `soffice`): cada fórmula debe dar el `v` que escribió la app.
+
+## 3.16.0 — Dos lecturas al día, la Lista de consumibles y el COP Master
+
+Matiza lo que v21.0 dice ("un cilindro tiene A LO MÁS una lectura HUMANA por fecha"): ahora es
+**una por fecha y TURNO**.
+
+- **La identidad de una lectura de gas es fecha + turno** (`reading.shift`: `'am'` | `'pm'`).
+  - Una lectura sin `shift` (todo lo anterior a 3.16.0) es de la mañana; las nuevas siempre
+    llevan el campo.
+  - `invReadingKey` / `invReadingCmp` son LA identidad y LA orden: la serie se guarda SIEMPRE en
+    orden (fecha, turno), porque `invGasLevel` y las gráficas leen la última del final.
+  - **Nunca volver a ordenar lecturas de gas por `date` a secas**, ni a buscar "la del día" sin
+    turno cuando se va a escribir.
+  - `invFindReadingOn(gas, date, shift)`: con turno, la de ese turno; sin turno, la última del día.
+  - `invAddReading(…, {shift})`: sin `shift`, el de la hora (`invShiftNow`, desde la 1 p. m. =
+    tarde) si es hoy, o la mañana si es retrofechada.
+  - Toda pantalla nueva que capture gas pasa el turno.
+- **Los ritmos usan `invReadingDays(r)`** (mañana 9 h, tarde 17 h), no la diferencia de fechas:
+  mañana → tarde es un tramo de 8 h.
+  - El modelo por prueba (`invCalcConsumptionRates`) cuenta una prueba del día D a mediodía, en el
+    tramo (t1, t2]. Antes los dos extremos eran inclusivos y la prueba del día de una lectura caía
+    en dos tramos.
+- **`_fbMergeReadings` empata por fecha + turno**:
+  - las automáticas, una por fecha;
+  - una automática se retira de un día que tiene alguna humana;
+  - todo lo que compara series entre equipos (revisión de un equipo atrasado incluida) usa la misma
+    llave;
+  - un equipo con código anterior colapsa las dos del día: actualizar todos juntos.
+- **`invState.consHistory` es el histórico semanal de la Lista de consumibles**: totales por
+  consumible, NO lecturas de cilindro.
+  - Meterlo como lecturas envenenaría el nivel y el ritmo de cada cilindro.
+  - Un renglón = `{id (invConsRowKey del nombre), label, category, item, code, stockIni, stockAct,
+    leadDays, limitText, weeks:{'AAAA-MM-Sk': psi}, layout:[ids declarados], updatedAt}`.
+  - La semana es la "Semana k" del mes tal como la numera el laboratorio (no es regular), así que
+    **nunca convertir esos ids a un lunes**.
+  - Viaja con Consumibles: `invConsHistoryUnion` / `NewTo` en `_fbPullSeed`, `merge_all`, `new`,
+    `hasWork`, `_fbLocalHasExtras`, la huella y el puntaje.
+- **`invConsListModel(src)` (PURA) es LA definición de la lista del año**: diciembre anterior +
+  enero a diciembre.
+  - Un mes con histórico usa sus semanas; uno sin histórico, los lunes del mes.
+  - Gana lo importado. Si no hay, la plataforma (`invConsAppValue`): la suma, por consumible, de la
+    última lectura humana de cada cilindro hasta el cierre de la semana, de los cilindros leídos en
+    los 30 días anteriores.
+  - Consumo, promedio, límite y status replican las fórmulas del Excel del laboratorio.
+  - **No reemplaza a `invGasReorder`**: ése es por cilindro y decide el "Comprar" del reporte;
+    éste es la lista del laboratorio.
+- **`invConsListXlsxSpec(model)` (PURA)**: cada fórmula se escribe con su valor y se verifica con
+  LibreOffice (`tests/turnos.node.js`).
+- **COP Master** (`js/cophq.js`):
+  - `copMasterParse` lee la hoja Registro_COP por encabezado, y el bloque del ICMS con
+    `homoIcmsRows`;
+  - `copMasterPlan` (PURA) empata por VIN, y por fecha de prueba si hay re-test;
+  - **PM/PN van a `vehicle.testData.extResults`, NUNCA a `gasResults`** (lo que firmaron).
+    `copVetsPmPn` lee VETS primero y luego `extResults`;
+  - la ficha del ICMS pasa por `homoIcmsBatchPlan` / `homoIcmsBatchApply`. Única excepción a
+    "bloqueado": `reetiquetar` = la WO quedó en el campo MC code y la WO vacía (es la etiqueta, no
+    un coeficiente). Un coeficiente distinto en una prueba cerrada se muestra y no se toca;
+  - CO/THC/NOx/NMHC/CO₂ solo se comparan (`copMasterSameValue`, a la precisión capturada).
+- **Nunca meter al repositorio el COP Master ni la Lista de consumibles reales**: traen VINes y
+  datos del laboratorio. Las pruebas usan retículas sintéticas con el mismo acomodo.
 

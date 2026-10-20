@@ -28,6 +28,7 @@ vm.createContext(ctx);
 const js = f => fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8');
 vm.runInContext(js('cop_validator.js'), ctx, { filename: 'cop_validator.js' });
 vm.runInContext(js('xlsxw.js'), ctx, { filename: 'xlsxw.js' });
+vm.runInContext(js('homolog.js'), ctx, { filename: 'homolog.js' });
 vm.runInContext(js('cophq.js'), ctx, { filename: 'cophq.js' });
 
 let pasaron = 0, fallaron = 0;
@@ -135,6 +136,48 @@ console.log('\n== copHqModelFor (juicio guardado) ==');
     ok('con EvC/FCF el corregido es fórmula visible (C7*0.98*1.02)', d7.f === 'C7*0.98*1.02');
     const viejo = ctx.copHqModelFor(Object.assign({}, j, { method: undefined }));
     ok('un juicio del método anterior lo avisa', viejo.warnings.some(w => /método anterior/.test(w)));
+}
+
+console.log('\n== [3.16.0] COP Master: leer, planear, aplicar ==');
+{
+    // Retícula sintética con los encabezados del COP Master (sin sus datos).
+    const head = ['No.', 'Fecha de prueba', 'VIN', 'Vehicle Configuration', 'Work Order No.', 'Sales Model', 'raw CO2 (g/km)', 'EvC', 'FCF', 'Corrected CO2',
+                  'CO2 declarado ICMS (g/km)', ' raw CO (mg/km)', ' raw THC (mg/km)', ' raw NOx (mg/km)', ' raw NMHC (mg/km)', 'PM (mg/km)', 'PN (#/km)',
+                  'Company Code', 'Work Order No.', 'MC code', 'WLTP Driving Resistance f0', 'WLTP Driving Resistance f1', 'WLTP Driving Resistance f2', 'WLTP Driving Resistance TM', 'MR', 'WLTP CO2(Combined)'];
+    const row = (n, vin, serial, co, pm, pn, wo, mc, f2) => [n, serial, vin, '5DR', wo, '8G', 120.5, 0.98, 1.02, '', 125, co, 9.1, 1.7, 5.5, pm, pn,
+                  'K', wo, mc, '97.3', '.764', String(f2), '1580', '45.36', '125'];
+    const grid = [['Vehicle Data'], head,
+        row(1, 'KNAAAAAAAAA000001', 46259, 59.6, 0.48, 4.4e9, 'WO1', 'MC1', 0.0273),
+        row(2, 'KNAAAAAAAAA000002', 46260, 70.0, 0.40, 5.0e9, 'WO2', 'MC1', 0.0273),
+        row(3, 'KNAAAAAAAAA000009', 46260, 70.0, 0.40, 5.0e9, 'WO9', 'MC9', 0.0273)];
+    const P = ctx.copMasterParse(grid);
+    ok('lee 3 renglones con VIN', P.rows && P.rows.length === 3, P.error);
+    ok('fecha de Excel → AAAA-MM-DD', P.rows[0].date === '2026-08-25', P.rows[0].date);
+    ok('mg/km → g/km (CO 59.6 → 0.0596, PM 0.48 → 0.00048); PN tal cual', Math.abs(P.rows[0].raw.CO - 0.0596) < 1e-12 && Math.abs(P.rows[0].raw.PM - 0.00048) < 1e-12 && P.rows[0].raw.PN === 4.4e9);
+    ok('el bloque del ICMS se lee con homoIcmsRows', P.rows[0].icms && P.rows[0].icms.workOrder === 'WO1' && P.rows[0].icms.f0 === 97.3);
+    const veh = [
+        { id: 'v1', vin: 'KNAAAAAAAAA000001', status: 'archived', config: { REGION: 'EUROPE' },
+          testData: { testDatetime: '2026-08-25T10:00', gasResults: { aprobador: { values: { CO: 0.0596, NOx: 0.0017, CO2: 120.5 } } } },
+          homolog: { mcCode: 'WO1', f0: 97.3, f1: 0.764, f2: 0.0273, tm: 1580 } },
+        { id: 'v2', vin: 'KNAAAAAAAAA000002', status: 'archived', config: { REGION: 'EUROPE' },
+          testData: { testDatetime: '2026-08-26T10:00', gasResults: { aprobador: { values: { CO: 0.0812 } } }, vets: { gases: { PM: { v: 0.41, u: 'mg/km' } } } },
+          homolog: { mcCode: 'WO2', workOrder: '', f0: 97.3, f1: 0.764, f2: 0.3273, tm: 1580 } }
+    ];
+    const plan = ctx.copMasterPlan(P.rows, veh, { approved: v => v.status === 'archived', familyKey: () => 'FAM' });
+    ok('sin vehículo en la plataforma se dice', plan[2].action === 'sin-vehiculo');
+    ok('PM/PN se llenan cuando la prueba no trae VETS', plan[0].pmpn === 'llenar' && plan[0].pmpnValues.PN === 4.4e9);
+    ok('con PM de VETS: VETS manda y solo se llena PN', plan[1].pmpn === 'llenar' && plan[1].pmpnValues.PM === undefined && plan[1].pmpnValues.PN === 5e9);
+    ok('CO del Master coincide con lo aprobado a la precisión capturada', plan[0].checks.find(c => c.gas === 'CO').same === true);
+    ok('un valor distinto se avisa (CO 0.0812 vs 0.0700)', plan[1].checks.find(c => c.gas === 'CO').same === false);
+    ok('la WO capturada como MC code se reacomoda aunque la prueba esté cerrada', plan[0].ficha.action === 'reetiquetar', plan[0].ficha.action);
+    ok('un coeficiente distinto en una prueba cerrada NO se toca (f2 0.3273 vs 0.0273)', plan[1].ficha.action === 'bloqueado', plan[1].ficha.action);
+    const fam = ctx.copMasterFactors(plan);
+    ok('EvC/FCF de la familia (uno solo)', fam.length === 1 && fam[0].unique && fam[0].evc === 0.98 && fam[0].fcf === 1.02);
+    ok('copMasterSameValue: 0.0016 vs 0.0016238 coincide (4 decimales)', ctx.copMasterSameValue('0.0016', 0.0016238) === true && ctx.copMasterSameValue('0.0016', 0.0019) === false);
+    // PM/PN del Master entran al CoP (copVetsPmPn) solo con la prueba aprobada
+    ctx.copResultApproved = v => v.status === 'archived';
+    const vx = { status: 'archived', testData: { extResults: { values: { PM: 0.00048, PN: 4.4e9 } } } };
+    ok('copVetsPmPn lee lo del COP Master cuando no hay VETS', ctx.copVetsPmPn(vx, 'PM') === 0.00048 && ctx.copVetsPmPn(vx, 'PN') === 4.4e9);
 }
 
 // ── LibreOffice: abrir, recalcular y comparar ──

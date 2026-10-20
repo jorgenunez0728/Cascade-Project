@@ -58,8 +58,8 @@ const ok = (n, c, d) => { console.log((c ? '  ok  ' : '  FALLA  ') + n + (c || !
     await page.waitForTimeout(400);
     const s = await page.evaluate((id) => { const g = invState.gases.find(x => x.id === id); const last = (g.readings || []).slice(-1)[0] || {};
         const l = document.querySelector('#rm-panel .rm-read-l'); return { psi: last.psi, src: last.source, label: l ? l.textContent : '' }; }, gid);
-    // Tras guardar, el panel se repinta con la lectura del día ("✓ Leído hoy … — corregir").
-    ok('Guardar registra la lectura desde el cuarto y el panel la muestra como la de hoy', +s.psi === 1250 && s.src === 'cuarto' && /Leído hoy: 1250/.test(s.label), JSON.stringify(s));
+    // Tras guardar, el panel se repinta con la lectura del turno ("✓ Leído (mañana) … — corregir", 3.16.0).
+    ok('Guardar registra la lectura desde el cuarto y el panel la muestra como la de hoy', +s.psi === 1250 && s.src === 'cuarto' && /Leído \((mañana|tarde)\): 1250/.test(s.label), JSON.stringify(s));
 
     await page.setViewportSize({ width: 1132, height: 753 });   // girar la tableta sí reacomoda
     await page.waitForTimeout(500);

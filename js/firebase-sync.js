@@ -1752,7 +1752,7 @@ function _fbPullLocalScore(col) {
         // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
         if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + _n(t.readings); });
         // v23.2: el consumo por prueba y los catálogos editables tampoco se contaban.
-        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes) + _n(st.fuelTypes);
+        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes) + _n(st.fuelTypes) + _n(st.consHistory);
         return s;
     }
 
@@ -1862,7 +1862,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // `lastReadingDate`. Ninguno viajaba, con la misma forma exacta del defecto de
         // `fuelTanks` que se arregló en v21.1.
         ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed',
-         'usageLog', 'zones', 'gasTypes', 'lastReadingDate', 'fuelTypes'].forEach(function(k) {
+         'usageLog', 'zones', 'gasTypes', 'lastReadingDate', 'fuelTypes', 'consHistory'].forEach(function(k) {
             if ((invState[k] === undefined || invState[k] === null ||
                  (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
                 invState[k] = prevInv[k];
@@ -1910,7 +1910,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [3.11.0] Un pull cuyo único cambio es el catálogo de tipos de gasolina.
         (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo((typeof invState !== 'undefined' && invState && invState.fuelTypes) || [], (remoteData && remoteData.fuelTypes) || [])) ||
         // [3.14.0] Un pull cuyo único cambio es un equipo del plano del laboratorio.
-        (typeof siteListNewTo === 'function' && siteListNewTo((typeof invState !== 'undefined' && invState && invState.siteItems) || [], (remoteData && remoteData.siteItems) || []));
+        (typeof siteListNewTo === 'function' && siteListNewTo((typeof invState !== 'undefined' && invState && invState.siteItems) || [], (remoteData && remoteData.siteItems) || [])) ||
+        // [3.16.0] Un pull cuyo único cambio es el histórico de la lista de consumibles.
+        (typeof invConsHistoryNewTo === 'function' && invConsHistoryNewTo((typeof invState !== 'undefined' && invState && invState.consHistory) || [], (remoteData && remoteData.consHistory) || []));
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -2735,7 +2737,7 @@ function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || []]));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
-        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || []]));
+        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
 }
@@ -2798,10 +2800,11 @@ function _fbLocalHasExtras(col, remote) {
         });
     }
     if (col === 'inventory') {
-        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[r.date + '|' + (r.auto ? 'a' : 'h')] = true; }); return m; };
+        var _rk = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
+        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = true; }); return m; };
         var faltaLectura = function(loc, rem) {
             var rf = fechas(rem && rem.readings);
-            return (loc.readings || []).some(function(r) { return r && r.date && !rf[r.date + '|' + (r.auto ? 'a' : 'h')]; });
+            return (loc.readings || []).some(function(r) { return r && r.date && !rf[_rk(r)]; });
         };
         var rg = _fbGasIndex(remote.gases);
         if ((invState.gases || []).some(function(g) { var r = rg.find(g); return !r || faltaLectura(g, r); })) return true;
@@ -2818,6 +2821,8 @@ function _fbLocalHasExtras(col, remote) {
         if (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo(remote.fuelTypes || [], invState.fuelTypes || [])) return true;
         // [3.14.0] Un equipo del plano acomodado aquí que la nube no tiene.
         if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteItems || [], invState.siteItems || [])) return true;
+        // [3.16.0] Histórico de consumibles importado aquí que la nube no tiene.
+        if (typeof invConsHistoryNewTo === 'function' && invConsHistoryNewTo(remote.consHistory || [], invState.consHistory || [])) return true;
         var rtk = {};
         (remote.fuelTanks || []).forEach(function(t) { rtk[t.id || t.name] = t; });
         return (invState.fuelTanks || []).some(function(t) { var r = rtk[t.id || t.name]; return !r || faltaLectura(t, r); });
@@ -3294,16 +3299,21 @@ function fbMergeLoadStation(stationId, callback) {
 // conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
 // así que fallaba callada.
 function _fbMergeReadings(locales, remotas, campo) {
-    var porFecha = {};
-    (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+    // [3.16.0] Una lectura HUMANA se identifica por fecha + turno (mañana/tarde; sin turno =
+    // mañana): dos del mismo día ya no colapsan en una. Las automáticas siguen siendo una por
+    // fecha y se retiran del día que tiene alguna humana (el manómetro manda sobre la estimación).
+    var sh = function(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; };
+    var key = function(r) { return r.date + '|' + (r.auto ? 'auto' : sh(r)); };
+    var porClave = {};
+    (remotas || []).forEach(function(r) { if (r && r.date) porClave[key(r)] = r; });
     (locales || []).forEach(function(r) {
         if (!r || !r.date) return;
-        var otra = porFecha[r.date];
-        if (!otra) { porFecha[r.date] = r; return; }
-        if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
-        else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+        porClave[key(r)] = r;             // misma clave: gana la local (antes: también)
     });
-    return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+    var humanas = {};
+    Object.keys(porClave).forEach(function(k) { var r = porClave[k]; if (!r.auto) humanas[r.date] = true; });
+    return Object.keys(porClave).sort().map(function(k) { return porClave[k]; })
+        .filter(function(r) { return !(r.auto && humanas[r.date]); });
 }
 
 // [3.14.2] LA identidad de un cilindro entre equipos: `id`, después No. de control, después
@@ -3899,6 +3909,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
+            if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
                         analysis.inventory.newEquip.length + ' equipos, +' +
                         (analysis.inventory.newFuelTanks || []).length + ' tanques');
@@ -3948,6 +3959,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // [3.11.0] Catálogo de tipos de gasolina: por id, gana el editado más reciente (con marcas de borrado).
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
+            if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();
@@ -6862,7 +6874,7 @@ function fbReviewModel(src) {
     var inventory = [];
     var R = src.remoteInv, L = src.localInv;
     if (R && L) {
-        var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h'); };
+        var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
         var scan = function(kind, locList, remList, keyFn, valKey, finder) {
             var rm = {};
             (remList || []).forEach(function(x) { if (x) rm[keyFn(x)] = x; });
@@ -6872,7 +6884,7 @@ function fbReviewModel(src) {
                 var name = String(x.name || x.controlNo || x.id || key);
                 if (!r) {
                     inventory.push({ kind: kind, key: key, name: name, newItem: true, older: false,
-                                     readings: (x.readings || []).filter(Boolean).map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                     readings: (x.readings || []).filter(Boolean).map(function(q) { return { date: q.date, shift: q.shift, value: q[valKey], auto: !!q.auto }; }),
                                      cloudLatest: null, behindDays: null });
                     return;
                 }
@@ -6884,7 +6896,7 @@ function fbReviewModel(src) {
                 var older = !!cloudLatest && newest < cloudLatest;
                 var behind = older ? Math.round((Date.parse(cloudLatest.slice(0, 10)) - Date.parse(newest.slice(0, 10))) / 86400000) : null;
                 inventory.push({ kind: kind, key: key, name: name, newItem: false, older: older,
-                                 readings: extra.map(function(q) { return { date: q.date, value: q[valKey], auto: !!q.auto }; }),
+                                 readings: extra.map(function(q) { return { date: q.date, shift: q.shift, value: q[valKey], auto: !!q.auto }; }),
                                  cloudLatest: cloudLatest || null, behindDays: behind });
             });
         };
@@ -7081,8 +7093,9 @@ function fbReviewApply(keep) {
             var it = list.find(function(y) { return y && keyOf(y) === x.key; });
             if (!it || !it.readings) return;
             var gone = {};
-            x.readings.forEach(function(q) { gone[q.date + '|' + (q.auto ? 'a' : 'h')] = true; });
-            it.readings = it.readings.filter(function(q) { return !(q && gone[q.date + '|' + (q.auto ? 'a' : 'h')]); });
+            var gk = function(q) { return q.date + '|' + (q.auto ? 'a' : 'h' + (q.shift === 'pm' ? 'pm' : 'am')); };
+            x.readings.forEach(function(q) { gone[gk(q)] = true; });
+            it.readings = it.readings.filter(function(q) { return !(q && gone[gk(q)]); });
             if (x.kind === 'fuel' && it.readings.length) it.currentLevel = it.readings[it.readings.length - 1].level;
         });
     }

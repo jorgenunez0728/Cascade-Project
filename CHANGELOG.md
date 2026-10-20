@@ -20,6 +20,69 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.16.0 — Dos lecturas al día, la Lista de consumibles y el COP Master (2026-10-20)
+
+### Nuevo
+- **Dos lecturas de gas por día: mañana y tarde.**
+  - Cada cilindro admite la lectura de la mañana (inicio de turno) y la de la tarde (fin de turno).
+  - La captura en bloque, la ronda y el mapa del cuarto eligen el turno por la hora: desde la 1 p. m.
+    es la tarde. En la captura en bloque se puede cambiar.
+  - Capturar el mismo turno otra vez reemplaza. Las dos del día se conservan y viajan por la nube.
+  - HOY muestra la toma del turno en curso; en la tarde dice también cuántos se leyeron en la mañana.
+- **📊 Lista de consumibles** (Consumibles → Reporte):
+  - es la lista de stock del laboratorio semana por semana: el inventario de cada consumible al
+    cierre de la semana (todos sus cilindros sumados), su tendencia, el consumo semanal, el límite
+    inferior y el "Comprar";
+  - **📤 Excel** la descarga en el mismo formato que la del laboratorio, llena sola;
+  - lo anterior a la plataforma sale del histórico importado; lo demás, de las lecturas (en verde en
+    el Excel).
+- **📥 Importar histórico**: sube la Lista de stock en Excel y se guardan todas sus semanas por
+  consumible, desde diciembre 2025.
+  - No se convierten en lecturas de cilindro: son totales por consumible.
+  - Volver a subirla actualiza, no duplica.
+- **📥 COP Master** (CoP → Expediente y Juicios guardados): sube el COP Master del laboratorio.
+  - **PM y PN** de las pruebas liberadas sin VETS. Quedan como evidencia aparte, no en lo que
+    firmaron liberador y aprobador.
+  - **La ficha del ICMS** del vehículo:
+    - se llena o se completa;
+    - si la Work Order quedó capturada en el campo MC code, se reacomoda;
+    - un coeficiente distinto en una prueba ya cerrada no se toca: se muestra.
+  - **El EvC y el FCF de la familia**, si el Master trae un solo valor para toda la familia.
+  - CO, THC, NOx, NMHC y CO₂ solo se comparan con lo aprobado y se avisa si difieren.
+
+### Cambió
+- La hoja de HQ toma PM y PN del COP Master cuando la prueba no los trae de VETS.
+- En el modelo de consumo por prueba, una prueba del día cuenta en **un solo** tramo entre
+  lecturas. Antes, la de un día con lectura se contaba en los dos tramos que tocaba.
+
+### Para tener en cuenta
+- **Actualiza todos los equipos el mismo día.** Un equipo con una versión anterior junta las dos
+  lecturas del día en una. Los equipos con 3.16.0 conservan las dos, pero ese equipo vería solo una.
+- El encabezado del bloque de diciembre del Excel del laboratorio dice 2024. Se tomó como
+  diciembre 2025 (decisión del laboratorio), y el importador lo dice.
+
+### Para desarrollo
+- La identidad de una lectura de gas es **fecha + turno** (`reading.shift`: `'am'` | `'pm'`; sin
+  turno = mañana).
+  - Helpers: `invReadingShift`, `invReadingKey`, `invReadingCmp` (orden), `invReadingDays` (ritmos:
+    9 h / 17 h), `invShiftNow`.
+  - `invFindReadingOn(gas, date, shift)`; `invAddReading(…, {shift})`.
+  - `_fbMergeReadings` empata por fecha + turno.
+- `js/conslist.js`:
+  - `invConsListParse(grid)` (PURA, por etiqueta);
+  - `invConsHistoryApply`;
+  - `invConsListModel(src)` (PURA, LA definición de la lista del año);
+  - `invConsListXlsxSpec(model)` (PURA);
+  - `invState.consHistory` se une con `invConsHistoryUnion` en los mismos puntos que `fuelTypes`.
+- `js/cophq.js`:
+  - `copMasterParse` y `copMasterPlan` son PURAS;
+  - `copMasterApply` escribe;
+  - PM/PN en `vehicle.testData.extResults`, y `copVetsPmPn` los lee después de VETS.
+- Pruebas:
+  - `tests/turnos.node.js`, con el recálculo en LibreOffice;
+  - `tests/cophq.node.js`, ahora también con el COP Master;
+  - `tests/v3160.e2e.js`.
+
 ## 3.15.0 — La hoja de CoP de corporativo, con un clic (2026-10-20)
 
 ### Nuevo
