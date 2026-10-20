@@ -2300,10 +2300,11 @@ function pnGetActiveAlerts() {
         }
     });
     // v24.3: tanques de combustible bajo su nivel de reorden (si está capturado)
-    if (typeof invFuelReorder === 'function' && typeof invState !== 'undefined') {
-        (invState.fuelTanks || []).forEach(function(t) {
-            var fr = invFuelReorder(t);
-            if (fr.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar combustible ' + (t.regulation || t.name || '') + ': ' + fr.level + ' ' + (t.unit || 'L') + ' ≤ reorden ' + fr.reorderLevel));
+    // [3.11.0] Por TIPO de gasolina (invFuelTypeTotals): lo que hay entre todos sus tambos contra el
+    // nivel de pedido del tipo. Por tambo saldría "comprar" con un tambo vacío y otros tres llenos.
+    if (typeof invFuelTypeTotals === 'function' && typeof invState !== 'undefined') {
+        invFuelTypeTotals(invState.fuelTypes, invState.fuelTanks).forEach(function(r) {
+            if (r.needsPurchase) alerts.push(_pnAlert('ALTA', 'comprar', 'Inventario', 'Comprar gasolina ' + r.name + ': ' + Math.round(r.liters) + ' L ≤ nivel de pedido ' + r.reorderLevel + ' L'));
         });
     }
 

@@ -1708,7 +1708,7 @@ function _fbPullLocalScore(col) {
         // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
         if (st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + _n(t.readings); });
         // v23.2: el consumo por prueba y los catálogos editables tampoco se contaban.
-        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes);
+        s += _n(st.usageLog) + _n(st.zones) + _n(st.gasTypes) + _n(st.fuelTypes);
         return s;
     }
 
@@ -1814,7 +1814,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // `lastReadingDate`. Ninguno viajaba, con la misma forma exacta del defecto de
         // `fuelTanks` que se arregló en v21.1.
         ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed',
-         'usageLog', 'zones', 'gasTypes', 'lastReadingDate'].forEach(function(k) {
+         'usageLog', 'zones', 'gasTypes', 'lastReadingDate', 'fuelTypes'].forEach(function(k) {
             if ((invState[k] === undefined || invState[k] === null ||
                  (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
                 invState[k] = prevInv[k];
@@ -1852,7 +1852,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
         // v21.1: sin esto, un pull cuyo único cambio es el combustible se descartaba.
-        (a.newFuelTanks || []).length > 0 || (a.fuelUpdates || []).length > 0;
+        (a.newFuelTanks || []).length > 0 || (a.fuelUpdates || []).length > 0 ||
+        // [3.11.0] Un pull cuyo único cambio es el catálogo de tipos de gasolina.
+        (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo((typeof invState !== 'undefined' && invState && invState.fuelTypes) || [], (remoteData && remoteData.fuelTypes) || []));
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -2666,7 +2668,7 @@ function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify((db && db.vehicles) || []));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
-        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog]));
+        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || []]));
     } catch (e) {}
     return '';
 }
@@ -2743,6 +2745,8 @@ function _fbLocalHasExtras(col, remote) {
             (r.calHistory || []).forEach(function(h) { rc[h.date + '|' + h.certNo] = true; });
             return (e.calHistory || []).some(function(h) { return !rc[h.date + '|' + h.certNo]; });
         })) return true;
+        // [3.11.0] Un tipo de gasolina creado o editado aquí que la nube no tiene.
+        if (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo(remote.fuelTypes || [], invState.fuelTypes || [])) return true;
         var rtk = {};
         (remote.fuelTanks || []).forEach(function(t) { rtk[t.id || t.name] = t; });
         return (invState.fuelTanks || []).some(function(t) { var r = rtk[t.id || t.name]; return !r || faltaLectura(t, r); });
@@ -3787,6 +3791,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
             if (!invState.fuelTanks) invState.fuelTanks = [];
             (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
+            if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
                         analysis.inventory.newEquip.length + ' equipos, +' +
                         (analysis.inventory.newFuelTanks || []).length + ' tanques');
@@ -3833,6 +3838,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                 if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
                 invState.fuelTanks[idx] = mezcla;
             });
+            // [3.11.0] Catálogo de tipos de gasolina: por id, gana el editado más reciente (con marcas de borrado).
+            if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();

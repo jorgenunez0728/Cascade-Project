@@ -57,7 +57,7 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
-  cuarto.js             ← 🗺️ Cuarto de gases: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~1,050 lines)
+  cuarto.js             ← 🗺️ Cuartos de gases y de gasolina: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~2,050 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
@@ -91,7 +91,7 @@ CHANGELOG.md            ← Detailed changelog
 | COP15 Cascade | `js/cop15.js` | — | Uses `db` from app.js | — |
 | Test Plan Manager | `js/testplan.js` | `tp` | `tpState` | `kia_testplan_v1` |
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
-| Cuarto de gases | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam')`, `invMapView`, `roomLabels`) |
+| Cuartos de gases y gasolina | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam' \| 'roomCamFuel' \| 'roomWhich')`, `invMapView`, `roomLabels`) |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
 | Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
@@ -3427,4 +3427,62 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   botones de zona de la fila de arriba).
 - Pendiente declarado: la gasolina todavía no está en el plano (se extiende si el diseño
   convence) y la ronda de lectura aún no confirma la posición ("¿sigue en A03?").
+
+## 3.11.0 — El cuarto de gasolina (`js/cuarto.js`, `js/inventory.js`)
+
+- **La misma escena sirve a los dos cuartos.** `_invRoomL()` es EL plano vigente
+  (`INV_ROOM_LAYOUT` o `INV_FUEL_ROOM_LAYOUT`) y `_invRoomWhich()` el cuarto elegido
+  (`uiPref('roomWhich')`, por equipo). En el código de pantalla nunca volver a escribir
+  `INV_ROOM_LAYOUT` a secas: pasa por `_invRoomL()`. Las funciones PURAS reciben el plano
+  (`opts.layout` en `invRoomSceneSVG`; olvidarlo pinta el cuarto de gases con los datos del otro).
+  Cambiar de cuarto (`invRoomSwitch`) reinicia selección, zona abierta, filtro y cámara; cada
+  cuarto guarda su cámara (`roomCam` / `roomCamFuel`).
+- **El plano de gasolina está horneado** (criterio de 3.10.0): tarimas T1–T6 de 2 × 2
+  (`_invFuelPallet(cx, cy, face, label)`; 1-2 atrás, 3-4 adelante, de izquierda a derecha
+  vistas desde `face`) y las boyas como UN tambo (`B`, `kind: 'tote'`). Código de posición con
+  separador (`layout.codeSep`: "T1-2"); `invRoomCode`/`invRoomParseCode` lo reciben. Las zonas
+  salen del plano (`invFuelRoomZones`), no de `invState.zones`.
+- `layout.item === 'drum'` dibuja tambos (radio/alto por zona, `def.base` = altura de la tarima;
+  al abrirse bajan al piso). `layout.marks` son marcas del piso (el drenaje). Algo nuevo de la
+  escena que no sea de la zona abierta se salta en `lite` (regla de 3.10.0).
+- **`invRoomExplodeOffset` abre a lo largo de la fila del frente en cualquier dirección**
+  (una tarima vista de lado corre en y); `def.openSp`/`openGap` la separan. Con filas en x es el
+  mismo cálculo de 3.10.0 (lo fija `tests/gasolina.node.js`).
+- **El recuadro de una tarima va en el piso, enfrente, y se pinta por profundidad** (en `solid`,
+  no en `over`): encima de los tambos tapaba los de atrás y no dejaba tocarlos. `chipOffset`
+  lo corre cuando hay otra tarima justo enfrente.
+- **Un tambo es un `invState.fuelTanks[i]`**: posición `tank.pos`, tipo `tank.typeId`. El
+  catálogo `invState.fuelTypes` lo decide el laboratorio; **`invFuelTypeOf(tank)` es LA forma de
+  saber el tipo** (sin `typeId`, el de su `regulation`), **`invFuelTankLevel(t)` LA del nivel**
+  (mismos umbrales que `invGasLevel`) y **`invFuelTypeTotals(types, tanks)` LA de los totales**
+  por tipo; las tres son PURAS. Un tambo sin tipo va a "Sin tipo" y se declara.
+- Escritores (nunca a mano): `invFuelTankCreate`, `invFuelMove`, `invFuelSetStatus`
+  (`INV_FUEL_STATUSES`), `invFuelSetType`, `invFuelTypeSave`, `invFuelTypeDelete`. El tipo
+  **manda sobre la regulación** del tambo, que es la llave del descuento de `invLogTestUsage`;
+  con varios candidatos, el descuento sale del **Abierto**.
+- **`invState.fuelTypes` es `undefined` hasta sembrarse** (`_invFuelTypesEnsure`, en
+  `invPreloadData`): no darle default `[]` o la siembra no corre. Los sembrados llevan id
+  estable (`invFuelTypeSeedId`) para que dos equipos no los dupliquen. Borrar deja `deleted`.
+- Sync: `invFuelTypesUnion` (PURA, simétrica) en `merge_all` y `new`; `invFuelTypesNewTo` en
+  `hasWork` y `_fbLocalHasExtras`; `fuelTypes` en `_fbPullSeed`, la huella y el puntaje local.
+  Toda clave nueva del cuarto de gasolina que viaje sigue ese patrón.
+- **Lo que existía antes de los tambos eran TOTALES por tipo** (decisión del laboratorio: "no hay
+  ninguno de 400"). `_invFuelLegacyMark` los marca UNA vez (`legacyTotal: true` = sin `pos` al
+  cargar; un tambo nuevo nace `false`) e `invFuelIsLegacyTotal(t)` es la forma de preguntarlo.
+  Un total anterior **no es un tambo**: no va en el cuarto (`invFuelRoomItems`), ni en la ronda si
+  su tipo ya tiene tambos, ni le gana el descuento a un tambo. `invFuelTypeTotals` lo usa solo
+  mientras su tipo no tenga tambos (`fromLegacy`): nunca sumar los dos.
+- **El reporte semanal, su correo, su importación y la alerta de comprar gasolina son POR TIPO**
+  (`invConsumablesReportRows().fuel` sale de `invFuelTypeTotals`); el nivel de pedido es del tipo
+  (`fuelType.reorderLevel`), no de un registro. El consumo semanal del tipo une la historia de los
+  totales anteriores y de los tambos (`invFuelTypeWeeklyUsage`).
+- **`invInstalledCylinders(gases, {wallZones, parse})` (PURA) es LA definición de "instalado"**
+  (En uso, o en una pared con tablero y no vacío) **y de "hay stock del mismo"** (mismo
+  `invGasConsumableKey` —especie + concentración— en `Stock`/`Spare`; vencido aparte).
+- **El resumen por correo trae el cuarto** (`digestInventory(inv)`, compone las definiciones de
+  Consumibles; sin inventario devuelve `{missing:true}` y el correo lo dice). `tools/daily-digest`
+  lee `inventory/current` sin abortar si falla; `tools/digest-env` carga `inventory.js` y
+  `cuarto.js` completos (las paredes con tablero salen de `INV_ROOM_LAYOUT`). Un registro de la
+  nube sin `legacyTotal` se lee con la misma regla, en copia.
+- Pendiente declarado: la ronda de lectura todavía no agrupa los tambos por tarima.
 

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.10.0';
+var APP_VERSION = '3.11.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,19 @@ var APP_VERSION = '3.10.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.11.0', date: '20 oct 2026', title: 'El cuarto de gasolina',
+      bullets: ['Consumibles → 🗺️ Cuarto tiene ahora dos mapas: 🧪 Gases y ⛽ Gasolina (el selector va al principio de la barra y la elección se recuerda en el equipo).',
+                'El cuarto de gasolina como es: seis tarimas de cuatro tambos (T1 a T6), las boyas de premium como un solo tambo (B), el drenaje y la puerta.',
+                'Cada tambo muestra su nivel con el mismo semáforo que los cilindros, y su tapa lleva el color de su tipo de gasolina.',
+                'Arriba sale el total de cada tipo entre todos sus tambos (por ejemplo, EURO VI: 50 L + 225 L = 275 L); tocarlo resalta esos tambos en el mapa.',
+                '⛽ Tipos: el laboratorio decide cuántos tipos de gasolina hay, su color, de qué regulación descuentan las pruebas y con cuántos litros hay que pedir.',
+                'Toca un tambo: su tipo, su nivel y la lectura de hoy en litros (con atajos Lleno, ¾, ½, ¼ y Vacío), su estatus (Cerrado, Abierto o Vacío) y el total de su tipo.',
+                'Toca una posición libre para dar de alta ahí un tambo nuevo o acomodar uno que todavía no tiene lugar. Los tambos se mueven arrastrándolos, como los cilindros.',
+                'Toca una tarima para verla de frente: la cámara vuela y la tarima se abre en una fila con los datos de cada tambo.',
+                'Con varios tambos de la misma gasolina, el descuento automático de cada prueba sale del que está Abierto.',
+                'Los registros de gasolina de antes (los de 400 L) eran el total de cada tipo, no tambos: ahora se marcan "Total anterior", no aparecen en el cuarto y solo dan el total de su tipo mientras ese tipo no tenga tambos registrados.',
+                'El reporte semanal de consumibles (pantalla, correo e importación) muestra la gasolina por tipo: lo que hay entre todos sus tambos, cuántos tambos son y el nivel de pedido del tipo.',
+                'Los resúmenes por correo de inicio y fin de turno traen el estado de todos los cilindros instalados (nivel y si hay stock del mismo gas y concentración) y la gasolina por tipo.'] },
     { version: '3.10.0', date: '19 oct 2026', title: 'El cuarto de gases en 3D',
       bullets: ['Consumibles → 🗺️ Cuarto: el cuarto de gases dibujado como es (paredes A, B y C, buffers E y F, diablito G y el cuartito de inflamables D y H), con cada cilindro en su posición.',
                 'Los conectados a la pared son una barrita de nivel: verde arriba de la mitad, amarilla a la mitad o menos, anaranjada en bajo (≤ 30 %) y roja en crítico (≤ 15 %), con el % en su etiqueta. Los críticos, vencidos y por pedir llevan marcador.',
@@ -2234,7 +2247,9 @@ var UI_PREFS_DEFAULTS = {
     hist: {},              // [2.34.0] Historial: {sort, dir, group, collapsed, more} — leer con histPrefs()
     invMapView: 'cuarto',  // [3.10.0] Consumibles → Cuarto: 'cuarto' (isométrico) | 'reticula'
     roomCam: null,         // [3.10.0] cámara del cuarto {az, el, zoom, panX, panY} — leer con invRoomCamNormalize
-    roomLabels: null       // [3.10.0] etiquetas en el cuarto (null = sí en escritorio, no en teléfono)
+    roomLabels: null,      // [3.10.0] etiquetas en el cuarto (null = sí en escritorio, no en teléfono)
+    roomWhich: 'gases',    // [3.11.0] qué cuarto se ve: 'gases' | 'gasolina'
+    roomCamFuel: null      // [3.11.0] cámara del cuarto de gasolina (como roomCam)
 };
 
 function _uiPrefsRead() {
