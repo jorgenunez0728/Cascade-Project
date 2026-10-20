@@ -292,6 +292,72 @@ console.log('\n== invMatchGasByLabel ==');
     ok('un cilindro vacío nunca se elige', ctx.invMatchGasByLabel('METANO 20 PPM BALANCE AIRE', vacios).gas === null);
 }
 
+// ── [3.14.2] El reporte semanal COMPLETO contra el catálogo y la semilla ─
+console.log('\n== [3.14.2] Las 28 filas del reporte semanal ==');
+{
+    const REPORTE = ['METANO 20 PPM BALANCE AIRE', 'METANO 10 PPM BALANCE AIRE', 'METANO 5 PPM BALANCE AIRE', 'METANO 2 PPM BALANCE AIRE',
+        'PROPANO 16.66  PPM BALANCE AIRE', 'PROPANO  3.33 PPM BALANCE AIRE', 'PROPANO 1.66PPM BALANCE AIRE', 'PROPANO 0.66PPM BALANCE AIRE',
+        'MONÓXIDO DE CARBONO 100 PPM BALANCE NITRÓGENO', 'MONÓXIDO DE CARBONO 50 PPM BALANCE NITRÓGENO', 'MONÓXIDO DE CARBONO 20 PPM BALANCE NITRÓGENO', 'MONÓXIDO DE CARBONO 10 PPM BALANCE NITRÓGENO',
+        'ÓXIDO NÍTRICO 2 PPM BALANCE NITRÓGENO', 'ÓXIDO NÍTRICO 5 PPM BALANCE NITRÓGENO', 'ÓXIDO NÍTRICO 10 PPM BALANCE NITRÓGENO', 'ÓXIDO NÍTRICO 50 PPM BALANCE NITRÓGENO',
+        'BIÓXIDO DE CARBONO 0.5 %v BALANCE NITRÓGENO', 'BIÓXIDO DE CARBONO 1 %v BALANCE NITRÓGENO', 'BIÓXIDO DE CARBONO 2 %v BALANCE NITRÓGENO',
+        'ÓXIDO NITROSO 0.5 PPM BALANCE NITRÓGENO', 'ÓXIDO NITROSO 2.5 PPM BALANCE NITRÓGENO', 'ÓXIDO NITROSO 5 PPM BALANCE NITRÓGENO',
+        'NITRÓGENO 5.5 (99.9995 %)', 'NITRÓGENO 4.8 (99.998 %)', 'AIRE CERO EMISIÓN VEHICULAR (AIR O2) (rojo)',
+        'OXÍGENO 19-12% BALANCE NITRÓGENO CON IMPUREZAS (Zero Air) (aluminio)', 'OXIGENO 4.3 ULTRA ALTA PUREZA (O2)', 'MEZCLA FID (HIDRÓGENO 40%v BALANCE HELIO)'];
+    const gases = ctx.__inv().gases.map(g => Object.assign({}, g, { importAlias: '' }));
+    const hits = REPORTE.map(l => ctx.invMatchGasByLabel(l, gases).gas);
+    ok('las 28 filas empatan', hits.every(Boolean), REPORTE.filter((l, i) => !hits[i]).join(' | '));
+    ok('y cada una con un cilindro distinto', new Set(hits.filter(Boolean).map(g => g.id)).size === 28);
+    const zona = l => (ctx.invMatchGasByLabel(l, gases).gas || {}).zone;
+    ok('aire cero (lleva "O2" en el nombre) → E03, no un oxígeno', zona(REPORTE[24]) === 'E03');
+    ok('oxígeno con impurezas → E04; oxígeno 4.3 → E05', zona(REPORTE[25]) === 'E04' && zona(REPORTE[26]) === 'E05');
+    const g2 = gases.concat([Object.assign({}, gases.find(g => g.zone === 'E03'), { id: 'otro', zone: 'E09', gasType: 'Aire Cero (otro proveedor)' })]);
+    ok('sin concentración y DOS clases del mismo gas: no se adivina', ctx.invMatchGasByLabel(REPORTE[24], g2).gas === null);
+
+    const cat = ctx.__inv().gasTypes;
+    const of = f => (cat.find(t => t.formula === f) || {}).concs || [];
+    ok('CO₂ en %v, no en ppm', JSON.stringify(of('CO2/N2')) === '["0.5 %v","1 %v","2 %v"]', JSON.stringify(of('CO2/N2')));
+    ok('CO 10/20/50/100, NO 2/5/10/50, N2O 0.5/2.5/5 ppm',
+        of('CO/N2').join() === '10 ppm,20 ppm,50 ppm,100 ppm' && of('NO/N2').join() === '2 ppm,5 ppm,10 ppm,50 ppm' && of('N2O/N2').join() === '0.5 ppm,2.5 ppm,5 ppm');
+    ok('nitrógeno, aire cero, oxígeno con impurezas y oxígeno 4.3 en el catálogo',
+        of('N2').length === 2 && of('ZERO')[0] === 'AIR O2 rojo' && of('O2/N2')[0] === '19-12%' && of('O2')[0] === '99.993%');
+    ok('toda concentración de la semilla está en el catálogo de su gas (el alta la ofrece)',
+        ctx.__inv().gases.every(g => of(g.formula).indexOf(g.concNominal) >= 0),
+        ctx.__inv().gases.filter(g => of(g.formula).indexOf(g.concNominal) < 0).map(g => g.zone + ' ' + g.formula + ' ' + g.concNominal).join(', '));
+
+    const viejo = [{ name: 'Bioxido de Carbono/Nitrogeno', formula: 'CO2/N2', concs: ['0.5 ppm', '1 ppm', '3 ppm', '15 ppm'] },
+                   { name: 'Metano/Aire', formula: 'CH4/Air', concs: ['2 ppm', '50 ppm'] }];
+    const r = ctx.invGasTypesRepair(viejo);
+    ok('el catálogo viejo de fábrica se corrige; uno editado se respeta',
+        r.changed && r.list[0].concs[0] === '0.5 %v' && r.list[1].concs.join() === '2 ppm,50 ppm');
+    ok('reparar es idempotente', ctx.invGasTypesRepair(r.list).changed === false);
+}
+
+console.log('\n== [3.14.2] Cilindros repetidos (mismo id) ==');
+{
+    const base = { id: 'g_ch420', formula: 'CH4/Air', concNominal: '20 ppm', zone: 'A01', status: 'In use', updatedAt: '2026-10-20T13:12:04.851Z' };
+    const a = Object.assign({}, base, { controlNo: 'CH4-20', gasCategory: 'Referencia', readings: [{ date: '2026-02-27', psi: 1200 }] });
+    const b = Object.assign({}, base, { controlNo: '20260302-01', timeline: [{ date: '2026-03-02T18:51:36Z', action: 'Modificado' }], readings: [{ date: '2026-02-27', psi: 1200 }] });
+    const c = Object.assign({}, base, { controlNo: '20260305-01', cylinderNo: 'CH4-20', timeline: [{ date: '2026-03-05T14:41:18Z', action: 'Modificado' }], readings: [{ date: '2026-02-27', psi: 1200 }] });
+    const otro = { id: 'g_ch410', controlNo: 'CH4-10', readings: [] };
+    const d1 = ctx.invGasesDedupe([a, otro, b, c]), d2 = ctx.invGasesDedupe([c, b, otro, a]);
+    const w = d1.list.find(g => g.id === 'g_ch420');
+    ok('tres copias → una; los demás no se tocan', d1.list.length === 2 && d1.list.filter(g => g.id === 'g_ch420').length === 1);
+    ok('con updatedAt empatado gana la editada más recientemente', w.controlNo === '20260305-01' && w.cylinderNo === 'CH4-20', w.controlNo);
+    ok('lo que la edición perdió (categoría) se recupera de otra copia', w.gasCategory === 'Referencia');
+    ok('la línea de tiempo se une', (w.timeline || []).length === 2);
+    ok('el mismo resultado en cualquier orden', JSON.stringify(w) === JSON.stringify(d2.list.find(g => g.id === 'g_ch420')));
+    ok('sin repetidos no hay cambios', ctx.invGasesDedupe([a, otro]).merged.length === 0);
+    const gk = new Function('return ' + fs.readFileSync(path.join(__dirname, '..', 'js', 'firebase-sync.js'), 'utf8').match(/function _fbGasKey[\s\S]*?\n}/)[0])();
+    ok('el sync empareja por id: cambiar el No. de control no crea otro cilindro', gk(a) === gk(c) && gk(a) !== gk(otro));
+    ok('sin id, el No. de control (datos anteriores)', gk({ controlNo: 'X-1' }) === 'X-1');
+    const FBS = fs.readFileSync(path.join(__dirname, '..', 'js', 'firebase-sync.js'), 'utf8');
+    const gi = new Function('return ' + FBS.match(/function _fbGasIndex[\s\S]*?\n}/)[0])();
+    const idx = gi([a, otro, { controlNo: 'VIEJO-1' }]);
+    ok('buscar: por id aunque cambie el No. de control', idx.find(c) === a);
+    ok('buscar: sin id de un lado, por No. de control', idx.find({ controlNo: 'VIEJO-1', id: 'nuevo' }).controlNo === 'VIEJO-1' && idx.find({ controlNo: 'CH4-10' }) === otro);
+    ok('buscar: dos id distintos con el mismo No. de control son cilindros distintos', idx.find({ id: 'g_otro', controlNo: 'CH4-10' }) === null);
+}
+
 console.log('\n== invFuelWeeklyUsage ==');
 {
     const t = { readings: [
