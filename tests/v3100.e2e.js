@@ -81,7 +81,7 @@ const centro = async (loc) => { const b = await loc.boundingBox(); return { x: b
         return { psi: r.psi, src: r.source, hoy: r.date === localToday(), panel: document.getElementById('rm-panel').innerText,
                  aud: auditGetView().some(e => e.action === 'gas_reading' && /3010/.test(e.details || '')) }; }, idC02);
     ok('guardar la lectura usa el escritor único (fecha de hoy, origen "cuarto", auditada)', lec.psi === 3010 && lec.src === 'cuarto' && lec.hoy && lec.aud, JSON.stringify(lec).slice(0, 200));
-    ok('el panel dice que ya se leyó hoy', /Leído hoy/.test(lec.panel));
+    ok('[3.16.0] el panel dice que ya se leyó en este turno', /Leído \((mañana|tarde)\)/.test(lec.panel));
     await page.fill('#rm-psi', '');
     await page.locator('.rm-read-btn').click();
     await page.waitForTimeout(200);

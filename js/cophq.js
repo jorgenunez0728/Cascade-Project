@@ -325,7 +325,7 @@ function copHqModelFor(j) {
             if (used[p.id] || faltan < raw.length) {
                 warnings.push(_copHqGasName(p.id) + ': falta el valor de ' + faltan + ' de ' + raw.length + ' vehículo(s); la hoja sale sin ese gas.');
             } else if (p.id === 'PM' || p.id === 'PN') {
-                warnings.push(_copHqGasName(p.id) + ': ninguna prueba trae su valor en VETS; la hoja sale sin ese gas.');
+                warnings.push(_copHqGasName(p.id) + ': ninguna prueba trae su valor (ni de VETS ni del COP Master); la hoja sale sin ese gas. Impórtalo con 📥 COP Master.');
             }
             return;
         }
@@ -434,4 +434,378 @@ function copHqXlsxExport(id) {
         showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
         return false;
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [3.16.0] COP Master del laboratorio (compilado de los exports del ICMS)
+//
+// El laboratorio lleva un Excel "COP Master — Emisiones" con un renglón por prueba: los
+// resultados crudos (CO, THC, NOx, NMHC, PM, PN en mg/km o #/km, CO₂ en g/km), el EvC y el
+// FCF con que se corrigió el CO₂, y a la derecha el renglón completo del export del ICMS
+// de esa Work Order. Importarlo llena lo que la plataforma no tenía:
+//   · PM y PN de las pruebas liberadas sin VETS → vehicle.testData.extResults (evidencia
+//     aparte: NUNCA se escribe en gasResults, que es lo que firmaron liberador y aprobador);
+//   · la ficha del ICMS del vehículo (homoIcmsBatchPlan / homoIcmsBatchApply, las de siempre);
+//   · el EvC/FCF de la familia, si el Master trae uno solo para toda la familia.
+// Lo demás (CO, THC, NOx, NMHC, CO₂) solo se COMPARA contra lo aprobado y se avisa si difiere.
+// ══════════════════════════════════════════════════════════════════════
+
+var COP_MASTER_GASES = [
+    ['CO', /^raw co \(mg\/km\)$/, 0.001], ['THC', /^raw thc \(mg\/km\)$/, 0.001],
+    ['NOx', /^raw nox \(mg\/km\)$/, 0.001], ['NMHC', /^raw nmhc \(mg\/km\)$/, 0.001]
+];
+
+function _cmFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function _cmNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var s = String(v).trim();
+    if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(s)) return null;
+    var n = parseFloat(s); return isFinite(n) ? n : null;
+}
+/** Fecha de Excel (número de serie o texto) → 'AAAA-MM-DD'. PURA. */
+function _cmDate(v) {
+    var n = _cmNum(v);
+    if (n !== null && n > 20000 && n < 80000) {
+        var d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+        return d.toISOString().slice(0, 10);
+    }
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+    return m ? m[0] : '';
+}
+
+/**
+ * La hoja Registro_COP (retícula 0-based) → {rows, error}. PURA. Se lee por ENCABEZADO.
+ * rows = [{rowNo, vin, date, wo, raw:{CO,THC,NOx,NMHC,PM (g/km), PN (#/km)}, co2:{raw, evc, fcf, declared}, icms}]
+ */
+function copMasterParse(grid) {
+    grid = grid || [];
+    var H = -1;
+    for (var i = 0; i < Math.min(grid.length, 10) && H < 0; i++) {
+        var f = (grid[i] || []).map(_cmFold);
+        if (f.indexOf('vin') >= 0 && f.indexOf('fecha de prueba') >= 0) H = i;
+    }
+    if (H < 0) return { error: 'No encontré los encabezados "VIN" y "Fecha de prueba". ¿Es la hoja Registro_COP del COP Master?' };
+    var hdr = (grid[H] || []).map(_cmFold);
+    var col = function(re) { for (var c = 0; c < hdr.length; c++) if (re.test(hdr[c])) return c; return -1; };
+    var cVin = hdr.indexOf('vin'), cDate = hdr.indexOf('fecha de prueba');
+    var cWo = col(/^work order no\.?$/), cCo2 = col(/^raw co2 \(g\/km\)$/), cEvc = col(/^evc$/), cFcf = col(/^fcf$/);
+    var cDecl = col(/^co2 declarado icms/), cPm = col(/^pm \(mg\/km\)$/), cPn = col(/^pn \(#\/km\)$/);
+    var cIcms = col(/^company code$/);
+    var gasCols = COP_MASTER_GASES.map(function(g) { return { id: g[0], c: col(g[1]), k: g[2] }; });
+    var icmsHead = cIcms >= 0 ? (grid[H] || []).slice(cIcms) : null;
+    var rows = [];
+    for (var r = H + 1; r < grid.length; r++) {
+        var line = grid[r] || [];
+        var vin = String(line[cVin] == null ? '' : line[cVin]).trim().toUpperCase();
+        if (!/^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) continue;
+        var raw = {};
+        gasCols.forEach(function(g) { var v = g.c >= 0 ? _cmNum(line[g.c]) : null; if (v !== null) raw[g.id] = v * g.k; });
+        var pm = cPm >= 0 ? _cmNum(line[cPm]) : null, pn = cPn >= 0 ? _cmNum(line[cPn]) : null;
+        if (pm !== null) raw.PM = pm * 0.001;
+        if (pn !== null) raw.PN = pn;
+        var icms = null;
+        if (icmsHead && typeof homoIcmsRows === 'function') {
+            var p = homoIcmsRows([icmsHead, line.slice(cIcms)]);
+            if (!p.error && p.rows.length) icms = p.rows[0];
+        }
+        rows.push({
+            rowNo: r + 1, vin: vin, date: _cmDate(line[cDate]),
+            wo: cWo >= 0 ? String(line[cWo] == null ? '' : line[cWo]).trim() : '',
+            raw: raw,
+            co2: { raw: cCo2 >= 0 ? _cmNum(line[cCo2]) : null, evc: cEvc >= 0 ? _cmNum(line[cEvc]) : null,
+                   fcf: cFcf >= 0 ? _cmNum(line[cFcf]) : null, declared: cDecl >= 0 ? _cmNum(line[cDecl]) : null },
+            icms: icms
+        });
+    }
+    if (!rows.length) return { error: 'La hoja no tiene renglones con VIN.' };
+    return { rows: rows };
+}
+
+/** ¿El valor del Master coincide con el capturado, a la precisión con que se capturó? PURA. */
+function copMasterSameValue(stored, master) {
+    var a = _cmNum(stored);
+    if (a === null || master === null || master === undefined) return null;
+    var s = String(stored);
+    var dec = /e/i.test(s) ? 6 : (s.split('.')[1] || '').length;
+    var p = Math.pow(10, dec);
+    if (Math.round(master * p) / p === Math.round(a * p) / p) return true;
+    return Math.abs(master - a) <= Math.max(Math.abs(a), Math.abs(master)) * 0.005;   // 0.5 %
+}
+
+function _cmExt(v) { return (v && v.testData && v.testData.extResults && v.testData.extResults.values) || {}; }
+function _cmVets(v, k) {
+    var g = v && v.testData && v.testData.vets && v.testData.vets.gases && v.testData.vets.gases[k];
+    return g ? g : null;
+}
+
+/**
+ * Qué haría la importación con cada renglón. PURA (recibe los vehículos).
+ * → [{row, vehicleId, vin, status, approved, action:'sin-vehiculo'|'ambigua'|'ok', pmpn:'llenar'|'corregir'|'igual'|'vets'|'sin-dato',
+ *     pmpnValues, checks:[{gas, master, stored, same}], ficha:{action,…}|null, familyKey}]
+ */
+function copMasterPlan(rows, vehicles, opts) {
+    opts = opts || {};
+    var all = (vehicles || []).filter(function(v) { return v && v.vin; });
+    var testDate = opts.testDate || (typeof vehicleTestDate === 'function' ? vehicleTestDate : function(v) { return ((v.testData || {}).testDatetime || '').slice(0, 10); });
+    var famKey = opts.familyKey || (typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey : function() { return ''; });
+    var approved = opts.approved || (typeof copResultApproved === 'function' ? copResultApproved : function(v) { return v.status === 'archived'; });
+    return (rows || []).map(function(row) {
+        var e = { row: row, vin: row.vin };
+        var cand = all.filter(function(v) { return String(v.vin).trim().toUpperCase() === row.vin; });
+        if (cand.length > 1 && row.date) {
+            var mismoDia = cand.filter(function(v) { return testDate(v) === row.date; });
+            if (mismoDia.length === 1) cand = mismoDia;
+        }
+        if (!cand.length) { e.action = 'sin-vehiculo'; return e; }
+        if (cand.length > 1) { e.action = 'ambigua'; e.vehicles = cand.map(function(v) { return v.id; }); return e; }
+        var v = cand[0];
+        e.action = 'ok'; e.vehicleId = v.id; e.status = v.status || ''; e.approved = !!approved(v);
+        e.familyKey = famKey(v);
+        e.dateMismatch = !!(row.date && testDate(v) && testDate(v) !== row.date);
+        // PM / PN
+        var want = {}, ext = _cmExt(v), diffs = [], need = false, vetsHas = false;
+        ['PM', 'PN'].forEach(function(k) {
+            if (row.raw[k] === undefined) return;
+            if (_cmVets(v, k)) { vetsHas = true; return; }
+            want[k] = row.raw[k];
+            if (ext[k] === undefined || ext[k] === null) need = true;
+            else if (!copMasterSameValue(ext[k], row.raw[k])) diffs.push(k);
+        });
+        e.pmpnValues = want;
+        e.pmpn = !Object.keys(want).length ? (vetsHas ? 'vets' : 'sin-dato') : diffs.length ? 'corregir' : need ? 'llenar' : 'igual';
+        // Comparación con lo aprobado
+        var gr = (v.testData && v.testData.gasResults) || {};
+        var vals = (gr.aprobador && gr.aprobador.values) || (gr.liberador && gr.liberador.values) || {};
+        var prof = gr.liberador && gr.liberador.profile && gr.liberador.profile.gases || [];
+        var unitOf = function(f) { var g = prof.filter(function(x) { return x.field === f; })[0]; return g && g.unit || 'g/km'; };
+        e.checks = [];
+        COP_MASTER_GASES.forEach(function(g) {
+            var id = g[0];
+            if (row.raw[id] === undefined || vals[id] === undefined || vals[id] === '') return;
+            var m = row.raw[id];
+            if (typeof gasConvert === 'function') m = gasConvert(m, 'g/km', unitOf(id));
+            e.checks.push({ gas: id, master: m, stored: vals[id], unit: unitOf(id), same: copMasterSameValue(vals[id], m) });
+        });
+        var co2 = vals.CO2 !== undefined ? vals.CO2 : vals.co2;
+        if (row.co2.raw !== null && co2 !== undefined && co2 !== '') {
+            e.checks.push({ gas: 'CO2', master: row.co2.raw, stored: co2, unit: 'g/km', same: copMasterSameValue(co2, row.co2.raw) });
+        }
+        // Ficha del ICMS
+        e.ficha = null;
+        if (row.icms && typeof homoIcmsBatchPlan === 'function') {
+            var item = { fileName: 'COP Master · renglón ' + row.rowNo, tail: row.vin, row: row.icms };
+            var pl = homoIcmsBatchPlan([item], [v])[0];
+            e.ficha = { action: pl.action, diffs: pl.diffs || [], blanks: pl.blanks || [], item: item };
+            // La Work Order capturada en el campo "MC code" (y la WO vacía): no es un coeficiente
+            // distinto, es la etiqueta equivocada. Se reacomoda aunque la prueba esté cerrada.
+            if (pl.action === 'bloqueado' && pl.diffs && pl.diffs.length && pl.diffs.every(function(d) {
+                return d.key === 'mcCode' && _cmFold(d.antes) === _cmFold(row.icms.workOrder) && !(v.homolog && v.homolog.workOrder);
+            })) e.ficha.action = 'reetiquetar';
+        }
+        return e;
+    });
+}
+
+/** EvC/FCF por familia, de los renglones que encontraron vehículo: uno solo por familia o nada. PURA. */
+function copMasterFactors(plan) {
+    var fam = {};
+    (plan || []).forEach(function(e) {
+        if (e.action !== 'ok' || !e.familyKey || e.row.co2.evc === null || e.row.co2.fcf === null) return;
+        var f = fam[e.familyKey] = fam[e.familyKey] || { key: e.familyKey, values: {} };
+        f.values[e.row.co2.evc + '|' + e.row.co2.fcf] = { evc: e.row.co2.evc, fcf: e.row.co2.fcf };
+    });
+    return Object.keys(fam).map(function(k) {
+        var vs = Object.keys(fam[k].values).map(function(x) { return fam[k].values[x]; });
+        return { key: k, unique: vs.length === 1, evc: vs.length === 1 ? vs[0].evc : null, fcf: vs.length === 1 ? vs[0].fcf : null, variants: vs };
+    });
+}
+
+/**
+ * Aplica lo que la persona vio (`plan`) contra el db de ESTE momento. PM/PN con `cop.judge`;
+ * la ficha del ICMS con `homolog.manage` (por homoIcmsBatchApply, que lo pide); los factores
+ * de familia con `cop.judge`. Todo a la línea de tiempo y a la auditoría con antes/después.
+ */
+function copMasterApply(plan, opts) {
+    opts = opts || {};
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'importar el COP Master')) return null;
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : '';
+    var now = new Date().toISOString();
+    var fresh = copMasterPlan(plan.map(function(e) { return e.row; }), db.vehicles || []);
+    var pmpn = 0, undo = [];
+    fresh.forEach(function(e, i) {
+        var seen = plan[i];
+        if (e.action !== 'ok' || !(e.pmpn === 'llenar' || e.pmpn === 'corregir')) return;
+        if (seen && seen.pmpn !== e.pmpn) return;               // cambió mientras se revisaba
+        var v = (db.vehicles || []).filter(function(x) { return x.id === e.vehicleId; })[0];
+        if (!v) return;
+        v.testData = v.testData || {};
+        var before = v.testData.extResults ? JSON.parse(JSON.stringify(v.testData.extResults)) : null;
+        undo.push({ v: v, ext: v.testData.extResults, tl: (v.timeline || []).length });
+        var values = Object.assign({}, (before && before.values) || {}, e.pmpnValues);
+        v.testData.extResults = { source: 'cop-master', file: opts.fileName || '', row: e.row.rowNo, by: who, at: now,
+                                  values: values, units: { PM: 'g/km', PN: '#/km' } };
+        v.timeline = v.timeline || [];
+        v.timeline.push({ timestamp: now, user: who,
+            action: 'PM/PN cargados del COP Master (renglón ' + e.row.rowNo + ')',
+            data: { modified: Object.keys(e.pmpnValues).map(function(k) {
+                return { campo: k, key: k, antes: before && before.values && before.values[k] != null ? before.values[k] : '', despues: e.pmpnValues[k],
+                         razon: 'COP Master «' + (opts.fileName || '') + '»' };
+            }), source: 'cop-master' } });
+        if (typeof auditLog === 'function') auditLog('cop', 'cop_master_pmpn', { type: 'vehicle', id: v.id, label: v.vin },
+            'PM/PN del COP Master (renglón ' + e.row.rowNo + ')', { before: before && before.values, after: values });
+        pmpn++;
+    });
+    if (pmpn && typeof saveDB === 'function' && saveDB() === false) {
+        undo.forEach(function(u) { u.v.testData.extResults = u.ext; u.v.timeline.length = u.tl; });
+        return { error: 'No se pudo guardar (almacenamiento lleno). No se cambió ningún vehículo.' };
+    }
+    // Fichas del ICMS: solo llenar/completar/corregir (un vehículo enviado o liberado con
+    // valores distintos queda 'bloqueado' y no se toca).
+    var fichas = 0, fichaErr = '';
+    var picks = [], items = [];
+    fresh.forEach(function(e) {
+        if (e.action !== 'ok' || !e.ficha || !/^(llenar|completar|corregir)$/.test(e.ficha.action)) return;
+        picks.push({ i: items.length, action: e.ficha.action });
+        items.push(Object.assign({}, e.ficha.item, { fileName: (opts.fileName || 'COP Master') + ' · renglón ' + e.row.rowNo }));
+    });
+    var canHomo = typeof authCan !== 'function' || authCan('homolog.manage');
+    var reet = fresh.filter(function(e) { return e.action === 'ok' && e.ficha && e.ficha.action === 'reetiquetar'; });
+    if (reet.length && opts.fichas !== false) {
+        if (!canHomo) fichaErr = 'Las fichas del ICMS piden el permiso de homologación: quedaron sin cargar.';
+        else {
+            var changed = 0, undoH = [];
+            reet.forEach(function(e) {
+                var v = (db.vehicles || []).filter(function(x) { return x.id === e.vehicleId; })[0];
+                if (!v || !v.homolog) return;
+                var before = JSON.parse(JSON.stringify(v.homolog));
+                undoH.push({ v: v, h: v.homolog, tl: (v.timeline || []).length });
+                var next = Object.assign({}, v.homolog), mods = [];
+                var ficha = homoFichaFromIcms(e.row.icms, {});
+                next.workOrder = before.mcCode; mods.push({ campo: 'Work Order', key: 'workOrder', antes: '', despues: before.mcCode, razon: 'Estaba capturada en el campo MC code' });
+                next.mcCode = ficha.mcCode; mods.push({ campo: 'MC code', key: 'mcCode', antes: before.mcCode, despues: ficha.mcCode, razon: 'MC code del ICMS (COP Master)' });
+                (e.ficha.blanks || []).forEach(function(k) {
+                    if (k === 'workOrder' || ficha[k] == null || ficha[k] === '') return;
+                    next[k] = ficha[k]; mods.push({ campo: k, key: k, antes: '', despues: ficha[k], razon: 'Vacío; del ICMS (COP Master)' });
+                });
+                ['ocn', 'wvta', 'variant', 'version'].forEach(function(k) { if (!next[k] && ficha[k]) next[k] = ficha[k]; });
+                v.homolog = next;
+                v.timeline = v.timeline || [];
+                v.timeline.push({ timestamp: now, user: who, action: 'Ficha de homologación reacomodada desde el COP Master (la WO estaba en el campo MC code)',
+                                  data: { modified: mods, source: 'cop-master' } });
+                if (typeof auditLog === 'function') auditLog('homolog', 'homologacion_icms', { type: 'vehicle', id: v.id, label: v.vin },
+                    'reetiquetar desde el COP Master: ' + mods.map(function(m) { return m.campo + ' ' + m.antes + '→' + m.despues; }).join(', '),
+                    { before: { mcCode: before.mcCode, workOrder: before.workOrder || '' }, after: { mcCode: next.mcCode, workOrder: next.workOrder } });
+                changed++;
+            });
+            if (changed && typeof saveDB === 'function' && saveDB() === false) {
+                undoH.forEach(function(u) { u.v.homolog = u.h; u.v.timeline.length = u.tl; });
+                fichaErr = 'No se pudo guardar el reacomodo de fichas (almacenamiento lleno).';
+            } else fichas += changed;
+        }
+    }
+    if (items.length && opts.fichas !== false && typeof homoIcmsBatchApply === 'function') {
+        if (canHomo) {
+            var hr = homoIcmsBatchApply(items, picks);
+            if (hr && hr.error) fichaErr = hr.error; else if (hr) fichas += hr.aplicados;
+        } else fichaErr = 'Las fichas del ICMS piden el permiso de homologación: quedaron sin cargar.';
+    }
+    // Factores de familia
+    var fams = 0;
+    if (opts.factors !== false && typeof copFamilyState === 'function') {
+        copMasterFactors(fresh).forEach(function(f) {
+            if (!f.unique) return;
+            var st = copFamilyState(f.key);
+            if (st.co2Evc === f.evc && st.co2Fcf === f.fcf) return;
+            var before = { evc: st.co2Evc || null, fcf: st.co2Fcf || null };
+            st.co2Evc = f.evc; st.co2Fcf = f.fcf; st.updatedAt = now; st.updatedBy = who;
+            fams++;
+            if (typeof auditLog === 'function') auditLog('cop', 'co2_factors_set', { type: 'cop', label: f.key },
+                'Del COP Master: FCF=' + f.fcf + ' · Evolution Factor=' + f.evc, { before: before, after: { evc: f.evc, fcf: f.fcf } });
+        });
+        if (fams && typeof copPersist === 'function') { copPersist(); if (typeof _copPushNow === 'function') _copPushNow(); }
+    }
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+    return { pmpn: pmpn, fichas: fichas, familias: fams, fichaErr: fichaErr };
+}
+
+// ── UI ──
+var _cmPending = null;
+function copMasterImportOpen() {
+    if (typeof authRequire === 'function' && !authRequire('cop.judge', 'importar el COP Master')) return;
+    _cmPending = null;
+    showModal({
+        title: '📥 Importar COP Master (ICMS)',
+        body: '<p>Sube el <b>COP Master — Emisiones</b> (.xlsx). De cada renglón se toman PM y PN para las pruebas que no los traen de VETS, ' +
+              'la ficha del ICMS del vehículo y el EvC/FCF de la familia. CO, THC, NOx, NMHC y CO₂ solo se comparan con lo aprobado: no se reescriben.</p>' +
+              '<input type="file" accept=".xlsx" onchange="copMasterFile(event)" aria-label="Archivo COP Master">' +
+              '<div id="cm-preview" style="margin-top: var(--space-md);"></div>',
+        buttons: [{ label: 'Cancelar' }, { label: 'Importar', cls: 'btn-primary', onclick: copMasterConfirm }]
+    });
+}
+
+function copMasterFile(ev) {
+    var f = ev && ev.target && ev.target.files && ev.target.files[0];
+    var box = document.getElementById('cm-preview');
+    if (!f || !box) return;
+    box.innerHTML = '<p class="u-muted">Leyendo ' + escapeHtml(f.name) + '…</p>';
+    var rd = new FileReader();
+    rd.onload = function() {
+        vetsReadWorkbook(new Uint8Array(rd.result), null).then(function(sheets) {
+            var parsed = null;
+            var names = Object.keys(sheets).sort(function(a, b) { return (/registro/i.test(b) ? 1 : 0) - (/registro/i.test(a) ? 1 : 0); });
+            names.some(function(k) { var p = copMasterParse(_homoGridFromSheet(sheets[k])); if (!p.error) { parsed = p; return true; } return false; });
+            if (!parsed) throw new Error('No encontré la hoja Registro_COP (encabezados "VIN" y "Fecha de prueba").');
+            var plan = copMasterPlan(parsed.rows, (typeof db !== 'undefined' && db.vehicles) || []);
+            _cmPending = { plan: plan, fileName: f.name };
+            box.innerHTML = copMasterPreviewHTML(plan);
+        }).catch(function(err) {
+            _cmPending = null;
+            box.innerHTML = '<p style="color:var(--danger-text);">' + escapeHtml(err && err.message || String(err)) + '</p>';
+        });
+    };
+    rd.readAsArrayBuffer(f);
+}
+
+/** Vista previa: qué pasa con cada renglón. PURA (solo arma HTML). */
+function copMasterPreviewHTML(plan) {
+    var e = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s); };
+    var PM = { llenar: 'Se llenan', corregir: 'Se corrigen', igual: 'Ya están', vets: 'Vienen de VETS', 'sin-dato': '—' };
+    var FI = { llenar: 'Se llena', completar: 'Se completa', corregir: 'Se corrige', igual: 'Igual', reetiquetar: 'Se reacomoda (la WO estaba como MC code)', bloqueado: 'Distinta (prueba cerrada: no se toca)', 'no-europa': 'No es Europa', ambigua: 'Ambigua', 'sin-vehiculo': '—' };
+    var ok = plan.filter(function(x) { return x.action === 'ok'; });
+    var diffs = 0;
+    var h = '<p><b>' + plan.length + '</b> renglones · <b>' + ok.length + '</b> con vehículo en la plataforma.</p>';
+    h += '<div style="overflow:auto;max-height:320px;"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-sm);"><thead><tr>' +
+        '<th>Renglón</th><th>VIN</th><th>Fecha</th><th>PM / PN</th><th>Ficha ICMS</th><th>Contra lo aprobado</th></tr></thead><tbody>';
+    plan.forEach(function(x) {
+        var chk = (x.checks || []).filter(function(c) { return c.same === false; });
+        diffs += chk.length;
+        h += '<tr style="border-top:1px solid var(--border);"><td>' + x.row.rowNo + '</td><td>' + e(x.vin) + '</td><td>' + e(x.row.date) + (x.dateMismatch ? ' ⚠' : '') + '</td>';
+        if (x.action !== 'ok') { h += '<td colspan="3" class="u-muted">' + (x.action === 'ambigua' ? 'Varias pruebas de ese VIN: no se adivina' : 'Sin vehículo en la plataforma') + '</td></tr>'; return; }
+        h += '<td>' + PM[x.pmpn] + (x.approved ? '' : ' <span class="u-muted">(prueba sin aprobar)</span>') + '</td>' +
+             '<td>' + (x.ficha ? (FI[x.ficha.action] || x.ficha.action) + (x.ficha.action === 'bloqueado' ? ': ' + e(x.ficha.diffs.filter(function(d) { return d.key !== 'mcCode'; }).map(function(d) { return d.label + ' ' + d.antes + ' vs ' + d.despues; }).join(', ')) : '') : '—') + '</td>' +
+             '<td>' + (chk.length ? '<span style="color:var(--warn-text);">⚠ ' + chk.map(function(c) { return c.gas + ' ' + c.stored + ' vs ' + (+c.master.toPrecision(4)); }).join(', ') + '</span>'
+                                  : ((x.checks || []).length ? '✓ coincide' : '—')) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    var fam = copMasterFactors(plan);
+    if (fam.length) {
+        h += '<p style="margin-top: var(--space-sm);"><b>EvC / FCF por familia:</b> ' + fam.map(function(f) {
+            return e(String(f.key).split('|').slice(0, 3).join(' ')) + ' → ' + (f.unique ? 'EvC ' + f.evc + ' · FCF ' + f.fcf : 'varios valores, no se cambia');
+        }).join('; ') + '</p>';
+    }
+    if (diffs) h += '<p style="color:var(--warn-text);">⚠ ' + diffs + ' valor(es) del Master no coinciden con lo aprobado. No se cambian: revísalos (puede ser otra prueba del mismo VIN).</p>';
+    return h;
+}
+
+function copMasterConfirm() {
+    if (!_cmPending) { showToast('Primero elige el archivo.', 'warning'); return; }
+    var res = copMasterApply(_cmPending.plan, { fileName: _cmPending.fileName });
+    _cmPending = null;
+    var m = document.getElementById('globalModal'); if (m) m.remove();
+    if (!res) return;
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast('COP Master: PM/PN en ' + res.pmpn + ' prueba(s), ' + res.fichas + ' ficha(s) del ICMS, factores de ' + res.familias + ' familia(s).' +
+              (res.fichaErr ? ' ' + res.fichaErr : ''), res.fichaErr ? 'warning' : 'success', 9000);
+    if (typeof copRender === 'function') copRender();
 }

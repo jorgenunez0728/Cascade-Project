@@ -1531,7 +1531,12 @@ function copVetsPmPn(vehicle, pollId) {
     if (!vehicle || !copResultApproved(vehicle)) return null;
     var g = vehicle.testData && vehicle.testData.vets && vehicle.testData.vets.gases && vehicle.testData.vets.gases[pollId];
     var v = g ? _copNum(g.v) : null;
-    if (v === null) return null;
+    if (v === null) {
+        // [3.16.0] Sin VETS: lo que se cargó del COP Master (testData.extResults, ya en g/km y #/km).
+        var ext = vehicle.testData && vehicle.testData.extResults;
+        var ev = ext && ext.values ? _copNum(ext.values[pollId]) : null;
+        return ev;
+    }
     var u = String(g.u || '').trim().toLowerCase();
     if (pollId === 'PN') return (!u || u === '#/km') ? v : null;
     var F = { 'g/km': 1, 'mg/km': 0.001 };
@@ -2812,6 +2817,9 @@ function copBuildDossierHTML() {
                 'onclick="copFamilyPDF()">📄 Expediente PDF</button>';
         html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copExportFamilyCSV()">CSV</button>';
     }
+    if (typeof copMasterImportOpen === 'function') {
+        html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copMasterImportOpen()" title="PM/PN, ficha del ICMS y EvC/FCF desde el COP Master del laboratorio">📥 COP Master</button>';
+    }
     // [3.15.0] La hoja de HQ del juicio más reciente de la familia (aunque la familia ya no esté en el plan).
     var _hqJ = key ? (copState.saved || []).find(function(j) { return _copJudgmentMatchesFamily(j, key) && !j.evidencePurged; }) : null;
     if (_hqJ && typeof copHqXlsxExport === 'function') {
@@ -3321,7 +3329,8 @@ function copBuildValidatorHTML() {
     // ── Juicios guardados ──────────────────────────────────────────────────────
     if (copState.saved && copState.saved.length) {
         html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-        html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">💾 Juicios guardados (' + copState.saved.length + ')</div>';
+        html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;"><span>💾 Juicios guardados (' + copState.saved.length + ')</span>' +
+                (typeof copMasterImportOpen === 'function' ? '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:auto;font-size: var(--fs-sm);" onclick="copMasterImportOpen()" title="PM/PN, ficha del ICMS y EvC/FCF desde el COP Master del laboratorio">📥 COP Master</button>' : '') + '</div>';
         copState.saved.forEach(function(r) {
             var decTxt = r.decision === 'PASS' ? 'CONCORDANTE' : r.decision === 'FAIL' ? 'NO CONCORDANTE' : r.decision === 'CONTINUE' ? 'INCOMPLETO' : r.decision;
             html += '<div style="display:flex;gap: var(--space-sm);align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.15.0';
+var APP_VERSION = '3.16.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.15.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.16.0', date: '20 oct 2026', title: 'Dos lecturas al día, la Lista de consumibles y el COP Master',
+      bullets: ['Cada cilindro lleva dos lecturas por día: la de la mañana y la de la tarde. La captura, la ronda y el mapa del cuarto eligen el turno por la hora (desde la 1 p. m. es la tarde) y se puede cambiar. Capturar el mismo turno otra vez reemplaza; las dos del día se conservan. HOY dice cuántos van en el turno en curso.',
+                'Consumibles → Reporte → 📊 Lista de consumibles: la lista de stock del laboratorio semana por semana, con su tendencia, el consumo, el límite inferior y el "Comprar". 📤 Excel la descarga en el mismo formato, llena sola: lo anterior a la plataforma sale del histórico importado y lo demás de las lecturas (en verde).',
+                '📥 Importar histórico: sube la Lista de stock en Excel y se guardan todas sus semanas (desde diciembre 2025). No se convierten en lecturas de cilindro.',
+                'CoP → 📥 COP Master: sube el COP Master del laboratorio. Llena PM y PN de las pruebas liberadas sin VETS, la ficha del ICMS del vehículo y el EvC/FCF de la familia. CO, THC, NOx, NMHC y CO₂ solo se comparan con lo aprobado y se avisa si difieren; no se reescriben.',
+                'Con PM y PN del COP Master, la hoja de HQ sale con los seis gases.',
+                'Cambió: en el modelo de consumo por prueba, una prueba del día cuenta en un solo tramo entre lecturas (antes, la de un día con lectura se contaba en dos tramos seguidos).'] },
     { version: '3.15.0', date: '20 oct 2026', title: 'La hoja de CoP de corporativo, con un clic',
       bullets: ['CoP → Validador → 💾 Juicios guardados → 📤 Excel HQ (y en 🗂️ Expediente → 📤 Excel para HQ): descarga la hoja de evaluación estadística que pide corporativo, llena con el juicio de la familia. Dos hojas, gases y CO₂, con las mismas celdas y fórmulas de su formato; al abrirla, Excel recalcula y da los mismos números que la plataforma.',
                 'Cambió el veredicto de gases del CoP: ahora es el de UN R154 §2.1.1, el mismo de la hoja de corporativo. Cada valor se multiplica por su factor de deterioro asignado (CO 1.5, THC 1.3, NMHC 1.3, NOx 1.6, PM 1, PN 1) y el promedio se compara contra A·L − VAR/L, con A = 1.05. Antes se usaba el estadístico U de R83.',
@@ -4963,9 +4970,11 @@ function dashCollectActivities() {
         var rd = invReadingStatusToday();
         if (rd.inUseTotal > 0) {
             var rdDone = rd.capturedToday >= rd.inUseTotal;
-            acts.push({ id: 'act-gasread', cat: 'inventario', icon: '🧪',
-                title: 'Toma de gases del día',
-                meta: rd.capturedToday + '/' + rd.inUseTotal + ' cilindros capturados',
+            acts.push({ id: rd.shiftNow === 'pm' ? 'act-gasread-pm' : 'act-gasread', cat: 'inventario', icon: '🧪',
+                // [3.16.0] Dos tomas al día: cuenta la del turno en curso y se dice la otra.
+                title: 'Toma de gases — ' + (rd.shiftNow === 'pm' ? 'tarde' : 'mañana'),
+                meta: rd.capturedToday + '/' + rd.inUseTotal + ' cilindros capturados' +
+                      (rd.shiftNow === 'pm' ? ' · mañana: ' + rd.capturedAm + '/' + rd.inUseTotal : ''),
                 status: rdDone ? 'hecho' : 'pendiente',
                 progress: { done: rd.capturedToday, total: rd.inUseTotal },
                 urgency: rdDone ? 0 : 2,

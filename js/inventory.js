@@ -1100,12 +1100,13 @@ function invGasBurnRate(g) {
     var vacio = { dailyPsi: 0, weeklyPsi: 0, daysToLow: null, lowPsi: 0, n: 0, span: 0 };
     if (!g || !g.readings) return vacio;
     var rs = g.readings.filter(function(r) { return r && !r.auto && r.date && typeof r.psi === 'number'; })
-                       .sort(function(a, b) { return a.date.localeCompare(b.date); });
+                       .sort(invReadingCmp);
     if (rs.length < 2) return vacio;
 
     var caida = 0, dias = 0;
     for (var i = 1; i < rs.length; i++) {
-        var d = (new Date(rs[i].date) - new Date(rs[i - 1].date)) / 86400000;
+        // [3.16.0] Mañana y tarde del mismo día también son un tramo (8 h).
+        var d = invReadingDays(rs[i]) - invReadingDays(rs[i - 1]);
         if (!(d > 0)) continue;
         var drop = rs[i - 1].psi - rs[i].psi;
         if (drop < 0) continue;          // recarga: no es consumo
@@ -1259,16 +1260,19 @@ function invConsumablesReportRows() {
 // Returns { inUseTotal, capturedToday, daysSinceLast } — null-safe even if
 // the inventory module / localStorage has not been initialized yet.
 function invReadingStatusToday() {
-    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
+    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null, shiftNow: 'am', capturedAm: 0, capturedPm: 0 };
     if (typeof invState === 'undefined' || !invState) return safe;
     var todayISO = localToday();
     var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
     // v21: busca la lectura de HOY en toda la serie, no solo en la última. Con la
     // captura retrofechada (pasar la libreta de ayer) la última lectura puede ser de
     // otro día aunque la de hoy exista, y el contador de HOY se quedaba corto.
-    var capturedToday = inUse.filter(function(g){
-        return (g.readings || []).some(function(r){ return r && r.date === todayISO; });
-    }).length;
+    // [3.16.0] Por turno: lo que cuenta HOY es el turno en curso (mañana o tarde).
+    var shiftNow = invShiftNow();
+    var hasShift = function(g, sh) { return !!invFindReadingOn(g, todayISO, sh); };
+    var capturedAm = inUse.filter(function(g) { return hasShift(g, 'am'); }).length;
+    var capturedPm = inUse.filter(function(g) { return hasShift(g, 'pm'); }).length;
+    var capturedToday = shiftNow === 'pm' ? capturedPm : capturedAm;
 
     // Most recent reading date: prefer lastReadingDate, else scan readings.
     var lastDate = invState.lastReadingDate || null;
@@ -1285,7 +1289,8 @@ function invReadingStatusToday() {
         var diff = (new Date(todayISO) - new Date(lastDate)) / 86400000;
         daysSinceLast = Math.max(0, Math.round(diff));
     }
-    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast };
+    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast,
+             shiftNow: shiftNow, capturedAm: capturedAm, capturedPm: capturedPm };
 }
 
 // ══════════════════════════════════════════════════
@@ -1988,15 +1993,16 @@ function invMapQuickReadSave(gasId) {
 
     // v21: validar/deduplicar/auditar/reentrenar vive en invAddReading. Aquí solo
     // queda la decisión de UI: preguntar antes de pisar la lectura de ese día.
-    var existing = invFindReadingOn(gas, date);
+    var shift = date === localToday() ? invShiftNow() : 'am';
+    var existing = invFindReadingOn(gas, date, shift);
     function _doSaveMapRead() {
-        var res = invAddReading(gasId, psi, { date: date, source: 'mapa' });
+        var res = invAddReading(gasId, psi, { date: date, shift: shift, source: 'mapa' });
         if (!res.ok) { showToast(res.reason, 'error'); return; }
         invShowTimeline(gasId);
     }
 
     if (existing) {
-        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe la lectura de la ' + invShiftLabel(shift).toLowerCase() + ' del ' + date + ' (' + existing.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
     } else {
         _doSaveMapRead();
     }
@@ -2040,6 +2046,36 @@ function invWarnReading(msg, title) {
     if (typeof showToast === 'function') showToast('⚠ ' + (title ? title + ' — ' : '') + msg, 'warning');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.16.0] Dos lecturas por día: mañana y tarde (inicio y fin de turno)
+//
+// La identidad de una lectura es FECHA + TURNO. Una lectura sin `shift` (todas las
+// anteriores a 3.16.0) cuenta como de la mañana: así lo ya capturado no cambia de lugar
+// y la tarde de ese día se puede agregar sin pisarla. La serie se guarda SIEMPRE en
+// orden (fecha, turno): invGasLevel, las gráficas y el resto leen "la última" del final.
+// ══════════════════════════════════════════════════════════════════════
+var INV_SHIFTS = { am: { label: 'Mañana', short: 'Mañ.', hour: 9 }, pm: { label: 'Tarde', short: 'Tarde', hour: 17 } };
+var INV_SHIFT_PM_FROM_HOUR = 13;    // desde la 1 p. m. una lectura nueva es de la tarde
+
+/** Turno de una lectura ('am' | 'pm'). Sin turno = mañana. PURA. */
+function invReadingShift(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; }
+/** Llave de identidad de una lectura humana: 'AAAA-MM-DD|am'. PURA. */
+function invReadingKey(r) { return String((r && r.date) || '') + '|' + invReadingShift(r); }
+/** Orden cronológico de dos lecturas (fecha, después turno). PURA. */
+function invReadingCmp(a, b) { return invReadingKey(a).localeCompare(invReadingKey(b)); }
+/** Momento aproximado de una lectura en días (para ritmos): mañana 9 h, tarde 17 h. PURA. */
+function invReadingDays(r) {
+    var t = Date.parse(String((r && r.date) || '').slice(0, 10) + 'T00:00:00Z');
+    if (!isFinite(t)) return NaN;
+    return t / 86400000 + INV_SHIFTS[invReadingShift(r)].hour / 24;
+}
+/** Turno que corresponde a una captura nueva hecha ahora. */
+function invShiftNow(date) {
+    var h = (date instanceof Date ? date : new Date()).getHours();
+    return h >= INV_SHIFT_PM_FROM_HOUR ? 'pm' : 'am';
+}
+function invShiftLabel(sh) { return (INV_SHIFTS[sh] || INV_SHIFTS.am).label; }
+
 /**
  * La lectura HUMANA de ese día, si existe.
  *
@@ -2049,9 +2085,12 @@ function invWarnReading(msg, title) {
  * al recapturar es la lectura humana, y las estimaciones de ese día se retiran
  * (ver `_invDropAutoReadingsOn`) porque ya quedaron superadas por el manómetro.
  */
-function invFindReadingOn(gas, date) {
+function invFindReadingOn(gas, date, shift) {
     if (!gas || !gas.readings) return null;
-    return gas.readings.find(function(r) { return r && r.date === date && !r.auto; }) || null;
+    // [3.16.0] Con turno: la de ESE turno. Sin turno: cualquiera del día (la más reciente).
+    var del = gas.readings.filter(function(r) { return r && r.date === date && !r.auto; });
+    if (shift) return del.find(function(r) { return invReadingShift(r) === shift; }) || null;
+    return del.length ? del[del.length - 1] : null;
 }
 
 /** Retira las estimaciones automáticas de una fecha: ya hay medición real de ese día. */
@@ -2075,12 +2114,14 @@ function _invDropAutoReadingsOn(owner, date) {
  *
  * @returns {string|null} el motivo del aviso, o null si la lectura es plausible.
  */
-function invReadingWarning(gas, psi, date) {
+function invReadingWarning(gas, psi, date, shift) {
     if (!gas || typeof psi !== 'number' || !isFinite(psi)) return null;
     var prev = null;
+    // [3.16.0] La anterior es la de antes en (fecha, turno): la mañana cuenta para la tarde.
+    var me = { date: date, shift: shift || 'am' };
     (gas.readings || []).forEach(function(r) {
-        if (!r || !r.date || r.date === date) return;      // la que se reemplaza no compara contra sí misma
-        if (r.date < date && (!prev || r.date > prev.date)) prev = r;
+        if (!r || !r.date || r.auto) return;
+        if (invReadingCmp(r, me) < 0 && (!prev || invReadingCmp(r, prev) > 0)) prev = r;
     });
 
     // La nominal sale del MÁXIMO histórico, no de la primera lectura: si el cilindro
@@ -2131,11 +2172,13 @@ function invAddReading(gasId, psi, opts) {
     if (val < 0) return { ok: false, reason: 'La presión no puede ser negativa' };
 
     var date = opts.date || localToday();
+    // [3.16.0] Turno: el que se eligió; si no, el de la hora (hoy) o la mañana (retrofechada).
+    var shift = opts.shift === 'pm' || opts.shift === 'am' ? opts.shift : (date === localToday() ? invShiftNow() : 'am');
     var by = opts.by || ((typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : 'Laboratorio');
-    var warning = invReadingWarning(gas, val, date);
+    var warning = invReadingWarning(gas, val, date, shift);
 
     if (!gas.readings) gas.readings = [];
-    var existing = invFindReadingOn(gas, date);
+    var existing = invFindReadingOn(gas, date, shift);
     _invDropAutoReadingsOn(gas, date);   // la medición real sustituye a las estimaciones del día
     var replaced = null;
     var reading;
@@ -2143,18 +2186,20 @@ function invAddReading(gasId, psi, opts) {
     if (existing) {
         // Reemplaza en vez de duplicar. La captura diaria SÍ duplicaba (creaba un par
         // con caída 0 que el EWMA leía como consumo real); ahora ningún camino puede.
-        replaced = { date: existing.date, psi: existing.psi, by: existing.by || '' };
+        replaced = { date: existing.date, psi: existing.psi, by: existing.by || '', shift: invReadingShift(existing) };
         existing.psi = val;
         existing.by = by;
+        existing.shift = shift;
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
         reading = { date: date, psi: val, by: by };
+        reading.shift = shift;
         if (opts.source) reading.source = opts.source;
         gas.readings.push(reading);
         // El orden cronológico es un supuesto de invGasLevel, del EWMA y de las gráficas;
         // retrofechar (capturar de papel) insertaría fuera de orden sin esto.
-        gas.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+        gas.readings.sort(invReadingCmp);
     }
 
     if (!invState.lastReadingDate || date > invState.lastReadingDate) invState.lastReadingDate = date;
@@ -2167,7 +2212,7 @@ function invAddReading(gasId, psi, opts) {
 
     if (typeof auditLog === 'function') {
         auditLog('inv', 'gas_reading', { type: 'gas', id: gas.id, label: gas.controlNo },
-                 gas.formula + ': ' + val + ' psi (' + date + ') · ' + by +
+                 gas.formula + ': ' + val + ' psi (' + date + ' ' + invShiftLabel(shift).toLowerCase() + ') · ' + by +
                  (replaced ? ' · reemplaza ' + replaced.psi + ' psi' : '') +
                  (warning ? ' · ⚠ ' + warning : ''));
     }
@@ -2178,10 +2223,10 @@ function invAddReading(gasId, psi, opts) {
     }
 
     if (!opts.silent && typeof showToast === 'function') {
-        showToast(gas.formula + ' #' + gas.controlNo + ': ' + val + ' psi' + (replaced ? ' (reemplazada)' : '') +
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + val + ' psi · ' + invShiftLabel(shift).toLowerCase() + (replaced ? ' (reemplazada)' : '') +
                   (warning ? ' · ⚠ ' + warning : ''), warning ? 'warning' : 'success');
     }
-    return { ok: true, reading: reading, replaced: replaced, warning: warning, gas: gas };
+    return { ok: true, reading: reading, replaced: replaced, warning: warning, gas: gas, shift: shift };
 }
 
 /** Banda de cordura del combustible. Pura, misma lógica y mismo criterio que el gas. */
@@ -2288,6 +2333,11 @@ function invRenderReadings(el) {
             '<label for="inv-capture-date" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">📅 Fecha de estas lecturas</label>' +
             '<input type="date" id="inv-capture-date" value="' + localToday() + '" max="' + localToday() + '" ' +
             'class="tp-input" style="width:auto;min-height:var(--target-min);font-size: var(--fs-base);">' +
+            // [3.16.0] Dos lecturas por día: la de la mañana y la de la tarde.
+            '<label for="inv-capture-shift" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">Turno</label>' +
+            '<select id="inv-capture-shift" data-chips data-help="inv-capture-shift" class="tp-input" style="width:auto;">' +
+            ['am', 'pm'].map(function(sh) { return '<option value="' + sh + '"' + (sh === invShiftNow() ? ' selected' : '') + '>' + invShiftLabel(sh) + '</option>'; }).join('') +
+            '</select>' +
             '</div>';
 
     if (invState.gases.length === 0) {
@@ -2311,7 +2361,7 @@ function invRenderReadings(el) {
             if (last5.length > 0) {
                 // Restos del tema oscuro: `color:#fff` sobre fondo claro = el número de la
                 // última lectura era INVISIBLE.
-                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
+                last5.forEach(function(x){ r += '<span style="font-size: var(--fs-xs);padding: var(--space-2xs) var(--space-xs);border-radius: var(--radius-md);background:var(--surface-alt);border:1px solid var(--tp-border);color:var(--tp-dim);">' + x.date.slice(5) + (x.auto ? '' : ' ' + INV_SHIFTS[invReadingShift(x)].short) + ': <strong style="color:var(--text);">' + x.psi + '</strong></span>'; });
             } else { r += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
             r += '</div>';
             r += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:7.5rem;text-align:center;font-weight:700;font-size: var(--fs-base);">';
@@ -2352,13 +2402,13 @@ function invRenderReadings(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Últimas lecturas</span></div>';
     var allReadings = [];
     invState.gases.forEach(function(g) {
-        (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, psi:r.psi, zone:g.zone}); });
+        (g.readings||[]).forEach(function(r) { allReadings.push({gas:g.formula+' '+g.controlNo, date:r.date, shift:invReadingShift(r), auto:!!r.auto, psi:r.psi, zone:g.zone}); });
     });
-    allReadings.sort(function(a,b){ return b.date.localeCompare(a.date); });
+    allReadings.sort(function(a,b){ return invReadingCmp(b, a); });
     if (allReadings.length > 0) {
-        html += '<div style="max-height:200px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>Fecha</th><th>Gas</th><th>Zona</th><th>psi</th></tr></thead><tbody>';
+        html += '<div style="max-height:200px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>Fecha</th><th>Turno</th><th>Gas</th><th>Zona</th><th>psi</th></tr></thead><tbody>';
         allReadings.slice(0,30).forEach(function(r) {
-            html += '<tr><td style="font-size: var(--fs-xs);">' + r.date + '</td><td style="font-size: var(--fs-sm);">' + r.gas + '</td><td style="font-size: var(--fs-sm);">' + (r.zone||'') + '</td><td style="font-weight:700;">' + r.psi + '</td></tr>';
+            html += '<tr><td style="font-size: var(--fs-xs);">' + r.date + '</td><td style="font-size: var(--fs-xs);">' + (r.auto ? 'auto' : invShiftLabel(r.shift)) + '</td><td style="font-size: var(--fs-sm);">' + r.gas + '</td><td style="font-size: var(--fs-sm);">' + (r.zone||'') + '</td><td style="font-weight:700;">' + r.psi + '</td></tr>';
         });
         html += '</tbody></table></div>';
     } else { html += '<div style="text-align:center;padding: var(--space-lg);color:var(--tp-dim);">Sin lecturas registradas.</div>'; }
@@ -2372,13 +2422,15 @@ function invSaveDailyCapture() {
     // al día siguiente, y antes esto clavaba localToday() sin manera de retrofechar.
     var dEl = document.getElementById('inv-capture-date');
     var date = (dEl && dEl.value) ? dEl.value : localToday();
+    var sEl = document.getElementById('inv-capture-shift');
+    var shift = (sEl && (sEl.value === 'pm' || sEl.value === 'am')) ? sEl.value : invShiftNow();
     var count = 0, fuelCount = 0, avisos = [];
 
     (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
         if (!inp || inp.value === '') return;
         // silent + skipSave: un solo guardado y un solo toast al final del lote.
-        var res = invAddReading(g.id, inp.value, { date: date, source: 'captura', silent: true, skipSave: true });
+        var res = invAddReading(g.id, inp.value, { date: date, shift: shift, source: 'captura', silent: true, skipSave: true });
         if (res.ok) { count++; if (res.warning) avisos.push(g.controlNo + ': ' + res.warning); }
     });
     (invState.fuelTanks || []).forEach(function(t) {
@@ -2389,11 +2441,11 @@ function invSaveDailyCapture() {
     });
 
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
-    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
+    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date + ' ' + invShiftLabel(shift).toLowerCase()}, count + ' gases, ' + fuelCount + ' combustibles');
     invUpdateConsumptionModel(); // v15.9: re-aprender con la información nueva del día
     invSave(); invRender();
     if (avisos.length) invWarnReading(avisos.join(' · '), avisos.length + ' lectura(s) con aviso');
-    showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
+    showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ', ' + invShiftLabel(shift).toLowerCase() + ')', 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -2629,16 +2681,17 @@ function invQuickReadSave(gasId) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
-    var existingToday = invFindReadingOn(gas, date);
+    var shift = date === localToday() ? invShiftNow() : 'am';
+    var existingToday = invFindReadingOn(gas, date, shift);
     function _doSaveQuickRead() {
-        var res = invAddReading(gasId, psi, { date: date, source: 'escaneo' });
+        var res = invAddReading(gasId, psi, { date: date, shift: shift, source: 'escaneo' });
         if (!res.ok) { showToast(res.reason, 'error'); return; }
         invRender();
         document.getElementById('invModal').style.display = 'none';
     }
 
     if (existingToday) {
-        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe la lectura de la ' + invShiftLabel(shift).toLowerCase() + ' del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
     } else {
         _doSaveQuickRead();
     }
@@ -3933,7 +3986,7 @@ function invCalcConsumptionRates() {
         // sí reflejan consumo real aunque en medio haya lecturas auto.
         var g = gasFormulas[formula][0];
         var readings = (g.readings || []).filter(function(r) { return !r.auto; })
-            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+            .slice().sort(invReadingCmp);
         if (readings.length < 2) return;
 
         // EWMA en línea, cronológico. est[reg] = estimado vigente (para reparto proporcional
@@ -3954,6 +4007,10 @@ function invCalcConsumptionRates() {
         for (var i = 0; i < readings.length - 1; i++) {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
+            // [3.16.0] Una prueba del día D cuenta a mediodía: cae entre la lectura de la mañana
+            // y la de la tarde de ese día, y en UN solo tramo (antes, con los dos extremos
+            // incluidos, una prueba del día de la lectura se contaba en dos tramos seguidos).
+            var t1 = invReadingDays(readings[i]), t2 = invReadingDays(readings[i + 1]);
             var psiDrop = readings[i].psi - readings[i + 1].psi;
             // v15.9: drop de 0 CON pruebas en medio = observación legítima de consumo cero
             // ("este gas no se usa en este tipo de prueba") — antes se descartaba y el gas
@@ -3961,7 +4018,8 @@ function invCalcConsumptionRates() {
             if (psiDrop < 0) continue;
 
             var testsBetween = formulaLog.filter(function(l) {
-                return l.date >= d1 && l.date <= d2;
+                var tt = Date.parse(String(l.date || '').slice(0, 10) + 'T12:00:00Z') / 86400000;
+                return tt > t1 && tt <= t2;
             });
             if (testsBetween.length === 0) continue;
 
@@ -4388,6 +4446,10 @@ function invRenderReport(el) {
         html += '<div style="padding: var(--space-md);color:var(--ok-text);">Todas las calibraciones vigentes (más de 60 días).</div>';
     }
     html += '</div>';
+    // [3.16.0] La Lista de consumibles del laboratorio: tendencia semanal + Excel en su formato.
+    if (typeof invConsListCardHTML === 'function') {
+        try { html += invConsListCardHTML(); } catch (e) { html += '<div class="tp-card u-muted">No se pudo armar la lista de consumibles: ' + escapeHtml(e && e.message || String(e)) + '</div>'; }
+    }
     el.innerHTML = html;
 }
 
@@ -6357,12 +6419,13 @@ function invDetectAnomalies() {
     var anomalies = [];
     invState.gases.forEach(function(g) {
         if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
-        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var rdgs = g.readings.filter(function(r) { return r && !r.auto; }).sort(invReadingCmp);
 
         // Calculate average daily drop rate from all consecutive pairs
         var drops = [];
         for (var i = 1; i < rdgs.length; i++) {
-            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            // [3.16.0] Mañana→tarde son 8 h: medio día como mínimo, no un día entero.
+            var daysDiff = Math.max(0.33, invReadingDays(rdgs[i]) - invReadingDays(rdgs[i-1]));
             var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
             if (psiDrop > 0) drops.push(psiDrop / daysDiff);
         }
@@ -7346,9 +7409,9 @@ function invPredictDepletion(g) {
         return null;
     }
 
-    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var rdgs = g.readings.slice().sort(invReadingCmp);
     var first = rdgs[0], last = rdgs[rdgs.length - 1];
-    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var daysDiff = Math.max(1, Math.round(invReadingDays(last) - invReadingDays(first)));
     var totalDrop = first.psi - last.psi;
     if (totalDrop <= 0) return null;
 
@@ -7437,7 +7500,7 @@ function _invRoundPersist() {
     try {
         if (!_readingRound) { localStorage.removeItem(INV_ROUND_LS_KEY); return; }
         localStorage.setItem(INV_ROUND_LS_KEY, JSON.stringify({
-            index: _readingRound.index, date: _readingRound.date,
+            index: _readingRound.index, date: _readingRound.date, shift: _readingRound.shift,
             startTime: _readingRound.startTime, results: _readingRound.results,
             ids: _readingRound.items.map(_invRoundKey)
         }));
@@ -7459,7 +7522,7 @@ function invStartReadingRound(opts) {
         if (prev && prev.index > 0 && prev.index < items.length && typeof showConfirmDialog === 'function') {
             showConfirmDialog({
                 title: '🔄 Tienes una ronda a medias',
-                message: 'Ibas en el punto ' + (prev.index + 1) + ' de ' + items.length + ' (' + (prev.date || '') + ').\n\n¿Retomarla donde la dejaste?',
+                message: 'Ibas en el punto ' + (prev.index + 1) + ' de ' + items.length + ' (' + (prev.date || '') + ', ' + invShiftLabel(prev.shift || 'am').toLowerCase() + ').\n\n¿Retomarla donde la dejaste?',
                 type: 'info', confirmText: 'Retomar', cancelText: 'Empezar de nuevo'
             }).then(function(ok) {
                 invStartReadingRound(ok ? { resume: prev } : { fresh: true });
@@ -7475,6 +7538,8 @@ function invStartReadingRound(opts) {
         results: (r && Array.isArray(r.results)) ? r.results : [],
         startTime: (r && r.startTime) || Date.now(),
         date: (r && r.date) || localToday(),
+        // [3.16.0] La ronda es de UN turno: la de la mañana o la de la tarde.
+        shift: (r && (r.shift === 'pm' || r.shift === 'am')) ? r.shift : invShiftNow(),
         audited: false
     };
     _invRoundPersist();
@@ -7487,7 +7552,7 @@ function invStartReadingRound(opts) {
     uiFlowOpen({
         id: 'gasRound',
         title: '🔄 Ronda de lecturas',
-        subtitle: _readingRound.date,
+        subtitle: _readingRound.date + ' · ' + invShiftLabel(_readingRound.shift),
         steps: items.map(_invRoundStep),
         state: state,
         startAt: _readingRound.index,
@@ -7514,9 +7579,13 @@ function _invRoundStep(item) {
     };
 }
 
-/** Última lectura ANTERIOR a la fecha de la ronda (si se regresa a un punto, la de hoy no cuenta). */
-function _invRoundPrevReading(ref, esFuel, date) {
-    var ls = (ref.readings || []).filter(function(x) { return x && x.date !== date; });
+/** Última lectura ANTERIOR a la de la ronda (si se regresa a un punto, la de este turno no cuenta). */
+function _invRoundPrevReading(ref, esFuel, date, shift) {
+    // [3.16.0] Gas: anterior en (fecha, turno) — la de la mañana cuenta para la ronda de la tarde.
+    var me = { date: date, shift: shift || 'am' };
+    var ls = (ref.readings || []).filter(function(x) {
+        return x && !x.auto && (esFuel ? x.date !== date : invReadingCmp(x, me) < 0);
+    });
     var u = ls.length ? ls[ls.length - 1] : null;
     return u ? (esFuel ? u.level : u.psi) : '';
 }
@@ -7530,7 +7599,7 @@ function _invRoundRenderCard(host, item) {
     }
     var esFuel = item.kind === 'fuel';
     var unidad = esFuel ? (ref.unit || 'L') : 'PSI';
-    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var lastVal = _invRoundPrevReading(ref, esFuel, _readingRound.date, _readingRound.shift);
     var mine = (_readingRound.results || []).filter(function(x) { return !x.skipped && x.kind + ':' + x.id === _invRoundKey(item); })[0];
     var titulo = esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas');
     var sub = esFuel
@@ -7563,7 +7632,7 @@ function _invRoundRenderCard(host, item) {
         if (!w || !_readingRound) return;
         var v = parseFloat(inp.value);
         if (isNaN(v)) { w.textContent = ''; return; }
-        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
+        var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date, _readingRound.shift);
         w.textContent = msg ? '⚠ ' + msg : '';
     });
 }
@@ -7594,12 +7663,12 @@ function _invRoundSaveCard(host, item) {
     if (raw === '' || isNaN(val)) {
         return { ok: false, field: inp, msg: 'Escribe la lectura, toca "= Igual" o "Después" si no se pudo leer.' };
     }
-    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date);
+    var prevVal = _invRoundPrevReading(ref, esFuel, _readingRound.date, _readingRound.shift);
     // Por el motor único — valida, deduplica por fecha, atribuye, audita y reentrena.
     // skipSave: la ronda guarda una sola vez (al llegar al resumen o al salir).
     var res = esFuel
         ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
-        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
+        : invAddReading(item.id, val, { date: _readingRound.date, shift: _readingRound.shift, source: 'ronda', silent: true, skipSave: true });
     if (!res.ok) return { ok: false, field: inp, msg: res.reason };
 
     var prevNum = prevVal === '' ? 0 : (Number(prevVal) || 0);
@@ -7657,7 +7726,7 @@ function _invRoundFinalHTML(model) {
     });
 
     if (!_readingRound.audited && capturadas.length && typeof auditLog === 'function') {
-        auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date },
+        auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date + ' ' + invShiftLabel(_readingRound.shift).toLowerCase() },
                  capturadas.length + ' lectura(s), ' + saltadas.length + ' saltada(s)');
         _readingRound.audited = true;
     }
@@ -7850,5 +7919,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
     'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Cada tarjeta es una zona; arrastra un cilindro entre posiciones para reubicarlo.' },
     'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' },
+    'inv-capture-shift': { title: 'Turno', text: 'Cada cilindro lleva DOS lecturas al día: la de la mañana (inicio de turno) y la de la tarde (fin de turno). Se elige sola por la hora (desde la 1 p. m. es la de la tarde); cámbiala si estás pasando la libreta. Capturar el mismo turno dos veces reemplaza, no duplica.' },
     'inv-capture-date': { title: 'Fecha de estas lecturas', text: 'La fecha a la que pertenece TODO lo que captures en esta pantalla. Déjala en hoy si estás capturando al momento; cámbiala a la del recorrido si estás pasando lo que anotaste en papel. Si ya existe una lectura de ese día para un cilindro, se reemplaza en vez de duplicarse.' }
 });

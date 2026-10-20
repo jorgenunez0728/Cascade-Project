@@ -915,7 +915,7 @@ function _invRoomInfo(scene) {
         var lx = { status: g.status, pct: lvl.pct, levelStatus: lvl.status, expired: ex.status === 'expired' };
         var tone = invRoomLevelTone(lx);
         var counts = g.status !== 'Empty';
-        var readToday = counts && typeof invFindReadingOn === 'function' && !!invFindReadingOn(g, today);
+        var readToday = counts && typeof invFindReadingOn === 'function' && !!invFindReadingOn(g, today, typeof invShiftNow === 'function' ? invShiftNow() : undefined);
         var reorder = counts && ro.status === 'comprar';
         var short = String(g.formula || g.gasType || '?').split('/')[0] + (g.concNominal ? ' ' + String(g.concNominal).replace(/\s*ppm/i, '') : '');
         info[g.id] = {
@@ -1268,7 +1268,10 @@ function _invRoomGasPanelHTML(id) {
     var i = (_invRoom.info || {})[id] || {};
     var tone = INV_ROOM_TONES[i.tone] || INV_ROOM_TONES.none;
     var today = typeof localToday === 'function' ? localToday() : '';
-    var todayR = typeof invFindReadingOn === 'function' ? invFindReadingOn(g, today) : null;
+    // [3.16.0] La lectura de ESTE turno (mañana o tarde).
+    var shNow = typeof invShiftNow === 'function' ? invShiftNow() : 'am';
+    var shTxt = typeof invShiftLabel === 'function' ? invShiftLabel(shNow).toLowerCase() : '';
+    var todayR = typeof invFindReadingOn === 'function' ? invFindReadingOn(g, today, shNow) : null;
     var last = (g.readings || []).filter(function(r) { return r && !r.auto; }).slice(-1)[0];
     var e = _invRoomEsc;
     var h = '<div class="rm-panel rm-pop" role="region" aria-label="Cilindro ' + e(g.controlNo || '') + '">';
@@ -1282,7 +1285,7 @@ function _invRoomGasPanelHTML(id) {
     // Lectura: lo primero, ahí mismo
     if (g.status !== 'Empty') {
         h += '<form class="rm-read" onsubmit="return invRoomSaveReading(event)">' +
-             '<label for="rm-psi" class="rm-read-l">' + (todayR ? '✓ Leído hoy: <b>' + todayR.psi + ' psi</b> — corregir' : 'Lectura de hoy (psi)') + '</label>' +
+             '<label for="rm-psi" class="rm-read-l">' + (todayR ? '✓ Leído (' + shTxt + '): <b>' + todayR.psi + ' psi</b> — corregir' : 'Lectura de la ' + shTxt + ' (psi)') + '</label>' +
              '<div class="rm-read-row"><input id="rm-psi" type="number" inputmode="decimal" min="0" step="any" placeholder="Ej.: 1250" value="' + (todayR ? todayR.psi : '') + '">' +
              (last && !todayR ? '<button type="button" class="rm-same" onclick="document.getElementById(\'rm-psi\').value=\'' + last.psi + '\';document.getElementById(\'rm-psi\').focus()" title="Repetir la última lectura (' + e(last.date) + ')">= ' + last.psi + '</button>' : '') +
              '<button type="submit" class="btn btn-primary rm-read-btn">Guardar</button></div></form>';
