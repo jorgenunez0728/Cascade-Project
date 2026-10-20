@@ -175,7 +175,7 @@ const scEo = ctx.invRoomSceneSVG(sc, fE, look, { focus: 'E', explode: { E: 1 } }
 const scEc = ctx.invRoomSceneSVG(sc, fE, look, { focus: 'E', explode: { E: 0 } });
 const xDe = (svg, code) => { const m = new RegExp('data-code="' + code + '"[^>]*>(?:<title>[^<]*</title>)?<path class="rm-body" d="M([-0-9.]+)').exec(svg); return m ? parseFloat(m[1]) : NaN; };
 ok('en la escena, abierto, la fila del fondo se desliza a un lado', Math.abs(xDe(scEo.svg, 'E02') - xDe(scEc.svg, 'E02')) > 20, xDe(scEo.svg, 'E02') + ' vs ' + xDe(scEc.svg, 'E02'));
-look.g2.ctrl = 'CO-50'; look.g2.psi = 3100;
+look.g2.ctrl = 'CO-50'; look.g2.psi = 3100; look.g2.sub = '3100 psi';   // [3.11.0] el renglón de abajo es `sub` (psi o litros)
 let fl = ctx.invRoomSceneSVG(sc, fc, look, { focus: 'C', focusLabels: 'C', pxPerUnit: 3 });
 ok('al llegar a una zona: datos grandes debajo de cada cilindro (código, nombre, %, psi, control)', /class="rm-flbl"/.test(fl.svg) && /rm-fl-val[^>]*>90%</.test(fl.svg) && />3100 psi</.test(fl.svg) && />CO-50</.test(fl.svg));
 ok('…a tamaño fijo en pantalla (la letra se divide entre los px por unidad)', /rm-fl-val" x="[^"]+" y="[^"]+" style="font-size:5\.00px/.test(fl.svg));

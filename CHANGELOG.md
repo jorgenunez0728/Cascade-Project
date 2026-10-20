@@ -20,6 +20,54 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.11.0 — El cuarto de gasolina (2026-10-20)
+
+### Nuevo
+- **Consumibles → 🗺️ Cuarto** ahora tiene dos mapas: **🧪 Gases** y **⛽ Gasolina**. El
+  selector va al principio de la barra y cada equipo recuerda cuál vio la última vez.
+- **El cuarto de gasolina** como es: seis **tarimas** de cuatro tambos (**T1** a **T6**), las
+  **boyas de premium** manejadas como un solo tambo (**B**), el **drenaje** (para ubicarse) y la
+  puerta. Una tarima tiene 4 posiciones aunque hoy tenga 3 tambos: la que falta se ve libre.
+- Cada tambo muestra su **nivel** con el mismo semáforo de los cilindros (verde, amarillo,
+  anaranjado ≤ 30 %, rojo ≤ 15 %). La **tapa** lleva el color de su **tipo de gasolina**.
+- **Totales por tipo**: arriba sale cuánto hay de cada gasolina entre todos sus tambos (por
+  ejemplo, EURO VI = 50 L + 225 L = 275 L). Tocar un tipo resalta sus tambos en el mapa.
+- **⛽ Tipos**: el laboratorio decide cuántos tipos hay, su nombre y color, de qué
+  **regulación** descuentan las pruebas y con cuántos litros hay que **pedir**. Los tipos se
+  crearon solos de las regulaciones que ya tenían los tambos (CARB LEV III, EURO VI).
+- **Tocar un tambo**: ventana junto a él con su tipo (se cambia ahí), su nivel, la **lectura de
+  hoy en litros** con atajos **Lleno / ¾ / ½ / ¼ / Vacío**, su estatus (**Cerrado**, **Abierto**
+  o **Vacío**) y el total de su tipo.
+- **Tocar una posición libre**: dar de alta ahí un tambo nuevo (tipo, capacidad —225 L de
+  entrada— y cuántos litros tiene) o acomodar uno que todavía no tiene lugar. Los tambos se
+  mueven arrastrándolos (en el teléfono, manteniéndolos presionados) o con ↔ Mover.
+- **Tocar una tarima** (su recuadro o su botón de arriba): la cámara vuela hasta verla de
+  frente y la tarima se abre en una sola fila con los datos de cada tambo. ‹ › pasa a la vecina.
+
+### Cambió
+- Con varios tambos de la misma gasolina, el **descuento automático por prueba** sale del que
+  está **Abierto**; si ninguno lo está, del de registro más reciente (como antes).
+- El formulario de tambo (⛽ Combustible) suma el **tipo de gasolina** y el estatus **Vacío**.
+- Los tambos que ya existían no tienen posición: aparecen en **"No se ven en el plano"** hasta
+  que se acomodan.
+
+### Para desarrollo
+- `js/cuarto.js` sirve a los dos cuartos: `INV_FUEL_ROOM_LAYOUT` (con `item: 'drum'`,
+  `codeSep: '-'`, `marks` para el drenaje y `pallet`/`base` por zona), `_invRoomL()` /
+  `_invRoomWhich()` / `invRoomSwitch()`; `uiPref('roomWhich')` y `uiPref('roomCamFuel')`.
+- `invRoomParseCode`/`invRoomCode` aceptan separador ("T1-2"); `invRoomExplodeOffset` abre a lo
+  largo de la fila del frente en cualquier dirección (con filas en x, idéntico a 3.10.0).
+- Posición de un tambo = `tank.pos`; tipo = `tank.typeId` → `invState.fuelTypes`
+  (`{id, name, color, regulation, reorderLevel, updatedAt, deleted}`). `invFuelTypeOf`,
+  `invFuelTankLevel` y `invFuelTypeTotals` son PURAS y son LA definición del tipo, del nivel y
+  de los totales. Escritores: `invFuelTankCreate`, `invFuelMove`, `invFuelSetStatus`,
+  `invFuelSetType`, `invFuelTypeSave`, `invFuelTypeDelete` (deja marca).
+- Sync: `invFuelTypesUnion` (PURA, simétrica, gana `updatedAt`) en `merge_all`/`new`;
+  `invFuelTypesNewTo` en `hasWork` y `_fbLocalHasExtras`; `fuelTypes` en la lista de
+  preservación de `_fbPullSeed`, en la huella y en `_fbPullLocalScore`. Los tipos sembrados
+  tienen id estable (`invFuelTypeSeedId`): dos equipos no los duplican.
+- Pruebas: `tests/gasolina.node.js` (59) y `tests/v3110.e2e.js` (1440×950 y 427×840).
+
 ## 3.10.0 — El cuarto de gases en 3D (2026-10-19)
 
 ### Nuevo

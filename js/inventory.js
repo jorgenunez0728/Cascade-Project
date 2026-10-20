@@ -43,7 +43,9 @@ let invState = safeParse(INV_LS_KEY, null) || {
     ],
     activeTab: 'inv-dashboard',
     usageLog: [], // {date, gasId, psiUsed, testsRun, regulation}
-    fuelTanks: [], // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
+    fuelTanks: [], // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings, pos, typeId}
+    // fuelTypes [3.11.0]: catálogo de tipos de gasolina; se siembra en invPreloadData (no aquí:
+    // `undefined` es lo que dice "todavía no se sembró").
     // ── COP15-F11 Plan Maestro de Mantenimiento y Calibración (v16.4) ──
     assets: [],          // {id:'E-001', name, lab, brand, model, serialNo, status, notes, blocksTesting}
     maintActivities: [], // {id:'A-01', assetId, desc, freq, startWeek, responsible, active}
@@ -128,6 +130,8 @@ function invPreloadData() {
         invState.fuelTanks = [{"id": "fuel_carblev3", "name": "CARB LEV III Regular", "fuelType": "Gasolina Referencia", "octane": "87 AKI", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 315, "unit": "L", "regulation": "CARB LEV III", "readings": [{"date": "2026-02-20", "level": 315}], "regDate": "2026-01-01"}, {"id": "fuel_eurovi_prev", "name": "EURO VI (Orden Anterior)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 379.5, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 379.5}], "regDate": "2025-10-01"}, {"id": "fuel_eurovi_act", "name": "EURO VI (Orden Actual)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 400, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 400}], "regDate": "2026-02-01"}];
         console.log('INV: Preloaded ' + invState.fuelTanks.length + ' fuel tanks');
     }
+    // [3.11.0] Catálogo de tipos de gasolina (una sola vez, de las regulaciones de los tambos).
+    _invFuelTypesEnsure();
     if (invState.equipment.length === 0) {
         invState.equipment = [{"id": "eq_th0033", "name": "Termohigrometro HVAC", "type": "Thermometer/Humidity", "serialNo": "N/A", "kmmId": "TH-0033", "brand": "Kimo", "model": "TH210B0SP", "traceability": "EMA", "calLab": "METROLAB", "location": "HVAC Room", "magnitude": "Temperature/Humidity", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004301", "name": "Sensor Hum/Temp VETS 1", "type": "Humidity sensor", "serialNo": "W4754750", "kmmId": "TH-0043-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004302", "name": "Barometro VETS 1", "type": "Barometer", "serialNo": "W3850023", "kmmId": "TH-0043-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004303", "name": "Transmisor VETS 1", "type": "Barometer", "serialNo": "W4831243", "kmmId": "TH-0043-03", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Transmisor corriente", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004401", "name": "Sensor Hum/Temp VETS 2", "type": "Humidity sensor", "serialNo": "W4917201", "kmmId": "TH-0044-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004402", "name": "Barometro VETS 2", "type": "Thermometer", "serialNo": "W3850033", "kmmId": "TH-0044-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr018", "name": "Propane Injection CFO", "type": "Propane injection", "serialNo": "7005035500", "kmmId": "PR-018", "brand": "Horiba", "model": "5102514973", "traceability": "ANAB", "calLab": "Horiba USA", "location": "CFO", "magnitude": "Flux", "lastCalDate": "2024-05-31", "nextCalDate": "2025-05-31", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_ot0038", "name": "Gas Divider", "type": "Gas Divider", "serialNo": "S2001362117000020", "kmmId": "OT-0038", "brand": "Horiba", "model": "ONE", "traceability": "ANAB", "calLab": "Horiba USA", "location": "GDC", "magnitude": "Flux", "lastCalDate": "2024-11-19", "nextCalDate": "2025-11-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_bubbler", "name": "Heater Bubbler", "type": "Heater bubbler", "serialNo": "8001005048", "kmmId": "", "brand": "Horiba", "model": "Heated Bubler", "traceability": "NIST", "calLab": "Horiba USA", "location": "Emission Room", "magnitude": "", "lastCalDate": "2024-06-19", "nextCalDate": "2025-06-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0036", "name": "Termopar RMT1", "type": "Thermocouple", "serialNo": "N/A", "kmmId": "TH-0036", "brand": "N/A", "model": "S1-8", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Temperature", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0017", "name": "Manometro RMT1", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0017", "brand": "ManoStar", "model": "WO801", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0016", "name": "Manometro CVS Out", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0016", "brand": "ManoStar", "model": "WO81", "traceability": "EMA", "calLab": "CIDESI", "location": "CVS", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_dw", "name": "Dinamometro Dead Weight", "type": "Dead Weight", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "T-EMA", "calLab": "Emissions Lab", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-03-01", "nextCalDate": "2026-03-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_f", "name": "Dyno Roller Diameter Front", "type": "Roller diameter", "serialNo": "-", "kmmId": "OT-0032", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_r", "name": "Dyno Roller Diameter Rear", "type": "Roller diameter", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_arm", "name": "Dyno Arm", "type": "Arm", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_speed_f", "name": "Dyno Angular Speed Front", "type": "Angular speed", "serialNo": "-", "kmmId": "OT-0037", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Tachometer", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_f", "name": "Dyno Torque Front", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_r", "name": "Dyno Torque Rear", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0020", "name": "Termometro FLUKE Lab", "type": "Thermometer", "serialNo": "30850092WS", "kmmId": "TH-0020", "brand": "FLUKE", "model": "52 II", "traceability": "EMA", "calLab": "CIDESI", "location": "Control Room", "magnitude": "Electrical", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0002", "name": "Manometro Inspeccion", "type": "Pressure gauge", "serialNo": "PS 055 497", "kmmId": "PR-0002", "brand": "GRIPPER", "model": "SA-1U1A1E1J2", "traceability": "EMA", "calLab": "CIDESI", "location": "Inspection Room", "magnitude": "Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_01", "name": "Dyno Mass 1", "type": "Mass", "serialNo": "1", "kmmId": "WE-0016-01", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_02", "name": "Dyno Mass 2", "type": "Mass", "serialNo": "2", "kmmId": "WE-0016-02", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_03", "name": "Dyno Mass 3", "type": "Mass", "serialNo": "3", "kmmId": "WE-0016-03", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_04", "name": "Dyno Mass 4", "type": "Mass", "serialNo": "4", "kmmId": "WE-0016-04", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_05", "name": "Dyno Mass 5", "type": "Mass", "serialNo": "5", "kmmId": "WE-0016-05", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_06", "name": "Dyno Mass 6", "type": "Mass", "serialNo": "6", "kmmId": "WE-0016-06", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_07", "name": "Dyno Mass 7", "type": "Mass", "serialNo": "7", "kmmId": "WE-0016-07", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_08", "name": "Dyno Mass 8", "type": "Mass", "serialNo": "8", "kmmId": "WE-0016-08", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_09", "name": "Dyno Mass 9", "type": "Mass", "serialNo": "9", "kmmId": "WE-0016-09", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_10", "name": "Dyno Mass 10", "type": "Mass", "serialNo": "10", "kmmId": "WE-0016-10", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}];
         console.log('INV: Preloaded ' + invState.equipment.length + ' equipment');
@@ -3557,7 +3561,13 @@ function invLogTestUsage(vehicle, opts) {
         return t.regulation === regulation && (t.currentLevel || 0) > 0;
     });
     if (tankCandidates.length) {
-        tankCandidates.sort(function(a, b) { return String(b.regDate || '').localeCompare(String(a.regDate || '')); });
+        // [3.11.0] Con varios tambos de la misma gasolina, el ABIERTO es del que se está
+        // sirviendo; si no hay uno abierto, el de registro más reciente (como antes).
+        tankCandidates.sort(function(a, b) {
+            var ao = a.fuelStatus === 'Abierto' ? 0 : 1, bo = b.fuelStatus === 'Abierto' ? 0 : 1;
+            if (ao !== bo) return ao - bo;
+            return String(b.regDate || '').localeCompare(String(a.regDate || ''));
+        });
         var tank = tankCandidates[0];
         var fuelLearned = typeRates && typeRates.fuelL && typeRates.fuelL.n > 0;
         var liters = Math.round((fuelLearned ? typeRates.fuelL.est : INV_FUEL_FALLBACK_L) * 10) / 10;
@@ -3993,7 +4003,10 @@ function invAddFuelTank(editId) {
         '<div><label for="inv-ft-reorder" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel de reorden</label><input id="inv-ft-reorder" type="number" inputmode="decimal" min="0" value="' + v('reorderLevel','') + '" placeholder="Ej.: 200" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Unidad</label><select id="inv-ft-unit" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
         '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha recepción</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
+        '<div><label style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Estatus</label><select id="inv-ft-status" data-chips style="width:100%;padding: var(--space-sm);border:1px solid var(--border);border-radius: var(--radius-lg);">' + INV_FUEL_STATUSES.map(function(st){ return '<option ' + (v('fuelStatus')===st?'selected':'') + '>' + st + '</option>'; }).join('') + '</select></div>' +
+        // [3.11.0] Tipo del catálogo (cuántos tipos hay lo decide el laboratorio, en el cuarto de gasolina).
+        '<div style="grid-column:1/-1;"><label for="inv-ft-typeid" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Tipo de gasolina</label><select id="inv-ft-typeid" class="tp-select" style="width:100%;"><option value="">— Sin tipo —</option>' +
+            invFuelTypesLive().map(function(ft){ var cur = t ? invFuelTypeOf(t) : null; return '<option value="' + escapeHtml(ft.id) + '"' + (cur && cur.id === ft.id ? ' selected' : '') + '>' + escapeHtml(ft.name) + '</option>'; }).join('') + '</select></div>' +
         '</div>' +
         '<div style="display:flex;gap: var(--space-sm);margin-top: var(--space-lg);">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding: var(--space-md);background:#0f766e;color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -4015,11 +4028,15 @@ function invSaveFuelTank(editId) {
         unit: document.getElementById('inv-ft-unit').value,
         regDate: document.getElementById('inv-ft-date').value,
         fuelStatus: document.getElementById('inv-ft-status').value,
+        typeId: ((document.getElementById('inv-ft-typeid') || {}).value) || null,
         // v24.3: por debajo de este nivel el reporte dice "Comprar" (opcional)
         reorderLevel: parseFloat((document.getElementById('inv-ft-reorder') || {}).value) || null,
         updatedAt: new Date().toISOString()
     };
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
+    // [3.11.0] El tipo manda sobre la regulación (es la llave del auto-descuento por prueba).
+    var _ft = obj.typeId ? invFuelTypesLive().find(function(x) { return x.id === obj.typeId; }) : null;
+    if (_ft && _ft.regulation) obj.regulation = _ft.regulation;
     var nivelCambio = false, nivelNuevo = obj.currentLevel;
     if (editId) {
         var t = (invState.fuelTanks||[]).find(function(x){return x.id===editId;});
@@ -4994,7 +5011,8 @@ function _invCylColor(gas) {
 function invRenderZoneMap(el) {
     // [3.10.0] La vista por defecto es el cuarto isométrico (js/cuarto.js); la retícula
     // de tarjetas se queda como alternativa de un toque.
-    if (typeof invRoomRender === 'function' && (typeof uiPref !== 'function' || uiPref('invMapView') !== 'reticula')) {
+    // [3.11.0] El cuarto de gasolina no tiene retícula: si es el elegido, siempre el plano.
+    if (typeof invRoomRender === 'function' && (typeof uiPref !== 'function' || uiPref('invMapView') !== 'reticula' || uiPref('roomWhich') === 'gasolina')) {
         invRoomRender(el);
         return;
     }
@@ -5130,6 +5148,301 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
 function invZonePosition(code) {
     var m = /(\d+)$/.exec(String(code || ''));
     return m ? parseInt(m[1], 10) : 0;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  3.11.0 — Tambos de gasolina: tipos, totales por tipo y escritores   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+// Un tambo es un `invState.fuelTanks[i]` (los de siempre): su posición en el cuarto de
+// gasolina es `tank.pos` ("T1-2") y su tipo `tank.typeId`, que apunta al catálogo
+// `invState.fuelTypes` = [{id, name, color, regulation, reorderLevel, updatedAt, deleted}].
+// El catálogo lo decide el laboratorio (cuántos tipos hay y cómo se llaman); un tambo sin
+// `typeId` cae al tipo cuya `regulation` coincide con la suya, para que lo capturado antes
+// de 3.11.0 se agrupe solo. Borrar un tipo deja marca (`deleted`): la fusión es aditiva.
+
+var INV_FUEL_TYPE_COLORS = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#0891b2', '#ea580c', '#ca8a04', '#db2777'];
+var INV_FUEL_STATUSES = ['Cerrado', 'Abierto', 'Vacío'];
+var INV_FUEL_DRUM_L = 225;          // capacidad de un tambo nuevo (se puede cambiar)
+var INV_FUEL_GAL_L = 3.785411784;
+
+/** Id estable de un tipo sembrado: dos equipos que siembran lo mismo no lo duplican. */
+function invFuelTypeSeedId(name) {
+    return 'ft_' + String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+/** Tipos sembrados de las regulaciones que ya traían los tambos. PURA. */
+function invFuelTypesFromTanks(tanks) {
+    var out = [], seen = {};
+    (tanks || []).forEach(function(t) {
+        var reg = t && String(t.regulation || '').trim();
+        if (!reg || seen[reg]) return;
+        seen[reg] = true;
+        out.push({ id: invFuelTypeSeedId(reg), name: reg, color: INV_FUEL_TYPE_COLORS[out.length % INV_FUEL_TYPE_COLORS.length], regulation: reg });
+    });
+    return out;
+}
+
+/** Los tipos vivos (sin los borrados), en el orden del catálogo. */
+function invFuelTypesLive(types) {
+    return ((types || (typeof invState !== 'undefined' && invState && invState.fuelTypes)) || []).filter(function(t) { return t && t.id && !t.deleted; });
+}
+
+/** El tipo de un tambo: su `typeId`, o el tipo de su regulación, o null. PURA (recibe el catálogo). */
+function invFuelTypeOf(tank, types) {
+    if (!tank) return null;
+    var live = invFuelTypesLive(types);
+    if (tank.typeId) {
+        var t = live.find(function(x) { return x.id === tank.typeId; });
+        if (t) return t;
+    }
+    var reg = String(tank.regulation || '').trim();
+    return reg ? (live.find(function(x) { return x.regulation === reg; }) || null) : null;
+}
+
+/** Litros de un tambo (los que se capturaron en galones se pasan a litros para sumar). */
+function _invFuelLiters(v, unit) {
+    var n = parseFloat(v);
+    if (!isFinite(n)) return null;
+    return unit === 'gal' ? n * INV_FUEL_GAL_L : n;
+}
+
+/**
+ * LA definición del nivel de UN tambo. PURA. Mismos umbrales que los cilindros
+ * (INV_LEVEL_CRITICAL_PCT / INV_LEVEL_LOW_PCT, como `_invLevelColor`): el cuarto no puede
+ * decir "bien" de lo que el semáforo de Consumibles da por bajo.
+ */
+function invFuelTankLevel(t) {
+    var cap = _invFuelLiters(t && t.capacity, t && t.unit);
+    var lvl = _invFuelLiters(t && t.currentLevel, t && t.unit);
+    var hasReading = !!(t && (t.readings || []).some(function(r) { return r && typeof r.level === 'number'; }));
+    if (!(cap > 0) || lvl === null || (!hasReading && !(lvl > 0))) {
+        return { pct: null, liters: lvl, capacity: cap > 0 ? cap : null, status: 'sinlecturas' };
+    }
+    var pct = Math.max(0, Math.min(100, Math.round(lvl / cap * 100)));
+    var status = pct < INV_LEVEL_CRITICAL_PCT ? 'critico' : pct < INV_LEVEL_LOW_PCT ? 'bajo' : 'ok';
+    return { pct: pct, liters: Math.round(lvl * 10) / 10, capacity: Math.round(cap * 10) / 10, status: status };
+}
+
+/**
+ * LA definición de los totales por tipo de gasolina (lo que hay de cada una entre todos sus
+ * tambos). PURA. Un tambo sin tipo va al grupo `id: null` ("Sin tipo"), que se declara.
+ * @returns [{id, name, color, regulation, liters, capacity, pct, drums, open, low, empty,
+ *            reorderLevel, needsPurchase, tankIds}]
+ */
+function invFuelTypeTotals(types, tanks) {
+    var live = invFuelTypesLive(types);
+    var rows = live.map(function(t) {
+        return { id: t.id, name: t.name, color: t.color || '#64748b', regulation: t.regulation || '', liters: 0, capacity: 0, pct: null,
+                 drums: 0, open: 0, low: 0, empty: 0, reorderLevel: parseFloat(t.reorderLevel) > 0 ? parseFloat(t.reorderLevel) : null, needsPurchase: false, tankIds: [] };
+    });
+    var none = { id: null, name: 'Sin tipo', color: '#94a3b8', regulation: '', liters: 0, capacity: 0, pct: null, drums: 0, open: 0, low: 0, empty: 0, reorderLevel: null, needsPurchase: false, tankIds: [] };
+    (tanks || []).forEach(function(tk) {
+        if (!tk || !tk.id) return;
+        var ty = invFuelTypeOf(tk, live);
+        var row = ty ? rows.find(function(r) { return r.id === ty.id; }) : none;
+        var lv = invFuelTankLevel(tk);
+        row.drums++;
+        row.tankIds.push(tk.id);
+        if (lv.liters > 0) row.liters += lv.liters;
+        if (lv.capacity) row.capacity += lv.capacity;
+        if (tk.fuelStatus === 'Abierto') row.open++;
+        if (lv.status === 'critico' || lv.status === 'bajo') row.low++;
+        if (tk.fuelStatus === 'Vacío' || lv.liters === 0) row.empty++;
+    });
+    var all = none.drums ? rows.concat([none]) : rows;
+    all.forEach(function(r) {
+        r.liters = Math.round(r.liters * 10) / 10;
+        r.capacity = Math.round(r.capacity * 10) / 10;
+        r.pct = r.capacity > 0 ? Math.round(r.liters / r.capacity * 100) : null;
+        r.needsPurchase = r.reorderLevel !== null && r.liters <= r.reorderLevel;
+    });
+    return all;
+}
+
+/** Fusión del catálogo de tipos de dos equipos. PURA y SIMÉTRICA: por id, gana `updatedAt`. */
+function invFuelTypesUnion(a, b) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var map = {}, order = [];
+    (a || []).concat(b || []).forEach(function(t) {
+        if (!t || !t.id) return;
+        var prev = map[t.id];
+        if (!prev) { map[t.id] = t; order.push(t.id); return; }
+        var pu = prev.updatedAt || '', tu = t.updatedAt || '';
+        if (tu > pu || (tu === pu && ss(t) > ss(prev))) map[t.id] = t;
+    });
+    return order.map(function(id) { return map[id]; });
+}
+
+/** ¿`incoming` trae algún tipo nuevo o más reciente que `base`? PURA (decide si hay que fusionar). */
+function invFuelTypesNewTo(base, incoming) {
+    var m = {};
+    (base || []).forEach(function(t) { if (t && t.id) m[t.id] = t; });
+    return (incoming || []).some(function(t) {
+        if (!t || !t.id) return false;
+        var b = m[t.id];
+        return !b || (t.updatedAt || '') > (b.updatedAt || '');
+    });
+}
+
+/** Siembra una sola vez el catálogo (de las regulaciones de los tambos que ya existen). */
+function _invFuelTypesEnsure() {
+    if (!invState) return;
+    if (!Array.isArray(invState.fuelTypes)) invState.fuelTypes = invFuelTypesFromTanks(invState.fuelTanks);
+}
+
+function _invFuelTank(id) { return (invState.fuelTanks || []).find(function(t) { return t && t.id === id; }) || null; }
+
+/** Alta o edición de un tipo de gasolina. Devuelve {ok, type} o {ok:false, reason, field}. */
+function invFuelTypeSave(o) {
+    o = o || {};
+    _invFuelTypesEnsure();
+    var name = String(o.name || '').trim();
+    if (!name) return { ok: false, reason: 'Escribe el nombre del tipo (Ej.: EURO VI).', field: 'name' };
+    var live = invFuelTypesLive();
+    var dup = live.find(function(t) { return t.id !== o.id && t.name.toLowerCase() === name.toLowerCase(); });
+    if (dup) return { ok: false, reason: 'Ya hay un tipo con ese nombre.', field: 'name' };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'editar los tipos de gasolina')) return { ok: false, reason: 'Sin permiso' };
+    var now = new Date().toISOString();
+    var t = o.id ? invState.fuelTypes.find(function(x) { return x.id === o.id; }) : null;
+    var before = t ? { name: t.name, color: t.color, regulation: t.regulation || '', reorderLevel: t.reorderLevel || null } : null;
+    var reo = parseFloat(o.reorderLevel);
+    if (!t) {
+        t = { id: 'ft_' + invGenId(), name: name, color: o.color || INV_FUEL_TYPE_COLORS[live.length % INV_FUEL_TYPE_COLORS.length] };
+        invState.fuelTypes.push(t);
+    }
+    t.name = name;
+    if (o.color) t.color = o.color;
+    t.regulation = String(o.regulation || '').trim();
+    t.reorderLevel = reo > 0 ? reo : null;
+    t.updatedAt = now;
+    // Los tambos de este tipo descuentan por la regulación del tipo (es la llave de invLogTestUsage).
+    var tocados = 0;
+    if (t.regulation) (invState.fuelTanks || []).forEach(function(tk) {
+        if (tk.typeId === t.id && tk.regulation !== t.regulation) { tk.regulation = t.regulation; tocados++; }
+    });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', before ? 'fuel_type_modified' : 'fuel_type_created', { type: 'fuel', id: t.id, label: t.name },
+                 t.name + (t.regulation ? ' · ' + t.regulation : '') + (tocados ? ' · ' + tocados + ' tambo(s) ajustados' : ''),
+                 { before: before, after: { name: t.name, color: t.color, regulation: t.regulation, reorderLevel: t.reorderLevel } });
+    }
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    return { ok: true, type: t };
+}
+
+/** Quita un tipo del catálogo (deja marca). Se niega si algún tambo lo usa. */
+function invFuelTypeDelete(id) {
+    _invFuelTypesEnsure();
+    var t = invState.fuelTypes.find(function(x) { return x.id === id && !x.deleted; });
+    if (!t) return { ok: false, reason: 'Tipo no encontrado' };
+    var usan = (invState.fuelTanks || []).filter(function(tk) { var ty = invFuelTypeOf(tk); return ty && ty.id === id; });
+    if (usan.length) return { ok: false, reason: usan.length + ' tambo(s) son de este tipo: cámbiales el tipo primero.' };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'borrar un tipo de gasolina')) return { ok: false, reason: 'Sin permiso' };
+    t.deleted = true;
+    t.updatedAt = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('inv', 'fuel_type_deleted', { type: 'fuel', id: t.id, label: t.name }, t.name, { before: { name: t.name }, after: null });
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    return { ok: true };
+}
+
+/** LA forma de cambiarle el tipo a un tambo (y con él, la regulación de la que descuenta). */
+function invFuelSetType(tankId, typeId, opts) {
+    opts = opts || {};
+    var tk = _invFuelTank(tankId);
+    if (!tk) return { ok: false, reason: 'Tambo no encontrado' };
+    var ty = typeId ? invFuelTypesLive().find(function(x) { return x.id === typeId; }) : null;
+    if (typeId && !ty) return { ok: false, reason: 'Tipo no encontrado' };
+    if ((tk.typeId || null) === (typeId || null)) return { ok: true, unchanged: true };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'cambiar el tipo de un tambo')) return { ok: false, reason: 'Sin permiso' };
+    var before = { typeId: tk.typeId || null, regulation: tk.regulation || '' };
+    tk.typeId = typeId || null;
+    if (ty && ty.regulation) tk.regulation = ty.regulation;
+    if (!tk.timeline) tk.timeline = [];
+    tk.timeline.push({ date: new Date().toISOString(), action: 'Tipo: ' + (ty ? ty.name : 'sin tipo') });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'fuel_type_set', { type: 'fuel', id: tk.id, label: tk.name || tk.id }, (ty ? ty.name : 'sin tipo') + (opts.via ? ' · ' + opts.via : ''),
+                 { before: before, after: { typeId: tk.typeId, regulation: tk.regulation || '' } });
+    }
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    return { ok: true };
+}
+
+/** LA forma de mover un tambo a otra posición del cuarto de gasolina. Devuelve true/false. */
+function invFuelMove(tankId, code, opts) {
+    opts = opts || {};
+    var tk = _invFuelTank(tankId);
+    if (!tk || !code || tk.pos === code) return false;
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'mover tambos')) return false;
+    var occ = (invState.fuelTanks || []).find(function(t) { return t && t.id !== tankId && t.pos === code; });
+    if (occ) { if (typeof showToast === 'function') showToast('La posición ' + code + ' está ocupada', 'warning'); return false; }
+    var from = tk.pos || '';
+    tk.pos = code;
+    if (!tk.timeline) tk.timeline = [];
+    tk.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + (from || 'sin posición') + ' → ' + code });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'fuel_moved', { type: 'fuel', id: tk.id, label: tk.name || tk.id }, (from || 'sin posición') + ' → ' + code,
+                 { before: { pos: from }, after: { pos: code } });
+    }
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    if (!opts.silent && typeof showToast === 'function') showToast((tk.name || 'Tambo') + ' movido a ' + code, 'success');
+    return true;
+}
+
+/** LA forma de cambiar el estatus de un tambo fuera de su formulario (Cerrado / Abierto / Vacío). */
+function invFuelSetStatus(tankId, status, opts) {
+    opts = opts || {};
+    if (INV_FUEL_STATUSES.indexOf(status) < 0) return { ok: false, reason: 'Estatus desconocido' };
+    var tk = _invFuelTank(tankId);
+    if (!tk) return { ok: false, reason: 'Tambo no encontrado' };
+    if (tk.fuelStatus === status) return { ok: true, unchanged: true };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'cambiar el estatus de un tambo')) return { ok: false, reason: 'Sin permiso' };
+    var before = tk.fuelStatus || '';
+    tk.fuelStatus = status;
+    if (!tk.timeline) tk.timeline = [];
+    tk.timeline.push({ date: new Date().toISOString(), action: 'Estatus: ' + (before || '?') + ' → ' + status });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'fuel_status', { type: 'fuel', id: tk.id, label: tk.name || tk.id }, (before || '?') + ' → ' + status + (opts.via ? ' · ' + opts.via : ''),
+                 { before: { fuelStatus: before }, after: { fuelStatus: status } });
+    }
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    return { ok: true, before: before };
+}
+
+/**
+ * Alta de un tambo en una posición del cuarto (el formulario corto del plano). Su nivel de
+ * alta es su primera lectura (por invAddFuelReading, como en el formulario completo).
+ * @param o {typeId, capacity, level, pos, name?}
+ */
+function invFuelTankCreate(o) {
+    o = o || {};
+    var cap = parseFloat(o.capacity);
+    if (!(cap > 0)) return { ok: false, reason: 'Escribe la capacidad del tambo en litros.', field: 'capacity' };
+    var lvl = o.level === '' || o.level == null ? cap : parseFloat(o.level);
+    if (!isFinite(lvl) || lvl < 0) return { ok: false, reason: 'Escribe cuántos litros tiene.', field: 'level' };
+    if (lvl > cap * 1.05) return { ok: false, reason: 'No puede tener más de lo que le cabe (' + cap + ' L).', field: 'level' };
+    var ty = o.typeId ? invFuelTypesLive().find(function(x) { return x.id === o.typeId; }) : null;
+    if (!ty) return { ok: false, reason: 'Elige el tipo de gasolina.', field: 'type' };
+    if (o.pos && (invState.fuelTanks || []).some(function(t) { return t && t.pos === o.pos; })) return { ok: false, reason: 'La posición ' + o.pos + ' ya está ocupada.' };
+    if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'dar de alta un tambo')) return { ok: false, reason: 'Sin permiso' };
+    var n = (invState.fuelTanks || []).filter(function(t) { var x = invFuelTypeOf(t); return x && x.id === ty.id; }).length + 1;
+    var tk = {
+        id: invGenId(), name: o.name || (ty.name + ' · tambo ' + n), fuelType: 'Gasolina Referencia', regulation: ty.regulation || '',
+        typeId: ty.id, capacity: cap, currentLevel: lvl, unit: 'L', regDate: localToday(), pos: o.pos || '',
+        fuelStatus: lvl >= cap ? 'Cerrado' : 'Abierto', readings: [],
+        timeline: [{ date: new Date().toISOString(), action: 'Recepción' + (o.pos ? ' en ' + o.pos : '') }]
+    };
+    if (!invState.fuelTanks) invState.fuelTanks = [];
+    invState.fuelTanks.push(tk);
+    if (typeof auditLog === 'function') auditLog('inv', 'fuel_created', { type: 'fuel', id: tk.id, label: tk.name }, ty.name + ' · ' + cap + ' L' + (o.pos ? ' · ' + o.pos : ''));
+    invAddFuelReading(tk.id, lvl, { source: 'cuarto', silent: true, skipSave: true });
+    if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+    invSave();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    return { ok: true, tank: tk };
 }
 
 var INV_GAS_STATUSES = ['In use', 'Stock', 'Spare', 'Empty'];
@@ -7177,7 +7490,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Registra el nivel real de vez en cuando con el botón 📏 para corregir desviaciones.',
         'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
     ]},
-    'inv-zonemap': { title: 'Cuarto de gases', text: 'El cuarto de gases en 3D o visto desde arriba: cada cilindro en su posición real, con su nivel como relleno y su estado como color. Toca uno para ver su estado y tomar la lectura.', tips: [
+    'inv-zonemap': { title: 'Cuartos de gases y gasolina', text: 'El cuarto de gases y el de gasolina en 3D o vistos desde arriba (arriba a la izquierda se elige cuál): cada cilindro o tambo en su posición real, con su nivel como relleno y su estado como color. Toca uno para ver su estado y tomar la lectura.', tips: [
+        'En el de gasolina, la tapa de cada tambo es el color de su tipo y arriba sale el total de cada tipo entre todos sus tambos (toca uno para resaltarlos). ⛽ Tipos define cuántos tipos hay y de qué regulación descuentan.',
+        'Para dar de alta un tambo, toca una posición libre de una tarima (o ＋ Tambo). La lectura de un tambo es en litros; Lleno, ¾, ½ y ¼ la llenan de un toque.',
         'Toca un cilindro: se abre una ventana junto a él con su nivel y la lectura de hoy (Guardar); consumo, vigencia y ciclo van en "Más".',
         'Para moverlo: con el ratón, arrástralo; con el dedo, mantenlo presionado y arrástralo — o toca ↔ Mover y luego la posición libre.',
         'Los cilindros nuevos llegan a recepción (diablito o buffer). Toca una posición libre de una pared para acomodar ahí uno de recepción.',
