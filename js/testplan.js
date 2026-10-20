@@ -5217,6 +5217,11 @@ function _tpWeekCardHTML(row, workDays, opts) {
     }
     if (row.item && row.item.overCapacity) marcas.push('<span class="tp-week-flag tp-week-flag--warn">⬆ sobre cupo</span>');
     if (row.dupOf) marcas.push('<span class="tp-week-flag" title="Otra prueba de la misma configuración esta semana">⧉ ' + row.dupIdx + ' de ' + row.dupTotal + '</span>');
+    // [3.14.0] Hay una unidad de esta configuración en el laboratorio (celda o acondicionamiento).
+    if (!row.vehicleAny && !(row.item && row.item.completed) && typeof siteConfigsOnSite === 'function') {
+        var _onSite = siteConfigsOnSite()[row.desc || (row.item && row.item.desc)] || 0;
+        if (_onSite) marcas.push('<span class="tp-week-flag tp-week-flag--live" title="Unidad de esta configuración en el laboratorio (Consumibles → 🗺️ Cuarto → 🚗 Laboratorio)">📍 ' + (_onSite > 1 ? _onSite + ' unidades' : 'unidad') + ' en sitio</span>');
+    }
     if (row.vehicleAny && row.stage) {
         var _v = row.vehicleAny;
         marcas.push('<span class="tp-week-flag tp-week-flag--live"' +

@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.13.0';
+var APP_VERSION = '3.14.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '3.13.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.14.0', date: '20 oct 2026', title: 'El laboratorio en el mapa',
+      bullets: ['Consumibles → 🗺️ Cuarto → 🚗 Laboratorio: la celda de pruebas, el cuarto de control y el cuarto de acondicionamiento en 3D, como los cuartos de gases y gasolina. El plano salió de las fotos del laboratorio y es provisional.',
+                'Toca un cajón (o el dinamómetro) para poner una unidad por su VIN. Si tiene alta en la plataforma se liga sola; si no, queda como "sin alta" y se puede dar de alta desde ahí.',
+                'Toca una unidad para ver su etapa, cuánto le falta de reposo (sale de la hora de preacondicionamiento y del reposo de su configuración) y abrirla en Pruebas. ↔ Mover la cambia de cajón o al dinamómetro; queda en su línea de tiempo y en el historial de cambios.',
+                'Arriba: unidades en sitio (con y sin alta), reposando, listas para probar, en el dinamómetro y equipos con algo vencido. Dos unidades en el mismo lugar se avisan.',
+                '✏️ Editar plano: los equipos que se ven en las fotos ya están puestos, sin nombre propio. Se arrastran, se renombran, se giran, cambian de tamaño, se quitan y se agregan; ligados a su equipo del F11 muestran si su calibración o su mantenimiento están al día. Todo se comparte entre equipos.',
+                'Mi semana marca 📍 las pruebas cuya configuración tiene una unidad en el laboratorio.',
+                'Arreglado: un diálogo de texto aceptado con Enter se quedaba escondido y el siguiente leía su valor viejo.'] },
     { version: '3.13.0', date: '20 oct 2026', title: 'El CoP de corporativo, correcto en el reporte y en el Plan',
       bullets: ['El CoP sigue las reglas de corporativo por región y norma: Europa PRE-EURO 7 y General EURO-6C piden ensayos por lotes de producción; Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año.',
                 'Europa EURO-5 ya no entra al CoP (no pide). General EURO-6C entra: Panorama, Validador, Control SPC y el estatus semanal.',
@@ -3728,19 +3736,20 @@ function showConfirmDialog(opts) {
 function uiPrompt(opts) {
     opts = opts || {};
     return new Promise(function(resolve) {
-        var done = false;
+        var done = false, overlay = null, el = null;
         var field = opts.multiline
             ? '<textarea id="_ui_prompt" class="form-control" rows="4" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '">' + escapeHtml(opts.value || '') + '</textarea>'
             : '<input id="_ui_prompt" class="form-control" style="width:100%;box-sizing:border-box;" placeholder="' + escapeHtml(opts.placeholder || '') + '" value="' + escapeHtml(opts.value || '') + '">';
+        // [3.14.0] El campo y el diálogo son los DE ESTE prompt: con Enter el diálogo solo se
+        // escondía, y el siguiente uiPrompt leía (getElementById) el campo escondido del anterior.
         var finish = function(v) {
             if (done) return;
             done = true;
-            var m = document.getElementById('globalModal');
-            if (m) m.style.display = 'none';
+            var m = overlay || document.getElementById('globalModal');
+            if (m) { m.style.display = 'none'; if (m.parentNode) m.parentNode.removeChild(m); }
             resolve(v);
         };
         var accept = function() {
-            var el = document.getElementById('_ui_prompt');
             var v = el ? el.value.trim() : '';
             if (opts.required && !v) { showToast('Escribe ' + (opts.label || 'un valor').toLowerCase() + ' para continuar.', 'warning'); if (el) el.focus(); return; }
             finish(v);
@@ -3755,7 +3764,9 @@ function uiPrompt(opts) {
             ],
             onCancel: function() { finish(null); }
         });
-        var el = document.getElementById('_ui_prompt');
+        var all = document.querySelectorAll('#globalModal');
+        overlay = all.length ? all[all.length - 1] : null;
+        el = overlay ? overlay.querySelector('#_ui_prompt') : document.getElementById('_ui_prompt');
         if (el && !opts.multiline) el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); accept(); } });
     });
 }

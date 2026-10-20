@@ -6809,3 +6809,83 @@ body.ficha-open { overflow: hidden; }
   .rm-ftrow > label:not(.rm-ftrow-name), .rm-ftrow-act, .rm-ftrow-sum { grid-column: 1 / -1; }
   .rm-switch-btn { padding: 0 var(--space-xs); }
 }
+
+/* ── [3.14.0] El laboratorio en el mapa (js/sitio.js) ─────────────────── */
+.st-area { stroke: none; }
+.st-area--cell { fill: rgba(241, 245, 249, 0.55); }
+.st-area--control { fill: rgba(219, 234, 254, 0.55); }
+.st-area--soak { fill: rgba(236, 253, 245, 0.6); }
+.st-area-lbl { font-size: 26px; font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.st-roll { fill: #f59e0b; stroke: #b45309; stroke-width: 1; pointer-events: none; }
+.st-plate { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; pointer-events: none; }
+.st-rail { stroke: #eab308; stroke-width: 4; stroke-linecap: round; pointer-events: none; }
+.st-hose { stroke: #475569; stroke-width: 7; stroke-linecap: round; opacity: 0.6; pointer-events: none; }
+.st-barrier .st-top, .st-barrier .st-side { fill: #facc15; stroke: #a16207; stroke-width: 1; }
+.st-tunnel .st-top { fill: #e2e8f0; stroke: #64748b; }
+.st-tunnel .st-side { fill: #cbd5e1; stroke: #64748b; stroke-width: 1; }
+.st-barrier, .st-tunnel { pointer-events: none; }
+.st-wall { pointer-events: none; }
+.st-wall--glass { fill: rgba(125, 211, 252, 0.16); stroke: rgba(14, 116, 144, 0.55); stroke-width: 1.5; }
+.st-wall--window { fill: rgba(191, 219, 254, 0.2); stroke: rgba(37, 99, 235, 0.45); stroke-width: 1.5; }
+.st-door--glass { stroke: #0ea5e9; stroke-dasharray: 10 6; }
+.st-spot { fill: rgba(255, 255, 255, 0.35); stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 10 7; cursor: pointer; }
+.st-spot--dino { stroke: #f59e0b; fill: rgba(254, 243, 199, 0.25); }
+.st-spot--busy { stroke-dasharray: none; }
+.st-spot--clash { stroke: #dc2626; stroke-width: 3; }
+.st-spot--sel { stroke: #2563eb; stroke-width: 3.5; stroke-dasharray: none; }
+.st-spot--target { stroke: #16a34a; stroke-width: 3; fill: rgba(220, 252, 231, 0.6); }
+.st-spot:focus-visible { outline: none; stroke: #2563eb; stroke-width: 4; }
+.st-spot-lbl { font-size: 30px; font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+.st-eq { cursor: pointer; }
+.st-eq .st-top { fill: var(--st-eq, #94a3b8); stroke: #475569; stroke-width: 1; }
+.st-eq .st-side { fill: var(--st-eq, #94a3b8); stroke: #475569; stroke-width: 1; filter: brightness(0.82); }
+.st-eq .st-side--1, .st-eq .st-side--3 { filter: brightness(0.7); }
+.st-eq--bad .st-top { stroke: #dc2626; stroke-width: 3; }
+.st-eq--warn .st-top { stroke: #d97706; stroke-width: 2.5; }
+.st-eq--sel .st-top { stroke: #2563eb; stroke-width: 4; }
+.st-eq--edit { cursor: grab; }
+.st-eq:focus-visible { outline: none; }
+.st-eq:focus-visible .st-top { stroke: #2563eb; stroke-width: 4; }
+.st-eq-lbl text { font-size: 19px; font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
+.st-eq-lbl--bad text { fill: #b91c1c; }
+.st-car { cursor: pointer; }
+.st-car .st-top, .st-car .st-side { stroke: #1e293b; stroke-width: 1; }
+.st-car--work .st-car-body .st-top, .st-car--work .st-side { fill: #93c5fd; }
+.st-car--soak .st-car-body .st-top, .st-car--soak .st-side { fill: #c4b5fd; }
+.st-car--ready .st-car-body .st-top, .st-car--ready .st-side { fill: #86efac; }
+.st-car--wait .st-car-body .st-top, .st-car--wait .st-side { fill: #fde68a; }
+.st-car--done .st-car-body .st-top, .st-car--done .st-side { fill: #e2e8f0; }
+.st-car--noalta .st-car-body .st-top, .st-car--noalta .st-side { fill: #fecaca; }
+.st-car .st-car-cab .st-top { fill: #334155; }
+.st-car .st-car-cab .st-side { fill: #475569; }
+.st-car .st-side { filter: brightness(0.85); }
+.st-car--sel .st-car-body .st-top { stroke: #2563eb; stroke-width: 4; }
+.st-car--moving { opacity: 0.55; }
+.st-car:focus-visible { outline: none; }
+.st-car:focus-visible .st-car-body .st-top { stroke: #2563eb; stroke-width: 4; }
+.st-wheel { fill: #0f172a; }
+.st-car-nose { fill: #fbbf24; stroke: #92400e; stroke-width: 1; }
+.st-car-lbl text { font-size: 22px; font-weight: 800; fill: #0f172a; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.95); stroke-width: 3.5px; pointer-events: none; }
+.st-car-lbl .st-car-sub { font-size: 18px; font-weight: 600; fill: #475569; }
+.st-car-lbl--soak .st-car-sub { fill: #6d28d9; }
+.st-car-lbl--ready .st-car-sub { fill: #15803d; }
+.st-car-lbl--noalta .st-car-sub { fill: #b91c1c; }
+.st-lg { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
+.st-lg--work { background: #93c5fd; } .st-lg--soak { background: #c4b5fd; } .st-lg--ready { background: #86efac; }
+.st-lg--wait { background: #fde68a; } .st-lg--noalta { background: #fecaca; } .st-lg--bad { background: transparent; box-shadow: 0 0 0 2px #dc2626 inset; }
+.st-health { margin: var(--space-sm) 0; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-sm); background: var(--surface-2, #f1f5f9); color: var(--text); }
+.st-health--bad { background: var(--danger-bg); color: var(--danger-text); }
+.st-health--warn { background: var(--warn-bg); color: var(--warn-text); }
+.st-health--ok { background: var(--ok-bg); color: var(--ok-text); }
+.st-inst { list-style: none; margin: var(--space-xs) 0; padding: 0; font-size: var(--fs-sm); }
+.st-inst li { display: flex; justify-content: space-between; gap: var(--space-sm); padding: var(--space-2xs) 0; border-bottom: 1px solid var(--border); }
+.st-row { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--fs-sm); padding: var(--space-2xs) 0; }
+.st-row span { color: var(--muted); }
+.st-unit-sub { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--space-xs); }
+.st-tools { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+.st-field { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
+.st-field select { font-size: var(--fs-base); padding: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.st-hint { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-sm) 0 0; }
+.st-danger { color: var(--danger-text); }
+.rm-room--lab .rm-door-lbl { font-size: 18px; }
+.rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }

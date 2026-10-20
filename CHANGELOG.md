@@ -20,6 +20,47 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.14.0 — El laboratorio en el mapa (2026-10-20)
+
+### Nuevo
+- **Consumibles → 🗺️ Cuarto → 🚗 Laboratorio**: la celda de pruebas (dinamómetro, ventilador,
+  filtro de aire, tableros, pared del túnel, gabinetes), el cuarto de control y el cuarto de
+  acondicionamiento (4 cajones, EBCM1, cargador, inflador, cortina de entrada) en 3D, como los
+  cuartos de gases y gasolina. **El plano es provisional**: salió de las fotos del laboratorio.
+- **Unidades por VIN**: tocar un cajón o el dinamómetro y escribir el VIN. Con alta en la
+  plataforma se liga sola; sin alta queda como "sin alta" y ofrece darla de alta (o ligarla si
+  después se registra). ↔ Mover la cambia de lugar; queda en su línea de tiempo y en el historial.
+- **Reposo a la vista**: cada unidad dice cuánto le falta de reposo, calculado de la hora de
+  preacondicionamiento y del reposo de su configuración (Plan → Reglas). Lo ven todos los equipos.
+- **Indicadores**: en sitio (con y sin alta), reposando (y cuándo termina la próxima), listas para
+  probar, en el dinamómetro, equipos con algo vencido; y "Revisar" si dos unidades están en el
+  mismo lugar.
+- **✏️ Editar plano**: los equipos de las fotos ya están puestos, sin nombre propio. Se arrastran,
+  se renombran, se giran, cambian de tamaño, se quitan (se puede deshacer) y se agregan. Ligados a
+  su equipo del F11, se pintan en rojo si tienen una calibración o un mantenimiento vencido.
+- **Mi semana** marca 📍 las pruebas cuya configuración tiene una unidad en el laboratorio.
+
+### Arreglado
+- Un diálogo de texto aceptado con Enter se quedaba escondido y el siguiente diálogo leía el valor
+  del anterior (afectaba a todo lo que pide texto con ese diálogo).
+
+### Para desarrollo
+- `js/sitio.js` (prefijo `site`), cargado después de `cuarto.js`; reusa `invRoomProject`,
+  `invRoomCamNormalize`, `invRoomWallIsBack`, `_invRoomPts`, `_invRoomEsc`. `SITE_LAYOUT` (fijo,
+  horneado, `provisional:true`) y `SITE_ITEMS_SEED` (lugares de equipo de las fotos).
+- Equipos: `invState.siteItems` (sembrados una vez por `siteItemsEnsure`; `undefined` = nunca),
+  escritor único `siteItemSave` (`inventory.manage`, auditado con antes/después); sync con
+  `siteListUnion` / `siteListNewTo` (PURAS, simétricas) en `_fbPullSeed`, `merge_all`, `new`,
+  `hasWork`, `_fbLocalHasExtras` y la huella.
+- Unidades: con alta = `vehicle.site = {spot, since, by}` (escritor `siteVehicleMove`, línea de
+  tiempo + auditoría); sin alta = `db.siteUnits` (`siteUnitSave`), en `FB_VEH_META_KEYS` y unida
+  en `fbMergeExecute` / `_fbPullSeed`. `siteSpotsModel` (PURA) es LA definición de quién está dónde.
+- `siteSoakStatus` (PURA) deriva el reposo; `siteItemHealth` / `siteCalWorstByAsset` (PURAS) el
+  estado de un equipo desde `invCalStatus` + `invMaintOverdue`. `siteUnproject` es la inversa de
+  la proyección (arrastrar en el piso).
+- `uiPrompt` toma el campo y el diálogo de SU llamada y los quita del DOM al cerrar.
+- Pruebas: `tests/sitio.node.js`, `tests/sitio.e2e.js`; `tests/v3110.e2e.js` cuenta 3 mapas.
+
 ## 3.13.0 — El CoP de corporativo, correcto en el reporte y en el Plan (2026-10-20)
 
 ### Cambió

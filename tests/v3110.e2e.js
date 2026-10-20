@@ -47,8 +47,8 @@ const totalDe = (page, name) => page.evaluate(n => { const r = invFuelTypeTotals
 
     console.log('\n== Escritorio 1440×950 ==');
     let { context, page, errores } = await abrir(browser, { width: 1440, height: 950 });
-    ok('arranca en el cuarto de gases, con el selector de cuarto en la barra', await page.evaluate(() =>
-        _invRoomWhich() === 'gases' && document.querySelectorAll('.rm-switch-btn').length === 2 && document.querySelectorAll('#rm-svg .rm-cyl').length > 0));
+    ok('arranca en el cuarto de gases, con el selector de mapa en la barra (gases · gasolina · laboratorio, 3.14.0)', await page.evaluate(() =>
+        _invRoomWhich() === 'gases' && document.querySelectorAll('.rm-switch-btn').length === 3 && document.querySelectorAll('#rm-svg .rm-cyl').length > 0));
     await page.locator('.rm-switch-btn[data-room="gasolina"]').click();
     await page.waitForTimeout(600);
     const base = await page.evaluate(() => ({

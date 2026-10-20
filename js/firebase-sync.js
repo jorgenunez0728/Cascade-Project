@@ -1746,7 +1746,9 @@ function _fbPullSeed(col, remoteData, pulled) {
         var _seedTombs = (db && db.deletedVehicles) || [];
         // [2.0.0] Igual con las configs manuales (y sus marcas de borrado).
         var _seedManual = (db && db.manualConfigs) || [];
+        var _seedSite = (db && db.siteUnits) || [];   // [3.14.0]
         db = remoteData;
+        if (_seedSite.length && typeof siteListUnion === 'function') db.siteUnits = siteListUnion(_seedSite, db.siteUnits);
         if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
             db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
         if (_seedManual.length && typeof manualConfigsUnion === 'function')
@@ -1822,6 +1824,8 @@ function _fbPullSeed(col, remoteData, pulled) {
                 invState[k] = prevInv[k];
             }
         });
+        // [3.14.0] Los equipos del plano del laboratorio se UNEN (gana el editado más reciente).
+        if (typeof siteListUnion === 'function' && (prevInv.siteItems || invState.siteItems)) invState.siteItems = siteListUnion(prevInv.siteItems || [], invState.siteItems || []);
         if (typeof _invRevInit === 'function') _invRevInit();
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
@@ -1844,7 +1848,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
     if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0 ||
         _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
         // 2.0.0: sin esto, un pull cuyo único cambio es una config manual se descartaba.
-        (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || []));
+        (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || [])) ||
+        // [3.14.0] Un pull cuyo único cambio es una unidad sin alta en el sitio.
+        (typeof siteListNewTo === 'function' && siteListNewTo((db && db.siteUnits) || [], (remoteData && remoteData.siteUnits) || []));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged ||
         // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
@@ -1858,7 +1864,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // v21.1: sin esto, un pull cuyo único cambio es el combustible se descartaba.
         (a.newFuelTanks || []).length > 0 || (a.fuelUpdates || []).length > 0 ||
         // [3.11.0] Un pull cuyo único cambio es el catálogo de tipos de gasolina.
-        (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo((typeof invState !== 'undefined' && invState && invState.fuelTypes) || [], (remoteData && remoteData.fuelTypes) || []));
+        (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo((typeof invState !== 'undefined' && invState && invState.fuelTypes) || [], (remoteData && remoteData.fuelTypes) || [])) ||
+        // [3.14.0] Un pull cuyo único cambio es un equipo del plano del laboratorio.
+        (typeof siteListNewTo === 'function' && siteListNewTo((typeof invState !== 'undefined' && invState && invState.siteItems) || [], (remoteData && remoteData.siteItems) || []));
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -2676,9 +2684,9 @@ function fbAssignInPlace(target, src) {
 /** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
 function _fbModuleFingerprint(col) {
     try {
-        if (col === 'cop15') return strHash(stableStringify((db && db.vehicles) || []));
+        if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || []]));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
-        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || []]));
+        if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || []]));
     } catch (e) {}
     return '';
 }
@@ -2704,6 +2712,7 @@ function _fbLocalHasExtras(col, remote) {
         if (_fbTombsNewTo(remote.deletedVehicles || [], (db && db.deletedVehicles) || [])) return true;
         // 2.0.0: una config manual (o su marca de borrado) que la nube no tiene.
         if (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo(remote.manualConfigs || [], (db && db.manualConfigs) || [])) return true;
+        if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (db && db.siteUnits) || [])) return true;
         var rByKey = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByKey[vehicleCopyKey(v)] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -2759,6 +2768,8 @@ function _fbLocalHasExtras(col, remote) {
         })) return true;
         // [3.11.0] Un tipo de gasolina creado o editado aquí que la nube no tiene.
         if (typeof invFuelTypesNewTo === 'function' && invFuelTypesNewTo(remote.fuelTypes || [], invState.fuelTypes || [])) return true;
+        // [3.14.0] Un equipo del plano acomodado aquí que la nube no tiene.
+        if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteItems || [], invState.siteItems || [])) return true;
         var rtk = {};
         (remote.fuelTanks || []).forEach(function(t) { rtk[t.id || t.name] = t; });
         return (invState.fuelTanks || []).some(function(t) { var r = rtk[t.id || t.name]; return !r || faltaLectura(t, r); });
@@ -3553,6 +3564,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         // opción ('replace' reasigna db y perdería las locales).
         var _localTombs = (db && db.deletedVehicles) || [];
         var _localManual = (db && db.manualConfigs) || [];   // 2.0.0, mismo motivo
+        var _localSite = (db && db.siteUnits) || [];          // [3.14.0], mismo motivo
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -3612,6 +3624,10 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (typeof manualConfigsUnion === 'function') {
             var _mc = manualConfigsUnion(_localManual, (remoteData.cop15 && remoteData.cop15.manualConfigs) || []);
             if (_mc.length) db.manualConfigs = _mc;
+        }
+        if (typeof siteListUnion === 'function') {
+            var _su = siteListUnion(_localSite, (remoteData.cop15 && remoteData.cop15.siteUnits) || []);
+            if (_su.length) db.siteUnits = _su;
         }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
@@ -3809,6 +3825,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             if (!invState.fuelTanks) invState.fuelTanks = [];
             (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
+            if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
                         analysis.inventory.newEquip.length + ' equipos, +' +
                         (analysis.inventory.newFuelTanks || []).length + ' tanques');
@@ -3857,6 +3874,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             });
             // [3.11.0] Catálogo de tipos de gasolina: por id, gana el editado más reciente (con marcas de borrado).
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
+            if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();
@@ -6336,7 +6354,7 @@ function fbVehDocId(v) {
  * (y se despertarían el uno al otro) para siempre. Todo campo nuevo de `db` que deba
  * verse en todos los equipos se agrega aquí y a la unión de fbMergeExecute.
  */
-var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs'];
+var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs', 'siteUnits'];   // [3.14.0] unidades sin alta en el sitio
 function fbVehMeta(d) {
     var out = {};
     FB_VEH_META_KEYS.forEach(function(k) { if (d && d[k] !== undefined) out[k] = d[k]; });
@@ -6347,6 +6365,7 @@ function fbVehMeta(d) {
 function fbVehMetaHasExtras(local, remote) {
     remote = remote || {};
     if (_fbTombsNewTo(remote.deletedVehicles || [], (local && local.deletedVehicles) || [])) return true;
+    if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (local && local.siteUnits) || [])) return true;
     return typeof manualConfigsNewTo === 'function' &&
         manualConfigsNewTo(remote.manualConfigs || [], (local && local.manualConfigs) || []);
 }
