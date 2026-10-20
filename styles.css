@@ -6809,3 +6809,124 @@ body.ficha-open { overflow: hidden; }
   .rm-ftrow > label:not(.rm-ftrow-name), .rm-ftrow-act, .rm-ftrow-sum { grid-column: 1 / -1; }
   .rm-switch-btn { padding: 0 var(--space-xs); }
 }
+
+/* ── [3.14.0] El laboratorio en el mapa (js/sitio.js) ─────────────────── */
+.st-area { stroke: none; }
+.st-area--cell { fill: rgba(241, 245, 249, 0.55); }
+.st-area--control { fill: rgba(219, 234, 254, 0.55); }
+.st-area--soak { fill: rgba(236, 253, 245, 0.6); }
+.st-area-lbl { font-size: 26px; font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.st-roll { fill: #f59e0b; stroke: #b45309; stroke-width: 1; pointer-events: none; }
+.st-plate { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; pointer-events: none; }
+.st-rail { stroke: #eab308; stroke-width: 4; stroke-linecap: round; pointer-events: none; }
+.st-hose { stroke: #475569; stroke-width: 7; stroke-linecap: round; opacity: 0.6; pointer-events: none; }
+.st-barrier .st-top, .st-barrier .st-side { fill: #facc15; stroke: #a16207; stroke-width: 1; }
+.st-tunnel .st-top { fill: #e2e8f0; stroke: #64748b; }
+.st-tunnel .st-side { fill: #cbd5e1; stroke: #64748b; stroke-width: 1; }
+.st-barrier, .st-tunnel { pointer-events: none; }
+.st-wall { pointer-events: none; }
+.st-wall--glass { fill: rgba(125, 211, 252, 0.16); stroke: rgba(14, 116, 144, 0.55); stroke-width: 1.5; }
+.st-wall--window { fill: rgba(191, 219, 254, 0.2); stroke: rgba(37, 99, 235, 0.45); stroke-width: 1.5; }
+.st-door--glass { stroke: #0ea5e9; stroke-dasharray: 10 6; }
+.st-spot { fill: rgba(255, 255, 255, 0.35); stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 10 7; cursor: pointer; }
+.st-spot--dino { stroke: #f59e0b; fill: rgba(254, 243, 199, 0.25); }
+.st-spot--busy { stroke-dasharray: none; }
+.st-spot--clash { stroke: #dc2626; stroke-width: 3; }
+.st-spot--sel { stroke: #2563eb; stroke-width: 3.5; stroke-dasharray: none; }
+.st-spot--target { stroke: #16a34a; stroke-width: 3; fill: rgba(220, 252, 231, 0.6); }
+.st-spot:focus-visible { outline: none; stroke: #2563eb; stroke-width: 4; }
+.st-spot-lbl { font-size: 30px; font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+.st-eq { cursor: pointer; --st-eq-d: color-mix(in srgb, var(--st-eq, #94a3b8) 80%, #0f172a); --st-eq-dd: color-mix(in srgb, var(--st-eq, #94a3b8) 66%, #0f172a); }
+.st-eq .st-top { fill: color-mix(in srgb, var(--st-eq, #94a3b8) 88%, #ffffff); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
+.st-eq .st-side { fill: var(--st-eq-d); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
+.st-eq .st-side--1, .st-eq .st-side--3 { fill: var(--st-eq-dd); }
+.st-eq .st-eq-base .st-top, .st-eq .st-eq-base .st-side { fill: #334155; }
+.st-eq .st-eq-handle .st-top, .st-eq .st-eq-handle .st-side { fill: #1e293b; }
+.st-eq .st-eq-under .st-side { fill: color-mix(in srgb, var(--st-eq, #94a3b8) 70%, #0f172a); }
+.st-eq-shadow { fill: rgba(15, 23, 42, 0.13); pointer-events: none; }
+.st-eq--bad .st-top { stroke: #dc2626; stroke-width: 3; }
+.st-eq--warn .st-top { stroke: #d97706; stroke-width: 2.5; }
+.st-eq--sel .st-top { stroke: #2563eb; stroke-width: 4; }
+.st-eq--edit { cursor: grab; }
+.st-eq--moving { opacity: 0.6; }
+.st-eq:focus-visible { outline: none; }
+.st-eq:focus-visible .st-top { stroke: #2563eb; stroke-width: 4; }
+/* Detalles de cada forma (puertas, pantallas, rejillas, aspas…) */
+.st-d-door { fill: rgba(255, 255, 255, 0.16); stroke: rgba(15, 23, 42, 0.32); stroke-width: 1; }
+.st-d-drawer { fill: rgba(255, 255, 255, 0.28); stroke: rgba(15, 23, 42, 0.3); stroke-width: 1; }
+.st-d-lid { fill: rgba(255, 255, 255, 0.2); stroke: rgba(15, 23, 42, 0.16); stroke-width: 1; }
+.st-d-plate { fill: rgba(15, 23, 42, 0.14); }
+.st-d-handle { stroke: #1e293b; stroke-width: 2.5; stroke-linecap: round; }
+.st-d-screen { fill: url(#st-g-screen); stroke: #0f172a; stroke-width: 1; }
+.st-d-led { fill: #22c55e; stroke: #14532d; stroke-width: 0.6; }
+.st-d-vent { stroke: rgba(15, 23, 42, 0.38); stroke-width: 1.5; stroke-linecap: round; }
+.st-d-grille { fill: #334155; stroke: #0f172a; stroke-width: 1; }
+.st-d-slat { stroke: #94a3b8; stroke-width: 1.3; }
+.st-d-console { fill: #e2e8f0; stroke: #475569; stroke-width: 1; }
+.st-d-fanring { fill: #1e293b; stroke: #0f172a; stroke-width: 1; }
+.st-d-fanhole { fill: #0b1220; }
+.st-d-fanback { fill: #475569; }
+.st-d-spoke { stroke: #94a3b8; stroke-width: 2; stroke-linecap: round; }
+.st-d-hub { fill: #cbd5e1; stroke: #475569; stroke-width: 1; }
+.st-d-hazard { fill: #fde047; }
+.st-d-shelf { stroke: #0f172a; stroke-width: 2.5; stroke-linecap: round; }
+.st-d-wheel { fill: #0f172a; }
+.st-d-plug { fill: #0f172a; }
+.st-d-cable { stroke: #0f172a; stroke-width: 3; fill: none; stroke-linecap: round; }
+.st-d-hole { fill: rgba(120, 53, 15, 0.45); }
+/* Piso de la celda */
+.st-floor-plates { fill: none; stroke: rgba(100, 116, 139, 0.28); stroke-width: 1; pointer-events: none; }
+.st-roll-axis { stroke: #78350f; stroke-width: 2; pointer-events: none; }
+/* Etiquetas en píldora (se leen sobre cualquier cosa) */
+.st-pill { pointer-events: none; }
+.st-pill rect { fill: rgba(255, 255, 255, 0.95); stroke: #cbd5e1; stroke-width: 1.5; }
+.st-pill text { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; }
+.st-pill .st-pill-sub { font-size: 16px; font-weight: 600; fill: #475569; }
+.st-pill--bad rect { stroke: #dc2626; stroke-width: 2.5; } .st-pill--bad text { fill: #b91c1c; }
+.st-pill--warn rect { stroke: #d97706; stroke-width: 2; }
+.st-pill--soak .st-pill-sub { fill: #6d28d9; } .st-pill--ready .st-pill-sub { fill: #15803d; } .st-pill--noalta .st-pill-sub { fill: #b91c1c; }
+.st-eq-lbl text { font-size: 19px; font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
+.st-eq-lbl--bad text { fill: #b91c1c; }
+/* Autos: perfil extruido, color = estado */
+.st-car { cursor: pointer; --st-car: #94a3b8; }
+.st-car--work { --st-car: #60a5fa; } .st-car--soak { --st-car: #a78bfa; } .st-car--ready { --st-car: #4ade80; }
+.st-car--wait { --st-car: #fbbf24; } .st-car--done { --st-car: #cbd5e1; } .st-car--noalta { --st-car: #fca5a5; }
+.st-c-shadow { fill: rgba(15, 23, 42, 0.2); }
+.st-c-side, .st-c-body, .st-c-front, .st-c-rear, .st-c-roof { stroke: rgba(15, 23, 42, 0.55); stroke-width: 1; stroke-linejoin: round; }
+.st-c-side { fill: color-mix(in srgb, var(--st-car) 84%, #0f172a); }
+.st-c-body, .st-c-front { fill: var(--st-car); }
+.st-c-rear { fill: color-mix(in srgb, var(--st-car) 74%, #0f172a); }
+.st-c-roof { fill: color-mix(in srgb, var(--st-car) 82%, #ffffff); }
+.st-c-glass { fill: url(#st-g-glass); stroke: #0f172a; stroke-width: 0.8; stroke-linejoin: round; }
+.st-c-belt { stroke: rgba(15, 23, 42, 0.35); stroke-width: 1.2; }
+.st-c-tire { fill: #111827; }
+.st-c-rim { fill: #cbd5e1; stroke: #64748b; stroke-width: 1; }
+.st-c-hub { fill: #475569; }
+.st-c-headlight { fill: #fef9c3; stroke: #a16207; stroke-width: 0.8; }
+.st-c-taillight { fill: #ef4444; stroke: #7f1d1d; stroke-width: 0.8; }
+.st-c-grille { fill: #1f2937; }
+.st-c-shine { fill: rgba(255, 255, 255, 0.3); }
+.st-car--noalta .st-c-roof { stroke: #b91c1c; stroke-width: 2; stroke-dasharray: 6 4; }
+.st-car--sel .st-c-roof, .st-car--sel .st-c-side { stroke: #2563eb; stroke-width: 3; }
+.st-car--moving { opacity: 0.55; }
+.st-car:focus-visible { outline: none; }
+.st-car:focus-visible .st-c-roof { stroke: #2563eb; stroke-width: 4; }
+.st-lg { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
+.st-lg--work { background: #60a5fa; } .st-lg--soak { background: #a78bfa; } .st-lg--ready { background: #4ade80; }
+.st-lg--wait { background: #fbbf24; } .st-lg--noalta { background: #fca5a5; } .st-lg--bad { background: transparent; box-shadow: 0 0 0 2px #dc2626 inset; }
+.st-health { margin: var(--space-sm) 0; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-sm); background: var(--surface-2, #f1f5f9); color: var(--text); }
+.st-health--bad { background: var(--danger-bg); color: var(--danger-text); }
+.st-health--warn { background: var(--warn-bg); color: var(--warn-text); }
+.st-health--ok { background: var(--ok-bg); color: var(--ok-text); }
+.st-inst { list-style: none; margin: var(--space-xs) 0; padding: 0; font-size: var(--fs-sm); }
+.st-inst li { display: flex; justify-content: space-between; gap: var(--space-sm); padding: var(--space-2xs) 0; border-bottom: 1px solid var(--border); }
+.st-row { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--fs-sm); padding: var(--space-2xs) 0; }
+.st-row span { color: var(--muted); }
+.st-unit-sub { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--space-xs); }
+.st-tools { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+.st-field { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
+.st-field select { font-size: var(--fs-base); padding: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.st-hint { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-sm) 0 0; }
+.st-danger { color: var(--danger-text); }
+.rm-room--lab .rm-door-lbl { font-size: 18px; }
+.rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }

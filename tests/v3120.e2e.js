@@ -68,7 +68,7 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     console.log('\n== Escritorio 1440×950 ==');
     let { context, page, errores } = await abrir(browser, { width: 1440, height: 950 });
     const card = await page.evaluate(() => { const c = document.querySelector('.cop-rep-card'); return c ? c.innerText : ''; });
-    ok('el Panorama trae el estatus del año calendario con su botón', /CoP 2026/i.test(card) && /4 de 12 ensayos/.test(card) && /Estatus de la semana/.test(card), card);
+    ok('el Panorama trae el estatus del año calendario con su botón', /CoP 2026/i.test(card) && /4 de 10 ensayos/.test(card) && /Estatus de la semana/.test(card), card);
     ok('declara los meses que el plan no trae', /no trae ene–may/.test(card), card);
     await page.locator('.cop-rep-card button').click();
     await page.waitForTimeout(800);
@@ -78,6 +78,7 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     const r5 = m.find(r => r.g === '5dr');
     ok('MY26 + MY27 del 5 puertas son una familia: 8,900 u → 6 ensayos, 3 hechos (el de 2025 no cuenta)', r5 && r5.vol === 8900 && r5.req === 6 && r5.done === 3 && r5.mys === '26 MODEL+27 MODEL', JSON.stringify(r5));
     const nota = await page.evaluate(() => document.querySelector('#cop-rep .cop-rep-note').innerText);
+    ok('[3.13.0] Medio Oriente EURO-5 pide 1 ensayo por familia', m.filter(r => r.g === '4dr').map(r => r.req).join() === '1', JSON.stringify(m.filter(r => r.g === '4dr')));
     ok('Medio Oriente: solo lo del alcance (EURO-5); lo de fuera NO se menciona en el reporte, la app sí lo lista', m.filter(r => r.g === '4dr').length === 1 &&
         !/EURO-4/.test(t) && !/Fuera del alcance/.test(t) && /fuera del alcance CoP: .*EURO-4/.test(nota), nota);
     ok('el corte de la semana queda guardado', await page.evaluate(() => !!(copState.yearCuts && copState.yearCuts[copRepMonday(localToday())])));
@@ -122,6 +123,23 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     await page.waitForTimeout(300);
     ok('por año modelo sigue funcionando como antes (y suelta la familia del año)', await page.evaluate(() =>
         /por año modelo/.test(document.querySelector('#platform-cop .card-title').innerText) && !copState.familyKey));
+
+    // [3.13.0] El Plan pide lo que le falta a la familia del año, a la configuración que sigue en producción.
+    const pl = await page.evaluate(() => {
+        const a = {}; tpGetAnalysis().forEach(x => { a[x.desc] = x; });
+        const sel = tpSelectWeeklyItems({ capacity: 8, ignoreFilters: true }).items.map(i => i.desc);
+        return { d26: a['CL4-26 MODEL-5DR'].deficit, d27: a['CL4-27 MODEL-5DR'].deficit, pend: a['CL4-27 MODEL-5DR'].copYear.pending, sel };
+    });
+    ok('[3.13.0] Plan: al 5 puertas le faltan 3 del año y se piden al MY27 (el MY26 ya salió de línea)', pl.d27 === 3 && pl.d26 === 0 && pl.pend === 3 &&
+        pl.sel.indexOf('CL4-26 MODEL-5DR') < 0 && pl.sel.indexOf('CL4-27 MODEL-5DR') >= 0, JSON.stringify(pl));
+    await page.evaluate(() => { switchPlatform('testplan'); tpSwitchTab('tp-rules'); });
+    await page.waitForTimeout(500);
+    ok('[3.13.0] Plan → Reglas trae el interruptor del REQ de corporativo, encendido', await page.evaluate(() => {
+        const c = document.getElementById('tp-copreq-mode'); return !!c && c.checked; }));
+    await page.evaluate(() => { const c = document.getElementById('tp-copreq-mode'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await page.waitForTimeout(300);
+    ok('[3.13.0] apagarlo vuelve a las reglas de ratio y queda auditado', await page.evaluate(() =>
+        !tpCopReqModeOn() && !tpGetAnalysis().some(x => x.copYear) && auditGetView().some(e => e.action === 'req_cop_corporativo')));
     ok('sin errores de página', !errores.length, errores.join(' | '));
     await context.close();
 

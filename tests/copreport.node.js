@@ -13,6 +13,8 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'copreport.js')
 // La familia del año calendario vive en cop_validator.js (junto a copVehicleFamilyKey): su bloque real.
 const _cv = fs.readFileSync(path.join(__dirname, '..', 'js', 'cop_validator.js'), 'utf8');
 vm.runInContext(/\/\/ \[3\.12\.0\] Familia del AÑO CALENDARIO[\s\S]*?(?=\/\*\*\n \* \[2\.4\.0\])/.exec(_cv)[0], ctx, { filename: 'cop_validator.js' });
+// [3.13.0] Las reglas de corporativo (COP_HQ_RULES, copHqRuleFor, copInScope): su bloque real.
+vm.runInContext(/var COP_HQ_RULES = \[[\s\S]*?(?=\/\/ ─── CACHE DEL PANORAMA)/.exec(_cv)[0], ctx, { filename: 'cop_validator.js' });
 // copVehicleInFamily usa la clave de siempre (cop_validator.js) y la fecha de prueba (app.js)
 vm.runInContext(`
 function copVehicleFamilyKey(v) { var c = v.config; return [c.Modelo, c.ENG, c.TX, c.MY, c.REG, c.EP || '', c.EPK || '', c.BODY].join('|'); }
@@ -26,6 +28,28 @@ console.log('\n== La regla de lotes de corporativo ==');
 const casos = [[0, 0], [-5, 0], [1, 3], [7500, 3], [7501, 6], [12500, 6], [12501, 9], [17500, 9], [17501, 12], [40000, 3 * (1 + Math.ceil(32500 / 5000))]];
 casos.forEach(([u, r]) => ok(u + ' unidades → ' + r + ' ensayos', C.copLotRequired(u) === r, C.copLotRequired(u)));
 ok('el siguiente lote empieza en la unidad 7,501 y luego cada 5,000', C.copLotNextAt(100) === 7501 && C.copLotNextAt(7600) === 12501 && C.copLotNextAt(12500) === 12501);
+
+console.log('\n== [3.13.0] Reglas de corporativo por región + norma ==');
+const R = (rgn, reg) => C.copHqRuleFor({ rgn, reg });
+ok('Europa PRE-EURO 7 → lotes (también escrito EUROPA)', R('EUROPE', 'PRE-EURO 7').rule === 'lot' && R('EUROPA', 'pre-euro 7').rule === 'lot');
+ok('General EURO-6C → lotes', R('GENERAL', 'EURO-6C').rule === 'lot');
+ok('Medio Oriente EURO-5 → 1 por familia', R('MIDDLE EAST', 'EURO-5').rule === 'one');
+ok('Europa EURO-5 no pide; Medio Oriente EURO-4 tampoco', R('EUROPE', 'EURO-5') === null && R('MIDDLE EAST', 'EURO-4') === null);
+ok('un vehículo se lee por su config', C.copHqRuleFor({ config: { REGION: 'GENERAL', 'EMISSION REGULATION': 'EURO-6C' } }).rule === 'lot');
+ok('alcance = tiene regla: Europa EURO-5 queda fuera por su norma', !C.copInScope({ rgn: 'EUROPE', reg: 'EURO-5' }).ok && C.copInScope({ rgn: 'EUROPE', reg: 'EURO-5' }).kind === 'regulation');
+ok('General EURO-6C entra; USA queda fuera por región', C.copInScope({ rgn: 'GENERAL', reg: 'EURO-6C' }).ok && C.copInScope({ rgn: 'USA', reg: 'SULEV 30' }).kind === 'region');
+ok('General EURO-4 queda fuera aunque General esté en el alcance', !C.copInScope({ rgn: 'GENERAL', reg: 'EURO-4' }).ok);
+ok('el alcance se dice por parejas', C.copScopeLabel() === 'Europa · PRE-EURO 7 · General · EURO-6C · Medio Oriente · EURO-5', C.copScopeLabel());
+ok('1 por familia: 50 unidades → 1; sin producción → 0', C.copYearRequired('one', 50) === 1 && C.copYearRequired('one', 0) === 0);
+ok('lotes: 8,000 unidades → 6 (la misma regla de copLotRequired)', C.copYearRequired('lot', 8000) === 6 && C.copYearRequired('lot', 27) === 3);
+
+console.log('\n== [3.13.0] Lo que le falta a una familia para el Plan ==');
+ok('pendiente = REQ − hechas − en curso − declaradas, nunca negativo', C.copYearPlanPending({ req: 6, done: 2, inFlight: 1, declared: 1 }) === 2 && C.copYearPlanPending({ req: 3, done: 5 }) === 0);
+const sp = C.copYearPlanSplit(3, [{ desc: 'MY26', upcoming: 0, total: 900 }, { desc: 'MY27a', upcoming: 500, total: 500 }, { desc: 'MY27b', upcoming: 200, total: 200 }]);
+ok('se reparte solo entre las que siguen en producción, de mayor a menor', sp.MY27a === 2 && sp.MY27b === 1 && !sp.MY26, JSON.stringify(sp));
+const sp2 = C.copYearPlanSplit(2, [{ desc: 'A', upcoming: 0, total: 100 }, { desc: 'B', upcoming: 0, total: 300 }, { desc: 'C', upcoming: 0, total: 999, paused: true }]);
+ok('sin ninguna en producción, todo a la de más volumen sin pausar', sp2.B === 2 && !sp2.A && !sp2.C, JSON.stringify(sp2));
+ok('sin pendiente no se reparte nada', Object.keys(C.copYearPlanSplit(0, [{ desc: 'A', upcoming: 9 }])).length === 0);
 
 console.log('\n== La familia del año calendario va ENCIMA de la de siempre ==');
 const k26 = 'CL4|1000cc KAPPA PE|6MT|26 MODEL|PRE-EURO 7||| 5DR'.replace('| 5DR', '|5DR');
@@ -127,6 +151,19 @@ ok('declara los meses que el plan no trae', /no trae/.test(C.copYearReportHTML(O
 ok('explica la regla de muestreo', /7,500/.test(H) && /12,500/.test(H));
 ok('no trae VIN (sale fuera de KIA)', H.indexOf('>A<') < 0 && !/\bVIN\b/.test(H));
 ok('el texto plano resume avance y faltantes', /Avance global 67%/.test(C.copRepPlainText(M)) && /faltan 2/.test(C.copRepPlainText(M)));
+// [3.13.0] Tres regiones, cada una con su regla y su pie.
+const cfgR = (mod, rgn, reg, body, m) => ({ mod, eng: '1600cc GAMMA', tx: '6AT', my: '26 MODEL', reg, ep: '0', engpkg: '0', body, rgn, m });
+const ruleOf = c => C.copHqRuleFor(c);
+const PHQ = C.copYearProduction({ year: 2026, months: ['Jun-26'], planData: [cfgR('CL4', 'EUROPE', 'PRE-EURO 7', '5DR', [8000]),
+    cfgR('BL7m', 'GENERAL', 'EURO-6C', '5DR', [151]), cfgR('BL7m', 'MIDDLE EAST', 'EURO-5', '4DR', [815])],
+    inScope: c => C.copInScope(c).ok, keyOf, ruleOf });
+const MHQ = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: PHQ, tests: [], prevSaved: null });
+const byReg = {}; MHQ.regions.forEach(rg => { byReg[rg.id] = rg; });
+ok('secciones en orden: Europa, General · EURO-6C, Medio Oriente', MHQ.regions.map(r => r.id).join(',') === 'EUROPE,GENERAL,MIDDLE EAST' && byReg.GENERAL.label === 'General · EURO-6C');
+ok('Europa 8,000 → 6 · General 151 → 3 · Medio Oriente 815 → 1', byReg.EUROPE.rows[0].req === 6 && byReg.GENERAL.rows[0].req === 3 && byReg['MIDDLE EAST'].rows[0].req === 1);
+ok('Medio Oriente no tiene "siguiente lote"', byReg['MIDDLE EAST'].rows[0].nextLotAt === null && byReg.EUROPE.rows[0].nextLotAt === 12501);
+const HHQ = C.copYearReportHTML(MHQ, {});
+ok('el pie dice la regla de cada región', /Medio Oriente:<\/b> 1 ensayo por familia con producción en el año/.test(HHQ) && /General · EURO-6C:<\/b> hasta 7,500/.test(HHQ));
 ok('documento imprimible completo', /^<!doctype html>/.test(C.copYearReportDocument(M, {})) && /@page/.test(C.copYearReportDocument(M, {})));
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

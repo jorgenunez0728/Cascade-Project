@@ -857,7 +857,9 @@ var _invRoom = { sel: null, selSlot: null, moving: null, filter: null, cam: null
 // (`uiPref('roomWhich')`); cada uno guarda su propia cámara.
 var INV_ROOM_WHICH = {
     gases:    { label: 'Cuarto de gases', short: 'Gases', icon: '🧪', camPref: 'roomCam' },
-    gasolina: { label: 'Cuarto de gasolina', short: 'Gasolina', icon: '⛽', camPref: 'roomCamFuel' }
+    gasolina: { label: 'Cuarto de gasolina', short: 'Gasolina', icon: '⛽', camPref: 'roomCamFuel' },
+    // [3.14.0] La celda de pruebas y el cuarto de acondicionamiento (js/sitio.js, su propia escena).
+    lab:      { label: 'Laboratorio', short: 'Laboratorio', icon: '🚗', camPref: 'roomCamLab' }
 };
 function _invRoomWhich() {
     var w = typeof uiPref === 'function' ? uiPref('roomWhich') : null;
@@ -872,7 +874,7 @@ function invRoomSwitch(which) {
     _invRoomFlyTok++;
     _invRoom = { sel: null, selSlot: null, moving: null, filter: null, cam: null };
     if (typeof uiPref === 'function') uiPref('roomWhich', which);
-    var host = document.getElementById('rm-wrap');
+    var host = document.getElementById('rm-wrap') || document.getElementById('st-wrap');
     if (host && host.parentNode) invRoomRender(host.parentNode); else if (typeof invRender === 'function') invRender();
 }
 
@@ -938,17 +940,25 @@ function _invRoomSceneNow() {
 }
 
 /** Punto de entrada: pinta la pestaña 🗺️ Cuarto dentro de `el`. */
-function invRoomRender(el) {
-    if (!el) return;
-    var narrow = _invRoomNarrow();
-    var labels = _invRoomLabelsOn();
-    var fuel = _invRoomIsFuel(), which = _invRoomWhich(), W = INV_ROOM_WHICH[which];
-    // [3.11.0] Los dos cuartos con la misma pantalla: el selector va al principio de la barra.
-    var sw = '<div class="rm-switch" role="tablist" aria-label="Qué cuarto ver" data-help="inv-room-help">' + Object.keys(INV_ROOM_WHICH).map(function(k) {
+/** El selector de mapa (gases · gasolina · laboratorio), al principio de la barra. */
+function _invRoomSwitchHTML() {
+    var which = _invRoomWhich();
+    return '<div class="rm-switch" role="tablist" aria-label="Qué mapa ver" data-help="inv-room-help">' + Object.keys(INV_ROOM_WHICH).map(function(k) {
         var on = k === which, d = INV_ROOM_WHICH[k];
         return '<button type="button" role="tab" class="rm-switch-btn' + (on ? ' rm-switch-btn--on' : '') + '" aria-selected="' + on + '" data-room="' + k + '" onclick="invRoomSwitch(\'' + k + '\')" title="Mapa · ' + d.label + '">' +
                '<span aria-hidden="true">' + d.icon + '</span> ' + d.short + '</button>';
     }).join('') + '</div>';
+}
+
+function invRoomRender(el) {
+    if (!el) return;
+    // [3.14.0] El laboratorio (celda + acondicionamiento) tiene su propia escena.
+    if (_invRoomWhich() === 'lab' && typeof siteRender === 'function') { siteRender(el); return; }
+    var narrow = _invRoomNarrow();
+    var labels = _invRoomLabelsOn();
+    var fuel = _invRoomIsFuel(), which = _invRoomWhich(), W = INV_ROOM_WHICH[which];
+    // [3.11.0] Los dos cuartos con la misma pantalla: el selector va al principio de la barra.
+    var sw = _invRoomSwitchHTML();
     var actions = fuel
         ? '<button type="button" class="rm-bar-btn" onclick="invRoomFuelTypesOpen()" title="Cuántos tipos de gasolina hay y cómo se llaman">⛽ Tipos</button>' +
           '<button type="button" class="rm-bar-btn" onclick="invRoomFuelAddDrum()" title="Dar de alta un tambo en una posición libre">＋ Tambo</button>'
@@ -2061,6 +2071,6 @@ function invRoomFuelTypeDelete(id) {
 // ── Ayuda ────────────────────────────────────────────────────────────
 if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
-        'inv-room-help': { title: 'Cuartos de gases y gasolina', text: 'Cada cuarto visto desde arriba o en 3D, con cada cilindro o tambo en su posición real: su relleno es el nivel y su color el estado. Toca uno para ver su estado y tomar la lectura. En el de gasolina la tapa de cada tambo es el color de su tipo, y arriba sale el total de cada tipo entre todos sus tambos.' }
+        'inv-room-help': { title: 'Mapas: gases, gasolina y laboratorio', text: 'Cada cuarto visto desde arriba o en 3D, con cada cilindro o tambo en su posición real: su relleno es el nivel y su color el estado. Toca uno para ver su estado y tomar la lectura. En el de gasolina la tapa de cada tambo es el color de su tipo, y arriba sale el total de cada tipo entre todos sus tambos. 🚗 Laboratorio es la celda de pruebas y el cuarto de acondicionamiento: dónde está cada unidad y cada equipo.' }
     });
 }
