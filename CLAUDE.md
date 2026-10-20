@@ -3540,3 +3540,38 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   la app no guardó corte la semana pasada, compara contra `digest/state.copLastCut`. El verificador
   (`digest-check`, que también lee `settings/digest`) cuenta el estatus CoP.
 
+## 3.13.0 — El CoP de corporativo en el reporte y en el Plan (`js/cop_validator.js`, `js/copreport.js`, `js/testplan.js`)
+
+Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la regla del reporte
+(lotes para todo).
+
+- **`COP_HQ_RULES` es LA definición de qué entra al CoP**: parejas región + norma con su regla
+  (`'lot'` = `copLotRequired`; `'one'` = 1 por familia con producción en el año). Europa
+  PRE-EURO 7 y General EURO-6C → lotes; Medio Oriente EURO-5 → 1; Europa EURO-5 NO entra
+  (decisión del laboratorio, 20-oct-2026). **`copHqRuleFor(x)`** (PURA) es la forma de
+  preguntarlo; sin `copState.scope` personalizado, `copInScope` = tiene regla. Una pareja nueva
+  = una fila ahí, no otra lista de normas. Los textos dicen el alcance con `copScopeLabel()`.
+- **`copYearRequired(rule, units)`** (PURA) es el REQ de una regla; el reporte ya no llama
+  `copLotRequired` directo. Cada familia lleva `rule` (de `copYearProduction`, `ruleOf`).
+- **El Plan pide el REQ de corporativo para esas familias** (`tpState.copReqMode`, encendido
+  salvo que se apague en Plan → Reglas; leerlo con `tpCopReqModeOn()`):
+  - pendiente = REQ del año − ensayos que cuentan − en curso − declaradas
+    (`copYearPlanPending`, PURA). REQ y hechas salen de **`copYearReportModel`**: el Plan y el
+    estatus dan el mismo número por construcción (también respeta ⚙️ Familias y la producción
+    real). No recalcularlo por otro lado.
+  - en curso = vivos (`vehicleIsLive`, o histórico pendiente) del alcance, cuyo propósito
+    acredita, con fecha de prueba (o de alta) en el año;
+  - de la lista de probadas solo cuentan las **declaradas del año** y las filas que simula el
+    horizonte (`source:'plan'`): lo demás ya está en `db.vehicles`;
+  - el reparto (`copYearPlanSplit`, PURA) va solo a configuraciones sin pausar con producción
+    en los meses que vienen; la que acredita lo cubierto (`rep`) lleva además las hechas, para
+    que una familia cumplida cuente como cumplida en la cobertura.
+- En el análisis, una fila con `copYear` tiene `required`/`deficit` de la familia del año y
+  `testedN` de la configuración (evidencia). **No comparar `testedN >= required` para decir
+  "cumplida"**: usar `deficit === 0` (el simulador se migró).
+- Toda caché que cuente probadas incluye `tpCopReqRev()` (cambia con `_copRev` y el día).
+- `copYearReportModel` carga el estado del CoP si nadie lo ha abierto (`copInitState`): el Plan
+  lo pide desde el arranque.
+- Sync del interruptor: `tpCopReqModeUnion` / `tpCopReqModeNewTo` (gana `at` más reciente) en
+  `_fbPullSeed`, `merge_all`, `hasWork` y `_fbLocalHasExtras`.
+

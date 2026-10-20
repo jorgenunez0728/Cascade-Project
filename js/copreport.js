@@ -7,7 +7,8 @@
 // ║   · copYearKeyOf — la familia del año calendario, ENCIMA de la clave  ║
 // ║     de siempre (el segmento del MY pasa a "CAL 2026"; la clave de     ║
 // ║     copVehicleFamilyKey/tpFamilyKeyForCfg y los juicios no cambian);  ║
-// ║   · copLotRequired — la regla de lotes que pidió corporativo;         ║
+// ║   · copLotRequired / copYearRequired — las reglas de corporativo      ║
+// ║     (lotes; 1 por familia en Medio Oriente — 3.13.0);                 ║
 // ║   · copYearProduction / copYearReportCompute — PURAS;                  ║
 // ║   · el reporte gerencial (copYearReportHTML, estilos literales: el    ║
 // ║     mismo HTML sirve en pantalla, impreso y por correo).              ║
@@ -37,6 +38,54 @@ function copLotNextAt(units) {
     if (u <= 0) return 1;
     if (u <= COP_LOT_FIRST) return COP_LOT_FIRST + 1;
     return COP_LOT_FIRST + Math.ceil((u - COP_LOT_FIRST) / COP_LOT_NEXT) * COP_LOT_NEXT + 1;
+}
+
+/**
+ * [3.13.0] Ensayos que pide una regla de corporativo (COP_HQ_RULES) con `units`
+ * producidas en el año. PURA. 'lot' → copLotRequired; 'one' → 1 si hubo producción.
+ */
+function copYearRequired(rule, units) {
+    var u = Math.floor(Number(units) || 0);
+    if (u <= 0) return 0;
+    if (rule === 'one') return 1;
+    return copLotRequired(u);
+}
+
+/**
+ * [3.13.0] Lo que le falta a una familia del año para el PLAN. PURA.
+ * f = {req, done, inFlight, declared}: REQ del año − ensayos que cuentan − en curso
+ * (registrados, todavía sin aprobar) − declaradas o propuestas en el plan. Nunca < 0.
+ */
+function copYearPlanPending(f) {
+    f = f || {};
+    var n = (Number(f.req) || 0) - (Number(f.done) || 0) - (Number(f.inFlight) || 0) - (Number(f.declared) || 0);
+    return Math.max(0, n);
+}
+
+/**
+ * [3.13.0] Reparte el pendiente de una familia entre sus configuraciones. PURA.
+ * cfgs = [{desc, upcoming, total, paused}]. Solo las que tienen producción en los meses
+ * que vienen (sin pausar), de mayor a menor, una por vuelta: así el generador no propone
+ * un año modelo que ya salió de línea. Sin ninguna en producción, todo va a la de mayor
+ * volumen sin pausar. Devuelve {desc: n}.
+ */
+function copYearPlanSplit(pending, cfgs) {
+    var out = {}, n = Math.max(0, Math.floor(Number(pending) || 0));
+    var live = (cfgs || []).filter(function(c) { return c && c.desc && !c.paused; });
+    if (!n || !live.length) return out;
+    var cand = live.filter(function(c) { return (Number(c.upcoming) || 0) > 0; })
+        .sort(function(a, b) { return (b.upcoming - a.upcoming) || ((b.total || 0) - (a.total || 0)) || (a.desc < b.desc ? -1 : 1); });
+    if (!cand.length) {
+        cand = live.slice().sort(function(a, b) { return ((b.total || 0) - (a.total || 0)) || (a.desc < b.desc ? -1 : 1); }).slice(0, 1);
+    }
+    for (var i = 0; i < n; i++) { var d = cand[i % cand.length].desc; out[d] = (out[d] || 0) + 1; }
+    return out;
+}
+
+/** [3.13.0] Cómo se dice una regla en el reporte. PURA. */
+function copYearRuleText(rule) {
+    return rule === 'one' ? '1 ensayo por familia con producción en el año'
+        : 'hasta 7,500 unidades producidas, 3 ensayos; de 7,501 a 12,500, 6; cada 5,000 unidades adicionales (o fracción), 3 más';
 }
 
 // La familia del año calendario (copYearKeyOf, copYearOfKey, copVehicleInFamily) vive en
@@ -81,7 +130,8 @@ function _copRepMonth(label) {
 /**
  * LA producción de un año calendario por familia. PURA.
  * src = {year, months:[etiquetas], planData:[cfg con m[] alineado a months],
- *        inScope(cfg)→bool, keyOf(cfg)→clave de familia, actuals:{clave_año:{m:[12]}}}
+ *        inScope(cfg)→bool, keyOf(cfg)→clave de familia, actuals:{clave_año:{m:[12]}},
+ *        ruleOf(cfg)→fila de COP_HQ_RULES o null (opcional)}
  *
  * - Un mes "tiene dato" si viene en el plan y el plan ENTERO trae unidades ese mes: un
  *   mes en cero para todas las configuraciones es un mes que el CSV no trajo, no un mes
@@ -108,9 +158,16 @@ function copYearProduction(src) {
         if (!f) f = fams[yk] = { key: yk, mod: c.mod || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
             ep: (c.ep && c.ep !== '0') ? c.ep : '', engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
             body: (c.body && c.body !== '0') ? c.body : '', regions: {}, mys: {}, configs: 0,
-            plan: [0,0,0,0,0,0,0,0,0,0,0,0] };
+            plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '' };
         f.configs++;
         if (c.rgn) f.regions[c.rgn] = true;
+        // [3.13.0] La regla de corporativo de la familia. Si dos configuraciones traen reglas
+        // distintas, manda 'lot' (pide más) y se marca: no se elige la barata en silencio.
+        var hr = src.ruleOf ? src.ruleOf(c) : null;
+        if (hr && hr.rule) {
+            if (f.rule && f.rule !== hr.rule) f.ruleMixed = true;
+            if (!f.rule || hr.rule === 'lot') { f.rule = hr.rule; f.ruleLabel = hr.label || ''; }
+        }
         var añoCfg = 0;
         (c.m || []).forEach(function(v, i) { if (idx[i] >= 0) { f.plan[idx[i]] += Number(v) || 0; añoCfg += Number(v) || 0; } });
         if (c.my && añoCfg > 0) f.mys[c.my] = true;
@@ -154,8 +211,8 @@ function copRepIsoWeek(iso) {
     return 1 + Math.round(((d - first) / 86400000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
 }
 
-var COP_REP_REGION_ORDER = ['EUROPE', 'MIDDLE EAST'];
-var COP_REP_REGION_LABEL = { 'EUROPE': 'Europa', 'MIDDLE EAST': 'Medio Oriente' };
+var COP_REP_REGION_ORDER = ['EUROPE', 'GENERAL', 'MIDDLE EAST'];
+var COP_REP_REGION_LABEL = { 'EUROPE': 'Europa', 'GENERAL': 'General · EURO-6C', 'MIDDLE EAST': 'Medio Oriente' };
 
 /**
  * Estado de una familia para el reporte: cruza cobertura (lotes) y veredicto. PURA.
@@ -218,7 +275,8 @@ function copYearReportCompute(src) {
         var prevTests = e.tests.filter(function(t) { return t.date <= prevCut; });
         var closed = cutYear > year ? 12 : (cutYear < year ? 0 : cutMonth - 1);
         var volToDate = f.m.slice(0, closed).reduce(function(s, v) { return s + v; }, 0);
-        var req = copLotRequired(f.vol);
+        var rule = f.rule || 'lot';
+        var req = copYearRequired(rule, f.vol);
         var done = e.tests.length;
         var verdict = src.verdictOf ? src.verdictOf(k, e.tests) : null;
         var p = prev ? prev.rows[k] : null;
@@ -236,7 +294,8 @@ function copYearReportCompute(src) {
             key: k, label: copRepFamilyLabel(f), fam: f, region: region, regions: regions, group: g,
             mys: Object.keys(f.mys).sort(), configs: f.configs, noPlan: !!f.noPlan,
             vol: f.vol, volToDate: volToDate, months: f.m, monthSrc: f.src,
-            req: req, reqToDate: copLotRequired(volToDate), nextLotAt: copLotNextAt(f.vol),
+            rule: rule, ruleLabel: f.ruleLabel || '', ruleMixed: !!f.ruleMixed,
+            req: req, reqToDate: copYearRequired(rule, volToDate), nextLotAt: rule === 'lot' ? copLotNextAt(f.vol) : null,
             done: done, prevDone: prevDone, added: done - prevDone, pending: Math.max(0, req - done),
             prevReq: prevReq, prevVol: p ? (Number(p.vol) || 0) : null, volDelta: p ? f.vol - (Number(p.vol) || 0) : null,
             progress: progress, prevProgress: prevProgress, deltaPp: Math.round((progress - prevProgress) * 1000) / 10,
@@ -276,7 +335,10 @@ function copYearReportCompute(src) {
         rows: rows,
         regions: regionsOut.map(function(rg) {
             var list = rows.filter(function(r) { return r.region === rg; });
-            return { id: rg, label: COP_REP_REGION_LABEL[rg] || rg || '(sin región)', rows: list, total: sum(list) };
+            var rules = {};
+            list.forEach(function(r) { rules[r.rule] = true; });
+            return { id: rg, label: COP_REP_REGION_LABEL[rg] || rg || '(sin región)', rows: list, total: sum(list),
+                     rules: Object.keys(rules).sort() };
         }),
         total: sum(rows),
         missingMonths: prod.missing || [],
@@ -424,7 +486,7 @@ function copYearReportHTML(m, opts) {
     var tiles = [
         { k: 'Avance global', v: _crPct(T.progress), d: _crDelta(T.deltaPp, ' pp') + ' vs semana anterior', bar: _crBar(T.progress, T.prevProgress, '#2563eb') },
         { k: 'Ensayos válidos ' + m.year, v: _crNum(T.done) + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + _crNum(T.req) + '</span>', d: _crDelta(T.added, '') + ' esta semana' },
-        { k: 'Pendientes', v: _crNum(T.pending), d: 'para cubrir los lotes de ' + _crNum(T.vol) + ' unidades' },
+        { k: 'Pendientes', v: _crNum(T.pending), d: 'para cubrir el REQ de ' + _crNum(T.vol) + ' unidades producidas' },
         { k: 'Familias cumplidas', v: T.ok + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + T.withReq + '</span>',
           d: T.fail ? '<span style="color:#b91c1c;font-weight:700;">' + T.fail + ' no concordante' + (T.fail > 1 ? 's' : '') + '</span>' : 'ninguna no concordante' }
     ];
@@ -501,7 +563,12 @@ function copYearReportHTML(m, opts) {
     }
     // Notas
     var foot = [];
-    foot.push('<b>Regla de muestreo:</b> hasta 7,500 unidades producidas, 3 ensayos; de 7,501 a 12,500, 6; cada 5,000 unidades adicionales (o fracción), 3 más. Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
+    // [3.13.0] La regla de cada región, tal como la pide corporativo.
+    var ruleLines = m.regions.filter(function(rg) { return rg.rows.length; }).map(function(rg) {
+        return '<b>' + _crEsc(rg.label) + ':</b> ' + rg.rules.map(copYearRuleText).join('; ') + '.';
+    });
+    foot.push('<b>Regla de muestreo</b> (año calendario). ' + (ruleLines.length ? ruleLines.join(' ') : copYearRuleText('lot') + '.') +
+              ' Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
     foot.push('<b>Cuentan</b> los ensayos aprobados y válidos para CoP con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
     var nc = Object.keys(m.nonCopPurposes);
     if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
@@ -585,6 +652,7 @@ function _copRepProduction(year, inScope) {
         year: year, months: (typeof tpMonths === 'function') ? tpMonths() : [],
         planData: (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : [],
         inScope: inScope, keyOf: tpFamilyKeyForCfg,
+        ruleOf: (typeof copHqRuleFor === 'function') ? function(c) { return copHqRuleFor(c); } : null,
         actuals: (copState.yearProd && copState.yearProd[year]) || {}
     });
 }
@@ -596,6 +664,8 @@ var _copRepCache = { key: '', model: null };
  */
 function copYearReportModel(opts) {
     opts = opts || {};
+    // [3.13.0] El Plan lo pide aunque nadie haya abierto el CoP: que el estado esté cargado.
+    if (typeof _copLoaded !== 'undefined' && !_copLoaded && typeof copInitState === 'function') copInitState();
     var cut = opts.cutIso || localToday();
     var year = Number(cut.slice(0, 4));
     var nVeh = ((typeof db !== 'undefined' && db.vehicles) || []).length;
@@ -603,7 +673,7 @@ function copYearReportModel(opts) {
                (typeof tpMonths === 'function' ? tpMonths().length : 0)].join('|');
     if (!opts.force && _copRepCache.key === key && _copRepCache.model) return _copRepCache.model;
     var prod = _copRepProduction(year, function(c) { return copInScope(c).ok; });
-    var out = _copRepProduction(year, function(c) { return copScopeHasRegion(c.rgn) && !copScopeHasReg(c.reg); });
+    var out = _copRepProduction(year, function(c) { return copScopeHasRegion(c.rgn) && !copInScope(c).ok; });
     var outOfScope = Object.keys(out.fams).map(function(k) { return out.fams[k]; })
         .filter(function(f) { return f.vol > 0; })
         .sort(function(a, b) { return b.vol - a.vol; })

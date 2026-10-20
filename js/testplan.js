@@ -12,7 +12,7 @@ function _tpInvalidateCache() { _tpCache.planHash = null; }
 function _tpGetPlanHash() {
     if (!tpState || !tpState.planData) return '';
     // [2.31.0] + _tpCopUsableRev: si un ensayo deja de servir para CoP, el conteo cambia.
-    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0) + '_' + (_tpCopUsableRev || 0);
+    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0) + '_' + (_tpCopUsableRev || 0) + '_' + tpCopReqRev();
 }
 
 // ======================================================================
@@ -1196,13 +1196,197 @@ function tpGetAnalysis() {
     // pasa al palomear y despalomear en el plan.
     var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' +
                    (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '') +
-                   ':' + (tpState._lastSave || 0) + ':' + _tpCopUsableRev;
+                   ':' + (tpState._lastSave || 0) + ':' + _tpCopUsableRev + ':' + tpCopReqRev();
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
     var result = _tpAnalyze(tpState.testedList);
 
     _tpAnalysisCache = { key: cacheKey, data: result };
     return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.13.0] EL REQ DE CORPORATIVO EN EL PLAN
+//
+// Para las parejas de COP_HQ_RULES (Europa PRE-EURO 7, General EURO-6C, Medio Oriente
+// EURO-5) el Plan ya no pide lo de Plan → Reglas por configuración: pide lo que le
+// falta a la familia DEL AÑO CALENDARIO según corporativo — el mismo número del
+// estatus semanal (copYearReportModel). Sin esto el armador proponía MY27 en familias
+// que corporativo ya daba por cumplidas con los MY26 del año.
+//   pendiente = REQ del año − ensayos que cuentan − en curso − declaradas/propuestas
+// y se reparte entre las configuraciones que siguen en producción (copYearPlanSplit).
+// El resto del catálogo (USA, Canadá, México, Australia, General EURO-2/4…) sigue con
+// sus reglas. Se apaga en Plan → Reglas (tpState.copReqMode, sincronizado).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** ¿El Plan usa el REQ de corporativo? Encendido salvo que el laboratorio lo apague. */
+function tpCopReqModeOn() {
+    var m = tpState.copReqMode;
+    return !(m && typeof m === 'object' && m.on === false);
+}
+
+/** Une el interruptor de dos equipos: gana el cambio más reciente. PURA y simétrica. */
+function tpCopReqModeUnion(a, b) {
+    var ok = function(x) { return x && typeof x === 'object' && typeof x.on === 'boolean'; };
+    if (!ok(a)) return ok(b) ? b : (a || b || null);
+    if (!ok(b)) return a;
+    var aa = String(a.at || ''), ba = String(b.at || '');
+    if (aa !== ba) return aa > ba ? a : b;
+    return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+}
+
+/** ¿`incoming` trae un cambio del interruptor más nuevo que `known`? PURA (la usa el sync). */
+function tpCopReqModeNewTo(known, incoming) {
+    if (!incoming || typeof incoming !== 'object' || typeof incoming.on !== 'boolean') return false;
+    if (!known || typeof known !== 'object' || typeof known.on !== 'boolean') return true;
+    return tpCopReqModeUnion(known, incoming) === incoming && JSON.stringify(known) !== JSON.stringify(incoming);
+}
+
+/** Enciende o apaga el REQ de corporativo en el Plan (permiso del plan, auditado). */
+function tpSetCopReqMode(on) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar de dónde sale el REQ de CoP')) return false;
+    var before = tpCopReqModeOn();
+    on = !!on;
+    if (before === on) return true;
+    var who = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '';
+    tpState.copReqMode = { on: on, at: new Date().toISOString(), by: who };
+    _tpCopReqMemo = { key: null, data: null };
+    if (typeof auditLog === 'function') {
+        auditLog('testplan', 'req_cop_corporativo', { type: 'plan', label: 'REQ de CoP en el Plan' },
+                 on ? 'El Plan pide el REQ de corporativo (año calendario)' : 'El Plan vuelve a las reglas de Plan → Reglas para CoP',
+                 { before: { copCorporativo: before }, after: { copCorporativo: on } });
+    }
+    tpSave();
+    if (typeof tpRender === 'function') tpRender();
+    return true;
+}
+
+/** Huella de lo que mueve el REQ de corporativo (para las cachés que cuentan probadas). */
+function tpCopReqRev() {
+    if (!tpCopReqModeOn()) return 'off';
+    return String((typeof _copRev !== 'undefined') ? _copRev : 0) + ':' + localToday();
+}
+
+var _tpCopReqMemo = { key: null, data: null };
+/**
+ * [3.13.0] Lo que no depende de la lista de probadas: REQ y hechas de cada familia del
+ * año (del estatus de corporativo), los vehículos en curso y los meses que vienen.
+ * Memoizada. null si el modo está apagado o el módulo CoP no está.
+ */
+function tpCopReqBase() {
+    if (!tpCopReqModeOn()) return null;
+    if (typeof copYearReportModel !== 'function' || typeof copHqRuleFor !== 'function' ||
+        typeof copYearKeyOf !== 'function' || typeof copInScope !== 'function') return null;
+    var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    var today = localToday();
+    var key = [today, vehs.length, _tpCopUsableRev, (typeof _copRev !== 'undefined') ? _copRev : 0,
+               tpState._lastSave || 0, tpState.planData.length].join('|');
+    if (_tpCopReqMemo.key === key) return _tpCopReqMemo.data;
+    var data = null;
+    try {
+        var model = copYearReportModel();
+        var year = model.year;
+        var fams = {};
+        model.rows.forEach(function(r) {
+            fams[r.key] = { key: r.key, label: r.label, rule: r.rule, req: r.req, done: r.done, inFlight: 0, vol: r.vol };
+        });
+        var excluded = {};
+        (model.excluded || []).forEach(function(x) { excluded[x.key] = x; });
+        var inFlightIds = {};
+        vehs.forEach(function(v) {
+            if (!v || !copInScope(v).ok) return;
+            var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
+            if (!vehicleIsLive(v) && !pend) return;
+            if (!tpPurposeCountsForReq(v.purpose)) return;
+            var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
+            if (d && Number(d.slice(0, 4)) !== year) return;
+            var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
+            if (!fams[yk]) return;
+            fams[yk].inFlight++;
+            inFlightIds[String(v.id)] = true;
+        });
+        // Meses que vienen (este incluido): de ahí sale qué configuración sigue en producción.
+        var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));
+        var upIdx = [];
+        tpMonths().forEach(function(l, i) {
+            var p = (typeof _copRepMonth === 'function') ? _copRepMonth(l) : null;
+            if (p && (p.y > ty || (p.y === ty && p.m >= tm))) upIdx.push(i);
+        });
+        data = { year: year, fams: fams, excluded: excluded, inFlightIds: inFlightIds, upIdx: upIdx };
+    } catch (e) {
+        console.warn('tpCopReqBase:', e);
+        data = null;
+    }
+    _tpCopReqMemo = { key: key, data: data };
+    return data;
+}
+
+/**
+ * [3.13.0] El reparto del REQ de corporativo sobre una lista de probadas (la real o la
+ * rodante del horizonte). Cuenta lo declarado del año y las filas que el generador
+ * simula (`source:'plan'`): así una semana propuesta baja el pendiente de la siguiente.
+ * Devuelve null si no aplica, o {year, byDesc:{desc: yk}, fam:{yk:{…, pending, split}}}.
+ */
+function _tpCopReqPlan(list, base) {
+    if (!base) return null;
+    var byDesc = {}, fam = {};
+    tpState.planData.forEach(function(cfg) {
+        if (!cfg || !cfg.desc || !copInScope(cfg).ok || !copHqRuleFor(cfg)) return;
+        var yk = copYearKeyOf(tpFamilyKeyForCfg(cfg), base.year);
+        if (!yk) return;
+        byDesc[cfg.desc] = yk;
+        var up = 0;
+        base.upIdx.forEach(function(i) { up += Number((cfg.m || [])[i]) || 0; });
+        var f = fam[yk] || (fam[yk] = { key: yk, cfgs: [], declared: 0 });
+        f.cfgs.push({ desc: cfg.desc, upcoming: up, total: cfg.total || 0, paused: !!cfg.paused });
+    });
+    (list || []).forEach(function(t) {
+        if (!t || !tpTestedCountsForReq(t)) return;
+        var yk = byDesc[t.configText];
+        if (!yk) return;
+        if (t.source === 'plan') { fam[yk].declared++; return; }       // propuesta del horizonte
+        if (!tpTestedIsDeclared(t)) return;                              // lo demás ya está en db
+        if (String(t.date || '').slice(0, 4) !== String(base.year)) return;
+        if (t.vehicleId != null && base.inFlightIds[String(t.vehicleId)]) return;  // ya cuenta en curso
+        fam[yk].declared++;
+    });
+    Object.keys(fam).forEach(function(yk) {
+        var f = fam[yk], b = base.fams[yk];
+        f.excluded = !!base.excluded[yk];
+        f.req = b ? b.req : 0;
+        f.done = b ? b.done : 0;
+        f.inFlight = b ? b.inFlight : 0;
+        f.label = b ? b.label : (base.excluded[yk] ? base.excluded[yk].label : '');
+        f.rule = b ? b.rule : '';
+        f.pending = f.excluded ? 0 : copYearPlanPending(f);
+        f.covered = Math.max(0, f.req - f.pending);
+        f.split = copYearPlanSplit(f.pending, f.cfgs);
+        // A quién se le acredita lo ya cubierto: la primera del reparto, o la de más volumen.
+        var rep = Object.keys(f.split)[0];
+        if (!rep) {
+            var live = f.cfgs.filter(function(c) { return !c.paused; });
+            var pool = live.length ? live : f.cfgs;
+            pool = pool.slice().sort(function(a, b2) { return (b2.upcoming - a.upcoming) || (b2.total - a.total) || (a.desc < b2.desc ? -1 : 1); });
+            rep = pool.length ? pool[0].desc : '';
+        }
+        f.rep = rep;
+    });
+    return { year: base.year, byDesc: byDesc, fam: fam };
+}
+
+/** [3.13.0] Lo que dice el Plan de una familia de corporativo (para la cobertura y las tarjetas). */
+function tpCopReqSummary() {
+    var base = tpCopReqBase();
+    var P = _tpCopReqPlan(tpState.testedList, base);
+    if (!P) return null;
+    var list = Object.keys(P.fam).map(function(k) { return P.fam[k]; }).filter(function(f) { return f.req > 0 || f.excluded; });
+    return {
+        year: P.year, families: list.length,
+        req: list.reduce(function(s, f) { return s + f.req; }, 0),
+        pending: list.reduce(function(s, f) { return s + f.pending; }, 0),
+        configs: Object.keys(P.byDesc).length,
+        byKey: P.fam
+    };
 }
 
 /**
@@ -1225,7 +1409,10 @@ function _tpAnalyze(list) {
         if (!t || !tpTestedCountsForReq(t)) return;
         (porDesc[t.configText] || (porDesc[t.configText] = [])).push(t);
     });
+    // [3.13.0] Las familias de corporativo se cuentan por año calendario (ver tpCopReqBase).
+    var _hq = _tpCopReqPlan(src, tpCopReqBase());
     return tpState.planData.map(cfg => {
+        if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year);
         const rule = tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
         // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
@@ -1246,6 +1433,33 @@ function _tpAnalyze(list) {
         return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
                  required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
+}
+
+/**
+ * [3.13.0] Una configuración de una familia de corporativo. `required`/`deficit` salen de
+ * la familia del año: la configuración a la que le toca el reparto pide su parte; la que
+ * acredita lo cubierto lleva además las hechas (así la familia cumplida cuenta como
+ * cumplida en la cobertura); las demás piden 0. `testedN` sigue siendo la evidencia de la
+ * configuración. `copYear` lo declara.
+ */
+function _tpAnalyzeCopCfg(cfg, filas, f, year) {
+    const n = filas.length;
+    const nDecl = filas.filter(tpTestedIsDeclared).length;
+    const share = (f.split && f.split[cfg.desc]) || 0;
+    const credited = (f.rep === cfg.desc) ? f.covered : 0;
+    const req = share + credited;
+    const comp = req > 0 ? credited / req : 1;
+    const st = req === 0 || share === 0 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
+    const ruleTxt = f.rule === 'one' ? '1 ensayo por familia al año' : 'lotes de producción';
+    const ruleInfo = { label: 'CoP corporativo ' + year + ' (' + ruleTxt + ')', matchType: 'cop-corporativo', ratio: 0, per: 0,
+        vol: cfg.total + cfg.hist,
+        formula: f.excluded ? 'Familia fuera del reporte CoP ' + year + ' (⚙️ Familias): no pide.'
+            : 'Familia ' + year + ': REQ ' + f.req + ' − hechas ' + f.done + ' − en curso ' + f.inFlight +
+              ' − declaradas ' + f.declared + ' = faltan ' + f.pending + (share ? ' · a esta configuración: ' + share : '') };
+    return { ...cfg, testedN: n, testedVerified: n - nDecl, testedDeclared: nDecl,
+             required: req, deficit: share, compliance: comp, status: st, score: tpPriorityScore(cfg, n), ruleInfo: ruleInfo,
+             copYear: { year: year, key: f.key, label: f.label, rule: f.rule, req: f.req, done: f.done, inFlight: f.inFlight,
+                        declared: f.declared, pending: f.pending, share: share, excluded: f.excluded } };
 }
 
 function tpInvalidateCache() {
@@ -1299,7 +1513,13 @@ function tpCoverageSummary() {
         totalRegistradas: (tpState.testedList || []).length,
         totalVerified: totalTested - totalDeclared,
         okVerified: okVerified,
-        pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
+        pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0,
+        // [3.13.0] De dónde sale el REQ de las familias de corporativo (null = apagado):
+        // esas configuraciones cuentan por familia del año, no por regla de ratio.
+        copCorporativo: (function() {
+            var c = tpCopReqSummary();
+            return c ? { year: c.year, families: c.families, req: c.req, pending: c.pending, configs: c.configs } : null;
+        })()
     };
 }
 
@@ -3242,8 +3462,38 @@ function tpRenderRules(el) {
                 `).join('')}
             `;
 
+    // [3.13.0] De dónde sale el REQ de las familias de CoP de corporativo.
+    const _crOn = tpCopReqModeOn();
+    const _crSum = _crOn ? tpCopReqSummary() : null;
+    const _crRules = (typeof COP_HQ_RULES !== 'undefined') ? COP_HQ_RULES : [];
+    const _crBody = `
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
+                Para estas normas el Plan pide lo que le falta a cada familia en el <strong>año calendario</strong>
+                (todos los años modelo juntos), el mismo número del estatus CoP de corporativo: REQ del año
+                menos ensayos que cuentan, en curso y declaradas. Así no propone un año modelo nuevo de una
+                familia que ya está cumplida. El resto del catálogo sigue con las reglas de abajo.
+            </p>
+            <label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;margin-bottom: var(--space-sm);">
+                <input type="checkbox" id="tp-copreq-mode" ${_crOn ? 'checked' : ''} onchange="tpSetCopReqMode(this.checked)">
+                <span style="font-size:var(--fs-sm);font-weight:700;color:var(--tp-text);">Usar el REQ de corporativo (año calendario)</span>
+            </label>
+            <div style="display:flex;flex-direction:column;gap: var(--space-xs);">
+                ${_crRules.map(function(r) {
+                    return '<div style="font-size:var(--fs-sm);color:var(--tp-text);"><strong>' + escapeHtml(r.label) + '</strong> — ' +
+                           escapeHtml(typeof copYearRuleText === 'function' ? copYearRuleText(r.rule) : r.rule) + '</div>';
+                }).join('')}
+            </div>
+            ${_crSum ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
+                ${_crSum.year}: <strong>${_crSum.families}</strong> familias, REQ <strong>${_crSum.req}</strong>,
+                faltan <strong>${_crSum.pending}</strong> (${_crSum.configs} configuraciones del plan).</p>` :
+              (_crOn ? '' : `<p style="font-size: var(--fs-xs);color:var(--warn-text);margin-top: var(--space-sm);">Apagado: estas normas cuentan con las reglas de ratio, por configuración.</p>`)}`;
+    const _crHTML = uiCard({ id: 'tp-rules-copreq', icon: '🏁', title: 'CoP de corporativo', accent: 'testplan',
+        help: 'tp-copreq-help', body: _crBody, defaultOpen: false,
+        count: { label: _crOn ? (_crSum ? 'faltan ' + _crSum.pending : 'encendido') : 'apagado', tone: _crOn ? 'ok' : 'warn' } });
+
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_crHTML}
         ${_rqHTML}
         ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
             count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' no cuentan' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
@@ -6605,12 +6855,17 @@ function _tpMakeItem(cfg, testedCopy, flags) {
     var rule = tpReqRuleFor(cfg);
     var n = tpTestedCountFor(cfg.desc, testedCopy);
     var req = tpCalcRequired(cfg, rule);
+    var deficit = Math.max(0, req - n);
+    // [3.13.0] En una familia de corporativo la fila guarda el REQ y lo que falta del AÑO.
+    var _hq = _tpCopReqPlan(testedCopy, tpCopReqBase());
+    var _hf = (_hq && _hq.byDesc[cfg.desc]) ? _hq.fam[_hq.byDesc[cfg.desc]] : null;
+    if (_hf) { req = _hf.req; deficit = _hf.pending; }
     var sc = tpPriorityScore(cfg, n);
     return {
         uid: _tpItemUid(),
         desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
         tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg,
-        tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: sc,
+        tire: cfg.tire, required: req, deficit: deficit, score: sc,
         completed: false, completedDate: null,
         // [v23] El PROPÓSITO de la prueba: los mismos 8 de Cascade
         // (TP_PURPOSES_VALID). Antes una fila del plan era implícitamente una prueba
@@ -8783,6 +9038,7 @@ function tpBuildFamilies() {
     var h = _tpGetPlanHash();
     if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
     _tpCache.planHash = h;
+    var _hqSum = tpCopReqSummary();   // [3.13.0] null con el modo apagado
     // [v20.8] Un pull de sync desde un dispositivo sin actualizar puede reintroducir
     // claves de 7 segmentos en overrides/soak — la migración es idempotente y barata.
     try { _tpMigrateFamilyKeysBody(); } catch (e) {}
@@ -8844,6 +9100,12 @@ function tpBuildFamilies() {
         f.reqStatus = f.reqExcluded ? 'excluida'
                     : f.rate.none ? 'sin-regla'
                     : f.noRuleCount > 0 ? 'parcial' : 'cuenta';
+        // [3.13.0] Familia de corporativo: el Plan la pide por año calendario (se declara).
+        if (_hqSum && typeof copYearKeyOf === 'function') {
+            var _hqE = _hqSum.byKey[copYearKeyOf(f.key, _hqSum.year)];
+            if (_hqE) f.copYear = { year: _hqSum.year, label: _hqE.label, rule: _hqE.rule, req: _hqE.req, done: _hqE.done,
+                                    inFlight: _hqE.inFlight, declared: _hqE.declared, pending: _hqE.pending, excluded: _hqE.excluded };
+        }
         f.coverage = f.totalRequired > 0 ? Math.min(1, f.totalTested / f.totalRequired) : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
@@ -9135,7 +9397,16 @@ function tpFamilyReqChip(f) {
 function tpFamilyReqRowHTML(f) {
     var k = String(f.key || '').replace(/'/g, "\\'");
     var txt, btn = '';
-    if (f.reqStatus === 'excluida') {
+    if (f.copYear) {
+        // [3.13.0] Cuenta con la regla de corporativo, por año calendario (todos los MY juntos).
+        var cy = f.copYear;
+        txt = '🏁 <strong>CoP de corporativo ' + cy.year + '</strong> (año calendario, todos los años modelo) · ' +
+              (cy.excluded ? 'familia fuera del reporte: no pide'
+                           : (cy.rule === 'one' ? '1 ensayo por familia' : 'lotes de producción') + ': REQ <strong>' + cy.req + '</strong> · hechas ' + cy.done +
+                             (cy.inFlight ? ' · en curso ' + cy.inFlight : '') + (cy.declared ? ' · declaradas ' + cy.declared : '') +
+                             ' · <strong>' + (cy.pending ? 'faltan ' + cy.pending : 'cumplida') + '</strong>');
+        btn = (typeof copRepOpen === 'function') ? '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="copRepOpen()">🏁 Estatus CoP</button>' : '';
+    } else if (f.reqStatus === 'excluida') {
         txt = '🚫 <strong>Fuera del conteo</strong> — ' + escapeHtml((f.reqExcluded && f.reqExcluded.reason) || '') +
               (f.reqExcluded && f.reqExcluded.by ? ' <span style="color:var(--tp-dim);">(' + escapeHtml(f.reqExcluded.by) + ')</span>' : '');
         btn = '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpSetFamilyReqCount(\'' + k + '\', true)">↩ Que cuente</button>';
@@ -9579,7 +9850,7 @@ function tpRunSimulation(capacity, maxWeeks) {
 
     H.weeks.forEach(function(w, i) {
         rolling = w.sel ? w.sel.tested : rolling;
-        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.testedN >= a.required : true; }).length;
+        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.deficit === 0 : true; }).length;
         var pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
         curve.push({ week: i + 1, pct: pct, ok: ok, planned: w.items.length });
         if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = i + 1;
@@ -11538,6 +11809,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas vas a planear esta semana. No puede pasar del máximo físico (pares preacon→prueba × vehículos por par); bájala si hay festivos o mantenimiento.' },
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
+    'tp-copreq-help': { title: 'CoP de corporativo', text: 'Corporativo cuenta el CoP por año calendario: lo producido de enero a diciembre por familia, todos los años modelo juntos. Europa PRE-EURO 7 y General EURO-6C piden 3 ensayos hasta 7,500 unidades y 3 más por cada 5,000 (o fracción); Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año. Encendido, el Plan propone solo lo que le falta a cada familia y se lo pide a las configuraciones que siguen en producción. Apagado, esas normas vuelven a las reglas de ratio.' },
     'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada N unidades producidas, según región y regulación. SOLO cuenta para el plan lo que tiene regla aquí: una configuración sin regla no exige pruebas, no entra a la cobertura, al generador ni al Excel para auditoría. La regla de región + norma exacta gana sobre la de región con "Todas". Para dejar fuera una familia completa aunque su norma tenga regla, usa "🚫 Sacar del conteo" en Plan → Familias (pide motivo y queda en el historial).' },
     'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },

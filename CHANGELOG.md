@@ -20,6 +20,56 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.13.0 — El CoP de corporativo, correcto en el reporte y en el Plan (2026-10-20)
+
+### Cambió
+- **Qué entra al CoP lo deciden las reglas de corporativo, por región y norma**:
+  - Europa PRE-EURO 7 y General EURO-6C: lotes de producción (3 ensayos hasta 7,500 unidades;
+    6 hasta 12,500; 3 más por cada 5,000 o fracción).
+  - Medio Oriente EURO-5: **1 ensayo por familia** con producción en el año (el 3.12.0 le
+    pedía 3 por lotes).
+  - Europa EURO-5 ya no entra (no pide). General EURO-6C sí entra: Panorama, Validador,
+    Control SPC y el estatus semanal.
+- **Estatus de la semana**: tres secciones (Europa, General · EURO-6C, Medio Oriente) y el pie
+  dice la regla de cada una. El correo del viernes sale ya con estas reglas.
+- **El Plan pide el CoP de corporativo**: para esas familias, el déficit es lo que le falta a
+  la familia en el **año calendario** (todos los años modelo juntos) — el mismo número del
+  estatus: REQ del año menos ensayos que cuentan, en curso (registrados, sin aprobar) y
+  declaradas. Lo que falta se pide a las configuraciones que siguen en producción en los
+  meses que vienen. Ya no propone MY27 de una familia que los MY26 del año ya cumplieron.
+  El resto del catálogo (USA, Canadá, México, Australia, General EURO-2/4…) sigue con las
+  reglas de Plan → Reglas.
+
+### Nuevo
+- **Plan → Reglas → 🏁 CoP de corporativo**: explica la regla, dice cuánto falta y se puede
+  apagar (esas normas vuelven a las reglas de ratio). Se comparte entre equipos y queda en el
+  historial de cambios.
+- Plan → Familias y la ficha de una configuración dicen el REQ del año, hechas, en curso,
+  declaradas y lo que falta.
+
+### A revisar por el laboratorio
+- General EURO-6C son 6 familias con 508 unidades en 2026: con lotes piden **18 ensayos**. Si
+  alguna es piloto o no la pide corporativo, se saca del reporte con ⚙️ Familias (con motivo)
+  y el Plan deja de pedirla.
+
+### Para desarrollo
+- **`COP_HQ_RULES`** (cop_validator.js) es LA lista de parejas región + norma con su regla
+  (`'lot'` | `'one'`); **`copHqRuleFor(x)`** (PURA) la consulta para una config o un vehículo.
+  Sin alcance personalizado guardado, **`copInScope` = tiene regla**. `copScopeLabel()` es como
+  se dice el alcance en pantalla.
+- **`copYearRequired(rule, units)`** (copreport.js, PURA) es el REQ de una regla;
+  `copYearProduction` recibe `ruleOf` y guarda `rule` por familia (si dos configuraciones traen
+  reglas distintas manda `'lot'` y se marca `ruleMixed`). `nextLotAt` solo existe con lotes.
+- **`copYearPlanPending` / `copYearPlanSplit`** (PURAS) son lo que le falta a la familia y su
+  reparto. `tpCopReqBase()` (memoizada) toma REQ y hechas de `copYearReportModel` y cuenta los
+  vehículos en curso; `_tpCopReqPlan(lista, base)` suma lo declarado del año y las filas que
+  simula el horizonte (`source:'plan'`); `_tpAnalyzeCopCfg` arma la fila del análisis con
+  `copYear`. `tpCoverageSummary().copCorporativo` lo declara.
+- `tpState.copReqMode = {on, at, by}` (default encendido; `tpCopReqModeOn`), unido en el sync
+  con `tpCopReqModeUnion` / `tpCopReqModeNewTo` (gana el cambio más reciente).
+- `tpCopReqRev()` entra a las claves de `tpGetAnalysis` y `_tpGetPlanHash`.
+- Pruebas: `tests/copplan.node.js` (nuevo), `tests/copreport.node.js` y `tests/v3120.e2e.js`.
+
 ## 3.12.0 — CoP por año calendario y estatus semanal para corporativo (2026-10-20)
 
 ### Nuevo

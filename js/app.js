@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.12.0';
+var APP_VERSION = '3.13.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '3.12.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.13.0', date: '20 oct 2026', title: 'El CoP de corporativo, correcto en el reporte y en el Plan',
+      bullets: ['El CoP sigue las reglas de corporativo por región y norma: Europa PRE-EURO 7 y General EURO-6C piden ensayos por lotes de producción; Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año.',
+                'Europa EURO-5 ya no entra al CoP (no pide). General EURO-6C entra: Panorama, Validador, Control SPC y el estatus semanal.',
+                'Estatus de la semana: tres secciones (Europa, General · EURO-6C, Medio Oriente) y el pie dice la regla de cada una. Medio Oriente ya no pide 3 ensayos por familia sino 1.',
+                'El Plan pide lo que le falta a cada familia en el año calendario, el mismo número del estatus de corporativo: REQ del año menos ensayos que cuentan, en curso y declaradas. Ya no propone un año modelo nuevo de una familia cumplida.',
+                'Lo que falta se pide a las configuraciones que siguen en producción en los meses que vienen.',
+                'Plan → Reglas → 🏁 CoP de corporativo: dice de dónde sale ese REQ y se puede apagar (vuelven las reglas de ratio). Se comparte entre equipos y queda en el historial de cambios.',
+                'Plan → Familias y la ficha de una configuración dicen el REQ del año, las hechas, en curso y lo que falta.',
+                'General EURO-6C son 6 familias con 508 unidades: con lotes piden 18 ensayos. Si alguna es piloto, se saca con ⚙️ Familias del estatus.'] },
     { version: '3.12.0', date: '20 oct 2026', title: 'CoP por año calendario y estatus semanal para corporativo',
       bullets: ['El CoP se cuenta por AÑO CALENDARIO, como pidió corporativo: lo producido de enero a diciembre de cada familia, sin importar el año modelo (MY26 y MY27 de la misma familia se suman).',
                 'Validador 2026: el validador abre las familias del año calendario con todos sus ensayos de 2026, de cualquier año modelo. "Contar por" deja volver al año modelo.',

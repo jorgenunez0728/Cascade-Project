@@ -730,9 +730,9 @@ var COP_FUEL_LIMITS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// [v19.0] ALCANCE DEL CoP
-// El laboratorio hace CoP únicamente sobre EURO-5 / EURO-6E / PRE-EURO 7 en las
-// regiones EUROPE y MIDDLE EAST. El resto del catálogo (EURO-2/3/4, SULEV 30,
+// [v19.0] ALCANCE DEL CoP — [3.13.0] desde 3.13.0 lo definen las parejas de
+// COP_HQ_RULES (abajo); COP_SCOPE_DEFAULT queda solo para un alcance personalizado
+// guardado antes. El resto del catálogo (EURO-2/3/4, SULEV 30,
 // BRAZIL L8, EVs) se prueba pero NO entra al juicio de conformidad.
 //
 // Esto además tapa un agujero real: COP_PI_LIMITS/COP_CI_LIMITS tienen los límites
@@ -749,20 +749,87 @@ var COP_SCOPE_DEFAULT = {
     regions:     ['EUROPE', 'MIDDLE EAST']
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.13.0] REGLAS DE CORPORATIVO — LA definición de qué entra al CoP y cuánto pide
+//
+// El alcance ya no es "estas normas × estas regiones" (eso metía Europa EURO-5, que no
+// pide, y dejaba fuera General EURO-6C). Es una lista de PAREJAS región + norma, cada
+// una con su regla del año calendario:
+//   'lot' → copLotRequired (3 hasta 7,500 u; +3 por cada 5,000 o fracción después)
+//   'one' → 1 ensayo por familia con producción en el año
+// Decisión del laboratorio (20-oct-2026). Una pareja nueva = una fila aquí.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_HQ_RULES = [
+    { region: 'EUROPE',      reg: 'PRE-EURO 7', rule: 'lot', label: 'Europa · PRE-EURO 7' },
+    { region: 'GENERAL',     reg: 'EURO-6C',    rule: 'lot', label: 'General · EURO-6C' },
+    { region: 'MIDDLE EAST', reg: 'EURO-5',     rule: 'one', label: 'Medio Oriente · EURO-5' }
+];
+
 /** Normaliza para comparar normas/regiones: sin acentos, sin separadores, mayúsculas. */
 function _copNormKey(s) {
     return String(s == null ? '' : s)
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toUpperCase().replace(/[\s\-_/.]+/g, '');
 }
+/** Región normalizada: EUROPA y EUROPE son la misma (homoIsEurope acepta ambas). */
+function _copNormRegion(s) {
+    var k = _copNormKey(s);
+    return k === 'EUROPA' ? 'EUROPE' : k;
+}
+/** Región y norma de una config del plan (`{rgn, reg}`) o de un vehículo (`{config:{…}}`). */
+function _copRgnReg(x) {
+    var cfg = (x && x.config) || x || {};
+    return { rgn: cfg['REGION'] || cfg.rgn || (x && x.rgn) || '',
+             reg: cfg['EMISSION REGULATION'] || cfg.reg || (x && x.reg) || '' };
+}
 
-/** El alcance vigente (los defaults son editables desde el Panorama). */
+/**
+ * [3.13.0] LA regla de corporativo de una configuración o un vehículo. PURA.
+ * Devuelve la fila de COP_HQ_RULES (`{region, reg, rule, label}`) o null.
+ */
+function copHqRuleFor(x, rules) {
+    if (!x) return null;
+    var rr = _copRgnReg(x);
+    var rk = _copNormRegion(rr.rgn), gk = _copNormKey(rr.reg);
+    if (!rk || !gk) return null;
+    var list = rules || COP_HQ_RULES;
+    for (var i = 0; i < list.length; i++) {
+        if (_copNormRegion(list[i].region) === rk && _copNormKey(list[i].reg) === gk) return list[i];
+    }
+    return null;
+}
+
+// copYearRequired(rule, units) — cuántos pide cada regla — vive en copreport.js, junto a copLotRequired.
+
+/** ¿Hay un alcance personalizado guardado? (anterior a 3.13.0; ninguna pantalla lo escribe). */
+function _copCustomScope() {
+    var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    return !!(s && ((Array.isArray(s.regulations) && s.regulations.length) || (Array.isArray(s.regions) && s.regions.length)));
+}
+
+/** El alcance vigente. Sin uno personalizado, las normas y regiones de COP_HQ_RULES. */
 function copScope() {
     var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    if (!_copCustomScope()) {
+        var regs = [], rgns = [];
+        COP_HQ_RULES.forEach(function(r) {
+            if (regs.indexOf(r.reg) === -1) regs.push(r.reg);
+            if (rgns.indexOf(r.region) === -1) rgns.push(r.region);
+        });
+        return { regulations: regs, regions: rgns, pairs: COP_HQ_RULES };
+    }
     return {
-        regulations: (s && Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
-        regions:     (s && Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions
+        regulations: (Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
+        regions:     (Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions,
+        pairs: null
     };
+}
+
+/** [3.13.0] El alcance dicho en una línea, para los textos ("Europa · PRE-EURO 7 · …"). */
+function copScopeLabel() {
+    var sc = copScope();
+    if (sc.pairs) return sc.pairs.map(function(r) { return r.label; }).join(' · ');
+    return sc.regulations.join(' · ') + ' en ' + sc.regions.join(' y ');
 }
 
 function copScopeHasReg(reg) {
@@ -771,30 +838,29 @@ function copScopeHasReg(reg) {
     return copScope().regulations.some(function(r) { return _copNormKey(r) === k; });
 }
 function copScopeHasRegion(rgn) {
-    var k = _copNormKey(rgn);
+    var k = _copNormRegion(rgn);
     if (!k) return false;
-    // EUROPA/EUROPE son la misma región (homoIsEurope acepta ambas).
-    if (k === 'EUROPA') k = 'EUROPE';
-    return copScope().regions.some(function(r) {
-        var rk = _copNormKey(r);
-        return rk === k || (rk === 'EUROPE' && k === 'EUROPE');
-    });
+    return copScope().regions.some(function(r) { return _copNormRegion(r) === k; });
 }
 
 /**
  * LA definición de "esto entra al CoP". Acepta una config del plan (`{rgn, reg}`) o
  * un vehículo de db.vehicles (`{config:{REGION, 'EMISSION REGULATION'}}`).
- * Devuelve {ok, reason} — el motivo se muestra en pantalla: lo que queda fuera se
- * declara, nunca se oculta en silencio.
+ * Devuelve {ok, reason, kind, region, reg, rule} — el motivo se muestra en pantalla: lo
+ * que queda fuera se declara, nunca se oculta en silencio.
+ * [3.13.0] Sin alcance personalizado, entra lo que tiene regla de corporativo (pareja).
  */
 function copInScope(x) {
     if (!x) return { ok: false, reason: 'sin datos' };
-    var cfg = x.config || x;
-    var rgn = cfg['REGION'] || cfg.rgn || x.rgn || '';
-    var reg = cfg['EMISSION REGULATION'] || cfg.reg || x.reg || '';
+    var rr = _copRgnReg(x), rgn = rr.rgn, reg = rr.reg;
     if (!copScopeHasRegion(rgn)) return { ok: false, reason: 'región ' + (rgn || '(sin región)') + ' fuera del alcance CoP', kind: 'region', region: rgn, reg: reg };
+    if (!_copCustomScope()) {
+        var rule = copHqRuleFor(x);
+        if (!rule) return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' en ' + rgn + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+        return { ok: true, reason: '', region: rgn, reg: reg, rule: rule };
+    }
     if (!copScopeHasReg(reg))    return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
-    return { ok: true, reason: '', region: rgn, reg: reg };
+    return { ok: true, reason: '', region: rgn, reg: reg, rule: copHqRuleFor(x) };
 }
 
 // ─── CACHE DEL PANORAMA ───────────────────────────────────────────────────────
@@ -2611,7 +2677,7 @@ function copBuildOverviewHTML() {
 
     if (!rows.length) {
         html += '<div class="cop-note cop-note--warn"><div class="cop-note-title">Aún no hay familias en el alcance CoP</div>' +
-                'El alcance vigente es ' + _copEsc(copScope().regulations.join(', ')) + ' en ' + _copEsc(copScope().regions.join(' y ')) + '. ' +
+                'El alcance vigente es ' + _copEsc(copScopeLabel()) + '. ' +
                 'Importa el plan de producción en Plan → Producción, o libera vehículos de esas familias en Pruebas.</div>';
     } else if (!shown.length) {
         html += '<div class="cop-note">Ninguna familia coincide con el filtro. ' +
@@ -2635,7 +2701,7 @@ function copBuildOverviewHTML() {
                 '<span class="cop-chip cop-chip--none">no se juzgan aquí</span></summary>';
         html += '<div style="margin-top: var(--space-md);">';
         html += '<p class="label-title" style="margin-bottom: var(--space-sm);">El laboratorio hace CoP sobre <b>' +
-                _copEsc(copScope().regulations.join(' · ')) + '</b> en <b>' + _copEsc(copScope().regions.join(' y ')) +
+                _copEsc(copScopeLabel()) +
                 '</b>. Estas configuraciones se prueban, pero no entran al juicio de conformidad:</p>';
         html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
         oos.groups.forEach(function(g) {
@@ -2957,7 +3023,6 @@ function _copFamilyGanttHTML(rows) {
 // ─── HTML: PÁGINA COMPLETA (Panorama | Validador | Control SPC | Expediente) ──
 function copBuildHTML() {
     var view = copState.view || 'overview';
-    var scope = copScope();
     var html = '<div class="container cop-main" style="padding-top: var(--space-xl);padding-bottom: var(--space-xl);">';
 
     // Cabecera de plataforma — las otras 4 plataformas la tienen; el CoP no la tenía.
@@ -2966,7 +3031,7 @@ function copBuildHTML() {
     if (copState.present) html += '<span class="cop-chip cop-chip--info">Modo presentación</span>';
     html += '</div>';
     html += '<div class="cop-header-sub">Muestreo secuencial σ desconocida (R83 Rev.5 / R154 Ap.2) · Alcance: <b>' +
-            _copEsc(scope.regulations.join(' · ')) + '</b> en <b>' + _copEsc(scope.regions.join(' y ')) + '</b></div>';
+            _copEsc(copScopeLabel()) + '</b></div>';
     html += '</div>';
 
     // Navegación
@@ -3053,7 +3118,7 @@ function copBuildValidatorHTML() {
     html += '</div>';
     if (!_copFams.length) {
         html += '<p style="margin-top: var(--space-md);color:var(--warn-text);font-size: var(--fs-sm);font-weight:600;">No hay familias en el alcance CoP todavía. ' +
-                'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
+                'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScopeLabel()) + '. ' +
                 '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';

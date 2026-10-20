@@ -9980,10 +9980,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610200214';
+var APP_BUILD = '202610200653';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'bde9041d3f841f0b537cca064ae2c92695487e82';
+var APP_COMMIT = '0d589a5e434ebdde57bcc64a0e73047dda5f314d';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -9991,7 +9991,7 @@ var APP_COMMIT = 'bde9041d3f841f0b537cca064ae2c92695487e82';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.12.0';
+var APP_VERSION = '3.13.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -9999,6 +9999,15 @@ var APP_VERSION = '3.12.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.13.0', date: '20 oct 2026', title: 'El CoP de corporativo, correcto en el reporte y en el Plan',
+      bullets: ['El CoP sigue las reglas de corporativo por región y norma: Europa PRE-EURO 7 y General EURO-6C piden ensayos por lotes de producción; Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año.',
+                'Europa EURO-5 ya no entra al CoP (no pide). General EURO-6C entra: Panorama, Validador, Control SPC y el estatus semanal.',
+                'Estatus de la semana: tres secciones (Europa, General · EURO-6C, Medio Oriente) y el pie dice la regla de cada una. Medio Oriente ya no pide 3 ensayos por familia sino 1.',
+                'El Plan pide lo que le falta a cada familia en el año calendario, el mismo número del estatus de corporativo: REQ del año menos ensayos que cuentan, en curso y declaradas. Ya no propone un año modelo nuevo de una familia cumplida.',
+                'Lo que falta se pide a las configuraciones que siguen en producción en los meses que vienen.',
+                'Plan → Reglas → 🏁 CoP de corporativo: dice de dónde sale ese REQ y se puede apagar (vuelven las reglas de ratio). Se comparte entre equipos y queda en el historial de cambios.',
+                'Plan → Familias y la ficha de una configuración dicen el REQ del año, las hechas, en curso y lo que falta.',
+                'General EURO-6C son 6 familias con 508 unidades: con lotes piden 18 ensayos. Si alguna es piloto, se saca con ⚙️ Familias del estatus.'] },
     { version: '3.12.0', date: '20 oct 2026', title: 'CoP por año calendario y estatus semanal para corporativo',
       bullets: ['El CoP se cuenta por AÑO CALENDARIO, como pidió corporativo: lo producido de enero a diciembre de cada familia, sin importar el año modelo (MY26 y MY27 de la misma familia se suman).',
                 'Validador 2026: el validador abre las familias del año calendario con todos sus ensayos de 2026, de cualquier año modelo. "Contar por" deja volver al año modelo.',
@@ -11100,14 +11109,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610200214' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610200653' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610200214' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610200653' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11123,7 +11132,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610200214' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610200653' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -39955,7 +39964,7 @@ function _tpInvalidateCache() { _tpCache.planHash = null; }
 function _tpGetPlanHash() {
     if (!tpState || !tpState.planData) return '';
     // [2.31.0] + _tpCopUsableRev: si un ensayo deja de servir para CoP, el conteo cambia.
-    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0) + '_' + (_tpCopUsableRev || 0);
+    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0) + '_' + (_tpCopUsableRev || 0) + '_' + tpCopReqRev();
 }
 
 // ======================================================================
@@ -41139,13 +41148,197 @@ function tpGetAnalysis() {
     // pasa al palomear y despalomear en el plan.
     var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' +
                    (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '') +
-                   ':' + (tpState._lastSave || 0) + ':' + _tpCopUsableRev;
+                   ':' + (tpState._lastSave || 0) + ':' + _tpCopUsableRev + ':' + tpCopReqRev();
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
     var result = _tpAnalyze(tpState.testedList);
 
     _tpAnalysisCache = { key: cacheKey, data: result };
     return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.13.0] EL REQ DE CORPORATIVO EN EL PLAN
+//
+// Para las parejas de COP_HQ_RULES (Europa PRE-EURO 7, General EURO-6C, Medio Oriente
+// EURO-5) el Plan ya no pide lo de Plan → Reglas por configuración: pide lo que le
+// falta a la familia DEL AÑO CALENDARIO según corporativo — el mismo número del
+// estatus semanal (copYearReportModel). Sin esto el armador proponía MY27 en familias
+// que corporativo ya daba por cumplidas con los MY26 del año.
+//   pendiente = REQ del año − ensayos que cuentan − en curso − declaradas/propuestas
+// y se reparte entre las configuraciones que siguen en producción (copYearPlanSplit).
+// El resto del catálogo (USA, Canadá, México, Australia, General EURO-2/4…) sigue con
+// sus reglas. Se apaga en Plan → Reglas (tpState.copReqMode, sincronizado).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** ¿El Plan usa el REQ de corporativo? Encendido salvo que el laboratorio lo apague. */
+function tpCopReqModeOn() {
+    var m = tpState.copReqMode;
+    return !(m && typeof m === 'object' && m.on === false);
+}
+
+/** Une el interruptor de dos equipos: gana el cambio más reciente. PURA y simétrica. */
+function tpCopReqModeUnion(a, b) {
+    var ok = function(x) { return x && typeof x === 'object' && typeof x.on === 'boolean'; };
+    if (!ok(a)) return ok(b) ? b : (a || b || null);
+    if (!ok(b)) return a;
+    var aa = String(a.at || ''), ba = String(b.at || '');
+    if (aa !== ba) return aa > ba ? a : b;
+    return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+}
+
+/** ¿`incoming` trae un cambio del interruptor más nuevo que `known`? PURA (la usa el sync). */
+function tpCopReqModeNewTo(known, incoming) {
+    if (!incoming || typeof incoming !== 'object' || typeof incoming.on !== 'boolean') return false;
+    if (!known || typeof known !== 'object' || typeof known.on !== 'boolean') return true;
+    return tpCopReqModeUnion(known, incoming) === incoming && JSON.stringify(known) !== JSON.stringify(incoming);
+}
+
+/** Enciende o apaga el REQ de corporativo en el Plan (permiso del plan, auditado). */
+function tpSetCopReqMode(on) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar de dónde sale el REQ de CoP')) return false;
+    var before = tpCopReqModeOn();
+    on = !!on;
+    if (before === on) return true;
+    var who = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '';
+    tpState.copReqMode = { on: on, at: new Date().toISOString(), by: who };
+    _tpCopReqMemo = { key: null, data: null };
+    if (typeof auditLog === 'function') {
+        auditLog('testplan', 'req_cop_corporativo', { type: 'plan', label: 'REQ de CoP en el Plan' },
+                 on ? 'El Plan pide el REQ de corporativo (año calendario)' : 'El Plan vuelve a las reglas de Plan → Reglas para CoP',
+                 { before: { copCorporativo: before }, after: { copCorporativo: on } });
+    }
+    tpSave();
+    if (typeof tpRender === 'function') tpRender();
+    return true;
+}
+
+/** Huella de lo que mueve el REQ de corporativo (para las cachés que cuentan probadas). */
+function tpCopReqRev() {
+    if (!tpCopReqModeOn()) return 'off';
+    return String((typeof _copRev !== 'undefined') ? _copRev : 0) + ':' + localToday();
+}
+
+var _tpCopReqMemo = { key: null, data: null };
+/**
+ * [3.13.0] Lo que no depende de la lista de probadas: REQ y hechas de cada familia del
+ * año (del estatus de corporativo), los vehículos en curso y los meses que vienen.
+ * Memoizada. null si el modo está apagado o el módulo CoP no está.
+ */
+function tpCopReqBase() {
+    if (!tpCopReqModeOn()) return null;
+    if (typeof copYearReportModel !== 'function' || typeof copHqRuleFor !== 'function' ||
+        typeof copYearKeyOf !== 'function' || typeof copInScope !== 'function') return null;
+    var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    var today = localToday();
+    var key = [today, vehs.length, _tpCopUsableRev, (typeof _copRev !== 'undefined') ? _copRev : 0,
+               tpState._lastSave || 0, tpState.planData.length].join('|');
+    if (_tpCopReqMemo.key === key) return _tpCopReqMemo.data;
+    var data = null;
+    try {
+        var model = copYearReportModel();
+        var year = model.year;
+        var fams = {};
+        model.rows.forEach(function(r) {
+            fams[r.key] = { key: r.key, label: r.label, rule: r.rule, req: r.req, done: r.done, inFlight: 0, vol: r.vol };
+        });
+        var excluded = {};
+        (model.excluded || []).forEach(function(x) { excluded[x.key] = x; });
+        var inFlightIds = {};
+        vehs.forEach(function(v) {
+            if (!v || !copInScope(v).ok) return;
+            var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
+            if (!vehicleIsLive(v) && !pend) return;
+            if (!tpPurposeCountsForReq(v.purpose)) return;
+            var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
+            if (d && Number(d.slice(0, 4)) !== year) return;
+            var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
+            if (!fams[yk]) return;
+            fams[yk].inFlight++;
+            inFlightIds[String(v.id)] = true;
+        });
+        // Meses que vienen (este incluido): de ahí sale qué configuración sigue en producción.
+        var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));
+        var upIdx = [];
+        tpMonths().forEach(function(l, i) {
+            var p = (typeof _copRepMonth === 'function') ? _copRepMonth(l) : null;
+            if (p && (p.y > ty || (p.y === ty && p.m >= tm))) upIdx.push(i);
+        });
+        data = { year: year, fams: fams, excluded: excluded, inFlightIds: inFlightIds, upIdx: upIdx };
+    } catch (e) {
+        void 0;
+        data = null;
+    }
+    _tpCopReqMemo = { key: key, data: data };
+    return data;
+}
+
+/**
+ * [3.13.0] El reparto del REQ de corporativo sobre una lista de probadas (la real o la
+ * rodante del horizonte). Cuenta lo declarado del año y las filas que el generador
+ * simula (`source:'plan'`): así una semana propuesta baja el pendiente de la siguiente.
+ * Devuelve null si no aplica, o {year, byDesc:{desc: yk}, fam:{yk:{…, pending, split}}}.
+ */
+function _tpCopReqPlan(list, base) {
+    if (!base) return null;
+    var byDesc = {}, fam = {};
+    tpState.planData.forEach(function(cfg) {
+        if (!cfg || !cfg.desc || !copInScope(cfg).ok || !copHqRuleFor(cfg)) return;
+        var yk = copYearKeyOf(tpFamilyKeyForCfg(cfg), base.year);
+        if (!yk) return;
+        byDesc[cfg.desc] = yk;
+        var up = 0;
+        base.upIdx.forEach(function(i) { up += Number((cfg.m || [])[i]) || 0; });
+        var f = fam[yk] || (fam[yk] = { key: yk, cfgs: [], declared: 0 });
+        f.cfgs.push({ desc: cfg.desc, upcoming: up, total: cfg.total || 0, paused: !!cfg.paused });
+    });
+    (list || []).forEach(function(t) {
+        if (!t || !tpTestedCountsForReq(t)) return;
+        var yk = byDesc[t.configText];
+        if (!yk) return;
+        if (t.source === 'plan') { fam[yk].declared++; return; }       // propuesta del horizonte
+        if (!tpTestedIsDeclared(t)) return;                              // lo demás ya está en db
+        if (String(t.date || '').slice(0, 4) !== String(base.year)) return;
+        if (t.vehicleId != null && base.inFlightIds[String(t.vehicleId)]) return;  // ya cuenta en curso
+        fam[yk].declared++;
+    });
+    Object.keys(fam).forEach(function(yk) {
+        var f = fam[yk], b = base.fams[yk];
+        f.excluded = !!base.excluded[yk];
+        f.req = b ? b.req : 0;
+        f.done = b ? b.done : 0;
+        f.inFlight = b ? b.inFlight : 0;
+        f.label = b ? b.label : (base.excluded[yk] ? base.excluded[yk].label : '');
+        f.rule = b ? b.rule : '';
+        f.pending = f.excluded ? 0 : copYearPlanPending(f);
+        f.covered = Math.max(0, f.req - f.pending);
+        f.split = copYearPlanSplit(f.pending, f.cfgs);
+        // A quién se le acredita lo ya cubierto: la primera del reparto, o la de más volumen.
+        var rep = Object.keys(f.split)[0];
+        if (!rep) {
+            var live = f.cfgs.filter(function(c) { return !c.paused; });
+            var pool = live.length ? live : f.cfgs;
+            pool = pool.slice().sort(function(a, b2) { return (b2.upcoming - a.upcoming) || (b2.total - a.total) || (a.desc < b2.desc ? -1 : 1); });
+            rep = pool.length ? pool[0].desc : '';
+        }
+        f.rep = rep;
+    });
+    return { year: base.year, byDesc: byDesc, fam: fam };
+}
+
+/** [3.13.0] Lo que dice el Plan de una familia de corporativo (para la cobertura y las tarjetas). */
+function tpCopReqSummary() {
+    var base = tpCopReqBase();
+    var P = _tpCopReqPlan(tpState.testedList, base);
+    if (!P) return null;
+    var list = Object.keys(P.fam).map(function(k) { return P.fam[k]; }).filter(function(f) { return f.req > 0 || f.excluded; });
+    return {
+        year: P.year, families: list.length,
+        req: list.reduce(function(s, f) { return s + f.req; }, 0),
+        pending: list.reduce(function(s, f) { return s + f.pending; }, 0),
+        configs: Object.keys(P.byDesc).length,
+        byKey: P.fam
+    };
 }
 
 /**
@@ -41168,7 +41361,10 @@ function _tpAnalyze(list) {
         if (!t || !tpTestedCountsForReq(t)) return;
         (porDesc[t.configText] || (porDesc[t.configText] = [])).push(t);
     });
+    // [3.13.0] Las familias de corporativo se cuentan por año calendario (ver tpCopReqBase).
+    var _hq = _tpCopReqPlan(src, tpCopReqBase());
     return tpState.planData.map(cfg => {
+        if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year);
         const rule = tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
         // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
@@ -41189,6 +41385,33 @@ function _tpAnalyze(list) {
         return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
                  required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
+}
+
+/**
+ * [3.13.0] Una configuración de una familia de corporativo. `required`/`deficit` salen de
+ * la familia del año: la configuración a la que le toca el reparto pide su parte; la que
+ * acredita lo cubierto lleva además las hechas (así la familia cumplida cuenta como
+ * cumplida en la cobertura); las demás piden 0. `testedN` sigue siendo la evidencia de la
+ * configuración. `copYear` lo declara.
+ */
+function _tpAnalyzeCopCfg(cfg, filas, f, year) {
+    const n = filas.length;
+    const nDecl = filas.filter(tpTestedIsDeclared).length;
+    const share = (f.split && f.split[cfg.desc]) || 0;
+    const credited = (f.rep === cfg.desc) ? f.covered : 0;
+    const req = share + credited;
+    const comp = req > 0 ? credited / req : 1;
+    const st = req === 0 || share === 0 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
+    const ruleTxt = f.rule === 'one' ? '1 ensayo por familia al año' : 'lotes de producción';
+    const ruleInfo = { label: 'CoP corporativo ' + year + ' (' + ruleTxt + ')', matchType: 'cop-corporativo', ratio: 0, per: 0,
+        vol: cfg.total + cfg.hist,
+        formula: f.excluded ? 'Familia fuera del reporte CoP ' + year + ' (⚙️ Familias): no pide.'
+            : 'Familia ' + year + ': REQ ' + f.req + ' − hechas ' + f.done + ' − en curso ' + f.inFlight +
+              ' − declaradas ' + f.declared + ' = faltan ' + f.pending + (share ? ' · a esta configuración: ' + share : '') };
+    return { ...cfg, testedN: n, testedVerified: n - nDecl, testedDeclared: nDecl,
+             required: req, deficit: share, compliance: comp, status: st, score: tpPriorityScore(cfg, n), ruleInfo: ruleInfo,
+             copYear: { year: year, key: f.key, label: f.label, rule: f.rule, req: f.req, done: f.done, inFlight: f.inFlight,
+                        declared: f.declared, pending: f.pending, share: share, excluded: f.excluded } };
 }
 
 function tpInvalidateCache() {
@@ -41242,7 +41465,13 @@ function tpCoverageSummary() {
         totalRegistradas: (tpState.testedList || []).length,
         totalVerified: totalTested - totalDeclared,
         okVerified: okVerified,
-        pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
+        pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0,
+        // [3.13.0] De dónde sale el REQ de las familias de corporativo (null = apagado):
+        // esas configuraciones cuentan por familia del año, no por regla de ratio.
+        copCorporativo: (function() {
+            var c = tpCopReqSummary();
+            return c ? { year: c.year, families: c.families, req: c.req, pending: c.pending, configs: c.configs } : null;
+        })()
     };
 }
 
@@ -43185,8 +43414,38 @@ function tpRenderRules(el) {
                 `).join('')}
             `;
 
+    // [3.13.0] De dónde sale el REQ de las familias de CoP de corporativo.
+    const _crOn = tpCopReqModeOn();
+    const _crSum = _crOn ? tpCopReqSummary() : null;
+    const _crRules = (typeof COP_HQ_RULES !== 'undefined') ? COP_HQ_RULES : [];
+    const _crBody = `
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-sm);">
+                Para estas normas el Plan pide lo que le falta a cada familia en el <strong>año calendario</strong>
+                (todos los años modelo juntos), el mismo número del estatus CoP de corporativo: REQ del año
+                menos ensayos que cuentan, en curso y declaradas. Así no propone un año modelo nuevo de una
+                familia que ya está cumplida. El resto del catálogo sigue con las reglas de abajo.
+            </p>
+            <label class="u-hit" style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;margin-bottom: var(--space-sm);">
+                <input type="checkbox" id="tp-copreq-mode" ${_crOn ? 'checked' : ''} onchange="tpSetCopReqMode(this.checked)">
+                <span style="font-size:var(--fs-sm);font-weight:700;color:var(--tp-text);">Usar el REQ de corporativo (año calendario)</span>
+            </label>
+            <div style="display:flex;flex-direction:column;gap: var(--space-xs);">
+                ${_crRules.map(function(r) {
+                    return '<div style="font-size:var(--fs-sm);color:var(--tp-text);"><strong>' + escapeHtml(r.label) + '</strong> — ' +
+                           escapeHtml(typeof copYearRuleText === 'function' ? copYearRuleText(r.rule) : r.rule) + '</div>';
+                }).join('')}
+            </div>
+            ${_crSum ? `<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top: var(--space-sm);">
+                ${_crSum.year}: <strong>${_crSum.families}</strong> familias, REQ <strong>${_crSum.req}</strong>,
+                faltan <strong>${_crSum.pending}</strong> (${_crSum.configs} configuraciones del plan).</p>` :
+              (_crOn ? '' : `<p style="font-size: var(--fs-xs);color:var(--warn-text);margin-top: var(--space-sm);">Apagado: estas normas cuentan con las reglas de ratio, por configuración.</p>`)}`;
+    const _crHTML = uiCard({ id: 'tp-rules-copreq', icon: '🏁', title: 'CoP de corporativo', accent: 'testplan',
+        help: 'tp-copreq-help', body: _crBody, defaultOpen: false,
+        count: { label: _crOn ? (_crSum ? 'faltan ' + _crSum.pending : 'encendido') : 'apagado', tone: _crOn ? 'ok' : 'warn' } });
+
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap: var(--space-lg);">
+        ${_crHTML}
         ${_rqHTML}
         ${uiCard({ id: 'tp-rules-ratio', icon: '⚙️', title: 'Reglas de ratio', accent: 'testplan', help: 'tp-ratio-help',
             count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' no cuentan' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
@@ -46548,12 +46807,17 @@ function _tpMakeItem(cfg, testedCopy, flags) {
     var rule = tpReqRuleFor(cfg);
     var n = tpTestedCountFor(cfg.desc, testedCopy);
     var req = tpCalcRequired(cfg, rule);
+    var deficit = Math.max(0, req - n);
+    // [3.13.0] En una familia de corporativo la fila guarda el REQ y lo que falta del AÑO.
+    var _hq = _tpCopReqPlan(testedCopy, tpCopReqBase());
+    var _hf = (_hq && _hq.byDesc[cfg.desc]) ? _hq.fam[_hq.byDesc[cfg.desc]] : null;
+    if (_hf) { req = _hf.req; deficit = _hf.pending; }
     var sc = tpPriorityScore(cfg, n);
     return {
         uid: _tpItemUid(),
         desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
         tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg,
-        tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: sc,
+        tire: cfg.tire, required: req, deficit: deficit, score: sc,
         completed: false, completedDate: null,
         // [v23] El PROPÓSITO de la prueba: los mismos 8 de Cascade
         // (TP_PURPOSES_VALID). Antes una fila del plan era implícitamente una prueba
@@ -48726,6 +48990,7 @@ function tpBuildFamilies() {
     var h = _tpGetPlanHash();
     if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
     _tpCache.planHash = h;
+    var _hqSum = tpCopReqSummary();   // [3.13.0] null con el modo apagado
     // [v20.8] Un pull de sync desde un dispositivo sin actualizar puede reintroducir
     // claves de 7 segmentos en overrides/soak — la migración es idempotente y barata.
     try { _tpMigrateFamilyKeysBody(); } catch (e) {}
@@ -48787,6 +49052,12 @@ function tpBuildFamilies() {
         f.reqStatus = f.reqExcluded ? 'excluida'
                     : f.rate.none ? 'sin-regla'
                     : f.noRuleCount > 0 ? 'parcial' : 'cuenta';
+        // [3.13.0] Familia de corporativo: el Plan la pide por año calendario (se declara).
+        if (_hqSum && typeof copYearKeyOf === 'function') {
+            var _hqE = _hqSum.byKey[copYearKeyOf(f.key, _hqSum.year)];
+            if (_hqE) f.copYear = { year: _hqSum.year, label: _hqE.label, rule: _hqE.rule, req: _hqE.req, done: _hqE.done,
+                                    inFlight: _hqE.inFlight, declared: _hqE.declared, pending: _hqE.pending, excluded: _hqE.excluded };
+        }
         f.coverage = f.totalRequired > 0 ? Math.min(1, f.totalTested / f.totalRequired) : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
@@ -49078,7 +49349,16 @@ function tpFamilyReqChip(f) {
 function tpFamilyReqRowHTML(f) {
     var k = String(f.key || '').replace(/'/g, "\\'");
     var txt, btn = '';
-    if (f.reqStatus === 'excluida') {
+    if (f.copYear) {
+        // [3.13.0] Cuenta con la regla de corporativo, por año calendario (todos los MY juntos).
+        var cy = f.copYear;
+        txt = '🏁 <strong>CoP de corporativo ' + cy.year + '</strong> (año calendario, todos los años modelo) · ' +
+              (cy.excluded ? 'familia fuera del reporte: no pide'
+                           : (cy.rule === 'one' ? '1 ensayo por familia' : 'lotes de producción') + ': REQ <strong>' + cy.req + '</strong> · hechas ' + cy.done +
+                             (cy.inFlight ? ' · en curso ' + cy.inFlight : '') + (cy.declared ? ' · declaradas ' + cy.declared : '') +
+                             ' · <strong>' + (cy.pending ? 'faltan ' + cy.pending : 'cumplida') + '</strong>');
+        btn = (typeof copRepOpen === 'function') ? '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="copRepOpen()">🏁 Estatus CoP</button>' : '';
+    } else if (f.reqStatus === 'excluida') {
         txt = '🚫 <strong>Fuera del conteo</strong> — ' + escapeHtml((f.reqExcluded && f.reqExcluded.reason) || '') +
               (f.reqExcluded && f.reqExcluded.by ? ' <span style="color:var(--tp-dim);">(' + escapeHtml(f.reqExcluded.by) + ')</span>' : '');
         btn = '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);" onclick="tpSetFamilyReqCount(\'' + k + '\', true)">↩ Que cuente</button>';
@@ -49522,7 +49802,7 @@ function tpRunSimulation(capacity, maxWeeks) {
 
     H.weeks.forEach(function(w, i) {
         rolling = w.sel ? w.sel.tested : rolling;
-        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.testedN >= a.required : true; }).length;
+        var ok = _tpAnalyze(rolling).filter(function(a) { return a.required > 0 ? a.deficit === 0 : true; }).length;
         var pct = totalConfigs > 0 ? Math.round((ok / totalConfigs) * 100) : 0;
         curve.push({ week: i + 1, pct: pct, ok: ok, planned: w.items.length });
         if (pct >= 100 && weeksTo100 > maxWeeks) weeksTo100 = i + 1;
@@ -51481,6 +51761,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas vas a planear esta semana. No puede pasar del máximo físico (pares preacon→prueba × vehículos por par); bájala si hay festivos o mantenimiento.' },
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
+    'tp-copreq-help': { title: 'CoP de corporativo', text: 'Corporativo cuenta el CoP por año calendario: lo producido de enero a diciembre por familia, todos los años modelo juntos. Europa PRE-EURO 7 y General EURO-6C piden 3 ensayos hasta 7,500 unidades y 3 más por cada 5,000 (o fracción); Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año. Encendido, el Plan propone solo lo que le falta a cada familia y se lo pide a las configuraciones que siguen en producción. Apagado, esas normas vuelven a las reglas de ratio.' },
     'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada N unidades producidas, según región y regulación. SOLO cuenta para el plan lo que tiene regla aquí: una configuración sin regla no exige pruebas, no entra a la cobertura, al generador ni al Excel para auditoría. La regla de región + norma exacta gana sobre la de región con "Todas". Para dejar fuera una familia completa aunque su norma tenga regla, usa "🚫 Sacar del conteo" en Plan → Familias (pide motivo y queda en el historial).' },
     'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
@@ -52556,7 +52837,7 @@ function pnRenderReports(el) {
         { icon: '🗂️', title: 'Proyectos', desc: 'Pasos de todos los proyectos (Step/Responsible/Status/Target Date/Completion Date/Roadblock), formato compatible con tablero tipo Loop.', actions: [{ label: 'CSV', fn: 'pnExportAllProjectsCSV' }] },
         { icon: '📊', title: 'Portafolio de Proyectos', desc: 'Un renglón por proyecto activo con semáforo, avance, vencidos, bloqueados y próximo hito — para reportar a jefatura.', actions: [{ label: 'CSV', fn: 'pnExportPortfolioCSV' }] },
         { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] },
-        { icon: '🏁', title: 'CoP ' + (typeof copRepYear === 'function' ? copRepYear() : '') + ' — estatus semanal para corporativo', desc: 'Año calendario (ene–dic, todos los años modelo), Europa y Medio Oriente: producción, ensayos requeridos por lotes, hechos, avance y la comparación contra la semana anterior. Guarda el corte de la semana.', actions: [{ label: 'Ver', fn: 'copRepOpen' }, { label: 'Imprimir / PDF', fn: 'copRepPrint' }, { label: 'HTML', fn: 'copRepDownload' }] },
+        { icon: '🏁', title: 'CoP ' + (typeof copRepYear === 'function' ? copRepYear() : '') + ' — estatus semanal para corporativo', desc: 'Año calendario (ene–dic, todos los años modelo), Europa PRE-EURO 7, General EURO-6C y Medio Oriente EURO-5: producción, ensayos requeridos según la regla de corporativo, hechos, avance y la comparación contra la semana anterior. Guarda el corte de la semana.', actions: [{ label: 'Ver', fn: 'copRepOpen' }, { label: 'Imprimir / PDF', fn: 'copRepPrint' }, { label: 'HTML', fn: 'copRepDownload' }] },
         { icon: '🧪', title: 'CoP — Panorama de familias', desc: 'Un renglón por familia del alcance CoP: veredicto, VINes, % del límite, U con su banda A(n)/B(n), Cpk, días sin ensayar, riesgo y motivo.', actions: [{ label: 'CSV', fn: 'copExportPortfolioCSV' }] },
         { icon: '📑', title: 'CoP — Expediente de familia (auditoría)', desc: 'Dossier de la familia abierta: identificación, límites congelados, estadística, VINes con fechas, CO₂ vs declarado y firmas. Abre primero la familia en CoP → Panorama.', actions: [{ label: 'PDF', fn: 'copFamilyPDF' }, { label: 'CSV', fn: 'copExportFamilyCSV' }] },
         { icon: '🔎', title: 'Validación del importador VETS', desc: 'Cada comparación "tecleado vs VETS" de vehículos ya liberados (Historial → ⋯ → Comparar con VETS): evidencia de que el importador lee bien (ISO 17025 §7.11.2).', actions: [{ label: 'CSV', fn: 'vetsValidationExportCSV' }] },
@@ -62190,6 +62471,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
         // [2.36.0] Las familias fuera del conteo, de los dos lados (gana la marca más reciente).
         if (typeof tpReqFamiliesUnion === 'function') tpState.reqFamilies = tpReqFamiliesUnion(prevTp.reqFamilies, tpState.reqFamilies);
+        // [3.13.0] El interruptor del REQ de corporativo: gana el cambio más reciente.
+        if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -62238,7 +62521,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
         // [2.36.0] Un pull cuyo único cambio es sacar/regresar una familia del conteo.
-        (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo((typeof tpState !== 'undefined' && tpState && tpState.reqFamilies) || {}, (remoteData && remoteData.reqFamilies) || {}));
+        (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo((typeof tpState !== 'undefined' && tpState && tpState.reqFamilies) || {}, (remoteData && remoteData.reqFamilies) || {})) ||
+        // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
+        (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -63104,6 +63389,8 @@ function _fbLocalHasExtras(col, remote) {
         if (_fbPlanTombsNewTo(remote.deletedPlans || [], tpState.deletedPlans || [])) return true;
         // [2.36.0] Una familia sacada/regresada al conteo aquí que la nube no tiene se sube.
         if (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo(remote.reqFamilies || {}, tpState.reqFamilies || {})) return true;
+        // [3.13.0] El interruptor del REQ de corporativo cambiado aquí y no en la nube.
+        if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -64154,6 +64441,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             tpState.reqFamilies = tpReqFamiliesUnion(tpState.reqFamilies, (remoteData.testplan || {}).reqFamilies);
             if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
         }
+        // [3.13.0] El interruptor del REQ de corporativo se une igual (gana el más reciente).
+        if (typeof tpCopReqModeUnion === 'function') {
+            var _crm = tpCopReqModeUnion(tpState.copReqMode, (remoteData.testplan || {}).copReqMode);
+            if (_crm) tpState.copReqMode = _crm;
+        }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
     }
@@ -64807,7 +65099,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610200214' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610200653' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -68683,9 +68975,9 @@ var COP_FUEL_LIMITS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// [v19.0] ALCANCE DEL CoP
-// El laboratorio hace CoP únicamente sobre EURO-5 / EURO-6E / PRE-EURO 7 en las
-// regiones EUROPE y MIDDLE EAST. El resto del catálogo (EURO-2/3/4, SULEV 30,
+// [v19.0] ALCANCE DEL CoP — [3.13.0] desde 3.13.0 lo definen las parejas de
+// COP_HQ_RULES (abajo); COP_SCOPE_DEFAULT queda solo para un alcance personalizado
+// guardado antes. El resto del catálogo (EURO-2/3/4, SULEV 30,
 // BRAZIL L8, EVs) se prueba pero NO entra al juicio de conformidad.
 //
 // Esto además tapa un agujero real: COP_PI_LIMITS/COP_CI_LIMITS tienen los límites
@@ -68702,20 +68994,87 @@ var COP_SCOPE_DEFAULT = {
     regions:     ['EUROPE', 'MIDDLE EAST']
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.13.0] REGLAS DE CORPORATIVO — LA definición de qué entra al CoP y cuánto pide
+//
+// El alcance ya no es "estas normas × estas regiones" (eso metía Europa EURO-5, que no
+// pide, y dejaba fuera General EURO-6C). Es una lista de PAREJAS región + norma, cada
+// una con su regla del año calendario:
+//   'lot' → copLotRequired (3 hasta 7,500 u; +3 por cada 5,000 o fracción después)
+//   'one' → 1 ensayo por familia con producción en el año
+// Decisión del laboratorio (20-oct-2026). Una pareja nueva = una fila aquí.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_HQ_RULES = [
+    { region: 'EUROPE',      reg: 'PRE-EURO 7', rule: 'lot', label: 'Europa · PRE-EURO 7' },
+    { region: 'GENERAL',     reg: 'EURO-6C',    rule: 'lot', label: 'General · EURO-6C' },
+    { region: 'MIDDLE EAST', reg: 'EURO-5',     rule: 'one', label: 'Medio Oriente · EURO-5' }
+];
+
 /** Normaliza para comparar normas/regiones: sin acentos, sin separadores, mayúsculas. */
 function _copNormKey(s) {
     return String(s == null ? '' : s)
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toUpperCase().replace(/[\s\-_/.]+/g, '');
 }
+/** Región normalizada: EUROPA y EUROPE son la misma (homoIsEurope acepta ambas). */
+function _copNormRegion(s) {
+    var k = _copNormKey(s);
+    return k === 'EUROPA' ? 'EUROPE' : k;
+}
+/** Región y norma de una config del plan (`{rgn, reg}`) o de un vehículo (`{config:{…}}`). */
+function _copRgnReg(x) {
+    var cfg = (x && x.config) || x || {};
+    return { rgn: cfg['REGION'] || cfg.rgn || (x && x.rgn) || '',
+             reg: cfg['EMISSION REGULATION'] || cfg.reg || (x && x.reg) || '' };
+}
 
-/** El alcance vigente (los defaults son editables desde el Panorama). */
+/**
+ * [3.13.0] LA regla de corporativo de una configuración o un vehículo. PURA.
+ * Devuelve la fila de COP_HQ_RULES (`{region, reg, rule, label}`) o null.
+ */
+function copHqRuleFor(x, rules) {
+    if (!x) return null;
+    var rr = _copRgnReg(x);
+    var rk = _copNormRegion(rr.rgn), gk = _copNormKey(rr.reg);
+    if (!rk || !gk) return null;
+    var list = rules || COP_HQ_RULES;
+    for (var i = 0; i < list.length; i++) {
+        if (_copNormRegion(list[i].region) === rk && _copNormKey(list[i].reg) === gk) return list[i];
+    }
+    return null;
+}
+
+// copYearRequired(rule, units) — cuántos pide cada regla — vive en copreport.js, junto a copLotRequired.
+
+/** ¿Hay un alcance personalizado guardado? (anterior a 3.13.0; ninguna pantalla lo escribe). */
+function _copCustomScope() {
+    var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    return !!(s && ((Array.isArray(s.regulations) && s.regulations.length) || (Array.isArray(s.regions) && s.regions.length)));
+}
+
+/** El alcance vigente. Sin uno personalizado, las normas y regiones de COP_HQ_RULES. */
 function copScope() {
     var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    if (!_copCustomScope()) {
+        var regs = [], rgns = [];
+        COP_HQ_RULES.forEach(function(r) {
+            if (regs.indexOf(r.reg) === -1) regs.push(r.reg);
+            if (rgns.indexOf(r.region) === -1) rgns.push(r.region);
+        });
+        return { regulations: regs, regions: rgns, pairs: COP_HQ_RULES };
+    }
     return {
-        regulations: (s && Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
-        regions:     (s && Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions
+        regulations: (Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
+        regions:     (Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions,
+        pairs: null
     };
+}
+
+/** [3.13.0] El alcance dicho en una línea, para los textos ("Europa · PRE-EURO 7 · …"). */
+function copScopeLabel() {
+    var sc = copScope();
+    if (sc.pairs) return sc.pairs.map(function(r) { return r.label; }).join(' · ');
+    return sc.regulations.join(' · ') + ' en ' + sc.regions.join(' y ');
 }
 
 function copScopeHasReg(reg) {
@@ -68724,30 +69083,29 @@ function copScopeHasReg(reg) {
     return copScope().regulations.some(function(r) { return _copNormKey(r) === k; });
 }
 function copScopeHasRegion(rgn) {
-    var k = _copNormKey(rgn);
+    var k = _copNormRegion(rgn);
     if (!k) return false;
-    // EUROPA/EUROPE son la misma región (homoIsEurope acepta ambas).
-    if (k === 'EUROPA') k = 'EUROPE';
-    return copScope().regions.some(function(r) {
-        var rk = _copNormKey(r);
-        return rk === k || (rk === 'EUROPE' && k === 'EUROPE');
-    });
+    return copScope().regions.some(function(r) { return _copNormRegion(r) === k; });
 }
 
 /**
  * LA definición de "esto entra al CoP". Acepta una config del plan (`{rgn, reg}`) o
  * un vehículo de db.vehicles (`{config:{REGION, 'EMISSION REGULATION'}}`).
- * Devuelve {ok, reason} — el motivo se muestra en pantalla: lo que queda fuera se
- * declara, nunca se oculta en silencio.
+ * Devuelve {ok, reason, kind, region, reg, rule} — el motivo se muestra en pantalla: lo
+ * que queda fuera se declara, nunca se oculta en silencio.
+ * [3.13.0] Sin alcance personalizado, entra lo que tiene regla de corporativo (pareja).
  */
 function copInScope(x) {
     if (!x) return { ok: false, reason: 'sin datos' };
-    var cfg = x.config || x;
-    var rgn = cfg['REGION'] || cfg.rgn || x.rgn || '';
-    var reg = cfg['EMISSION REGULATION'] || cfg.reg || x.reg || '';
+    var rr = _copRgnReg(x), rgn = rr.rgn, reg = rr.reg;
     if (!copScopeHasRegion(rgn)) return { ok: false, reason: 'región ' + (rgn || '(sin región)') + ' fuera del alcance CoP', kind: 'region', region: rgn, reg: reg };
+    if (!_copCustomScope()) {
+        var rule = copHqRuleFor(x);
+        if (!rule) return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' en ' + rgn + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+        return { ok: true, reason: '', region: rgn, reg: reg, rule: rule };
+    }
     if (!copScopeHasReg(reg))    return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
-    return { ok: true, reason: '', region: rgn, reg: reg };
+    return { ok: true, reason: '', region: rgn, reg: reg, rule: copHqRuleFor(x) };
 }
 
 // ─── CACHE DEL PANORAMA ───────────────────────────────────────────────────────
@@ -70564,7 +70922,7 @@ function copBuildOverviewHTML() {
 
     if (!rows.length) {
         html += '<div class="cop-note cop-note--warn"><div class="cop-note-title">Aún no hay familias en el alcance CoP</div>' +
-                'El alcance vigente es ' + _copEsc(copScope().regulations.join(', ')) + ' en ' + _copEsc(copScope().regions.join(' y ')) + '. ' +
+                'El alcance vigente es ' + _copEsc(copScopeLabel()) + '. ' +
                 'Importa el plan de producción en Plan → Producción, o libera vehículos de esas familias en Pruebas.</div>';
     } else if (!shown.length) {
         html += '<div class="cop-note">Ninguna familia coincide con el filtro. ' +
@@ -70588,7 +70946,7 @@ function copBuildOverviewHTML() {
                 '<span class="cop-chip cop-chip--none">no se juzgan aquí</span></summary>';
         html += '<div style="margin-top: var(--space-md);">';
         html += '<p class="label-title" style="margin-bottom: var(--space-sm);">El laboratorio hace CoP sobre <b>' +
-                _copEsc(copScope().regulations.join(' · ')) + '</b> en <b>' + _copEsc(copScope().regions.join(' y ')) +
+                _copEsc(copScopeLabel()) +
                 '</b>. Estas configuraciones se prueban, pero no entran al juicio de conformidad:</p>';
         html += '<div style="display:flex;gap: var(--space-sm);flex-wrap:wrap;">';
         oos.groups.forEach(function(g) {
@@ -70910,7 +71268,6 @@ function _copFamilyGanttHTML(rows) {
 // ─── HTML: PÁGINA COMPLETA (Panorama | Validador | Control SPC | Expediente) ──
 function copBuildHTML() {
     var view = copState.view || 'overview';
-    var scope = copScope();
     var html = '<div class="container cop-main" style="padding-top: var(--space-xl);padding-bottom: var(--space-xl);">';
 
     // Cabecera de plataforma — las otras 4 plataformas la tienen; el CoP no la tenía.
@@ -70919,7 +71276,7 @@ function copBuildHTML() {
     if (copState.present) html += '<span class="cop-chip cop-chip--info">Modo presentación</span>';
     html += '</div>';
     html += '<div class="cop-header-sub">Muestreo secuencial σ desconocida (R83 Rev.5 / R154 Ap.2) · Alcance: <b>' +
-            _copEsc(scope.regulations.join(' · ')) + '</b> en <b>' + _copEsc(scope.regions.join(' y ')) + '</b></div>';
+            _copEsc(copScopeLabel()) + '</b></div>';
     html += '</div>';
 
     // Navegación
@@ -71006,7 +71363,7 @@ function copBuildValidatorHTML() {
     html += '</div>';
     if (!_copFams.length) {
         html += '<p style="margin-top: var(--space-md);color:var(--warn-text);font-size: var(--fs-sm);font-weight:600;">No hay familias en el alcance CoP todavía. ' +
-                'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
+                'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScopeLabel()) + '. ' +
                 '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left: var(--space-sm);">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top: var(--space-md);color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
@@ -72387,7 +72744,8 @@ function copFamilyPDF(familyKey) {
 // ║   · copYearKeyOf — la familia del año calendario, ENCIMA de la clave  ║
 // ║     de siempre (el segmento del MY pasa a "CAL 2026"; la clave de     ║
 // ║     copVehicleFamilyKey/tpFamilyKeyForCfg y los juicios no cambian);  ║
-// ║   · copLotRequired — la regla de lotes que pidió corporativo;         ║
+// ║   · copLotRequired / copYearRequired — las reglas de corporativo      ║
+// ║     (lotes; 1 por familia en Medio Oriente — 3.13.0);                 ║
 // ║   · copYearProduction / copYearReportCompute — PURAS;                  ║
 // ║   · el reporte gerencial (copYearReportHTML, estilos literales: el    ║
 // ║     mismo HTML sirve en pantalla, impreso y por correo).              ║
@@ -72417,6 +72775,54 @@ function copLotNextAt(units) {
     if (u <= 0) return 1;
     if (u <= COP_LOT_FIRST) return COP_LOT_FIRST + 1;
     return COP_LOT_FIRST + Math.ceil((u - COP_LOT_FIRST) / COP_LOT_NEXT) * COP_LOT_NEXT + 1;
+}
+
+/**
+ * [3.13.0] Ensayos que pide una regla de corporativo (COP_HQ_RULES) con `units`
+ * producidas en el año. PURA. 'lot' → copLotRequired; 'one' → 1 si hubo producción.
+ */
+function copYearRequired(rule, units) {
+    var u = Math.floor(Number(units) || 0);
+    if (u <= 0) return 0;
+    if (rule === 'one') return 1;
+    return copLotRequired(u);
+}
+
+/**
+ * [3.13.0] Lo que le falta a una familia del año para el PLAN. PURA.
+ * f = {req, done, inFlight, declared}: REQ del año − ensayos que cuentan − en curso
+ * (registrados, todavía sin aprobar) − declaradas o propuestas en el plan. Nunca < 0.
+ */
+function copYearPlanPending(f) {
+    f = f || {};
+    var n = (Number(f.req) || 0) - (Number(f.done) || 0) - (Number(f.inFlight) || 0) - (Number(f.declared) || 0);
+    return Math.max(0, n);
+}
+
+/**
+ * [3.13.0] Reparte el pendiente de una familia entre sus configuraciones. PURA.
+ * cfgs = [{desc, upcoming, total, paused}]. Solo las que tienen producción en los meses
+ * que vienen (sin pausar), de mayor a menor, una por vuelta: así el generador no propone
+ * un año modelo que ya salió de línea. Sin ninguna en producción, todo va a la de mayor
+ * volumen sin pausar. Devuelve {desc: n}.
+ */
+function copYearPlanSplit(pending, cfgs) {
+    var out = {}, n = Math.max(0, Math.floor(Number(pending) || 0));
+    var live = (cfgs || []).filter(function(c) { return c && c.desc && !c.paused; });
+    if (!n || !live.length) return out;
+    var cand = live.filter(function(c) { return (Number(c.upcoming) || 0) > 0; })
+        .sort(function(a, b) { return (b.upcoming - a.upcoming) || ((b.total || 0) - (a.total || 0)) || (a.desc < b.desc ? -1 : 1); });
+    if (!cand.length) {
+        cand = live.slice().sort(function(a, b) { return ((b.total || 0) - (a.total || 0)) || (a.desc < b.desc ? -1 : 1); }).slice(0, 1);
+    }
+    for (var i = 0; i < n; i++) { var d = cand[i % cand.length].desc; out[d] = (out[d] || 0) + 1; }
+    return out;
+}
+
+/** [3.13.0] Cómo se dice una regla en el reporte. PURA. */
+function copYearRuleText(rule) {
+    return rule === 'one' ? '1 ensayo por familia con producción en el año'
+        : 'hasta 7,500 unidades producidas, 3 ensayos; de 7,501 a 12,500, 6; cada 5,000 unidades adicionales (o fracción), 3 más';
 }
 
 // La familia del año calendario (copYearKeyOf, copYearOfKey, copVehicleInFamily) vive en
@@ -72461,7 +72867,8 @@ function _copRepMonth(label) {
 /**
  * LA producción de un año calendario por familia. PURA.
  * src = {year, months:[etiquetas], planData:[cfg con m[] alineado a months],
- *        inScope(cfg)→bool, keyOf(cfg)→clave de familia, actuals:{clave_año:{m:[12]}}}
+ *        inScope(cfg)→bool, keyOf(cfg)→clave de familia, actuals:{clave_año:{m:[12]}},
+ *        ruleOf(cfg)→fila de COP_HQ_RULES o null (opcional)}
  *
  * - Un mes "tiene dato" si viene en el plan y el plan ENTERO trae unidades ese mes: un
  *   mes en cero para todas las configuraciones es un mes que el CSV no trajo, no un mes
@@ -72488,9 +72895,16 @@ function copYearProduction(src) {
         if (!f) f = fams[yk] = { key: yk, mod: c.mod || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
             ep: (c.ep && c.ep !== '0') ? c.ep : '', engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
             body: (c.body && c.body !== '0') ? c.body : '', regions: {}, mys: {}, configs: 0,
-            plan: [0,0,0,0,0,0,0,0,0,0,0,0] };
+            plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '' };
         f.configs++;
         if (c.rgn) f.regions[c.rgn] = true;
+        // [3.13.0] La regla de corporativo de la familia. Si dos configuraciones traen reglas
+        // distintas, manda 'lot' (pide más) y se marca: no se elige la barata en silencio.
+        var hr = src.ruleOf ? src.ruleOf(c) : null;
+        if (hr && hr.rule) {
+            if (f.rule && f.rule !== hr.rule) f.ruleMixed = true;
+            if (!f.rule || hr.rule === 'lot') { f.rule = hr.rule; f.ruleLabel = hr.label || ''; }
+        }
         var añoCfg = 0;
         (c.m || []).forEach(function(v, i) { if (idx[i] >= 0) { f.plan[idx[i]] += Number(v) || 0; añoCfg += Number(v) || 0; } });
         if (c.my && añoCfg > 0) f.mys[c.my] = true;
@@ -72534,8 +72948,8 @@ function copRepIsoWeek(iso) {
     return 1 + Math.round(((d - first) / 86400000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
 }
 
-var COP_REP_REGION_ORDER = ['EUROPE', 'MIDDLE EAST'];
-var COP_REP_REGION_LABEL = { 'EUROPE': 'Europa', 'MIDDLE EAST': 'Medio Oriente' };
+var COP_REP_REGION_ORDER = ['EUROPE', 'GENERAL', 'MIDDLE EAST'];
+var COP_REP_REGION_LABEL = { 'EUROPE': 'Europa', 'GENERAL': 'General · EURO-6C', 'MIDDLE EAST': 'Medio Oriente' };
 
 /**
  * Estado de una familia para el reporte: cruza cobertura (lotes) y veredicto. PURA.
@@ -72598,7 +73012,8 @@ function copYearReportCompute(src) {
         var prevTests = e.tests.filter(function(t) { return t.date <= prevCut; });
         var closed = cutYear > year ? 12 : (cutYear < year ? 0 : cutMonth - 1);
         var volToDate = f.m.slice(0, closed).reduce(function(s, v) { return s + v; }, 0);
-        var req = copLotRequired(f.vol);
+        var rule = f.rule || 'lot';
+        var req = copYearRequired(rule, f.vol);
         var done = e.tests.length;
         var verdict = src.verdictOf ? src.verdictOf(k, e.tests) : null;
         var p = prev ? prev.rows[k] : null;
@@ -72616,7 +73031,8 @@ function copYearReportCompute(src) {
             key: k, label: copRepFamilyLabel(f), fam: f, region: region, regions: regions, group: g,
             mys: Object.keys(f.mys).sort(), configs: f.configs, noPlan: !!f.noPlan,
             vol: f.vol, volToDate: volToDate, months: f.m, monthSrc: f.src,
-            req: req, reqToDate: copLotRequired(volToDate), nextLotAt: copLotNextAt(f.vol),
+            rule: rule, ruleLabel: f.ruleLabel || '', ruleMixed: !!f.ruleMixed,
+            req: req, reqToDate: copYearRequired(rule, volToDate), nextLotAt: rule === 'lot' ? copLotNextAt(f.vol) : null,
             done: done, prevDone: prevDone, added: done - prevDone, pending: Math.max(0, req - done),
             prevReq: prevReq, prevVol: p ? (Number(p.vol) || 0) : null, volDelta: p ? f.vol - (Number(p.vol) || 0) : null,
             progress: progress, prevProgress: prevProgress, deltaPp: Math.round((progress - prevProgress) * 1000) / 10,
@@ -72656,7 +73072,10 @@ function copYearReportCompute(src) {
         rows: rows,
         regions: regionsOut.map(function(rg) {
             var list = rows.filter(function(r) { return r.region === rg; });
-            return { id: rg, label: COP_REP_REGION_LABEL[rg] || rg || '(sin región)', rows: list, total: sum(list) };
+            var rules = {};
+            list.forEach(function(r) { rules[r.rule] = true; });
+            return { id: rg, label: COP_REP_REGION_LABEL[rg] || rg || '(sin región)', rows: list, total: sum(list),
+                     rules: Object.keys(rules).sort() };
         }),
         total: sum(rows),
         missingMonths: prod.missing || [],
@@ -72804,7 +73223,7 @@ function copYearReportHTML(m, opts) {
     var tiles = [
         { k: 'Avance global', v: _crPct(T.progress), d: _crDelta(T.deltaPp, ' pp') + ' vs semana anterior', bar: _crBar(T.progress, T.prevProgress, '#2563eb') },
         { k: 'Ensayos válidos ' + m.year, v: _crNum(T.done) + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + _crNum(T.req) + '</span>', d: _crDelta(T.added, '') + ' esta semana' },
-        { k: 'Pendientes', v: _crNum(T.pending), d: 'para cubrir los lotes de ' + _crNum(T.vol) + ' unidades' },
+        { k: 'Pendientes', v: _crNum(T.pending), d: 'para cubrir el REQ de ' + _crNum(T.vol) + ' unidades producidas' },
         { k: 'Familias cumplidas', v: T.ok + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + T.withReq + '</span>',
           d: T.fail ? '<span style="color:#b91c1c;font-weight:700;">' + T.fail + ' no concordante' + (T.fail > 1 ? 's' : '') + '</span>' : 'ninguna no concordante' }
     ];
@@ -72881,7 +73300,12 @@ function copYearReportHTML(m, opts) {
     }
     // Notas
     var foot = [];
-    foot.push('<b>Regla de muestreo:</b> hasta 7,500 unidades producidas, 3 ensayos; de 7,501 a 12,500, 6; cada 5,000 unidades adicionales (o fracción), 3 más. Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
+    // [3.13.0] La regla de cada región, tal como la pide corporativo.
+    var ruleLines = m.regions.filter(function(rg) { return rg.rows.length; }).map(function(rg) {
+        return '<b>' + _crEsc(rg.label) + ':</b> ' + rg.rules.map(copYearRuleText).join('; ') + '.';
+    });
+    foot.push('<b>Regla de muestreo</b> (año calendario). ' + (ruleLines.length ? ruleLines.join(' ') : copYearRuleText('lot') + '.') +
+              ' Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
     foot.push('<b>Cuentan</b> los ensayos aprobados y válidos para CoP con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
     var nc = Object.keys(m.nonCopPurposes);
     if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
@@ -72965,6 +73389,7 @@ function _copRepProduction(year, inScope) {
         year: year, months: (typeof tpMonths === 'function') ? tpMonths() : [],
         planData: (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : [],
         inScope: inScope, keyOf: tpFamilyKeyForCfg,
+        ruleOf: (typeof copHqRuleFor === 'function') ? function(c) { return copHqRuleFor(c); } : null,
         actuals: (copState.yearProd && copState.yearProd[year]) || {}
     });
 }
@@ -72976,6 +73401,8 @@ var _copRepCache = { key: '', model: null };
  */
 function copYearReportModel(opts) {
     opts = opts || {};
+    // [3.13.0] El Plan lo pide aunque nadie haya abierto el CoP: que el estado esté cargado.
+    if (typeof _copLoaded !== 'undefined' && !_copLoaded && typeof copInitState === 'function') copInitState();
     var cut = opts.cutIso || localToday();
     var year = Number(cut.slice(0, 4));
     var nVeh = ((typeof db !== 'undefined' && db.vehicles) || []).length;
@@ -72983,7 +73410,7 @@ function copYearReportModel(opts) {
                (typeof tpMonths === 'function' ? tpMonths().length : 0)].join('|');
     if (!opts.force && _copRepCache.key === key && _copRepCache.model) return _copRepCache.model;
     var prod = _copRepProduction(year, function(c) { return copInScope(c).ok; });
-    var out = _copRepProduction(year, function(c) { return copScopeHasRegion(c.rgn) && !copScopeHasReg(c.reg); });
+    var out = _copRepProduction(year, function(c) { return copScopeHasRegion(c.rgn) && !copInScope(c).ok; });
     var outOfScope = Object.keys(out.fams).map(function(k) { return out.fams[k]; })
         .filter(function(f) { return f.vol > 0; })
         .sort(function(a, b) { return b.vol - a.vol; })
@@ -79232,7 +79659,16 @@ function _fichaConfig(desc) {
     if (cfg.paused) m.badges.push({ text: 'Pausada', tone: 'muted' });
     if (an) {
         m.badges.push(an.deficit > 0 ? { text: 'Faltan ' + an.deficit, tone: 'warn' } : { text: 'REQ cumplido', tone: 'ok' });
-        m.facts.push({ k: 'Probadas / REQ', v: an.testedN + ' / ' + an.required });
+        if (an.copYear) {
+            // [3.13.0] Familia de corporativo: el REQ es de la familia en el año calendario.
+            var cy = an.copYear;
+            m.facts.push({ k: 'CoP corporativo ' + cy.year, v: cy.excluded ? 'familia fuera del reporte' :
+                'REQ ' + cy.req + ' · hechas ' + cy.done + (cy.inFlight ? ' · en curso ' + cy.inFlight : '') +
+                (cy.declared ? ' · declaradas ' + cy.declared : '') + ' · faltan ' + cy.pending });
+            m.facts.push({ k: 'Probadas (esta configuración)', v: String(an.testedN) });
+        } else {
+            m.facts.push({ k: 'Probadas / REQ', v: an.testedN + ' / ' + an.required });
+        }
     }
     m.facts.push({ k: 'Código', v: desc });
     if (typeof tpFamilyKeyForCfg === 'function') {
@@ -81040,7 +81476,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
         'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen (lunes a viernes, 7:00 y 16:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
         'dg-esc': { title: 'Escalación', text: 'Correos que se agregan EN COPIA solo los días en que hay vehículos con más días de los indicados desde su alta sin aprobar. Dejan de recibirlo cuando esos vehículos se aprueban.' },
-        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (Europa y Medio Oriente): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
+        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (Europa PRE-EURO 7, General EURO-6C y Medio Oriente EURO-5): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
         'dg-days': { title: 'Escalar después de', text: 'Días naturales desde el alta (incluye fin de semana). Con 7, un vehículo se escala a partir del día 8 sin aprobar.' },
         'dg-ntfy': { title: 'Tema de ntfy', text: 'Nombre del canal en la app gratuita ntfy. Quien se suscriba a ese tema recibe la notificación del resumen. Usa un nombre difícil de adivinar: cualquiera que lo conozca puede leerlo (solo trae conteos, nunca VINs completos ni valores).' },
         'pn_digest': { title: 'Avisos del laboratorio', text: 'Resumen diario por correo y al teléfono, escalación a un jefe de los vehículos atorados y aviso cuando se acepta el plan de una semana. Lo envía un proceso automático en la nube con los datos sincronizados.' }
@@ -81476,7 +81912,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9514,"mods":[[9517,"js/app.js",19230],[19234,"js/uiflow.js",19550],[19554,"js/cop15.js",30183],[30187,"js/inventory.js",37871],[37875,"js/cuarto.js",39940],[39944,"js/testplan.js",51503],[51507,"js/panel.js",56845],[56849,"js/projects.js",59138],[59142,"js/auth.js",60183],[60187,"js/signatures.js",60388],[60392,"js/firebase-sync.js",67950],[67954,"js/cop_validator.js",72377],[72381,"js/copreport.js",73313],[73317,"js/homolog.js",75214],[75218,"js/vets.js",77015],[77019,"js/historico.js",77933],[77937,"js/review.js",78390],[78394,"js/opcards.js",78825],[78829,"js/handoff.js",79103],[79107,"js/ficha.js",79599],[79603,"js/relevo.js",79983],[79987,"js/momentos.js",80124],[80128,"js/digest.js",81048],[81052,"js/xlsxw.js",81432],[81436,"js/bugreport.js",82582]]};
+var BUG_LINE_MAP = {"tag":9514,"mods":[[9517,"js/app.js",19239],[19243,"js/uiflow.js",19559],[19563,"js/cop15.js",30192],[30196,"js/inventory.js",37880],[37884,"js/cuarto.js",39949],[39953,"js/testplan.js",51784],[51788,"js/panel.js",57126],[57130,"js/projects.js",59419],[59423,"js/auth.js",60464],[60468,"js/signatures.js",60669],[60673,"js/firebase-sync.js",68242],[68246,"js/cop_validator.js",72734],[72738,"js/copreport.js",73740],[73744,"js/homolog.js",75641],[75645,"js/vets.js",77442],[77446,"js/historico.js",78360],[78364,"js/review.js",78817],[78821,"js/opcards.js",79252],[79256,"js/handoff.js",79530],[79534,"js/ficha.js",80035],[80039,"js/relevo.js",80419],[80423,"js/momentos.js",80560],[80564,"js/digest.js",81484],[81488,"js/xlsxw.js",81868],[81872,"js/bugreport.js",83018]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

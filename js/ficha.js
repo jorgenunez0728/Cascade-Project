@@ -126,7 +126,16 @@ function _fichaConfig(desc) {
     if (cfg.paused) m.badges.push({ text: 'Pausada', tone: 'muted' });
     if (an) {
         m.badges.push(an.deficit > 0 ? { text: 'Faltan ' + an.deficit, tone: 'warn' } : { text: 'REQ cumplido', tone: 'ok' });
-        m.facts.push({ k: 'Probadas / REQ', v: an.testedN + ' / ' + an.required });
+        if (an.copYear) {
+            // [3.13.0] Familia de corporativo: el REQ es de la familia en el año calendario.
+            var cy = an.copYear;
+            m.facts.push({ k: 'CoP corporativo ' + cy.year, v: cy.excluded ? 'familia fuera del reporte' :
+                'REQ ' + cy.req + ' · hechas ' + cy.done + (cy.inFlight ? ' · en curso ' + cy.inFlight : '') +
+                (cy.declared ? ' · declaradas ' + cy.declared : '') + ' · faltan ' + cy.pending });
+            m.facts.push({ k: 'Probadas (esta configuración)', v: String(an.testedN) });
+        } else {
+            m.facts.push({ k: 'Probadas / REQ', v: an.testedN + ' / ' + an.required });
+        }
     }
     m.facts.push({ k: 'Código', v: desc });
     if (typeof tpFamilyKeyForCfg === 'function') {
