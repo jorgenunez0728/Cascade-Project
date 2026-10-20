@@ -3088,6 +3088,11 @@ details.acc > summary {
     display: flex; align-items: center; justify-content: center; overflow-y: auto;
     transition: opacity var(--dur-slow) var(--ease-out);
 }
+/* [3.14.1] El hijo directo se centra con margin:auto, no con align-items: con muchos
+   operadores el contenido pasa del alto de la ventana y align-items:center lo desborda
+   por ARRIBA, fuera del alcance del scroll (se cortaba la marca). margin:auto centra
+   cuando cabe y se pega arriba cuando no. */
+.auth-overlay > #auth-content { width: 100%; margin: auto; }
 .auth-overlay.is-leaving { opacity: 0; pointer-events: none; }
 .auth-overlay.is-gone { display: none; }
 html.booting, html.booting body { overflow: hidden; }
@@ -10101,10 +10106,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610200824';
+var APP_BUILD = '202610201313';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '072d0b8633defa39d583d147b80a7f8e04cf7e02';
+var APP_COMMIT = '5e611a7dbebc0a36245b325e404754e79baf418c';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10112,7 +10117,7 @@ var APP_COMMIT = '072d0b8633defa39d583d147b80a7f8e04cf7e02';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.14.0';
+var APP_VERSION = '3.14.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10120,6 +10125,8 @@ var APP_VERSION = '3.14.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.14.1', date: '20 oct 2026', title: 'La bienvenida ya no se corta',
+      bullets: ['Arreglado: con varios operadores, la pantalla de acceso se cortaba por arriba (no se veía la marca) y esa parte no se alcanzaba con el desplazamiento. Ahora se centra cuando cabe y empieza desde arriba cuando no.'] },
     { version: '3.14.0', date: '20 oct 2026', title: 'El laboratorio en el mapa',
       bullets: ['Consumibles → 🗺️ Cuarto → 🚗 Laboratorio: la celda de pruebas, el cuarto de control y el cuarto de acondicionamiento en 3D, como los cuartos de gases y gasolina. El plano salió de las fotos del laboratorio y es provisional.',
                 'Toca un cajón (o el dinamómetro) para poner una unidad por su VIN. Si tiene alta en la plataforma se liga sola; si no, queda como "sin alta" y se puede dar de alta desde ahí.',
@@ -11239,14 +11246,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610200824' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610201313' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610200824' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610201313' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11262,7 +11269,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610200824' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610201313' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -66580,7 +66587,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610200824' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610201313' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -83394,7 +83401,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9635,"mods":[[9638,"js/app.js",19372],[19376,"js/uiflow.js",19692],[19696,"js/cop15.js",30325],[30329,"js/inventory.js",38015],[38019,"js/cuarto.js",40094],[40098,"js/sitio.js",41407],[41411,"js/testplan.js",53247],[53251,"js/panel.js",58589],[58593,"js/projects.js",60882],[60886,"js/auth.js",61927],[61931,"js/signatures.js",62132],[62136,"js/firebase-sync.js",69724],[69728,"js/cop_validator.js",74216],[74220,"js/copreport.js",75222],[75226,"js/homolog.js",77123],[77127,"js/vets.js",78924],[78928,"js/historico.js",79842],[79846,"js/review.js",80299],[80303,"js/opcards.js",80734],[80738,"js/handoff.js",81012],[81016,"js/ficha.js",81517],[81521,"js/relevo.js",81901],[81905,"js/momentos.js",82042],[82046,"js/digest.js",82966],[82970,"js/xlsxw.js",83350],[83354,"js/bugreport.js",84500]]};
+var BUG_LINE_MAP = {"tag":9640,"mods":[[9643,"js/app.js",19379],[19383,"js/uiflow.js",19699],[19703,"js/cop15.js",30332],[30336,"js/inventory.js",38022],[38026,"js/cuarto.js",40101],[40105,"js/sitio.js",41414],[41418,"js/testplan.js",53254],[53258,"js/panel.js",58596],[58600,"js/projects.js",60889],[60893,"js/auth.js",61934],[61938,"js/signatures.js",62139],[62143,"js/firebase-sync.js",69731],[69735,"js/cop_validator.js",74223],[74227,"js/copreport.js",75229],[75233,"js/homolog.js",77130],[77134,"js/vets.js",78931],[78935,"js/historico.js",79849],[79853,"js/review.js",80306],[80310,"js/opcards.js",80741],[80745,"js/handoff.js",81019],[81023,"js/ficha.js",81524],[81528,"js/relevo.js",81908],[81912,"js/momentos.js",82049],[82053,"js/digest.js",82973],[82977,"js/xlsxw.js",83357],[83361,"js/bugreport.js",84507]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

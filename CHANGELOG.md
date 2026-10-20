@@ -20,6 +20,18 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.14.1 — La bienvenida ya no se corta (2026-10-20)
+
+### Arreglado
+- Con varios operadores en la pantalla de acceso, la lista pasaba del alto de la ventana y la
+  pantalla se cortaba por arriba: no se veía la marca y esa parte no se alcanzaba con el
+  desplazamiento. Ahora se centra cuando cabe y empieza desde arriba cuando no.
+
+### Para desarrollo
+- `.auth-overlay > #auth-content { margin: auto }`: un contenedor flex con `align-items:center`
+  y `overflow-y:auto` desborda al hijo por ARRIBA, fuera del alcance del scroll. Las márgenes
+  automáticas centran solo cuando sobra espacio.
+
 ## 3.14.0 — El laboratorio en el mapa (2026-10-20)
 
 ### Nuevo
