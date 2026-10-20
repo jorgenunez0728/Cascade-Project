@@ -2645,6 +2645,11 @@ details.acc > summary {
     display: flex; align-items: center; justify-content: center; overflow-y: auto;
     transition: opacity var(--dur-slow) var(--ease-out);
 }
+/* [3.14.1] El hijo directo se centra con margin:auto, no con align-items: con muchos
+   operadores el contenido pasa del alto de la ventana y align-items:center lo desborda
+   por ARRIBA, fuera del alcance del scroll (se cortaba la marca). margin:auto centra
+   cuando cabe y se pega arriba cuando no. */
+.auth-overlay > #auth-content { width: 100%; margin: auto; }
 .auth-overlay.is-leaving { opacity: 0; pointer-events: none; }
 .auth-overlay.is-gone { display: none; }
 html.booting, html.booting body { overflow: hidden; }

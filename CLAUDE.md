@@ -3611,3 +3611,15 @@ Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la r
   ordena las caras por profundidad. Una forma nueva = entrada en `SITE_SHAPES` + su rama en
   `_siteDeco`. El auto es un perfil extruido (`SITE_CAR_PROFILE`); su color sale de `--st-car`
   por tono de estado. Los colores derivados usan `color-mix`, no `filter` (miles de polígonos).
+
+## 3.14.1 — El teclado en pantalla no es un cambio de pantalla
+
+- **Un oyente de `resize` que repinta debe ignorar un cambio SOLO de alto mientras se escribe**
+  (`_invRoomTyping` en cuarto.js): en tableta y teléfono el teclado achica la ventana. Repintar ahí
+  destruye el campo, cierra el teclado y vuelve a disparar `resize`: parpadeo sin fin (#213).
+- **Un panel que se repinta con `innerHTML` y tiene campos conserva lo tecleado y el foco** si la
+  selección es la misma (`_invRoomPanelKeep`/`data-key`); lo guardado se suelta antes de repintar
+  (`_invRoomPanelForget`). Un sync que llega a media escritura no debe borrar lo que se teclea.
+- Un contenedor con `overflow:auto` y `align-items:center` desborda por ARRIBA, fuera del scroll:
+  centrar al hijo con `margin:auto` (`#auth-content`).
+
