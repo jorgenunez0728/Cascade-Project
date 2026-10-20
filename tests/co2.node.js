@@ -45,7 +45,7 @@ ok('Apéndice I: A − VAR = 1.0095 → CONCORDANTE', st.appendixI.decision === 
 ok('R154 n=3: acepta con X̄ ≤ A − 2.124·s = 0.9640', near(st.r154.passBound, 0.9640));
 ok('R154 n=3: rechaza con X̄ > A + 1.248·s = 1.0370', near(st.r154.failBound, 1.0370));
 ok('R154: EN MUESTREO', st.r154.decision === 'CONTINUE');
-ok('el veredicto de nivel superior es el del Apéndice I', st.decision === 'PASS');
+ok('[3.15.0] el veredicto de nivel superior es el de UN R154 (el de HQ)', st.decision === 'CONTINUE' && st.principal === 'r154' && near(st.passBound, 0.9640));
 
 console.log('\n== copCo2Agreement ==');
 const mk = (a, r) => ({ appendixI: { decision: a }, r154: { decision: r } });
@@ -61,13 +61,13 @@ ok('ya no dice "NO coinciden, revisar antes de aceptar"', !/NO coinciden/.test(h
 ok('no se pinta en rojo', !/danger-text/.test(html));
 ok('dice lo que pide R154 para aceptar (0.9640)', /0\.9640/.test(html));
 ok('dice la dispersión con la que aceptaría (s ≤ 0.0117)', /s ≤ 0\.0117/.test(html), html);
-ok('aclara que no contradice al Apéndice I', /No contradice al Apéndice I/.test(html));
+ok('dice que el Apéndice I ya acepta pero el veredicto es el de R154', /Apéndice I ya da CONCORDANTE/.test(html) && /el veredicto es el de UN R154/.test(html), html);
 const opp = Object.assign({}, st, { r154: Object.assign({}, st.r154, { decision: 'FAIL' }) });
 ok('veredictos opuestos SÍ van en rojo con "revisar"', /danger-text/.test(ctx.copCo2ConclusionHTML(opp)) && /OPUESTOS/.test(ctx.copCo2ConclusionHTML(opp)));
 const same = Object.assign({}, st, { r154: Object.assign({}, st.r154, { decision: 'PASS' }) });
-ok('si coinciden, solo lo confirma', /Confirma UN R154/.test(ctx.copCo2ConclusionHTML(same)));
+ok('si coinciden, solo lo confirma', /El Apéndice I \(Reg\. \(UE\) 2017\/1151\) da lo mismo/.test(ctx.copCo2ConclusionHTML(same)));
 const frozen = JSON.parse(JSON.stringify(st)); delete frozen.s; delete frozen.x;
-ok('un juicio congelado sin s no truena', (() => { try { return /todavía no decide/.test(ctx.copCo2ConclusionHTML(frozen)); } catch (e) { return false; } })());
+ok('un juicio congelado sin s no truena', (() => { try { return /todavía pide otro vehículo/.test(ctx.copCo2ConclusionHTML(frozen)); } catch (e) { return false; } })());
 
 console.log('\n== Imposibles por construcción (por eso "opuestas" es raro) ==');
 {
@@ -84,7 +84,7 @@ console.log('\n== Imposibles por construcción (por eso "opuestas" es raro) ==')
 }
 
 console.log('\n== Medidor ==');
-ok('la banda sin decidir se rotula con 4 decimales (1.0095 ≠ 1.0100)', /1\.0095 — sin decidir — 1\.0100/.test(ctx._copCo2GaugeHTML(st)));
+ok('la banda sin decidir se rotula con 4 decimales (la de R154: 0.9640 — 1.0370)', /0\.9640 — sin decidir — 1\.0370/.test(ctx._copCo2GaugeHTML(st)), ctx._copCo2GaugeHTML(st));
 
 console.log('\n== [2.28.0] El cálculo paso a paso ==');
 {

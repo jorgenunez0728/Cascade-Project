@@ -10117,10 +10117,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610201632';
+var APP_BUILD = '202610201737';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '2e38645a73de5326c7d2d8e4c79ff93b9b5a4625';
+var APP_COMMIT = '0351e08a9ea416594d079424d5e9bacbfe0765ff';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10128,7 +10128,7 @@ var APP_COMMIT = '2e38645a73de5326c7d2d8e4c79ff93b9b5a4625';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.14.3';
+var APP_VERSION = '3.15.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10136,6 +10136,12 @@ var APP_VERSION = '3.14.3';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.15.0', date: '20 oct 2026', title: 'La hoja de CoP de corporativo, con un clic',
+      bullets: ['CoP → Validador → 💾 Juicios guardados → 📤 Excel HQ (y en 🗂️ Expediente → 📤 Excel para HQ): descarga la hoja de evaluación estadística que pide corporativo, llena con el juicio de la familia. Dos hojas, gases y CO₂, con las mismas celdas y fórmulas de su formato; al abrirla, Excel recalcula y da los mismos números que la plataforma.',
+                'Cambió el veredicto de gases del CoP: ahora es el de UN R154 §2.1.1, el mismo de la hoja de corporativo. Cada valor se multiplica por su factor de deterioro asignado (CO 1.5, THC 1.3, NMHC 1.3, NOx 1.6, PM 1, PN 1) y el promedio se compara contra A·L − VAR/L, con A = 1.05. Antes se usaba el estadístico U de R83.',
+                'Cambió el veredicto de CO₂: el principal ahora es UN R154 §3.3.1 (el de la hoja de corporativo). El Apéndice I del Reg. (UE) 2017/1151 se sigue mostrando debajo. Con pocos vehículos, R154 puede pedir otra prueba donde antes ya se aceptaba.',
+                'PM y PN se leen de la prueba de VETS adjunta. Las pruebas liberadas sin VETS no los traen, y la hoja de corporativo sale sin esos dos gases (se avisa al descargar).',
+                'Los juicios guardados antes de esta versión no cambian: conservan su método. La hoja de corporativo los recalcula con el método nuevo y avisa si el resultado difiere.'] },
     { version: '3.14.3', date: '20 oct 2026', title: 'Conectar un equipo nuevo',
       bullets: ['Arreglado: en un equipo que nunca se había conectado, "Conectar este dispositivo" no hacía nada visible: la ventana de la contraseña quedaba detrás de la pantalla de bienvenida y la conexión con la nube no estaba iniciada. Ahora la contraseña del laboratorio se pide en la misma pantalla y, al conectar, aparecen solos los operadores del laboratorio.'] },
     { version: '3.14.2', date: '20 oct 2026', title: 'Los gases son los del reporte semanal',
@@ -11265,14 +11271,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610201632' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610201737' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610201632' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610201737' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11288,7 +11294,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610201632' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610201737' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -18244,7 +18250,7 @@ var TOURS = {
         { target: '[data-help="cop-kpis-help"]', title: 'Panorama', text: 'Arranca aquí: el estado de conformidad de TODAS las familias del alcance en una pantalla. Cada tarjeta es una familia; el color del borde es el aviso de riesgo y el chip de adentro es el veredicto estadístico.', position: 'bottom' },
         { target: '[data-help="cop-present-help"]', title: 'Para la sala', text: 'Modo presentación agranda todo dentro del CoP para proyectarlo en una auditoría, sin cambiar el tamaño con el que se usa la app en el celular.', position: 'bottom' },
         { target: '[data-help="cop-scope-help"]', title: 'Qué NO cubre', text: 'El CoP solo juzga EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara aquí, para que nadie suponga que se omitió por descuido.', position: 'top' },
-        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó el estadístico U dentro de la banda A(n)–B(n): si la familia ya concluyó y de qué lado, o cuántos vehículos le faltan.', position: 'top' },
+        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó Xtests (el promedio con DF) entre la cota de paso y la de falla de UN R154: si la familia ya concluyó y de qué lado, o si hace falta otra medición.', position: 'top' },
         { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'Se recalcula con cada valor capturado. Con menos de 3 VINes no se emite veredicto — a propósito.', position: 'top' },
         { target: '[data-help="cop-dossier-help"]', title: 'Expediente', text: 'La historia de cada familia y el PDF que se entrega en auditoría, con los límites congelados del juicio.', position: 'bottom' },
         { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }
@@ -54543,7 +54549,7 @@ function pnRenderReports(el) {
         { icon: '📊', title: 'Portafolio de Proyectos', desc: 'Un renglón por proyecto activo con semáforo, avance, vencidos, bloqueados y próximo hito — para reportar a jefatura.', actions: [{ label: 'CSV', fn: 'pnExportPortfolioCSV' }] },
         { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] },
         { icon: '🏁', title: 'CoP ' + (typeof copRepYear === 'function' ? copRepYear() : '') + ' — estatus semanal para corporativo', desc: 'Año calendario (ene–dic, todos los años modelo), Europa PRE-EURO 7, General EURO-6C y Medio Oriente EURO-5: producción, ensayos requeridos según la regla de corporativo, hechos, avance y la comparación contra la semana anterior. Guarda el corte de la semana.', actions: [{ label: 'Ver', fn: 'copRepOpen' }, { label: 'Imprimir / PDF', fn: 'copRepPrint' }, { label: 'HTML', fn: 'copRepDownload' }] },
-        { icon: '🧪', title: 'CoP — Panorama de familias', desc: 'Un renglón por familia del alcance CoP: veredicto, VINes, % del límite, U con su banda A(n)/B(n), Cpk, días sin ensayar, riesgo y motivo.', actions: [{ label: 'CSV', fn: 'copExportPortfolioCSV' }] },
+        { icon: '🧪', title: 'CoP — Panorama de familias', desc: 'Un renglón por familia del alcance CoP: veredicto, VINes, % del límite (con DF), Xtests con sus cotas de paso y falla, Cpk, días sin ensayar, riesgo y motivo.', actions: [{ label: 'CSV', fn: 'copExportPortfolioCSV' }] },
         { icon: '📑', title: 'CoP — Expediente de familia (auditoría)', desc: 'Dossier de la familia abierta: identificación, límites congelados, estadística, VINes con fechas, CO₂ vs declarado y firmas. Abre primero la familia en CoP → Panorama.', actions: [{ label: 'PDF', fn: 'copFamilyPDF' }, { label: 'CSV', fn: 'copExportFamilyCSV' }] },
         { icon: '🔎', title: 'Validación del importador VETS', desc: 'Cada comparación "tecleado vs VETS" de vehículos ya liberados (Historial → ⋯ → Comparar con VETS): evidencia de que el importador lee bien (ISO 17025 §7.11.2).', actions: [{ label: 'CSV', fn: 'vetsValidationExportCSV' }] },
         { icon: '📜', title: 'CoP — Juicios emitidos', desc: 'Historial de veredictos con fecha, familia, n, decisión, quién lo emitió y los límites con los que se decidió.', actions: [{ label: 'CSV', fn: 'copExportJudgmentsCSV' }] }
@@ -66934,7 +66940,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610201632' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610201737' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -70081,14 +70087,14 @@ function fbSyncSheetRetry() {
 // @@module js/cop_validator.js
 // ─── CoP Type 1 Validator — Cascade Module ───────────────────────────────────
 // Validación estadística de Conformidad de Producción (CoP) Tipo 1
-// Muestreo secuencial con σ desconocida — Appendix 2, UN R83 Rev.5 / R154
-// VERIFICAR valores A(n)/B(n) contra texto oficial antes de uso en homologación
+// [3.15.0] Gases: UN R154 §2.1.1 (Xtests con DF asignado contra A·L − VAR/L), el mismo
+// cálculo que la hoja de evaluación estadística de corporativo.
 
 // ─── CO₂ — Verificación de familia, UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 ────
 // Fórmula y tabla verificadas contra el texto oficial (Excel de referencia con
 // extracto de la norma adjunto, mismo texto que Reg. (UE) 2017/1151 Ap.1 §4 para
 // el caso general de CO2/EC con A=1,01 y L=1). NO es el mismo test que gases
-// (§3.1, tabla COP_CV de arriba): aquí no hay U ni división entre s — la banda
+// (§2.1.1, copGasJudge de abajo): aquí no hay U ni división entre s — la banda
 // se compara directo contra el promedio normalizado, así que se define aparte.
 var COP_CO2_A = 1.01;
 var COP_CO2_TABLE = {
@@ -70116,16 +70122,17 @@ var COP_CO2_TABLE = {
  *   x_i = (CO2_medido_i × EvC × FCF) / CO2_declarado_i
  *   X̄ = promedio de x_i · VAR = varianza muestral (n−1) · s = √VAR
  *
- *   PRINCIPAL — Reg. (UE) 2017/1151, Anexo XXI Apéndice I §4 (caso CO2/EC,
- *   A=1,01 y L=1 simplifican la fórmula general de gases a esto):
- *     Pasa  si X̄ <  A − VAR
- *     Falla si X̄ >  A − ((n−3)/13)·VAR
- *   Ésta es la que describe la conclusión ("A menos varianza").
- *
- *   CONFIRMACIÓN — UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 (banda con t de
- *   Student por tamaño de muestra, más estrecha, pensada para Nivel 1A):
+ *   PRINCIPAL [3.15.0] — UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 (banda con t de
+ *   Student por tamaño de muestra). Es la que corre la hoja de evaluación
+ *   estadística de corporativo (HQ), así que es la que describe la conclusión:
  *     Pasa  si X̄ ≤ A − (tP1+tP2)·s
  *     Falla si X̄ >  A + (tF1−tF2)·s
+ *
+ *   SEGUNDA PRUEBA — Reg. (UE) 2017/1151, Anexo XXI Apéndice I §4 (caso CO2/EC,
+ *   A=1,01 y L=1 simplifican la fórmula general de gases a esto). Hasta 3.14 era
+ *   la principal:
+ *     Pasa  si X̄ <  A − VAR
+ *     Falla si X̄ >  A − ((n−3)/13)·VAR
  *
  * A = 1,01 fijo por la norma en ambas — no es una tolerancia configurable
  * como en gases. FCF (Family Correction Factor) y EvC (Evolution Factor) SÍ
@@ -70156,10 +70163,11 @@ function copCo2CalcStats(rows, fcf, evc) {
     return {
         n: n, mean: j.mean, s: j.s, var: j.var, fcf: f, evc: e, A: COP_CO2_A,
         overSample: n > 16, x: x,
-        // Compatibilidad de nivel superior = la prueba PRINCIPAL (Apéndice I):
-        // así el resto de la pantalla (gauge, conclusión, congelado del juicio)
+        // Compatibilidad de nivel superior = la prueba PRINCIPAL ([3.15.0] UN R154, la
+        // de HQ): así el resto de la pantalla (gauge, conclusión, congelado del juicio)
         // no necesita saber que hay dos pruebas para pintar el veredicto de arriba.
-        decision: j.appendixI.decision, passBound: j.appendixI.passBound, failBound: j.appendixI.failBound,
+        principal: 'r154',
+        decision: j.r154.decision, passBound: j.r154.passBound, failBound: j.r154.failBound,
         appendixI: { decision: j.appendixI.decision, passBound: j.appendixI.passBound, failBound: j.appendixI.failBound, source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4' },
         r154: { decision: j.r154.decision, passBound: j.r154.passBound, failBound: j.r154.failBound, table: j.r154.table, tableN: j.r154.tableN, source: 'UN R154 (WLTP GTR) §3.3.1 — Tabla A2/3' }
     };
@@ -70177,12 +70185,12 @@ function _copCo2Judge(xs) {
     var s = Math.sqrt(vr);
     var nClamped = Math.max(3, Math.min(n, 16));
 
-    // ── Principal: Apéndice I §4 (VAR directa, sin tabla) ──
+    // ── Segunda prueba: Apéndice I §4 (VAR directa, sin tabla) ──
     var apPassBound = COP_CO2_A - vr;
     var apFailBound = COP_CO2_A - ((nClamped - 3) / 13) * vr;
     var apDecision = mean < apPassBound ? 'PASS' : mean > apFailBound ? 'FAIL' : 'CONTINUE';
 
-    // ── Confirmación: R154 §3.3.1 (tabla t, banda más estrecha) ──
+    // ── Principal [3.15.0]: R154 §3.3.1 (tabla t, banda más estrecha) ──
     var t = COP_CO2_TABLE[nClamped];
     var r154PassBound = COP_CO2_A - (t.tP1 + t.tP2) * s;
     var r154FailBound = COP_CO2_A + (t.tF1 - t.tF2) * s;
@@ -70539,42 +70547,32 @@ function copSetCo2Factors(fcfRaw, evcRaw) {
     if (typeof showToast === 'function') showToast('Factores de CO₂ guardados — el veredicto se recalculó.', 'success');
 }
 
-/** La frase de conclusión, con los números reales — lo que pide una auditoría. */
 /**
- * La frase de conclusión, con los números reales. Usa la prueba PRINCIPAL
- * (Apéndice I, "A menos varianza") y agrega una línea de confirmación con la
- * prueba de R154 §3.3.1 — si las dos coinciden lo dice de pasada; si NO
- * coinciden lo declara en rojo, porque eso es justo lo que un auditor necesita
- * ver antes de aceptar la familia.
+ * La frase de conclusión, con los números reales — lo que pide una auditoría. Usa la
+ * prueba PRINCIPAL ([3.15.0] UN R154 §3.3.1, la de la hoja de HQ) y agrega una línea
+ * con el Apéndice I — si las dos coinciden lo dice de pasada; si dan veredictos
+ * OPUESTOS lo declara en rojo, porque eso es justo lo que un auditor necesita ver.
  */
 function copCo2ConclusionHTML(stats) {
-    if (!stats || stats.decision === 'SIN DATOS' || !stats.appendixI) return '';
-    var ap = stats.appendixI, r154 = stats.r154;
-    var boundTxt, cmpTxt;
-    if (ap.decision === 'PASS') {
-        boundTxt = 'A − VAR = ' + stats.A.toFixed(2) + ' − ' + stats.var.toFixed(6) + ' = ' + ap.passBound.toFixed(4);
-        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' es menor que ' + boundTxt;
-    } else if (ap.decision === 'FAIL') {
-        boundTxt = 'A − ((n−3)/13)·VAR = ' + ap.failBound.toFixed(4);
-        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' supera ' + boundTxt;
+    if (!stats || stats.decision === 'SIN DATOS' || !stats.r154) return '';
+    var pr = stats.r154, t = pr.table || {};
+    var cmpTxt;
+    if (pr.decision === 'PASS') {
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' es menor o igual que A − (tP1 + tP2)·s = ' + stats.A.toFixed(2) + ' − (' +
+            t.tP1 + ' + ' + t.tP2 + ')' + (typeof stats.s === 'number' ? ' × ' + stats.s.toFixed(4) : '·s') + ' = ' + pr.passBound.toFixed(4);
+    } else if (pr.decision === 'FAIL') {
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' supera A + (tF1 − tF2)·s = ' + pr.failBound.toFixed(4);
     } else {
-        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' cae entre ' + ap.passBound.toFixed(4) + ' y ' + ap.failBound.toFixed(4) + ' — todavía sin decidir';
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' cae entre ' + pr.passBound.toFixed(4) + ' y ' + pr.failBound.toFixed(4) + ' — todavía sin decidir';
     }
-    var frase = ap.decision === 'PASS'
+    var frase = pr.decision === 'PASS'
         ? 'Como ' + cmpTxt + ' (n=' + stats.n + ' ensayos), <b>se acepta la familia</b> — el CO₂ CONCUERDA con el valor declarado.'
-        : ap.decision === 'FAIL'
+        : pr.decision === 'FAIL'
         ? 'Como ' + cmpTxt + ' (n=' + stats.n + ' ensayos), <b>se rechaza la familia</b> — el CO₂ NO CONCUERDA con el valor declarado.'
         : cmpTxt + ' (n=' + stats.n + ' de hasta 16 ensayos): hace falta otro vehículo para decidir.';
-    var icon = ap.decision === 'PASS' ? '✅' : ap.decision === 'FAIL' ? '❌' : '⏳';
-
-    // [2.27.3] Tres casos, no dos. Que R154 diga "sin decidir" mientras el
-    // Apéndice I ya decidió NO es una contradicción: la banda de R154 usa la
-    // desviación estándar s con un factor t (a n=3, 2.124·s), la del Apéndice I
-    // usa VAR = s² (sobre un cociente, del orden de 1e-4). Con pocos ensayos
-    // R154 casi siempre pide más. Rojo solo para veredictos OPUESTOS.
+    var icon = pr.decision === 'PASS' ? '✅' : pr.decision === 'FAIL' ? '❌' : '⏳';
     var confirm = copCo2ConfirmHTML(stats);
-
-    return '<p class="cop-co2-conclusion cop-co2-conclusion--' + ap.decision.toLowerCase() + '">' + icon + ' ' + frase +
+    return '<p class="cop-co2-conclusion cop-co2-conclusion--' + pr.decision.toLowerCase() + '">' + icon + ' ' + frase +
            (stats.overSample ? ' <span style="opacity:0.75;">(n&gt;16: evaluado con la fila tope, n=16.)</span>' : '') +
            '<br>' + confirm + '</p>';
 }
@@ -70585,7 +70583,9 @@ function copCo2ConclusionHTML(stats) {
  *   'opuestas'          — PASS contra FAIL: conflicto real, se pinta en rojo.
  *   'r154-pide-mas'     — el Apéndice I ya decidió y R154 sigue en muestreo.
  *   'apendice-pide-mas' — al revés.
- * Las dos últimas NO son contradicción: una prueba pide más vehículos.
+ * Las dos últimas NO son contradicción: una prueba pide más vehículos. La banda de
+ * R154 usa s con un factor t (a n=3, 2.124·s); la del Apéndice I usa VAR = s² sobre
+ * un cociente (del orden de 1e-4), así que con pocos ensayos R154 casi siempre pide más.
  */
 function copCo2Agreement(stats) {
     if (!stats || !stats.appendixI || !stats.r154) return null;
@@ -70596,27 +70596,28 @@ function copCo2Agreement(stats) {
     return 'opuestas';
 }
 
-/** [2.27.3] La línea de confirmación de UN R154 §3.3.1 bajo la conclusión. */
+/** [3.15.0] La línea del Apéndice I bajo la conclusión (la principal es UN R154). */
 function copCo2ConfirmHTML(stats) {
     var kind = copCo2Agreement(stats);
     if (!kind) return '';
-    var r154 = stats.r154, t = r154.table || {};
+    var ap = stats.appendixI, r154 = stats.r154, t = r154.table || {};
     if (kind === 'coinciden') {
-        return '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>';
+        return '<span style="opacity:0.8;">El Apéndice I (Reg. (UE) 2017/1151) da lo mismo: ' + _copDecisionWord(ap.decision) + '.</span>';
     }
     if (kind === 'opuestas') {
-        return '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) +
+        return '<b style="color:var(--danger-text,#991b1b);">⚠ El Apéndice I (Reg. (UE) 2017/1151) da ' + _copDecisionWord(ap.decision) +
             ': las dos pruebas dan veredictos OPUESTOS. Revisar antes de aceptar.</b>';
     }
     var warn = 'color:var(--warn-text,#92400e);';
     if (kind === 'apendice-pide-mas') {
-        return '<span style="' + warn + '">UN R154 §3.3.1 ya da ' + _copDecisionWord(r154.decision) +
-            ', pero el veredicto de arriba es el del Apéndice I, que todavía pide más vehículos.</span>';
+        return '<span style="opacity:0.8;">El Apéndice I todavía no decide con n=' + stats.n +
+            '. No contradice a UN R154, que es el veredicto de arriba.</span>';
     }
-    var txt = 'UN R154 §3.3.1 (Tabla A2/3) todavía no decide con n=' + stats.n +
-        ': su banda usa la desviación estándar' + (typeof stats.s === 'number' ? ' (s = ' + stats.s.toFixed(4) + ')' : '') +
-        ' y con pocos ensayos es más estricta';
-    if (stats.appendixI.decision === 'PASS') {
+    // R154 (principal) sigue en muestreo y el Apéndice I ya decidió.
+    var txt = 'El Apéndice I ya da ' + _copDecisionWord(ap.decision) + ', pero el veredicto es el de UN R154 §3.3.1 (el de la hoja de HQ), que con n=' +
+        stats.n + ' todavía pide otro vehículo: su banda usa la desviación estándar' +
+        (typeof stats.s === 'number' ? ' (s = ' + stats.s.toFixed(4) + ')' : '');
+    if (ap.decision === 'PASS') {
         txt += '. Para aceptar pide X̄ ≤ ' + r154.passBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
         var k = (t.tP1 || 0) + (t.tP2 || 0);
         if (k > 0 && stats.mean < stats.A) {
@@ -70625,8 +70626,7 @@ function copCo2ConfirmHTML(stats) {
     } else {
         txt += '. Rechaza solo con X̄ > ' + r154.failBound.toFixed(4) + ' (aquí ' + stats.mean.toFixed(4) + ')';
     }
-    txt += '. No contradice al Apéndice I, que es el veredicto de arriba: se aclara con más vehículos.';
-    return '<span style="' + warn + '">ℹ️ ' + txt + '</span>';
+    return '<span style="' + warn + '">ℹ️ ' + txt + '.</span>';
 }
 
 // ─── [2.28.0] CO₂ — el cálculo paso a paso ──────────────────────────────────
@@ -70755,7 +70755,7 @@ function copCo2StepsHTML(stats, opts) {
             step('Paso 3 — Límite para aceptar', q3) +
             step('Paso 4 — Límite para rechazar', q4) +
             '</ol>' + resumen(r.decision) +
-            (r.decision === 'CONTINUE' ? '<p class="u-muted">Ni acepta ni rechaza: hace falta otro vehículo. Es la confirmación; el veredicto de la familia es el del Apéndice I.</p>' : '');
+            (r.decision === 'CONTINUE' ? '<p class="u-muted">Ni acepta ni rechaza: hace falta otro vehículo. Es la prueba principal (la de la hoja de HQ).</p>' : '');
     }
     html += '<details class="cop-step-details"' + (o.openR154 ? ' open' : '') +
         ' ontoggle="if(typeof uiCardToggle===\'function\')uiCardToggle(\'cop-co2-steps-r154\',this)">' +
@@ -70763,27 +70763,64 @@ function copCo2StepsHTML(stats, opts) {
     return html;
 }
 
-// ─── VALORES CRÍTICOS A(n) B(n) — Test t secuencial ─────────────────────────
-var COP_CV = {
-    3:  { a: -0.860, b: 2.117 },
-    4:  { a: -0.233, b: 1.883 },
-    5:  { a:  0.112, b: 1.796 },
-    6:  { a:  0.321, b: 1.720 },
-    7:  { a:  0.474, b: 1.694 },
-    8:  { a:  0.593, b: 1.659 },
-    9:  { a:  0.688, b: 1.634 },
-    10: { a:  0.770, b: 1.613 },
-    11: { a:  0.839, b: 1.597 },
-    12: { a:  0.900, b: 1.582 },
-    13: { a:  0.952, b: 1.570 },
-    14: { a:  0.998, b: 1.559 },
-    15: { a:  1.039, b: 1.550 },
-    16: { a:  1.075, b: 1.541 },
-    17: { a:  1.108, b: 1.534 },
-    18: { a:  1.138, b: 1.527 },
-    19: { a:  1.165, b: 1.521 },
-    20: { a:  1.190, b: 1.515 },
+// ─── [3.15.0] GASES — el método de HQ: UN R154 §2.1.1 (= Reg. (UE) 2017/1151) ───
+// Reemplaza al muestreo secuencial con el estadístico U y la tabla A(n)/B(n) (R83 Rev.5
+// Apéndice 2), que es lo que la plataforma usó hasta 3.14.x. Decisión del laboratorio
+// (20-oct-2026): el juicio tiene que dar lo mismo que el formato "Statistical Evaluation"
+// que se entrega a HQ.
+//
+//   EM_i   = medido_i × DF + KI         (DF asignado de la norma; KI = 0 sin regeneración)
+//   Xtests = promedio de EM_i · VAR = varianza muestral (n−1)
+//   Pasa la familia      si Xtests <  A·L − VAR/L
+//   Falla la familia     si Xtests >  A·L − ((n−3)/13)·VAR/L
+//   Otra medición        si queda en medio.                     A = 1.05
+//
+// A n = 16 las dos cotas coinciden (decide sí o sí); más allá se evalúa con n = 16 y se
+// marca `overSample`. El DF entra SOLO al juicio CoP de la familia: el PASA/FALLA de cada
+// prueba en Liberación sigue con el valor medido (2.29.0).
+var COP_GAS_A = 1.05;
+var COP_GAS_NMAX = 16;
+// Factores de deterioro asignados (R83 / R154). Son los de la hoja de HQ: CO 1.5, THC 1.3,
+// NMHC 1.3, NOx 1.6, PM y PN 1.0 para encendido por chispa. Un gas sin DF asignado usa 1.
+var COP_ASSIGNED_DF = {
+    PI: { CO: 1.5, THC: 1.3, NMHC: 1.3, NOX: 1.6, PM: 1.0, PN: 1.0 },
+    CI: { CO: 1.5, NOX: 1.1, HCNOX: 1.1, PM: 1.0, PN: 1.0 }
 };
+var COP_GAS_KI = 0;
+
+/** DF y KI de un gas. PURA. `fuelType` 'CI'/'Híbrido CI' = diésel; cualquier otro, chispa. */
+function copGasDf(gasId, fuelType) {
+    var table = /\bCI\b/.test(String(fuelType || '')) ? COP_ASSIGNED_DF.CI : COP_ASSIGNED_DF.PI;
+    var k = String(gasId || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var df = table[k];
+    return { df: df || 1, ki: COP_GAS_KI, assigned: !!df };
+}
+
+/**
+ * [3.15.0] LA definición del juicio CoP de un gas (UN R154 §2.1.1). PURA.
+ * raw = valores medidos (sin DF), limit = L. → null con menos de 3 valores o sin límite;
+ * si no {n, em, mean (Xtests), rawMean, var, s, df, ki, A, passBound, failBound, decision
+ * ('PASS'|'FAIL'|'CONTINUE'), pos (0 = en la cota de pasa, 1 = en la de falla), overSample}.
+ */
+function copGasJudge(raw, limit, df, ki) {
+    var d = (typeof df === 'number' && isFinite(df) && df > 0) ? df : 1;
+    var k = (typeof ki === 'number' && isFinite(ki)) ? ki : 0;
+    var vals = (raw || []).filter(function(v) { return v !== null && v !== '' && v !== undefined && !isNaN(v); }).map(Number);
+    var n = vals.length;
+    var L = Number(limit);
+    if (n < 3 || !(L > 0)) return null;
+    var em = vals.map(function(v) { return v * d + k; });
+    var mean = em.reduce(function(s, v) { return s + v; }, 0) / n;
+    var rawMean = vals.reduce(function(s, v) { return s + v; }, 0) / n;
+    var vr = em.reduce(function(acc, v) { return acc + Math.pow(v - mean, 2); }, 0) / (n - 1);
+    var nC = Math.min(n, COP_GAS_NMAX);
+    var pass = COP_GAS_A * L - vr / L;
+    var fail = COP_GAS_A * L - ((nC - 3) / 13) * vr / L;
+    var decision = mean < pass ? 'PASS' : mean > fail ? 'FAIL' : 'CONTINUE';
+    var pos = fail > pass ? Math.max(0, Math.min(1, (mean - pass) / (fail - pass))) : (decision === 'PASS' ? 0 : 1);
+    return { n: n, em: em, mean: mean, rawMean: rawMean, var: vr, s: Math.sqrt(vr), df: d, ki: k, A: COP_GAS_A,
+             passBound: pass, failBound: fail, decision: decision, pos: pos, overSample: n > COP_GAS_NMAX };
+}
 
 // ─── LÍMITES DE EMISIÓN Euro 6 ────────────────────────────────────────────────
 var COP_PI_LIMITS = [
@@ -71572,6 +71609,22 @@ function copCo2RowsFor(vins, key) {
     });
 }
 
+/**
+ * [3.15.0] PM (g/km) y PN (#/km) de la prueba de VETS adjunta a un vehículo, o null. Solo
+ * de una prueba aprobada (`copResultApproved`): la misma regla que el resto de los gases.
+ * Una unidad que no se sabe convertir devuelve null — nunca un número inventado.
+ */
+function copVetsPmPn(vehicle, pollId) {
+    if (!vehicle || !copResultApproved(vehicle)) return null;
+    var g = vehicle.testData && vehicle.testData.vets && vehicle.testData.vets.gases && vehicle.testData.vets.gases[pollId];
+    var v = g ? _copNum(g.v) : null;
+    if (v === null) return null;
+    var u = String(g.u || '').trim().toLowerCase();
+    if (pollId === 'PN') return (!u || u === '#/km') ? v : null;
+    var F = { 'g/km': 1, 'mg/km': 0.001 };
+    return F.hasOwnProperty(u) ? v * F[u] : null;
+}
+
 /** Filas de la mesa que entran al cálculo (gases y CO₂). */
 function copMesaRows() {
     var ex = _copMesaExclusions(copState.familyKey);
@@ -71702,7 +71755,11 @@ function copResultValue(vehicle, pollId, rawValues) {
         return null;
     }
     var field = COP_VALUE_FIELDS[pollId];
-    return field ? _copNum(values[field]) : null;
+    var got = field ? _copNum(values[field]) : null;
+    // [3.15.0] PM y PN no están en los perfiles de regulación (no se teclean al liberar):
+    // salen de la prueba de VETS adjunta, que es la evidencia de ESA prueba aprobada.
+    if (got === null && vehicle && !rawValues && (pollId === 'PM' || pollId === 'PN')) got = copVetsPmPn(vehicle, pollId);
+    return got;
 }
 function copAddManualRow() {
     copInitState();
@@ -71768,11 +71825,14 @@ function copSaveJudgment() {
         }),
         limitsSource: (lim && lim.mismatches && lim.mismatches.length) ? 'euro6-integrado (NO coincide con el perfil)'
                      : (lim && lim.profile) ? 'perfil ' + (lim.profile.name || '') : 'euro6-integrado',
-        cvSource: 'R83 Rev.5 / R154 Apendice 2',
+        // [3.15.0] Método de HQ: Xtests con DF contra A·L − VAR/L (los juicios anteriores
+        // traen U/a/b de R83 y se leen con su método: `method` ausente = 'r83-u').
+        cvSource: 'UN R154 §2.1.1 (A = 1.05) · DF asignado R83/R154',
+        method: 'r154-2.1.1',
         stats: pollStats.filter(function(p) { return p.stats; }).map(function(p) {
-            return { poll: p.label, n: p.stats.n, mean: p.stats.mean, s: p.stats.s, U: p.stats.U,
-                     a: p.stats.cv ? p.stats.cv.a : null, b: p.stats.cv ? p.stats.cv.b : null,
-                     decision: p.stats.decision };
+            return { poll: p.label, id: p.id, n: p.stats.n, mean: p.stats.mean, rawMean: p.stats.rawMean, s: p.stats.s,
+                     var: p.stats.var, df: p.stats.df, ki: p.stats.ki, A: p.stats.A,
+                     passBound: p.stats.passBound, failBound: p.stats.failBound, decision: p.stats.decision };
         }),
         // [v20.2] CO₂ — congelado igual que los gases: si mañana cambia el FCF/Evolution
         // Factor de la familia, este juicio no debe empezar a decir otra cosa sobre con
@@ -71787,12 +71847,15 @@ function copSaveJudgment() {
             if (st.decision === 'SIN DATOS') return null;
             var seq = copCo2Sequence(rows, factors.fcf, factors.evc);
             return { n: st.n, mean: st.mean, s: st.s, var: st.var, fcf: st.fcf, evc: st.evc, A: st.A,
+                     // [3.15.0] Las filas con que se decidió (la hoja de HQ las necesita tal cual).
+                     rows: rows.filter(function(r) { return r.measured != null && r.target != null; })
+                         .map(function(r) { return { vin: r.vin, measured: r.measured, target: r.target, date: r.date || '' }; }),
                      decision: st.decision, overSample: !!st.overSample,
                      appendixI: st.appendixI, r154: st.r154,
                      // [2.31.0] En qué n decidió cada prueba, en orden de ensayo.
                      sequence: { first: seq.first, continuedAfter: seq.continuedAfter, order: seq.steps.map(function(x) { return x.vin; }) } };
         })(),
-        co2Source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 · confirmación UN R154 §3.3.1',
+        co2Source: 'UN R154 §3.3.1 (Tabla A2/3) · segunda prueba Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4',
         appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
         decision: decision || 'INCOMPLETO'
     });
@@ -71868,28 +71931,9 @@ function copDeleteJudgment(id) {
 }
 
 // ─── LÓGICA DE NEGOCIO ───────────────────────────────────────────────────────
-function copCalcStats(rawValues, limit) {
-    var values = rawValues.filter(function(v) { return !isNaN(v) && v !== null && v !== ''; });
-    var n = values.length;
-    if (n < 3) return null;
-
-    var mean = values.reduce(function(s, v) { return s + v; }, 0) / n;
-    var s = n > 1
-        ? Math.sqrt(values.reduce(function(acc, v) { return acc + Math.pow(v - mean, 2); }, 0) / (n - 1))
-        : 0;
-
-    if (s === 0) {
-        return { n: n, mean: mean, s: s, U: null, cv: null, decision: mean <= limit ? 'PASS' : 'FAIL' };
-    }
-
-    var U = (mean - limit) * Math.sqrt(n) / s;
-    var cv = COP_CV[n] || COP_CV[20];
-    var decision = 'CONTINUE';
-    if (U <= cv.a) decision = 'PASS';
-    else if (U >= cv.b) decision = 'FAIL';
-    else if (n >= 20) decision = mean <= limit ? 'PASS' : 'FAIL';
-
-    return { n: n, mean: mean, s: s, U: U, cv: cv, decision: decision };
+/** Juicio de un gas con su DF: envoltura de copGasJudge. `dfo` = copGasDf(...) o {df, ki}. */
+function copCalcStats(rawValues, limit, dfo) {
+    return copGasJudge(rawValues, limit, dfo && dfo.df, dfo && dfo.ki);
 }
 
 function copFmtVal(v, isPn) {
@@ -71897,7 +71941,6 @@ function copFmtVal(v, isPn) {
     return isPn ? v.toExponential(3) : v.toFixed(5);
 }
 function copFmtLimit(v, isPn) { return isPn ? v.toExponential(2) : v.toFixed(4); }
-function copFmtU(v) { return v === null ? '—' : v.toFixed(3); }
 
 function copGetActiveLimits() {
     var limits = COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS;
@@ -71952,7 +71995,7 @@ function copGetPollStats() {
             return (raw === '' || raw === undefined) ? NaN : parseFloat(raw);
         });
         var validValues = rawValues.filter(function(v) { return !isNaN(v); });
-        var stats = copCalcStats(validValues, p.limit);
+        var stats = copCalcStats(validValues, p.limit, copGasDf(p.id, copState.fuelType));
         return Object.assign({}, p, { validCount: validValues.length, stats: stats });
     });
 }
@@ -71979,7 +72022,7 @@ function copGetOverallDecision(pollStats) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 var COP_RISK_THRESHOLDS = {
-    bandNearB:  0.75,  // U en el 75% superior de la banda A(n)..B(n)
+    bandNearB:  0.75,  // [3.15.0] Xtests en el 75% superior de la zona "otra medición" (entre las dos cotas)
     marginHigh: 0.90,  // media ≥ 90% del límite
     marginWarn: 0.80,  // media ≥ 80% del límite
     cpkBad:     0.67,
@@ -72027,8 +72070,8 @@ function copFamilyRisk(row) {
         bump('riesgo');
     }
     if (row.bandPos !== null && row.bandPos !== undefined && row.bandPos >= COP_RISK_THRESHOLDS.bandNearB && row.verdict !== 'FAIL') {
-        reasons.push({ code: 'band_near_b', text: 'El estadístico U de ' + (row.worstPoll || 'el peor gas') +
-            ' está en el ' + Math.round(row.bandPos * 100) + '% superior de la banda A(n)–B(n): más cerca de NO CONCORDANTE que de CONCORDANTE.' });
+        reasons.push({ code: 'band_near_b', text: 'El promedio con DF de ' + (row.worstPoll || 'el peor gas') +
+            ' está en el ' + Math.round(row.bandPos * 100) + '% superior de la zona sin decidir (entre A·L − VAR/L y la cota de falla): más cerca de NO CONCORDANTE que de CONCORDANTE.' });
         bump('atencion');
     }
     // Margen delgado NO es rojo por sí solo: la familia aprobó el muestreo, y pintar
@@ -72196,14 +72239,11 @@ function copPortfolioRows(opts) {
             var pts = copSpcSeries(fam, g.field);
             var vals = pts.map(function(p) { return p.v; });
             if (vals.length > nMax) nMax = vals.length;
-            var st = copCalcStats(vals, g.limit);
+            var st = copCalcStats(vals, g.limit, copGasDf(g.field));
             var sp = copSpcStats(vals, g.limit);
+            // [3.15.0] El margen y la banda salen del juicio de HQ (con DF): mean = Xtests.
             var marginRatio = (st && g.limit) ? (st.mean / g.limit) : null;
-            var bandPos = null;
-            if (st && st.U !== null && st.cv) {
-                var span = st.cv.b - st.cv.a;
-                bandPos = span > 0 ? Math.max(0, Math.min(1, (st.U - st.cv.a) / span)) : null;
-            }
+            var bandPos = (st && st.decision === 'CONTINUE') ? st.pos : null;
             var p = {
                 field: g.field, label: g.label || g.field, unit: g.unit || '', limit: g.limit,
                 n: vals.length, stats: st, marginRatio: marginRatio, bandPos: bandPos,
@@ -72229,8 +72269,8 @@ function copPortfolioRows(opts) {
               : withStats.every(function(p) { return p.stats.decision === 'PASS'; }) ? 'PASS' : 'CONTINUE')
             : null;
         r.worstPoll   = worst ? worst.label : '';
-        r.worstU      = worst && worst.stats ? worst.stats.U : null;
-        r.band        = worst && worst.stats ? worst.stats.cv : null;
+        r.worstMean   = worst && worst.stats ? worst.stats.mean : null;
+        r.band        = worst && worst.stats ? { pass: worst.stats.passBound, fail: worst.stats.failBound } : null;
         r.bandPos     = worst ? worst.bandPos : null;
         r.marginRatio = worst ? worst.marginRatio : null;
         r.marginPct   = (r.marginRatio === null || r.marginRatio === undefined) ? null : r.marginRatio * 100;
@@ -72476,45 +72516,36 @@ function _copDecLabel(decision) {
     return { PASS: '✓ PASS', FAIL: '✗ FAIL', CONTINUE: '⧗ CONTINUAR' }[decision] || decision;
 }
 /**
- * [v19.0] Un renglón del gauge: la banda A(n)…B(n) con U marcado encima.
- *
- * Escala: la banda ocupa el 60% central del ancho, y los extremos (PASS a la
- * izquierda, FAIL a la derecha) el 20% cada uno. Un U muy alejado se clava en el
- * extremo en vez de reventar la escala — el mensaje ("ya decidió") no se pierde.
+ * [3.15.0] Un renglón del indicador: dónde cae Xtests (con DF) respecto a las dos cotas de
+ * UN R154 §2.1.1. La zona de "pasa" va de 0 a A·L − VAR/L (el 60 % izquierdo, proporcional
+ * a qué tan lejos está de la cota), la de "otra medición" entre las dos cotas y la de
+ * "falla" a la derecha. Un valor muy alejado se clava en el extremo.
  */
 function _copGaugeRowHTML(p) {
-    var st = p.stats, a = st.cv.a, b = st.cv.b, span = b - a;
-    var PASS_W = 20, BAND_W = 60, FAIL_W = 20;
+    var st = p.stats, pass = st.passBound, fail = st.failBound;
+    var PASS_W = 60, BAND_W = 20, FAIL_W = 20;
     var pos;
-    if (span <= 0) {
-        pos = 50;
-    } else if (st.U <= a) {
-        // Dentro del 20% izquierdo, proporcional a cuánto rebasó A(n) (tope: el borde).
-        var over = Math.min(1, (a - st.U) / (span || 1));
-        pos = PASS_W - over * PASS_W * 0.9;
-    } else if (st.U >= b) {
-        var over2 = Math.min(1, (st.U - b) / (span || 1));
-        pos = PASS_W + BAND_W + over2 * FAIL_W * 0.9;
-    } else {
-        pos = PASS_W + ((st.U - a) / span) * BAND_W;
-    }
+    if (st.mean < pass) pos = pass > 0 ? Math.max(0, st.mean / pass) * PASS_W : 0;
+    else if (st.mean > fail) pos = PASS_W + BAND_W + Math.min(1, (st.mean - fail) / (fail || 1)) * FAIL_W * 0.9;
+    else pos = PASS_W + (fail > pass ? (st.mean - pass) / (fail - pass) : 0.5) * BAND_W;
     pos = Math.max(0.5, Math.min(99.5, pos));
+    var fmt = function(v) { return copFmtVal(v, p.isPn); };
 
     var vu = _copVerdictUI(st.decision === 'PASS' ? 'PASS' : st.decision === 'FAIL' ? 'FAIL' : 'CONTINUE');
     var html = '<div class="cop-gauge-row">';
     html += '<div class="cop-gauge-name">' + p.label +
-            '<small>L = ' + copFmtLimit(p.limit, p.isPn) + ' ' + _copEsc(p.unit) + ' · n=' + st.n + '</small></div>';
+            '<small>L = ' + copFmtLimit(p.limit, p.isPn) + ' ' + _copEsc(p.unit) + ' · DF ' + st.df + ' · n=' + st.n + '</small></div>';
 
-    html += '<div class="cop-gauge" role="img" aria-label="' + _copEsc(p.label) + ': U ' + copFmtU(st.U) +
-            ', banda A ' + a.toFixed(3) + ' a B ' + b.toFixed(3) + ', ' + _copEsc(vu.word) + '">';
-    html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante</span></div>';
-    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>A(n) ' + a.toFixed(2) + ' — sin decidir — B(n) ' + b.toFixed(2) + '</span></div>';
-    html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>No concord.</span></div>';
-    html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="U = ' + copFmtU(st.U) + '"></div>';
+    html += '<div class="cop-gauge" role="img" aria-label="' + _copEsc(p.label) + ': Xtests ' + fmt(st.mean) +
+            ', pasa si es menor que ' + fmt(pass) + ', falla si es mayor que ' + fmt(fail) + ', ' + _copEsc(vu.word) + '">';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante · &lt; ' + fmt(pass) + '</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>otra medición</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>&gt; ' + fmt(fail) + '</span></div>';
+    html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="Xtests = ' + fmt(st.mean) + '"></div>';
     html += '</div>';
 
     html += '<div class="cop-gauge-val"><span class="cop-chip ' + vu.chip + '">' + vu.short + '</span>' +
-            '<small>U = ' + copFmtU(st.U) + '</small></div>';
+            '<small>Xtests = ' + fmt(st.mean) + '</small></div>';
     return html + '</div>';
 }
 
@@ -72524,19 +72555,19 @@ function copBuildStatsHTML() {
     var overallDecision = copGetOverallDecision(pollStats);
     var html = '';
 
-    // ── Gauge: dónde cae U en la banda A(n)…B(n), por contaminante ────────────
+    // ── Indicador: dónde cae Xtests respecto a las cotas de R154 §2.1.1 ───────
     // La tabla de abajo dice los números; esto dice qué SIGNIFICAN. Sin este
     // gráfico el muestreo secuencial es ilegible para cualquiera que no sea del
     // laboratorio — que es justo quien lo va a ver en una auditoría.
-    var conGauge = pollStats.filter(function(p) { return p.stats && p.stats.U !== null && p.stats.cv; });
+    var conGauge = pollStats.filter(function(p) { return p.stats; });
     if (conGauge.length) {
         html += '<div class="card" style="margin-bottom: var(--space-lg);">';
         html += '<div class="card-title" data-help="cop-gauge-help">🎯 Qué tan cerca está cada gas de decidir</div>';
         conGauge.forEach(function(p) { html += _copGaugeRowHTML(p); });
         html += '<div class="cop-gauge-legend">';
-        html += '<span><span class="cop-chip cop-chip--ok">CONCORDANTE</span> U ≤ A(n): la familia ya cumplió, puedes dejar de ensayar.</span>';
-        html += '<span><span class="cop-chip cop-chip--warn">SIN DECIDIR</span> entre A(n) y B(n): hace falta otro vehículo.</span>';
-        html += '<span><span class="cop-chip cop-chip--bad">NO CONCORDANTE</span> U ≥ B(n).</span>';
+        html += '<span><span class="cop-chip cop-chip--ok">CONCORDANTE</span> Xtests &lt; A·L − VAR/L: la familia ya cumplió, puedes dejar de ensayar.</span>';
+        html += '<span><span class="cop-chip cop-chip--warn">SIN DECIDIR</span> entre las dos cotas: hace falta otro vehículo.</span>';
+        html += '<span><span class="cop-chip cop-chip--bad">NO CONCORDANTE</span> Xtests &gt; A·L − ((n−3)/13)·VAR/L.</span>';
         html += '</div></div>';
     }
 
@@ -72552,11 +72583,12 @@ function copBuildStatsHTML() {
         html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);' +
                 'padding: var(--space-md) var(--space-lg);margin-bottom: var(--space-lg);">';
         html += '<p style="font-size:14px;color:var(--text);font-weight:700;font-family:monospace;margin-bottom: var(--space-md);">' +
-                'U = (x̄ − L) × √n / s</p>';
+                'EM = medido × DF + KI · Xtests = promedio de EM · VAR = varianza (n−1) · A = 1.05</p>';
         html += '<div style="display:flex;flex-wrap:wrap;gap: var(--space-sm);">';
-        html += '<span class="badge badge-success" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">U ≤ A(n) → PASS</span>';
-        html += '<span class="badge badge-danger" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">U ≥ B(n) → FAIL</span>';
-        html += '<span class="badge badge-warning" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">A &lt; U &lt; B → añadir vehículo</span>';
+        html += '<span class="badge badge-success" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">Xtests &lt; A·L − VAR/L → PASS</span>';
+        html += '<span class="badge badge-danger" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">Xtests &gt; A·L − ((n−3)/13)·VAR/L → FAIL</span>';
+        html += '<span class="badge badge-warning" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">en medio → añadir vehículo</span>';
+        html += '<span class="badge" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size:12px;">UN R154 §2.1.1 · DF asignado R83/R154</span>';
         html += '</div>';
         html += '</div>';
     }
@@ -72564,7 +72596,7 @@ function copBuildStatsHTML() {
     html += '<div style="overflow-x:auto;">';
     html += '<table style="border-collapse:collapse;width:100%;min-width:500px;">';
     html += '<thead><tr style="background:var(--bg);">';
-    ['Contaminante', 'n válido', 'x̄', 's', 'U', 'A(n)', 'B(n)', 'Decisión'].forEach(function(h) {
+    ['Contaminante', 'n válido', 'DF', 'Xtests (con DF)', 'VAR', 'Pasa si <', 'Falla si >', 'Decisión'].forEach(function(h) {
         html += '<th style="' + _copTh() + '">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
@@ -72584,11 +72616,11 @@ function copBuildStatsHTML() {
         html += '<tr>';
         html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left: var(--space-md);">' + p.label + '</td>';
         html += '<td style="' + _copTd() + 'color:var(--muted);">' + st.n + '</td>';
-        html += '<td style="' + _copTd() + '">' + copFmtVal(st.mean, p.isPn) + '</td>';
-        html += '<td style="' + _copTd() + '">' + copFmtVal(st.s, p.isPn) + '</td>';
-        html += '<td style="' + _copTd() + 'font-weight:700;">' + copFmtU(st.U) + '</td>';
-        html += '<td style="' + _copTd() + 'color:var(--success);font-size: var(--fs-sm);">' + (st.cv ? st.cv.a.toFixed(3) : '—') + '</td>';
-        html += '<td style="' + _copTd() + 'color:var(--danger);font-size: var(--fs-sm);">' + (st.cv ? st.cv.b.toFixed(3) : '—') + '</td>';
+        html += '<td style="' + _copTd() + 'color:var(--muted);">' + st.df + '</td>';
+        html += '<td style="' + _copTd() + 'font-weight:700;">' + copFmtVal(st.mean, p.isPn) + '</td>';
+        html += '<td style="' + _copTd() + '">' + st.var.toExponential(3) + '</td>';
+        html += '<td style="' + _copTd() + 'color:var(--success);font-size: var(--fs-sm);">' + copFmtVal(st.passBound, p.isPn) + '</td>';
+        html += '<td style="' + _copTd() + 'color:var(--danger);font-size: var(--fs-sm);">' + copFmtVal(st.failBound, p.isPn) + '</td>';
         html += '<td style="' + _copTd() + '">';
         html += '<span class="' + _copDecClass(st.decision) + '" style="padding: var(--space-xs) var(--space-md);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;white-space:nowrap;">' +
                 _copDecLabel(st.decision) + '</span>';
@@ -72604,8 +72636,8 @@ function copBuildStatsHTML() {
         var vCls = { PASS: 'pass', FAIL: 'fail', CONTINUE: 'cont' }[overallDecision] || 'none';
         var vWord = { PASS: '✓ CONCORDANTE', FAIL: '✗ NO CONCORDANTE', CONTINUE: '⧗ EN MUESTREO' }[overallDecision];
         var vSub = {
-            PASS:     'La familia cumple: el muestreo secuencial decidió a favor en todos los contaminantes activos.',
-            FAIL:     'Algún contaminante superó B(n). El muestreo decidió en contra.',
+            PASS:     'La familia cumple: la regla de UN R154 §2.1.1 decidió a favor en todos los contaminantes activos.',
+            FAIL:     'Algún contaminante superó la cota de falla (A·L − ((n−3)/13)·VAR/L). La familia no cumple.',
             CONTINUE: 'Aún sin decidir: agrega otro VIN con resultados para que el muestreo concluya.'
         }[overallDecision];
         // [2.31.0] Solo las filas que entran al cálculo y traen algún valor.
@@ -72866,6 +72898,12 @@ function copBuildDossierHTML() {
         html += '<button type="button" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;" ' +
                 'onclick="copFamilyPDF()">📄 Expediente PDF</button>';
         html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copExportFamilyCSV()">CSV</button>';
+    }
+    // [3.15.0] La hoja de HQ del juicio más reciente de la familia (aunque la familia ya no esté en el plan).
+    var _hqJ = key ? (copState.saved || []).find(function(j) { return _copJudgmentMatchesFamily(j, key) && !j.evidencePurged; }) : null;
+    if (_hqJ && typeof copHqXlsxExport === 'function') {
+        html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copHqXlsxExport(\'' + _hqJ.id + '\')" ' +
+                'title="Hoja de evaluación estadística de HQ con el juicio del ' + String(_hqJ.date || '').slice(0, 10) + '">📤 Excel para HQ</button>';
     }
     html += '</div></div>';
 
@@ -73342,31 +73380,26 @@ function copBuildValidatorHTML() {
     // ── Análisis estadístico + decisión global ────────────────────────────────
     html += '<div id="cop-stats-section">' + copBuildStatsHTML() + '</div>';
 
-    // ── Tabla de valores críticos A(n)/B(n) ───────────────────────────────────
+    // ── [3.15.0] La regla y los DF de la norma (antes: tabla A(n)/B(n) de R83) ─────
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';
     html += '<div style="display:flex;align-items:center;cursor:pointer;" onclick="copToggleTable()">';
     html += '<span style="font-size:var(--font-base);font-weight:var(--weight-bold);color:var(--text);flex:1;">' +
-            '📊 Tabla Valores Críticos A(n)/B(n)</span>';
+            '📊 Regla de la norma y DF asignados</span>';
     html += '<span id="cop-cv-chevron" style="color:var(--muted);font-size:14px;">' +
             (copState.showTable ? '▾' : '▸') + '</span>';
     html += '</div>';
-
     html += '<div id="cop-cv-table-body" style="' + (copState.showTable ? '' : 'display:none;') + 'margin-top: var(--space-lg);overflow-x:auto;">';
-    html += '<table style="border-collapse:collapse;min-width:200px;">';
-    html += '<thead><tr style="background:var(--bg);">';
-    ['n', 'A(n)', 'B(n)'].forEach(function(h) {
-        html += '<th style="' + _copTh() + 'min-width:70px;">' + h + '</th>';
-    });
+    html += '<p style="font-size:var(--fs-sm);line-height:1.6;margin:0 0 var(--space-md);">UN R154 §2.1.1 (el método del formato de HQ): ' +
+            'EM = medido × DF + KI; Xtests = promedio de EM; VAR = varianza (n − 1); A = ' + COP_GAS_A + '. ' +
+            'Pasa si Xtests &lt; A·L − VAR/L; falla si Xtests &gt; A·L − ((n − 3)/13)·VAR/L; en medio, otra medición. ' +
+            'A n = ' + COP_GAS_NMAX + ' las dos cotas coinciden. El DF solo entra a este juicio: en Liberación cada prueba se compara con su valor medido.</p>';
+    html += '<table style="border-collapse:collapse;min-width:200px;"><thead><tr style="background:var(--bg);">';
+    ['Gas', 'DF', 'KI'].forEach(function(h) { html += '<th style="' + _copTh() + 'min-width:70px;">' + h + '</th>'; });
     html += '</tr></thead><tbody>';
-    Object.entries(COP_CV).forEach(function(entry) {
-        var nVal = parseInt(entry[0]);
-        var vals = entry[1];
-        var isCurrent = nVal === n;
-        html += '<tr style="' + (isCurrent ? 'background:rgba(8,145,178,0.08);font-weight:700;' : '') + '">';
-        html += '<td style="' + _copTd() + (isCurrent ? 'color:var(--accent-cop);' : 'color:var(--muted);') + '">' + nVal + '</td>';
-        html += '<td style="' + _copTd() + 'color:var(--success);' + (isCurrent ? '' : 'opacity:0.55;') + '">' + vals.a.toFixed(3) + '</td>';
-        html += '<td style="' + _copTd() + 'color:var(--danger);' + (isCurrent ? '' : 'opacity:0.55;') + '">' + vals.b.toFixed(3) + '</td>';
-        html += '</tr>';
+    copGetActiveLimits().forEach(function(p) {
+        var d = copGasDf(p.id, copState.fuelType);
+        html += '<tr><td style="' + _copTd() + '">' + _copEsc(p.label) + '</td><td style="' + _copTd() + '">' + d.df.toFixed(1) +
+                (d.assigned ? '' : ' <small style="color:var(--muted);">(sin DF asignado)</small>') + '</td><td style="' + _copTd() + '">' + d.ki + '</td></tr>';
     });
     html += '</tbody></table>';
     html += '</div>'; // table body
@@ -73383,6 +73416,10 @@ function copBuildValidatorHTML() {
             html += '<span style="flex:1;min-width:160px;font-size: var(--fs-sm);color:var(--text);">' + _copEsc(r.familyLabel || '(sin familia)') + ' · ' + r.fuelType + ' · ' + r.regulation + '</span>';
             html += '<span class="' + _copDecClass(r.decision) + '" style="padding: var(--space-2xs) var(--space-md);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;">' + decTxt + '</span>';
             html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);">Cargar</button>';
+            // [3.15.0] La hoja de evaluación estadística de corporativo, con un clic.
+            if (typeof copHqXlsxExport === 'function' && !r.evidencePurged) {
+                html += '<button onclick="copHqXlsxExport(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);" title="Descargar la hoja de evaluación estadística de HQ llena con este juicio">📤 Excel HQ</button>';
+            }
             html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);" title="Borrar">✕</button>';
             html += '</div>';
         });
@@ -73396,7 +73433,7 @@ function copBuildValidatorHTML() {
     html += '<div class="cop-note cop-note--warn">';
     html += '<div class="cop-note-title">⚠ Advertencia regulatoria</div>';
     html += '<p style="font-size:var(--fs-sm);line-height:1.7;margin:0;">' +
-            'Los valores A(n)/B(n) son de referencia, basados en R83 Rev.5 / R154 Apéndice 2. ' +
+            'El juicio sigue UN R154 §2.1.1 con los DF asignados (R83 / R154), igual que el formato de HQ. ' +
             'Verificar contra el texto oficial del reglamento antes de su uso en homologación real. ' +
             'Los límites aplicados corresponden a ' + _copEsc(copScope().regulations.join(' / ')) +
             ', que comparten los mismos valores de Tipo 1; el validador avisa arriba si el perfil de la ' +
@@ -73932,13 +73969,13 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
-    'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, usando muestreo secuencial (Appendix 2 / R83-R154). No requiere un número fijo de VINes: sigue agregando hasta que el estadístico U cruce A(n) o B(n).' },
+    'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, con la regla de UN R154 §2.1.1: promedio de las emisiones × DF asignado (Xtests) contra A·L − VAR/L (pasa) y A·L − ((n−3)/13)·VAR/L (falla), con A = 1.05. Desde 3 VINes; entre las dos cotas hace falta otra medición, hasta 16.' },
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
-    'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó B(n)); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
+    'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó la cota de falla); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
     'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' },
     'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
-    'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'El muestreo secuencial no compara la media contra el límite: compara el estadístico U contra dos valores críticos, A(n) y B(n), que dependen de cuántos vehículos llevas. Si U cae a la izquierda de A(n) la familia ya es CONCORDANTE y puedes dejar de ensayar; si cae a la derecha de B(n) es NO CONCORDANTE; si queda en medio, hace falta otro vehículo. La marca negra es dónde está U ahora.' },
+    'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'La barra compara Xtests (el promedio con DF) contra dos cotas de UN R154 §2.1.1 que dependen de cuántos vehículos llevas y de su dispersión (VAR). A la izquierda de la cota de paso la familia es CONCORDANTE; a la derecha de la cota de falla es NO CONCORDANTE; en medio, hace falta otro vehículo. La marca negra es dónde está Xtests ahora.' },
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
     'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
@@ -74016,7 +74053,7 @@ function _copBuildCo2HTML() {
     var factors = copCo2Factors();
     var stats = copCo2CalcStats(rows, factors.fcf, factors.evc);
     var html = '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom: var(--space-sm);">🌱 CO₂ vs valor declarado (Reg. 2017/1151 Ap.I · confirmación R154 §3.3.1)</p>';
+    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom: var(--space-sm);">🌱 CO₂ vs valor declarado (UN R154 §3.3.1 · segunda prueba Reg. 2017/1151 Ap.I)</p>';
 
     // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
     html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
@@ -74126,7 +74163,7 @@ function copCo2StepsLive() {
 }
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
-    'cop-co2-help': { title: 'CO₂ vs declarado', text: 'El CO₂ no tiene un límite fijo como CO/THC/NOₓ: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). El veredicto principal usa Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 ("A menos varianza") y se confirma con la tabla de UN R154 §3.3.1 — dos pruebas sobre el mismo dato, no el mismo test que gases.' },
+    'cop-co2-help': { title: 'CO₂ vs declarado', text: 'El CO₂ no tiene un límite fijo como CO/THC/NOₓ: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). El veredicto usa la tabla de UN R154 §3.3.1 (la misma prueba de la hoja de HQ) y se acompaña del Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 ("A menos varianza") — dos pruebas sobre el mismo dato, no el mismo test que gases.' },
     'cop-co2-factors-help': { title: 'FCF y Evolution Factor', text: 'Factores de la FAMILIA (no del vehículo), tal como los trae el reporte de interpolación WLTP. FCF (Family Correction Factor) y Evolution Factor multiplican el CO₂ medido antes de compararlo contra el declarado. Sin ajustar valen 1 (sin corrección). Se guardan por familia — cambiarlos recalcula el veredicto al instante.' }
 });
 
@@ -74162,14 +74199,14 @@ function _copFileSafe(s) { return String(s || 'familia').replace(/[^a-z0-9]+/gi,
 function copExportPortfolioCSV() {
     var rows = copPortfolioRows();
     if (!rows.length) { if (typeof showToast === 'function') showToast('No hay familias en el alcance CoP', 'warning'); return; }
-    var csv = 'Familia,Región,Norma,VINes con resultado,Veredicto,Gas crítico,% del límite,U,A(n),B(n),Cpk mín,Alarmas SPC,Último ensayo,Días sin ensayar,Requeridas (plan),Probadas (plan),Déficit,Riesgo,Confianza,Motivo,Último juicio,Decisión del juicio\n';
+    var csv = 'Familia,Región,Norma,VINes con resultado,Veredicto,Gas crítico,% del límite (con DF),Xtests (con DF),Pasa si <,Falla si >,Cpk mín,Alarmas SPC,Último ensayo,Días sin ensayar,Requeridas (plan),Probadas (plan),Déficit,Riesgo,Confianza,Motivo,Último juicio,Decisión del juicio\n';
     rows.forEach(function(r) {
         csv += [
             r.label, (r.regionsArr || []).join(' / '), r.emissionReg, r.n,
             _copDecisionWord(r.verdict), r.worstPoll,
             r.marginPct === null || r.marginPct === undefined ? '' : Math.round(r.marginPct),
-            r.worstU === null || r.worstU === undefined ? '' : r.worstU.toFixed(3),
-            r.band ? r.band.a.toFixed(3) : '', r.band ? r.band.b.toFixed(3) : '',
+            r.worstMean === null || r.worstMean === undefined ? '' : r.worstMean,
+            r.band ? r.band.pass : '', r.band ? r.band.fail : '',
             r.cpkMin === null || r.cpkMin === undefined ? '' : r.cpkMin.toFixed(2),
             (r.spcAlarms || []).length,
             (r.lastTestDate || '').slice(0, 10),
@@ -74202,8 +74239,10 @@ function copExportFamilyCSV(familyKey) {
         })).map(_copCsvCell).join(',') + '\n';
     });
     csv += '\nLímite aplicado,,' + gases.map(function(g) { return g.limit; }).map(_copCsvCell).join(',') + '\n';
-    csv += 'Media,,' + gases.map(function(g) { return g.stats ? g.stats.mean.toFixed(5) : ''; }).map(_copCsvCell).join(',') + '\n';
-    csv += 'U,,' + gases.map(function(g) { return (g.stats && g.stats.U !== null) ? g.stats.U.toFixed(3) : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'DF,,' + gases.map(function(g) { return g.stats ? g.stats.df : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'Xtests (con DF),,' + gases.map(function(g) { return g.stats ? g.stats.mean : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'Pasa si <,,' + gases.map(function(g) { return g.stats ? g.stats.passBound : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'Falla si >,,' + gases.map(function(g) { return g.stats ? g.stats.failBound : ''; }).map(_copCsvCell).join(',') + '\n';
     csv += 'Decisión,,' + gases.map(function(g) { return g.stats ? g.stats.decision : ''; }).map(_copCsvCell).join(',') + '\n';
     _copDownloadCsv(csv, 'CoP_' + _copFileSafe(row.label) + '_' + _copToday() + '.csv');
 }
@@ -74386,35 +74425,40 @@ function copFamilyPDF(familyKey) {
     }
 
     // ── 5. Estadística por contaminante ───────────────────────────────────────
-    h2('Estadística por contaminante (muestreo secuencial)');
-    var statCols = [[ML + 2, 'Gas'], [ML + 32, 'n'], [ML + 42, 'media'], [ML + 68, 's'], [ML + 92, 'U'], [ML + 112, 'A(n)'], [ML + 132, 'B(n)'], [ML + 152, 'Decisión']];
+    // [3.15.0] Un juicio anterior a 3.15.0 se imprime con SU método (U contra A(n)/B(n) de R83):
+    // es evidencia congelada y no se reinterpreta.
+    var statRows = (judgment && judgment.stats && judgment.stats.length)
+        ? judgment.stats
+        : (row.polls || []).filter(function(p) { return p.stats; }).map(function(p) {
+              return { poll: p.label, n: p.stats.n, mean: p.stats.mean, var: p.stats.var, df: p.stats.df,
+                       passBound: p.stats.passBound, failBound: p.stats.failBound, decision: p.stats.decision };
+          });
+    var oldMethod = statRows.some(function(s) { return s && s.U !== undefined && s.passBound === undefined; });
+    var num = function(v, d) { return v === null || v === undefined || isNaN(v) ? '—' : (Math.abs(Number(v)) >= 1e6 ? Number(v).toExponential(3) : Number(v).toFixed(d)); };
+    h2(oldMethod ? 'Estadística por contaminante (muestreo secuencial, R83)' : 'Estadística por contaminante (UN R154 sección 2.1.1)');
+    var statCols = oldMethod
+        ? [[ML + 2, 'Gas'], [ML + 32, 'n'], [ML + 42, 'media'], [ML + 68, 's'], [ML + 92, 'U'], [ML + 112, 'A(n)'], [ML + 132, 'B(n)'], [ML + 152, 'Decisión']]
+        : [[ML + 2, 'Gas'], [ML + 26, 'n'], [ML + 34, 'DF'], [ML + 44, 'Xtests'], [ML + 70, 'VAR'], [ML + 96, 'Pasa si <'], [ML + 124, 'Falla si >'], [ML + 152, 'Decisión']];
     doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
     doc.setFont('helvetica', 'bold');
     statCols.forEach(function(c) { doc.text(c[1], c[0], y); });
     y += 4; doc.setFont('helvetica', 'normal');
-    var statRows = (judgment && judgment.stats && judgment.stats.length)
-        ? judgment.stats
-        : (row.polls || []).filter(function(p) { return p.stats; }).map(function(p) {
-              return { poll: p.label, n: p.stats.n, mean: p.stats.mean, s: p.stats.s, U: p.stats.U,
-                       a: p.stats.cv ? p.stats.cv.a : null, b: p.stats.cv ? p.stats.cv.b : null, decision: p.stats.decision };
-          });
     statRows.forEach(function(s) {
         brk();
         if (s.decision === 'FAIL') doc.setTextColor(179, 38, 30);
-        doc.text(String(s.poll), statCols[0][0], y);
-        doc.text(String(s.n), statCols[1][0], y);
-        doc.text(s.mean === null || s.mean === undefined ? '—' : Number(s.mean).toFixed(5), statCols[2][0], y);
-        doc.text(s.s === null || s.s === undefined ? '—' : Number(s.s).toFixed(5), statCols[3][0], y);
-        doc.text(s.U === null || s.U === undefined ? '—' : Number(s.U).toFixed(3), statCols[4][0], y);
-        doc.text(s.a === null || s.a === undefined ? '—' : Number(s.a).toFixed(3), statCols[5][0], y);
-        doc.text(s.b === null || s.b === undefined ? '—' : Number(s.b).toFixed(3), statCols[6][0], y);
-        doc.text(_copDecisionWord(s.decision), statCols[7][0], y);
+        var cells = oldMethod
+            ? [String(s.poll), String(s.n), num(s.mean, 5), num(s.s, 5), num(s.U, 3), num(s.a, 3), num(s.b, 3), _copDecisionWord(s.decision)]
+            : [String(s.poll), String(s.n), num(s.df, 1), num(s.mean, 5), (s.var === null || s.var === undefined ? '—' : Number(s.var).toExponential(3)),
+               num(s.passBound, 5), num(s.failBound, 5), _copDecisionWord(s.decision)];
+        cells.forEach(function(t, k) { doc.text(t, statCols[k][0], y); });
         doc.setTextColor(0);
         y += 4;
     });
     y += 2;
     doc.setFontSize(7); doc.setTextColor(110);
-    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehículo', ML + 2, y);
+    doc.text(oldMethod
+        ? 'U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehiculo'
+        : 'EM = medido x DF + KI   ·   pasa si Xtests < A*L - VAR/L   ·   falla si Xtests > A*L - ((n-3)/13)*VAR/L   ·   A = 1.05', ML + 2, y);
     doc.setTextColor(0); y += 6;
 
     // ── 6. Evidencia: VINes ───────────────────────────────────────────────────
@@ -74528,7 +74572,7 @@ function copFamilyPDF(familyKey) {
     h2('Advertencia regulatoria');
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
     doc.splitTextToSize(
-        'Los valores A(n)/B(n) son de referencia, basados en R83 Rev.5 / R154 Apendice 2. Verificar contra el texto oficial ' +
+        'El juicio sigue UN R154 seccion 2.1.1 con los DF asignados (R83 / R154). Verificar contra el texto oficial ' +
         'del reglamento antes de su uso en homologacion real. La decision es independiente por contaminante: la familia se ' +
         'declara NO CONCORDANTE si cualquier contaminante lo es.', CW - 4)
         .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.5; });
@@ -75191,7 +75235,7 @@ function _copRepVerdict(tests) {
     var decisions = [];
     copFamilyGases(fam).forEach(function(g) {
         var vals = copSpcSeries(fam, g.field).map(function(p) { return p.v; });
-        var st = copCalcStats(vals, g.limit);
+        var st = copCalcStats(vals, g.limit, typeof copGasDf === 'function' ? copGasDf(g.field) : null);
         if (st) decisions.push(st.decision);
     });
     if (!decisions.length) return null;
@@ -75573,6 +75617,446 @@ function copRepFamiliesSave() {
 function copRepSubject(m) {
     return 'CoP ' + m.year + ' · semana ' + m.week + ' — ' + _crPct(m.total.progress) + ' de avance (' +
            m.total.done + '/' + m.total.req + ' ensayos' + (m.total.added ? ', +' + m.total.added + ' esta semana' : '') + ')';
+}
+
+
+// @@module js/cophq.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  cophq.js — la hoja de evaluación estadística de corporativo (3.15.0)  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+// Corporativo (HQ) pide el CoP de cada familia en SU formato: dos hojas, una de gases
+// (UN R154 §2.1.1: EM = raw × DF + KI; Xtests contra A·L − VAR/L) y una de CO₂ (UN R154
+// §3.3.1, Tabla A2/3). Aquí se rehacen con el escritor propio (xlsxw.js) — mismas
+// celdas, fórmulas, combinaciones y anchos — y se llenan con el juicio guardado de la
+// familia. NO lleva nada del archivo de HQ (logotipos, sellos, pie, datos de ejemplo):
+// el repositorio es público y ese archivo es de uso restringido.
+//
+// Partes:
+//   copHqModelFor(j)    → junta los datos de un juicio guardado (lee db/homolog).
+//   copHqXlsxSpec(m)    → PURA: el libro. Cada fórmula se escribe con su valor (`v`),
+//                          calculado aquí con la misma aritmética que Excel.
+//   copHqCheck(m)       → PURA: lo que la hoja va a decir, gas por gas y en CO₂.
+//   copHqXlsxExport(id) → un clic: arma, descarga y audita.
+
+var COP_HQ_GAS_A = 1.05;      // UN R154 §2.1.1 (el mismo de COP_GAS_A)
+var COP_HQ_CO2_A = 1.01;      // UN R154 §3.3.1 (el mismo de COP_CO2_A)
+var COP_HQ_BORDER = '000000';
+var COP_HQ_YELLOW = 'FFFF99';
+var COP_HQ_GREEN = '00FF00';
+
+// Nombre del gas tal como lo escribe la hoja de HQ.
+function _copHqGasName(id) {
+    return { NOx: 'NOx', HCNOx: 'HC+NOx' }[id] || String(id || '');
+}
+
+function _copHqMean(xs) { return xs.reduce(function(s, v) { return s + v; }, 0) / xs.length; }
+// VAR de Excel: varianza muestral (n − 1).
+function _copHqVar(xs) {
+    var m = _copHqMean(xs);
+    return xs.reduce(function(s, v) { return s + (v - m) * (v - m); }, 0) / (xs.length - 1);
+}
+
+/**
+ * Lo que dice la hoja de HQ, con SUS fórmulas (PURA). Gases: Pass si Xtests < A·L − VAR/L,
+ * si no "Fail" (la hoja no tiene "otra medición"). CO₂: PASS si Xtests ≤ A − (tP1+tP2)·s,
+ * FAIL si Xtests > A + (tF1−tF2)·s, si no ADD.
+ */
+function copHqCheck(m) {
+    var out = { gases: [], co2: null };
+    (m && m.gases || []).forEach(function(g) {
+        var em = g.raw.map(function(v) { return v * g.df + g.ki; });
+        var xt = _copHqMean(em), vr = _copHqVar(em);
+        var bound = COP_HQ_GAS_A * g.limit - vr / g.limit;
+        var fail = COP_HQ_GAS_A * g.limit - ((Math.min(em.length, 16) - 3) / 13) * vr / g.limit;
+        out.gases.push({ id: g.id, name: _copHqGasName(g.id), n: em.length, em: em, xtests: xt, var: vr, bound: bound,
+                         sheet: xt < bound ? 'Pass' : 'Fail',
+                         // Lo que dice la norma (y la plataforma) con la cota de falla.
+                         rule: xt < bound ? 'PASS' : xt > fail ? 'FAIL' : 'CONTINUE' });
+    });
+    var c = m && m.co2;
+    if (c && c.rows.length >= 3) {
+        var xs = c.rows.map(function(r) { return r.corrected / r.declared; });
+        var mean = _copHqMean(xs), s = Math.sqrt(_copHqVar(xs));
+        var t = c.table[Math.max(3, Math.min(xs.length, 16))];
+        var pass = COP_HQ_CO2_A - (t.tP1 + t.tP2) * s, failB = COP_HQ_CO2_A + (t.tF1 - t.tF2) * s;
+        out.co2 = { n: xs.length, x: xs, xtests: mean, s: s, passBound: pass, failBound: failB,
+                    sheet: mean <= pass ? 'PASS' : mean > failB ? 'FAIL' : 'ADD' };
+    }
+    return out;
+}
+
+/**
+ * El libro de HQ (PURA). m = {family, ip, vins:[...], gases:[{id, limit, df, ki, raw:[...] , isPn}],
+ * co2: {rows:[{vin, raw, corrected, declared}], table, evc, fcf} | null}.
+ * Con n = 3 las celdas son exactamente las del formato de HQ; con más vehículos cada
+ * bloque crece hacia abajo y los rangos de las fórmulas crecen con él.
+ */
+function copHqXlsxSpec(m) {
+    var chk = copHqCheck(m);
+    var n = m.vins.length;
+    var B = COP_HQ_BORDER;
+    var st = function(o) {
+        var x = { font: { name: 'Arial', sz: (o && o.sz) || 11, color: '000000' }, align: { h: (o && o.h) || 'center', v: 'center' } };
+        if (o && o.wrap) x.align.wrap = true;
+        if (o && o.fill) x.fill = o.fill;
+        if (o && o.numFmt) x.numFmt = o.numFmt;
+        if (o && o.border) { x.border = o.border; x.borderColor = B; }
+        return x;
+    };
+    var ALL = { top: 'thin', bottom: 'thin', left: 'thin', right: 'thin' };
+    // Borde de una celda dentro de un rango combinado vertical (r1..r2): arriba/abajo solo en los extremos.
+    var vBorder = function(r, r1, r2) {
+        var b = { left: 'thin', right: 'thin' };
+        if (r === r1) b.top = 'thin';
+        if (r === r2) b.bottom = 'thin';
+        return b;
+    };
+    var ref = xwRef, rng = xwRange;
+
+    // ── Hoja 1: gases ─────────────────────────────────────────────────────────
+    var c1 = [], mg1 = [], rows1 = {};
+    var title = function(cells, merges, text, cLast) {
+        for (var r = 2; r <= 4; r++) {
+            rows1[r] = rows1[r] || {};
+            for (var c = 2; c <= cLast; c++) {
+                var b = {};
+                if (r === 2) b.top = 'thin';
+                if (r === 4) b.bottom = 'thin';
+                if (c === 2) b.left = 'thin';
+                if (c === cLast) b.right = 'thin';
+                cells.push({ r: r, c: c, v: (r === 2 && c === 2) ? text : '', s: st({ sz: 18, border: b }) });
+            }
+        }
+        merges.push(rng(2, 2, 4, cLast));
+    };
+    title(c1, mg1, m.family + ' Emission Statistical Evaluation', 16);
+    [2, 3, 4].forEach(function(r) { rows1[r] = { height: 15.75 }; });
+    rows1[5] = { height: 13.8 };
+
+    var nGas = m.gases.length;
+    var blockH = n + 2;
+    var lastRow1 = 6 + (nGas ? (nGas - 1) * blockH + n : n);
+    var vinList = '● ' + m.family + ' \n' + m.vins.map(function(v, i) { return '  ' + (i + 1) + ') ' + v; }).join('\n');
+    for (var rb = 6; rb <= lastRow1; rb++) {
+        c1.push({ r: rb, c: 2, v: rb === 6 ? vinList : '', s: st({ h: 'left', wrap: true, border: vBorder(rb, 6, lastRow1) }) });
+    }
+    mg1.push(rng(6, 2, lastRow1, 2));
+
+    m.gases.forEach(function(g, i) {
+        var k = chk.gases[i];
+        var h = 6 + i * blockH, d1 = h + 1, dn = h + n;
+        var isPn = !!g.isPn;
+        var rawFmt = isPn ? '0.00E+00' : (g.id === 'PM' ? '0.0000' : '0.000');
+        var limFmt = isPn ? '0.00E+00' : (g.id === 'PM' ? '' : '0.000');
+        var varFmt = isPn ? '0.00000000' : '0.000000000';
+        rows1[h] = { height: i === 0 ? 16.5 : 13.8 };
+        for (var r = d1; r <= dn + 1; r++) rows1[r] = { height: 13.8 };
+
+        // Columna C: el gas, combinado desde el encabezado hasta la última fila.
+        for (var rc = h; rc <= dn; rc++) c1.push({ r: rc, c: 3, v: rc === h ? _copHqGasName(g.id) : '', s: st({ border: vBorder(rc, h, dn) }) });
+        mg1.push(rng(h, 3, dn, 3));
+        ['raw EM', 'DF', 'KI', 'EM', 'limit', 'Xtests', 'VAR', 'A', 'AxL-VAR/L'].forEach(function(t, j) {
+            c1.push({ r: h, c: 4 + j, v: t, s: st({ border: ALL }) });
+        });
+        g.raw.forEach(function(v, j) {
+            var r = d1 + j;
+            c1.push({ r: r, c: 4, v: v, s: st({ fill: COP_HQ_YELLOW, numFmt: rawFmt, border: ALL }) });
+            c1.push({ r: r, c: 7, f: ref(r, 4) + '*' + ref(d1, 5, true) + '+' + ref(d1, 6, true), v: k.em[j],
+                      s: st({ numFmt: rawFmt === '0.0000' ? '0.0000' : (isPn ? '0.00E+00' : '0.000'), border: ALL }) });
+        });
+        // Columnas combinadas sobre las n filas: DF, KI, limit, Xtests, VAR, A, AxL-VAR/L.
+        var merged = [
+            { c: 5, v: g.df, fill: COP_HQ_YELLOW },
+            { c: 6, v: g.ki, fill: COP_HQ_YELLOW },
+            { c: 8, v: g.limit, fill: COP_HQ_YELLOW, numFmt: limFmt },
+            { c: 9, f: 'AVERAGE(' + rng(d1, 7, dn, 7) + ')', v: k.xtests },
+            { c: 10, f: 'VAR(' + rng(d1, 7, dn, 7) + ')', v: k.var, numFmt: varFmt },
+            { c: 11, v: COP_HQ_GAS_A },
+            { c: 12, f: ref(d1, 11) + '*' + ref(d1, 8) + '-' + ref(d1, 10) + '/' + ref(d1, 8), v: k.bound }
+        ];
+        merged.forEach(function(x) {
+            for (var r = d1; r <= dn; r++) {
+                var cell = { r: r, c: x.c, s: st({ fill: x.fill, numFmt: x.numFmt, border: vBorder(r, d1, dn) }) };
+                if (r === d1) { cell.v = x.v; if (x.f) cell.f = x.f; }
+                c1.push(cell);
+            }
+            mg1.push(rng(d1, x.c, dn, x.c));
+        });
+        // El recuadro de la comparación (N:P, tres filas).
+        c1.push({ r: d1, c: 14, v: 'Xtests', s: st({ border: ALL }) });
+        c1.push({ r: d1, c: 15, v: '', s: st({ border: ALL }) });
+        c1.push({ r: d1, c: 16, v: 'AxL-VAR/L', s: st({ border: ALL }) });
+        c1.push({ r: d1 + 1, c: 14, f: ref(d1, 9), v: k.xtests, s: st({ border: ALL }) });
+        c1.push({ r: d1 + 1, c: 15, f: 'IF(' + ref(d1 + 1, 14) + '<' + ref(d1 + 1, 16) + ',"<",">")', v: k.sheet === 'Pass' ? '<' : '>',
+                  s: st({ fill: COP_HQ_GREEN, numFmt: '0_);[Red]\\(0\\)', border: ALL }) });
+        c1.push({ r: d1 + 1, c: 16, f: ref(d1, 12), v: k.bound, s: st({ border: ALL }) });
+        c1.push({ r: d1 + 2, c: 14, v: '', s: st({ border: ALL }) });
+        c1.push({ r: d1 + 2, c: 15, f: 'IF(' + ref(d1 + 1, 14) + '<' + ref(d1 + 1, 16) + ',"Pass","Fail")', v: k.sheet,
+                  s: st({ fill: COP_HQ_GREEN, numFmt: '0_);[Red]\\(0\\)', border: ALL }) });
+        c1.push({ r: d1 + 2, c: 16, v: '', s: st({ border: ALL }) });
+    });
+
+    var sheet1 = {
+        name: 'Emissions', showGrid: false, zoom: 55, active: true,
+        print: { landscape: true, fitWidth: 1 },
+        cols: [{ min: 1, width: 8.9 }, { min: 2, width: 30 }, { min: 3, width: 9 }, { min: 4, width: 12.8 }, { min: 5, width: 9 },
+               { min: 6, width: 0, hidden: true }, { min: 7, width: 11.2 }, { min: 8, width: 12.9 }, { min: 9, width: 11.3 },
+               { min: 10, width: 26.1 }, { min: 11, width: 9 }, { min: 12, width: 11.3 }, { min: 13, width: 2.3 },
+               { min: 14, width: 11.3 }, { min: 15, width: 8.9 }, { min: 16, width: 11.3 }, { min: 17, width: 2.3 }],
+        rows: rows1, cells: c1, merges: mg1
+    };
+
+    // ── Hoja 2: CO₂ ───────────────────────────────────────────────────────────
+    var sheets = [sheet1];
+    var co = m.co2, kc = chk.co2;
+    if (co && kc) {
+        var c2 = [], mg2 = [], rows2 = {};
+        var nc = co.rows.length;
+        for (var r2 = 2; r2 <= 4; r2++) {
+            for (var cc = 2; cc <= 10; cc++) {
+                var bb = {};
+                if (r2 === 2) bb.top = 'thin';
+                if (r2 === 4) bb.bottom = 'thin';
+                if (cc === 2) bb.left = 'thin';
+                if (cc === 10) bb.right = 'thin';
+                c2.push({ r: r2, c: cc, v: (r2 === 2 && cc === 2) ? m.family + ' CO2 Emission Statistical Evaluation' : '', s: st({ sz: 18, border: bb }) });
+            }
+        }
+        mg2.push(rng(2, 2, 4, 10));
+        rows2[6] = { height: 16.5 };
+        ['VIN', 'raw CO2', 'Corrected CO2', 'declared', 'X', 'Xtests', 's', 'A', 'A-(tP1+tP2)*s', 'A+(tF1-tF2)*s'].forEach(function(t, j) {
+            c2.push({ r: 6, c: 2 + j, v: t, s: st({ border: ALL }) });
+        });
+        var e1 = 7, en = 6 + nc;
+        var box = e1 + nc;             // con n = 3 es la fila 10, como en HQ
+        var tRow = box + 6;            // la tabla de t (fila 16 con n = 3)
+        var tN = Math.max(3, Math.min(nc, 16));
+        var tr = tRow + 2 + (tN - 3);  // la fila de la tabla para este n
+        var vinList2 = '● ' + m.family + ' \n' + co.rows.map(function(x, i) { return '  ' + (i + 1) + ') ' + x.vin; }).join('\n');
+        for (var rv = e1; rv <= box + 3; rv++) c2.push({ r: rv, c: 2, v: rv === e1 ? vinList2 : '', s: st({ h: 'left', wrap: true, border: vBorder(rv, e1, box + 3) }) });
+        mg2.push(rng(e1, 2, box + 3, 2));
+        var corrF = (co.evc !== 1 || co.fcf !== 1);
+        co.rows.forEach(function(x, j) {
+            var r = e1 + j;
+            rows2[r] = { height: 13.5 };
+            c2.push({ r: r, c: 3, v: x.raw == null ? '' : x.raw, s: st({ fill: COP_HQ_YELLOW, numFmt: '0', border: ALL }) });
+            var dCell = { r: r, c: 4, v: x.corrected, s: st({ numFmt: '0', border: ALL }) };
+            // Si la familia tiene EvC/FCF, el CO₂ corregido es la fórmula con ellos: se ve de dónde sale.
+            if (corrF && x.raw != null) dCell.f = ref(r, 3) + '*' + co.evc + '*' + co.fcf;
+            c2.push(dCell);
+            c2.push({ r: r, c: 5, v: x.declared, s: st({ border: ALL }) });
+            c2.push({ r: r, c: 6, f: ref(r, 4) + '/' + ref(r, 5), v: kc.x[j], s: st({ fill: COP_HQ_YELLOW, border: ALL }) });
+        });
+        var m2 = [
+            { c: 7, f: 'AVERAGE(' + rng(e1, 6, en, 6) + ')', v: kc.xtests },
+            { c: 8, f: 'SQRT(VAR(' + rng(e1, 6, en, 6) + '))', v: kc.s },
+            { c: 9, v: COP_HQ_CO2_A },
+            { c: 10, f: ref(e1, 9) + '-(' + ref(tr, 8) + '+' + ref(tr, 9) + ')*' + ref(e1, 8), v: kc.passBound },
+            { c: 11, f: ref(e1, 9) + '+(' + ref(tr, 10) + '-' + ref(tr, 11) + ')*' + ref(e1, 8), v: kc.failBound }
+        ];
+        m2.forEach(function(x) {
+            for (var r = e1; r <= en; r++) {
+                var cell = { r: r, c: x.c, s: st({ border: vBorder(r, e1, en) }) };
+                if (r === e1) { cell.v = x.v; if (x.f) cell.f = x.f; }
+                c2.push(cell);
+            }
+            mg2.push(rng(e1, x.c, en, x.c));
+        });
+        // Familia + código IP, y el recuadro de la comparación.
+        for (var rf = box; rf <= box + 3; rf++) {
+            rows2[rf] = { height: 16.5 };
+            for (var cf = 3; cf <= 6; cf++) {
+                var bf = {};
+                if (rf === box) bf.top = 'thin';
+                if (cf === 3) bf.left = 'thin';
+                c2.push({ r: rf, c: cf, v: (rf === box && cf === 3) ? (m.familyFull || m.family) + (m.ip ? '\n' + m.ip : '') : '', s: st({ sz: 14, wrap: true, border: bf }) });
+            }
+        }
+        mg2.push(rng(box, 3, box + 3, 6));
+        mg2.push(rng(box, 7, box, 11));
+        c2.push({ r: box + 1, c: 8, v: 'Xtests', s: st({ border: ALL }) });
+        c2.push({ r: box + 1, c: 10, v: 'A-(tP1+tP2)*s', s: st({ border: ALL }) });
+        c2.push({ r: box + 1, c: 11, v: 'A+(tF1-tF2)*s', s: st({ border: ALL }) });
+        c2.push({ r: box + 2, c: 8, f: ref(e1, 7), v: kc.xtests, s: st({ border: ALL }) });
+        c2.push({ r: box + 2, c: 9, f: 'IF(' + ref(box + 2, 8) + '<' + ref(box + 2, 10) + ',"<",">")', v: kc.xtests < kc.passBound ? '<' : '>',
+                  s: st({ fill: COP_HQ_GREEN, numFmt: '0_);[Red]\\(0\\)', border: ALL }) });
+        c2.push({ r: box + 2, c: 10, f: ref(e1, 10), v: kc.passBound, s: st({ border: ALL }) });
+        c2.push({ r: box + 2, c: 11, f: ref(e1, 11), v: kc.failBound, s: st({ border: ALL }) });
+        var H = ref(box + 2, 8), J = ref(box + 2, 10), K = ref(box + 2, 11);
+        c2.push({ r: box + 3, c: 9, f: '_xlfn.IFS(' + H + '<=' + J + ',"PASS",' + H + '>' + K + ',"FAIL",AND(' + H + '>' + J + ',' + H + '<=' + K + '),"ADD")',
+                  v: kc.sheet, s: st({ fill: COP_HQ_GREEN, numFmt: '0_);[Red]\\(0\\)', border: ALL }) });
+        // La tabla A2/3 de UN R154.
+        c2.push({ r: tRow, c: 7, v: 'tests', s: st({ border: { top: 'thin', left: 'thin', right: 'thin' } }) });
+        c2.push({ r: tRow + 1, c: 7, v: '', s: st({ border: { bottom: 'thin', left: 'thin', right: 'thin' } }) });
+        mg2.push(rng(tRow, 7, tRow + 1, 7));
+        c2.push({ r: tRow, c: 8, v: 'PASS', s: st({ border: { top: 'thin', bottom: 'thin', left: 'thin' } }) });
+        c2.push({ r: tRow, c: 9, v: '', s: st({ border: { top: 'thin', bottom: 'thin', right: 'thin' } }) });
+        c2.push({ r: tRow, c: 10, v: 'FAIL', s: st({ border: { top: 'thin', bottom: 'thin', left: 'thin' } }) });
+        c2.push({ r: tRow, c: 11, v: '', s: st({ border: { top: 'thin', bottom: 'thin', right: 'thin' } }) });
+        mg2.push(rng(tRow, 8, tRow, 9)); mg2.push(rng(tRow, 10, tRow, 11));
+        ['tP1', 'tP2', 'tF1', 'tF2'].forEach(function(t, j) { c2.push({ r: tRow + 1, c: 8 + j, v: t, s: st({ border: ALL }) }); });
+        for (var tn = 3; tn <= 16; tn++) {
+            var row = co.table[tn], rr = tRow + 2 + (tn - 3);
+            c2.push({ r: rr, c: 7, v: tn, s: st({ border: ALL }) });
+            [row.tP1, row.tP2, row.tF1, row.tF2].forEach(function(v, j) { c2.push({ r: rr, c: 8 + j, v: v, s: st({ border: ALL }) }); });
+        }
+        for (var rt = tRow; rt <= tRow + 15; rt++) rows2[rt] = { height: 13.5 };
+        if (corrF) {
+            c2.push({ r: tRow + 17, c: 2, v: 'Corrected CO2 = raw CO2 × EvC (' + co.evc + ') × FCF (' + co.fcf + ')',
+                      s: { font: { name: 'Arial', sz: 10, i: true }, align: { h: 'left', v: 'center' } } });
+        }
+        sheets.push({
+            name: 'CO2 Emissions', showGrid: false, zoom: 70, print: { landscape: true, fitWidth: 1 },
+            cols: [{ min: 1, width: 11.3 }, { min: 2, width: 30 }, { min: 3, width: 11.3 }, { min: 4, width: 15 },
+                   { min: 5, max: 8, width: 11.3 }, { min: 9, width: 12.4 }, { min: 10, max: 11, width: 15 }],
+            rows: rows2, cells: c2, merges: mg2
+        });
+    }
+    return { sheets: sheets, creator: 'KIA EmLab', appVersion: m.appVersion || '' };
+}
+
+/**
+ * Los datos de un juicio guardado para la hoja de HQ. Lee la mesa CONGELADA del juicio
+ * (`j.vehicles`); PM/PN que la mesa no traiga salen de la prueba de VETS de cada VIN;
+ * el CO₂ sale de lo congelado (`j.co2.rows`, desde 3.15.0) o, en un juicio anterior,
+ * de los ensayos que cuentan hoy (y se avisa).
+ * → {model, warnings:[texto], judgment}
+ */
+function copHqModelFor(j) {
+    var warnings = [];
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var rows = (j.vehicles || []).filter(function(r) { return r && r.vin; });
+    var vins = rows.map(function(r) { return String(r.vin).trim().toUpperCase(); });
+    var best = function(vin) { return typeof _copVinBestTest === 'function' ? _copVinBestTest(vin, j.familyKey, vehicles) : null; };
+    var limits = (typeof COP_FUEL_LIMITS !== 'undefined' && COP_FUEL_LIMITS[j.fuelType]) || (typeof COP_PI_LIMITS !== 'undefined' ? COP_PI_LIMITS : []);
+    var used = {};
+    (j.limitsUsed || []).forEach(function(l) { used[l.id] = l; });
+    var statOf = {};
+    (j.stats || []).forEach(function(s) { if (s && s.id) statOf[s.id] = s; });
+    var num = function(v) { var x = (typeof _copNum === 'function') ? _copNum(v) : parseFloat(v); return (x === null || isNaN(x)) ? null : x; };
+
+    var gases = [];
+    limits.forEach(function(p) {
+        var lim = used[p.id] || p;
+        var raw = rows.map(function(r) {
+            var v = num(r.values && r.values[p.id]);
+            if (v === null && (p.id === 'PM' || p.id === 'PN') && typeof copVetsPmPn === 'function') v = copVetsPmPn(best(r.vin), p.id);
+            return v;
+        });
+        var faltan = raw.filter(function(v) { return v === null; }).length;
+        if (faltan) {
+            if (used[p.id] || faltan < raw.length) {
+                warnings.push(_copHqGasName(p.id) + ': falta el valor de ' + faltan + ' de ' + raw.length + ' vehículo(s); la hoja sale sin ese gas.');
+            } else if (p.id === 'PM' || p.id === 'PN') {
+                warnings.push(_copHqGasName(p.id) + ': ninguna prueba trae su valor en VETS; la hoja sale sin ese gas.');
+            }
+            return;
+        }
+        var s = statOf[p.id];
+        var dfo = (s && s.df !== undefined) ? { df: s.df, ki: s.ki || 0 }
+                : (typeof copGasDf === 'function' ? copGasDf(p.id, j.fuelType) : { df: 1, ki: 0 });
+        gases.push({ id: p.id, limit: lim.limit, unit: lim.unit, isPn: !!(lim.isPn || p.isPn), df: dfo.df, ki: dfo.ki || 0, raw: raw });
+    });
+
+    var co2 = null;
+    var fcf = (j.co2 && j.co2.fcf) || 1, evc = (j.co2 && j.co2.evc) || 1;
+    var src = (j.co2 && Array.isArray(j.co2.rows)) ? j.co2.rows : null;
+    if (!src && typeof copCo2RowsFor === 'function') {
+        src = copCo2RowsFor(vins, j.familyKey);
+        if (j.co2) warnings.push('Este juicio es anterior a 3.15.0 y no guardó sus filas de CO₂: se tomaron los ensayos que cuentan hoy.');
+    }
+    var co2Rows = (src || []).filter(function(r) { return num(r.measured) !== null && num(r.target) !== null && num(r.target) !== 0; })
+        .map(function(r) {
+            var meas = num(r.measured);
+            return { vin: r.vin, raw: meas, corrected: meas * evc * fcf, declared: num(r.target) };
+        });
+    if (co2Rows.length >= 3) {
+        co2 = { rows: co2Rows, table: COP_CO2_TABLE, evc: evc, fcf: fcf };
+    } else if (vins.length) {
+        warnings.push('CO₂: hay ' + co2Rows.length + ' vehículo(s) con CO₂ medido y declarado (hacen falta 3); el libro sale sin la hoja de CO₂.');
+    }
+
+    var ips = [];
+    if (typeof homoIpFamilyForVehicle === 'function') {
+        vins.forEach(function(vin) {
+            try {
+                var r = homoIpFamilyForVehicle(best(vin));
+                var code = r && r.family && r.family.code;
+                if (code && ips.indexOf(code) < 0) ips.push(code);
+            } catch (e) {}
+        });
+    }
+    var model = { family: copHqShortName(j.familyKey, j.familyLabel), familyFull: j.familyLabel || '', ip: ips.join(' / '), vins: vins, gases: gases, co2: co2,
+                  appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' };
+
+    // ¿La hoja dice lo mismo que el juicio guardado?
+    var chk = copHqCheck(model);
+    if (!j.method) warnings.push('Este juicio se guardó con el método anterior (U contra A(n)/B(n) de R83); la hoja recalcula con el de HQ.');
+    chk.gases.forEach(function(g) {
+        if (g.rule === 'CONTINUE') warnings.push(g.name + ': la norma pide otra medición, pero la hoja de HQ escribe "Fail" (no tiene ese caso).');
+    });
+    var sheetGas = chk.gases.length ? (chk.gases.every(function(g) { return g.sheet === 'Pass'; }) ? 'PASS' : 'FAIL') : null;
+    if (sheetGas && j.decision && j.decision !== sheetGas && j.decision !== 'CONTINUE') {
+        warnings.push('Gases: la hoja da ' + sheetGas + ' y el juicio guardado dice ' + j.decision + '.');
+    }
+    if (chk.co2 && j.co2 && j.co2.decision) {
+        var want = { PASS: 'PASS', FAIL: 'FAIL', CONTINUE: 'ADD' }[j.co2.decision];
+        if (want && want !== chk.co2.sheet) warnings.push('CO₂: la hoja da ' + chk.co2.sheet + ' (UN R154) y el juicio guardado dice ' + j.co2.decision + '.');
+    }
+    return { model: model, warnings: warnings, check: chk };
+}
+
+/**
+ * Nombre corto de la familia para la hoja (la de HQ lleva un nombre corto, no la clave entera): modelo,
+ * motor, transmisión, carrocería y año, de la clave de 8 segmentos. PURA.
+ */
+function copHqShortName(familyKey, label) {
+    var p = String(familyKey || '').split('|');
+    if (p.length < 8) return String(label || familyKey || '');
+    var my = /(\d{2,4})/.exec(p[3] || '');
+    var yr = /CAL/i.test(p[3] || '') ? String(p[3]).trim() : (my ? 'MY' + my[1] : '');
+    return [p[0], p[1], p[2], p[7], yr].filter(function(x) { return x && String(x).trim(); }).join(' ');
+}
+
+/** Nombre del archivo: CoP_HQ_<familia>_<fecha del juicio>.xlsx (solo caracteres seguros). */
+function copHqFileName(j) {
+    var fam = String(j.familyLabel || j.familyKey || 'familia').replace(/[^A-Za-z0-9.\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+    return 'CoP_HQ_' + fam + '_' + String(j.date || '').slice(0, 10) + '.xlsx';
+}
+
+/** Un clic: arma la hoja de HQ del juicio guardado `id` y la descarga. */
+function copHqXlsxExport(id) {
+    var j = (typeof copState !== 'undefined' && copState.saved || []).find(function(r) { return r.id === id; });
+    if (!j) { showToast('Ese juicio ya no existe.', 'error'); return Promise.resolve(false); }
+    if (j.evidencePurged || !(j.vehicles || []).some(function(r) { return r && r.vin; })) {
+        showToast('Este juicio ya no guarda sus VINes (se compactó por antigüedad): no se puede llenar la hoja de HQ.', 'error');
+        return Promise.resolve(false);
+    }
+    var res;
+    try { res = copHqModelFor(j); } catch (e) {
+        showToast('No se pudo juntar los datos: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+        return Promise.resolve(false);
+    }
+    if (res.model.vins.length < 3) { showToast('El juicio tiene menos de 3 vehículos: la hoja de HQ necesita al menos 3.', 'error'); return Promise.resolve(false); }
+    if (!res.model.gases.length) { showToast('Ningún gas tiene el valor de todos los vehículos: no hay qué evaluar.', 'error'); return Promise.resolve(false); }
+    var name = copHqFileName(j);
+    return xwBuildCompressed(copHqXlsxSpec(res.model)).then(function(bytes) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+        if (typeof auditLog === 'function') auditLog('cop', 'cop_hq_xlsx', { type: 'cop', label: j.familyLabel || j.familyKey || '' },
+            'Hoja de HQ del juicio del ' + String(j.date || '').slice(0, 10), {
+                after: { judgment: j.id, vehicles: res.model.vins.length, gases: res.model.gases.map(function(g) { return g.id; }),
+                         co2: !!res.model.co2, warnings: res.warnings.length } });
+        if (res.warnings.length) showToast('Descargado: ' + name + '. Revisa: ' + res.warnings.join(' · '), 'warning', 14000);
+        else showToast('Descargado: ' + name, 'success');
+        return true;
+    }).catch(function(e) {
+        showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+        return false;
+    });
 }
 
 
@@ -77512,7 +77996,9 @@ var VETS_GAS_COLUMNS = {
     NMHC: ['BagNMHCRegulated', 'BagNMHC'], NOX: ['BagNOXRegulated', 'BagNOX'], NMOG: ['BagNMOGRegulated', 'BagNMOG'],
     NMOGNOX: ['BagNMOGpNOXRegulated', 'BagNMOGpNOX'], CH4: ['BagCH4Regulated', 'BagCH4'],
     HCNOX: ['BagHCpNOXRegulated', 'BagHCpNOX'], THCNOX: ['BagHCpNOXRegulated', 'BagHCpNOX'],
-    NMHCNOX: ['BagNMHCpNOXRegulated', 'BagNMHCpNOX'], PM: ['PM']
+    NMHCNOX: ['BagNMHCpNOXRegulated', 'BagNMHCpNOX'], PM: ['PM'],
+    // [3.15.0] PN (#/km): lo pide la hoja de evaluación estadística de corporativo.
+    PN: ['DilutePN', 'PN']
 };
 
 // CustomFields de VETS → columnas de la configuración. Solo las que distinguen de
@@ -83343,8 +83829,8 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
 //   autoFilter: 'A3:E40', print: {landscape, fitWidth:1}
 // }
 // style = { font:{b, i, sz, color:'RRGGBB', name}, fill:'RRGGBB',
-//           border:'thin'|'medium'|{top,bottom,left,right}, align:{h, v, wrap, indent},
-//           numFmt:'yyyy-mm-dd' }
+//           border:'thin'|'medium'|{top,bottom,left,right}, borderColor:'RRGGBB' (gris por omisión),
+//           align:{h, v, wrap, indent}, numFmt:'yyyy-mm-dd' }
 
 var XW_EPOCH = Date.UTC(1899, 11, 30);   // día 0 de Excel (sistema 1900, con el 29-feb ficticio)
 
@@ -83456,11 +83942,11 @@ function _xwStyles() {
             '<name val="' + _xwEsc(f.name || 'Calibri') + '"/><family val="2"/></font>');
     };
     S.fill = function(c) { return c ? idx(S.fills, '<fill><patternFill patternType="solid"><fgColor rgb="FF' + c + '"/><bgColor indexed="64"/></patternFill></fill>') : 0; };
-    S.border = function(b) {
+    S.border = function(b, color) {
         if (!b) return 0;
         var side = function(k) {
             var st = typeof b === 'string' ? b : b[k];
-            return st ? '<' + k + ' style="' + st + '"><color rgb="FF9CA3AF"/></' + k + '>' : '<' + k + '/>';
+            return st ? '<' + k + ' style="' + st + '"><color rgb="FF' + (color || '9CA3AF') + '"/></' + k + '>' : '<' + k + '/>';
         };
         return idx(S.borders, '<border>' + side('left') + side('right') + side('top') + side('bottom') + '<diagonal/></border>');
     };
@@ -83476,7 +83962,7 @@ function _xwStyles() {
         if (!st) return 0;
         var key = JSON.stringify(st);
         if (S.keys[key] !== undefined) return S.keys[key];
-        var fo = S.font(st.font), fi = S.fill(st.fill), bo = S.border(st.border), nf = S.numFmt(st.numFmt);
+        var fo = S.font(st.font), fi = S.fill(st.fill), bo = S.border(st.border, st.borderColor), nf = S.numFmt(st.numFmt);
         var al = st.align;
         var x = '<xf numFmtId="' + nf + '" fontId="' + fo + '" fillId="' + fi + '" borderId="' + bo + '" xfId="0"' +
             (nf ? ' applyNumberFormat="1"' : '') + (fo ? ' applyFont="1"' : '') + (fi ? ' applyFill="1"' : '') +
@@ -83748,7 +84234,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19398],[19402,"js/uiflow.js",19718],[19722,"js/cop15.js",30351],[30355,"js/inventory.js",38208],[38212,"js/cuarto.js",40336],[40340,"js/sitio.js",41649],[41653,"js/testplan.js",53489],[53493,"js/panel.js",58831],[58835,"js/projects.js",61124],[61128,"js/auth.js",62208],[62212,"js/signatures.js",62413],[62417,"js/firebase-sync.js",70078],[70082,"js/cop_validator.js",74570],[74574,"js/copreport.js",75576],[75580,"js/homolog.js",77477],[77481,"js/vets.js",79278],[79282,"js/historico.js",80196],[80200,"js/review.js",80653],[80657,"js/opcards.js",81088],[81092,"js/handoff.js",81366],[81370,"js/ficha.js",81871],[81875,"js/relevo.js",82255],[82259,"js/momentos.js",82396],[82400,"js/digest.js",83320],[83324,"js/xlsxw.js",83704],[83708,"js/bugreport.js",84854]]};
+var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19404],[19408,"js/uiflow.js",19724],[19728,"js/cop15.js",30357],[30361,"js/inventory.js",38214],[38218,"js/cuarto.js",40342],[40346,"js/sitio.js",41655],[41659,"js/testplan.js",53495],[53499,"js/panel.js",58837],[58841,"js/projects.js",61130],[61134,"js/auth.js",62214],[62218,"js/signatures.js",62419],[62423,"js/firebase-sync.js",70084],[70088,"js/cop_validator.js",74614],[74618,"js/copreport.js",75620],[75624,"js/cophq.js",76060],[76064,"js/homolog.js",77961],[77965,"js/vets.js",79764],[79768,"js/historico.js",80682],[80686,"js/review.js",81139],[81143,"js/opcards.js",81574],[81578,"js/handoff.js",81852],[81856,"js/ficha.js",82357],[82361,"js/relevo.js",82741],[82745,"js/momentos.js",82882],[82886,"js/digest.js",83806],[83810,"js/xlsxw.js",84190],[84194,"js/bugreport.js",85340]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

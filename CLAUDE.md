@@ -24,7 +24,7 @@ no-login operator picker, synced change history).
 | **Plan** | **2.33.0**: abre en el **🗓️ Calendario** (vista de planeación); el ▸ de cada semana la abre en **📅 Mi semana** — el tablero por día Y el armador en la MISMA pantalla. Más **🚑 Recuperación** (pronóstico), familias, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
-| **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ gauge de la banda A(n)–B(n)), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
+| **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ barra Xtests contra las cotas de UN R154; **3.15.0** 📤 Excel HQ por juicio), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
@@ -65,6 +65,7 @@ js/
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
   copreport.js          ← CoP por año calendario: regla de lotes, estatus semanal gerencial, envío del viernes (~960 lines)
+  cophq.js              ← Hoja de evaluación estadística de corporativo (HQ): gases + CO₂ en .xlsx, un clic por juicio (~400 lines)
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
@@ -98,6 +99,7 @@ CHANGELOG.md            ← Detailed changelog
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
 | CoP año calendario | `js/copreport.js` | `copRep`, `copYear*` | `copState.yearProd/yearCuts/yearExclude` | — (dentro de `kia_cop_v1`) |
+| Hoja de HQ | `js/cophq.js` | `copHq` | — (lee `copState.saved`) | — |
 | Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
@@ -191,7 +193,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -3650,4 +3652,46 @@ Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la r
   `_bootStage === 'pin'`.
 - `tests/v3143.e2e.js` sirve la app por http y simula el SDK con `ctx.route` (la última ruta
   registrada manda: primero cortar lo de fuera, luego el SDK falso).
+
+## 3.15.0 — La hoja de HQ y el método de gases de UN R154 (`js/cophq.js`, `js/cop_validator.js`)
+
+Reemplaza lo que v15/v19.0 dicen del muestreo secuencial de gases (U contra A(n)/B(n) de R83) y lo
+que v20.2/2.27.3 dicen de cuál prueba de CO₂ es la principal.
+
+- **`copGasJudge(raw, limit, df, ki)` (PURA) es LA regla de gases del CoP** (UN R154 §2.1.1, la de
+  la hoja de corporativo). Se calcula EM = raw × DF + KI y Xtests = promedio de EM; con eso:
+  - pasa si Xtests < A·L − VAR/L;
+  - falla si Xtests > A·L − ((n−3)/13)·VAR/L;
+  - en medio, CONTINUE.
+
+  A = `COP_GAS_A` (1.05) y n se acota a 16. `copCalcStats(raw, limit, dfo)` la envuelve: **todo
+  consumidor pasa `copGasDf(gasId, fuelType)`** (`COP_ASSIGNED_DF`, los DF asignados de R83/R154;
+  KI 0). Sin DF, se juzga con DF 1 sin aviso.
+- **La regla no depende de unidades** (VAR/L escala igual que Xtests), así que la hoja de HQ puede
+  ir en g/km aunque la mesa guarde otra unidad.
+- **Juicios guardados**:
+  - los nuevos congelan `method: 'r154-2.1.1'` y `stats[].{df, ki, A, passBound, failBound}`;
+  - los anteriores traen `U/a/b` (sin `method`) y se leen e imprimen con su método. **Nunca
+    reescribirlos.**
+- **CO₂: la principal es UN R154 §3.3.1** (`copCo2CalcStats().principal === 'r154'`; los campos de
+  nivel superior son de `r154`). El Apéndice I es la segunda prueba y `copCo2Agreement` no cambió.
+  Los juicios nuevos congelan `co2.rows` (VIN, medido, declarado, fecha).
+- **La hoja de HQ se rehace, no se copia**:
+  - `copHqXlsxSpec(model)` es PURA y escribe las celdas, fórmulas y combinaciones del formato de
+    corporativo, cada fórmula con su valor;
+  - con n = 3 las direcciones son las de HQ (bloques de gases cada 5 filas desde la 6; CO₂ con la
+    tabla en G16:K31) y con más vehículos crecen hacia abajo;
+  - **nunca meter al repositorio el archivo de HQ** ni sus imágenes, sello o pie: el repo es
+    público y el archivo es de uso restringido.
+- **`copHqCheck(model)` (PURA) es lo que dice la hoja.** Gases: *Pass* o *Fail* (la hoja no tiene
+  "otra medición"; `rule` lleva lo de la norma). CO₂: PASS / FAIL / ADD. `copHqModelFor(j)` avisa
+  en tres casos:
+  - si la hoja difiere del juicio;
+  - si el juicio es del método anterior;
+  - si falta un gas.
+- **PM y PN no están en los perfiles de regulación.** Salen de la prueba de VETS adjunta
+  (`copVetsPmPn`, solo con una prueba aprobada; `copResultValue` lo usa como respaldo). VETS lee
+  PN (`VETS_GAS_COLUMNS.PN`).
+- **Un cambio a la hoja se verifica con LibreOffice forzando el recálculo** (`tests/cophq.node.js`
+  lo hace si hay `soffice`): cada fórmula debe dar el `v` que escribió la app.
 
