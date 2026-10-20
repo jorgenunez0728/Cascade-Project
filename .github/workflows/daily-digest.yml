@@ -1,4 +1,4 @@
-name: Avisos del laboratorio (resumen diario y plan aceptado)
+name: Avisos del laboratorio (resumen diario, plan aceptado y estatus CoP)
 
 # [3.5.0] Inicio de turno (7:00–7:55) y fin de turno (16:00–16:55), cada 5 min, lunes a viernes
 # (México, UTC−6 fijo). Tantos intentos porque GitHub omite y atrasa sus tareas programadas.
@@ -16,6 +16,10 @@ on:
         default: true
       force_digest:
         description: 'Mandar el resumen aunque ya haya salido hoy'
+        type: boolean
+        default: false
+      force_cop:
+        description: 'Mandar el estatus CoP semanal (sale solo los viernes 7:00) aunque ya haya salido'
         type: boolean
         default: false
       test_to:
@@ -83,6 +87,7 @@ jobs:
           VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
           FORCE_DIGEST: ${{ github.event_name == 'workflow_dispatch' && inputs.force_digest && '1' || '' }}
+          FORCE_COP: ${{ github.event_name == 'workflow_dispatch' && inputs.force_cop && '1' || '' }}
           DIGEST_TEST_TO: ${{ github.event_name == 'workflow_dispatch' && inputs.test_to || '' }}
           DIGEST_OUT: ${{ runner.temp }}
         run: node tools/daily-digest.node.js

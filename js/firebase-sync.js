@@ -2271,6 +2271,12 @@ function fbPullApply(collections, results, showFeedback) {
             // El alcance sí es del laboratorio (compartido), pero si el remoto viene de
             // una versión previa a v19.0 no lo trae: conservar el local en vez de borrarlo.
             if (_mergedCop.scope === undefined && _localCop.scope !== undefined) _mergedCop.scope = _localCop.scope;
+            // [3.12.0] Producción real del año y cortes semanales del reporte CoP: se UNEN
+            // (por familia gana `updatedAt`, por semana gana el corte más reciente). Tomar el
+            // remoto entero borraría lo que otro equipo capturó o el corte de esta semana.
+            if (typeof copRepProdUnion === 'function') _mergedCop.yearProd = copRepProdUnion(_localCop.yearProd, _mergedCop.yearProd);
+            if (typeof copRepCutsUnion === 'function') _mergedCop.yearCuts = copRepCutsUnion(_localCop.yearCuts, _mergedCop.yearCuts);
+            if (typeof copRepExcludeUnion === 'function') _mergedCop.yearExclude = copRepExcludeUnion(_localCop.yearExclude, _mergedCop.yearExclude);
 
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();

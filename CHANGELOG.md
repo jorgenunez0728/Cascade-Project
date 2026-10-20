@@ -20,6 +20,50 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.12.0 — CoP por año calendario y estatus semanal para corporativo (2026-10-20)
+
+### Nuevo
+- **El CoP se cuenta por año calendario** (indicación de corporativo): lo que cada familia
+  produjo de enero a diciembre, sin importar el año modelo. MY26 y MY27 de la misma familia son
+  una sola familia del año, y entran todos sus ensayos con fecha de prueba en ese año.
+- **Validador 2026**: CoP → Validador abre por default las familias del año calendario
+  ("Contar por: Año calendario 2026"); se puede volver a "Año modelo".
+- **Ensayos requeridos por lotes**: hasta 7,500 unidades producidas, 3 ensayos; de 7,501 a
+  12,500, 6; cada 5,000 unidades más (o fracción), 3 más. Deben resultar concordantes (muestreo
+  secuencial del CoP). Esta regla es la de corporativo y solo la usa el reporte CoP; el REQ del
+  Plan sigue saliendo de Plan → Reglas.
+- **Estatus de la semana** (CoP → Panorama → tarjeta del año, y Datos → Reportes): reporte
+  gerencial de Europa (5 puertas, wagon, híbrido) y Medio Oriente con avance global, ensayos
+  válidos, pendientes y familias cumplidas; por familia: producción del año, requeridos, hechos,
+  lo de esta semana, faltantes, avance y estatus (Cumplido, En progreso, Muestreo abierto, Sin
+  iniciar, No concordante).
+- **Comparación contra la semana anterior**: al abrir el estatus se guarda el corte de la semana
+  (uno por semana, el último que se abrió). La semana siguiente se compara contra ese corte; si
+  no hay, los ensayos de la semana pasada salen por su fecha de prueba y se dice.
+- **Imprimir / PDF, copiar para correo (con formato) y descargar HTML**. En el teléfono cada
+  familia se ve como tarjeta.
+- **✏️ Producción real**: lo producido de verdad, mes por mes y por familia, manda sobre el plan
+  importado. El reporte declara los meses que el plan no trae (hoy: enero a mayo de 2026).
+- **Familias fuera del reporte**: una familia sin producción en el año no va al reporte, aunque
+  tenga ensayos. **⚙️ Familias** deja sacar otras (unidades piloto, una que corporativo no pide)
+  con su motivo; no se borra nada y se regresa con un toque. Lo que queda fuera **no se menciona
+  en el reporte que se comparte**: la app lo lista en la barra del visor.
+- **Envío automático**: cada **viernes a las 7:00** sale el estatus por correo a la lista
+  **Estatus CoP semanal** (Datos → Sistema → Avisos del laboratorio), con el corte de ese
+  viernes, para compartirlo ese día. Si GitHub no lo logra enviar, se sigue intentando en cada
+  corrida (como el resumen) hasta que salga. Vacía, no se envía.
+
+### Para desarrollo
+- `js/copreport.js` (nuevo, va después de `cop_validator.js`). PURAS: `copLotRequired`,
+  `copLotNextAt`, `copYearKeyOf`, `copYearOfKey`, `copRepGroupOf`, `copYearProduction`,
+  `copYearReportCompute`, `copYearReportHTML`, `copRepCutSnapshot`, `copRepCutsUnion`,
+  `copRepProdUnion`, `copRepExcludeUnion`, `copRepSubject`, `copRepPlainText`.
+- `copVehicleInFamily(v, key)` es la forma de preguntar si un vehículo es de una familia (por año
+  modelo o calendario); la usan la mesa, las exclusiones y el CO₂ del validador.
+- `copState.yearProd` / `yearCuts` / `yearExclude` viajan en `cop/current` y se UNEN en el pull.
+- `tools/digest-env.js` carga el código real de `vets.js`, `cop_validator.js` y `copreport.js`;
+  `digestCopDue` (PURA) decide el envío (`{week, cut}`); `digest/state.lastCopWeek` / `copLastCut`.
+
 ## 3.11.0 — El cuarto de gasolina (2026-10-20)
 
 ### Nuevo

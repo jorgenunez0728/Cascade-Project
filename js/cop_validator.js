@@ -833,7 +833,9 @@ function copPersist() {
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
             spc: copState.spc, scope: copState.scope,
             present: copState.present, ovFilter: copState.ovFilter,
-            families: copCleanFamilies(copState.families), copSchema: copState.copSchema
+            families: copCleanFamilies(copState.families), copSchema: copState.copSchema,
+            // [3.12.0] Producción real del año y cortes semanales del reporte CoP (compartidos)
+            yearProd: copState.yearProd, yearCuts: copState.yearCuts, yearExclude: copState.yearExclude
         }));
         _copBumpRev();
         return true;
@@ -847,7 +849,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema','yearProd','yearCuts','yearExclude'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
         copCleanFamilies(copState.families);
@@ -1117,6 +1119,42 @@ function copVehicleFamilyKey(v) {
     return mod + '|' + eng + '|' + tx + '|' + my + '|' + reg + '|' + ((ep && ep !== '0') ? ep : '') + '|' + ((engpkg && engpkg !== '0') ? engpkg : '') + '|' + ((body && body !== '0') ? body : '');
 }
 
+// [3.12.0] Familia del AÑO CALENDARIO — encima de la clave de siempre (ver copreport.js).
+// ─── La familia del año calendario ──────────────────────────────────────────
+// Misma clave de 8 segmentos (mod|eng|tx|MY|reg|ep|engpkg|body) con el MY reemplazado:
+// así `_copFamilyEmissionReg` (parts[4]) y todo parseo por posición siguen sirviendo, y
+// la mesa del validador vive en copState.families[clave] como cualquier otra.
+var COP_YEAR_SEG = 'CAL ';
+
+/** Clave de la familia del año calendario a partir de la clave de siempre. PURA. */
+function copYearKeyOf(familyKey, year) {
+    var p = String(familyKey || '').split('|');
+    if (p.length < 8) return '';
+    p[3] = COP_YEAR_SEG + year;
+    return p.join('|');
+}
+/** El año de una clave de año calendario, o null si es una clave por año modelo. PURA. */
+function copYearOfKey(key) {
+    var p = String(key || '').split('|');
+    var m = p.length >= 8 ? /^CAL (\d{4})$/.exec(p[3]) : null;
+    return m ? Number(m[1]) : null;
+}
+
+/**
+ * LA forma de preguntar si un vehículo es de una familia (por año modelo O por año
+ * calendario). En una familia de año calendario entran todos los MY de la familia, y
+ * solo los ensayos con fecha de prueba en ese año (`vehicleTestDate`).
+ */
+function copVehicleInFamily(v, key) {
+    if (!v || !key) return false;
+    var fk = copVehicleFamilyKey(v);
+    var y = copYearOfKey(key);
+    if (y === null) return fk === key;
+    if (copYearKeyOf(fk, y) !== key) return false;
+    var d = (typeof vehicleTestDate === 'function') ? vehicleTestDate(v) : '';
+    return !!d && Number(d.slice(0, 4)) === y;
+}
+
 /**
  * [2.4.0] ✏️ Corregir alta: el VIN y/o la familia de un vehículo cambiaron.
  * - El VIN se renombra en toda mesa de trabajo donde aparezca.
@@ -1173,11 +1211,21 @@ function _copJudgmentMatchesFamily(j, familyKey) {
     var legacy = _copFamKeyLegacy(familyKey);
     return !!legacy && j.familyKey === legacy;
 }
+/** [3.12.0] Validador por año calendario ('cal') o por año modelo ('my'). Preferencia del equipo. */
+function copSetGroupBy(mode) {
+    var m = mode === 'my' ? 'my' : 'cal';
+    if (uiPref('copGroupBy') === m) return;
+    uiPref('copGroupBy', m);
+    var isYear = copYearOfKey(copState.familyKey) !== null;
+    if (copState.familyKey && isYear !== (m === 'cal')) { copState.familyKey = ''; copState.familyLabel = ''; }
+    copPersist(); copRender();
+}
 function copSetRegion(r) { copState.region = r; copState.familyKey = ''; copState.familyLabel = ''; copPersist(); copRender(); }
 function copSelectFamily(key) {
     copState.familyKey = key;
     var fam = copPortfolioRows().find(function(f) { return f.key === key; })
-           || copFamilies().find(function(f) { return f.key === key; });
+           || copFamilies().find(function(f) { return f.key === key; })
+           || (copYearOfKey(key) !== null && typeof copYearValidatorFamilies === 'function' ? copYearValidatorFamilies().find(function(f) { return f.key === key; }) : null);
     copState.familyLabel = fam ? fam.label : '';
     if (key) {
         // Si esta familia ya tenía mesa de trabajo, se recupera tal cual quedó; si no,
@@ -1221,7 +1269,7 @@ function copSyncVinsFromTests(key) {
     var added = 0, stale = 0;
 
     vehicles.forEach(function(v) {
-        if (!v.vin || copVehicleFamilyKey(v) !== key) return;
+        if (!v.vin || !copVehicleInFamily(v, key)) return;   // [3.12.0] también por año calendario
         // [2.30.0] Una prueba histórica de VETS entra solo ya confirmada por quien aprueba.
         if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
         // [2.31.0] Aceptada pero no usable para CoP (p. ej. IWR fuera de rango): no entra.
@@ -1292,7 +1340,7 @@ function copTestWhyNot(v) {
 /** Ensayos del laboratorio de ese VIN en esa familia. */
 function _copVinTests(vin, key, vehicles) {
     var vk = _copVinKey(vin);
-    return vehicles.filter(function(v) { return v && v.vin && _copVinKey(v.vin) === vk && copVehicleFamilyKey(v) === key; });
+    return vehicles.filter(function(v) { return v && v.vin && _copVinKey(v.vin) === vk && copVehicleInFamily(v, key); });
 }
 
 /**
@@ -1330,7 +1378,7 @@ function _copMesaExclusions(key) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var porVin = {};
     vehicles.forEach(function(v) {
-        if (!v || !v.vin || copVehicleFamilyKey(v) !== key) return;
+        if (!v || !v.vin || !copVehicleInFamily(v, key)) return;
         if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
         if (!_copRawGasValues(v)) return;
         var vk = _copVinKey(v.vin);
@@ -1397,7 +1445,7 @@ function copExcludedTests(opts) {
         if (u.usable) return;
         if (!opts.allScopes && !copInScope(v).ok) return;
         var k = copVehicleFamilyKey(v);
-        if (opts.familyKey && k !== opts.familyKey) return;
+        if (opts.familyKey && !copVehicleInFamily(v, opts.familyKey)) return;
         out.push({ id: v.id, vin: v.vin || '(sin VIN)', familyKey: k, date: _copSpcDate(v), text: u.text });
     });
     return out;
@@ -2476,6 +2524,8 @@ function copBuildOverviewHTML() {
     var s = copPortfolioSummary(rows);
     var f = copState.ovFilter || {};
     var html = '';
+    // [3.12.0] El estatus del año calendario (lo que pide corporativo), con su botón.
+    if (typeof copRepOverviewCardHTML === 'function') html += copRepOverviewCardHTML();
 
     // ── KPIs ──────────────────────────────────────────────────────────────────
     var kpis = [
@@ -2954,7 +3004,11 @@ function copBuildValidatorHTML() {
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 Validador de conformidad</div>';
+    // [3.12.0] Corporativo cuenta el CoP por AÑO CALENDARIO (todos los MY de la familia).
+    var _copCal = uiPref('copGroupBy') !== 'my';
+    var _copYr = copYearOfKey(copState.familyKey) || (typeof copRepYear === 'function' ? copRepYear() : new Date().getFullYear());
+    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 ' +
+            (_copCal ? 'Validador ' + _copYr + ' · año calendario' : 'Validador de conformidad · por año modelo') + '</div>';
     // El reglamento (R154/R83) es el PROCEDIMIENTO de ensayo; la norma de emisiones
     // (EURO-5, PRE-EURO 7…) es de dónde salen los límites. Son dos cosas distintas y
     // la cabecera las confundía escribiendo "Euro 6" fijo.
@@ -2970,6 +3024,10 @@ function copBuildValidatorHTML() {
     // reglamento, combustible y contaminantes (que salen de la familia) antes de elegirla.
     html += '<p class="label-title" data-help="cop-family-help" style="margin-bottom: var(--space-sm);font-weight:700;color:var(--text);">👪 Familia a evaluar</p>';
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Contar por</p>' +
+            '<select aria-label="Contar familias por" data-chips onchange="copSetGroupBy(this.value)">' +
+            '<option value="cal"' + (_copCal ? ' selected' : '') + '>Año calendario ' + _copYr + '</option>' +
+            '<option value="my"' + (_copCal ? '' : ' selected') + '>Año modelo</option></select></div>';
     var _copRegs = copRegions();
     if (_copRegs.length) html += '<div><p class="label-title" style="margin-bottom: var(--space-sm);">Región</p>';
     if (_copRegs.length) html += '<select aria-label="Región" data-chips onchange="copSetRegion(this.value)" style="padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
@@ -2981,7 +3039,7 @@ function copBuildValidatorHTML() {
     // v19.0: la lista sale del Panorama (unión de plan + vehículos ya probados). Antes
     // solo leía tpState.planData, así que una familia con ensayos pero sin plan
     // importado salía como "Familia (0)" aunque estuviera abierta y con datos en pantalla.
-    var _copFams = copPortfolioRows().filter(function(f) {
+    var _copFams = (_copCal && typeof copYearValidatorFamilies === 'function' ? copYearValidatorFamilies() : copPortfolioRows()).filter(function(f) {
         return !copState.region || (f.regionsArr || []).indexOf(copState.region) !== -1;
     });
     html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia (' + _copFams.length + ')</p>';

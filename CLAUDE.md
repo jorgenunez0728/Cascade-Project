@@ -63,6 +63,7 @@ js/
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
+  copreport.js          ← CoP por año calendario: regla de lotes, estatus semanal gerencial, envío del viernes (~960 lines)
   homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   review.js             ← Revisión dirigida: flujo por vehículo, cinco bloques, candado de aprobación (~450 lines)
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
@@ -94,6 +95,7 @@ CHANGELOG.md            ← Detailed changelog
 | Cuartos de gases y gasolina | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam' \| 'roomCamFuel' \| 'roomWhich')`, `invMapView`, `roomLabels`) |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
+| CoP año calendario | `js/copreport.js` | `copRep`, `copYear*` | `copState.yearProd/yearCuts/yearExclude` | — (dentro de `kia_cop_v1`) |
 | Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
@@ -187,7 +189,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -3485,4 +3487,56 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
   `cuarto.js` completos (las paredes con tablero salen de `INV_ROOM_LAYOUT`). Un registro de la
   nube sin `legacyTotal` se lee con la misma regla, en copia.
 - Pendiente declarado: la ronda de lectura todavía no agrupa los tambos por tarima.
+
+## 3.12.0 — CoP por año calendario y estatus semanal (`js/copreport.js`)
+
+- **Corporativo cuenta el CoP por AÑO CALENDARIO**: lo producido de enero a diciembre por familia,
+  todos los MY juntos. **`copYearKeyOf(familyKey, year)` es LA familia del año**: la misma clave de
+  8 segmentos con el MY reemplazado por `CAL 2026`. Va ENCIMA de la de siempre (regla v19.1):
+  `copVehicleFamilyKey`/`tpFamilyKeyForCfg`, las series SPC y los juicios guardados NO cambian, y
+  `_copFamilyEmissionReg` (parts[4]) sigue sirviendo. `copYearOfKey(key)` dice si una clave es del año.
+- **`copVehicleInFamily(v, key)` es LA forma de preguntar si un vehículo es de una familia** (por año
+  modelo: igualdad de siempre; por año calendario: misma familia sin MY y fecha de prueba
+  `vehicleTestDate` en ese año). Todo código del validador que filtre vehículos por familia la usa,
+  nunca `copVehicleFamilyKey(v) === key` (ya migrados: mesa, `_copVinTests`, exclusiones, CO₂).
+- **`copLotRequired(units)` es LA regla de corporativo** (3 ensayos hasta 7,500 u; +3 por cada 5,000
+  o fracción después). **No reemplaza a `tpFamilyRequired`** (2.36.0, reglas del laboratorio para el
+  Plan): son dos preguntas y se quedan separadas. Solo la usa el reporte CoP.
+- **`copYearProduction(src)` (PURA) es LA producción del año**: suma los meses del plan importado
+  (`tpMonths()` + `planData[].m`) que caen en el año; **un mes que el plan no trae, o que viene en
+  cero para TODO el plan, es "sin dato" y se declara**, nunca se lee como cero. Lo capturado en
+  `copState.yearProd[año][claveAño].m[i]` (real) manda sobre el plan, mes por mes. `count_hist`
+  NO es producción del año (es acumulado): no usarlo para esto.
+- **`copYearReportCompute(src)` (PURA) es LA definición del estatus semanal**: hechas = ensayos que
+  cuentan (`copTestCounts`, alcance `copInScope`) con fecha de prueba ≤ corte; la semana anterior
+  sale del corte GUARDADO (`copState.yearCuts[lunes]`, lo que se reportó) y si no hay se deriva por
+  fecha y se dice; el avance suma `min(hechas, REQ)` por familia (lo que sobra en una no tapa otra);
+  el veredicto lo da `verdictOf` (en la app, `_copRepVerdict` = mismos gases/límites que el Panorama).
+- `copYearReportModel` (memo por corte + `_copRev` + `tpState._lastSave`) es lo que leen el
+  Panorama, el reporte y el validador. **Abrir el estatus de la semana en curso guarda el corte**
+  (`copRepRecordCut`, uno por semana: queda el último); un corte de otra fecha solo se consulta.
+- **`copYearReportHTML(m)` es PURA y con estilos LITERALES** (sale por correo e impreso); sin VINs
+  ni valores de gases. `copYearReportDocument` agrega `@page` y las reglas de pantalla angosta
+  (tarjetas por familia). Lo mismo se ve en la app (iframe `srcdoc`), se imprime, se copia
+  (`ClipboardItem` text/html) y se envía.
+- **`copState.yearProd`, `yearCuts` y `yearExclude` son del laboratorio** (viajan en `cop/current`,
+  van en `copPersist`/`copLoad`) y el pull los UNE (`copRepProdUnion`, `copRepCutsUnion` —tope
+  `COP_REP_CUTS_KEEP` semanas—, `copRepExcludeUnion`; simétricas). Regresar una familia deja
+  `excluded:false` (la marca que gana por fecha). `uiPref('copGroupBy')` ('cal' | 'my') es del equipo.
+- Escribir producción real o excluir familias pide `plan.manage` en la capa de datos y se audita
+  con antes/después (`produccion_real`, `reporte_familias`); el corte audita `cop_corte_semanal`
+  una vez por semana.
+- **Una familia sin producción en el año no va al reporte** (aunque tenga ensayos: `m.noProduction`),
+  y **lo que queda fuera —sin producción, excluidas, fuera del alcance— NO se menciona en el HTML
+  compartido** (decisión del laboratorio). Solo la app lo lista (`_copRepLeftOutHTML`, barra del visor).
+- **Envío automático**: `digestCopDue(lp, state, settings)` (digest.js, PURA) → `{week, cut}` = el
+  viernes más reciente desde las 7:00 (corte = ese viernes), una vez por semana
+  (`digest/state.lastCopWeek`) y solo con `settings.copTo`. **Si falla se reintenta en cada corrida
+  hasta que salga** (lunes–jueves siguen con el corte del viernes); sin `lastCopWeek` solo sale el
+  mismo viernes, para no mandar una semana vieja al estrenarse. `tools/daily-digest`
+  lee `cop/current` y `settings/regulations` (perfiles publicados → `__setRegProfiles`) y calcula
+  con el código REAL (`tools/digest-env.js` carga `vets.js`, `cop_validator.js` y `copreport.js`):
+  sus números son los de la app (lo fija `tests/digest.node.js`). No escribe en `cop/current`; si
+  la app no guardó corte la semana pasada, compara contra `digest/state.copLastCut`. El verificador
+  (`digest-check`, que también lee `settings/digest`) cuenta el estatus CoP.
 

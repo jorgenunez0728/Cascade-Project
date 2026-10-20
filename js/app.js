@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.11.0';
+var APP_VERSION = '3.12.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,16 @@ var APP_VERSION = '3.11.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.12.0', date: '20 oct 2026', title: 'CoP por año calendario y estatus semanal para corporativo',
+      bullets: ['El CoP se cuenta por AÑO CALENDARIO, como pidió corporativo: lo producido de enero a diciembre de cada familia, sin importar el año modelo (MY26 y MY27 de la misma familia se suman).',
+                'Validador 2026: el validador abre las familias del año calendario con todos sus ensayos de 2026, de cualquier año modelo. "Contar por" deja volver al año modelo.',
+                'Ensayos requeridos por lotes: hasta 7,500 unidades producidas, 3; de 7,501 a 12,500, 6; cada 5,000 más (o fracción), 3 más. Deben resultar concordantes.',
+                'Nuevo reporte gerencial "Estatus de la semana" (CoP → Panorama y Datos → Reportes): Europa (5 puertas, wagon, híbrido) y Medio Oriente, con producción, requeridos, hechos, lo de esta semana, faltantes, avance y estatus de cada familia.',
+                'Compara contra la semana anterior: cada vez que se abre se guarda el corte de la semana, y la semana siguiente se compara contra ese.',
+                'Se imprime o guarda como PDF, se copia con formato para pegarlo en un correo o se descarga; en el teléfono cada familia se ve como tarjeta.',
+                '✏️ Producción real: el plan importado no trae enero–mayo 2026; lo producido de verdad se captura ahí, mes por mes, y manda sobre el plan. El reporte dice qué meses faltan.',
+                'Una familia sin producción en el año no va al reporte. ⚙️ Familias deja sacar otras (por ejemplo, unidades piloto) con su motivo. Lo que queda fuera no se menciona en el reporte que se comparte; la app lo lista aparte.',
+                'Envío automático: cada viernes a las 7:00 sale el estatus por correo a la lista "Estatus CoP semanal" (Datos → Sistema → Avisos), listo para compartirlo ese día. Si no se logra enviar, se sigue intentando hasta que salga. Vacía, no se envía.'] },
     { version: '3.11.0', date: '20 oct 2026', title: 'El cuarto de gasolina',
       bullets: ['Consumibles → 🗺️ Cuarto tiene ahora dos mapas: 🧪 Gases y ⛽ Gasolina (el selector va al principio de la barra y la elección se recuerda en el equipo).',
                 'El cuarto de gasolina como es: seis tarimas de cuatro tambos (T1 a T6), las boyas de premium como un solo tambo (B), el drenaje y la puerta.',
@@ -2249,7 +2259,8 @@ var UI_PREFS_DEFAULTS = {
     roomCam: null,         // [3.10.0] cámara del cuarto {az, el, zoom, panX, panY} — leer con invRoomCamNormalize
     roomLabels: null,      // [3.10.0] etiquetas en el cuarto (null = sí en escritorio, no en teléfono)
     roomWhich: 'gases',    // [3.11.0] qué cuarto se ve: 'gases' | 'gasolina'
-    roomCamFuel: null      // [3.11.0] cámara del cuarto de gasolina (como roomCam)
+    roomCamFuel: null,     // [3.11.0] cámara del cuarto de gasolina (como roomCam)
+    copGroupBy: 'cal'      // [3.12.0] Validador CoP: 'cal' (año calendario, todos los MY) | 'my' (año modelo)
 };
 
 function _uiPrefsRead() {
