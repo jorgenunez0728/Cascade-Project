@@ -618,7 +618,7 @@ function _copRepVerdict(tests) {
     var decisions = [];
     copFamilyGases(fam).forEach(function(g) {
         var vals = copSpcSeries(fam, g.field).map(function(p) { return p.v; });
-        var st = copCalcStats(vals, g.limit);
+        var st = copCalcStats(vals, g.limit, typeof copGasDf === 'function' ? copGasDf(g.field) : null);
         if (st) decisions.push(st.decision);
     });
     if (!decisions.length) return null;

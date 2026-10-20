@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.14.3';
+var APP_VERSION = '3.15.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.14.3';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.15.0', date: '20 oct 2026', title: 'La hoja de CoP de corporativo, con un clic',
+      bullets: ['CoP → Validador → 💾 Juicios guardados → 📤 Excel HQ (y en 🗂️ Expediente → 📤 Excel para HQ): descarga la hoja de evaluación estadística que pide corporativo, llena con el juicio de la familia. Dos hojas, gases y CO₂, con las mismas celdas y fórmulas de su formato; al abrirla, Excel recalcula y da los mismos números que la plataforma.',
+                'Cambió el veredicto de gases del CoP: ahora es el de UN R154 §2.1.1, el mismo de la hoja de corporativo. Cada valor se multiplica por su factor de deterioro asignado (CO 1.5, THC 1.3, NMHC 1.3, NOx 1.6, PM 1, PN 1) y el promedio se compara contra A·L − VAR/L, con A = 1.05. Antes se usaba el estadístico U de R83.',
+                'Cambió el veredicto de CO₂: el principal ahora es UN R154 §3.3.1 (el de la hoja de corporativo). El Apéndice I del Reg. (UE) 2017/1151 se sigue mostrando debajo. Con pocos vehículos, R154 puede pedir otra prueba donde antes ya se aceptaba.',
+                'PM y PN se leen de la prueba de VETS adjunta. Las pruebas liberadas sin VETS no los traen, y la hoja de corporativo sale sin esos dos gases (se avisa al descargar).',
+                'Los juicios guardados antes de esta versión no cambian: conservan su método. La hoja de corporativo los recalcula con el método nuevo y avisa si el resultado difiere.'] },
     { version: '3.14.3', date: '20 oct 2026', title: 'Conectar un equipo nuevo',
       bullets: ['Arreglado: en un equipo que nunca se había conectado, "Conectar este dispositivo" no hacía nada visible: la ventana de la contraseña quedaba detrás de la pantalla de bienvenida y la conexión con la nube no estaba iniciada. Ahora la contraseña del laboratorio se pide en la misma pantalla y, al conectar, aparecen solos los operadores del laboratorio.'] },
     { version: '3.14.2', date: '20 oct 2026', title: 'Los gases son los del reporte semanal',
@@ -8591,7 +8597,7 @@ var TOURS = {
         { target: '[data-help="cop-kpis-help"]', title: 'Panorama', text: 'Arranca aquí: el estado de conformidad de TODAS las familias del alcance en una pantalla. Cada tarjeta es una familia; el color del borde es el aviso de riesgo y el chip de adentro es el veredicto estadístico.', position: 'bottom' },
         { target: '[data-help="cop-present-help"]', title: 'Para la sala', text: 'Modo presentación agranda todo dentro del CoP para proyectarlo en una auditoría, sin cambiar el tamaño con el que se usa la app en el celular.', position: 'bottom' },
         { target: '[data-help="cop-scope-help"]', title: 'Qué NO cubre', text: 'El CoP solo juzga EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara aquí, para que nadie suponga que se omitió por descuido.', position: 'top' },
-        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó el estadístico U dentro de la banda A(n)–B(n): si la familia ya concluyó y de qué lado, o cuántos vehículos le faltan.', position: 'top' },
+        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó Xtests (el promedio con DF) entre la cota de paso y la de falla de UN R154: si la familia ya concluyó y de qué lado, o si hace falta otra medición.', position: 'top' },
         { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'Se recalcula con cada valor capturado. Con menos de 3 VINes no se emite veredicto — a propósito.', position: 'top' },
         { target: '[data-help="cop-dossier-help"]', title: 'Expediente', text: 'La historia de cada familia y el PDF que se entrega en auditoría, con los límites congelados del juicio.', position: 'bottom' },
         { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }

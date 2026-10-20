@@ -185,7 +185,7 @@ const nodeInflate = b => Promise.resolve(new Uint8Array(zlib.inflateRawSync(Buff
         ok('NOx 6.354 mg/km, THC, NMHC, PM', near(r.gases.NOX.value, 6.3542, 1e-4) && near(r.gases.THC.value, 10.7509, 1e-4) &&
             near(r.gases.NMHC.value, 8.3846, 1e-4) && near(r.gases.PM.value, 1.6514, 1e-4));
         ok('HC+NOx y NMHC+NOx combinados (g/km)', near(r.gases.HCNOX.value, 0.0171052, 1e-7) && r.gases.THCNOX === r.gases.HCNOX && near(r.gases.NMHCNOX.value, 0.0147389, 1e-7));
-        ok('PN y consumo no son gases de Cascade', !r.gases.PN && !r.gases.FUELCONS);
+        ok('[3.15.0] PN se lee (#/km, lo pide la hoja de HQ); el consumo no es gas de Cascade', near(r.gases.PN.value, 6596942421.29, 0.01) && r.gases.PN.unit === '#/km' && !r.gases.FUELCONS);
         ok('cada gas coincide con el "Result" de la tabla de límites de VETS', ['CO', 'NOX', 'NMHC', 'PM'].every(g => near(r.vetsLimits.find(l => l.name === g).value, r.gases[g].value, 1e-9)));
         ok('límites de VETS (informativos): 6, todos PASS', r.vetsLimits.length === 6 && r.vetsLimits.every(l => l.pass === true) && r.vetsLimits.find(l => l.name === 'NOX').upper === 59.999999999999993);
         ok('dinamómetro de TestDetails: Target 113.7 N, Dyno A 51.97 N, ETW 1586.95 kg', r.dyno.tA === 113.7 && near(r.dyno.dA, 51.9696, 1e-4) && near(r.dyno.etw, 1586.95, 1e-6));

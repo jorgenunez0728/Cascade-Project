@@ -20,6 +20,63 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.15.0 — La hoja de CoP de corporativo, con un clic (2026-10-20)
+
+### Nuevo
+- **📤 Excel HQ**: en CoP → Validador → 💾 Juicios guardados, cada juicio tiene su botón. En
+  🗂️ Expediente está **📤 Excel para HQ**, que usa el juicio más reciente de la familia. Descarga
+  la hoja de evaluación estadística que pide corporativo, llena con los datos de la plataforma:
+  - **Emissions**: un bloque por gas con raw EM, DF, KI, EM, limit, Xtests, VAR, A y AxL-VAR/L,
+    más su Pass/Fail.
+  - **CO2 Emissions**: raw, corregido, declarado, X, Xtests, s y las dos cotas de UN R154, con su
+    tabla A2/3.
+  - Mismas celdas, fórmulas y combinaciones del formato de corporativo. Con más de 3 vehículos,
+    cada bloque crece hacia abajo.
+  - Al abrirla, Excel recalcula y da los mismos números que la plataforma (verificado con
+    LibreOffice, fórmula por fórmula).
+  - No lleva nada del archivo de corporativo (logotipos, sellos ni datos de ejemplo).
+- **PN** se lee de la prueba de VETS (#/km), igual que PM.
+
+### Cambió
+- **Veredicto de gases del CoP: UN R154 §2.1.1**, el de la hoja de corporativo:
+  - cada valor se multiplica por su **factor de deterioro asignado** (gasolina: CO 1.5, THC 1.3,
+    NMHC 1.3, NOx 1.6, PM 1, PN 1; diésel: CO 1.5, NOx 1.1, HC+NOx 1.1);
+  - el promedio (Xtests) se compara contra **A·L − VAR/L** (pasa) y **A·L − ((n−3)/13)·VAR/L**
+    (falla), con A = 1.05;
+  - entre las dos cotas hace falta otra medición, hasta 16 vehículos;
+  - antes se usaba el estadístico U de R83 contra A(n)/B(n).
+- **CO₂: el veredicto principal es UN R154 §3.3.1** (tabla A2/3), el de la hoja de corporativo.
+  - El Apéndice I del Reg. (UE) 2017/1151 se sigue calculando y se muestra debajo.
+  - Con pocos vehículos, R154 puede pedir otra prueba donde el Apéndice I ya aceptaba.
+- La barra de cada gas en el Validador, la tabla de estadística, el PDF del expediente y los CSV
+  muestran el DF, Xtests y las dos cotas.
+- La tarjeta "Valores críticos A(n)/B(n)" ahora es **"Regla de la norma y DF asignados"**.
+
+### Para tener en cuenta
+- **La hoja de corporativo no tiene "otra medición"**: escribe *Fail* siempre que no pasa. Cuando
+  la norma pide otra medición, la plataforma lo avisa al descargar.
+- **Los juicios guardados antes de 3.15.0 no se reescriben** (son evidencia). La hoja los
+  recalcula con el método nuevo y avisa si el resultado difiere.
+- **PM y PN solo están en las pruebas con VETS adjunto.** Sin ellos, la hoja sale sin esos dos
+  gases y lo avisa. Pedirlos como obligatorios al liberar queda pendiente: el límite de PM/PN de
+  Euro 6 aplica solo a motores de inyección directa.
+
+### Para desarrollo
+- `copGasJudge(raw, limit, df, ki)` (PURA) es LA regla de gases (`COP_GAS_A`, `COP_GAS_NMAX`).
+  `copCalcStats(raw, limit, dfo)` la envuelve. `copGasDf(gasId, fuelType)` da DF/KI
+  (`COP_ASSIGNED_DF`). Todo consumidor pasa el DF; sin él se usa DF 1.
+- Los juicios nuevos congelan `method: 'r154-2.1.1'` y `stats[]` con `df/ki/A/passBound/failBound`.
+  Los viejos traen `U/a/b`, y el PDF los imprime con su método.
+- `copCo2CalcStats`: los campos de nivel superior son de `r154` (`principal: 'r154'`). Los juicios
+  nuevos congelan `co2.rows` (VIN, medido, declarado).
+- `js/cophq.js`: `copHqXlsxSpec(model)` y `copHqCheck(model)` son PURAS; `copHqModelFor(j)` junta
+  los datos; `copHqXlsxExport(id)` descarga y audita `cop_hq_xlsx`.
+- `copVetsPmPn(vehicle, id)`: PM (g/km) y PN (#/km) de la prueba de VETS aprobada.
+  `copResultValue` lo usa cuando la mesa no trae el valor.
+- `xlsxw`: el estilo admite `borderColor`.
+- Pruebas: `tests/cophq.node.js` reproduce los valores calculados del ejemplo de corporativo y
+  recalcula el libro con LibreOffice si está instalado.
+
 ## 3.14.3 — Conectar un equipo nuevo (2026-10-20)
 
 ### Arreglado

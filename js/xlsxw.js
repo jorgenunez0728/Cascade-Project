@@ -20,8 +20,8 @@
 //   autoFilter: 'A3:E40', print: {landscape, fitWidth:1}
 // }
 // style = { font:{b, i, sz, color:'RRGGBB', name}, fill:'RRGGBB',
-//           border:'thin'|'medium'|{top,bottom,left,right}, align:{h, v, wrap, indent},
-//           numFmt:'yyyy-mm-dd' }
+//           border:'thin'|'medium'|{top,bottom,left,right}, borderColor:'RRGGBB' (gris por omisión),
+//           align:{h, v, wrap, indent}, numFmt:'yyyy-mm-dd' }
 
 var XW_EPOCH = Date.UTC(1899, 11, 30);   // día 0 de Excel (sistema 1900, con el 29-feb ficticio)
 
@@ -133,11 +133,11 @@ function _xwStyles() {
             '<name val="' + _xwEsc(f.name || 'Calibri') + '"/><family val="2"/></font>');
     };
     S.fill = function(c) { return c ? idx(S.fills, '<fill><patternFill patternType="solid"><fgColor rgb="FF' + c + '"/><bgColor indexed="64"/></patternFill></fill>') : 0; };
-    S.border = function(b) {
+    S.border = function(b, color) {
         if (!b) return 0;
         var side = function(k) {
             var st = typeof b === 'string' ? b : b[k];
-            return st ? '<' + k + ' style="' + st + '"><color rgb="FF9CA3AF"/></' + k + '>' : '<' + k + '/>';
+            return st ? '<' + k + ' style="' + st + '"><color rgb="FF' + (color || '9CA3AF') + '"/></' + k + '>' : '<' + k + '/>';
         };
         return idx(S.borders, '<border>' + side('left') + side('right') + side('top') + side('bottom') + '<diagonal/></border>');
     };
@@ -153,7 +153,7 @@ function _xwStyles() {
         if (!st) return 0;
         var key = JSON.stringify(st);
         if (S.keys[key] !== undefined) return S.keys[key];
-        var fo = S.font(st.font), fi = S.fill(st.fill), bo = S.border(st.border), nf = S.numFmt(st.numFmt);
+        var fo = S.font(st.font), fi = S.fill(st.fill), bo = S.border(st.border, st.borderColor), nf = S.numFmt(st.numFmt);
         var al = st.align;
         var x = '<xf numFmtId="' + nf + '" fontId="' + fo + '" fillId="' + fi + '" borderId="' + bo + '" xfId="0"' +
             (nf ? ' applyNumberFormat="1"' : '') + (fo ? ' applyFont="1"' : '') + (fi ? ' applyFill="1"' : '') +

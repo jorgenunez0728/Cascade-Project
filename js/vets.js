@@ -32,7 +32,9 @@ var VETS_GAS_COLUMNS = {
     NMHC: ['BagNMHCRegulated', 'BagNMHC'], NOX: ['BagNOXRegulated', 'BagNOX'], NMOG: ['BagNMOGRegulated', 'BagNMOG'],
     NMOGNOX: ['BagNMOGpNOXRegulated', 'BagNMOGpNOX'], CH4: ['BagCH4Regulated', 'BagCH4'],
     HCNOX: ['BagHCpNOXRegulated', 'BagHCpNOX'], THCNOX: ['BagHCpNOXRegulated', 'BagHCpNOX'],
-    NMHCNOX: ['BagNMHCpNOXRegulated', 'BagNMHCpNOX'], PM: ['PM']
+    NMHCNOX: ['BagNMHCpNOXRegulated', 'BagNMHCpNOX'], PM: ['PM'],
+    // [3.15.0] PN (#/km): lo pide la hoja de evaluación estadística de corporativo.
+    PN: ['DilutePN', 'PN']
 };
 
 // CustomFields de VETS → columnas de la configuración. Solo las que distinguen de
