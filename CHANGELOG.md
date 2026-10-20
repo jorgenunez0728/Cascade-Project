@@ -20,6 +20,26 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.14.3 — Conectar un equipo nuevo (2026-10-20)
+
+### Arreglado
+- **Un equipo nuevo no se podía conectar al laboratorio.** En la pantalla "Este dispositivo
+  todavía no se ha conectado", el botón **Conectar este dispositivo** abría la ventana de la
+  contraseña, pero quedaba detrás de la pantalla de bienvenida y no se veía. Aunque se hubiera
+  visto, la conexión con la nube todavía no estaba iniciada. Ahora la contraseña del laboratorio
+  se pide en la misma pantalla. Al conectar, se descargan los operadores y aparecen solos para
+  elegir usuario; con una contraseña equivocada lo dice y deja reintentar.
+
+### Para desarrollo
+- `fbConnectDevice(pw, onStage, waitMs)` (firebase-sync.js) inicia la app de Firebase, entra con
+  la contraseña del laboratorio y arranca `fbInit()`. Resuelve al terminar el primer pull. Sin
+  sesión de operador, `initializeSystem` se detiene antes de `fbInit`: este es el camino para
+  conectar desde la pantalla de acceso.
+- `fbShowAuthPrompt` con `_bootStage === 'pin'` se redirige a `_authShowConnectFirst` (el
+  formulario dentro de la pantalla de acceso): `#fbModal` (z 9999) queda debajo de
+  `#auth-overlay` (z 10000).
+- `_fbAuthErrText(err)` es el texto de los errores de inicio de sesión de la nube.
+
 ## 3.14.2 — Los gases son los del reporte semanal (2026-10-20)
 
 ### Arreglado

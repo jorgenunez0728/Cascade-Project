@@ -3639,3 +3639,15 @@ Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la r
   `<select>` de un catálogo debe ofrecer el valor guardado aunque el catálogo no lo traiga, o
   guardar lo deja en blanco.
 
+## 3.14.3 — Conectar un equipo nuevo (`js/auth.js`, `js/firebase-sync.js`)
+
+- **Sin sesión de operador, `initializeSystem` se detiene ANTES de `fbInit`**: en la pantalla
+  de acceso no hay SDK iniciado ni sync. Todo lo que deba hablar con la nube desde ahí pasa por
+  `fbConnectDevice(pw)`, que inicia la app, entra y arranca `fbInit()`.
+- **Nada que se muestre durante la pantalla de acceso puede ir en un modal propio**:
+  `#auth-overlay` está en z 10000, encima de `#fbModal`/`#globalModal`. Va dentro de
+  `#auth-pin-area` (patrón de `_authShowConnectFirst`). `fbShowAuthPrompt` ya redirige si
+  `_bootStage === 'pin'`.
+- `tests/v3143.e2e.js` sirve la app por http y simula el SDK con `ctx.route` (la última ruta
+  registrada manda: primero cortar lo de fuera, luego el SDK falso).
+

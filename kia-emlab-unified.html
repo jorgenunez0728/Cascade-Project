@@ -3226,6 +3226,17 @@ html.booting, html.booting body { overflow: hidden; }
     min-height: 18px; margin-bottom: var(--space-sm); font-weight: var(--weight-semibold);
 }
 .auth-pin-error.lock { color: var(--warning); }
+/* [3.14.3] Conectar un equipo nuevo: la contraseña del laboratorio en la misma pantalla. */
+.auth-connect { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-md); }
+.auth-connect-label { font-size: var(--font-sm); font-weight: var(--weight-semibold); color: var(--text); }
+.auth-connect-input {
+    width: 100%; box-sizing: border-box; padding: var(--space-md);
+    border: 2px solid var(--border); border-radius: var(--radius-md);
+    font-size: var(--fs-base); background: var(--surface); color: var(--text);
+}
+.auth-connect-input:focus { outline: none; border-color: var(--focus); }
+.auth-pin-error.is-progress { color: var(--muted); }
+.auth-btn:disabled { opacity: 0.6; cursor: progress; }
 
 /* Teclado en pantalla: el teclado del sistema tapa el campo en tablet y los
    técnicos trabajan con guantes. Botones grandes y separados. */
@@ -10106,10 +10117,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610201359';
+var APP_BUILD = '202610201632';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '7a6c064a0e115d4a284a60a68669ddeb47d203f6';
+var APP_COMMIT = '2e38645a73de5326c7d2d8e4c79ff93b9b5a4625';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10117,7 +10128,7 @@ var APP_COMMIT = '7a6c064a0e115d4a284a60a68669ddeb47d203f6';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.14.2';
+var APP_VERSION = '3.14.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10125,6 +10136,8 @@ var APP_VERSION = '3.14.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.14.3', date: '20 oct 2026', title: 'Conectar un equipo nuevo',
+      bullets: ['Arreglado: en un equipo que nunca se había conectado, "Conectar este dispositivo" no hacía nada visible: la ventana de la contraseña quedaba detrás de la pantalla de bienvenida y la conexión con la nube no estaba iniciada. Ahora la contraseña del laboratorio se pide en la misma pantalla y, al conectar, aparecen solos los operadores del laboratorio.'] },
     { version: '3.14.2', date: '20 oct 2026', title: 'Los gases son los del reporte semanal',
       bullets: ['Arreglado: el catálogo del alta de cilindros ofrecía el CO₂ en ppm; el laboratorio lo compra en %v (0.5, 1 y 2 %v). También se corrigieron las concentraciones de CO (10/20/50/100 ppm), NO (2/5/10/50 ppm) y N₂O (0.5/2.5/5 ppm), y se agregaron el nitrógeno, el oxígeno con impurezas (Zero Air) y el oxígeno 4.3, que no estaban.',
                 'Arreglado: al editar un cilindro cuyo tipo o concentración no estaba en el catálogo (el nitrógeno, el CO₂ en %v), al guardar se quedaban en blanco el tipo, la fórmula y la concentración. Editar tampoco borra ya la categoría ni el nombre recordado del reporte.',
@@ -11252,14 +11265,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610201359' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610201632' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610201359' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610201632' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11275,7 +11288,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610201359' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610201632' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -61931,11 +61944,50 @@ function authBypassForOperator(idx) {
  * Pedir la contraseña del laboratorio para bajar el roster real antes de entrar.
  */
 function _authShowConnectFirst() {
-    if (typeof showToast === 'function') {
-        showToast('Este dispositivo aún no se ha conectado al laboratorio. Ingresa la contraseña del laboratorio para descargar los operadores.', 'error');
+    // [3.14.3] La contraseña se pide AQUÍ, dentro de la pantalla de acceso. Antes se abría el
+    // diálogo de la nube (fbModal), que queda debajo de la bienvenida y no se veía.
+    var area = document.getElementById('auth-pin-area');
+    if (!area) return;
+    if (typeof fbConnectDevice !== 'function') {
+        area.innerHTML = '<div class="auth-notice auth-notice--warn">Sin conexión configurada. Contacta al administrador del laboratorio.</div>';
+        return;
     }
-    if (typeof fbShowAuthPrompt === 'function') fbShowAuthPrompt();
-    else if (typeof showToast === 'function') showToast('Sin conexión configurada. Contacta al administrador del laboratorio.', 'error');
+    area.innerHTML = '<form class="auth-connect" onsubmit="event.preventDefault();_authConnectSubmit();">' +
+        '<label for="auth-lab-pw" class="auth-connect-label">Contraseña del laboratorio</label>' +
+        '<input type="password" id="auth-lab-pw" class="auth-connect-input" autocomplete="current-password" required>' +
+        '<div id="auth-connect-msg" class="auth-pin-error" role="alert" aria-live="polite"></div>' +
+        '<button type="submit" id="auth-connect-btn" class="auth-btn auth-btn--primary">Conectar</button>' +
+        '</form>';
+    var go = document.querySelector('.auth-actions [onclick="_authShowConnectFirst()"]');
+    if (go) go.style.display = 'none';
+    setTimeout(function() { var i = document.getElementById('auth-lab-pw'); if (i) i.focus(); }, 50);
+}
+
+function _authConnectSubmit() {
+    var inp = document.getElementById('auth-lab-pw'), msg = document.getElementById('auth-connect-msg');
+    var btn = document.getElementById('auth-connect-btn');
+    var pw = inp ? inp.value : '';
+    var say = function(t, cls) { if (msg) { msg.textContent = t; msg.className = 'auth-pin-error' + (cls ? ' ' + cls : ''); } };
+    if (!pw) { say('Escribe la contraseña.'); if (inp) inp.focus(); return; }
+    if (btn) btn.disabled = true;
+    say('Conectando…', 'is-progress');
+    fbConnectDevice(pw, function(t) { say(t, 'is-progress'); }).then(function(r) {
+        if (authState.sessionActive) return;
+        if (typeof _pnDedupeOperators === 'function') { try { _pnDedupeOperators(); } catch (e) {} }
+        var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active && !o.deleted && !o.provisional; }) : [];
+        if (typeof auditLog === 'function') auditLog('auth', 'dispositivo_conectado', { type: 'device', label: (typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '') }, ops.length + ' operadores descargados');
+        authShowLogin();
+        if (!ops.length) {
+            var area = document.getElementById('auth-pin-area');
+            if (area) area.innerHTML = '<div class="auth-notice auth-notice--warn">' + (r && r.ok
+                ? 'Conectado, pero la nube no trae operadores. Pide que los den de alta en Datos → Usuarios desde otro equipo.'
+                : 'Conectado, pero todavía no llegan los operadores (' + escapeHtml(String((r && r.reason) || '')) + '). Espera un momento y recarga la página.') + '</div>';
+        }
+    }).catch(function(err) {
+        if (btn) btn.disabled = false;
+        say((err && err.message) || 'No se pudo conectar.');
+        if (inp) { inp.select(); inp.focus(); }
+    });
 }
 
 // Helper: cuando el bypass no aplica, ir a la pantalla de PIN del operador
@@ -63255,6 +63307,12 @@ function _fbWatchAuthState() {
 
 // Prompt de contraseña del laboratorio (una vez por dispositivo)
 function fbShowAuthPrompt() {
+    // [3.14.3] Con la pantalla de acceso arriba (z 10000), este diálogo (z 9999) no se vería:
+    // la contraseña se pide dentro de esa pantalla.
+    if (typeof _bootStage !== 'undefined' && _bootStage === 'pin' && typeof _authShowConnectFirst === 'function') {
+        _authShowConnectFirst();
+        return;
+    }
     var modal = document.getElementById('fbModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -63302,15 +63360,53 @@ function fbSubmitLabPassword() {
         showToast('✓ Dispositivo conectado al laboratorio', 'success');
         // onAuthStateChanged (_fbWatchAuthState) continúa con pull/listeners
     }).catch(function(err) {
-        var msgs = {
-            'auth/wrong-password': 'Contraseña incorrecta.',
-            'auth/invalid-credential': 'Contraseña incorrecta.',
-            'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
-            'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
-            'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
-            'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
-        };
-        if (errEl) errEl.textContent = msgs[err.code] || ('Error: ' + (err.message || err.code));
+        if (errEl) errEl.textContent = _fbAuthErrText(err);
+    });
+}
+
+function _fbAuthErrText(err) {
+    var msgs = {
+        'auth/wrong-password': 'Contraseña incorrecta.',
+        'auth/invalid-credential': 'Contraseña incorrecta.',
+        'auth/invalid-login-credentials': 'Contraseña incorrecta.',
+        'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
+        'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+        'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
+        'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
+    };
+    return msgs[err && err.code] || ('Error: ' + ((err && (err.message || err.code)) || 'desconocido'));
+}
+
+/**
+ * [3.14.3] Conectar un equipo nuevo DESDE la pantalla de acceso. Sin sesión de operador,
+ * initializeSystem se detiene antes de fbInit, así que el SDK ni siquiera estaba iniciado y el
+ * diálogo de contraseña (fbModal, z 9999) quedaba DEBAJO de la bienvenida (z 10000): el botón
+ * "Conectar este dispositivo" no hacía nada visible. Aquí se inicia la app de Firebase, se entra
+ * con la contraseña del laboratorio y se arranca el sync completo (fbInit), que trae a los
+ * operadores. Resuelve al terminar el primer pull ({ok:true}) o al pasar `waitMs` ({ok:false}).
+ */
+function fbConnectDevice(pw, onStage, waitMs) {
+    var say = function(t) { try { if (onStage) onStage(t); } catch (e) {} };
+    return new Promise(function(resolve, reject) {
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            return reject(new Error('No se pudo cargar la conexión con la nube. Revisa que este equipo tenga internet y recarga la página.'));
+        }
+        if (!FB_IS_HTTP_ORIGIN) return reject(new Error('Abre la plataforma desde su dirección web (https://…), no como archivo.'));
+        if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) return reject(new Error('Este build no tiene configurada la nube.'));
+        try { if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); }
+        catch (e) { return reject(new Error('No se pudo iniciar la conexión: ' + (e.message || e))); }
+        say('Conectando…');
+        firebase.auth().signInWithEmailAndPassword(FB_LAB_EMAIL, pw).then(function() {
+            say('Conectado. Descargando operadores…');
+            fbSync._authPrompted = true;   // ya entró: que fbInit no vuelva a pedir la contraseña
+            try { fbInit(); } catch (e) { void 0; }
+            var t0 = Date.now(), lim = waitMs || 30000;
+            (function wait() {
+                if (fbSync._pullCompleted) return resolve({ ok: true });
+                if (Date.now() - t0 > lim) return resolve({ ok: false, reason: fbSync.lastError || 'tardó demasiado' });
+                setTimeout(wait, 400);
+            })();
+        }).catch(function(err) { reject(new Error(_fbAuthErrText(err))); });
     });
 }
 
@@ -66838,7 +66934,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610201359' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610201632' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -83652,7 +83748,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9640,"mods":[[9643,"js/app.js",19385],[19389,"js/uiflow.js",19705],[19709,"js/cop15.js",30338],[30342,"js/inventory.js",38195],[38199,"js/cuarto.js",40323],[40327,"js/sitio.js",41636],[41640,"js/testplan.js",53476],[53480,"js/panel.js",58818],[58822,"js/projects.js",61111],[61115,"js/auth.js",62156],[62160,"js/signatures.js",62361],[62365,"js/firebase-sync.js",69982],[69986,"js/cop_validator.js",74474],[74478,"js/copreport.js",75480],[75484,"js/homolog.js",77381],[77385,"js/vets.js",79182],[79186,"js/historico.js",80100],[80104,"js/review.js",80557],[80561,"js/opcards.js",80992],[80996,"js/handoff.js",81270],[81274,"js/ficha.js",81775],[81779,"js/relevo.js",82159],[82163,"js/momentos.js",82300],[82304,"js/digest.js",83224],[83228,"js/xlsxw.js",83608],[83612,"js/bugreport.js",84758]]};
+var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19398],[19402,"js/uiflow.js",19718],[19722,"js/cop15.js",30351],[30355,"js/inventory.js",38208],[38212,"js/cuarto.js",40336],[40340,"js/sitio.js",41649],[41653,"js/testplan.js",53489],[53493,"js/panel.js",58831],[58835,"js/projects.js",61124],[61128,"js/auth.js",62208],[62212,"js/signatures.js",62413],[62417,"js/firebase-sync.js",70078],[70082,"js/cop_validator.js",74570],[74574,"js/copreport.js",75576],[75580,"js/homolog.js",77477],[77481,"js/vets.js",79278],[79282,"js/historico.js",80196],[80200,"js/review.js",80653],[80657,"js/opcards.js",81088],[81092,"js/handoff.js",81366],[81370,"js/ficha.js",81871],[81875,"js/relevo.js",82255],[82259,"js/momentos.js",82396],[82400,"js/digest.js",83320],[83324,"js/xlsxw.js",83704],[83708,"js/bugreport.js",84854]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

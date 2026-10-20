@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.14.2';
+var APP_VERSION = '3.14.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,8 @@ var APP_VERSION = '3.14.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.14.3', date: '20 oct 2026', title: 'Conectar un equipo nuevo',
+      bullets: ['Arreglado: en un equipo que nunca se había conectado, "Conectar este dispositivo" no hacía nada visible: la ventana de la contraseña quedaba detrás de la pantalla de bienvenida y la conexión con la nube no estaba iniciada. Ahora la contraseña del laboratorio se pide en la misma pantalla y, al conectar, aparecen solos los operadores del laboratorio.'] },
     { version: '3.14.2', date: '20 oct 2026', title: 'Los gases son los del reporte semanal',
       bullets: ['Arreglado: el catálogo del alta de cilindros ofrecía el CO₂ en ppm; el laboratorio lo compra en %v (0.5, 1 y 2 %v). También se corrigieron las concentraciones de CO (10/20/50/100 ppm), NO (2/5/10/50 ppm) y N₂O (0.5/2.5/5 ppm), y se agregaron el nitrógeno, el oxígeno con impurezas (Zero Air) y el oxígeno 4.3, que no estaban.',
                 'Arreglado: al editar un cilindro cuyo tipo o concentración no estaba en el catálogo (el nitrógeno, el CO₂ en %v), al guardar se quedaban en blanco el tipo, la fórmula y la concentración. Editar tampoco borra ya la categoría ni el nombre recordado del reporte.',
