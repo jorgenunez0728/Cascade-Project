@@ -817,11 +817,50 @@ function authBypassForOperator(idx) {
  * Pedir la contraseña del laboratorio para bajar el roster real antes de entrar.
  */
 function _authShowConnectFirst() {
-    if (typeof showToast === 'function') {
-        showToast('Este dispositivo aún no se ha conectado al laboratorio. Ingresa la contraseña del laboratorio para descargar los operadores.', 'error');
+    // [3.14.3] La contraseña se pide AQUÍ, dentro de la pantalla de acceso. Antes se abría el
+    // diálogo de la nube (fbModal), que queda debajo de la bienvenida y no se veía.
+    var area = document.getElementById('auth-pin-area');
+    if (!area) return;
+    if (typeof fbConnectDevice !== 'function') {
+        area.innerHTML = '<div class="auth-notice auth-notice--warn">Sin conexión configurada. Contacta al administrador del laboratorio.</div>';
+        return;
     }
-    if (typeof fbShowAuthPrompt === 'function') fbShowAuthPrompt();
-    else if (typeof showToast === 'function') showToast('Sin conexión configurada. Contacta al administrador del laboratorio.', 'error');
+    area.innerHTML = '<form class="auth-connect" onsubmit="event.preventDefault();_authConnectSubmit();">' +
+        '<label for="auth-lab-pw" class="auth-connect-label">Contraseña del laboratorio</label>' +
+        '<input type="password" id="auth-lab-pw" class="auth-connect-input" autocomplete="current-password" required>' +
+        '<div id="auth-connect-msg" class="auth-pin-error" role="alert" aria-live="polite"></div>' +
+        '<button type="submit" id="auth-connect-btn" class="auth-btn auth-btn--primary">Conectar</button>' +
+        '</form>';
+    var go = document.querySelector('.auth-actions [onclick="_authShowConnectFirst()"]');
+    if (go) go.style.display = 'none';
+    setTimeout(function() { var i = document.getElementById('auth-lab-pw'); if (i) i.focus(); }, 50);
+}
+
+function _authConnectSubmit() {
+    var inp = document.getElementById('auth-lab-pw'), msg = document.getElementById('auth-connect-msg');
+    var btn = document.getElementById('auth-connect-btn');
+    var pw = inp ? inp.value : '';
+    var say = function(t, cls) { if (msg) { msg.textContent = t; msg.className = 'auth-pin-error' + (cls ? ' ' + cls : ''); } };
+    if (!pw) { say('Escribe la contraseña.'); if (inp) inp.focus(); return; }
+    if (btn) btn.disabled = true;
+    say('Conectando…', 'is-progress');
+    fbConnectDevice(pw, function(t) { say(t, 'is-progress'); }).then(function(r) {
+        if (authState.sessionActive) return;
+        if (typeof _pnDedupeOperators === 'function') { try { _pnDedupeOperators(); } catch (e) {} }
+        var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active && !o.deleted && !o.provisional; }) : [];
+        if (typeof auditLog === 'function') auditLog('auth', 'dispositivo_conectado', { type: 'device', label: (typeof FB_DEVICE_ID !== 'undefined' ? FB_DEVICE_ID : '') }, ops.length + ' operadores descargados');
+        authShowLogin();
+        if (!ops.length) {
+            var area = document.getElementById('auth-pin-area');
+            if (area) area.innerHTML = '<div class="auth-notice auth-notice--warn">' + (r && r.ok
+                ? 'Conectado, pero la nube no trae operadores. Pide que los den de alta en Datos → Usuarios desde otro equipo.'
+                : 'Conectado, pero todavía no llegan los operadores (' + escapeHtml(String((r && r.reason) || '')) + '). Espera un momento y recarga la página.') + '</div>';
+        }
+    }).catch(function(err) {
+        if (btn) btn.disabled = false;
+        say((err && err.message) || 'No se pudo conectar.');
+        if (inp) { inp.select(); inp.focus(); }
+    });
 }
 
 // Helper: cuando el bypass no aplica, ir a la pantalla de PIN del operador

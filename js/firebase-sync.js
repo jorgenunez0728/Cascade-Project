@@ -891,6 +891,12 @@ function _fbWatchAuthState() {
 
 // Prompt de contraseña del laboratorio (una vez por dispositivo)
 function fbShowAuthPrompt() {
+    // [3.14.3] Con la pantalla de acceso arriba (z 10000), este diálogo (z 9999) no se vería:
+    // la contraseña se pide dentro de esa pantalla.
+    if (typeof _bootStage !== 'undefined' && _bootStage === 'pin' && typeof _authShowConnectFirst === 'function') {
+        _authShowConnectFirst();
+        return;
+    }
     var modal = document.getElementById('fbModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -938,15 +944,53 @@ function fbSubmitLabPassword() {
         showToast('✓ Dispositivo conectado al laboratorio', 'success');
         // onAuthStateChanged (_fbWatchAuthState) continúa con pull/listeners
     }).catch(function(err) {
-        var msgs = {
-            'auth/wrong-password': 'Contraseña incorrecta.',
-            'auth/invalid-credential': 'Contraseña incorrecta.',
-            'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
-            'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
-            'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
-            'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
-        };
-        if (errEl) errEl.textContent = msgs[err.code] || ('Error: ' + (err.message || err.code));
+        if (errEl) errEl.textContent = _fbAuthErrText(err);
+    });
+}
+
+function _fbAuthErrText(err) {
+    var msgs = {
+        'auth/wrong-password': 'Contraseña incorrecta.',
+        'auth/invalid-credential': 'Contraseña incorrecta.',
+        'auth/invalid-login-credentials': 'Contraseña incorrecta.',
+        'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
+        'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+        'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
+        'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
+    };
+    return msgs[err && err.code] || ('Error: ' + ((err && (err.message || err.code)) || 'desconocido'));
+}
+
+/**
+ * [3.14.3] Conectar un equipo nuevo DESDE la pantalla de acceso. Sin sesión de operador,
+ * initializeSystem se detiene antes de fbInit, así que el SDK ni siquiera estaba iniciado y el
+ * diálogo de contraseña (fbModal, z 9999) quedaba DEBAJO de la bienvenida (z 10000): el botón
+ * "Conectar este dispositivo" no hacía nada visible. Aquí se inicia la app de Firebase, se entra
+ * con la contraseña del laboratorio y se arranca el sync completo (fbInit), que trae a los
+ * operadores. Resuelve al terminar el primer pull ({ok:true}) o al pasar `waitMs` ({ok:false}).
+ */
+function fbConnectDevice(pw, onStage, waitMs) {
+    var say = function(t) { try { if (onStage) onStage(t); } catch (e) {} };
+    return new Promise(function(resolve, reject) {
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            return reject(new Error('No se pudo cargar la conexión con la nube. Revisa que este equipo tenga internet y recarga la página.'));
+        }
+        if (!FB_IS_HTTP_ORIGIN) return reject(new Error('Abre la plataforma desde su dirección web (https://…), no como archivo.'));
+        if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) return reject(new Error('Este build no tiene configurada la nube.'));
+        try { if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); }
+        catch (e) { return reject(new Error('No se pudo iniciar la conexión: ' + (e.message || e))); }
+        say('Conectando…');
+        firebase.auth().signInWithEmailAndPassword(FB_LAB_EMAIL, pw).then(function() {
+            say('Conectado. Descargando operadores…');
+            fbSync._authPrompted = true;   // ya entró: que fbInit no vuelva a pedir la contraseña
+            try { fbInit(); } catch (e) { console.warn('fbConnectDevice: fbInit', e); }
+            var t0 = Date.now(), lim = waitMs || 30000;
+            (function wait() {
+                if (fbSync._pullCompleted) return resolve({ ok: true });
+                if (Date.now() - t0 > lim) return resolve({ ok: false, reason: fbSync.lastError || 'tardó demasiado' });
+                setTimeout(wait, 400);
+            })();
+        }).catch(function(err) { reject(new Error(_fbAuthErrText(err))); });
     });
 }
 
