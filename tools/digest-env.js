@@ -82,6 +82,30 @@ function loadDigestEnv() {
     vm.runInContext(src('inventory.js') + '\nvar __invSet = function(s){ invState = s; };', sb, { filename: 'inventory.js' });
     vm.runInContext(src('cuarto.js'), sb, { filename: 'cuarto.js' });
     vm.runInContext(src('digest.js'), sb, { filename: 'digest.js' });
+
+    // [3.12.0] Estatus CoP semanal: el código REAL del validador (copCalcStats, gases y
+    // límites del perfil, ensayos que cuentan) y del reporte. Los perfiles salen de la
+    // versión que publicó el laboratorio (settings/regulations, __setRegProfiles) o, si no
+    // hay, de los de fábrica — igual que la app con límites compartidos.
+    vm.runInContext(pick(/var DEFAULT_REGULATION_PROFILES = \[[\s\S]*?\n\];/, app, 'DEFAULT_REGULATION_PROFILES'), sb);
+    vm.runInContext(pick(/var GAS_UNIT_FACTORS = \{[\s\S]*?\n\};/, app, 'GAS_UNIT_FACTORS'), sb);
+    vm.runInContext(pick(/var LAB_REGION_CAPTURE = \{[\s\S]*?\n\};/, app, 'LAB_REGION_CAPTURE'), sb);
+    ['labRegionRegulation', 'labRegionBuiltinProfile', 'labRegionKey', 'vehicleTestDate', 'localDateStr']
+        .forEach(n => vm.runInContext(fnSrc(n, app), sb));
+    vm.runInContext(fnSrc('_libGetVehicleRegulation', src('cop15.js')), sb);
+    vm.runInContext(`var __regProfiles = null;
+function __setRegProfiles(list) { __regProfiles = Array.isArray(list) && list.length ? list : null; }
+function getRegulationProfile(name) {
+    if (!name) return null;
+    var norm = String(name).trim().toUpperCase();
+    var list = __regProfiles || DEFAULT_REGULATION_PROFILES;
+    return list.filter(function(p) { return String(p.name || '').toUpperCase() === norm || String(p.shortName || '').toUpperCase() === norm; })[0]
+        || labRegionBuiltinProfile(name);
+}`, sb);
+    vm.runInContext(src('vets.js'), sb, { filename: 'vets.js' });
+    vm.runInContext(src('cop_validator.js') + '\nvar __copSet = function(s){ Object.keys(s || {}).forEach(function(k){ copState[k] = s[k]; }); _copLoaded = true; copInvalidateCache(); };',
+        sb, { filename: 'cop_validator.js' });
+    vm.runInContext(src('copreport.js'), sb, { filename: 'copreport.js' });
     return sb;
 }
 

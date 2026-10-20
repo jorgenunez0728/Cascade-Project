@@ -4285,6 +4285,49 @@ details.ui-card:not([open]) > .ui-card-head::after { transform: rotate(-90deg); 
     background: var(--accent-cop); border-radius: var(--radius-sm); margin-right: var(--space-sm); flex-shrink: 0;
 }
 
+/* ── [3.12.0] CoP por año calendario: tarjeta del Panorama + visor del reporte ── */
+.cop-rep-card {
+    display: flex; align-items: center; gap: var(--space-lg); flex-wrap: wrap;
+    background: linear-gradient(135deg, #0b1f3a, #16345f); color: #ffffff;
+    border-radius: var(--radius-lg); padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-lg); box-shadow: var(--shadow-md);
+}
+.cop-rep-card-main { flex: 1 1 320px; min-width: 0; }
+.cop-rep-card > .btn { flex: 0 0 auto; width: auto; }
+.cop-rep-card-k { font-size: var(--fs-2xs); letter-spacing: 0.08em; text-transform: uppercase; color: #93c5fd; font-weight: var(--weight-bold); }
+.cop-rep-card-v { font-size: var(--fs-sm); margin-top: var(--space-2xs); }
+.cop-rep-card-bar { height: 6px; border-radius: var(--radius-full); background: rgba(255,255,255,0.18); margin-top: var(--space-sm); overflow: hidden; }
+.cop-rep-card-bar > span { display: block; height: 100%; background: #60a5fa; border-radius: var(--radius-full); }
+.cop-rep-card-warn { font-size: var(--fs-2xs); color: #fde68a; margin-top: var(--space-xs); }
+.cop-rep {
+    position: fixed; inset: 0; z-index: 9400; display: none; flex-direction: column;
+    background: var(--bg);
+}
+.cop-rep.is-open { display: flex; }
+body.cop-rep-open { overflow: hidden; }
+.cop-rep-bar {
+    display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-lg); background: var(--surface);
+    border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+}
+.cop-rep-title { font-weight: var(--weight-black); font-size: var(--fs-md); color: var(--text); }
+.cop-rep-cut { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-sm); color: var(--muted); }
+.cop-rep-cut input { font-size: var(--fs-base); padding: var(--space-2xs) var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+.cop-rep-actions { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-left: auto; }
+.cop-rep-note { font-size: var(--fs-2xs); color: var(--muted); padding: var(--space-2xs) var(--space-lg); background: var(--surface-2, var(--surface)); }
+.cop-rep-frame { flex: 1; width: 100%; border: 0; background: #ffffff; }
+.cop-rep-prod-wrap { overflow-x: auto; max-width: 100%; }
+.cop-rep-prod { border-collapse: collapse; font-size: var(--fs-2xs); }
+.cop-rep-prod th, .cop-rep-prod td { padding: var(--space-2xs); border-bottom: 1px solid var(--border); text-align: center; }
+.cop-rep-prod .cop-rep-prod-fam { text-align: left; min-width: 220px; font-size: var(--fs-2xs); }
+.cop-rep-prod input { width: 64px; font-size: var(--fs-base); padding: var(--space-2xs); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+.cop-rep-fam { padding: var(--space-xs) 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm); }
+.cop-rep-fam-why { display: block; width: 100%; box-sizing: border-box; margin-top: var(--space-2xs); font-size: var(--fs-base); padding: var(--space-2xs) var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+@media (max-width: 640px) {
+    .cop-rep-bar { padding: var(--space-sm); }
+    .cop-rep-actions { margin-left: 0; width: 100%; }
+}
+
 /* ── Franja de KPIs ────────────────────────────────────────────────── */
 .cop-kpis {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

@@ -10,7 +10,9 @@
 //      (con el jefe en copia si hay escalados), ntfy y Web Push.
 //   3. PLAN: por cada plan aceptado que no se haya avisado → correo + ntfy + Web Push.
 //      La primera vez solo registra los ya aceptados (no bombardea al estrenarse).
-//   4. Guarda digest/state.
+//   4. [3.12.0] ESTATUS CoP: el viernes desde las 16:00, una vez por semana, a la lista de
+//      «Estatus CoP semanal» (digestCopDue) — solo correo. Es el reporte de Datos → Reportes.
+//   5. Guarda digest/state.
 // Si una lectura falla o no hay vehículos, NO envía nada (un resumen en ceros por un error
 // de lectura sería peor que ninguno) y termina con código 1: GitHub avisa al dueño del repo.
 //
@@ -31,6 +33,7 @@ const TEST_TO = (env.DIGEST_TEST_TO || '').split(/[\s,;]+/).map(e => e.trim().to
 const TEST = TEST_TO.length > 0;
 const DRY = !TEST && (env.DRY_RUN === '1' || env.DRY_RUN === 'true');
 const FORCE = env.FORCE_DIGEST === '1' || env.FORCE_DIGEST === 'true';
+const FORCE_COP = env.FORCE_COP === '1' || env.FORCE_COP === 'true';
 const OUT = env.DIGEST_OUT || process.cwd();
 const log = (...a) => console.log('[aviso]', ...a);
 
@@ -67,15 +70,26 @@ async function readCloud() {
         if (invDoc && invDoc.fields && invDoc.fields.data) inventory = P.fbFromFirestoreValue(invDoc.fields.data);
     } catch (e) { log('inventario: no se pudo leer (' + e.message + ') — el correo lo declara'); }
     if (inventory) log(`inventario: ${(inventory.gases || []).length} cilindros, ${(inventory.fuelTanks || []).length} registros de gasolina`);
+    // [3.12.0] CoP (producción real, cortes, exclusiones) y los límites publicados. Si no se
+    // leen, el estatus CoP no sale (el resto del aviso sí).
+    let cop = null, regProfiles = null;
+    try {
+        const copDoc = await rest('GET', 'cop/current');
+        if (copDoc && copDoc.fields && copDoc.fields.data) cop = P.fbFromFirestoreValue(copDoc.fields.data);
+        const reg = await getDoc('settings/regulations');
+        if (reg && reg.profiles) regProfiles = JSON.parse(reg.profiles);
+    } catch (e) { log('CoP: no se pudo leer (' + e.message + ')'); cop = null; }
     let last = parsed.maxTs || 0;
     const tpT = Date.parse(tpDoc.updateTime || '') || 0;
     if (tpT > last) last = tpT;
-    return { vehicles: view.vehicles, tpState, settings, state, subs, inventory: inventory || {}, lastChangeAt: last ? new Date(last).toISOString() : '' };
+    return { vehicles: view.vehicles, tpState, settings, state, subs, inventory: inventory || {}, cop, regProfiles,
+             lastChangeAt: last ? new Date(last).toISOString() : '' };
 }
 function readFixture(file) {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'));
     return { vehicles: j.vehicles || [], tpState: j.tpState || {}, settings: j.settings || {}, state: j.state || {},
-             subs: j.subs || [], inventory: j.inventory || {}, lastChangeAt: j.lastChangeAt || '' };
+             subs: j.subs || [], inventory: j.inventory || {}, cop: j.cop || {}, regProfiles: j.regProfiles || null,
+             lastChangeAt: j.lastChangeAt || '' };
 }
 
 // ── Canales ────────────────────────────────────────────────────────────
@@ -219,6 +233,42 @@ async function main() {
             if (ok) { state.notifiedPlans[e.planId] = e.plan.acceptedDate; dirty = true; }
         }
         if (!pending.length) log('plan: nada nuevo aceptado');
+    }
+
+    // 3) [3.12.0] Estatus CoP semanal
+    const copWeek = P.digestCopDue(lp, state, data.settings);
+    if (TEST || FORCE_COP || copWeek) {
+        if (!data.cop) errors.push('CoP: no se pudo leer cop/current — el estatus no salió');
+        else if (!TEST && !data.settings.copTo.length) log('CoP: sin destinatarios (Datos → Sistema → Avisos → Estatus CoP semanal) — no se envía');
+        else {
+            const week = P.digestMondayOf(lp.date), prevWeek = P.digestAddDays(week, -7);
+            const cop = JSON.parse(JSON.stringify(data.cop));
+            // Sin corte de la semana pasada en la app, se compara contra lo que salió en el correo anterior.
+            cop.yearCuts = cop.yearCuts || {};
+            if (!cop.yearCuts[prevWeek] && state.copLastCut && state.copLastCut.weekOf === prevWeek) cop.yearCuts[prevWeek] = state.copLastCut;
+            P.db.vehicles = data.vehicles;
+            P.__copSet(cop);
+            P.__setRegProfiles(data.regProfiles);
+            const m = P.copYearReportModel({ cutIso: lp.date, force: true });
+            const html = P.copYearReportHTML(m, { generatedAt: lp.date + ' ' + lp.hhmm, generatedBy: 'envío automático' });
+            const subject = P.copRepSubject(m);
+            log(`CoP: ${m.total.done}/${m.total.req} ensayos, ${Math.round(m.total.progress * 100)}% (+${m.total.added} esta semana), ${m.rows.length} familias`);
+            if (DRY) {
+                const f = path.join(OUT, 'cop-preview.html');
+                fs.writeFileSync(f, P.copYearReportDocument(m, { generatedAt: lp.date + ' ' + lp.hhmm }));
+                log(`[DRY] CoP: «${subject}» → ${data.settings.copTo.join(', ') || '(sin destinatarios)'} | ${f}`);
+            } else {
+                try {
+                    await sendEmail(TEST ? TEST_TO : data.settings.copTo, [], (TEST ? '[Prueba] ' : '') + subject, html, P.copRepPlainText(m));
+                    if (!TEST && !env.DIGEST_FIXTURE) {
+                        state.lastCopWeek = week;
+                        state.copLastCut = P.copRepCutSnapshot(m, nowIso, 'envío automático');
+                        state.updatedAt = nowIso;
+                        await patchDoc('digest/state', state);   // ya: la siguiente corrida no lo repite
+                    }
+                } catch (e) { errors.push('CoP: ' + e.message); }
+            }
+        }
     }
 
     // Solo planes de las últimas semanas: el estado no crece sin fin.

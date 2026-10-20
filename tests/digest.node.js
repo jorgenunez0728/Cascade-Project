@@ -277,5 +277,34 @@ console.log('\n== [3.11.0] cilindros instalados y gasolina ==');
     ok('el proceso real arma la sección con el inventario de la nube', /cilindros: 2 instalados, 1 críticos, 1 sin stock · gasolina: EURO VI 275 L/.test(out2), out2);
 }
 
+console.log('\n== [3.12.0] Estatus CoP semanal ==');
+{
+    const S = P.digestSettingsNormalize({ copTo: 'hq@kia.com, mal' });
+    ok('la lista del estatus CoP es propia y se limpia', S.copTo.length === 1 && S.copTo[0] === 'hq@kia.com');
+    const vie16 = P.digestLocalParts('2026-10-23T22:05:00Z'), vie15 = P.digestLocalParts('2026-10-23T21:30:00Z'), jue = P.digestLocalParts('2026-10-22T22:05:00Z');
+    ok('toca el viernes desde las 16:00 (devuelve el lunes de la semana)', P.digestCopDue(vie16, {}, S) === '2026-10-19');
+    ok('no antes de las 16:00 ni otro día', P.digestCopDue(vie15, {}, S) === null && P.digestCopDue(jue, {}, S) === null);
+    ok('una vez por semana', P.digestCopDue(vie16, { lastCopWeek: '2026-10-19' }, S) === null && P.digestCopDue(vie16, { lastCopWeek: '2026-10-12' }, S) === '2026-10-19');
+    ok('sin destinatarios no toca', P.digestCopDue(vie16, {}, P.digestSettingsNormalize({})) === null);
+    // El proceso de la nube calcula con el código REAL del CoP (mismos gases, límites y veredicto).
+    const yk = P.copYearKeyOf('CL4|1000cc KAPPA PE|6MT|26 MODEL|PRE-EURO 7|||5DR', 2026);
+    const veh = (i, my, d, co) => ({ id: 'v' + i, vin: 'KNAX' + i, status: 'archived', purpose: 'COP-Emisiones',
+        config: { 'Modelo': 'CL4', 'ENGINE CAPACITY': '1000cc KAPPA PE', 'TRANSMISSION': '6MT', 'MODEL YEAR (VIN)': my, 'EMISSION REGULATION': 'PRE-EURO 7',
+                  'ENVIRONMENT PACKAGE': '0', 'ENGINE PACKAGE': '0', 'BODY TYPE': '5DR', 'REGION': 'EUROPE' },
+        testData: { testDatetime: d, gasResults: { aprobador: { values: { CO: co, THC: 0.03, NMHC: 0.02, NOx: 0.01, PM: 0.0002, PN: 1e10 } } } } });
+    P.db.vehicles = [veh(1, '26 MODEL', '2026-08-01T10:00', 0.2), veh(2, '27 MODEL', '2026-10-01T10:00', 0.21), veh(3, '27 MODEL', '2026-10-21T10:00', 0.19), veh(4, '26 MODEL', '2025-11-01T10:00', 0.2)];
+    P.__tpSet({ planData: [{ desc: 'x', mod: 'CL4', eng: '1000cc KAPPA PE', tx: '6MT', my: '26 MODEL', reg: 'PRE-EURO 7', ep: '0', engpkg: '0', body: '5DR', rgn: 'EUROPE', m: [800, 900] }],
+                months: ['Jun-26', 'Jul-26'], testedList: [], weeklyPlans: [] });
+    P.__copSet({});
+    P.__setRegProfiles(null);
+    const m = P.copYearReportModel({ cutIso: '2026-10-23', force: true });
+    const r = m.rows.find(x => x.key === yk);
+    ok('MY26 + MY27 juntos, solo ensayos de 2026: 3 hechas de 3', r && r.done === 3 && r.req === 3 && r.vol === 1700, r && JSON.stringify({ d: r.done, q: r.req, v: r.vol }));
+    ok('el veredicto sale del muestreo secuencial real (con 3 ensayos lejos del límite: concordante)', r && r.verdict === 'PASS' && r.status.id === 'ok', r && r.verdict);
+    ok('+1 esta semana (el del 21 de octubre)', r && r.added === 1);
+    ok('el correo no trae VINs', P.copYearReportHTML(m, {}).indexOf('KNAX') < 0);
+    ok('asunto con avance y ensayos', /CoP 2026 · semana 43 — 100% de avance \(3\/3 ensayos, \+1 esta semana\)/.test(P.copRepSubject(m)), P.copRepSubject(m));
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exit(1);
