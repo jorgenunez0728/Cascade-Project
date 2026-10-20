@@ -56,19 +56,21 @@ const totalDe = (page, name) => page.evaluate(n => { const r = invFuelTypeTotals
         posiciones: document.querySelectorAll('#rm-svg .rm-slot').length + document.querySelectorAll('#rm-svg .rm-cyl').length,
         tarimas: document.querySelectorAll('#rm-svg .rm-pallet').length, drenaje: !!document.querySelector('#rm-svg .rm-mark--drain'),
         tipos: invFuelTypesLive().map(t => t.name).join(','), sinLugar: (document.getElementById('rm-foot-btns').innerText.match(/No se ven en el plano\s*(\d+)/) || [])[1],
-        tambos: invState.fuelTanks.length, zonas: Array.from(document.querySelectorAll('#rm-zonenav [data-zone]')).map(b => b.dataset.zone).join(',') }));
+        totales: invState.fuelTanks.filter(t => invFuelIsLegacyTotal(t)).length, tambos: invState.fuelTanks.length,
+        nota: (invRoomToggleList(true), /Totales anteriores/.test(document.getElementById('rm-list').innerText)), zonas: Array.from(document.querySelectorAll('#rm-zonenav [data-zone]')).map(b => b.dataset.zone).join(',') }));
     ok('⛽ Gasolina: el plano del cuarto de gasolina (25 posiciones, 7 recuadros, el drenaje)', base.which === 'gasolina' && base.posiciones === 25 && base.tarimas === 7 && base.drenaje, JSON.stringify(base));
     ok('la elección del cuarto se recuerda en este equipo', base.pref === 'gasolina');
     ok('los tipos se siembran de las regulaciones que ya tenían los tambos', base.tipos === 'CARB LEV III,EURO VI', base.tipos);
-    ok('los tambos de antes (sin posición) se DECLARAN, no se esconden', String(base.tambos) === base.sinLugar, base.sinLugar + ' de ' + base.tambos);
+    ok('los registros de antes son TOTALES por tipo: no son tambos ni "sin lugar", y se declaran', base.totales === base.tambos && base.tambos === 3 && !base.sinLugar && base.nota, JSON.stringify(base));
+    await page.evaluate(() => invRoomToggleList(false));
     ok('las tarimas y las boyas se pueden ver de frente', base.zonas === 'T1,T2,T3,T4,T5,T6,B', base.zonas);
     const e6antes = await totalDe(page, 'EURO VI');
 
     // Alta de un tambo en una posición libre
     await page.locator('#rm-svg .rm-slot[data-code="T1-1"]').click({ force: true });
     await page.waitForTimeout(300);
-    ok('tocar una posición libre ofrece acomodar ahí un tambo sin lugar y dar de alta uno nuevo', await page.evaluate(() =>
-        document.querySelectorAll('#rm-panel .rm-cand').length === invState.fuelTanks.length && !!document.getElementById('rm-new-type')));
+    ok('tocar una posición libre ofrece dar de alta un tambo (un total anterior no se ofrece para acomodar)', await page.evaluate(() =>
+        document.querySelectorAll('#rm-panel .rm-cand').length === 0 && !!document.getElementById('rm-new-type')));
     await page.locator('#rm-panel button', { hasText: 'Dar de alta' }).click();
     ok('sin tipo no se da de alta: el error va en el campo', await page.evaluate(() => invState.fuelTanks.length === 3 && !!document.querySelector('#rm-panel [role=alert]')));
     await page.evaluate(() => { const s = document.getElementById('rm-new-type'); s.value = invFuelTypesLive().find(t => t.name === 'EURO VI').id; s.dispatchEvent(new Event('change')); });
@@ -79,7 +81,7 @@ const totalDe = (page, name) => page.evaluate(n => { const r = invFuelTypeTotals
     ok('alta en T1-1: 50 L de 225, EURO VI, y su ventana queda abierta', !!nuevo && await page.evaluate(id => {
         const t = invState.fuelTanks.find(x => x.id === id);
         return t.currentLevel === 50 && t.capacity === 225 && t.regulation === 'EURO VI' && _invRoom.sel === id && !!document.querySelector('#rm-svg .rm-cyl[data-code="T1-1"]'); }, nuevo));
-    ok('el total de EURO VI suma el tambo nuevo (individual y en conjunto)', await totalDe(page, 'EURO VI') === e6antes + 50, (await totalDe(page, 'EURO VI')) + ' vs ' + e6antes);
+    ok('sin tambos, EURO VI daba su total anterior; con el primero, cuentan solo los tambos (50 L)', e6antes === 779.5 && await totalDe(page, 'EURO VI') === 50, (await totalDe(page, 'EURO VI')) + ' vs ' + e6antes);
     ok('su recuadro en la barra dice el total del tipo', await page.evaluate(n => Array.from(document.querySelectorAll('.rm-kpi--type')).some(b => /EURO VI/.test(b.textContent) && b.textContent.indexOf((Math.round(n) + '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')) >= 0), await totalDe(page, 'EURO VI')));
     if (SHOTS) await page.locator('#rm-stage').screenshot({ path: path.join(SHOTS, 'v3110-alta.png') });
 
@@ -98,7 +100,9 @@ const totalDe = (page, name) => page.evaluate(n => { const r = invFuelTypeTotals
 
     // Acomodar uno sin lugar
     await page.evaluate(() => invRoomClose());
-    const sinLugar = await page.evaluate(() => invState.fuelTanks.find(t => !t.pos).id);
+    // Un tambo dado de alta en ⛽ Combustible (sin posición) sí queda "sin lugar".
+    const sinLugar = await page.evaluate(() => invFuelTankCreate({ typeId: invFuelTypesLive()[0].id, capacity: 225, level: 100 }).tank.id);
+    await page.evaluate(() => invRoomPaint());
     await page.locator('#rm-svg .rm-slot[data-code="T2-1"]').click({ force: true });
     await page.waitForTimeout(200);
     await page.locator('#rm-panel .rm-cand').first().click();

@@ -2,7 +2,8 @@
 // ║  [2.37.0] Carga en un `vm` lo que el aviso diario necesita de la      ║
 // ║  plataforma: vehicleIsLive/vehicleTestDate (app.js), tpWeekPlanFor    ║
 // ║  (testplan.js), el decodificador REST y fbVehParseDocs                ║
-// ║  (firebase-sync.js) y js/digest.js. Lo usan tools/daily-digest y      ║
+// ║  (firebase-sync.js), inventory.js + cuarto.js (3.11.0) y js/digest.js. ║
+// ║  Lo usan tools/daily-digest y                                         ║
 // ║  tests/digest.node.js: el correo sale de las MISMAS funciones.        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 const fs = require('fs');
@@ -46,7 +47,10 @@ function loadDigestEnv() {
         authGetCurrentUserName: f => f || '', safeParse: (k, d) => d, debounce: fn => fn, emitEvent: noop,
         Chart: function () {}, CASCADE_TOOLTIPS: {}, tpUpdateBadges: noop, tpRender: noop, cascadeInjectTooltipsDeferred: noop,
         a11yClickables: noop, gridDragInit: noop, tabCacheInvalidate: noop, tabCacheSwitch: noop, helpBannerHTML: () => '',
-        invState: { gases: [] }, db: { vehicles: [], deletedVehicles: [] }, allConfigurations: [],
+        db: { vehicles: [], deletedVehicles: [] }, allConfigurations: [],
+        CustomEvent: function (t, o) { this.type = t; this.detail = o && o.detail; }, dispatchEvent: noop,
+        escapeHtml: s => String(s == null ? '' : s), invRender: noop, uiPref: () => null,
+        localToday: () => { const d = new Date(Date.now() - 6 * 3600000); return d.toISOString().slice(0, 10); },
         _normalizeRegulation: (r, eng) => { r = (r || '').trim(); return r || (/KW/i.test(eng || '') ? 'EV' : 'N/A'); }
     };
     sb.window = sb; sb.globalThis = sb;
@@ -73,6 +77,10 @@ function loadDigestEnv() {
         station: /FB_SHARED_WORKSPACE\s*=\s*'([^']+)'/.exec(fb)[1]
     };
 
+    // [3.11.0] Consumibles: cilindros instalados y gasolina por tipo salen de SUS definiciones
+    // (invInstalledCylinders, invFuelTypeTotals) y del plano del cuarto (paredes con tablero).
+    vm.runInContext(src('inventory.js') + '\nvar __invSet = function(s){ invState = s; };', sb, { filename: 'inventory.js' });
+    vm.runInContext(src('cuarto.js'), sb, { filename: 'cuarto.js' });
     vm.runInContext(src('digest.js'), sb, { filename: 'digest.js' });
     return sb;
 }

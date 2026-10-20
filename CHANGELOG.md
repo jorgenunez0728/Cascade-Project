@@ -44,12 +44,25 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - **Tocar una tarima** (su recuadro o su botón de arriba): la cámara vuela hasta verla de
   frente y la tarima se abre en una sola fila con los datos de cada tambo. ‹ › pasa a la vecina.
 
+- **Resúmenes por correo (inicio y fin de turno)**: ahora traen el **estado de todos los
+  cilindros instalados** (en uso o conectados a una pared): su nivel y si hay **stock del mismo**
+  gas y concentración en almacén o reserva (un repuesto vencido se dice aparte). También la
+  **gasolina por tipo**, con sus tambos y si hay que pedir. La notificación avisa si hay
+  cilindros críticos. Si la nube no deja leer el inventario, el correo lo dice.
+
 ### Cambió
-- Con varios tambos de la misma gasolina, el **descuento automático por prueba** sale del que
-  está **Abierto**; si ninguno lo está, del de registro más reciente (como antes).
+- **Los registros de gasolina de antes eran totales por tipo, no tambos** (no hay tambos de
+  400 L). Se marcan **"Total anterior"**: no aparecen en el cuarto ni como "sin lugar", y dan el
+  total de su tipo **solo mientras ese tipo no tenga tambos registrados**. En cuanto tiene uno,
+  cuentan los tambos y el registro anterior queda como historia de consumo.
+- **Reporte semanal de consumibles por tipo de gasolina** (pantalla, correo e importación): un
+  renglón por tipo con lo que hay entre todos sus tambos, cuántos son y el nivel de pedido del
+  tipo. La alerta de "comprar gasolina" también es por tipo.
+- Con varios tambos de la misma gasolina, el **descuento automático por prueba** sale de un
+  tambo (no de un total anterior), y entre tambos del que está **Abierto**.
+- La ronda de lectura recorre los tambos por posición; un total anterior solo si su tipo todavía
+  no tiene tambos.
 - El formulario de tambo (⛽ Combustible) suma el **tipo de gasolina** y el estatus **Vacío**.
-- Los tambos que ya existían no tienen posición: aparecen en **"No se ven en el plano"** hasta
-  que se acomodan.
 
 ### Para desarrollo
 - `js/cuarto.js` sirve a los dos cuartos: `INV_FUEL_ROOM_LAYOUT` (con `item: 'drum'`,
@@ -66,7 +79,16 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   `invFuelTypesNewTo` en `hasWork` y `_fbLocalHasExtras`; `fuelTypes` en la lista de
   preservación de `_fbPullSeed`, en la huella y en `_fbPullLocalScore`. Los tipos sembrados
   tienen id estable (`invFuelTypeSeedId`): dos equipos no los duplican.
-- Pruebas: `tests/gasolina.node.js` (59) y `tests/v3110.e2e.js` (1440×950 y 427×840).
+- `tank.legacyTotal` (`invFuelIsLegacyTotal`, marcado una vez por `_invFuelLegacyMark`): total
+  anterior. `invFuelTypeTotals` lo usa solo si el tipo no tiene tambos (`fromLegacy`) y devuelve
+  `usage` (`invFuelTypeWeeklyUsage`, toda la historia del tipo). `invConsumablesReportRows().fuel`
+  es por tipo; el nivel de pedido vive en el tipo.
+- `invInstalledCylinders(gases, {wallZones, parse})` (PURA) es LA definición de "instalado" y de
+  "hay stock del mismo" (`invGasConsumableKey`). `digestInventory(inv)` la compone con
+  `invFuelTypeTotals`; `tools/daily-digest` lee `inventory/current` y `tools/digest-env` carga
+  `inventory.js` y `cuarto.js`.
+- Pruebas: `tests/gasolina.node.js` (72), `tests/digest.node.js` (90) y `tests/v3110.e2e.js`
+  (1440×950 y 427×840).
 
 ## 3.10.0 — El cuarto de gases en 3D (2026-10-19)
 

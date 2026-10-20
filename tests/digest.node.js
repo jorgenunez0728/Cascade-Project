@@ -232,5 +232,50 @@ console.log('\n== limpieza de duplicados (tools/vehicle-dedupe.node.js, sin nube
     fs.rmSync(dir2, { recursive: true, force: true });
 }
 
+console.log('\n== [3.11.0] cilindros instalados y gasolina ==');
+{
+    const rd = (psi) => [{ date: '2026-10-01', psi: 2000 }, { date: '2026-10-07', psi: psi }];
+    const inv = {
+        zones: [{ id: 'A', slots: 12 }, { id: 'C', slots: 12 }, { id: 'E', slots: 14 }],
+        gases: [
+            { id: 'g1', formula: 'CO/N2', concNominal: '50 ppm', controlNo: 'CO-1', zone: 'A01', status: 'In use', initialPsi: 2000, readings: rd(200), validUntil: '2030-01-01' },
+            { id: 'g2', formula: 'CO/N2', concNominal: '50ppm', controlNo: 'CO-2', zone: 'E03', status: 'Stock', readings: [], validUntil: '2030-01-01' },
+            { id: 'g3', formula: 'NO/N2', concNominal: '20 ppm', controlNo: 'NO-1', zone: 'C02', status: 'Stock', initialPsi: 2000, readings: rd(1800), validUntil: '2030-01-01' },
+            { id: 'g4', formula: 'NO/N2', concNominal: '20 ppm', controlNo: 'NO-2', zone: 'E04', status: 'Spare', readings: [], validUntil: '2020-01-01' },
+            { id: 'g5', formula: 'CH4/Air', concNominal: '10 ppm', controlNo: 'CH4', zone: 'A02', status: 'Empty', readings: [] }
+        ],
+        fuelTypes: [{ id: 'ft_e6', name: 'EURO VI', color: '#16a34a', regulation: 'EURO VI', reorderLevel: 300 }],
+        fuelTanks: [
+            { id: 'old', name: 'EURO VI (Orden Actual)', regulation: 'EURO VI', capacity: 400, currentLevel: 400, unit: 'L', readings: [{ date: '2026-09-01', level: 400 }] },
+            { id: 'd1', typeId: 'ft_e6', pos: 'T1-1', legacyTotal: false, capacity: 225, currentLevel: 50, unit: 'L', readings: [{ date: '2026-10-07', level: 50 }] },
+            { id: 'd2', typeId: 'ft_e6', pos: 'T1-2', legacyTotal: false, capacity: 225, currentLevel: 225, unit: 'L', readings: [{ date: '2026-10-07', level: 225 }] }
+        ]
+    };
+    const di = P.digestInventory(inv);
+    const c = di.cylinders;
+    ok('instalados = en uso o conectados a una pared (un vacío no cuenta)', c.counts.installed === 2 && c.rows.map(r => r.code).join(',') === 'A01,C02', JSON.stringify(c.rows.map(r => r.code)));
+    ok('A01 al 10 %: crítico, con 1 en stock del mismo (aunque la concentración se escriba sin espacio)', c.rows[0].level === 'critico' && c.rows[0].stockOk === 1 && c.rows[0].stock[0].zone === 'E03');
+    ok('C02: su único repuesto está vencido → sin stock (y se dice)', c.rows[1].stockOk === 0 && c.rows[1].stockExpired === 1 && c.counts.sinStock === 1);
+    ok('gasolina por tipo: EURO VI = 50 + 225 = 275 L (el total anterior de 400 ya no cuenta)', di.fuel.length === 1 && di.fuel[0].liters === 275 && di.fuel[0].drums === 2 && di.fuel[0].legacy === 1);
+    ok('275 L con pedido en 300 → pedir', di.fuel[0].needsPurchase === true);
+    const sinTambos = P.digestInventory({ gases: [], fuelTanks: [{ id: 'x', regulation: 'CARB LEV III', capacity: 400, currentLevel: 315, unit: 'L', readings: [{ level: 315 }] }] });
+    ok('sin tambos registrados: el total sale del registro anterior (sin tipos, se siembran de la regulación)', sinTambos.fuel.length === 1 && sinTambos.fuel[0].fromLegacy && sinTambos.fuel[0].liters === 315);
+    ok('sin inventario: lo dice, no lo deja en ceros', P.digestInventory({}).missing === true && P.digestInventory(null).missing === true);
+    const d = P.digestCompute({ vehicles, planFor: null, statusLabels: P.CONFIG.statusLabels, settings, inventory: inv }, NOW);
+    const html = P.digestEmailHTML(d);
+    ok('el correo trae los cilindros instalados con su stock', /Cilindros instalados: 2 · 1 crítico · 1 sin stock del mismo/.test(html) && /1 en stock/.test(html) && /Sin stock/.test(html) && /vencido\(s\) en almacén/.test(html));
+    ok('y la gasolina por tipo', /Gasolina por tipo/.test(html) && /275 L/.test(html) && /2 tambos/.test(html) && />Pedir</.test(html));
+    ok('el correo sigue sin variables CSS', !/var\(--/.test(html));
+    ok('la notificación avisa de los cilindros críticos', /1 cilindro crítico/.test(P.digestPushText(d).body));
+    ok('inventario ilegible: el correo lo declara', /No se pudo leer el inventario/.test(P.digestEmailHTML(P.digestCompute({ vehicles, settings, inventory: {} }, NOW))));
+    ok('sin inventario pedido (pruebas viejas): no hay sección', !/Cilindros instalados/.test(P.digestEmailHTML(P.digestCompute({ vehicles, settings }, NOW))));
+    const d4 = fs.mkdtempSync(path.join(os.tmpdir(), 'dginv-')), fx4 = path.join(d4, 'fx.json');
+    fs.writeFileSync(fx4, JSON.stringify({ vehicles, tpState: plansTp, settings, state: { plansSeeded: 'x' }, inventory: inv }));
+    const out2 = execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'daily-digest.node.js')],
+        { env: Object.assign({}, process.env, { DRY_RUN: '1', DIGEST_FIXTURE: fx4, DIGEST_OUT: d4, DIGEST_NOW: NOW }), encoding: 'utf8' });
+    fs.rmSync(d4, { recursive: true, force: true });
+    ok('el proceso real arma la sección con el inventario de la nube', /cilindros: 2 instalados, 1 críticos, 1 sin stock · gasolina: EURO VI 275 L/.test(out2), out2);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exit(1);

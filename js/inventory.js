@@ -1099,15 +1099,17 @@ function invConsumablesReportRows() {
                  psi: ro.psi, weeklyPsi: ro.weeklyPsi, workDayPsi: ro.workDayPsi, leadDays: ro.leadDays,
                  reorderPsi: ro.reorderPsi, status: ro.status, spare: g.status === 'Spare' };
     });
-    var fuel = (invState.fuelTanks || []).map(function(t) {
-        var cap = parseFloat(t.capacity) || 0;
-        var fr = invFuelReorder(t);
-        var level = fr.level === null ? 0 : fr.level;
-        return { tank: t, label: t.regulation || t.name || 'Combustible', unit: t.unit || 'L',
-                 capacity: cap, level: level, used: Math.max(0, Math.round((cap - level) * 10) / 10),
-                 reorderLevel: fr.reorderLevel, needsPurchase: fr.needsPurchase,
-                 usage: invFuelWeeklyUsage(t, 8) };
-    });
+    // [3.11.0] Combustible POR TIPO (invFuelTypeTotals): lo que hay de cada gasolina entre todos sus
+    // tambos. Antes era un renglón por registro, y los registros eran totales (de ahí los "400 L").
+    // Un tipo sin nada registrado solo sale si tiene nivel de pedido (0 L con pedido = comprar).
+    var fuel = (typeof invFuelTypeTotals === 'function' ? invFuelTypeTotals(invState.fuelTypes, invState.fuelTanks) : [])
+        .filter(function(r) { return r.drums || r.legacy || r.reorderLevel; })
+        .map(function(r) {
+            return { typeId: r.id, label: r.name, color: r.color, unit: 'L', capacity: r.capacity, level: r.liters,
+                     used: Math.max(0, Math.round((r.capacity - r.liters) * 10) / 10), pct: r.pct,
+                     reorderLevel: r.reorderLevel, needsPurchase: r.needsPurchase, usage: r.usage,
+                     drums: r.drums, fromLegacy: r.fromLegacy, low: r.low };
+        });
     var cal = (invState.equipment || []).map(function(e) { return { eq: e, st: invCalStatus(e) }; })
         .filter(function(x) { return x.st.code === 'vencido' || x.st.code === 'porvencer'; })
         .sort(function(a, b) { return (a.st.days || 0) - (b.st.days || 0); });
@@ -3563,6 +3565,8 @@ function invLogTestUsage(vehicle, opts) {
     if (tankCandidates.length) {
         // [3.11.0] Con varios tambos de la misma gasolina, el ABIERTO es del que se está
         // sirviendo; si no hay uno abierto, el de registro más reciente (como antes).
+        // [3.11.0] Un tambo antes que un total anterior (el total solo, si el tipo no tiene tambos).
+        if (tankCandidates.some(function(t) { return !invFuelIsLegacyTotal(t); })) tankCandidates = tankCandidates.filter(function(t) { return !invFuelIsLegacyTotal(t); });
         tankCandidates.sort(function(a, b) {
             var ao = a.fuelStatus === 'Abierto' ? 0 : 1, bo = b.fuelStatus === 'Abierto' ? 0 : 1;
             if (ao !== bo) return ao - bo;
@@ -3923,7 +3927,9 @@ function invRenderFuel(el) {
             var clr = _invLevelColor(pct);
             html += '<div style="padding: var(--space-md);margin-bottom: var(--space-sm);border:1px solid var(--tp-border);border-radius: var(--radius-xl);border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap: var(--space-xs);">';
-            html += '<div><span style="font-weight:700;font-size:12px;">' + t.name + '</span>';
+            html += '<div><span style="font-weight:700;font-size:12px;">' + escapeHtml(t.name || '') + '</span>' +
+                (invFuelIsLegacyTotal(t) ? ' <span class="u-chip u-chip--info" title="Lo que había de este tipo entre todos sus tambos, antes de registrarlos uno por uno. Cuenta solo mientras su tipo no tenga tambos.">Total anterior · no es un tambo</span>'
+                    : (t.pos ? ' <span class="u-chip">' + escapeHtml(t.pos) + '</span>' : ' <span class="u-chip u-chip--warn">sin lugar en el cuarto</span>'));
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (t.fuelType||'') + ' | ' + (t.octane||'') + ' | ' + (t.supplier||'') + '</div></div>';
             html += '<div style="display:flex;gap: var(--space-sm);align-items:center;">';
             html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + clr + ';">' + t.currentLevel + '/' + t.capacity + ' ' + (t.unit||'L') + ' (' + pct + '%)</span>';
@@ -4053,6 +4059,7 @@ function invSaveFuelTank(editId) {
         if (!invState.fuelTanks) invState.fuelTanks = [];
         obj.id = invGenId();
         obj.readings = [];
+        obj.legacyTotal = false;   // [3.11.0] lo que se da de alta ahora es un tambo
         obj.timeline = [{date:new Date().toISOString(),action:'Recepcion'}];
         invState.fuelTanks.push(obj);
         auditLog('inv', 'fuel_created', {type:'fuel', id:obj.id, label:obj.name}, obj.fuelType + ' ' + obj.octane);
@@ -4145,15 +4152,18 @@ function invRenderReport(el) {
 
     // ── 1. Combustible ──
     html += '<h3 style="margin: var(--space-md) 0 var(--space-xs);font-size: var(--fs-sm);">1. Reference fuel consumption status</h3>';
-    if (!R.fuel.length) html += '<div class="u-muted">Sin tanques registrados.</div>';
+    if (!R.fuel.length) html += '<div class="u-muted">Sin gasolina registrada: define los tipos y da de alta los tambos en Consumibles → 🗺️ Cuarto → ⛽ Gasolina.</div>';
+    else html += '<div class="u-muted" style="font-size: var(--fs-xs);margin-bottom: var(--space-xs);">Por tipo de gasolina: la suma de todos sus tambos.</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap: var(--space-md);">';
     R.fuel.forEach(function(f) {
         var cap = f.capacity || 1, H = 120;
         var hRem = Math.max(0, Math.min(H, f.level / cap * H)), hUsed = H - hRem;
         var roY = f.reorderLevel ? H - Math.min(H, f.reorderLevel / cap * H) : null;
         html += '<div style="border:1px solid var(--border);border-radius: var(--radius-lg);padding: var(--space-sm) var(--space-md);">'
-            + '<div style="display:flex;align-items:center;gap: var(--space-xs);font-weight:700;">⛽ ' + escapeHtml(f.label)
+            + '<div style="display:flex;align-items:center;gap: var(--space-xs);font-weight:700;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + escapeHtml(f.color || '#94a3b8') + ';"></span> ' + escapeHtml(f.label)
             + (f.needsPurchase ? '<span class="u-chip u-chip--warn">Comprar</span>' : '') + '</div>'
+            + '<div class="u-muted" style="font-size: var(--fs-xs);">' + (f.fromLegacy ? 'Total anterior: este tipo todavía no tiene tambos registrados'
+                : f.drums + (f.drums === 1 ? ' tambo' : ' tambos') + (f.low ? ' · ' + f.low + ' bajo(s)' : '')) + '</div>'
             + '<div style="display:flex;gap: var(--space-md);align-items:flex-end;margin-top: var(--space-xs);">'
             + '<div style="position:relative;width:64px;height:' + H + 'px;border:1px solid var(--border);border-radius: var(--radius-sm);overflow:hidden;flex-shrink:0;" title="Restante / usado">'
             + '<div style="height:' + hUsed + 'px;background:var(--danger-fill);"></div>'
@@ -4233,10 +4243,10 @@ function invConsumablesEmailHTML() {
     var h = '<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;">';
     h += '<p><b>KMX Emissions Laboratory Consumables Status ' + escapeHtml(_invReportWeekLabel()) + '</b></p>';
     h += '<p><b>1. Reference fuel consumption status</b></p>';
-    h += '<table style="border-collapse:collapse;"><tr><th style="' + TH + '">Fuel</th><th style="' + TH + '">Capacity</th><th style="' + TH + '">Used</th><th style="' + TH + '">Remaining</th><th style="' + TH + '">Reorder level</th><th style="' + TH + '">Weekly avg.</th><th style="' + TH + '">Status</th></tr>';
+    h += '<table style="border-collapse:collapse;"><tr><th style="' + TH + '">Fuel</th><th style="' + TH + '">Drums</th><th style="' + TH + '">Capacity</th><th style="' + TH + '">Used</th><th style="' + TH + '">Remaining</th><th style="' + TH + '">Reorder level</th><th style="' + TH + '">Weekly avg.</th><th style="' + TH + '">Status</th></tr>';
     R.fuel.forEach(function(f) {
         var st = f.reorderLevel ? (f.needsPurchase ? INV_REPORT_STATUS.comprar : INV_REPORT_STATUS.ok) : null;
-        h += '<tr><td style="' + TD + '">' + escapeHtml(f.label) + '</td><td style="' + TD + 'text-align:center;">' + f.capacity + ' ' + f.unit + '</td>'
+        h += '<tr><td style="' + TD + '">' + escapeHtml(f.label) + '</td><td style="' + TD + 'text-align:center;">' + (f.fromLegacy ? '—' : f.drums) + '</td><td style="' + TD + 'text-align:center;">' + _invFmtNum(f.capacity, 0) + ' ' + f.unit + '</td>'
            + '<td style="' + TD + 'text-align:center;">' + _invFmtNum(f.used, 1) + '</td><td style="' + TD + 'text-align:center;"><b>' + _invFmtNum(f.level, 1) + '</b></td>'
            + '<td style="' + TD + 'text-align:center;">' + (f.reorderLevel || '—') + '</td><td style="' + TD + 'text-align:center;">' + (f.usage.n ? _invFmtNum(f.usage.avgWeekly, 1) : '—') + '</td>'
            + '<td style="' + TD + 'text-align:center;background:' + (st ? st.mail : '#fff') + ';">' + (st ? st.txt : '—') + '</td></tr>';
@@ -4731,12 +4741,17 @@ var _invConsImp = null;   // {source, rows:[{...parsed, gasId, match, warnings}]
 
 function invConsImportOpen() {
     _invConsImp = null;
-    var tanks = invState.fuelTanks || [];
-    var fuelRows = tanks.map(function(t) {
+    // [3.11.0] Gasolina POR TIPO, como el reporte: el nivel de pedido es del tipo; el nivel solo se
+    // captura aquí si el tipo todavía no tiene tambos y tiene UN total anterior (con tambos, se mide
+    // tambo por tambo en el cuarto de gasolina).
+    var fuelRows = (typeof invFuelTypeTotals === 'function' ? invFuelTypeTotals(invState.fuelTypes, invState.fuelTanks) : [])
+        .filter(function(r) { return r.id; }).map(function(r) {
+        var single = r.fromLegacy && r.tankIds.length === 1 ? r.tankIds[0] : null;
         return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap: var(--space-xs);align-items:center;">'
-            + '<span>⛽ ' + escapeHtml(t.regulation || t.name || '') + ' <span class="u-muted" style="font-size: var(--fs-xs);">(' + (t.capacity || '?') + ' ' + (t.unit || 'L') + ')</span></span>'
-            + '<input type="number" inputmode="decimal" step="0.1" min="0" class="tp-input" data-fuel-level="' + escapeHtml(t.id) + '" placeholder="Restante" aria-label="Restante ' + escapeHtml(t.regulation || t.name || '') + '">'
-            + '<input type="number" inputmode="decimal" step="1" min="0" class="tp-input" data-fuel-reorder="' + escapeHtml(t.id) + '" value="' + (t.reorderLevel || '') + '" placeholder="Reorden" aria-label="Nivel de reorden ' + escapeHtml(t.regulation || t.name || '') + '">'
+            + '<span>⛽ ' + escapeHtml(r.name) + ' <span class="u-muted" style="font-size: var(--fs-xs);">(' + (r.fromLegacy ? 'total anterior' : r.drums + (r.drums === 1 ? ' tambo' : ' tambos')) + ' · ' + _invFmtNum(r.liters, 0) + ' L)</span></span>'
+            + (single ? '<input type="number" inputmode="decimal" step="0.1" min="0" class="tp-input" data-fuel-level="' + escapeHtml(single) + '" placeholder="Restante" aria-label="Restante ' + escapeHtml(r.name) + '">'
+                      : '<span class="u-muted" style="font-size: var(--fs-xs);">' + (r.drums ? 'por tambo, en el cuarto' : '—') + '</span>')
+            + '<input type="number" inputmode="decimal" step="1" min="0" class="tp-input" data-fuel-type-reorder="' + escapeHtml(r.id) + '" value="' + (r.reorderLevel || '') + '" placeholder="Reorden" aria-label="Nivel de pedido ' + escapeHtml(r.name) + '">'
             + '</div>';
     }).join('');
     showModal({
@@ -4753,7 +4768,7 @@ function invConsImportOpen() {
             + '<div class="u-muted" style="font-size: var(--fs-xs);">La imagen es el camino menos exacto: usa una <strong>captura de pantalla</strong> (Win+Shift+S), no una foto del monitor, y revisa las filas marcadas.</div>'
             + '<label style="display:flex;gap: var(--space-sm);align-items:center;font-size: var(--fs-sm);">📅 Fecha de las lecturas <input type="date" id="inv-cons-date" class="tp-input" value="' + localToday() + '" max="' + localToday() + '" style="width:auto;"></label>'
             + '<div id="inv-cons-preview"></div>'
-            + (tanks.length ? '<details open><summary style="font-weight:700;">⛽ Gasolina (se captura a mano: las gráficas del correo no se leen bien)</summary>'
+            + (fuelRows ? '<details open><summary style="font-weight:700;">⛽ Gasolina por tipo (se captura a mano: las gráficas del correo no se leen bien)</summary>'
                 + '<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap: var(--space-xs);margin-top: var(--space-xs);font-size: var(--fs-xs);" class="u-muted"><span></span><span>Restante</span><span>Reorden</span></div>'
                 + '<div style="display:flex;flex-direction:column;gap: var(--space-xs);">' + fuelRows + '</div></details>' : '')
             + '</div>',
@@ -4945,15 +4960,19 @@ function invConsImportApply() {
     Array.prototype.forEach.call(box.querySelectorAll('[data-fuel-level]'), function(inp) {
         var id = inp.getAttribute('data-fuel-level');
         var lvl = parseFloat(inp.value);
-        var ro = parseFloat((box.querySelector('[data-fuel-reorder="' + id + '"]') || {}).value);
         var t = (invState.fuelTanks || []).find(function(x) { return x.id === id; });
-        if (!t) return;
-        var roChanged = isFinite(ro) ? ro !== t.reorderLevel : false;
-        if (isFinite(lvl) || roChanged) fuel.push({ t: t, level: isFinite(lvl) ? lvl : null, reorder: isFinite(ro) ? ro : null, roChanged: roChanged });
+        if (t && isFinite(lvl)) fuel.push({ t: t, level: lvl });
+    });
+    // [3.11.0] El nivel de pedido es del TIPO.
+    var typeReo = [];
+    Array.prototype.forEach.call(box.querySelectorAll('[data-fuel-type-reorder]'), function(inp) {
+        var ty = invFuelTypesLive().find(function(x) { return x.id === inp.getAttribute('data-fuel-type-reorder'); });
+        var ro = inp.value === '' ? null : parseFloat(inp.value);
+        if (ty && (ro === null || isFinite(ro)) && (ro || null) !== (ty.reorderLevel || null)) typeReo.push({ ty: ty, reorder: ro || null });
     });
     var ids = todo.map(function(x) { return x.gid; });
     if (ids.some(function(id, i) { return ids.indexOf(id) !== i; })) { showToast('Dos filas apuntan al mismo cilindro. Corrige el selector antes de aplicar.', 'error'); return; }
-    if (!todo.length && !fuel.length) { showToast('No hay nada que aplicar: carga el reporte o captura la gasolina.', 'warning'); return; }
+    if (!todo.length && !fuel.length && !typeReo.length) { showToast('No hay nada que aplicar: carga el reporte o captura la gasolina.', 'warning'); return; }
     if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'importar el reporte de consumibles')) return;
     if (typeof undoPush === 'function') undoPush('inventory', 'Importar reporte de consumibles');
 
@@ -4971,9 +4990,9 @@ function invConsImportApply() {
         g.updatedAt = new Date().toISOString();
     });
     fuel.forEach(function(f) {
-        if (f.level !== null) { var r = invAddFuelReading(f.t.id, f.level, { date: date, source: 'importacion', silent: true, skipSave: true }); if (r.ok) nFuel++; }
-        if (f.roChanged) { f.t.reorderLevel = f.reorder || null; f.t.updatedAt = new Date().toISOString(); }
+        var r = invAddFuelReading(f.t.id, f.level, { date: date, source: 'importacion', silent: true, skipSave: true }); if (r.ok) nFuel++;
     });
+    typeReo.forEach(function(x) { x.ty.reorderLevel = x.reorder; x.ty.updatedAt = new Date().toISOString(); });
     if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
     invSave(); invRender(); invUpdateBadges();
     if (typeof auditLog === 'function') auditLog('inv', 'reporte_consumibles_importado', { type: 'gas', label: 'Reporte semanal' },
@@ -5177,7 +5196,11 @@ function invFuelTypesFromTanks(tanks) {
         var reg = t && String(t.regulation || '').trim();
         if (!reg || seen[reg]) return;
         seen[reg] = true;
-        out.push({ id: invFuelTypeSeedId(reg), name: reg, color: INV_FUEL_TYPE_COLORS[out.length % INV_FUEL_TYPE_COLORS.length], regulation: reg });
+        // [3.11.0] El nivel de pedido del tipo = el de sus totales anteriores (la suma, si eran varios).
+        var reo = (tanks || []).filter(function(x) { return x && String(x.regulation || '').trim() === reg; })
+            .reduce(function(s, x) { var v = parseFloat(x.reorderLevel); return s + (v > 0 ? v : 0); }, 0);
+        out.push({ id: invFuelTypeSeedId(reg), name: reg, color: INV_FUEL_TYPE_COLORS[out.length % INV_FUEL_TYPE_COLORS.length], regulation: reg,
+                   reorderLevel: reo > 0 ? reo : null });
     });
     return out;
 }
@@ -5223,34 +5246,115 @@ function invFuelTankLevel(t) {
     return { pct: pct, liters: Math.round(lvl * 10) / 10, capacity: Math.round(cap * 10) / 10, status: status };
 }
 
+/** [3.11.0] Clave de "el mismo cilindro": especie y concentración, sin espacios ni mayúsculas. PURA. */
+function invGasConsumableKey(g) {
+    var f = String((g && (g.formula || g.gasType)) || '').toUpperCase().replace(/\s+/g, '');
+    var c = String((g && g.concNominal) || '').toUpperCase().replace(/\s+/g, '').replace(/,/g, '.');
+    return f + '|' + c;
+}
+
+/**
+ * [3.11.0] LA definición de los cilindros INSTALADOS y de si hay stock del mismo. PURA.
+ * Instalado = marcado "En uso", o en una pared con tablero (`opts.wallZones`, del plano del
+ * cuarto) y no vacío. Stock = otro cilindro del mismo gas y concentración en almacén o reserva
+ * (`Stock`/`Spare`), no instalado ni vacío; uno vencido se cuenta aparte (no sirve para cambiar).
+ * @param gases invState.gases · opts {wallZones:[ids], parse(code)→{zone}}
+ * @returns {rows:[{id, code, label, controlNo, pct, psi, level, expired, stock:[…], stockOk,
+ *           stockExpired}], counts:{installed, critico, bajo, sinStock}}
+ */
+function invInstalledCylinders(gases, opts) {
+    opts = opts || {};
+    var walls = {};
+    (opts.wallZones || []).forEach(function(z) { walls[String(z).toUpperCase()] = true; });
+    var zoneOf = function(code) {
+        if (opts.parse) { var p = opts.parse(code); return p ? p.zone : ''; }
+        var m = /^([A-Za-z]+)/.exec(String(code || '').trim()); return m ? m[1].toUpperCase() : '';
+    };
+    var live = (gases || []).filter(function(g) { return g && g.id && g.status !== 'Empty'; });
+    var isInst = function(g) { return g.status === 'In use' || (!!g.zone && !!walls[zoneOf(g.zone)]); };
+    var inst = live.filter(isInst), spare = live.filter(function(g) { return !isInst(g) && (g.status === 'Stock' || g.status === 'Spare'); });
+    var counts = { installed: inst.length, critico: 0, bajo: 0, sinStock: 0 };
+    var rows = inst.map(function(g) {
+        var lv = invGasLevel(g), key = invGasConsumableKey(g);
+        var st = spare.filter(function(o) { return invGasConsumableKey(o) === key; }).map(function(o) {
+            var ol = invGasLevel(o), ex = invGasExpiry(o);
+            return { id: o.id, controlNo: o.controlNo || '', zone: o.zone || '', pct: ol.status === 'sinlecturas' ? null : ol.pct, expired: ex.status === 'expired' };
+        });
+        var ok = st.filter(function(x) { return !x.expired; }).length;
+        if (lv.status === 'critico') counts.critico++;
+        else if (lv.status === 'bajo') counts.bajo++;
+        if (!ok) counts.sinStock++;
+        return { id: g.id, code: g.zone || '', label: invGasReportLabel(g), controlNo: g.controlNo || '',
+                 pct: lv.status === 'sinlecturas' ? null : lv.pct, psi: lv.psi, level: lv.status,
+                 expired: invGasExpiry(g).status === 'expired', stock: st, stockOk: ok, stockExpired: st.length - ok };
+    });
+    rows.sort(function(a, b) { return String(a.code || '~').localeCompare(String(b.code || '~'), 'es', { numeric: true }); });
+    return { rows: rows, counts: counts };
+}
+
+/**
+ * [3.11.0] ¿Es un TOTAL ANTERIOR? Antes de registrar tambos, cada registro de ⛽ Combustible
+ * era lo que había de un tipo entre todos sus tambos (por eso "400 L": no existe un tambo de
+ * 400). Esos registros se marcan una vez (`legacyTotal: true`, `_invFuelLegacyMark`) y no son
+ * tambos: no van en el cuarto ni cuentan como "sin lugar". Solo dan el total de su tipo
+ * MIENTRAS ese tipo no tenga tambos registrados; sus lecturas siguen siendo la historia de
+ * consumo del tipo. Un tambo nuevo nace con `legacyTotal: false`.
+ */
+function invFuelIsLegacyTotal(t) { return !!(t && t.legacyTotal === true); }
+
+/** Litros consumidos por semana de VARIOS registros juntos (los de un tipo). PURA. */
+function invFuelTypeWeeklyUsage(tanks, weeks) {
+    var by = {};
+    (tanks || []).forEach(function(t) {
+        invFuelWeeklyUsage(t, 520).weeks.forEach(function(w) { by[w.monday] = (by[w.monday] || 0) + w.liters; });
+    });
+    var keys = Object.keys(by).sort().slice(-(weeks || 8));
+    var list = keys.map(function(k) { return { monday: k, liters: Math.round(by[k] * 10) / 10 }; });
+    var total = list.reduce(function(s, w) { return s + w.liters; }, 0);
+    return { weeks: list, avgWeekly: list.length ? total / list.length : 0, n: list.length };
+}
+
 /**
  * LA definición de los totales por tipo de gasolina (lo que hay de cada una entre todos sus
  * tambos). PURA. Un tambo sin tipo va al grupo `id: null` ("Sin tipo"), que se declara.
- * @returns [{id, name, color, regulation, liters, capacity, pct, drums, open, low, empty,
- *            reorderLevel, needsPurchase, tankIds}]
+ * Un tipo sin tambos registrados toma su total de sus TOTALES ANTERIORES (`fromLegacy`);
+ * en cuanto tiene un tambo, los totales anteriores dejan de contar (no se suman dos veces).
+ * @returns [{id, name, color, regulation, liters, capacity, pct, drums, legacy, fromLegacy,
+ *            open, low, empty, reorderLevel, needsPurchase, tankIds, usage}]
  */
 function invFuelTypeTotals(types, tanks) {
     var live = invFuelTypesLive(types);
-    var rows = live.map(function(t) {
-        return { id: t.id, name: t.name, color: t.color || '#64748b', regulation: t.regulation || '', liters: 0, capacity: 0, pct: null,
-                 drums: 0, open: 0, low: 0, empty: 0, reorderLevel: parseFloat(t.reorderLevel) > 0 ? parseFloat(t.reorderLevel) : null, needsPurchase: false, tankIds: [] };
-    });
-    var none = { id: null, name: 'Sin tipo', color: '#94a3b8', regulation: '', liters: 0, capacity: 0, pct: null, drums: 0, open: 0, low: 0, empty: 0, reorderLevel: null, needsPurchase: false, tankIds: [] };
+    var mk = function(t) {
+        return { id: t ? t.id : null, name: t ? t.name : 'Sin tipo', color: t ? (t.color || '#64748b') : '#94a3b8', regulation: t ? (t.regulation || '') : '',
+                 liters: 0, capacity: 0, pct: null, drums: 0, legacy: 0, fromLegacy: false, open: 0, low: 0, empty: 0,
+                 reorderLevel: t && parseFloat(t.reorderLevel) > 0 ? parseFloat(t.reorderLevel) : null, needsPurchase: false,
+                 tankIds: [], _drums: [], _legacy: [] };
+    };
+    var rows = live.map(mk), none = mk(null);
     (tanks || []).forEach(function(tk) {
         if (!tk || !tk.id) return;
         var ty = invFuelTypeOf(tk, live);
         var row = ty ? rows.find(function(r) { return r.id === ty.id; }) : none;
-        var lv = invFuelTankLevel(tk);
-        row.drums++;
-        row.tankIds.push(tk.id);
-        if (lv.liters > 0) row.liters += lv.liters;
-        if (lv.capacity) row.capacity += lv.capacity;
-        if (tk.fuelStatus === 'Abierto') row.open++;
-        if (lv.status === 'critico' || lv.status === 'bajo') row.low++;
-        if (tk.fuelStatus === 'Vacío' || lv.liters === 0) row.empty++;
+        (invFuelIsLegacyTotal(tk) ? row._legacy : row._drums).push(tk);
     });
-    var all = none.drums ? rows.concat([none]) : rows;
+    var all = (none._drums.length || none._legacy.length) ? rows.concat([none]) : rows;
     all.forEach(function(r) {
+        r.drums = r._drums.length;
+        r.legacy = r._legacy.length;
+        r.fromLegacy = !r.drums && r.legacy > 0;
+        var use = r.drums ? r._drums : r._legacy;
+        use.forEach(function(tk) {
+            var lv = invFuelTankLevel(tk);
+            r.tankIds.push(tk.id);
+            if (lv.liters > 0) r.liters += lv.liters;
+            if (lv.capacity) r.capacity += lv.capacity;
+            if (tk.fuelStatus === 'Abierto') r.open++;
+            if (!r.fromLegacy && (lv.status === 'critico' || lv.status === 'bajo')) r.low++;
+            if (!r.fromLegacy && (tk.fuelStatus === 'Vacío' || lv.liters === 0)) r.empty++;
+        });
+        // El consumo por semana es la historia del TIPO: totales anteriores + tambos.
+        r.usage = invFuelTypeWeeklyUsage(r._legacy.concat(r._drums), 8);
+        delete r._drums; delete r._legacy;
         r.liters = Math.round(r.liters * 10) / 10;
         r.capacity = Math.round(r.capacity * 10) / 10;
         r.pct = r.capacity > 0 ? Math.round(r.liters / r.capacity * 100) : null;
@@ -5287,7 +5391,24 @@ function invFuelTypesNewTo(base, incoming) {
 /** Siembra una sola vez el catálogo (de las regulaciones de los tambos que ya existen). */
 function _invFuelTypesEnsure() {
     if (!invState) return;
+    _invFuelLegacyMark();
     if (!Array.isArray(invState.fuelTypes)) invState.fuelTypes = invFuelTypesFromTanks(invState.fuelTanks);
+}
+
+/**
+ * [3.11.0] Marca UNA vez cada registro: lo que existía sin posición en el cuarto era un total
+ * por tipo (decisión del laboratorio: "no hay ninguno de 400"). Un registro ya marcado no se
+ * vuelve a tocar, así que es idempotente; dos equipos marcan lo mismo.
+ */
+function _invFuelLegacyMark() {
+    (invState.fuelTanks || []).forEach(function(t) {
+        if (!t || t.legacyTotal !== undefined) return;
+        t.legacyTotal = !t.pos;
+        if (t.legacyTotal) {
+            if (!t.timeline) t.timeline = [];
+            t.timeline.push({ date: new Date().toISOString(), action: 'Marcado como total anterior (no es un tambo)' });
+        }
+    });
 }
 
 function _invFuelTank(id) { return (invState.fuelTanks || []).find(function(t) { return t && t.id === id; }) || null; }
@@ -5428,11 +5549,11 @@ function invFuelTankCreate(o) {
     if (!ty) return { ok: false, reason: 'Elige el tipo de gasolina.', field: 'type' };
     if (o.pos && (invState.fuelTanks || []).some(function(t) { return t && t.pos === o.pos; })) return { ok: false, reason: 'La posición ' + o.pos + ' ya está ocupada.' };
     if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'dar de alta un tambo')) return { ok: false, reason: 'Sin permiso' };
-    var n = (invState.fuelTanks || []).filter(function(t) { var x = invFuelTypeOf(t); return x && x.id === ty.id; }).length + 1;
+    var n = (invState.fuelTanks || []).filter(function(t) { var x = invFuelTypeOf(t); return !invFuelIsLegacyTotal(t) && x && x.id === ty.id; }).length + 1;
     var tk = {
         id: invGenId(), name: o.name || (ty.name + ' · tambo ' + n), fuelType: 'Gasolina Referencia', regulation: ty.regulation || '',
         typeId: ty.id, capacity: cap, currentLevel: lvl, unit: 'L', regDate: localToday(), pos: o.pos || '',
-        fuelStatus: lvl >= cap ? 'Cerrado' : 'Abierto', readings: [],
+        fuelStatus: lvl >= cap ? 'Cerrado' : 'Abierto', readings: [], legacyTotal: false,
         timeline: [{ date: new Date().toISOString(), action: 'Recepción' + (o.pos ? ' en ' + o.pos : '') }]
     };
     if (!invState.fuelTanks) invState.fuelTanks = [];
@@ -7119,7 +7240,17 @@ function invRoundItems() {
     // Orden físico: A01, A02, B01… para que la pantalla siga la caminata y no al revés.
     items.sort(function(a, b) { return String(a.zone).localeCompare(String(b.zone), 'es', { numeric: true }); });
     // El combustible va al final: son otros medidores, en otro lugar del cuarto.
-    (invState.fuelTanks || []).forEach(function(t) { items.push({ kind: 'fuel', id: t.id, zone: '~' }); });
+    // [3.11.0] Los tambos (por posición, sin los vacíos); un total anterior solo si su tipo todavía
+    // no tiene tambos — si no, se estaría leyendo un número que ya no cuenta.
+    var conTambos = {};
+    (invState.fuelTanks || []).forEach(function(t) { var ty = invFuelTypeOf(t); if (ty && !invFuelIsLegacyTotal(t)) conTambos[ty.id] = true; });
+    (invState.fuelTanks || []).filter(function(t) {
+        if (!t || t.fuelStatus === 'Vacío') return false;
+        if (!invFuelIsLegacyTotal(t)) return true;
+        var ty = invFuelTypeOf(t);
+        return !(ty && conTambos[ty.id]);
+    }).sort(function(a, b) { return String(a.pos || '~').localeCompare(String(b.pos || '~'), 'es', { numeric: true }); })
+      .forEach(function(t) { items.push({ kind: 'fuel', id: t.id, zone: t.pos || '~' }); });
     return items;
 }
 

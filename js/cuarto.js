@@ -258,9 +258,12 @@ function invFuelRoomZones(layout) {
     return Object.keys(layout.zones).map(function(id) { var d = layout.zones[id]; return { id: id, label: d.label, slots: d.slots || 0 }; });
 }
 
-/** Los tambos como objetos de la escena: su posición es `pos`. PURA. */
+/**
+ * Los tambos como objetos de la escena: su posición es `pos`. PURA.
+ * [3.11.0] Un TOTAL ANTERIOR (`legacyTotal`, ver invFuelIsLegacyTotal) no es un tambo: no entra.
+ */
 function invFuelRoomItems(tanks) {
-    return (tanks || []).filter(function(t) { return t && t.id; }).map(function(t) { return { id: t.id, zone: t.pos || '' }; });
+    return (tanks || []).filter(function(t) { return t && t.id && t.legacyTotal !== true; }).map(function(t) { return { id: t.id, zone: t.pos || '' }; });
 }
 
 /** Centro del cuarto (eje de giro de la cámara). */
@@ -1803,7 +1806,7 @@ function _invFuelPaintKpis(scene, info) {
     var types = tot.map(function(r) {
         var tone = r.needsPurchase ? 'warn' : r.low ? 'warn' : 'info';
         return tile('type:' + (r.id || 'none'), '<i class="rm-kpi-dot" style="background:' + r.color + '"></i>', _invFuelFmtL(r.liters), r.name, tone,
-            r.name + ': ' + r.drums + ' tambo(s) · ' + _invFuelFmtL(r.liters) + ' de ' + _invFuelFmtL(r.capacity) + (r.pct != null ? ' (' + r.pct + '%)' : '') +
+            r.name + ': ' + (r.fromLegacy ? 'total anterior (todavía sin tambos registrados)' : r.drums + ' tambo(s)') + ' · ' + _invFuelFmtL(r.liters) + ' de ' + _invFuelFmtL(r.capacity) + (r.pct != null ? ' (' + r.pct + '%)' : '') +
             (r.needsPurchase ? ' · por debajo del nivel de pedido (' + r.reorderLevel + ' L)' : ''), 'rm-kpi--type');
     }).join('');
     host.innerHTML =
@@ -1954,7 +1957,20 @@ function _invFuelPaintList(scene, info) {
         '<div class="rm-list-col"><h4>Atención <span class="rm-count">' + rows.length + '</span></h4>' +
           (rows.length ? rows.map(function(r) { return r.html; }).join('') : '<p class="rm-empty">Ningún tambo bajo ni gasolina por pedir.</p>') + '</div>' +
         (un ? '<div class="rm-list-col"><h4>No se ven en el plano <span class="rm-count">' + scene.unplaced.length + '</span></h4>' + un +
-            '<p class="rm-empty">Toca una posición libre y elige el tambo para acomodarlo.</p></div>' : '');
+            '<p class="rm-empty">Toca una posición libre y elige el tambo para acomodarlo.</p></div>' : '') +
+        _invFuelLegacyNoteHTML();
+}
+
+/** [3.11.0] Los totales anteriores se DECLARAN: no son tambos, pero siguen dando el total de su tipo. */
+function _invFuelLegacyNoteHTML() {
+    var tot = invFuelTypeTotals(invState.fuelTypes, invState.fuelTanks).filter(function(r) { return r.legacy; });
+    if (!tot.length) return '';
+    return '<div class="rm-list-col"><h4>Totales anteriores <span class="rm-count">' + tot.reduce(function(s, r) { return s + r.legacy; }, 0) + '</span></h4>' +
+        tot.map(function(r) {
+            return '<p class="rm-empty"><b>' + _invRoomEsc(r.name) + '</b>: ' + (r.fromLegacy
+                ? 'todavía sin tambos — su total (' + _invFuelFmtL(r.liters) + ') sale del registro anterior hasta que des de alta sus tambos.'
+                : 'ya tiene tambos; el registro anterior ya no cuenta (queda como historia de consumo).') + '</p>';
+        }).join('') + '</div>';
 }
 
 function invRoomSetFuelType(id, typeId) {

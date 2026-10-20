@@ -59,15 +59,23 @@ async function readCloud() {
     const settings = (await getDoc('settings/digest')) || {};
     const state = (await getDoc('digest/state')) || {};
     const subs = await listAll('pushsubs');
+    // [3.11.0] Cilindros instalados y gasolina. Si no se lee, el correo lo dice (no se aborta:
+    // el resto del resumen sigue siendo válido).
+    let inventory = null;
+    try {
+        const invDoc = await rest('GET', 'inventory/current');
+        if (invDoc && invDoc.fields && invDoc.fields.data) inventory = P.fbFromFirestoreValue(invDoc.fields.data);
+    } catch (e) { log('inventario: no se pudo leer (' + e.message + ') — el correo lo declara'); }
+    if (inventory) log(`inventario: ${(inventory.gases || []).length} cilindros, ${(inventory.fuelTanks || []).length} registros de gasolina`);
     let last = parsed.maxTs || 0;
     const tpT = Date.parse(tpDoc.updateTime || '') || 0;
     if (tpT > last) last = tpT;
-    return { vehicles: view.vehicles, tpState, settings, state, subs, lastChangeAt: last ? new Date(last).toISOString() : '' };
+    return { vehicles: view.vehicles, tpState, settings, state, subs, inventory: inventory || {}, lastChangeAt: last ? new Date(last).toISOString() : '' };
 }
 function readFixture(file) {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'));
     return { vehicles: j.vehicles || [], tpState: j.tpState || {}, settings: j.settings || {}, state: j.state || {},
-             subs: j.subs || [], lastChangeAt: j.lastChangeAt || '' };
+             subs: j.subs || [], inventory: j.inventory || {}, lastChangeAt: j.lastChangeAt || '' };
 }
 
 // ── Canales ────────────────────────────────────────────────────────────
@@ -169,13 +177,15 @@ async function main() {
     if (TEST || FORCE || slotDue) {
         const d = P.digestCompute({
             vehicles: data.vehicles, planFor: P.tpWeekPlanFor, statusLabels: P.CONFIG.statusLabels,
-            settings: data.settings, lastDigestAt: state.lastDigestAt || '', lastChangeAt: data.lastChangeAt, slot
+            settings: data.settings, lastDigestAt: state.lastDigestAt || '', lastChangeAt: data.lastChangeAt, slot,
+            inventory: data.inventory
         }, nowIso);
         const push = P.digestPushText(d);
         const ok = await deliver('resumen', { subject: P.digestSubject(d), html: P.digestEmailHTML(d),
             to: TEST ? TEST_TO : d.settings.to, cc: d.escalateTo }, push, data, errors);
         log(`resumen: ${d.vehicles.count} activos, ${d.vehicles.escalated.length} escalados, ${d.approved.length} aprobados`);
         if (DRY || TEST) log('activos: ' + d.vehicles.rows.map(r => `${r.vin} ${r.label} ${r.daysActive}d`).join(' · '));
+        if (d.inventory && d.inventory.cylinders) log(`cilindros: ${d.inventory.cylinders.counts.installed} instalados, ${d.inventory.cylinders.counts.critico} críticos, ${d.inventory.cylinders.counts.sinStock} sin stock · gasolina: ${d.inventory.fuel.map(r => r.name + ' ' + Math.round(r.liters) + ' L').join(', ')}`);
         if (ok) {
             state.lastDigestDate = lp.date; state.lastDigestSlot = slot; state.lastDigestAt = nowIso; dirty = true;
             // [3.5.0] Guardar YA: si algo falla después, la siguiente corrida no repite el correo.

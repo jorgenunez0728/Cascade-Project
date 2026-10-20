@@ -332,6 +332,31 @@ function digestPlanAnnouncement(entry) {
  * LA definición del resumen diario. PURA.
  * src = {vehicles, planFor, statusLabels, settings, lastDigestAt, lastChangeAt, slot}
  */
+/**
+ * [3.11.0] Lo que el resumen dice del cuarto de gases y de la gasolina. Compone las definiciones
+ * únicas de Consumibles (invInstalledCylinders, invFuelTypeTotals) — no calcula nada propio.
+ * `inv` = {gases, zones, fuelTanks, fuelTypes} (de la nube, o el invState de este equipo).
+ * Sin inventario devuelve {missing:true}: el correo lo DICE, no lo deja en ceros.
+ */
+function digestInventory(inv) {
+    if (!inv || !Array.isArray(inv.gases)) return { missing: true };
+    var L = typeof INV_ROOM_LAYOUT !== 'undefined' ? INV_ROOM_LAYOUT : null;
+    var wall = L ? Object.keys(L.zones).filter(function(k) { return L.zones[k].kind === 'wall'; }) : [];
+    var ids = (inv.zones || []).map(function(z) { return z.id; });
+    if (L) Object.keys(L.zones).forEach(function(k) { if (ids.indexOf(k) < 0) ids.push(k); });
+    var parse = typeof invRoomParseCode === 'function' ? function(c) { return invRoomParseCode(c, ids); } : null;
+    var cyl = typeof invInstalledCylinders === 'function' ? invInstalledCylinders(inv.gases, { wallZones: wall, parse: parse }) : null;
+    // Un registro de combustible que ningún equipo con 3.11.0 ha marcado aún se lee con la misma
+    // regla de _invFuelLegacyMark (sin lugar en el cuarto = total anterior). Copia: no se escribe.
+    var tanks = (inv.fuelTanks || []).map(function(t) {
+        return t && t.legacyTotal === undefined ? Object.assign({}, t, { legacyTotal: !t.pos }) : t;
+    });
+    var types = Array.isArray(inv.fuelTypes) ? inv.fuelTypes : (typeof invFuelTypesFromTanks === 'function' ? invFuelTypesFromTanks(tanks) : []);
+    var fuel = typeof invFuelTypeTotals === 'function'
+        ? invFuelTypeTotals(types, tanks).filter(function(r) { return r.drums || r.legacy || r.reorderLevel; }) : [];
+    return { cylinders: cyl, fuel: fuel };
+}
+
 function digestCompute(src, nowIso) {
     src = src || {};
     var settings = digestSettingsNormalize(src.settings);
@@ -360,7 +385,8 @@ function digestCompute(src, nowIso) {
         lastChangeAt: lastChange, lastChangeLabel: _digestWhenLabel(lastChange, nowIso),
         stale: quietH !== null && quietH > limitH, quietHours: quietH === null ? null : Math.round(quietH),
         settings: settings,
-        escalateTo: veh.escalated.length ? settings.escalateTo : []
+        escalateTo: veh.escalated.length ? settings.escalateTo : [],
+        inventory: src.inventory === undefined ? null : digestInventory(src.inventory)
     };
 }
 
@@ -400,6 +426,8 @@ function digestPushText(d) {
     var np = d.nextPlan;
     if (np && np.show) body.push(np.state === 'aceptado' ? 'plan ' + np.weekLabel + ' listo' : 'falta plan ' + np.weekLabel);
     if (!body.length) body.push('Sin pendientes de aprobación ni de liberación');
+    var cy = d.inventory && d.inventory.cylinders;
+    if (cy && cy.counts.critico) body.push(cy.counts.critico + (cy.counts.critico === 1 ? ' cilindro crítico' : ' cilindros críticos'));
     return { title: title, body: body.join(' · '), url: DIGEST_APP_URL };
 }
 
@@ -519,6 +547,7 @@ function digestEmailHTML(d) {
         h += '</table></td></tr>';
         h += '<tr><td style="padding:4px 0 0 0;font-size:11px;color:' + _DG.muted + ';">Días = del alta a la aprobación.</td></tr>';
     }
+    h += _digestInventoryHTML(d.inventory, small);
     // Plan de la semana siguiente (jueves y viernes)
     var np = d.nextPlan;
     if (np && np.show) {
@@ -541,6 +570,65 @@ function digestEmailHTML(d) {
             ';color:' + (ok ? _DG.green : _DG.amber) + ';">' + msg + '</td></tr>';
     }
     return _digestWrap(h, digestPushText(d).body, 'Sale de lunes a viernes al inicio (7:00) y al final del turno (16:00). Los días cuentan desde el alta, en días naturales (incluye fin de semana).');
+}
+
+/** [3.11.0] Cilindros instalados (con o sin stock del mismo) y gasolina por tipo. PURA. */
+function _digestInventoryHTML(inv, small) {
+    if (!inv) return '';
+    if (inv.missing) {
+        return _digestH('Cuarto de gases y gasolina') + '<tr><td style="padding:8px 0;font-size:13px;color:' + _DG.amber +
+            ';">No se pudo leer el inventario de la nube: este resumen no trae cilindros ni gasolina.</td></tr>';
+    }
+    var h = '', cy = inv.cylinders;
+    var tone = function(level) {
+        return level === 'critico' ? { c: _DG.red, t: 'crítico' } : level === 'bajo' ? { c: _DG.amber, t: 'bajo' } : level === 'sinlecturas' ? { c: _DG.muted, t: 'sin lecturas' } : { c: _DG.green, t: '' };
+    };
+    if (cy) {
+        var k = cy.counts, sub = [];
+        if (k.critico) sub.push(k.critico + (k.critico === 1 ? ' crítico' : ' críticos'));
+        if (k.bajo) sub.push(k.bajo + (k.bajo === 1 ? ' bajo' : ' bajos'));
+        if (k.sinStock) sub.push(k.sinStock + ' sin stock del mismo');
+        h += _digestH('Cilindros instalados: ' + k.installed + (sub.length ? ' · ' + sub.join(' · ') : ''), k.critico ? _DG.red : k.bajo || k.sinStock ? _DG.amber : _DG.accent);
+        if (!cy.rows.length) {
+            h += '<tr><td style="padding:8px 0;font-size:13px;color:' + _DG.muted + ';">Ningún cilindro marcado en uso ni conectado a una pared.</td></tr>';
+        } else {
+            h += '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+                _digestTh('Cilindro') + _digestTh('Nivel', 'right') + _digestTh('Stock del mismo') + '</tr>';
+            cy.rows.forEach(function(r) {
+                var t = tone(r.level);
+                var lvl = r.pct == null ? '—' : r.pct + '%';
+                var stock = r.stockOk
+                    ? '<span style="color:' + _DG.green + ';font-weight:700;">✓ ' + r.stockOk + ' en stock</span>' +
+                      small(_digestEsc(r.stock.filter(function(x) { return !x.expired; }).map(function(x) { return (x.zone || 's/lugar') + (x.pct != null ? ' ' + x.pct + '%' : ''); }).join(', ')))
+                    : '<span style="color:' + _DG.red + ';font-weight:700;">Sin stock</span>';
+                if (r.stockExpired) stock += small(r.stockExpired + ' vencido(s) en almacén');
+                h += '<tr>' + _digestCell('<b>' + _digestEsc(r.code || '—') + '</b> ' + _digestEsc(r.label) + small('#' + _digestEsc(r.controlNo) + (r.expired ? ' · <span style="color:' + _DG.red + ';">vencido</span>' : '')))
+                    + _digestCell(lvl + (t.t ? small(t.t) : '') + (r.psi != null ? small(r.psi + ' psi') : ''), { align: 'right', nowrap: true, bold: true, color: t.c })
+                    + _digestCell(stock) + '</tr>';
+            });
+            h += '</table></td></tr>';
+            h += '<tr><td style="padding:4px 0 0 0;font-size:11px;color:' + _DG.muted + ';">Instalado = en uso o conectado a una pared con tablero. Stock = mismo gas y concentración en almacén o reserva.</td></tr>';
+        }
+    }
+    var fuel = inv.fuel || [];
+    h += _digestH('Gasolina por tipo', fuel.some(function(r) { return r.needsPurchase; }) ? _DG.amber : _DG.accent);
+    if (!fuel.length) {
+        h += '<tr><td style="padding:8px 0;font-size:13px;color:' + _DG.muted + ';">Sin gasolina registrada.</td></tr>';
+    } else {
+        h += '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+            _digestTh('Tipo') + _digestTh('Litros', 'right') + _digestTh('Estado') + '</tr>';
+        fuel.forEach(function(r) {
+            var est = r.needsPurchase ? '<span style="color:' + _DG.red + ';font-weight:700;">Pedir</span>' + small('nivel de pedido ' + r.reorderLevel + ' L')
+                : r.reorderLevel ? '<span style="color:' + _DG.green + ';">OK</span>' + small('pedido con ' + r.reorderLevel + ' L') : '<span style="color:' + _DG.muted + ';">—</span>' + small('sin nivel de pedido');
+            if (r.low) est += small(r.low + (r.low === 1 ? ' tambo bajo' : ' tambos bajos'));
+            h += '<tr>' + _digestCell('<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + _digestEsc(r.color || '#94a3b8') + ';"></span> <b>' + _digestEsc(r.name) + '</b>' +
+                    small(r.fromLegacy ? 'total anterior (sin tambos registrados)' : r.drums + (r.drums === 1 ? ' tambo' : ' tambos')))
+                + _digestCell(Math.round(r.liters) + ' L' + small('de ' + Math.round(r.capacity) + ' L' + (r.pct != null ? ' · ' + r.pct + '%' : '')), { align: 'right', nowrap: true, bold: true })
+                + _digestCell(est) + '</tr>';
+        });
+        h += '</table></td></tr>';
+    }
+    return h;
 }
 
 /** El correo del aviso de plan aceptado. PURA. */
@@ -576,7 +664,8 @@ function digestLocalCompute() {
         vehicles: (typeof db !== 'undefined' && db && db.vehicles) || [],
         planFor: (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor : null,
         statusLabels: (typeof CONFIG !== 'undefined' && CONFIG.statusLabels) || {},
-        settings: _digestUi.settings || {}
+        settings: _digestUi.settings || {},
+        inventory: (typeof invState !== 'undefined' && invState) ? invState : null
     }, new Date().toISOString());
 }
 

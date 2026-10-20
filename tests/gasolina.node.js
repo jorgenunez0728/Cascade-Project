@@ -158,5 +158,47 @@ const k = ctx.invFuelRoomKpis({ slots: [{ gasId: 'a' }, { gasId: 'b' }, { gasId:
 ok('indicadores: tambos/posiciones, críticos, leídos hoy, sin lugar', k.drums === 2 && k.positions === 3 && k.critical === 1 && k.readToday === 1 && k.toRead === 2 && k.unplaced === 1);
 ok('el ciclo del tambo se deriva', ctx.invFuelRoomLifecycle({ fuelStatus: 'Cerrado' }) === 'cerrado' && ctx.invFuelRoomLifecycle({ fuelStatus: 'Abierto' }, { liters: 0 }) === 'vacio');
 
+console.log('\n== [3.11.0] Los registros de antes eran TOTALES por tipo, no tambos ==');
+{
+    const T2 = [{ id: 'ft_e6', name: 'EURO VI', regulation: 'EURO VI', reorderLevel: 300 }, { id: 'ft_c3', name: 'CARB LEV III', regulation: 'CARB LEV III' }];
+    const legacy = [
+        { id: 'L1', name: 'EURO VI (Orden Anterior)', regulation: 'EURO VI', capacity: 400, currentLevel: 379.5, unit: 'L', legacyTotal: true,
+          readings: [{ date: '2026-09-07', level: 400 }, { date: '2026-09-14', level: 379.5 }] },
+        { id: 'L2', name: 'EURO VI (Orden Actual)', regulation: 'EURO VI', capacity: 400, currentLevel: 400, unit: 'L', legacyTotal: true, readings: [{ date: '2026-09-07', level: 400 }] },
+        { id: 'L3', name: 'CARB LEV III Regular', regulation: 'CARB LEV III', capacity: 400, currentLevel: 315, unit: 'L', legacyTotal: true, readings: [{ date: '2026-09-07', level: 315 }] }
+    ];
+    let tt = ctx.invFuelTypeTotals(T2, legacy);
+    ok('sin tambos: el total del tipo sale de sus registros anteriores (EURO VI 779.5 L)', tt[0].fromLegacy && tt[0].liters === 779.5 && tt[0].drums === 0 && tt[0].legacy === 2);
+    const drums = [
+        { id: 'D1', typeId: 'ft_e6', pos: 'T1-1', legacyTotal: false, capacity: 225, currentLevel: 50, unit: 'L', readings: [{ date: '2026-10-05', level: 100 }, { date: '2026-10-12', level: 50 }] },
+        { id: 'D2', typeId: 'ft_e6', pos: 'T1-2', legacyTotal: false, capacity: 225, currentLevel: 225, unit: 'L', readings: [{ date: '2026-10-05', level: 225 }] }
+    ];
+    tt = ctx.invFuelTypeTotals(T2, legacy.concat(drums));
+    ok('con tambos: solo cuentan los tambos (275 L), el registro anterior no se suma dos veces', tt[0].liters === 275 && tt[0].capacity === 450 && !tt[0].fromLegacy && tt[0].legacy === 2);
+    ok('un tipo sin tambos sigue con su total anterior (CARB 315 L)', tt[1].fromLegacy && tt[1].liters === 315);
+    ok('el consumo por semana es la historia del tipo: registro anterior + tambos', tt[0].usage.weeks.map(w => w.liters).join(',') === '20.5,50', JSON.stringify(tt[0].usage.weeks));
+    ok('la siembra toma el nivel de pedido de los registros anteriores (sumado)',
+       ctx.invFuelTypesFromTanks([{ regulation: 'EURO VI', reorderLevel: 150 }, { regulation: 'EURO VI', reorderLevel: 100 }])[0].reorderLevel === 250);
+    ok('un total anterior no es un tambo en el cuarto (ni "sin lugar")', ctx.invFuelRoomItems(legacy.concat(drums)).map(x => x.id).join(',') === 'D1,D2');
+
+    // Con el estado real del módulo
+    const inv = ctx.__inv();
+    ctx.__setInv(Object.assign(inv, { fuelTypes: undefined, fuelTanks: [
+        { id: 'fuel_eurovi_act', name: 'EURO VI (Orden Actual)', regulation: 'EURO VI', capacity: 400, currentLevel: 400, unit: 'L', readings: [{ date: '2026-09-07', level: 400 }], reorderLevel: 200 },
+        { id: 'puesto', name: 'Tambo en T1-1', regulation: 'EURO VI', pos: 'T1-1', capacity: 225, currentLevel: 200, unit: 'L', readings: [{ date: '2026-10-07', level: 200 }] }
+    ], gases: [], usageLog: [] }));
+    vm.runInContext('_invFuelTypesEnsure();', ctx);
+    const st = ctx.__inv();
+    ok('al cargar: lo que no tenía lugar se marca total anterior; lo acomodado, tambo', st.fuelTanks[0].legacyTotal === true && st.fuelTanks[1].legacyTotal === false);
+    ok('la marca es una sola vez (no se repite en la línea de tiempo)', (vm.runInContext('_invFuelTypesEnsure();', ctx), st.fuelTanks[0].timeline.length === 1));
+    ok('el tipo sembrado hereda el nivel de pedido', st.fuelTypes[0].reorderLevel === 200);
+    const R = ctx.invConsumablesReportRows();
+    ok('reporte semanal: un renglón POR TIPO (EURO VI 200 L de 225, 1 tambo), no por registro', R.fuel.length === 1 && R.fuel[0].label === 'EURO VI' && R.fuel[0].level === 200 && R.fuel[0].capacity === 225 && R.fuel[0].drums === 1, JSON.stringify(R.fuel));
+    ok('200 L con pedido en 200 → comprar', R.fuel[0].needsPurchase === true);
+    const round = vm.runInContext('invRoundItems()', ctx).filter(x => x.kind === 'fuel').map(x => x.id).join(',');
+    ok('la ronda lee el tambo, no el total anterior de un tipo que ya tiene tambos', round === 'puesto', round);
+    ok('un tambo nuevo nace como tambo', ctx.invFuelTankCreate({ typeId: st.fuelTypes[0].id, capacity: 225, level: 225, pos: 'T1-2' }).tank.legacyTotal === false);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;

@@ -3466,6 +3466,23 @@ norma se juzga, porque el alta de México nunca trae la correcta (la empresa los
 - Sync: `invFuelTypesUnion` (PURA, simétrica) en `merge_all` y `new`; `invFuelTypesNewTo` en
   `hasWork` y `_fbLocalHasExtras`; `fuelTypes` en `_fbPullSeed`, la huella y el puntaje local.
   Toda clave nueva del cuarto de gasolina que viaje sigue ese patrón.
-- Pendiente declarado: el reporte semanal de consumibles sigue siendo por tambo (no por tipo), y
-  la ronda de lectura todavía no recorre los tambos por tarima.
+- **Lo que existía antes de los tambos eran TOTALES por tipo** (decisión del laboratorio: "no hay
+  ninguno de 400"). `_invFuelLegacyMark` los marca UNA vez (`legacyTotal: true` = sin `pos` al
+  cargar; un tambo nuevo nace `false`) e `invFuelIsLegacyTotal(t)` es la forma de preguntarlo.
+  Un total anterior **no es un tambo**: no va en el cuarto (`invFuelRoomItems`), ni en la ronda si
+  su tipo ya tiene tambos, ni le gana el descuento a un tambo. `invFuelTypeTotals` lo usa solo
+  mientras su tipo no tenga tambos (`fromLegacy`): nunca sumar los dos.
+- **El reporte semanal, su correo, su importación y la alerta de comprar gasolina son POR TIPO**
+  (`invConsumablesReportRows().fuel` sale de `invFuelTypeTotals`); el nivel de pedido es del tipo
+  (`fuelType.reorderLevel`), no de un registro. El consumo semanal del tipo une la historia de los
+  totales anteriores y de los tambos (`invFuelTypeWeeklyUsage`).
+- **`invInstalledCylinders(gases, {wallZones, parse})` (PURA) es LA definición de "instalado"**
+  (En uso, o en una pared con tablero y no vacío) **y de "hay stock del mismo"** (mismo
+  `invGasConsumableKey` —especie + concentración— en `Stock`/`Spare`; vencido aparte).
+- **El resumen por correo trae el cuarto** (`digestInventory(inv)`, compone las definiciones de
+  Consumibles; sin inventario devuelve `{missing:true}` y el correo lo dice). `tools/daily-digest`
+  lee `inventory/current` sin abortar si falla; `tools/digest-env` carga `inventory.js` y
+  `cuarto.js` completos (las paredes con tablero salen de `INV_ROOM_LAYOUT`). Un registro de la
+  nube sin `legacyTotal` se lee con la misma regla, en copia.
+- Pendiente declarado: la ronda de lectura todavía no agrupa los tambos por tarima.
 
