@@ -20,14 +20,24 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.14.1 — La bienvenida ya no se corta (2026-10-20)
+## 3.14.1 — La bienvenida ya no se corta y la lectura se queda (2026-10-20)
 
 ### Arreglado
+- **Lectura en el mapa del cuarto, en la tableta (#213)**: al tocar "Lectura de hoy" aparecía el
+  teclado, la ventana parpadeaba y el campo desaparecía con lo escrito, así que no se podía
+  guardar. Ahora el teclado no repinta el mapa y lo tecleado se conserva hasta guardar (también si
+  llega un cambio de la nube mientras se escribe).
 - Con varios operadores en la pantalla de acceso, la lista pasaba del alto de la ventana y la
   pantalla se cortaba por arriba: no se veía la marca y esa parte no se alcanzaba con el
   desplazamiento. Ahora se centra cuando cabe y empieza desde arriba cuando no.
 
 ### Para desarrollo
+- `js/cuarto.js`: el oyente de `resize` ignora un cambio SOLO de alto mientras se escribe en un
+  campo (`_invRoomTyping`): es el teclado en pantalla. Antes repintaba, `invRoomPanelPaint` rehacía
+  el panel con `innerHTML`, el campo se destruía, el teclado se cerraba y la ventana crecía otra vez.
+- `invRoomPanelPaint` conserva lo tecleado y el foco al repintar la MISMA selección
+  (`_invRoomPanelKeep`, clave en `#rm-panel[data-key]`); tras guardar se suelta con
+  `_invRoomPanelForget()`. `tests/v3141.e2e.js` reproduce el reporte a 753×1132 táctil.
 - `.auth-overlay > #auth-content { margin: auto }`: un contenedor flex con `align-items:center`
   y `overflow-y:auto` desborda al hijo por ARRIBA, fuera del alcance del scroll. Las márgenes
   automáticas centran solo cuando sobra espacio.

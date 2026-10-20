@@ -1044,8 +1044,16 @@ function _invRoomFitStage() {
     setTimeout(align, 350);
     if (!window._invRoomResizeBound) {
         window._invRoomResizeBound = true;
-        var t = null;
-        window.addEventListener('resize', function() { clearTimeout(t); t = setTimeout(function() { if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); } }, 150); });
+        var t = null, lastW = window.innerWidth;
+        window.addEventListener('resize', function() {
+            // [3.14.1] En tableta y teléfono el teclado en pantalla solo achica el ALTO: no es otra
+            // pantalla. Repintar ahí rehacía el panel, destruía el campo que se estaba llenando, el
+            // teclado se cerraba, la ventana volvía a crecer y se repintaba otra vez (#213).
+            var w = window.innerWidth;
+            if (w === lastW && _invRoomTyping()) return;
+            lastW = w;
+            clearTimeout(t); t = setTimeout(function() { if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); } }, 150);
+        });
     }
 }
 
@@ -1164,14 +1172,54 @@ function _invRoomPaintMoving() {
 }
 
 // ── Ventana flotante: estado + lectura junto al cilindro ─────────────
+/** ¿Se está escribiendo en un campo? (el teclado en pantalla está abierto). */
+function _invRoomTyping() {
+    var ae = document.activeElement;
+    return !!(ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable) && ae.type !== 'button' && ae.type !== 'checkbox' && ae.type !== 'radio');
+}
+
+/**
+ * Lo tecleado en el panel y no guardado todavía, para devolverlo tras repintar la MISMA
+ * selección (un repintado por la nube o por un cambio de tamaño no debe borrarlo):
+ * {key, values:{id: valor}, focus, start, end}. Lo que se guardó se suelta con
+ * `_invRoomPanelForget()` antes de repintar.
+ */
+function _invRoomPanelKeep(host, key) {
+    var keep = { key: key, values: {}, focus: null, start: null, end: null };
+    host.querySelectorAll('input[id], textarea[id]').forEach(function(el) {
+        if (el.type === 'checkbox' || el.type === 'radio' || el.type === 'button') return;
+        if (el.value !== el.defaultValue) keep.values[el.id] = el.value;
+    });
+    var ae = document.activeElement;
+    if (ae && ae.id && host.contains(ae)) {
+        keep.focus = ae.id;
+        try { keep.start = ae.selectionStart; keep.end = ae.selectionEnd; } catch (e) {}
+    }
+    return keep;
+}
+
+/** Tras guardar, lo tecleado ya no es "pendiente": el repintado no debe devolverlo. */
+function _invRoomPanelForget() { var h = document.getElementById('rm-panel'); if (h) delete h.dataset.key; }
+
 function invRoomPanelPaint() {
     var host = document.getElementById('rm-panel');
     if (!host) return;
     var fuel = _invRoomIsFuel();
+    var key = (fuel ? 'f:' : 'g:') + (_invRoom.sel ? 'sel:' + _invRoom.sel : _invRoom.selSlot ? 'slot:' + _invRoom.selSlot : '');
+    var keep = host.dataset.key === key ? _invRoomPanelKeep(host, key) : null;
+    host.dataset.key = key;
     if (_invRoom.sel) { host.hidden = false; host.innerHTML = fuel ? _invFuelDrumPanelHTML(_invRoom.sel) : _invRoomGasPanelHTML(_invRoom.sel); }
     else if (_invRoom.selSlot) { host.hidden = false; host.innerHTML = fuel ? _invFuelSlotPanelHTML(_invRoom.selSlot) : _invRoomSlotPanelHTML(_invRoom.selSlot); }
     else { host.hidden = true; host.innerHTML = ''; return; }
     if (typeof uiChipsEnhance === 'function') { try { uiChipsEnhance(host); } catch (e) {} }
+    if (keep) {
+        Object.keys(keep.values).forEach(function(id) { var el = document.getElementById(id); if (el && host.contains(el)) el.value = keep.values[id]; });
+        var f = keep.focus && document.getElementById(keep.focus);
+        if (f && host.contains(f)) {
+            try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); }
+            try { if (keep.start != null) f.setSelectionRange(keep.start, keep.end); } catch (e) {}
+        }
+    }
     _invRoomPlacePop();
 }
 
@@ -1388,6 +1436,7 @@ function invRoomSaveReading(ev) {
     var res = fuel ? invAddFuelReading(id, inp.value, { source: 'cuarto' }) : invAddReading(id, inp.value, { source: 'cuarto' });
     if (!res.ok) { if (typeof uiInvalid === 'function') uiInvalid(inp, res.reason + '.'); return false; }
     if (typeof invUpdateBadges === 'function') { try { invUpdateBadges(); } catch (e) {} }
+    _invRoomPanelForget();
     invRoomPaint();
     return false;
 }
