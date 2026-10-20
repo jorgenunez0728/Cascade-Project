@@ -3604,3 +3604,10 @@ Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la r
 - El selector de mapa es `_invRoomSwitchHTML()` (cuarto.js); `invRoomRender` delega a `siteRender`
   con `uiPref('roomWhich') === 'lab'`. Cámara del laboratorio: `uiPref('roomCamLab')`.
 
+- **La forma de un equipo es solo su dibujo**: `siteItemShape(it)` (`SITE_SHAPES`; los sembrados
+  sin `shape` la deducen de su id) y `siteItemFront(it)` (n/e/s/w, hacia dónde mira; un sembrado
+  sin `front` toma el de `SITE_ITEMS_SEED`). Los detalles van en `_siteDeco` sobre la cara del
+  frente (y algo en las otras, para reconocerlo desde cualquier ángulo); `_siteBoxSVG(…, deco)`
+  ordena las caras por profundidad. Una forma nueva = entrada en `SITE_SHAPES` + su rama en
+  `_siteDeco`. El auto es un perfil extruido (`SITE_CAR_PROFILE`); su color sale de `--st-car`
+  por tono de estado. Los colores derivados usan `color-mix`, no `filter` (miles de polígonos).

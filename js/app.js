@@ -490,6 +490,7 @@ var APP_VERSION_HISTORY = [
                 'Arriba: unidades en sitio (con y sin alta), reposando, listas para probar, en el dinamómetro y equipos con algo vencido. Dos unidades en el mismo lugar se avisan.',
                 '✏️ Editar plano: los equipos que se ven en las fotos ya están puestos, sin nombre propio. Se arrastran, se renombran, se giran, cambian de tamaño, se quitan y se agregan; ligados a su equipo del F11 muestran si su calibración o su mantenimiento están al día. Todo se comparte entre equipos.',
                 'Mi semana marca 📍 las pruebas cuya configuración tiene una unidad en el laboratorio.',
+                'Autos y equipos con detalle: cristales, ruedas, faros y calaveras en los autos (su color dice su estado); gabinetes con puertas y pantalla, ventilador con aspas, filtro con rejilla. En ✏️ Editar plano se elige la forma de cada equipo.',
                 'Arreglado: un diálogo de texto aceptado con Enter se quedaba escondido y el siguiente leía su valor viejo.'] },
     { version: '3.13.0', date: '20 oct 2026', title: 'El CoP de corporativo, correcto en el reporte y en el Plan',
       bullets: ['El CoP sigue las reglas de corporativo por región y norma: Europa PRE-EURO 7 y General EURO-6C piden ensayos por lotes de producción; Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año.',

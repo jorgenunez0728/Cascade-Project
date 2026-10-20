@@ -69,6 +69,13 @@ ok('gana el editado más reciente, sin perder los demás', JSON.stringify(C.site
 ok('en empate gana la baja', C.siteListUnion([{ id: 'q', updatedAt: '5' }], [{ id: 'q', updatedAt: '5', deleted: true }])[0].deleted === true);
 ok('se detecta lo nuevo y no lo repetido', C.siteListNewTo(a, b) && !C.siteListNewTo(C.siteListUnion(a, b), b) && !C.siteListNewTo(a, []));
 
+console.log('\n== Formas y frente ==');
+const sd = C.siteItemsSeed('');
+ok('la siembra trae forma y frente (los gabinetes miran a la celda, el ventilador al coche)', sd.find(i => i.id === 'si-gab-a').front === 'e' && sd.find(i => i.id === 'si-vent').front === 'w' &&
+   sd.find(i => i.id === 'si-tab-1').shape === 'panel' && sd.find(i => i.id === 'si-vent').shape === 'fan');
+ok('un sembrado de antes (sin frente) toma el de la siembra; uno nuevo mira al sur', C.siteItemFront({ id: 'si-gab-c' }) === 'e' && C.siteItemFront({ id: 'si-x' }) === 's' && C.siteItemShape({ id: 'si-x' }) === 'box');
+ok('cada forma del selector tiene nombre', Object.keys(C.SITE_SHAPES).every(k => C.SITE_SHAPES[k]) && C.siteItemShape({ id: 'si-x', shape: 'desk' }) === 'desk');
+
 console.log('\n== Escena y proyección ==');
 const cam = { az: 25, el: 42, zoom: 1, panX: 0, panY: 0 }, Ce = C.invRoomCenter(L);
 const p = C.invRoomProject(18.3, 4.7, 0, cam, Ce), back = C.siteUnproject(p.x, p.y, cam, Ce);
@@ -83,7 +90,10 @@ const out = C.siteSceneSVG({ layout: L, items, model: M, look, health }, cam, { 
 ok('PURA: misma entrada, misma escena', out.svg === C.siteSceneSVG({ layout: L, items, model: M, look, health }, cam, { sel: { kind: 'item', id: 'si-filtro' } }).svg);
 ok('cada equipo, cada lugar y cada unidad se pueden tocar', (out.svg.match(/data-item="/g) || []).length === items.length &&
    (out.svg.match(/data-spot="/g) || []).length === 5 && /data-veh="1"/.test(out.svg) && /data-unit="u2"/.test(out.svg));
-ok('el equipo con algo vencido se marca y el elegido también', /st-eq st-eq--bad st-eq--sel/.test(out.svg));
+ok('el equipo con algo vencido se marca y el elegido también', /st-eq st-eq--bad st-eq--filter st-eq--sel/.test(out.svg));
+ok('cada forma dibuja sus detalles: pantallas, aspas, puertas', /st-d-screen/.test(out.svg) && /st-d-spoke/.test(out.svg) && /st-d-door/.test(out.svg) && /st-d-hazard/.test(out.svg));
+ok('los autos llevan ruedas, cristales, faros y calaveras', (out.svg.match(/class="st-c-tire"/g) || []).length === 4 * 4 && /st-c-glass/.test(out.svg) && /st-c-headlight/.test(out.svg) && /st-c-taillight/.test(out.svg),
+   (out.svg.match(/class="st-c-tire"/g) || []).length);
 ok('el choque del cajón 3 se pinta', /st-spot--c3 st-spot--busy st-spot--clash/.test(out.svg));
 ok('lo decorativo no se queda con el toque', /\.st-wall \{ pointer-events: none/.test(fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8')));
 const k = C.siteKpis(M, look, items, health);

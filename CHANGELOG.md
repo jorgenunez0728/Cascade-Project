@@ -39,6 +39,10 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   se renombran, se giran, cambian de tamaño, se quitan (se puede deshacer) y se agregan. Ligados a
   su equipo del F11, se pintan en rojo si tienen una calibración o un mantenimiento vencido.
 - **Mi semana** marca 📍 las pruebas cuya configuración tiene una unidad en el laboratorio.
+- **Modelos con detalle**: los autos llevan cristales, ruedas con rin, faros y calaveras, y su color
+  dice su estado; cada equipo se dibuja con su forma (gabinete con puertas y pantalla, ventilador
+  con aspas, filtro con rejilla y consola, escritorio con monitores…) y mira hacia donde está en el
+  laboratorio. En ✏️ Editar plano se elige la forma y ⟳ Girar también gira su frente.
 
 ### Arreglado
 - Un diálogo de texto aceptado con Enter se quedaba escondido y el siguiente diálogo leía el valor

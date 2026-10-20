@@ -71,29 +71,29 @@ var SITE_LAYOUT = {
 
 // Los lugares de equipo que se ven en las fotos, sin nombre propio (el laboratorio los nombra
 // y los liga al F11). id estable: dos equipos que siembran a la vez no duplican.
-// [id, nombre, x0, y0, x1, y1, alto, color]
+// [id, nombre, x0, y0, x1, y1, alto, color, frente (hacia dónde mira: n/e/s/w)]
 var SITE_ITEMS_SEED = [
-    ['si-filtro', 'Filtro de aire', 6.6, 0.25, 9.6, 1.7, 2.6, '#94a3b8'],
-    ['si-brazo', 'Brazo', 10.15, 1.0, 10.55, 1.4, 2.2, '#e2e8f0'],
-    ['si-tab-1', 'Tablero 1', 11.2, 0.25, 11.9, 0.95, 2.1, '#cbd5e1'],
-    ['si-tab-2', 'Tablero 2', 11.95, 0.25, 12.65, 0.95, 2.1, '#cbd5e1'],
-    ['si-tab-3', 'Tablero 3', 12.7, 0.25, 13.4, 0.95, 2.1, '#cbd5e1'],
-    ['si-tab-4', 'Tablero 4', 13.45, 0.25, 14.15, 0.95, 2.1, '#cbd5e1'],
-    ['si-tab-5', 'Tablero 5', 14.2, 0.25, 14.9, 0.95, 2.1, '#cbd5e1'],
-    ['si-vent', 'Ventilador', 11.5, 4.2, 12.8, 5.8, 1.6, '#64748b'],
-    ['si-gab-a', 'Gabinete A', 0.35, 0.6, 2.3, 1.8, 2.0, '#f1f5f9'],
-    ['si-gab-b', 'Gabinete B', 0.35, 1.9, 2.3, 3.1, 2.0, '#f1f5f9'],
-    ['si-gab-c', 'Gabinete C', 0.35, 3.2, 2.3, 4.4, 2.0, '#f1f5f9'],
-    ['si-gab-d', 'Gabinete D', 0.35, 4.5, 2.3, 5.7, 2.0, '#f1f5f9'],
-    ['si-gab-e', 'Gabinete E', 0.35, 5.8, 2.3, 7.0, 2.0, '#f1f5f9'],
-    ['si-rack-1', 'Rack 1', 3.3, 0.5, 4.2, 1.3, 1.9, '#f8fafc'],
-    ['si-rack-2', 'Rack 2', 3.3, 7.9, 4.2, 8.7, 1.9, '#f8fafc'],
-    ['si-stringo', 'Stringo', 4.6, 8.3, 6.2, 9.4, 0.35, '#dc2626'],
-    ['si-carrito', 'Carrito', 7.0, 8.5, 7.8, 9.1, 0.95, '#475569'],
-    ['si-escritorio', 'Escritorio de control', 2.3, 10.2, 11.2, 10.8, 0.75, '#e2e8f0'],
-    ['si-ebcm1', 'EBCM1', 18.6, 6.25, 19.6, 7.15, 1.4, '#64748b'],
-    ['si-cargador', 'Cargador', 20.2, 6.3, 20.9, 7.1, 1.6, '#10b981'],
-    ['si-inflador', 'Inflador', 22.6, 12.0, 23.3, 12.7, 1.0, '#f59e0b']
+    ['si-filtro', 'Filtro de aire', 6.6, 0.25, 9.6, 1.7, 2.6, '#94a3b8', 's'],
+    ['si-brazo', 'Brazo', 10.15, 1.0, 10.55, 1.4, 2.2, '#e2e8f0', 's'],
+    ['si-tab-1', 'Tablero 1', 11.2, 0.25, 11.9, 0.95, 2.1, '#cbd5e1', 's'],
+    ['si-tab-2', 'Tablero 2', 11.95, 0.25, 12.65, 0.95, 2.1, '#cbd5e1', 's'],
+    ['si-tab-3', 'Tablero 3', 12.7, 0.25, 13.4, 0.95, 2.1, '#cbd5e1', 's'],
+    ['si-tab-4', 'Tablero 4', 13.45, 0.25, 14.15, 0.95, 2.1, '#cbd5e1', 's'],
+    ['si-tab-5', 'Tablero 5', 14.2, 0.25, 14.9, 0.95, 2.1, '#cbd5e1', 's'],
+    ['si-vent', 'Ventilador', 11.5, 4.2, 12.8, 5.8, 1.6, '#64748b', 'w'],
+    ['si-gab-a', 'Gabinete A', 0.35, 0.6, 2.3, 1.8, 2.0, '#f1f5f9', 'e'],
+    ['si-gab-b', 'Gabinete B', 0.35, 1.9, 2.3, 3.1, 2.0, '#f1f5f9', 'e'],
+    ['si-gab-c', 'Gabinete C', 0.35, 3.2, 2.3, 4.4, 2.0, '#f1f5f9', 'e'],
+    ['si-gab-d', 'Gabinete D', 0.35, 4.5, 2.3, 5.7, 2.0, '#f1f5f9', 'e'],
+    ['si-gab-e', 'Gabinete E', 0.35, 5.8, 2.3, 7.0, 2.0, '#f1f5f9', 'e'],
+    ['si-rack-1', 'Rack 1', 3.3, 0.5, 4.2, 1.3, 1.9, '#f8fafc', 's'],
+    ['si-rack-2', 'Rack 2', 3.3, 7.9, 4.2, 8.7, 1.9, '#f8fafc', 'n'],
+    ['si-stringo', 'Stringo', 4.6, 8.3, 6.2, 9.4, 0.35, '#dc2626', 'e'],
+    ['si-carrito', 'Carrito', 7.0, 8.5, 7.8, 9.1, 0.95, '#475569', 'n'],
+    ['si-escritorio', 'Escritorio de control', 2.3, 10.2, 11.2, 10.8, 0.75, '#e2e8f0', 'n'],
+    ['si-ebcm1', 'EBCM1', 18.6, 6.25, 19.6, 7.15, 1.4, '#64748b', 'w'],
+    ['si-cargador', 'Cargador', 20.2, 6.3, 20.9, 7.1, 1.6, '#10b981', 'w'],
+    ['si-inflador', 'Inflador', 22.6, 12.0, 23.3, 12.7, 1.0, '#f59e0b', 'n']
 ];
 
 var SITE_CAM_DEFAULT = { az: 18, el: 46, zoom: 1, panX: 0, panY: 0 };
@@ -108,8 +108,8 @@ var SITE_CAR = { len: 4.4, wid: 1.8 };
 /** Los equipos de la siembra como registros de `invState.siteItems`. PURA. */
 function siteItemsSeed(nowIso) {
     return SITE_ITEMS_SEED.map(function(r) {
-        return { id: r[0], label: r[1], x0: r[2], y0: r[3], x1: r[4], y1: r[5], h: r[6], color: r[7],
-                 assetId: '', seeded: true, updatedAt: nowIso || '', deleted: false };
+        return { id: r[0], label: r[1], x0: r[2], y0: r[3], x1: r[4], y1: r[5], h: r[6], color: r[7], front: r[8] || 's',
+                 shape: siteItemShape({ id: r[0] }), assetId: '', seeded: true, updatedAt: nowIso || '', deleted: false };
     });
 }
 
@@ -293,39 +293,208 @@ function siteSpotAt(pt, layout) {
 // Escena — PURA
 // ══════════════════════════════════════════════════════════════════════
 
-/** Caja (prisma) con sus caras visibles ordenadas: devuelve {d, s}. */
-function _siteBoxSVG(P, r, z0, z1, cls, attrs, inner) {
+/** Caja (prisma) con sus caras ordenadas por profundidad: devuelve {d, s}.
+ * `deco(i, F)` (opcional) agrega detalles sobre la cara i (0 norte, 1 este, 2 sur, 3 oeste; 'top'
+ * = la tapa): F(u, v) da el punto de la cara con u a lo ancho y v a lo alto (0..1). */
+function _siteBoxSVG(P, r, z0, z1, cls, attrs, inner, deco) {
     var c4 = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
     var top = c4.map(function(c) { return P(c[0], c[1], z1); });
     var faces = [];
     for (var i = 0; i < 4; i++) {
         var a = c4[i], b = c4[(i + 1) % 4];
         var q0 = P(a[0], a[1], z0), q1 = P(b[0], b[1], z0);
-        faces.push({ d: (q0.d + q1.d) / 2, s: '<polygon class="st-side st-side--' + i + '" points="' + _invRoomPts([q0, q1, top[(i + 1) % 4], top[i]]) + '"/>' });
+        var F = (function(a, b) { return function(u, v) { return P(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, z0 + (z1 - z0) * v); }; })(a, b);
+        faces.push({ d: (q0.d + q1.d) / 2, s: '<polygon class="st-side st-side--' + i + '" points="' + _invRoomPts([q0, q1, top[(i + 1) % 4], top[i]]) + '"/>' + (deco ? deco(i, F) || '' : '') });
     }
     faces.sort(function(x, y) { return x.d - y.d; });
+    var T = function(u, v) { return P(r[0] + (r[2] - r[0]) * u, r[1] + (r[3] - r[1]) * v, z1); };
     var dmax = Math.max.apply(null, top.map(function(q) { return q.d; }));
     return { d: (dmax + Math.min.apply(null, top.map(function(q) { return q.d; }))) / 2,
              s: '<g class="' + cls + '"' + (attrs || '') + '>' + faces.map(function(f) { return f.s; }).join('') +
-                '<polygon class="st-top" points="' + _invRoomPts(top) + '"/>' + (inner || '') + '</g>' };
+                '<polygon class="st-top" points="' + _invRoomPts(top) + '"/>' + (deco ? deco('top', T) || '' : '') + (inner || '') + '</g>' };
 }
 
-/** Un vehículo: cuerpo bajo + cabina, mirando a `nose` (+1 este, −1 oeste). */
+/** Un cuadrilátero sobre una cara (coordenadas u, v de 0 a 1). */
+function _siteQuad(F, u0, v0, u1, v1, cls) {
+    return '<polygon class="' + cls + '" points="' + _invRoomPts([F(u0, v0), F(u1, v0), F(u1, v1), F(u0, v1)]) + '"/>';
+}
+/** Una elipse sobre una cara (centro u, v y radios en u, v). */
+function _siteDisc(F, cu, cv, ru, rv, cls, n) {
+    var pts = [];
+    n = n || 18;
+    for (var k = 0; k < n; k++) { var t = 2 * Math.PI * k / n; pts.push(F(cu + ru * Math.cos(t), cv + rv * Math.sin(t))); }
+    return '<polygon class="' + cls + '" points="' + _invRoomPts(pts) + '"/>';
+}
+function _siteSeg(F, u0, v0, u1, v1, cls) {
+    var a = F(u0, v0), b = F(u1, v1);
+    return '<line class="' + cls + '" x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) + '"/>';
+}
+
+// [3.14.0] Formas de equipo: cada una dibuja sus detalles sobre la cara del FRENTE
+// (`front`: hacia dónde mira, n/e/s/o) y, a veces, sobre la tapa.
+var SITE_SHAPES = {
+    cabinet: 'Gabinete', panel: 'Tablero', filter: 'Equipo grande', fan: 'Ventilador', post: 'Poste / brazo',
+    stringo: 'Plataforma', cart: 'Carrito', desk: 'Escritorio', charger: 'Cargador', box: 'Caja'
+};
+var SITE_FRONT_FACE = { n: 0, e: 1, s: 2, w: 3 };
+var SITE_FRONT_NEXT = { n: 'e', e: 's', s: 'w', w: 'n' };
+
+function _siteDeco(shape, i, F, front) {
+    var fi = SITE_FRONT_FACE[front] == null ? 2 : SITE_FRONT_FACE[front];
+    var h = '';
+    if (i === 'top') {
+        if (shape === 'desk') {   // monitores sobre el escritorio
+            [0.18, 0.5, 0.82].forEach(function(u) { h += _siteQuad(F, u - 0.07, 0.3, u + 0.07, 0.55, 'st-d-screen'); });
+        } else if (shape === 'filter' || shape === 'cabinet' || shape === 'panel') {
+            h += _siteQuad(F, 0.08, 0.12, 0.92, 0.88, 'st-d-lid');
+        } else if (shape === 'stringo') {
+            h += _siteQuad(F, 0.05, 0.08, 0.95, 0.92, 'st-d-plate');
+        }
+        return h;
+    }
+    if (i !== fi) {
+        // Las otras caras también llevan algo: el ventilador es redondo por los dos lados y los
+        // gabinetes tienen rejillas de ventilación arriba (así se reconocen desde cualquier ángulo).
+        if (shape === 'fan' && i === (fi + 2) % 4) {
+            h += _siteDisc(F, 0.5, 0.56, 0.42, 0.4, 'st-d-fanring', 28) + _siteDisc(F, 0.5, 0.56, 0.3, 0.28, 'st-d-fanback', 28);
+            [0.3, 0.42, 0.54, 0.66, 0.78].forEach(function(v) { h += _siteSeg(F, 0.2, v, 0.8, v, 'st-d-spoke'); });
+        } else if (shape === 'cabinet' || shape === 'panel' || shape === 'charger' || shape === 'filter' || shape === 'box') {
+            [0.78, 0.83, 0.88].forEach(function(v) { h += _siteSeg(F, 0.3, v, 0.7, v, 'st-d-vent'); });
+        }
+        return h;
+    }
+    if (shape === 'cabinet' || shape === 'panel') {
+        h += _siteQuad(F, 0.07, 0.1, 0.48, 0.9, 'st-d-door') + _siteQuad(F, 0.52, 0.1, 0.93, 0.9, 'st-d-door');
+        h += _siteSeg(F, 0.43, 0.45, 0.43, 0.6, 'st-d-handle') + _siteSeg(F, 0.57, 0.45, 0.57, 0.6, 'st-d-handle');
+        if (shape === 'panel') {
+            h += _siteQuad(F, 0.16, 0.62, 0.4, 0.82, 'st-d-screen') + _siteDisc(F, 0.7, 0.75, 0.035, 0.025, 'st-d-led');
+            [0.2, 0.28, 0.36].forEach(function(v) { h += _siteSeg(F, 0.6, v, 0.86, v, 'st-d-vent'); });
+        } else {
+            h += _siteDisc(F, 0.86, 0.84, 0.03, 0.02, 'st-d-led');
+            [0.16, 0.22, 0.28].forEach(function(v) { h += _siteSeg(F, 0.12, v, 0.42, v, 'st-d-vent'); });
+        }
+    } else if (shape === 'filter') {
+        h += _siteQuad(F, 0.05, 0.12, 0.66, 0.9, 'st-d-grille');
+        for (var k = 1; k < 9; k++) h += _siteSeg(F, 0.07, 0.12 + k * 0.087, 0.64, 0.12 + k * 0.087, 'st-d-slat');
+        h += _siteQuad(F, 0.72, 0.45, 0.94, 0.86, 'st-d-console') + _siteQuad(F, 0.75, 0.62, 0.91, 0.82, 'st-d-screen');
+        [0.76, 0.83, 0.9].forEach(function(u) { h += _siteDisc(F, u, 0.52, 0.018, 0.02, 'st-d-led'); });
+    } else if (shape === 'fan') {
+        h += _siteDisc(F, 0.5, 0.56, 0.42, 0.4, 'st-d-fanring', 28) + _siteDisc(F, 0.5, 0.56, 0.36, 0.34, 'st-d-fanhole', 28);
+        for (var sp = 0; sp < 8; sp++) { var t = Math.PI * sp / 4; h += _siteSeg(F, 0.5, 0.56, 0.5 + 0.36 * Math.cos(t), 0.56 + 0.34 * Math.sin(t), 'st-d-spoke'); }
+        h += _siteDisc(F, 0.5, 0.56, 0.06, 0.06, 'st-d-hub');
+    } else if (shape === 'stringo') {
+        for (var d = 0; d < 6; d++) h += _siteQuad(F, 0.1 + d * 0.14, 0.15, 0.17 + d * 0.14, 0.85, 'st-d-hazard');
+    } else if (shape === 'cart') {
+        h += _siteSeg(F, 0.05, 0.35, 0.95, 0.35, 'st-d-shelf') + _siteSeg(F, 0.05, 0.68, 0.95, 0.68, 'st-d-shelf');
+        h += _siteDisc(F, 0.14, 0.05, 0.07, 0.06, 'st-d-wheel') + _siteDisc(F, 0.86, 0.05, 0.07, 0.06, 'st-d-wheel');
+    } else if (shape === 'desk') {
+        [0.1, 0.4, 0.7].forEach(function(u) { h += _siteQuad(F, u, 0.15, u + 0.2, 0.85, 'st-d-drawer'); h += _siteSeg(F, u + 0.07, 0.62, u + 0.13, 0.62, 'st-d-handle'); });
+    } else if (shape === 'charger') {
+        h += _siteQuad(F, 0.18, 0.55, 0.82, 0.85, 'st-d-screen') + _siteDisc(F, 0.5, 0.35, 0.16, 0.08, 'st-d-plug');
+        h += _siteSeg(F, 0.5, 0.27, 0.62, 0.04, 'st-d-cable');
+    } else if (shape === 'box') {
+        h += _siteQuad(F, 0.1, 0.12, 0.9, 0.88, 'st-d-door');
+    }
+    return h;
+}
+
+/** Hacia dónde mira un equipo (los sembrados antes de que existiera el frente toman el de la siembra). */
+function siteItemFront(it) {
+    if (it && SITE_FRONT_FACE[it.front] != null) return it.front;
+    var row = it && SITE_ITEMS_SEED.find(function(r) { return r[0] === it.id; });
+    return (row && row[8]) || 's';
+}
+
+/** La forma de un equipo (los anteriores a las formas se deducen de su id). */
+function siteItemShape(it) {
+    if (it && SITE_SHAPES[it.shape]) return it.shape;
+    var id = String((it && it.id) || '');
+    if (/tab-/.test(id)) return 'panel';
+    if (/gab-|rack|ebcm/.test(id)) return 'cabinet';
+    if (/filtro/.test(id)) return 'filter';
+    if (/vent/.test(id)) return 'fan';
+    if (/brazo/.test(id)) return 'post';
+    if (/stringo/.test(id)) return 'stringo';
+    if (/carrito/.test(id)) return 'cart';
+    if (/escritorio/.test(id)) return 'desk';
+    if (/cargador/.test(id)) return 'charger';
+    return 'box';
+}
+
+// El perfil de un auto (de la defensa trasera a la nariz, en metros: x a lo largo, z alto).
+var SITE_CAR_PROFILE = [[-2.2, 0.34], [-2.2, 0.78], [-1.98, 0.98], [-1.3, 1.4], [0.4, 1.44], [1.08, 1.0], [2.0, 0.86], [2.2, 0.64], [2.2, 0.34]];
+var SITE_CAR_STRIP = ['rear', 'body', 'glass', 'roof', 'glass', 'body', 'front', 'front'];
+
+/**
+ * Un auto: el perfil extruido a lo ancho, con cristales, ruedas, faros y calaveras, mirando a
+ * `nose` (+1 este, −1 oeste). Las caras van por profundidad (el costado lejano primero).
+ */
 function _siteCarSVG(P, cx, cy, nose, cls, attrs, title) {
-    var L = SITE_CAR.len, W = SITE_CAR.wid;
-    var body = [cx - L / 2, cy - W / 2, cx + L / 2, cy + W / 2];
-    var cab0 = nose > 0 ? cx - L * 0.28 : cx - L * 0.12, cab1 = nose > 0 ? cx + L * 0.12 : cx + L * 0.28;
-    var b = _siteBoxSVG(P, body, 0.3, 0.95, 'st-car-body', '', '');
-    var c = _siteBoxSVG(P, [cab0, cy - W * 0.42, cab1, cy + W * 0.42], 0.95, 1.45, 'st-car-cab', '', '');
-    var wheels = '';
-    [[cx - L * 0.32, cy - W / 2], [cx - L * 0.32, cy + W / 2], [cx + L * 0.32, cy - W / 2], [cx + L * 0.32, cy + W / 2]].forEach(function(w) {
-        var p = P(w[0], w[1], 0.3);
-        wheels += '<ellipse class="st-wheel" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" rx="18" ry="11"/>';
-    });
-    var nf = P(cx + nose * L / 2, cy, 0.62);
-    return { d: Math.max(b.d, c.d),
-             s: '<g class="' + cls + '"' + (attrs || '') + '>' + (title ? '<title>' + _invRoomEsc(title) + '</title>' : '') + wheels + b.s + c.s +
-                '<circle class="st-car-nose" cx="' + nf.x.toFixed(1) + '" cy="' + nf.y.toFixed(1) + '" r="5"/></g>' };
+    var W = SITE_CAR.wid / 2, s = nose < 0 ? -1 : 1;
+    var X = function(x) { return cx + s * x; };
+    var Q = function(x, y, z) { return P(X(x), cy + y, z); };
+    var prof = SITE_CAR_PROFILE;
+    var faces = [];
+    var side = function(sy) {
+        var pts = prof.map(function(p) { return Q(p[0], sy, p[1]); });
+        var dd = pts.reduce(function(a, q) { return a + q.d; }, 0) / pts.length;
+        var F = function(x, z) { return Q(x, sy * 1.002, z); };
+        var g = '<polygon class="st-c-side" points="' + _invRoomPts(pts) + '"/>';
+        // Cristales laterales (con poste B) y la línea de cintura.
+        g += '<polygon class="st-c-glass" points="' + _invRoomPts([F(-1.26, 1.0), F(-1.2, 1.34), F(-0.44, 1.37), F(-0.44, 1.0)]) + '"/>';
+        g += '<polygon class="st-c-glass" points="' + _invRoomPts([F(-0.32, 1.0), F(-0.32, 1.375), F(0.38, 1.39), F(0.98, 1.02)]) + '"/>';
+        var b0 = F(-2.18, 0.8), b1 = F(2.0, 0.82);
+        g += '<line class="st-c-belt" x1="' + b0.x.toFixed(1) + '" y1="' + b0.y.toFixed(1) + '" x2="' + b1.x.toFixed(1) + '" y2="' + b1.y.toFixed(1) + '"/>';
+        // Ruedas: llanta oscura, rin claro y centro.
+        [-1.38, 1.38].forEach(function(wx) {
+            var tire = [], rim = [];
+            for (var k = 0; k < 20; k++) {
+                var t = 2 * Math.PI * k / 20;
+                tire.push(Q(wx + 0.36 * Math.cos(t), sy * 1.01, 0.35 + 0.35 * Math.sin(t)));
+                rim.push(Q(wx + 0.21 * Math.cos(t), sy * 1.02, 0.35 + 0.21 * Math.sin(t)));
+            }
+            var hub = Q(wx, sy * 1.03, 0.35);
+            g += '<polygon class="st-c-tire" points="' + _invRoomPts(tire) + '"/><polygon class="st-c-rim" points="' + _invRoomPts(rim) + '"/>' +
+                 '<circle class="st-c-hub" cx="' + hub.x.toFixed(1) + '" cy="' + hub.y.toFixed(1) + '" r="3"/>';
+        });
+        faces.push({ d: dd, s: g });
+    };
+    side(W); side(-W);
+    for (var k = 0; k < prof.length - 1; k++) {
+        var a = prof[k], b = prof[k + 1];
+        var q = [Q(a[0], -W, a[1]), Q(b[0], -W, b[1]), Q(b[0], W, b[1]), Q(a[0], W, a[1])];
+        var dd = q.reduce(function(acc, x) { return acc + x.d; }, 0) / 4;
+        var kind = SITE_CAR_STRIP[k];
+        var g = '<polygon class="st-c-' + kind + '" points="' + _invRoomPts(q) + '"/>';
+        var S = (function(a, b) { return function(u, v) { return Q(a[0] + (b[0] - a[0]) * v, -W + 2 * W * u, a[1] + (b[1] - a[1]) * v); }; })(a, b);
+        if (k === 6) {   // nariz: faros en las esquinas
+            g += _siteQuad(S, 0.06, 0.15, 0.3, 0.75, 'st-c-headlight') + _siteQuad(S, 0.7, 0.15, 0.94, 0.75, 'st-c-headlight');
+        } else if (k === 7) {   // defensa: parrilla
+            g += _siteQuad(S, 0.3, 0.12, 0.7, 0.6, 'st-c-grille');
+        } else if (k === 0) {   // trasera: calaveras
+            g += _siteQuad(S, 0.05, 0.62, 0.28, 0.85, 'st-c-taillight') + _siteQuad(S, 0.72, 0.62, 0.95, 0.85, 'st-c-taillight');
+        } else if (k === 3) {   // techo: reflejo
+            g += _siteQuad(S, 0.2, 0.15, 0.8, 0.5, 'st-c-shine');
+        }
+        faces.push({ d: dd, s: g });
+    }
+    faces.sort(function(x, y) { return x.d - y.d; });
+    // Sombra en el piso
+    var sh = [];
+    for (var j = 0; j < 20; j++) { var t = 2 * Math.PI * j / 20; sh.push(P(cx + 2.35 * Math.cos(t), cy + (W + 0.18) * Math.sin(t), 0)); }
+    var dmax = Math.max.apply(null, faces.map(function(f) { return f.d; }));
+    return { d: dmax,
+             s: '<g class="' + cls + '"' + (attrs || '') + '>' + (title ? '<title>' + _invRoomEsc(title) + '</title>' : '') +
+                '<polygon class="st-c-shadow" points="' + _invRoomPts(sh) + '"/>' + faces.map(function(f) { return f.s; }).join('') + '</g>' };
+}
+
+/** Etiqueta en píldora (texto con fondo), para que se lea sobre cualquier cosa. */
+function _sitePill(x, y, text, sub, cls) {
+    var esc = _invRoomEsc;
+    var w = Math.max(String(text).length * 11.5, String(sub || '').length * 9.4) + 22, h = sub ? 46 : 28;
+    return '<g class="st-pill ' + (cls || '') + '" aria-hidden="true"><rect x="' + (x - w / 2).toFixed(1) + '" y="' + (y - h + 6).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h + '" rx="14"/>' +
+           '<text x="' + x.toFixed(1) + '" y="' + (y - (sub ? 18 : 2)).toFixed(1) + '">' + esc(text) + '</text>' +
+           (sub ? '<text class="st-pill-sub" x="' + x.toFixed(1) + '" y="' + (y + 0).toFixed(1) + '">' + esc(sub) + '</text>' : '') + '</g>';
 }
 
 /**
@@ -348,16 +517,33 @@ function siteSceneSVG(scene, cam, opts) {
         var lc = P(r[0] + 0.35, r[1] + 0.35, 0);
         if (opts.labels !== false) over.push({ d: -99, s: '<text class="st-area-lbl" x="' + lc.x.toFixed(1) + '" y="' + lc.y.toFixed(1) + '">' + esc(a.label) + '</text>' });
     });
+    // Placas del piso de la celda (como en las fotos)
+    var cellA = (layout.areas || []).find(function(a) { return a.id === 'celda'; });
+    if (cellA && !opts.lite) {
+        var cr = cellA.rect, gl = [];
+        for (var gx = cr[0] + 1.5; gx < cr[2]; gx += 1.5) { var g1 = P(gx, cr[1], 0.006), g2 = P(gx, cr[3], 0.006); gl.push('M' + g1.x.toFixed(1) + ' ' + g1.y.toFixed(1) + 'L' + g2.x.toFixed(1) + ' ' + g2.y.toFixed(1)); }
+        for (var gy = cr[1] + 1.5; gy < cr[3]; gy += 1.5) { var h1 = P(cr[0], gy, 0.006), h2 = P(cr[2], gy, 0.006); gl.push('M' + h1.x.toFixed(1) + ' ' + h1.y.toFixed(1) + 'L' + h2.x.toFixed(1) + ' ' + h2.y.toFixed(1)); }
+        floorL.push('<path class="st-floor-plates" d="' + gl.join('') + '"/>');
+    }
     // Lo fijo del piso: rodillos, placas, rieles, escape.
     (layout.fixed || []).forEach(function(f) {
         if (f.rect && (f.kind === 'roll' || f.kind === 'plate')) {
             var r = f.rect, cs = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], 0.01); });
             floorL.push('<polygon class="st-' + f.kind + '" points="' + _invRoomPts(cs) + '"/>');
+            if (f.kind === 'roll') {   // los dos rodillos de cada par
+                [0.33, 0.67].forEach(function(t) { var a1 = P(r[0] + (r[2] - r[0]) * t, r[1], 0.012), a2 = P(r[0] + (r[2] - r[0]) * t, r[3], 0.012);
+                    floorL.push('<line class="st-roll-axis" x1="' + a1.x.toFixed(1) + '" y1="' + a1.y.toFixed(1) + '" x2="' + a2.x.toFixed(1) + '" y2="' + a2.y.toFixed(1) + '"/>'); });
+            }
         } else if (f.line) {
             var a = P(f.line[0], f.line[1], 0.02), b = P(f.line[2], f.line[3], 0.02);
             floorL.push('<line class="st-' + f.kind + '" x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) + '"/>');
         } else if (f.kind === 'barrier') {
-            solid.push(_siteBoxSVG(P, f.rect, 0, f.h || 0.9, 'st-barrier', ' aria-hidden="true"', ''));
+            solid.push(_siteBoxSVG(P, f.rect, 0, f.h || 0.9, 'st-barrier', ' aria-hidden="true"', '', function(i, F) {
+                if (i !== 1 && i !== 3) return '';   // las placas amarillas con sus perforaciones
+                var hh = '';
+                for (var u = 0.15; u < 0.9; u += 0.14) for (var v = 0.3; v < 0.9; v += 0.2) hh += _siteDisc(F, u, v, 0.025, 0.03, 'st-d-hole', 8);
+                return hh;
+            }));
         } else if (f.kind === 'tunnel') {
             solid.push(_siteBoxSVG(P, f.rect, f.z0, f.z1, 'st-tunnel', ' aria-hidden="true"', ''));
         }
@@ -393,20 +579,51 @@ function siteSceneSVG(scene, cam, opts) {
         var m = P((d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2, 0);
         if (opts.labels !== false) over.push({ d: 99, s: '<text class="rm-door-lbl" x="' + m.x.toFixed(1) + '" y="' + (m.y + 16).toFixed(1) + '">' + (d.glass ? '↔ ' : '🚪 ') + esc(d.label) + '</text>' });
     });
-    // Equipos (editables)
+    // Equipos (editables), con los detalles de su forma
     (scene.items || []).forEach(function(it) {
         if (!it || it.deleted) return;
         var h = scene.health && scene.health[it.id] || { tone: 'none', text: '' };
         var sel = opts.sel && opts.sel.kind === 'item' && opts.sel.id === it.id;
-        var cls = 'st-eq st-eq--' + h.tone + (sel ? ' st-eq--sel' : '') + (opts.edit ? ' st-eq--edit' : '') + (opts.moving && opts.moving.kind === 'item' && opts.moving.id === it.id ? ' st-eq--moving' : '');
+        var shape = siteItemShape(it), H = Math.max(0.1, +it.h || 1);
+        var cls = 'st-eq st-eq--' + h.tone + ' st-eq--' + shape + (sel ? ' st-eq--sel' : '') + (opts.edit ? ' st-eq--edit' : '') + (opts.moving && opts.moving.kind === 'item' && opts.moving.id === it.id ? ' st-eq--moving' : '');
         var title = it.label + (h.text ? ' — ' + h.text : '');
-        var bx = _siteBoxSVG(P, [it.x0, it.y0, it.x1, it.y1], 0, Math.max(0.1, +it.h || 1), cls,
-            ' data-item="' + esc(it.id) + '" tabindex="0" role="button" aria-label="' + esc(title) + '" style="--st-eq:' + esc(it.color || '#94a3b8') + '"', '<title>' + esc(title) + '</title>');
+        var attrs = ' data-item="' + esc(it.id) + '" tabindex="0" role="button" aria-label="' + esc(title) + '" style="--st-eq:' + esc(it.color || '#94a3b8') + '"';
+        var front = siteItemFront(it);
+        var deco = function(i, F) { return _siteDeco(shape, i, F, front); };
+        var r = [it.x0, it.y0, it.x1, it.y1], bx;
+        // Sombra suave en el piso
+        var sh = [[r[0] - 0.06, r[1] + 0.08], [r[2] + 0.1, r[1] + 0.08], [r[2] + 0.1, r[3] + 0.14], [r[0] - 0.06, r[3] + 0.14]].map(function(c) { return P(c[0], c[1], 0.004); });
+        floorL.push('<polygon class="st-eq-shadow" points="' + _invRoomPts(sh) + '"/>');
+        if (shape === 'post') {
+            // Poste delgado con su brazo arriba
+            var cx0 = (r[0] + r[2]) / 2, cy0 = (r[1] + r[3]) / 2, pw = Math.min(r[2] - r[0], r[3] - r[1]) * 0.35;
+            var base = _siteBoxSVG(P, [r[0], r[1], r[2], r[3]], 0, 0.12, 'st-eq-part', '', '');
+            var col = _siteBoxSVG(P, [cx0 - pw, cy0 - pw, cx0 + pw, cy0 + pw], 0.12, H, 'st-eq-part', '', '');
+            var arm = _siteBoxSVG(P, [cx0 - pw, cy0 - pw, cx0 + 0.9, cy0 + pw], H - 0.12, H, 'st-eq-part', '', '');
+            bx = { d: Math.max(base.d, col.d, arm.d), s: '<g class="' + cls + '"' + attrs + '><title>' + esc(title) + '</title>' + base.s + col.s + arm.s + '</g>' };
+        } else if (shape === 'fan') {
+            // Ventilador: carcasa sobre una base con ruedas
+            var bs = _siteBoxSVG(P, [r[0] + 0.05, r[1] + 0.1, r[2] - 0.05, r[3] - 0.1], 0, 0.25, 'st-eq-part st-eq-base', '', '');
+            var hs = _siteBoxSVG(P, r, 0.25, H, 'st-eq-part', '', '', deco);
+            bx = { d: Math.max(bs.d, hs.d), s: '<g class="' + cls + '"' + attrs + '><title>' + esc(title) + '</title>' + bs.s + hs.s + '</g>' };
+        } else if (shape === 'desk') {
+            var dtop = _siteBoxSVG(P, r, H - 0.06, H, 'st-eq-part', '', '', function(i, F) { return i === 'top' ? deco(i, F) : ''; });
+            var dbody = _siteBoxSVG(P, [r[0], r[1] + (r[3] - r[1]) * 0.1, r[2], r[3] - (r[3] - r[1]) * 0.1], 0, H - 0.06, 'st-eq-part st-eq-under', '', '', function(i, F) { return i === 'top' ? '' : deco(i, F); });
+            bx = { d: Math.max(dtop.d, dbody.d), s: '<g class="' + cls + '"' + attrs + '><title>' + esc(title) + '</title>' + dbody.s + dtop.s + '</g>' };
+        } else if (shape === 'stringo') {
+            var plat = _siteBoxSVG(P, r, 0.05, H, 'st-eq-part', '', '', deco);
+            var hx = front === 'w' ? r[0] + 0.05 : r[2] - 0.15;
+            var han = _siteBoxSVG(P, [hx, (r[1] + r[3]) / 2 - 0.06, hx + 0.1, (r[1] + r[3]) / 2 + 0.06], H, H + 0.85, 'st-eq-part st-eq-handle', '', '');
+            bx = { d: Math.max(plat.d, han.d), s: '<g class="' + cls + '"' + attrs + '><title>' + esc(title) + '</title>' + plat.s + han.s + '</g>' };
+        } else {
+            bx = _siteBoxSVG(P, r, 0, H, cls, attrs, '<title>' + esc(title) + '</title>', deco);
+        }
         solid.push(bx);
-        var lp = P((it.x0 + it.x1) / 2, (it.y0 + it.y1) / 2, Math.max(0.1, +it.h || 1) + 0.15);
-        if (opts.labels !== false) {
-            over.push({ d: bx.d, s: '<g class="st-eq-lbl st-eq-lbl--' + h.tone + '" aria-hidden="true"><text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '">' +
-                (h.tone === 'bad' ? '⚠ ' : '') + esc(it.label) + '</text></g>' });
+        var lp = P((it.x0 + it.x1) / 2, (it.y0 + it.y1) / 2, H + 0.25);
+        if (opts.labels !== false && (sel || h.tone === 'bad' || h.tone === 'warn' || opts.edit || opts.allLabels)) {
+            over.push({ d: bx.d, s: _sitePill(lp.x, lp.y, (h.tone === 'bad' ? '⚠ ' : '') + it.label, '', 'st-pill--eq st-pill--' + h.tone) });
+        } else if (opts.labels !== false) {
+            over.push({ d: bx.d, s: '<g class="st-eq-lbl st-eq-lbl--' + h.tone + '" aria-hidden="true"><text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '">' + esc(it.label) + '</text></g>' });
         }
     });
     // Unidades
@@ -422,16 +639,17 @@ function siteSceneSVG(scene, cam, opts) {
             var car = _siteCarSVG(P, cx, cy, s.nose, cls, ' data-' + e.kind + '="' + esc(e.id) + '" tabindex="0" role="button" aria-label="' + esc(L.aria || e.vin) + '"', L.aria || e.vin);
             solid.push(car);
             if (opts.labels !== false && L.short) {
-                var lp = P(cx, cy, 1.7);
-                over.push({ d: car.d, s: '<g class="st-car-lbl st-car-lbl--' + (L.tone || 'none') + '" aria-hidden="true"><text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '">' + esc(L.short) + '</text>' +
-                    (L.sub ? '<text class="st-car-sub" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 14).toFixed(1) + '">' + esc(L.sub) + '</text>' : '') + '</g>' });
+                var lp = P(cx, cy, 1.95);
+                over.push({ d: car.d, s: _sitePill(lp.x, lp.y, L.short, L.sub || '', 'st-pill--car st-pill--' + (L.tone || 'none')) });
             }
         });
     });
     var byD = function(a, b) { return a.d - b.d; };
     solid.sort(byD); over.sort(byD);
     var box = _siteBox(layout, cam);
-    return { box: box, svg: '<g class="rm-floor-layer">' + floorL.join('') + '</g><g class="rm-solid-layer">' + solid.map(function(x) { return x.s; }).join('') +
+    var defs = '<defs><linearGradient id="st-g-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#475569"/><stop offset="0.55" stop-color="#1e293b"/><stop offset="1" stop-color="#0f172a"/></linearGradient>' +
+               '<linearGradient id="st-g-screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></linearGradient></defs>';
+    return { box: box, svg: defs + '<g class="rm-floor-layer">' + floorL.join('') + '</g><g class="rm-solid-layer">' + solid.map(function(x) { return x.s; }).join('') +
              '</g><g class="rm-over-layer">' + over.map(function(x) { return x.s; }).join('') + '</g>' };
 }
 
@@ -474,13 +692,14 @@ function siteItemSave(id, patch, why) {
     if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'acomodar los equipos del plano')) return false;
     var it = _siteItem(id);
     if (!it) return false;
-    var before = { label: it.label, x0: it.x0, y0: it.y0, x1: it.x1, y1: it.y1, h: it.h, assetId: it.assetId || '', deleted: !!it.deleted };
+    var snap = function() { return { label: it.label, x0: it.x0, y0: it.y0, x1: it.x1, y1: it.y1, h: it.h, shape: siteItemShape(it), front: siteItemFront(it), assetId: it.assetId || '', deleted: !!it.deleted }; };
+    var before = snap();
     Object.keys(patch || {}).forEach(function(k) { it[k] = patch[k]; });
     it.updatedAt = _siteNow(); it.by = _siteWho();
     invSave();
     if (typeof auditLog === 'function') {
         auditLog('inventory', why || 'plano_equipo', { type: 'equipo-plano', id: it.id, label: it.label }, 'Equipo del plano: ' + it.label,
-                 { before: before, after: { label: it.label, x0: it.x0, y0: it.y0, x1: it.x1, y1: it.y1, h: it.h, assetId: it.assetId || '', deleted: !!it.deleted } });
+                 { before: before, after: snap() });
     }
     if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled) { try { fbPush('inventory', invState); } catch (e) {} }
     return true;
@@ -490,7 +709,7 @@ function siteItemAdd() {
     if (typeof authRequire === 'function' && !authRequire('inventory.manage', 'agregar un equipo al plano')) return;
     if (!Array.isArray(invState.siteItems)) invState.siteItems = [];
     var id = 'si-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    invState.siteItems.push({ id: id, label: 'Equipo nuevo', x0: 7, y0: 2.2, x1: 7.8, y1: 2.9, h: 1.2, color: '#94a3b8', assetId: '', updatedAt: '', deleted: false });
+    invState.siteItems.push({ id: id, label: 'Equipo nuevo', x0: 7, y0: 2.2, x1: 7.8, y1: 2.9, h: 1.2, color: '#94a3b8', shape: 'cabinet', front: 's', assetId: '', updatedAt: '', deleted: false });
     siteItemSave(id, {}, 'plano_equipo_alta');
     _site.sel = { kind: 'item', id: id };
     sitePaint();
@@ -514,11 +733,12 @@ function siteItemNudge(id, op) {
     var it = _siteItem(id);
     if (!it) return;
     var w = it.x1 - it.x0, d = it.y1 - it.y0, cx = (it.x0 + it.x1) / 2, cy = (it.y0 + it.y1) / 2, p = {};
-    if (op === 'rot') { p = { x0: cx - d / 2, x1: cx + d / 2, y0: cy - w / 2, y1: cy + w / 2 }; }
+    if (op === 'rot') { p = { x0: cx - d / 2, x1: cx + d / 2, y0: cy - w / 2, y1: cy + w / 2 }; }   // el frente gira con él (abajo)
     else if (op === 'w+' || op === 'w-') { var nw = Math.max(0.2, w + (op === 'w+' ? 0.2 : -0.2)); p = { x0: cx - nw / 2, x1: cx + nw / 2 }; }
     else if (op === 'd+' || op === 'd-') { var nd = Math.max(0.2, d + (op === 'd+' ? 0.2 : -0.2)); p = { y0: cy - nd / 2, y1: cy + nd / 2 }; }
     else if (op === 'h+' || op === 'h-') { p = { h: Math.max(0.1, Math.round(((+it.h || 1) + (op === 'h+' ? 0.2 : -0.2)) * 10) / 10) }; }
     Object.keys(p).forEach(function(k) { p[k] = Math.round(p[k] * 100) / 100; });
+    if (op === 'rot') p.front = SITE_FRONT_NEXT[siteItemFront(it)];
     if (siteItemSave(id, p, 'plano_equipo_forma')) sitePaint();
 }
 
@@ -531,6 +751,12 @@ function siteItemRename(id) {
         if (!v) return;
         if (siteItemSave(id, { label: v.slice(0, 40) }, 'plano_equipo_nombre')) sitePaint();
     });
+}
+
+/** Cambia la forma con que se dibuja un equipo (solo el dibujo: el estado sale del F11). */
+function siteItemSetShape(id, shape) {
+    if (!SITE_SHAPES[shape]) return;
+    if (siteItemSave(id, { shape: shape }, 'plano_equipo_forma')) sitePaint();
 }
 
 function siteItemLink(id, assetId) {
@@ -855,6 +1081,9 @@ function _siteItemPanelHTML(id) {
         var assets = (typeof invState !== 'undefined' && invState.assets) || [];
         html += '<label class="st-field">Ligar a equipo del F11<select onchange="siteItemLink(' + q + ', this.value)"><option value="">— sin ligar —</option>' +
                 assets.map(function(a) { return '<option value="' + e(a.id) + '"' + (a.id === it.assetId ? ' selected' : '') + '>' + e(a.id + ' · ' + (a.name || '')) + '</option>'; }).join('') + '</select></label>';
+        var shp = siteItemShape(it);
+        html += '<label class="st-field">Forma<select onchange="siteItemSetShape(' + q + ', this.value)">' +
+                Object.keys(SITE_SHAPES).map(function(k) { return '<option value="' + k + '"' + (k === shp ? ' selected' : '') + '>' + e(SITE_SHAPES[k]) + '</option>'; }).join('') + '</select></label>';
         html += '<div class="st-tools">' +
             '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteItemRename(' + q + ')">✎ Nombre</button>' +
             '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteItemNudge(' + q + ',\'rot\')" title="Girar 90°">⟳ Girar</button>' +
