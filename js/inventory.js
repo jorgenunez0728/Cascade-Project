@@ -30,17 +30,9 @@ let invState = safeParse(INV_LS_KEY, null) || {
         {id:'G',label:'Zona G',slots:2,type:'special'},
         {id:'H',label:'Zona H',slots:4,type:'offline'}
     ],
-    gasTypes: [
-        {name:'Metano/Aire',formula:'CH4/Air',concs:['2 ppm','5 ppm','10 ppm','20 ppm']},
-        {name:'Propano/Aire',formula:'C3H8/Air',concs:['0.66 ppm','1.66 ppm','3.33 ppm','16.66 ppm']},
-        {name:'Monoxido de Carbono/Nitrogeno',formula:'CO/N2',concs:['10 ppm','20 ppm','50 ppm','1000 ppm']},
-        {name:'Oxido Nitrico/Nitrogeno',formula:'NO/N2',concs:['0.5 ppm','5 ppm','10 ppm','90 ppm']},
-        {name:'Bioxido de Carbono/Nitrogeno',formula:'CO2/N2',concs:['0.5 ppm','1 ppm','3 ppm','15 ppm']},
-        {name:'Oxido Nitroso/Nitrogeno',formula:'N2O/N2',concs:['0.5 ppm','5 ppm']},
-        {name:'Aire Cero',formula:'ZERO',concs:['-']},
-        {name:'Hidrogeno/Helio',formula:'H2/He',concs:['40%']},
-        {name:'Oxigeno/Nitrogeno',formula:'O2/N2',concs:['21%','99.99%']}
-    ],
+    // [3.14.2] El catálogo es el del reporte semanal de consumibles (lo que de verdad
+    // compra el laboratorio): CO₂ en %v, no en ppm. La fuente es INV_GAS_TYPES_SEED.
+    gasTypes: [],
     activeTab: 'inv-dashboard',
     usageLog: [], // {date, gasId, psiUsed, testsRun, regulation}
     fuelTanks: [], // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings, pos, typeId}
@@ -140,8 +132,153 @@ function invPreloadData() {
     }
     // v16.5: el mapa dejó de ser un plano SVG editable — el layout manual ya no se usa
     if (invState.zoneLayout) delete invState.zoneLayout;
+    invGasRepair();
     invSave();
     _invMigrateF11();
+}
+
+// ══════════════════════════════════════════════════
+// [3.14.2] Catálogo de gases y cilindros, contra el reporte semanal de consumibles
+// ══════════════════════════════════════════════════
+// INV_GAS_TYPES_SEED es LA lista de tipos de cilindro que compra el laboratorio, tal como
+// la trae el reporte semanal (28 renglones). Las concentraciones se escriben con la MISMA
+// cadena que guardan los cilindros: el alta las ofrece y el emparejador las compara.
+var INV_GAS_TYPES_SEED = [
+    {name:'Metano/Aire', formula:'CH4/Air', concs:['2 ppm','5 ppm','10 ppm','20 ppm']},
+    {name:'Propano/Aire', formula:'C3H8/Air', concs:['0.66 ppm','1.66 ppm','3.33 ppm','16.66 ppm']},
+    {name:'Monoxido de Carbono/Nitrogeno', formula:'CO/N2', concs:['10 ppm','20 ppm','50 ppm','100 ppm']},
+    {name:'Oxido Nitrico/Nitrogeno', formula:'NO/N2', concs:['2 ppm','5 ppm','10 ppm','50 ppm']},
+    {name:'Bioxido de Carbono/Nitrogeno', formula:'CO2/N2', concs:['0.5 %v','1 %v','2 %v']},
+    {name:'Oxido Nitroso/Nitrogeno', formula:'N2O/N2', concs:['0.5 ppm','2.5 ppm','5 ppm']},
+    {name:'Nitrogeno', formula:'N2', concs:['99.9995%','99.998%']},
+    {name:'Aire Cero Emision Vehicular', formula:'ZERO', concs:['AIR O2 rojo']},
+    {name:'Oxigeno/Nitrogeno con impurezas (Zero Air)', formula:'O2/N2', concs:['19-12%']},
+    {name:'Oxigeno 4.3 Ultra Alta Pureza', formula:'O2', concs:['99.993%']},
+    {name:'Mezcla FID Hidrogeno/Helio', formula:'H2/He', concs:['40%v']}
+];
+// Lo que sembraba la app hasta 3.14.x (por fórmula). Una entrada guardada IDÉNTICA a ésta
+// es la de fábrica y se reemplaza; una que alguien editó se respeta.
+var INV_GAS_TYPES_OLD = {
+    'CH4/Air': {name:'Metano/Aire', concs:['2 ppm','5 ppm','10 ppm','20 ppm']},
+    'C3H8/Air': {name:'Propano/Aire', concs:['0.66 ppm','1.66 ppm','3.33 ppm','16.66 ppm']},
+    'CO/N2': {name:'Monoxido de Carbono/Nitrogeno', concs:['10 ppm','20 ppm','50 ppm','1000 ppm']},
+    'NO/N2': {name:'Oxido Nitrico/Nitrogeno', concs:['0.5 ppm','5 ppm','10 ppm','90 ppm']},
+    'CO2/N2': {name:'Bioxido de Carbono/Nitrogeno', concs:['0.5 ppm','1 ppm','3 ppm','15 ppm']},
+    'N2O/N2': {name:'Oxido Nitroso/Nitrogeno', concs:['0.5 ppm','5 ppm']},
+    'ZERO': {name:'Aire Cero', concs:['-']},
+    'H2/He': {name:'Hidrogeno/Helio', concs:['40%']},
+    'O2/N2': {name:'Oxigeno/Nitrogeno', concs:['21%','99.99%']}
+};
+// Dos cilindros de la semilla quedaron con la fórmula equivocada: el emparejador no los
+// encontraba en el reporte. Se corrigen solo si siguen EXACTAMENTE como se sembraron.
+var INV_GAS_SEED_FIXES = [
+    {id:'g_zeron219', from:{formula:'ZERO', gasType:'Balance Nitrogeno con Impurezas', concNominal:'O 19-12%'},
+        to:{formula:'O2/N2', gasType:'Oxigeno/Nitrogeno con impurezas (Zero Air)', concNominal:'19-12%'}},
+    {id:'g_o243', from:{formula:'O2/N2', gasType:'Oxigeno Ultra Alta Pureza', concNominal:'4.3'},
+        to:{formula:'O2', gasType:'Oxigeno 4.3 Ultra Alta Pureza', concNominal:'99.993%'}}
+];
+
+/** [3.14.2] Catálogo corregido. PURA: devuelve {list, changed}. Idempotente. */
+function invGasTypesRepair(list) {
+    var same = function(a, b) { return JSON.stringify(a) === JSON.stringify(b); };
+    if (!Array.isArray(list) || !list.length) return { list: JSON.parse(JSON.stringify(INV_GAS_TYPES_SEED)), changed: true };
+    var seedBy = {};
+    INV_GAS_TYPES_SEED.forEach(function(t) { seedBy[t.formula] = t; });
+    var changed = false;
+    var out = list.map(function(t) {
+        var old = t && INV_GAS_TYPES_OLD[t.formula];
+        if (old && t.name === old.name && same(t.concs, old.concs) && seedBy[t.formula]
+            && !(t.name === seedBy[t.formula].name && same(t.concs, seedBy[t.formula].concs))) {
+            changed = true;
+            return JSON.parse(JSON.stringify(seedBy[t.formula]));
+        }
+        return t;
+    });
+    INV_GAS_TYPES_SEED.forEach(function(t) {
+        if (!out.some(function(x) { return x && x.formula === t.formula; })) { out.push(JSON.parse(JSON.stringify(t))); changed = true; }
+    });
+    return { list: out, changed: changed };
+}
+
+/**
+ * [3.14.2] Une los cilindros repetidos por `id`. PURA y SIMÉTRICA: gana la copia editada
+ * más recientemente (`updatedAt`) y, empatadas, la mayor por contenido SIN `_rev` ni lecturas
+ * (así dos equipos eligen la misma); las lecturas de todas las copias se unen. Nacían
+ * porque el sync emparejaba cilindros por No. de control: cambiarlo en un equipo hacía
+ * que el otro lo tomara por un cilindro nuevo. @returns {{list, merged:[{id, kept, dropped}]}}
+ */
+function invGasesDedupe(gases) {
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var groups = {}, order = [];
+    (gases || []).forEach(function(g) {
+        var k = g && g.id ? 'id:' + g.id : null;
+        if (!k) { order.push({ one: g }); return; }
+        if (!groups[k]) { groups[k] = []; order.push({ key: k }); }
+        groups[k].push(g);
+    });
+    var merged = [];
+    var list = order.map(function(o) {
+        if (o.one) return o.one;
+        var copies = groups[o.key];
+        if (copies.length === 1) return copies[0];
+        var cmp = function(g) { var c = Object.assign({}, g); delete c.readings; delete c._rev; return ss(c); };
+        // Orden canónico: el mismo resultado sin importar en qué orden llegaron las copias.
+        copies = copies.slice().sort(function(x, y) { var a = ss(x), b = ss(y); return a < b ? -1 : a > b ? 1 : 0; });
+        var lastEdit = function(g) { return (g.timeline || []).reduce(function(m, t) { return t && t.date > m ? t.date : m; }, ''); };
+        var win = copies.reduce(function(a, b) {
+            var au = a.updatedAt || '', bu = b.updatedAt || '';
+            if (au !== bu) return au > bu ? a : b;
+            // `updatedAt` empatado (lo re-sellaron juntos): la editada más recientemente.
+            var ae = lastEdit(a), be = lastEdit(b);
+            if (ae !== be) return ae > be ? a : b;
+            return cmp(a) >= cmp(b) ? a : b;
+        });
+        var losers = copies.filter(function(c) { return c !== win; });
+        // Los campos que la ganadora no trae salen de las otras (la edición de antes de 3.14.2
+        // reemplazaba el cilindro entero y perdía categoría, ritmo, alias…).
+        var out = Object.assign.apply(null, [{}].concat(losers.slice().reverse(), [win]));
+        var readings = win.readings || [];
+        if (typeof _fbMergeReadings === 'function') losers.forEach(function(c) { readings = _fbMergeReadings(readings, c.readings); });
+        out.readings = readings;
+        var tl = {}, timeline = [];
+        copies.forEach(function(c) { (c.timeline || []).forEach(function(t) { var k = (t && t.date) + '|' + (t && t.action); if (!tl[k]) { tl[k] = 1; timeline.push(t); } }); });
+        if (timeline.length) out.timeline = timeline.sort(function(x, y) { return String(x.date).localeCompare(String(y.date)); });
+        delete out._rev;
+        merged.push({ id: win.id, kept: win.controlNo || '', dropped: losers.map(function(c) { return c.controlNo || ''; }) });
+        return out;
+    });
+    return { list: list, merged: merged };
+}
+
+/**
+ * [3.14.2] Repara catálogo y cilindros. Se llama al cargar (invPreloadData) y tras cada pull
+ * de inventario (un equipo con código viejo puede volver a subir lo anterior).
+ * Devuelve true si cambió algo; quien llama guarda.
+ */
+function invGasRepair() {
+    var changed = false;
+    var cat = invGasTypesRepair(invState.gasTypes);
+    if (cat.changed) { invState.gasTypes = cat.list; changed = true; }
+    var d = invGasesDedupe(invState.gases);
+    if (d.merged.length) {
+        invState.gases = d.list; changed = true;
+        if (typeof auditLog === 'function') d.merged.forEach(function(m) {
+            auditLog('inv', 'gas_duplicado_unido', { type: 'gas', id: m.id, label: m.kept },
+                'Copias repetidas unidas; se quedó el No. de control ' + m.kept + ' (se retiraron: ' + m.dropped.join(', ') + ')',
+                { before: { controlNo: [m.kept].concat(m.dropped) }, after: { controlNo: m.kept } });
+        });
+    }
+    INV_GAS_SEED_FIXES.forEach(function(fx) {
+        (invState.gases || []).forEach(function(g) {
+            if (g.id !== fx.id) return;
+            var hit = Object.keys(fx.from).every(function(k) { return g[k] === fx.from[k]; });
+            if (!hit) return;
+            Object.assign(g, fx.to);
+            g.updatedAt = new Date().toISOString();
+            changed = true;
+        });
+    });
+    return changed;
 }
 
 // ══════════════════════════════════════════════════
@@ -1359,9 +1496,15 @@ function invShowAddGas(editId) {
         return opts;
     }).join('');
 
-    var gasTypeOpts = invState.gasTypes.map(function(gt) {
+    var gasTypeOpts = (invState.gasTypes || []).map(function(gt) {
         return '<option value="' + gt.name + '" ' + (g && g.gasType===gt.name?'selected':'') + '>' + gt.name + ' (' + gt.formula + ')</option>';
     }).join('');
+    // [3.14.2] Un cilindro cuyo tipo no está en el catálogo ("Nitrogeno 5.5") conserva el suyo:
+    // antes el selector caía en "Seleccionar…" y guardar dejaba tipo, fórmula y concentración vacíos.
+    if (g && g.gasType && !(invState.gasTypes || []).some(function(t) { return t.name === g.gasType; })) {
+        gasTypeOpts = '<option value="' + escapeHtml(g.gasType) + '" data-formula="' + escapeHtml(g.formula || '') + '" selected>' +
+            escapeHtml(g.gasType) + (g.formula ? ' (' + escapeHtml(g.formula) + ')' : '') + ' · no está en el catálogo</option>' + gasTypeOpts;
+    }
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
@@ -1406,7 +1549,16 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding: var(--space-md);background:var(--surface-alt);border:none;border-radius: var(--radius-xl);cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
-    if (g) { invUpdateConcOpts(); document.getElementById('inv-g-conc').value = g.concNominal || ''; }
+    if (g) {
+        invUpdateConcOpts();
+        var _cs = document.getElementById('inv-g-conc');
+        // [3.14.2] La concentración guardada se ofrece aunque el catálogo no la traiga.
+        if (g.concNominal && !Array.prototype.some.call(_cs.options, function(o) { return o.value === g.concNominal; })) {
+            var _o = document.createElement('option'); _o.value = g.concNominal; _o.textContent = g.concNominal;
+            _cs.appendChild(_o);
+        }
+        _cs.value = g.concNominal || '';
+    }
     else { invUpdateConcOpts(); }
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
@@ -1437,13 +1589,15 @@ function invSaveGas(editId) {
     }
 
     var gasType = document.getElementById('inv-g-type').value;
-    var gt = invState.gasTypes.find(function(t){ return t.name === gasType; });
+    var gt = (invState.gasTypes || []).find(function(t){ return t.name === gasType; });
+    var _prev = editId ? invState.gases.find(function(g){ return g.id === editId; }) : null;
+    if (!gasType) return uiInvalid(document.getElementById('inv-g-type'), 'Elige el tipo de gas.');
 
     var obj = {
         controlNo: controlNo,
         cylinderNo: document.getElementById('inv-g-cylinder').value.trim(),
         gasType: gasType,
-        formula: gt ? gt.formula : '',
+        formula: gt ? gt.formula : (_prev && _prev.gasType === gasType ? (_prev.formula || '') : ''),
         concNominal: document.getElementById('inv-g-conc').value,
         concReal: document.getElementById('inv-g-concreal').value.trim(),
         traceability: document.getElementById('inv-g-trace').value,
@@ -1472,6 +1626,10 @@ function invSaveGas(editId) {
         var idx = invState.gases.findIndex(function(g){ return g.id === editId; });
         if (idx >= 0) {
             var old = invState.gases[idx];
+            // [3.14.2] Lo que el formulario no muestra (categoría, alias del reporte, ritmo,
+            // recepción…) se conserva: antes editar reemplazaba el cilindro entero.
+            obj = Object.assign({}, old, obj);
+            if (!(isFinite(_initPsi) && _initPsi > 0)) delete obj.initialPsi;   // vaciar = quitarla
             obj.id = old.id;
             obj.readings = old.readings || [];
             obj.timeline = old.timeline || [];
@@ -4482,6 +4640,8 @@ function invConsParseOcrLines(lines) {
 // "metano 20 ppm balance aire" → {species:'CH4', conc:20, unit:'ppm'}
 function _invConsFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
 var INV_CONS_SPECIES = [
+    // [3.14.2] Primero: "AIRE CERO … (AIR O2)" lleva "O2" en el nombre y no es oxígeno.
+    [/aire cero|zero air/, 'ZERO'],
     [/monoxido de carbono|\bco\b(?!2)/, 'CO'], [/[bd]ioxido de carbono|\bco2\b/, 'CO2'],
     [/oxido nitroso|\bn2o\b/, 'N2O'], [/oxido nitrico|\bno\b/, 'NO'],
     [/metano|\bch4\b/, 'CH4'], [/propano|\bc3h8\b/, 'C3H8'],
@@ -4526,6 +4686,13 @@ function invMatchGasByLabel(label, gases) {
         var formulas = {};
         porGrado.forEach(function(g) { formulas[g.gasType + '|' + g.concNominal] = true; });
         if (Object.keys(formulas).length === 1) hit = porGrado;
+    }
+    if (!hit.length && p.conc === null) {
+        // [3.14.2] El nombre no trae concentración ("AIRE CERO … (rojo)") y de ese gas solo
+        // hay UNA clase de cilindro: es ésa. Con dos o más no se adivina.
+        var clases = {};
+        same.forEach(function(g) { clases[(g.gasType || '') + '|' + (g.concNominal || '')] = true; });
+        if (Object.keys(clases).length === 1) hit = same.slice();
     }
     hit = hit.sort(rank);
     if (hit.length) return { gas: hit[0], candidates: hit, why: 'gas+concentración' };

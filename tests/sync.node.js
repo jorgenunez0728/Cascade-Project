@@ -35,7 +35,7 @@ function extraer(nombre) {
 
 const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat };
 vm.createContext(ctx);
-['_fbEquipKey', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
+['_fbEquipKey', '_fbGasKey', '_fbGasIndex', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
  '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem', '_fbMergeEquipCalOut']
     .forEach(n => vm.runInContext(extraer(n), ctx, { filename: 'firebase-sync.js' }));
 

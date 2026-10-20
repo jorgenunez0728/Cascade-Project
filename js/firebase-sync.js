@@ -2192,6 +2192,11 @@ function fbPullApply(collections, results, showFeedback) {
             if (col === 'inventory' && typeof invUpdateConsumptionModel === 'function') {
                 try { invUpdateConsumptionModel(); } catch(e2) {}
             }
+            // [3.14.2] Un equipo con código viejo puede volver a subir cilindros repetidos o
+            // el catálogo de gases anterior: se repara tras cada pull (idempotente).
+            if (col === 'inventory' && typeof invGasRepair === 'function') {
+                try { if (invGasRepair() && typeof invSave === 'function') invSave(); } catch(e3) {}
+            }
         } else if (col === 'panel') {
             if (typeof pnState !== 'undefined') {
                 var _localOpsPn = (pnState.operators || []).slice();
@@ -2754,9 +2759,8 @@ function _fbLocalHasExtras(col, remote) {
             var rf = fechas(rem && rem.readings);
             return (loc.readings || []).some(function(r) { return r && r.date && !rf[r.date + '|' + (r.auto ? 'a' : 'h')]; });
         };
-        var rg = {};
-        (remote.gases || []).forEach(function(g) { rg[g.controlNo || g.name] = g; });
-        if ((invState.gases || []).some(function(g) { var r = rg[g.controlNo || g.name]; return !r || faltaLectura(g, r); })) return true;
+        var rg = _fbGasIndex(remote.gases);
+        if ((invState.gases || []).some(function(g) { var r = rg.find(g); return !r || faltaLectura(g, r); })) return true;
         var re = {};
         (remote.equipment || []).forEach(function(e) { re[_fbEquipKey(e)] = e; });
         if ((invState.equipment || []).some(function(e) {
@@ -3258,6 +3262,33 @@ function _fbMergeReadings(locales, remotas, campo) {
     return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
 }
 
+// [3.14.2] LA identidad de un cilindro entre equipos: `id`, después No. de control, después
+// nombre. Antes era el No. de control, que se EDITA (nuevo lote del proveedor): cambiarlo en
+// un equipo hacía que el otro lo tomara por un cilindro nuevo y lo duplicara. PURA.
+function _fbGasKey(g) {
+    if (!g) return '';
+    if (g.id) return 'id:' + g.id;
+    return String(g.controlNo || g.name || '');
+}
+// [3.14.2] Buscar un cilindro de una lista en otra. PURA. Por `id` cuando los dos lo traen; por
+// No. de control solo si a alguno le falta (datos anteriores al id). Dos con id distinto son
+// cilindros distintos aunque compartan No. de control.
+function _fbGasIndex(list) {
+    var byId = {}, byCtl = {};
+    (list || []).forEach(function(g) {
+        if (!g) return;
+        if (g.id && !byId[g.id]) byId[g.id] = g;
+        var c = String(g.controlNo || g.name || '');
+        if (c && !byCtl[c]) byCtl[c] = g;
+    });
+    return { find: function(g) {
+        if (!g) return null;
+        if (g.id && byId[g.id]) return byId[g.id];
+        var c = byCtl[String(g.controlNo || g.name || '')];
+        return c && (!g.id || !c.id) ? c : null;
+    } };
+}
+
 // [v24.3] ¿Difieren dos copias de un cilindro/tanque? Por CONTENIDO (stableStringify,
 // Firestore devuelve las llaves en otro orden). Antes se comparaba `currentPsi`, campo
 // que un cilindro NO tiene (undefined === undefined), así que una lectura nueva, un
@@ -3438,19 +3469,17 @@ function fbMergeAnalyze(remoteData) {
         };
     }
 
-    // ── Inventory: compare gases by controlNo, equipment by name ──
+    // ── Inventory: cilindros por _fbGasKey (id) [3.14.2], instrumentos por _fbEquipKey ──
 
     if (remoteData.inventory) {
-        var localGases = {};
-        ((invState.gases || []).forEach(function(g) { localGases[g.controlNo || g.name] = g; }));
+        var localGases = _fbGasIndex(invState.gases);
         var remoteGases = remoteData.inventory.gases || [];
         var newGases = [], dupGases = [], gasConflicts = [];
 
         remoteGases.forEach(function(rg) {
-            var key = rg.controlNo || rg.name;
-            if (!localGases[key]) newGases.push(rg);
+            var key = _fbGasKey(rg), lg = localGases.find(rg);
+            if (!lg) newGases.push(rg);
             else {
-                var lg = localGases[key];
                 if (_fbInvItemDiffers(lg, rg)) gasConflicts.push({ key: key, local: lg, remote: rg });
                 else dupGases.push(key);
             }
@@ -3842,7 +3871,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // base pero las series se UNEN, y se conserva la nominal local si el remoto
             // no la trae (un equipo con código viejo no conoce `initialPsi`).
             analysis.inventory.gasConflicts.forEach(function(c) {
-                var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
+                var idx = invState.gases.indexOf(_fbGasIndex(invState.gases).find(c.remote));
                 if (idx < 0) return;
                 invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {});
             });
@@ -6790,12 +6819,12 @@ function fbReviewModel(src) {
     var R = src.remoteInv, L = src.localInv;
     if (R && L) {
         var rKey = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h'); };
-        var scan = function(kind, locList, remList, keyFn, valKey) {
+        var scan = function(kind, locList, remList, keyFn, valKey, finder) {
             var rm = {};
             (remList || []).forEach(function(x) { if (x) rm[keyFn(x)] = x; });
             (locList || []).forEach(function(x) {
                 if (!x) return;
-                var key = keyFn(x), r = rm[key];
+                var key = keyFn(x), r = finder ? finder(x) : rm[key];
                 var name = String(x.name || x.controlNo || x.id || key);
                 if (!r) {
                     inventory.push({ kind: kind, key: key, name: name, newItem: true, older: false,
@@ -6815,7 +6844,7 @@ function fbReviewModel(src) {
                                  cloudLatest: cloudLatest || null, behindDays: behind });
             });
         };
-        scan('gas', L.gases, R.gases, function(g) { return String(g.controlNo || g.name || ''); }, 'psi');
+        scan('gas', L.gases, R.gases, _fbGasKey, 'psi', _fbGasIndex(R.gases).find);
         scan('fuel', L.fuelTanks, R.fuelTanks, function(t) { return String(t.id || t.name || ''); }, 'level');
     }
     return { vehicles: vehicles, inventory: inventory };
@@ -6998,7 +7027,7 @@ function fbReviewApply(keep) {
     if (dropInv.length && typeof invState !== 'undefined' && invState) {
         dropInv.forEach(function(x) {
             var list = x.kind === 'gas' ? invState.gases : invState.fuelTanks;
-            var keyOf = x.kind === 'gas' ? function(g) { return String(g.controlNo || g.name || ''); } : function(t) { return String(t.id || t.name || ''); };
+            var keyOf = x.kind === 'gas' ? _fbGasKey : function(t) { return String(t.id || t.name || ''); };
             if (!list) return;
             if (x.newItem) {
                 var keepList = list.filter(function(it) { return !(it && keyOf(it) === x.key); });

@@ -20,6 +20,38 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.14.2 — Los gases son los del reporte semanal (2026-10-20)
+
+### Arreglado
+- **El catálogo del alta de cilindros** era el que se escribió al empezar y no el que compra el
+  laboratorio. El CO₂ venía en ppm (0.5, 1, 3, 15) y es **0.5, 1 y 2 %v**. CO pasa a 10/20/50/100 ppm
+  (no 1000), NO a 2/5/10/50 ppm (no 0.5 ni 90) y N₂O a 0.5/2.5/5 ppm. Se agregaron el nitrógeno
+  (5.5 y 4.8), el oxígeno con impurezas (Zero Air, 19-12 %) y el oxígeno 4.3. Un tipo que alguien
+  editó en ⚙️ Tipos de gas se respeta; solo se corrige el que seguía igual al de fábrica.
+- **Editar un cilindro borraba datos**: si su tipo o su concentración no estaba en el catálogo (el
+  nitrógeno, el CO₂ en %v), al guardar se quedaban en blanco el tipo, la fórmula y la
+  concentración. Además se perdía lo que el formulario no muestra (categoría, nombre recordado
+  del reporte). Ahora el formulario ofrece el valor que el cilindro ya tiene y conserva el resto.
+- **El Metano 20 ppm aparecía tres veces** (30 cilindros en lugar de 28). Cuando se cambiaba el
+  No. de control en un equipo, el otro lo tomaba por un cilindro nuevo. Ahora un cilindro se
+  reconoce por su identidad interna y las tres copias se unieron en una. Se quedó la última
+  edición (5-mar: No. de control 20260305-01, cilindro CH4-20) con todas sus lecturas.
+- **Importar el reporte semanal** no reconocía aire cero, oxígeno con impurezas ni oxígeno 4.3: dos
+  de esos cilindros tenían la fórmula equivocada desde la semilla. Ahora empatan las 28 filas.
+
+### Para desarrollo
+- `INV_GAS_TYPES_SEED` es LA lista de tipos; `invGasTypesRepair` (PURA, idempotente) reemplaza
+  solo las entradas idénticas a la semilla anterior (`INV_GAS_TYPES_OLD`) y agrega las fórmulas
+  que falten. `INV_GAS_SEED_FIXES` corrige E04/E05 solo si siguen exactamente como se sembraron.
+- `_fbGasKey(g)` (firebase-sync.js) es LA identidad de un cilindro en el sync: `id` →
+  `controlNo` → `name`. Nunca volver a emparejar cilindros por `controlNo`.
+- `invGasesDedupe` (PURA, simétrica) une copias con el mismo `id`: gana `updatedAt`; empatado,
+  la última fecha de su `timeline`, y después el contenido. Los campos faltantes y las lecturas
+  salen de las demás copias. `invGasRepair()` corre en `invPreloadData` y tras cada pull de
+  inventario.
+- `invMatchGasByLabel`: especie `ZERO` ("aire cero", va antes que O2) y, sin concentración en el
+  nombre, se acepta si ese gas tiene una sola clase de cilindro.
+
 ## 3.14.1 — La bienvenida ya no se corta y la lectura se queda (2026-10-20)
 
 ### Arreglado

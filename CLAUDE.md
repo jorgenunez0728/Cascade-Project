@@ -3623,3 +3623,19 @@ Reemplaza lo que v19.0 y 3.12.0 dicen del ALCANCE (normas × regiones) y de la r
 - Un contenedor con `overflow:auto` y `align-items:center` desborda por ARRIBA, fuera del scroll:
   centrar al hijo con `margin:auto` (`#auth-content`).
 
+## 3.14.2 — Los gases son los del reporte semanal (`js/inventory.js`, `js/firebase-sync.js`)
+
+- **`_fbGasKey(g)` es LA identidad de un cilindro entre equipos** (`id` → `controlNo` → `name`).
+  El No. de control se EDITA (lote nuevo del proveedor): emparejar por él duplicaba el cilindro
+  en el otro equipo. Todo código del sync que compare cilindros la usa.
+- **`invGasRepair()`** (catálogo + `invGasesDedupe` + correcciones de la semilla) corre en
+  `invPreloadData` y tras cada pull de inventario; es idempotente. `invGasesDedupe` es PURA y
+  SIMÉTRICA (orden canónico): gana `updatedAt`, después la última fecha de `timeline`.
+- **`INV_GAS_TYPES_SEED` es el catálogo de lo que compra el laboratorio** (el reporte semanal).
+  Una concentración se escribe con la MISMA cadena que guarda el cilindro (`'1 %v'`): el alta la
+  ofrece y el emparejador la compara. Un cambio al catálogo de fábrica agrega la versión anterior
+  a `INV_GAS_TYPES_OLD`, para que `invGasTypesRepair` sepa qué es "de fábrica".
+- **Un formulario de edición NO reemplaza el objeto**: `Object.assign({}, old, obj)`. Y un
+  `<select>` de un catálogo debe ofrecer el valor guardado aunque el catálogo no lo traiga, o
+  guardar lo deja en blanco.
+
