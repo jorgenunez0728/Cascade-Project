@@ -58,7 +58,7 @@ js/
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   cuarto.js             ← 🗺️ Cuartos de gases y de gasolina: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~2,050 lines)
-  sitio.js              ← 🚗 Laboratorio en el mapa: celda + acondicionamiento, unidades por VIN, equipos editables (~1,100 lines)
+  sitio.js              ← 🚗 Laboratorio en el mapa: celda + acondicionamiento, unidades por VIN, equipos editables, estacionamiento de la flota Master, autos en 3D (~2,160 lines)
   conslist.js           ← Lista de consumibles: histórico semanal importado + el Excel en el formato del laboratorio (~560 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
@@ -96,7 +96,7 @@ CHANGELOG.md            ← Detailed changelog
 | Test Plan Manager | `js/testplan.js` | `tp` | `tpState` | `kia_testplan_v1` |
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Cuartos de gases y gasolina | `js/cuarto.js` | `invRoom` | `_invRoom` (selección/cámara en memoria) | — (`uiPref('roomCam' \| 'roomCamFuel' \| 'roomWhich')`, `invMapView`, `roomLabels`) |
-| Laboratorio en el mapa | `js/sitio.js` | `site` | `_site` (selección/cámara en memoria) | — (`invState.siteItems`, `db.siteUnits`, `vehicle.site`; `uiPref('roomCamLab')`) |
+| Laboratorio en el mapa | `js/sitio.js` | `site` | `_site` (selección/cámara en memoria) | — (`invState.siteItems`, `db.siteUnits`, `db.siteMasters`, `vehicle.site`; `uiPref('roomCamLab')`) |
 | Lista de consumibles | `js/conslist.js` | `invCons*` | `invState.consHistory` | — (dentro de `kia_lab_inventory`) |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
@@ -3757,3 +3757,71 @@ Matiza lo que v21.0 dice ("un cilindro tiene A LO MÁS una lectura HUMANA por fe
 - **Nunca meter al repositorio el COP Master ni la Lista de consumibles reales**: traen VINes y
   datos del laboratorio. Las pruebas usan retículas sintéticas con el mismo acomodo.
 
+## 3.17.0 — El estacionamiento de la flota Master y autos en 3D (`js/sitio.js`)
+
+Matiza lo que 3.14.0 dice ("No agregar un campo de 'dueño'"): eso sigue valiendo para las
+UNIDADES (una unidad es solo su VIN). La flota Master es otra cosa y vive aparte.
+
+- **`db.siteMasters` es la flota Master**: los vehículos que se quedan con el laboratorio.
+  - Cada registro es `{id, vin, name, body, paint, spot, since, updatedAt, by, deleted}`; `spot` es
+    un lugar del estacionamiento (`p1`, `p2`…).
+  - **El único escritor es `siteMasterSave`**: pide `test.register`, audita con antes/después y se
+    deshace en memoria si `saveDB()` devuelve `false`.
+  - Quitar de la flota = `deleted:true`, con confirmación y Deshacer. Nunca se borran sus pruebas.
+  - Viaja en la meta de vehículos (`FB_VEH_META_KEYS`) y se une con `siteListUnion` **en cada punto
+    donde se unen `siteUnits`** (`tests/sitio.node.js` cuenta que sean los mismos). Toda lista nueva
+    de `db` que deba verse en todos los equipos sigue ese patrón.
+- **`siteParkingModel(masters, model, stallIds)` (PURA) es LA definición de la flota en el
+  estacionamiento**:
+  - da el lugar de cada Master, los choques (dos en un lugar) y los que no tienen lugar;
+  - `inLab` es la entrada de `siteSpotsModel` cuyo VIN es el del Master (en un cajón o en el
+    dinamómetro);
+  - con `inLab` su lugar se dibuja vacío (`_siteCarGhostSVG`) y dice dónde está. **No se guarda
+    nada**: al sacarlo del laboratorio regresa solo.
+- **Meter un Master al laboratorio** (↔ Mover a un cajón o al dinamómetro):
+  - si su VIN tiene alta en curso, mueve ese vehículo (`siteVehicleMove`);
+  - si no, crea una unidad sin alta con su VIN (`siteUnitSave`).
+  - **Moverla de regreso** a su lugar la saca del laboratorio. Una unidad que no es de la flota y se
+    lleva a un lugar de afuera se ofrece agregar a la flota, con confirmación.
+- **`siteLayout(n)` (PURA) es el plano que se dibuja**:
+  - `SITE_LAYOUT` es el fijo y **no cambia**: no lleva el estacionamiento;
+  - `siteLayout` le agrega la base de la maqueta, pasto, árboles y `n` lugares (`siteLotCount`:
+    todos los usados, uno libre, mínimo `SITE_LOT.min`).
+  - P1 va junto al cuarto de acondicionamiento y los siguientes hacia el oeste. **El número de un
+    lugar nunca cambia** cuando crece el estacionamiento.
+  - Todo código de pantalla usa `_site.layout`, nunca `SITE_LAYOUT` para tocar, centrar o
+    desproyectar.
+- **`siteCenter(layout)`** es el eje de la cámara: el centro de la base, o del piso si no hay base.
+  `invRoomCenter` sigue siendo el del cuarto de gases.
+- **El auto es una malla** (`SITE_BODIES`: `sedan`, `hatch`, `wagon`, `suv`):
+  - es una lista de estaciones `[u, zb, zs, zt, w, wt, tramo]`, y la distancia entre ejes es fija
+    (`SITE_WHEEL_U` = 1.35, cae en los rodillos);
+  - **`_siteCarSVG(ctx, cx, cy, heading, cls, attrs, title, {body, ring})` es PURA**. `ctx = {P, V}`,
+    con `V = _siteViewVec(cam)` = hacia dónde está quien mira;
+  - la normal de cada cara sale con Newell y se orienta hacia afuera desde el eje del auto. **Una cara
+    que no ve a quien mira no se dibuja**: así, para una figura casi convexa, el orden del pintor
+    sobra;
+  - los costados de la estación 1 a la n−2 son UNA pieza por lado, para que las llantas y las puertas
+    se dibujen encima de todo el costado (en piezas, la vecina tapaba media llanta);
+  - la luz (`SITE_LIGHT`, fija en el mundo) se reparte en 11 tonos `st-c-b0…b10`, `color-mix` sobre
+    `--st-car`. El tono sale del estado en el laboratorio y del color real (`SITE_PAINTS`) en el
+    estacionamiento;
+  - **`siteBodyFromConfig(cfg)` es LA carrocería de una configuración** (BODY TYPE). Una carrocería
+    nueva = estaciones en `SITE_BODIES` + su regla aquí.
+- **`_siteFloorText(P, x, y, texto, clase, alto, renglón)` (PURA)** es el texto pintado en el piso:
+  - una `matrix()` lo pone sobre el plano del piso, por el eje que se ve más horizontal y nunca al
+    revés (determinante positivo);
+  - va en la capa del piso, así que lo que está encima lo tapa. Letrero nuevo de piso = esta función,
+    nunca un `<text>` horizontal en la capa de encima.
+- **`opts.ls`** escala la letra con la pantalla (la escena entera cabe en el tablero):
+  - la calcula `_sitePaintScene` y viaja como `--ls` en las capas de piso y de encima;
+  - **las píldoras miden su caja con `ls`**: una clase de letra nueva usa `calc(Npx * var(--ls, 1))`.
+- **Muros**: los del fondo van completos (`st-wall-face--back`, cara de adentro); los de enfrente se
+  cortan a `CUT` = 0.45 m (cara de afuera) para que nada quede detrás de un muro transparente. El
+  grosor cierra las esquinas convexas con inglete (solo entre muros opacos). Los vidrios van
+  completos con marco.
+- **`.rm-floor-layer > :not(.rm-slot)` (cuarto.js) le quita el toque a todo el piso**: por eso los
+  cajones no respondían al dedo ni al mouse. Un lugar nuevo en la capa del piso lleva `.st-spot`
+  (que lo devuelve). Además, `_siteTap` resuelve un toque en el piso con `siteSpotAt`.
+- `_invRoomFitStage(stageId, wrapId)` mide también el tablero del laboratorio, y su escucha de
+  `resize` lo repinta.

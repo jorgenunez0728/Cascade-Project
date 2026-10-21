@@ -1791,8 +1791,10 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [2.0.0] Igual con las configs manuales (y sus marcas de borrado).
         var _seedManual = (db && db.manualConfigs) || [];
         var _seedSite = (db && db.siteUnits) || [];   // [3.14.0]
+        var _seedMasters = (db && db.siteMasters) || [];   // [3.17.0] la flota Master
         db = remoteData;
         if (_seedSite.length && typeof siteListUnion === 'function') db.siteUnits = siteListUnion(_seedSite, db.siteUnits);
+        if (_seedMasters.length && typeof siteListUnion === 'function') db.siteMasters = siteListUnion(_seedMasters, db.siteMasters);
         if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
             db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
         if (_seedManual.length && typeof manualConfigsUnion === 'function')
@@ -1893,8 +1895,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
         // 2.0.0: sin esto, un pull cuyo único cambio es una config manual se descartaba.
         (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || [])) ||
-        // [3.14.0] Un pull cuyo único cambio es una unidad sin alta en el sitio.
-        (typeof siteListNewTo === 'function' && siteListNewTo((db && db.siteUnits) || [], (remoteData && remoteData.siteUnits) || []));
+        // [3.14.0] Un pull cuyo único cambio es una unidad sin alta en el sitio (o, 3.17.0, un vehículo Master).
+        (typeof siteListNewTo === 'function' && (siteListNewTo((db && db.siteUnits) || [], (remoteData && remoteData.siteUnits) || []) ||
+                                                  siteListNewTo((db && db.siteMasters) || [], (remoteData && remoteData.siteMasters) || [])));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged ||
         // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
@@ -2735,7 +2738,7 @@ function fbAssignInPlace(target, src) {
 /** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
 function _fbModuleFingerprint(col) {
     try {
-        if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || []]));
+        if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
@@ -2764,6 +2767,7 @@ function _fbLocalHasExtras(col, remote) {
         // 2.0.0: una config manual (o su marca de borrado) que la nube no tiene.
         if (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo(remote.manualConfigs || [], (db && db.manualConfigs) || [])) return true;
         if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (db && db.siteUnits) || [])) return true;
+        if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteMasters || [], (db && db.siteMasters) || [])) return true;
         var rByKey = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByKey[vehicleCopyKey(v)] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -3648,6 +3652,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         var _localTombs = (db && db.deletedVehicles) || [];
         var _localManual = (db && db.manualConfigs) || [];   // 2.0.0, mismo motivo
         var _localSite = (db && db.siteUnits) || [];          // [3.14.0], mismo motivo
+        var _localMasters = (db && db.siteMasters) || [];     // [3.17.0], mismo motivo
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -3711,6 +3716,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (typeof siteListUnion === 'function') {
             var _su = siteListUnion(_localSite, (remoteData.cop15 && remoteData.cop15.siteUnits) || []);
             if (_su.length) db.siteUnits = _su;
+            var _sm = siteListUnion(_localMasters, (remoteData.cop15 && remoteData.cop15.siteMasters) || []);
+            if (_sm.length) db.siteMasters = _sm;
         }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
@@ -6439,7 +6446,7 @@ function fbVehDocId(v) {
  * (y se despertarían el uno al otro) para siempre. Todo campo nuevo de `db` que deba
  * verse en todos los equipos se agrega aquí y a la unión de fbMergeExecute.
  */
-var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs', 'siteUnits'];   // [3.14.0] unidades sin alta en el sitio
+var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs', 'siteUnits', 'siteMasters'];   // [3.14.0] unidades sin alta · [3.17.0] flota Master
 function fbVehMeta(d) {
     var out = {};
     FB_VEH_META_KEYS.forEach(function(k) { if (d && d[k] !== undefined) out[k] = d[k]; });
@@ -6451,6 +6458,7 @@ function fbVehMetaHasExtras(local, remote) {
     remote = remote || {};
     if (_fbTombsNewTo(remote.deletedVehicles || [], (local && local.deletedVehicles) || [])) return true;
     if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (local && local.siteUnits) || [])) return true;
+    if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteMasters || [], (local && local.siteMasters) || [])) return true;
     return typeof manualConfigsNewTo === 'function' &&
         manualConfigsNewTo(remote.manualConfigs || [], (local && local.manualConfigs) || []);
 }

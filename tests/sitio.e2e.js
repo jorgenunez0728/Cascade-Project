@@ -66,7 +66,7 @@ const prompt = async (page, value) => {
         sw: Array.from(document.querySelectorAll('.rm-switch-btn')).map(b => b.textContent.trim()).join('|'),
         items: document.querySelectorAll('#st-svg [data-item]').length, seed: SITE_ITEMS_SEED.length,
         spots: document.querySelectorAll('#st-svg [data-spot]').length, guardados: (invState.siteItems || []).length }));
-    ok('el selector de mapa trae 🚗 Laboratorio y abre el plano', /Laboratorio/.test(ini.sw) && ini.spots === 5, JSON.stringify(ini));
+    ok('el selector de mapa trae 🚗 Laboratorio y abre el plano (5 lugares adentro + el estacionamiento)', /Laboratorio/.test(ini.sw) && ini.spots === 10, JSON.stringify(ini));
     ok('los equipos de las fotos ya están en el plano (sembrados una vez)', ini.items === ini.seed && ini.guardados === ini.seed, JSON.stringify(ini));
     if (SHOTS) await page.locator('#st-wrap').screenshot({ path: path.join(SHOTS, 'sitio-escritorio.png') });
 
@@ -118,6 +118,61 @@ const prompt = async (page, value) => {
 
     // Mi semana: la marca 📍 sale de siteConfigsOnSite
     ok('Mi semana sabe qué configuraciones tienen unidad en el sitio', await page.evaluate(() => siteConfigsOnSite()['CFG-SITIO'] === 1));
+    await page.locator('#st-edit-btn').click();          // sale de editar plano
+    await page.waitForTimeout(300);
+
+    // [3.17.0] Estacionamiento de la flota Master — con clics REALES (el toque llega al lugar)
+    console.log('\n== Estacionamiento Master ==');
+    const clickEl = async sel => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(300); };
+    await page.evaluate(() => siteClose());
+    await clickEl('#st-svg [data-spot="c1"]');
+    ok('un clic de verdad en un cajón vacío lo abre (antes el toque no llegaba)', await page.evaluate(() => /Cajón 1/.test(document.getElementById('st-panel').innerText)));
+    await clickEl('#st-svg [data-spot="p2"]');
+    const libreP = await page.evaluate(() => document.getElementById('st-panel').innerText);
+    ok('un lugar libre de afuera ofrece agregar un vehículo Master', /Estacionamiento P2/.test(libreP) && /Agregar a la flota Master/.test(libreP), libreP.slice(0, 160));
+    await page.locator('#st-m-vin').fill('kna e2e0000000aaaa1');
+    await page.waitForTimeout(150);
+    ok('si la plataforma conoce el VIN lo dice', /Conocido en la plataforma/.test(await page.locator('#st-m-known').innerText()));
+    await page.locator('#st-m-name').fill('Master K4');
+    await page.locator('#st-panel button', { hasText: 'Agregar a la flota Master' }).click();
+    await page.waitForTimeout(300);
+    const m1 = await page.evaluate(() => ({ m: (db.siteMasters || []).filter(m => !m.deleted).map(m => m.vin + '@' + m.spot + ':' + m.name), aud: auditGetView().some(e => e.action === 'master_alta'),
+        ghost: !!document.querySelector('#st-svg .st-ghost'), kpi: (document.querySelector('.st-kpi-lot') || {}).innerText || '', panel: document.getElementById('st-panel').innerText,
+        scene: document.getElementById('st-cam').textContent }));
+    ok('queda en la flota con su lugar, se audita, y como está en el dinamómetro su lugar se ve vacío', m1.m.join() === 'KNAE2E0000000AAAA1@p2:Master K4' && m1.aud && m1.ghost && /adentro: Dinamómetro/.test(m1.scene) && /Ahora está adentro: Dinamómetro/.test(m1.panel), JSON.stringify(m1).slice(0, 260));
+    ok('el indicador 🅿 cuenta la flota', /1/.test(m1.kpi), m1.kpi);
+    // Un Master sin alta: se agrega en P3, se mete al cajón 3 y regresa a su lugar.
+    await page.evaluate(() => siteSelect('spot', 'p3'));
+    await page.locator('#st-m-vin').fill('MSTE2E000000000B2');
+    await page.locator('#st-panel .ui-chip', { hasText: 'Hatchback' }).click();
+    await page.locator('#st-panel .ui-chip', { hasText: 'Rojo' }).click();
+    await page.locator('#st-panel button', { hasText: 'Agregar a la flota Master' }).click();
+    await page.waitForTimeout(300);
+    const m2 = await page.evaluate(() => { const m = db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2'); return { body: m.body, paint: m.paint, car: !!document.querySelector('#st-svg [data-master="' + m.id + '"]') }; });
+    ok('se dibuja con su carrocería y su color', m2.body === 'hatch' && m2.paint === 'rojo' && m2.car, JSON.stringify(m2));
+    await page.evaluate(() => { const m = db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2'); siteMoveStart('master', m.id); });
+    await clickEl('#st-svg [data-spot="c4"]');
+    const adentro = await page.evaluate(() => ({ u: (db.siteUnits || []).filter(u => !u.deleted).map(u => u.vin + '@' + u.spot), ghosts: document.querySelectorAll('#st-svg .st-ghost').length,
+        pill: document.getElementById('st-cam').innerHTML.includes('★ Master') }));
+    ok('meterlo al laboratorio (sin alta): queda en el cajón 4 con su VIN y su lugar de afuera se ve vacío', adentro.u.includes('MSTE2E000000000B2@c4') && adentro.ghosts === 2 && adentro.pill, JSON.stringify(adentro));
+    await page.evaluate(() => { const u = db.siteUnits.find(x => x.vin === 'MSTE2E000000000B2' && !x.deleted); siteMoveStart('unit', u.id); });
+    await clickEl('#st-svg [data-spot="p3"]');
+    const regreso = await page.evaluate(() => ({ u: (db.siteUnits || []).filter(u => !u.deleted && u.vin === 'MSTE2E000000000B2').length, ghosts: document.querySelectorAll('#st-svg .st-ghost').length,
+        m: db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2').spot }));
+    ok('de regreso: sale del cajón y vuelve a su lugar', regreso.u === 0 && regreso.ghosts === 1 && regreso.m === 'p3', JSON.stringify(regreso));
+    // Quitar de la flota (con confirmación) y deshacer
+    await page.evaluate(() => { const m = db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2'); siteMasterRemove(m.id); });
+    await page.locator('#_modal_confirm').click();
+    await page.waitForTimeout(300);
+    const baja = await page.evaluate(() => db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2').deleted === true && auditGetView().some(e => e.action === 'master_baja'));
+    await page.locator('.toast-undo').first().click();
+    await page.waitForTimeout(300);
+    ok('quitar de la flota pide confirmación, se audita y se puede deshacer', baja && await page.evaluate(() => db.siteMasters.find(x => x.vin === 'MSTE2E000000000B2').deleted === false));
+    // 🅿 lleva la vista al estacionamiento
+    await page.locator('.st-kpi-lot').click();
+    await page.waitForTimeout(650);
+    ok('tocar 🅿 acerca la vista al estacionamiento', await page.evaluate(() => _siteCam().zoom > 1.2));
+    if (SHOTS) await page.locator('#st-wrap').screenshot({ path: path.join(SHOTS, 'sitio-estacionamiento.png') });
     ok('sin errores de página', !errores.length, errores.join(' | '));
     await context.close();
 

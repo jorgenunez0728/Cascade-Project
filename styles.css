@@ -6831,9 +6831,21 @@ body.ficha-open { overflow: hidden; }
 .st-area--cell { fill: rgba(241, 245, 249, 0.55); }
 .st-area--control { fill: rgba(219, 234, 254, 0.55); }
 .st-area--soak { fill: rgba(236, 253, 245, 0.6); }
-.st-area-lbl { font-size: 26px; font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
-.st-roll { fill: #f59e0b; stroke: #b45309; stroke-width: 1; pointer-events: none; }
-.st-plate { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; pointer-events: none; }
+.st-area-lbl { font-size: calc(26px * var(--ls, 1)); font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.st-area-lbl--lot { fill: rgba(255, 255, 255, 0.85); }
+/* [3.17.0] Letreros pintados en el piso (en perspectiva; lo que está encima los tapa) */
+.st-floor-lbl { font-size: 72px; font-weight: 800; fill: rgba(71, 85, 105, 0.55); text-anchor: middle; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.st-floor-lbl--num { fill: rgba(71, 85, 105, 0.5); letter-spacing: 0; }
+.st-floor-lbl--dino { fill: rgba(180, 83, 9, 0.6); }
+.st-floor-lbl--lot { fill: rgba(255, 255, 255, 0.72); }
+/* [3.17.0] Fosa del dinamómetro: rodillos de acero, placa con estrías y la cinta de seguridad */
+.st-pit { fill: #334155; }
+.st-pit-edge { fill: none; stroke: #facc15; stroke-width: 5; stroke-dasharray: 14 10; }
+.st-roll { fill: #0f172a; stroke: #1e293b; stroke-width: 1; pointer-events: none; }
+.st-roller { fill: url(#st-g-roller); stroke: #334155; stroke-width: 0.8; }
+.st-roller-hl { stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.5; }
+.st-plate { fill: #94a3b8; stroke: #475569; stroke-width: 1; pointer-events: none; }
+.st-plate-tread { fill: none; stroke: rgba(15, 23, 42, 0.25); stroke-width: 1.2; }
 .st-rail { stroke: #eab308; stroke-width: 4; stroke-linecap: round; pointer-events: none; }
 .st-hose { stroke: #475569; stroke-width: 7; stroke-linecap: round; opacity: 0.6; pointer-events: none; }
 .st-barrier .st-top, .st-barrier .st-side { fill: #facc15; stroke: #a16207; stroke-width: 1; }
@@ -6851,7 +6863,43 @@ body.ficha-open { overflow: hidden; }
 .st-spot--sel { stroke: #2563eb; stroke-width: 3.5; stroke-dasharray: none; }
 .st-spot--target { stroke: #16a34a; stroke-width: 3; fill: rgba(220, 252, 231, 0.6); }
 .st-spot:focus-visible { outline: none; stroke: #2563eb; stroke-width: 4; }
-.st-spot-lbl { font-size: 30px; font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+.st-spot-lbl { font-size: calc(30px * var(--ls, 1)); font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+/* Los lugares se tocan aunque vivan en la capa del piso (la del cuarto de gases le quita el toque a todo). */
+.rm-floor-layer > .st-spot { pointer-events: auto; }
+.st-spot--stall { fill: transparent; stroke: transparent; stroke-dasharray: none; }
+.st-spot--stall.st-spot--sel { stroke: #60a5fa; stroke-width: 4; fill: rgba(96, 165, 250, 0.12); }
+.st-spot--stall.st-spot--target { stroke: #4ade80; stroke-width: 3.5; fill: rgba(74, 222, 128, 0.16); }
+.st-spot--stall.st-spot--clash { stroke: #f87171; stroke-width: 4; }
+/* Exterior: base de la maqueta, banqueta, pasto y el estacionamiento */
+.st-ground { fill: #e6eaef; stroke: #c3ccd7; stroke-width: 1; }
+.st-floor { fill: #f6f8fa; stroke: #b8c2ce; stroke-width: 1.2; }
+.st-base-side { fill: #c4ccd6; stroke: #aab4c1; stroke-width: 0.8; }
+.st-base-side--x { fill: #b0bac6; }
+.st-grass { fill: #cfe3c4; stroke: #b6d1a8; stroke-width: 1; }
+.st-asphalt { fill: #4a5361; stroke: #3b4350; stroke-width: 1; }
+.st-curb { fill: #d6dbe2; stroke: #aeb7c2; stroke-width: 0.8; }
+.st-curb-face { fill: #b9c1cc; }
+.st-stall-line { fill: none; stroke: rgba(255, 255, 255, 0.92); stroke-width: 4; stroke-linecap: round; }
+.st-stall-num { font-size: 72px; font-weight: 800; fill: rgba(255, 255, 255, 0.88); text-anchor: middle; letter-spacing: 0.04em; pointer-events: none; }
+.st-stop .st-top { fill: #e5e7eb; stroke: #9ca3af; stroke-width: 0.8; } .st-stop .st-side { fill: #c2c8d0; stroke: #9ca3af; stroke-width: 0.8; }
+.st-stop, .st-tree { pointer-events: none; }
+.st-trunk .st-top, .st-trunk .st-side { fill: #7c5a3a; stroke: #5b3f27; stroke-width: 0.8; }
+.st-canopy { fill: url(#st-g-tree); stroke: rgba(30, 70, 40, 0.45); stroke-width: 1.5; }
+.st-canopy--bush { stroke-width: 1; }
+.st-canopy-hl { fill: rgba(255, 255, 255, 0.16); }
+.st-tree-shadow { fill: rgba(15, 23, 42, 0.12); }
+/* Sombra al pie de los muros */
+.st-ao { fill: rgba(15, 23, 42, 0.045); }
+.st-ao--out { fill: rgba(15, 23, 42, 0.07); }
+/* Muros con grosor: los del fondo completos, los de enfrente cortados bajos */
+.st-wall-face { fill: #dfe5ec; stroke: #a7b2c0; stroke-width: 1; stroke-linejoin: round; }
+.st-wall-face--back { fill: url(#st-g-wall); }
+.st-wall-face--cut { fill: #e7ecf2; }
+.st-wall-end { fill: #c5cdd8; stroke: #a7b2c0; stroke-width: 1; }
+.st-wall-cap { fill: #5b6b80; stroke: #475569; stroke-width: 1; stroke-linejoin: round; }
+.st-wall-cap--cut { fill: #6b7b90; }
+.st-glass-frame { fill: none; stroke: rgba(51, 65, 85, 0.55); stroke-width: 2; }
+.st-glass-sill { stroke: #64748b; stroke-width: 3; }
 .st-eq { cursor: pointer; --st-eq-d: color-mix(in srgb, var(--st-eq, #94a3b8) 80%, #0f172a); --st-eq-dd: color-mix(in srgb, var(--st-eq, #94a3b8) 66%, #0f172a); }
 .st-eq .st-top { fill: color-mix(in srgb, var(--st-eq, #94a3b8) 88%, #ffffff); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
 .st-eq .st-side { fill: var(--st-eq-d); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
@@ -6892,44 +6940,75 @@ body.ficha-open { overflow: hidden; }
 .st-d-hole { fill: rgba(120, 53, 15, 0.45); }
 /* Piso de la celda */
 .st-floor-plates { fill: none; stroke: rgba(100, 116, 139, 0.28); stroke-width: 1; pointer-events: none; }
-.st-roll-axis { stroke: #78350f; stroke-width: 2; pointer-events: none; }
 /* Etiquetas en píldora (se leen sobre cualquier cosa) */
 .st-pill { pointer-events: none; }
 .st-pill rect { fill: rgba(255, 255, 255, 0.95); stroke: #cbd5e1; stroke-width: 1.5; }
-.st-pill text { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; }
-.st-pill .st-pill-sub { font-size: 16px; font-weight: 600; fill: #475569; }
+.st-pill text { font-size: calc(20px * var(--ls, 1)); font-weight: 800; fill: #0f172a; text-anchor: middle; }
+.st-pill .st-pill-sub { font-size: calc(16px * var(--ls, 1)); font-weight: 600; fill: #475569; }
+.st-pill--master rect { stroke: #b45309; stroke-width: 2; } .st-pill--master .st-pill-sub { fill: #92400e; }
+.st-pill--ghost rect { fill: rgba(255, 255, 255, 0.82); stroke: #b45309; stroke-dasharray: 8 5; } .st-pill--ghost .st-pill-sub { fill: #92400e; }
 .st-pill--bad rect { stroke: #dc2626; stroke-width: 2.5; } .st-pill--bad text { fill: #b91c1c; }
 .st-pill--warn rect { stroke: #d97706; stroke-width: 2; }
 .st-pill--soak .st-pill-sub { fill: #6d28d9; } .st-pill--ready .st-pill-sub { fill: #15803d; } .st-pill--noalta .st-pill-sub { fill: #b91c1c; }
-.st-eq-lbl text { font-size: 19px; font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
+.st-eq-lbl text { font-size: calc(19px * var(--ls, 1)); font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
 .st-eq-lbl--bad text { fill: #b91c1c; }
-/* Autos: perfil extruido, color = estado */
+/* [3.17.0] Autos: malla 3D con luz. Color = estado (en el estacionamiento, el color real del Master) */
 .st-car { cursor: pointer; --st-car: #94a3b8; }
 .st-car--work { --st-car: #60a5fa; } .st-car--soak { --st-car: #a78bfa; } .st-car--ready { --st-car: #4ade80; }
 .st-car--wait { --st-car: #fbbf24; } .st-car--done { --st-car: #cbd5e1; } .st-car--noalta { --st-car: #fca5a5; }
-.st-c-shadow { fill: rgba(15, 23, 42, 0.2); }
-.st-c-side, .st-c-body, .st-c-front, .st-c-rear, .st-c-roof { stroke: rgba(15, 23, 42, 0.55); stroke-width: 1; stroke-linejoin: round; }
-.st-c-side { fill: color-mix(in srgb, var(--st-car) 84%, #0f172a); }
-.st-c-body, .st-c-front { fill: var(--st-car); }
-.st-c-rear { fill: color-mix(in srgb, var(--st-car) 74%, #0f172a); }
-.st-c-roof { fill: color-mix(in srgb, var(--st-car) 82%, #ffffff); }
-.st-c-glass { fill: url(#st-g-glass); stroke: #0f172a; stroke-width: 0.8; stroke-linejoin: round; }
-.st-c-belt { stroke: rgba(15, 23, 42, 0.35); stroke-width: 1.2; }
-.st-c-tire { fill: #111827; }
-.st-c-rim { fill: #cbd5e1; stroke: #64748b; stroke-width: 1; }
-.st-c-hub { fill: #475569; }
-.st-c-headlight { fill: #fef9c3; stroke: #a16207; stroke-width: 0.8; }
-.st-c-taillight { fill: #ef4444; stroke: #7f1d1d; stroke-width: 0.8; }
-.st-c-grille { fill: #1f2937; }
-.st-c-shine { fill: rgba(255, 255, 255, 0.3); }
-.st-car--noalta .st-c-roof { stroke: #b91c1c; stroke-width: 2; stroke-dasharray: 6 4; }
-.st-car--sel .st-c-roof, .st-car--sel .st-c-side { stroke: #2563eb; stroke-width: 3; }
+.st-car polygon { stroke-linejoin: round; }
+.st-c-b0 { fill: color-mix(in srgb, var(--st-car) 35%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 35%, #0b1220); }
+.st-c-b1 { fill: color-mix(in srgb, var(--st-car) 42%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 42%, #0b1220); }
+.st-c-b2 { fill: color-mix(in srgb, var(--st-car) 50%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 50%, #0b1220); }
+.st-c-b3 { fill: color-mix(in srgb, var(--st-car) 60%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 60%, #0b1220); }
+.st-c-b4 { fill: color-mix(in srgb, var(--st-car) 70%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 70%, #0b1220); }
+.st-c-b5 { fill: color-mix(in srgb, var(--st-car) 79%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 79%, #0b1220); }
+.st-c-b6 { fill: color-mix(in srgb, var(--st-car) 89%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 89%, #0b1220); }
+.st-c-b7 { fill: var(--st-car); stroke: var(--st-car); }
+.st-c-b8 { fill: color-mix(in srgb, var(--st-car) 90%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 90%, #ffffff); }
+.st-c-b9 { fill: color-mix(in srgb, var(--st-car) 80%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 80%, #ffffff); }
+.st-c-b10 { fill: color-mix(in srgb, var(--st-car) 70%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 70%, #ffffff); }
+[class^="st-c-b"] { stroke-width: 0.7; }
+.st-c-k { fill: #1f2733; stroke: #1f2733; stroke-width: 0.7; }
+.st-c-p { fill: #121826; stroke: #121826; stroke-width: 0.7; }
+.st-c-g0 { fill: url(#st-g-glass); stroke: #0b1220; stroke-width: 0.8; }
+.st-c-g1, .st-c-g2 { fill: url(#st-g-glass-sky); stroke: #0b1220; stroke-width: 0.8; }
+.st-c-g2 { opacity: 0.92; }
+.st-c-refl { fill: rgba(255, 255, 255, 0.22); stroke: none; }
+.st-c-lamp { fill: #f8fafc; stroke: #64748b; stroke-width: 0.8; }
+.st-c-tail { fill: #dc2626; stroke: #7f1d1d; stroke-width: 0.8; }
+.st-c-tbar { stroke: #ef4444; stroke-width: 3; stroke-linecap: round; }
+.st-c-drl { stroke: #e0f2fe; stroke-width: 2.5; stroke-linecap: round; }
+.st-c-grille { fill: #161c27; stroke: #0b1220; stroke-width: 0.8; }
+.st-c-slat { stroke: #3b4657; stroke-width: 1.5; }
+.st-c-plate { fill: #f8fafc; stroke: #94a3b8; stroke-width: 0.8; }
+.st-c-dark { fill: #1f2733; }
+.st-c-arch { fill: #0b0f17; }
+.st-c-tire { fill: #10151d; stroke: #05080d; stroke-width: 0.8; }
+.st-c-tw { fill: #242c38; }
+.st-c-rim { fill: url(#st-g-rim); stroke: #475569; stroke-width: 0.8; }
+.st-c-spk { fill: none; stroke: #4b5563; stroke-width: 2.4; stroke-linecap: round; }
+.st-c-hub { fill: #6b7280; stroke: #374151; stroke-width: 0.6; }
+.st-c-seam { fill: none; stroke: rgba(11, 18, 32, 0.38); stroke-width: 1.2; }
+.st-c-handle { fill: rgba(11, 18, 32, 0.55); }
+.st-c-crease { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1.4; }
+.st-c-chrome { stroke: #e2e8f0; stroke-width: 1.6; stroke-linecap: round; }
+.st-c-rail { fill: none; stroke: #1f2733; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.st-c-shadow { fill: rgba(15, 23, 42, 0.22); }
+.st-c-shadow--soft { fill: rgba(15, 23, 42, 0.08); }
+.st-c-contact { fill: rgba(5, 8, 13, 0.45); }
+.st-c-ring { fill: none; stroke-width: 3; }
+.st-c-ring--sel { stroke: #2563eb; stroke-width: 4.5; fill: rgba(37, 99, 235, 0.1); }
+.st-c-ring--noalta { stroke: #dc2626; stroke-dasharray: 10 6; }
 .st-car--moving { opacity: 0.55; }
 .st-car:focus-visible { outline: none; }
-.st-car:focus-visible .st-c-roof { stroke: #2563eb; stroke-width: 4; }
+.st-car:focus-visible .st-c-shadow { fill: rgba(37, 99, 235, 0.35); }
+.st-ghost { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.75); stroke-width: 3; stroke-dasharray: 12 8; }
+.st-ghost--sel { stroke: #60a5fa; stroke-width: 4; }
 .st-lg { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
 .st-lg--work { background: #60a5fa; } .st-lg--soak { background: #a78bfa; } .st-lg--ready { background: #4ade80; }
 .st-lg--wait { background: #fbbf24; } .st-lg--noalta { background: #fca5a5; } .st-lg--bad { background: transparent; box-shadow: 0 0 0 2px #dc2626 inset; }
+.st-lg--master { background: linear-gradient(90deg, #f1f5f9 0 33%, #6b7280 33% 66%, #c62828 66%); box-shadow: 0 0 0 1px #b45309 inset; }
 .st-health { margin: var(--space-sm) 0; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-sm); background: var(--surface-2, #f1f5f9); color: var(--text); }
 .st-health--bad { background: var(--danger-bg); color: var(--danger-text); }
 .st-health--warn { background: var(--warn-bg); color: var(--warn-text); }
@@ -6944,5 +7023,16 @@ body.ficha-open { overflow: hidden; }
 .st-field select { font-size: var(--fs-base); padding: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .st-hint { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-sm) 0 0; }
 .st-danger { color: var(--danger-text); }
-.rm-room--lab .rm-door-lbl { font-size: 18px; }
+.st-kpi-lot { font: inherit; cursor: pointer; border: 1px solid var(--border); }
+.st-kpi-lot:hover { border-color: var(--border-strong); }
+.st-kpi-lot:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.st-form { display: grid; gap: var(--space-xs); }
+.st-field input { font-size: var(--fs-base); min-height: 40px; padding: 0 var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text); background: var(--surface); }
+.st-known { margin: 0; color: var(--ok-text); }
+.st-inline-btn { min-height: 28px; padding: 0 var(--space-sm); margin-left: var(--space-xs); }
+.st-link { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--info-text); cursor: pointer; text-decoration: underline; }
+.st-health--info { background: var(--info-bg); color: var(--info-text); }
+.st-more { margin-top: var(--space-sm); }
+.st-more > summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.rm-room--lab .rm-door-lbl { font-size: calc(18px * var(--ls, 1)); }
 .rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }

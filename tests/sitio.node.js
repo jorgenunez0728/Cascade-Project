@@ -92,12 +92,70 @@ ok('cada equipo, cada lugar y cada unidad se pueden tocar', (out.svg.match(/data
    (out.svg.match(/data-spot="/g) || []).length === 5 && /data-veh="1"/.test(out.svg) && /data-unit="u2"/.test(out.svg));
 ok('el equipo con algo vencido se marca y el elegido también', /st-eq st-eq--bad st-eq--filter st-eq--sel/.test(out.svg));
 ok('cada forma dibuja sus detalles: pantallas, aspas, puertas', /st-d-screen/.test(out.svg) && /st-d-spoke/.test(out.svg) && /st-d-door/.test(out.svg) && /st-d-hazard/.test(out.svg));
-ok('los autos llevan ruedas, cristales, faros y calaveras', (out.svg.match(/class="st-c-tire"/g) || []).length === 4 * 4 && /st-c-glass/.test(out.svg) && /st-c-headlight/.test(out.svg) && /st-c-taillight/.test(out.svg),
+ok('los autos llevan ruedas, cristales, faros y calaveras', (out.svg.match(/class="st-c-tire"/g) || []).length === 4 * 4 && /class="st-c-g\d"/.test(out.svg) && /st-c-lamp/.test(out.svg) && /st-c-tail/.test(out.svg),
    (out.svg.match(/class="st-c-tire"/g) || []).length);
 ok('el choque del cajón 3 se pinta', /st-spot--c3 st-spot--busy st-spot--clash/.test(out.svg));
 ok('lo decorativo no se queda con el toque', /\.st-wall \{ pointer-events: none/.test(fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8')));
 const k = C.siteKpis(M, look, items, health);
 ok('indicadores: en sitio con/sin alta, reposando, en dino, equipos', k.onSite === 4 && k.withAlta === 2 && k.noAlta === 2 && k.soaking === 1 && k.nextLeftH === 3 && k.dino === 1 && k.eqBad === 1 && k.eqNone === items.length - 1, JSON.stringify(k));
+
+console.log('\n== [3.17.0] El auto es una malla 3D: solo se dibuja lo que se ve ==');
+const camK = { az: 18, el: 46, zoom: 1, panX: 0, panY: 0 }, CK = C.invRoomCenter(L);
+const PK = (x, y, z) => C.invRoomProject(x, y, z, camK, CK), ctxK = { P: PK, V: C._siteViewVec(camK) };
+const carE = C._siteCarSVG(ctxK, 10, 5, 0, 'st-car', '', 'x', { body: 'sedan' }), carW = C._siteCarSVG(ctxK, 10, 5, Math.PI, 'st-car', '', 'x', { body: 'sedan' });
+const nPoly = sv => (sv.match(/<polygon/g) || []).length;
+ok('las cuatro carrocerías existen, con la misma distancia entre ejes (las llantas caen en los rodillos)', ['sedan', 'hatch', 'wagon', 'suv'].every(k => C.SITE_BODIES[k] && C.SITE_BODIES[k].st.length >= 10) &&
+   C.SITE_WHEEL_U === 1.35 && Math.abs((6.3 + 9.0) / 2 - (5.2 + 10.2) / 2) < 0.06);
+ok('desde arriba no se ve ningún costado: solo techos, cofres y cristales', (() => { const camT = { az: 0, el: 90 }, s2 = C._siteCarSVG({ P: (x, y, z) => C.invRoomProject(x, y, z, camT, CK), V: C._siteViewVec(camT) }, 10, 5, 0, 'st-car', '', '', {}).s;
+   return !/st-c-tire/.test(s2) && !/st-c-arch/.test(s2) && /st-c-b\d+/.test(s2); })());
+ok('de lado se ve UN costado con sus dos llantas completas (rin, rayos) y el otro solo asoma', (carE.s.match(/class="st-c-rim"/g) || []).length === 2 && (carE.s.match(/class="st-c-tire"/g) || []).length === 4);
+ok('mirando al este o al oeste es el mismo auto (girado), con faros adelante y calaveras atrás', nPoly(carE.s) > 40 && nPoly(carW.s) > 40 && /st-c-lamp/.test(carE.s) && /st-c-tail/.test(carW.s));
+ok('la luz pinta distinto cada cara (no es un color plano)', new Set((carE.s.match(/st-c-b\d+/g) || [])).size >= 4);
+ok('la carrocería sale del catálogo: 4DR sedán, 5DR hatchback, WGN wagon, WGN LONG SUV', C.siteBodyFromConfig({ 'BODY TYPE': '4DR' }) === 'sedan' && C.siteBodyFromConfig({ 'BODY TYPE': '5DR' }) === 'hatch' &&
+   C.siteBodyFromConfig({ 'BODY TYPE': 'WGN' }) === 'wagon' && C.siteBodyFromConfig({ 'BODY TYPE': 'WGN LONG' }) === 'suv' && C.siteBodyFromConfig({}) === '');
+ok('una SUV es más alta que un sedán', C.siteBodyHeight('suv') > C.siteBodyHeight('sedan') + 0.2);
+const hull = C._siteHull([{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 0.3 }, { x: 2, y: 2 }, { x: 0, y: 2 }]);
+ok('la silueta de una llanta es la envolvente convexa', hull.length === 4 && !hull.some(p => p.x === 1));
+
+console.log('\n== [3.17.0] El estacionamiento de la flota Master ==');
+const LL = C.siteLayout(5), st5 = LL.lot.stalls;
+ok('P1 junto al cuarto de acondicionamiento y los siguientes hacia el oeste, afuera del edificio', st5.length === 5 && st5[0].id === 'p1' && st5[0].rect[2] <= 15 &&
+   st5.every((s, i) => i === 0 || s.rect[2] <= st5[i - 1].rect[0] + 1e-9) && st5.every(s => s.rect[1] >= 12.9));
+ok('un lugar nunca cambia de número cuando el estacionamiento crece', JSON.stringify(C.siteLayout(8).lot.stalls.slice(0, 5).map(s => s.rect)) === JSON.stringify(st5.map(s => s.rect)));
+ok('cuántos lugares: nunca menos de 5, siempre uno libre, y todos los que se usan', C.siteLotCount([]) === 5 && C.siteLotCount([1, 2, 3, 4, 5].map(i => ({ id: 'm' + i, spot: 'p' + i }))) === 6 &&
+   C.siteLotCount([{ id: 'a', spot: 'p9' }]) === 9 && C.siteLotCount([{ id: 'a', spot: 'p9', deleted: true }]) === 5);
+ok('el plano fijo no cambia: el estacionamiento se agrega encima', C.SITE_LAYOUT.spots.length === 5 && !C.SITE_LAYOUT.lot && LL.spots.length === 10 && LL.floor === C.SITE_LAYOUT.floor);
+ok('un punto dentro de un lugar de afuera es ese lugar', C.siteSpotAt([(st5[2].rect[0] + st5[2].rect[2]) / 2, 15.5], LL) === 'p3' && C.siteSpotAt([(st5[2].rect[0] + st5[2].rect[2]) / 2, 15.5]) === null);
+ok('los lugares de afuera se reconocen', C.siteIsStall('p12') && !C.siteIsStall('c1') && !C.siteIsStall('dino') && !C.siteIsStall(''));
+const ms = [{ id: 'm1', vin: 'KNA0000000000AAAA1', spot: 'p1', name: 'K4' }, { id: 'm2', vin: 'MST2', spot: 'p2' }, { id: 'm3', vin: 'MST3', spot: 'p2' }, { id: 'm4', vin: 'MST4', spot: '' },
+            { id: 'm5', vin: 'MST5', spot: 'p3', deleted: true }];
+const PM = C.siteParkingModel(ms, M, st5.map(s => s.id));
+ok('cada Master en su lugar; las bajas no cuentan', PM.list.length === 4 && PM.byStall.p1[0].master.id === 'm1' && !PM.byStall.p3);
+ok('su VIN adentro (cajón 1, con alta) → se sabe dónde está', PM.byStall.p1[0].inLab && PM.byStall.p1[0].inLab.spot === 'c1' && !PM.byStall.p2[0].inLab);
+ok('dos en el mismo lugar se declaran; uno sin lugar también', PM.conflicts.join() === 'p2' && PM.unplaced.length === 1 && PM.unplaced[0].master.id === 'm4');
+ok('primer lugar libre', C.siteLotFreeStall(ms) === 'p3' && C.siteLotFreeStall([]) === 'p1');
+ok('el mismo VIN dos veces en la flota se declara', C.siteParkingModel([{ id: 'a', vin: 'v 1', spot: 'p1' }, { id: 'b', vin: 'V1', spot: 'p2' }], M, ['p1', 'p2']).dupVins.join() === 'V1' && PM.dupVins.length === 0);
+const kk2 = C.siteKpis(M, look, items, health, PM);
+ok('indicadores: cuántos Master y cuántos adentro', kk2.masters === 4 && kk2.mastersIn === 1 && C.siteKpis(M, look, items, health).masters === 0);
+const mlook = { m1: { short: 'K4', sub: 'adentro: Cajón 1', aria: 'K4' }, m2: { short: 'M2', aria: 'M2' }, m3: { short: 'M3', aria: 'M3' } };
+const outL = C.siteSceneSVG({ layout: LL, items, model: M, look, health, parking: PM, masterLook: mlook }, cam, { ls: 1.3 });
+ok('PURA también con el estacionamiento', outL.svg === C.siteSceneSVG({ layout: LL, items, model: M, look, health, parking: PM, masterLook: mlook }, cam, { ls: 1.3 }).svg);
+ok('cada lugar de afuera se puede tocar y lleva su número pintado', (outL.svg.match(/data-spot="p\d+"/g) || []).length === 5 && /class="st-stall-num" transform="matrix\(/.test(outL.svg));
+ok('un Master se dibuja con su color real y se puede tocar; el que está adentro deja su huella', /data-master="m2"[^>]*style="--st-car:/.test(outL.svg) && !/data-master="m1"/.test(outL.svg) && /class="st-ghost"/.test(outL.svg));
+ok('el exterior: base de maqueta, pasto, asfalto, árboles, topes', /st-base-side/.test(outL.svg) && /st-grass/.test(outL.svg) && /st-asphalt/.test(outL.svg) && /st-canopy/.test(outL.svg) && /st-stop/.test(outL.svg));
+ok('el texto pintado se escala con la pantalla (--ls en las dos capas)', (outL.svg.match(/--ls:1\.30/g) || []).length === 2);
+const ft = C._siteFloorText(PK, 5, 5, 'P1', 'x', 0.5), mm = /matrix\(([^)]+)\)/.exec(ft)[1].split(' ').map(Number);
+ok('el letrero pintado no sale al revés (corre de izquierda a derecha)', mm[0] > 0 && mm[0] * mm[3] - mm[1] * mm[2] > 0);
+const walls = outL.svg.match(/st-wall-face--cut/g) || [], backs = outL.svg.match(/st-wall-face--back/g) || [];
+ok('muros: los de enfrente cortados bajos y los del fondo completos, con su grosor', walls.length > 3 && backs.length > 3 && /st-wall-cap/.test(outL.svg));
+ok('la fosa del dinamómetro: rodillos de acero y cinta de seguridad', (outL.svg.match(/class="st-roller"/g) || []).length === 8 && /st-pit-edge/.test(outL.svg));
+
+console.log('\n== [3.17.0] La flota viaja por la nube como las unidades sin alta ==');
+const fbs = fs.readFileSync(path.join(__dirname, '..', 'js', 'firebase-sync.js'), 'utf8');
+ok('siteMasters está en la meta de vehículos', /FB_VEH_META_KEYS = \[[^\]]*'siteMasters'/.test(fbs));
+ok('cada punto donde se unen las unidades sin alta también une la flota', (fbs.match(/siteUnits/g) || []).length === (fbs.match(/siteMasters/g) || []).length, (fbs.match(/siteUnits/g) || []).length + ' vs ' + (fbs.match(/siteMasters/g) || []).length);
+const ma = [{ id: 'sm1', vin: 'A', spot: 'p1', updatedAt: '2026-10-21T10:00Z' }], mb = [{ id: 'sm1', vin: 'A', spot: 'p4', updatedAt: '2026-10-21T11:00Z' }, { id: 'sm2', vin: 'B', spot: 'p2', updatedAt: '1' }];
+ok('dos equipos: gana el cambio más reciente y no se pierde ninguno (simétrico)', JSON.stringify(C.siteListUnion(ma, mb)) === JSON.stringify(C.siteListUnion(mb, ma)) && C.siteListUnion(ma, mb).map(m => m.id + m.spot).join() === 'sm1p4,sm2p2');
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;

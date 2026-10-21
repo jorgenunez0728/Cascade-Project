@@ -7274,9 +7274,21 @@ body.ficha-open { overflow: hidden; }
 .st-area--cell { fill: rgba(241, 245, 249, 0.55); }
 .st-area--control { fill: rgba(219, 234, 254, 0.55); }
 .st-area--soak { fill: rgba(236, 253, 245, 0.6); }
-.st-area-lbl { font-size: 26px; font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
-.st-roll { fill: #f59e0b; stroke: #b45309; stroke-width: 1; pointer-events: none; }
-.st-plate { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; pointer-events: none; }
+.st-area-lbl { font-size: calc(26px * var(--ls, 1)); font-weight: 800; fill: #64748b; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.st-area-lbl--lot { fill: rgba(255, 255, 255, 0.85); }
+/* [3.17.0] Letreros pintados en el piso (en perspectiva; lo que está encima los tapa) */
+.st-floor-lbl { font-size: 72px; font-weight: 800; fill: rgba(71, 85, 105, 0.55); text-anchor: middle; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.st-floor-lbl--num { fill: rgba(71, 85, 105, 0.5); letter-spacing: 0; }
+.st-floor-lbl--dino { fill: rgba(180, 83, 9, 0.6); }
+.st-floor-lbl--lot { fill: rgba(255, 255, 255, 0.72); }
+/* [3.17.0] Fosa del dinamómetro: rodillos de acero, placa con estrías y la cinta de seguridad */
+.st-pit { fill: #334155; }
+.st-pit-edge { fill: none; stroke: #facc15; stroke-width: 5; stroke-dasharray: 14 10; }
+.st-roll { fill: #0f172a; stroke: #1e293b; stroke-width: 1; pointer-events: none; }
+.st-roller { fill: url(#st-g-roller); stroke: #334155; stroke-width: 0.8; }
+.st-roller-hl { stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.5; }
+.st-plate { fill: #94a3b8; stroke: #475569; stroke-width: 1; pointer-events: none; }
+.st-plate-tread { fill: none; stroke: rgba(15, 23, 42, 0.25); stroke-width: 1.2; }
 .st-rail { stroke: #eab308; stroke-width: 4; stroke-linecap: round; pointer-events: none; }
 .st-hose { stroke: #475569; stroke-width: 7; stroke-linecap: round; opacity: 0.6; pointer-events: none; }
 .st-barrier .st-top, .st-barrier .st-side { fill: #facc15; stroke: #a16207; stroke-width: 1; }
@@ -7294,7 +7306,43 @@ body.ficha-open { overflow: hidden; }
 .st-spot--sel { stroke: #2563eb; stroke-width: 3.5; stroke-dasharray: none; }
 .st-spot--target { stroke: #16a34a; stroke-width: 3; fill: rgba(220, 252, 231, 0.6); }
 .st-spot:focus-visible { outline: none; stroke: #2563eb; stroke-width: 4; }
-.st-spot-lbl { font-size: 30px; font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+.st-spot-lbl { font-size: calc(30px * var(--ls, 1)); font-weight: 800; fill: #475569; text-anchor: middle; pointer-events: none; }
+/* Los lugares se tocan aunque vivan en la capa del piso (la del cuarto de gases le quita el toque a todo). */
+.rm-floor-layer > .st-spot { pointer-events: auto; }
+.st-spot--stall { fill: transparent; stroke: transparent; stroke-dasharray: none; }
+.st-spot--stall.st-spot--sel { stroke: #60a5fa; stroke-width: 4; fill: rgba(96, 165, 250, 0.12); }
+.st-spot--stall.st-spot--target { stroke: #4ade80; stroke-width: 3.5; fill: rgba(74, 222, 128, 0.16); }
+.st-spot--stall.st-spot--clash { stroke: #f87171; stroke-width: 4; }
+/* Exterior: base de la maqueta, banqueta, pasto y el estacionamiento */
+.st-ground { fill: #e6eaef; stroke: #c3ccd7; stroke-width: 1; }
+.st-floor { fill: #f6f8fa; stroke: #b8c2ce; stroke-width: 1.2; }
+.st-base-side { fill: #c4ccd6; stroke: #aab4c1; stroke-width: 0.8; }
+.st-base-side--x { fill: #b0bac6; }
+.st-grass { fill: #cfe3c4; stroke: #b6d1a8; stroke-width: 1; }
+.st-asphalt { fill: #4a5361; stroke: #3b4350; stroke-width: 1; }
+.st-curb { fill: #d6dbe2; stroke: #aeb7c2; stroke-width: 0.8; }
+.st-curb-face { fill: #b9c1cc; }
+.st-stall-line { fill: none; stroke: rgba(255, 255, 255, 0.92); stroke-width: 4; stroke-linecap: round; }
+.st-stall-num { font-size: 72px; font-weight: 800; fill: rgba(255, 255, 255, 0.88); text-anchor: middle; letter-spacing: 0.04em; pointer-events: none; }
+.st-stop .st-top { fill: #e5e7eb; stroke: #9ca3af; stroke-width: 0.8; } .st-stop .st-side { fill: #c2c8d0; stroke: #9ca3af; stroke-width: 0.8; }
+.st-stop, .st-tree { pointer-events: none; }
+.st-trunk .st-top, .st-trunk .st-side { fill: #7c5a3a; stroke: #5b3f27; stroke-width: 0.8; }
+.st-canopy { fill: url(#st-g-tree); stroke: rgba(30, 70, 40, 0.45); stroke-width: 1.5; }
+.st-canopy--bush { stroke-width: 1; }
+.st-canopy-hl { fill: rgba(255, 255, 255, 0.16); }
+.st-tree-shadow { fill: rgba(15, 23, 42, 0.12); }
+/* Sombra al pie de los muros */
+.st-ao { fill: rgba(15, 23, 42, 0.045); }
+.st-ao--out { fill: rgba(15, 23, 42, 0.07); }
+/* Muros con grosor: los del fondo completos, los de enfrente cortados bajos */
+.st-wall-face { fill: #dfe5ec; stroke: #a7b2c0; stroke-width: 1; stroke-linejoin: round; }
+.st-wall-face--back { fill: url(#st-g-wall); }
+.st-wall-face--cut { fill: #e7ecf2; }
+.st-wall-end { fill: #c5cdd8; stroke: #a7b2c0; stroke-width: 1; }
+.st-wall-cap { fill: #5b6b80; stroke: #475569; stroke-width: 1; stroke-linejoin: round; }
+.st-wall-cap--cut { fill: #6b7b90; }
+.st-glass-frame { fill: none; stroke: rgba(51, 65, 85, 0.55); stroke-width: 2; }
+.st-glass-sill { stroke: #64748b; stroke-width: 3; }
 .st-eq { cursor: pointer; --st-eq-d: color-mix(in srgb, var(--st-eq, #94a3b8) 80%, #0f172a); --st-eq-dd: color-mix(in srgb, var(--st-eq, #94a3b8) 66%, #0f172a); }
 .st-eq .st-top { fill: color-mix(in srgb, var(--st-eq, #94a3b8) 88%, #ffffff); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
 .st-eq .st-side { fill: var(--st-eq-d); stroke: rgba(15, 23, 42, 0.45); stroke-width: 1; stroke-linejoin: round; }
@@ -7335,44 +7383,75 @@ body.ficha-open { overflow: hidden; }
 .st-d-hole { fill: rgba(120, 53, 15, 0.45); }
 /* Piso de la celda */
 .st-floor-plates { fill: none; stroke: rgba(100, 116, 139, 0.28); stroke-width: 1; pointer-events: none; }
-.st-roll-axis { stroke: #78350f; stroke-width: 2; pointer-events: none; }
 /* Etiquetas en píldora (se leen sobre cualquier cosa) */
 .st-pill { pointer-events: none; }
 .st-pill rect { fill: rgba(255, 255, 255, 0.95); stroke: #cbd5e1; stroke-width: 1.5; }
-.st-pill text { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; }
-.st-pill .st-pill-sub { font-size: 16px; font-weight: 600; fill: #475569; }
+.st-pill text { font-size: calc(20px * var(--ls, 1)); font-weight: 800; fill: #0f172a; text-anchor: middle; }
+.st-pill .st-pill-sub { font-size: calc(16px * var(--ls, 1)); font-weight: 600; fill: #475569; }
+.st-pill--master rect { stroke: #b45309; stroke-width: 2; } .st-pill--master .st-pill-sub { fill: #92400e; }
+.st-pill--ghost rect { fill: rgba(255, 255, 255, 0.82); stroke: #b45309; stroke-dasharray: 8 5; } .st-pill--ghost .st-pill-sub { fill: #92400e; }
 .st-pill--bad rect { stroke: #dc2626; stroke-width: 2.5; } .st-pill--bad text { fill: #b91c1c; }
 .st-pill--warn rect { stroke: #d97706; stroke-width: 2; }
 .st-pill--soak .st-pill-sub { fill: #6d28d9; } .st-pill--ready .st-pill-sub { fill: #15803d; } .st-pill--noalta .st-pill-sub { fill: #b91c1c; }
-.st-eq-lbl text { font-size: 19px; font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
+.st-eq-lbl text { font-size: calc(19px * var(--ls, 1)); font-weight: 700; fill: #1e293b; text-anchor: middle; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3px; pointer-events: none; }
 .st-eq-lbl--bad text { fill: #b91c1c; }
-/* Autos: perfil extruido, color = estado */
+/* [3.17.0] Autos: malla 3D con luz. Color = estado (en el estacionamiento, el color real del Master) */
 .st-car { cursor: pointer; --st-car: #94a3b8; }
 .st-car--work { --st-car: #60a5fa; } .st-car--soak { --st-car: #a78bfa; } .st-car--ready { --st-car: #4ade80; }
 .st-car--wait { --st-car: #fbbf24; } .st-car--done { --st-car: #cbd5e1; } .st-car--noalta { --st-car: #fca5a5; }
-.st-c-shadow { fill: rgba(15, 23, 42, 0.2); }
-.st-c-side, .st-c-body, .st-c-front, .st-c-rear, .st-c-roof { stroke: rgba(15, 23, 42, 0.55); stroke-width: 1; stroke-linejoin: round; }
-.st-c-side { fill: color-mix(in srgb, var(--st-car) 84%, #0f172a); }
-.st-c-body, .st-c-front { fill: var(--st-car); }
-.st-c-rear { fill: color-mix(in srgb, var(--st-car) 74%, #0f172a); }
-.st-c-roof { fill: color-mix(in srgb, var(--st-car) 82%, #ffffff); }
-.st-c-glass { fill: url(#st-g-glass); stroke: #0f172a; stroke-width: 0.8; stroke-linejoin: round; }
-.st-c-belt { stroke: rgba(15, 23, 42, 0.35); stroke-width: 1.2; }
-.st-c-tire { fill: #111827; }
-.st-c-rim { fill: #cbd5e1; stroke: #64748b; stroke-width: 1; }
-.st-c-hub { fill: #475569; }
-.st-c-headlight { fill: #fef9c3; stroke: #a16207; stroke-width: 0.8; }
-.st-c-taillight { fill: #ef4444; stroke: #7f1d1d; stroke-width: 0.8; }
-.st-c-grille { fill: #1f2937; }
-.st-c-shine { fill: rgba(255, 255, 255, 0.3); }
-.st-car--noalta .st-c-roof { stroke: #b91c1c; stroke-width: 2; stroke-dasharray: 6 4; }
-.st-car--sel .st-c-roof, .st-car--sel .st-c-side { stroke: #2563eb; stroke-width: 3; }
+.st-car polygon { stroke-linejoin: round; }
+.st-c-b0 { fill: color-mix(in srgb, var(--st-car) 35%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 35%, #0b1220); }
+.st-c-b1 { fill: color-mix(in srgb, var(--st-car) 42%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 42%, #0b1220); }
+.st-c-b2 { fill: color-mix(in srgb, var(--st-car) 50%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 50%, #0b1220); }
+.st-c-b3 { fill: color-mix(in srgb, var(--st-car) 60%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 60%, #0b1220); }
+.st-c-b4 { fill: color-mix(in srgb, var(--st-car) 70%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 70%, #0b1220); }
+.st-c-b5 { fill: color-mix(in srgb, var(--st-car) 79%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 79%, #0b1220); }
+.st-c-b6 { fill: color-mix(in srgb, var(--st-car) 89%, #0b1220); stroke: color-mix(in srgb, var(--st-car) 89%, #0b1220); }
+.st-c-b7 { fill: var(--st-car); stroke: var(--st-car); }
+.st-c-b8 { fill: color-mix(in srgb, var(--st-car) 90%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 90%, #ffffff); }
+.st-c-b9 { fill: color-mix(in srgb, var(--st-car) 80%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 80%, #ffffff); }
+.st-c-b10 { fill: color-mix(in srgb, var(--st-car) 70%, #ffffff); stroke: color-mix(in srgb, var(--st-car) 70%, #ffffff); }
+[class^="st-c-b"] { stroke-width: 0.7; }
+.st-c-k { fill: #1f2733; stroke: #1f2733; stroke-width: 0.7; }
+.st-c-p { fill: #121826; stroke: #121826; stroke-width: 0.7; }
+.st-c-g0 { fill: url(#st-g-glass); stroke: #0b1220; stroke-width: 0.8; }
+.st-c-g1, .st-c-g2 { fill: url(#st-g-glass-sky); stroke: #0b1220; stroke-width: 0.8; }
+.st-c-g2 { opacity: 0.92; }
+.st-c-refl { fill: rgba(255, 255, 255, 0.22); stroke: none; }
+.st-c-lamp { fill: #f8fafc; stroke: #64748b; stroke-width: 0.8; }
+.st-c-tail { fill: #dc2626; stroke: #7f1d1d; stroke-width: 0.8; }
+.st-c-tbar { stroke: #ef4444; stroke-width: 3; stroke-linecap: round; }
+.st-c-drl { stroke: #e0f2fe; stroke-width: 2.5; stroke-linecap: round; }
+.st-c-grille { fill: #161c27; stroke: #0b1220; stroke-width: 0.8; }
+.st-c-slat { stroke: #3b4657; stroke-width: 1.5; }
+.st-c-plate { fill: #f8fafc; stroke: #94a3b8; stroke-width: 0.8; }
+.st-c-dark { fill: #1f2733; }
+.st-c-arch { fill: #0b0f17; }
+.st-c-tire { fill: #10151d; stroke: #05080d; stroke-width: 0.8; }
+.st-c-tw { fill: #242c38; }
+.st-c-rim { fill: url(#st-g-rim); stroke: #475569; stroke-width: 0.8; }
+.st-c-spk { fill: none; stroke: #4b5563; stroke-width: 2.4; stroke-linecap: round; }
+.st-c-hub { fill: #6b7280; stroke: #374151; stroke-width: 0.6; }
+.st-c-seam { fill: none; stroke: rgba(11, 18, 32, 0.38); stroke-width: 1.2; }
+.st-c-handle { fill: rgba(11, 18, 32, 0.55); }
+.st-c-crease { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1.4; }
+.st-c-chrome { stroke: #e2e8f0; stroke-width: 1.6; stroke-linecap: round; }
+.st-c-rail { fill: none; stroke: #1f2733; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.st-c-shadow { fill: rgba(15, 23, 42, 0.22); }
+.st-c-shadow--soft { fill: rgba(15, 23, 42, 0.08); }
+.st-c-contact { fill: rgba(5, 8, 13, 0.45); }
+.st-c-ring { fill: none; stroke-width: 3; }
+.st-c-ring--sel { stroke: #2563eb; stroke-width: 4.5; fill: rgba(37, 99, 235, 0.1); }
+.st-c-ring--noalta { stroke: #dc2626; stroke-dasharray: 10 6; }
 .st-car--moving { opacity: 0.55; }
 .st-car:focus-visible { outline: none; }
-.st-car:focus-visible .st-c-roof { stroke: #2563eb; stroke-width: 4; }
+.st-car:focus-visible .st-c-shadow { fill: rgba(37, 99, 235, 0.35); }
+.st-ghost { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.75); stroke-width: 3; stroke-dasharray: 12 8; }
+.st-ghost--sel { stroke: #60a5fa; stroke-width: 4; }
 .st-lg { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
 .st-lg--work { background: #60a5fa; } .st-lg--soak { background: #a78bfa; } .st-lg--ready { background: #4ade80; }
 .st-lg--wait { background: #fbbf24; } .st-lg--noalta { background: #fca5a5; } .st-lg--bad { background: transparent; box-shadow: 0 0 0 2px #dc2626 inset; }
+.st-lg--master { background: linear-gradient(90deg, #f1f5f9 0 33%, #6b7280 33% 66%, #c62828 66%); box-shadow: 0 0 0 1px #b45309 inset; }
 .st-health { margin: var(--space-sm) 0; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-sm); background: var(--surface-2, #f1f5f9); color: var(--text); }
 .st-health--bad { background: var(--danger-bg); color: var(--danger-text); }
 .st-health--warn { background: var(--warn-bg); color: var(--warn-text); }
@@ -7387,7 +7466,18 @@ body.ficha-open { overflow: hidden; }
 .st-field select { font-size: var(--fs-base); padding: var(--space-xs); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .st-hint { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-sm) 0 0; }
 .st-danger { color: var(--danger-text); }
-.rm-room--lab .rm-door-lbl { font-size: 18px; }
+.st-kpi-lot { font: inherit; cursor: pointer; border: 1px solid var(--border); }
+.st-kpi-lot:hover { border-color: var(--border-strong); }
+.st-kpi-lot:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.st-form { display: grid; gap: var(--space-xs); }
+.st-field input { font-size: var(--fs-base); min-height: 40px; padding: 0 var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text); background: var(--surface); }
+.st-known { margin: 0; color: var(--ok-text); }
+.st-inline-btn { min-height: 28px; padding: 0 var(--space-sm); margin-left: var(--space-xs); }
+.st-link { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--info-text); cursor: pointer; text-decoration: underline; }
+.st-health--info { background: var(--info-bg); color: var(--info-text); }
+.st-more { margin-top: var(--space-sm); }
+.st-more > summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.rm-room--lab .rm-door-lbl { font-size: calc(18px * var(--ls, 1)); }
 .rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }
     </style>
 </head>
@@ -10117,10 +10207,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610201859';
+var APP_BUILD = '202610210343';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '4f02574a630b3f48f0cda7720438336ec3fc8bd6';
+var APP_COMMIT = '3a8afb531f63722e20b3f9341425837452d02ed2';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10128,7 +10218,7 @@ var APP_COMMIT = '4f02574a630b3f48f0cda7720438336ec3fc8bd6';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.16.0';
+var APP_VERSION = '3.17.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10136,6 +10226,12 @@ var APP_VERSION = '3.16.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
+      bullets: ['Consumibles → 🗺️ Cuarto → 🚗 Laboratorio: afuera, al sur del cuarto de control, ahora está el estacionamiento de la flota Master (los vehículos que se quedan con el laboratorio, no de producción). Toca un lugar libre para agregar uno con su VIN, un nombre, su carrocería y su color; siempre se ven, aunque no estén en prueba.',
+                'Cuando un Master entra al laboratorio (a un cajón o al dinamómetro), su lugar de afuera se ve vacío y dice dónde está; adentro su etiqueta dice ★ Master. Al sacarlo del laboratorio regresa solo a su lugar. ↔ Mover lo lleva a otro lugar de afuera o adentro; 🧪 Empezar una prueba abre el Alta con su VIN. El indicador 🅿 cuenta la flota y lleva la vista al estacionamiento.',
+                'Los autos se dibujan de nuevo, en 3D de verdad: sedán, hatchback, wagon y SUV según la carrocería de su configuración, con luz y sombra, cristales, faros, calaveras, espejos, puertas, rines y llantas sobre los rodillos del dinamómetro.',
+                'La celda se ve mejor: los muros tienen grosor y los de enfrente se cortan bajos para ver adentro (como una maqueta), la fosa del dinamómetro tiene rodillos de acero y su cinta de seguridad, y los letreros (celda, cajones, dinamómetro, lugares) van pintados en el piso, sin tapar los autos.',
+                'Arreglado: tocar un cajón vacío con el dedo o el mouse no hacía nada (solo funcionaba con el teclado). Y el tablero del laboratorio quedaba más alto que la pantalla; ahora se acomoda como el del cuarto de gases.'] },
     { version: '3.16.0', date: '20 oct 2026', title: 'Dos lecturas al día, la Lista de consumibles y el COP Master',
       bullets: ['Cada cilindro lleva dos lecturas por día: la de la mañana y la de la tarde. La captura, la ronda y el mapa del cuarto eligen el turno por la hora (desde la 1 p. m. es la tarde) y se puede cambiar. Capturar el mismo turno otra vez reemplaza; las dos del día se conservan. HOY dice cuántos van en el turno en curso.',
                 'Consumibles → Reporte → 📊 Lista de consumibles: la lista de stock del laboratorio semana por semana, con su tendencia, el consumo, el límite inferior y el "Comprar". 📤 Excel la descarga en el mismo formato, llena sola: lo anterior a la plataforma sale del histórico importado y lo demás de las lecturas (en verde).',
@@ -11278,14 +11374,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610201859' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610210343' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610201859' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610210343' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11301,7 +11397,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610201859' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610210343' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -39312,8 +39408,8 @@ function invRoomRender(el) {
  * El tablero mide la pantalla (menos la barra fija de arriba y la de abajo) y, si al abrirlo no
  * se ve completo, la página se desliza hasta él: así todo queda en una sola vista.
  */
-function _invRoomFitStage() {
-    var st = document.getElementById('rm-stage');
+function _invRoomFitStage(stageId, wrapId) {
+    var st = document.getElementById(stageId || 'rm-stage');
     if (!st) return;
     var nav = document.querySelector('.bottom-nav');
     var navH = nav && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0;
@@ -39325,7 +39421,7 @@ function _invRoomFitStage() {
     var h = Math.round(window.innerHeight - barH - navH - 32);
     st.style.height = Math.max(_invRoomNarrow() ? 420 : 480, Math.min(1200, h)) + 'px';
     // Lugar debajo para que la página pueda subir el tablero hasta arriba (si no, no hay a dónde desplazarse).
-    var wrap = document.getElementById('rm-wrap');
+    var wrap = document.getElementById(wrapId || 'rm-wrap');
     if (wrap) wrap.style.paddingBottom = (navH + 24) + 'px';
     // scrollIntoView y no window.scrollTo (busca él solo su contenedor); el margen para lo que se
     // queda pegado arriba lo da scroll-margin-top. Inmediato y un cuadro después de pintar: uno suave
@@ -39348,7 +39444,10 @@ function _invRoomFitStage() {
             var w = window.innerWidth;
             if (w === lastW && _invRoomTyping()) return;
             lastW = w;
-            clearTimeout(t); t = setTimeout(function() { if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); } }, 150);
+            clearTimeout(t); t = setTimeout(function() {
+                if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); }
+                else if (document.getElementById('st-stage') && typeof sitePaint === 'function') { _invRoomFitStage('st-stage', 'st-wrap'); sitePaint(); }   // [3.17.0] el laboratorio
+            }, 150);
         });
     }
 }
@@ -40445,15 +40544,21 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
 //   `vehicle.site`; una sin alta vive en `db.siteUnits`. "Con alta" = su VIN está registrado.
 // - El soak se DERIVA (preacondicionamiento + tpSoakHoursFor), nunca se guarda.
 // - Las funciones de geometría, modelo y escena son PURAS (tests/sitio.node.js).
+// - [3.17.0] La FLOTA MASTER (los vehículos que se quedan con el laboratorio, no de producción)
+//   es una lista aparte, `db.siteMasters`, con su lugar en el estacionamiento de afuera. No es
+//   un campo de "dueño" en las unidades: una unidad sigue siendo solo su VIN; un Master es un
+//   registro de la flota. Si su VIN está adentro (cajón o dinamómetro) su lugar se ve vacío y
+//   dice dónde está; al salir del laboratorio regresa solo.
 
 // ── El plano (unidades ≈ metros; y crece hacia el cuarto de control = sur) ─────
 var SITE_LAYOUT = {
     id: 'lab', provisional: true,
     floor: [[0, 0], [26, 0], [26, 13], [15, 13], [15, 10], [12.5, 10], [12.5, 11.8], [2, 11.8], [2, 10], [0, 10]],
+    // lbl = dónde va el letrero pintado en el piso (centro, en un lugar libre); fs = alto de la letra (m).
     areas: [
-        { id: 'celda', label: 'Celda de pruebas', rect: [0, 0, 15, 10], tone: 'cell' },
-        { id: 'control', label: 'Cuarto de control', rect: [2, 10, 12.5, 11.8], tone: 'control' },
-        { id: 'acond', label: 'Cuarto de acondicionamiento', rect: [15, 0, 26, 13], tone: 'soak' }
+        { id: 'celda', label: 'Celda de pruebas', rect: [0, 0, 15, 10], tone: 'cell', lbl: [11.3, 8.3], fs: 0.42 },
+        { id: 'control', label: 'Cuarto de control', rect: [2, 10, 12.5, 11.8], tone: 'control', lbl: [6.6, 11.42], fs: 0.3 },
+        { id: 'acond', label: 'Cuarto de acondicionamiento', rect: [15, 0, 26, 13], tone: 'soak', lbl: [24.2, 6.3], fs: 0.3, lines: ['Cuarto de', 'acondicionamiento'] }
     ],
     // [x1, y1, x2, y2, nx, ny, tipo] — n = hacia AFUERA (decide fondo/frente, como cuarto.js).
     // tipo: '' muro · 'glass' ventanal alto · 'window' ventanas del cuarto de control.
@@ -40526,7 +40631,70 @@ var SITE_ITEMS_SEED = [
 var SITE_CAM_DEFAULT = { az: 18, el: 46, zoom: 1, panX: 0, panY: 0 };
 // En el teléfono, desde arriba y girado: el lado largo (celda → acondicionamiento) queda vertical.
 var SITE_CAM_NARROW = { az: 90, el: 90, zoom: 1, panX: 0, panY: 0 };
-var SITE_CAR = { len: 4.4, wid: 1.8 };
+
+// ── [3.17.0] El estacionamiento de los vehículos Master: afuera, al sur del cuarto de control ──
+// P1 queda junto al cuarto de acondicionamiento y los siguientes hacia el oeste: cuando la flota
+// crece, el estacionamiento crece hacia allá y el número de cada lugar nunca cambia.
+var SITE_LOT = { east: 14.9, y0: 13.0, w: 2.7, d: 5.2, aisle: 2.4, min: 5 };
+var SITE_STALL_RE = /^p(\d+)$/;
+
+/** ¿Es un lugar del estacionamiento (P1, P2…)? PURA. */
+function siteIsStall(id) { return SITE_STALL_RE.test(String(id || '')); }
+
+/** Cuántos lugares dibujar: todos los que se usan, uno libre para agregar y nunca menos de SITE_LOT.min. PURA. */
+function siteLotCount(masters) {
+    var n = SITE_LOT.min, live = 0;
+    (masters || []).forEach(function(m) {
+        if (!m || m.deleted) return;
+        live++;
+        var k = SITE_STALL_RE.exec(String(m.spot || ''));
+        if (k) n = Math.max(n, +k[1]);
+    });
+    return Math.max(n, live + 1);
+}
+
+/** Los lugares del estacionamiento (la nariz mira al pasillo, al sur). PURA. */
+function siteLotStalls(n) {
+    var L = SITE_LOT, out = [];
+    for (var i = 0; i < n; i++) {
+        var x1 = L.east - L.w * i;
+        out.push({ id: 'p' + (i + 1), label: 'Estacionamiento P' + (i + 1), short: 'P' + (i + 1), rect: [x1 - L.w, L.y0, x1, L.y0 + L.d], heading: Math.PI / 2, area: 'lot' });
+    }
+    return out;
+}
+
+/**
+ * El plano que se dibuja: el FIJO (SITE_LAYOUT) más el exterior — la base de la maqueta, el
+ * estacionamiento con `n` lugares, jardineras y árboles. PURA.
+ */
+function siteLayout(n) {
+    var L = SITE_LOT, stalls = siteLotStalls(Math.max(1, n || L.min));
+    var west = stalls[stalls.length - 1].rect[0], yA = L.y0 + L.d, yB = yA + L.aisle;
+    var x0 = Math.min(-1.8, west - 3.0);
+    return Object.assign({}, SITE_LAYOUT, {
+        spots: SITE_LAYOUT.spots.concat(stalls),
+        lot: { stalls: stalls, rect: [west - 0.35, L.y0 - 0.15, L.east + 0.3, yB], aisle: [west - 0.35, yA, L.east + 0.3, yB],
+               apron: [21.6, 13.0, 26.4, 15.3], curbY: L.y0 - 0.15 },
+        // La base de la maqueta (en "L": abajo a la derecha no hay nada que mostrar).
+        base: [[x0, -1.6], [27.6, -1.6], [27.6, 16.2], [L.east + 1.0, 16.2], [L.east + 1.0, yB + 0.7], [x0, yB + 0.7]],
+        grass: [[2.15, 11.95, 12.35, 12.62], [x0 + 0.35, 11.2, west - 0.55, yB + 0.35], [16.0, 13.35, 21.0, 15.9]],
+        trees: [{ x: west - 1.35, y: L.y0 + 1.3, r: 0.95, h: 1.7 }, { x: west - 1.15, y: L.y0 + 4.3, r: 0.8, h: 1.4 }, { x: 17.6, y: 14.6, r: 0.9, h: 1.6 }],
+        bushes: [[3.4, 12.3], [5.7, 12.3], [8.0, 12.3], [10.3, 12.3], [19.6, 14.4]]
+    });
+}
+
+/** Los límites de lo que se dibuja (la base si hay, si no el piso). PURA. */
+function _siteBounds(layout) {
+    var pts = layout.base || layout.floor, xs = pts.map(function(p) { return p[0]; }), ys = pts.map(function(p) { return p[1]; });
+    return [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)];
+}
+/** El eje de giro de la cámara: el centro de lo que se dibuja. PURA. */
+function siteCenter(layout) { var b = _siteBounds(layout || SITE_LAYOUT); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; }
+/** Hacia dónde está quien mira (vector unitario en el mundo; la proyección es ortográfica). PURA. */
+function _siteViewVec(cam) {
+    var az = (cam.az || 0) * Math.PI / 180, el = Math.max(10, Math.min(90, cam.el == null ? 42 : cam.el)) * Math.PI / 180;
+    return [Math.cos(el) * Math.sin(az), Math.cos(el) * Math.cos(az), Math.sin(el)];
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // Datos — PURAS
@@ -40611,6 +40779,46 @@ function siteSpotsModel(vehicles, units, spotIds) {
     return out;
 }
 
+/**
+ * [3.17.0] LA definición de la flota Master en el estacionamiento. PURA.
+ * masters: db.siteMasters; model: siteSpotsModel (para saber si su VIN está adentro);
+ * stallIds: los lugares que tiene el estacionamiento.
+ * Devuelve {byStall:{p1:[entrada]}, list, byVin:{VIN: master}, conflicts, unplaced, dupVins}
+ * entrada = {master, stall, inLab: entrada de siteSpotsModel | null}.
+ */
+function siteParkingModel(masters, model, stallIds) {
+    var ids = {};
+    (stallIds || []).forEach(function(i) { ids[i] = true; });
+    var inLab = {};
+    Object.keys((model && model.bySpot) || {}).forEach(function(sp) {
+        if (siteIsStall(sp)) return;
+        model.bySpot[sp].forEach(function(e) { var k = siteVinKey(e.vin); if (k && !inLab[k]) inLab[k] = e; });
+    });
+    var out = { byStall: {}, list: [], byVin: {}, conflicts: [], unplaced: [], dupVins: [] };
+    (masters || []).forEach(function(m) {
+        if (!m || m.deleted || !m.id) return;
+        var k = siteVinKey(m.vin);
+        var e = { master: m, stall: m.spot || '', inLab: (k && inLab[k]) || null };
+        out.list.push(e);
+        // El mismo VIN dado de alta dos veces (p. ej. en dos equipos a la vez) se declara.
+        if (k && out.byVin[k] && out.dupVins.indexOf(k) < 0) out.dupVins.push(k);
+        if (k) out.byVin[k] = m;
+        if (!ids[e.stall]) { out.unplaced.push(e); return; }
+        (out.byStall[e.stall] = out.byStall[e.stall] || []).push(e);
+    });
+    Object.keys(out.byStall).forEach(function(k) { if (out.byStall[k].length > 1) out.conflicts.push(k); });
+    out.conflicts.sort();
+    return out;
+}
+
+/** El primer lugar libre del estacionamiento (P1, P2…), o el que sigue al último. PURA. */
+function siteLotFreeStall(masters) {
+    var used = {};
+    (masters || []).forEach(function(m) { if (m && !m.deleted && m.spot) used[m.spot] = true; });
+    for (var i = 1; i < 1000; i++) if (!used['p' + i]) return 'p' + i;
+    return 'p1';
+}
+
 /** 'AAAA-MM-DDTHH:MM' (hora local del laboratorio) → ms, o null. */
 function _siteLocalMs(s) {
     var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(String(s || ''));
@@ -40673,9 +40881,10 @@ function siteCalWorstByAsset(equipment, statusOf) {
     return out;
 }
 
-/** Indicadores de la franja de arriba. PURA. */
-function siteKpis(model, look, items, health) {
-    var k = { onSite: 0, withAlta: 0, noAlta: 0, soaking: 0, nextLeftH: null, ready: 0, dino: 0, eqBad: 0, eqWarn: 0, eqNone: 0 };
+/** Indicadores de la franja de arriba. PURA. `parking` (opcional) = siteParkingModel. */
+function siteKpis(model, look, items, health, parking) {
+    var k = { onSite: 0, withAlta: 0, noAlta: 0, soaking: 0, nextLeftH: null, ready: 0, dino: 0, eqBad: 0, eqWarn: 0, eqNone: 0, masters: 0, mastersIn: 0 };
+    ((parking && parking.list) || []).forEach(function(e) { k.masters++; if (e.inLab) k.mastersIn++; });
     var lost = model.unknown || [];
     (model.entries || []).forEach(function(e) {
         if (lost.indexOf(e) >= 0) return;   // un lugar que el plano no tiene se declara aparte
@@ -40706,7 +40915,7 @@ function siteUnproject(px, py, cam, center) {
     return [dx + center[0], dy + center[1]];
 }
 
-/** Lugar (dinamómetro o cajón) que contiene un punto del piso, o null. PURA. */
+/** Lugar (dinamómetro, cajón o lugar del estacionamiento) que contiene un punto del piso, o null. PURA. */
 function siteSpotAt(pt, layout) {
     var L = layout || SITE_LAYOUT;
     for (var i = 0; i < L.spots.length; i++) {
@@ -40848,101 +41057,434 @@ function siteItemShape(it) {
     return 'box';
 }
 
-// El perfil de un auto (de la defensa trasera a la nariz, en metros: x a lo largo, z alto).
-var SITE_CAR_PROFILE = [[-2.2, 0.34], [-2.2, 0.78], [-1.98, 0.98], [-1.3, 1.4], [0.4, 1.44], [1.08, 1.0], [2.0, 0.86], [2.2, 0.64], [2.2, 0.34]];
-var SITE_CAR_STRIP = ['rear', 'body', 'glass', 'roof', 'glass', 'body', 'front', 'front'];
+// ══════════════════════════════════════════════════════════════════════
+// [3.17.0] El auto, modelado en 3D: una malla de estaciones (no un perfil extruido)
+// ══════════════════════════════════════════════════════════════════════
+// Cada carrocería es una lista de ESTACIONES de la defensa trasera a la nariz:
+// [u, zb, zs, zt, w, wt, tramo] — u = a lo largo (m; 0 = centro, + hacia la nariz); zb = bajo de
+// la carrocería; zs = cintura (donde empieza el cristal); zt = lo más alto (techo, cofre, cajuela);
+// w = media anchura; wt = media anchura arriba (el techo es más angosto que la carrocería).
+// `tramo` dice qué es, hasta la estación siguiente, la cara de arriba y la de los lados de arriba.
+// La distancia entre ejes es la misma en todas (1.35 m por lado): las llantas caen en los rodillos.
+var SITE_LIGHT = (function() { var l = [-0.4, 0.45, 0.8], m = Math.sqrt(l[0] * l[0] + l[1] * l[1] + l[2] * l[2]); return [l[0] / m, l[1] / m, l[2] / m]; })();
+var SITE_CAR_SEG = {
+    tail: { top: 'body', up: 'body' }, trunk: { top: 'body', up: 'body' },
+    rw: { top: 'glass', up: 'pillar', refl: true },      // medallón (pilar C/D a los lados)
+    roof: { top: 'body', up: 'glass' }, bpil: { top: 'body', up: 'pillar' },
+    ws: { top: 'glass', up: 'pillar', refl: true },      // parabrisas (pilar A a los lados)
+    hood: { top: 'body', up: 'body' }, nose: { top: 'body', up: 'body' }
+};
+var SITE_WHEEL_U = 1.35;
+var SITE_BODIES = {
+    sedan: { label: 'Sedán', wheelR: 0.33, st: [
+        [-2.31, 0.38, 0.78, 0.82, 0.70, 0.60, 'tail'], [-2.18, 0.33, 0.92, 0.97, 0.86, 0.74, 'trunk'], [-1.80, 0.29, 0.96, 1.01, 0.91, 0.79, 'rw'],
+        [-0.92, 0.21, 0.95, 1.39, 0.92, 0.66, 'roof'], [-0.31, 0.19, 0.94, 1.43, 0.92, 0.67, 'bpil'], [-0.18, 0.19, 0.94, 1.43, 0.92, 0.67, 'roof'],
+        [0.30, 0.19, 0.93, 1.40, 0.92, 0.66, 'ws'], [1.18, 0.21, 0.88, 0.97, 0.92, 0.80, 'hood'], [2.04, 0.27, 0.80, 0.84, 0.88, 0.74, 'nose'],
+        [2.31, 0.33, 0.62, 0.67, 0.70, 0.58, null]] },
+    hatch: { label: 'Hatchback', wheelR: 0.33, st: [
+        [-2.22, 0.38, 0.82, 0.88, 0.72, 0.62, 'tail'], [-2.10, 0.33, 0.95, 1.02, 0.87, 0.74, 'rw'], [-1.74, 0.29, 0.97, 1.39, 0.91, 0.66, 'bpil'],
+        [-1.40, 0.25, 0.96, 1.41, 0.92, 0.67, 'roof'], [-0.31, 0.19, 0.94, 1.43, 0.92, 0.67, 'bpil'], [-0.18, 0.19, 0.94, 1.43, 0.92, 0.67, 'roof'],
+        [0.30, 0.19, 0.93, 1.40, 0.92, 0.66, 'ws'], [1.18, 0.21, 0.88, 0.97, 0.92, 0.80, 'hood'], [2.00, 0.27, 0.80, 0.84, 0.88, 0.74, 'nose'],
+        [2.23, 0.33, 0.62, 0.67, 0.70, 0.58, null]] },
+    wagon: { label: 'Wagon', wheelR: 0.33, rails: true, st: [
+        [-2.35, 0.38, 0.86, 0.92, 0.72, 0.62, 'tail'], [-2.24, 0.33, 0.97, 1.05, 0.87, 0.74, 'rw'], [-2.04, 0.29, 0.98, 1.43, 0.91, 0.67, 'bpil'],
+        [-1.82, 0.27, 0.98, 1.44, 0.92, 0.67, 'roof'], [-1.10, 0.22, 0.97, 1.44, 0.92, 0.67, 'bpil'], [-0.98, 0.21, 0.96, 1.44, 0.92, 0.67, 'roof'],
+        [-0.31, 0.19, 0.95, 1.44, 0.92, 0.67, 'bpil'], [-0.18, 0.19, 0.95, 1.44, 0.92, 0.67, 'roof'], [0.30, 0.19, 0.93, 1.41, 0.92, 0.66, 'ws'],
+        [1.18, 0.21, 0.88, 0.97, 0.92, 0.80, 'hood'], [2.06, 0.27, 0.80, 0.84, 0.88, 0.74, 'nose'], [2.35, 0.33, 0.62, 0.67, 0.70, 0.58, null]] },
+    suv: { label: 'SUV', wheelR: 0.37, rails: true, cladding: true, st: [
+        [-2.32, 0.44, 0.98, 1.06, 0.76, 0.66, 'tail'], [-2.22, 0.38, 1.06, 1.14, 0.90, 0.78, 'rw'], [-2.00, 0.33, 1.07, 1.64, 0.93, 0.72, 'bpil'],
+        [-1.74, 0.31, 1.07, 1.66, 0.93, 0.73, 'roof'], [-1.06, 0.28, 1.06, 1.68, 0.94, 0.73, 'bpil'], [-0.94, 0.28, 1.06, 1.68, 0.94, 0.73, 'roof'],
+        [-0.31, 0.28, 1.06, 1.68, 0.94, 0.73, 'bpil'], [-0.18, 0.28, 1.06, 1.68, 0.94, 0.73, 'roof'], [0.38, 0.28, 1.04, 1.64, 0.94, 0.72, 'ws'],
+        [1.26, 0.30, 1.00, 1.10, 0.94, 0.82, 'hood'], [2.06, 0.35, 0.96, 1.02, 0.91, 0.78, 'nose'], [2.32, 0.42, 0.80, 0.86, 0.76, 0.64, null]] }
+};
+// Colores de la flota Master (los autos del laboratorio se ven con su color real).
+var SITE_PAINTS = {
+    blanco: { label: 'Blanco', hex: '#f1f5f9' }, plata: { label: 'Plata', hex: '#cbd5e1' }, gris: { label: 'Gris', hex: '#6b7280' },
+    negro: { label: 'Negro', hex: '#273142' }, rojo: { label: 'Rojo', hex: '#c62828' }, azul: { label: 'Azul', hex: '#1d4ed8' },
+    verde: { label: 'Verde', hex: '#2f7d4f' }, arena: { label: 'Arena', hex: '#d6c7a1' }
+};
 
-/**
- * Un auto: el perfil extruido a lo ancho, con cristales, ruedas, faros y calaveras, mirando a
- * `nose` (+1 este, −1 oeste). Las caras van por profundidad (el costado lejano primero).
- */
-function _siteCarSVG(P, cx, cy, nose, cls, attrs, title) {
-    var W = SITE_CAR.wid / 2, s = nose < 0 ? -1 : 1;
-    var X = function(x) { return cx + s * x; };
-    var Q = function(x, y, z) { return P(X(x), cy + y, z); };
-    var prof = SITE_CAR_PROFILE;
-    var faces = [];
-    var side = function(sy) {
-        var pts = prof.map(function(p) { return Q(p[0], sy, p[1]); });
-        var dd = pts.reduce(function(a, q) { return a + q.d; }, 0) / pts.length;
-        var F = function(x, z) { return Q(x, sy * 1.002, z); };
-        var g = '<polygon class="st-c-side" points="' + _invRoomPts(pts) + '"/>';
-        // Cristales laterales (con poste B) y la línea de cintura.
-        g += '<polygon class="st-c-glass" points="' + _invRoomPts([F(-1.26, 1.0), F(-1.2, 1.34), F(-0.44, 1.37), F(-0.44, 1.0)]) + '"/>';
-        g += '<polygon class="st-c-glass" points="' + _invRoomPts([F(-0.32, 1.0), F(-0.32, 1.375), F(0.38, 1.39), F(0.98, 1.02)]) + '"/>';
-        var b0 = F(-2.18, 0.8), b1 = F(2.0, 0.82);
-        g += '<line class="st-c-belt" x1="' + b0.x.toFixed(1) + '" y1="' + b0.y.toFixed(1) + '" x2="' + b1.x.toFixed(1) + '" y2="' + b1.y.toFixed(1) + '"/>';
-        // Ruedas: llanta oscura, rin claro y centro.
-        [-1.38, 1.38].forEach(function(wx) {
-            var tire = [], rim = [];
-            for (var k = 0; k < 20; k++) {
-                var t = 2 * Math.PI * k / 20;
-                tire.push(Q(wx + 0.36 * Math.cos(t), sy * 1.01, 0.35 + 0.35 * Math.sin(t)));
-                rim.push(Q(wx + 0.21 * Math.cos(t), sy * 1.02, 0.35 + 0.21 * Math.sin(t)));
-            }
-            var hub = Q(wx, sy * 1.03, 0.35);
-            g += '<polygon class="st-c-tire" points="' + _invRoomPts(tire) + '"/><polygon class="st-c-rim" points="' + _invRoomPts(rim) + '"/>' +
-                 '<circle class="st-c-hub" cx="' + hub.x.toFixed(1) + '" cy="' + hub.y.toFixed(1) + '" r="3"/>';
-        });
-        faces.push({ d: dd, s: g });
-    };
-    side(W); side(-W);
-    for (var k = 0; k < prof.length - 1; k++) {
-        var a = prof[k], b = prof[k + 1];
-        var q = [Q(a[0], -W, a[1]), Q(b[0], -W, b[1]), Q(b[0], W, b[1]), Q(a[0], W, a[1])];
-        var dd = q.reduce(function(acc, x) { return acc + x.d; }, 0) / 4;
-        var kind = SITE_CAR_STRIP[k];
-        var g = '<polygon class="st-c-' + kind + '" points="' + _invRoomPts(q) + '"/>';
-        var S = (function(a, b) { return function(u, v) { return Q(a[0] + (b[0] - a[0]) * v, -W + 2 * W * u, a[1] + (b[1] - a[1]) * v); }; })(a, b);
-        if (k === 6) {   // nariz: faros en las esquinas
-            g += _siteQuad(S, 0.06, 0.15, 0.3, 0.75, 'st-c-headlight') + _siteQuad(S, 0.7, 0.15, 0.94, 0.75, 'st-c-headlight');
-        } else if (k === 7) {   // defensa: parrilla
-            g += _siteQuad(S, 0.3, 0.12, 0.7, 0.6, 'st-c-grille');
-        } else if (k === 0) {   // trasera: calaveras
-            g += _siteQuad(S, 0.05, 0.62, 0.28, 0.85, 'st-c-taillight') + _siteQuad(S, 0.72, 0.62, 0.95, 0.85, 'st-c-taillight');
-        } else if (k === 3) {   // techo: reflejo
-            g += _siteQuad(S, 0.2, 0.15, 0.8, 0.5, 'st-c-shine');
-        }
-        faces.push({ d: dd, s: g });
-    }
-    faces.sort(function(x, y) { return x.d - y.d; });
-    // Sombra en el piso
-    var sh = [];
-    for (var j = 0; j < 20; j++) { var t = 2 * Math.PI * j / 20; sh.push(P(cx + 2.35 * Math.cos(t), cy + (W + 0.18) * Math.sin(t), 0)); }
-    var dmax = Math.max.apply(null, faces.map(function(f) { return f.d; }));
-    return { d: dmax,
-             s: '<g class="' + cls + '"' + (attrs || '') + '>' + (title ? '<title>' + _invRoomEsc(title) + '</title>' : '') +
-                '<polygon class="st-c-shadow" points="' + _invRoomPts(sh) + '"/>' + faces.map(function(f) { return f.s; }).join('') + '</g>' };
+/** La carrocería de una configuración (BODY TYPE del catálogo), o '' si no se sabe. PURA. */
+function siteBodyFromConfig(cfg) {
+    var b = String((cfg && (cfg['BODY TYPE'] || cfg.body || cfg.bodyType)) || '').toUpperCase();
+    if (/LONG|SUV|CUV/.test(b)) return 'suv';
+    if (/WGN|WAGON/.test(b)) return 'wagon';
+    if (/5DR|HATCH/.test(b)) return 'hatch';
+    if (/4DR|SEDAN|SEDÁN/.test(b)) return 'sedan';
+    return '';
 }
 
-/** Etiqueta en píldora (texto con fondo), para que se lea sobre cualquier cosa. */
-function _sitePill(x, y, text, sub, cls) {
+/** Lo alto de una carrocería (para poner su etiqueta encima). PURA. */
+function siteBodyHeight(key) {
+    var B = SITE_BODIES[key] || SITE_BODIES.sedan;
+    return Math.max.apply(null, B.st.map(function(s) { return s[3]; }));
+}
+
+var _siteRingMemo = {};
+/** Las secciones de una carrocería: 10 puntos [v, z] por estación (la de abajo no se pinta). */
+function _siteCarRings(key) {
+    if (_siteRingMemo[key]) return _siteRingMemo[key];
+    var B = SITE_BODIES[key] || SITE_BODIES.sedan;
+    return (_siteRingMemo[key] = B.st.map(function(s) {
+        var zb = s[1], zs = s[2], zt = s[3], w = s[4], wt = s[5];
+        var zr = zb + Math.min(0.16, (zs - zb) * 0.3), zw = zs - Math.min(0.1, (zs - zb) * 0.2);
+        return [[-w * 0.93, zb], [-w * 0.985, zr], [-w, zw], [-(w - 0.035), zs], [-wt, zt], [wt, zt], [w - 0.035, zs], [w, zw], [w * 0.985, zr], [w * 0.93, zb]];
+    }));
+}
+
+/** Clase de una cara según qué es y cuánta luz le da. */
+function _siteCarCls(kind, b) {
+    if (kind === 'glass') return 'st-c-g' + (b > 0.8 ? 2 : b > 0.62 ? 1 : 0);
+    if (kind === 'pillar') return 'st-c-p';
+    if (kind === 'clad') return 'st-c-k';
+    return 'st-c-b' + Math.max(0, Math.min(10, Math.round(b * 10)));
+}
+
+/** Envolvente convexa de puntos de pantalla (para la silueta de una llanta). PURA. */
+function _siteHull(pts) {
+    var p = pts.slice().sort(function(a, b) { return a.x - b.x || a.y - b.y; });
+    if (p.length < 3) return p;
+    var cr = function(o, a, b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); };
+    var lo = [], up = [];
+    p.forEach(function(q) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+    for (var i = p.length - 1; i >= 0; i--) { var q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+
+/**
+ * Un auto en (cx, cy) con la nariz hacia `heading` (radianes; 0 = este, π/2 = sur). PURA.
+ * ctx = {P, V} (proyección y hacia dónde está quien mira); opts = {body, sel, ring}.
+ * Las caras que no ven a quien mira no se dibujan; las demás van por profundidad y con luz.
+ */
+function _siteCarSVG(ctx, cx, cy, heading, cls, attrs, title, opts) {
+    opts = opts || {};
+    var key = SITE_BODIES[opts.body] ? opts.body : 'sedan', B = SITE_BODIES[key];
+    var P = ctx.P, V = ctx.V, LG = SITE_LIGHT, R = B.wheelR;
+    var fx = Math.cos(heading), fy = Math.sin(heading), rx = -fy, ry = fx;
+    var Wd = function(u, v, z) { return [cx + fx * u + rx * v, cy + fy * u + ry * v, z]; };
+    var Pj = function(p) { return P(p[0], p[1], p[2]); };
+    var st = B.st, n = st.length, rings = _siteCarRings(key);
+    var wp = rings.map(function(ring, i) { return ring.map(function(q) { return Wd(st[i][0], q[0], q[1]); }); });
+    var dot = function(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    var see = function(pts, hint) {
+        var nx = 0, ny = 0, nz = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var a = pts[i], b = pts[(i + 1) % pts.length];
+            nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+        }
+        var m = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (m < 1e-9) return null;
+        var nn = [nx / m, ny / m, nz / m];
+        if (dot(nn, hint) < 0) nn = [-nn[0], -nn[1], -nn[2]];
+        if (dot(nn, V) <= 0.02) return null;
+        return { n: nn, b: 0.42 + 0.58 * Math.max(0, dot(nn, LG)) };
+    };
+    // Hacia afuera = del eje del auto (a media altura) al centro de la cara.
+    var radial = function(pts) {
+        var c = [0, 0, 0];
+        pts.forEach(function(p) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; });
+        c = [c[0] / pts.length, c[1] / pts.length, c[2] / pts.length];
+        var uc = (c[0] - cx) * fx + (c[1] - cy) * fy;
+        return [c[0] - (cx + fx * uc), c[1] - (cy + fy * uc), c[2] - 0.72];
+    };
+    var poly = function(cl, pp) { return '<polygon class="' + cl + '" points="' + _invRoomPts(pp) + '"/>'; };
+    var depth = function(pp) { var s = 0; for (var i = 0; i < pp.length; i++) s += pp[i].d; return s / pp.length; };
+    var faces = [];
+    var addFace = function(pts, kind, hint, extra, bias) {
+        var v = see(pts, hint || radial(pts));
+        if (!v) return null;
+        var pp = pts.map(Pj);
+        faces.push({ d: depth(pp) + (bias || 0), s: poly(_siteCarCls(kind, v.b), pp) + (extra ? extra() : '') });
+        return v;
+    };
+    // Punto sobre una cara del lazo: s a lo largo (estación i → i+1), t a lo ancho (punto a → b).
+    var onQuad = function(i, a, b) {
+        return function(s, t) {
+            var p0 = wp[i][a], p1 = wp[i][b], q0 = wp[i + 1][a], q1 = wp[i + 1][b];
+            var lerp = function(x, y, k) { return [x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k]; };
+            return Pj(lerp(lerp(p0, p1, t), lerp(q0, q1, t), s));
+        };
+    };
+    var quadAt = function(F, pts, cl) { return poly(cl, pts.map(function(q) { return F(q[0], q[1]); })); };
+    var mid0 = 1, mid1 = n - 2;          // de la estación 1 a la n−2 los costados van en una sola pieza
+    // ── Lámina: cada tramo entre estaciones, cada arista del lazo (la de abajo, 9, no se ve) ──
+    for (var i = 0; i < n - 1; i++) {
+        var seg = SITE_CAR_SEG[st[i][6]] || SITE_CAR_SEG.hood;
+        for (var j = 0; j < 9; j++) {
+            if ((j === 0 || j === 1 || j === 7 || j === 8) && i >= mid0 && i < mid1) continue;
+            var q = [wp[i][j], wp[i][j + 1], wp[i + 1][j + 1], wp[i + 1][j]];
+            var kind = j === 4 ? (seg.top === 'glass' ? 'glass' : 'body')
+                     : (j === 3 || j === 5) ? (seg.up === 'glass' ? 'glass' : seg.up === 'pillar' ? 'pillar' : 'body')
+                     : (j === 0 || j === 8) && B.cladding ? 'clad' : 'body';
+            var extra = null;
+            if (j === 4 && seg.refl) extra = (function(F) { return function() { return quadAt(F, [[0.18, 0.16], [0.36, 0.16], [0.8, 0.5], [0.62, 0.5]], 'st-c-refl'); }; })(onQuad(i, 4, 5));
+            else if (j === 4 && i === n - 2) extra = (function(F) { return function() {   // faros, vistos desde arriba
+                return quadAt(F, [[0.5, 0.02], [1, 0.02], [1, 0.3], [0.72, 0.22]], 'st-c-lamp') + quadAt(F, [[0.5, 0.98], [1, 0.98], [1, 0.7], [0.72, 0.78]], 'st-c-lamp'); }; })(onQuad(i, 4, 5));
+            else if (j === 4 && i === 0) extra = (function(F) { return function() { return quadAt(F, [[0.04, 0.05], [0.3, 0.05], [0.3, 0.95], [0.04, 0.95]], 'st-c-tail'); }; })(onQuad(i, 4, 5));
+            addFace(q, kind, null, extra);
+        }
+    }
+    // ── Las tapas: defensa trasera y nariz (con sus calaveras, faros, parrilla y placas) ──
+    var capF = function(k, du) {
+        var s = st[k], w = s[4], zb = s[1], zt = s[3];
+        return function(fv, fz) { return Pj(Wd(s[0] + du, fv * w, zb + fz * (zt - zb))); };
+    };
+    var mirrorFv = function(pts) { return pts.map(function(q) { return [-q[0], q[1]]; }); };
+    var line = function(F, a, b, cl) { var p = F(a[0], a[1]), q = F(b[0], b[1]); return '<line class="' + cl + '" x1="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" x2="' + q.x.toFixed(1) + '" y2="' + q.y.toFixed(1) + '"/>'; };
+    addFace(wp[0].slice(), 'body', [-fx, -fy, 0], function() {
+        var F = capF(0, -0.004), tl = [[-0.95, 0.9], [-0.55, 0.93], [-0.55, 0.72], [-0.92, 0.66]];
+        return quadAt(F, [[-0.8, 0.2], [0.8, 0.2], [0.74, 0.03], [-0.74, 0.03]], 'st-c-dark') + quadAt(F, tl, 'st-c-tail') + quadAt(F, mirrorFv(tl), 'st-c-tail') +
+               line(F, [-0.55, 0.86], [0.55, 0.86], 'st-c-tbar') + quadAt(F, [[-0.2, 0.58], [0.2, 0.58], [0.2, 0.37], [-0.2, 0.37]], 'st-c-plate');
+    });
+    addFace(wp[n - 1].slice(), 'body', [fx, fy, 0], function() {
+        var F = capF(n - 1, 0.004), hl = [[-0.95, 0.88], [-0.48, 0.94], [-0.5, 0.7], [-0.9, 0.62]];
+        return quadAt(F, [[-0.42, 0.54], [0.42, 0.54], [0.58, 0.1], [-0.58, 0.1]], 'st-c-grille') + quadAt(F, hl, 'st-c-lamp') + quadAt(F, mirrorFv(hl), 'st-c-lamp') +
+               line(F, [-0.82, 0.975], [0.82, 0.975], 'st-c-drl') + line(F, [-0.5, 0.38], [0.5, 0.38], 'st-c-slat') +
+               quadAt(F, [[-0.2, 0.36], [0.2, 0.36], [0.2, 0.2], [-0.2, 0.2]], 'st-c-plate');
+    });
+    // ── Costados de una pieza (de la estación 1 a la n−2) con salpicaderas, llantas y puertas ──
+    var wAt = function(u) {
+        for (var k = 0; k < n - 1; k++) if (u >= st[k][0] && u <= st[k + 1][0]) { var t = (u - st[k][0]) / (st[k + 1][0] - st[k][0]); return st[k][4] + (st[k + 1][4] - st[k][4]) * t; }
+        return st[n >> 1][4];
+    };
+    var zAt = function(u, col) {
+        for (var k = 0; k < n - 1; k++) if (u >= st[k][0] && u <= st[k + 1][0]) { var t = (u - st[k][0]) / (st[k + 1][0] - st[k][0]); return st[k][col] + (st[k + 1][col] - st[k][col]) * t; }
+        return st[n >> 1][col];
+    };
+    var ribbon = function(a, b) {
+        var pts = [];
+        for (var k = mid0; k <= mid1; k++) pts.push(wp[k][a]);
+        for (var k2 = mid1; k2 >= mid0; k2--) pts.push(wp[k2][b]);
+        return pts;
+    };
+    var wheelHull = function(sg, uw) {
+        var vo = sg * (wAt(uw) - 0.03), vi = sg * (wAt(uw) - 0.25), pts = [];
+        for (var k = 0; k < 16; k++) {
+            var t = 2 * Math.PI * k / 16, du = R * Math.cos(t), z = R + R * Math.sin(t);
+            pts.push(Pj(Wd(uw + du, vo, z)), Pj(Wd(uw + du, vi, z)));
+        }
+        return _siteHull(pts);
+    };
+    var disc = function(sg, uw, v, rr, nPts) {
+        var pts = [];
+        for (var k = 0; k < (nPts || 18); k++) { var t = 2 * Math.PI * k / (nPts || 18); pts.push(Pj(Wd(uw + rr * Math.cos(t), v, R + rr * Math.sin(t)))); }
+        return pts;
+    };
+    var far = '', ws = st.findIndex(function(s) { return s[6] === 'ws'; }), hood = ws + 1;
+    var sideDeco = function(sg) {
+        var G = function(u, z, dv) { return Pj(Wd(u, sg * (wAt(u) * 0.992 + (dv || 0.006)), z)); };
+        var h = '';
+        [SITE_WHEEL_U, -SITE_WHEEL_U].forEach(function(uw) {
+            var RA = R + 0.07, zb = zAt(uw, 1), arch = [G(uw + RA, zb)];
+            for (var k = 0; k <= 12; k++) { var t = Math.PI * k / 12; arch.push(G(uw + RA * Math.cos(t), R + RA * Math.sin(t))); }
+            arch.push(G(uw - RA, zb));
+            var vo = sg * (wAt(uw) - 0.03);
+            h += poly('st-c-arch', arch) + poly('st-c-tire', wheelHull(sg, uw)) + poly('st-c-tw', disc(sg, uw, vo, R * 0.97, 20)) +
+                 poly('st-c-rim', disc(sg, uw, vo + sg * 0.004, R * 0.64, 18));
+            var sp = '';
+            for (var k2 = 0; k2 < 5; k2++) {
+                var a = 2 * Math.PI * k2 / 5 + 0.3, p = Pj(Wd(uw + R * 0.17 * Math.cos(a), vo + sg * 0.008, R + R * 0.17 * Math.sin(a))), q = Pj(Wd(uw + R * 0.58 * Math.cos(a), vo + sg * 0.008, R + R * 0.58 * Math.sin(a)));
+                sp += 'M' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + 'L' + q.x.toFixed(1) + ' ' + q.y.toFixed(1);
+            }
+            h += '<path class="st-c-spk" d="' + sp + '"/>' + poly('st-c-hub', disc(sg, uw, vo + sg * 0.01, R * 0.15, 10));
+        });
+        // Puertas: corte delantero, poste B y corte trasero (por arriba de la salpicadera).
+        var bp = st.filter(function(s) { return s[6] === 'bpil'; }).map(function(s) { return s[0]; });
+        var bu = bp.reduce(function(best, u) { return Math.abs(u + 0.25) < Math.abs(best + 0.25) ? u : best; }, -0.25) + 0.065;
+        var uf = SITE_WHEEL_U - R - 0.1, ur = -(SITE_WHEEL_U - R - 0.08), zArch = R + R + 0.09;
+        var seam = '', sg2 = function(u, z0, z1) { var a = G(u, z0), b = G(u, z1); seam += 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + 'L' + b.x.toFixed(1) + ' ' + b.y.toFixed(1); };
+        sg2(uf, zAt(uf, 1) + 0.17, zAt(uf, 2) - 0.01); sg2(bu, zAt(bu, 1) + 0.17, zAt(bu, 2) - 0.01); sg2(ur, zArch, zAt(ur, 2) - 0.01);
+        h += '<path class="st-c-seam" d="' + seam + '"/>';
+        [[bu + 0.17, bu + 0.33], [ur + 0.14, ur + 0.3]].forEach(function(hd) {
+            var z = zAt(hd[0], 2) - 0.11;
+            h += poly('st-c-handle', [G(hd[0], z, 0.012), G(hd[1], z, 0.012), G(hd[1], z + 0.04, 0.012), G(hd[0], z + 0.04, 0.012)]);
+        });
+        // Línea de carácter y moldura de la cintura.
+        var c0 = G(st[1][0] + 0.2, zAt(st[1][0] + 0.2, 2) - 0.2), c1 = G(st[n - 2][0] - 0.25, zAt(st[n - 2][0] - 0.25, 2) - 0.17);
+        h += '<line class="st-c-crease" x1="' + c0.x.toFixed(1) + '" y1="' + c0.y.toFixed(1) + '" x2="' + c1.x.toFixed(1) + '" y2="' + c1.y.toFixed(1) + '"/>';
+        if (ws > 0) {
+            var ua = st[hood][0] - 0.05, ub = st[2][0];
+            var m0 = Pj(Wd(ua, sg * (wAt(ua) - 0.03), zAt(ua, 2) + 0.004)), m1 = Pj(Wd(ub, sg * (wAt(ub) - 0.03), zAt(ub, 2) + 0.004));
+            h += '<line class="st-c-chrome" x1="' + m0.x.toFixed(1) + '" y1="' + m0.y.toFixed(1) + '" x2="' + m1.x.toFixed(1) + '" y2="' + m1.y.toFixed(1) + '"/>';
+        }
+        return h;
+    };
+    [[-1, 0, 1, 2], [1, 8, 7, 8]].forEach(function(sd) {
+        var sg = sd[0], rock = ribbon(sd[1], sd[1] + 1), side = sg < 0 ? ribbon(1, 2) : ribbon(7, 8);
+        var vs = see(side, [rx * sg, ry * sg, 0]);
+        if (!vs) {   // el costado lejano no se ve: solo sus llantas, que asoman por abajo cuando se mira de lado
+            if (V[2] < 0.8) [SITE_WHEEL_U, -SITE_WHEEL_U].forEach(function(uw) { far += poly('st-c-tire', wheelHull(sg, uw)); });
+            return;
+        }
+        var vr = see(rock, [rx * sg, ry * sg, -0.4]);
+        var spp = side.map(Pj);
+        faces.push({ d: depth(spp), s: (vr ? poly(_siteCarCls(B.cladding ? 'clad' : 'body', vr.b), rock.map(Pj)) : '') + poly(_siteCarCls('body', vs.b), spp) + sideDeco(sg) });
+    });
+    // Espejos (un prisma chico al pie del pilar A).
+    if (ws > 0) [-1, 1].forEach(function(sg) {
+        var u1 = st[hood][0] - 0.16, u0 = u1 - 0.2, z0 = zAt(u1, 2) + 0.02, z1 = z0 + 0.13, w0 = wAt(u1) - 0.03, w1 = w0 + 0.19;
+        var c = function(u, v, z) { return Wd(u, sg * v, z); };
+        var bias = see([[0, 0, 0], [1, 0, 0], [0, 1, 0]], [0, 0, 1]) ? 0.3 : 0;
+        [[[c(u0, w0, z1), c(u1, w0, z1), c(u1, w1, z1), c(u0, w1, z1)], [0, 0, 1]],
+         [[c(u0, w1, z0), c(u1, w1, z0), c(u1, w1, z1), c(u0, w1, z1)], [rx * sg, ry * sg, 0]],
+         [[c(u1, w0, z0), c(u1, w1, z0), c(u1, w1, z1), c(u1, w0, z1)], [fx, fy, 0]],
+         [[c(u0, w0, z0), c(u0, w1, z0), c(u0, w1, z1), c(u0, w0, z1)], [-fx, -fy, 0]]].forEach(function(fc, k) {
+            addFace(fc[0], k === 3 ? 'glass' : 'body', fc[1], null, bias);
+        });
+    });
+    faces.sort(function(a, b) { return a.d - b.d; });
+    // Barras del techo (wagon y SUV), encima de todo.
+    var rails = '';
+    if (B.rails) [-1, 1].forEach(function(sg) {
+        var pts = [];
+        st.forEach(function(s) { if (s[3] - s[2] > 0.3) pts.push(Pj(Wd(s[0], sg * (s[5] - 0.07), s[3] + 0.045))); });
+        if (pts.length > 1) rails += '<polyline class="st-c-rail" points="' + _invRoomPts(pts) + '"/>';
+    });
+    // Sombra en el piso (dos capas: borde suave), sombra de contacto de las llantas y el anillo de la selección.
+    var L2 = Math.abs(st[n - 1][0] - st[0][0]) / 2, Wm = Math.max.apply(null, st.map(function(s) { return s[4]; }));
+    var rrect = function(hu, hv, rad, du, dv, z) {
+        var pts = [], cs = [[hu - rad, hv - rad, 0], [-(hu - rad), hv - rad, 90], [-(hu - rad), -(hv - rad), 180], [hu - rad, -(hv - rad), 270]];
+        cs.forEach(function(cc) { for (var k = 0; k <= 4; k++) { var a = (cc[2] + k * 22.5) * Math.PI / 180; pts.push(P(cx + fx * (cc[0] + rad * Math.cos(a)) + rx * (cc[1] + rad * Math.sin(a)) + du, cy + fy * (cc[0] + rad * Math.cos(a)) + ry * (cc[1] + rad * Math.sin(a)) + dv, z)); } });
+        return pts;
+    };
+    var under = poly('st-c-shadow st-c-shadow--soft', rrect(L2 + 0.22, Wm + 0.24, 0.6, 0.08, -0.09, 0.003)) + poly('st-c-shadow', rrect(L2 + 0.04, Wm + 0.06, 0.45, 0.05, -0.06, 0.004));
+    [-1, 1].forEach(function(sg) { [SITE_WHEEL_U, -SITE_WHEEL_U].forEach(function(uw) {
+        var pts = [];
+        for (var k = 0; k < 12; k++) { var t = 2 * Math.PI * k / 12; pts.push(Pj(Wd(uw + R * 0.9 * Math.cos(t), sg * (wAt(uw) - 0.14) + 0.13 * Math.sin(t), 0.005))); }
+        under += poly('st-c-contact', pts);
+    }); });
+    if (opts.ring) under = poly('st-c-ring st-c-ring--' + opts.ring, rrect(L2 + 0.38, Wm + 0.36, 0.7, 0, 0, 0.006)) + under;
+    var dmax = faces.length ? Math.max.apply(null, faces.map(function(f) { return f.d; })) : P(cx, cy, 0).d;
+    return { d: dmax,
+             s: '<g class="' + cls + '"' + (attrs || '') + '>' + (title ? '<title>' + _invRoomEsc(title) + '</title>' : '') + under + far +
+                faces.map(function(f) { return f.s; }).join('') + rails + '</g>' };
+}
+
+/** La huella de un auto en el piso, punteada: el lugar de un Master que está adentro. PURA. */
+function _siteCarGhostSVG(P, cx, cy, heading, cls) {
+    var fx = Math.cos(heading), fy = Math.sin(heading), rx = -fy, ry = fx, hu = 2.25, hv = 0.92, rad = 0.5, pts = [];
+    [[hu - rad, hv - rad, 0], [-(hu - rad), hv - rad, 90], [-(hu - rad), -(hv - rad), 180], [hu - rad, -(hv - rad), 270]].forEach(function(cc) {
+        for (var k = 0; k <= 4; k++) { var a = (cc[2] + k * 22.5) * Math.PI / 180, u = cc[0] + rad * Math.cos(a), v = cc[1] + rad * Math.sin(a); pts.push(P(cx + fx * u + rx * v, cy + fy * u + ry * v, 0.008)); }
+    });
+    return '<polygon class="' + cls + '" points="' + _invRoomPts(pts) + '"/>';
+}
+
+/**
+ * [3.17.0] Texto PINTADO en el piso: se ve en perspectiva, como la pintura de un estacionamiento,
+ * y lo que esté encima lo tapa. Corre por el eje del piso que se ve más horizontal. PURA.
+ * fs = alto de la letra en metros; dy = renglón (en altos de letra) bajo el punto.
+ */
+function _siteFloorText(P, x, y, text, cls, fs, dy) {
+    var o = P(x, y, 0.009), ax = P(x + 1, y, 0.009), ay = P(x, y + 1, 0.009);
+    var ux = [ax.x - o.x, ax.y - o.y], uy = [ay.x - o.x, ay.y - o.y];
+    var lenx = Math.sqrt(ux[0] * ux[0] + ux[1] * ux[1]) || 1, leny = Math.sqrt(uy[0] * uy[0] + uy[1] * uy[1]) || 1;
+    var u, v;
+    if (Math.abs(ux[0]) / lenx >= Math.abs(uy[0]) / leny) { u = ux[0] >= 0 ? ux : [-ux[0], -ux[1]]; v = uy; }
+    else { u = uy[0] >= 0 ? uy : [-uy[0], -uy[1]]; v = ux; }
+    if (u[0] * v[1] - u[1] * v[0] < 0) v = [-v[0], -v[1]];          // que no se vea al revés
+    var S = INV_ROOM_S, k = (fs || 0.4) / 0.72;                       // la letra mide ~0.72 de su tamaño
+    var m = [u[0] / S * k, u[1] / S * k, v[0] / S * k, v[1] / S * k, o.x, o.y];
+    return '<text class="' + cls + '" transform="matrix(' + m.map(function(n) { return n.toFixed(4); }).join(' ') + ')" x="0" y="' + (((dy || 0) + 0.36) * 72).toFixed(1) + '">' + _invRoomEsc(text) + '</text>';
+}
+
+/** Etiqueta en píldora (texto con fondo), para que se lea sobre cualquier cosa. `ls` = escala de la letra. */
+function _sitePill(x, y, text, sub, cls, ls) {
     var esc = _invRoomEsc;
-    var w = Math.max(String(text).length * 11.5, String(sub || '').length * 9.4) + 22, h = sub ? 46 : 28;
-    return '<g class="st-pill ' + (cls || '') + '" aria-hidden="true"><rect x="' + (x - w / 2).toFixed(1) + '" y="' + (y - h + 6).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h + '" rx="14"/>' +
-           '<text x="' + x.toFixed(1) + '" y="' + (y - (sub ? 18 : 2)).toFixed(1) + '">' + esc(text) + '</text>' +
-           (sub ? '<text class="st-pill-sub" x="' + x.toFixed(1) + '" y="' + (y + 0).toFixed(1) + '">' + esc(sub) + '</text>' : '') + '</g>';
+    ls = ls || 1;
+    var w = (Math.max(String(text).length * 11.5, String(sub || '').length * 9.4) + 22) * ls, h = (sub ? 46 : 28) * ls;
+    return '<g class="st-pill ' + (cls || '') + '" aria-hidden="true"><rect x="' + (x - w / 2).toFixed(1) + '" y="' + (y - h + 6 * ls).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="' + (14 * ls).toFixed(1) + '"/>' +
+           '<text x="' + x.toFixed(1) + '" y="' + (y - (sub ? 18 : 2) * ls).toFixed(1) + '">' + esc(text) + '</text>' +
+           (sub ? '<text class="st-pill-sub" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '">' + esc(sub) + '</text>' : '') + '</g>';
+}
+
+/**
+ * [3.17.0] Lo de afuera: la base de la maqueta, jardineras, árboles y el estacionamiento de la
+ * flota Master (con sus líneas, topes, números y los lugares que se tocan). PURA.
+ */
+function _siteExteriorSVG(ctx, scene, layout, floorL, solid, over, opts) {
+    var P = ctx.P, V = ctx.V, esc = _invRoomEsc, S = INV_ROOM_S;
+    var rectPts = function(r, z) { return [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], z); }); };
+    var B = layout.base, TH = 0.45, A = 0;
+    for (var i = 0; i < B.length; i++) { var p0 = B[i], p1 = B[(i + 1) % B.length]; A += p0[0] * p1[1] - p1[0] * p0[1]; }
+    // Los cantos de la base que dan hacia quien mira; luego la cara de arriba los tapa donde toca.
+    B.forEach(function(a, k) {
+        var b = B[(k + 1) % B.length], ex = b[0] - a[0], ey = b[1] - a[1], len = Math.sqrt(ex * ex + ey * ey) || 1;
+        var nx = (A > 0 ? ey : -ey) / len, ny = (A > 0 ? -ex : ex) / len;
+        if (nx * V[0] + ny * V[1] <= 0.001) return;
+        floorL.push('<polygon class="st-base-side' + (Math.abs(nx) > Math.abs(ny) ? ' st-base-side--x' : '') + '" points="' +
+                    _invRoomPts([P(a[0], a[1], 0), P(b[0], b[1], 0), P(b[0], b[1], -TH), P(a[0], a[1], -TH)]) + '"/>');
+    });
+    floorL.push('<polygon class="st-ground" points="' + _invRoomPts(B.map(function(p) { return P(p[0], p[1], 0); })) + '"/>');
+    (layout.grass || []).forEach(function(r) { floorL.push('<polygon class="st-grass" points="' + _invRoomPts(rectPts(r, 0.002)) + '"/>'); });
+    var lot = layout.lot;
+    if (lot) {
+        floorL.push('<polygon class="st-asphalt" points="' + _invRoomPts(rectPts(lot.rect, 0.003)) + '"/>');
+        if (lot.apron) floorL.push('<polygon class="st-asphalt" points="' + _invRoomPts(rectPts(lot.apron, 0.003)) + '"/>');
+        // Guarnición a lo largo de la cabecera de los lugares.
+        var cy0 = lot.curbY, x0 = lot.rect[0], x1 = lot.rect[2];
+        floorL.push('<polygon class="st-curb" points="' + _invRoomPts([P(x0, cy0 - 0.2, 0.12), P(x1, cy0 - 0.2, 0.12), P(x1, cy0, 0.12), P(x0, cy0, 0.12)]) + '"/>' +
+                    (V[1] > 0 ? '<polygon class="st-curb-face" points="' + _invRoomPts([P(x0, cy0, 0.12), P(x1, cy0, 0.12), P(x1, cy0, 0), P(x0, cy0, 0)]) + '"/>' : ''));
+        var path = '', seg = function(xa, ya, xb, yb) { var a = P(xa, ya, 0.006), b = P(xb, yb, 0.006); path += 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + 'L' + b.x.toFixed(1) + ' ' + b.y.toFixed(1); };
+        var pk = scene.parking || { byStall: {}, conflicts: [] };
+        lot.stalls.forEach(function(s, k) {
+            var r = s.rect, cx = (r[0] + r[2]) / 2;
+            if (k === 0) seg(r[2], r[1] + 0.15, r[2], r[3]);
+            seg(r[0], r[1] + 0.15, r[0], r[3]);
+            var occ = (pk.byStall[s.id] || []).length;
+            var cls = 'st-spot st-spot--stall' + (occ ? ' st-spot--busy' : '') + ((pk.conflicts || []).indexOf(s.id) >= 0 ? ' st-spot--clash' : '') +
+                      (opts.sel && opts.sel.kind === 'spot' && opts.sel.id === s.id ? ' st-spot--sel' : '') + (opts.moving && !occ ? ' st-spot--target' : '');
+            floorL.push('<polygon class="' + cls + '" data-spot="' + s.id + '" tabindex="0" role="button" aria-label="' + esc(s.label) + (occ ? ': ocupado' : ': libre') + '" points="' + _invRoomPts(rectPts([r[0] + 0.08, r[1] + 0.1, r[2] - 0.08, r[3] - 0.05], 0.007)) + '"/>');
+            floorL.push(_siteFloorText(P, cx, r[3] + 0.25, s.short, 'st-stall-num', 0.5));
+            solid.push(_siteBoxSVG(P, [cx - 0.75, r[1] + 0.42, cx + 0.75, r[1] + 0.62], 0, 0.1, 'st-stop', ' aria-hidden="true"', ''));
+        });
+        floorL.push('<path class="st-stall-line" d="' + path + '"/>');
+        if (opts.labels !== false) floorL.push(_siteFloorText(P, (lot.rect[0] + lot.rect[2]) / 2, lot.aisle[3] - 0.85, 'Estacionamiento · vehículos Master', 'st-floor-lbl st-floor-lbl--lot', 0.42));
+    }
+    // Árboles y arbustos: una esfera se ve redonda desde cualquier lado (proyección ortográfica).
+    (layout.trees || []).forEach(function(t) {
+        var sh = [];
+        for (var k = 0; k < 14; k++) { var a = 2 * Math.PI * k / 14; sh.push(P(t.x + 0.45 + t.r * 1.05 * Math.cos(a), t.y - 0.4 + t.r * 0.85 * Math.sin(a), 0.004)); }
+        floorL.push('<polygon class="st-tree-shadow" points="' + _invRoomPts(sh) + '"/>');
+        var trunk = _siteBoxSVG(P, [t.x - 0.11, t.y - 0.11, t.x + 0.11, t.y + 0.11], 0, t.h + t.r * 0.3, 'st-trunk', '', '');
+        var c1 = P(t.x, t.y, t.h + t.r * 0.6), c2 = P(t.x - t.r * 0.28, t.y - t.r * 0.12, t.h + t.r * 0.95);
+        solid.push({ d: P(t.x, t.y, 0).d, s: '<g class="st-tree" aria-hidden="true">' + trunk.s +
+            '<circle class="st-canopy" cx="' + c1.x.toFixed(1) + '" cy="' + c1.y.toFixed(1) + '" r="' + (t.r * S).toFixed(1) + '"/>' +
+            '<circle class="st-canopy-hl" cx="' + c2.x.toFixed(1) + '" cy="' + c2.y.toFixed(1) + '" r="' + (t.r * 0.55 * S).toFixed(1) + '"/></g>' });
+    });
+    (layout.bushes || []).forEach(function(b) {
+        var c = P(b[0], b[1], 0.32), h = P(b[0] - 0.1, b[1] - 0.05, 0.46);
+        solid.push({ d: P(b[0], b[1], 0).d, s: '<g class="st-tree" aria-hidden="true"><circle class="st-canopy st-canopy--bush" cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="' + (0.4 * S).toFixed(1) + '"/>' +
+            '<circle class="st-canopy-hl" cx="' + h.x.toFixed(1) + '" cy="' + h.y.toFixed(1) + '" r="' + (0.2 * S).toFixed(1) + '"/></g>' });
+    });
 }
 
 /**
  * La escena del laboratorio como SVG (cadena). PURA.
- * scene = {layout, items, model, look, health}; cam = cámara; opts = {sel, moving, edit, labels}
- * look[kind:id] = {tone, short, soak, leftH, aria}; health[itemId] = {tone, text}.
+ * scene = {layout, items, model, look, health, parking, masterLook}; cam = cámara;
+ * opts = {sel, moving, edit, labels, ls (escala de la letra)}.
+ * look[kind:id] = {tone, short, sub, body, master, aria}; health[itemId] = {tone, text};
+ * masterLook[id] = {short, sub, aria}. Con `layout.lot` (siteLayout) se dibuja también el exterior.
  */
 function siteSceneSVG(scene, cam, opts) {
     opts = opts || {};
     var layout = scene.layout || SITE_LAYOUT;
-    var C = invRoomCenter(layout);
+    var C = siteCenter(layout);
     var P = function(x, y, z) { return invRoomProject(x, y, z, cam, C); };
+    var ctx = { P: P, V: _siteViewVec(cam) };
+    var ls = opts.ls || 1;
     var floorL = [], solid = [], over = [];
     var esc = _invRoomEsc;
-    var fl = layout.floor.map(function(p) { return P(p[0], p[1], 0); });
-    floorL.push('<polygon class="rm-floor" points="' + _invRoomPts(fl) + '"/>');
+    var rectPts = function(r, z) { return [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], z); }); };
+    var model = scene.model || { bySpot: {}, conflicts: [] };
+    if (layout.base) _siteExteriorSVG(ctx, scene, layout, floorL, solid, over, opts);
+    var fl = layout.floor.map(function(p) { return P(p[0], p[1], 0.002); });
+    floorL.push('<polygon class="st-floor" points="' + _invRoomPts(fl) + '"/>');
+    var areaLbl = [];
     (layout.areas || []).forEach(function(a) {
-        var r = a.rect, cs = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], 0.005); });
-        floorL.push('<polygon class="st-area st-area--' + a.tone + '" points="' + _invRoomPts(cs) + '"/>');
-        var lc = P(r[0] + 0.35, r[1] + 0.35, 0);
-        if (opts.labels !== false) over.push({ d: -99, s: '<text class="st-area-lbl" x="' + lc.x.toFixed(1) + '" y="' + lc.y.toFixed(1) + '">' + esc(a.label) + '</text>' });
+        floorL.push('<polygon class="st-area st-area--' + a.tone + '" points="' + _invRoomPts(rectPts(a.rect, 0.005)) + '"/>');
+        if (opts.labels === false) return;
+        var at = a.lbl || [a.rect[0] + 2, a.rect[1] + 0.8], lines = a.lines || [a.label];
+        lines.forEach(function(t, k) { areaLbl.push(_siteFloorText(P, at[0], at[1], t, 'st-floor-lbl', a.fs || 0.36, (k - (lines.length - 1) / 2) * 1.25)); });
     });
     // Placas del piso de la celda (como en las fotos)
     var cellA = (layout.areas || []).find(function(a) { return a.id === 'celda'; });
@@ -40952,15 +41494,39 @@ function siteSceneSVG(scene, cam, opts) {
         for (var gy = cr[1] + 1.5; gy < cr[3]; gy += 1.5) { var h1 = P(cr[0], gy, 0.006), h2 = P(cr[2], gy, 0.006); gl.push('M' + h1.x.toFixed(1) + ' ' + h1.y.toFixed(1) + 'L' + h2.x.toFixed(1) + ' ' + h2.y.toFixed(1)); }
         floorL.push('<path class="st-floor-plates" d="' + gl.join('') + '"/>');
     }
-    // Lo fijo del piso: rodillos, placas, rieles, escape.
+    // Sombra suave al pie de los muros, adentro y afuera (asienta el edificio en el piso).
+    var WH = 2.6, CUT = 0.45, TH = 0.18;
+    var opaque = layout.walls.filter(function(w) { return !w[6]; });
+    opaque.forEach(function(w) {
+        var nx = w[4], ny = w[5];
+        [[-0.55, 'st-ao'], [-0.22, 'st-ao'], [TH + 0.42, 'st-ao st-ao--out']].forEach(function(o) {
+            var off = o[0], base = off > 0 ? TH : 0;
+            floorL.push('<polygon class="' + o[1] + '" points="' + _invRoomPts([P(w[0] + nx * base, w[1] + ny * base, 0.006), P(w[2] + nx * base, w[3] + ny * base, 0.006),
+                P(w[2] + nx * off, w[3] + ny * off, 0.006), P(w[0] + nx * off, w[1] + ny * off, 0.006)]) + '"/>');
+        });
+    });
+    // Lo fijo del piso: la fosa del dinamómetro (rodillos de acero, placa), rieles, escape.
+    var dyn = (layout.fixed || []).filter(function(f) { return f.rect && (f.kind === 'roll' || f.kind === 'plate'); });
+    if (dyn.length) {
+        var bx = [Infinity, Infinity, -Infinity, -Infinity];
+        dyn.forEach(function(f) { bx = [Math.min(bx[0], f.rect[0]), Math.min(bx[1], f.rect[1]), Math.max(bx[2], f.rect[2]), Math.max(bx[3], f.rect[3])]; });
+        var pit = [bx[0] - 0.14, bx[1] - 0.14, bx[2] + 0.14, bx[3] + 0.14];
+        floorL.push('<polygon class="st-pit" points="' + _invRoomPts(rectPts(pit, 0.008)) + '"/><polygon class="st-pit-edge" points="' + _invRoomPts(rectPts(pit, 0.009)) + '"/>');
+    }
     (layout.fixed || []).forEach(function(f) {
-        if (f.rect && (f.kind === 'roll' || f.kind === 'plate')) {
-            var r = f.rect, cs = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], 0.01); });
-            floorL.push('<polygon class="st-' + f.kind + '" points="' + _invRoomPts(cs) + '"/>');
-            if (f.kind === 'roll') {   // los dos rodillos de cada par
-                [0.33, 0.67].forEach(function(t) { var a1 = P(r[0] + (r[2] - r[0]) * t, r[1], 0.012), a2 = P(r[0] + (r[2] - r[0]) * t, r[3], 0.012);
-                    floorL.push('<line class="st-roll-axis" x1="' + a1.x.toFixed(1) + '" y1="' + a1.y.toFixed(1) + '" x2="' + a2.x.toFixed(1) + '" y2="' + a2.y.toFixed(1) + '"/>'); });
-            }
+        if (f.rect && f.kind === 'roll') {
+            var r = f.rect, w = r[2] - r[0];
+            floorL.push('<polygon class="st-roll" points="' + _invRoomPts(rectPts(r, 0.01)) + '"/>');
+            [[0.06, 0.47], [0.53, 0.94]].forEach(function(t) {   // los dos rodillos del par
+                var rr = [r[0] + w * t[0], r[1] + 0.03, r[0] + w * t[1], r[3] - 0.03], m = (rr[0] + rr[2]) / 2;
+                var a1 = P(m, rr[1], 0.013), a2 = P(m, rr[3], 0.013);
+                floorL.push('<polygon class="st-roller" points="' + _invRoomPts(rectPts(rr, 0.012)) + '"/>' +
+                    '<line class="st-roller-hl" x1="' + a1.x.toFixed(1) + '" y1="' + a1.y.toFixed(1) + '" x2="' + a2.x.toFixed(1) + '" y2="' + a2.y.toFixed(1) + '"/>');
+            });
+        } else if (f.rect && f.kind === 'plate') {
+            var pr = f.rect, tl = '';
+            for (var k = 1; k < 4; k++) { var yy = pr[1] + (pr[3] - pr[1]) * k / 4, q1 = P(pr[0] + 0.1, yy, 0.012), q2 = P(pr[2] - 0.1, yy, 0.012); tl += 'M' + q1.x.toFixed(1) + ' ' + q1.y.toFixed(1) + 'L' + q2.x.toFixed(1) + ' ' + q2.y.toFixed(1); }
+            floorL.push('<polygon class="st-plate" points="' + _invRoomPts(rectPts(pr, 0.01)) + '"/><path class="st-plate-tread" d="' + tl + '"/>');
         } else if (f.line) {
             var a = P(f.line[0], f.line[1], 0.02), b = P(f.line[2], f.line[3], 0.02);
             floorL.push('<line class="st-' + f.kind + '" x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) + '"/>');
@@ -40975,36 +41541,67 @@ function siteSceneSVG(scene, cam, opts) {
             solid.push(_siteBoxSVG(P, f.rect, f.z0, f.z1, 'st-tunnel', ' aria-hidden="true"', ''));
         }
     });
-    // Lugares (cajones y dinamómetro): se tocan para poner o ver una unidad.
-    var model = scene.model || { bySpot: {}, conflicts: [] };
+    // Lugares del laboratorio (cajones y dinamómetro): se tocan para poner o ver una unidad.
+    var spotLbl = [];
     layout.spots.forEach(function(s) {
-        var r = s.rect, cs = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].map(function(c) { return P(c[0], c[1], 0.015); });
+        if (s.area === 'lot') return;
+        var r = s.rect;
         var occ = (model.bySpot[s.id] || []).length;
         var cls = 'st-spot st-spot--' + s.id + (occ ? ' st-spot--busy' : '') + (model.conflicts.indexOf(s.id) >= 0 ? ' st-spot--clash' : '') +
                   (opts.sel && opts.sel.kind === 'spot' && opts.sel.id === s.id ? ' st-spot--sel' : '') + (opts.moving && !occ ? ' st-spot--target' : '');
-        floorL.push('<polygon class="' + cls + '" data-spot="' + s.id + '" tabindex="0" role="button" aria-label="' + esc(s.label) + (occ ? ': ocupado' : ': libre') + '" points="' + _invRoomPts(cs) + '"/>');
-        // El del dinamómetro va afuera (el coche lo taparía); el de un cajón, en su esquina.
-        var lc = s.id === 'dino' ? P((r[0] + r[2]) / 2, r[1] - 0.3, 0.02) : P(s.nose < 0 ? r[2] - 0.45 : r[0] + 0.45, r[1] + 0.35, 0.02);
-        over.push({ d: -98, s: '<text class="st-spot-lbl" x="' + lc.x.toFixed(1) + '" y="' + (lc.y + 10).toFixed(1) + '">' + esc(s.id === 'dino' ? '⚙ ' + s.label : s.label.replace('Cajón ', '')) + '</text>' });
+        floorL.push('<polygon class="' + cls + '" data-spot="' + s.id + '" tabindex="0" role="button" aria-label="' + esc(s.label) + (occ ? ': ocupado' : ': libre') + '" points="' + _invRoomPts(rectPts(r, 0.015)) + '"/>');
+        // Pintados en el piso donde el coche no los tapa: el del dinamómetro al frente de la fosa;
+        // el de un cajón, en el pasillo delante de su nariz.
+        if (opts.labels !== false) spotLbl.push(s.id === 'dino' ? _siteFloorText(P, (r[0] + r[2]) / 2, r[3] + 0.25, 'Dinamómetro', 'st-floor-lbl st-floor-lbl--dino', 0.32)
+                                                   : _siteFloorText(P, s.nose < 0 ? r[0] - 0.75 : r[2] + 0.75, (r[1] + r[3]) / 2, s.label.replace('Cajón ', ''), 'st-floor-lbl st-floor-lbl--num', 0.7, -0.5));
     });
-    // Muros, ventanales y ventanas
-    var WH = 2.6;
+    floorL.push(areaLbl.join('') + spotLbl.join(''));
+    // ── Muros. Los del FONDO van completos; los de ENFRENTE se cortan bajos (como maqueta), con su
+    // grosor arriba: se ve adentro sin un muro transparente encima. Los ventanales son vidrio. ──
+    var near = function(p, q) { return Math.abs(p[0] - q[0]) < 1e-6 && Math.abs(p[1] - q[1]) < 1e-6; };
+    var touches = function(pt, self) { return opaque.filter(function(o) { return o !== self && (near([o[0], o[1]], pt) || near([o[2], o[3]], pt)); }); };
     layout.walls.forEach(function(w) {
-        var back = invRoomWallIsBack(w[4], w[5], cam);
-        var kind = w[6] || '';
-        var h = kind === 'window' ? 2.2 : kind === 'glass' ? 3.0 : WH;
-        var p1 = P(w[0], w[1], 0), p2 = P(w[2], w[3], 0), p3 = P(w[2], w[3], h), p4 = P(w[0], w[1], h);
-        var dmid = (p1.d + p2.d) / 2;
-        var cls = kind ? 'st-wall st-wall--' + kind : 'rm-wall' + (back ? '' : ' rm-wall--front');
-        solid.push({ d: kind ? dmid : back ? dmid - 2 : dmid + 0.05,
-            s: '<polygon class="' + cls + '" points="' + _invRoomPts([p1, p2, p3, p4]) + '"/>' +
-               (kind ? '' : '<line class="rm-wall-cap' + (back ? '' : ' rm-wall-cap--front') + '" x1="' + p4.x.toFixed(1) + '" y1="' + p4.y.toFixed(1) + '" x2="' + p3.x.toFixed(1) + '" y2="' + p3.y.toFixed(1) + '"/>') });
+        var back = invRoomWallIsBack(w[4], w[5], cam), kind = w[6] || '', nx = w[4], ny = w[5];
+        var a = [w[0], w[1]], b = [w[2], w[3]], len = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
+        var ex = (b[0] - a[0]) / len, ey = (b[1] - a[1]) / len;
+        if (kind === 'glass') {
+            var gh = 3.0, gpts = [P(a[0], a[1], 0), P(b[0], b[1], 0), P(b[0], b[1], gh), P(a[0], a[1], gh)], dm = (gpts[0].d + gpts[1].d) / 2;
+            var mul = '', nm = Math.max(1, Math.round(len / 1.2));
+            for (var k = 1; k < nm; k++) { var t = k / nm, m0 = P(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 0), m1 = P(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, gh); mul += 'M' + m0.x.toFixed(1) + ' ' + m0.y.toFixed(1) + 'L' + m1.x.toFixed(1) + ' ' + m1.y.toFixed(1); }
+            solid.push({ d: dm, s: '<polygon class="st-wall st-wall--glass" points="' + _invRoomPts(gpts) + '"/><path class="st-glass-frame" d="' + mul +
+                'M' + gpts[3].x.toFixed(1) + ' ' + gpts[3].y.toFixed(1) + 'L' + gpts[2].x.toFixed(1) + ' ' + gpts[2].y.toFixed(1) + '"/>' +
+                '<line class="st-glass-sill" x1="' + gpts[0].x.toFixed(1) + '" y1="' + gpts[0].y.toFixed(1) + '" x2="' + gpts[1].x.toFixed(1) + '" y2="' + gpts[1].y.toFixed(1) + '"/>' });
+            return;
+        }
+        var th = kind === 'window' ? 0.12 : TH;
+        // Esquina convexa con otro muro opaco: el grosor se alarga para cerrarla (inglete).
+        var ext = function(pt, dir) { return touches(pt, w).some(function(o) { return dir[0] * o[4] + dir[1] * o[5] > 0.5; }) ? th : 0; };
+        var eA = kind ? 0 : ext(a, [-ex, -ey]), eB = kind ? 0 : ext(b, [ex, ey]);
+        var a2 = [a[0] + nx * th - ex * eA, a[1] + ny * th - ey * eA], b2 = [b[0] + nx * th + ex * eB, b[1] + ny * th + ey * eB];
+        var h = back ? (kind === 'window' ? 2.2 : WH) : CUT;
+        var fa = back ? a : a2, fb = back ? b : b2;
+        var face = [P(fa[0], fa[1], 0), P(fb[0], fb[1], 0), P(fb[0], fb[1], h), P(fa[0], fa[1], h)];
+        var s = '';
+        if (kind === 'window' && back) {   // ventanas del control: zoclo, vidrio y marco
+            var zs = 0.9, lo = [face[0], face[1], P(fb[0], fb[1], zs), P(fa[0], fa[1], zs)], hi = [P(fa[0], fa[1], zs), P(fb[0], fb[1], zs), face[2], face[3]];
+            s = '<polygon class="st-wall-face st-wall-face--back" points="' + _invRoomPts(lo) + '"/><polygon class="st-wall st-wall--window" points="' + _invRoomPts(hi) + '"/>';
+        } else {
+            s = '<polygon class="st-wall-face' + (back ? ' st-wall-face--back' : ' st-wall-face--cut') + '" points="' + _invRoomPts(face) + '"/>';
+        }
+        // Las puntas libres (junto a una puerta) también tienen grosor.
+        [[a, a2, [-ex, -ey]], [b, b2, [ex, ey]]].forEach(function(e) {
+            if (kind || touches(e[0], w).length || e[2][0] * ctx.V[0] + e[2][1] * ctx.V[1] <= 0) return;
+            s += '<polygon class="st-wall-end" points="' + _invRoomPts([P(e[0][0], e[0][1], 0), P(e[1][0], e[1][1], 0), P(e[1][0], e[1][1], h), P(e[0][0], e[0][1], h)]) + '"/>';
+        });
+        s += '<polygon class="st-wall-cap' + (back ? '' : ' st-wall-cap--cut') + '" points="' + _invRoomPts([P(a[0], a[1], h), P(b[0], b[1], h), P(b2[0], b2[1], h), P(a2[0], a2[1], h)]) + '"/>';
+        var dmid = (face[0].d + face[1].d) / 2;
+        solid.push({ d: back ? dmid - 2 : dmid + 0.05, s: '<g class="st-wall" aria-hidden="true">' + s + '</g>' });
     });
     (layout.doors || []).forEach(function(d) {
-        var a = P(d.a[0], d.a[1], 0), b = P(d.b[0], d.b[1], 0);
+        var a = P(d.a[0], d.a[1], 0.02), b = P(d.b[0], d.b[1], 0.02);
         floorL.push('<line class="rm-door' + (d.glass ? ' st-door--glass' : '') + '" x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) + '"/>');
         var m = P((d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2, 0);
-        if (opts.labels !== false) over.push({ d: 99, s: '<text class="rm-door-lbl" x="' + m.x.toFixed(1) + '" y="' + (m.y + 16).toFixed(1) + '">' + (d.glass ? '↔ ' : '🚪 ') + esc(d.label) + '</text>' });
+        if (opts.labels !== false) over.push({ d: 99, s: '<text class="rm-door-lbl" x="' + m.x.toFixed(1) + '" y="' + (m.y + 16 * ls).toFixed(1) + '">' + (d.glass ? '↔ ' : '🚪 ') + esc(d.label) + '</text>' });
     });
     // Equipos (editables), con los detalles de su forma
     (scene.items || []).forEach(function(it) {
@@ -41048,43 +41645,76 @@ function siteSceneSVG(scene, cam, opts) {
         solid.push(bx);
         var lp = P((it.x0 + it.x1) / 2, (it.y0 + it.y1) / 2, H + 0.25);
         if (opts.labels !== false && (sel || h.tone === 'bad' || h.tone === 'warn' || opts.edit || opts.allLabels)) {
-            over.push({ d: bx.d, s: _sitePill(lp.x, lp.y, (h.tone === 'bad' ? '⚠ ' : '') + it.label, '', 'st-pill--eq st-pill--' + h.tone) });
+            over.push({ d: bx.d, s: _sitePill(lp.x, lp.y, (h.tone === 'bad' ? '⚠ ' : '') + it.label, '', 'st-pill--eq st-pill--' + h.tone, ls) });
         } else if (opts.labels !== false) {
             over.push({ d: bx.d, s: '<g class="st-eq-lbl st-eq-lbl--' + h.tone + '" aria-hidden="true"><text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '">' + esc(it.label) + '</text></g>' });
         }
     });
-    // Unidades
+    // Unidades del laboratorio (color = estado; la carrocería, la de su configuración)
     var look = scene.look || {};
     layout.spots.forEach(function(s) {
+        if (s.area === 'lot') return;
         var list = model.bySpot[s.id] || [];
         list.forEach(function(e, i) {
             var r = s.rect, L = look[e.kind + ':' + e.id] || {};
             var cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2 + i * 0.35;
             var sel = opts.sel && opts.sel.kind === e.kind && String(opts.sel.id) === String(e.id);
             var mov = opts.moving && opts.moving.kind === e.kind && String(opts.moving.id) === String(e.id);
-            var cls = 'st-car st-car--' + (L.tone || 'none') + (e.kind === 'unit' ? ' st-car--noalta' : '') + (sel ? ' st-car--sel' : '') + (mov ? ' st-car--moving' : '');
-            var car = _siteCarSVG(P, cx, cy, s.nose, cls, ' data-' + e.kind + '="' + esc(e.id) + '" tabindex="0" role="button" aria-label="' + esc(L.aria || e.vin) + '"', L.aria || e.vin);
+            var cls = 'st-car st-car--' + (L.tone || 'none') + (e.kind === 'unit' ? ' st-car--noalta' : '') + (L.master ? ' st-car--master' : '') + (sel ? ' st-car--sel' : '') + (mov ? ' st-car--moving' : '');
+            var car = _siteCarSVG(ctx, cx, cy, s.nose < 0 ? Math.PI : 0, cls, ' data-' + e.kind + '="' + esc(e.id) + '" tabindex="0" role="button" aria-label="' + esc(L.aria || e.vin) + '"', L.aria || e.vin,
+                                  { body: L.body, ring: sel ? 'sel' : e.kind === 'unit' ? 'noalta' : '' });
             solid.push(car);
             if (opts.labels !== false && L.short) {
-                var lp = P(cx, cy, 1.95);
-                over.push({ d: car.d, s: _sitePill(lp.x, lp.y, L.short, L.sub || '', 'st-pill--car st-pill--' + (L.tone || 'none')) });
+                var lp = P(cx, cy, siteBodyHeight(L.body) + 0.5);
+                over.push({ d: car.d, s: _sitePill(lp.x, lp.y, L.short, L.sub || '', 'st-pill--car st-pill--' + (L.tone || 'none') + (L.master ? ' st-pill--master' : ''), ls) });
+            }
+        });
+    });
+    // [3.17.0] La flota Master en el estacionamiento (con su color real). Si está adentro, su lugar
+    // se ve vacío, con su huella punteada y dónde está.
+    var pk = scene.parking, ml = scene.masterLook || {};
+    if (layout.lot && pk) layout.lot.stalls.forEach(function(s) {
+        (pk.byStall[s.id] || []).forEach(function(e, i) {
+            var m = e.master, r = s.rect, cx = (r[0] + r[2]) / 2 + i * 0.3, cy = (r[1] + r[3]) / 2, ML = ml[m.id] || {};
+            var sel = opts.sel && opts.sel.kind === 'master' && opts.sel.id === m.id;
+            if (e.inLab) {
+                floorL.push(_siteCarGhostSVG(P, cx, cy, s.heading, 'st-ghost' + (sel ? ' st-ghost--sel' : '')));
+                if (opts.labels !== false) { var gp = P(cx, cy, 0.4); over.push({ d: gp.d, s: _sitePill(gp.x, gp.y, ML.short || m.vin, ML.sub || '', 'st-pill--ghost', ls) }); }
+                return;
+            }
+            var mov = opts.moving && opts.moving.kind === 'master' && opts.moving.id === m.id;
+            var paint = SITE_PAINTS[m.paint] || SITE_PAINTS.blanco;
+            var car = _siteCarSVG(ctx, cx, cy, s.heading, 'st-car st-car--paint' + (sel ? ' st-car--sel' : '') + (mov ? ' st-car--moving' : ''),
+                ' data-master="' + esc(m.id) + '" tabindex="0" role="button" aria-label="' + esc(ML.aria || m.vin) + '" style="--st-car:' + paint.hex + '"', ML.aria || m.vin,
+                { body: m.body, ring: sel ? 'sel' : '' });
+            solid.push(car);
+            if (opts.labels !== false && ML.short) {
+                var mp = P(cx, cy, siteBodyHeight(m.body) + 0.5);
+                over.push({ d: car.d, s: _sitePill(mp.x, mp.y, ML.short, ML.sub || '', 'st-pill--car st-pill--master', ls) });
             }
         });
     });
     var byD = function(a, b) { return a.d - b.d; };
     solid.sort(byD); over.sort(byD);
     var box = _siteBox(layout, cam);
-    var defs = '<defs><linearGradient id="st-g-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#475569"/><stop offset="0.55" stop-color="#1e293b"/><stop offset="1" stop-color="#0f172a"/></linearGradient>' +
-               '<linearGradient id="st-g-screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></linearGradient></defs>';
-    return { box: box, svg: defs + '<g class="rm-floor-layer">' + floorL.join('') + '</g><g class="rm-solid-layer">' + solid.map(function(x) { return x.s; }).join('') +
-             '</g><g class="rm-over-layer">' + over.map(function(x) { return x.s; }).join('') + '</g>' };
+    var defs = '<defs>' +
+        '<linearGradient id="st-g-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b5b73"/><stop offset="0.5" stop-color="#25334a"/><stop offset="1" stop-color="#151d2c"/></linearGradient>' +
+        '<linearGradient id="st-g-glass-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9bdd3"/><stop offset="0.45" stop-color="#55657d"/><stop offset="1" stop-color="#1e293b"/></linearGradient>' +
+        '<linearGradient id="st-g-screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></linearGradient>' +
+        '<linearGradient id="st-g-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#d6dee8"/></linearGradient>' +
+        '<linearGradient id="st-g-roller" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#475569"/><stop offset="0.5" stop-color="#e2e8f0"/><stop offset="1" stop-color="#475569"/></linearGradient>' +
+        '<linearGradient id="st-g-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#8a97a8"/></linearGradient>' +
+        '<radialGradient id="st-g-tree" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="#8fd07a"/><stop offset="0.6" stop-color="#4d9a50"/><stop offset="1" stop-color="#2f6f3c"/></radialGradient>' +
+        '</defs>';
+    return { box: box, svg: defs + '<g class="rm-floor-layer" style="--ls:' + ls.toFixed(2) + '">' + floorL.join('') + '</g><g class="rm-solid-layer">' + solid.map(function(x) { return x.s; }).join('') +
+             '</g><g class="rm-over-layer" style="--ls:' + ls.toFixed(2) + '">' + over.map(function(x) { return x.s; }).join('') + '</g>' };
 }
 
 /** El viewBox de la escena para una cámara. PURA. */
 function _siteBox(layout, cam) {
-    var C = invRoomCenter(layout), xs = [], ys = [];
-    layout.floor.forEach(function(p) {
-        [0, 3.2].forEach(function(z) { var q = invRoomProject(p[0], p[1], z, cam, C); xs.push(q.x); ys.push(q.y); });
+    var C = siteCenter(layout), xs = [], ys = [];
+    (layout.base || layout.floor).forEach(function(p) {
+        [layout.base ? -0.45 : 0, 3.2].forEach(function(z) { var q = invRoomProject(p[0], p[1], z, cam, C); xs.push(q.x); ys.push(q.y); });
     });
     var pad = 40;
     return { x: Math.min.apply(null, xs) - pad, y: Math.min.apply(null, ys) - pad,
@@ -41094,7 +41724,7 @@ function _siteBox(layout, cam) {
 // ══════════════════════════════════════════════════════════════════════
 // Estado y escritores (DOM / datos)
 // ══════════════════════════════════════════════════════════════════════
-var _site = { sel: null, moving: null, edit: false, cam: null, filter: null };
+var _site = { sel: null, moving: null, edit: false, cam: null, filter: null, layout: null, parking: null };
 
 /** Siembra los equipos del plano UNA vez (`undefined` = nunca sembrado; [] = el laboratorio los quitó). */
 function siteItemsEnsure() {
@@ -41112,7 +41742,27 @@ function _siteUnits() { return ((typeof db !== 'undefined' && db && db.siteUnits
 function _siteVehicle(id) { return ((typeof db !== 'undefined' && db && db.vehicles) || []).find(function(v) { return v && String(v.id) === String(id); }) || null; }
 function _siteWho() { return (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Sistema'; }
 function _siteNow() { return new Date().toISOString(); }
-function _siteSpotLabel(id) { var s = SITE_LAYOUT.spots.find(function(x) { return x.id === id; }); return s ? s.label : (id || 'fuera del sitio'); }
+function _siteSpotLabel(id) {
+    var s = SITE_LAYOUT.spots.find(function(x) { return x.id === id; });
+    if (s) return s.label;
+    var k = SITE_STALL_RE.exec(String(id || ''));
+    return k ? 'Estacionamiento P' + k[1] : (id || 'fuera del sitio');
+}
+function _siteMasters() { return ((typeof db !== 'undefined' && db && db.siteMasters) || []).filter(function(m) { return m && !m.deleted; }); }
+function _siteMaster(id) { return ((typeof db !== 'undefined' && db && db.siteMasters) || []).find(function(m) { return m && m.id === id; }) || null; }
+/** La unidad con alta EN CURSO de un VIN (la que se mueve al meter un Master al laboratorio). */
+function _siteLiveByVin(vin) {
+    var k = siteVinKey(vin);
+    return ((typeof db !== 'undefined' && db && db.vehicles) || []).find(function(x) { return _siteLive(x) && siteVinKey(x.vin) === k; }) || null;
+}
+/** Las pruebas de un VIN en la plataforma, la más reciente primero (para la ventana de un Master). */
+function _siteVinTests(vin) {
+    var k = siteVinKey(vin);
+    if (!k) return [];
+    var dt = function(v) { return (typeof vehicleTestDate === 'function' && vehicleTestDate(v)) || String(v.registeredAt || '').slice(0, 10); };
+    return ((typeof db !== 'undefined' && db && db.vehicles) || []).filter(function(v) { return v && siteVinKey(v.vin) === k; })
+        .sort(function(a, b) { return dt(b) < dt(a) ? -1 : dt(b) > dt(a) ? 1 : 0; }).map(function(v) { return { v: v, date: dt(v) }; });
+}
 
 /** Guarda los cambios de un equipo del plano (el único escritor). Auditado con antes/después. */
 function siteItemSave(id, patch, why) {
@@ -41256,27 +41906,174 @@ function siteUnitLinkAlta(unitId) {
 /** "Dar de alta": abre el Alta con el VIN ya escrito. Al registrarse, se liga desde el plano. */
 function siteUnitStartAlta(unitId) {
     var u = _siteUnits().find(function(x) { return x.id === unitId; });
-    if (!u) return;
+    if (u) _siteOpenAltaWithVin(u.vin);
+}
+function _siteOpenAltaWithVin(vin) {
     if (typeof dashGo === 'function') dashGo('cop15', 'alta');
     setTimeout(function() {
         var inp = document.getElementById('vin');
-        if (inp) { inp.value = u.vin; inp.dispatchEvent(new Event('input', { bubbles: true })); try { inp.focus(); } catch (e) {} }
+        if (inp) { inp.value = vin; inp.dispatchEvent(new Event('input', { bubbles: true })); try { inp.focus(); } catch (e) {} }
     }, 350);
 }
+
+// ── [3.17.0] La flota Master ─────────────────────────────────────────
+/**
+ * Un vehículo Master: alta, cambio o baja. El único escritor de `db.siteMasters` (viaja en la
+ * meta de vehículos, como las unidades sin alta). Auditado con antes/después.
+ */
+function siteMasterSave(id, patch, why) {
+    if (typeof authRequire === 'function' && !authRequire('test.register', 'administrar los vehículos Master')) return false;
+    if (typeof db === 'undefined' || !db) return false;
+    if (!db.siteMasters) db.siteMasters = [];
+    var m = db.siteMasters.find(function(x) { return x && x.id === id; });
+    var snap = function(x) { return x ? { vin: x.vin || '', nombre: x.name || '', carroceria: x.body || '', color: x.paint || '', lugar: x.spot || null, deleted: !!x.deleted } : null; };
+    var before = snap(m), prev = m ? JSON.stringify(m) : null;
+    if (!m) { m = { id: id }; db.siteMasters.push(m); }
+    Object.keys(patch || {}).forEach(function(k) { m[k] = patch[k]; });
+    m.updatedAt = _siteNow(); m.by = _siteWho();
+    if (typeof saveDB === 'function' && saveDB() === false) {
+        // No se guardó: se deshace en memoria para que la pantalla no diga algo que no quedó.
+        if (prev) { Object.keys(m).forEach(function(k) { delete m[k]; }); Object.assign(m, JSON.parse(prev)); }
+        else db.siteMasters.splice(db.siteMasters.indexOf(m), 1);
+        return false;
+    }
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', why || 'master_cambio', { type: 'vehiculo-master', id: m.id, label: m.vin },
+                 m.deleted ? 'Salió de la flota Master' : (m.name || m.vin) + ' · ' + _siteSpotLabel(m.spot), { before: before, after: snap(m) });
+    }
+    return true;
+}
+
+/** Da de alta un vehículo Master desde la ventana de un lugar libre del estacionamiento. */
+function siteMasterAddFromPanel(stall) {
+    var vinEl = document.getElementById('st-m-vin'), nameEl = document.getElementById('st-m-name');
+    var bodyEl = document.getElementById('st-m-body'), paintEl = document.getElementById('st-m-paint');
+    var k = siteVinKey(vinEl && vinEl.value);
+    var bad = function(el, msg) { if (typeof uiInvalid === 'function') return uiInvalid(el, msg); if (typeof showToast === 'function') showToast(msg, 'error'); return false; };
+    if (k.length < 6) return bad(vinEl, 'Escribe el VIN del vehículo (al menos 6 caracteres).');
+    var dup = _siteMasters().find(function(x) { return siteVinKey(x.vin) === k; });
+    if (dup) return bad(vinEl, 'Ese VIN ya está en la flota: ' + (dup.name || dup.vin) + ' (' + _siteSpotLabel(dup.spot) + ').');
+    if (_siteMasters().some(function(x) { return x.spot === stall; })) return bad(vinEl, _siteSpotLabel(stall) + ' ya tiene un vehículo: elige otro lugar.');
+    var id = 'sm-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var name = String((nameEl && nameEl.value) || '').trim().slice(0, 40);
+    var body = bodyEl && SITE_BODIES[bodyEl.value] ? bodyEl.value : 'sedan', paint = paintEl && SITE_PAINTS[paintEl.value] ? paintEl.value : 'blanco';
+    if (!siteMasterSave(id, { vin: k, name: name, body: body, paint: paint, spot: stall, since: _siteNow(), deleted: false }, 'master_alta')) return false;
+    _site.sel = { kind: 'master', id: id };
+    sitePaint();
+    if (typeof showToast === 'function') showToast((name || k) + ' quedó en la flota Master (' + _siteSpotLabel(stall) + ').', 'success');
+    return true;
+}
+
+/** Mientras se escribe el VIN: si la plataforma lo conoce, lo dice y propone su carrocería. */
+function siteMasterVinHint(inp) {
+    var out = document.getElementById('st-m-known'), bodyEl = document.getElementById('st-m-body');
+    if (!out) return;
+    var tests = siteVinKey(inp && inp.value).length >= 6 ? _siteVinTests(inp.value) : [];
+    if (!tests.length) { out.textContent = ''; out.hidden = true; return; }
+    var c = tests[0].v.config || {};
+    out.hidden = false;
+    out.textContent = 'Conocido en la plataforma: ' + [c.Modelo, c['BODY TYPE'], c['MODEL YEAR (VIN)']].filter(Boolean).join(' · ') + ' · ' + tests.length + ' prueba' + (tests.length > 1 ? 's' : '');
+    var b = siteBodyFromConfig(c);
+    if (b && bodyEl && !bodyEl.dataset.touched) bodyEl.value = b;
+}
+
+function siteMasterRename(id) {
+    var m = _siteMaster(id);
+    if (!m || typeof uiPrompt !== 'function') return;
+    uiPrompt({ title: 'Nombre del vehículo Master', label: 'Cómo le dicen en el laboratorio (opcional)', value: m.name || '', placeholder: 'Ej.: Master de correlación K4' }).then(function(v) {
+        if (v == null) return;
+        if (siteMasterSave(id, { name: String(v).trim().slice(0, 40) }, 'master_nombre')) sitePaint();
+    });
+}
+function siteMasterSetBody(id, body) { if (SITE_BODIES[body] && siteMasterSave(id, { body: body }, 'master_cambio')) sitePaint(); }
+function siteMasterSetPaint(id, paint) { if (SITE_PAINTS[paint] && siteMasterSave(id, { paint: paint }, 'master_cambio')) sitePaint(); }
+
+/** Quita un vehículo de la flota (baja lógica: viaja a los demás equipos y se puede deshacer). */
+function siteMasterRemove(id) {
+    var m = _siteMaster(id);
+    if (!m) return;
+    var who = m.name || m.vin;
+    var run = function() {
+        if (!siteMasterSave(id, { deleted: true }, 'master_baja')) return;
+        _site.sel = null; sitePaint();
+        if (typeof toastUndo === 'function') toastUndo(who + ' salió de la flota Master.', function() { siteMasterSave(id, { deleted: false }, 'master_regresa'); sitePaint(); });
+    };
+    if (typeof showConfirm === 'function') showConfirm('¿Quitar ' + who + ' de la flota Master? Sus pruebas no se tocan; se puede deshacer.', run, { title: 'Quitar de la flota', type: 'warning', confirmText: 'Quitar' });
+    else run();
+}
+
+/** Empezar una prueba con un Master: el Alta con su VIN ya escrito. */
+function siteMasterStartTest(id) { var m = _siteMaster(id); if (m) _siteOpenAltaWithVin(m.vin); }
 
 function siteMoveStart(kind, id) { _site.moving = { kind: kind, id: id }; sitePaint(); }
 function siteMoveCancel() { _site.moving = null; sitePaint(); }
 
-/** Termina de mover una unidad a un lugar (tocar un cajón libre o el dinamómetro). */
+/**
+ * Termina de mover a un lugar. Una unidad del laboratorio va a un cajón libre o al dinamómetro;
+ * un Master, a otro lugar del estacionamiento o ADENTRO (su unidad con alta se mueve; si no
+ * tiene, queda como unidad sin alta con su VIN). Del laboratorio al estacionamiento: si el VIN es
+ * de la flota regresa a su lugar; si no, se ofrece agregarlo.
+ */
 function siteMoveTo(spot) {
     var m = _site.moving;
     if (!m) return;
+    var warn = function(msg) { if (typeof showToast === 'function') showToast(msg, 'warning'); };
+    if (spot && siteIsStall(spot)) return _siteMoveToStall(m, spot);
+    if (m.kind === 'master') {
+        var mm = _siteMaster(m.id);
+        if (!mm) { _site.moving = null; sitePaint(); return; }
+        if (!spot) { warn('Un vehículo Master siempre tiene su lugar en el estacionamiento: tócalo para dejarlo ahí.'); return; }
+        if ((_site.model && _site.model.bySpot[spot] || []).length) { warn(_siteSpotLabel(spot) + ' ya tiene una unidad: muévela primero.'); return; }
+        var v = _siteLiveByVin(mm.vin), uid = 'su-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        var ok2 = v ? siteVehicleMove(v.id, spot) : siteUnitSave(uid, { vin: siteVinKey(mm.vin), spot: spot, since: _siteNow(), deleted: false }, 'unidad_sin_alta');
+        _site.moving = null;
+        if (ok2) _site.sel = v ? { kind: 'veh', id: v.id } : { kind: 'unit', id: uid };
+        sitePaint();
+        return;
+    }
     var busy = (_site.model && _site.model.bySpot[spot] || []).length;
-    if (busy && spot) { if (typeof showToast === 'function') showToast(_siteSpotLabel(spot) + ' ya tiene una unidad: muévela primero.', 'warning'); return; }
+    if (busy && spot) { warn(_siteSpotLabel(spot) + ' ya tiene una unidad: muévela primero.'); return; }
     var ok = m.kind === 'veh' ? siteVehicleMove(m.id, spot) : siteUnitSave(m.id, spot ? { spot: spot, since: _siteNow() } : { deleted: true }, 'unidad_sin_alta');
     _site.moving = null;
     if (ok) _site.sel = spot ? { kind: m.kind, id: m.id } : null;
     sitePaint();
+}
+
+function _siteMoveToStall(m, stall) {
+    var pk = _site.parking || { byStall: {}, byVin: {} };
+    var entry = m.kind === 'master' ? null : ((_site.model && _site.model.entries) || []).find(function(x) { return x.kind === m.kind && String(x.id) === String(m.id); });
+    // El lugar está libre para el mismo Master (o para la unidad que ES ese Master y regresa).
+    var mine = m.kind === 'master' ? m.id : entry && pk.byVin[siteVinKey(entry.vin)] ? pk.byVin[siteVinKey(entry.vin)].id : null;
+    if ((pk.byStall[stall] || []).some(function(e) { return e.master.id !== mine; })) {
+        if (typeof showToast === 'function') showToast(_siteSpotLabel(stall) + ' ya tiene un vehículo Master: muévelo primero.', 'warning');
+        return;
+    }
+    if (m.kind === 'master') {
+        var ok = siteMasterSave(m.id, { spot: stall }, 'master_mueve');
+        _site.moving = null;
+        if (ok) _site.sel = { kind: 'master', id: m.id };
+        sitePaint();
+        return;
+    }
+    // Una unidad del laboratorio sale al estacionamiento.
+    if (!entry) { _site.moving = null; sitePaint(); return; }
+    var k = siteVinKey(entry.vin), master = pk.byVin[k];
+    var leave = function() { return m.kind === 'veh' ? siteVehicleMove(m.id, null) : siteUnitSave(m.id, { deleted: true }, 'unidad_sin_alta'); };
+    if (master) {
+        if (leave() && siteMasterSave(master.id, { spot: stall }, 'master_regresa')) _site.sel = { kind: 'master', id: master.id };
+        _site.moving = null; sitePaint();
+        return;
+    }
+    var add = function() {
+        var v = m.kind === 'veh' ? _siteVehicle(m.id) : null;
+        var id = 'sm-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        if (leave() && siteMasterSave(id, { vin: k, name: '', body: (v && siteBodyFromConfig(v.config)) || 'sedan', paint: 'blanco', spot: stall, since: _siteNow(), deleted: false }, 'master_alta')) _site.sel = { kind: 'master', id: id };
+        _site.moving = null; sitePaint();
+    };
+    if (typeof showConfirm === 'function') {
+        showConfirm('Los lugares de afuera son de la flota Master (los vehículos que se quedan con el laboratorio). ¿Agregar ' + (entry.vin || 'esta unidad') + ' a la flota en ' + _siteSpotLabel(stall) + '? Sale de ' + _siteSpotLabel(entry.spot) + '.',
+                    add, { title: 'Agregar a la flota Master', confirmText: 'Agregar' });
+    } else add();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -41298,13 +42095,26 @@ function _siteCamSave() {
     _siteCamT = setTimeout(function() { try { if (typeof uiPref === 'function') uiPref('roomCamLab', cam); } catch (e) {} }, 400);
 }
 
-/** Lo que se pinta de cada unidad (de las definiciones de siempre: etapa, soak, siguiente paso). */
-function _siteLook(model) {
-    var look = {}, now = Date.now();
+/** Cómo se llama un Master en su etiqueta (corto: los lugares están juntos). */
+function _siteMasterShort(m) {
+    var n = String((m && m.name) || '').trim();
+    return n ? (n.length > 16 ? n.slice(0, 15) + '…' : n) : '…' + String((m && m.vin) || '').slice(-6);
+}
+
+/**
+ * Lo que se pinta de cada unidad (de las definiciones de siempre: etapa, soak, siguiente paso).
+ * [3.17.0] Con `parking`, una unidad cuyo VIN es de la flota Master lo dice; la carrocería sale de
+ * su configuración (o de la ficha del Master si no tiene alta).
+ */
+function _siteLook(model, parking) {
+    var look = {}, now = Date.now(), byVin = (parking && parking.byVin) || {};
     model.entries.forEach(function(e) {
+        var master = byVin[siteVinKey(e.vin)] || null;
         if (e.kind === 'unit') {
-            look['unit:' + e.id] = { tone: 'noalta', short: '…' + String(e.vin).slice(-6), sub: e.altaId != null ? 'ya tiene alta' : 'sin alta',
-                                     aria: 'Unidad ' + e.vin + ' sin alta en la plataforma, ' + _siteSpotLabel(e.spot) };
+            look['unit:' + e.id] = { tone: 'noalta', short: master ? _siteMasterShort(master) : '…' + String(e.vin).slice(-6),
+                                     sub: (master ? '★ Master · ' : '') + (e.altaId != null ? 'ya tiene alta' : 'sin alta'), master: master ? master.id : '',
+                                     body: master && SITE_BODIES[master.body] ? master.body : 'sedan',
+                                     aria: (master ? 'Vehículo Master ' : 'Unidad ') + e.vin + ' sin alta en la plataforma, ' + _siteSpotLabel(e.spot) };
             return;
         }
         var v = e.vehicle;
@@ -41316,10 +42126,23 @@ function _siteLook(model) {
         var sub = soak.state === 'reposando' ? 'reposo: faltan ' + (soak.leftH >= 1 ? Math.ceil(soak.leftH) + ' h' : Math.ceil(soak.leftH * 60) + ' min')
                 : v.status === 'archived' ? 'liberada' : st ? st.label : '';
         if (soak.state === 'listo' && e.spot !== 'dino' && _siteLive(v)) sub = 'lista para probar';
-        look['veh:' + e.id] = { tone: tone, short: '…' + String(v.vin || '').slice(-6) + ' · ' + ((v.config && v.config.Modelo) || ''), sub: sub, soak: soak.state, leftH: soak.leftH,
-                                aria: 'Unidad ' + (v.vin || '') + ', ' + _siteSpotLabel(e.spot) + (sub ? ', ' + sub : '') };
+        look['veh:' + e.id] = { tone: tone, short: '…' + String(v.vin || '').slice(-6) + ' · ' + ((v.config && v.config.Modelo) || ''), sub: (master ? '★ Master · ' : '') + sub, soak: soak.state, leftH: soak.leftH,
+                                master: master ? master.id : '', body: siteBodyFromConfig(v.config) || (master && SITE_BODIES[master.body] ? master.body : 'sedan'),
+                                aria: (master ? 'Vehículo Master ' : 'Unidad ') + (v.vin || '') + ', ' + _siteSpotLabel(e.spot) + (sub ? ', ' + sub : '') };
     });
     return look;
+}
+
+/** Lo que se pinta de cada Master en el estacionamiento (etiqueta corta; dónde está si está adentro). */
+function _siteMasterLook(parking) {
+    var out = {};
+    ((parking && parking.list) || []).forEach(function(e) {
+        var m = e.master, body = SITE_BODIES[m.body] || SITE_BODIES.sedan, paint = SITE_PAINTS[m.paint] || SITE_PAINTS.blanco;
+        out[m.id] = { short: _siteMasterShort(m), sub: e.inLab ? 'adentro: ' + _siteSpotLabel(e.inLab.spot) : '',
+                      aria: 'Vehículo Master ' + (m.name ? m.name + ', ' : '') + 'VIN ' + m.vin + ', ' + body.label + ' ' + paint.label.toLowerCase() + ', ' +
+                            (e.inLab ? 'ahora en ' + _siteSpotLabel(e.inLab.spot) : _siteSpotLabel(m.spot)) };
+    });
+    return out;
 }
 
 function _siteHealth(items) {
@@ -41348,7 +42171,7 @@ function siteRender(el) {
     el.innerHTML =
         '<div class="rm-wrap rm-dash rm-room--lab" id="st-wrap">' +
           '<div class="rm-stage st-stage" id="st-stage">' +
-            '<svg class="rm-svg" id="st-svg" role="application" aria-label="Plano del laboratorio: celda de pruebas y cuarto de acondicionamiento. Toca un equipo o una unidad para ver su estado." preserveAspectRatio="xMidYMid meet"><g id="st-cam"></g></svg>' +
+            '<svg class="rm-svg" id="st-svg" role="application" aria-label="Plano del laboratorio: celda de pruebas, cuarto de acondicionamiento y el estacionamiento de los vehículos Master. Toca un equipo o una unidad para ver su estado." preserveAspectRatio="xMidYMid meet"><g id="st-cam"></g></svg>' +
             '<div class="rm-bar" id="st-bar">' + sw +
               '<div class="rm-kpis" id="st-kpis" role="group" aria-label="Indicadores del laboratorio"></div>' +
               '<div class="rm-top-actions">' +
@@ -41371,11 +42194,12 @@ function siteRender(el) {
               [['work', 'en proceso'], ['soak', 'reposando'], ['ready', 'lista para probar'], ['wait', 'por aprobar'], ['noalta', 'sin alta']].map(function(k) {
                   return '<span><i class="st-lg st-lg--' + k[0] + '"></i>' + k[1] + '</span>'; }).join('') +
               '<span class="rm-legend-sep"></span><span><i class="st-lg st-lg--bad"></i>equipo con algo vencido</span>' +
+              '<span class="rm-legend-sep"></span><span><i class="st-lg st-lg--master"></i>Master (con su color)</span>' +
             '</div></div>' +
           '</div>' +
           '<p class="rm-hintline" data-help="site-help">' + (SITE_LAYOUT.provisional ? 'Plano provisional, leído de las fotos del laboratorio. ' : '') +
-            (_siteNarrow() ? 'Pellizca para acercar · toca un cajón para poner una unidad · toca un equipo para ver su estado'
-                           : 'Rueda = acercar · arrastra el piso para mover la vista · toca un cajón para poner una unidad · toca un equipo para ver su estado') +
+            (_siteNarrow() ? 'Pellizca para acercar · toca un cajón para poner una unidad · toca un lugar de afuera para agregar un vehículo Master'
+                           : 'Rueda = acercar · arrastra el piso para mover la vista · toca un cajón para poner una unidad · toca un lugar del estacionamiento para agregar un vehículo Master · toca un equipo para ver su estado') +
             (canEdit ? '' : ' · Acomodar equipos pide el permiso de Consumibles.') + '</p>' +
         '</div>';
     _siteFitStage();
@@ -41385,12 +42209,14 @@ function siteRender(el) {
 }
 
 function _siteFitStage() {
+    // [3.17.0] La misma medida que el cuarto de gases: el tablero cabe entre la barra de arriba y la
+    // de abajo y la página se desliza hasta él (antes quedaba más alto que la pantalla).
+    if (typeof _invRoomFitStage === 'function') { _invRoomFitStage('st-stage', 'st-wrap'); return; }
     var st = document.getElementById('st-stage');
     if (!st) return;
     var nav = document.querySelector('.bottom-nav');
     var navH = nav && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0;
-    var h = Math.round(window.innerHeight - navH - 140);
-    st.style.height = Math.max(_siteNarrow() ? 420 : 480, Math.min(1100, h)) + 'px';
+    st.style.height = Math.max(_siteNarrow() ? 420 : 480, Math.min(1100, Math.round(window.innerHeight - navH - 140))) + 'px';
 }
 
 /** Repinta escena, franja y panel (conserva la cámara). */
@@ -41400,8 +42226,14 @@ function sitePaint() {
     var items = _siteItemsLive();
     var model = siteSpotsModel((typeof db !== 'undefined' && db.vehicles) || [], _siteUnits());
     if (_site.sel && _site.sel.kind === 'item' && !_siteItem(_site.sel.id)) _site.sel = null;
+    // [3.17.0] El estacionamiento crece con la flota (siempre queda un lugar libre).
+    var masters = _siteMasters();
+    if (_site.sel && _site.sel.kind === 'master' && !masters.some(function(m) { return m.id === _site.sel.id; })) _site.sel = null;
+    _site.layout = siteLayout(siteLotCount(masters));
+    _site.parking = siteParkingModel(masters, model, _site.layout.lot.stalls.map(function(s) { return s.id; }));
     _site.model = model; _site.items = items;
-    _site.look = _siteLook(model);
+    _site.look = _siteLook(model, _site.parking);
+    _site.masterLook = _siteMasterLook(_site.parking);
     _site.health = _siteHealth(items);
     _sitePaintScene();
     _sitePaintKpis();
@@ -41414,9 +42246,13 @@ function sitePaint() {
 function _sitePaintScene() {
     var svg = document.getElementById('st-svg'), g = document.getElementById('st-cam');
     if (!svg || !g) return;
-    var cam = _siteCam();
-    var out = siteSceneSVG({ layout: SITE_LAYOUT, items: _site.items, model: _site.model, look: _site.look, health: _site.health }, cam,
-                           { sel: _site.sel, moving: _site.moving, edit: _site.edit, labels: true });
+    var cam = _siteCam(), layout = _site.layout || siteLayout(SITE_LOT.min);
+    // La letra se escala con la pantalla: el plano entero cabe en el tablero y la etiqueta de una
+    // unidad debe leerse sin acercar (≈ 12 px a la vista inicial).
+    var bx = _siteBox(layout, cam), cw = svg.clientWidth || 1000, ch = svg.clientHeight || 600;
+    var ls = Math.max(0.9, Math.min(2.8, Math.max(bx.w / cw, bx.h / ch) / 1.65));
+    var out = siteSceneSVG({ layout: layout, items: _site.items, model: _site.model, look: _site.look, health: _site.health, parking: _site.parking, masterLook: _site.masterLook }, cam,
+                           { sel: _site.sel, moving: _site.moving, edit: _site.edit, labels: true, ls: ls });
     _site.box = out.box;
     svg.setAttribute('viewBox', out.box.x.toFixed(1) + ' ' + out.box.y.toFixed(1) + ' ' + out.box.w.toFixed(1) + ' ' + out.box.h.toFixed(1));
     g.innerHTML = out.svg;
@@ -41433,21 +42269,28 @@ function _siteApplyCam() {
 function _sitePaintKpis() {
     var host = document.getElementById('st-kpis');
     if (!host) return;
-    var k = siteKpis(_site.model, _site.look, _site.items, _site.health);
+    var k = siteKpis(_site.model, _site.look, _site.items, _site.health, _site.parking);
     var t = function(icon, v, l, tone, title) {
         return '<span class="rm-kpi rm-kpi--' + tone + ' rm-kpi--static" title="' + _invRoomEsc(title) + '"><span class="rm-kpi-ico" aria-hidden="true">' + icon + '</span><b class="rm-kpi-v">' + v + '</b><span class="rm-kpi-l">' + l + '</span></span>';
     };
+    var pk = _site.parking || { conflicts: [], unplaced: [], dupVins: [] };
+    var nDup = (pk.dupVins || []).length;
     host.innerHTML =
         t('🚗', k.onSite, 'En sitio', 'info', k.withAlta + ' con alta · ' + k.noAlta + ' sin alta') +
         t('⏳', k.soaking, 'Reposando', k.soaking ? 'info' : 'ok', k.nextLeftH != null ? 'La próxima termina en ' + Math.ceil(k.nextLeftH) + ' h' : 'Nadie reposando') +
         t('✅', k.ready, 'Listas', k.ready ? 'warn' : 'ok', 'Terminaron su reposo y esperan prueba') +
         t('⚙', k.dino, 'En dino', 'info', 'Unidad sobre el dinamómetro') +
         t('🔧', k.eqBad, 'Equipos', k.eqBad ? 'bad' : k.eqWarn ? 'warn' : 'ok', k.eqBad + ' con algo vencido · ' + k.eqWarn + ' por revisar · ' + k.eqNone + ' sin ligar al F11') +
+        // [3.17.0] La flota Master: un toque lleva la vista al estacionamiento.
+        '<button type="button" class="rm-kpi rm-kpi--info st-kpi-lot" onclick="siteFocusLot()" title="' + _invRoomEsc(k.masters + ' en la flota · ' + k.mastersIn + ' adentro del laboratorio · toca para ver el estacionamiento') + '">' +
+          '<span class="rm-kpi-ico" aria-hidden="true">🅿</span><b class="rm-kpi-v">' + k.masters + '</b><span class="rm-kpi-l">Master</span></button>' +
         // Lo que no cuadra se DECLARA: dos unidades en un mismo lugar, o un lugar que el plano no tiene.
-        ((_site.model.conflicts || []).length || (_site.model.unknown || []).length
-            ? t('⚠', (_site.model.conflicts || []).length + (_site.model.unknown || []).length, 'Revisar', 'bad',
-                (_site.model.conflicts || []).map(_siteSpotLabel).join(', ') + ((_site.model.conflicts || []).length ? ': más de una unidad. ' : '') +
-                ((_site.model.unknown || []).length ? (_site.model.unknown || []).map(function(e) { return e.vin; }).join(', ') + ': en un lugar que el plano no tiene.' : ''))
+        ((_site.model.conflicts || []).length || (_site.model.unknown || []).length || pk.conflicts.length || pk.unplaced.length || nDup
+            ? t('⚠', (_site.model.conflicts || []).length + (_site.model.unknown || []).length + pk.conflicts.length + pk.unplaced.length + nDup, 'Revisar', 'bad',
+                (_site.model.conflicts || []).concat(pk.conflicts).map(_siteSpotLabel).join(', ') + ((_site.model.conflicts || []).length || pk.conflicts.length ? ': más de una unidad. ' : '') +
+                ((_site.model.unknown || []).length ? (_site.model.unknown || []).map(function(e) { return e.vin; }).join(', ') + ': en un lugar que el plano no tiene. ' : '') +
+                (pk.unplaced.length ? pk.unplaced.map(function(e) { return e.master.name || e.master.vin; }).join(', ') + ': Master sin lugar en el estacionamiento. ' : '') +
+                (nDup ? pk.dupVins.join(', ') + ': el mismo VIN está dos veces en la flota (quita uno).' : ''))
             : '');
 }
 
@@ -41456,8 +42299,10 @@ function _sitePaintMoving() {
     if (!m) return;
     if (!_site.moving) { m.hidden = true; m.innerHTML = ''; return; }
     m.hidden = false;
-    m.innerHTML = '<span>↔ Toca un cajón libre o el dinamómetro</span>' +
-        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveTo(null)">Sacar del sitio</button>' +
+    var master = _site.moving.kind === 'master';
+    m.innerHTML = '<span>↔ ' + (master ? 'Toca otro lugar del estacionamiento, o un cajón o el dinamómetro para meterlo al laboratorio'
+                                       : 'Toca un cajón libre, el dinamómetro o un lugar del estacionamiento') + '</span>' +
+        (master ? '' : '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveTo(null)">Sacar del sitio</button>') +
         '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveCancel()">✕ Cancelar</button>';
 }
 
@@ -41477,10 +42322,84 @@ function sitePanelPaint() {
     var s = _site.sel, html = '';
     if (s && s.kind === 'item') html = _siteItemPanelHTML(s.id);
     else if (s && (s.kind === 'veh' || s.kind === 'unit')) html = _siteUnitPanelHTML(s.kind, s.id);
-    else if (s && s.kind === 'spot') html = _siteSpotPanelHTML(s.id);
-    if (!html) { host.hidden = true; host.innerHTML = ''; return; }
+    else if (s && s.kind === 'master') html = _siteMasterPanelHTML(s.id);
+    else if (s && s.kind === 'spot') html = siteIsStall(s.id) ? _siteStallPanelHTML(s.id) : _siteSpotPanelHTML(s.id);
+    if (!html) { host.hidden = true; host.innerHTML = ''; delete host.dataset.key; return; }
+    // [3.17.0] Lo tecleado y no guardado sobrevive a un repintado de la MISMA ventana (un sync
+    // que llega a media escritura no lo borra; misma regla que el cuarto de gases, 3.14.1).
+    var key = s.kind + ':' + s.id, same = host.dataset.key === key;
+    var keep = same && typeof _invRoomPanelKeep === 'function' ? _invRoomPanelKeep(host, key) : null;
+    var opened = same ? Array.prototype.map.call(host.querySelectorAll('details'), function(d) { return d.open; }) : [];   // "Editar" sigue abierto
+    host.dataset.key = key;
     host.hidden = false; host.innerHTML = html;
+    Array.prototype.forEach.call(host.querySelectorAll('details'), function(d, i) { if (opened[i]) d.open = true; });
+    if (typeof uiChipsEnhance === 'function') { try { uiChipsEnhance(host); } catch (e) {} }
+    if (keep) {
+        Object.keys(keep.values).forEach(function(id) { var el = document.getElementById(id); if (el && host.contains(el)) el.value = keep.values[id]; });
+        var f = keep.focus && document.getElementById(keep.focus);
+        if (f && host.contains(f)) { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } try { if (keep.start != null) f.setSelectionRange(keep.start, keep.end); } catch (e) {} }
+    }
     if (!_siteNarrow()) { host.style.left = ''; host.style.right = '12px'; host.style.top = '64px'; }
+}
+
+/** Ventana de un lugar del estacionamiento: el Master que lo ocupa, o el alta de uno nuevo. */
+function _siteStallPanelHTML(stall) {
+    var pk = _site.parking || { byStall: {} }, list = pk.byStall[stall] || [], e = _invRoomEsc;
+    if (list.length === 1) return _siteMasterPanelHTML(list[0].master.id);
+    var html = '<div class="rm-panel rm-pop" role="region" aria-label="' + e(_siteSpotLabel(stall)) + '">' + _sitePanelHead('Estacionamiento', _siteSpotLabel(stall) + (list.length ? '' : ' · libre'));
+    if (list.length > 1) {
+        html += '<div class="st-health st-health--bad">Hay ' + list.length + ' vehículos Master en este lugar: mueve los que no estén aquí.</div>' +
+                '<ul class="st-inst">' + list.map(function(x) { return '<li><button type="button" class="tp-btn tp-btn-ghost" onclick="siteSelect(\'master\',\'' + e(x.master.id) + '\')">' + e(x.master.name || x.master.vin) + '</button></li>'; }).join('') + '</ul>';
+        return html + '</div>';
+    }
+    var opt = function(map, sel) { return Object.keys(map).map(function(k) { return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + e(map[k].label) + '</option>'; }).join(''); };
+    html += '<p class="st-hint">Lugar para un vehículo <b>Master</b>: los que se quedan con el laboratorio (no de producción). Aquí siempre se ven, aunque no estén en prueba.</p>' +
+        '<div class="st-form">' +
+          '<label class="st-field" for="st-m-vin">VIN<input id="st-m-vin" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: KNAD…" oninput="siteMasterVinHint(this)"></label>' +
+          '<p class="st-hint st-known" id="st-m-known" hidden></p>' +
+          '<label class="st-field" for="st-m-name">Nombre (opcional)<input id="st-m-name" type="text" maxlength="40" placeholder="Ej.: Master de correlación K4"></label>' +
+          '<label class="st-field">Carrocería<select id="st-m-body" data-chips onchange="this.dataset.touched=1">' + opt(SITE_BODIES, 'sedan') + '</select></label>' +
+          '<label class="st-field">Color<select id="st-m-paint" data-chips>' + opt(SITE_PAINTS, 'blanco') + '</select></label>' +
+        '</div>' +
+        '<div class="st-tools"><button type="button" class="tp-btn tp-btn-primary" onclick="siteMasterAddFromPanel(\'' + stall + '\')">＋ Agregar a la flota Master</button></div>';
+    return html + '</div>';
+}
+
+/** Ventana de un vehículo Master: quién es, dónde está, sus pruebas y qué hacer. */
+function _siteMasterPanelHTML(id) {
+    var m = _siteMaster(id);
+    if (!m || m.deleted) return '';
+    var e = _invRoomEsc, q = "'" + e(id) + "'";
+    var pe = ((_site.parking && _site.parking.list) || []).find(function(x) { return x.master.id === id; }) || {};
+    var body = SITE_BODIES[m.body] || SITE_BODIES.sedan, paint = SITE_PAINTS[m.paint] || SITE_PAINTS.blanco;
+    var html = '<div class="rm-panel rm-pop" role="region" aria-label="Vehículo Master ' + e(m.name || m.vin) + '">' + _sitePanelHead('Vehículo Master · ' + _siteSpotLabel(m.spot), m.name || m.vin);
+    html += '<div class="st-unit-sub">' + e([m.name ? m.vin : '', body.label, paint.label].filter(Boolean).join(' · ')) + '</div>';
+    if (pe.inLab) {
+        html += '<div class="st-health st-health--warn">Ahora está adentro: ' + e(_siteSpotLabel(pe.inLab.spot)) + '. ' +
+                '<button type="button" class="tp-btn tp-btn-ghost st-inline-btn" onclick="siteSelect(\'' + pe.inLab.kind + '\',\'' + e(String(pe.inLab.id)) + '\')">Ver allá</button></div>';
+    }
+    var tests = _siteVinTests(m.vin);
+    if (tests.length) {
+        var lbl = function(v) { return typeof uiLabel === 'function' ? uiLabel('purpose', v.purpose) : (v.purpose || ''); };
+        var stl = function(v) { return (typeof CONFIG !== 'undefined' && CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status || ''; };
+        html += '<div class="st-row"><span>Pruebas con este VIN</span><b>' + tests.length + '</b></div><ul class="st-inst">' + tests.slice(0, 3).map(function(t) {
+            var go = typeof fichaOpen === 'function' ? 'fichaOpen(\'vehiculo\',\'' + e(String(t.v.id)) + '\')' : 'v7GoToVehicle(\'' + e(String(t.v.id)) + '\')';
+            return '<li><button type="button" class="st-link" onclick="' + go + '">' + e(t.date || 'sin fecha') + '</button><span>' + e([lbl(t.v), stl(t.v)].filter(Boolean).join(' · ')) + '</span></li>';
+        }).join('') + (tests.length > 3 ? '<li><span>… y ' + (tests.length - 3) + ' más</span></li>' : '') + '</ul>';
+    } else {
+        html += '<p class="st-hint">Todavía no hay pruebas con este VIN en la plataforma.</p>';
+    }
+    var opt = function(map, sel) { return Object.keys(map).map(function(k) { return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + e(map[k].label) + '</option>'; }).join(''); };
+    html += '<div class="st-tools">' +
+        (pe.inLab ? '' : '<button type="button" class="tp-btn tp-btn-primary" onclick="siteMasterStartTest(' + q + ')" title="Abre el Alta con su VIN">🧪 Empezar una prueba</button>') +
+        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveStart(\'master\',' + q + ')" title="A otro lugar de afuera, o adentro a un cajón o al dinamómetro">↔ Mover</button></div>' +
+        '<details class="rm-more st-more"><summary>Editar</summary>' +
+          '<label class="st-field">Carrocería<select data-chips onchange="siteMasterSetBody(' + q + ', this.value)">' + opt(SITE_BODIES, SITE_BODIES[m.body] ? m.body : 'sedan') + '</select></label>' +
+          '<label class="st-field">Color<select data-chips onchange="siteMasterSetPaint(' + q + ', this.value)">' + opt(SITE_PAINTS, SITE_PAINTS[m.paint] ? m.paint : 'blanco') + '</select></label>' +
+          '<div class="st-tools"><button type="button" class="tp-btn tp-btn-ghost" onclick="siteMasterRename(' + q + ')">✎ Nombre</button>' +
+          '<button type="button" class="tp-btn tp-btn-ghost st-danger" onclick="siteMasterRemove(' + q + ')">🗑 Quitar de la flota</button></div>' +
+        '</details>';
+    return html + '</div>';
 }
 
 function _sitePanelHead(kicker, title) {
@@ -41532,6 +42451,9 @@ function _siteUnitPanelHTML(kind, id) {
     var L = (_site.look || {})[kind + ':' + id] || {};
     var qk = "'" + kind + "'", qi = "'" + e(String(id)) + "'";
     var html = '<div class="rm-panel rm-pop" role="region" aria-label="Unidad ' + e(entry.vin) + '">' + _sitePanelHead(_siteSpotLabel(entry.spot), entry.vin || 'Unidad');
+    var mst = L.master ? _siteMaster(L.master) : null;
+    if (mst) html += '<div class="st-health st-health--info">★ Vehículo Master' + (mst.name ? ': ' + e(mst.name) : '') + ' — su lugar es ' + e(_siteSpotLabel(mst.spot)) + '. ' +
+                     '<button type="button" class="tp-btn tp-btn-ghost st-inline-btn" onclick="siteSelect(\'master\',\'' + e(mst.id) + '\')">Ver</button></div>';
     if (kind === 'veh') {
         var v = entry.vehicle;
         var c = v.config || {};
@@ -41586,19 +42508,54 @@ function _siteToFloor(clientX, clientY) {
     if (!m) return null;
     var pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
     var s = pt.matrixTransform(m.inverse());
-    return siteUnproject(s.x, s.y, _siteCam(), invRoomCenter(SITE_LAYOUT));
+    return siteUnproject(s.x, s.y, _siteCam(), siteCenter(_site.layout || SITE_LAYOUT));
+}
+
+/** [3.17.0] Lleva la vista al estacionamiento (el ⌂ regresa a todo el plano). */
+function siteFocusLot() {
+    var lay = _site.layout, b = _site.box;
+    if (!lay || !lay.lot || !b) return;
+    var cam = _siteCam(), C = siteCenter(lay), r = lay.lot.rect, xs = [], ys = [];
+    [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]].forEach(function(p) { [0, 1.6].forEach(function(z) { var q = invRoomProject(p[0], p[1], z, cam, C); xs.push(q.x); ys.push(q.y); }); });
+    var w = Math.max.apply(null, xs) - Math.min.apply(null, xs), h = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+    var lx = (Math.max.apply(null, xs) + Math.min.apply(null, xs)) / 2, ly = (Math.max.apply(null, ys) + Math.min.apply(null, ys)) / 2;
+    var bx = b.x + b.w / 2, by = b.y + b.h / 2;
+    var z = Math.max(1, Math.min(3.2, Math.min(b.w / w, b.h / h) * 0.9));
+    _siteCamTween({ zoom: z, panX: -(lx - bx) * z, panY: -(ly - by) * z });
+    // Sin flota todavía: abre el primer lugar libre, listo para agregar el primero.
+    if (!_siteMasters().length && !_site.sel) { _site.sel = { kind: 'spot', id: siteLotFreeStall([]) }; sitePaint(); }
+}
+
+/** Mueve zoom/desplazamiento de la cámara suavemente (sin repintar la escena). */
+function _siteCamTween(to) {
+    var cam = _siteCam(), from = { zoom: cam.zoom, panX: cam.panX, panY: cam.panY };
+    var reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var t0 = null, dur = reduce ? 0 : 420;
+    var step = function(ts) {
+        if (t0 == null) t0 = ts;
+        var k = dur ? Math.min(1, (ts - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
+        ['zoom', 'panX', 'panY'].forEach(function(p) { cam[p] = from[p] + (to[p] - from[p]) * e; });
+        _siteApplyCam();
+        if (k < 1) requestAnimationFrame(step); else _siteCamSave();
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step); else { Object.assign(cam, to); _siteApplyCam(); _siteCamSave(); }
 }
 
 function _siteTap(t) {
+    var layout = _site.layout || SITE_LAYOUT;
+    // Un toque en el piso de un lugar (o en su número) cuenta como tocar el lugar.
+    var floorSpot = t.floor ? siteSpotAt(t.floor, layout) : null;
     if (_site.moving) {
-        var spot = t.spot || (t.floor ? siteSpotAt(t.floor) : null);
+        var mm = t.master ? _siteMaster(t.master) : null;
+        var spot = t.spot || (mm && mm.spot) || floorSpot;
         if (spot) siteMoveTo(spot);
         return;
     }
     if (t.item) _site.sel = { kind: 'item', id: t.item };
     else if (t.veh) _site.sel = { kind: 'veh', id: t.veh };
     else if (t.unit) _site.sel = { kind: 'unit', id: t.unit };
-    else if (t.spot) _site.sel = { kind: 'spot', id: t.spot };
+    else if (t.master) _site.sel = { kind: 'master', id: t.master };
+    else if (t.spot || floorSpot) _site.sel = { kind: 'spot', id: t.spot || floorSpot };
     else _site.sel = null;
     sitePaint();
 }
@@ -41610,8 +42567,8 @@ function _siteBindStage() {
     svg._stBound = true;
     var pointers = {}, LONG_MS = 320, MOVE_PX = 8;
     var hit = function(target) {
-        var g = target.closest ? target.closest('[data-item],[data-veh],[data-unit],[data-spot]') : null;
-        return g ? { item: g.getAttribute('data-item'), veh: g.getAttribute('data-veh'), unit: g.getAttribute('data-unit'), spot: g.getAttribute('data-spot') } : {};
+        var g = target.closest ? target.closest('[data-item],[data-veh],[data-unit],[data-master],[data-spot]') : null;
+        return g ? { item: g.getAttribute('data-item'), veh: g.getAttribute('data-veh'), unit: g.getAttribute('data-unit'), master: g.getAttribute('data-master'), spot: g.getAttribute('data-spot') } : {};
     };
     svg.addEventListener('pointerdown', function(e) {
         if (e.button > 0) return;
@@ -41688,7 +42645,7 @@ function _siteBindStage() {
         if (e.key === 'Escape') { if (_site.moving) siteMoveCancel(); else siteClose(); return; }
         if (e.key !== 'Enter' && e.key !== ' ') return;
         var h = hit(e.target);
-        if (!h.item && !h.veh && !h.unit && !h.spot) return;
+        if (!h.item && !h.veh && !h.unit && !h.master && !h.spot) return;
         e.preventDefault();
         _siteTap(h);
     });
@@ -41732,7 +42689,7 @@ function siteConfigsOnSite() {
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
-        'site-help': { title: 'Laboratorio en el mapa', text: 'La celda de pruebas y el cuarto de acondicionamiento como se ven desde arriba. Toca un cajón para poner una unidad por su VIN (si tiene alta en la plataforma se liga sola; si no, queda como "sin alta"). Toca una unidad para ver su etapa, cuánto le falta de reposo y abrirla en Pruebas. Los equipos se acomodan con ✏️ Editar plano y se ligan a su equipo del F11 para ver si su calibración o su mantenimiento están al día.' }
+        'site-help': { title: 'Laboratorio en el mapa', text: 'La celda de pruebas y el cuarto de acondicionamiento como se ven desde arriba. Toca un cajón para poner una unidad por su VIN (si tiene alta en la plataforma se liga sola; si no, queda como "sin alta"). Toca una unidad para ver su etapa, cuánto le falta de reposo y abrirla en Pruebas. Afuera está el estacionamiento de la flota Master (los vehículos que se quedan con el laboratorio): toca un lugar libre para agregar uno con su VIN, su carrocería y su color; cuando entra al laboratorio su lugar se ve vacío y dice dónde está. Los equipos se acomodan con ✏️ Editar plano y se ligan a su equipo del F11 para ver si su calibración o su mantenimiento están al día.' }
     });
 }
 
@@ -64907,8 +65864,10 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [2.0.0] Igual con las configs manuales (y sus marcas de borrado).
         var _seedManual = (db && db.manualConfigs) || [];
         var _seedSite = (db && db.siteUnits) || [];   // [3.14.0]
+        var _seedMasters = (db && db.siteMasters) || [];   // [3.17.0] la flota Master
         db = remoteData;
         if (_seedSite.length && typeof siteListUnion === 'function') db.siteUnits = siteListUnion(_seedSite, db.siteUnits);
+        if (_seedMasters.length && typeof siteListUnion === 'function') db.siteMasters = siteListUnion(_seedMasters, db.siteMasters);
         if (_seedTombs.length && typeof vehicleTombstonesUnion === 'function')
             db.deletedVehicles = vehicleTombstonesUnion(_seedTombs, db.deletedVehicles);
         if (_seedManual.length && typeof manualConfigsUnion === 'function')
@@ -65009,8 +65968,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         _fbTombsNewTo((db && db.deletedVehicles) || [], (remoteData && remoteData.deletedVehicles) || []) ||
         // 2.0.0: sin esto, un pull cuyo único cambio es una config manual se descartaba.
         (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo((db && db.manualConfigs) || [], (remoteData && remoteData.manualConfigs) || [])) ||
-        // [3.14.0] Un pull cuyo único cambio es una unidad sin alta en el sitio.
-        (typeof siteListNewTo === 'function' && siteListNewTo((db && db.siteUnits) || [], (remoteData && remoteData.siteUnits) || []));
+        // [3.14.0] Un pull cuyo único cambio es una unidad sin alta en el sitio (o, 3.17.0, un vehículo Master).
+        (typeof siteListNewTo === 'function' && (siteListNewTo((db && db.siteUnits) || [], (remoteData && remoteData.siteUnits) || []) ||
+                                                  siteListNewTo((db && db.siteMasters) || [], (remoteData && remoteData.siteMasters) || [])));
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged ||
         // [2.33.0] Un pull cuyo único cambio es un plan borrado en otro equipo.
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
@@ -65851,7 +66811,7 @@ function fbAssignInPlace(target, src) {
 /** Huella del dato sincronizable de un módulo (para saber si una fusión cambió algo). */
 function _fbModuleFingerprint(col) {
     try {
-        if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || []]));
+        if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
         if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
@@ -65880,6 +66840,7 @@ function _fbLocalHasExtras(col, remote) {
         // 2.0.0: una config manual (o su marca de borrado) que la nube no tiene.
         if (typeof manualConfigsNewTo === 'function' && manualConfigsNewTo(remote.manualConfigs || [], (db && db.manualConfigs) || [])) return true;
         if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (db && db.siteUnits) || [])) return true;
+        if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteMasters || [], (db && db.siteMasters) || [])) return true;
         var rByKey = {};
         (remote.vehicles || []).forEach(function(v) { if (v) rByKey[vehicleCopyKey(v)] = v; });
         return ((db && db.vehicles) || []).some(function(v) {
@@ -66764,6 +67725,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         var _localTombs = (db && db.deletedVehicles) || [];
         var _localManual = (db && db.manualConfigs) || [];   // 2.0.0, mismo motivo
         var _localSite = (db && db.siteUnits) || [];          // [3.14.0], mismo motivo
+        var _localMasters = (db && db.siteMasters) || [];     // [3.17.0], mismo motivo
         // Helper: take the union of two paStatus objects, "sent=true" always wins.
         // Preserves PA send history across stations so we don't double-send or lose the receipt.
         function _mergePaStatus(localPa, remotePa) { return _fbMergePaStatus(localPa, remotePa); }
@@ -66827,6 +67789,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (typeof siteListUnion === 'function') {
             var _su = siteListUnion(_localSite, (remoteData.cop15 && remoteData.cop15.siteUnits) || []);
             if (_su.length) db.siteUnits = _su;
+            var _sm = siteListUnion(_localMasters, (remoteData.cop15 && remoteData.cop15.siteMasters) || []);
+            if (_sm.length) db.siteMasters = _sm;
         }
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
@@ -67646,7 +68610,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610201859' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610210343' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69555,7 +70519,7 @@ function fbVehDocId(v) {
  * (y se despertarían el uno al otro) para siempre. Todo campo nuevo de `db` que deba
  * verse en todos los equipos se agrega aquí y a la unión de fbMergeExecute.
  */
-var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs', 'siteUnits'];   // [3.14.0] unidades sin alta en el sitio
+var FB_VEH_META_KEYS = ['deletedVehicles', 'manualConfigs', 'siteUnits', 'siteMasters'];   // [3.14.0] unidades sin alta · [3.17.0] flota Master
 function fbVehMeta(d) {
     var out = {};
     FB_VEH_META_KEYS.forEach(function(k) { if (d && d[k] !== undefined) out[k] = d[k]; });
@@ -69567,6 +70531,7 @@ function fbVehMetaHasExtras(local, remote) {
     remote = remote || {};
     if (_fbTombsNewTo(remote.deletedVehicles || [], (local && local.deletedVehicles) || [])) return true;
     if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteUnits || [], (local && local.siteUnits) || [])) return true;
+    if (typeof siteListNewTo === 'function' && siteListNewTo(remote.siteMasters || [], (local && local.siteMasters) || [])) return true;
     return typeof manualConfigsNewTo === 'function' &&
         manualConfigsNewTo(remote.manualConfigs || [], (local && local.manualConfigs) || []);
 }
@@ -85324,7 +86289,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9651,"mods":[[9654,"js/app.js",19413],[19417,"js/uiflow.js",19733],[19737,"js/cop15.js",30366],[30370,"js/inventory.js",38293],[38297,"js/cuarto.js",40424],[40428,"js/sitio.js",41737],[41741,"js/conslist.js",42349],[42353,"js/testplan.js",54189],[54193,"js/panel.js",59531],[59535,"js/projects.js",61824],[61828,"js/auth.js",62908],[62912,"js/signatures.js",63113],[63117,"js/firebase-sync.js",70791],[70795,"js/cop_validator.js",75330],[75334,"js/copreport.js",76336],[76340,"js/cophq.js",77150],[77154,"js/homolog.js",79051],[79055,"js/vets.js",80854],[80858,"js/historico.js",81772],[81776,"js/review.js",82229],[82233,"js/opcards.js",82664],[82668,"js/handoff.js",82942],[82946,"js/ficha.js",83447],[83451,"js/relevo.js",83831],[83835,"js/momentos.js",83972],[83976,"js/digest.js",84896],[84900,"js/xlsxw.js",85280],[85284,"js/bugreport.js",86430]]};
+var BUG_LINE_MAP = {"tag":9741,"mods":[[9744,"js/app.js",19509],[19513,"js/uiflow.js",19829],[19833,"js/cop15.js",30462],[30466,"js/inventory.js",38389],[38393,"js/cuarto.js",40523],[40527,"js/sitio.js",42694],[42698,"js/conslist.js",43306],[43310,"js/testplan.js",55146],[55150,"js/panel.js",60488],[60492,"js/projects.js",62781],[62785,"js/auth.js",63865],[63869,"js/signatures.js",64070],[64074,"js/firebase-sync.js",71756],[71760,"js/cop_validator.js",76295],[76299,"js/copreport.js",77301],[77305,"js/cophq.js",78115],[78119,"js/homolog.js",80016],[80020,"js/vets.js",81819],[81823,"js/historico.js",82737],[82741,"js/review.js",83194],[83198,"js/opcards.js",83629],[83633,"js/handoff.js",83907],[83911,"js/ficha.js",84412],[84416,"js/relevo.js",84796],[84800,"js/momentos.js",84937],[84941,"js/digest.js",85861],[85865,"js/xlsxw.js",86245],[86249,"js/bugreport.js",87395]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
