@@ -1016,8 +1016,8 @@ function invRoomRender(el) {
  * El tablero mide la pantalla (menos la barra fija de arriba y la de abajo) y, si al abrirlo no
  * se ve completo, la página se desliza hasta él: así todo queda en una sola vista.
  */
-function _invRoomFitStage() {
-    var st = document.getElementById('rm-stage');
+function _invRoomFitStage(stageId, wrapId) {
+    var st = document.getElementById(stageId || 'rm-stage');
     if (!st) return;
     var nav = document.querySelector('.bottom-nav');
     var navH = nav && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0;
@@ -1029,7 +1029,7 @@ function _invRoomFitStage() {
     var h = Math.round(window.innerHeight - barH - navH - 32);
     st.style.height = Math.max(_invRoomNarrow() ? 420 : 480, Math.min(1200, h)) + 'px';
     // Lugar debajo para que la página pueda subir el tablero hasta arriba (si no, no hay a dónde desplazarse).
-    var wrap = document.getElementById('rm-wrap');
+    var wrap = document.getElementById(wrapId || 'rm-wrap');
     if (wrap) wrap.style.paddingBottom = (navH + 24) + 'px';
     // scrollIntoView y no window.scrollTo (busca él solo su contenedor); el margen para lo que se
     // queda pegado arriba lo da scroll-margin-top. Inmediato y un cuadro después de pintar: uno suave
@@ -1052,7 +1052,10 @@ function _invRoomFitStage() {
             var w = window.innerWidth;
             if (w === lastW && _invRoomTyping()) return;
             lastW = w;
-            clearTimeout(t); t = setTimeout(function() { if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); } }, 150);
+            clearTimeout(t); t = setTimeout(function() {
+                if (document.getElementById('rm-stage')) { _invRoomFitStage(); invRoomPaint(); }
+                else if (document.getElementById('st-stage') && typeof sitePaint === 'function') { _invRoomFitStage('st-stage', 'st-wrap'); sitePaint(); }   // [3.17.0] el laboratorio
+            }, 150);
         });
     }
 }

@@ -20,6 +20,61 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.17.0 — El estacionamiento de la flota Master y un laboratorio que se ve mejor (2026-10-21)
+
+### Nuevo
+- **Estacionamiento de la flota Master** (Consumibles → 🗺️ Cuarto → 🚗 Laboratorio):
+  - afuera, al sur del cuarto de control, con sus lugares numerados (P1 junto al cuarto de
+    acondicionamiento). La flota Master son los vehículos que se quedan con el laboratorio, no los
+    de producción, y aquí siempre se ven;
+  - toca un lugar libre para agregar uno: VIN, nombre (opcional), carrocería y color. Si la
+    plataforma ya conoce el VIN lo dice y propone su carrocería;
+  - el estacionamiento crece solo cuando la flota crece (siempre queda un lugar libre) y el número
+    de cada lugar no cambia;
+  - la ventana de un Master dice sus pruebas con ese VIN y ofrece **🧪 Empezar una prueba** (abre el
+    Alta con su VIN), **↔ Mover** y, en *Editar*, nombre, carrocería, color o quitarlo de la flota
+    (con confirmación y Deshacer).
+- **Un Master adentro**: si su VIN está en un cajón o en el dinamómetro, su lugar de afuera se ve
+  vacío (huella punteada) y dice dónde está; adentro su etiqueta dice **★ Master**. Al sacarlo del
+  laboratorio regresa solo a su lugar. Un Master sin alta entra como unidad "sin alta" con su VIN.
+- El indicador **🅿 Master** cuenta la flota; tocarlo lleva la vista al estacionamiento.
+
+### Cambió
+- **Los autos se dibujan en 3D de verdad**: sedán, hatchback, wagon o SUV según la carrocería de su
+  configuración (BODY TYPE), con luz y sombra, cristales, faros, calaveras, espejos, puertas, rines y
+  llantas. Las llantas del que está en el dinamómetro caen sobre los rodillos. En el laboratorio el
+  color sigue siendo el estado; en el estacionamiento, el color real del Master.
+- **La celda**: los muros tienen grosor; los de enfrente se cortan bajos (como una maqueta) para ver
+  adentro sin muros transparentes encima, y los del fondo van completos. La fosa del dinamómetro
+  tiene rodillos de acero y su cinta de seguridad. Hay sombra suave al pie de los muros y una base
+  de maqueta con banqueta, pasto, árboles y el acceso de la cortina.
+- Los letreros de la celda, el control, el acondicionamiento, los cajones, el dinamómetro y los
+  lugares del estacionamiento van **pintados en el piso**, en perspectiva, y ya no tapan los autos.
+  Las etiquetas de las unidades crecen con la pantalla para leerse sin acercar.
+
+### Arreglado
+- Tocar un cajón vacío con el dedo o el mouse no hacía nada: una regla de estilo del cuarto de gases
+  le quitaba el toque. Solo funcionaba con el teclado.
+- El tablero del laboratorio quedaba más alto que la pantalla (el plano se cortaba abajo). Ahora se
+  acomoda como el del cuarto de gases y se vuelve a acomodar al girar la tableta.
+
+### Para desarrollo
+- **`db.siteMasters`** = `[{id, vin, name, body, paint, spot, since, updatedAt, by, deleted}]`, el
+  único escritor es **`siteMasterSave`** (permiso `test.register`, auditoría con antes/después, se
+  deshace en memoria si `saveDB()` falla). Viaja en la meta de vehículos (`FB_VEH_META_KEYS`) y se
+  une con `siteListUnion` en los mismos puntos que `siteUnits` (`tests/sitio.node.js` lo vigila).
+- **`siteLayout(n)`** (PURA) es el plano que se dibuja: `SITE_LAYOUT` (fijo) + base, pasto, árboles y
+  el estacionamiento con `n` lugares (`siteLotStalls`, `siteLotCount`). **`siteParkingModel`** (PURA)
+  es LA definición de la flota en el estacionamiento: lugar, choques, sin lugar y `inLab` (su VIN en
+  un cajón o el dinamómetro, de `siteSpotsModel`).
+- **`_siteCarSVG(ctx, cx, cy, heading, …, {body})`**: malla de estaciones (`SITE_BODIES`), caras con
+  normal (Newell), sin las que no ven a quien mira (`_siteViewVec`) y con luz (`SITE_LIGHT`) en 11
+  tonos `st-c-b0…b10` sobre `--st-car`. `siteBodyFromConfig` elige la carrocería.
+- **`_siteFloorText`** (PURA): texto pintado en el piso con una `matrix()` (corre por el eje más
+  horizontal, nunca al revés). Muros: `st-wall-face--back` completos, `--cut` a 0.45 m, grosor con
+  inglete en esquinas convexas.
+- `_invRoomFitStage(stageId, wrapId)` sirve también al laboratorio.
+
 ## 3.16.0 — Dos lecturas al día, la Lista de consumibles y el COP Master (2026-10-20)
 
 ### Nuevo

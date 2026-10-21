@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.16.0';
+var APP_VERSION = '3.17.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.16.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
+      bullets: ['Consumibles → 🗺️ Cuarto → 🚗 Laboratorio: afuera, al sur del cuarto de control, ahora está el estacionamiento de la flota Master (los vehículos que se quedan con el laboratorio, no de producción). Toca un lugar libre para agregar uno con su VIN, un nombre, su carrocería y su color; siempre se ven, aunque no estén en prueba.',
+                'Cuando un Master entra al laboratorio (a un cajón o al dinamómetro), su lugar de afuera se ve vacío y dice dónde está; adentro su etiqueta dice ★ Master. Al sacarlo del laboratorio regresa solo a su lugar. ↔ Mover lo lleva a otro lugar de afuera o adentro; 🧪 Empezar una prueba abre el Alta con su VIN. El indicador 🅿 cuenta la flota y lleva la vista al estacionamiento.',
+                'Los autos se dibujan de nuevo, en 3D de verdad: sedán, hatchback, wagon y SUV según la carrocería de su configuración, con luz y sombra, cristales, faros, calaveras, espejos, puertas, rines y llantas sobre los rodillos del dinamómetro.',
+                'La celda se ve mejor: los muros tienen grosor y los de enfrente se cortan bajos para ver adentro (como una maqueta), la fosa del dinamómetro tiene rodillos de acero y su cinta de seguridad, y los letreros (celda, cajones, dinamómetro, lugares) van pintados en el piso, sin tapar los autos.',
+                'Arreglado: tocar un cajón vacío con el dedo o el mouse no hacía nada (solo funcionaba con el teclado). Y el tablero del laboratorio quedaba más alto que la pantalla; ahora se acomoda como el del cuarto de gases.'] },
     { version: '3.16.0', date: '20 oct 2026', title: 'Dos lecturas al día, la Lista de consumibles y el COP Master',
       bullets: ['Cada cilindro lleva dos lecturas por día: la de la mañana y la de la tarde. La captura, la ronda y el mapa del cuarto eligen el turno por la hora (desde la 1 p. m. es la tarde) y se puede cambiar. Capturar el mismo turno otra vez reemplaza; las dos del día se conservan. HOY dice cuántos van en el turno en curso.',
                 'Consumibles → Reporte → 📊 Lista de consumibles: la lista de stock del laboratorio semana por semana, con su tendencia, el consumo, el límite inferior y el "Comprar". 📤 Excel la descarga en el mismo formato, llena sola: lo anterior a la plataforma sale del histórico importado y lo demás de las lecturas (en verde).',
