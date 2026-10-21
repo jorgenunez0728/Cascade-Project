@@ -20,6 +20,24 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.17.1 — Las placas del dinamómetro van a los costados (2026-10-21)
+
+### Arreglado
+- **Laboratorio en el mapa**: las placas amarillas de sujeción del dinamómetro estaban atrás y
+  adelante del auto, atravesadas en el camino por donde entra y sale del dinamómetro (una quedaba
+  entre el auto y el ventilador). Ahora van a los dos costados, que es donde fijan el auto de lado.
+  El letrero "Dinamómetro" pintado en el piso pasa delante de la placa para que no lo tape.
+
+### Para desarrollo
+- `SITE_LAYOUT.fixed`: los `kind: 'barrier'` son las placas de sujeción lateral (`sujecion-izq` /
+  `sujecion-der`, antes `barrera-tras` / `barrera-del`). Corren a lo largo del coche, a los costados
+  de la fosa. `tests/sitio.node.js` verifica que ninguna quede en el carril del dinamómetro, que es
+  por donde entra el coche.
+- Las perforaciones se dibujan en las dos caras largas según hacia dónde corra la placa. El letrero
+  del dinamómetro se corre delante de una placa que esté de su lado (`dinoLblY`).
+- Medidas supuestas, a corregir si las reales son otras: 1.9 m de largo × 0.9 m de alto, centradas
+  entre los rodillos, a ~0.45 m del costado del auto.
+
 ## 3.17.0 — El estacionamiento de la flota Master y un laboratorio que se ve mejor (2026-10-21)
 
 ### Nuevo

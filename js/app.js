@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.17.0';
+var APP_VERSION = '3.17.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,8 @@ var APP_VERSION = '3.17.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
+      bullets: ['Laboratorio en el mapa: las placas amarillas de sujeción del dinamómetro estaban dibujadas atrás y adelante del auto, atravesadas en el camino por donde entra y sale (una quedaba entre el auto y el ventilador). Ahora van a los dos costados, que es donde fijan el auto de lado, y el letrero "Dinamómetro" pintado en el piso pasa delante de la placa para que no lo tape.'] },
     { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
       bullets: ['Consumibles → 🗺️ Cuarto → 🚗 Laboratorio: afuera, al sur del cuarto de control, ahora está el estacionamiento de la flota Master (los vehículos que se quedan con el laboratorio, no de producción). Toca un lugar libre para agregar uno con su VIN, un nombre, su carrocería y su color; siempre se ven, aunque no estén en prueba.',
                 'Cuando un Master entra al laboratorio (a un cajón o al dinamómetro), su lugar de afuera se ve vacío y dice dónde está; adentro su etiqueta dice ★ Master. Al sacarlo del laboratorio regresa solo a su lugar. ↔ Mover lo lleva a otro lugar de afuera o adentro; 🧪 Empezar una prueba abre el Alta con su VIN. El indicador 🅿 cuenta la flota y lleva la vista al estacionamiento.',
