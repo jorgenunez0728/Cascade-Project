@@ -26,6 +26,10 @@ ok('dinamómetro + 4 cajones; el coche del dino mira al ventilador (este) y los 
    L.spots.find(s => s.id === 'dino').nose === 1 && L.spots.filter(s => s.area === 'acond').every(s => s.nose === -1));
 const vent = C.SITE_ITEMS_SEED.find(r => r[0] === 'si-vent');
 ok('el ventilador está frente a la nariz del coche, sobre sus rieles', vent[2] > L.spots[0].rect[2] && L.fixed.filter(f => f.kind === 'rail').length === 2);
+const dinoR = L.spots.find(s => s.id === 'dino').rect, placas = L.fixed.filter(f => f.kind === 'barrier');
+ok('[3.17.1] las placas amarillas van a los costados del dinamómetro (lo fijan de lado), nunca en los extremos por donde entra el coche',
+   placas.length === 2 && placas.every(f => (f.rect[2] - f.rect[0]) > (f.rect[3] - f.rect[1]) && (f.rect[3] <= dinoR[1] || f.rect[1] >= dinoR[3]) && f.rect[0] >= dinoR[0] && f.rect[2] <= dinoR[2]) &&
+   placas.some(f => f.rect[3] <= dinoR[1]) && placas.some(f => f.rect[1] >= dinoR[3]));
 const ebcm = C.SITE_ITEMS_SEED.find(r => r[0] === 'si-ebcm1'), c2 = L.spots.find(s => s.id === 'c2'), c3 = L.spots.find(s => s.id === 'c3');
 ok('EBCM1 y el cargador entre el cajón 2 y el 3', ebcm[3] >= c2.rect[3] && ebcm[5] <= c3.rect[1]);
 ok('los equipos sembrados no tienen nombre propio ni ligan al F11', C.siteItemsSeed('').every(i => i.assetId === '' && i.seeded));
@@ -149,6 +153,13 @@ ok('el letrero pintado no sale al revés (corre de izquierda a derecha)', mm[0] 
 const walls = outL.svg.match(/st-wall-face--cut/g) || [], backs = outL.svg.match(/st-wall-face--back/g) || [];
 ok('muros: los de enfrente cortados bajos y los del fondo completos, con su grosor', walls.length > 3 && backs.length > 3 && /st-wall-cap/.test(outL.svg));
 ok('la fosa del dinamómetro: rodillos de acero y cinta de seguridad', (outL.svg.match(/class="st-roller"/g) || []).length === 8 && /st-pit-edge/.test(outL.svg));
+const bars = outL.svg.match(/<g class="st-barrier"[\s\S]*?<\/g>/g) || [], holeOn = (g, i) => new RegExp('st-side--' + i + '"[^>]*/><polygon class="st-d-hole"').test(g);
+ok('[3.17.1] cada placa lleva sus perforaciones en las dos caras largas (las que miran al coche y hacia afuera)', bars.length === 2 && bars.every(g => holeOn(g, 0) && holeOn(g, 2) && !holeOn(g, 1) && !holeOn(g, 3)));
+const camTop = { az: 0, el: 90, zoom: 1, panX: 0, panY: 0 }, CT = C.siteCenter(L), PT = (x, y) => C.invRoomProject(x, y, 0, camTop, CT);
+const lblM = /class="st-floor-lbl st-floor-lbl--dino" transform="matrix\(([^)]+)\)"/.exec(C.siteSceneSVG({ layout: L, items, model: M, look, health }, camTop, {}).svg)[1].split(' ').map(Number);
+const dc = PT(7.7, 5.0), pe = PT(7.7, Math.max.apply(null, placas.map(f => f.rect[3]))), dir = [pe.x - dc.x, pe.y - dc.y];
+ok('[3.17.1] el letrero "Dinamómetro" queda delante de la placa del frente, no tapado por ella',
+   (lblM[4] - dc.x) * dir[0] + (lblM[5] - dc.y) * dir[1] > dir[0] * dir[0] + dir[1] * dir[1]);
 
 console.log('\n== [3.17.0] La flota viaja por la nube como las unidades sin alta ==');
 const fbs = fs.readFileSync(path.join(__dirname, '..', 'js', 'firebase-sync.js'), 'utf8');

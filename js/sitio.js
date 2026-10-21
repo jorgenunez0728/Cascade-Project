@@ -55,12 +55,14 @@ var SITE_LAYOUT = {
         { id: 'cortina', label: 'Cortina · entrada de vehículos', a: [22.4, 13], b: [25.6, 13] }
     ],
     // Lo fijo que no es muro. kind: roll (rodillos), plate (placas), barrier, rail, tunnel, hose.
+    // [3.17.1] barrier = las placas amarillas de SUJECIÓN LATERAL: van a los costados del coche
+    // (lo fijan de lado), nunca en los extremos, que son por donde entra y sale del dinamómetro.
     fixed: [
         { id: 'rod-tras-i', kind: 'roll', rect: [6.0, 3.95, 6.6, 4.6] }, { id: 'rod-tras-d', kind: 'roll', rect: [6.0, 5.4, 6.6, 6.05] },
         { id: 'rod-del-i', kind: 'roll', rect: [8.7, 3.95, 9.3, 4.6] }, { id: 'rod-del-d', kind: 'roll', rect: [8.7, 5.4, 9.3, 6.05] },
         { id: 'placa', kind: 'plate', rect: [6.6, 4.25, 8.7, 5.75] },
-        { id: 'barrera-tras', kind: 'barrier', rect: [4.5, 4.05, 4.7, 5.95], h: 0.9 },
-        { id: 'barrera-del', kind: 'barrier', rect: [10.55, 4.05, 10.75, 5.95], h: 0.9 },
+        { id: 'sujecion-izq', kind: 'barrier', rect: [6.7, 3.46, 8.6, 3.66], h: 0.9 },
+        { id: 'sujecion-der', kind: 'barrier', rect: [6.7, 6.34, 8.6, 6.54], h: 0.9 },
         { id: 'riel-1', kind: 'rail', line: [11.0, 4.55, 14.4, 4.55] }, { id: 'riel-2', kind: 'rail', line: [11.0, 5.45, 14.4, 5.45] },
         { id: 'tunel', kind: 'tunnel', rect: [2.55, 0.8, 3.05, 7.4], z0: 1.9, z1: 2.4, label: 'Túnel' },
         { id: 'escape', kind: 'hose', line: [5.35, 5.0, 2.8, 5.0] }
@@ -1005,8 +1007,10 @@ function siteSceneSVG(scene, cam, opts) {
             var a = P(f.line[0], f.line[1], 0.02), b = P(f.line[2], f.line[3], 0.02);
             floorL.push('<line class="st-' + f.kind + '" x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) + '"/>');
         } else if (f.kind === 'barrier') {
+            var alongX = (f.rect[2] - f.rect[0]) >= (f.rect[3] - f.rect[1]);
             solid.push(_siteBoxSVG(P, f.rect, 0, f.h || 0.9, 'st-barrier', ' aria-hidden="true"', '', function(i, F) {
-                if (i !== 1 && i !== 3) return '';   // las placas amarillas con sus perforaciones
+                // las perforaciones van en las dos caras LARGAS (0/2 si corre en x; 1/3 si corre en y)
+                if (alongX ? (i !== 0 && i !== 2) : (i !== 1 && i !== 3)) return '';
                 var hh = '';
                 for (var u = 0.15; u < 0.9; u += 0.14) for (var v = 0.3; v < 0.9; v += 0.2) hh += _siteDisc(F, u, v, 0.025, 0.03, 'st-d-hole', 8);
                 return hh;
@@ -1017,6 +1021,15 @@ function siteSceneSVG(scene, cam, opts) {
     });
     // Lugares del laboratorio (cajones y dinamómetro): se tocan para poner o ver una unidad.
     var spotLbl = [];
+    // El letrero del dinamómetro va al frente de la fosa y, si hay una placa de sujeción de ese
+    // lado, delante de ella: detrás quedaría tapado por la placa.
+    var dinoLblY = function(r) {
+        var y = r[3] + 0.25;
+        (layout.fixed || []).forEach(function(f) {
+            if (f.kind === 'barrier' && f.rect && f.rect[1] >= r[3] && f.rect[0] < r[2] && f.rect[2] > r[0]) y = Math.max(y, f.rect[3] + 0.4);
+        });
+        return y;
+    };
     layout.spots.forEach(function(s) {
         if (s.area === 'lot') return;
         var r = s.rect;
@@ -1026,7 +1039,7 @@ function siteSceneSVG(scene, cam, opts) {
         floorL.push('<polygon class="' + cls + '" data-spot="' + s.id + '" tabindex="0" role="button" aria-label="' + esc(s.label) + (occ ? ': ocupado' : ': libre') + '" points="' + _invRoomPts(rectPts(r, 0.015)) + '"/>');
         // Pintados en el piso donde el coche no los tapa: el del dinamómetro al frente de la fosa;
         // el de un cajón, en el pasillo delante de su nariz.
-        if (opts.labels !== false) spotLbl.push(s.id === 'dino' ? _siteFloorText(P, (r[0] + r[2]) / 2, r[3] + 0.25, 'Dinamómetro', 'st-floor-lbl st-floor-lbl--dino', 0.32)
+        if (opts.labels !== false) spotLbl.push(s.id === 'dino' ? _siteFloorText(P, (r[0] + r[2]) / 2, dinoLblY(r), 'Dinamómetro', 'st-floor-lbl st-floor-lbl--dino', 0.32)
                                                    : _siteFloorText(P, s.nose < 0 ? r[0] - 0.75 : r[2] + 0.75, (r[1] + r[3]) / 2, s.label.replace('Cajón ', ''), 'st-floor-lbl st-floor-lbl--num', 0.7, -0.5));
     });
     floorL.push(areaLbl.join('') + spotLbl.join(''));
