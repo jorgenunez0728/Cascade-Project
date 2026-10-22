@@ -111,12 +111,38 @@ const SEED = () => {
         const aviso = window.__toasts.find(t => /Beto/.test(t)) || '';
         nube = Object.assign({}, nube, { updatedAt: '2026-10-22T15:00:00.000Z' });
         const atras = await fbVehCloudGate(v, 'ready-release', 'enviar a aprobación');
+        // Aprobar exige conexión (strict); los demás pasos siguen sin red.
+        const _onLine = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+        window.__toasts = [];
+        const aprobarSinRed = await fbVehCloudGate(v, 'pending-approval', 'aprobar', { strict: true });
+        const avisoSinRed = window.__toasts.find(t => /conexión/.test(t)) || '';
+        const enviarSinRed = await fbVehCloudGate(v, 'ready-release', 'enviar a aprobación');
+        let corrio = false;
+        _cascadeCloudGateThen(v, 'pending-approval', 'aprobar', () => { corrio = true; }, { strict: true });
+        await new Promise(r => setTimeout(r, 50));
+        delete navigator.onLine;
+        if (_onLine) Object.defineProperty(Navigator.prototype, 'onLine', _onLine);
+        window.fetch = () => Promise.resolve(new Response(JSON.stringify({ error: { message: 'NOT_FOUND' } }), { status: 404 }));
+        const aprobarNoEnNube = await fbVehCloudGate(v, 'pending-approval', 'aprobar', { strict: true });
+        window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+        const aprobarErrorRed = await fbVehCloudGate(v, 'pending-approval', 'aprobar', { strict: true });
+        const enviarErrorRed = await fbVehCloudGate(v, 'ready-release', 'enviar a aprobación');
         fbSync.enabled = false;
-        return { detenido, aviso, atras };
+        const aprobarSinSync = await fbVehCloudGate(v, 'pending-approval', 'aprobar', { strict: true });
+        return { detenido, aviso, atras, aprobarSinRed, avisoSinRed, enviarSinRed, corrio,
+                 aprobarNoEnNube, aprobarErrorRed, enviarErrorRed, aprobarSinSync };
     });
     chk('otro equipo ya lo movió: se detiene', gate.detenido === false, JSON.stringify(gate));
     chk('y dice quién', /Beto Técnico/.test(gate.aviso), gate.aviso);
     chk('si la nube va atrás, sigue', gate.atras === true);
+    chk('Aprobar sin red: no se aprueba', gate.aprobarSinRed === false && gate.corrio === false, JSON.stringify(gate));
+    chk('y dice que hace falta conexión', /Para aprobar hace falta conexión/.test(gate.avisoSinRed), gate.avisoSinRed);
+    chk('Enviar a aprobación sin red: sigue', gate.enviarSinRed === true);
+    chk('Aprobar con la nube sin ese vehículo (404): sigue', gate.aprobarNoEnNube === true);
+    chk('Aprobar con error de red: no se aprueba', gate.aprobarErrorRed === false);
+    chk('Enviar con error de red: sigue', gate.enviarErrorRed === true);
+    chk('Aprobar en un equipo sin sync: sigue', gate.aprobarSinSync === true);
 
     chk('sin errores de página ni diálogos nativos', !errores.length, errores.join(' | '));
     await browser.close();

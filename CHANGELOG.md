@@ -32,7 +32,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   gases, VETS y la revisión no se recuperan así: tienen su propio flujo.
 - **Candado de un instante:** Enviar a aprobación, Aprobar, Devolver y Corregir alta miran primero
   el vehículo en la nube. Si otro equipo ya lo movió, se detiene antes de pedir la firma y dice
-  quién y a qué hora. Sin red (o sin respuesta en 6 s) se sigue como antes.
+  quién y a qué hora. Sin red (o sin respuesta en 6 s) se sigue como antes, salvo Aprobar.
+
+### Cambió
+- **Aprobar exige conexión** (decisión del laboratorio, 22-oct-2026). Sin red, o si la nube no
+  responde en 6 s, no se aprueba y el aviso dice por qué y qué hacer. Es el único paso donde un
+  choque tardío (dos equipos aprobando la misma prueba sin red) no tiene arreglo limpio. Alta,
+  Operación, Liberación, Enviar a aprobación, Devolver y Corregir alta siguen funcionando sin red.
+  CASCADE 4.10.0.
 
 ### Arreglado
 - **Lecturas de gas corregidas en otro equipo**: con la misma fecha y turno, cada equipo se quedaba
@@ -68,6 +75,9 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - **Candado de un instante**: `fbVehCloudGate(v, estado, acción)` + `fbVehCloudGateDecision`
   (PURA: solo detiene si la nube es MÁS NUEVA y con otro estado). En cop15.js,
   `_cascadeCloudGateThen` (síncrono si no hay nada que revisar: sin sync o sin red).
+  `opts.strict` (solo Aprobar): con sync de vehículos, sin red / timeout / error de lectura
+  resuelve `false` con `fbVehCloudGateOfflineText` (PURA). Un 404 no es falla de red (la nube no
+  tiene ese vehículo: nadie más lo pudo mover) — `_fbBugsRestSend` ahora pone `err.status`.
 - `vehicleFieldLabel(path)`, `vehicleLostValueRestorable(path)` (PURA), `vehicleUseLostValue`
   (permiso `test.operate`, no en aprobación/archivado; `valor_recuperado` en auditoría).
 - `_fbMergeReadings(locales, remotas, campo, opts)`: con `opts` (la fusión entre equipos,

@@ -486,7 +486,8 @@ var APP_VERSION_HISTORY = [
     { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
       bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
                 'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
-                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes.',
+                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes, salvo Aprobar.',
+                'Aprobar exige conexión: sin red, o si la nube no responde en 6 segundos, no se aprueba y se dice por qué. Así nadie aprueba en un equipo una prueba que otro ya aprobó o devolvió. Alta, Operación, Liberación y Enviar a aprobación siguen funcionando sin red.',
                 'Consumibles: una lectura de gas corregida o capturada en otro equipo (misma fecha y turno) ahora queda igual en todos; a quien se le reemplazó la suya le sale un aviso y queda en el historial de cambios.',
                 'Plan y Consumibles: dos cambios seguidos desde el mismo equipo llegan los dos a los demás (antes el segundo se perdía hasta recargar). Y una prueba que quitas de Mi semana ya no regresa porque otro equipo tenía la semana abierta.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
@@ -1526,10 +1527,11 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.2';
+var CASCADE_VERSION = '4.10.0';
 var CASCADE_VERSION_HISTORY = [
-    { version: '4.9.2', date: '22 oct 2026', app: '3.18.0', title: 'Revisión en la nube antes de firmar',
-      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma. Sin red se sigue como antes.'] },
+    { version: '4.10.0', date: '22 oct 2026', app: '3.18.0', title: 'Aprobar exige conexión',
+      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma.',
+                'Aprobar exige conexión: sin red no se aprueba. Los demás pasos siguen sin red.'] },
     { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
       bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',

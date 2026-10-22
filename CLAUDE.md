@@ -3855,7 +3855,9 @@ Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
 - **Un valor que no quedó nunca se tira**: va a la línea de tiempo (`fbVehConflictEntry`), y quien
   lo perdió lo sabe por las entradas NUEVAS (`fbVehLostHere`), porque la fusión pudo hacerla otro.
 - **Un paso que cambia la etapa de un vehículo pasa por `_cascadeCloudGateThen`** antes de pedir la
-  firma. Sin red no detiene nada (trabajo sin red); decidir que Aprobar exija conexión es del
-  laboratorio y sigue pendiente.
+  firma. Sin red no detiene nada (trabajo sin red), **salvo Aprobar**, que pasa `{strict:true}`:
+  en un equipo con sync de vehículos, sin red / sin respuesta / error de lectura no se aprueba
+  (decisión del laboratorio, 22-oct-2026). Un 404 sí sigue (la nube no tiene ese vehículo). No
+  pasar `strict` a otro paso sin decisión del laboratorio: el trabajo sin red es un requisito.
 - Siguientes fases del plan del 22-oct-2026 (presencia, ronda en vivo, velocidad): cada una se
   aprueba aparte.

@@ -4177,10 +4177,11 @@ function cascadeVehicleAfterSign(ref, expectedStatus) {
  * (fbVehCloudGate, firebase-sync.js). Sin sync, sin red o sin respuesta en 6 s se sigue:
  * el trabajo sin red no se detiene y el choque, si lo hubo, lo resuelve la fusión.
  */
-function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn) {
+function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn, opts) {
     // Sin nada que revisar se sigue en el acto (síncrono, como antes de 3.18.0).
-    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle))) { fn(); return; }
-    fbVehCloudGate(vehicle, expectedStatus, accion).then(function(ok) { if (ok) fn(); }, function() { fn(); });
+    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle, opts))) { fn(); return; }
+    var strict = !!(opts && opts.strict);
+    fbVehCloudGate(vehicle, expectedStatus, accion, opts).then(function(ok) { if (ok) fn(); }, function() { if (!strict) fn(); });
 }
 
 /** Nombre para una persona de una ruta de un vehículo ("testData.odometer" → "Odómetro"). */
@@ -4474,6 +4475,7 @@ function approveAndArchive() {
     }
 
     // [3.18.0] Candado de un instante: si otro equipo ya lo aprobó o lo devolvió, no se pide la firma.
+    // Aprobar es el único paso que además EXIGE conexión: sin red no se aprueba.
     _cascadeCloudGateThen(vehicle, 'pending-approval', 'aprobar', function() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
@@ -4635,7 +4637,7 @@ function approveAndArchive() {
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
     });
-    });
+    }, { strict: true });  // [3.18.0] Aprobar exige conexión (decisión del laboratorio, 22-oct-2026)
 }
 
 // ══════════════════════════════════════════════════════════════════════

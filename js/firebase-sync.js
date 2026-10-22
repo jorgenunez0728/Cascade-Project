@@ -5894,7 +5894,8 @@ function _fbBugsRestSend(method, suffix, fieldsObj, query) {
             return resp.text().then(function(t) {
                 var msg = 'HTTP ' + resp.status;
                 try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
-                throw new Error(msg);
+                var err = new Error(msg); err.status = resp.status;
+                throw err;
             });
         });
     });
@@ -7067,23 +7068,49 @@ function fbVehCloudGateDecision(local, cloud, expectedStatus, labels) {
  * Antes de un paso crítico (enviar a aprobación, aprobar, devolver, corregir alta) se
  * mira el vehículo EN LA NUBE. Resuelve true si se puede seguir. Sin red o sin sync se
  * sigue como antes (trabajo sin red); el choque, si lo hubo, lo resuelve la fusión.
+ *
+ * [3.18.0] `opts.strict` (Aprobar, decisión del laboratorio 22-oct-2026): en un equipo que
+ * sincroniza vehículos, sin red o sin respuesta NO se sigue — aprobar dos veces la misma
+ * prueba en dos equipos sin red no tiene arreglo limpio. Un equipo sin sync sigue igual.
  */
 /** ¿Hay algo que revisar en la nube? Sin sync o sin red, no: el paso sigue en el acto. */
-function fbVehCloudGateNeeded(vehicle) {
+function fbVehCloudGateNeeded(vehicle, opts) {
     if (!vehicle || !fbVehActive() || typeof fetch === 'undefined') return false;
+    if (opts && opts.strict) return true;
     return !(typeof navigator !== 'undefined' && navigator.onLine === false);
 }
 
-function fbVehCloudGate(vehicle, expectedStatus, accion) {
-    if (!fbVehCloudGateNeeded(vehicle)) return Promise.resolve(true);
+/** Texto del rechazo de un paso que exige conexión. PURA. */
+function fbVehCloudGateOfflineText(accion, motivo) {
+    var que = accion ? 'Para ' + accion : 'Este paso';
+    var por = motivo === 'sin-red' ? 'este equipo no tiene red'
+            : motivo === 'timeout' ? 'la nube no respondió a tiempo'
+            : 'no se pudo leer la nube';
+    return que + ' hace falta conexión y ' + por + '. Se revisa que nadie más lo haya hecho en otro equipo; ' +
+           'no se hizo nada. Revisa la red y vuelve a intentarlo.';
+}
+
+function fbVehCloudGate(vehicle, expectedStatus, accion, opts) {
+    var strict = !!(opts && opts.strict);
+    if (!fbVehCloudGateNeeded(vehicle, opts)) return Promise.resolve(true);
+    function sinConexion(motivo) {
+        if (!strict) return true;
+        if (typeof showToast === 'function') showToast(fbVehCloudGateOfflineText(accion, motivo), 'error', 10000);
+        return false;
+    }
+    if (strict && typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve(sinConexion('sin-red'));
     var lectura = _fbBugsRestSend('GET', 'vehicles/' + fbVehDocId(vehicle), null).then(function(doc) {
         var o = _fbBugsRestDocToObj(doc);
         if (o.deleted) return null;
         try { return JSON.parse(o.json || 'null'); } catch (e) { return null; }
+    }, function(e) {
+        // Un documento que la nube no tiene no es una falla de red: nadie más lo pudo mover.
+        if (e && e.status === 404) return null;
+        throw e;
     });
     var limite = new Promise(function(res) { setTimeout(function() { res('timeout'); }, 6000); });
     return Promise.race([lectura, limite]).then(function(cloud) {
-        if (cloud === 'timeout') return true;
+        if (cloud === 'timeout') return sinConexion('timeout');
         var labels = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels) || {};
         var d = fbVehCloudGateDecision(vehicle, cloud, expectedStatus, labels);
         if (d.ok) return true;
@@ -7094,7 +7121,7 @@ function fbVehCloudGate(vehicle, expectedStatus, accion) {
         }
         fbVehiclesSyncSoon(0);
         return false;
-    }, function() { return true; });
+    }, function() { return sinConexion('error'); });
 }
 
 function fbVehKnown() {
