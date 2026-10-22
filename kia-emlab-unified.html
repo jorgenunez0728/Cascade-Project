@@ -6325,6 +6325,9 @@ body.uf-open { overflow: hidden; }
     color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold); cursor: pointer;
 }
 .uf-note { font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-base); }
+/* [3.18.0] Ronda: este punto ya lo leyó otra persona en este turno. */
+.uf-note.is-other { color: var(--ok-text); background: var(--ok-bg); border-radius: var(--radius-lg);
+    padding: var(--space-sm) var(--space-md); margin: 0 0 var(--space-sm); font-size: var(--fs-sm); }
 .uf-field { display: block; margin-top: var(--space-md); }
 .uf-field > span { display: block; margin-bottom: var(--space-xs); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text); }
 .uf-field > span small { font-weight: var(--weight-normal); color: var(--muted); }
@@ -6552,6 +6555,22 @@ body.ficha-open { overflow: hidden; }
 @keyframes vehCloudPulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 @keyframes vehCloudArrive { from { transform: scale(.92); opacity: .6; } to { transform: scale(1); opacity: 1; } }
 .oc-head-row .veh-cloud { margin-left: 0; flex-shrink: 0; }
+
+/* [3.18.0] Quién más está aquí (presencia). Nunca bloquea: solo se ve. */
+.presence-chip {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    margin-left: var(--space-sm); padding: var(--space-xs) var(--space-sm); min-height: 28px;
+    border-radius: var(--radius-xl); font-size: var(--fs-sm); font-weight: 700; line-height: 1.3;
+    background: var(--info-bg); color: var(--info-text); vertical-align: middle; max-width: 100%;
+    animation: vehCloudArrive var(--dur-slow) ease-out;
+}
+.presence-chip.is-empty { display: none; }
+.presence-chip.is-editing { background: var(--warn-bg); color: var(--warn-text); }
+/* En el encabezado fijo de Operación en tarjetas no cabe otro renglón: se recorta (el título lo dice completo). */
+.oc-head-row .presence-chip { margin-left: 0; flex: 0 1 auto; min-width: 0; max-width: 45%; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-head-row .presence-chip.is-empty { display: none; }
+.uf-card .presence-chip { margin: 0 0 var(--space-sm); }
 
 .topbar-sync-pending {
     background: var(--warn-fill); color: #fff; padding: var(--space-2xs) var(--space-xs);
@@ -10207,10 +10226,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610210427';
+var APP_BUILD = '202610221429';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '2a5b43a45f0b05460eeb59a7d9112470ebeee4cf';
+var APP_COMMIT = '8f011e53f0aef4277adf8cd66448ca80fcfc8dc7';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10218,7 +10237,7 @@ var APP_COMMIT = '2a5b43a45f0b05460eeb59a7d9112470ebeee4cf';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.17.1';
+var APP_VERSION = '3.18.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10226,6 +10245,15 @@ var APP_VERSION = '3.17.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
+      bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
+                'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
+                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes, salvo Aprobar.',
+                'Aprobar exige conexión: sin red, o si la nube no responde en 6 segundos, no se aprueba y se dice por qué. Así nadie aprueba en un equipo una prueba que otro ya aprobó o devolvió. Alta, Operación, Liberación y Enviar a aprobación siguen funcionando sin red.',
+                'En Operación, Liberación y Aprobación un chip dice quién más tiene abierto ese vehículo en otro equipo y en qué pantalla (en ámbar si está capturando). No bloquea nada: solo se ve.',
+                'Ronda de lecturas en vivo: si dos personas hacen la ronda del mismo turno, cada una ve a la otra y su avance, y lo que la otra ya leyó se salta solo (si regresas a ese punto, dice quién lo tomó; leerlo otra vez queda como corrección). La ronda se guarda por tramos, no solo al final.',
+                'Consumibles: una lectura de gas corregida o capturada en otro equipo (misma fecha y turno) ahora queda igual en todos; a quien se le reemplazó la suya le sale un aviso y queda en el historial de cambios.',
+                'Plan y Consumibles: dos cambios seguidos desde el mismo equipo llegan los dos a los demás (antes el segundo se perdía hasta recargar). Y una prueba que quitas de Mi semana ya no regresa porque otro equipo tenía la semana abierta.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
       bullets: ['Laboratorio en el mapa: las placas amarillas de sujeción del dinamómetro estaban dibujadas atrás y adelante del auto, atravesadas en el camino por donde entra y sale (una quedaba entre el auto y el ventilador). Ahora van a los dos costados, que es donde fijan el auto de lado, y el letrero "Dinamómetro" pintado en el piso pasa delante de la placa para que no lo tape.'] },
     { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
@@ -11263,8 +11291,11 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.1';
+var CASCADE_VERSION = '4.10.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.10.0', date: '22 oct 2026', app: '3.18.0', title: 'Aprobar exige conexión',
+      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma.',
+                'Aprobar exige conexión: sin red no se aprueba. Los demás pasos siguen sin red.'] },
     { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
       bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
@@ -11376,14 +11407,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610210427' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610210427' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11399,7 +11430,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610210427' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610221429' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -13824,7 +13855,13 @@ function undoableAction(module, label, fn) {
 function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
-        if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
+        if (entry.data.testplan && typeof tpState !== 'undefined') {
+            var _planesAntes = JSON.parse(JSON.stringify(tpState.weeklyPlans || []));
+            var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; });
+            // [3.18.0] Las marcas de filas quitadas no retroceden con la foto (si no, el sync deshace el Deshacer).
+            if (typeof tpRowMarksAfterRestore === 'function') tpRowMarksAfterRestore(_planesAntes);
+            if (typeof tpSave === 'function') tpSave();
+        }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
         if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }
@@ -19536,7 +19573,9 @@ function gridKbdSelect(slotEl, o) {
 //            render(host)          pinta la tarjeta dentro de host
 //            save(host)            → true | {ok:true} | {ok:false, msg, field}
 //            onLater()             opcional: al tocar "Después"
-//            blocked()             opcional: motivo (texto) por el que no se puede guardar }
+//            blocked()             opcional: motivo (texto) por el que no se puede guardar
+//            doneBy()              opcional [3.18.0]: quién ya lo hizo en otro lado (texto) — al
+//                                  AVANZAR se salta y cuenta como hecho ('otro'); de regreso se ve }
 
 var UF_SWIPE_PX = 60;
 
@@ -19544,16 +19583,18 @@ var _uf = null;   // {opts, steps, state:{done,skipped}, idx, final, onlyPending
 
 /**
  * Estado de las tarjetas. PURA.
- * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}}
- * Devuelve {cards:[{key, section, title, index, status}], sections:[{name, start, count}],
- *           pending:[índices no hechos], firstPending, done, skipped}
- * status: 'hecho' | 'despues' (se tocó "Después") | 'pendiente' (no se ha visto).
+ * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}, others:{key:'quién'}}
+ * Devuelve {cards:[{key, section, title, index, status, by}], sections:[{name, start, count}],
+ *           pending:[índices no hechos], firstPending, done, skipped, others}
+ * status: 'hecho' | 'otro' (lo hizo otra persona, [3.18.0]) | 'despues' (se tocó "Después") |
+ *         'pendiente' (no se ha visto). 'otro' no queda pendiente y no cuenta en `done`.
  */
 function uiFlowModel(steps, state) {
     state = state || {};
-    var done = state.done || {}, skipped = state.skipped || {};
+    var done = state.done || {}, skipped = state.skipped || {}, others = state.others || {};
     var cards = (steps || []).filter(function(s) { return s && s.key; }).map(function(s, i) {
-        var st = done[s.key] ? 'hecho' : (skipped[s.key] ? 'despues' : 'pendiente');
+        var st = done[s.key] ? 'hecho' : (others[s.key] ? 'otro' : (skipped[s.key] ? 'despues' : 'pendiente'));
+        if (st === 'otro') return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st, by: String(others[s.key]) };
         return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st };
     });
     var sections = [];
@@ -19562,12 +19603,13 @@ function uiFlowModel(steps, state) {
         if (!last || last.name !== c.section) sections.push({ name: c.section, start: i, count: 1 });
         else last.count++;
     });
-    var pending = cards.filter(function(c) { return c.status !== 'hecho'; }).map(function(c) { return c.index; });
+    var pending = cards.filter(function(c) { return c.status !== 'hecho' && c.status !== 'otro'; }).map(function(c) { return c.index; });
     return {
         cards: cards, sections: sections, pending: pending,
         firstPending: pending.length ? pending[0] : -1,
         done: cards.filter(function(c) { return c.status === 'hecho'; }).length,
-        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length
+        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length,
+        others: cards.filter(function(c) { return c.status === 'otro'; }).length
     };
 }
 
@@ -19596,7 +19638,7 @@ function uiFlowOpen(opts) {
     var steps = (opts.steps || []).filter(function(s) { return s && s.key; });
     if (!steps.length) return false;
     var st = opts.state || {};
-    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}) },
+    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}), others: Object.assign({}, st.others || {}) },
             idx: 0, final: false, onlyPending: false, closeDialog: null };
 
     var el = document.createElement('div');
@@ -19667,7 +19709,7 @@ function _ufHeader(m) {
     // avanza, pero no llena la barra.
     segs.innerHTML = m.sections.map(function(s) {
         var mine = m.cards.slice(s.start, s.start + s.count);
-        var done = mine.filter(function(x) { return x.status === 'hecho'; }).length / s.count;
+        var done = mine.filter(function(x) { return x.status === 'hecho' || x.status === 'otro'; }).length / s.count;
         var here = sec && sec.start === s.start;
         return '<button type="button" class="uf-seg' + (here ? ' is-here' : '') + '" style="flex:' + s.count + '" ' +
             'onclick="uiFlowGoTo(' + s.start + ')" aria-label="Ir a ' + escapeHtml(s.name || 'la sección') + '">' +
@@ -19678,6 +19720,19 @@ function _ufHeader(m) {
 
 function _ufGo(i, dir) {
     if (!_uf) return;
+    // [3.18.0] Al avanzar se salta lo que otra persona ya hizo (de regreso sí se ve: releer
+    // es una corrección). Lo que ya hice yo no se toca.
+    if (dir > 0) {
+        while (i < _uf.steps.length) {
+            var st0 = _uf.steps[i], quien = '';
+            if (_uf.state.done[st0.key] || typeof st0.doneBy !== 'function') break;
+            try { quien = st0.doneBy() || ''; } catch (e) { quien = ''; }
+            if (!quien) break;
+            _uf.state.others[st0.key] = quien;
+            delete _uf.state.skipped[st0.key];
+            i++;
+        }
+    }
     var m = _ufModel();
     if (i >= m.cards.length) { _ufFinal(); return; }
     _uf.final = false;
@@ -19774,6 +19829,7 @@ function uiFlowSave() {
     }
     _uf.state.done[step.key] = true;
     delete _uf.state.skipped[step.key];
+    delete _uf.state.others[step.key];
     _ufFlash('✓ Guardado');
     _ufGo(uiFlowNextIndex(_ufModel(), _uf.idx, _uf.onlyPending), 1);
 }
@@ -19782,7 +19838,7 @@ function uiFlowSave() {
 function uiFlowLater() {
     if (!_uf || _uf.final) return;
     var step = _uf.steps[_uf.idx];
-    if (!_uf.state.done[step.key]) {
+    if (!_uf.state.done[step.key] && !_uf.state.others[step.key]) {
         _uf.state.skipped[step.key] = true;
         if (typeof step.onLater === 'function') { try { step.onLater(); } catch (e) {} }
     }
@@ -21408,6 +21464,7 @@ function loadVehicle() {
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
     <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
     ${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(vehicle) : ''}
+    ${typeof fbPresenceChipHTML === 'function' ? fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Operación' }) : ''}
     <button type="button" class="btn-secondary op-corr-btn" onclick="vehicleCorrectAltaOpen('${String(vehicle.id).replace(/[^\w.-]/g, '')}')" title="Corregir VIN o configuración sin borrar el vehículo">✏️ Corregir alta</button>
   `;
   opSaveStateRender();
@@ -23795,7 +23852,8 @@ function loadRelease() {
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode) +
-        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '');
+        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Liberación' }) : '');
 
     // Indicador de completitud del PDF: campos de formulario faltantes (gases y firmas tienen su propio candado).
     var _relComp = validatePdfCompleteness(vehicle);
@@ -23911,6 +23969,7 @@ function loadApproval() {
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Aprobación' }) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
         (vehicle.regulationOverride && vehicle.regulationOverride.name
@@ -24006,6 +24065,92 @@ function cascadeVehicleAfterSign(ref, expectedStatus) {
     return { v: v };
 }
 
+/**
+ * [3.18.0] Corre `fn` solo si la nube confirma que nadie más movió el vehículo
+ * (fbVehCloudGate, firebase-sync.js). Sin sync, sin red o sin respuesta en 6 s se sigue:
+ * el trabajo sin red no se detiene y el choque, si lo hubo, lo resuelve la fusión.
+ */
+function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn, opts) {
+    // Sin nada que revisar se sigue en el acto (síncrono, como antes de 3.18.0).
+    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle, opts))) { fn(); return; }
+    var strict = !!(opts && opts.strict);
+    fbVehCloudGate(vehicle, expectedStatus, accion, opts).then(function(ok) { if (ok) fn(); }, function() { if (!strict) fn(); });
+}
+
+/** Nombre para una persona de una ruta de un vehículo ("testData.odometer" → "Odómetro"). */
+var VEHICLE_FIELD_PREFIXES = [
+    ['testData.releaseChecklist', 'Checklist de liberación'], ['testData.gasResults', 'Resultados de gases'],
+    ['testData.signatures', 'Firmas'], ['testData.vets', 'Prueba VETS'], ['testData.preconditioning', 'Preacondicionamiento'],
+    ['testData.homolog', 'Ficha del ICMS'], ['homolog', 'Ficha del ICMS'], ['testData', 'Datos de la prueba']
+];
+function vehicleFieldLabel(path) {
+    path = String(path || '');
+    var listas = [typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : [],
+                  typeof SIMPLE_REQUIRED_FIELDS !== 'undefined' ? SIMPLE_REQUIRED_FIELDS : [],
+                  typeof TRAINING_REQUIRED_FIELDS !== 'undefined' ? TRAINING_REQUIRED_FIELDS : []];
+    for (var i = 0; i < listas.length; i++) {
+        var f = listas[i].find(function(x) { return x && x.path === path; });
+        if (f && f.label) return f.label;
+    }
+    if (path === 'status') return 'Estado';
+    var cola = path.split('.').pop();
+    for (var k = 0; k < VEHICLE_FIELD_PREFIXES.length; k++) {
+        var pre = VEHICLE_FIELD_PREFIXES[k];
+        if (path === pre[0] || path.indexOf(pre[0] + '.') === 0) return pre[1] + (path === pre[0] ? '' : ' · ' + cola);
+    }
+    return path;
+}
+
+/**
+ * ¿Se puede volver a usar, con un toque, el valor que no quedó en esta ruta? PURA. Solo los
+ * datos de captura: firmas, gases (doble ciego), VETS y la revisión tienen su propio flujo.
+ */
+function vehicleLostValueRestorable(path) {
+    path = String(path || '');
+    if (path.indexOf('testData.') !== 0) return false;
+    return !/^testData\.(signatures|gasResults|vets|review)(\.|$)/.test(path);
+}
+
+/** [3.18.0] "Usar este valor": devuelve el valor de un cambio cruzado como una edición normal. */
+function vehicleUseLostValue(vehicleId, entryTs, rowIdx) {
+    var v = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
+    var e = v && (v.timeline || []).find(function(x) { return x && x.timestamp === entryTs && x.data && x.data.conflict; });
+    var row = e && (e.data.modified || [])[rowIdx];
+    if (!row || !Object.prototype.hasOwnProperty.call(row, 'valor') || !vehicleLostValueRestorable(row.key)) {
+        showToast('Ese valor ya no se puede recuperar desde aquí.', 'warning'); return;
+    }
+    if (_opIsReadOnlyStatus(v.status)) { showToast(_opReadOnlyMessage(v), 'warning', 9000); return; }
+    if (!_cascadeGate('test.operate', 'volver a usar un valor')) return;
+    var partes = row.key.split('.');
+    var actual = partes.reduce(function(o, k) { return (o && typeof o === 'object') ? o[k] : undefined; }, v);
+    showConfirmDialog({ title: '↩️ Usar este valor',
+        message: (row.campo || row.key) + ': poner «' + _fbVehValTextSafe(row.valor) + '» (ahora: «' + _fbVehValTextSafe(actual) + '»).',
+        type: 'info', confirmText: 'Usar este valor', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var vivo = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
+        if (!vivo || _opIsReadOnlyStatus(vivo.status)) { showToast('El vehículo cambió de etapa: no se tocó nada.', 'warning'); return; }
+        undoPush('cop15', 'Usar valor de un cambio cruzado: ' + (vivo.vin || ''));
+        var o = vivo;
+        for (var i = 0; i < partes.length - 1; i++) { if (!o[partes[i]] || typeof o[partes[i]] !== 'object') o[partes[i]] = {}; o = o[partes[i]]; }
+        var antes = o[partes[partes.length - 1]];
+        if (row.valor === null) delete o[partes[partes.length - 1]]; else o[partes[partes.length - 1]] = JSON.parse(JSON.stringify(row.valor));
+        var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+        vivo.timeline.push({ timestamp: new Date().toISOString(), user: who || 'Operador', action: 'Valor recuperado de un cambio cruzado',
+            data: { modified: [{ campo: row.campo || row.key, key: row.key, antes: _fbVehValTextSafe(antes), despues: _fbVehValTextSafe(row.valor),
+                                 razon: 'Se volvió a usar el valor que no había quedado' }] } });
+        auditLog('cop15', 'valor_recuperado', { type: 'vehicle', id: vivo.id, label: vivo.vin }, (row.campo || row.key),
+            { before: { valor: antes === undefined ? null : antes }, after: { valor: row.valor } });
+        if (saveDB() === false) { showToast('⚠️ Sin espacio: no se guardó. Libera espacio en Datos → Sistema.', 'error'); return; }
+        var gm = document.getElementById('globalModal'); if (gm) gm.remove();
+        refreshAllLists();
+        // Si está abierto en Operación: se repinta (o, con cambios sin guardar, la fusión a tres bandas lo respeta).
+        try { cascadeOnRemoteVehicleChange(); } catch (x) {}
+        showToast('Listo: «' + (row.campo || row.key) + '» quedó con el valor recuperado.', 'success');
+        histShowTimelineModal(vivo.id);
+    });
+}
+function _fbVehValTextSafe(v) { return (typeof _fbVehValText === 'function') ? _fbVehValText(v) : String(v); }
+
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
@@ -24075,6 +24220,8 @@ function submitToApproval() {
         }
     }
 
+    // [3.18.0] Candado de un instante: si otro equipo ya movió este vehículo, no se pide la firma.
+    _cascadeCloudGateThen(vehicle, 'ready-release', 'enviar a aprobación', function() {
     sigCaptureOpen({
         title: 'Firma del Liberador',
         role: 'Liberador / Técnico',
@@ -24128,6 +24275,7 @@ function submitToApproval() {
             showToast('Vehículo enviado a aprobación', 'success');
         },
         onCancel: function() { showToast('Operación cancelada', 'info'); }
+    });
     });
 }
 
@@ -24219,6 +24367,9 @@ function approveAndArchive() {
         return;
     }
 
+    // [3.18.0] Candado de un instante: si otro equipo ya lo aprobó o lo devolvió, no se pide la firma.
+    // Aprobar es el único paso que además EXIGE conexión: sin red no se aprueba.
+    _cascadeCloudGateThen(vehicle, 'pending-approval', 'aprobar', function() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
@@ -24379,6 +24530,7 @@ function approveAndArchive() {
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
     });
+    }, { strict: true });  // [3.18.0] Aprobar exige conexión (decisión del laboratorio, 22-oct-2026)
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -24424,6 +24576,11 @@ function returnToReleaser() {
                 var reasonEl = document.getElementById('return-reason');
                 var reason = reasonEl ? reasonEl.value.trim() : '';
                 if (reason.length < 5) { showToast('Escribe el motivo (mínimo 5 caracteres)', 'error'); return; }
+                // [3.18.0] Candado de un instante en la nube, y el vehículo VIVO de db (patrón #189).
+                _cascadeCloudGateThen(vehicle, 'pending-approval', 'devolver al liberador', function() {
+                var _now = cascadeVehicleAfterSign(vehicle, 'pending-approval');
+                if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+                vehicle = _now.v;
 
                 undoPush('cop15', 'Devolver al liberador: ' + vehicle.vin);
                 var approverName = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
@@ -24469,6 +24626,7 @@ function returnToReleaser() {
                 document.getElementById('approvalVehSelect').value = '';
                 document.getElementById('appr-content').style.display = 'none';
                 if (typeof emitEvent === 'function') emitEvent('vehicle:returned', { vehicle: vehicle, reason: reason });
+                });
             }}
         ]
     });
@@ -27076,13 +27234,15 @@ function _altaCorrSave() {
 }
 
 /** Abre el modal. `prefill` = {vin?} (p. ej. desde el archivo VETS, ronda siguiente). */
-function vehicleCorrectAltaOpen(vehicleId, prefill) {
+function vehicleCorrectAltaOpen(vehicleId, prefill, _gated) {
     var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
     if (!v) return;
     if (!_cascadeCan('test.register') && !_cascadeCan('test.retro_edit')) {
         _cascadeGate('test.register', 'corregir el alta de un vehículo');
         return;
     }
+    // [3.18.0] Candado de un instante: si otro equipo cambió su etapa, se dice antes de abrir.
+    if (!_gated) { _cascadeCloudGateThen(v, v.status, 'corregir el alta', function() { vehicleCorrectAltaOpen(vehicleId, prefill, true); }); return; }
     prefill = prefill || {};
     window._altaCorr = { id: v.id, code: v.configCode || '', selected: '__actual__', plan: null, overlay: null };
     var modelo = (v.config && v.config['Modelo']) || '';
@@ -27129,7 +27289,22 @@ function histShowTimelineModal(vehicleId) {
       if (data.added && data.added.length) {
         html += '<div style="font-size: var(--fs-xs);color:var(--text);margin-top: var(--space-2xs);">Añadidos: ' + data.added.map(escapeHtml).join(', ') + '</div>';
       }
-      if (data.modified && data.modified.length) {
+      if (data.modified && data.modified.length && data.conflict) {
+        // [3.18.0] Un cambio cruzado entre equipos: "No quedó" lleva su botón debajo (una tabla
+        // de cinco columnas no cabe en un teléfono) y la razón va una sola vez.
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Dos equipos cambiaron estos datos a la vez; quedó el cambio más reciente.</div>' +
+                '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top: var(--space-xs);"><thead><tr>' +
+                ['Campo', 'No quedó', 'Quedó'].map(function(h) { return '<th style="text-align:left;padding: var(--space-2xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+        data.modified.forEach(function(m, mi) {
+          var puede = Object.prototype.hasOwnProperty.call(m, 'valor') && vehicleLostValueRestorable(m.key) && !_opIsReadOnlyStatus(vehicle.status);
+          html += '<tr><td style="padding: var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(m.campo || m.key || '') + '</td>' +
+                  '<td style="padding: var(--space-2xs) var(--space-sm);color:var(--danger-text);">' + escapeHtml(String(m.antes)) +
+                  (puede ? '<div style="margin-top: var(--space-2xs);"><button type="button" class="btn btn-secondary btn-sm" onclick="vehicleUseLostValue(' +
+                      escapeHtml(JSON.stringify(vehicle.id)) + ',' + escapeHtml(JSON.stringify(item.timestamp)) + ',' + mi + ')">↩️ Usar este valor</button></div>' : '') +
+                  '</td><td style="padding: var(--space-2xs) var(--space-sm);color:var(--ok-text);">' + escapeHtml(String(m.despues)) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      } else if (data.modified && data.modified.length) {
         html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top: var(--space-xs);"><thead><tr>' +
                 ['Campo', 'Antes', 'Después', 'Razón'].map(function(h) { return '<th style="text-align:left;padding: var(--space-2xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
         data.modified.forEach(function(m) {
@@ -32657,10 +32832,11 @@ function invAddReading(gasId, psi, opts) {
         existing.psi = val;
         existing.by = by;
         existing.shift = shift;
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, psi: val, by: by };
+        reading = { date: date, psi: val, by: by, at: new Date().toISOString() };
         reading.shift = shift;
         if (opts.source) reading.source = opts.source;
         gas.readings.push(reading);
@@ -32747,10 +32923,11 @@ function invAddFuelReading(tankId, level, opts) {
         replaced = { date: existing.date, level: existing.level, by: existing.by || '' };
         existing.level = val;
         existing.by = by;
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, level: val, by: by };
+        reading = { date: date, level: val, by: by, at: new Date().toISOString() };
         if (opts.source) reading.source = opts.source;
         tank.readings.push(reading);
         tank.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
@@ -37930,6 +38107,11 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 var _readingRound = null;
 var INV_ROUND_LS_KEY = 'kia_inv_round';   // ronda a medias (el cuarto de gases puede no tener señal)
 var _invLastRound = null;                 // resumen de la última ronda, para el botón Copiar
+// [3.18.0] La ronda guarda por tramos para que los demás equipos vean el avance: cada
+// INV_ROUND_TRANCHE_N lecturas, cada INV_ROUND_TRANCHE_MS o al cambiar de pasillo. El modelo
+// de consumo se reentrena una sola vez, al final (_invRoundCommit).
+var INV_ROUND_TRANCHE_N = 5;
+var INV_ROUND_TRANCHE_MS = 30 * 1000;
 
 /** Los puntos del recorrido, en el orden en que están acomodados físicamente. */
 function invRoundItems() {
@@ -38023,7 +38205,7 @@ function invStartReadingRound(opts) {
         steps: items.map(_invRoundStep),
         state: state,
         startAt: _readingRound.index,
-        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); } },
+        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); _invRoundTranche(false); } },
         onFinal: _invRoundFinalHTML,
         onClose: _invRoundClose
     });
@@ -38042,8 +38224,63 @@ function _invRoundStep(item) {
         title: ref ? (esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas')) : item.id,
         render: function(host) { _invRoundRenderCard(host, item); },
         save: function(host) { return _invRoundSaveCard(host, item); },
-        onLater: function() { _invRoundMarkSkipped(item); }
+        onLater: function() { _invRoundMarkSkipped(item); },
+        doneBy: function() { var o = _invRoundOtherReading(item); return o ? o.label : ''; }
     };
+}
+
+/** Hora (HH:MM) de una marca ISO, en la hora del equipo. */
+function _invRoundHHMM(iso) {
+    var t = Date.parse(iso || '');
+    if (!t) return '';
+    var d = new Date(t);
+    return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+}
+
+/**
+ * [3.18.0] ¿Alguien ya leyó este punto en ESTE turno, fuera de esta ronda? (otra persona en
+ * otro equipo, o la retícula de Captura). → {reading, by, label} | null. Lo que capturó esta
+ * misma ronda no cuenta: eso ya está hecho.
+ */
+function _invRoundOtherReading(item) {
+    if (!_readingRound) return null;
+    var k = _invRoundKey(item);
+    if ((_readingRound.results || []).some(function(x) { return !x.skipped && x.kind + ':' + x.id === k; })) return null;
+    var ref = _invRoundRef(item);
+    if (!ref) return null;
+    var r = null;
+    if (item.kind === 'fuel') {
+        // El combustible es una lectura por día: cuenta solo si se tomó en este turno.
+        r = (ref.readings || []).filter(function(x) {
+            if (!x || x.auto || x.date !== _readingRound.date || !x.at) return false;
+            return invShiftNow(new Date(Date.parse(x.at))) === _readingRound.shift;
+        }).pop() || null;
+    } else {
+        r = invFindReadingOn(ref, _readingRound.date, _readingRound.shift);
+    }
+    if (!r) return null;
+    var yo = (typeof _dashMe === 'function') ? _dashMe() : '';
+    var by = String(r.by || '').trim();
+    var quien = by && yo && by === yo ? 'tú' : (by || 'otra persona');
+    var hora = _invRoundHHMM(r.at);
+    return { reading: r, by: by, label: quien + (hora ? ' a las ' + hora : '') };
+}
+
+/** [3.18.0] Guardado por tramos (sin reentrenar). `porLectura` = se acaba de capturar una. */
+function _invRoundTranche(porLectura) {
+    var r = _readingRound;
+    if (!r) return;
+    if (porLectura) r.unsaved = (r.unsaved || 0) + 1;
+    var item = r.items[r.index];
+    var pasillo = item ? (item.kind === 'fuel' ? 'fuel' : String(item.zone || '').charAt(0).toUpperCase()) : '';
+    var cambio = !porLectura && r.lastAisle !== undefined && pasillo !== r.lastAisle;
+    if (!porLectura) r.lastAisle = pasillo;
+    if (!r.unsaved) return;
+    if (r.unsaved >= INV_ROUND_TRANCHE_N || cambio || Date.now() - (r.savedAt || r.startTime) >= INV_ROUND_TRANCHE_MS) {
+        invSave();
+        r.unsaved = 0;
+        r.savedAt = Date.now();
+    }
 }
 
 /** Última lectura ANTERIOR a la de la ronda (si se regresa a un punto, la de este turno no cuenta). */
@@ -38074,8 +38311,17 @@ function _invRoundRenderCard(host, item) {
         : ((ref.controlNo || ref.id) + ' · Zona ' + (ref.zone || '—') + (ref.concNominal ? ' · ' + ref.concNominal : ''));
     var spark = _invRoundSparkline((ref.readings || []).slice(-5).map(function(x) { return (esFuel ? x.level : x.psi) || 0; }));
 
+    var otro = _invRoundOtherReading(item);
+    var hechas = (_readingRound.results || []).filter(function(x) { return !x.skipped; }).length;
     host.innerHTML =
+        (typeof fbPresenceChipHTML === 'function'
+            ? fbPresenceChipHTML('ronda:gases:' + _readingRound.date + ':' + _readingRound.shift,
+                { here: true, screen: 'Ronda', progress: hechas + '/' + _readingRound.items.length })
+            : '') +
         '<div class="uf-kicker">' + escapeHtml(sub) + '</div>' +
+        (otro ? '<div class="uf-note is-other" role="note">✓ Ya la tomó ' + escapeHtml(otro.label) + ': <b>' +
+            escapeHtml(String(esFuel ? otro.reading.level : otro.reading.psi)) + ' ' + escapeHtml(unidad) +
+            '</b>. Si la lees otra vez, queda la tuya como corrección.</div>' : '') +
         '<label class="uf-q" for="round-reading-input">' + escapeHtml(titulo) + '</label>' +
         (spark || lastVal !== ''
             ? '<div class="uf-context">' + spark +
@@ -38148,6 +38394,7 @@ function _invRoundSaveCard(host, item) {
         warning: res.warning || null,
         alert: dropPct > 15 || !!res.warning
     });
+    _invRoundTranche(true);
     return { ok: true };
 }
 
@@ -38223,6 +38470,15 @@ function _invRoundFinalHTML(model) {
         h += '<div class="uf-list is-warn"><b>⚠ Revisar la caída</b>' + alerts.map(function(a) {
             return '<div>' + escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value +
                    (a.warning ? ' · ' + escapeHtml(a.warning) : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    // [3.18.0] Lo que leyó otra persona en este turno: cuenta como leído, no como pendiente.
+    var deOtros = (model.cards || []).filter(function(c) { return c.status === 'otro'; });
+    if (deOtros.length) {
+        h += '<div class="uf-list"><b>👥 Los leyó otra persona</b>' + deOtros.map(function(c) {
+            var it = _readingRound.items.filter(function(x) { return _invRoundKey(x) === c.key; })[0];
+            var ref = it ? _invRoundRef(it) : null;
+            return '<div>' + escapeHtml(ref ? (ref.controlNo || ref.name || c.title) : c.title) + ' — ' + escapeHtml(c.by || '') + '</div>';
         }).join('') + '</div>';
     }
     if (saltadas.length) {
@@ -43374,6 +43630,44 @@ function tpRemoveWeeklyItem(wk, idx) {
 }
 
 /**
+ * [3.18.0] Marca de borrado de una fila (`plan.removedItems[uid]`). La fusión entre equipos es
+ * aditiva: sin la marca, una fila quitada regresaba desde otro equipo que la seguía teniendo.
+ * Devolverla deja `removed:false` con fecha más nueva (la marca nunca se borra: gana la más
+ * reciente, fbPlanRowMarksUnion). Todo camino que saque una fila de `plan.items` la llama.
+ */
+function tpRowMarkSet(plan, uid, removed) {
+    if (!plan || uid === undefined || uid === null || uid === '') return;
+    if (!plan.removedItems || typeof plan.removedItems !== 'object') plan.removedItems = {};
+    plan.removedItems[uid] = { removed: !!removed, at: new Date().toISOString(),
+        by: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '' };
+}
+
+/**
+ * [3.18.0] Tras restaurar una foto del plan (Deshacer): las marcas no retroceden. Una fila que
+ * la foto devuelve se marca devuelta, y una que la foto quita se marca quitada — si no, la
+ * fusión con los otros equipos desharía el Deshacer (o lo ignoraría).
+ * `antes` = weeklyPlans justo antes de restaurar.
+ */
+function tpRowMarksAfterRestore(antes) {
+    var previo = {};
+    (antes || []).forEach(function(p) { if (p) previo[tpPlanId(p)] = p; });
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        var q = p && previo[tpPlanId(p)];
+        if (!q) return;
+        var marcas = (typeof fbPlanRowMarksUnion === 'function') ? fbPlanRowMarksUnion(p.removedItems, q.removedItems)
+            : Object.assign({}, p.removedItems || {}, q.removedItems || {});
+        var ahora = {};
+        (p.items || []).forEach(function(it) { if (it && it.uid) ahora[it.uid] = true; });
+        var tenia = {};
+        (q.items || []).forEach(function(it) { if (it && it.uid) tenia[it.uid] = true; });
+        p.removedItems = marcas;
+        Object.keys(ahora).forEach(function(uid) { if (marcas[uid] && marcas[uid].removed) tpRowMarkSet(p, uid, false); });
+        Object.keys(tenia).forEach(function(uid) { if (!ahora[uid]) tpRowMarkSet(p, uid, true); });
+        if (!Object.keys(p.removedItems).length) delete p.removedItems;
+    });
+}
+
+/**
  * [2.22.0] ÚNICO escritor de "quitar una prueba del plan". Sin diálogo: lo llaman
  * tpRemoveWeeklyItem (tras su confirmación) y la revisión de la semana (la ficha
  * "Quitar" + Guardar es la confirmación). Acción destructiva: undoPush + auditoría.
@@ -43385,6 +43679,7 @@ function tpRemoveWeeklyItemNow(planRef, itemRef, opts) {
     if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
     if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
     var item = _n.plan.items.splice(_n.itemIdx, 1)[0];
+    tpRowMarkSet(_n.plan, item && item.uid, true);
     tpBoardInvalidate();
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
@@ -43409,6 +43704,7 @@ function tpRestoreWeeklyItem(planRef, item, atIdx) {
     }
     var at = Math.max(0, Math.min(plan.items.length, typeof atIdx === 'number' ? atIdx : plan.items.length));
     plan.items.splice(at, 0, item);
+    tpRowMarkSet(plan, item.uid, false);
     tpBoardInvalidate();
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
@@ -45174,6 +45470,7 @@ function tpUnplanCreditedItem(weekIdx, itemIdx) {
     var lbl = _n.item.desc;
     if (typeof undoPush === 'function') undoPush('testplan', 'Quitar prueba no planeada');
     _n.plan.items.splice(_n.itemIdx, 1);
+    tpRowMarkSet(_n.plan, _n.item.uid, true);
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
         auditLog('tp', 'week_item_unplanned_removed', { type: 'plan', label: lbl }, 'Semana ' + (_n.plan.weekDate || '—'));
@@ -51379,7 +51676,7 @@ function _tpReleaseVehicleLinks(vehicleId, keepItem) {
             var it = p.items[i];
             if (!it || it === keepItem || it.linkedVehicleId == null || String(it.linkedVehicleId) !== String(vehicleId)) continue;
             var info = { planId: tpPlanId(p), weekDate: p.weekDate || null, desc: it.desc, day: tpItemDay(it), removed: false };
-            if (it.unplanned && it.origin === 'cascade') { p.items.splice(i, 1); info.removed = true; }
+            if (it.unplanned && it.origin === 'cascade') { p.items.splice(i, 1); tpRowMarkSet(p, it.uid, true); info.removed = true; }
             else _tpClearLink(it);
             sueltas.push(info);
             tocado = true;
@@ -64276,7 +64573,7 @@ var fbSync = {
     _useREST: false,               // Fall back to REST API if SDK transport broken
     _listeners: [],                // onSnapshot unsubscribe functions for live sync
     _pendingMerge: {},             // Debounce timers: "stationId|col" → timerID
-    _recentRemote: {},             // Anti-duplicate: "stationId|col" → timestamp of last processed change
+    _recentRemote: {},             // [3.18.0] col → huella del último documento procesado (fbRemoteDocKey)
     _liveSync: false               // true when onSnapshot listeners are active
 };
 
@@ -65647,6 +65944,44 @@ function _fbPlanTombsNewTo(known, incoming) {
     return (incoming || []).some(function(t) { return t && t.planId && !k[t.planId]; });
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.18.0] MARCAS DE BORRADO DE LAS FILAS DE UN PLAN
+// `plan.removedItems = {uid: {removed, at, by}}`. La fusión de semanas es aditiva: sin
+// marca, una fila quitada en un equipo regresaba desde el otro (que la seguía teniendo)
+// y además le llegaba al que la quitó con el aviso "Plan actualizado". Devolver una fila
+// deja `removed:false` con fecha más nueva: nunca se borra la marca, gana la más reciente.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Unión de dos juegos de marcas: por uid gana `at` más reciente; empate → quitada. PURA y SIMÉTRICA. */
+function fbPlanRowMarksUnion(a, b) {
+    var out = {};
+    [a || {}, b || {}].forEach(function(m) {
+        Object.keys(m).forEach(function(uid) {
+            var x = m[uid];
+            if (!x || typeof x !== 'object') return;
+            var y = out[uid];
+            var xa = String(x.at || ''), ya = y ? String(y.at || '') : null;
+            if (!y || xa > ya || (xa === ya && x.removed && !y.removed)) out[uid] = { removed: !!x.removed, at: x.at || '', by: x.by || '' };
+        });
+    });
+    return out;
+}
+
+/** ¿`mine` trae alguna marca que `theirs` no tiene (o más nueva)? PURA. */
+function fbPlanRowMarksNewTo(theirs, mine) {
+    theirs = theirs || {};
+    return Object.keys(mine || {}).some(function(uid) {
+        var m = mine[uid], t = theirs[uid];
+        return m && (!t || String(m.at || '') > String(t.at || ''));
+    });
+}
+
+/** ¿Esta fila del plan está quitada según las marcas? PURA. */
+function fbPlanRowRemoved(marks, item) {
+    var m = item && item.uid && marks ? marks[item.uid] : null;
+    return !!(m && m.removed);
+}
+
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
@@ -66623,12 +66958,26 @@ function fbStopListening() {
     void 0;
 }
 
+/**
+ * [3.18.0] Huella de UN documento recibido: hora del servidor (`updatedAt`) + quién lo
+ * escribió; sin hora, su contenido. PURA. Dos entregas del mismo documento dan la misma.
+ */
+function fbRemoteDocKey(docData, remoteSt) {
+    var ts = docData && docData.updatedAt;
+    if (ts && typeof ts.toMillis === 'function') ts = ts.toMillis();
+    if (ts !== undefined && ts !== null && ts !== '') return String(remoteSt) + '|' + String(ts);
+    var raw = docData && docData.data;
+    return String(remoteSt) + '|h' + ((typeof strHash === 'function' && typeof stableStringify === 'function')
+        ? strHash(stableStringify(raw === undefined ? null : raw)) : JSON.stringify(raw));
+}
+
 function fbHandleRemoteChange(col, docData, remoteSt) {
-    var now = Date.now();
-    var key = remoteSt + '|' + col;
-    // Anti-duplicate: skip if we already processed this remote change within the last 5s
-    if (fbSync._recentRemote[key] && (now - fbSync._recentRemote[key]) < 5000) return;
-    fbSync._recentRemote[key] = now;
+    // [3.18.0] Se descarta solo el MISMO documento entregado otra vez. Antes se descartaba
+    // todo lo que llegara del mismo equipo dentro de 5 s: dos palomitas a 3 s de distancia
+    // y la segunda no llegaba a los demás hasta el siguiente cambio o recargar.
+    var key = fbRemoteDocKey(docData, remoteSt);
+    if (fbSync._recentRemote[col] === key) return;
+    fbSync._recentRemote[col] = key;
 
     // ══════════════════════════════════════════════════════════════════
     // [v23.2] EL LIVE-SYNC AUTOMÁTICO NUNCA HABÍA FUNCIONADO.
@@ -66883,6 +67232,8 @@ function _fbLocalHasExtras(col, remote) {
             var rw = rp[_fbPlanKey(lw)];
             if (!rw) return true;
             if (lw.updatedAt && (!rw.updatedAt || lw.updatedAt > rw.updatedAt)) return true;
+            // [3.18.0] Una fila quitada (o devuelta) aquí que la nube no sabe.
+            if (fbPlanRowMarksNewTo(rw.removedItems, lw.removedItems)) return true;
             var ri = {};
             (rw.items || []).forEach(function(it) { ri[_fbPlanItemKey(it)] = it; });
             return (lw.items || []).some(function(it) {
@@ -66893,10 +67244,16 @@ function _fbLocalHasExtras(col, remote) {
     }
     if (col === 'inventory') {
         var _rk = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
-        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = true; }); return m; };
+        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = r; }); return m; };
+        // [3.18.0] También cuenta una lectura HUMANA de la misma fecha y turno con otro
+        // contenido (una corrección): si no, la nube se quedaba con el valor viejo.
         var faltaLectura = function(loc, rem) {
             var rf = fechas(rem && rem.readings);
-            return (loc.readings || []).some(function(r) { return r && r.date && !rf[_rk(r)]; });
+            return (loc.readings || []).some(function(r) {
+                if (!r || !r.date) return false;
+                var o = rf[_rk(r)];
+                return !o || (!r.auto && stableStringify(o) !== stableStringify(r));
+            });
         };
         var rg = _fbGasIndex(remote.gases);
         if ((invState.gases || []).some(function(g) { var r = rg.find(g); return !r || faltaLectura(g, r); })) return true;
@@ -67390,17 +67747,41 @@ function fbMergeLoadStation(stationId, callback) {
 // fbMergeExecute (otra función), así que toda fusión de un cilindro o un tanque en
 // conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
 // así que fallaba callada.
-function _fbMergeReadings(locales, remotas, campo) {
+function _fbMergeReadings(locales, remotas, campo, opts) {
     // [3.16.0] Una lectura HUMANA se identifica por fecha + turno (mañana/tarde; sin turno =
     // mañana): dos del mismo día ya no colapsan en una. Las automáticas siguen siendo una por
     // fecha y se retiran del día que tiene alguna humana (el manómetro manda sobre la estimación).
+    //
+    // [3.18.0] Con `opts` (la fusión entre equipos, _fbMergeInvItem) la misma clave se resuelve
+    // SIMÉTRICA: gana la capturada más tarde (`at`; una con `at` es posterior a una sin él), si
+    // no la de la copia editada más recientemente (opts.localAt / opts.remoteAt = updatedAt del
+    // cilindro), y al final por contenido. Antes ganaba siempre la local: corregir una lectura
+    // en otro equipo no llegaba nunca y cada equipo se quedaba con su valor. Un valor que no
+    // quedó se reporta en opts.conflicts. Sin `opts` (repararCilindros) gana la primera lista.
     var sh = function(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; };
     var key = function(r) { return r.date + '|' + (r.auto ? 'auto' : sh(r)); };
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var valor = function(r) { return r.psi !== undefined ? r.psi : r.level; };
+    var ganaLocal = function(l, r) {
+        var la = String(l.at || ''), ra = String(r.at || '');
+        if (la !== ra) return la > ra;
+        var lu = String((opts && opts.localAt) || ''), ru = String((opts && opts.remoteAt) || '');
+        if (lu !== ru) return lu > ru;
+        return ss(l) >= ss(r);
+    };
     var porClave = {};
     (remotas || []).forEach(function(r) { if (r && r.date) porClave[key(r)] = r; });
     (locales || []).forEach(function(r) {
         if (!r || !r.date) return;
-        porClave[key(r)] = r;             // misma clave: gana la local (antes: también)
+        var k = key(r), otra = porClave[k];
+        if (!otra || !opts) { porClave[k] = r; return; }   // sin opts: gana la local (antes: también)
+        if (ss(r) === ss(otra)) return;
+        var local = ganaLocal(r, otra);
+        porClave[k] = local ? r : otra;
+        if (opts.conflicts && !r.auto && valor(r) !== valor(otra)) {
+            opts.conflicts.push({ date: r.date, shift: sh(r), kept: local ? r : otra, lost: local ? otra : r,
+                                  lostSide: local ? 'remote' : 'local' });
+        }
     });
     var humanas = {};
     Object.keys(porClave).forEach(function(k) { var r = porClave[k]; if (!r.auto) humanas[r.date] = true; });
@@ -67449,7 +67830,7 @@ function _fbInvItemDiffers(l, r) {
 // _fbMergeVehicle, v23.5): los campos vienen de la copia editada más recientemente
 // (`updatedAt`); sin fecha o empatadas, de la que ordena mayor por contenido — así los
 // dos equipos eligen lo mismo y no se re-empujan. Las lecturas SIEMPRE se unen.
-function _fbMergeInvItem(local, remote) {
+function _fbMergeInvItem(local, remote, conflicts) {
     var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
     var sinSerie = function(o) { var c = Object.assign({}, o); delete c.readings; return c; };
     var lu = (local && local.updatedAt) || '', ru = (remote && remote.updatedAt) || '';
@@ -67458,13 +67839,48 @@ function _fbMergeInvItem(local, remote) {
     else base = ss(sinSerie(local)) >= ss(sinSerie(remote)) ? local : remote;
     var otro = base === local ? remote : local;
     var mezcla = Object.assign({}, otro, base);
-    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings);
+    // [3.18.0] Las lecturas también son simétricas (antes, misma fecha + turno = gana la local).
+    var choques = [];
+    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings, null,
+        { localAt: lu, remoteAt: ru, conflicts: choques });
+    if (conflicts) choques.forEach(function(c) {
+        c.label = (local && (local.controlNo || local.name)) || (remote && (remote.controlNo || remote.name)) || '';
+        c.id = (local && local.id) || (remote && remote.id) || '';
+        conflicts.push(c);
+    });
     // Un equipo con código viejo no conoce `initialPsi`: no se pierde por venir del otro.
     if (!mezcla.initialPsi && otro && otro.initialPsi) mezcla.initialPsi = otro.initialPsi;
     // Objeto nuevo → huella nueva SIN tocar updatedAt (regla de v23.5): si no, el próximo
     // invSave lo tomaría por una edición local y ganaría a todos con la hora de ahora.
     if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
     return mezcla;
+}
+
+/**
+ * [3.18.0] Texto del aviso para quien perdió su lectura en una fusión. PURA.
+ * c = {kind, label, date, shift, kept, lost} (de _fbMergeReadings).
+ */
+function fbReadingConflictText(c) {
+    var u = c.kind === 'fuel' ? '' : ' psi';
+    var v = function(r) { return r ? (r.psi !== undefined ? r.psi : r.level) : '—'; };
+    var turno = c.kind === 'fuel' ? '' : (c.shift === 'pm' ? ', tarde' : ', mañana');
+    return 'Lectura de ' + (c.label || (c.kind === 'fuel' ? 'tanque' : 'cilindro')) + ' (' + c.date + turno + '): quedó ' +
+        v(c.kept) + u + (c.kept && c.kept.by ? ' de ' + c.kept.by : '') + '. La tuya (' + v(c.lost) + u +
+        ') queda en el historial de cambios.';
+}
+
+/** Avisa y deja en el historial las lecturas de ESTE equipo que no quedaron. */
+function _fbReadingConflictsNotify(list) {
+    (list || []).filter(function(c) { return c && c.lostSide === 'local'; }).forEach(function(c) {
+        var txt = fbReadingConflictText(c);
+        if (typeof showToast === 'function') showToast(txt, 'warning', 10000);
+        if (typeof auditLog === 'function') {
+            var val = function(r) { return r ? (r.psi !== undefined ? r.psi : r.level) : null; };
+            auditLog('inv', 'lectura_cruzada', { type: c.kind || 'gas', id: c.id, label: c.label }, txt,
+                { before: { valor: val(c.lost), by: (c.lost && c.lost.by) || '' },
+                  after: { valor: val(c.kept), by: (c.kept && c.kept.by) || '' } });
+        }
+    });
 }
 
 // ── Analyze differences between local and remote ──
@@ -67777,7 +68193,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                 var idx = db.vehicles.findIndex(function(v) { return vehicleCopyKey(v) === _ck; });
                 if (idx >= 0) {
                     var localSent = !!(c.local.paStatus && c.local.paStatus.vehicle_released && c.local.paStatus.vehicle_released.sent);
-                    var res = _fbMergeVehicle(db.vehicles[idx], c.remote);
+                    // [3.18.0] Campo por campo contra la base (sin base: la regla de antes).
+                    var res = (typeof _fbVehMergeSync === 'function') ? _fbVehMergeSync(db.vehicles[idx], c.remote)
+                                                                     : _fbMergeVehicle(db.vehicles[idx], c.remote);
                     var winnerSent = !!(res.vehicle.paStatus && res.vehicle.paStatus.vehicle_released && res.vehicle.paStatus.vehicle_released.sent);
                     if (localSent && winnerSent && res.from === 'remote') paPreserved++;
                     // [2.37.2] EN SU LUGAR, nunca `db.vehicles[idx] = …`: una firma abierta
@@ -67898,6 +68316,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                         } else {
                             var lw = tpState.weeklyPlans[localWeekMap[k]];
                             if (!lw.items) lw.items = [];
+                            // [3.18.0] Las marcas de filas quitadas se unen ANTES de que el plan
+                            // remoto (si es más nuevo) reemplace los campos del plan.
+                            var _marcas = fbPlanRowMarksUnion(lw.removedItems, rw.removedItems);
                             // [v23.5] Si el plan remoto se editó DESPUÉS (`updatedAt`, lo sella
                             // stampRevisions en tpSave), sus campos de plan y sus versiones de cada fila
                             // mandan: así viaja un "mover al jueves" o un aceptar. Sin fechas
@@ -67912,6 +68333,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                             lw.items.forEach(function(item, i) { idxByKey[_fbPlanItemKey(item)] = i; });
                             (rw.items || []).forEach(function(item) {
                                 var ik = _fbPlanItemKey(item);
+                                if (fbPlanRowRemoved(_marcas, item)) return;
                                 if (idxByKey[ik] === undefined) { lw.items.push(item); idxByKey[ik] = lw.items.length - 1; return; }
                                 var mine = lw.items[idxByKey[ik]];
                                 if (remoteNewer) {
@@ -67926,6 +68348,10 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                                     lw.items[idxByKey[ik]] = item;
                                 }
                             });
+                            if (Object.keys(_marcas).length) {
+                                lw.removedItems = _marcas;
+                                lw.items = lw.items.filter(function(it) { return !fbPlanRowRemoved(_marcas, it); });
+                            }
                             // La fusión NO es una edición de este equipo: re-sellar la huella
                             // sin mover `updatedAt`, o el próximo tpSave la tomaría por una
                             // edición local "más nueva" y la re-empujaría.
@@ -68020,10 +68446,13 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // tiraba las lecturas capturadas en este dispositivo. Se toma el remoto como
             // base pero las series se UNEN, y se conserva la nominal local si el remoto
             // no la trae (un equipo con código viejo no conoce `initialPsi`).
+            // [3.18.0] Lecturas de la misma fecha y turno con valores distintos: se avisa a
+            // quien perdió la suya (sigue en su historial de cambios).
+            var _choquesGas = [], _choquesFuel = [];
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.indexOf(_fbGasIndex(invState.gases).find(c.remote));
                 if (idx < 0) return;
-                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {});
+                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {}, _choquesGas);
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -68043,7 +68472,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.fuelUpdates || []).forEach(function(c) {
                 var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
                 if (idx < 0) return;
-                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {});
+                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {}, _choquesFuel);
                 // El nivel autoritativo sale de la última lectura de la serie ya unida:
                 // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
                 var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
@@ -68055,6 +68484,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
             if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
+            _choquesGas.forEach(function(c) { c.kind = 'gas'; });
+            _choquesFuel.forEach(function(c) { c.kind = 'fuel'; });
+            _fbReadingConflictsNotify(_choquesGas.concat(_choquesFuel));
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();
@@ -68625,7 +69057,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610210427' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610221429' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69847,7 +70279,8 @@ function _fbBugsRestSend(method, suffix, fieldsObj, query) {
             return resp.text().then(function(t) {
                 var msg = 'HTTP ' + resp.status;
                 try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
-                throw new Error(msg);
+                var err = new Error(msg); err.status = resp.status;
+                throw err;
             });
         });
     });
@@ -70193,7 +70626,8 @@ function _fbAuditCommit(writes) {
         return fetch(_fbAuditBase() + ':commit?key=' + FIREBASE_CONFIG.apiKey,
             { method: 'POST', headers: headers, body: JSON.stringify({ writes: writes }) })
             .then(function(resp) {
-                if (resp.ok) { fbQuotaRecord('write'); return true; }
+                // [3.18.0] Devuelve la respuesta (writeResults trae el updateTime de cada documento).
+                if (resp.ok) { fbQuotaRecord('write'); return resp.json().then(function(j) { return j || {}; }, function() { return {}; }); }
                 return resp.text().then(function(t) {
                     var msg = 'HTTP ' + resp.status, st = '';
                     try { var j = JSON.parse(t); msg = (j.error && j.error.message) || msg; st = (j.error && j.error.status) || ''; } catch (e) {}
@@ -70598,15 +71032,22 @@ function fbVehPushPlan(vehicles, tombs, known, hold, info) {
 }
 
 /** Escrituras de un commit. PURA. `meta` (opcional) va al final con la hora del servidor. */
-function fbVehWrites(upserts, deletes, meta, docNameFn, device, retires) {
+function fbVehWrites(upserts, deletes, meta, docNameFn, device, retires, pre) {
     var ts = [{ fieldPath: 'serverTs', setToServerValue: 'REQUEST_TIME' }];
     var w = [];
     (upserts || []).forEach(function(v) {
         var json = JSON.stringify(v);
-        w.push({ update: { name: docNameFn('vehicles/' + fbVehDocId(v)), fields: {
+        var wr = { update: { name: docNameFn('vehicles/' + fbVehDocId(v)), fields: {
             json: { stringValue: json }, vin: { stringValue: String(v.vin || '') }, id: { stringValue: String(v.id) },
             rev: { stringValue: String(v._rev || '') }, deleted: { booleanValue: false }, writer: { stringValue: device || '' }
-        } }, updateTransforms: ts });
+        } }, updateTransforms: ts };
+        // [3.18.0] Precondición: solo se escribe si la nube sigue con la versión que se fusionó
+        // (`updateTime`), o si el documento todavía no existe. Si alguien escribió en medio, el
+        // commit falla y el ciclo vuelve a traer y fusionar.
+        var p = pre && pre[fbVehDocId(v)];
+        if (p === 'new') wr.currentDocument = { exists: false };
+        else if (p) wr.currentDocument = { updateTime: p };
+        w.push(wr);
     });
     (deletes || []).forEach(function(d) {
         w.push({ update: { name: docNameFn('vehicles/' + d.docId), fields: {
@@ -70635,7 +71076,7 @@ function fbVehWrites(upserts, deletes, meta, docNameFn, device, retires) {
  * `deleted` no trae vehículo: lo retira la marca de borrado de cop15meta.
  */
 function fbVehParseDocs(docs) {
-    var out = { vehicles: [], revs: {}, info: {}, maxTs: 0, bad: 0 };
+    var out = { vehicles: [], revs: {}, info: {}, byDoc: {}, maxTs: 0, bad: 0 };
     (docs || []).forEach(function(d) {
         if (!d) return;
         var t = Date.parse(d.serverTs || '') || 0;
@@ -70645,6 +71086,8 @@ function fbVehParseDocs(docs) {
         // [2.37.1] y su VIN: con él, un equipo sabe qué documentos son copias de un vehículo que
         // ya tiene con otro id (fbVehPushPlan → retires).
         if (id) out.info[id] = { ts: d.serverTs || '', w: d.writer || '', vin: String(d.vin || '') };
+        // [3.18.0] La versión exacta del documento (para la precondición al subir).
+        if (id && d._ut) out.info[id].ut = d._ut;
         var v = null;
         try { v = JSON.parse(d.json || 'null'); } catch (e) { v = null; }
         // [2.37.2] y su fecha de alta: con VIN + alta se distingue una copia de un re-ensayo.
@@ -70652,7 +71095,7 @@ function fbVehParseDocs(docs) {
         if (d.deleted) { if (id) out.revs[id] = 'deleted'; return; }
         if (!v || typeof v !== 'object' || !v.vin) { out.bad++; return; }
         out.vehicles.push(v);
-        if (id) out.revs[id] = v._rev || d.rev || '';
+        if (id) { out.revs[id] = v._rev || d.rev || ''; out.byDoc[id] = v; }
     });
     return out;
 }
@@ -70722,6 +71165,350 @@ function fbVehDupPlan(docs, tombs) {
     return { groups: groups, docs: (docs || []).length, live: live, tombstoned: tombstoned, vehicles: order.length };
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.18.0] UN VEHÍCULO EN DOS EQUIPOS: FUSIÓN CAMPO POR CAMPO         ║
+// ║                                                                      ║
+// ║  Antes ganaba el vehículo ENTERO con la edición más reciente           ║
+// ║  (_fbMergeVehicle): si A marcaba el checklist y B capturaba el         ║
+// ║  dinamómetro 3 s después, el checklist desaparecía en los dos.         ║
+// ║  Ahora se compara contra la BASE (la última versión de la nube que     ║
+// ║  este equipo ya incorporó, guardada en IndexedDB): lo cambiado de un   ║
+// ║  solo lado se conserva; lo cambiado de los dos lados gana el más       ║
+// ║  reciente, y el valor que no quedó se guarda en la línea de tiempo.    ║
+// ║  Sin base se cae a la regla de antes (sin regresión).                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+/** Campos de control: se toma el mayor, nunca son un choque. */
+var FB_VEH_BOOKKEEPING = { updatedAt: 1, lastModified: 1, lastUpdated: 1, _rev: 1 };
+/** Un valor perdido más grande que esto (p. ej. una firma) no se guarda en la línea de tiempo. */
+var FB_VEH_LOST_MAX = 2000;
+
+function _fbSame(a, b) {
+    if (a === b) return true;
+    if (a === undefined || b === undefined) return false;
+    return stableStringify(a) === stableStringify(b);
+}
+function _fbPlainObj(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+
+/** Texto corto de un valor para la línea de tiempo. PURA. */
+function _fbVehValText(v) {
+    if (v === undefined || v === null || v === '') return '(vacío)';
+    if (typeof v === 'string') return /^data:/.test(v) ? '[imagen]' : (v.length > 120 ? v.slice(0, 117) + '…' : v);
+    if (typeof v === 'object') { var t = JSON.stringify(v); return t.length > 120 ? t.slice(0, 117) + '…' : t; }
+    return String(v);
+}
+
+/**
+ * LA fusión de dos copias de un vehículo contra su base. PURA y SIMÉTRICA:
+ * fbVehMerge3(b, x, y) y fbVehMerge3(b, y, x) dan el mismo contenido.
+ * → {vehicle, from: 'local'|'remote'|'mixed'|'equal', conflicts: [{path, kept, lost, keptFrom}], mode}
+ * Choque = una hoja que cambió de los DOS lados respecto a la base; gana la copia con
+ * `updatedAt` más reciente (empate: por contenido, como _fbMergeVehicle). Cada choque
+ * deja una entrada en la línea de tiempo con fecha y contenido deterministas, así los dos
+ * equipos escriben la misma y la unión no la duplica.
+ */
+function fbVehMerge3(base, local, remote) {
+    var sl = stableStringify(local), sr = stableStringify(remote);
+    if (sl === sr) return { vehicle: local, from: 'equal', conflicts: [], mode: 'campo' };
+    // Sin base, o copias con distinto id (dos documentos del mismo vehículo): la regla de antes.
+    if (!base || !local || !remote || String(local.id) !== String(remote.id) || String(base.id) !== String(local.id)) {
+        var r0 = _fbMergeVehicle(local, remote);
+        return { vehicle: r0.vehicle, from: r0.from, conflicts: [], mode: 'registro' };
+    }
+    var tl = _fbVehTime(local), tr = _fbVehTime(remote);
+    var localWins = tl !== tr ? tl > tr : sl > sr;
+    var conflicts = [];
+    var UNION = { timeline: 1, returnHistory: 1, paStatus: 1 };
+    function m(b, l, r, path, top) {
+        if (_fbPlainObj(l) && _fbPlainObj(r)) {
+            var out = {}, keys = {};
+            Object.keys(l).forEach(function(k) { keys[k] = 1; });
+            Object.keys(r).forEach(function(k) { keys[k] = 1; });
+            Object.keys(keys).sort().forEach(function(k) {
+                if (top && UNION[k]) return;
+                var v;
+                if (FB_VEH_BOOKKEEPING[k]) {
+                    var lv = l[k], rv = r[k];
+                    v = lv === undefined ? rv : rv === undefined ? lv : (String(lv) >= String(rv) ? lv : rv);
+                } else {
+                    v = m(_fbPlainObj(b) ? b[k] : undefined, l[k], r[k], path ? path + '.' + k : k, false);
+                }
+                if (v !== undefined) out[k] = v;
+            });
+            return out;
+        }
+        if (_fbSame(l, r)) return l;
+        if (_fbSame(l, b)) return r;
+        if (_fbSame(r, b)) return l;
+        conflicts.push({ path: path, kept: localWins ? l : r, lost: localWins ? r : l, keptFrom: localWins ? 'local' : 'remote' });
+        return localWins ? l : r;
+    }
+    var out = JSON.parse(JSON.stringify(m(base, local, remote, '', true)));
+    if (local.timeline || remote.timeline) out.timeline = _fbUnionLog(local.timeline, remote.timeline, ['timestamp', 'at']);
+    if (local.returnHistory || remote.returnHistory) out.returnHistory = _fbUnionLog(local.returnHistory, remote.returnHistory, ['at', 'timestamp', 'date']);
+    var pa = _fbMergePaStatus(local.paStatus, remote.paStatus);
+    if (pa) out.paStatus = JSON.parse(JSON.stringify(pa));
+    if (conflicts.length) {
+        if (!Array.isArray(out.timeline)) out.timeline = [];
+        out.timeline = _fbUnionLog(out.timeline, [fbVehConflictEntry(conflicts, tl > tr ? tl : tr)], ['timestamp', 'at']);
+    }
+    if (typeof revContentHash === 'function') out._rev = revContentHash(out);
+    var so = stableStringify(Object.assign({}, out, { _rev: undefined }));
+    var from = so === stableStringify(Object.assign({}, local, { _rev: undefined })) ? 'local'
+        : so === stableStringify(Object.assign({}, remote, { _rev: undefined })) ? 'remote' : 'mixed';
+    return { vehicle: out, from: from, conflicts: conflicts, mode: 'campo' };
+}
+
+/**
+ * La entrada de línea de tiempo de unos choques. PURA: mismo contenido en los dos equipos.
+ * Usa la forma `data.modified` de 2.4.0 (antes = el valor que NO quedó, después = el que
+ * quedó) y guarda el valor perdido en `valor` si es chico, para poder volver a usarlo.
+ */
+function fbVehConflictEntry(conflicts, at) {
+    return {
+        timestamp: at || '',
+        user: 'Sincronización',
+        action: 'Cambios cruzados entre equipos',
+        data: { conflict: true, modified: (conflicts || []).map(function(c) {
+            var row = {
+                campo: (typeof vehicleFieldLabel === 'function') ? vehicleFieldLabel(c.path) : c.path,
+                key: c.path,
+                antes: _fbVehValText(c.lost),
+                despues: _fbVehValText(c.kept),
+                razon: 'Dos equipos lo cambiaron a la vez; quedó el cambio más reciente'
+            };
+            var js = c.lost === undefined ? 'null' : JSON.stringify(c.lost);
+            if (js.length <= FB_VEH_LOST_MAX && !/^"data:/.test(js)) row.valor = c.lost === undefined ? null : c.lost;
+            return row;
+        }) }
+    };
+}
+
+// ── Bases: la última versión de la nube que este equipo incorporó, por documento ──
+var FB_VEH_BASE_IDB = 'kia_emlab_sync_base';
+var FB_VEH_BASE_STORE = 'veh';
+var _fbVehBase = {}, _fbVehBaseJson = {};
+var _fbVehBaseReadyP = null;
+var _fbVehConflictsPending = [];
+
+function _fbVehBaseIdb(cb) {
+    var done = false;
+    function fin(x) { if (!done) { done = true; cb(x); } }
+    try {
+        if (typeof indexedDB === 'undefined' || !indexedDB) return fin(null);
+        var req = indexedDB.open(FB_VEH_BASE_IDB, 1);
+        req.onupgradeneeded = function(e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(FB_VEH_BASE_STORE)) idb.createObjectStore(FB_VEH_BASE_STORE);
+        };
+        req.onsuccess = function(e) { fin(e.target.result); };
+        req.onerror = function() { fin(null); };
+        req.onblocked = function() { fin(null); };
+    } catch (e) { fin(null); }
+}
+
+/**
+ * Carga las bases (una vez). Sin IndexedDB quedan en memoria. Un vehículo cuya huella es
+ * la que la nube tiene (known.docs) y que no tiene base, la toma de sí mismo: así la
+ * primera edición después de actualizar ya se fusiona campo por campo.
+ */
+function fbVehBaseReady(known) {
+    if (!_fbVehBaseReadyP) {
+        _fbVehBaseReadyP = new Promise(function(res) {
+            _fbVehBaseIdb(function(idb) {
+                if (!idb) return res();
+                try {
+                    var tx = idb.transaction(FB_VEH_BASE_STORE, 'readonly');
+                    var st = tx.objectStore(FB_VEH_BASE_STORE);
+                    var rq = st.openCursor();
+                    rq.onsuccess = function(e) {
+                        var cur = e.target.result;
+                        if (!cur) { try { idb.close(); } catch (x) {} return res(); }
+                        try { if (!_fbVehBase[cur.key]) { _fbVehBase[cur.key] = JSON.parse(cur.value); _fbVehBaseJson[cur.key] = cur.value; } } catch (x) {}
+                        cur.continue();
+                    };
+                    rq.onerror = function() { try { idb.close(); } catch (x) {} res(); };
+                } catch (e) { res(); }
+            });
+        });
+    }
+    return _fbVehBaseReadyP.then(function() {
+        var docs = (known && known.docs) || {};
+        ((typeof db !== 'undefined' && db && db.vehicles) || []).forEach(function(v) {
+            var id = fbVehDocId(v);
+            if (!_fbVehBase[id] && v && v._rev && docs[id] === v._rev) _fbVehBaseSet(id, v);
+        });
+    });
+}
+
+/** Guarda (o quita, con v = null) la base de un documento. */
+function _fbVehBaseSet(docId, v) {
+    if (!docId) return;
+    var json = null;
+    if (v) {
+        json = typeof v === 'string' ? v : JSON.stringify(v);
+        // Cada ciclo vuelve a leer los últimos minutos: si la base ya es esa, no se reescribe.
+        if (_fbVehBaseJson[docId] === json) return;
+        try { _fbVehBase[docId] = JSON.parse(json); } catch (e) { return; }
+        _fbVehBaseJson[docId] = json;
+    } else {
+        if (!_fbVehBase[docId]) return;
+        delete _fbVehBase[docId]; delete _fbVehBaseJson[docId];
+    }
+    _fbVehBaseIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_VEH_BASE_STORE, 'readwrite');
+            var st = tx.objectStore(FB_VEH_BASE_STORE);
+            if (json) st.put(json, docId); else st.delete(docId);
+            tx.oncomplete = tx.onerror = tx.onabort = function() { try { idb.close(); } catch (e) {} };
+        } catch (e) {}
+    });
+}
+
+/** La fusión que usa fbMergeExecute para un vehículo que existe en los dos lados. */
+function _fbVehMergeSync(local, remote) {
+    var base = _fbVehBase[fbVehDocId(remote)] || null;
+    if (base && vehicleCopyKey(base) !== vehicleCopyKey(local)) base = null;
+    var res = fbVehMerge3(base, local, remote);
+    var perdidos = fbVehLostHere(local, res.vehicle);
+    if (perdidos.length) _fbVehConflictsPending.push({ id: local.id, vin: local.vin || remote.vin || '', lost: perdidos });
+    return res;
+}
+
+/**
+ * ¿Qué valores de ESTE equipo no quedaron? PURA. Sale de las entradas de choque que llegan
+ * nuevas en la línea de tiempo: la fusión puede haberla hecho otro equipo (aquí solo se
+ * adopta su resultado), así que no basta con los choques que se detectan aquí.
+ * → [{path, lost, kept}]
+ */
+function fbVehLostHere(local, merged) {
+    var tenia = {};
+    ((local && local.timeline) || []).forEach(function(e) { if (e && e.data && e.data.conflict) tenia[stableStringify(e)] = 1; });
+    var get = function(o, path) {
+        return String(path || '').split('.').reduce(function(x, k) { return (x && typeof x === 'object') ? x[k] : undefined; }, o);
+    };
+    var out = [];
+    ((merged && merged.timeline) || []).forEach(function(e) {
+        if (!e || !e.data || !e.data.conflict || tenia[stableStringify(e)]) return;
+        (e.data.modified || []).forEach(function(m) {
+            if (!m || !m.key || !Object.prototype.hasOwnProperty.call(m, 'valor')) return;
+            var mio = get(local, m.key);
+            if (_fbSame(mio === undefined ? null : mio, m.valor) && !_fbSame(get(merged, m.key), m.valor)) {
+                out.push({ path: m.key, lost: m.valor, kept: get(merged, m.key) });
+            }
+        });
+    });
+    return out;
+}
+
+/** Avisa y audita los choques en los que el valor de ESTE equipo no quedó. */
+function _fbVehConflictsFlush() {
+    var lista = _fbVehConflictsPending;
+    _fbVehConflictsPending = [];
+    lista.forEach(function(x) {
+        var perdidos = x.lost || [];
+        if (!perdidos.length) return;
+        var campos = perdidos.map(function(c) { return (typeof vehicleFieldLabel === 'function') ? vehicleFieldLabel(c.path) : c.path; });
+        if (typeof showToast === 'function') {
+            showToast('Otro equipo cambió ' + campos.join(', ') + ' del vehículo ' + x.vin +
+                ' al mismo tiempo que tú y quedó su valor. El tuyo está en la línea de tiempo (🕘), con un botón para volver a usarlo.', 'warning', 12000);
+        }
+        if (typeof auditLog === 'function') {
+            var antes = {}, despues = {};
+            perdidos.forEach(function(c) { antes[c.path] = _fbVehValText(c.lost); despues[c.path] = _fbVehValText(c.kept); });
+            auditLog('cop15', 'cambios_cruzados', { type: 'vehicle', id: x.id, label: x.vin },
+                'Dos equipos cambiaron a la vez: ' + campos.join(', '), { before: antes, after: despues });
+        }
+    });
+}
+
+// ── [3.18.0] Candado de un instante para los pasos críticos ──
+
+/**
+ * ¿Se puede dar el paso? PURA. `cloud` = el vehículo como está en la nube (o null).
+ * Solo se detiene si la nube tiene una versión MÁS NUEVA que la de este equipo con otro
+ * estado: ahí otro equipo ya movió el vehículo. Si la nube va atrás (lo de aquí no ha
+ * subido), se puede.
+ * → {ok, why, who, at}
+ */
+function fbVehCloudGateDecision(local, cloud, expectedStatus, labels) {
+    if (!cloud || !expectedStatus) return { ok: true };
+    if (cloud.status === expectedStatus) return { ok: true };
+    if (_fbVehTime(cloud) <= _fbVehTime(local)) return { ok: true };
+    var ev = null;
+    (cloud.timeline || []).forEach(function(e) { if (e && e.data && e.data.status === cloud.status) ev = e; });
+    var who = (ev && ev.user) || '';
+    var at = (ev && ev.timestamp) || cloud.updatedAt || '';
+    var lbl = (labels && labels[cloud.status]) || cloud.status;
+    var hora = '';
+    var tt = Date.parse(at || '');
+    if (tt) { var d = new Date(tt); hora = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+    return { ok: false, who: who, at: at,
+        why: 'Mientras tanto, ' + (who || 'otro equipo') + ' pasó este vehículo a «' + lbl + '»' + (hora ? ' a las ' + hora : '') +
+             '. No se hizo nada aquí: revisa el vehículo (ya se está trayendo la versión nueva).' };
+}
+
+/**
+ * Antes de un paso crítico (enviar a aprobación, aprobar, devolver, corregir alta) se
+ * mira el vehículo EN LA NUBE. Resuelve true si se puede seguir. Sin red o sin sync se
+ * sigue como antes (trabajo sin red); el choque, si lo hubo, lo resuelve la fusión.
+ *
+ * [3.18.0] `opts.strict` (Aprobar, decisión del laboratorio 22-oct-2026): en un equipo que
+ * sincroniza vehículos, sin red o sin respuesta NO se sigue — aprobar dos veces la misma
+ * prueba en dos equipos sin red no tiene arreglo limpio. Un equipo sin sync sigue igual.
+ */
+/** ¿Hay algo que revisar en la nube? Sin sync o sin red, no: el paso sigue en el acto. */
+function fbVehCloudGateNeeded(vehicle, opts) {
+    if (!vehicle || !fbVehActive() || typeof fetch === 'undefined') return false;
+    if (opts && opts.strict) return true;
+    return !(typeof navigator !== 'undefined' && navigator.onLine === false);
+}
+
+/** Texto del rechazo de un paso que exige conexión. PURA. */
+function fbVehCloudGateOfflineText(accion, motivo) {
+    var que = accion ? 'Para ' + accion : 'Este paso';
+    var por = motivo === 'sin-red' ? 'este equipo no tiene red'
+            : motivo === 'timeout' ? 'la nube no respondió a tiempo'
+            : 'no se pudo leer la nube';
+    return que + ' hace falta conexión y ' + por + '. Se revisa que nadie más lo haya hecho en otro equipo; ' +
+           'no se hizo nada. Revisa la red y vuelve a intentarlo.';
+}
+
+function fbVehCloudGate(vehicle, expectedStatus, accion, opts) {
+    var strict = !!(opts && opts.strict);
+    if (!fbVehCloudGateNeeded(vehicle, opts)) return Promise.resolve(true);
+    function sinConexion(motivo) {
+        if (!strict) return true;
+        if (typeof showToast === 'function') showToast(fbVehCloudGateOfflineText(accion, motivo), 'error', 10000);
+        return false;
+    }
+    if (strict && typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve(sinConexion('sin-red'));
+    var lectura = _fbBugsRestSend('GET', 'vehicles/' + fbVehDocId(vehicle), null).then(function(doc) {
+        var o = _fbBugsRestDocToObj(doc);
+        if (o.deleted) return null;
+        try { return JSON.parse(o.json || 'null'); } catch (e) { return null; }
+    }, function(e) {
+        // Un documento que la nube no tiene no es una falla de red: nadie más lo pudo mover.
+        if (e && e.status === 404) return null;
+        throw e;
+    });
+    var limite = new Promise(function(res) { setTimeout(function() { res('timeout'); }, 6000); });
+    return Promise.race([lectura, limite]).then(function(cloud) {
+        if (cloud === 'timeout') return sinConexion('timeout');
+        var labels = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels) || {};
+        var d = fbVehCloudGateDecision(vehicle, cloud, expectedStatus, labels);
+        if (d.ok) return true;
+        if (typeof showToast === 'function') showToast(d.why, 'error', 10000);
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'paso_detenido_nube', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                'No se pudo ' + (accion || 'continuar') + ': en la nube ya estaba «' + (cloud && cloud.status) + '»' + (d.who ? ' (' + d.who + ')' : ''));
+        }
+        fbVehiclesSyncSoon(0);
+        return false;
+    }, function() { return sinConexion('error'); });
+}
+
 function fbVehKnown() {
     var k = null;
     try { k = JSON.parse(localStorage.getItem(FB_VEH_KNOWN_KEY) || 'null'); } catch (e) { k = null; }
@@ -70759,7 +71546,11 @@ function _fbVehQuery(sinceMs) {
         });
         return resp.json();
     }).then(function(rows) {
-        var docs = (rows || []).filter(function(r) { return r && r.document; }).map(function(r) { return _fbBugsRestDocToObj(r.document); });
+        var docs = (rows || []).filter(function(r) { return r && r.document; }).map(function(r) {
+            var o = _fbBugsRestDocToObj(r.document);
+            if (r.document.updateTime) o._ut = r.document.updateTime;   // [3.18.0]
+            return o;
+        });
         for (var i = 0; i < Math.max(1, docs.length); i++) fbQuotaRecord('read');
         return docs;
     });
@@ -70801,6 +71592,10 @@ function _fbVehPull(known) {
             _fbPullMergeModule('cop15', remote, pulled, { noPushBack: true, noHistory: true });
             if (_fbModuleFingerprint('cop15') !== before) cambios = 1;
         }
+        // [3.18.0] Lo que se trajo ya está incorporado: es la base de la próxima fusión.
+        Object.keys(parsed.byDoc).forEach(function(id) { _fbVehBaseSet(id, parsed.byDoc[id]); });
+        Object.keys(parsed.revs).forEach(function(id) { if (parsed.revs[id] === 'deleted') _fbVehBaseSet(id, null); });
+        _fbVehConflictsFlush();
         Object.keys(parsed.revs).forEach(function(id) { known.docs[id] = parsed.revs[id]; });
         if (!known.info || typeof known.info !== 'object') known.info = {};
         Object.keys(parsed.info).forEach(function(id) {
@@ -70814,6 +71609,27 @@ function _fbVehPull(known) {
         _fbVehKnownSave(known);
         return { changed: cambios, received: parsed.vehicles.length, full: full };
     });
+}
+
+// [3.18.0] Precondición al subir: cuántas veces seguidas puede fallar un documento antes de
+// subirlo sin ella (un `updateTime` que nunca empata dejaría el vehículo sin subir para siempre).
+var FB_VEH_CAS_MAX = 3;
+var _fbVehCasFails = {}, _fbVehCasSkip = {}, _fbVehCasRetryAt = [];
+
+/**
+ * La precondición de cada vehículo a subir. PURA respecto a sus argumentos.
+ * Nunca visto en la nube → 'new' (no debe existir); visto con versión conocida → su
+ * `updateTime`; visto sin versión (datos de antes de 3.18.0) o en `skip` → sin precondición.
+ */
+function fbVehPushPreconditions(ups, known, skip) {
+    var pre = {}, docs = (known && known.docs) || {}, info = (known && known.info) || {};
+    (ups || []).forEach(function(v) {
+        var id = fbVehDocId(v);
+        if (skip && skip[id]) return;
+        if (!Object.prototype.hasOwnProperty.call(docs, id)) pre[id] = 'new';
+        else if (info[id] && info[id].ut) pre[id] = info[id].ut;
+    });
+    return pre;
 }
 
 /** Sube lo que la nube no tiene, en lotes. El último lote lleva cop15meta. */
@@ -70842,17 +71658,38 @@ function _fbVehPush(known) {
             var rets = lote.filter(function(x) { return x.ret; }).map(function(x) { return x.ret; });
             var last = li === lotes.length - 1;
             // Una copia congelada: si el técnico edita mientras sube, la edición sale en el siguiente ciclo.
-            var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '', vin: String(v.vin || '') }; });
-            return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev, rets)).then(function() {
+            var revs = ups.map(function(v) { return { id: fbVehDocId(v), rev: v._rev || '', vin: String(v.vin || ''),
+                                                      reg: String(v.registeredAt || ''), json: JSON.stringify(v) }; });
+            var pre = fbVehPushPreconditions(ups, known, _fbVehCasSkip);
+            return _fbAuditCommit(fbVehWrites(ups, dels, last ? meta : null, _fbStationDocName, dev, rets, pre)).then(function(resp) {
                 for (var n = 1; n < ups.length + dels.length + rets.length + (last && meta ? 1 : 0); n++) fbQuotaRecord('write');
                 var at = new Date().toISOString();
                 if (!known.info || typeof known.info !== 'object') known.info = {};
-                revs.forEach(function(r) { known.docs[r.id] = r.rev; known.info[r.id] = { ts: at, w: dev, vin: r.vin }; });
+                var wr = (resp && resp.writeResults) || [];
+                revs.forEach(function(r, i) {
+                    known.docs[r.id] = r.rev;
+                    known.info[r.id] = { ts: at, w: dev, vin: r.vin, reg: r.reg };
+                    if (wr[i] && wr[i].updateTime) known.info[r.id].ut = wr[i].updateTime;
+                    // [3.18.0] Lo que se subió es lo que la nube tiene: la base de la próxima fusión.
+                    _fbVehBaseSet(r.id, r.json);
+                    delete _fbVehCasFails[r.id];
+                });
                 dels.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev }; });
                 rets.forEach(function(x) { known.docs[x.docId] = 'deleted'; known.info[x.docId] = { ts: at, w: dev, vin: x.vin }; });
                 if (last && meta) known.metaExtra = false;
                 sent += ups.length + dels.length + rets.length;
                 _fbVehKnownSave(known);
+            }, function(err) {
+                // [3.18.0] Otro equipo escribió uno de estos documentos después de nuestra última
+                // lectura: no se pisa. Se marca para reintentar (traer → fusionar → subir).
+                if (_fbAuditAlreadyThere(err)) {
+                    revs.forEach(function(r) {
+                        _fbVehCasFails[r.id] = (_fbVehCasFails[r.id] || 0) + 1;
+                        if (_fbVehCasFails[r.id] >= FB_VEH_CAS_MAX) _fbVehCasSkip[r.id] = true;
+                    });
+                    err.cas = true;
+                }
+                throw err;
             });
         });
     });
@@ -70873,7 +71710,8 @@ function fbVehiclesSync(opts) {
     _fbVehBusy = true;
     var known = fbVehKnown();
     var res = { ok: true, changed: 0, received: 0, sent: 0 };
-    return _fbVehPull(known).then(function(p) {
+    // [3.18.0] Las bases (IndexedDB) tienen que estar cargadas antes de fusionar.
+    return fbVehBaseReady(known).then(function() { return _fbVehPull(known); }).then(function(p) {
         res.changed = p.changed; res.received = p.received;
         if (p.changed) {
             if (!opts.initial) _fbLiveToast('cop15');
@@ -70892,6 +71730,14 @@ function fbVehiclesSync(opts) {
         fbSync.vehPulled = true;
         return res;
     }, function(err) {
+        // [3.18.0] Una precondición que no se cumplió no es un error: alguien escribió en medio.
+        // Se reintenta en seguida (a lo más 5 por minuto); el siguiente ciclo trae y fusiona.
+        if (err && err.cas) {
+            var ahora = Date.now();
+            _fbVehCasRetryAt = _fbVehCasRetryAt.filter(function(t) { return ahora - t < 60000; });
+            if (_fbVehCasRetryAt.length < 5) { _fbVehCasRetryAt.push(ahora); _fbVehAgain = true; }
+            return { ok: false, cas: true };
+        }
         fbSync.vehLastError = _fbBkErrText(err);
         void 0;
         return { ok: false, error: fbSync.vehLastError };
@@ -71768,6 +72614,251 @@ function fbSyncSheetRetry() {
         }
         return r;
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [3.18.0] Quién está aquí — presencia por equipo
+// ══════════════════════════════════════════════════════════════════════
+//
+// Cada equipo deja en stations/KIA-EMLAB/presence/{FB_DEVICE_ID} dónde está: un vehículo
+// ('veh:<id>') o una ronda ('ronda:gases:<fecha>:<turno>'), con su pantalla, si está
+// capturando y su avance. Nunca bloquea nada: solo se ve.
+//
+// - Dónde está este equipo se LEE DEL DOM: el chip visible con `data-presence-here`. Así no
+//   hay que avisar al salir por cada camino (cambiar de pestaña, de plataforma, cerrar).
+// - Se escribe al cambiar de lugar (o de avance, a lo más cada 15 s) y cada 2 min mientras
+//   siga ahí; > 5 min sin latido = ya no está. Solo se escucha la colección mientras este
+//   equipo está en algún lugar (las lecturas cuestan cuota a cada equipo que escucha).
+// - fbPresenceFor y fbPresenceText son PURAS.
+
+var FB_PRESENCE_STALE_MS = 5 * 60 * 1000;
+var FB_PRESENCE_BEAT_MS = 2 * 60 * 1000;
+var FB_PRESENCE_MIN_GAP_MS = 15 * 1000;
+var FB_PRESENCE_TICK_MS = 4000;
+var FB_PRESENCE_EDIT_MS = 60 * 1000;
+var FB_PRESENCE_IDLE_STOP_MS = 30 * 1000;
+var FB_PRESENCE_POLL_MS = 60 * 1000;
+var _fbPres = { sentKey: '', sentEntity: null, sentAt: 0, lastInputAt: 0, records: {},
+                unsub: null, poll: null, idleSince: 0, timer: null };
+
+/**
+ * Quién más está en `entity`. PURA.
+ * records = {deviceId: {device, operator, deviceName, entity, screen, editing, progress, at}}
+ * → [{device, operator, deviceName, screen, editing, progress, at}] sin este equipo, sin los
+ *   que llevan más de `staleMs` sin latido y una sola fila por persona (la más reciente).
+ */
+function fbPresenceFor(records, entity, me, nowMs, staleMs) {
+    if (!entity || !records) return [];
+    var lim = staleMs || FB_PRESENCE_STALE_MS;
+    var porPersona = {};
+    Object.keys(records).forEach(function(id) {
+        var r = records[id];
+        if (!r || r.entity !== entity) return;
+        var dev = r.device || id;
+        if (dev === me) return;
+        var t = Date.parse(r.at || '');
+        // Relojes de equipos distintos: se tolera el mismo margen hacia adelante.
+        if (!t || Math.abs(nowMs - t) > lim) return;
+        var quien = String(r.operator || '').trim() || ('equipo:' + dev);
+        var prev = porPersona[quien];
+        if (prev && Date.parse(prev.at) >= t) return;
+        porPersona[quien] = { device: dev, operator: String(r.operator || '').trim(), deviceName: String(r.deviceName || '').trim(),
+            screen: String(r.screen || ''), editing: !!r.editing, progress: String(r.progress || ''), at: r.at };
+    });
+    return Object.keys(porPersona).map(function(k) { return porPersona[k]; })
+        .sort(function(a, b) { return (a.operator || a.deviceName).localeCompare(b.operator || b.deviceName, 'es'); });
+}
+
+/** Texto del chip. PURA. → {text, title, editing} ('' si no hay nadie). */
+function fbPresenceText(list, entity) {
+    if (!list || !list.length) return { text: '', title: '', editing: false };
+    var ronda = String(entity || '').indexOf('ronda:') === 0;
+    function nombre(p) { return p.operator || p.deviceName || 'Otro equipo'; }
+    function y(arr) { return arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1]; }
+    var editing = list.some(function(p) { return p.editing; });
+    var text;
+    if (ronda) {
+        text = list.length === 1
+            ? nombre(list[0]) + ' también hace esta ronda' + (list[0].progress ? ' · va ' + list[0].progress : '')
+            : y(list.map(function(p) { return nombre(p) + (p.progress ? ' (' + p.progress + ')' : ''); })) + ' también hacen esta ronda';
+    } else if (list.length === 1) {
+        var p = list[0];
+        var det = [p.screen, p.editing ? 'capturando' : ''].filter(Boolean).join(', ');
+        text = nombre(p) + ' también está aquí' + (det ? ' (' + det + ')' : '');
+    } else {
+        text = y(list.map(nombre)) + ' también están aquí' + (editing ? ' (capturando)' : '');
+    }
+    var title = list.map(function(p) {
+        return nombre(p) + (p.deviceName && p.operator ? ' en ' + p.deviceName : '') +
+            (p.screen ? ' · ' + p.screen : '') + (p.editing ? ' · capturando' : '') + (p.progress ? ' · ' + p.progress : '');
+    }).join('\n') + (ronda ? '' : '\nNo se bloquea nada: si los dos cambian el mismo dato, queda el más reciente y el otro va a la línea de tiempo.');
+    return { text: text, title: title, editing: editing };
+}
+
+/**
+ * Chip "también está aquí". `opts.here` = este equipo está en `entity` (lo detecta el
+ * latido); sin `here` solo muestra a los demás. `opts.screen` / `opts.progress` viajan
+ * con la presencia de este equipo.
+ */
+function fbPresenceChipHTML(entity, opts) {
+    if (!entity) return '';
+    opts = opts || {};
+    var a = function(s) { return String(s == null ? '' : s).replace(/[&"<>]/g, function(c) { return { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]; }); };
+    var html = '<span class="presence-chip is-empty" role="status" aria-live="polite" ' +
+        (opts.here ? 'data-presence-here="' : 'data-presence-watch="') + a(entity) + '"' +
+        (opts.screen ? ' data-presence-screen="' + a(opts.screen) + '"' : '') +
+        (opts.progress ? ' data-presence-progress="' + a(opts.progress) + '"' : '') + '></span>';
+    try {
+        if (typeof document !== 'undefined') {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            _fbPresenceFill(tmp.firstChild, Date.now());
+            html = tmp.innerHTML;
+        }
+    } catch (e) {}
+    return html;
+}
+
+function _fbPresenceFill(el, now) {
+    if (!el) return;
+    var entity = el.getAttribute('data-presence-here') || el.getAttribute('data-presence-watch');
+    var list = fbPresenceFor(_fbPres.records, entity, FB_DEVICE_ID, now);
+    var t = fbPresenceText(list, entity);
+    var txt = t.text ? (String(entity).indexOf('ronda:') === 0 ? '👥 ' : '👤 ') + t.text : '';
+    if (el.textContent !== txt) el.textContent = txt;
+    el.title = t.title;
+    el.classList.toggle('is-empty', !t.text);
+    el.classList.toggle('is-editing', !!t.editing);
+}
+
+function fbPresenceChipsRefresh() {
+    if (typeof document === 'undefined') return;
+    var now = Date.now();
+    [].forEach.call(document.querySelectorAll('[data-presence-here], [data-presence-watch]'), function(el) { _fbPresenceFill(el, now); });
+}
+
+/** Dónde está este equipo según la pantalla: el primer chip `here` visible (la capa uiFlow primero). */
+function fbPresenceDetect() {
+    if (typeof document === 'undefined' || document.hidden) return null;
+    // El chip está oculto mientras no haya nadie más: lo que cuenta es que su contenedor se vea.
+    var els = [].slice.call(document.querySelectorAll('[data-presence-here]')).filter(function(el) {
+        var host = el.parentElement;
+        return !!host && host.getClientRects().length > 0;
+    });
+    if (!els.length) return null;
+    var el = els.filter(function(x) { return x.closest && x.closest('#ui-flow'); })[0] || els[0];
+    return { entity: el.getAttribute('data-presence-here'), screen: el.getAttribute('data-presence-screen') || '',
+             progress: el.getAttribute('data-presence-progress') || '' };
+}
+
+/** Presencia: prioridad baja. Si la cuota del equipo va arriba de 70 %, no se escribe. */
+function _fbPresenceQuotaOk() {
+    if (typeof fbQuota === 'undefined' || typeof FB_QUOTA_LIMITS === 'undefined') return true;
+    var hora = (fbQuota.writes || []).filter(function(t) { return Date.now() - t < 3600000; }).length;
+    return (fbQuota.dayWrites || 0) < FB_QUOTA_LIMITS.maxWritesPerDay * 0.7 && hora < FB_QUOTA_LIMITS.maxWritesPerHour * 0.7;
+}
+
+function _fbPresenceActive() {
+    return typeof fbSync !== 'undefined' && fbSync.enabled && !!fbSync.stationId && typeof _fbBkSet === 'function';
+}
+
+function _fbPresenceSend(det, editing) {
+    var rec = {
+        device: FB_DEVICE_ID,
+        deviceName: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        operator: (typeof _dashMe === 'function') ? _dashMe() : '',
+        entity: det ? det.entity : null,
+        screen: det ? det.screen : '',
+        progress: det ? det.progress : '',
+        editing: !!(det && editing),
+        at: new Date().toISOString(),
+        version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : ''
+    };
+    _fbPres.sentAt = Date.now();
+    _fbPres.sentEntity = rec.entity;
+    _fbPres.records[FB_DEVICE_ID] = rec;
+    return _fbBkSet('presence/' + FB_DEVICE_ID, rec).catch(function(err) {
+        _fbPres.sentKey = '';   // se reintenta en el siguiente latido (a lo más cada 15 s)
+        void 0;
+    });
+}
+
+function _fbPresenceApply(list) {
+    var rec = {};
+    (list || []).forEach(function(d) { if (d && d.id) rec[d.id] = d.data || {}; });
+    if (_fbPres.records[FB_DEVICE_ID]) rec[FB_DEVICE_ID] = _fbPres.records[FB_DEVICE_ID];
+    _fbPres.records = rec;
+    fbPresenceChipsRefresh();
+}
+
+/** Escuchar (o consultar cada minuto en modo REST) solo mientras este equipo está en algún lugar. */
+function _fbPresenceWatch(on) {
+    if (on) {
+        _fbPres.idleSince = 0;
+        if (_fbPres.unsub || _fbPres.poll) return;
+        var vivo = fbSync.db && !fbSync._useREST && typeof FB_IS_HTTP_ORIGIN !== 'undefined' && FB_IS_HTTP_ORIGIN;
+        if (vivo) {
+            try {
+                _fbPres.unsub = _fbBkRef('presence').onSnapshot(function(snap) {
+                    var out = [];
+                    snap.forEach(function(d) { out.push({ id: d.id, data: d.data() }); });
+                    try { snap.docChanges().forEach(function() { fbQuotaRecord('read'); }); } catch (e) {}
+                    _fbPresenceApply(out);
+                }, function(err) {
+                    void 0;
+                    _fbPres.unsub = null;
+                });
+                return;
+            } catch (e) { _fbPres.unsub = null; }
+        }
+        var traer = function() { _fbBkList('presence').then(_fbPresenceApply, function() {}); };
+        traer();
+        _fbPres.poll = setInterval(traer, FB_PRESENCE_POLL_MS);
+        return;
+    }
+    if (!_fbPres.unsub && !_fbPres.poll) return;
+    if (!_fbPres.idleSince) { _fbPres.idleSince = Date.now(); return; }
+    if (Date.now() - _fbPres.idleSince < FB_PRESENCE_IDLE_STOP_MS) return;
+    if (_fbPres.unsub) { try { _fbPres.unsub(); } catch (e) {} _fbPres.unsub = null; }
+    if (_fbPres.poll) { clearInterval(_fbPres.poll); _fbPres.poll = null; }
+    _fbPres.idleSince = 0;
+}
+
+/** El latido: detecta dónde está este equipo, escribe si cambió y repinta los chips. */
+function fbPresenceTick() {
+    if (!_fbPresenceActive()) {
+        if (_fbPres.unsub || _fbPres.poll) { _fbPres.idleSince = 1; _fbPresenceWatch(false); }
+        return;
+    }
+    var det = fbPresenceDetect();
+    var entity = det ? det.entity : null;
+    var editing = !!det && (Date.now() - _fbPres.lastInputAt < FB_PRESENCE_EDIT_MS);
+    var key = entity ? [entity, det.screen, editing ? 1 : 0, det.progress].join('|') : '';
+    var now = Date.now();
+    _fbPresenceWatch(!!entity);
+    var enviar = false;
+    if (key !== _fbPres.sentKey) {
+        // Cambiar de lugar se dice al instante; avance o "capturando", a lo más cada 15 s.
+        enviar = entity !== _fbPres.sentEntity || now - _fbPres.sentAt >= FB_PRESENCE_MIN_GAP_MS;
+    } else if (entity && now - _fbPres.sentAt >= FB_PRESENCE_BEAT_MS) {
+        enviar = true;
+    }
+    var online = !(typeof navigator !== 'undefined' && navigator.onLine === false);
+    if (enviar && online && _fbPresenceQuotaOk()) {
+        _fbPres.sentKey = key;
+        _fbPresenceSend(det, editing);
+    }
+    fbPresenceChipsRefresh();
+}
+
+if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+    document.addEventListener('input', function() { _fbPres.lastInputAt = Date.now(); }, true);
+    document.addEventListener('visibilitychange', function() { setTimeout(fbPresenceTick, 0); });
+    // Al cerrar la pestaña se avisa que ya no está (si no llega, a los 5 min se da por ido).
+    window.addEventListener('pagehide', function() {
+        if (_fbPres.sentEntity && _fbPresenceActive()) { try { _fbPresenceSend(null, false); } catch (e) {} }
+    });
+    if (typeof setInterval === 'function') _fbPres.timer = setInterval(fbPresenceTick, FB_PRESENCE_TICK_MS);
 }
 
 
@@ -83446,6 +84537,7 @@ function _opcHeader() {
             '<button type="button" class="oc-x" onclick="opCardsExit()" aria-label="Salir al formulario completo">✕</button>' +
             '<div class="oc-head-what"><b>' + escapeHtml(tail) + '</b> · Operación<div class="oc-head-sub">' + escapeHtml(where) + '</div></div>' +
             '<div class="oc-saved" id="oc-saved" aria-live="polite"></div>' +
+            (typeof fbPresenceChipHTML === 'function' && v.id !== undefined ? fbPresenceChipHTML('veh:' + v.id, { here: true, screen: 'Operación' }) : '') +
             (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v.id !== undefined ? v : null, { compact: true }) : '') +
         '</div>' +
         '<div class="oc-segs" aria-hidden="' + (n > 1 ? 'false' : 'true') + '">' + segs + '</div>';
@@ -86304,7 +87396,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9741,"mods":[[9744,"js/app.js",19511],[19515,"js/uiflow.js",19831],[19835,"js/cop15.js",30464],[30468,"js/inventory.js",38391],[38395,"js/cuarto.js",40525],[40529,"js/sitio.js",42709],[42713,"js/conslist.js",43321],[43325,"js/testplan.js",55161],[55165,"js/panel.js",60503],[60507,"js/projects.js",62796],[62800,"js/auth.js",63880],[63884,"js/signatures.js",64085],[64089,"js/firebase-sync.js",71771],[71775,"js/cop_validator.js",76310],[76314,"js/copreport.js",77316],[77320,"js/cophq.js",78130],[78134,"js/homolog.js",80031],[80035,"js/vets.js",81834],[81838,"js/historico.js",82752],[82756,"js/review.js",83209],[83213,"js/opcards.js",83644],[83648,"js/handoff.js",83922],[83926,"js/ficha.js",84427],[84431,"js/relevo.js",84811],[84815,"js/momentos.js",84952],[84956,"js/digest.js",85876],[85880,"js/xlsxw.js",86260],[86264,"js/bugreport.js",87410]]};
+var BUG_LINE_MAP = {"tag":9760,"mods":[[9763,"js/app.js",19548],[19552,"js/uiflow.js",19887],[19891,"js/cop15.js",30639],[30643,"js/inventory.js",38647],[38651,"js/cuarto.js",40781],[40785,"js/sitio.js",42965],[42969,"js/conslist.js",43577],[43581,"js/testplan.js",55458],[55462,"js/panel.js",60800],[60804,"js/projects.js",63093],[63097,"js/auth.js",64177],[64181,"js/signatures.js",64382],[64386,"js/firebase-sync.js",72862],[72866,"js/cop_validator.js",77401],[77405,"js/copreport.js",78407],[78411,"js/cophq.js",79221],[79225,"js/homolog.js",81122],[81126,"js/vets.js",82925],[82929,"js/historico.js",83843],[83847,"js/review.js",84300],[84304,"js/opcards.js",84736],[84740,"js/handoff.js",85014],[85018,"js/ficha.js",85519],[85523,"js/relevo.js",85903],[85907,"js/momentos.js",86044],[86048,"js/digest.js",86968],[86972,"js/xlsxw.js",87352],[87356,"js/bugreport.js",88502]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

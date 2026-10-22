@@ -2190,10 +2190,11 @@ function invAddReading(gasId, psi, opts) {
         existing.psi = val;
         existing.by = by;
         existing.shift = shift;
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, psi: val, by: by };
+        reading = { date: date, psi: val, by: by, at: new Date().toISOString() };
         reading.shift = shift;
         if (opts.source) reading.source = opts.source;
         gas.readings.push(reading);
@@ -2280,10 +2281,11 @@ function invAddFuelReading(tankId, level, opts) {
         replaced = { date: existing.date, level: existing.level, by: existing.by || '' };
         existing.level = val;
         existing.by = by;
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, level: val, by: by };
+        reading = { date: date, level: val, by: by, at: new Date().toISOString() };
         if (opts.source) reading.source = opts.source;
         tank.readings.push(reading);
         tank.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
@@ -7463,6 +7465,11 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 var _readingRound = null;
 var INV_ROUND_LS_KEY = 'kia_inv_round';   // ronda a medias (el cuarto de gases puede no tener señal)
 var _invLastRound = null;                 // resumen de la última ronda, para el botón Copiar
+// [3.18.0] La ronda guarda por tramos para que los demás equipos vean el avance: cada
+// INV_ROUND_TRANCHE_N lecturas, cada INV_ROUND_TRANCHE_MS o al cambiar de pasillo. El modelo
+// de consumo se reentrena una sola vez, al final (_invRoundCommit).
+var INV_ROUND_TRANCHE_N = 5;
+var INV_ROUND_TRANCHE_MS = 30 * 1000;
 
 /** Los puntos del recorrido, en el orden en que están acomodados físicamente. */
 function invRoundItems() {
@@ -7556,7 +7563,7 @@ function invStartReadingRound(opts) {
         steps: items.map(_invRoundStep),
         state: state,
         startAt: _readingRound.index,
-        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); } },
+        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); _invRoundTranche(false); } },
         onFinal: _invRoundFinalHTML,
         onClose: _invRoundClose
     });
@@ -7575,8 +7582,63 @@ function _invRoundStep(item) {
         title: ref ? (esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas')) : item.id,
         render: function(host) { _invRoundRenderCard(host, item); },
         save: function(host) { return _invRoundSaveCard(host, item); },
-        onLater: function() { _invRoundMarkSkipped(item); }
+        onLater: function() { _invRoundMarkSkipped(item); },
+        doneBy: function() { var o = _invRoundOtherReading(item); return o ? o.label : ''; }
     };
+}
+
+/** Hora (HH:MM) de una marca ISO, en la hora del equipo. */
+function _invRoundHHMM(iso) {
+    var t = Date.parse(iso || '');
+    if (!t) return '';
+    var d = new Date(t);
+    return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+}
+
+/**
+ * [3.18.0] ¿Alguien ya leyó este punto en ESTE turno, fuera de esta ronda? (otra persona en
+ * otro equipo, o la retícula de Captura). → {reading, by, label} | null. Lo que capturó esta
+ * misma ronda no cuenta: eso ya está hecho.
+ */
+function _invRoundOtherReading(item) {
+    if (!_readingRound) return null;
+    var k = _invRoundKey(item);
+    if ((_readingRound.results || []).some(function(x) { return !x.skipped && x.kind + ':' + x.id === k; })) return null;
+    var ref = _invRoundRef(item);
+    if (!ref) return null;
+    var r = null;
+    if (item.kind === 'fuel') {
+        // El combustible es una lectura por día: cuenta solo si se tomó en este turno.
+        r = (ref.readings || []).filter(function(x) {
+            if (!x || x.auto || x.date !== _readingRound.date || !x.at) return false;
+            return invShiftNow(new Date(Date.parse(x.at))) === _readingRound.shift;
+        }).pop() || null;
+    } else {
+        r = invFindReadingOn(ref, _readingRound.date, _readingRound.shift);
+    }
+    if (!r) return null;
+    var yo = (typeof _dashMe === 'function') ? _dashMe() : '';
+    var by = String(r.by || '').trim();
+    var quien = by && yo && by === yo ? 'tú' : (by || 'otra persona');
+    var hora = _invRoundHHMM(r.at);
+    return { reading: r, by: by, label: quien + (hora ? ' a las ' + hora : '') };
+}
+
+/** [3.18.0] Guardado por tramos (sin reentrenar). `porLectura` = se acaba de capturar una. */
+function _invRoundTranche(porLectura) {
+    var r = _readingRound;
+    if (!r) return;
+    if (porLectura) r.unsaved = (r.unsaved || 0) + 1;
+    var item = r.items[r.index];
+    var pasillo = item ? (item.kind === 'fuel' ? 'fuel' : String(item.zone || '').charAt(0).toUpperCase()) : '';
+    var cambio = !porLectura && r.lastAisle !== undefined && pasillo !== r.lastAisle;
+    if (!porLectura) r.lastAisle = pasillo;
+    if (!r.unsaved) return;
+    if (r.unsaved >= INV_ROUND_TRANCHE_N || cambio || Date.now() - (r.savedAt || r.startTime) >= INV_ROUND_TRANCHE_MS) {
+        invSave();
+        r.unsaved = 0;
+        r.savedAt = Date.now();
+    }
 }
 
 /** Última lectura ANTERIOR a la de la ronda (si se regresa a un punto, la de este turno no cuenta). */
@@ -7607,8 +7669,17 @@ function _invRoundRenderCard(host, item) {
         : ((ref.controlNo || ref.id) + ' · Zona ' + (ref.zone || '—') + (ref.concNominal ? ' · ' + ref.concNominal : ''));
     var spark = _invRoundSparkline((ref.readings || []).slice(-5).map(function(x) { return (esFuel ? x.level : x.psi) || 0; }));
 
+    var otro = _invRoundOtherReading(item);
+    var hechas = (_readingRound.results || []).filter(function(x) { return !x.skipped; }).length;
     host.innerHTML =
+        (typeof fbPresenceChipHTML === 'function'
+            ? fbPresenceChipHTML('ronda:gases:' + _readingRound.date + ':' + _readingRound.shift,
+                { here: true, screen: 'Ronda', progress: hechas + '/' + _readingRound.items.length })
+            : '') +
         '<div class="uf-kicker">' + escapeHtml(sub) + '</div>' +
+        (otro ? '<div class="uf-note is-other" role="note">✓ Ya la tomó ' + escapeHtml(otro.label) + ': <b>' +
+            escapeHtml(String(esFuel ? otro.reading.level : otro.reading.psi)) + ' ' + escapeHtml(unidad) +
+            '</b>. Si la lees otra vez, queda la tuya como corrección.</div>' : '') +
         '<label class="uf-q" for="round-reading-input">' + escapeHtml(titulo) + '</label>' +
         (spark || lastVal !== ''
             ? '<div class="uf-context">' + spark +
@@ -7681,6 +7752,7 @@ function _invRoundSaveCard(host, item) {
         warning: res.warning || null,
         alert: dropPct > 15 || !!res.warning
     });
+    _invRoundTranche(true);
     return { ok: true };
 }
 
@@ -7756,6 +7828,15 @@ function _invRoundFinalHTML(model) {
         h += '<div class="uf-list is-warn"><b>⚠ Revisar la caída</b>' + alerts.map(function(a) {
             return '<div>' + escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value +
                    (a.warning ? ' · ' + escapeHtml(a.warning) : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    // [3.18.0] Lo que leyó otra persona en este turno: cuenta como leído, no como pendiente.
+    var deOtros = (model.cards || []).filter(function(c) { return c.status === 'otro'; });
+    if (deOtros.length) {
+        h += '<div class="uf-list"><b>👥 Los leyó otra persona</b>' + deOtros.map(function(c) {
+            var it = _readingRound.items.filter(function(x) { return _invRoundKey(x) === c.key; })[0];
+            var ref = it ? _invRoundRef(it) : null;
+            return '<div>' + escapeHtml(ref ? (ref.controlNo || ref.name || c.title) : c.title) + ' — ' + escapeHtml(c.by || '') + '</div>';
         }).join('') + '</div>';
     }
     if (saltadas.length) {

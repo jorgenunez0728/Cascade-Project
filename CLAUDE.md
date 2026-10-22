@@ -3825,3 +3825,49 @@ UNIDADES (una unidad es solo su VIN). La flota Master es otra cosa y vive aparte
   (que lo devuelve). Además, `_siteTap` resuelve un toque en el piso con `siteSpotAt`.
 - `_invRoomFitStage(stageId, wrapId)` mide también el tablero del laboratorio, y su escucha de
   `resize` lo repinta.
+
+## 3.18.0 — Un vehículo en dos equipos, y que nada regrese ni se pierda en silencio (`js/firebase-sync.js`)
+
+Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
+
+- **`_fbMergeReadings(..., opts)` es SIMÉTRICA entre equipos**: misma fecha + turno → gana `at`
+  más reciente (hora de captura, la sellan `invAddReading`/`invAddFuelReading`), después el
+  `updatedAt` del cilindro, después el contenido. Lo que no quedó va a `opts.conflicts` y se avisa
+  solo en el equipo que lo perdió (`_fbReadingConflictsNotify`, auditoría `lectura_cruzada`). Una
+  regla de fusión que diga "gana la local" hace que dos equipos no converjan nunca: no volver a
+  escribir una.
+- **`_fbLocalHasExtras` compara contenido, no solo claves**, en toda lista donde una entrada se
+  pueda corregir: si no, la corrección nunca sube a la nube.
+- **`fbHandleRemoteChange` descarta por documento (`fbRemoteDocKey`), nunca por reloj.** Un filtro
+  de "lo mismo en N segundos" tira cambios reales.
+- **Todo camino que saque una fila de `plan.items` llama `tpRowMarkSet(plan, uid, true)`**, y todo
+  camino que la devuelva, `tpRowMarkSet(plan, uid, false)`. Las marcas (`plan.removedItems`) nunca
+  se borran: gana la más reciente (`fbPlanRowMarksUnion`). Una restauración de foto
+  (`_undoRestore`) pasa por `tpRowMarksAfterRestore`. Sin marca, la fusión aditiva revive la fila.
+- **`fbVehMerge3(base, local, remote)` es LA fusión de un vehículo entre equipos** (PURA y
+  SIMÉTRICA, campo por campo contra la base). `_fbMergeVehicle` queda como respaldo sin base y
+  para juntar copias. Todo desempate nuevo debe ser determinista y simétrico.
+- **La base de cada documento** (IndexedDB `kia_emlab_sync_base`) es la última versión de la nube
+  que este equipo incorporó: se fija al traer y al subir, nunca al editar. Si se fija al editar,
+  la edición deja de verse como propia y se pierde en la siguiente fusión.
+- **Toda escritura de un vehículo a la nube lleva precondición** (`fbVehPushPreconditions`). Un
+  camino nuevo que suba vehículos sin ella pisa lo que otro equipo escribió en medio.
+- **Un valor que no quedó nunca se tira**: va a la línea de tiempo (`fbVehConflictEntry`), y quien
+  lo perdió lo sabe por las entradas NUEVAS (`fbVehLostHere`), porque la fusión pudo hacerla otro.
+- **Un paso que cambia la etapa de un vehículo pasa por `_cascadeCloudGateThen`** antes de pedir la
+  firma. Sin red no detiene nada (trabajo sin red), **salvo Aprobar**, que pasa `{strict:true}`:
+  en un equipo con sync de vehículos, sin red / sin respuesta / error de lectura no se aprueba
+  (decisión del laboratorio, 22-oct-2026). Un 404 sí sigue (la nube no tiene ese vehículo). No
+  pasar `strict` a otro paso sin decisión del laboratorio: el trabajo sin red es un requisito.
+- **Presencia: dónde está este equipo se LEE DEL DOM** — el chip `fbPresenceChipHTML(entity,
+  {here:true, screen, progress})` cuyo contenedor se ve (la capa uiFlow primero). Así no hay que
+  avisar al salir por cada camino. **Toda pantalla nueva donde importe saber quién más está pone su
+  chip `here`** (entidades: `veh:<id>`, `ronda:gases:<fecha>:<turno>`). Nunca bloquea; nunca se
+  usa para decidir nada. Es la escritura de MENOR prioridad: se calla con la cuota arriba de 70 %,
+  y solo se escucha la colección mientras este equipo está en algún lugar (cada escucha cuesta una
+  lectura por cambio a cada equipo).
+- **La ronda ya no guarda una sola vez** (matiza 2.21.0): guarda por tramos (`_invRoundTranche`)
+  para que los demás vean el avance; el modelo de consumo se reentrena una sola vez, al final.
+  Lo que otra persona leyó en el mismo turno se salta con `doneBy` (uiFlow, estado `'otro'`);
+  releerlo es una corrección (regla de lecturas de esta misma versión).
+- Siguiente fase del plan del 22-oct-2026 (velocidad y repintar en su lugar): se aprueba aparte.

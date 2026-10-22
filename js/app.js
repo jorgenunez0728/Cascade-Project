@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.17.1';
+var APP_VERSION = '3.18.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '3.17.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
+      bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
+                'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
+                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes, salvo Aprobar.',
+                'Aprobar exige conexión: sin red, o si la nube no responde en 6 segundos, no se aprueba y se dice por qué. Así nadie aprueba en un equipo una prueba que otro ya aprobó o devolvió. Alta, Operación, Liberación y Enviar a aprobación siguen funcionando sin red.',
+                'En Operación, Liberación y Aprobación un chip dice quién más tiene abierto ese vehículo en otro equipo y en qué pantalla (en ámbar si está capturando). No bloquea nada: solo se ve.',
+                'Ronda de lecturas en vivo: si dos personas hacen la ronda del mismo turno, cada una ve a la otra y su avance, y lo que la otra ya leyó se salta solo (si regresas a ese punto, dice quién lo tomó; leerlo otra vez queda como corrección). La ronda se guarda por tramos, no solo al final.',
+                'Consumibles: una lectura de gas corregida o capturada en otro equipo (misma fecha y turno) ahora queda igual en todos; a quien se le reemplazó la suya le sale un aviso y queda en el historial de cambios.',
+                'Plan y Consumibles: dos cambios seguidos desde el mismo equipo llegan los dos a los demás (antes el segundo se perdía hasta recargar). Y una prueba que quitas de Mi semana ya no regresa porque otro equipo tenía la semana abierta.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
       bullets: ['Laboratorio en el mapa: las placas amarillas de sujeción del dinamómetro estaban dibujadas atrás y adelante del auto, atravesadas en el camino por donde entra y sale (una quedaba entre el auto y el ventilador). Ahora van a los dos costados, que es donde fijan el auto de lado, y el letrero "Dinamómetro" pintado en el piso pasa delante de la placa para que no lo tape.'] },
     { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
@@ -1520,8 +1529,11 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.1';
+var CASCADE_VERSION = '4.10.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.10.0', date: '22 oct 2026', app: '3.18.0', title: 'Aprobar exige conexión',
+      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma.',
+                'Aprobar exige conexión: sin red no se aprueba. Los demás pasos siguen sin red.'] },
     { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
       bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
@@ -4081,7 +4093,13 @@ function undoableAction(module, label, fn) {
 function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
-        if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
+        if (entry.data.testplan && typeof tpState !== 'undefined') {
+            var _planesAntes = JSON.parse(JSON.stringify(tpState.weeklyPlans || []));
+            var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; });
+            // [3.18.0] Las marcas de filas quitadas no retroceden con la foto (si no, el sync deshace el Deshacer).
+            if (typeof tpRowMarksAfterRestore === 'function') tpRowMarksAfterRestore(_planesAntes);
+            if (typeof tpSave === 'function') tpSave();
+        }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
         if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }

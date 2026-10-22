@@ -22,7 +22,9 @@
 //            render(host)          pinta la tarjeta dentro de host
 //            save(host)            → true | {ok:true} | {ok:false, msg, field}
 //            onLater()             opcional: al tocar "Después"
-//            blocked()             opcional: motivo (texto) por el que no se puede guardar }
+//            blocked()             opcional: motivo (texto) por el que no se puede guardar
+//            doneBy()              opcional [3.18.0]: quién ya lo hizo en otro lado (texto) — al
+//                                  AVANZAR se salta y cuenta como hecho ('otro'); de regreso se ve }
 
 var UF_SWIPE_PX = 60;
 
@@ -30,16 +32,18 @@ var _uf = null;   // {opts, steps, state:{done,skipped}, idx, final, onlyPending
 
 /**
  * Estado de las tarjetas. PURA.
- * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}}
- * Devuelve {cards:[{key, section, title, index, status}], sections:[{name, start, count}],
- *           pending:[índices no hechos], firstPending, done, skipped}
- * status: 'hecho' | 'despues' (se tocó "Después") | 'pendiente' (no se ha visto).
+ * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}, others:{key:'quién'}}
+ * Devuelve {cards:[{key, section, title, index, status, by}], sections:[{name, start, count}],
+ *           pending:[índices no hechos], firstPending, done, skipped, others}
+ * status: 'hecho' | 'otro' (lo hizo otra persona, [3.18.0]) | 'despues' (se tocó "Después") |
+ *         'pendiente' (no se ha visto). 'otro' no queda pendiente y no cuenta en `done`.
  */
 function uiFlowModel(steps, state) {
     state = state || {};
-    var done = state.done || {}, skipped = state.skipped || {};
+    var done = state.done || {}, skipped = state.skipped || {}, others = state.others || {};
     var cards = (steps || []).filter(function(s) { return s && s.key; }).map(function(s, i) {
-        var st = done[s.key] ? 'hecho' : (skipped[s.key] ? 'despues' : 'pendiente');
+        var st = done[s.key] ? 'hecho' : (others[s.key] ? 'otro' : (skipped[s.key] ? 'despues' : 'pendiente'));
+        if (st === 'otro') return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st, by: String(others[s.key]) };
         return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st };
     });
     var sections = [];
@@ -48,12 +52,13 @@ function uiFlowModel(steps, state) {
         if (!last || last.name !== c.section) sections.push({ name: c.section, start: i, count: 1 });
         else last.count++;
     });
-    var pending = cards.filter(function(c) { return c.status !== 'hecho'; }).map(function(c) { return c.index; });
+    var pending = cards.filter(function(c) { return c.status !== 'hecho' && c.status !== 'otro'; }).map(function(c) { return c.index; });
     return {
         cards: cards, sections: sections, pending: pending,
         firstPending: pending.length ? pending[0] : -1,
         done: cards.filter(function(c) { return c.status === 'hecho'; }).length,
-        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length
+        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length,
+        others: cards.filter(function(c) { return c.status === 'otro'; }).length
     };
 }
 
@@ -82,7 +87,7 @@ function uiFlowOpen(opts) {
     var steps = (opts.steps || []).filter(function(s) { return s && s.key; });
     if (!steps.length) return false;
     var st = opts.state || {};
-    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}) },
+    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}), others: Object.assign({}, st.others || {}) },
             idx: 0, final: false, onlyPending: false, closeDialog: null };
 
     var el = document.createElement('div');
@@ -153,7 +158,7 @@ function _ufHeader(m) {
     // avanza, pero no llena la barra.
     segs.innerHTML = m.sections.map(function(s) {
         var mine = m.cards.slice(s.start, s.start + s.count);
-        var done = mine.filter(function(x) { return x.status === 'hecho'; }).length / s.count;
+        var done = mine.filter(function(x) { return x.status === 'hecho' || x.status === 'otro'; }).length / s.count;
         var here = sec && sec.start === s.start;
         return '<button type="button" class="uf-seg' + (here ? ' is-here' : '') + '" style="flex:' + s.count + '" ' +
             'onclick="uiFlowGoTo(' + s.start + ')" aria-label="Ir a ' + escapeHtml(s.name || 'la sección') + '">' +
@@ -164,6 +169,19 @@ function _ufHeader(m) {
 
 function _ufGo(i, dir) {
     if (!_uf) return;
+    // [3.18.0] Al avanzar se salta lo que otra persona ya hizo (de regreso sí se ve: releer
+    // es una corrección). Lo que ya hice yo no se toca.
+    if (dir > 0) {
+        while (i < _uf.steps.length) {
+            var st0 = _uf.steps[i], quien = '';
+            if (_uf.state.done[st0.key] || typeof st0.doneBy !== 'function') break;
+            try { quien = st0.doneBy() || ''; } catch (e) { quien = ''; }
+            if (!quien) break;
+            _uf.state.others[st0.key] = quien;
+            delete _uf.state.skipped[st0.key];
+            i++;
+        }
+    }
     var m = _ufModel();
     if (i >= m.cards.length) { _ufFinal(); return; }
     _uf.final = false;
@@ -260,6 +278,7 @@ function uiFlowSave() {
     }
     _uf.state.done[step.key] = true;
     delete _uf.state.skipped[step.key];
+    delete _uf.state.others[step.key];
     _ufFlash('✓ Guardado');
     _ufGo(uiFlowNextIndex(_ufModel(), _uf.idx, _uf.onlyPending), 1);
 }
@@ -268,7 +287,7 @@ function uiFlowSave() {
 function uiFlowLater() {
     if (!_uf || _uf.final) return;
     var step = _uf.steps[_uf.idx];
-    if (!_uf.state.done[step.key]) {
+    if (!_uf.state.done[step.key] && !_uf.state.others[step.key]) {
         _uf.state.skipped[step.key] = true;
         if (typeof step.onLater === 'function') { try { step.onLater(); } catch (e) {} }
     }

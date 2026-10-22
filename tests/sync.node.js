@@ -33,10 +33,11 @@ function extraer(nombre) {
     return SRC.slice(start, i + 1).replace(/^[ \t]+/gm, '');
 }
 
-const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat };
+const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat, FB_PRESENCE_STALE_MS: 5 * 60 * 1000 };
 vm.createContext(ctx);
 ['_fbEquipKey', '_fbGasKey', '_fbGasIndex', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
- '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem', '_fbMergeEquipCalOut']
+ '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem', '_fbMergeEquipCalOut',
+ 'fbPresenceFor', 'fbPresenceText']
     .forEach(n => vm.runInContext(extraer(n), ctx, { filename: 'firebase-sync.js' }));
 
 let pasaron = 0, fallaron = 0;
@@ -164,6 +165,19 @@ console.log('\n== _fbMergeReadings: series de lecturas ==');
     const dos = m([{ date: '2026-09-06', psi: 1400 }], [{ date: '2026-09-06', psi: 1390 }]);
     ok('entre dos humanas del mismo dia gana la local',
         dos.length === 1 && dos[0].psi === 1400, JSON.stringify(dos));
+
+    // [3.18.0] Entre equipos (con opts) es SIMÉTRICA: gana la capturada más tarde.
+    const l1 = [{ date: '2026-09-07', psi: 1400, at: '2026-09-07T09:00:00Z' }];
+    const r1 = [{ date: '2026-09-07', psi: 1390, at: '2026-09-07T09:05:00Z' }];
+    const ch = [];
+    const s1 = m(l1, r1, null, { conflicts: ch }), s2 = m(r1, l1, null, {});
+    ok('entre equipos gana la capturada más tarde, en los dos sentidos',
+        s1[0].psi === 1390 && s2[0].psi === 1390, JSON.stringify([s1, s2]));
+    ok('el choque se reporta con el valor que no quedó', ch.length === 1 && ch[0].lost.psi === 1400 && ch[0].lostSide === 'local');
+    const s3 = m([{ date: '2026-09-08', psi: 5 }], [{ date: '2026-09-08', psi: 6 }], null, { localAt: '2', remoteAt: '1' });
+    ok('sin hora de captura decide la copia editada más recientemente', s3[0].psi === 5);
+    ok('una con hora de captura es posterior a una sin ella',
+        m([{ date: '2026-09-09', psi: 7 }], [{ date: '2026-09-09', psi: 8, at: 'x' }], null, { localAt: '9' })[0].psi === 8);
 }
 
 // ── Los DOS scores: subir vs. preservar ───────────────────────────────────
@@ -256,6 +270,35 @@ console.log('\n== [3.6.0] Enviado a calibrar entre equipos (_fbMergeEquipCalOut)
     const a = ctx._fbMergeEquipCalOut({}, { updatedAt: '1', calOut: out }, { updatedAt: '2' });
     const b = ctx._fbMergeEquipCalOut({}, { updatedAt: '2' }, { updatedAt: '1', calOut: out });
     ok('simétrica: los dos equipos llegan a lo mismo', !a.calOut && !b.calOut);
+}
+
+console.log('\n== [3.18.0] Quién está aquí (fbPresenceFor / fbPresenceText) ==');
+{
+    const now = Date.parse('2026-10-22T15:00:00Z');
+    const hace = s => new Date(now - s * 1000).toISOString();
+    const rec = {
+        dev_yo:   { device: 'dev_yo', operator: 'Jorge', entity: 'veh:7', at: hace(5) },
+        dev_ana:  { device: 'dev_ana', operator: 'Ana', entity: 'veh:7', screen: 'Liberación', editing: true, at: hace(20) },
+        dev_ana2: { device: 'dev_ana2', operator: 'Ana', entity: 'veh:7', screen: 'Operación', at: hace(200) },
+        dev_beto: { device: 'dev_beto', operator: 'Beto', entity: 'veh:9', at: hace(10) },
+        dev_viejo:{ device: 'dev_viejo', operator: 'Carla', entity: 'veh:7', at: hace(6 * 60) },
+        dev_tab:  { device: 'dev_tab', operator: '', deviceName: 'Tablet celda 2', entity: 'veh:7', at: hace(30) }
+    };
+    const l = ctx.fbPresenceFor(rec, 'veh:7', 'dev_yo', now);
+    ok('presencia: sin este equipo, sin los de otro vehículo y sin los de > 5 min', l.map(p => p.operator || p.deviceName).join(',') === 'Ana,Tablet celda 2', JSON.stringify(l));
+    ok('presencia: una persona en dos equipos sale una vez (la más reciente)', l.filter(p => p.operator === 'Ana').length === 1 && l[0].screen === 'Liberación');
+    ok('presencia: un reloj adelantado también caduca', ctx.fbPresenceFor({ x: { device: 'x', entity: 'e', at: new Date(now + 10 * 60000).toISOString() } }, 'e', 'yo', now).length === 0);
+    ok('presencia: sin entidad, nadie', ctx.fbPresenceFor(rec, null, 'dev_yo', now).length === 0);
+    const t1 = ctx.fbPresenceText([l[0]], 'veh:7');
+    ok('texto: uno, con pantalla y "capturando"', t1.text === 'Ana también está aquí (Liberación, capturando)' && t1.editing, t1.text);
+    const t2 = ctx.fbPresenceText(l, 'veh:7');
+    ok('texto: dos', t2.text === 'Ana y Tablet celda 2 también están aquí (capturando)', t2.text);
+    ok('texto: dice que no se bloquea nada', /No se bloquea nada/.test(t2.title));
+    const r1 = ctx.fbPresenceText([{ operator: 'Beto', progress: '12/30' }], 'ronda:gases:2026-10-22:am');
+    ok('texto: ronda con avance', r1.text === 'Beto también hace esta ronda · va 12/30', r1.text);
+    const r2 = ctx.fbPresenceText([{ operator: 'Beto', progress: '12/30' }, { operator: 'Ana', progress: '3/30' }], 'ronda:gases:2026-10-22:am');
+    ok('texto: ronda con dos', r2.text === 'Beto (12/30) y Ana (3/30) también hacen esta ronda', r2.text);
+    ok('texto: nadie → vacío', ctx.fbPresenceText([], 'veh:7').text === '');
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

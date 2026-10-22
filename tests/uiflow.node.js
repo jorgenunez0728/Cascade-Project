@@ -111,5 +111,51 @@ console.log('\n== pnProjectsReviewPick ==');
     ok('sin datos → vacío', ctx.pnProjectsReviewPick(null).items.length === 0);
 }
 
+console.log('\n== [3.18.0] Lo que hizo otra persona (uiFlow + ronda en vivo) ==');
+{
+    const steps = [{ key: 'a', section: 'A', title: 'a' }, { key: 'b', section: 'A', title: 'b' }, { key: 'c', section: 'B', title: 'c' }];
+    const m = ctx.uiFlowModel(steps, { done: { a: true }, others: { b: 'Beto a las 09:02' } });
+    ok('"otro" no queda pendiente ni cuenta como mío', m.pending.join(',') === '2' && m.done === 1 && m.others === 1, JSON.stringify(m.pending));
+    ok('la tarjeta dice quién', m.cards[1].status === 'otro' && m.cards[1].by === 'Beto a las 09:02');
+    ok('lo hecho por mí gana sobre "otro"', ctx.uiFlowModel(steps, { done: { b: true }, others: { b: 'Beto' } }).cards[1].status === 'hecho');
+    ok('sin others, el modelo es el de siempre', ctx.uiFlowModel(steps, {}).others === 0);
+
+    vm.runInContext(`
+        invState.gases = [
+            { id: 'g1', zone: 'A01', gasType: 'CO', controlNo: 'C-1', status: 'In use',
+              readings: [{ date: '2026-09-30', psi: 1800, shift: 'am', by: 'Beto', at: '2026-09-30T15:02:00.000Z' }] },
+            { id: 'g2', zone: 'A02', gasType: 'NO', controlNo: 'C-2', status: 'In use',
+              readings: [{ date: '2026-09-30', psi: 1700, shift: 'pm', by: 'Beto', at: '2026-09-30T20:00:00.000Z' }] },
+            { id: 'g3', zone: 'B01', gasType: 'C3H8', controlNo: 'C-3', status: 'In use',
+              readings: [{ date: '2026-09-30', psi: 900, shift: 'am', by: 'Beto', auto: true }] }
+        ];
+        invState.fuelTanks = [];
+        _readingRound = { items: invRoundItems(), index: 0, results: [], startTime: Date.now(), date: '2026-09-30', shift: 'am' };
+        _dashMe = function() { return 'Ana'; };
+    `, ctx);
+    const r = (id) => vm.runInContext(`_invRoundOtherReading({ kind: 'gas', id: '${id}' })`, ctx);
+    ok('ronda: otra persona ya leyó este punto en este turno', r('g1') && /^Beto a las \d\d:\d\d$/.test(r('g1').label), JSON.stringify(r('g1')));
+    ok('ronda: una lectura de OTRO turno no cuenta', r('g2') === null);
+    ok('ronda: una estimación automática no cuenta', r('g3') === null);
+    vm.runInContext(`_readingRound.results.push({ kind: 'gas', id: 'g1', value: 1810 });`, ctx);
+    ok('ronda: lo que capturó esta misma ronda no es "de otro"', r('g1') === null);
+    vm.runInContext(`_readingRound.results = []; invState.gases[0].readings[0].by = 'Ana';`, ctx);
+    ok('ronda: si la tomé yo por otro lado, dice "tú"', /^tú/.test(r('g1').label));
+
+    // Tramos: cada 5 lecturas, o al cambiar de pasillo, se guarda (sin reentrenar).
+    vm.runInContext(`var __saves = 0; invSave = function() { __saves++; }; _readingRound.savedAt = Date.now();
+        _readingRound.unsaved = 0; _readingRound.index = 0; _readingRound.lastAisle = undefined;`, ctx);
+    vm.runInContext(`_invRoundTranche(false); for (var i = 0; i < 4; i++) _invRoundTranche(true);`, ctx);
+    ok('tramos: 4 lecturas en el mismo pasillo todavía no guardan', vm.runInContext('__saves', ctx) === 0);
+    vm.runInContext(`_invRoundTranche(true);`, ctx);
+    ok('tramos: a la 5ª se guarda', vm.runInContext('__saves', ctx) === 1 && vm.runInContext('_readingRound.unsaved', ctx) === 0);
+    vm.runInContext(`_invRoundTranche(true); _readingRound.index = 2; _invRoundTranche(false);`, ctx);
+    ok('tramos: al pasar a otro pasillo se guarda lo pendiente', vm.runInContext('__saves', ctx) === 2);
+    vm.runInContext(`_readingRound.index = 2; _invRoundTranche(false);`, ctx);
+    ok('tramos: sin nada pendiente no se guarda', vm.runInContext('__saves', ctx) === 2);
+    vm.runInContext(`_invRoundTranche(true); _readingRound.savedAt = Date.now() - 31000; _invRoundTranche(false);`, ctx);
+    ok('tramos: a los 30 s se guarda aunque sean pocas', vm.runInContext('__saves', ctx) === 3);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exitCode = fallaron ? 1 : 0;

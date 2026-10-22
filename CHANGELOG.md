@@ -20,6 +20,106 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.18.0 — Dos personas en el mismo vehículo ya no pierden lo que capturan (2026-10-22)
+
+### Nuevo
+- **Un vehículo en dos equipos se fusiona campo por campo.** Si una persona marca el checklist
+  mientras otra captura el dinamómetro del mismo vehículo en otro equipo, se conservan los dos
+  cambios. Antes ganaba entera la versión de quien guardó al último y lo de la otra desaparecía
+  sin aviso.
+- **El mismo dato cambiado a la vez:** queda el más reciente, a quien se le reemplazó le sale un
+  aviso, y su valor queda en la línea de tiempo (🕘 Historial) con **↩️ Usar este valor**. Firmas,
+  gases, VETS y la revisión no se recuperan así: tienen su propio flujo.
+- **Candado de un instante:** Enviar a aprobación, Aprobar, Devolver y Corregir alta miran primero
+  el vehículo en la nube. Si otro equipo ya lo movió, se detiene antes de pedir la firma y dice
+  quién y a qué hora. Sin red (o sin respuesta en 6 s) se sigue como antes, salvo Aprobar.
+- **Quién más está aquí.** En Operación, Liberación y Aprobación, un chip dice quién más tiene
+  abierto ese vehículo en otro equipo y en qué pantalla ("👤 Beto también está aquí (Liberación,
+  capturando)"; en ámbar si está capturando). No bloquea nada: solo se ve.
+- **Ronda de lecturas en vivo.** Si dos personas hacen la ronda del mismo turno, cada una ve a la
+  otra y su avance ("👥 Carla también hace esta ronda · va 12/30"). Lo que la otra persona ya leyó
+  se salta solo al avanzar; si regresas a ese punto, dice quién lo tomó y a qué hora, y leerlo otra
+  vez queda como corrección. El resumen final lista lo que leyó otra persona. La ronda se guarda por
+  tramos (cada 5 lecturas, cada 30 s o al cambiar de pasillo), no solo al final.
+
+### Cambió
+- **Aprobar exige conexión** (decisión del laboratorio, 22-oct-2026). Sin red, o si la nube no
+  responde en 6 s, no se aprueba y el aviso dice por qué y qué hacer. Es el único paso donde un
+  choque tardío (dos equipos aprobando la misma prueba sin red) no tiene arreglo limpio. Alta,
+  Operación, Liberación, Enviar a aprobación, Devolver y Corregir alta siguen funcionando sin red.
+  CASCADE 4.10.0.
+
+### Arreglado
+- **Lecturas de gas corregidas en otro equipo**: con la misma fecha y turno, cada equipo se quedaba
+  con su propio valor para siempre (la nube, con el de quien subió al último). Ahora queda la
+  lectura capturada más tarde en todos los equipos. A quien se le reemplazó la suya le sale un
+  aviso con los dos valores, y su lectura queda en el historial de cambios.
+- **Dos cambios seguidos desde el mismo equipo** en Plan o Consumibles: el segundo se descartaba en
+  los demás equipos si llegaba menos de 5 s después del primero, y no aparecía hasta el siguiente
+  cambio o hasta recargar.
+- **Quitar una prueba de Mi semana**: regresaba si otro equipo tenía la semana abierta (y al que la
+  quitó le salía "Plan: actualizado desde otro dispositivo"). Devolverla o Deshacer ahora también
+  llega a los demás.
+
+### Para desarrollo
+- **`fbVehMerge3(base, local, remote)` (PURA y SIMÉTRICA) es LA fusión de un vehículo entre
+  equipos**: hoja cambiada de un lado → ese; de los dos → el `updatedAt` más reciente (empate por
+  contenido) y `conflicts[]`. Campos de control (`updatedAt`, `lastModified`, `lastUpdated`,
+  `_rev`) toman el mayor; `timeline`, `returnHistory` y `paStatus` se unen como antes. Sin base, o
+  con ids distintos, cae a `_fbMergeVehicle`. Cada choque deja una entrada determinista
+  (`fbVehConflictEntry`: `data.conflict`, `data.modified[].valor` si mide ≤ 2 000 caracteres y no
+  es una imagen): los dos equipos escriben la misma y la unión no la duplica.
+- **Base** = la última versión de la nube que este equipo incorporó, por documento, en IndexedDB
+  (`kia_emlab_sync_base`; `fbVehBaseReady`, `_fbVehBaseSet`). Se fija al traer (`_fbVehPull`) y
+  al subir (`_fbVehPush`). Al cargar, un vehículo cuya huella es la de la nube la toma de sí mismo.
+- **Precondición al subir** (`fbVehPushPreconditions`, PURA): nunca visto → `exists:false`;
+  conocido → su `updateTime` (ahora se guarda en `known.info[id].ut` desde `_fbVehQuery` y la
+  respuesta del commit; `_fbAuditCommit` devuelve el cuerpo). Si falla, el ciclo se repite
+  (traer → fusionar → subir), a lo más 5 por minuto; tras `FB_VEH_CAS_MAX` (3) fallas seguidas de
+  un documento se sube sin precondición para no atorarlo.
+- **Aviso al que perdió**: `fbVehLostHere(local, merged)` (PURA) lo saca de las entradas de choque
+  NUEVAS (la fusión pudo hacerla el otro equipo); `_fbVehConflictsFlush` avisa y audita
+  `cambios_cruzados` con antes/después.
+- **Candado de un instante**: `fbVehCloudGate(v, estado, acción)` + `fbVehCloudGateDecision`
+  (PURA: solo detiene si la nube es MÁS NUEVA y con otro estado). En cop15.js,
+  `_cascadeCloudGateThen` (síncrono si no hay nada que revisar: sin sync o sin red).
+  `opts.strict` (solo Aprobar): con sync de vehículos, sin red / timeout / error de lectura
+  resuelve `false` con `fbVehCloudGateOfflineText` (PURA). Un 404 no es falla de red (la nube no
+  tiene ese vehículo: nadie más lo pudo mover) — `_fbBugsRestSend` ahora pone `err.status`.
+- **Presencia** (`presence/{FB_DEVICE_ID}`): `fbPresenceFor` / `fbPresenceText` (PURAS),
+  `fbPresenceChipHTML(entity, {here, screen, progress})`, `fbPresenceTick` (cada 4 s, sin red),
+  `fbPresenceDetect` (el chip `data-presence-here` cuyo contenedor se ve). Escribe al cambiar de
+  lugar, a lo más cada 15 s por avance/"capturando" y cada 2 min de latido; > 5 min = ya no está.
+  Escucha (o consulta cada minuto en REST) SOLO mientras este equipo está en algún lugar. No escribe
+  si la cuota del equipo pasa de 70 %.
+- **uiFlow**: paso con `doneBy()` → al avanzar se salta y queda `'otro'` en `uiFlowModel` (no
+  pendiente, no cuenta en `done`; `others` y `cards[].by`). Ronda: `_invRoundOtherReading(item)`,
+  `_invRoundTranche(porLectura)` (`INV_ROUND_TRANCHE_N` = 5, `INV_ROUND_TRANCHE_MS` = 30 s).
+- `vehicleFieldLabel(path)`, `vehicleLostValueRestorable(path)` (PURA), `vehicleUseLostValue`
+  (permiso `test.operate`, no en aprobación/archivado; `valor_recuperado` en auditoría).
+- `_fbMergeReadings(locales, remotas, campo, opts)`: con `opts` (la fusión entre equipos,
+  `_fbMergeInvItem`) la misma clave fecha + turno se resuelve **SIMÉTRICA**: gana `at` más reciente
+  (una lectura con `at` es posterior a una sin él), si no `opts.localAt/remoteAt` (`updatedAt` del
+  cilindro), si no el contenido. Los valores que no quedaron van a `opts.conflicts`. Sin `opts`
+  (`invGasesDedupe`) se conserva "gana la primera lista".
+- `invAddReading` / `invAddFuelReading` sellan `at` (hora de captura) al crear y al reemplazar.
+- `_fbMergeInvItem(local, remote, conflicts)`; `fbMergeExecute` avisa con
+  `_fbReadingConflictsNotify` (texto: `fbReadingConflictText`, PURA) y audita `lectura_cruzada`
+  con antes/después, solo en el equipo cuyo valor no quedó.
+- `_fbLocalHasExtras` (inventario): una lectura humana de la misma clave con otro contenido también
+  cuenta como algo que la nube no tiene.
+- `fbHandleRemoteChange` descarta solo el MISMO documento (`fbRemoteDocKey`: hora del servidor +
+  escritor, o la huella del contenido), por módulo. Antes: todo lo del mismo equipo en 5 s.
+- `plan.removedItems = {uid: {removed, at, by}}`: `tpRowMarkSet` lo escribe en todo camino que saca
+  una fila (`tpRemoveWeeklyItemNow`, `tpUnplanCreditedItem`, `_tpReleaseVehicleLinks`) y
+  `tpRestoreWeeklyItem` lo apaga. La fusión de semanas une marcas con `fbPlanRowMarksUnion` (PURA,
+  simétrica, gana `at`) y retira las filas marcadas; `fbPlanRowMarksNewTo` cuenta como extra.
+  `_undoRestore` llama a `tpRowMarksAfterRestore` para que la foto de Deshacer no retroceda marcas.
+- Pruebas: `livesync` (+10), `sync` (+4), `plan` (+2), `vehsync` (+18, con un Firestore falso que
+  respeta precondiciones), `cop15` (+6) y `tests/v3180.e2e.js`.
+- CI: `firebaseToolsVersion: 15.34.0` fijo en los dos despliegues (la 15.34.1 pide un permiso que la
+  cuenta de servicio no tiene → 403).
+
 ## 3.17.1 — Las placas del dinamómetro van a los costados (2026-10-21)
 
 ### Arreglado
