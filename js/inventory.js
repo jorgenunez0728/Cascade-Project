@@ -2190,10 +2190,11 @@ function invAddReading(gasId, psi, opts) {
         existing.psi = val;
         existing.by = by;
         existing.shift = shift;
+        existing.at = new Date().toISOString();   // [3.17.2] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, psi: val, by: by };
+        reading = { date: date, psi: val, by: by, at: new Date().toISOString() };
         reading.shift = shift;
         if (opts.source) reading.source = opts.source;
         gas.readings.push(reading);
@@ -2280,10 +2281,11 @@ function invAddFuelReading(tankId, level, opts) {
         replaced = { date: existing.date, level: existing.level, by: existing.by || '' };
         existing.level = val;
         existing.by = by;
+        existing.at = new Date().toISOString();   // [3.17.2] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
-        reading = { date: date, level: val, by: by };
+        reading = { date: date, level: val, by: by, at: new Date().toISOString() };
         if (opts.source) reading.source = opts.source;
         tank.readings.push(reading);
         tank.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });

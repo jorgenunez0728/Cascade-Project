@@ -164,6 +164,19 @@ console.log('\n== _fbMergeReadings: series de lecturas ==');
     const dos = m([{ date: '2026-09-06', psi: 1400 }], [{ date: '2026-09-06', psi: 1390 }]);
     ok('entre dos humanas del mismo dia gana la local',
         dos.length === 1 && dos[0].psi === 1400, JSON.stringify(dos));
+
+    // [3.17.2] Entre equipos (con opts) es SIMÉTRICA: gana la capturada más tarde.
+    const l1 = [{ date: '2026-09-07', psi: 1400, at: '2026-09-07T09:00:00Z' }];
+    const r1 = [{ date: '2026-09-07', psi: 1390, at: '2026-09-07T09:05:00Z' }];
+    const ch = [];
+    const s1 = m(l1, r1, null, { conflicts: ch }), s2 = m(r1, l1, null, {});
+    ok('entre equipos gana la capturada más tarde, en los dos sentidos',
+        s1[0].psi === 1390 && s2[0].psi === 1390, JSON.stringify([s1, s2]));
+    ok('el choque se reporta con el valor que no quedó', ch.length === 1 && ch[0].lost.psi === 1400 && ch[0].lostSide === 'local');
+    const s3 = m([{ date: '2026-09-08', psi: 5 }], [{ date: '2026-09-08', psi: 6 }], null, { localAt: '2', remoteAt: '1' });
+    ok('sin hora de captura decide la copia editada más recientemente', s3[0].psi === 5);
+    ok('una con hora de captura es posterior a una sin ella',
+        m([{ date: '2026-09-09', psi: 7 }], [{ date: '2026-09-09', psi: 8, at: 'x' }], null, { localAt: '9' })[0].psi === 8);
 }
 
 // ── Los DOS scores: subir vs. preservar ───────────────────────────────────

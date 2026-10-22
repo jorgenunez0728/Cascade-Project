@@ -529,6 +529,34 @@ t('quitar un uid que ya no existe lo dice y no toca nada', () => {
     eq(S.weeklyPlans[0].items.length, 3);
 });
 
+console.log('\n== [3.17.2] Marca de borrado de una fila del plan ==');
+t('quitar deja la marca, devolver la apaga con fecha más nueva', () => {
+    S.weeklyPlans = [{ id: 'P1', weekDate: '2026-10-05', created: '2026-10-01T00:00:00Z', items: [
+        { uid: 'U1', desc: 'A' }, { uid: 'U2', desc: 'B' }] }];
+    sandbox.tpWeekPlanInvalidate();
+    const pid = sandbox.tpPlanId(S.weeklyPlans[0]);
+    const rm = sandbox.tpRemoveWeeklyItemNow(pid, 'U2');
+    const m1 = S.weeklyPlans[0].removedItems.U2;
+    eq(m1.removed, true, 'marcada:');
+    sandbox.tpRestoreWeeklyItem(pid, rm.item, rm.atIdx);
+    const m2 = S.weeklyPlans[0].removedItems.U2;
+    eq(m2.removed, false, 'devuelta:');
+    eq(m2.at >= m1.at, true, 'fecha más nueva:');
+});
+t('Deshacer con foto: la fila que vuelve se marca devuelta y la que se va, quitada', () => {
+    const foto = JSON.parse(JSON.stringify(S.weeklyPlans));           // U1, U2 (U2 devuelta)
+    const pid = sandbox.tpPlanId(S.weeklyPlans[0]);
+    sandbox.tpRemoveWeeklyItemNow(pid, 'U1');                          // ahora: U2; U1 quitada
+    S.weeklyPlans[0].items.push({ uid: 'U9', desc: 'Z' });             // y se agregó U9
+    const antes = JSON.parse(JSON.stringify(S.weeklyPlans));
+    S.weeklyPlans = foto;                                              // la foto vuelve (sin la marca de U1)
+    sandbox.tpRowMarksAfterRestore(antes);
+    const m = S.weeklyPlans[0].removedItems;
+    eq(m.U1.removed, false, 'U1 vuelve con la foto:');
+    eq(m.U9.removed, true, 'U9 se fue con la foto:');
+    eq(S.weeklyPlans[0].items.map(i => i.uid).join(','), 'U1,U2');
+});
+
 console.log('\n== [3.9.0] Training no entra al plan ni al REQ ==');
 t('Training no es propósito del plan y su liberación no deja evidencia', () => {
     eq(vm.runInContext('TP_PURPOSES_VALID.indexOf("Training")', sandbox), -1);

@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.17.2 — Lo que se cambia en un equipo ya no regresa ni se pierde en el otro (2026-10-22)
+
+### Arreglado
+- **Lecturas de gas corregidas en otro equipo**: con la misma fecha y turno, cada equipo se quedaba
+  con su propio valor para siempre (la nube, con el de quien subió al último). Ahora queda la
+  lectura capturada más tarde en todos los equipos. A quien se le reemplazó la suya le sale un
+  aviso con los dos valores, y su lectura queda en el historial de cambios.
+- **Dos cambios seguidos desde el mismo equipo** en Plan o Consumibles: el segundo se descartaba en
+  los demás equipos si llegaba menos de 5 s después del primero, y no aparecía hasta el siguiente
+  cambio o hasta recargar.
+- **Quitar una prueba de Mi semana**: regresaba si otro equipo tenía la semana abierta (y al que la
+  quitó le salía "Plan: actualizado desde otro dispositivo"). Devolverla o Deshacer ahora también
+  llega a los demás.
+
+### Para desarrollo
+- `_fbMergeReadings(locales, remotas, campo, opts)`: con `opts` (la fusión entre equipos,
+  `_fbMergeInvItem`) la misma clave fecha + turno se resuelve **SIMÉTRICA**: gana `at` más reciente
+  (una lectura con `at` es posterior a una sin él), si no `opts.localAt/remoteAt` (`updatedAt` del
+  cilindro), si no el contenido. Los valores que no quedaron van a `opts.conflicts`. Sin `opts`
+  (`invGasesDedupe`) se conserva "gana la primera lista".
+- `invAddReading` / `invAddFuelReading` sellan `at` (hora de captura) al crear y al reemplazar.
+- `_fbMergeInvItem(local, remote, conflicts)`; `fbMergeExecute` avisa con
+  `_fbReadingConflictsNotify` (texto: `fbReadingConflictText`, PURA) y audita `lectura_cruzada`
+  con antes/después, solo en el equipo cuyo valor no quedó.
+- `_fbLocalHasExtras` (inventario): una lectura humana de la misma clave con otro contenido también
+  cuenta como algo que la nube no tiene.
+- `fbHandleRemoteChange` descarta solo el MISMO documento (`fbRemoteDocKey`: hora del servidor +
+  escritor, o la huella del contenido), por módulo. Antes: todo lo del mismo equipo en 5 s.
+- `plan.removedItems = {uid: {removed, at, by}}`: `tpRowMarkSet` lo escribe en todo camino que saca
+  una fila (`tpRemoveWeeklyItemNow`, `tpUnplanCreditedItem`, `_tpReleaseVehicleLinks`) y
+  `tpRestoreWeeklyItem` lo apaga. La fusión de semanas une marcas con `fbPlanRowMarksUnion` (PURA,
+  simétrica, gana `at`) y retira las filas marcadas; `fbPlanRowMarksNewTo` cuenta como extra.
+  `_undoRestore` llama a `tpRowMarksAfterRestore` para que la foto de Deshacer no retroceda marcas.
+- Pruebas: `tests/livesync.node.js` (+10, dos equipos), `tests/sync.node.js` (+4),
+  `tests/plan.node.js` (+2).
+
 ## 3.17.1 — Las placas del dinamómetro van a los costados (2026-10-21)
 
 ### Arreglado

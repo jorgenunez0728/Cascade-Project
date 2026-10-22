@@ -188,7 +188,7 @@ var fbSync = {
     _useREST: false,               // Fall back to REST API if SDK transport broken
     _listeners: [],                // onSnapshot unsubscribe functions for live sync
     _pendingMerge: {},             // Debounce timers: "stationId|col" → timerID
-    _recentRemote: {},             // Anti-duplicate: "stationId|col" → timestamp of last processed change
+    _recentRemote: {},             // [3.17.2] col → huella del último documento procesado (fbRemoteDocKey)
     _liveSync: false               // true when onSnapshot listeners are active
 };
 
@@ -1559,6 +1559,44 @@ function _fbPlanTombsNewTo(known, incoming) {
     return (incoming || []).some(function(t) { return t && t.planId && !k[t.planId]; });
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.17.2] MARCAS DE BORRADO DE LAS FILAS DE UN PLAN
+// `plan.removedItems = {uid: {removed, at, by}}`. La fusión de semanas es aditiva: sin
+// marca, una fila quitada en un equipo regresaba desde el otro (que la seguía teniendo)
+// y además le llegaba al que la quitó con el aviso "Plan actualizado". Devolver una fila
+// deja `removed:false` con fecha más nueva: nunca se borra la marca, gana la más reciente.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Unión de dos juegos de marcas: por uid gana `at` más reciente; empate → quitada. PURA y SIMÉTRICA. */
+function fbPlanRowMarksUnion(a, b) {
+    var out = {};
+    [a || {}, b || {}].forEach(function(m) {
+        Object.keys(m).forEach(function(uid) {
+            var x = m[uid];
+            if (!x || typeof x !== 'object') return;
+            var y = out[uid];
+            var xa = String(x.at || ''), ya = y ? String(y.at || '') : null;
+            if (!y || xa > ya || (xa === ya && x.removed && !y.removed)) out[uid] = { removed: !!x.removed, at: x.at || '', by: x.by || '' };
+        });
+    });
+    return out;
+}
+
+/** ¿`mine` trae alguna marca que `theirs` no tiene (o más nueva)? PURA. */
+function fbPlanRowMarksNewTo(theirs, mine) {
+    theirs = theirs || {};
+    return Object.keys(mine || {}).some(function(uid) {
+        var m = mine[uid], t = theirs[uid];
+        return m && (!t || String(m.at || '') > String(t.at || ''));
+    });
+}
+
+/** ¿Esta fila del plan está quitada según las marcas? PURA. */
+function fbPlanRowRemoved(marks, item) {
+    var m = item && item.uid && marks ? marks[item.uid] : null;
+    return !!(m && m.removed);
+}
+
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
@@ -2535,12 +2573,26 @@ function fbStopListening() {
     console.log('Firebase: Live sync stopped');
 }
 
+/**
+ * [3.17.2] Huella de UN documento recibido: hora del servidor (`updatedAt`) + quién lo
+ * escribió; sin hora, su contenido. PURA. Dos entregas del mismo documento dan la misma.
+ */
+function fbRemoteDocKey(docData, remoteSt) {
+    var ts = docData && docData.updatedAt;
+    if (ts && typeof ts.toMillis === 'function') ts = ts.toMillis();
+    if (ts !== undefined && ts !== null && ts !== '') return String(remoteSt) + '|' + String(ts);
+    var raw = docData && docData.data;
+    return String(remoteSt) + '|h' + ((typeof strHash === 'function' && typeof stableStringify === 'function')
+        ? strHash(stableStringify(raw === undefined ? null : raw)) : JSON.stringify(raw));
+}
+
 function fbHandleRemoteChange(col, docData, remoteSt) {
-    var now = Date.now();
-    var key = remoteSt + '|' + col;
-    // Anti-duplicate: skip if we already processed this remote change within the last 5s
-    if (fbSync._recentRemote[key] && (now - fbSync._recentRemote[key]) < 5000) return;
-    fbSync._recentRemote[key] = now;
+    // [3.17.2] Se descarta solo el MISMO documento entregado otra vez. Antes se descartaba
+    // todo lo que llegara del mismo equipo dentro de 5 s: dos palomitas a 3 s de distancia
+    // y la segunda no llegaba a los demás hasta el siguiente cambio o recargar.
+    var key = fbRemoteDocKey(docData, remoteSt);
+    if (fbSync._recentRemote[col] === key) return;
+    fbSync._recentRemote[col] = key;
 
     // ══════════════════════════════════════════════════════════════════
     // [v23.2] EL LIVE-SYNC AUTOMÁTICO NUNCA HABÍA FUNCIONADO.
@@ -2795,6 +2847,8 @@ function _fbLocalHasExtras(col, remote) {
             var rw = rp[_fbPlanKey(lw)];
             if (!rw) return true;
             if (lw.updatedAt && (!rw.updatedAt || lw.updatedAt > rw.updatedAt)) return true;
+            // [3.17.2] Una fila quitada (o devuelta) aquí que la nube no sabe.
+            if (fbPlanRowMarksNewTo(rw.removedItems, lw.removedItems)) return true;
             var ri = {};
             (rw.items || []).forEach(function(it) { ri[_fbPlanItemKey(it)] = it; });
             return (lw.items || []).some(function(it) {
@@ -2805,10 +2859,16 @@ function _fbLocalHasExtras(col, remote) {
     }
     if (col === 'inventory') {
         var _rk = function(r) { return r.date + '|' + (r.auto ? 'a' : 'h' + (r.shift === 'pm' ? 'pm' : 'am')); };
-        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = true; }); return m; };
+        var fechas = function(list) { var m = {}; (list || []).forEach(function(r) { if (r && r.date) m[_rk(r)] = r; }); return m; };
+        // [3.17.2] También cuenta una lectura HUMANA de la misma fecha y turno con otro
+        // contenido (una corrección): si no, la nube se quedaba con el valor viejo.
         var faltaLectura = function(loc, rem) {
             var rf = fechas(rem && rem.readings);
-            return (loc.readings || []).some(function(r) { return r && r.date && !rf[_rk(r)]; });
+            return (loc.readings || []).some(function(r) {
+                if (!r || !r.date) return false;
+                var o = rf[_rk(r)];
+                return !o || (!r.auto && stableStringify(o) !== stableStringify(r));
+            });
         };
         var rg = _fbGasIndex(remote.gases);
         if ((invState.gases || []).some(function(g) { var r = rg.find(g); return !r || faltaLectura(g, r); })) return true;
@@ -3302,17 +3362,41 @@ function fbMergeLoadStation(stationId, callback) {
 // fbMergeExecute (otra función), así que toda fusión de un cilindro o un tanque en
 // conflicto lanzaba ReferenceError — y el live-sync envuelve la fusión en try/catch,
 // así que fallaba callada.
-function _fbMergeReadings(locales, remotas, campo) {
+function _fbMergeReadings(locales, remotas, campo, opts) {
     // [3.16.0] Una lectura HUMANA se identifica por fecha + turno (mañana/tarde; sin turno =
     // mañana): dos del mismo día ya no colapsan en una. Las automáticas siguen siendo una por
     // fecha y se retiran del día que tiene alguna humana (el manómetro manda sobre la estimación).
+    //
+    // [3.17.2] Con `opts` (la fusión entre equipos, _fbMergeInvItem) la misma clave se resuelve
+    // SIMÉTRICA: gana la capturada más tarde (`at`; una con `at` es posterior a una sin él), si
+    // no la de la copia editada más recientemente (opts.localAt / opts.remoteAt = updatedAt del
+    // cilindro), y al final por contenido. Antes ganaba siempre la local: corregir una lectura
+    // en otro equipo no llegaba nunca y cada equipo se quedaba con su valor. Un valor que no
+    // quedó se reporta en opts.conflicts. Sin `opts` (repararCilindros) gana la primera lista.
     var sh = function(r) { return r && r.shift === 'pm' ? 'pm' : 'am'; };
     var key = function(r) { return r.date + '|' + (r.auto ? 'auto' : sh(r)); };
+    var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
+    var valor = function(r) { return r.psi !== undefined ? r.psi : r.level; };
+    var ganaLocal = function(l, r) {
+        var la = String(l.at || ''), ra = String(r.at || '');
+        if (la !== ra) return la > ra;
+        var lu = String((opts && opts.localAt) || ''), ru = String((opts && opts.remoteAt) || '');
+        if (lu !== ru) return lu > ru;
+        return ss(l) >= ss(r);
+    };
     var porClave = {};
     (remotas || []).forEach(function(r) { if (r && r.date) porClave[key(r)] = r; });
     (locales || []).forEach(function(r) {
         if (!r || !r.date) return;
-        porClave[key(r)] = r;             // misma clave: gana la local (antes: también)
+        var k = key(r), otra = porClave[k];
+        if (!otra || !opts) { porClave[k] = r; return; }   // sin opts: gana la local (antes: también)
+        if (ss(r) === ss(otra)) return;
+        var local = ganaLocal(r, otra);
+        porClave[k] = local ? r : otra;
+        if (opts.conflicts && !r.auto && valor(r) !== valor(otra)) {
+            opts.conflicts.push({ date: r.date, shift: sh(r), kept: local ? r : otra, lost: local ? otra : r,
+                                  lostSide: local ? 'remote' : 'local' });
+        }
     });
     var humanas = {};
     Object.keys(porClave).forEach(function(k) { var r = porClave[k]; if (!r.auto) humanas[r.date] = true; });
@@ -3361,7 +3445,7 @@ function _fbInvItemDiffers(l, r) {
 // _fbMergeVehicle, v23.5): los campos vienen de la copia editada más recientemente
 // (`updatedAt`); sin fecha o empatadas, de la que ordena mayor por contenido — así los
 // dos equipos eligen lo mismo y no se re-empujan. Las lecturas SIEMPRE se unen.
-function _fbMergeInvItem(local, remote) {
+function _fbMergeInvItem(local, remote, conflicts) {
     var ss = (typeof stableStringify === 'function') ? stableStringify : JSON.stringify;
     var sinSerie = function(o) { var c = Object.assign({}, o); delete c.readings; return c; };
     var lu = (local && local.updatedAt) || '', ru = (remote && remote.updatedAt) || '';
@@ -3370,13 +3454,48 @@ function _fbMergeInvItem(local, remote) {
     else base = ss(sinSerie(local)) >= ss(sinSerie(remote)) ? local : remote;
     var otro = base === local ? remote : local;
     var mezcla = Object.assign({}, otro, base);
-    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings);
+    // [3.17.2] Las lecturas también son simétricas (antes, misma fecha + turno = gana la local).
+    var choques = [];
+    mezcla.readings = _fbMergeReadings(local && local.readings, remote && remote.readings, null,
+        { localAt: lu, remoteAt: ru, conflicts: choques });
+    if (conflicts) choques.forEach(function(c) {
+        c.label = (local && (local.controlNo || local.name)) || (remote && (remote.controlNo || remote.name)) || '';
+        c.id = (local && local.id) || (remote && remote.id) || '';
+        conflicts.push(c);
+    });
     // Un equipo con código viejo no conoce `initialPsi`: no se pierde por venir del otro.
     if (!mezcla.initialPsi && otro && otro.initialPsi) mezcla.initialPsi = otro.initialPsi;
     // Objeto nuevo → huella nueva SIN tocar updatedAt (regla de v23.5): si no, el próximo
     // invSave lo tomaría por una edición local y ganaría a todos con la hora de ahora.
     if (typeof revContentHash === 'function') mezcla._rev = revContentHash(mezcla);
     return mezcla;
+}
+
+/**
+ * [3.17.2] Texto del aviso para quien perdió su lectura en una fusión. PURA.
+ * c = {kind, label, date, shift, kept, lost} (de _fbMergeReadings).
+ */
+function fbReadingConflictText(c) {
+    var u = c.kind === 'fuel' ? '' : ' psi';
+    var v = function(r) { return r ? (r.psi !== undefined ? r.psi : r.level) : '—'; };
+    var turno = c.kind === 'fuel' ? '' : (c.shift === 'pm' ? ', tarde' : ', mañana');
+    return 'Lectura de ' + (c.label || (c.kind === 'fuel' ? 'tanque' : 'cilindro')) + ' (' + c.date + turno + '): quedó ' +
+        v(c.kept) + u + (c.kept && c.kept.by ? ' de ' + c.kept.by : '') + '. La tuya (' + v(c.lost) + u +
+        ') queda en el historial de cambios.';
+}
+
+/** Avisa y deja en el historial las lecturas de ESTE equipo que no quedaron. */
+function _fbReadingConflictsNotify(list) {
+    (list || []).filter(function(c) { return c && c.lostSide === 'local'; }).forEach(function(c) {
+        var txt = fbReadingConflictText(c);
+        if (typeof showToast === 'function') showToast(txt, 'warning', 10000);
+        if (typeof auditLog === 'function') {
+            var val = function(r) { return r ? (r.psi !== undefined ? r.psi : r.level) : null; };
+            auditLog('inv', 'lectura_cruzada', { type: c.kind || 'gas', id: c.id, label: c.label }, txt,
+                { before: { valor: val(c.lost), by: (c.lost && c.lost.by) || '' },
+                  after: { valor: val(c.kept), by: (c.kept && c.kept.by) || '' } });
+        }
+    });
 }
 
 // ── Analyze differences between local and remote ──
@@ -3810,6 +3929,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                         } else {
                             var lw = tpState.weeklyPlans[localWeekMap[k]];
                             if (!lw.items) lw.items = [];
+                            // [3.17.2] Las marcas de filas quitadas se unen ANTES de que el plan
+                            // remoto (si es más nuevo) reemplace los campos del plan.
+                            var _marcas = fbPlanRowMarksUnion(lw.removedItems, rw.removedItems);
                             // [v23.5] Si el plan remoto se editó DESPUÉS (`updatedAt`, lo sella
                             // stampRevisions en tpSave), sus campos de plan y sus versiones de cada fila
                             // mandan: así viaja un "mover al jueves" o un aceptar. Sin fechas
@@ -3824,6 +3946,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                             lw.items.forEach(function(item, i) { idxByKey[_fbPlanItemKey(item)] = i; });
                             (rw.items || []).forEach(function(item) {
                                 var ik = _fbPlanItemKey(item);
+                                if (fbPlanRowRemoved(_marcas, item)) return;
                                 if (idxByKey[ik] === undefined) { lw.items.push(item); idxByKey[ik] = lw.items.length - 1; return; }
                                 var mine = lw.items[idxByKey[ik]];
                                 if (remoteNewer) {
@@ -3838,6 +3961,10 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                                     lw.items[idxByKey[ik]] = item;
                                 }
                             });
+                            if (Object.keys(_marcas).length) {
+                                lw.removedItems = _marcas;
+                                lw.items = lw.items.filter(function(it) { return !fbPlanRowRemoved(_marcas, it); });
+                            }
                             // La fusión NO es una edición de este equipo: re-sellar la huella
                             // sin mover `updatedAt`, o el próximo tpSave la tomaría por una
                             // edición local "más nueva" y la re-empujaría.
@@ -3932,10 +4059,13 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // tiraba las lecturas capturadas en este dispositivo. Se toma el remoto como
             // base pero las series se UNEN, y se conserva la nominal local si el remoto
             // no la trae (un equipo con código viejo no conoce `initialPsi`).
+            // [3.17.2] Lecturas de la misma fecha y turno con valores distintos: se avisa a
+            // quien perdió la suya (sigue en su historial de cambios).
+            var _choquesGas = [], _choquesFuel = [];
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.indexOf(_fbGasIndex(invState.gases).find(c.remote));
                 if (idx < 0) return;
-                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {});
+                invState.gases[idx] = _fbMergeInvItem(invState.gases[idx], c.remote || {}, _choquesGas);
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -3955,7 +4085,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             (analysis.inventory.fuelUpdates || []).forEach(function(c) {
                 var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
                 if (idx < 0) return;
-                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {});
+                var mezcla = _fbMergeInvItem(invState.fuelTanks[idx], c.remote || {}, _choquesFuel);
                 // El nivel autoritativo sale de la última lectura de la serie ya unida:
                 // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
                 var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
@@ -3967,6 +4097,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             if (typeof invFuelTypesUnion === 'function' && remoteData.inventory.fuelTypes) invState.fuelTypes = invFuelTypesUnion(invState.fuelTypes || [], remoteData.inventory.fuelTypes);
             if (typeof siteListUnion === 'function' && remoteData.inventory.siteItems) invState.siteItems = siteListUnion(invState.siteItems || [], remoteData.inventory.siteItems);
             if (typeof invConsHistoryUnion === 'function' && remoteData.inventory.consHistory) invState.consHistory = invConsHistoryUnion(invState.consHistory || [], remoteData.inventory.consHistory);
+            _choquesGas.forEach(function(c) { c.kind = 'gas'; });
+            _choquesFuel.forEach(function(c) { c.kind = 'fuel'; });
+            _fbReadingConflictsNotify(_choquesGas.concat(_choquesFuel));
             merged.push('Inventory: merge completo');
         }
         if (typeof _invRevInit === 'function') _invRevInit();

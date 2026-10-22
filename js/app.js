@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.17.1';
+var APP_VERSION = '3.17.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.17.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.17.2', date: '22 oct 2026', title: 'Lo que se cambia en un equipo ya no regresa ni se pierde en el otro',
+      bullets: ['Consumibles: si una lectura de gas (misma fecha y turno) se corrige o se captura en otro equipo, ahora queda la más reciente en TODOS los equipos. Antes cada equipo se quedaba con la suya para siempre. A quien se le cambió su valor le sale un aviso, y su lectura queda en el historial de cambios.',
+                'Plan y Consumibles: dos cambios seguidos desde el mismo equipo (por ejemplo, dos palomitas con unos segundos de diferencia) llegan los dos a los demás. Antes el segundo se perdía hasta el siguiente cambio o hasta recargar.',
+                'Mi semana: una prueba que quitas del plan ya no regresa porque otro equipo tenía la semana abierta. Devolverla (o Deshacer) también viaja a los demás.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
       bullets: ['Laboratorio en el mapa: las placas amarillas de sujeción del dinamómetro estaban dibujadas atrás y adelante del auto, atravesadas en el camino por donde entra y sale (una quedaba entre el auto y el ventilador). Ahora van a los dos costados, que es donde fijan el auto de lado, y el letrero "Dinamómetro" pintado en el piso pasa delante de la placa para que no lo tape.'] },
     { version: '3.17.0', date: '21 oct 2026', title: 'El estacionamiento de la flota Master y un laboratorio que se ve mejor',
@@ -4081,7 +4085,13 @@ function undoableAction(module, label, fn) {
 function _undoRestore(entry, quiet) {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
-        if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
+        if (entry.data.testplan && typeof tpState !== 'undefined') {
+            var _planesAntes = JSON.parse(JSON.stringify(tpState.weeklyPlans || []));
+            var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; });
+            // [3.17.2] Las marcas de filas quitadas no retroceden con la foto (si no, el sync deshace el Deshacer).
+            if (typeof tpRowMarksAfterRestore === 'function') tpRowMarksAfterRestore(_planesAntes);
+            if (typeof tpSave === 'function') tpSave();
+        }
 
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
         if (entry.data.panel && typeof pnState !== 'undefined') { var restoredP = JSON.parse(entry.data.panel); Object.keys(restoredP).forEach(function(k) { pnState[k] = restoredP[k]; }); if (typeof pnSave === 'function') pnSave(); }

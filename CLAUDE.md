@@ -3825,3 +3825,24 @@ UNIDADES (una unidad es solo su VIN). La flota Master es otra cosa y vive aparte
   (que lo devuelve). Además, `_siteTap` resuelve un toque en el piso con `siteSpotAt`.
 - `_invRoomFitStage(stageId, wrapId)` mide también el tablero del laboratorio, y su escucha de
   `resize` lo repinta.
+
+## 3.17.2 — Que nada regrese ni se pierda en silencio entre equipos (`js/firebase-sync.js`)
+
+Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
+
+- **`_fbMergeReadings(..., opts)` es SIMÉTRICA entre equipos**: misma fecha + turno → gana `at`
+  más reciente (hora de captura, la sellan `invAddReading`/`invAddFuelReading`), después el
+  `updatedAt` del cilindro, después el contenido. Lo que no quedó va a `opts.conflicts` y se avisa
+  solo en el equipo que lo perdió (`_fbReadingConflictsNotify`, auditoría `lectura_cruzada`). Una
+  regla de fusión que diga "gana la local" hace que dos equipos no converjan nunca: no volver a
+  escribir una.
+- **`_fbLocalHasExtras` compara contenido, no solo claves**, en toda lista donde una entrada se
+  pueda corregir: si no, la corrección nunca sube a la nube.
+- **`fbHandleRemoteChange` descarta por documento (`fbRemoteDocKey`), nunca por reloj.** Un filtro
+  de "lo mismo en N segundos" tira cambios reales.
+- **Todo camino que saque una fila de `plan.items` llama `tpRowMarkSet(plan, uid, true)`**, y todo
+  camino que la devuelva, `tpRowMarkSet(plan, uid, false)`. Las marcas (`plan.removedItems`) nunca
+  se borran: gana la más reciente (`fbPlanRowMarksUnion`). Una restauración de foto
+  (`_undoRestore`) pasa por `tpRowMarksAfterRestore`. Sin marca, la fusión aditiva revive la fila.
+- Diagnóstico completo del sync en tiempo real y las fases siguientes (fusión campo por campo de
+  vehículos, presencia, ronda en vivo): plan aprobado el 22-oct-2026; cada fase se aprueba aparte.

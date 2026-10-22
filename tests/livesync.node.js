@@ -45,7 +45,9 @@ const APP_VARS = ['VEHICLE_TOMBSTONE_MAX'];
 const FB_FNS = ['_fbTestedKey', '_fbPlanKey', '_fbPlanItemKey', '_fbMergePaStatus', '_fbUnionLog',
     '_fbVehTime', '_fbMergeVehicle', '_fbModuleFingerprint', '_fbLocalHasExtras', '_fbPushBack',
     '_fbLiveToast', '_fbAfterAutoMerge', 'fbAutoMerge', 'fbMergeAnalyze', 'fbMergeExecute',
-    '_fbEquipKey', '_fbGasKey', '_fbGasIndex', '_fbMergeReadings', '_fbTombsNewTo', '_fbPlanTombsNewTo', 'fbAssignInPlace'];
+    '_fbEquipKey', '_fbGasKey', '_fbGasIndex', '_fbMergeReadings', '_fbTombsNewTo', '_fbPlanTombsNewTo', 'fbAssignInPlace',
+    '_fbInvItemDiffers', '_fbMergeInvItem', 'fbRemoteDocKey', 'fbHandleRemoteChange',
+    'fbReadingConflictText', '_fbReadingConflictsNotify', 'fbPlanRowMarksUnion', 'fbPlanRowMarksNewTo', 'fbPlanRowRemoved'];
 const FB_VARS = ['FB_LIVE_TOAST_MS', 'FB_PUSHBACK_DELAY_MS', 'FB_PUSHBACK_WINDOW_MS', 'FB_PUSHBACK_MAX', '_fbLive'];
 const COP_FNS = ['_cascadeEmpty', '_cascadeSame', '_cascadePlain', 'cascadeThreeWay', 'cascadeVehicleAfterSign'];
 
@@ -90,7 +92,8 @@ function equipo(nombre) {
         dedupeVehicleIds() {}, tpDedupeWeeklyPlans() {},
         tpPlanId: w => w.id,
         fbSyncModules: { cop15: true, testplan: true, inventory: true },
-        fbSync: { stationId: 'KIA-EMLAB' },
+        fbSync: { stationId: 'KIA-EMLAB', _recentRemote: {} },
+        fbQuotaRecord() {}, fbFromFirestoreValue: x => x,
         toasts: [], pushes: [],
     };
     ctx.showToast = (m) => ctx.toasts.push(m);
@@ -118,6 +121,7 @@ function nube(emisor, col, data) {
 }
 function guardar(dev) { dev.stampRevisions(dev.db.vehicles, new FakeDate().toISOString()); dev.fbPush('cop15', dev.db); }
 function guardarPlan(dev) { dev.stampRevisions(dev.tpState.weeklyPlans, new FakeDate().toISOString()); dev.fbPush('testplan', dev.tpState); }
+function guardarInv(dev) { dev.stampRevisions(dev.invState.gases, new FakeDate().toISOString()); dev.fbPush('inventory', dev.invState); }
 
 function vehiculoBase() {
     return {
@@ -472,6 +476,111 @@ console.log('\n== re-ensayo del mismo VIN entre dos equipos (2.37.2) ==');
     ok('editar el re-ensayo llega a su registro, no al archivado',
         A.db.vehicles.find(v => v.id === 'v2').status === 'in-progress' && A.db.vehicles.find(v => v.id === 'v1').status === 'archived',
         A.db.vehicles.map(v => v.id + ':' + v.status).join());
+}
+
+// ── 3.17.2: una lectura corregida en otro equipo llega a todos ────────────
+console.log('\n== 3.17.2: lecturas de gas — misma fecha y turno ==');
+{
+    arrancar();
+    [A, B].forEach(d => {
+        d.invState.gases = [{ id: 'g1', controlNo: 'A1', formula: 'CH4/Air', status: 'In use',
+            readings: [{ date: '2026-09-22', shift: 'am', psi: 2300, by: 'Ana', at: '2026-09-22T12:00:00.000Z' }] }];
+        d.stampRevisions(d.invState.gases, new FakeDate().toISOString());
+    });
+    reloj += 60000;
+    const r = B.invState.gases[0].readings[0];
+    r.psi = 3300; r.by = 'Beto'; r.at = new FakeDate().toISOString();
+    guardarInv(B);
+    correr();
+    ok('la corrección de B llega a A', A.invState.gases[0].readings[0].psi === 3300, JSON.stringify(A.invState.gases[0].readings));
+    ok('los dos equipos quedan con la misma serie',
+        A.stableStringify(A.invState.gases[0].readings) === B.stableStringify(B.invState.gases[0].readings));
+
+    // Las dos capturan a la vez (antes de que viaje nada): gana la más reciente, en los dos.
+    reloj += 60000;
+    const ra = A.invState.gases[0].readings[0];
+    ra.psi = 3310; ra.by = 'Ana'; ra.at = new FakeDate().toISOString(); guardarInv(A);
+    reloj += 2000;
+    const rb = B.invState.gases[0].readings[0];
+    rb.psi = 3320; rb.by = 'Beto'; rb.at = new FakeDate().toISOString(); guardarInv(B);
+    A.toasts.length = 0; B.toasts.length = 0;
+    correr(2000);
+    ok('captura simultánea: gana la más reciente en los DOS', A.invState.gases[0].readings[0].psi === 3320 && B.invState.gases[0].readings[0].psi === 3320,
+        A.invState.gases[0].readings[0].psi + ' / ' + B.invState.gases[0].readings[0].psi);
+    ok('quien perdió su valor lo sabe', A.toasts.some(t => /3310/.test(t) && /3320/.test(t)), JSON.stringify(A.toasts));
+    ok('quien ganó no recibe aviso de choque', !B.toasts.some(t => /3310/.test(t)), JSON.stringify(B.toasts));
+    ok('la conversación termina', cola.length === 0);
+}
+
+// ── 3.17.2: dos cambios seguidos del mismo equipo llegan los dos ─────────
+console.log('\n== 3.17.2: dos cambios a 3 s ==');
+{
+    arrancar();
+    const enviar = (n) => {
+        B.tpState.weeklyPlans[0].items[n].completed = true;
+        B.stampRevisions(B.tpState.weeklyPlans, new FakeDate().toISOString());
+        A.fbHandleRemoteChange('testplan', { data: comoFirestore(JSON.parse(JSON.stringify(B.tpState))),
+            updatedAt: new FakeDate().toISOString(), writer: 'B' }, 'B');
+    };
+    reloj += 60000; enviar(0);
+    reloj += 3000;  enviar(1);
+    correr();
+    const it = A.tpState.weeklyPlans[0].items;
+    ok('la primera palomita llega', it.find(i => i.uid === 'u1').completed === true);
+    ok('la segunda (3 s después) también', it.find(i => i.uid === 'u2').completed === true);
+    // El MISMO documento entregado dos veces sí se ignora (aunque pase el tiempo).
+    let llamadas = 0;
+    const real = A.fbAutoMerge;
+    A.fbAutoMerge = function() { llamadas++; };
+    const doc = { data: comoFirestore(JSON.parse(JSON.stringify(B.tpState))), updatedAt: 'mismo', writer: 'B' };
+    reloj += 10000; A.fbHandleRemoteChange('testplan', doc, 'B');
+    A.fbHandleRemoteChange('testplan', doc, 'B');
+    reloj += 10000; A.fbHandleRemoteChange('testplan', doc, 'B');
+    A.fbHandleRemoteChange('inventory', { data: { gases: [] }, updatedAt: 'mismo', writer: 'B' }, 'B');
+    A.fbAutoMerge = real;
+    ok('el mismo documento repetido se procesa una vez (por módulo)', llamadas === 2, 'llamadas=' + llamadas);
+}
+
+// ── 3.17.2: una fila quitada de la semana no regresa ─────────────────────
+console.log('\n== 3.17.2: quitar una fila del plan ==');
+{
+    arrancar();
+    reloj += 60000;
+    const p = A.tpState.weeklyPlans[0];
+    p.items.splice(1, 1);
+    p.removedItems = { u2: { removed: true, at: new FakeDate().toISOString(), by: 'Ana' } };
+    guardarPlan(A);
+    correr(2000);
+    ok('A no la recupera', A.tpState.weeklyPlans[0].items.map(i => i.uid).join() === 'u1',
+        A.tpState.weeklyPlans[0].items.map(i => i.uid).join());
+    ok('B la quita', B.tpState.weeklyPlans[0].items.map(i => i.uid).join() === 'u1',
+        B.tpState.weeklyPlans[0].items.map(i => i.uid).join());
+    ok('sin aviso de "Plan actualizado" en A', !A.toasts.length, JSON.stringify(A.toasts));
+
+    // Devolverla (tpRestoreWeeklyItem) apaga la marca con fecha más nueva y viaja.
+    reloj += 60000;
+    const q = A.tpState.weeklyPlans[0];
+    q.items.push({ uid: 'u2', desc: 'CFG-B', testDay: 'Mar', completed: false });
+    q.removedItems.u2 = { removed: false, at: new FakeDate().toISOString(), by: 'Ana' };
+    guardarPlan(A);
+    correr(2000);
+    ok('devolverla llega a B', B.tpState.weeklyPlans[0].items.some(i => i.uid === 'u2'));
+    ok('y A la conserva', A.tpState.weeklyPlans[0].items.some(i => i.uid === 'u2'));
+
+    // Un equipo con la fila (sin saber de la marca) que la palomea después no la revive
+    // si la marca es más nueva que su cambio… pero sí si se devolvió: lo decide la fecha.
+    reloj += 60000;
+    B.tpState.weeklyPlans[0].items = B.tpState.weeklyPlans[0].items.filter(i => i.uid !== 'u1');
+    B.tpState.weeklyPlans[0].removedItems = Object.assign({}, B.tpState.weeklyPlans[0].removedItems,
+        { u1: { removed: true, at: new FakeDate().toISOString(), by: 'Beto' } });
+    guardarPlan(B);
+    reloj += 1000;
+    A.tpState.weeklyPlans[0].items.find(i => i.uid === 'u2').completed = true;
+    guardarPlan(A);
+    correr(2000);
+    const fa = A.tpState.weeklyPlans[0].items.map(i => i.uid + (i.completed ? '✓' : '')).sort().join();
+    const fb = B.tpState.weeklyPlans[0].items.map(i => i.uid + (i.completed ? '✓' : '')).sort().join();
+    ok('cambios cruzados: u1 quitada en los dos y la palomita de u2 en los dos', fa === 'u2✓' && fb === 'u2✓', fa + ' / ' + fb);
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

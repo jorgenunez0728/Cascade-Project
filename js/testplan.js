@@ -50,6 +50,44 @@ function tpRemoveWeeklyItem(wk, idx) {
 }
 
 /**
+ * [3.17.2] Marca de borrado de una fila (`plan.removedItems[uid]`). La fusión entre equipos es
+ * aditiva: sin la marca, una fila quitada regresaba desde otro equipo que la seguía teniendo.
+ * Devolverla deja `removed:false` con fecha más nueva (la marca nunca se borra: gana la más
+ * reciente, fbPlanRowMarksUnion). Todo camino que saque una fila de `plan.items` la llama.
+ */
+function tpRowMarkSet(plan, uid, removed) {
+    if (!plan || uid === undefined || uid === null || uid === '') return;
+    if (!plan.removedItems || typeof plan.removedItems !== 'object') plan.removedItems = {};
+    plan.removedItems[uid] = { removed: !!removed, at: new Date().toISOString(),
+        by: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '' };
+}
+
+/**
+ * [3.17.2] Tras restaurar una foto del plan (Deshacer): las marcas no retroceden. Una fila que
+ * la foto devuelve se marca devuelta, y una que la foto quita se marca quitada — si no, la
+ * fusión con los otros equipos desharía el Deshacer (o lo ignoraría).
+ * `antes` = weeklyPlans justo antes de restaurar.
+ */
+function tpRowMarksAfterRestore(antes) {
+    var previo = {};
+    (antes || []).forEach(function(p) { if (p) previo[tpPlanId(p)] = p; });
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        var q = p && previo[tpPlanId(p)];
+        if (!q) return;
+        var marcas = (typeof fbPlanRowMarksUnion === 'function') ? fbPlanRowMarksUnion(p.removedItems, q.removedItems)
+            : Object.assign({}, p.removedItems || {}, q.removedItems || {});
+        var ahora = {};
+        (p.items || []).forEach(function(it) { if (it && it.uid) ahora[it.uid] = true; });
+        var tenia = {};
+        (q.items || []).forEach(function(it) { if (it && it.uid) tenia[it.uid] = true; });
+        p.removedItems = marcas;
+        Object.keys(ahora).forEach(function(uid) { if (marcas[uid] && marcas[uid].removed) tpRowMarkSet(p, uid, false); });
+        Object.keys(tenia).forEach(function(uid) { if (!ahora[uid]) tpRowMarkSet(p, uid, true); });
+        if (!Object.keys(p.removedItems).length) delete p.removedItems;
+    });
+}
+
+/**
  * [2.22.0] ÚNICO escritor de "quitar una prueba del plan". Sin diálogo: lo llaman
  * tpRemoveWeeklyItem (tras su confirmación) y la revisión de la semana (la ficha
  * "Quitar" + Guardar es la confirmación). Acción destructiva: undoPush + auditoría.
@@ -61,6 +99,7 @@ function tpRemoveWeeklyItemNow(planRef, itemRef, opts) {
     if (!_n) return { ok: false, reason: 'No se encontró esa prueba (el plan cambió).' };
     if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
     var item = _n.plan.items.splice(_n.itemIdx, 1)[0];
+    tpRowMarkSet(_n.plan, item && item.uid, true);
     tpBoardInvalidate();
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
@@ -85,6 +124,7 @@ function tpRestoreWeeklyItem(planRef, item, atIdx) {
     }
     var at = Math.max(0, Math.min(plan.items.length, typeof atIdx === 'number' ? atIdx : plan.items.length));
     plan.items.splice(at, 0, item);
+    tpRowMarkSet(plan, item.uid, false);
     tpBoardInvalidate();
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
@@ -1850,6 +1890,7 @@ function tpUnplanCreditedItem(weekIdx, itemIdx) {
     var lbl = _n.item.desc;
     if (typeof undoPush === 'function') undoPush('testplan', 'Quitar prueba no planeada');
     _n.plan.items.splice(_n.itemIdx, 1);
+    tpRowMarkSet(_n.plan, _n.item.uid, true);
     _tpTouchPlan(_n.weekIdx);
     if (typeof auditLog === 'function') {
         auditLog('tp', 'week_item_unplanned_removed', { type: 'plan', label: lbl }, 'Semana ' + (_n.plan.weekDate || '—'));
@@ -8055,7 +8096,7 @@ function _tpReleaseVehicleLinks(vehicleId, keepItem) {
             var it = p.items[i];
             if (!it || it === keepItem || it.linkedVehicleId == null || String(it.linkedVehicleId) !== String(vehicleId)) continue;
             var info = { planId: tpPlanId(p), weekDate: p.weekDate || null, desc: it.desc, day: tpItemDay(it), removed: false };
-            if (it.unplanned && it.origin === 'cascade') { p.items.splice(i, 1); info.removed = true; }
+            if (it.unplanned && it.origin === 'cascade') { p.items.splice(i, 1); tpRowMarkSet(p, it.uid, true); info.removed = true; }
             else _tpClearLink(it);
             sueltas.push(info);
             tocado = true;
