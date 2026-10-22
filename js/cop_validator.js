@@ -2566,7 +2566,10 @@ function copBuildStatsHTML() {
         html += '<div class="cop-verdict cop-verdict--' + vCls + '" data-help="cop-verdict-help">';
         html += '<div style="flex:1;min-width:240px;">';
         html += '<div class="cop-verdict-word">' + vWord + '</div>';
-        html += '<div class="cop-verdict-meta">' + vSub + '</div>';
+        html += '<div class="cop-verdict-meta">' + vSub +
+            // [3.21.0] ¿Por qué? → la ficha de la norma de la familia (método, A, DF, cotas).
+            (typeof normaWhyHTML === 'function' && typeof _copFamilyEmissionReg === 'function' ? ' ' + normaWhyHTML(_copFamilyEmissionReg(copState.familyKey), '¿Por qué?') : '') +
+            '</div>';
         html += '</div>';
         html += '<div style="text-align:right;">';
         html += '<div class="cop-verdict-word" style="font-size:var(--fs-md);">n = ' + nVin + '</div>';

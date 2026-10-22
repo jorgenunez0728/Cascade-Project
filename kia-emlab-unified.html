@@ -7527,6 +7527,57 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .st-more > summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
 .rm-room--lab .rm-door-lbl { font-size: calc(18px * var(--ls, 1)); }
 .rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }
+
+/* ══ [3.21.0] Mapa regulatorio (Datos → 📚 Normas) ══ */
+.nm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.nm-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.nm-chip {
+    min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border-radius: var(--radius-full, 999px);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+}
+.nm-chip.is-on { background: var(--accent-cop); border-color: var(--accent-cop); color: #fff; }
+.nm-title h3 { margin: 0; font-size: var(--fs-md, 18px); color: var(--text); }
+.nm-title h3 small { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+.nm-title p { margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); color: var(--muted); }
+.nm-region {
+    margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg);
+    background: var(--warn-tint, var(--warn-bg)); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base);
+}
+/* El mapa: una fila de pasos que se enrolla; cada paso dice la regla y dónde la verifica la app. */
+.nm-flow {
+    list-style: none; margin: 0 0 var(--space-lg); padding: 0; counter-reset: nm;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-md);
+}
+.nm-node {
+    position: relative; counter-increment: nm; padding: var(--space-md); border-radius: var(--radius-lg);
+    border: 1px solid var(--border); border-top: 3px solid var(--accent-cop); background: var(--surface);
+}
+.nm-node::before {
+    content: counter(nm); position: absolute; top: var(--space-sm); right: var(--space-sm);
+    font-size: var(--fs-2xs); font-weight: 700; color: var(--muted);
+}
+.nm-node.is-focus { box-shadow: 0 0 0 3px var(--accent-cop); }
+.nm-node-head { font-weight: 700; font-size: var(--fs-base); color: var(--text); margin-bottom: var(--space-xs); }
+.nm-req { margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
+.nm-where, .nm-cite { margin: 0; font-size: var(--fs-xs); color: var(--muted); line-height: var(--lh-base); }
+.nm-cite { font-style: italic; }
+.nm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-md); }
+.nm-card h4 { margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--text); }
+.nm-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.nm-table th, .nm-table td { text-align: left; padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); }
+.nm-list { margin: 0 0 var(--space-sm); padding-left: var(--space-lg); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.nm-formula {
+    margin: 0 0 var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
+    background: var(--surface-alt); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--fs-sm); line-height: var(--lh-base);
+}
+.nm-foot { margin: var(--space-xs) 0 0; font-size: var(--fs-xs); color: var(--muted); line-height: var(--lh-base); }
+.nm-fams { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); }
+.nm-empty { color: var(--muted); }
+.ficha-link.nm-why { margin-left: var(--space-xs); font-size: var(--fs-xs); }
+@media (max-width: 640px) {
+    .nm-flow { grid-template-columns: 1fr; }
+    .nm-head { flex-direction: column; align-items: stretch; }
+}
     </style>
 </head>
 
@@ -8788,6 +8839,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-reports')">📤 Reportes</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-regulations')">⚗️ Regulaciones</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-normas')">📚 Normas</button>
         <div class="tp-tab-more-wrap">
             <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
             <div class="tp-tab-more-menu" role="menu">
@@ -10257,10 +10309,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610222057';
+var APP_BUILD = '202610222141';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '6f42f360b74e197a9b382a6c79a06afe2332bce6';
+var APP_COMMIT = 'e78e3f157636a0419eca2871b9e222b3ab64146d';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10268,7 +10320,7 @@ var APP_COMMIT = '6f42f360b74e197a9b382a6c79a06afe2332bce6';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.20.0';
+var APP_VERSION = '3.21.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10276,6 +10328,12 @@ var APP_VERSION = '3.20.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.21.0', date: '22 oct 2026', title: 'El mapa de cada norma',
+      bullets: ['Nueva pantalla Datos → 📚 Normas: para cada norma del laboratorio (NOM-042 C-VP, EURO-5, PRE-EURO 7, SULEV 30…) un mapa del alta al CoP con la regla de cada paso y dónde la verifica la plataforma, sus límites, la regla de región (México se juzga con NOM-042 aunque el alta diga EURO-5), cómo se juzga en el CoP (método de UN R154 §2.1.1, DF asignados, CO₂) y las familias que viven bajo ella.',
+                'Todo sale de lo que la plataforma aplica para juzgar: si cambia una regla, cambia el mapa. No hay nada escrito a mano que se pueda quedar viejo.',
+                '"¿Por qué estos límites?" en Liberación, "¿Por qué?" en Aprobación y en el veredicto del CoP: abre la ficha de la norma con que se juzga esa prueba o esa familia.',
+                '📤 Exportar para tu asistente: un archivo con todas las reglas del laboratorio para subirlo a un asistente (por ejemplo, un Proyecto de Claude) junto con los PDF de las normas, y preguntarle como si fuera la norma.',
+                'La ayuda ya no contradice a la plataforma: el glosario decía que el reposo es de 12 h (la plataforma usa 24) y el tour del CoP describía un alcance anterior.'] },
     { version: '3.20.0', date: '22 oct 2026', title: 'La base del equipo ya no se llena',
       bullets: ['Los vehículos y sus firmas ya no se guardan en el almacenamiento rápido del navegador (5 MB por equipo), sino en su base de datos (IndexedDB), que tiene cientos de MB. En el equipo más cargado el almacenamiento rápido iba en 74 % y, al llenarse, liberar y aprobar se detenían con "Almacenamiento lleno".',
                 'El cambio es automático la primera vez que abres esta versión y no cambia nada de lo que ves: mismos vehículos, mismas firmas, misma nube. Datos → Sistema ahora muestra aparte "Almacenamiento rápido" y la "Base del equipo (IndexedDB)" con lo que queda disponible.',
@@ -11449,14 +11507,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610222057' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610222141' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610222057' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610222141' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11472,7 +11530,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610222057' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610222141' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -17652,7 +17710,7 @@ var UI_TAB_GROUPS = {
           groups: [
             { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
             { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
-            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-normas', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
 };
 // ── [2.16.0] Cada rol ve lo suyo ────────────────────────────────────────
 // Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas,
@@ -23698,6 +23756,8 @@ function _libRegBasisHTML(vehicle, regName) {
          // [3.2.0] Regla de la región: el alta dice EURO-5 porque así se arma el vehículo.
          : (typeof labRegionRegulation === 'function' && labRegionRegulation(catalogReg, _libVehicleRegion(vehicle))
             ? ' <span style="color:var(--muted);">(regulación de México; el alta dice "' + escapeHtml(catalogReg) + '" porque así se arma)</span>' : '')) +
+        // [3.21.0] ¿Por qué estos límites? → la ficha de la norma (mapa regulatorio).
+        (typeof normaWhyHTML === 'function' ? ' ' + normaWhyHTML(regName, '¿Por qué estos límites?') : '') +
         '</span>';
     if (canChange) {
         html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-xs) var(--space-md);" onclick="libRegPickerToggle()">Cambiar</button>';
@@ -24722,6 +24782,7 @@ function loadApproval() {
     if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
+        (typeof normaWhyHTML === 'function' ? ' ' + normaWhyHTML(_libJudgedRegulation(vehicle), '¿Por qué?') : '') +   // [3.21.0]
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
         (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Aprobación' }) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
@@ -57043,7 +57104,7 @@ function pnSave() {
     window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
 }
 
-var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files','pn-bugs','pn-homolog'];
+var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files','pn-bugs','pn-homolog','pn-normas'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -57134,6 +57195,8 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-bugs') return (typeof pnRenderBugs === 'function') ? pnRenderBugs : null;
     // v17.14: catálogo de homologación Europa (js/homolog.js, carga después de este archivo)
     if (tabId === 'pn-homolog') return (typeof pnRenderHomolog === 'function') ? pnRenderHomolog : null;
+    // [3.21.0] Mapa regulatorio (js/normas.js, carga después de este archivo)
+    if (tabId === 'pn-normas') return (typeof pnRenderNormas === 'function') ? pnRenderNormas : null;
     return null;
 }
 
@@ -69929,7 +69992,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610222057' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610222141' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76338,7 +76401,10 @@ function copBuildStatsHTML() {
         html += '<div class="cop-verdict cop-verdict--' + vCls + '" data-help="cop-verdict-help">';
         html += '<div style="flex:1;min-width:240px;">';
         html += '<div class="cop-verdict-word">' + vWord + '</div>';
-        html += '<div class="cop-verdict-meta">' + vSub + '</div>';
+        html += '<div class="cop-verdict-meta">' + vSub +
+            // [3.21.0] ¿Por qué? → la ficha de la norma de la familia (método, A, DF, cotas).
+            (typeof normaWhyHTML === 'function' && typeof _copFamilyEmissionReg === 'function' ? ' ' + normaWhyHTML(_copFamilyEmissionReg(copState.familyKey), '¿Por qué?') : '') +
+            '</div>';
         html += '</div>';
         html += '<div style="text-align:right;">';
         html += '<div class="cop-verdict-word" style="font-size:var(--fs-md);">n = ' + nVin + '</div>';
@@ -86973,6 +87039,414 @@ if (typeof window !== 'undefined' && window.addEventListener) {
 }
 
 
+// @@module js/normas.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.21.0] MAPA REGULATORIO — cada norma, contada por lo que la app    ║
+// ║  hace cumplir                                                         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Una ficha y una pantalla (Datos → 📚 Normas) por cada norma del laboratorio: límites,
+// cómo se prueba aquí, cómo se juzga en el CoP, de dónde sale cada regla y qué del
+// laboratorio vive bajo ella.
+//
+// REGLAS:
+//  - NADA se escribe a mano aquí. Cada número sale de la constante o función que la app
+//    usa para juzgar (perfiles de regulación, LAB_REGION_CAPTURE, COP_HQ_RULES, COP_GAS_A,
+//    COP_ASSIGNED_DF, COP_CO2_TABLE, tpSoakHoursFor, VETS_IWR_WLTP, PDF_REQUIRED_FIELDS,
+//    RELEASE_CHECKLIST…). Así el mapa no puede contradecir a la app: si cambia la regla,
+//    cambia el mapa. tests/normas.node.js lo vigila.
+//  - normaFacts(name, src) es PURA: `src` trae todo lo que lee (normaSource() lo arma).
+//  - Las citas son las que el código ya usa en sus comentarios; no se inventan cláusulas.
+//  - No escribe nada. La ficha y la pantalla solo leen y navegan.
+//  - Chatear con la regulación NO vive aquí (no hay servidor): `normasMarkdown` exporta
+//    las reglas en un .md para subirlo a un asistente junto con los PDF de las normas.
+
+var NORMAS_CITAS = {
+    gas: 'UN R154 §2.1.1 (= Reg. (UE) 2017/1151)',
+    co2: 'UN R154 §3.3.1, Tabla A2/3 · Reg. (UE) 2017/1151, Anexo XXI Ap. I §4',
+    traza: 'UN R154, Anexo B6 §2.6.8.3',
+    lotes: 'Regla de corporativo (HQ) para el año calendario',
+    sulev: 'LEV III / Tier 3'
+};
+
+/** Lo que se lee del estado vivo. Cada parte es opcional (typeof): un archivo que no cargó no rompe el mapa. */
+function normaSource() {
+    var src = {
+        year: new Date().getFullYear(),
+        profiles: (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [],
+        regionRules: (typeof LAB_REGION_CAPTURE !== 'undefined') ? LAB_REGION_CAPTURE : {},
+        hqRules: (typeof COP_HQ_RULES !== 'undefined') ? COP_HQ_RULES : [],
+        gasA: (typeof COP_GAS_A !== 'undefined') ? COP_GAS_A : null,
+        gasNmax: (typeof COP_GAS_NMAX !== 'undefined') ? COP_GAS_NMAX : null,
+        df: (typeof COP_ASSIGNED_DF !== 'undefined') ? COP_ASSIGNED_DF : {},
+        co2A: (typeof COP_CO2_A !== 'undefined') ? COP_CO2_A : null,
+        co2Ns: Object.keys((typeof COP_CO2_TABLE !== 'undefined') ? COP_CO2_TABLE : {}).map(Number).sort(function(a, b) { return a - b; }),
+        lot: { tests: (typeof COP_LOT_TESTS !== 'undefined') ? COP_LOT_TESTS : null,
+               first: (typeof COP_LOT_FIRST !== 'undefined') ? COP_LOT_FIRST : null,
+               next: (typeof COP_LOT_NEXT !== 'undefined') ? COP_LOT_NEXT : null },
+        soakDefault: (typeof TP_SOAK_DEFAULT_H !== 'undefined') ? TP_SOAK_DEFAULT_H : null,
+        soakFor: (typeof tpSoakHoursFor === 'function') ? function(reg) { return tpSoakHoursFor({ reg: reg }); } : null,
+        iwr: (typeof VETS_IWR_WLTP !== 'undefined') ? VETS_IWR_WLTP : null,
+        rmsse: (typeof VETS_RMSSE_WLTP_KMH !== 'undefined') ? VETS_RMSSE_WLTP_KMH : null,
+        f05: ((typeof PDF_REQUIRED_FIELDS !== 'undefined') ? PDF_REQUIRED_FIELDS : []).map(function(f) { return { label: f.label, section: f.section }; }),
+        checklist: (typeof RELEASE_CHECKLIST !== 'undefined') ? RELEASE_CHECKLIST : { objects: [], docs: [] },
+        stages: (typeof CASCADE_STAGES !== 'undefined') ? CASCADE_STAGES : [],
+        configs: [], families: {}, tests: {}
+    };
+    // Catálogo: cuántas configuraciones juzga cada norma (la de la región manda: México → NOM-042).
+    var judged = function(reg, rgn) { return (typeof labRegionRegulation === 'function' && labRegionRegulation(reg, rgn)) || reg; };
+    (typeof allConfigurations !== 'undefined' ? allConfigurations : []).forEach(function(c) {
+        var reg = c['EMISSION REGULATION'] || '', rgn = c['REGION'] || '';
+        var j = judged(reg, rgn);
+        src.configs.push({ reg: reg, judged: j, region: rgn });
+        if (typeof copVehicleFamilyKey === 'function') {
+            var k = copVehicleFamilyKey({ config: c });
+            (src.families[j] = src.families[j] || {})[k] = true;
+        }
+    });
+    // Pruebas del año juzgadas con cada norma.
+    var y = String(src.year);
+    (typeof db !== 'undefined' && db && db.vehicles ? db.vehicles : []).forEach(function(v) {
+        if (typeof vehicleIsPastTest === 'function' && !vehicleIsPastTest(v)) return;
+        var d = (typeof vehicleTestDate === 'function') ? vehicleTestDate(v) : '';
+        if (!d || d.slice(0, 4) !== y) return;
+        var reg = (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || '');
+        src.tests[reg] = (src.tests[reg] || 0) + 1;
+    });
+    return src;
+}
+
+function _nmKey(s) { return String(s == null ? '' : s).trim().toUpperCase(); }
+function _nmNum(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return String(v);
+    return String(Math.round(v * 1e6) / 1e6);
+}
+
+/**
+ * LA descripción de una norma, compuesta de lo que la app aplica. PURA.
+ * Devuelve null si la norma no existe en los perfiles del laboratorio.
+ */
+function normaFacts(name, src) {
+    var key = _nmKey(name);
+    var prof = (src.profiles || []).filter(function(p) { return _nmKey(p.name) === key; })[0];
+    if (!prof) return null;
+    var gases = (prof.gases || []).map(function(gs) {
+        return { field: gs.field, label: gs.label || gs.field, unit: gs.unit, limit: (gs.limit === null || gs.limit === undefined) ? null : gs.limit,
+                 captureUnit: gs.captureUnit || null };
+    });
+
+    // Reglas de región que tocan esta norma.
+    var regions = [];
+    Object.keys(src.regionRules || {}).forEach(function(rk) {
+        var r = src.regionRules[rk];
+        var m = r.regulation || {};
+        var isTo = _nmKey(m.to) === key;
+        var isFrom = (m.from || []).some(function(f) { return _nmKey(f) === key; });
+        if (!isTo && !isFrom) return;
+        regions.push({
+            region: r.label || rk, gases: r.gases || [], unit: r.unit, units: r.units || [],
+            text: isTo ? ('En ' + (r.label || rk) + ' el alta trae ' + (m.from || []).join(' / ') + ', pero se juzga con ' + prof.name + '. Se capturan ' + (r.gases || []).join(', ') + ' en ' + r.unit + '.')
+                       : ('En ' + (r.label || rk) + ' esta norma NO se usa para juzgar: se juzga con ' + m.to + '. Aquí solo identifica la familia.')
+        });
+    });
+
+    // Donde una regla de región juzga CON esta norma, se captura en la unidad de esa región
+    // (México: g/mi), aunque el límite esté en otra. La conversión la hace la app (gasConvert).
+    Object.keys(src.regionRules || {}).forEach(function(rk) {
+        var r = src.regionRules[rk], m = r.regulation || {};
+        if (_nmKey(m.to) !== key || !r.unit) return;
+        var fields = (r.gases || []).map(_nmKey);
+        gases.forEach(function(g) { if (fields.indexOf(_nmKey(g.field)) >= 0) g.captureUnit = r.unit; });
+    });
+
+    // CoP de corporativo.
+    var cop = (src.hqRules || []).filter(function(r) { return _nmKey(r.reg) === key; }).map(function(r) {
+        var text = r.rule === 'lot'
+            ? (src.lot.tests + ' ensayos hasta ' + _nmFmtInt(src.lot.first) + ' unidades del año; ' + src.lot.tests + ' más por cada ' + _nmFmtInt(src.lot.next) + ' o fracción después')
+            : '1 ensayo por familia con producción en el año';
+        return { region: r.region, label: r.label, rule: r.rule, text: text };
+    });
+    var df = src.df && src.df.PI ? src.df.PI : {};
+    var gasMethod = cop.length ? {
+        A: src.gasA, nmax: src.gasNmax, cite: NORMAS_CITAS.gas,
+        df: gases.filter(function(gs) { return gs.limit !== null; }).map(function(gs) {
+            var k = String(gs.field).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            return { field: gs.label, df: df[k] || 1, assigned: !!df[k] };
+        }),
+        pass: 'Xtests < ' + _nmNum(src.gasA) + '·L − VAR/L',
+        fail: 'Xtests > ' + _nmNum(src.gasA) + '·L − ((n−3)/13)·VAR/L'
+    } : null;
+    var co2Method = cop.length && src.co2Ns.length ? {
+        A: src.co2A, nMin: src.co2Ns[0], nMax: src.co2Ns[src.co2Ns.length - 1], cite: NORMAS_CITAS.co2
+    } : null;
+
+    var soak = src.soakFor ? src.soakFor(prof.name) : { hours: src.soakDefault, label: 'default del laboratorio' };
+    var configs = (src.configs || []).filter(function(c) { return _nmKey(c.judged) === key; });
+    var redirected = (src.configs || []).filter(function(c) { return _nmKey(c.reg) === key && _nmKey(c.judged) !== key; });
+    var famKeys = Object.keys((src.families || {})[prof.name] || {});
+    var limited = gases.filter(function(gs) { return gs.limit !== null; });
+
+    var steps = [
+        { id: 'alta', icon: '📝', title: 'Alta', req: 'Configuración del catálogo con norma ' + prof.name + (regions.some(function(r) { return /NO se usa/.test(r.text); }) ? ' (salvo la regla de región de abajo)' : '') + '.',
+          where: 'Pruebas → Alta (cascada de configuración)' },
+        { id: 'precond', icon: '🧰', title: 'Preacondicionamiento', req: 'Ciclo de preacondicionamiento, combustible, llantas y DTC antes de reposar.',
+          where: 'Pruebas → Operación' },
+        { id: 'soak', icon: '⏱', title: 'Reposo', req: _nmNum(soak.hours) + ' h (' + soak.label + ').',
+          where: 'Pruebas → Operación (temporizador) · se cambia en Plan → Reglas' },
+        { id: 'prueba', icon: '🚗', title: 'Prueba', req: 'Coeficientes Target y Dyno (A, B, C) y ETW capturados. Si la prueba es WLTP, el trazo de manejo debe cumplir IWR ' +
+              (src.iwr ? (src.iwr.lo + ' a +' + src.iwr.hi + ' %') : '') + ' y RMSSE ≤ ' + _nmNum(src.rmsse) + ' km/h para que cuente en el CoP.',
+          where: 'Pruebas → Operación · VETS adjunto', cite: NORMAS_CITAS.traza },
+        { id: 'liberacion', icon: '✅', title: 'Liberación', req: limited.length
+              ? 'Cada gas medido ≤ su límite: ' + limited.map(function(gs) { return gs.label + ' ' + _nmNum(gs.limit) + ' ' + gs.unit; }).join(' · ') + '. Sin factor de deterioro.'
+              : 'Esta norma no tiene límites capturados: solo registra valores.',
+          where: 'Liberación (✓ PASA / ✗ FALLA · % del límite)' },
+        { id: 'aprobacion', icon: '🔏', title: 'Aprobación', req: 'Doble ciego: quien aprueba vuelve a capturar sin ver al liberador; coinciden a la precisión del valor más corto (2–3 cifras significativas). Hoja COP15-F05 completa (' + (src.f05 || []).length + ' datos).',
+          where: 'Liberación → Aprobación' }
+    ];
+    if (cop.length) steps.push({ id: 'cop', icon: '📊', title: 'CoP', req: cop.map(function(c) { return c.label + ': ' + c.text; }).join(' · ') + '. Juicio de gases con DF asignado: ' + gasMethod.pass + ' pasa; ' + gasMethod.fail + ' falla.',
+          where: 'CoP → Validador · Expediente · Hoja de HQ', cite: NORMAS_CITAS.gas });
+    else steps.push({ id: 'cop', icon: '📊', title: 'CoP', req: 'Esta norma no está en el alcance de corporativo: sus pruebas no entran al juicio de conformidad.',
+          where: 'CoP → Panorama (se declara como fuera del alcance)' });
+
+    var docs = ((src.checklist || {}).docs || []).map(function(d) {
+        return { label: d.label, when: d.rule === 'europe' ? 'Solo Europa' : d.rule === 'mexico' ? 'Solo certificación MX' : d.rule === 'f05' ? 'Siempre (se deriva del F05)' : 'Siempre' };
+    });
+
+    return {
+        name: prof.name, shortName: prof.shortName || prof.name, gases: gases, regions: regions,
+        cop: cop, gasMethod: gasMethod, co2Method: co2Method, soak: soak, steps: steps, docs: docs,
+        objects: ((src.checklist || {}).objects || []).map(function(o) { return o.label; }),
+        live: { configs: configs.length, redirected: redirected.length, families: famKeys.length, familyKeys: famKeys, tests: (src.tests || {})[prof.name] || 0, year: src.year },
+        cite: _nmKey(prof.name) === 'SULEV 30' ? NORMAS_CITAS.sulev : ''
+    };
+}
+
+function _nmFmtInt(n) { return (typeof n === 'number') ? n.toLocaleString('es-MX') : String(n); }
+
+/** Las normas del laboratorio (nombres de los perfiles), en el orden de los perfiles. */
+function normasList(src) { return (src.profiles || []).map(function(p) { return p.name; }); }
+
+/** Una norma por su nombre, con el estado vivo. */
+function normaModel(name) { return normaFacts(name, normaSource()); }
+
+// ── Exportar para un asistente ───────────────────────────────────────────
+
+/** Markdown de todas las normas (PURA sobre los hechos ya calculados). */
+function normasMarkdown(facts, meta) {
+    meta = meta || {};
+    var L = [];
+    L.push('# Reglas que aplica el Laboratorio de Emisiones (KIA EmLab)');
+    L.push('');
+    L.push('Generado por la plataforma ' + (meta.version ? 'v' + meta.version + ' ' : '') + (meta.date ? 'el ' + meta.date : '') + '.');
+    L.push('Cada número sale de lo que la plataforma usa para juzgar. Para el texto completo de cada norma, consultar sus PDF oficiales.');
+    facts.forEach(function(f) {
+        if (!f) return;
+        L.push('');
+        L.push('## ' + f.name + (f.cite ? ' (' + f.cite + ')' : ''));
+        L.push('');
+        L.push('### Límites (valor medido, sin factor de deterioro)');
+        f.gases.forEach(function(g) {
+            L.push('- ' + g.label + ': ' + (g.limit === null ? 'informativo, sin límite' : '≤ ' + _nmNum(g.limit) + ' ' + g.unit) + (g.captureUnit && g.captureUnit !== g.unit ? ' (se captura en ' + g.captureUnit + ')' : ''));
+        });
+        if (f.regions.length) {
+            L.push('');
+            L.push('### Regla de región');
+            f.regions.forEach(function(r) { L.push('- ' + r.text); });
+        }
+        L.push('');
+        L.push('### Cómo se prueba en el laboratorio');
+        f.steps.forEach(function(s, i) { L.push((i + 1) + '. **' + s.title + '**: ' + s.req + ' _(' + s.where + (s.cite ? '; ' + s.cite : '') + ')_'); });
+        if (f.gasMethod) {
+            L.push('');
+            L.push('### Conformidad de producción (CoP)');
+            f.cop.forEach(function(c) { L.push('- ' + c.label + ': ' + c.text + '.'); });
+            L.push('- Gases (' + f.gasMethod.cite + '): EM = medido × DF + KI; pasa si ' + f.gasMethod.pass + '; falla si ' + f.gasMethod.fail + '; en medio, otra medición. A = ' + _nmNum(f.gasMethod.A) + ', n hasta ' + f.gasMethod.nmax + '.');
+            L.push('- DF asignados: ' + f.gasMethod.df.map(function(d) { return d.field + ' ' + _nmNum(d.df); }).join(', ') + '.');
+            if (f.co2Method) L.push('- CO₂ (' + f.co2Method.cite + '): A = ' + _nmNum(f.co2Method.A) + ', tabla para n = ' + f.co2Method.nMin + '…' + f.co2Method.nMax + '.');
+        }
+    });
+    L.push('');
+    return L.join('\n');
+}
+
+function normasExportMarkdown() {
+    var src = normaSource();
+    var facts = normasList(src).map(function(n) { return normaFacts(n, src); });
+    var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    var md = normasMarkdown(facts, { version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '', date: today });
+    var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'reglas-laboratorio-' + today + '.md';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    if (typeof showToast === 'function') showToast('📤 Listo: súbelo a tu asistente junto con los PDF de las normas.', 'success');
+}
+
+// ── Ficha (tipo registrado en FICHA_KINDS) ───────────────────────────────
+
+if (typeof FICHA_KINDS !== 'undefined') {
+    FICHA_KINDS.norma = {
+        icon: '📚', label: 'Norma',
+        model: function(name) {
+            var f = normaModel(name);
+            if (!f) return null;
+            var badges = [];
+            if (f.cop.length) badges.push({ text: 'CoP: ' + f.cop.map(function(c) { return c.rule === 'lot' ? 'por lotes' : '1 por familia'; }).join(' · '), tone: 'info' });
+            else badges.push({ text: 'Fuera del CoP', tone: 'muted' });
+            if (f.regions.length) badges.push({ text: 'Regla de región', tone: 'warn' });
+            var groups = [];
+            groups.push({ icon: '📏', title: 'Límites (valor medido)', lines: f.gases.map(function(g) {
+                return { text: g.label + ': ' + (g.limit === null ? 'informativo' : '≤ ' + _nmNum(g.limit) + ' ' + g.unit) };
+            }) });
+            if (f.regions.length) groups.push({ icon: '🌎', title: 'Regla de región', lines: f.regions.map(function(r) { return { text: r.text, tone: 'warn' }; }) });
+            groups.push({ icon: '🗺️', title: 'Cómo se prueba aquí', lines: f.steps.map(function(s) {
+                return { text: s.icon + ' ' + s.title + ': ' + s.req, whenText: s.where + (s.cite ? ' · ' + s.cite : '') };
+            }) });
+            var famLines = f.live.familyKeys.slice(0, 6).map(function(k) {
+                var p = k.split('|');
+                return { text: [p[0], p[1], p[2], p[3], p[7]].filter(Boolean).join(' · '), link: { kind: 'familia', ref: k } };
+            });
+            if (famLines.length) groups.push({ icon: '👪', title: 'Familias bajo esta norma', lines: famLines, more: Math.max(0, f.live.familyKeys.length - famLines.length) });
+            return {
+                kind: 'norma', ref: name, title: f.name,
+                subtitle: f.live.configs + ' configuraciones · ' + f.live.families + ' familias · ' + f.live.tests + ' pruebas en ' + f.live.year,
+                badges: badges, facts: [], relations: [], history: [], groups: groups,
+                note: 'Todo sale de lo que la plataforma aplica: si cambia una regla, cambia aquí.' +
+                      (f.live.redirected ? ' ' + f.live.redirected + ' configuraciones con esta norma en el alta se juzgan con otra por su región.' : ''),
+                next: { label: '🗺️ Ver el mapa completo', js: "fichaClose();normasOpen('" + String(f.name).replace(/'/g, "\\'") + "')" }
+            };
+        }
+    };
+}
+
+// ── Pantalla Datos → 📚 Normas ───────────────────────────────────────────
+
+/** Abre la pantalla en una norma (desde la ficha o un "¿Por qué?"). */
+function normasOpen(name, nodeId) {
+    if (name && typeof uiPref === 'function') uiPref('normaSel', name);
+    window._normasFocus = nodeId || null;
+    if (typeof dashGo === 'function') dashGo('panel', 'pn-normas');
+    else if (typeof pnSwitchTab === 'function') pnSwitchTab('pn-normas');
+    if (typeof pnRender === 'function') setTimeout(function() { pnRender(); }, 60);
+}
+
+function normasSelect(name) {
+    if (typeof uiPref === 'function') uiPref('normaSel', name);
+    if (typeof pnRender === 'function') pnRender();
+}
+
+/** "¿Por qué?" junto a un veredicto: abre la ficha de la norma con que se juzgó. */
+function normaWhyHTML(name, label) {
+    if (!name || typeof fichaLinkHTML !== 'function') return '';
+    var k = _nmKey(name);
+    var exists = (typeof getAllRegulationProfiles === 'function') && getAllRegulationProfiles().some(function(p) { return _nmKey(p.name) === k; });
+    if (!exists) return '';
+    return fichaLinkHTML('norma', name, label || '¿Por qué?', 'nm-why');
+}
+
+function pnRenderNormas(el) {
+    var src = normaSource();
+    var names = normasList(src);
+    var sel = (typeof uiPref === 'function') ? uiPref('normaSel') : null;
+    if (!sel || names.indexOf(sel) === -1) sel = names[0];
+    var f = sel ? normaFacts(sel, src) : null;
+    var esc = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s); };
+    var h = (typeof helpBannerHTML === 'function') ? helpBannerHTML('pn-normas') : '';
+    h += '<div class="nm-head"><div class="nm-chips" role="tablist" aria-label="Normas">' + names.map(function(n) {
+        return '<button type="button" role="tab" aria-selected="' + (n === sel) + '" class="nm-chip' + (n === sel ? ' is-on' : '') + '" onclick="normasSelect(\'' + String(n).replace(/'/g, "\\'") + '\')">' + esc(n) + '</button>';
+    }).join('') + '</div>' +
+        '<button type="button" class="tp-btn" onclick="normasExportMarkdown()" title="Un archivo con todas las reglas, para subirlo a tu asistente junto con los PDF de las normas">📤 Exportar para tu asistente</button></div>';
+    if (!f) { el.innerHTML = h + '<p class="nm-empty">No hay perfiles de regulación en este equipo.</p>'; return; }
+
+    h += '<div class="nm-title"><h3>' + esc(f.name) + (f.cite ? ' <small>' + esc(f.cite) + '</small>' : '') + '</h3>' +
+         '<p>' + f.live.configs + ' configuraciones · ' + f.live.families + ' familias · ' + f.live.tests + ' pruebas aprobadas en ' + f.live.year + '</p></div>';
+
+    if (f.regions.length) h += f.regions.map(function(r) { return '<div class="nm-region">🌎 ' + esc(r.text) + '</div>'; }).join('');
+
+    // El mapa: del alta al CoP, con la regla y dónde la verifica la app.
+    h += '<ol class="nm-flow">' + f.steps.map(function(s) {
+        return '<li class="nm-node' + (window._normasFocus === s.id ? ' is-focus' : '') + '" id="nm-node-' + s.id + '">' +
+            '<div class="nm-node-head"><span aria-hidden="true">' + s.icon + '</span> ' + esc(s.title) + '</div>' +
+            '<p class="nm-req">' + esc(s.req) + '</p>' +
+            '<p class="nm-where">📍 ' + esc(s.where) + '</p>' +
+            (s.cite ? '<p class="nm-cite">' + esc(s.cite) + '</p>' : '') + '</li>';
+    }).join('') + '</ol>';
+
+    // Límites
+    h += '<div class="nm-grid"><section class="tp-card nm-card"><h4>📏 Límites</h4><table class="nm-table u-cards"><thead><tr><th>Gas</th><th>Límite</th><th>Se captura en</th></tr></thead><tbody>' +
+        f.gases.map(function(g) {
+            return '<tr><td>' + esc(g.label) + '</td><td>' + (g.limit === null ? '<span class="u-muted">informativo</span>' : '≤ ' + esc(_nmNum(g.limit)) + ' ' + esc(g.unit)) + '</td><td>' + esc(g.captureUnit || g.unit) + '</td></tr>';
+        }).join('') + '</tbody></table><p class="nm-foot">Liberación compara el valor medido, sin factor de deterioro (decisión del laboratorio).</p></section>';
+
+    // CoP
+    if (f.gasMethod) {
+        h += '<section class="tp-card nm-card"><h4>📊 Conformidad de producción</h4><ul class="nm-list">' +
+            f.cop.map(function(c) { return '<li><b>' + esc(c.label) + '</b>: ' + esc(c.text) + '.</li>'; }).join('') + '</ul>' +
+            '<p class="nm-formula">EM = medido × DF + KI<br>Pasa: ' + esc(f.gasMethod.pass) + '<br>Falla: ' + esc(f.gasMethod.fail) + '<br>En medio: otra medición · A = ' + esc(_nmNum(f.gasMethod.A)) + ' · n hasta ' + f.gasMethod.nmax + '</p>' +
+            '<p class="nm-foot">DF asignados: ' + f.gasMethod.df.map(function(d) { return esc(d.field) + ' ' + esc(_nmNum(d.df)); }).join(' · ') + '<br>' + esc(f.gasMethod.cite) + '</p>' +
+            (f.co2Method ? '<p class="nm-foot">CO₂: A = ' + esc(_nmNum(f.co2Method.A)) + ', tabla para n = ' + f.co2Method.nMin + '…' + f.co2Method.nMax + ' · ' + esc(f.co2Method.cite) + '</p>' : '') +
+            '</section>';
+    }
+
+    // Liberación: checklist
+    h += '<section class="tp-card nm-card"><h4>📋 Al liberar</h4><p class="nm-foot">Objetos retirados: ' + f.objects.map(esc).join(', ') + '.</p><ul class="nm-list">' +
+        f.docs.map(function(d) { return '<li>' + esc(d.label) + ' <span class="u-muted">· ' + esc(d.when) + '</span></li>'; }).join('') + '</ul></section>';
+
+    // En vivo
+    if (f.live.familyKeys.length) {
+        h += '<section class="tp-card nm-card"><h4>👪 Familias bajo esta norma</h4><div class="nm-fams">' + f.live.familyKeys.slice(0, 12).map(function(k) {
+            var p = k.split('|');
+            return (typeof fichaLinkHTML === 'function') ? fichaLinkHTML('familia', k, esc([p[0], p[1], p[2], p[3], p[7]].filter(Boolean).join(' · '))) : '';
+        }).join('') + (f.live.familyKeys.length > 12 ? '<span class="u-muted">y ' + (f.live.familyKeys.length - 12) + ' más</span>' : '') + '</div></section>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+    if (window._normasFocus) {
+        var n = document.getElementById('nm-node-' + window._normasFocus);
+        if (n && n.scrollIntoView) setTimeout(function() { n.scrollIntoView({ block: 'center' }); }, 50);
+        window._normasFocus = null;
+    }
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+// ── Ayuda que repite reglas: se genera de las mismas constantes ──────────
+// El glosario decía "mínimo 12 h" (la app usa 24 h) y el tour del CoP describía el alcance
+// anterior a 3.13.0. Se reescriben aquí, al parsear, desde las constantes vigentes.
+(function normasFixHelp() {
+    try {
+        if (typeof HELP_GLOSSARY !== 'undefined' && Array.isArray(HELP_GLOSSARY)) {
+            HELP_GLOSSARY.forEach(function(e) {
+                if (e.term === 'Soak' && typeof TP_SOAK_DEFAULT_H !== 'undefined') {
+                    e.def = 'Tiempo de reposo térmico del vehículo antes de la prueba, para que motor y fluidos lleguen a una temperatura estable. ' +
+                        'En este laboratorio son ' + TP_SOAK_DEFAULT_H + ' h por defecto; se puede definir por norma o por familia en Plan → Reglas.';
+                }
+                if (/^CoP\b/.test(e.term) && typeof COP_GAS_A !== 'undefined') {
+                    e.def = 'Conformidad de Producción: prueba estadística de que los vehículos de línea siguen cumpliendo los límites. ' +
+                        'Gases con el método de ' + NORMAS_CITAS.gas + ' (A = ' + COP_GAS_A + ', DF asignado); CO₂ con ' + NORMAS_CITAS.co2 + '. ' +
+                        'Alcance: ' + ((typeof copScopeLabel === 'function') ? copScopeLabel() : '') + '. Detalle en Datos → 📚 Normas.';
+                }
+            });
+        }
+        if (typeof TOURS !== 'undefined' && TOURS && Array.isArray(TOURS.cop) && typeof copScopeLabel === 'function') {
+            TOURS.cop.forEach(function(st) {
+                if (st && st.title === 'Qué NO cubre') st.text = 'El CoP solo juzga ' + copScopeLabel() + '. Lo que queda fuera se declara aquí, para que nadie suponga que se omitió por descuido.';
+            });
+        }
+    } catch (e) { void 0; }
+})();
+
+if (typeof HELP_TABS !== 'undefined') {
+    Object.assign(HELP_TABS, {
+        'pn-normas': { title: 'Normas', text: 'Cada norma del laboratorio: sus límites, cómo se prueba aquí, cómo se juzga en el CoP y de dónde sale cada regla. Todo sale de lo que la plataforma aplica, así que no puede contradecirla.', tips: [
+            'Toca "¿Por qué?" junto a un veredicto (Liberación o CoP) para llegar aquí desde la prueba.',
+            '📤 Exportar para tu asistente genera un archivo con todas las reglas para subirlo junto con los PDF de las normas.',
+            'Los límites se editan en Datos → Regulaciones; el reposo, en Plan → Reglas. Aquí solo se leen.'
+        ] }
+    });
+}
+
+
 // @@module js/digest.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [2.37.0] Avisos del laboratorio — resumen diario, escalación y      ║
@@ -88325,7 +88799,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9791,"mods":[[9794,"js/app.js",20036],[20040,"js/uiflow.js",20375],[20379,"js/cop15.js",31393],[31397,"js/inventory.js",39401],[39405,"js/cuarto.js",41535],[41539,"js/sitio.js",43719],[43723,"js/conslist.js",44331],[44335,"js/testplan.js",56212],[56216,"js/panel.js",61580],[61584,"js/projects.js",63873],[63877,"js/auth.js",64957],[64961,"js/signatures.js",65162],[65166,"js/firebase-sync.js",73769],[73773,"js/cop_validator.js",78308],[78312,"js/copreport.js",79314],[79318,"js/cophq.js",80128],[80132,"js/homolog.js",82029],[82033,"js/vets.js",83832],[83836,"js/historico.js",84750],[84754,"js/review.js",85207],[85211,"js/opcards.js",85660],[85664,"js/handoff.js",85943],[85947,"js/ficha.js",86448],[86452,"js/relevo.js",86832],[86836,"js/momentos.js",86973],[86977,"js/digest.js",87897],[87901,"js/xlsxw.js",88281],[88285,"js/bugreport.js",89431]]};
+var BUG_LINE_MAP = {"tag":9843,"mods":[[9846,"js/app.js",20094],[20098,"js/uiflow.js",20433],[20437,"js/cop15.js",31454],[31458,"js/inventory.js",39462],[39466,"js/cuarto.js",41596],[41600,"js/sitio.js",43780],[43784,"js/conslist.js",44392],[44396,"js/testplan.js",56273],[56277,"js/panel.js",61643],[61647,"js/projects.js",63936],[63940,"js/auth.js",65020],[65024,"js/signatures.js",65225],[65229,"js/firebase-sync.js",73832],[73836,"js/cop_validator.js",78374],[78378,"js/copreport.js",79380],[79384,"js/cophq.js",80194],[80198,"js/homolog.js",82095],[82099,"js/vets.js",83898],[83902,"js/historico.js",84816],[84820,"js/review.js",85273],[85277,"js/opcards.js",85726],[85730,"js/handoff.js",86009],[86013,"js/ficha.js",86514],[86518,"js/relevo.js",86898],[86902,"js/momentos.js",87039],[87043,"js/normas.js",87447],[87451,"js/digest.js",88371],[88375,"js/xlsxw.js",88755],[88759,"js/bugreport.js",89905]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

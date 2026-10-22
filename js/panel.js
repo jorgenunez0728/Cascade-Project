@@ -828,7 +828,7 @@ function pnSave() {
     window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
 }
 
-var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files','pn-bugs','pn-homolog'];
+var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files','pn-bugs','pn-homolog','pn-normas'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -919,6 +919,8 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-bugs') return (typeof pnRenderBugs === 'function') ? pnRenderBugs : null;
     // v17.14: catálogo de homologación Europa (js/homolog.js, carga después de este archivo)
     if (tabId === 'pn-homolog') return (typeof pnRenderHomolog === 'function') ? pnRenderHomolog : null;
+    // [3.21.0] Mapa regulatorio (js/normas.js, carga después de este archivo)
+    if (tabId === 'pn-normas') return (typeof pnRenderNormas === 'function') ? pnRenderNormas : null;
     return null;
 }
 
