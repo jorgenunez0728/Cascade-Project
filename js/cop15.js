@@ -2301,6 +2301,12 @@ var RELEASE_MIN_FREE_BYTES = 250 * 1024;
  * @returns {boolean} false si no hay espacio (ya avisó al usuario).
  */
 function _releasePreflightStorage(actionLabel, needBytes) {
+    // [3.20.0] La base del equipo vive en IndexedDB: si no está guardando, no se empieza
+    // nada que escriba en varios módulos (el plan y el inventario sí guardarían).
+    if (typeof dbStoreHealthy === 'function' && !dbStoreHealthy()) {
+        showToast('No se puede ' + (actionLabel || 'guardar') + ': la base del equipo no está guardando. Espera a que diga que ya guardó y vuelve a intentar.', 'error', 9000);
+        return false;
+    }
     if (typeof storageFreeBytes !== 'function') return true;   // build viejo: no bloquear
     var need = needBytes || RELEASE_MIN_FREE_BYTES;
     var free = storageFreeBytes();
@@ -6154,8 +6160,8 @@ function refreshAllLists() {
     function confirmReset() {
         showConfirm('¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.', function(){
             showConfirm('ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.', function(){
-                localStorage.removeItem('kia_db_v11');
-                location.reload();
+                // [3.20.0] La base vive en IndexedDB: borrar solo localStorage no borraba nada.
+                dbStoreClear().then(function() { location.reload(); });
             }, {title:'Última confirmación', type:'danger', confirmText:'Borrar todo'});
         }, {title:'Resetear base de datos', type:'danger', confirmText:'Sí, borrar'});
     }

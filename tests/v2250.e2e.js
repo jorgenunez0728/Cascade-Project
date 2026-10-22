@@ -76,7 +76,7 @@ let browser;
     console.log('\n== Al entrar después de 10 h ==');
     let f = await esperaFicha(page, 25000);
     chk('se abre el relevo solo', f && f.title === 'Desde tu última vez', JSON.stringify(f));
-    const dbAntes = await page.evaluate(() => localStorage.getItem('kia_db_v11'));
+    const dbAntes = await page.evaluate(() => dbStoreStats().writes);   // [3.20.0] la base vive en IndexedDB
     chk('dice desde cuándo', f && /Desde (hoy|ayer)/.test(f.body), f && f.body.slice(0, 160));
     chk('vehículo: cambio neto de estado', f && f.lines.some(l => /KNARLV0000000001A: En curso → Pendiente de aprobación/i.test(l) || (/0001A/.test(l) && /→/.test(l))), JSON.stringify(f && f.lines));
     chk('un vehículo que no cambió no aparece', f && !f.lines.some(l => /0002B/.test(l)));
@@ -112,7 +112,7 @@ let browser;
     f = await ficha(page);
     chk('la franja lo reabre', f && f.title === 'Desde tu última vez');
     await page.evaluate(() => fichaClose());
-    chk('no escribió nada del laboratorio', await page.evaluate(() => localStorage.getItem('kia_db_v11')) === dbAntes);
+    chk('no escribió nada del laboratorio', await page.evaluate(() => dbStoreStats().writes) === dbAntes);
 
     console.log('\n== Recargar al rato: no es relevo ==');
     await page.reload();

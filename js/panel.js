@@ -2893,6 +2893,7 @@ function pnRenderSystemHealth(el) {
     html += '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
     html += '</div>';
+    if (scan.dbLine) html += '<div class="pn-dbstore-line is-' + scan.dbLine.tone + '">' + escapeHtml(scan.dbLine.text) + '</div>';
     html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius: var(--radius-md);overflow:hidden;">';
     html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius: var(--radius-md);transition:width 0.3s;"></div>';
     html += '</div>';
@@ -3058,7 +3059,9 @@ function _pnFormatBytes(bytes) {
 //              explícito, uno por uno, con lo que se pierde escrito en la pantalla.
 var PN_STORAGE_REGISTRY = [
     // ── Datos del laboratorio ──
-    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core' },
+    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core',
+      note: 'Desde 3.20.0 vive en IndexedDB; aquí solo aparece si este navegador no permite IndexedDB.' },
+    { key: 'kia_db_store',          label: 'Base de datos: dónde vive', tier: 'core' },
     { key: 'kia_testplan_v1',       label: 'Test Plan Manager',        tier: 'core' },
     { key: 'kia_lab_inventory',     label: 'Consumibles / Equipos',    tier: 'core' },
     { key: 'kia_panel_v1',          label: 'Panel y Proyectos',        tier: 'core' },
@@ -3225,10 +3228,31 @@ function _pnStorageScanNow() {
     }
     items.sort(function(a, b) { return b.bytes - a.bytes; });
     var max = 5 * 1024 * 1024;
+    // [3.20.0] La base del equipo vive aparte (IndexedDB): se informa, NO suma a `total`.
+    var dbStats = (typeof dbStoreStats === 'function') ? dbStoreStats() : null;
+    var idb = (typeof dbStoreEstimate === 'function') ? dbStoreEstimate() : null;
     return {
         total: total, items: items, reclaimable: reclaimable, reviewable: reviewable,
-        max: max, pct: (total / max) * 100
+        max: max, pct: (total / max) * 100,
+        db: dbStats, idb: idb, dbLine: pnDbStoreSummary(dbStats, idb)
     };
+}
+
+/**
+ * [3.20.0] PURA. Cómo se dice dónde vive la base del equipo y si está guardando.
+ * stats = dbStoreStats(), est = {usage, quota} de navigator.storage.estimate() o null.
+ * Devuelve {text, tone:'ok'|'warn'|'bad'} o null si no hay datos.
+ */
+function pnDbStoreSummary(stats, est) {
+    if (!stats) return null;
+    var fmt = function(b) { return (typeof _pnFormatBytes === 'function') ? _pnFormatBytes(b) : (Math.round(b / 1024) + ' KB'); };
+    if (stats.state === 'failed') return { tone: 'bad', text: '🗄️ La base del equipo no se pudo abrir.' };
+    if (stats.state !== 'ready') return { tone: 'warn', text: '🗄️ Abriendo la base del equipo…' };
+    if (stats.lastError) return { tone: 'bad', text: '🗄️ La base del equipo NO está guardando (' + stats.lastError + '). Se reintenta sola; no cierres la app.' };
+    if (stats.backend === 'ls') return { tone: 'warn', text: '🗄️ La base sigue en el almacenamiento rápido: este navegador no permite IndexedDB.' };
+    var free = (est && est.quota) ? Math.max(0, est.quota - est.usage) : null;
+    return { tone: 'ok', text: '🗄️ Base del equipo (IndexedDB): ' + fmt(stats.bytes || 0) +
+        (free != null ? ' · ' + fmt(free) + ' disponibles' : '') + '. No cuenta contra los 5 MB.' };
 }
 
 /** Purga todo lo de tier 'cache'. No toca datos del laboratorio ni reportes sin enviar. */
@@ -4203,6 +4227,8 @@ function panelAlpineComponent() {
                 });
             return { totalBytes: scan.total, breakdown: breakdown, usedPct: scan.pct.toFixed(1),
                 reclaimable: scan.reclaimable,
+                dbText: scan.dbLine ? scan.dbLine.text : '',
+                dbColor: scan.dbLine ? (scan.dbLine.tone === 'bad' ? 'var(--danger-text)' : scan.dbLine.tone === 'warn' ? 'var(--warn-text)' : 'var(--tp-dim)') : '',
                 barColor: scan.total > scan.max * 0.8 ? '#ef4444' : scan.total > scan.max * 0.5 ? '#f59e0b' : '#10b981' };
         },
         agingData: function() {

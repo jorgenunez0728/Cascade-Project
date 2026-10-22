@@ -20,6 +20,50 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.20.0 — La base del equipo ya no se llena (2026-10-22)
+
+### Cambió
+- **Los vehículos y sus firmas se guardan en la base de datos del navegador (IndexedDB)**, no en
+  el almacenamiento rápido de 5 MB por equipo. El equipo más cargado iba en 74 % y, al llenarse,
+  liberar y aprobar se detenían con "Almacenamiento lleno". IndexedDB tiene cientos de MB.
+  - El cambio es automático la primera vez que se abre esta versión: mismos vehículos, mismas
+    firmas, misma nube. Se verifica que lo copiado sea idéntico antes de borrar la copia vieja.
+  - Datos → Sistema muestra aparte el **almacenamiento rápido** (que baja) y la **base del equipo
+    (IndexedDB)** con lo que queda disponible.
+- Los respaldos automáticos del equipo son una foto cada 10 minutos como máximo (antes, las últimas
+  5 escrituras, con segundos de diferencia entre sí).
+
+### Arreglado
+- **"Borrar todo" (COP15) no borraba nada** en un equipo con la base nueva: solo borraba la copia
+  de localStorage.
+- La foto previa a restaurar un respaldo de la nube (para "Deshacer restauración") era una copia
+  completa en el almacenamiento rápido y en un equipo lleno no se guardaba. Ahora va a IndexedDB.
+
+### Nuevo
+- Si una escritura en el equipo falla, la app lo dice una vez, no deja empezar una liberación y
+  reintenta sola hasta que vuelve a guardar ("✅ La base del equipo vuelve a guardar").
+- Si el equipo no puede abrir su base al arrancar, la app **no abre con datos vacíos**: lo dice y
+  ofrece **Reintentar** (y, como último recurso, **Empezar desde la nube**).
+
+### Para desarrollo
+- **`dbPersist()` es el ÚNICO escritor de la base del equipo** (`js/app.js`, bloque `dbStore*`).
+  `saveDB()` sigue síncrona: sella revisiones, llama `dbPersist()` y emite `data:saved`. Nadie toca
+  `kia_db_v11` directo (`tests/perf.node.js` lo vigila).
+- `dbStoreBootPlan(lsRaw, hasIdb)` (PURA): `adopt-ls` | `idb-load` | `ls-only`. **Si hay
+  `kia_db_v11` en localStorage al arrancar, se adopta**; por eso cada escritura en IndexedDB borra
+  esa copia. Se guarda el string JSON: la migración es byte a byte.
+- `initializeSystem` espera a `dbStoreWhenReady` antes de todo (dedupe, `fbInit`): un `db` vacío
+  haría que el sync lo reemplazara con la nube. Con la marca `kia_db_store` y sin poder abrir,
+  `state: 'failed'` y pantalla de reintento; nunca se arranca vacío.
+- Escritura en microtarea (varios `saveDB` = una transacción), vaciado en `pagehide`/`hidden`,
+  error pegajoso con reintento creciente, `dbStoreFlush()` antes de recargar
+  (`appReloadSafely`), `dbStoreFreeze()` al restaurar o borrar.
+- Evento `db:loaded` (handoff retoma su foto base) y `db:written` (respaldo automático).
+- `pnStorageScan().db/idb/dbLine`; `pnDbStoreSummary` (PURA). `_releasePreflightStorage` bloquea
+  si `!dbStoreHealthy()`.
+- Pruebas: `tests/dbstore.node.js` (IndexedDB falso, 30 casos) y `tests/v3200.e2e.js` (migración
+  con ~3.3 MB y localStorage al 90 %, recarga, falla de escritura, sin IndexedDB).
+
 ## 3.19.0 — Lo que cambia otro equipo se ve en tu pantalla, sin perder lo que escribes (2026-10-22)
 
 ### Nuevo

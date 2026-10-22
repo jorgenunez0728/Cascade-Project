@@ -1841,7 +1841,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        if (typeof dbPersist === 'function') dbPersist();   // [3.20.0] la base va por dbStore
         refreshAllLists();
         pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
     } else if (col === 'testplan') {
@@ -3888,7 +3888,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         // (v24.2: también retira lo marcado como borrado — vehicleTombstonesApply.)
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        if (typeof dbPersist === 'function') dbPersist();   // [3.20.0] la base va por dbStore
         refreshAllLists();
     }
 
@@ -4280,6 +4280,54 @@ function _fbMergeSnapGet(id, cb) {
     });
 }
 
+// ── [3.20.0] Foto previa a restaurar un respaldo, también en IndexedDB ──
+// En localStorage queda la marca {savedAt, in:'idb'} (la lee storageHousekeeping para
+// caducarla y la pantalla de respaldos para ofrecer "Deshacer restauración").
+var FB_PRERESTORE_KEY = 'kia_fb_prerestore_snapshot';
+
+function _fbPrerestorePut(snapshot) {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).put(snapshot, 'prerestore');
+            tx.oncomplete = function() {
+                idb.close();
+                try { localStorage.setItem(FB_PRERESTORE_KEY, JSON.stringify({ savedAt: snapshot.savedAt, in: 'idb' })); } catch(e) {}
+            };
+            tx.onerror = tx.onabort = function() { try { idb.close(); } catch(e) {} };
+        } catch(e) {}
+    });
+}
+
+/** cb(snapshot | null). Lee también la foto vieja guardada entera en localStorage. */
+function _fbPrerestoreGet(cb) {
+    var mark = null;
+    try { mark = JSON.parse(localStorage.getItem(FB_PRERESTORE_KEY) || 'null'); } catch(e) {}
+    if (!mark) return cb(null);
+    if (mark.in !== 'idb') return cb(mark);   // formato anterior a 3.20.0
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(null);
+        try {
+            var rq = idb.transaction(FB_MERGE_IDB_STORE, 'readonly').objectStore(FB_MERGE_IDB_STORE).get('prerestore');
+            rq.onsuccess = function() { idb.close(); cb(rq.result || null); };
+            rq.onerror = function() { idb.close(); cb(null); };
+        } catch(e) { cb(null); }
+    });
+}
+
+function _fbPrerestoreDelete() {
+    try { localStorage.removeItem(FB_PRERESTORE_KEY); } catch(e) {}
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).delete('prerestore');
+            tx.oncomplete = function() { idb.close(); };
+        } catch(e) {}
+    });
+}
+
 function _fbMergeSnapDelete() {
     _fbMergeIdb(function(idb) {
         if (!idb) return;
@@ -4369,7 +4417,7 @@ function _fbMergeUndoWith(last, snap) {
         if (snap.cop15) {
             db = snap.cop15;
             if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+            if (typeof dbPersist === 'function') dbPersist();   // [3.20.0]
             refreshAllLists();
         }
         if (snap.testplan) {
@@ -4757,7 +4805,8 @@ function fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey) {
 // Aplica la actualización de la PWA: revalida el SW y recarga (el HTML se
 // sirve con max-age=300 y el SW es network-first, la recarga trae el bundle nuevo)
 function fbApplyUpdate() {
-    var reload = function() { location.reload(); };
+    // [3.20.0] Lo pendiente de la base se escribe antes de recargar.
+    var reload = function() { if (typeof appReloadSafely === 'function') appReloadSafely(); else location.reload(); };
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistration()
             .then(function(reg) { return reg ? reg.update() : null; })
@@ -5245,14 +5294,17 @@ function fbBackupRestore(backupId, modules) {
         // savedAt permite que storageHousekeeping() lo caduque: es una copia completa
         // de los módulos (~1 MB) y antes se quedaba para siempre.
         savedAt: Date.now(),
-        cop15: lsJSON('kia_db_v11'),
+        // [3.20.0] La base ya no vive en localStorage: la copia sale de memoria.
+        cop15: (typeof db !== 'undefined' && db) ? JSON.parse(JSON.stringify(db)) : null,
         testplan: lsJSON('kia_testplan_v1'),
         inventory: lsJSON('kia_lab_inventory'),
         panel: modules.panel ? lsJSON('kia_panel_v1') : null,
         cop: modules.cop ? lsJSON('kia_cop_v1') : null,
         homolog: modules.homolog ? lsJSON('kia_homolog_v1') : null
     };
-    try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
+    // [3.20.0] La foto completa va a IndexedDB (son varios MB y localStorage es justo lo que
+    // se llena); en localStorage queda solo la marca {savedAt, in:'idb'}.
+    _fbPrerestorePut(snapshot);
 
     showToast('Leyendo respaldo…', 'info');
     _fbBackupLoad(backupId).then(function(d) {
@@ -5262,7 +5314,7 @@ function fbBackupRestore(backupId, modules) {
             if (d.cop15) {
                 db = d.cop15;
                 if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                if (typeof dbPersist === 'function') dbPersist();   // [3.20.0]
                 if (typeof refreshAllLists === 'function') refreshAllLists();
                 restored.push('COP15');
             } else faltan.push('COP15');
@@ -5358,20 +5410,22 @@ function fbBackupRestoreConfirm(backupId) {
 }
 
 function fbBackupUndoRestore() {
-    var snapshot = null;
-    try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
+    _fbPrerestoreGet(function(snapshot) { _fbBackupUndoRestoreWith(snapshot); });
+}
+
+function _fbBackupUndoRestoreWith(snapshot) {
     if (!snapshot) { showToast('No hay copia previa a la restauración', 'error'); return; }
     showConfirmDialog({ title: '⚠️ Deshacer restauración', message: '¿Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); if (typeof dbPersist === 'function') dbPersist(); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
         if (snapshot.panel && typeof pnState !== 'undefined') { pnState = snapshot.panel; localStorage.setItem('kia_panel_v1', JSON.stringify(pnState)); if (typeof pnRender === 'function') pnRender(); }
         if (snapshot.cop) { localStorage.setItem('kia_cop_v1', JSON.stringify(snapshot.cop)); if (typeof copSyncReload === 'function') copSyncReload(); }
         if (snapshot.homolog) { localStorage.setItem('kia_homolog_v1', JSON.stringify(snapshot.homolog)); if (typeof homoSyncReload === 'function') homoSyncReload(); }
 
-        localStorage.removeItem('kia_fb_prerestore_snapshot');
+        _fbPrerestoreDelete();
         showToast('Restauración deshecha — datos anteriores restaurados', 'success');
     });
 }

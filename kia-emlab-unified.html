@@ -3117,6 +3117,18 @@ html.booting, html.booting body { overflow: hidden; }
     margin-top: var(--space-sm); min-height: 1.4em;
     font-size: var(--font-sm); color: var(--muted);
 }
+/* [3.20.0] La base del equipo no abrió: nunca arrancar sobre datos vacíos. */
+.boot-db-fail {
+    margin-top: var(--space-md); display: flex; flex-wrap: wrap; gap: var(--space-sm);
+    justify-content: center; font-size: var(--fs-sm); color: var(--text);
+}
+.boot-db-fail p { flex-basis: 100%; margin: 0; }
+/* [3.20.0] Línea de la base del equipo (IndexedDB) en Datos → Sistema. */
+.pn-dbstore-line {
+    margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--tp-dim); line-height: var(--lh-base);
+}
+.pn-dbstore-line.is-warn { color: var(--warn-text); }
+.pn-dbstore-line.is-bad { color: var(--danger-text); font-weight: 700; }
 /* Lo nuevo aparece DEBAJO de la marca, que no se mueve: se lee como la misma tarjeta. */
 .auth-shell > :not(.auth-brand), .auth-pin-panel {
     animation: bootIn var(--dur-slow) var(--ease-out) both;
@@ -9437,8 +9449,10 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
+                <!-- [3.20.0] La base del equipo vive en IndexedDB: no cuenta contra los 5 MB -->
+                <div class="pn-dbstore-line" x-show="storageData().dbText" :style="{ color: storageData().dbColor }" x-text="storageData().dbText"></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size: var(--fs-sm);color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
+                    <span style="font-size: var(--fs-sm);color:var(--tp-dim);" x-text="'Almacenamiento rápido: ' + formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
                     <span style="font-size: var(--fs-sm);font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
                 </div>
                 <div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">
@@ -10243,10 +10257,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610221511';
+var APP_BUILD = '202610222057';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '73f819c6ebdea0a33765ee0961727ed4fa9901b8';
+var APP_COMMIT = '6f42f360b74e197a9b382a6c79a06afe2332bce6';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10254,7 +10268,7 @@ var APP_COMMIT = '73f819c6ebdea0a33765ee0961727ed4fa9901b8';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.19.0';
+var APP_VERSION = '3.20.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10262,6 +10276,12 @@ var APP_VERSION = '3.19.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.20.0', date: '22 oct 2026', title: 'La base del equipo ya no se llena',
+      bullets: ['Los vehículos y sus firmas ya no se guardan en el almacenamiento rápido del navegador (5 MB por equipo), sino en su base de datos (IndexedDB), que tiene cientos de MB. En el equipo más cargado el almacenamiento rápido iba en 74 % y, al llenarse, liberar y aprobar se detenían con "Almacenamiento lleno".',
+                'El cambio es automático la primera vez que abres esta versión y no cambia nada de lo que ves: mismos vehículos, mismas firmas, misma nube. Datos → Sistema ahora muestra aparte "Almacenamiento rápido" y la "Base del equipo (IndexedDB)" con lo que queda disponible.',
+                'Si una vez no se pudiera guardar en este equipo, la app lo dice, no deja empezar una liberación y se reintenta sola hasta que vuelve a guardar.',
+                'Si el equipo no puede abrir su base al arrancar, la app no abre con datos vacíos: lo dice y ofrece Reintentar.',
+                'Los respaldos automáticos del equipo son ahora una foto cada 10 minutos como máximo (antes eran las últimas 5 escrituras, con segundos de diferencia).'] },
     { version: '3.19.0', date: '22 oct 2026', title: 'Lo que cambia otro equipo se ve en tu pantalla, sin perder lo que escribes',
       bullets: ['Operación, Liberación y Aprobación se actualizan solas cuando otro equipo cambia el vehículo que tienes abierto. Lo que tú escribiste y no has guardado se queda como lo dejaste, con el cursor en su lugar; lo que cambió el otro equipo se marca un momento con su nombre (✎ Ana).',
                 'Si los dos cambiaron el mismo dato, el campo lo dice y te deja elegir: "Usar el de Ana" o "Conservar el mío".',
@@ -11429,14 +11449,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610221511' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610222057' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610221511' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610222057' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11452,7 +11472,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610221511' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610222057' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11580,11 +11600,413 @@ function debounce(fn, ms) {
     };
 }
 
-let db = safeParse('kia_db_v11', {
-  version: '11.0',
-  vehicles: [],
-  lastId: 0
-});
+// ══════════════════════════════════════════════════════════════════════
+// [3.20.0] LA BASE DEL EQUIPO VIVE EN INDEXEDDB
+//
+// localStorage tiene ~5 MB por equipo y `db` (vehículos + firmas, que nunca se purgan) se
+// lo estaba acabando: en el equipo más cargado iba en 74 %, y con el disco lleno
+// `saveDB()` devuelve false y liberar/aprobar se detienen. IndexedDB da cientos de MB.
+//
+// Reglas:
+//   - `db` en memoria, la nube y el `_rev` de cada vehículo NO cambian: solo cambia dónde
+//     se guarda en el equipo. Se guarda el STRING JSON, así la migración es byte a byte.
+//   - `dbPersist()` es el ÚNICO escritor de la base del equipo. Nadie más toca 'kia_db_v11'
+//     (tests/perf.node.js lo vigila).
+//   - Si al arrancar hay 'kia_db_v11' en localStorage, ESA es la verdad (una pestaña con
+//     código anterior, o una prueba que siembra) y se adopta. Por eso cada escritura en
+//     IndexedDB borra la copia de localStorage.
+//   - La app nunca arranca sobre una base sin cargar: `initializeSystem` espera a
+//     `dbStoreWhenReady`. Un `db` vacío haría que el sync reemplazara todo con la nube.
+//   - Sin IndexedDB (o si la migración no se puede verificar) todo sigue como antes, en
+//     localStorage.
+// ══════════════════════════════════════════════════════════════════════
+var DB_LS_KEY = 'kia_db_v11';
+var DB_STORE_MARKER = 'kia_db_store';
+var DB_IDB = 'kia_emlab_db';
+var DB_IDB_STORE = 'main';
+var DB_IDB_KEY = 'db';
+var DB_STORE_TIMEOUT_MS = 8000;
+
+function dbStoreDefault() { return { version: '11.0', vehicles: [], lastId: 0 }; }
+
+/** PURA. Qué hacer al arrancar, según lo que hay en localStorage y si existe IndexedDB. */
+function dbStoreBootPlan(lsRaw, hasIdb) {
+    var parses = false;
+    if (lsRaw) {
+        try { var p = JSON.parse(lsRaw); parses = !!p && typeof p === 'object'; } catch (e) {}
+    }
+    if (!hasIdb) return 'ls-only';
+    return parses ? 'adopt-ls' : 'idb-load';
+}
+
+/** PURA. El registro que se guarda en IndexedDB. */
+function dbStoreRecord(json, nowIso) {
+    return { v: 1, json: json, savedAt: nowIso, bytes: json ? json.length : 0 };
+}
+
+var _dbStore = {
+    backend: null,        // 'idb' | 'ls'
+    state: 'loading',     // 'loading' | 'ready' | 'failed'
+    plan: null,
+    failWhy: '',
+    writes: 0, bytes: 0, savedAt: null,
+    lastError: null, errorShown: false, retryMs: 0, retryTimer: null,
+    dirty: false, inFlight: false, scheduled: false,
+    conn: null, waiters: [], flushWaiters: []
+};
+
+var _dbLsRaw = null;
+try { _dbLsRaw = (typeof localStorage !== 'undefined') ? localStorage.getItem(DB_LS_KEY) : null; } catch (e) {}
+
+let db = (function() {
+    if (!_dbLsRaw) return dbStoreDefault();
+    try {
+        var p = JSON.parse(_dbLsRaw);
+        if (p && typeof p === 'object') return p;
+    } catch (e) { void 0; }
+    return dbStoreDefault();
+})();
+
+function _dbIdb(cb) {
+    if (_dbStore.conn) return cb(_dbStore.conn);
+    var done = false;
+    function fin(x) { if (!done) { done = true; cb(x); } }
+    try {
+        if (typeof indexedDB === 'undefined' || !indexedDB) return fin(null);
+        var req = indexedDB.open(DB_IDB, 1);
+        req.onupgradeneeded = function(e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(DB_IDB_STORE)) idb.createObjectStore(DB_IDB_STORE);
+        };
+        req.onsuccess = function(e) {
+            var conn = e.target.result;
+            conn.onversionchange = function() { try { conn.close(); } catch (x) {} _dbStore.conn = null; };
+            conn.onclose = function() { _dbStore.conn = null; };
+            _dbStore.conn = conn;
+            fin(conn);
+        };
+        req.onerror = function() { fin(null); };
+        req.onblocked = function() { fin(null); };
+    } catch (e) { fin(null); }
+}
+
+/** Lee el string guardado en IndexedDB. Resuelve con el string, null si no hay, o rechaza. */
+function dbStoreReadRaw() {
+    return new Promise(function(resolve, reject) {
+        _dbIdb(function(conn) {
+            if (!conn) return reject(new Error('IndexedDB no disponible'));
+            try {
+                var tx = conn.transaction(DB_IDB_STORE, 'readonly');
+                var req = tx.objectStore(DB_IDB_STORE).get(DB_IDB_KEY);
+                req.onsuccess = function() { var r = req.result; resolve(r && typeof r.json === 'string' ? r.json : null); };
+                req.onerror = function() { reject(req.error || new Error('lectura fallida')); };
+            } catch (e) { reject(e); }
+        });
+    });
+}
+
+/** Escribe un string tal cual (restaurar respaldos, migración). */
+function dbStoreWriteRaw(json) {
+    return new Promise(function(resolve, reject) {
+        _dbIdb(function(conn) {
+            if (!conn) return reject(new Error('IndexedDB no disponible'));
+            try {
+                var tx = conn.transaction(DB_IDB_STORE, 'readwrite');
+                tx.objectStore(DB_IDB_STORE).put(dbStoreRecord(json, new Date().toISOString()), DB_IDB_KEY);
+                tx.oncomplete = function() { resolve(true); };
+                tx.onerror = tx.onabort = function() { reject(tx.error || new Error('escritura fallida')); };
+            } catch (e) { reject(e); }
+        });
+    });
+}
+
+function _dbStoreMarkerSet() {
+    try { localStorage.setItem(DB_STORE_MARKER, JSON.stringify({ v: 1, backend: 'idb', migratedAt: new Date().toISOString() })); } catch (e) {}
+}
+function _dbStoreMarker() {
+    try { return JSON.parse(localStorage.getItem(DB_STORE_MARKER) || 'null'); } catch (e) { return null; }
+}
+
+function _dbStoreReady(backend) {
+    _dbStore.backend = backend;
+    _dbStore.state = 'ready';
+    _dbLsRaw = null;   // el string grande ya no hace falta en memoria
+    try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('db:loaded', { detail: { backend: backend } })); } catch (e) {}
+    var w = _dbStore.waiters; _dbStore.waiters = [];
+    w.forEach(function(fn) { try { fn(); } catch (e) { void 0; } });
+    if (backend === 'idb') _dbStorePersistRequest();
+}
+
+function _dbStoreFail(why) {
+    _dbStore.state = 'failed';
+    _dbStore.failWhy = why;
+    try { _dbStoreFailScreen(); } catch (e) {}
+}
+
+/** Arranque: corre AL PARSEAR para que la lectura vaya en paralelo al resto de los scripts. */
+function dbStoreBoot() {
+    var hasIdb = (typeof indexedDB !== 'undefined' && !!indexedDB);
+    var plan = dbStoreBootPlan(_dbLsRaw, hasIdb);
+    _dbStore.plan = plan;
+    if (plan === 'ls-only') return _dbStoreReady('ls');
+
+    var settled = false;
+    var timer = setTimeout(function() {
+        if (settled) return;
+        settled = true;
+        // Lo de localStorage ya está en memoria: seguir como antes es seguro.
+        if (plan === 'adopt-ls' || !_dbStoreMarker()) return _dbStoreReady('ls');
+        _dbStoreFail('La base de datos del equipo no respondió.');
+    }, DB_STORE_TIMEOUT_MS);
+    function settle(fn) { if (settled) return; settled = true; clearTimeout(timer); fn(); }
+
+    if (plan === 'adopt-ls') {
+        var raw = _dbLsRaw;
+        dbStoreWriteRaw(raw)
+            .then(function() { return dbStoreReadRaw(); })
+            .then(function(back) {
+                settle(function() {
+                    if (back !== raw) { void 0; return _dbStoreReady('ls'); }
+                    _dbStoreMarkerSet();
+                    try { localStorage.removeItem(DB_LS_KEY); } catch (e) {}
+                    _dbStore.bytes = raw.length; _dbStore.savedAt = new Date().toISOString();
+                    try { if (typeof pnStorageScanInvalidate === 'function') pnStorageScanInvalidate(); } catch (e) {}
+                    _dbStoreReady('idb');
+                });
+            })
+            .catch(function(err) {
+                settle(function() { void 0; _dbStoreReady('ls'); });
+            });
+        return;
+    }
+
+    // 'idb-load'
+    dbStoreReadRaw().then(function(json) {
+        settle(function() {
+            if (json == null) {
+                // Equipo nuevo (o el navegador borró los datos): la nube lo siembra.
+                return _dbStoreReady('idb');
+            }
+            try {
+                var p = JSON.parse(json);
+                if (!p || typeof p !== 'object') throw new Error('no es un objeto');
+                db = p;
+                _dbStore.bytes = json.length;
+                _dbStoreReady('idb');
+            } catch (e) {
+                _dbStoreFail('La base de datos del equipo está dañada.');
+            }
+        });
+    }).catch(function(err) {
+        settle(function() {
+            if (!_dbStoreMarker()) return _dbStoreReady('ls');   // nunca se migró: como antes
+            _dbStoreFail('No se pudo abrir la base de datos del equipo.');
+        });
+    });
+}
+
+function dbStoreIsReady() { return _dbStore.state === 'ready'; }
+
+/** Corre `fn` cuando la base está cargada (en seguida si ya lo está). */
+function dbStoreWhenReady(fn) {
+    if (_dbStore.state === 'ready') return fn();
+    _dbStore.waiters.push(fn);
+}
+
+/** ¿Se puede confiar en que lo que se guarda llega al disco? */
+function dbStoreHealthy() {
+    return _dbStore.state === 'ready' && !_dbStore.lastError;
+}
+
+function dbStoreStats() {
+    return {
+        backend: _dbStore.backend, state: _dbStore.state, writes: _dbStore.writes,
+        bytes: _dbStore.bytes, savedAt: _dbStore.savedAt,
+        lastError: _dbStore.lastError ? String(_dbStore.lastError.message || _dbStore.lastError) : null,
+        pending: !!(_dbStore.dirty || _dbStore.inFlight || _dbStore.scheduled)
+    };
+}
+
+/**
+ * EL escritor de la base del equipo. Síncrono para los ~50 llamadores de `saveDB()`.
+ * IndexedDB: marca pendiente y agenda UNA escritura en microtarea (varios guardados del
+ * mismo manejador = una transacción). Devuelve false si la base no está cargada o la
+ * escritura anterior falló (error pegajoso: se reintenta solo).
+ */
+function dbPersist() {
+    if (_dbStore.state !== 'ready' || _dbStore.frozen) return false;
+    if (_dbStore.backend === 'ls') {
+        try { localStorage.setItem(DB_LS_KEY, JSON.stringify(db)); return true; }
+        catch (e) { return false; }
+    }
+    _dbStore.dirty = true;
+    _dbStoreSchedule();
+    return !_dbStore.lastError;
+}
+
+function _dbStoreSchedule() {
+    if (_dbStore.scheduled || _dbStore.inFlight) return;
+    _dbStore.scheduled = true;
+    Promise.resolve().then(function() { _dbStore.scheduled = false; _dbStoreWrite(); });
+}
+
+function _dbStoreWrite() {
+    if (_dbStore.inFlight || !_dbStore.dirty || _dbStore.frozen) return;
+    _dbStore.dirty = false;
+    _dbStore.inFlight = true;
+    var json;
+    try { json = JSON.stringify(db); }
+    catch (e) { _dbStore.inFlight = false; return _dbStoreWriteFailed(e); }
+    _dbIdb(function(conn) {
+        if (!conn) { _dbStore.inFlight = false; return _dbStoreWriteFailed(new Error('IndexedDB no disponible')); }
+        var tx;
+        try {
+            tx = conn.transaction(DB_IDB_STORE, 'readwrite');
+            tx.objectStore(DB_IDB_STORE).put(dbStoreRecord(json, new Date().toISOString()), DB_IDB_KEY);
+        } catch (e) { _dbStore.conn = null; _dbStore.inFlight = false; return _dbStoreWriteFailed(e); }
+        tx.oncomplete = function() {
+            _dbStore.inFlight = false;
+            _dbStore.writes++;
+            _dbStore.bytes = json.length;
+            _dbStore.savedAt = new Date().toISOString();
+            if (_dbStore.lastError) {
+                _dbStore.lastError = null; _dbStore.errorShown = false; _dbStore.retryMs = 0;
+                try { showToast('✅ La base del equipo vuelve a guardar.', 'success'); } catch (e) {}
+            }
+            try { localStorage.removeItem(DB_LS_KEY); } catch (e) {}
+            try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('db:written', { detail: { json: json } })); } catch (e) {}
+            if (_dbStore.dirty) return _dbStoreWrite();
+            var w = _dbStore.flushWaiters; _dbStore.flushWaiters = [];
+            w.forEach(function(fn) { fn(true); });
+        };
+        tx.onerror = tx.onabort = function() {
+            _dbStore.inFlight = false;
+            _dbStoreWriteFailed(tx.error || new Error('escritura fallida'));
+        };
+    });
+}
+
+function _dbStoreWriteFailed(err) {
+    void 0;
+    _dbStore.lastError = err || new Error('escritura fallida');
+    _dbStore.dirty = true;   // lo de memoria sigue sin llegar al disco
+    if (!_dbStore.errorShown) {
+        _dbStore.errorShown = true;
+        try { showToast('⚠️ No se pudo guardar en este equipo. Se reintenta solo; no cierres la app hasta que diga que ya guardó.', 'error', 10000); } catch (e) {}
+    }
+    var w = _dbStore.flushWaiters; _dbStore.flushWaiters = [];
+    w.forEach(function(fn) { fn(false); });
+    _dbStore.retryMs = Math.min(30000, _dbStore.retryMs ? _dbStore.retryMs * 2 : 1000);
+    clearTimeout(_dbStore.retryTimer);
+    _dbStore.retryTimer = setTimeout(function() { _dbStoreWrite(); }, _dbStore.retryMs);
+}
+
+/** Resuelve (true/false) cuando lo de memoria ya está en el disco. */
+function dbStoreFlush() {
+    if (_dbStore.backend !== 'idb' || _dbStore.state !== 'ready') return Promise.resolve(true);
+    if (!_dbStore.dirty && !_dbStore.inFlight && !_dbStore.scheduled) return Promise.resolve(!_dbStore.lastError);
+    return new Promise(function(resolve) {
+        _dbStore.flushWaiters.push(resolve);
+        if (!_dbStore.inFlight && !_dbStore.scheduled) _dbStoreWrite();
+    });
+}
+
+/**
+ * Congela la base: ninguna escritura pendiente vuelve a tocar el disco. Lo usan los caminos
+ * que reemplazan la base y recargan (restaurar, borrar todo): sin esto, el vaciado de
+ * `pagehide` escribiría la base vieja de memoria encima de la restaurada.
+ */
+function dbStoreFreeze() {
+    _dbStore.frozen = true;
+    _dbStore.dirty = false;
+    clearTimeout(_dbStore.retryTimer);
+}
+
+/** Reemplaza la base guardada por un string (restaurar un respaldo) y la congela. */
+function dbStoreReplaceRaw(json) {
+    dbStoreFreeze();
+    if (_dbStore.backend !== 'idb') {
+        try { localStorage.setItem(DB_LS_KEY, json); return Promise.resolve(true); }
+        catch (e) { return Promise.resolve(false); }
+    }
+    return dbStoreWriteRaw(json).then(function() { return true; }, function() { return false; });
+}
+
+/** Borra la base del equipo (Borrar todo / empezar desde la nube). */
+function dbStoreClear() {
+    dbStoreFreeze();
+    try { localStorage.removeItem(DB_LS_KEY); } catch (e) {}
+    return new Promise(function(resolve) {
+        _dbIdb(function(conn) {
+            if (!conn) return resolve(false);
+            try {
+                var tx = conn.transaction(DB_IDB_STORE, 'readwrite');
+                tx.objectStore(DB_IDB_STORE).delete(DB_IDB_KEY);
+                tx.oncomplete = function() { resolve(true); };
+                tx.onerror = tx.onabort = function() { resolve(false); };
+            } catch (e) { resolve(false); }
+        });
+    });
+}
+
+/** Pide al navegador que no borre la base para liberar espacio (donde no pregunta). */
+function _dbStorePersistRequest() {
+    try {
+        if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.persist) return;
+        navigator.storage.persisted().then(function(yes) { if (!yes) navigator.storage.persist().catch(function() {}); }).catch(function() {});
+    } catch (e) {}
+}
+
+var _dbStoreEstimate = null;
+/** Uso y cuota de IndexedDB (cacheado; se refresca a lo más cada 30 s). */
+function dbStoreEstimate(cb) {
+    var now = Date.now();
+    if (_dbStoreEstimate && now - _dbStoreEstimate.at < 30000) { if (cb) cb(_dbStoreEstimate); return _dbStoreEstimate; }
+    try {
+        if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.estimate) { if (cb) cb(null); return _dbStoreEstimate; }
+        navigator.storage.estimate().then(function(e) {
+            _dbStoreEstimate = { at: Date.now(), usage: e.usage || 0, quota: e.quota || 0 };
+            if (cb) cb(_dbStoreEstimate);
+        }).catch(function() { if (cb) cb(null); });
+    } catch (e) { if (cb) cb(null); }
+    return _dbStoreEstimate;
+}
+
+/** Pantalla de la bienvenida cuando la base no abre: nunca se arranca sobre una base vacía. */
+function _dbStoreFailScreen() {
+    if (typeof document === 'undefined') return;
+    bootProgress(_dbStore.failWhy || 'No se pudo abrir la base de datos del equipo.');
+    var host = document.querySelector('#auth-overlay .boot-progress');
+    if (!host || document.getElementById('boot-db-fail')) return;
+    var box = document.createElement('div');
+    box.id = 'boot-db-fail';
+    box.className = 'boot-db-fail';
+    box.innerHTML = '<p>No se abrió la app para no trabajar sobre datos vacíos. Reintentar suele bastar.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button>' +
+        '<button type="button" class="btn btn-secondary" onclick="dbStoreStartFromCloud()">Empezar desde la nube</button>';
+    host.appendChild(box);
+}
+
+/** Último recurso: borra la base del equipo y deja que la nube la vuelva a sembrar. */
+function dbStoreStartFromCloud() {
+    var msg = 'Esto borra la base de este equipo y la vuelve a traer de la nube. ' +
+        'Lo que este equipo no alcanzó a subir se pierde. ¿Seguir?';
+    if (typeof showConfirmDialog === 'function') {
+        showConfirmDialog(msg, function() { dbStoreClear().then(function() { try { localStorage.removeItem(DB_STORE_MARKER); } catch (e) {} location.reload(); }); });
+        return;
+    }
+    dbStoreClear().then(function() { try { localStorage.removeItem(DB_STORE_MARKER); } catch (e) {} location.reload(); });
+}
+
+if (typeof window !== 'undefined') {
+    // Lo pendiente se escribe al salir o al pasar a segundo plano.
+    var _dbStoreFlushNow = function() { if (_dbStore.dirty && !_dbStore.inFlight) _dbStoreWrite(); };
+    window.addEventListener('pagehide', _dbStoreFlushNow);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') _dbStoreFlushNow();
+    });
+    dbStoreBoot();
+}
 
 // ======================================================================
 // [M00c] REGULATION PROFILES — Emission gas limits per regulation
@@ -12201,8 +12623,17 @@ function _modalUxClose(el) {
 // modal abierto); en cualquier otro caso, aviso persistente con botón.
 var _appLoadedAt = Date.now();
 
+/** [3.20.0] Recarga cuando lo pendiente de la base ya llegó al disco. */
+function appReloadSafely() {
+    var go = function() { location.reload(); };
+    if (typeof dbStoreFlush !== 'function') return go();
+    var t = setTimeout(go, 4000);   // nunca quedarse atorado esperando
+    dbStoreFlush().then(function() { clearTimeout(t); go(); }, function() { clearTimeout(t); go(); });
+}
+
 function _swSafeToReload() {
     if (Date.now() - _appLoadedAt > 15000) return false;
+    if (typeof dbStoreStats === 'function' && dbStoreStats().pending) return false;
     var openModal = document.querySelector(
         '#configModal[style*="block"], ' +
         '#invModal[style*="block"], #fbModal[style*="block"], .custom-modal-overlay');
@@ -12210,7 +12641,7 @@ function _swSafeToReload() {
 }
 
 function _swPromptReload() {
-    if (_swSafeToReload()) { location.reload(); return; }
+    if (_swSafeToReload()) { appReloadSafely(); return; }
     if (document.getElementById('sw-update-banner')) return; // ya visible
     var bar = document.createElement('div');
     bar.id = 'sw-update-banner';
@@ -12219,7 +12650,7 @@ function _swPromptReload() {
         'background:#05141f;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius: var(--radius-2xl);' +
         'padding: var(--space-md) var(--space-lg);display:flex;align-items:center;gap: var(--space-md);box-shadow:0 12px 28px rgba(0,0,0,0.35);font-size:13px;';
     bar.innerHTML = '⬆️ Nueva versión disponible' +
-        '<button onclick="location.reload()" style="padding: var(--space-sm) var(--space-lg);background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
+        '<button onclick="appReloadSafely()" style="padding: var(--space-sm) var(--space-lg);background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius: var(--radius-xl);cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
         '<button onclick="document.getElementById(\'sw-update-banner\').remove()" aria-label="Cerrar" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;padding: var(--space-xs);">✕</button>';
     document.body.appendChild(bar);
 }
@@ -12439,11 +12870,13 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
         // [v23.5] Sella la revisión de cada vehículo que cambió (ver stampRevisions).
         try { stampRevisions(db && db.vehicles, new Date().toISOString()); }
         catch (e) { void 0; }
-        try {
-            localStorage.setItem('kia_db_v11', JSON.stringify(db));
-        } catch(e) {
+        // [3.20.0] dbPersist es el único escritor (IndexedDB, o localStorage sin IndexedDB).
+        if (dbPersist() === false) {
             void 0;
-            try { showToast('⚠️ Almacenamiento lleno — no se guardó COP15. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+            var _why = _dbStore.state !== 'ready' ? 'la base del equipo todavía no está cargada'
+                : (_dbStore.backend === 'ls' ? 'almacenamiento lleno. Libera espacio en Datos → Sistema'
+                : 'la escritura anterior falló y se está reintentando');
+            try { showToast('⚠️ No se guardó COP15: ' + _why + '.', 'error'); } catch(e2) {}
             return false;
         }
         // [R6] Notify Alpine components of data change
@@ -16445,7 +16878,9 @@ function storageHousekeeping() {
             var savedAt = 0;
             try { savedAt = (JSON.parse(snapRaw) || {}).savedAt || 0; } catch(e) { savedAt = 0; }
             if (savedAt && now - savedAt > PRERESTORE_TTL_MS) {
-                localStorage.removeItem('kia_fb_prerestore_snapshot');
+                // [3.20.0] La foto vive en IndexedDB; la marca en localStorage.
+                if (typeof _fbPrerestoreDelete === 'function') _fbPrerestoreDelete();
+                else localStorage.removeItem('kia_fb_prerestore_snapshot');
                 freed += snapRaw.length;
             }
         }
@@ -16495,6 +16930,19 @@ function storageFreeBytes() {
 }
 
     function initializeSystem() {
+        // [3.20.0] Nunca arrancar sobre una base sin cargar: dedupeVehicleIds/revInitMissing
+        // y fbInit (abajo) tomarían un `db` vacío, y el sync lo reemplazaría con la nube.
+        if (typeof dbStoreIsReady === 'function' && !dbStoreIsReady()) {
+            // La falla pudo llegar antes de que existiera la bienvenida: pintarla aquí.
+            if (_dbStore.state === 'failed') { try { _dbStoreFailScreen(); } catch(e) {} return; }
+            try { bootProgress('Abriendo la base de datos…'); } catch(e) {}
+            if (!initializeSystem._waiting) {
+                initializeSystem._waiting = true;
+                dbStoreWhenReady(function() { initializeSystem._waiting = false; initializeSystem(); });
+            }
+            return;
+        }
+        try { bootMark('base'); } catch(e) {}
         // Higiene de almacenamiento — LO PRIMERO, y a propósito ANTES del muro de login:
         // con el disco lleno ni la sesión se puede guardar, y más abajo hay un `return`
         // cuando no hay sesión activa que dejaría el dispositivo atascado para siempre.
@@ -18141,11 +18589,21 @@ function _openBackupDB(callback) {
     req.onerror = function() { void 0; };
 }
 
-function autoBackup() {
+// [3.20.0] Una foto cada AUTO_BACKUP_EVERY_MS como máximo: antes eran "las últimas 5
+// escrituras", con segundos de diferencia entre sí (y doblaban lo que se escribía). Con la
+// base en IndexedDB la foto sale del mismo string recién escrito (evento 'db:written').
+var AUTO_BACKUP_EVERY_MS = 10 * 60 * 1000;
+var _autoBackupLastAt = 0;
+
+function autoBackup(dbJson, opts) {
+    var now = Date.now();
+    if (!(opts && opts.force) && _autoBackupLastAt && now - _autoBackupLastAt < AUTO_BACKUP_EVERY_MS) return;
+    _autoBackupLastAt = now;
+    if (typeof indexedDB === 'undefined' || !indexedDB) return;
     _openBackupDB(function(idb) {
         var snapshot = {
             timestamp: new Date().toISOString(),
-            db: localStorage.getItem('kia_db_v11') || '{}',
+            db: dbJson || (function() { try { return JSON.stringify(db); } catch (e) { return '{}'; } })(),
             tpState: localStorage.getItem('kia_testplan_v1') || '{}',
             invState: localStorage.getItem('kia_lab_inventory') || '{}'
         };
@@ -18192,9 +18650,13 @@ saveDB = function() {
     // devolvía SIEMPRE undefined y ninguna de las guardas de v18.1
     // ("si saveDB() devuelve false, abortar la cascada") podía dispararse jamás.
     var ok = _origSaveDB();
-    if (ok !== false) autoBackup();
+    // [3.20.0] Con IndexedDB la foto se toma cuando la escritura terminó ('db:written').
+    if (ok !== false && _dbStore.backend !== 'idb') autoBackup();
     return ok;
 };
+if (typeof window !== 'undefined') {
+    window.addEventListener('db:written', function(e) { autoBackup(e && e.detail && e.detail.json); });
+}
 
 function _formatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -18216,9 +18678,11 @@ function renderBackupStatus(container) {
     // Storage bar
     html += '<div class="backup-card">' +
         '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);margin-bottom: var(--space-xs);">' +
-        '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
+        '<span>Almacenamiento rápido</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
         '<div style="height:8px;background:#1e293b;border-radius: var(--radius-md);overflow:hidden;">' +
         '<div style="height:100%;width:' + Math.min(100, pct) + '%;background:' + barColor + ';border-radius: var(--radius-md);"></div></div></div>';
+    // [3.20.0] La base del equipo vive aparte (IndexedDB) y no cuenta contra los 5 MB.
+    if (_scan.dbLine) html += '<div class="backup-card pn-dbstore-line is-' + _scan.dbLine.tone + '">' + escapeHtml(_scan.dbLine.text) + '</div>';
 
     // Backup snapshots (async from IndexedDB)
     html += '<div class="backup-card" id="backupSnapshotsList">' +
@@ -18262,7 +18726,7 @@ function downloadFullBackup() {
     var backup = {
         exportDate: new Date().toISOString(),
         version: 'kia-emlab-backup-v1',
-        db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
+        db: JSON.parse(JSON.stringify(db)),   // [3.20.0] de memoria: la base ya no vive en localStorage
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
         // 2.0.0: las manuales viven en db.manualConfigs (ya van dentro de `db`); se
@@ -18313,7 +18777,7 @@ function restoreFromBackup(snapshotId) {
     if (typeof authRequire === 'function' && !authRequire('data.sync_admin', 'restaurar un respaldo')) return;
     showConfirm('¿Restaurar este backup? Se hará un backup automático de los datos actuales antes de restaurar.', function() {
         // Auto-backup current state first
-        autoBackup();
+        autoBackup(null, { force: true });
 
         _openBackupDB(function(idb) {
             var tx = idb.transaction(_backupStoreName, 'readonly');
@@ -18322,12 +18786,14 @@ function restoreFromBackup(snapshotId) {
             req.onsuccess = function() {
                 var s = req.result;
                 if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
-                localStorage.setItem('kia_db_v11', s.db);
-                localStorage.setItem('kia_testplan_v1', s.tpState);
-                localStorage.setItem('kia_lab_inventory', s.invState);
-
-                showToast('Datos restaurados. Recargando...', 'success');
-                setTimeout(function() { location.reload(); }, 1500);
+                // [3.20.0] La base va por dbStore; congelada para que nada pendiente la pise.
+                dbStoreReplaceRaw(s.db).then(function(ok) {
+                    if (!ok) { showToast('No se pudo restaurar la base del equipo.', 'error'); return; }
+                    localStorage.setItem('kia_testplan_v1', s.tpState);
+                    localStorage.setItem('kia_lab_inventory', s.invState);
+                    showToast('Datos restaurados. Recargando...', 'success');
+                    setTimeout(function() { location.reload(); }, 1500);
+                });
             };
         });
     }, { title: 'Confirmar Restauración', type: 'warning', confirmText: 'Restaurar' });
@@ -22213,6 +22679,12 @@ var RELEASE_MIN_FREE_BYTES = 250 * 1024;
  * @returns {boolean} false si no hay espacio (ya avisó al usuario).
  */
 function _releasePreflightStorage(actionLabel, needBytes) {
+    // [3.20.0] La base del equipo vive en IndexedDB: si no está guardando, no se empieza
+    // nada que escriba en varios módulos (el plan y el inventario sí guardarían).
+    if (typeof dbStoreHealthy === 'function' && !dbStoreHealthy()) {
+        showToast('No se puede ' + (actionLabel || 'guardar') + ': la base del equipo no está guardando. Espera a que diga que ya guardó y vuelve a intentar.', 'error', 9000);
+        return false;
+    }
     if (typeof storageFreeBytes !== 'function') return true;   // build viejo: no bloquear
     var need = needBytes || RELEASE_MIN_FREE_BYTES;
     var free = storageFreeBytes();
@@ -26066,8 +26538,8 @@ function refreshAllLists() {
     function confirmReset() {
         showConfirm('¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.', function(){
             showConfirm('ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.', function(){
-                localStorage.removeItem('kia_db_v11');
-                location.reload();
+                // [3.20.0] La base vive en IndexedDB: borrar solo localStorage no borraba nada.
+                dbStoreClear().then(function() { location.reload(); });
             }, {title:'Última confirmación', type:'danger', confirmText:'Borrar todo'});
         }, {title:'Resetear base de datos', type:'danger', confirmText:'Sí, borrar'});
     }
@@ -58636,6 +59108,7 @@ function pnRenderSystemHealth(el) {
     html += '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
     html += '</div>';
+    if (scan.dbLine) html += '<div class="pn-dbstore-line is-' + scan.dbLine.tone + '">' + escapeHtml(scan.dbLine.text) + '</div>';
     html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius: var(--radius-md);overflow:hidden;">';
     html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius: var(--radius-md);transition:width 0.3s;"></div>';
     html += '</div>';
@@ -58801,7 +59274,9 @@ function _pnFormatBytes(bytes) {
 //              explícito, uno por uno, con lo que se pierde escrito en la pantalla.
 var PN_STORAGE_REGISTRY = [
     // ── Datos del laboratorio ──
-    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core' },
+    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core',
+      note: 'Desde 3.20.0 vive en IndexedDB; aquí solo aparece si este navegador no permite IndexedDB.' },
+    { key: 'kia_db_store',          label: 'Base de datos: dónde vive', tier: 'core' },
     { key: 'kia_testplan_v1',       label: 'Test Plan Manager',        tier: 'core' },
     { key: 'kia_lab_inventory',     label: 'Consumibles / Equipos',    tier: 'core' },
     { key: 'kia_panel_v1',          label: 'Panel y Proyectos',        tier: 'core' },
@@ -58968,10 +59443,31 @@ function _pnStorageScanNow() {
     }
     items.sort(function(a, b) { return b.bytes - a.bytes; });
     var max = 5 * 1024 * 1024;
+    // [3.20.0] La base del equipo vive aparte (IndexedDB): se informa, NO suma a `total`.
+    var dbStats = (typeof dbStoreStats === 'function') ? dbStoreStats() : null;
+    var idb = (typeof dbStoreEstimate === 'function') ? dbStoreEstimate() : null;
     return {
         total: total, items: items, reclaimable: reclaimable, reviewable: reviewable,
-        max: max, pct: (total / max) * 100
+        max: max, pct: (total / max) * 100,
+        db: dbStats, idb: idb, dbLine: pnDbStoreSummary(dbStats, idb)
     };
+}
+
+/**
+ * [3.20.0] PURA. Cómo se dice dónde vive la base del equipo y si está guardando.
+ * stats = dbStoreStats(), est = {usage, quota} de navigator.storage.estimate() o null.
+ * Devuelve {text, tone:'ok'|'warn'|'bad'} o null si no hay datos.
+ */
+function pnDbStoreSummary(stats, est) {
+    if (!stats) return null;
+    var fmt = function(b) { return (typeof _pnFormatBytes === 'function') ? _pnFormatBytes(b) : (Math.round(b / 1024) + ' KB'); };
+    if (stats.state === 'failed') return { tone: 'bad', text: '🗄️ La base del equipo no se pudo abrir.' };
+    if (stats.state !== 'ready') return { tone: 'warn', text: '🗄️ Abriendo la base del equipo…' };
+    if (stats.lastError) return { tone: 'bad', text: '🗄️ La base del equipo NO está guardando (' + stats.lastError + '). Se reintenta sola; no cierres la app.' };
+    if (stats.backend === 'ls') return { tone: 'warn', text: '🗄️ La base sigue en el almacenamiento rápido: este navegador no permite IndexedDB.' };
+    var free = (est && est.quota) ? Math.max(0, est.quota - est.usage) : null;
+    return { tone: 'ok', text: '🗄️ Base del equipo (IndexedDB): ' + fmt(stats.bytes || 0) +
+        (free != null ? ' · ' + fmt(free) + ' disponibles' : '') + '. No cuenta contra los 5 MB.' };
 }
 
 /** Purga todo lo de tier 'cache'. No toca datos del laboratorio ni reportes sin enviar. */
@@ -59946,6 +60442,8 @@ function panelAlpineComponent() {
                 });
             return { totalBytes: scan.total, breakdown: breakdown, usedPct: scan.pct.toFixed(1),
                 reclaimable: scan.reclaimable,
+                dbText: scan.dbLine ? scan.dbLine.text : '',
+                dbColor: scan.dbLine ? (scan.dbLine.tone === 'bad' ? 'var(--danger-text)' : scan.dbLine.tone === 'warn' ? 'var(--warn-text)' : 'var(--tp-dim)') : '',
                 barColor: scan.total > scan.max * 0.8 ? '#ef4444' : scan.total > scan.max * 0.5 ? '#f59e0b' : '#10b981' };
         },
         agingData: function() {
@@ -66508,7 +67006,7 @@ function _fbPullSeed(col, remoteData, pulled) {
         // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        if (typeof dbPersist === 'function') dbPersist();   // [3.20.0] la base va por dbStore
         refreshAllLists();
         pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
     } else if (col === 'testplan') {
@@ -68555,7 +69053,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
         // (v24.2: también retira lo marcado como borrado — vehicleTombstonesApply.)
         if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        if (typeof dbPersist === 'function') dbPersist();   // [3.20.0] la base va por dbStore
         refreshAllLists();
     }
 
@@ -68947,6 +69445,54 @@ function _fbMergeSnapGet(id, cb) {
     });
 }
 
+// ── [3.20.0] Foto previa a restaurar un respaldo, también en IndexedDB ──
+// En localStorage queda la marca {savedAt, in:'idb'} (la lee storageHousekeeping para
+// caducarla y la pantalla de respaldos para ofrecer "Deshacer restauración").
+var FB_PRERESTORE_KEY = 'kia_fb_prerestore_snapshot';
+
+function _fbPrerestorePut(snapshot) {
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).put(snapshot, 'prerestore');
+            tx.oncomplete = function() {
+                idb.close();
+                try { localStorage.setItem(FB_PRERESTORE_KEY, JSON.stringify({ savedAt: snapshot.savedAt, in: 'idb' })); } catch(e) {}
+            };
+            tx.onerror = tx.onabort = function() { try { idb.close(); } catch(e) {} };
+        } catch(e) {}
+    });
+}
+
+/** cb(snapshot | null). Lee también la foto vieja guardada entera en localStorage. */
+function _fbPrerestoreGet(cb) {
+    var mark = null;
+    try { mark = JSON.parse(localStorage.getItem(FB_PRERESTORE_KEY) || 'null'); } catch(e) {}
+    if (!mark) return cb(null);
+    if (mark.in !== 'idb') return cb(mark);   // formato anterior a 3.20.0
+    _fbMergeIdb(function(idb) {
+        if (!idb) return cb(null);
+        try {
+            var rq = idb.transaction(FB_MERGE_IDB_STORE, 'readonly').objectStore(FB_MERGE_IDB_STORE).get('prerestore');
+            rq.onsuccess = function() { idb.close(); cb(rq.result || null); };
+            rq.onerror = function() { idb.close(); cb(null); };
+        } catch(e) { cb(null); }
+    });
+}
+
+function _fbPrerestoreDelete() {
+    try { localStorage.removeItem(FB_PRERESTORE_KEY); } catch(e) {}
+    _fbMergeIdb(function(idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(FB_MERGE_IDB_STORE, 'readwrite');
+            tx.objectStore(FB_MERGE_IDB_STORE).delete('prerestore');
+            tx.oncomplete = function() { idb.close(); };
+        } catch(e) {}
+    });
+}
+
 function _fbMergeSnapDelete() {
     _fbMergeIdb(function(idb) {
         if (!idb) return;
@@ -69036,7 +69582,7 @@ function _fbMergeUndoWith(last, snap) {
         if (snap.cop15) {
             db = snap.cop15;
             if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+            if (typeof dbPersist === 'function') dbPersist();   // [3.20.0]
             refreshAllLists();
         }
         if (snap.testplan) {
@@ -69383,7 +69929,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610221511' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610222057' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -69424,7 +69970,8 @@ function fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey) {
 // Aplica la actualización de la PWA: revalida el SW y recarga (el HTML se
 // sirve con max-age=300 y el SW es network-first, la recarga trae el bundle nuevo)
 function fbApplyUpdate() {
-    var reload = function() { location.reload(); };
+    // [3.20.0] Lo pendiente de la base se escribe antes de recargar.
+    var reload = function() { if (typeof appReloadSafely === 'function') appReloadSafely(); else location.reload(); };
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistration()
             .then(function(reg) { return reg ? reg.update() : null; })
@@ -69912,14 +70459,17 @@ function fbBackupRestore(backupId, modules) {
         // savedAt permite que storageHousekeeping() lo caduque: es una copia completa
         // de los módulos (~1 MB) y antes se quedaba para siempre.
         savedAt: Date.now(),
-        cop15: lsJSON('kia_db_v11'),
+        // [3.20.0] La base ya no vive en localStorage: la copia sale de memoria.
+        cop15: (typeof db !== 'undefined' && db) ? JSON.parse(JSON.stringify(db)) : null,
         testplan: lsJSON('kia_testplan_v1'),
         inventory: lsJSON('kia_lab_inventory'),
         panel: modules.panel ? lsJSON('kia_panel_v1') : null,
         cop: modules.cop ? lsJSON('kia_cop_v1') : null,
         homolog: modules.homolog ? lsJSON('kia_homolog_v1') : null
     };
-    try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
+    // [3.20.0] La foto completa va a IndexedDB (son varios MB y localStorage es justo lo que
+    // se llena); en localStorage queda solo la marca {savedAt, in:'idb'}.
+    _fbPrerestorePut(snapshot);
 
     showToast('Leyendo respaldo…', 'info');
     _fbBackupLoad(backupId).then(function(d) {
@@ -69929,7 +70479,7 @@ function fbBackupRestore(backupId, modules) {
             if (d.cop15) {
                 db = d.cop15;
                 if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                if (typeof dbPersist === 'function') dbPersist();   // [3.20.0]
                 if (typeof refreshAllLists === 'function') refreshAllLists();
                 restored.push('COP15');
             } else faltan.push('COP15');
@@ -70025,20 +70575,22 @@ function fbBackupRestoreConfirm(backupId) {
 }
 
 function fbBackupUndoRestore() {
-    var snapshot = null;
-    try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
+    _fbPrerestoreGet(function(snapshot) { _fbBackupUndoRestoreWith(snapshot); });
+}
+
+function _fbBackupUndoRestoreWith(snapshot) {
     if (!snapshot) { showToast('No hay copia previa a la restauración', 'error'); return; }
     showConfirmDialog({ title: '⚠️ Deshacer restauración', message: '¿Deshacer la última restauración y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); if (typeof dbPersist === 'function') dbPersist(); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
         if (snapshot.panel && typeof pnState !== 'undefined') { pnState = snapshot.panel; localStorage.setItem('kia_panel_v1', JSON.stringify(pnState)); if (typeof pnRender === 'function') pnRender(); }
         if (snapshot.cop) { localStorage.setItem('kia_cop_v1', JSON.stringify(snapshot.cop)); if (typeof copSyncReload === 'function') copSyncReload(); }
         if (snapshot.homolog) { localStorage.setItem('kia_homolog_v1', JSON.stringify(snapshot.homolog)); if (typeof homoSyncReload === 'function') homoSyncReload(); }
 
-        localStorage.removeItem('kia_fb_prerestore_snapshot');
+        _fbPrerestoreDelete();
         showToast('Restauración deshecha — datos anteriores restaurados', 'success');
     });
 }
@@ -85374,6 +85926,11 @@ function handoffSoakDone(vehicleId, vin) {
 (function handoffWire() {
     if (typeof db !== 'undefined' && db) _handoffBase = handoffSnapshot(db.vehicles);
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    // [3.20.0] La base se lee de IndexedDB en paralelo al parseo: si llegó después de este
+    // archivo, la foto de arriba es la de un `db` vacío y TODO lo pendiente avisaría como nuevo.
+    window.addEventListener('db:loaded', function() {
+        if (typeof db !== 'undefined' && db) _handoffBase = handoffSnapshot(db.vehicles);
+    });
     window.addEventListener('data:saved', handoffCheckSoon);
     if (typeof _fbAfterAutoMerge === 'function') {
         var orig = _fbAfterAutoMerge;
@@ -87768,7 +88325,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9777,"mods":[[9780,"js/app.js",19570],[19574,"js/uiflow.js",19909],[19913,"js/cop15.js",30921],[30925,"js/inventory.js",38929],[38933,"js/cuarto.js",41063],[41067,"js/sitio.js",43247],[43251,"js/conslist.js",43859],[43863,"js/testplan.js",55740],[55744,"js/panel.js",61082],[61086,"js/projects.js",63375],[63379,"js/auth.js",64459],[64463,"js/signatures.js",64664],[64668,"js/firebase-sync.js",73217],[73221,"js/cop_validator.js",77756],[77760,"js/copreport.js",78762],[78766,"js/cophq.js",79576],[79580,"js/homolog.js",81477],[81481,"js/vets.js",83280],[83284,"js/historico.js",84198],[84202,"js/review.js",84655],[84659,"js/opcards.js",85108],[85112,"js/handoff.js",85386],[85390,"js/ficha.js",85891],[85895,"js/relevo.js",86275],[86279,"js/momentos.js",86416],[86420,"js/digest.js",87340],[87344,"js/xlsxw.js",87724],[87728,"js/bugreport.js",88874]]};
+var BUG_LINE_MAP = {"tag":9791,"mods":[[9794,"js/app.js",20036],[20040,"js/uiflow.js",20375],[20379,"js/cop15.js",31393],[31397,"js/inventory.js",39401],[39405,"js/cuarto.js",41535],[41539,"js/sitio.js",43719],[43723,"js/conslist.js",44331],[44335,"js/testplan.js",56212],[56216,"js/panel.js",61580],[61584,"js/projects.js",63873],[63877,"js/auth.js",64957],[64961,"js/signatures.js",65162],[65166,"js/firebase-sync.js",73769],[73773,"js/cop_validator.js",78308],[78312,"js/copreport.js",79314],[79318,"js/cophq.js",80128],[80132,"js/homolog.js",82029],[82033,"js/vets.js",83832],[83836,"js/historico.js",84750],[84754,"js/review.js",85207],[85211,"js/opcards.js",85660],[85664,"js/handoff.js",85943],[85947,"js/ficha.js",86448],[86452,"js/relevo.js",86832],[86836,"js/momentos.js",86973],[86977,"js/digest.js",87897],[87901,"js/xlsxw.js",88281],[88285,"js/bugreport.js",89431]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

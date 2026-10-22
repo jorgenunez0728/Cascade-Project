@@ -92,6 +92,8 @@ async function sembrar(page) {
     await semilla.goto('file://' + BUNDLE);
     await semilla.waitForTimeout(3000);
     await sembrar(semilla);
+    // [3.20.0] La base vive en IndexedDB: esperar a que la escritura termine antes de cerrar.
+    await semilla.evaluate(() => (typeof dbStoreFlush === 'function') ? dbStoreFlush() : true);
     await semilla.close();
 
     console.log('\n== Arranque en frío (teléfono, CPU ×4, ~1.4 MB de datos) ==');

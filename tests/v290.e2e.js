@@ -107,8 +107,10 @@ const SEED = () => {
         window.__put(base + 'vehicles/v_x9', { json: { stringValue: JSON.stringify(v) }, vin: { stringValue: v.vin }, id: { stringValue: 'x9' },
             rev: { stringValue: 'otro' }, deleted: { booleanValue: false }, writer: { stringValue: 'dev_otro' } });
         const r = await fbVehiclesSync();
+        await dbStoreFlush();   // [3.20.0] la base vive en IndexedDB
+        const _g = JSON.parse(await dbStoreReadRaw());
         return { r, esta: db.vehicles.some(x => x.vin === v.vin), toast: window.__toasts.some(t => /actualizado desde otro dispositivo/.test(t)),
-                 guardado: JSON.parse(localStorage.getItem('kia_db_v11')).vehicles.some(x => x.vin === v.vin) };
+                 guardado: _g.vehicles.some(x => x.vin === v.vin) };
     });
     chk('el vehículo del otro equipo aparece en este', otro.esta && otro.guardado, JSON.stringify(otro));
     chk('con el aviso de "actualizado desde otro dispositivo"', otro.toast);
