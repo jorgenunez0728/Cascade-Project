@@ -144,6 +144,64 @@ const SEED = () => {
     chk('Enviar con error de red: sigue', gate.enviarErrorRed === true);
     chk('Aprobar en un equipo sin sync: sigue', gate.aprobarSinSync === true);
 
+    console.log('\n== Quién está aquí (presencia simulada) ==');
+    const pres = await page.evaluate(async () => {
+        const escritas = [];
+        const ahora = () => new Date().toISOString();
+        fbSync.enabled = true; fbSync.stationId = 'KIA-EMLAB'; fbSync.db = null; fbSyncModules.cop15 = true;
+        window._fbBkSet = (suffix, rec) => { escritas.push({ suffix, rec: JSON.parse(JSON.stringify(rec)) }); return Promise.resolve(); };
+        window._fbBkList = () => Promise.resolve([
+            { id: 'dev_ana', data: { device: 'dev_ana', operator: 'Ana Técnico', entity: 'veh:veh_1', screen: 'Liberación', editing: true, at: ahora() } },
+            { id: 'dev_beto', data: { device: 'dev_beto', operator: 'Beto', entity: 'ronda:gases:' + localToday() + ':' + invShiftNow(), progress: '4/9', at: ahora() } }
+        ]);
+        cascadeOpenInOperation('veh_1');
+        await new Promise(r => setTimeout(r, 600));
+        fbPresenceTick();
+        await new Promise(r => setTimeout(r, 300));
+        fbPresenceTick();
+        const chip = document.querySelector('#vehicleInfo .presence-chip');
+        const mia = escritas.filter(e => e.suffix === 'presence/' + FB_DEVICE_ID).pop();
+        return { chip: chip ? chip.textContent : null, vacio: chip ? chip.classList.contains('is-empty') : null,
+                 ambar: chip ? chip.classList.contains('is-editing') : null,
+                 escrita: mia ? { entity: mia.rec.entity, screen: mia.rec.screen, operator: mia.rec.operator } : null,
+                 n: escritas.length };
+    });
+    chk('este equipo dice dónde está (vehículo y pantalla)', pres.escrita && pres.escrita.entity === 'veh:veh_1' && pres.escrita.screen === 'Operación' && pres.escrita.operator === 'Ana Manager', JSON.stringify(pres));
+    chk('y ve a quien más está en el mismo vehículo', /Ana Técnico también está aquí \(Liberación, capturando\)/.test(pres.chip || '') && !pres.vacio, pres.chip);
+    chk('capturando se pinta en ámbar', pres.ambar === true);
+    const sinCambio = await page.evaluate(() => { const n0 = _fbPres.sentAt; fbPresenceTick(); return _fbPres.sentAt === n0; });
+    chk('sin cambio no se vuelve a escribir en cada latido', sinCambio);
+
+    console.log('\n== Ronda en vivo ==');
+    const ronda = await page.evaluate(async () => {
+        const hoy = localToday(), turno = invShiftNow();
+        const gas = (id, zona, lect) => ({ id, zone: zona, gasType: 'Gas ' + id, controlNo: 'C-' + id, status: 'In use', readings: lect || [] });
+        invState.gases = [gas('g1', 'A01'), gas('g2', 'A02', [{ date: hoy, psi: 1500, shift: turno, by: 'Beto', at: new Date().toISOString() }]), gas('g3', 'A03')];
+        invState.fuelTanks = [];
+        try { localStorage.removeItem('kia_inv_round'); } catch (e) {}
+        invStartReadingRound({ fresh: true });
+        await new Promise(r => setTimeout(r, 300));
+        const chip1 = document.querySelector('#ui-flow .presence-chip');
+        document.getElementById('round-reading-input').value = '1800';
+        uiFlowSave();
+        await new Promise(r => setTimeout(r, 300));
+        const titulo = document.querySelector('#ui-flow .uf-q') ? document.querySelector('#ui-flow .uf-q').textContent : '';
+        fbPresenceTick();
+        await new Promise(r => setTimeout(r, 300));
+        const chip2 = document.querySelector('#ui-flow .presence-chip');
+        uiFlowBack();
+        await new Promise(r => setTimeout(r, 300));
+        const nota = document.querySelector('#ui-flow .uf-note.is-other');
+        const res = { chip1: chip1 && chip1.getAttribute('data-presence-progress'), titulo,
+                      chip2: chip2 && chip2.textContent, nota: nota ? nota.textContent : '' };
+        uiFlowClose();
+        return res;
+    });
+    chk('la ronda dice su avance (0/3 al empezar)', ronda.chip1 === '0/3', JSON.stringify(ronda));
+    chk('al avanzar se salta lo que Beto ya leyó (pasa a Gas g3)', ronda.titulo === 'Gas g3', ronda.titulo);
+    chk('y se ve que Beto también hace la ronda', /Beto también hace esta ronda · va 4\/9/.test(ronda.chip2 || ''), ronda.chip2);
+    chk('de regreso se ve quién la tomó y que releer es corrección', /Ya la tomó Beto a las \d\d:\d\d: 1500 PSI/.test(ronda.nota) && /corrección/.test(ronda.nota), ronda.nota);
+
     chk('sin errores de página ni diálogos nativos', !errores.length, errores.join(' | '));
     await browser.close();
     console.log(fallos.length ? '\n' + fallos.length + ' FALLA(S)' : '\ntodo bien');

@@ -33,6 +33,14 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - **Candado de un instante:** Enviar a aprobación, Aprobar, Devolver y Corregir alta miran primero
   el vehículo en la nube. Si otro equipo ya lo movió, se detiene antes de pedir la firma y dice
   quién y a qué hora. Sin red (o sin respuesta en 6 s) se sigue como antes, salvo Aprobar.
+- **Quién más está aquí.** En Operación, Liberación y Aprobación, un chip dice quién más tiene
+  abierto ese vehículo en otro equipo y en qué pantalla ("👤 Beto también está aquí (Liberación,
+  capturando)"; en ámbar si está capturando). No bloquea nada: solo se ve.
+- **Ronda de lecturas en vivo.** Si dos personas hacen la ronda del mismo turno, cada una ve a la
+  otra y su avance ("👥 Carla también hace esta ronda · va 12/30"). Lo que la otra persona ya leyó
+  se salta solo al avanzar; si regresas a ese punto, dice quién lo tomó y a qué hora, y leerlo otra
+  vez queda como corrección. El resumen final lista lo que leyó otra persona. La ronda se guarda por
+  tramos (cada 5 lecturas, cada 30 s o al cambiar de pasillo), no solo al final.
 
 ### Cambió
 - **Aprobar exige conexión** (decisión del laboratorio, 22-oct-2026). Sin red, o si la nube no
@@ -78,6 +86,15 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   `opts.strict` (solo Aprobar): con sync de vehículos, sin red / timeout / error de lectura
   resuelve `false` con `fbVehCloudGateOfflineText` (PURA). Un 404 no es falla de red (la nube no
   tiene ese vehículo: nadie más lo pudo mover) — `_fbBugsRestSend` ahora pone `err.status`.
+- **Presencia** (`presence/{FB_DEVICE_ID}`): `fbPresenceFor` / `fbPresenceText` (PURAS),
+  `fbPresenceChipHTML(entity, {here, screen, progress})`, `fbPresenceTick` (cada 4 s, sin red),
+  `fbPresenceDetect` (el chip `data-presence-here` cuyo contenedor se ve). Escribe al cambiar de
+  lugar, a lo más cada 15 s por avance/"capturando" y cada 2 min de latido; > 5 min = ya no está.
+  Escucha (o consulta cada minuto en REST) SOLO mientras este equipo está en algún lugar. No escribe
+  si la cuota del equipo pasa de 70 %.
+- **uiFlow**: paso con `doneBy()` → al avanzar se salta y queda `'otro'` en `uiFlowModel` (no
+  pendiente, no cuenta en `done`; `others` y `cards[].by`). Ronda: `_invRoundOtherReading(item)`,
+  `_invRoundTranche(porLectura)` (`INV_ROUND_TRANCHE_N` = 5, `INV_ROUND_TRANCHE_MS` = 30 s).
 - `vehicleFieldLabel(path)`, `vehicleLostValueRestorable(path)` (PURA), `vehicleUseLostValue`
   (permiso `test.operate`, no en aprobación/archivado; `valor_recuperado` en auditoría).
 - `_fbMergeReadings(locales, remotas, campo, opts)`: con `opts` (la fusión entre equipos,

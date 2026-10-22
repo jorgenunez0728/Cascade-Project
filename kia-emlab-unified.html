@@ -6325,6 +6325,9 @@ body.uf-open { overflow: hidden; }
     color: var(--text); font-size: var(--fs-base); font-weight: var(--weight-semibold); cursor: pointer;
 }
 .uf-note { font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-base); }
+/* [3.18.0] Ronda: este punto ya lo leyó otra persona en este turno. */
+.uf-note.is-other { color: var(--ok-text); background: var(--ok-bg); border-radius: var(--radius-lg);
+    padding: var(--space-sm) var(--space-md); margin: 0 0 var(--space-sm); font-size: var(--fs-sm); }
 .uf-field { display: block; margin-top: var(--space-md); }
 .uf-field > span { display: block; margin-bottom: var(--space-xs); font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text); }
 .uf-field > span small { font-weight: var(--weight-normal); color: var(--muted); }
@@ -6552,6 +6555,22 @@ body.ficha-open { overflow: hidden; }
 @keyframes vehCloudPulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 @keyframes vehCloudArrive { from { transform: scale(.92); opacity: .6; } to { transform: scale(1); opacity: 1; } }
 .oc-head-row .veh-cloud { margin-left: 0; flex-shrink: 0; }
+
+/* [3.18.0] Quién más está aquí (presencia). Nunca bloquea: solo se ve. */
+.presence-chip {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    margin-left: var(--space-sm); padding: var(--space-xs) var(--space-sm); min-height: 28px;
+    border-radius: var(--radius-xl); font-size: var(--fs-sm); font-weight: 700; line-height: 1.3;
+    background: var(--info-bg); color: var(--info-text); vertical-align: middle; max-width: 100%;
+    animation: vehCloudArrive var(--dur-slow) ease-out;
+}
+.presence-chip.is-empty { display: none; }
+.presence-chip.is-editing { background: var(--warn-bg); color: var(--warn-text); }
+/* En el encabezado fijo de Operación en tarjetas no cabe otro renglón: se recorta (el título lo dice completo). */
+.oc-head-row .presence-chip { margin-left: 0; flex: 0 1 auto; min-width: 0; max-width: 45%; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-head-row .presence-chip.is-empty { display: none; }
+.uf-card .presence-chip { margin: 0 0 var(--space-sm); }
 
 .topbar-sync-pending {
     background: var(--warn-fill); color: #fff; padding: var(--space-2xs) var(--space-xs);
@@ -10207,10 +10226,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610221418';
+var APP_BUILD = '202610221429';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '71b12ac761100cc43402edd15f0f28b02489d633';
+var APP_COMMIT = '8f011e53f0aef4277adf8cd66448ca80fcfc8dc7';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10231,6 +10250,8 @@ var APP_VERSION_HISTORY = [
                 'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
                 'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes, salvo Aprobar.',
                 'Aprobar exige conexión: sin red, o si la nube no responde en 6 segundos, no se aprueba y se dice por qué. Así nadie aprueba en un equipo una prueba que otro ya aprobó o devolvió. Alta, Operación, Liberación y Enviar a aprobación siguen funcionando sin red.',
+                'En Operación, Liberación y Aprobación un chip dice quién más tiene abierto ese vehículo en otro equipo y en qué pantalla (en ámbar si está capturando). No bloquea nada: solo se ve.',
+                'Ronda de lecturas en vivo: si dos personas hacen la ronda del mismo turno, cada una ve a la otra y su avance, y lo que la otra ya leyó se salta solo (si regresas a ese punto, dice quién lo tomó; leerlo otra vez queda como corrección). La ronda se guarda por tramos, no solo al final.',
                 'Consumibles: una lectura de gas corregida o capturada en otro equipo (misma fecha y turno) ahora queda igual en todos; a quien se le reemplazó la suya le sale un aviso y queda en el historial de cambios.',
                 'Plan y Consumibles: dos cambios seguidos desde el mismo equipo llegan los dos a los demás (antes el segundo se perdía hasta recargar). Y una prueba que quitas de Mi semana ya no regresa porque otro equipo tenía la semana abierta.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
@@ -11386,14 +11407,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610221418' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610221418' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11409,7 +11430,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610221418' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610221429' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -19552,7 +19573,9 @@ function gridKbdSelect(slotEl, o) {
 //            render(host)          pinta la tarjeta dentro de host
 //            save(host)            → true | {ok:true} | {ok:false, msg, field}
 //            onLater()             opcional: al tocar "Después"
-//            blocked()             opcional: motivo (texto) por el que no se puede guardar }
+//            blocked()             opcional: motivo (texto) por el que no se puede guardar
+//            doneBy()              opcional [3.18.0]: quién ya lo hizo en otro lado (texto) — al
+//                                  AVANZAR se salta y cuenta como hecho ('otro'); de regreso se ve }
 
 var UF_SWIPE_PX = 60;
 
@@ -19560,16 +19583,18 @@ var _uf = null;   // {opts, steps, state:{done,skipped}, idx, final, onlyPending
 
 /**
  * Estado de las tarjetas. PURA.
- * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}}
- * Devuelve {cards:[{key, section, title, index, status}], sections:[{name, start, count}],
- *           pending:[índices no hechos], firstPending, done, skipped}
- * status: 'hecho' | 'despues' (se tocó "Después") | 'pendiente' (no se ha visto).
+ * steps: [{key, section, title}] en orden · state: {done:{key:true}, skipped:{key:true}, others:{key:'quién'}}
+ * Devuelve {cards:[{key, section, title, index, status, by}], sections:[{name, start, count}],
+ *           pending:[índices no hechos], firstPending, done, skipped, others}
+ * status: 'hecho' | 'otro' (lo hizo otra persona, [3.18.0]) | 'despues' (se tocó "Después") |
+ *         'pendiente' (no se ha visto). 'otro' no queda pendiente y no cuenta en `done`.
  */
 function uiFlowModel(steps, state) {
     state = state || {};
-    var done = state.done || {}, skipped = state.skipped || {};
+    var done = state.done || {}, skipped = state.skipped || {}, others = state.others || {};
     var cards = (steps || []).filter(function(s) { return s && s.key; }).map(function(s, i) {
-        var st = done[s.key] ? 'hecho' : (skipped[s.key] ? 'despues' : 'pendiente');
+        var st = done[s.key] ? 'hecho' : (others[s.key] ? 'otro' : (skipped[s.key] ? 'despues' : 'pendiente'));
+        if (st === 'otro') return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st, by: String(others[s.key]) };
         return { key: s.key, section: s.section || '', title: s.title || '', index: i, status: st };
     });
     var sections = [];
@@ -19578,12 +19603,13 @@ function uiFlowModel(steps, state) {
         if (!last || last.name !== c.section) sections.push({ name: c.section, start: i, count: 1 });
         else last.count++;
     });
-    var pending = cards.filter(function(c) { return c.status !== 'hecho'; }).map(function(c) { return c.index; });
+    var pending = cards.filter(function(c) { return c.status !== 'hecho' && c.status !== 'otro'; }).map(function(c) { return c.index; });
     return {
         cards: cards, sections: sections, pending: pending,
         firstPending: pending.length ? pending[0] : -1,
         done: cards.filter(function(c) { return c.status === 'hecho'; }).length,
-        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length
+        skipped: cards.filter(function(c) { return c.status === 'despues'; }).length,
+        others: cards.filter(function(c) { return c.status === 'otro'; }).length
     };
 }
 
@@ -19612,7 +19638,7 @@ function uiFlowOpen(opts) {
     var steps = (opts.steps || []).filter(function(s) { return s && s.key; });
     if (!steps.length) return false;
     var st = opts.state || {};
-    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}) },
+    _uf = { opts: opts, steps: steps, state: { done: Object.assign({}, st.done || {}), skipped: Object.assign({}, st.skipped || {}), others: Object.assign({}, st.others || {}) },
             idx: 0, final: false, onlyPending: false, closeDialog: null };
 
     var el = document.createElement('div');
@@ -19683,7 +19709,7 @@ function _ufHeader(m) {
     // avanza, pero no llena la barra.
     segs.innerHTML = m.sections.map(function(s) {
         var mine = m.cards.slice(s.start, s.start + s.count);
-        var done = mine.filter(function(x) { return x.status === 'hecho'; }).length / s.count;
+        var done = mine.filter(function(x) { return x.status === 'hecho' || x.status === 'otro'; }).length / s.count;
         var here = sec && sec.start === s.start;
         return '<button type="button" class="uf-seg' + (here ? ' is-here' : '') + '" style="flex:' + s.count + '" ' +
             'onclick="uiFlowGoTo(' + s.start + ')" aria-label="Ir a ' + escapeHtml(s.name || 'la sección') + '">' +
@@ -19694,6 +19720,19 @@ function _ufHeader(m) {
 
 function _ufGo(i, dir) {
     if (!_uf) return;
+    // [3.18.0] Al avanzar se salta lo que otra persona ya hizo (de regreso sí se ve: releer
+    // es una corrección). Lo que ya hice yo no se toca.
+    if (dir > 0) {
+        while (i < _uf.steps.length) {
+            var st0 = _uf.steps[i], quien = '';
+            if (_uf.state.done[st0.key] || typeof st0.doneBy !== 'function') break;
+            try { quien = st0.doneBy() || ''; } catch (e) { quien = ''; }
+            if (!quien) break;
+            _uf.state.others[st0.key] = quien;
+            delete _uf.state.skipped[st0.key];
+            i++;
+        }
+    }
     var m = _ufModel();
     if (i >= m.cards.length) { _ufFinal(); return; }
     _uf.final = false;
@@ -19790,6 +19829,7 @@ function uiFlowSave() {
     }
     _uf.state.done[step.key] = true;
     delete _uf.state.skipped[step.key];
+    delete _uf.state.others[step.key];
     _ufFlash('✓ Guardado');
     _ufGo(uiFlowNextIndex(_ufModel(), _uf.idx, _uf.onlyPending), 1);
 }
@@ -19798,7 +19838,7 @@ function uiFlowSave() {
 function uiFlowLater() {
     if (!_uf || _uf.final) return;
     var step = _uf.steps[_uf.idx];
-    if (!_uf.state.done[step.key]) {
+    if (!_uf.state.done[step.key] && !_uf.state.others[step.key]) {
         _uf.state.skipped[step.key] = true;
         if (typeof step.onLater === 'function') { try { step.onLater(); } catch (e) {} }
     }
@@ -21424,6 +21464,7 @@ function loadVehicle() {
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
     <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
     ${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(vehicle) : ''}
+    ${typeof fbPresenceChipHTML === 'function' ? fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Operación' }) : ''}
     <button type="button" class="btn-secondary op-corr-btn" onclick="vehicleCorrectAltaOpen('${String(vehicle.id).replace(/[^\w.-]/g, '')}')" title="Corregir VIN o configuración sin borrar el vehículo">✏️ Corregir alta</button>
   `;
   opSaveStateRender();
@@ -23811,7 +23852,8 @@ function loadRelease() {
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode) +
-        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '');
+        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Liberación' }) : '');
 
     // Indicador de completitud del PDF: campos de formulario faltantes (gases y firmas tienen su propio candado).
     var _relComp = validatePdfCompleteness(vehicle);
@@ -23927,6 +23969,7 @@ function loadApproval() {
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Aprobación' }) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
         (vehicle.regulationOverride && vehicle.regulationOverride.name
@@ -38064,6 +38107,11 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 var _readingRound = null;
 var INV_ROUND_LS_KEY = 'kia_inv_round';   // ronda a medias (el cuarto de gases puede no tener señal)
 var _invLastRound = null;                 // resumen de la última ronda, para el botón Copiar
+// [3.18.0] La ronda guarda por tramos para que los demás equipos vean el avance: cada
+// INV_ROUND_TRANCHE_N lecturas, cada INV_ROUND_TRANCHE_MS o al cambiar de pasillo. El modelo
+// de consumo se reentrena una sola vez, al final (_invRoundCommit).
+var INV_ROUND_TRANCHE_N = 5;
+var INV_ROUND_TRANCHE_MS = 30 * 1000;
 
 /** Los puntos del recorrido, en el orden en que están acomodados físicamente. */
 function invRoundItems() {
@@ -38157,7 +38205,7 @@ function invStartReadingRound(opts) {
         steps: items.map(_invRoundStep),
         state: state,
         startAt: _readingRound.index,
-        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); } },
+        onStep: function(i) { if (_readingRound) { _readingRound.index = i; _invRoundPersist(); _invRoundTranche(false); } },
         onFinal: _invRoundFinalHTML,
         onClose: _invRoundClose
     });
@@ -38176,8 +38224,63 @@ function _invRoundStep(item) {
         title: ref ? (esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas')) : item.id,
         render: function(host) { _invRoundRenderCard(host, item); },
         save: function(host) { return _invRoundSaveCard(host, item); },
-        onLater: function() { _invRoundMarkSkipped(item); }
+        onLater: function() { _invRoundMarkSkipped(item); },
+        doneBy: function() { var o = _invRoundOtherReading(item); return o ? o.label : ''; }
     };
+}
+
+/** Hora (HH:MM) de una marca ISO, en la hora del equipo. */
+function _invRoundHHMM(iso) {
+    var t = Date.parse(iso || '');
+    if (!t) return '';
+    var d = new Date(t);
+    return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+}
+
+/**
+ * [3.18.0] ¿Alguien ya leyó este punto en ESTE turno, fuera de esta ronda? (otra persona en
+ * otro equipo, o la retícula de Captura). → {reading, by, label} | null. Lo que capturó esta
+ * misma ronda no cuenta: eso ya está hecho.
+ */
+function _invRoundOtherReading(item) {
+    if (!_readingRound) return null;
+    var k = _invRoundKey(item);
+    if ((_readingRound.results || []).some(function(x) { return !x.skipped && x.kind + ':' + x.id === k; })) return null;
+    var ref = _invRoundRef(item);
+    if (!ref) return null;
+    var r = null;
+    if (item.kind === 'fuel') {
+        // El combustible es una lectura por día: cuenta solo si se tomó en este turno.
+        r = (ref.readings || []).filter(function(x) {
+            if (!x || x.auto || x.date !== _readingRound.date || !x.at) return false;
+            return invShiftNow(new Date(Date.parse(x.at))) === _readingRound.shift;
+        }).pop() || null;
+    } else {
+        r = invFindReadingOn(ref, _readingRound.date, _readingRound.shift);
+    }
+    if (!r) return null;
+    var yo = (typeof _dashMe === 'function') ? _dashMe() : '';
+    var by = String(r.by || '').trim();
+    var quien = by && yo && by === yo ? 'tú' : (by || 'otra persona');
+    var hora = _invRoundHHMM(r.at);
+    return { reading: r, by: by, label: quien + (hora ? ' a las ' + hora : '') };
+}
+
+/** [3.18.0] Guardado por tramos (sin reentrenar). `porLectura` = se acaba de capturar una. */
+function _invRoundTranche(porLectura) {
+    var r = _readingRound;
+    if (!r) return;
+    if (porLectura) r.unsaved = (r.unsaved || 0) + 1;
+    var item = r.items[r.index];
+    var pasillo = item ? (item.kind === 'fuel' ? 'fuel' : String(item.zone || '').charAt(0).toUpperCase()) : '';
+    var cambio = !porLectura && r.lastAisle !== undefined && pasillo !== r.lastAisle;
+    if (!porLectura) r.lastAisle = pasillo;
+    if (!r.unsaved) return;
+    if (r.unsaved >= INV_ROUND_TRANCHE_N || cambio || Date.now() - (r.savedAt || r.startTime) >= INV_ROUND_TRANCHE_MS) {
+        invSave();
+        r.unsaved = 0;
+        r.savedAt = Date.now();
+    }
 }
 
 /** Última lectura ANTERIOR a la de la ronda (si se regresa a un punto, la de este turno no cuenta). */
@@ -38208,8 +38311,17 @@ function _invRoundRenderCard(host, item) {
         : ((ref.controlNo || ref.id) + ' · Zona ' + (ref.zone || '—') + (ref.concNominal ? ' · ' + ref.concNominal : ''));
     var spark = _invRoundSparkline((ref.readings || []).slice(-5).map(function(x) { return (esFuel ? x.level : x.psi) || 0; }));
 
+    var otro = _invRoundOtherReading(item);
+    var hechas = (_readingRound.results || []).filter(function(x) { return !x.skipped; }).length;
     host.innerHTML =
+        (typeof fbPresenceChipHTML === 'function'
+            ? fbPresenceChipHTML('ronda:gases:' + _readingRound.date + ':' + _readingRound.shift,
+                { here: true, screen: 'Ronda', progress: hechas + '/' + _readingRound.items.length })
+            : '') +
         '<div class="uf-kicker">' + escapeHtml(sub) + '</div>' +
+        (otro ? '<div class="uf-note is-other" role="note">✓ Ya la tomó ' + escapeHtml(otro.label) + ': <b>' +
+            escapeHtml(String(esFuel ? otro.reading.level : otro.reading.psi)) + ' ' + escapeHtml(unidad) +
+            '</b>. Si la lees otra vez, queda la tuya como corrección.</div>' : '') +
         '<label class="uf-q" for="round-reading-input">' + escapeHtml(titulo) + '</label>' +
         (spark || lastVal !== ''
             ? '<div class="uf-context">' + spark +
@@ -38282,6 +38394,7 @@ function _invRoundSaveCard(host, item) {
         warning: res.warning || null,
         alert: dropPct > 15 || !!res.warning
     });
+    _invRoundTranche(true);
     return { ok: true };
 }
 
@@ -38357,6 +38470,15 @@ function _invRoundFinalHTML(model) {
         h += '<div class="uf-list is-warn"><b>⚠ Revisar la caída</b>' + alerts.map(function(a) {
             return '<div>' + escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value +
                    (a.warning ? ' · ' + escapeHtml(a.warning) : '') + '</div>';
+        }).join('') + '</div>';
+    }
+    // [3.18.0] Lo que leyó otra persona en este turno: cuenta como leído, no como pendiente.
+    var deOtros = (model.cards || []).filter(function(c) { return c.status === 'otro'; });
+    if (deOtros.length) {
+        h += '<div class="uf-list"><b>👥 Los leyó otra persona</b>' + deOtros.map(function(c) {
+            var it = _readingRound.items.filter(function(x) { return _invRoundKey(x) === c.key; })[0];
+            var ref = it ? _invRoundRef(it) : null;
+            return '<div>' + escapeHtml(ref ? (ref.controlNo || ref.name || c.title) : c.title) + ' — ' + escapeHtml(c.by || '') + '</div>';
         }).join('') + '</div>';
     }
     if (saltadas.length) {
@@ -68935,7 +69057,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610221418' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610221429' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -72492,6 +72614,251 @@ function fbSyncSheetRetry() {
         }
         return r;
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [3.18.0] Quién está aquí — presencia por equipo
+// ══════════════════════════════════════════════════════════════════════
+//
+// Cada equipo deja en stations/KIA-EMLAB/presence/{FB_DEVICE_ID} dónde está: un vehículo
+// ('veh:<id>') o una ronda ('ronda:gases:<fecha>:<turno>'), con su pantalla, si está
+// capturando y su avance. Nunca bloquea nada: solo se ve.
+//
+// - Dónde está este equipo se LEE DEL DOM: el chip visible con `data-presence-here`. Así no
+//   hay que avisar al salir por cada camino (cambiar de pestaña, de plataforma, cerrar).
+// - Se escribe al cambiar de lugar (o de avance, a lo más cada 15 s) y cada 2 min mientras
+//   siga ahí; > 5 min sin latido = ya no está. Solo se escucha la colección mientras este
+//   equipo está en algún lugar (las lecturas cuestan cuota a cada equipo que escucha).
+// - fbPresenceFor y fbPresenceText son PURAS.
+
+var FB_PRESENCE_STALE_MS = 5 * 60 * 1000;
+var FB_PRESENCE_BEAT_MS = 2 * 60 * 1000;
+var FB_PRESENCE_MIN_GAP_MS = 15 * 1000;
+var FB_PRESENCE_TICK_MS = 4000;
+var FB_PRESENCE_EDIT_MS = 60 * 1000;
+var FB_PRESENCE_IDLE_STOP_MS = 30 * 1000;
+var FB_PRESENCE_POLL_MS = 60 * 1000;
+var _fbPres = { sentKey: '', sentEntity: null, sentAt: 0, lastInputAt: 0, records: {},
+                unsub: null, poll: null, idleSince: 0, timer: null };
+
+/**
+ * Quién más está en `entity`. PURA.
+ * records = {deviceId: {device, operator, deviceName, entity, screen, editing, progress, at}}
+ * → [{device, operator, deviceName, screen, editing, progress, at}] sin este equipo, sin los
+ *   que llevan más de `staleMs` sin latido y una sola fila por persona (la más reciente).
+ */
+function fbPresenceFor(records, entity, me, nowMs, staleMs) {
+    if (!entity || !records) return [];
+    var lim = staleMs || FB_PRESENCE_STALE_MS;
+    var porPersona = {};
+    Object.keys(records).forEach(function(id) {
+        var r = records[id];
+        if (!r || r.entity !== entity) return;
+        var dev = r.device || id;
+        if (dev === me) return;
+        var t = Date.parse(r.at || '');
+        // Relojes de equipos distintos: se tolera el mismo margen hacia adelante.
+        if (!t || Math.abs(nowMs - t) > lim) return;
+        var quien = String(r.operator || '').trim() || ('equipo:' + dev);
+        var prev = porPersona[quien];
+        if (prev && Date.parse(prev.at) >= t) return;
+        porPersona[quien] = { device: dev, operator: String(r.operator || '').trim(), deviceName: String(r.deviceName || '').trim(),
+            screen: String(r.screen || ''), editing: !!r.editing, progress: String(r.progress || ''), at: r.at };
+    });
+    return Object.keys(porPersona).map(function(k) { return porPersona[k]; })
+        .sort(function(a, b) { return (a.operator || a.deviceName).localeCompare(b.operator || b.deviceName, 'es'); });
+}
+
+/** Texto del chip. PURA. → {text, title, editing} ('' si no hay nadie). */
+function fbPresenceText(list, entity) {
+    if (!list || !list.length) return { text: '', title: '', editing: false };
+    var ronda = String(entity || '').indexOf('ronda:') === 0;
+    function nombre(p) { return p.operator || p.deviceName || 'Otro equipo'; }
+    function y(arr) { return arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1]; }
+    var editing = list.some(function(p) { return p.editing; });
+    var text;
+    if (ronda) {
+        text = list.length === 1
+            ? nombre(list[0]) + ' también hace esta ronda' + (list[0].progress ? ' · va ' + list[0].progress : '')
+            : y(list.map(function(p) { return nombre(p) + (p.progress ? ' (' + p.progress + ')' : ''); })) + ' también hacen esta ronda';
+    } else if (list.length === 1) {
+        var p = list[0];
+        var det = [p.screen, p.editing ? 'capturando' : ''].filter(Boolean).join(', ');
+        text = nombre(p) + ' también está aquí' + (det ? ' (' + det + ')' : '');
+    } else {
+        text = y(list.map(nombre)) + ' también están aquí' + (editing ? ' (capturando)' : '');
+    }
+    var title = list.map(function(p) {
+        return nombre(p) + (p.deviceName && p.operator ? ' en ' + p.deviceName : '') +
+            (p.screen ? ' · ' + p.screen : '') + (p.editing ? ' · capturando' : '') + (p.progress ? ' · ' + p.progress : '');
+    }).join('\n') + (ronda ? '' : '\nNo se bloquea nada: si los dos cambian el mismo dato, queda el más reciente y el otro va a la línea de tiempo.');
+    return { text: text, title: title, editing: editing };
+}
+
+/**
+ * Chip "también está aquí". `opts.here` = este equipo está en `entity` (lo detecta el
+ * latido); sin `here` solo muestra a los demás. `opts.screen` / `opts.progress` viajan
+ * con la presencia de este equipo.
+ */
+function fbPresenceChipHTML(entity, opts) {
+    if (!entity) return '';
+    opts = opts || {};
+    var a = function(s) { return String(s == null ? '' : s).replace(/[&"<>]/g, function(c) { return { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]; }); };
+    var html = '<span class="presence-chip is-empty" role="status" aria-live="polite" ' +
+        (opts.here ? 'data-presence-here="' : 'data-presence-watch="') + a(entity) + '"' +
+        (opts.screen ? ' data-presence-screen="' + a(opts.screen) + '"' : '') +
+        (opts.progress ? ' data-presence-progress="' + a(opts.progress) + '"' : '') + '></span>';
+    try {
+        if (typeof document !== 'undefined') {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            _fbPresenceFill(tmp.firstChild, Date.now());
+            html = tmp.innerHTML;
+        }
+    } catch (e) {}
+    return html;
+}
+
+function _fbPresenceFill(el, now) {
+    if (!el) return;
+    var entity = el.getAttribute('data-presence-here') || el.getAttribute('data-presence-watch');
+    var list = fbPresenceFor(_fbPres.records, entity, FB_DEVICE_ID, now);
+    var t = fbPresenceText(list, entity);
+    var txt = t.text ? (String(entity).indexOf('ronda:') === 0 ? '👥 ' : '👤 ') + t.text : '';
+    if (el.textContent !== txt) el.textContent = txt;
+    el.title = t.title;
+    el.classList.toggle('is-empty', !t.text);
+    el.classList.toggle('is-editing', !!t.editing);
+}
+
+function fbPresenceChipsRefresh() {
+    if (typeof document === 'undefined') return;
+    var now = Date.now();
+    [].forEach.call(document.querySelectorAll('[data-presence-here], [data-presence-watch]'), function(el) { _fbPresenceFill(el, now); });
+}
+
+/** Dónde está este equipo según la pantalla: el primer chip `here` visible (la capa uiFlow primero). */
+function fbPresenceDetect() {
+    if (typeof document === 'undefined' || document.hidden) return null;
+    // El chip está oculto mientras no haya nadie más: lo que cuenta es que su contenedor se vea.
+    var els = [].slice.call(document.querySelectorAll('[data-presence-here]')).filter(function(el) {
+        var host = el.parentElement;
+        return !!host && host.getClientRects().length > 0;
+    });
+    if (!els.length) return null;
+    var el = els.filter(function(x) { return x.closest && x.closest('#ui-flow'); })[0] || els[0];
+    return { entity: el.getAttribute('data-presence-here'), screen: el.getAttribute('data-presence-screen') || '',
+             progress: el.getAttribute('data-presence-progress') || '' };
+}
+
+/** Presencia: prioridad baja. Si la cuota del equipo va arriba de 70 %, no se escribe. */
+function _fbPresenceQuotaOk() {
+    if (typeof fbQuota === 'undefined' || typeof FB_QUOTA_LIMITS === 'undefined') return true;
+    var hora = (fbQuota.writes || []).filter(function(t) { return Date.now() - t < 3600000; }).length;
+    return (fbQuota.dayWrites || 0) < FB_QUOTA_LIMITS.maxWritesPerDay * 0.7 && hora < FB_QUOTA_LIMITS.maxWritesPerHour * 0.7;
+}
+
+function _fbPresenceActive() {
+    return typeof fbSync !== 'undefined' && fbSync.enabled && !!fbSync.stationId && typeof _fbBkSet === 'function';
+}
+
+function _fbPresenceSend(det, editing) {
+    var rec = {
+        device: FB_DEVICE_ID,
+        deviceName: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        operator: (typeof _dashMe === 'function') ? _dashMe() : '',
+        entity: det ? det.entity : null,
+        screen: det ? det.screen : '',
+        progress: det ? det.progress : '',
+        editing: !!(det && editing),
+        at: new Date().toISOString(),
+        version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : ''
+    };
+    _fbPres.sentAt = Date.now();
+    _fbPres.sentEntity = rec.entity;
+    _fbPres.records[FB_DEVICE_ID] = rec;
+    return _fbBkSet('presence/' + FB_DEVICE_ID, rec).catch(function(err) {
+        _fbPres.sentKey = '';   // se reintenta en el siguiente latido (a lo más cada 15 s)
+        void 0;
+    });
+}
+
+function _fbPresenceApply(list) {
+    var rec = {};
+    (list || []).forEach(function(d) { if (d && d.id) rec[d.id] = d.data || {}; });
+    if (_fbPres.records[FB_DEVICE_ID]) rec[FB_DEVICE_ID] = _fbPres.records[FB_DEVICE_ID];
+    _fbPres.records = rec;
+    fbPresenceChipsRefresh();
+}
+
+/** Escuchar (o consultar cada minuto en modo REST) solo mientras este equipo está en algún lugar. */
+function _fbPresenceWatch(on) {
+    if (on) {
+        _fbPres.idleSince = 0;
+        if (_fbPres.unsub || _fbPres.poll) return;
+        var vivo = fbSync.db && !fbSync._useREST && typeof FB_IS_HTTP_ORIGIN !== 'undefined' && FB_IS_HTTP_ORIGIN;
+        if (vivo) {
+            try {
+                _fbPres.unsub = _fbBkRef('presence').onSnapshot(function(snap) {
+                    var out = [];
+                    snap.forEach(function(d) { out.push({ id: d.id, data: d.data() }); });
+                    try { snap.docChanges().forEach(function() { fbQuotaRecord('read'); }); } catch (e) {}
+                    _fbPresenceApply(out);
+                }, function(err) {
+                    void 0;
+                    _fbPres.unsub = null;
+                });
+                return;
+            } catch (e) { _fbPres.unsub = null; }
+        }
+        var traer = function() { _fbBkList('presence').then(_fbPresenceApply, function() {}); };
+        traer();
+        _fbPres.poll = setInterval(traer, FB_PRESENCE_POLL_MS);
+        return;
+    }
+    if (!_fbPres.unsub && !_fbPres.poll) return;
+    if (!_fbPres.idleSince) { _fbPres.idleSince = Date.now(); return; }
+    if (Date.now() - _fbPres.idleSince < FB_PRESENCE_IDLE_STOP_MS) return;
+    if (_fbPres.unsub) { try { _fbPres.unsub(); } catch (e) {} _fbPres.unsub = null; }
+    if (_fbPres.poll) { clearInterval(_fbPres.poll); _fbPres.poll = null; }
+    _fbPres.idleSince = 0;
+}
+
+/** El latido: detecta dónde está este equipo, escribe si cambió y repinta los chips. */
+function fbPresenceTick() {
+    if (!_fbPresenceActive()) {
+        if (_fbPres.unsub || _fbPres.poll) { _fbPres.idleSince = 1; _fbPresenceWatch(false); }
+        return;
+    }
+    var det = fbPresenceDetect();
+    var entity = det ? det.entity : null;
+    var editing = !!det && (Date.now() - _fbPres.lastInputAt < FB_PRESENCE_EDIT_MS);
+    var key = entity ? [entity, det.screen, editing ? 1 : 0, det.progress].join('|') : '';
+    var now = Date.now();
+    _fbPresenceWatch(!!entity);
+    var enviar = false;
+    if (key !== _fbPres.sentKey) {
+        // Cambiar de lugar se dice al instante; avance o "capturando", a lo más cada 15 s.
+        enviar = entity !== _fbPres.sentEntity || now - _fbPres.sentAt >= FB_PRESENCE_MIN_GAP_MS;
+    } else if (entity && now - _fbPres.sentAt >= FB_PRESENCE_BEAT_MS) {
+        enviar = true;
+    }
+    var online = !(typeof navigator !== 'undefined' && navigator.onLine === false);
+    if (enviar && online && _fbPresenceQuotaOk()) {
+        _fbPres.sentKey = key;
+        _fbPresenceSend(det, editing);
+    }
+    fbPresenceChipsRefresh();
+}
+
+if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+    document.addEventListener('input', function() { _fbPres.lastInputAt = Date.now(); }, true);
+    document.addEventListener('visibilitychange', function() { setTimeout(fbPresenceTick, 0); });
+    // Al cerrar la pestaña se avisa que ya no está (si no llega, a los 5 min se da por ido).
+    window.addEventListener('pagehide', function() {
+        if (_fbPres.sentEntity && _fbPresenceActive()) { try { _fbPresenceSend(null, false); } catch (e) {} }
+    });
+    if (typeof setInterval === 'function') _fbPres.timer = setInterval(fbPresenceTick, FB_PRESENCE_TICK_MS);
 }
 
 
@@ -84170,6 +84537,7 @@ function _opcHeader() {
             '<button type="button" class="oc-x" onclick="opCardsExit()" aria-label="Salir al formulario completo">✕</button>' +
             '<div class="oc-head-what"><b>' + escapeHtml(tail) + '</b> · Operación<div class="oc-head-sub">' + escapeHtml(where) + '</div></div>' +
             '<div class="oc-saved" id="oc-saved" aria-live="polite"></div>' +
+            (typeof fbPresenceChipHTML === 'function' && v.id !== undefined ? fbPresenceChipHTML('veh:' + v.id, { here: true, screen: 'Operación' }) : '') +
             (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v.id !== undefined ? v : null, { compact: true }) : '') +
         '</div>' +
         '<div class="oc-segs" aria-hidden="' + (n > 1 ? 'false' : 'true') + '">' + segs + '</div>';
@@ -87028,7 +87396,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9741,"mods":[[9744,"js/app.js",19527],[19531,"js/uiflow.js",19847],[19851,"js/cop15.js",30596],[30600,"js/inventory.js",38525],[38529,"js/cuarto.js",40659],[40663,"js/sitio.js",42843],[42847,"js/conslist.js",43455],[43459,"js/testplan.js",55336],[55340,"js/panel.js",60678],[60682,"js/projects.js",62971],[62975,"js/auth.js",64055],[64059,"js/signatures.js",64260],[64264,"js/firebase-sync.js",72495],[72499,"js/cop_validator.js",77034],[77038,"js/copreport.js",78040],[78044,"js/cophq.js",78854],[78858,"js/homolog.js",80755],[80759,"js/vets.js",82558],[82562,"js/historico.js",83476],[83480,"js/review.js",83933],[83937,"js/opcards.js",84368],[84372,"js/handoff.js",84646],[84650,"js/ficha.js",85151],[85155,"js/relevo.js",85535],[85539,"js/momentos.js",85676],[85680,"js/digest.js",86600],[86604,"js/xlsxw.js",86984],[86988,"js/bugreport.js",88134]]};
+var BUG_LINE_MAP = {"tag":9760,"mods":[[9763,"js/app.js",19548],[19552,"js/uiflow.js",19887],[19891,"js/cop15.js",30639],[30643,"js/inventory.js",38647],[38651,"js/cuarto.js",40781],[40785,"js/sitio.js",42965],[42969,"js/conslist.js",43577],[43581,"js/testplan.js",55458],[55462,"js/panel.js",60800],[60804,"js/projects.js",63093],[63097,"js/auth.js",64177],[64181,"js/signatures.js",64382],[64386,"js/firebase-sync.js",72862],[72866,"js/cop_validator.js",77401],[77405,"js/copreport.js",78407],[78411,"js/cophq.js",79221],[79225,"js/homolog.js",81122],[81126,"js/vets.js",82925],[82929,"js/historico.js",83843],[83847,"js/review.js",84300],[84304,"js/opcards.js",84736],[84740,"js/handoff.js",85014],[85018,"js/ficha.js",85519],[85523,"js/relevo.js",85903],[85907,"js/momentos.js",86044],[86048,"js/digest.js",86968],[86972,"js/xlsxw.js",87352],[87356,"js/bugreport.js",88502]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

@@ -3859,5 +3859,15 @@ Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
   en un equipo con sync de vehículos, sin red / sin respuesta / error de lectura no se aprueba
   (decisión del laboratorio, 22-oct-2026). Un 404 sí sigue (la nube no tiene ese vehículo). No
   pasar `strict` a otro paso sin decisión del laboratorio: el trabajo sin red es un requisito.
-- Siguientes fases del plan del 22-oct-2026 (presencia, ronda en vivo, velocidad): cada una se
-  aprueba aparte.
+- **Presencia: dónde está este equipo se LEE DEL DOM** — el chip `fbPresenceChipHTML(entity,
+  {here:true, screen, progress})` cuyo contenedor se ve (la capa uiFlow primero). Así no hay que
+  avisar al salir por cada camino. **Toda pantalla nueva donde importe saber quién más está pone su
+  chip `here`** (entidades: `veh:<id>`, `ronda:gases:<fecha>:<turno>`). Nunca bloquea; nunca se
+  usa para decidir nada. Es la escritura de MENOR prioridad: se calla con la cuota arriba de 70 %,
+  y solo se escucha la colección mientras este equipo está en algún lugar (cada escucha cuesta una
+  lectura por cambio a cada equipo).
+- **La ronda ya no guarda una sola vez** (matiza 2.21.0): guarda por tramos (`_invRoundTranche`)
+  para que los demás vean el avance; el modelo de consumo se reentrena una sola vez, al final.
+  Lo que otra persona leyó en el mismo turno se salta con `doneBy` (uiFlow, estado `'otro'`);
+  releerlo es una corrección (regla de lecturas de esta misma versión).
+- Siguiente fase del plan del 22-oct-2026 (velocidad y repintar en su lugar): se aprueba aparte.

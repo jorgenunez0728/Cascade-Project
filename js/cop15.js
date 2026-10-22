@@ -1574,6 +1574,7 @@ function loadVehicle() {
     <strong>Estado:</strong> <span class="status-badge status-${vehicle.status}">${CONFIG.statusLabels[vehicle.status]}</span>
     <span id="op-save-state" class="op-save-state" aria-live="polite"></span>
     ${typeof fbVehChipHTML === 'function' ? fbVehChipHTML(vehicle) : ''}
+    ${typeof fbPresenceChipHTML === 'function' ? fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Operación' }) : ''}
     <button type="button" class="btn-secondary op-corr-btn" onclick="vehicleCorrectAltaOpen('${String(vehicle.id).replace(/[^\w.-]/g, '')}')" title="Corregir VIN o configuración sin borrar el vehículo">✏️ Corregir alta</button>
   `;
   opSaveStateRender();
@@ -3961,7 +3962,8 @@ function loadRelease() {
     var _relInfoEl = document.getElementById('releaseInfo');
     _relInfoEl.innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode) +
-        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '');
+        (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Liberación' }) : '');
 
     // Indicador de completitud del PDF: campos de formulario faltantes (gases y firmas tienen su propio candado).
     var _relComp = validatePdfCompleteness(vehicle);
@@ -4077,6 +4079,7 @@ function loadApproval() {
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
+        (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Aprobación' }) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
         // que verlo: está verificando contra esa norma, no contra la del alta.
         (vehicle.regulationOverride && vehicle.regulationOverride.name

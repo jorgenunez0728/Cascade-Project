@@ -8230,3 +8230,248 @@ function fbSyncSheetRetry() {
         return r;
     });
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// [3.18.0] Quién está aquí — presencia por equipo
+// ══════════════════════════════════════════════════════════════════════
+//
+// Cada equipo deja en stations/KIA-EMLAB/presence/{FB_DEVICE_ID} dónde está: un vehículo
+// ('veh:<id>') o una ronda ('ronda:gases:<fecha>:<turno>'), con su pantalla, si está
+// capturando y su avance. Nunca bloquea nada: solo se ve.
+//
+// - Dónde está este equipo se LEE DEL DOM: el chip visible con `data-presence-here`. Así no
+//   hay que avisar al salir por cada camino (cambiar de pestaña, de plataforma, cerrar).
+// - Se escribe al cambiar de lugar (o de avance, a lo más cada 15 s) y cada 2 min mientras
+//   siga ahí; > 5 min sin latido = ya no está. Solo se escucha la colección mientras este
+//   equipo está en algún lugar (las lecturas cuestan cuota a cada equipo que escucha).
+// - fbPresenceFor y fbPresenceText son PURAS.
+
+var FB_PRESENCE_STALE_MS = 5 * 60 * 1000;
+var FB_PRESENCE_BEAT_MS = 2 * 60 * 1000;
+var FB_PRESENCE_MIN_GAP_MS = 15 * 1000;
+var FB_PRESENCE_TICK_MS = 4000;
+var FB_PRESENCE_EDIT_MS = 60 * 1000;
+var FB_PRESENCE_IDLE_STOP_MS = 30 * 1000;
+var FB_PRESENCE_POLL_MS = 60 * 1000;
+var _fbPres = { sentKey: '', sentEntity: null, sentAt: 0, lastInputAt: 0, records: {},
+                unsub: null, poll: null, idleSince: 0, timer: null };
+
+/**
+ * Quién más está en `entity`. PURA.
+ * records = {deviceId: {device, operator, deviceName, entity, screen, editing, progress, at}}
+ * → [{device, operator, deviceName, screen, editing, progress, at}] sin este equipo, sin los
+ *   que llevan más de `staleMs` sin latido y una sola fila por persona (la más reciente).
+ */
+function fbPresenceFor(records, entity, me, nowMs, staleMs) {
+    if (!entity || !records) return [];
+    var lim = staleMs || FB_PRESENCE_STALE_MS;
+    var porPersona = {};
+    Object.keys(records).forEach(function(id) {
+        var r = records[id];
+        if (!r || r.entity !== entity) return;
+        var dev = r.device || id;
+        if (dev === me) return;
+        var t = Date.parse(r.at || '');
+        // Relojes de equipos distintos: se tolera el mismo margen hacia adelante.
+        if (!t || Math.abs(nowMs - t) > lim) return;
+        var quien = String(r.operator || '').trim() || ('equipo:' + dev);
+        var prev = porPersona[quien];
+        if (prev && Date.parse(prev.at) >= t) return;
+        porPersona[quien] = { device: dev, operator: String(r.operator || '').trim(), deviceName: String(r.deviceName || '').trim(),
+            screen: String(r.screen || ''), editing: !!r.editing, progress: String(r.progress || ''), at: r.at };
+    });
+    return Object.keys(porPersona).map(function(k) { return porPersona[k]; })
+        .sort(function(a, b) { return (a.operator || a.deviceName).localeCompare(b.operator || b.deviceName, 'es'); });
+}
+
+/** Texto del chip. PURA. → {text, title, editing} ('' si no hay nadie). */
+function fbPresenceText(list, entity) {
+    if (!list || !list.length) return { text: '', title: '', editing: false };
+    var ronda = String(entity || '').indexOf('ronda:') === 0;
+    function nombre(p) { return p.operator || p.deviceName || 'Otro equipo'; }
+    function y(arr) { return arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1]; }
+    var editing = list.some(function(p) { return p.editing; });
+    var text;
+    if (ronda) {
+        text = list.length === 1
+            ? nombre(list[0]) + ' también hace esta ronda' + (list[0].progress ? ' · va ' + list[0].progress : '')
+            : y(list.map(function(p) { return nombre(p) + (p.progress ? ' (' + p.progress + ')' : ''); })) + ' también hacen esta ronda';
+    } else if (list.length === 1) {
+        var p = list[0];
+        var det = [p.screen, p.editing ? 'capturando' : ''].filter(Boolean).join(', ');
+        text = nombre(p) + ' también está aquí' + (det ? ' (' + det + ')' : '');
+    } else {
+        text = y(list.map(nombre)) + ' también están aquí' + (editing ? ' (capturando)' : '');
+    }
+    var title = list.map(function(p) {
+        return nombre(p) + (p.deviceName && p.operator ? ' en ' + p.deviceName : '') +
+            (p.screen ? ' · ' + p.screen : '') + (p.editing ? ' · capturando' : '') + (p.progress ? ' · ' + p.progress : '');
+    }).join('\n') + (ronda ? '' : '\nNo se bloquea nada: si los dos cambian el mismo dato, queda el más reciente y el otro va a la línea de tiempo.');
+    return { text: text, title: title, editing: editing };
+}
+
+/**
+ * Chip "también está aquí". `opts.here` = este equipo está en `entity` (lo detecta el
+ * latido); sin `here` solo muestra a los demás. `opts.screen` / `opts.progress` viajan
+ * con la presencia de este equipo.
+ */
+function fbPresenceChipHTML(entity, opts) {
+    if (!entity) return '';
+    opts = opts || {};
+    var a = function(s) { return String(s == null ? '' : s).replace(/[&"<>]/g, function(c) { return { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]; }); };
+    var html = '<span class="presence-chip is-empty" role="status" aria-live="polite" ' +
+        (opts.here ? 'data-presence-here="' : 'data-presence-watch="') + a(entity) + '"' +
+        (opts.screen ? ' data-presence-screen="' + a(opts.screen) + '"' : '') +
+        (opts.progress ? ' data-presence-progress="' + a(opts.progress) + '"' : '') + '></span>';
+    try {
+        if (typeof document !== 'undefined') {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            _fbPresenceFill(tmp.firstChild, Date.now());
+            html = tmp.innerHTML;
+        }
+    } catch (e) {}
+    return html;
+}
+
+function _fbPresenceFill(el, now) {
+    if (!el) return;
+    var entity = el.getAttribute('data-presence-here') || el.getAttribute('data-presence-watch');
+    var list = fbPresenceFor(_fbPres.records, entity, FB_DEVICE_ID, now);
+    var t = fbPresenceText(list, entity);
+    var txt = t.text ? (String(entity).indexOf('ronda:') === 0 ? '👥 ' : '👤 ') + t.text : '';
+    if (el.textContent !== txt) el.textContent = txt;
+    el.title = t.title;
+    el.classList.toggle('is-empty', !t.text);
+    el.classList.toggle('is-editing', !!t.editing);
+}
+
+function fbPresenceChipsRefresh() {
+    if (typeof document === 'undefined') return;
+    var now = Date.now();
+    [].forEach.call(document.querySelectorAll('[data-presence-here], [data-presence-watch]'), function(el) { _fbPresenceFill(el, now); });
+}
+
+/** Dónde está este equipo según la pantalla: el primer chip `here` visible (la capa uiFlow primero). */
+function fbPresenceDetect() {
+    if (typeof document === 'undefined' || document.hidden) return null;
+    // El chip está oculto mientras no haya nadie más: lo que cuenta es que su contenedor se vea.
+    var els = [].slice.call(document.querySelectorAll('[data-presence-here]')).filter(function(el) {
+        var host = el.parentElement;
+        return !!host && host.getClientRects().length > 0;
+    });
+    if (!els.length) return null;
+    var el = els.filter(function(x) { return x.closest && x.closest('#ui-flow'); })[0] || els[0];
+    return { entity: el.getAttribute('data-presence-here'), screen: el.getAttribute('data-presence-screen') || '',
+             progress: el.getAttribute('data-presence-progress') || '' };
+}
+
+/** Presencia: prioridad baja. Si la cuota del equipo va arriba de 70 %, no se escribe. */
+function _fbPresenceQuotaOk() {
+    if (typeof fbQuota === 'undefined' || typeof FB_QUOTA_LIMITS === 'undefined') return true;
+    var hora = (fbQuota.writes || []).filter(function(t) { return Date.now() - t < 3600000; }).length;
+    return (fbQuota.dayWrites || 0) < FB_QUOTA_LIMITS.maxWritesPerDay * 0.7 && hora < FB_QUOTA_LIMITS.maxWritesPerHour * 0.7;
+}
+
+function _fbPresenceActive() {
+    return typeof fbSync !== 'undefined' && fbSync.enabled && !!fbSync.stationId && typeof _fbBkSet === 'function';
+}
+
+function _fbPresenceSend(det, editing) {
+    var rec = {
+        device: FB_DEVICE_ID,
+        deviceName: (function() { try { return localStorage.getItem('kia_fb_device_name') || ''; } catch (e) { return ''; } })(),
+        operator: (typeof _dashMe === 'function') ? _dashMe() : '',
+        entity: det ? det.entity : null,
+        screen: det ? det.screen : '',
+        progress: det ? det.progress : '',
+        editing: !!(det && editing),
+        at: new Date().toISOString(),
+        version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : ''
+    };
+    _fbPres.sentAt = Date.now();
+    _fbPres.sentEntity = rec.entity;
+    _fbPres.records[FB_DEVICE_ID] = rec;
+    return _fbBkSet('presence/' + FB_DEVICE_ID, rec).catch(function(err) {
+        _fbPres.sentKey = '';   // se reintenta en el siguiente latido (a lo más cada 15 s)
+        console.warn('Presencia:', _fbBkErrText ? _fbBkErrText(err) : err);
+    });
+}
+
+function _fbPresenceApply(list) {
+    var rec = {};
+    (list || []).forEach(function(d) { if (d && d.id) rec[d.id] = d.data || {}; });
+    if (_fbPres.records[FB_DEVICE_ID]) rec[FB_DEVICE_ID] = _fbPres.records[FB_DEVICE_ID];
+    _fbPres.records = rec;
+    fbPresenceChipsRefresh();
+}
+
+/** Escuchar (o consultar cada minuto en modo REST) solo mientras este equipo está en algún lugar. */
+function _fbPresenceWatch(on) {
+    if (on) {
+        _fbPres.idleSince = 0;
+        if (_fbPres.unsub || _fbPres.poll) return;
+        var vivo = fbSync.db && !fbSync._useREST && typeof FB_IS_HTTP_ORIGIN !== 'undefined' && FB_IS_HTTP_ORIGIN;
+        if (vivo) {
+            try {
+                _fbPres.unsub = _fbBkRef('presence').onSnapshot(function(snap) {
+                    var out = [];
+                    snap.forEach(function(d) { out.push({ id: d.id, data: d.data() }); });
+                    try { snap.docChanges().forEach(function() { fbQuotaRecord('read'); }); } catch (e) {}
+                    _fbPresenceApply(out);
+                }, function(err) {
+                    console.warn('Presencia (escucha):', err && err.message);
+                    _fbPres.unsub = null;
+                });
+                return;
+            } catch (e) { _fbPres.unsub = null; }
+        }
+        var traer = function() { _fbBkList('presence').then(_fbPresenceApply, function() {}); };
+        traer();
+        _fbPres.poll = setInterval(traer, FB_PRESENCE_POLL_MS);
+        return;
+    }
+    if (!_fbPres.unsub && !_fbPres.poll) return;
+    if (!_fbPres.idleSince) { _fbPres.idleSince = Date.now(); return; }
+    if (Date.now() - _fbPres.idleSince < FB_PRESENCE_IDLE_STOP_MS) return;
+    if (_fbPres.unsub) { try { _fbPres.unsub(); } catch (e) {} _fbPres.unsub = null; }
+    if (_fbPres.poll) { clearInterval(_fbPres.poll); _fbPres.poll = null; }
+    _fbPres.idleSince = 0;
+}
+
+/** El latido: detecta dónde está este equipo, escribe si cambió y repinta los chips. */
+function fbPresenceTick() {
+    if (!_fbPresenceActive()) {
+        if (_fbPres.unsub || _fbPres.poll) { _fbPres.idleSince = 1; _fbPresenceWatch(false); }
+        return;
+    }
+    var det = fbPresenceDetect();
+    var entity = det ? det.entity : null;
+    var editing = !!det && (Date.now() - _fbPres.lastInputAt < FB_PRESENCE_EDIT_MS);
+    var key = entity ? [entity, det.screen, editing ? 1 : 0, det.progress].join('|') : '';
+    var now = Date.now();
+    _fbPresenceWatch(!!entity);
+    var enviar = false;
+    if (key !== _fbPres.sentKey) {
+        // Cambiar de lugar se dice al instante; avance o "capturando", a lo más cada 15 s.
+        enviar = entity !== _fbPres.sentEntity || now - _fbPres.sentAt >= FB_PRESENCE_MIN_GAP_MS;
+    } else if (entity && now - _fbPres.sentAt >= FB_PRESENCE_BEAT_MS) {
+        enviar = true;
+    }
+    var online = !(typeof navigator !== 'undefined' && navigator.onLine === false);
+    if (enviar && online && _fbPresenceQuotaOk()) {
+        _fbPres.sentKey = key;
+        _fbPresenceSend(det, editing);
+    }
+    fbPresenceChipsRefresh();
+}
+
+if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+    document.addEventListener('input', function() { _fbPres.lastInputAt = Date.now(); }, true);
+    document.addEventListener('visibilitychange', function() { setTimeout(fbPresenceTick, 0); });
+    // Al cerrar la pestaña se avisa que ya no está (si no llega, a los 5 min se da por ido).
+    window.addEventListener('pagehide', function() {
+        if (_fbPres.sentEntity && _fbPresenceActive()) { try { _fbPresenceSend(null, false); } catch (e) {} }
+    });
+    if (typeof setInterval === 'function') _fbPres.timer = setInterval(fbPresenceTick, FB_PRESENCE_TICK_MS);
+}
