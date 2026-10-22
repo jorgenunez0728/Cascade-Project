@@ -10207,10 +10207,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610221313';
+var APP_BUILD = '202610221418';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '5fad43b4c1543215601ddfb502f5031444eaba84';
+var APP_COMMIT = '71b12ac761100cc43402edd15f0f28b02489d633';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10229,7 +10229,8 @@ var APP_VERSION_HISTORY = [
     { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
       bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
                 'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
-                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes.',
+                'Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero la nube: si otro equipo ya movió ese vehículo, se detiene y dice quién y a qué hora, antes de pedir la firma. Sin red se sigue trabajando como antes, salvo Aprobar.',
+                'Aprobar exige conexión: sin red, o si la nube no responde en 6 segundos, no se aprueba y se dice por qué. Así nadie aprueba en un equipo una prueba que otro ya aprobó o devolvió. Alta, Operación, Liberación y Enviar a aprobación siguen funcionando sin red.',
                 'Consumibles: una lectura de gas corregida o capturada en otro equipo (misma fecha y turno) ahora queda igual en todos; a quien se le reemplazó la suya le sale un aviso y queda en el historial de cambios.',
                 'Plan y Consumibles: dos cambios seguidos desde el mismo equipo llegan los dos a los demás (antes el segundo se perdía hasta recargar). Y una prueba que quitas de Mi semana ya no regresa porque otro equipo tenía la semana abierta.'] },
     { version: '3.17.1', date: '21 oct 2026', title: 'Las placas del dinamómetro van a los costados',
@@ -11269,10 +11270,11 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.9.2';
+var CASCADE_VERSION = '4.10.0';
 var CASCADE_VERSION_HISTORY = [
-    { version: '4.9.2', date: '22 oct 2026', app: '3.18.0', title: 'Revisión en la nube antes de firmar',
-      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma. Sin red se sigue como antes.'] },
+    { version: '4.10.0', date: '22 oct 2026', app: '3.18.0', title: 'Aprobar exige conexión',
+      bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma.',
+                'Aprobar exige conexión: sin red no se aprueba. Los demás pasos siguen sin red.'] },
     { version: '4.9.1', date: '15 oct 2026', app: '3.9.1', title: 'Revisión del F05 por fecha',
       bullets: ['El F05 de una prueba anterior al 4 de mayo de 2026 dice Revisión 7 (28-11-2025).'] },
     { version: '4.9.0', date: '15 oct 2026', app: '3.9.0', title: 'Training',
@@ -11384,14 +11386,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610221313' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610221418' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610221313' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610221418' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11407,7 +11409,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610221313' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610221418' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -24025,10 +24027,11 @@ function cascadeVehicleAfterSign(ref, expectedStatus) {
  * (fbVehCloudGate, firebase-sync.js). Sin sync, sin red o sin respuesta en 6 s se sigue:
  * el trabajo sin red no se detiene y el choque, si lo hubo, lo resuelve la fusión.
  */
-function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn) {
+function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn, opts) {
     // Sin nada que revisar se sigue en el acto (síncrono, como antes de 3.18.0).
-    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle))) { fn(); return; }
-    fbVehCloudGate(vehicle, expectedStatus, accion).then(function(ok) { if (ok) fn(); }, function() { fn(); });
+    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle, opts))) { fn(); return; }
+    var strict = !!(opts && opts.strict);
+    fbVehCloudGate(vehicle, expectedStatus, accion, opts).then(function(ok) { if (ok) fn(); }, function() { if (!strict) fn(); });
 }
 
 /** Nombre para una persona de una ruta de un vehículo ("testData.odometer" → "Odómetro"). */
@@ -24322,6 +24325,7 @@ function approveAndArchive() {
     }
 
     // [3.18.0] Candado de un instante: si otro equipo ya lo aprobó o lo devolvió, no se pide la firma.
+    // Aprobar es el único paso que además EXIGE conexión: sin red no se aprueba.
     _cascadeCloudGateThen(vehicle, 'pending-approval', 'aprobar', function() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
@@ -24483,7 +24487,7 @@ function approveAndArchive() {
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
     });
-    });
+    }, { strict: true });  // [3.18.0] Aprobar exige conexión (decisión del laboratorio, 22-oct-2026)
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -68931,7 +68935,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610221313' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610221418' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -70153,7 +70157,8 @@ function _fbBugsRestSend(method, suffix, fieldsObj, query) {
             return resp.text().then(function(t) {
                 var msg = 'HTTP ' + resp.status;
                 try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
-                throw new Error(msg);
+                var err = new Error(msg); err.status = resp.status;
+                throw err;
             });
         });
     });
@@ -71326,23 +71331,49 @@ function fbVehCloudGateDecision(local, cloud, expectedStatus, labels) {
  * Antes de un paso crítico (enviar a aprobación, aprobar, devolver, corregir alta) se
  * mira el vehículo EN LA NUBE. Resuelve true si se puede seguir. Sin red o sin sync se
  * sigue como antes (trabajo sin red); el choque, si lo hubo, lo resuelve la fusión.
+ *
+ * [3.18.0] `opts.strict` (Aprobar, decisión del laboratorio 22-oct-2026): en un equipo que
+ * sincroniza vehículos, sin red o sin respuesta NO se sigue — aprobar dos veces la misma
+ * prueba en dos equipos sin red no tiene arreglo limpio. Un equipo sin sync sigue igual.
  */
 /** ¿Hay algo que revisar en la nube? Sin sync o sin red, no: el paso sigue en el acto. */
-function fbVehCloudGateNeeded(vehicle) {
+function fbVehCloudGateNeeded(vehicle, opts) {
     if (!vehicle || !fbVehActive() || typeof fetch === 'undefined') return false;
+    if (opts && opts.strict) return true;
     return !(typeof navigator !== 'undefined' && navigator.onLine === false);
 }
 
-function fbVehCloudGate(vehicle, expectedStatus, accion) {
-    if (!fbVehCloudGateNeeded(vehicle)) return Promise.resolve(true);
+/** Texto del rechazo de un paso que exige conexión. PURA. */
+function fbVehCloudGateOfflineText(accion, motivo) {
+    var que = accion ? 'Para ' + accion : 'Este paso';
+    var por = motivo === 'sin-red' ? 'este equipo no tiene red'
+            : motivo === 'timeout' ? 'la nube no respondió a tiempo'
+            : 'no se pudo leer la nube';
+    return que + ' hace falta conexión y ' + por + '. Se revisa que nadie más lo haya hecho en otro equipo; ' +
+           'no se hizo nada. Revisa la red y vuelve a intentarlo.';
+}
+
+function fbVehCloudGate(vehicle, expectedStatus, accion, opts) {
+    var strict = !!(opts && opts.strict);
+    if (!fbVehCloudGateNeeded(vehicle, opts)) return Promise.resolve(true);
+    function sinConexion(motivo) {
+        if (!strict) return true;
+        if (typeof showToast === 'function') showToast(fbVehCloudGateOfflineText(accion, motivo), 'error', 10000);
+        return false;
+    }
+    if (strict && typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve(sinConexion('sin-red'));
     var lectura = _fbBugsRestSend('GET', 'vehicles/' + fbVehDocId(vehicle), null).then(function(doc) {
         var o = _fbBugsRestDocToObj(doc);
         if (o.deleted) return null;
         try { return JSON.parse(o.json || 'null'); } catch (e) { return null; }
+    }, function(e) {
+        // Un documento que la nube no tiene no es una falla de red: nadie más lo pudo mover.
+        if (e && e.status === 404) return null;
+        throw e;
     });
     var limite = new Promise(function(res) { setTimeout(function() { res('timeout'); }, 6000); });
     return Promise.race([lectura, limite]).then(function(cloud) {
-        if (cloud === 'timeout') return true;
+        if (cloud === 'timeout') return sinConexion('timeout');
         var labels = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels) || {};
         var d = fbVehCloudGateDecision(vehicle, cloud, expectedStatus, labels);
         if (d.ok) return true;
@@ -71353,7 +71384,7 @@ function fbVehCloudGate(vehicle, expectedStatus, accion) {
         }
         fbVehiclesSyncSoon(0);
         return false;
-    }, function() { return true; });
+    }, function() { return sinConexion('error'); });
 }
 
 function fbVehKnown() {
@@ -86997,7 +87028,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9741,"mods":[[9744,"js/app.js",19525],[19529,"js/uiflow.js",19845],[19849,"js/cop15.js",30592],[30596,"js/inventory.js",38521],[38525,"js/cuarto.js",40655],[40659,"js/sitio.js",42839],[42843,"js/conslist.js",43451],[43455,"js/testplan.js",55332],[55336,"js/panel.js",60674],[60678,"js/projects.js",62967],[62971,"js/auth.js",64051],[64055,"js/signatures.js",64256],[64260,"js/firebase-sync.js",72464],[72468,"js/cop_validator.js",77003],[77007,"js/copreport.js",78009],[78013,"js/cophq.js",78823],[78827,"js/homolog.js",80724],[80728,"js/vets.js",82527],[82531,"js/historico.js",83445],[83449,"js/review.js",83902],[83906,"js/opcards.js",84337],[84341,"js/handoff.js",84615],[84619,"js/ficha.js",85120],[85124,"js/relevo.js",85504],[85508,"js/momentos.js",85645],[85649,"js/digest.js",86569],[86573,"js/xlsxw.js",86953],[86957,"js/bugreport.js",88103]]};
+var BUG_LINE_MAP = {"tag":9741,"mods":[[9744,"js/app.js",19527],[19531,"js/uiflow.js",19847],[19851,"js/cop15.js",30596],[30600,"js/inventory.js",38525],[38529,"js/cuarto.js",40659],[40663,"js/sitio.js",42843],[42847,"js/conslist.js",43455],[43459,"js/testplan.js",55336],[55340,"js/panel.js",60678],[60682,"js/projects.js",62971],[62975,"js/auth.js",64055],[64059,"js/signatures.js",64260],[64264,"js/firebase-sync.js",72495],[72499,"js/cop_validator.js",77034],[77038,"js/copreport.js",78040],[78044,"js/cophq.js",78854],[78858,"js/homolog.js",80755],[80759,"js/vets.js",82558],[82562,"js/historico.js",83476],[83480,"js/review.js",83933],[83937,"js/opcards.js",84368],[84372,"js/handoff.js",84646],[84650,"js/ficha.js",85151],[85155,"js/relevo.js",85535],[85539,"js/momentos.js",85676],[85680,"js/digest.js",86600],[86604,"js/xlsxw.js",86984],[86988,"js/bugreport.js",88134]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
