@@ -3871,3 +3871,29 @@ Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
   Lo que otra persona leyó en el mismo turno se salta con `doneBy` (uiFlow, estado `'otro'`);
   releerlo es una corrección (regla de lecturas de esta misma versión).
 - Siguiente fase del plan del 22-oct-2026 (velocidad y repintar en su lugar): se aprueba aparte.
+
+## 3.19.0 — Repintar en su lugar y subir rápido lo puntual (`js/cop15.js`, `js/firebase-sync.js`)
+
+Reemplaza lo que v23.5 dice de `cascadeOnRemoteVehicleChange` ("si hay cambios sin guardar, no se
+toca nada"): ahora se repinta y lo tecleado se conserva.
+
+- **`cascadeRepaintKeeping(sc, who)` es LA forma de repintar una pantalla de vehículo por un
+  cambio remoto** (Operación, Liberación, Aprobación: `CASCADE_SCREENS`). Nunca volver a llamar
+  `loadVehicle`/`loadRelease`/`loadApproval` a secas desde el sync: borraría lo tecleado sin
+  guardar. `cascadeRepaintPlan` (PURA) decide `keep` / `flash` / `clash`.
+- **"Sucio" = lo que la persona tocó desde que se cargó** (`_cascadeDirty`, listener de
+  `input`/`change` en captura). Se limpia en cada carga (envoltura de los cargadores) y al guardar
+  (`_opSetLoadedBase`). La llave de un campo es su `id`, o `idDelContenedor|data-field` (los gases
+  no llevan id): **todo campo nuevo de esas pantallas lleva `id` o `data-field`**, o no se protege.
+- Los cargadores se envuelven al parsear cop15.js (patrón de opcards con `loadVehicle`). Mientras
+  se repinta (`_cascadeRepainting`) no se toma foto, no se marca sucio y `v7RestoreDraft` no corre.
+- Repintar **no cambia el modo tarjetas** ni la tarjeta visible (`opCardsCurrentKey` /
+  `opCardsGoToKey`).
+- **`fbSaveDelay` decide la espera antes de subir**: tecleo reciente → la de siempre; acción
+  puntual → 400 ms; ráfaga → 1.2 s. **No subir la espera de lo puntual a la de tecleo** "para
+  ahorrar": el laboratorio pidió verlo en 1–2 s; la ráfaga ya junta las palomitas seguidas.
+- Quién: `fbVehRemoteWho` (presencia del equipo que escribió → nombre del equipo → "otro equipo").
+  Nunca el `user` de la línea de tiempo (2.25.0).
+- Fuera, a propósito: escuchar en vivo Datos/CoP/Homologación (proxies de Alpine en `pnState`,
+  v18.5) y la escucha directa de `vehicles` (cambia el formato del merge para ganar ~300 ms).
+

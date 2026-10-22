@@ -390,6 +390,23 @@ function _opcSwipe() {
 /** ¿El modo tarjetas está activo? (para pruebas y para quien necesite saberlo) */
 function opCardsActive() { return !!_opc; }
 
+/** La tarjeta que se ve ahora (su llave), o '' si no hay modo tarjetas. */
+function opCardsCurrentKey() {
+    if (!_opc || _opc.final) return '';
+    var c = _opc.cards[_opc.idx];
+    return c ? c.key : '';
+}
+
+/** [3.19.0] Ir a la tarjeta con esa llave: repintar por un cambio remoto no salta de tarjeta. */
+function opCardsGoToKey(key) {
+    if (!_opc || !key) return false;
+    var r = _opcRebuild();
+    var c = r.cards.filter(function(x) { return x.key === key; })[0];
+    if (!c) return false;
+    _opcGo(c.index, 1);
+    return true;
+}
+
 // ── Ganchos ──────────────────────────────────────────────────────────────
 // Se envuelven (mismo patrón que firebase-sync con saveDB) en vez de tocar funciones
 // largas con varias salidas tempranas.

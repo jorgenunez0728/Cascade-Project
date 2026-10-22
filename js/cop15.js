@@ -58,6 +58,11 @@ function _opSetLoadedBase(vehicle) {
         status: vehicle.status,
         td: JSON.parse(JSON.stringify(vehicle.testData || {}))
     } : null;
+    // [3.19.0] Guardar = lo que se ve es la nueva base y nada queda sucio (al cargar,
+    // la foto buena la toma la envoltura de loadVehicle, que corre después).
+    if (!_cascadeRepainting && typeof _cascadeAfterLoad === 'function' && typeof document !== 'undefined') {
+        try { _cascadeAfterLoad(CASCADE_SCREENS[0]); } catch (e) {}
+    }
 }
 
 function _cascadeEmpty(v) { return v === undefined || v === null || v === ''; }
@@ -125,24 +130,279 @@ function _opStatusFromForm(vehicle) {
     return formVal;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.19.0] Repintar una pantalla de vehículo sin perder lo tecleado
+// ══════════════════════════════════════════════════════════════════════
+// Cuando llega un cambio de otro equipo, Operación, Liberación y Aprobación se vuelven a
+// pintar con el vehículo de la nube, pero lo que la persona tocó desde que se cargó
+// ("sucio") se queda como lo dejó. Lo que cambió de otro equipo se marca un momento
+// ("✎ Ana"); si los dos cambiaron el MISMO campo, el campo lo dice y ofrece elegir.
+// cascadeRepaintPlan es PURA; cascadeRepaintKeeping es LA forma de repintar por un cambio
+// remoto. Los cargadores se envuelven (abajo) para tomar la foto de lo pintado.
+
+var CASCADE_SCREENS = [
+    { root: 'op-content',   select: 'activeVehSelect',   load: 'loadVehicle',  name: 'Operación' },
+    { root: 'lib-content',  select: 'releaseVehSelect',  load: 'loadRelease',  name: 'Liberación' },
+    { root: 'appr-content', select: 'approvalVehSelect', load: 'loadApproval', name: 'Aprobación' }
+];
+var _cascadeDirty = {};      // root → {llave: true}: lo que la persona tocó desde que se cargó
+var _cascadeLoaded = {};     // root → {llave: valor}: lo que se pintó al cargar
+var _cascadePainted = {};    // root → {id, sig, status}: con qué vehículo se pintó
+var _cascadeRepainting = false;
+
+/** Llave de un campo: su id, o `idDelContenedor|data-field` (las celdas de gases no llevan id). */
+function _cascadeFieldKey(el, root) {
+    if (!el) return '';
+    if (el.id) return '#' + el.id;
+    var f = el.getAttribute && el.getAttribute('data-field');
+    if (!f) return '';
+    var host = el.parentElement;
+    while (host && host !== root && !host.id) host = host.parentElement;
+    return (host && host.id ? host.id : '') + '|' + f;
+}
+function _cascadeFieldByKey(root, key) {
+    if (!root || !key) return null;
+    if (key.charAt(0) === '#') {
+        var e = document.getElementById(key.slice(1));
+        return e && root.contains(e) ? e : null;
+    }
+    var i = key.indexOf('|');
+    var host = key.slice(0, i) ? document.getElementById(key.slice(0, i)) : root;
+    if (!host || !root.contains(host)) return null;
+    return host.querySelector('[data-field="' + key.slice(i + 1).replace(/["\\]/g, '') + '"]');
+}
+function _cascadeFieldVal(el) {
+    if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? '1' : '';
+    return String(el.value == null ? '' : el.value);
+}
+function _cascadeSetFieldVal(el, v) {
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v;
+    else el.value = v;
+}
+
+/** Lo que muestra la pantalla: {llave: valor}. */
+function cascadeFieldsSnapshot(root) {
+    var out = {};
+    if (!root) return out;
+    [].forEach.call(root.querySelectorAll('input:not([type=hidden]):not([type=button]):not([type=file]), select, textarea'), function(el) {
+        var k = _cascadeFieldKey(el, root);
+        if (k) out[k] = _cascadeFieldVal(el);
+    });
+    return out;
+}
+
 /**
- * La llama el sync cuando llegan vehículos de otro equipo. Si el vehículo abierto en
- * Operación cambió y aquí no hay nada sin guardar, se repinta el formulario; si hay
- * cambios sin guardar, no se toca nada (la fusión a tres bandas protege al guardar).
+ * Qué hacer con cada campo al repintar por un cambio remoto. PURA.
+ * loaded = lo pintado al cargar · mine = lo que hay en pantalla · fresh = lo que pinta la
+ * recarga (el vehículo como quedó) · dirty = {llave: true} lo que la persona tocó.
+ * → {keep: [llave] (se restaura lo mío), flash: [llave] (lo cambió otro equipo),
+ *    clash: [{key, mine, theirs}] (los dos cambiaron el mismo campo)}
+ */
+function cascadeRepaintPlan(loaded, mine, fresh, dirty) {
+    loaded = loaded || {}; mine = mine || {}; fresh = fresh || {}; dirty = dirty || {};
+    var keep = [], flash = [], clash = [];
+    Object.keys(fresh).forEach(function(k) {
+        var f = fresh[k], m = mine[k], l = loaded[k];
+        if (m === undefined) return;
+        if (dirty[k]) {
+            keep.push(k);
+            if (l !== undefined && f !== l && f !== m) clash.push({ key: k, mine: m, theirs: f });
+        } else if (f !== m) {
+            flash.push(k);
+        }
+    });
+    return { keep: keep, flash: flash, clash: clash };
+}
+
+function _cascadeVehSig(v) {
+    return v ? stableStringify({ s: v.status, td: v.testData || {}, sg: v.signatures || null, gr: v.gasResults || null }) : '';
+}
+function _cascadeScreenVehicle(sc) {
+    var sel = document.getElementById(sc.select);
+    var id = sel ? sel.value : '';
+    if (!id) return null;
+    return (db.vehicles || []).find(function(x) { return String(x.id) === String(id); }) || null;
+}
+function _cascadeMarkPainted(sc, root) {
+    var v = _cascadeScreenVehicle(sc);
+    _cascadeLoaded[sc.root] = cascadeFieldsSnapshot(root || document.getElementById(sc.root));
+    _cascadePainted[sc.root] = v ? { id: String(v.id), sig: _cascadeVehSig(v), status: v.status } : null;
+}
+/** Tras cargar (o guardar) una pantalla: lo pintado es la nueva base y nada está sucio. */
+function _cascadeAfterLoad(sc) {
+    if (_cascadeRepainting) return;
+    _cascadeDirty[sc.root] = {};
+    _cascadeMarkPainted(sc);
+}
+
+function _cascadeFieldText(el, v) {
+    if (el && el.tagName === 'SELECT') {
+        var o = [].filter.call(el.options || [], function(x) { return x.value === v; })[0];
+        if (o) return o.textContent.trim();
+    }
+    if (el && (el.type === 'checkbox' || el.type === 'radio')) return v ? 'sí' : 'no';
+    return v === '' ? '(vacío)' : v;
+}
+function _cascadeFieldHost(el) {
+    return (el.closest && (el.closest('.form-group') || el.closest('td') || el.parentElement)) || el.parentElement;
+}
+
+/** Marca un momento el campo que cambió desde otro equipo. */
+function _cascadeMarkRemote(el, who) {
+    var host = _cascadeFieldHost(el);
+    if (!host) return;
+    host.classList.remove('cas-remote-flash'); void host.offsetWidth;
+    host.classList.add('cas-remote-flash');
+    var old = host.querySelector(':scope > .cas-remote-tag');
+    if (old) old.remove();
+    var tag = document.createElement('span');
+    tag.className = 'cas-remote-tag';
+    tag.textContent = '✎ ' + who;
+    host.appendChild(tag);
+    setTimeout(function() { host.classList.remove('cas-remote-flash'); if (tag.parentNode) tag.parentNode.removeChild(tag); }, 8000);
+}
+
+/** Los dos cambiaron el mismo campo: el campo lo dice y deja elegir. */
+function _cascadeClashNote(sc, el, c, who) {
+    var host = _cascadeFieldHost(el);
+    if (!host) return;
+    var old = host.querySelector(':scope > .cas-remote-clash');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.className = 'cas-remote-clash';
+    box.setAttribute('role', 'status');
+    box.innerHTML = '<span>' + escapeHtml(who) + ' lo cambió a <b>' + escapeHtml(_cascadeFieldText(el, c.theirs)) + '</b>. ' +
+        'Tú tienes <b>' + escapeHtml(_cascadeFieldText(el, c.mine)) + '</b> sin guardar.</span>' +
+        '<span class="cas-remote-clash-btns"><button type="button" class="btn-secondary" data-act="theirs">Usar el de ' + escapeHtml(who) + '</button>' +
+        '<button type="button" class="btn-secondary" data-act="mine">Conservar el mío</button></span>';
+    box.addEventListener('click', function(e) {
+        var b = e.target && e.target.closest && e.target.closest('button[data-act]');
+        if (!b) return;
+        if (b.getAttribute('data-act') === 'theirs') {
+            _cascadeSetFieldVal(el, c.theirs);
+            if (_cascadeDirty[sc.root]) delete _cascadeDirty[sc.root][c.key];
+            if (el.getAttribute('data-field')) { try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (er) {} }
+        }
+        box.remove();
+    });
+    host.appendChild(box);
+}
+
+/**
+ * LA forma de repintar una pantalla de vehículo por un cambio remoto. Recarga con el
+ * vehículo de la nube y devuelve lo que la persona tocó, con foco, cursor y tarjeta.
+ * → el plan aplicado ({keep, flash, clash}) o null si la pantalla no existe.
+ */
+function cascadeRepaintKeeping(sc, who) {
+    var root = document.getElementById(sc.root);
+    if (!root || typeof window[sc.load] !== 'function') return null;
+    var mine = cascadeFieldsSnapshot(root);
+    var dirty = Object.assign({}, _cascadeDirty[sc.root] || {});
+    var loaded = _cascadeLoaded[sc.root] || {};
+    var act = document.activeElement, actKey = '', selS = null, selE = null;
+    if (act && root.contains(act)) {
+        actKey = _cascadeFieldKey(act, root);
+        try { selS = act.selectionStart; selE = act.selectionEnd; } catch (e) {}
+    }
+    var card = (sc.root === 'op-content' && typeof opCardsCurrentKey === 'function') ? opCardsCurrentKey() : '';
+    var scrollY = window.scrollY || 0;
+    var plan;
+    _cascadeRepainting = true;
+    try {
+        window[sc.load]();
+        root = document.getElementById(sc.root);
+        var fresh = cascadeFieldsSnapshot(root);
+        plan = cascadeRepaintPlan(loaded, mine, fresh, dirty);
+        plan.keep.forEach(function(k) {
+            var el = _cascadeFieldByKey(root, k);
+            if (!el) return;
+            _cascadeSetFieldVal(el, mine[k]);
+            // Los gases recalculan su estado (% del límite) con su propio oninput.
+            if (el.getAttribute('data-field')) { try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {} }
+        });
+        _cascadeDirty[sc.root] = dirty;
+        _cascadeLoaded[sc.root] = fresh;
+        _cascadePainted[sc.root] = null;
+        var v = _cascadeScreenVehicle(sc);
+        if (v) _cascadePainted[sc.root] = { id: String(v.id), sig: _cascadeVehSig(v), status: v.status };
+    } finally {
+        _cascadeRepainting = false;
+    }
+    if (sc.root === 'op-content' && plan.keep.length && typeof markUnsaved === 'function') markUnsaved();
+    plan.flash.forEach(function(k) { var el = _cascadeFieldByKey(root, k); if (el) _cascadeMarkRemote(el, who); });
+    plan.clash.forEach(function(c) { var el = _cascadeFieldByKey(root, c.key); if (el) _cascadeClashNote(sc, el, c, who); });
+    var refocus = function() {
+        var el = actKey ? _cascadeFieldByKey(document.getElementById(sc.root), actKey) : null;
+        if (!el || !el.focus) return;
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+        if (selS != null) { try { el.setSelectionRange(selS, selE); } catch (e) {} }
+    };
+    if (card && typeof opCardsGoToKey === 'function') {
+        // loadVehicle sale y vuelve a entrar al modo tarjetas (a los 60 ms): regresar a la misma.
+        // Repintar no cambia el modo: si estaba en tarjetas, sigue en tarjetas aunque se
+        // hubiera entrado a mano sin guardarlo como preferencia.
+        setTimeout(function() {
+            try {
+                if (typeof opCardsActive === 'function' && !opCardsActive() && typeof opCardsEnter === 'function') opCardsEnter();
+                opCardsGoToKey(card);
+            } catch (e) {}
+            setTimeout(refocus, 180);
+        }, 120);
+    } else {
+        try { window.scrollTo(0, scrollY); } catch (e) {}
+        refocus();
+    }
+    return plan;
+}
+
+/**
+ * La llama el sync cuando llegan vehículos de otro equipo. Repinta la pantalla de
+ * vehículo que se ve (Operación, Liberación o Aprobación) si su vehículo cambió.
  */
 function cascadeOnRemoteVehicleChange() {
-    if (!activeVehicleId || !_opLoadedBase || String(_opLoadedBase.id) !== String(activeVehicleId)) return;
-    var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
-    if (!v) return;
-    var sameTd = stableStringify(v.testData || {}) === stableStringify(_opLoadedBase.td || {});
-    if (sameTd && v.status === _opLoadedBase.status) return;
-    if (_unsavedChanges) {
-        showToast('Otro dispositivo actualizó este vehículo. Al guardar se conservan sus datos en los campos que no tocaste.', 'info', 6000);
-        return;
-    }
-    var sel = document.getElementById('activeVehSelect');
-    if (sel && String(sel.value) !== String(activeVehicleId)) sel.value = activeVehicleId;
-    loadVehicle();
+    if (typeof document === 'undefined') return;
+    CASCADE_SCREENS.forEach(function(sc) {
+        var root = document.getElementById(sc.root);
+        if (!root || !root.getClientRects().length) return;
+        var v = _cascadeScreenVehicle(sc);
+        var p = _cascadePainted[sc.root];
+        if (!v || !p || p.id !== String(v.id)) return;
+        if (_cascadeVehSig(v) === p.sig) return;
+        var who = (typeof fbVehRemoteWho === 'function') ? fbVehRemoteWho(v) : 'otro equipo';
+        var statusChanged = p.status !== v.status;
+        cascadeRepaintKeeping(sc, who);
+        if (statusChanged && typeof showToast === 'function') {
+            var lbl = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+            showToast(who + ' pasó este vehículo a «' + lbl + '». La pantalla de ' + sc.name + ' ya muestra cómo quedó.', 'info', 8000);
+        }
+    });
+}
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.addEventListener) {
+    // Los cargadores se envuelven (patrón de opcards con loadVehicle): al terminar, lo
+    // pintado es la nueva base.
+    CASCADE_SCREENS.forEach(function(sc) {
+        var orig = window[sc.load];
+        if (typeof orig !== 'function') return;
+        window[sc.load] = function() {
+            var r = orig.apply(this, arguments);
+            try { _cascadeAfterLoad(sc); } catch (e) { console.warn('cascade after-load:', e); }
+            return r;
+        };
+    });
+    // "Sucio" = lo que la persona tocó en la pantalla desde que se cargó.
+    var _cascadeTrackDirty = function(e) {
+        if (_cascadeRepainting || !e.target) return;
+        CASCADE_SCREENS.forEach(function(sc) {
+            var root = document.getElementById(sc.root);
+            if (!root || !root.contains(e.target)) return;
+            var k = _cascadeFieldKey(e.target, root);
+            if (!k) return;
+            (_cascadeDirty[sc.root] = _cascadeDirty[sc.root] || {})[k] = true;
+        });
+    };
+    document.addEventListener('input', _cascadeTrackDirty, true);
+    document.addEventListener('change', _cascadeTrackDirty, true);
 }
 
 /** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
@@ -10354,7 +10614,7 @@ function v7SaveDraft(vehicleId) {
 }
 
 function v7RestoreDraft(vehicleId) {
-    if (!vehicleId) return;
+    if (!vehicleId || _cascadeRepainting) return;   // [3.19.0] repintar por la nube no es abrir el vehículo
     try {
         var raw = localStorage.getItem('kia_cop15_draft_' + vehicleId);
         if (!raw) return;

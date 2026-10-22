@@ -20,6 +20,40 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.19.0 — Lo que cambia otro equipo se ve en tu pantalla, sin perder lo que escribes (2026-10-22)
+
+### Nuevo
+- **Operación, Liberación y Aprobación se actualizan solas** cuando otro equipo cambia el vehículo
+  que tienes abierto. Lo que escribiste y no has guardado se queda como lo dejaste (con el cursor
+  donde estaba, y en la misma tarjeta si usas Operación en tarjetas). Lo que cambió el otro equipo
+  se marca un momento con su nombre ("✎ Ana").
+- **El mismo dato cambiado en los dos equipos**: el campo lo dice ("Ana lo cambió a 200. Tú tienes
+  150 sin guardar") y deja elegir **Usar el de Ana** o **Conservar el mío**.
+
+### Arreglado
+- **Liberación no veía lo que marcaba otra persona**: el checklist llenado en la tableta del técnico
+  seguía en blanco en la pantalla del liberador hasta recargar. Ahora llega solo.
+- **Lo puntual tardaba 2.5 s en subir** (más lo que tardaba el otro equipo en traerlo). Ahora una
+  acción de un toque (checklist, estado, palomita del plan, mover o cambiar un cilindro) sube en
+  400 ms y se ve en los demás equipos en 1 a 2 s. Lo que se teclea se sigue juntando como antes.
+
+### Para desarrollo
+- **`fbSaveDelay(kind, now, lastTypeAt, lastUrgentAt)` (PURA)** decide cuánto esperar antes de
+  subir: tecleo reciente (`input` en un campo de texto o número, < 1.5 s) → lo de siempre (2.5 s
+  vehículos, 2 s módulos); acción puntual → 400 ms; varias puntuales en 3 s → 1.2 s.
+  `fbSaveUrgency(kind)` la aplica en los ganchos de `fbHookSaves`; `fbPush` acepta `opts.delay`.
+  El timbre de vehículos (`cop15meta`) pasa de 800 a 250 ms.
+- **`cascadeRepaintKeeping(sc, who)`** (cop15.js) es LA forma de repintar una pantalla de vehículo
+  por un cambio remoto: foto de lo tecleado → recarga → restaura lo **sucio**
+  (`_cascadeDirty`, lo que la persona tocó desde que se cargó) → `cascadeRepaintPlan` (PURA:
+  `keep` / `flash` / `clash`). `CASCADE_SCREENS` = Operación, Liberación, Aprobación; los
+  cargadores se envuelven para tomar la foto de lo pintado (`_cascadeLoaded`, `_cascadePainted`).
+- `cascadeOnRemoteVehicleChange` repinta la pantalla de vehículo que se ve, solo si su vehículo
+  cambió (`_cascadeVehSig`). `fbVehRemoteWhoFrom` (PURA) / `fbVehRemoteWho`: quién escribió (la
+  presencia del equipo que escribió, su nombre, u "otro equipo").
+- `opCardsCurrentKey` / `opCardsGoToKey` (opcards.js): repintar no saca del modo tarjetas ni
+  cambia de tarjeta.
+
 ## 3.18.0 — Dos personas en el mismo vehículo ya no pierden lo que capturan (2026-10-22)
 
 ### Nuevo
