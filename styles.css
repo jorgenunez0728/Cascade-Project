@@ -6113,6 +6113,23 @@ body.ficha-open { overflow: hidden; }
 @keyframes vehCloudArrive { from { transform: scale(.92); opacity: .6; } to { transform: scale(1); opacity: 1; } }
 .oc-head-row .veh-cloud { margin-left: 0; flex-shrink: 0; }
 
+/* [3.19.0] Cambios de otro equipo, en su lugar. */
+.cas-remote-flash { position: relative; border-radius: var(--radius-md); animation: casRemoteFlash calc(var(--dur-slow) * 8) ease-out; }
+@keyframes casRemoteFlash { 0%, 30% { background: var(--info-tint, var(--info-bg)); box-shadow: 0 0 0 2px var(--info-bg); } 100% { background: transparent; box-shadow: none; } }
+.cas-remote-tag {
+    display: inline-block; margin-left: var(--space-xs); padding: var(--space-2xs) var(--space-xs);
+    border-radius: var(--radius-xl); background: var(--info-bg); color: var(--info-text);
+    font-size: var(--fs-2xs); font-weight: 700; vertical-align: middle;
+}
+.cas-remote-clash {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm);
+    margin-top: var(--space-xs); padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-lg); background: var(--warn-bg); color: var(--warn-text); font-size: var(--fs-sm);
+}
+.cas-remote-clash-btns { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.cas-remote-clash .btn-secondary { font-size: var(--fs-sm); padding: var(--space-xs) var(--space-sm); }
+td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; text-align: left; }
+
 /* [3.18.0] Quién más está aquí (presencia). Nunca bloquea: solo se ve. */
 .presence-chip {
     display: inline-flex; align-items: center; gap: var(--space-xs);

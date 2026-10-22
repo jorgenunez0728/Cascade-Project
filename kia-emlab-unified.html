@@ -6556,6 +6556,23 @@ body.ficha-open { overflow: hidden; }
 @keyframes vehCloudArrive { from { transform: scale(.92); opacity: .6; } to { transform: scale(1); opacity: 1; } }
 .oc-head-row .veh-cloud { margin-left: 0; flex-shrink: 0; }
 
+/* [3.19.0] Cambios de otro equipo, en su lugar. */
+.cas-remote-flash { position: relative; border-radius: var(--radius-md); animation: casRemoteFlash calc(var(--dur-slow) * 8) ease-out; }
+@keyframes casRemoteFlash { 0%, 30% { background: var(--info-tint, var(--info-bg)); box-shadow: 0 0 0 2px var(--info-bg); } 100% { background: transparent; box-shadow: none; } }
+.cas-remote-tag {
+    display: inline-block; margin-left: var(--space-xs); padding: var(--space-2xs) var(--space-xs);
+    border-radius: var(--radius-xl); background: var(--info-bg); color: var(--info-text);
+    font-size: var(--fs-2xs); font-weight: 700; vertical-align: middle;
+}
+.cas-remote-clash {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm);
+    margin-top: var(--space-xs); padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-lg); background: var(--warn-bg); color: var(--warn-text); font-size: var(--fs-sm);
+}
+.cas-remote-clash-btns { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.cas-remote-clash .btn-secondary { font-size: var(--fs-sm); padding: var(--space-xs) var(--space-sm); }
+td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; text-align: left; }
+
 /* [3.18.0] Quién más está aquí (presencia). Nunca bloquea: solo se ve. */
 .presence-chip {
     display: inline-flex; align-items: center; gap: var(--space-xs);
@@ -10226,10 +10243,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610221429';
+var APP_BUILD = '202610221511';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '8f011e53f0aef4277adf8cd66448ca80fcfc8dc7';
+var APP_COMMIT = '73f819c6ebdea0a33765ee0961727ed4fa9901b8';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10237,7 +10254,7 @@ var APP_COMMIT = '8f011e53f0aef4277adf8cd66448ca80fcfc8dc7';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.18.0';
+var APP_VERSION = '3.19.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10245,6 +10262,11 @@ var APP_VERSION = '3.18.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.19.0', date: '22 oct 2026', title: 'Lo que cambia otro equipo se ve en tu pantalla, sin perder lo que escribes',
+      bullets: ['Operación, Liberación y Aprobación se actualizan solas cuando otro equipo cambia el vehículo que tienes abierto. Lo que tú escribiste y no has guardado se queda como lo dejaste, con el cursor en su lugar; lo que cambió el otro equipo se marca un momento con su nombre (✎ Ana).',
+                'Si los dos cambiaron el mismo dato, el campo lo dice y te deja elegir: "Usar el de Ana" o "Conservar el mío".',
+                'Liberación por fin ve el checklist que marca otra persona en su tableta, sin recargar. Antes seguía viendo las filas en blanco.',
+                'Lo que se marca de un toque (checklist, estado, palomitas del plan, cambiar un cilindro) sube a la nube en menos de medio segundo y se ve en los demás equipos en 1 a 2 segundos. Lo que se teclea se sigue juntando para no gastar escrituras.'] },
     { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
       bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
                 'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',
@@ -11407,14 +11429,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610221511' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610221429' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610221511' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11430,7 +11452,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610221429' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610221511' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -19948,6 +19970,11 @@ function _opSetLoadedBase(vehicle) {
         status: vehicle.status,
         td: JSON.parse(JSON.stringify(vehicle.testData || {}))
     } : null;
+    // [3.19.0] Guardar = lo que se ve es la nueva base y nada queda sucio (al cargar,
+    // la foto buena la toma la envoltura de loadVehicle, que corre después).
+    if (!_cascadeRepainting && typeof _cascadeAfterLoad === 'function' && typeof document !== 'undefined') {
+        try { _cascadeAfterLoad(CASCADE_SCREENS[0]); } catch (e) {}
+    }
 }
 
 function _cascadeEmpty(v) { return v === undefined || v === null || v === ''; }
@@ -20015,24 +20042,279 @@ function _opStatusFromForm(vehicle) {
     return formVal;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.19.0] Repintar una pantalla de vehículo sin perder lo tecleado
+// ══════════════════════════════════════════════════════════════════════
+// Cuando llega un cambio de otro equipo, Operación, Liberación y Aprobación se vuelven a
+// pintar con el vehículo de la nube, pero lo que la persona tocó desde que se cargó
+// ("sucio") se queda como lo dejó. Lo que cambió de otro equipo se marca un momento
+// ("✎ Ana"); si los dos cambiaron el MISMO campo, el campo lo dice y ofrece elegir.
+// cascadeRepaintPlan es PURA; cascadeRepaintKeeping es LA forma de repintar por un cambio
+// remoto. Los cargadores se envuelven (abajo) para tomar la foto de lo pintado.
+
+var CASCADE_SCREENS = [
+    { root: 'op-content',   select: 'activeVehSelect',   load: 'loadVehicle',  name: 'Operación' },
+    { root: 'lib-content',  select: 'releaseVehSelect',  load: 'loadRelease',  name: 'Liberación' },
+    { root: 'appr-content', select: 'approvalVehSelect', load: 'loadApproval', name: 'Aprobación' }
+];
+var _cascadeDirty = {};      // root → {llave: true}: lo que la persona tocó desde que se cargó
+var _cascadeLoaded = {};     // root → {llave: valor}: lo que se pintó al cargar
+var _cascadePainted = {};    // root → {id, sig, status}: con qué vehículo se pintó
+var _cascadeRepainting = false;
+
+/** Llave de un campo: su id, o `idDelContenedor|data-field` (las celdas de gases no llevan id). */
+function _cascadeFieldKey(el, root) {
+    if (!el) return '';
+    if (el.id) return '#' + el.id;
+    var f = el.getAttribute && el.getAttribute('data-field');
+    if (!f) return '';
+    var host = el.parentElement;
+    while (host && host !== root && !host.id) host = host.parentElement;
+    return (host && host.id ? host.id : '') + '|' + f;
+}
+function _cascadeFieldByKey(root, key) {
+    if (!root || !key) return null;
+    if (key.charAt(0) === '#') {
+        var e = document.getElementById(key.slice(1));
+        return e && root.contains(e) ? e : null;
+    }
+    var i = key.indexOf('|');
+    var host = key.slice(0, i) ? document.getElementById(key.slice(0, i)) : root;
+    if (!host || !root.contains(host)) return null;
+    return host.querySelector('[data-field="' + key.slice(i + 1).replace(/["\\]/g, '') + '"]');
+}
+function _cascadeFieldVal(el) {
+    if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? '1' : '';
+    return String(el.value == null ? '' : el.value);
+}
+function _cascadeSetFieldVal(el, v) {
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v;
+    else el.value = v;
+}
+
+/** Lo que muestra la pantalla: {llave: valor}. */
+function cascadeFieldsSnapshot(root) {
+    var out = {};
+    if (!root) return out;
+    [].forEach.call(root.querySelectorAll('input:not([type=hidden]):not([type=button]):not([type=file]), select, textarea'), function(el) {
+        var k = _cascadeFieldKey(el, root);
+        if (k) out[k] = _cascadeFieldVal(el);
+    });
+    return out;
+}
+
 /**
- * La llama el sync cuando llegan vehículos de otro equipo. Si el vehículo abierto en
- * Operación cambió y aquí no hay nada sin guardar, se repinta el formulario; si hay
- * cambios sin guardar, no se toca nada (la fusión a tres bandas protege al guardar).
+ * Qué hacer con cada campo al repintar por un cambio remoto. PURA.
+ * loaded = lo pintado al cargar · mine = lo que hay en pantalla · fresh = lo que pinta la
+ * recarga (el vehículo como quedó) · dirty = {llave: true} lo que la persona tocó.
+ * → {keep: [llave] (se restaura lo mío), flash: [llave] (lo cambió otro equipo),
+ *    clash: [{key, mine, theirs}] (los dos cambiaron el mismo campo)}
+ */
+function cascadeRepaintPlan(loaded, mine, fresh, dirty) {
+    loaded = loaded || {}; mine = mine || {}; fresh = fresh || {}; dirty = dirty || {};
+    var keep = [], flash = [], clash = [];
+    Object.keys(fresh).forEach(function(k) {
+        var f = fresh[k], m = mine[k], l = loaded[k];
+        if (m === undefined) return;
+        if (dirty[k]) {
+            keep.push(k);
+            if (l !== undefined && f !== l && f !== m) clash.push({ key: k, mine: m, theirs: f });
+        } else if (f !== m) {
+            flash.push(k);
+        }
+    });
+    return { keep: keep, flash: flash, clash: clash };
+}
+
+function _cascadeVehSig(v) {
+    return v ? stableStringify({ s: v.status, td: v.testData || {}, sg: v.signatures || null, gr: v.gasResults || null }) : '';
+}
+function _cascadeScreenVehicle(sc) {
+    var sel = document.getElementById(sc.select);
+    var id = sel ? sel.value : '';
+    if (!id) return null;
+    return (db.vehicles || []).find(function(x) { return String(x.id) === String(id); }) || null;
+}
+function _cascadeMarkPainted(sc, root) {
+    var v = _cascadeScreenVehicle(sc);
+    _cascadeLoaded[sc.root] = cascadeFieldsSnapshot(root || document.getElementById(sc.root));
+    _cascadePainted[sc.root] = v ? { id: String(v.id), sig: _cascadeVehSig(v), status: v.status } : null;
+}
+/** Tras cargar (o guardar) una pantalla: lo pintado es la nueva base y nada está sucio. */
+function _cascadeAfterLoad(sc) {
+    if (_cascadeRepainting) return;
+    _cascadeDirty[sc.root] = {};
+    _cascadeMarkPainted(sc);
+}
+
+function _cascadeFieldText(el, v) {
+    if (el && el.tagName === 'SELECT') {
+        var o = [].filter.call(el.options || [], function(x) { return x.value === v; })[0];
+        if (o) return o.textContent.trim();
+    }
+    if (el && (el.type === 'checkbox' || el.type === 'radio')) return v ? 'sí' : 'no';
+    return v === '' ? '(vacío)' : v;
+}
+function _cascadeFieldHost(el) {
+    return (el.closest && (el.closest('.form-group') || el.closest('td') || el.parentElement)) || el.parentElement;
+}
+
+/** Marca un momento el campo que cambió desde otro equipo. */
+function _cascadeMarkRemote(el, who) {
+    var host = _cascadeFieldHost(el);
+    if (!host) return;
+    host.classList.remove('cas-remote-flash'); void host.offsetWidth;
+    host.classList.add('cas-remote-flash');
+    var old = host.querySelector(':scope > .cas-remote-tag');
+    if (old) old.remove();
+    var tag = document.createElement('span');
+    tag.className = 'cas-remote-tag';
+    tag.textContent = '✎ ' + who;
+    host.appendChild(tag);
+    setTimeout(function() { host.classList.remove('cas-remote-flash'); if (tag.parentNode) tag.parentNode.removeChild(tag); }, 8000);
+}
+
+/** Los dos cambiaron el mismo campo: el campo lo dice y deja elegir. */
+function _cascadeClashNote(sc, el, c, who) {
+    var host = _cascadeFieldHost(el);
+    if (!host) return;
+    var old = host.querySelector(':scope > .cas-remote-clash');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.className = 'cas-remote-clash';
+    box.setAttribute('role', 'status');
+    box.innerHTML = '<span>' + escapeHtml(who) + ' lo cambió a <b>' + escapeHtml(_cascadeFieldText(el, c.theirs)) + '</b>. ' +
+        'Tú tienes <b>' + escapeHtml(_cascadeFieldText(el, c.mine)) + '</b> sin guardar.</span>' +
+        '<span class="cas-remote-clash-btns"><button type="button" class="btn-secondary" data-act="theirs">Usar el de ' + escapeHtml(who) + '</button>' +
+        '<button type="button" class="btn-secondary" data-act="mine">Conservar el mío</button></span>';
+    box.addEventListener('click', function(e) {
+        var b = e.target && e.target.closest && e.target.closest('button[data-act]');
+        if (!b) return;
+        if (b.getAttribute('data-act') === 'theirs') {
+            _cascadeSetFieldVal(el, c.theirs);
+            if (_cascadeDirty[sc.root]) delete _cascadeDirty[sc.root][c.key];
+            if (el.getAttribute('data-field')) { try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (er) {} }
+        }
+        box.remove();
+    });
+    host.appendChild(box);
+}
+
+/**
+ * LA forma de repintar una pantalla de vehículo por un cambio remoto. Recarga con el
+ * vehículo de la nube y devuelve lo que la persona tocó, con foco, cursor y tarjeta.
+ * → el plan aplicado ({keep, flash, clash}) o null si la pantalla no existe.
+ */
+function cascadeRepaintKeeping(sc, who) {
+    var root = document.getElementById(sc.root);
+    if (!root || typeof window[sc.load] !== 'function') return null;
+    var mine = cascadeFieldsSnapshot(root);
+    var dirty = Object.assign({}, _cascadeDirty[sc.root] || {});
+    var loaded = _cascadeLoaded[sc.root] || {};
+    var act = document.activeElement, actKey = '', selS = null, selE = null;
+    if (act && root.contains(act)) {
+        actKey = _cascadeFieldKey(act, root);
+        try { selS = act.selectionStart; selE = act.selectionEnd; } catch (e) {}
+    }
+    var card = (sc.root === 'op-content' && typeof opCardsCurrentKey === 'function') ? opCardsCurrentKey() : '';
+    var scrollY = window.scrollY || 0;
+    var plan;
+    _cascadeRepainting = true;
+    try {
+        window[sc.load]();
+        root = document.getElementById(sc.root);
+        var fresh = cascadeFieldsSnapshot(root);
+        plan = cascadeRepaintPlan(loaded, mine, fresh, dirty);
+        plan.keep.forEach(function(k) {
+            var el = _cascadeFieldByKey(root, k);
+            if (!el) return;
+            _cascadeSetFieldVal(el, mine[k]);
+            // Los gases recalculan su estado (% del límite) con su propio oninput.
+            if (el.getAttribute('data-field')) { try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {} }
+        });
+        _cascadeDirty[sc.root] = dirty;
+        _cascadeLoaded[sc.root] = fresh;
+        _cascadePainted[sc.root] = null;
+        var v = _cascadeScreenVehicle(sc);
+        if (v) _cascadePainted[sc.root] = { id: String(v.id), sig: _cascadeVehSig(v), status: v.status };
+    } finally {
+        _cascadeRepainting = false;
+    }
+    if (sc.root === 'op-content' && plan.keep.length && typeof markUnsaved === 'function') markUnsaved();
+    plan.flash.forEach(function(k) { var el = _cascadeFieldByKey(root, k); if (el) _cascadeMarkRemote(el, who); });
+    plan.clash.forEach(function(c) { var el = _cascadeFieldByKey(root, c.key); if (el) _cascadeClashNote(sc, el, c, who); });
+    var refocus = function() {
+        var el = actKey ? _cascadeFieldByKey(document.getElementById(sc.root), actKey) : null;
+        if (!el || !el.focus) return;
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+        if (selS != null) { try { el.setSelectionRange(selS, selE); } catch (e) {} }
+    };
+    if (card && typeof opCardsGoToKey === 'function') {
+        // loadVehicle sale y vuelve a entrar al modo tarjetas (a los 60 ms): regresar a la misma.
+        // Repintar no cambia el modo: si estaba en tarjetas, sigue en tarjetas aunque se
+        // hubiera entrado a mano sin guardarlo como preferencia.
+        setTimeout(function() {
+            try {
+                if (typeof opCardsActive === 'function' && !opCardsActive() && typeof opCardsEnter === 'function') opCardsEnter();
+                opCardsGoToKey(card);
+            } catch (e) {}
+            setTimeout(refocus, 180);
+        }, 120);
+    } else {
+        try { window.scrollTo(0, scrollY); } catch (e) {}
+        refocus();
+    }
+    return plan;
+}
+
+/**
+ * La llama el sync cuando llegan vehículos de otro equipo. Repinta la pantalla de
+ * vehículo que se ve (Operación, Liberación o Aprobación) si su vehículo cambió.
  */
 function cascadeOnRemoteVehicleChange() {
-    if (!activeVehicleId || !_opLoadedBase || String(_opLoadedBase.id) !== String(activeVehicleId)) return;
-    var v = db.vehicles.find(function(x) { return x.id == activeVehicleId; });
-    if (!v) return;
-    var sameTd = stableStringify(v.testData || {}) === stableStringify(_opLoadedBase.td || {});
-    if (sameTd && v.status === _opLoadedBase.status) return;
-    if (_unsavedChanges) {
-        showToast('Otro dispositivo actualizó este vehículo. Al guardar se conservan sus datos en los campos que no tocaste.', 'info', 6000);
-        return;
-    }
-    var sel = document.getElementById('activeVehSelect');
-    if (sel && String(sel.value) !== String(activeVehicleId)) sel.value = activeVehicleId;
-    loadVehicle();
+    if (typeof document === 'undefined') return;
+    CASCADE_SCREENS.forEach(function(sc) {
+        var root = document.getElementById(sc.root);
+        if (!root || !root.getClientRects().length) return;
+        var v = _cascadeScreenVehicle(sc);
+        var p = _cascadePainted[sc.root];
+        if (!v || !p || p.id !== String(v.id)) return;
+        if (_cascadeVehSig(v) === p.sig) return;
+        var who = (typeof fbVehRemoteWho === 'function') ? fbVehRemoteWho(v) : 'otro equipo';
+        var statusChanged = p.status !== v.status;
+        cascadeRepaintKeeping(sc, who);
+        if (statusChanged && typeof showToast === 'function') {
+            var lbl = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+            showToast(who + ' pasó este vehículo a «' + lbl + '». La pantalla de ' + sc.name + ' ya muestra cómo quedó.', 'info', 8000);
+        }
+    });
+}
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.addEventListener) {
+    // Los cargadores se envuelven (patrón de opcards con loadVehicle): al terminar, lo
+    // pintado es la nueva base.
+    CASCADE_SCREENS.forEach(function(sc) {
+        var orig = window[sc.load];
+        if (typeof orig !== 'function') return;
+        window[sc.load] = function() {
+            var r = orig.apply(this, arguments);
+            try { _cascadeAfterLoad(sc); } catch (e) { void 0; }
+            return r;
+        };
+    });
+    // "Sucio" = lo que la persona tocó en la pantalla desde que se cargó.
+    var _cascadeTrackDirty = function(e) {
+        if (_cascadeRepainting || !e.target) return;
+        CASCADE_SCREENS.forEach(function(sc) {
+            var root = document.getElementById(sc.root);
+            if (!root || !root.contains(e.target)) return;
+            var k = _cascadeFieldKey(e.target, root);
+            if (!k) return;
+            (_cascadeDirty[sc.root] = _cascadeDirty[sc.root] || {})[k] = true;
+        });
+    };
+    document.addEventListener('input', _cascadeTrackDirty, true);
+    document.addEventListener('change', _cascadeTrackDirty, true);
 }
 
 /** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
@@ -30244,7 +30526,7 @@ function v7SaveDraft(vehicleId) {
 }
 
 function v7RestoreDraft(vehicleId) {
-    if (!vehicleId) return;
+    if (!vehicleId || _cascadeRepainting) return;   // [3.19.0] repintar por la nube no es abrir el vehículo
     try {
         var raw = localStorage.getItem('kia_cop15_draft_' + vehicleId);
         if (!raw) return;
@@ -65822,7 +66104,8 @@ function fbPush(collection, data, onDone, opts) {
 
     // opts.immediate flushes without the usual 2s debounce (e.g. after CSV import so the upload
     // isn't lost if the user closes the tab right after).
-    var _fbPushDelay = (opts && opts.immediate) ? 0 : 2000;
+    // [3.19.0] opts.delay: lo que decidió fbSaveDelay (acción puntual = pronto).
+    var _fbPushDelay = (opts && opts.immediate) ? 0 : ((opts && typeof opts.delay === 'number') ? opts.delay : 2000);
 
     fbSync.debounceTimers[collection] = setTimeout(function() {
         // Re-check quota after debounce (another op may have consumed it)
@@ -66867,13 +67150,56 @@ function fbHookSaves() {
     var _origSaveDB = window.saveDB;
     // [2.9.0] Además de la copia completa (para equipos sin actualizar), un ciclo de
     // vehículos uno por uno: trae lo de la nube y sube solo lo que cambió aquí.
-    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(); return ok; }; }
+    // [3.19.0] Cuánto esperar antes de subir lo decide fbSaveUrgency: lo puntual (palomear,
+    // cambiar estado) sube en 400 ms; lo que se teclea se sigue juntando como antes.
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(fbSaveUrgency('veh')); return ok; }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
+    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState); return ok; }; }
+    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState); return ok; }; }
+    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
+}
+
+// ── [3.19.0] ¿Tecleo o acción puntual? ──
+var FB_SAVE_TYPE_MS = 1500;      // hubo tecleo hace menos de esto → se junta como antes
+var FB_SAVE_URGENT_MS = 400;     // acción puntual
+var FB_SAVE_BURST_MS = 1200;     // varias puntuales seguidas: se juntan un poco
+var FB_SAVE_BURST_WINDOW = 3000;
+var _fbSaveLastTypeAt = 0, _fbSaveLastUrgentAt = 0;
+
+/**
+ * Cuánto esperar antes de subir. PURA.
+ * kind 'veh' (vehículos, normal 2.5 s) | 'mod' (Plan, Consumibles, Datos: normal 2 s).
+ * Tecleo reciente → normal (cada tecla no es una escritura). Si no, es una acción puntual
+ * → 400 ms, o 1.2 s si ya hubo otra puntual hace menos de 3 s (ocho palomitas seguidas
+ * no son ocho escrituras).
+ */
+function fbSaveDelay(kind, now, lastTypeAt, lastUrgentAt) {
+    var normal = kind === 'veh' ? FB_VEH_DEBOUNCE_MS : 2000;
+    if (lastTypeAt && now - lastTypeAt < FB_SAVE_TYPE_MS) return normal;
+    if (lastUrgentAt && now - lastUrgentAt < FB_SAVE_BURST_WINDOW) return FB_SAVE_BURST_MS;
+    return FB_SAVE_URGENT_MS;
+}
+
+function fbSaveUrgency(kind) {
+    var now = Date.now();
+    var d = fbSaveDelay(kind, now, _fbSaveLastTypeAt, _fbSaveLastUrgentAt);
+    if (d <= FB_SAVE_BURST_MS) _fbSaveLastUrgentAt = now;
+    return d;
+}
+
+/** Tecleo = un `input` en un campo de texto o número (no casillas, radios ni selects). */
+function _fbIsTypingTarget(el) {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return !!el.isContentEditable;
+    var t = String(el.type || 'text').toLowerCase();
+    return ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'].indexOf(t) < 0;
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('input', function(e) { if (_fbIsTypingTarget(e.target)) _fbSaveLastTypeAt = Date.now(); }, true);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -66930,7 +67256,7 @@ function fbStartListening() {
                     if (Date.now() - _startedAt < 5000) return;
                     var d = (snap && snap.exists) ? (snap.data() || {}) : null;
                     if (!d || d.writer === FB_DEVICE_ID) return;
-                    fbVehiclesSyncSoon(800);
+                    fbVehiclesSyncSoon(250);   // [3.19.0] antes 800 ms
                 }, function(err) {
                     fbSync._vehLive = false;
                     void 0;
@@ -69057,7 +69383,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610221429' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610221511' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -71421,6 +71747,35 @@ function _fbVehConflictsFlush() {
                 'Dos equipos cambiaron a la vez: ' + campos.join(', '), { before: antes, after: despues });
         }
     });
+}
+
+// ── [3.19.0] ¿Quién cambió este vehículo? ──
+
+/**
+ * Nombre de quien escribió por último un vehículo en la nube. PURA.
+ * writer = equipo que escribió; own = este equipo ('' si fue este); presenceRec = su
+ * presencia (operador con sesión, si es reciente); deviceName = nombre del equipo.
+ * No se usa el `user` de la línea de tiempo: es el operador del formulario (2.25.0).
+ */
+function fbVehRemoteWhoFrom(writer, own, presenceRec, deviceName, nowMs) {
+    if (!writer || writer === own) return '';
+    if (presenceRec && presenceRec.operator) {
+        var t = Date.parse(presenceRec.at || '');
+        if (t && Math.abs(nowMs - t) <= 30 * 60 * 1000) return String(presenceRec.operator);
+    }
+    if (deviceName) return String(deviceName);
+    return 'otro equipo';
+}
+
+function fbVehRemoteWho(vehicle) {
+    if (!vehicle) return 'otro equipo';
+    var info = {};
+    try { info = (fbVehKnown().info || {})[fbVehDocId(vehicle)] || {}; } catch (e) { info = {}; }
+    var w = info.w || '';
+    var pres = (typeof _fbPres !== 'undefined' && _fbPres.records) ? _fbPres.records[w] : null;
+    var dn = '';
+    try { var c = fbDevicesCache(); dn = (c.devices[w] && c.devices[w].name) || ''; } catch (e) {}
+    return fbVehRemoteWhoFrom(w, FB_DEVICE_ID, pres, dn, Date.now()) || 'otro equipo';
 }
 
 // ── [3.18.0] Candado de un instante para los pasos críticos ──
@@ -84693,6 +85048,23 @@ function _opcSwipe() {
 /** ¿El modo tarjetas está activo? (para pruebas y para quien necesite saberlo) */
 function opCardsActive() { return !!_opc; }
 
+/** La tarjeta que se ve ahora (su llave), o '' si no hay modo tarjetas. */
+function opCardsCurrentKey() {
+    if (!_opc || _opc.final) return '';
+    var c = _opc.cards[_opc.idx];
+    return c ? c.key : '';
+}
+
+/** [3.19.0] Ir a la tarjeta con esa llave: repintar por un cambio remoto no salta de tarjeta. */
+function opCardsGoToKey(key) {
+    if (!_opc || !key) return false;
+    var r = _opcRebuild();
+    var c = r.cards.filter(function(x) { return x.key === key; })[0];
+    if (!c) return false;
+    _opcGo(c.index, 1);
+    return true;
+}
+
 // ── Ganchos ──────────────────────────────────────────────────────────────
 // Se envuelven (mismo patrón que firebase-sync con saveDB) en vez de tocar funciones
 // largas con varias salidas tempranas.
@@ -87396,7 +87768,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9760,"mods":[[9763,"js/app.js",19548],[19552,"js/uiflow.js",19887],[19891,"js/cop15.js",30639],[30643,"js/inventory.js",38647],[38651,"js/cuarto.js",40781],[40785,"js/sitio.js",42965],[42969,"js/conslist.js",43577],[43581,"js/testplan.js",55458],[55462,"js/panel.js",60800],[60804,"js/projects.js",63093],[63097,"js/auth.js",64177],[64181,"js/signatures.js",64382],[64386,"js/firebase-sync.js",72862],[72866,"js/cop_validator.js",77401],[77405,"js/copreport.js",78407],[78411,"js/cophq.js",79221],[79225,"js/homolog.js",81122],[81126,"js/vets.js",82925],[82929,"js/historico.js",83843],[83847,"js/review.js",84300],[84304,"js/opcards.js",84736],[84740,"js/handoff.js",85014],[85018,"js/ficha.js",85519],[85523,"js/relevo.js",85903],[85907,"js/momentos.js",86044],[86048,"js/digest.js",86968],[86972,"js/xlsxw.js",87352],[87356,"js/bugreport.js",88502]]};
+var BUG_LINE_MAP = {"tag":9777,"mods":[[9780,"js/app.js",19570],[19574,"js/uiflow.js",19909],[19913,"js/cop15.js",30921],[30925,"js/inventory.js",38929],[38933,"js/cuarto.js",41063],[41067,"js/sitio.js",43247],[43251,"js/conslist.js",43859],[43863,"js/testplan.js",55740],[55744,"js/panel.js",61082],[61086,"js/projects.js",63375],[63379,"js/auth.js",64459],[64463,"js/signatures.js",64664],[64668,"js/firebase-sync.js",73217],[73221,"js/cop_validator.js",77756],[77760,"js/copreport.js",78762],[78766,"js/cophq.js",79576],[79580,"js/homolog.js",81477],[81481,"js/vets.js",83280],[83284,"js/historico.js",84198],[84202,"js/review.js",84655],[84659,"js/opcards.js",85108],[85112,"js/handoff.js",85386],[85390,"js/ficha.js",85891],[85895,"js/relevo.js",86275],[86279,"js/momentos.js",86416],[86420,"js/digest.js",87340],[87344,"js/xlsxw.js",87724],[87728,"js/bugreport.js",88874]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

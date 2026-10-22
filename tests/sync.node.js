@@ -33,11 +33,12 @@ function extraer(nombre) {
     return SRC.slice(start, i + 1).replace(/^[ \t]+/gm, '');
 }
 
-const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat, FB_PRESENCE_STALE_MS: 5 * 60 * 1000 };
+const ctx = { console, Date, JSON, Object, Array, String, Number, Math, isNaN, parseInt, parseFloat, FB_PRESENCE_STALE_MS: 5 * 60 * 1000,
+    FB_VEH_DEBOUNCE_MS: 2500, FB_SAVE_TYPE_MS: 1500, FB_SAVE_URGENT_MS: 400, FB_SAVE_BURST_MS: 1200, FB_SAVE_BURST_WINDOW: 3000 };
 vm.createContext(ctx);
 ['_fbEquipKey', '_fbGasKey', '_fbGasIndex', '_fbMergeByIdNewest', '_fbMergeOperators', '_fbMergeTasks', '_fbMergeReadings',
  '_fbPushDataScore', '_fbPullLocalScore', '_fbInvItemDiffers', '_fbMergeInvItem', '_fbMergeEquipCalOut',
- 'fbPresenceFor', 'fbPresenceText']
+ 'fbPresenceFor', 'fbPresenceText', 'fbSaveDelay', 'fbVehRemoteWhoFrom']
     .forEach(n => vm.runInContext(extraer(n), ctx, { filename: 'firebase-sync.js' }));
 
 let pasaron = 0, fallaron = 0;
@@ -299,6 +300,21 @@ console.log('\n== [3.18.0] Quién está aquí (fbPresenceFor / fbPresenceText) =
     const r2 = ctx.fbPresenceText([{ operator: 'Beto', progress: '12/30' }, { operator: 'Ana', progress: '3/30' }], 'ronda:gases:2026-10-22:am');
     ok('texto: ronda con dos', r2.text === 'Beto (12/30) y Ana (3/30) también hacen esta ronda', r2.text);
     ok('texto: nadie → vacío', ctx.fbPresenceText([], 'veh:7').text === '');
+}
+
+console.log('\n== [3.19.0] Lo puntual sube rápido (fbSaveDelay) y quién cambió (fbVehRemoteWhoFrom) ==');
+{
+    const D = ctx.fbSaveDelay, t = 1000000;
+    ok('tecleando: vehículos esperan lo de siempre (2.5 s)', D('veh', t, t - 500, 0) === 2500);
+    ok('tecleando: Plan/Consumibles esperan lo de siempre (2 s)', D('mod', t, t - 500, 0) === 2000);
+    ok('acción puntual: 400 ms', D('veh', t, t - 5000, 0) === 400 && D('mod', t, 0, 0) === 400);
+    ok('ráfaga de puntuales: se juntan un poco (1.2 s)', D('veh', t, 0, t - 1000) === 1200);
+    ok('pasada la ráfaga vuelve a 400 ms', D('veh', t, 0, t - 4000) === 400);
+    const W = ctx.fbVehRemoteWhoFrom, now = Date.parse('2026-10-22T15:00:00Z');
+    ok('quién: el operador de la presencia reciente', W('dev_b', 'dev_a', { operator: 'Ana', at: '2026-10-22T14:55:00Z' }, 'Tablet 2', now) === 'Ana');
+    ok('quién: presencia vieja → nombre del equipo', W('dev_b', 'dev_a', { operator: 'Ana', at: '2026-10-22T10:00:00Z' }, 'Tablet 2', now) === 'Tablet 2');
+    ok('quién: sin datos → "otro equipo"', W('dev_b', 'dev_a', null, '', now) === 'otro equipo');
+    ok('quién: lo escribió este equipo → vacío', W('dev_a', 'dev_a', null, '', now) === '');
 }
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');

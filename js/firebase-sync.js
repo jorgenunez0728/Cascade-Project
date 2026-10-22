@@ -1437,7 +1437,8 @@ function fbPush(collection, data, onDone, opts) {
 
     // opts.immediate flushes without the usual 2s debounce (e.g. after CSV import so the upload
     // isn't lost if the user closes the tab right after).
-    var _fbPushDelay = (opts && opts.immediate) ? 0 : 2000;
+    // [3.19.0] opts.delay: lo que decidió fbSaveDelay (acción puntual = pronto).
+    var _fbPushDelay = (opts && opts.immediate) ? 0 : ((opts && typeof opts.delay === 'number') ? opts.delay : 2000);
 
     fbSync.debounceTimers[collection] = setTimeout(function() {
         // Re-check quota after debounce (another op may have consumed it)
@@ -2482,13 +2483,56 @@ function fbHookSaves() {
     var _origSaveDB = window.saveDB;
     // [2.9.0] Además de la copia completa (para equipos sin actualizar), un ciclo de
     // vehículos uno por uno: trae lo de la nube y sube solo lo que cambió aquí.
-    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(); return ok; }; }
+    // [3.19.0] Cuánto esperar antes de subir lo decide fbSaveUrgency: lo puntual (palomear,
+    // cambiar estado) sube en 400 ms; lo que se teclea se sigue juntando como antes.
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbVehiclesSyncSoon(fbSaveUrgency('veh')); return ok; }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
+    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState); return ok; }; }
+    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState); return ok; }; }
+    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState, null, { delay: fbSaveUrgency('mod') }); return ok; }; }
+}
+
+// ── [3.19.0] ¿Tecleo o acción puntual? ──
+var FB_SAVE_TYPE_MS = 1500;      // hubo tecleo hace menos de esto → se junta como antes
+var FB_SAVE_URGENT_MS = 400;     // acción puntual
+var FB_SAVE_BURST_MS = 1200;     // varias puntuales seguidas: se juntan un poco
+var FB_SAVE_BURST_WINDOW = 3000;
+var _fbSaveLastTypeAt = 0, _fbSaveLastUrgentAt = 0;
+
+/**
+ * Cuánto esperar antes de subir. PURA.
+ * kind 'veh' (vehículos, normal 2.5 s) | 'mod' (Plan, Consumibles, Datos: normal 2 s).
+ * Tecleo reciente → normal (cada tecla no es una escritura). Si no, es una acción puntual
+ * → 400 ms, o 1.2 s si ya hubo otra puntual hace menos de 3 s (ocho palomitas seguidas
+ * no son ocho escrituras).
+ */
+function fbSaveDelay(kind, now, lastTypeAt, lastUrgentAt) {
+    var normal = kind === 'veh' ? FB_VEH_DEBOUNCE_MS : 2000;
+    if (lastTypeAt && now - lastTypeAt < FB_SAVE_TYPE_MS) return normal;
+    if (lastUrgentAt && now - lastUrgentAt < FB_SAVE_BURST_WINDOW) return FB_SAVE_BURST_MS;
+    return FB_SAVE_URGENT_MS;
+}
+
+function fbSaveUrgency(kind) {
+    var now = Date.now();
+    var d = fbSaveDelay(kind, now, _fbSaveLastTypeAt, _fbSaveLastUrgentAt);
+    if (d <= FB_SAVE_BURST_MS) _fbSaveLastUrgentAt = now;
+    return d;
+}
+
+/** Tecleo = un `input` en un campo de texto o número (no casillas, radios ni selects). */
+function _fbIsTypingTarget(el) {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return !!el.isContentEditable;
+    var t = String(el.type || 'text').toLowerCase();
+    return ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'].indexOf(t) < 0;
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('input', function(e) { if (_fbIsTypingTarget(e.target)) _fbSaveLastTypeAt = Date.now(); }, true);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -2545,7 +2589,7 @@ function fbStartListening() {
                     if (Date.now() - _startedAt < 5000) return;
                     var d = (snap && snap.exists) ? (snap.data() || {}) : null;
                     if (!d || d.writer === FB_DEVICE_ID) return;
-                    fbVehiclesSyncSoon(800);
+                    fbVehiclesSyncSoon(250);   // [3.19.0] antes 800 ms
                 }, function(err) {
                     fbSync._vehLive = false;
                     console.warn('fbStartListening error (cop15meta):', err.message);
@@ -7036,6 +7080,35 @@ function _fbVehConflictsFlush() {
                 'Dos equipos cambiaron a la vez: ' + campos.join(', '), { before: antes, after: despues });
         }
     });
+}
+
+// ── [3.19.0] ¿Quién cambió este vehículo? ──
+
+/**
+ * Nombre de quien escribió por último un vehículo en la nube. PURA.
+ * writer = equipo que escribió; own = este equipo ('' si fue este); presenceRec = su
+ * presencia (operador con sesión, si es reciente); deviceName = nombre del equipo.
+ * No se usa el `user` de la línea de tiempo: es el operador del formulario (2.25.0).
+ */
+function fbVehRemoteWhoFrom(writer, own, presenceRec, deviceName, nowMs) {
+    if (!writer || writer === own) return '';
+    if (presenceRec && presenceRec.operator) {
+        var t = Date.parse(presenceRec.at || '');
+        if (t && Math.abs(nowMs - t) <= 30 * 60 * 1000) return String(presenceRec.operator);
+    }
+    if (deviceName) return String(deviceName);
+    return 'otro equipo';
+}
+
+function fbVehRemoteWho(vehicle) {
+    if (!vehicle) return 'otro equipo';
+    var info = {};
+    try { info = (fbVehKnown().info || {})[fbVehDocId(vehicle)] || {}; } catch (e) { info = {}; }
+    var w = info.w || '';
+    var pres = (typeof _fbPres !== 'undefined' && _fbPres.records) ? _fbPres.records[w] : null;
+    var dn = '';
+    try { var c = fbDevicesCache(); dn = (c.devices[w] && c.devices[w].name) || ''; } catch (e) {}
+    return fbVehRemoteWhoFrom(w, FB_DEVICE_ID, pres, dn, Date.now()) || 'otro equipo';
 }
 
 // ── [3.18.0] Candado de un instante para los pasos críticos ──

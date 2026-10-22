@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.18.0';
+var APP_VERSION = '3.19.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,11 @@ var APP_VERSION = '3.18.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.19.0', date: '22 oct 2026', title: 'Lo que cambia otro equipo se ve en tu pantalla, sin perder lo que escribes',
+      bullets: ['Operación, Liberación y Aprobación se actualizan solas cuando otro equipo cambia el vehículo que tienes abierto. Lo que tú escribiste y no has guardado se queda como lo dejaste, con el cursor en su lugar; lo que cambió el otro equipo se marca un momento con su nombre (✎ Ana).',
+                'Si los dos cambiaron el mismo dato, el campo lo dice y te deja elegir: "Usar el de Ana" o "Conservar el mío".',
+                'Liberación por fin ve el checklist que marca otra persona en su tableta, sin recargar. Antes seguía viendo las filas en blanco.',
+                'Lo que se marca de un toque (checklist, estado, palomitas del plan, cambiar un cilindro) sube a la nube en menos de medio segundo y se ve en los demás equipos en 1 a 2 segundos. Lo que se teclea se sigue juntando para no gastar escrituras.'] },
     { version: '3.18.0', date: '22 oct 2026', title: 'Dos personas en el mismo vehículo ya no pierden lo que capturan',
       bullets: ['Si dos personas trabajan el mismo vehículo en equipos distintos (por ejemplo, una marca el checklist mientras otra captura el dinamómetro), ahora se conservan los cambios de las dos. Antes quedaba solo la versión de quien guardó al último y lo de la otra desaparecía sin aviso.',
                 'Si las dos cambian el MISMO dato a la vez, queda el más reciente y a quien se le reemplazó le sale un aviso. Su valor queda en la línea de tiempo del vehículo (🕘) con un botón ↩️ Usar este valor.',

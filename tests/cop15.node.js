@@ -437,5 +437,21 @@ console.log('\n== [3.18.0] Cambios cruzados: nombre del campo y qué se puede re
         !R('testData.vets.testRef') && !R('testData.review') && !R('status'));
 }
 
+console.log('\n[3.19.0] Repintar por un cambio remoto (cascadeRepaintPlan)');
+{
+    const P = ctx.cascadeRepaintPlan;
+    const loaded = { '#a': '1', '#b': '2', '#c': '3', 'gas|CO': '' };
+    const mine   = { '#a': '1', '#b': '20', '#c': '30', 'gas|CO': '0.5' };   // tocó b, c y CO
+    const fresh  = { '#a': '9', '#b': '2', '#c': '7', 'gas|CO': '' };       // otro equipo cambió a y c
+    const dirty  = { '#b': true, '#c': true, 'gas|CO': true };
+    const r = P(loaded, mine, fresh, dirty);
+    ok('lo que la persona tocó se conserva (b, c y el gas tecleado)', r.keep.slice().sort().join(',') === '#b,#c,gas|CO', r.keep.join(','));
+    ok('lo que cambió otro equipo y aquí no se tocó se marca (a)', r.flash.join(',') === '#a', r.flash.join(','));
+    ok('los dos cambiaron el mismo campo (c): se pregunta', r.clash.length === 1 && r.clash[0].key === '#c' && r.clash[0].mine === '30' && r.clash[0].theirs === '7', JSON.stringify(r.clash));
+    ok('sin cambio remoto no hay nada que marcar', P(loaded, loaded, loaded, {}).flash.length === 0);
+    ok('el otro equipo llegó al mismo valor que el mío: no es choque', P({ '#x': '1' }, { '#x': '5' }, { '#x': '5' }, { '#x': true }).clash.length === 0);
+    ok('un campo que ya no existe en pantalla no se toca', P({}, {}, { '#n': '1' }, {}).flash.length === 0);
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);
