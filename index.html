@@ -1961,8 +1961,10 @@
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
+                <!-- [3.20.0] La base del equipo vive en IndexedDB: no cuenta contra los 5 MB -->
+                <div class="pn-dbstore-line" x-show="storageData().dbText" :style="{ color: storageData().dbColor }" x-text="storageData().dbText"></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size: var(--fs-sm);color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
+                    <span style="font-size: var(--fs-sm);color:var(--tp-dim);" x-text="'Almacenamiento rápido: ' + formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
                     <span style="font-size: var(--fs-sm);font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
                 </div>
                 <div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">

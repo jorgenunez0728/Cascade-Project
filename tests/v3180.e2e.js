@@ -69,10 +69,12 @@ const SEED = () => {
         b.click();
     });
     await page.waitForTimeout(500);
-    const tras = await page.evaluate(() => {
+    const tras = await page.evaluate(async () => {
+        await dbStoreFlush();   // [3.20.0] la base vive en IndexedDB
+        const _g = JSON.parse(await dbStoreReadRaw());
         const v = db.vehicles.find(x => x.id === 'veh_1');
         return { odo: v.testData.odometer, ent: v.timeline.some(e => e.action === 'Valor recuperado de un cambio cruzado'),
-                 guardado: JSON.parse(localStorage.getItem('kia_db_v11')).vehicles.find(x => x.id === 'veh_1').testData.odometer };
+                 guardado: _g.vehicles.find(x => x.id === 'veh_1').testData.odometer };
     });
     chk('el valor vuelve como edición normal y se guarda', tras.odo === 110 && tras.guardado === 110, JSON.stringify(tras));
     chk('y queda su entrada en la línea de tiempo', tras.ent);

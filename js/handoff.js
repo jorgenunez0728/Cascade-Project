@@ -263,6 +263,11 @@ function handoffSoakDone(vehicleId, vin) {
 (function handoffWire() {
     if (typeof db !== 'undefined' && db) _handoffBase = handoffSnapshot(db.vehicles);
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    // [3.20.0] La base se lee de IndexedDB en paralelo al parseo: si llegó después de este
+    // archivo, la foto de arriba es la de un `db` vacío y TODO lo pendiente avisaría como nuevo.
+    window.addEventListener('db:loaded', function() {
+        if (typeof db !== 'undefined' && db) _handoffBase = handoffSnapshot(db.vehicles);
+    });
     window.addEventListener('data:saved', handoffCheckSoon);
     if (typeof _fbAfterAutoMerge === 'function') {
         var orig = _fbAfterAutoMerge;

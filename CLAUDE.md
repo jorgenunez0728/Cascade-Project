@@ -135,6 +135,7 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_homolog_v1` | Catálogo de homologación Europa (ICMS) + enlaces config→MC code + tolerancia CO₂ — synced |
 | `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
 | `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
+| `kia_db_store` | **3.20.0** Marca de dónde vive la base de COP15 (`{backend:'idb'}`): la base está en IndexedDB `kia_emlab_db` |
 | `kia_ui_prefs` | Preferencias de interfaz por dispositivo (`uiPref`). **v23** suma `dashRange` (HOY: día o semana); **2.25.0** `lastSeen` (relevo). NO se sincroniza |
 
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
@@ -3897,3 +3898,33 @@ toca nada"): ahora se repinta y lo tecleado se conserva.
 - Fuera, a propósito: escuchar en vivo Datos/CoP/Homologación (proxies de Alpine en `pnState`,
   v18.5) y la escucha directa de `vehicles` (cambia el formato del merge para ganar ~300 ms).
 
+
+## 3.20.0 — La base del equipo vive en IndexedDB (`js/app.js`, bloque `dbStore*`)
+
+Reemplaza lo que v18.1 ("cada dispositivo trabaja primero contra su localStorage"), 3.0.1
+("localStorage queda para el dato que la app lee síncrono") e Important Notes ("localStorage ~5MB")
+dicen de la base de COP15. Plan, inventario, panel, CoP y lo demás siguen en localStorage.
+
+- **`dbPersist()` es el ÚNICO escritor de la base del equipo.** Nunca `localStorage.setItem/
+  getItem/removeItem('kia_db_v11')` fuera del bloque `dbStore*` (`tests/perf.node.js` falla CI).
+  Un camino que reemplace `db` llama `dedupeVehicleIds()` y luego `dbPersist()` (con guarda
+  `typeof` en firebase-sync.js, que los arneses `vm` extraen por función).
+- `saveDB()` sigue síncrona y sus ~50 llamadores no cambian. `false` ahora también significa
+  "la base no está cargada" o "la escritura anterior falló" (error pegajoso, se reintenta solo).
+- **La app nunca arranca sobre una base sin cargar**: `initializeSystem` espera a
+  `dbStoreWhenReady`. Todo código nuevo que lea `db` al PARSEAR un archivo debe retomar su foto en
+  el evento `db:loaded` (como `handoffWire`): la lectura de IndexedDB llega en paralelo.
+- Si al arrancar hay `kia_db_v11` en localStorage, ESA es la verdad y se adopta (una pestaña con
+  código anterior o una prueba que siembra). Por eso cada escritura en IndexedDB borra esa copia y
+  las pruebas E2E pueden seguir sembrando `kia_db_v11` como siempre; para LEER lo guardado usan
+  `await dbStoreFlush(); JSON.parse(await dbStoreReadRaw())`.
+- Un camino que reemplaza la base y recarga (restaurar, borrar todo) usa `dbStoreReplaceRaw` /
+  `dbStoreClear`, que congelan la base: sin eso el vaciado de `pagehide` escribiría la base vieja
+  encima. Recargar por una actualización pasa por `appReloadSafely()` (vacía lo pendiente).
+- Lo pesado y opcional sigue en IndexedDB propio: respaldos (`kia_emlab_backups`, ahora una foto
+  cada `AUTO_BACKUP_EVERY_MS`), foto de fusión y **foto previa a restaurar** (`_fbPrerestorePut/
+  Get/Delete`; en localStorage queda la marca `{savedAt, in:'idb'}`).
+- `pnStorageScan()` sigue midiendo SOLO localStorage (es lo que compiten plan, inventario y
+  auditoría); la base va aparte en `scan.db` / `scan.idb` / `scan.dbLine` y no suma a `total`.
+- Regresar un equipo migrado a 3.19 lo resembraría desde la nube (lo no subido quedaría en
+  IndexedDB hasta volver a actualizar). Dos pestañas siguen siendo "gana la última", como antes.

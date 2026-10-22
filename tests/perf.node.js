@@ -37,6 +37,25 @@ ok('_pnStorageScanNow no crea Blobs', scan.length > 100 && !/new Blob/.test(scan
 ok('pnStorageScan está memoizado', /function pnStorageScan\(opts\) \{\s*if \(!\(opts && opts\.fresh\) && _pnStorageMemo/.test(panel));
 ok('el preflight de operaciones críticas pide escaneo fresco', /pnStorageScan\(\{ fresh: true \}\)/.test(app));
 
+console.log('\n== La base del equipo solo se toca por dbStore (3.20.0) ==');
+{
+    const ini = app.indexOf('var DB_LS_KEY'), fin = app.indexOf('// [M00c] REGULATION PROFILES');
+    const fuera = [];
+    fs.readdirSync(path.join(__dirname, '..', 'js')).filter(f => f.endsWith('.js')).forEach(f => {
+        let src = read('js/' + f);
+        if (f === 'app.js') src = src.slice(0, ini) + src.slice(fin);
+        src.split('\n').forEach((l, i) => {
+            if (/(getItem|setItem|removeItem)\(\s*['"]kia_db_v11['"]/.test(l)) fuera.push(f + ':' + (i + 1));
+        });
+    });
+    ok('nadie fuera del bloque dbStore lee o escribe kia_db_v11 directo', !fuera.length, fuera.join(', '));
+    const cuerpo = app.slice(app.indexOf('function initializeSystem()'));
+    const gate = cuerpo.indexOf('dbStoreIsReady()');
+    ok('initializeSystem espera a la base antes de dedupeVehicleIds', gate > 0 && gate < cuerpo.indexOf('dedupeVehicleIds()'));
+    ok('y antes de fbInit', gate > 0 && gate < cuerpo.indexOf('fbInit()'));
+    ok('saveDB escribe por dbPersist', /function saveDB\(\) \{[\s\S]*?dbPersist\(\) === false/.test(app));
+}
+
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(/function pnUtf8Len[\s\S]*?\n}\n/.exec(panel)[0], ctx);

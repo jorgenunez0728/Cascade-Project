@@ -2674,6 +2674,18 @@ html.booting, html.booting body { overflow: hidden; }
     margin-top: var(--space-sm); min-height: 1.4em;
     font-size: var(--font-sm); color: var(--muted);
 }
+/* [3.20.0] La base del equipo no abrió: nunca arrancar sobre datos vacíos. */
+.boot-db-fail {
+    margin-top: var(--space-md); display: flex; flex-wrap: wrap; gap: var(--space-sm);
+    justify-content: center; font-size: var(--fs-sm); color: var(--text);
+}
+.boot-db-fail p { flex-basis: 100%; margin: 0; }
+/* [3.20.0] Línea de la base del equipo (IndexedDB) en Datos → Sistema. */
+.pn-dbstore-line {
+    margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--tp-dim); line-height: var(--lh-base);
+}
+.pn-dbstore-line.is-warn { color: var(--warn-text); }
+.pn-dbstore-line.is-bad { color: var(--danger-text); font-weight: 700; }
 /* Lo nuevo aparece DEBAJO de la marca, que no se mueve: se lee como la misma tarjeta. */
 .auth-shell > :not(.auth-brand), .auth-pin-panel {
     animation: bootIn var(--dur-slow) var(--ease-out) both;
