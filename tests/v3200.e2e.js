@@ -16,7 +16,10 @@ function chk(nombre, cond, detalle) {
 }
 
 const SEED = () => {
-    if (localStorage.getItem('__seeded')) return;
+    // Al reabrir la página la siembra NO debe repetirse. No basta con `__seeded` en
+    // localStorage: en Chromium el script de inicio a veces lee localStorage vacío en la
+    // página nueva (5 de 60 en una prueba aislada) y volvía a sembrar encima. El hash sí es fiable.
+    if (location.hash === '#reabrir' || localStorage.getItem('__seeded')) return;
     const ahora = Date.now();
     localStorage.setItem('kia_auth_session', JSON.stringify({
         operatorId: 'm1', operatorName: 'Ana Manager', expiresAt: new Date(ahora + 11 * 3600e3).toISOString() }));
@@ -84,12 +87,27 @@ async function abrir(ctx) {
     chk('Datos → Sistema dice dónde vive la base', /IndexedDB/.test(m.dbLine || ''), m.dbLine);
 
     console.log('\n== Editar, recargar y liberar ==');
-    await page.evaluate(() => { db.vehicles[3].testData.notes = 'nota después de migrar'; saveDB(); return dbStoreFlush(); });
+    const antesRecarga = await page.evaluate(async () => {
+        db.vehicles.find(x => x.id === 'veh_3').testData.notes = 'nota después de migrar';
+        const ok = saveDB(); const f = await dbStoreFlush();
+        const raw = JSON.parse(await dbStoreReadRaw());
+        return { ok, f, enDisco: raw.vehicles.find(x => x.id === 'veh_3').testData.notes,
+                 ls: !!localStorage.getItem('kia_db_v11'), seeded: localStorage.getItem('__seeded'), relleno: (localStorage.getItem('__relleno') || '').length };
+    });
+    if (process.env.V3200_DEBUG) console.log('  [debug] ' + JSON.stringify(antesRecarga));
+    chk('lo editado llega al disco antes de recargar', antesRecarga.enDisco === 'nota después de migrar', JSON.stringify(antesRecarga));
     const libera = await page.evaluate(() => _releasePreflightStorage('liberar'));
     chk('liberar ya no se bloquea por espacio', libera === true);
+    await page.goto('file://' + path.join(REPO, 'index.html') + '#reabrir');
     await page.reload();
     await page.waitForFunction(() => typeof dbStoreIsReady === 'function' && dbStoreIsReady() && bootStageNow() === 'lista', null, { timeout: 20000 });
-    const tras = await page.evaluate(() => ({ nota: db.vehicles[3].testData.notes, n: db.vehicles.length, backend: dbStoreStats().backend }));
+    const tras = await page.evaluate(async () => {
+        const v = db.vehicles.find(x => x.id === 'veh_3');
+        const raw = JSON.parse(await dbStoreReadRaw());
+        return { nota: v && v.testData.notes, n: db.vehicles.length, backend: dbStoreStats().backend, plan: _dbStore.plan,
+                 seeded: localStorage.getItem('__seeded'), relleno: (localStorage.getItem('__relleno') || '').length, antes: window.__antes,
+                 idx3: db.vehicles[3] && db.vehicles[3].id, enDisco: (raw.vehicles.find(x => x.id === 'veh_3') || {}).testData.notes };
+    });
     chk('lo editado sigue ahí al recargar', tras.nota === 'nota después de migrar' && tras.n === 150 && tras.backend === 'idb', JSON.stringify(tras));
 
     console.log('\n== Una escritura fallida se dice ==');
