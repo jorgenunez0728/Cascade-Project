@@ -50,7 +50,7 @@ function tpRemoveWeeklyItem(wk, idx) {
 }
 
 /**
- * [3.17.2] Marca de borrado de una fila (`plan.removedItems[uid]`). La fusión entre equipos es
+ * [3.18.0] Marca de borrado de una fila (`plan.removedItems[uid]`). La fusión entre equipos es
  * aditiva: sin la marca, una fila quitada regresaba desde otro equipo que la seguía teniendo.
  * Devolverla deja `removed:false` con fecha más nueva (la marca nunca se borra: gana la más
  * reciente, fbPlanRowMarksUnion). Todo camino que saque una fila de `plan.items` la llama.
@@ -63,7 +63,7 @@ function tpRowMarkSet(plan, uid, removed) {
 }
 
 /**
- * [3.17.2] Tras restaurar una foto del plan (Deshacer): las marcas no retroceden. Una fila que
+ * [3.18.0] Tras restaurar una foto del plan (Deshacer): las marcas no retroceden. Una fila que
  * la foto devuelve se marca devuelta, y una que la foto quita se marca quitada — si no, la
  * fusión con los otros equipos desharía el Deshacer (o lo ignoraría).
  * `antes` = weeklyPlans justo antes de restaurar.

@@ -59,7 +59,7 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: kia-emlab-test-system
-          # [3.17.2] Versión fija: firebase-tools 15.34.1 (22-oct-2026) consulta
+          # [3.18.0] Versión fija: firebase-tools 15.34.1 (22-oct-2026) consulta
           # serviceusage.services.get, que la cuenta de servicio no tiene → 403 en el
           # despliegue. Con `latest` el CI se rompe solo cuando sale una versión nueva.
           firebaseToolsVersion: 15.34.0

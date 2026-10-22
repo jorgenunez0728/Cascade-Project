@@ -3826,7 +3826,7 @@ UNIDADES (una unidad es solo su VIN). La flota Master es otra cosa y vive aparte
 - `_invRoomFitStage(stageId, wrapId)` mide también el tablero del laboratorio, y su escucha de
   `resize` lo repinta.
 
-## 3.17.2 — Que nada regrese ni se pierda en silencio entre equipos (`js/firebase-sync.js`)
+## 3.18.0 — Un vehículo en dos equipos, y que nada regrese ni se pierda en silencio (`js/firebase-sync.js`)
 
 Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
 
@@ -3844,5 +3844,18 @@ Reemplaza lo que v21.1 dice de las lecturas ("entre dos humanas gana la local").
   camino que la devuelva, `tpRowMarkSet(plan, uid, false)`. Las marcas (`plan.removedItems`) nunca
   se borran: gana la más reciente (`fbPlanRowMarksUnion`). Una restauración de foto
   (`_undoRestore`) pasa por `tpRowMarksAfterRestore`. Sin marca, la fusión aditiva revive la fila.
-- Diagnóstico completo del sync en tiempo real y las fases siguientes (fusión campo por campo de
-  vehículos, presencia, ronda en vivo): plan aprobado el 22-oct-2026; cada fase se aprueba aparte.
+- **`fbVehMerge3(base, local, remote)` es LA fusión de un vehículo entre equipos** (PURA y
+  SIMÉTRICA, campo por campo contra la base). `_fbMergeVehicle` queda como respaldo sin base y
+  para juntar copias. Todo desempate nuevo debe ser determinista y simétrico.
+- **La base de cada documento** (IndexedDB `kia_emlab_sync_base`) es la última versión de la nube
+  que este equipo incorporó: se fija al traer y al subir, nunca al editar. Si se fija al editar,
+  la edición deja de verse como propia y se pierde en la siguiente fusión.
+- **Toda escritura de un vehículo a la nube lleva precondición** (`fbVehPushPreconditions`). Un
+  camino nuevo que suba vehículos sin ella pisa lo que otro equipo escribió en medio.
+- **Un valor que no quedó nunca se tira**: va a la línea de tiempo (`fbVehConflictEntry`), y quien
+  lo perdió lo sabe por las entradas NUEVAS (`fbVehLostHere`), porque la fusión pudo hacerla otro.
+- **Un paso que cambia la etapa de un vehículo pasa por `_cascadeCloudGateThen`** antes de pedir la
+  firma. Sin red no detiene nada (trabajo sin red); decidir que Aprobar exija conexión es del
+  laboratorio y sigue pendiente.
+- Siguientes fases del plan del 22-oct-2026 (presencia, ronda en vivo, velocidad): cada una se
+  aprueba aparte.

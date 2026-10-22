@@ -20,7 +20,19 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.17.2 — Lo que se cambia en un equipo ya no regresa ni se pierde en el otro (2026-10-22)
+## 3.18.0 — Dos personas en el mismo vehículo ya no pierden lo que capturan (2026-10-22)
+
+### Nuevo
+- **Un vehículo en dos equipos se fusiona campo por campo.** Si una persona marca el checklist
+  mientras otra captura el dinamómetro del mismo vehículo en otro equipo, se conservan los dos
+  cambios. Antes ganaba entera la versión de quien guardó al último y lo de la otra desaparecía
+  sin aviso.
+- **El mismo dato cambiado a la vez:** queda el más reciente, a quien se le reemplazó le sale un
+  aviso, y su valor queda en la línea de tiempo (🕘 Historial) con **↩️ Usar este valor**. Firmas,
+  gases, VETS y la revisión no se recuperan así: tienen su propio flujo.
+- **Candado de un instante:** Enviar a aprobación, Aprobar, Devolver y Corregir alta miran primero
+  el vehículo en la nube. Si otro equipo ya lo movió, se detiene antes de pedir la firma y dice
+  quién y a qué hora. Sin red (o sin respuesta en 6 s) se sigue como antes.
 
 ### Arreglado
 - **Lecturas de gas corregidas en otro equipo**: con la misma fecha y turno, cada equipo se quedaba
@@ -35,6 +47,29 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   llega a los demás.
 
 ### Para desarrollo
+- **`fbVehMerge3(base, local, remote)` (PURA y SIMÉTRICA) es LA fusión de un vehículo entre
+  equipos**: hoja cambiada de un lado → ese; de los dos → el `updatedAt` más reciente (empate por
+  contenido) y `conflicts[]`. Campos de control (`updatedAt`, `lastModified`, `lastUpdated`,
+  `_rev`) toman el mayor; `timeline`, `returnHistory` y `paStatus` se unen como antes. Sin base, o
+  con ids distintos, cae a `_fbMergeVehicle`. Cada choque deja una entrada determinista
+  (`fbVehConflictEntry`: `data.conflict`, `data.modified[].valor` si mide ≤ 2 000 caracteres y no
+  es una imagen): los dos equipos escriben la misma y la unión no la duplica.
+- **Base** = la última versión de la nube que este equipo incorporó, por documento, en IndexedDB
+  (`kia_emlab_sync_base`; `fbVehBaseReady`, `_fbVehBaseSet`). Se fija al traer (`_fbVehPull`) y
+  al subir (`_fbVehPush`). Al cargar, un vehículo cuya huella es la de la nube la toma de sí mismo.
+- **Precondición al subir** (`fbVehPushPreconditions`, PURA): nunca visto → `exists:false`;
+  conocido → su `updateTime` (ahora se guarda en `known.info[id].ut` desde `_fbVehQuery` y la
+  respuesta del commit; `_fbAuditCommit` devuelve el cuerpo). Si falla, el ciclo se repite
+  (traer → fusionar → subir), a lo más 5 por minuto; tras `FB_VEH_CAS_MAX` (3) fallas seguidas de
+  un documento se sube sin precondición para no atorarlo.
+- **Aviso al que perdió**: `fbVehLostHere(local, merged)` (PURA) lo saca de las entradas de choque
+  NUEVAS (la fusión pudo hacerla el otro equipo); `_fbVehConflictsFlush` avisa y audita
+  `cambios_cruzados` con antes/después.
+- **Candado de un instante**: `fbVehCloudGate(v, estado, acción)` + `fbVehCloudGateDecision`
+  (PURA: solo detiene si la nube es MÁS NUEVA y con otro estado). En cop15.js,
+  `_cascadeCloudGateThen` (síncrono si no hay nada que revisar: sin sync o sin red).
+- `vehicleFieldLabel(path)`, `vehicleLostValueRestorable(path)` (PURA), `vehicleUseLostValue`
+  (permiso `test.operate`, no en aprobación/archivado; `valor_recuperado` en auditoría).
 - `_fbMergeReadings(locales, remotas, campo, opts)`: con `opts` (la fusión entre equipos,
   `_fbMergeInvItem`) la misma clave fecha + turno se resuelve **SIMÉTRICA**: gana `at` más reciente
   (una lectura con `at` es posterior a una sin él), si no `opts.localAt/remoteAt` (`updatedAt` del
@@ -53,8 +88,10 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   `tpRestoreWeeklyItem` lo apaga. La fusión de semanas une marcas con `fbPlanRowMarksUnion` (PURA,
   simétrica, gana `at`) y retira las filas marcadas; `fbPlanRowMarksNewTo` cuenta como extra.
   `_undoRestore` llama a `tpRowMarksAfterRestore` para que la foto de Deshacer no retroceda marcas.
-- Pruebas: `tests/livesync.node.js` (+10, dos equipos), `tests/sync.node.js` (+4),
-  `tests/plan.node.js` (+2).
+- Pruebas: `livesync` (+10), `sync` (+4), `plan` (+2), `vehsync` (+18, con un Firestore falso que
+  respeta precondiciones), `cop15` (+6) y `tests/v3180.e2e.js`.
+- CI: `firebaseToolsVersion: 15.34.0` fijo en los dos despliegues (la 15.34.1 pide un permiso que la
+  cuenta de servicio no tiene → 403).
 
 ## 3.17.1 — Las placas del dinamómetro van a los costados (2026-10-21)
 

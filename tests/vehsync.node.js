@@ -59,15 +59,25 @@ function servidor() {
             const body = JSON.parse(init.body);
             const ts = new Date(S.clock).toISOString();
             S.clock += 1000;
+            // [3.18.0] Como Firestore: un commit con una precondición que no se cumple falla ENTERO.
+            const roto = body.writes.find(w => {
+                const cd = w.currentDocument, d = S.docs[w.update.name];
+                if (!cd) return false;
+                if (cd.exists === false) return !!d;
+                if (cd.updateTime) return !d || d.updateTime !== cd.updateTime;
+                return false;
+            });
+            if (roto) { S.casFails = (S.casFails || 0) + 1;
+                return resp(400, { error: { status: 'FAILED_PRECONDITION', message: 'precondition failed: ' + roto.update.name } }); }
             body.writes.forEach(w => {
                 // Como Firestore: con updateMask solo se escriben esos campos; el resto del documento se queda.
                 const base = w.updateMask && S.docs[w.update.name] ? S.docs[w.update.name].fields : {};
                 const f = Object.assign({}, base, w.update.fields);
                 (w.updateTransforms || []).forEach(t => { f[t.fieldPath] = { timestampValue: ts }; });
-                S.docs[w.update.name] = { name: w.update.name, fields: f };
+                S.docs[w.update.name] = { name: w.update.name, fields: f, updateTime: ts };
                 S.writes++;
             });
-            return resp(200, {});
+            return resp(200, { writeResults: body.writes.map(() => ({ updateTime: ts })), commitTime: ts });
         }
         if (/:runQuery\?/.test(url)) {
             S.queries++;
@@ -80,6 +90,8 @@ function servidor() {
                 .map(n => S.docs[n])
                 .filter(d => !since || Date.parse(d.fields.serverTs.timestampValue) >= since)
                 .map(d => ({ document: d }));
+            // [3.18.0] Otro equipo escribe justo DESPUÉS de esta lectura (entre traer y subir).
+            if (S.hook) { const h = S.hook; S.hook = null; h(); }
             return resp(200, rows.length ? rows : [{ readTime: new Date(S.clock).toISOString() }]);
         }
         if ((init.method || 'GET') === 'GET') {
@@ -87,6 +99,13 @@ function servidor() {
             return S.docs[n] ? resp(200, S.docs[n]) : resp(404, { error: { status: 'NOT_FOUND', message: 'Document "' + n + '" not found.' } });
         }
         return resp(400, { error: { message: 'no' } });
+    };
+    // [3.18.0] Escribe un documento como lo haría otro equipo (hora del servidor nueva).
+    S.escribirComo = (docName, v, writer) => {
+        const ts = new Date(S.clock).toISOString(); S.clock += 1000;
+        S.docs[docName] = { name: docName, updateTime: ts, fields: { json: { stringValue: JSON.stringify(v) }, vin: { stringValue: v.vin },
+            id: { stringValue: String(v.id) }, rev: { stringValue: v._rev || '' }, deleted: { booleanValue: false },
+            writer: { stringValue: writer || 'otro' }, serverTs: { timestampValue: ts } } };
     };
     S.vehDocs = () => Object.keys(S.docs).filter(n => /\/vehicles\//.test(n)).map(n => S.docs[n]);
     return S;
@@ -620,6 +639,100 @@ const MARGEN = 10 * 60 * 1000;
             P0.fbVehDupPlan([d('p2', p2), d('p1', p1)], []).groups[0].keep === 'v_p2');
     }
 
+
+    console.log('\n== [3.18.0] Dos personas en el MISMO vehículo: campo por campo ==');
+    {
+        const srvX = servidor();
+        const X = equipo(srvX, 'dev_X'), Y = equipo(srvX, 'dev_Y');
+        X.db.vehicles = [vehiculo(500, { status: 'ready-release', testData: { odometer: 5, dyno: { a: null }, releaseChecklist: {} } })];
+        X.dedupeVehicleIds(); guardar(X);
+        await X.fbVehiclesSync({ initial: true });
+        await Y.fbVehiclesSync({ initial: true });
+        srvX.avanzar(MARGEN);
+        // X marca el checklist; Y captura el dinamómetro 3 s después, sin haber visto lo de X.
+        porVin(X, 'KNA000500').testData.releaseChecklist = { objetos: 'Retirado' }; guardar(X);
+        porVin(Y, 'KNA000500').testData.dyno = { a: 12.3 }; guardar(Y);
+        await X.fbVehiclesSync();
+        let ry = await Y.fbVehiclesSync();
+        await X.fbVehiclesSync();
+        const vx = porVin(X, 'KNA000500'), vy = porVin(Y, 'KNA000500');
+        ok('se conservan los DOS cambios (antes se perdía el checklist)',
+            vy.testData.releaseChecklist.objetos === 'Retirado' && vy.testData.dyno.a === 12.3, JSON.stringify(vy.testData));
+        ok('y los dos equipos quedan idénticos', X.stableStringify(X.db.vehicles) === Y.stableStringify(Y.db.vehicles));
+        ok('campos distintos no son choque: sin entrada ni aviso',
+            !vx.timeline.some(e => e.data && e.data.conflict) && !X.ui.toasts.concat(Y.ui.toasts).some(t => /al mismo tiempo/.test(t)));
+
+        // El MISMO campo en los dos: gana el más reciente y el otro valor queda en la línea de tiempo.
+        srvX.avanzar(MARGEN);
+        porVin(X, 'KNA000500').testData.odometer = 110; guardar(X);
+        porVin(Y, 'KNA000500').testData.odometer = 120; guardar(Y);
+        await X.fbVehiclesSync(); await Y.fbVehiclesSync(); await X.fbVehiclesSync();
+        const cx = porVin(X, 'KNA000500'), cy = porVin(Y, 'KNA000500');
+        ok('mismo campo: gana el cambio más reciente en los dos', cx.testData.odometer === 120 && cy.testData.odometer === 120,
+            cx.testData.odometer + ' / ' + cy.testData.odometer);
+        const ent = cx.timeline.filter(e => e.data && e.data.conflict);
+        ok('el valor que no quedó está en la línea de tiempo (una sola vez)', ent.length === 1 &&
+            ent[0].data.modified[0].key === 'testData.odometer' && ent[0].data.modified[0].valor === 110, JSON.stringify(ent));
+        ok('se avisa a quien perdió su valor', X.ui.toasts.some(t => /al mismo tiempo/.test(t)) && !Y.ui.toasts.some(t => /al mismo tiempo/.test(t)),
+            JSON.stringify([X.ui.toasts, Y.ui.toasts]));
+        ok('y siguen idénticos', X.stableStringify(X.db.vehicles) === Y.stableStringify(Y.db.vehicles));
+
+        // Otro equipo escribe ENTRE que este trae y sube: la precondición lo detiene, no lo pisa.
+        srvX.avanzar(MARGEN);
+        porVin(Y, 'KNA000500').testData.note = 'de Y'; guardar(Y);
+        const name = Object.keys(srvX.docs).find(n => /vehicles\/v_veh_500$/.test(n));
+        srvX.hook = () => {
+            const otra = JSON.parse(srvX.docs[name].fields.json.stringValue);
+            otra.testData.tires = 33; otra.updatedAt = new Date(t + 30000).toISOString();
+            srvX.escribirComo(name, otra, 'dev_Z');
+        };
+        const casAntes = srvX.casFails || 0;
+        ry = await Y.fbVehiclesSync();
+        ok('la subida se detiene por la precondición (no pisa lo escrito en medio)', ry.cas === true && (srvX.casFails || 0) === casAntes + 1,
+            JSON.stringify(ry));
+        ry = await Y.fbVehiclesSync();
+        const enNube = JSON.parse(srvX.docs[name].fields.json.stringValue);
+        ok('al reintentar trae, fusiona y sube: quedan los dos', ry.ok && enNube.testData.tires === 33 && enNube.testData.note === 'de Y',
+            JSON.stringify(enNube.testData));
+
+        // Un equipo con código viejo sube el registro ENTERO con un campo atrasado.
+        srvX.avanzar(MARGEN);
+        await X.fbVehiclesSync();
+        porVin(X, 'KNA000500').testData.odometer = 130; guardar(X);
+        const vieja = JSON.parse(srvX.docs[name].fields.json.stringValue);   // sin el 130
+        vieja.testData.fuel = 'lleno'; vieja.updatedAt = new Date(t + 90000).toISOString();
+        srvX.escribirComo(name, vieja, 'dev_viejo');
+        await X.fbVehiclesSync();
+        const vv = porVin(X, 'KNA000500');
+        ok('equipo viejo: su campo llega y no borra lo que este cambió', vv.testData.fuel === 'lleno' && vv.testData.odometer === 130,
+            JSON.stringify(vv.testData));
+    }
+
+    console.log('\n== [3.18.0] fbVehMerge3 y el candado de un instante (puras) ==');
+    {
+        const P = equipo(servidor(), 'dev_P');
+        const b = vehiculo(1, { updatedAt: '2026-10-01T00:00:00Z', testData: { a: 1, b: 1, c: { d: 1 } } });
+        const l = JSON.parse(JSON.stringify(b)); l.testData.a = 2; l.testData.c.d = 5; l.updatedAt = '2026-10-02T00:00:00Z';
+        const r = JSON.parse(JSON.stringify(b)); r.testData.b = 3; r.testData.c.d = 7; r.updatedAt = '2026-10-03T00:00:00Z';
+        const m1 = P.fbVehMerge3(b, l, r), m2 = P.fbVehMerge3(b, r, l);
+        ok('simétrica: (b, x, y) = (b, y, x)', P.stableStringify(m1.vehicle) === P.stableStringify(m2.vehicle));
+        ok('cada quien conserva lo suyo; el choque lo gana el más reciente',
+            m1.vehicle.testData.a === 2 && m1.vehicle.testData.b === 3 && m1.vehicle.testData.c.d === 7 && m1.conflicts.length === 1);
+        ok('sin base: la regla de antes (el más reciente entero)', P.fbVehMerge3(null, l, r).mode === 'registro');
+        const nunca = P.fbVehMerge3(b, l, r).vehicle;
+        ok('sin campos undefined en el resultado', !JSON.stringify(nunca).includes('undefined'));
+        const loc = { id: 1, status: 'pending-approval', updatedAt: '2026-10-02T10:00:00Z' };
+        const nube = { id: 1, status: 'archived', updatedAt: '2026-10-02T10:05:00Z',
+            timeline: [{ timestamp: '2026-10-02T10:05:00Z', user: 'Ana', data: { status: 'archived' } }] };
+        const g = P.fbVehCloudGateDecision(loc, nube, 'pending-approval', { archived: 'Aprobado' });
+        ok('candado: otro equipo ya lo movió → se detiene y dice quién', !g.ok && /Ana/.test(g.why) && /Aprobado/.test(g.why), g.why);
+        ok('candado: la nube va atrás (lo de aquí no ha subido) → se puede',
+            P.fbVehCloudGateDecision(Object.assign({}, loc, { updatedAt: '2026-10-02T11:00:00Z' }), nube, 'pending-approval').ok);
+        ok('candado: mismo estado → se puede', P.fbVehCloudGateDecision(loc, Object.assign({}, nube, { status: 'pending-approval' }), 'pending-approval').ok);
+        ok('precondiciones: nuevo → no debe existir; conocido → su versión; sin versión → ninguna',
+            JSON.stringify(P.fbVehPushPreconditions([{ id: 1 }, { id: 2 }, { id: 3 }],
+                { docs: { v_2: 'r', v_3: 'r' }, info: { v_2: { ut: 'T2' } } }, {})) === '{"v_1":"new","v_2":"T2"}');
+    }
     console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
     process.exitCode = fallaron ? 1 : 0;
 })().catch(e => { console.error(e); process.exit(1); });

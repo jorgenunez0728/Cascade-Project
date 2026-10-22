@@ -165,7 +165,7 @@ console.log('\n== _fbMergeReadings: series de lecturas ==');
     ok('entre dos humanas del mismo dia gana la local',
         dos.length === 1 && dos[0].psi === 1400, JSON.stringify(dos));
 
-    // [3.17.2] Entre equipos (con opts) es SIMÉTRICA: gana la capturada más tarde.
+    // [3.18.0] Entre equipos (con opts) es SIMÉTRICA: gana la capturada más tarde.
     const l1 = [{ date: '2026-09-07', psi: 1400, at: '2026-09-07T09:00:00Z' }];
     const r1 = [{ date: '2026-09-07', psi: 1390, at: '2026-09-07T09:05:00Z' }];
     const ch = [];

@@ -529,7 +529,7 @@ t('quitar un uid que ya no existe lo dice y no toca nada', () => {
     eq(S.weeklyPlans[0].items.length, 3);
 });
 
-console.log('\n== [3.17.2] Marca de borrado de una fila del plan ==');
+console.log('\n== [3.18.0] Marca de borrado de una fila del plan ==');
 t('quitar deja la marca, devolver la apaga con fecha más nueva', () => {
     S.weeklyPlans = [{ id: 'P1', weekDate: '2026-10-05', created: '2026-10-01T00:00:00Z', items: [
         { uid: 'U1', desc: 'A' }, { uid: 'U2', desc: 'B' }] }];

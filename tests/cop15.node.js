@@ -425,5 +425,17 @@ console.log('\n== f05RevisionFor / f05RefDay ==');
     ok('prueba de septiembre 2026 imprime Rev 8', R(D(nueva)).rev === '8');
 }
 
+console.log('\n== [3.18.0] Cambios cruzados: nombre del campo y qué se puede recuperar ==');
+{
+    ok('una ruta del F05 lleva su nombre', ctx.vehicleFieldLabel('testData.odometer') === 'Odómetro');
+    ok('el checklist se nombra por su sección', /^Checklist de liberación/.test(ctx.vehicleFieldLabel('testData.releaseChecklist.objetos')));
+    ok('el estado es "Estado"', ctx.vehicleFieldLabel('status') === 'Estado');
+    ok('una ruta desconocida se muestra tal cual', ctx.vehicleFieldLabel('raro.x') === 'raro.x');
+    const R = ctx.vehicleLostValueRestorable;
+    ok('un dato de captura se puede recuperar', R('testData.odometer') && R('testData.releaseChecklist.objetos'));
+    ok('firmas, gases (doble ciego), VETS, revisión y el estado NO', !R('testData.signatures.releaser') && !R('testData.gasResults.liberador') &&
+        !R('testData.vets.testRef') && !R('testData.review') && !R('status'));
+}
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 process.exit(fallaron ? 1 : 0);

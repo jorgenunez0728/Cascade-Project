@@ -2190,7 +2190,7 @@ function invAddReading(gasId, psi, opts) {
         existing.psi = val;
         existing.by = by;
         existing.shift = shift;
-        existing.at = new Date().toISOString();   // [3.17.2] cuándo se capturó: decide entre equipos
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {
@@ -2281,7 +2281,7 @@ function invAddFuelReading(tankId, level, opts) {
         replaced = { date: existing.date, level: existing.level, by: existing.by || '' };
         existing.level = val;
         existing.by = by;
-        existing.at = new Date().toISOString();   // [3.17.2] cuándo se capturó: decide entre equipos
+        existing.at = new Date().toISOString();   // [3.18.0] cuándo se capturó: decide entre equipos
         if (opts.source) existing.source = opts.source;
         reading = existing;
     } else {

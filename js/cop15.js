@@ -4172,6 +4172,91 @@ function cascadeVehicleAfterSign(ref, expectedStatus) {
     return { v: v };
 }
 
+/**
+ * [3.18.0] Corre `fn` solo si la nube confirma que nadie más movió el vehículo
+ * (fbVehCloudGate, firebase-sync.js). Sin sync, sin red o sin respuesta en 6 s se sigue:
+ * el trabajo sin red no se detiene y el choque, si lo hubo, lo resuelve la fusión.
+ */
+function _cascadeCloudGateThen(vehicle, expectedStatus, accion, fn) {
+    // Sin nada que revisar se sigue en el acto (síncrono, como antes de 3.18.0).
+    if (typeof fbVehCloudGate !== 'function' || (typeof fbVehCloudGateNeeded === 'function' && !fbVehCloudGateNeeded(vehicle))) { fn(); return; }
+    fbVehCloudGate(vehicle, expectedStatus, accion).then(function(ok) { if (ok) fn(); }, function() { fn(); });
+}
+
+/** Nombre para una persona de una ruta de un vehículo ("testData.odometer" → "Odómetro"). */
+var VEHICLE_FIELD_PREFIXES = [
+    ['testData.releaseChecklist', 'Checklist de liberación'], ['testData.gasResults', 'Resultados de gases'],
+    ['testData.signatures', 'Firmas'], ['testData.vets', 'Prueba VETS'], ['testData.preconditioning', 'Preacondicionamiento'],
+    ['testData.homolog', 'Ficha del ICMS'], ['homolog', 'Ficha del ICMS'], ['testData', 'Datos de la prueba']
+];
+function vehicleFieldLabel(path) {
+    path = String(path || '');
+    var listas = [typeof PDF_REQUIRED_FIELDS !== 'undefined' ? PDF_REQUIRED_FIELDS : [],
+                  typeof SIMPLE_REQUIRED_FIELDS !== 'undefined' ? SIMPLE_REQUIRED_FIELDS : [],
+                  typeof TRAINING_REQUIRED_FIELDS !== 'undefined' ? TRAINING_REQUIRED_FIELDS : []];
+    for (var i = 0; i < listas.length; i++) {
+        var f = listas[i].find(function(x) { return x && x.path === path; });
+        if (f && f.label) return f.label;
+    }
+    if (path === 'status') return 'Estado';
+    var cola = path.split('.').pop();
+    for (var k = 0; k < VEHICLE_FIELD_PREFIXES.length; k++) {
+        var pre = VEHICLE_FIELD_PREFIXES[k];
+        if (path === pre[0] || path.indexOf(pre[0] + '.') === 0) return pre[1] + (path === pre[0] ? '' : ' · ' + cola);
+    }
+    return path;
+}
+
+/**
+ * ¿Se puede volver a usar, con un toque, el valor que no quedó en esta ruta? PURA. Solo los
+ * datos de captura: firmas, gases (doble ciego), VETS y la revisión tienen su propio flujo.
+ */
+function vehicleLostValueRestorable(path) {
+    path = String(path || '');
+    if (path.indexOf('testData.') !== 0) return false;
+    return !/^testData\.(signatures|gasResults|vets|review)(\.|$)/.test(path);
+}
+
+/** [3.18.0] "Usar este valor": devuelve el valor de un cambio cruzado como una edición normal. */
+function vehicleUseLostValue(vehicleId, entryTs, rowIdx) {
+    var v = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
+    var e = v && (v.timeline || []).find(function(x) { return x && x.timestamp === entryTs && x.data && x.data.conflict; });
+    var row = e && (e.data.modified || [])[rowIdx];
+    if (!row || !Object.prototype.hasOwnProperty.call(row, 'valor') || !vehicleLostValueRestorable(row.key)) {
+        showToast('Ese valor ya no se puede recuperar desde aquí.', 'warning'); return;
+    }
+    if (_opIsReadOnlyStatus(v.status)) { showToast(_opReadOnlyMessage(v), 'warning', 9000); return; }
+    if (!_cascadeGate('test.operate', 'volver a usar un valor')) return;
+    var partes = row.key.split('.');
+    var actual = partes.reduce(function(o, k) { return (o && typeof o === 'object') ? o[k] : undefined; }, v);
+    showConfirmDialog({ title: '↩️ Usar este valor',
+        message: (row.campo || row.key) + ': poner «' + _fbVehValTextSafe(row.valor) + '» (ahora: «' + _fbVehValTextSafe(actual) + '»).',
+        type: 'info', confirmText: 'Usar este valor', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var vivo = (db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
+        if (!vivo || _opIsReadOnlyStatus(vivo.status)) { showToast('El vehículo cambió de etapa: no se tocó nada.', 'warning'); return; }
+        undoPush('cop15', 'Usar valor de un cambio cruzado: ' + (vivo.vin || ''));
+        var o = vivo;
+        for (var i = 0; i < partes.length - 1; i++) { if (!o[partes[i]] || typeof o[partes[i]] !== 'object') o[partes[i]] = {}; o = o[partes[i]]; }
+        var antes = o[partes[partes.length - 1]];
+        if (row.valor === null) delete o[partes[partes.length - 1]]; else o[partes[partes.length - 1]] = JSON.parse(JSON.stringify(row.valor));
+        var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+        vivo.timeline.push({ timestamp: new Date().toISOString(), user: who || 'Operador', action: 'Valor recuperado de un cambio cruzado',
+            data: { modified: [{ campo: row.campo || row.key, key: row.key, antes: _fbVehValTextSafe(antes), despues: _fbVehValTextSafe(row.valor),
+                                 razon: 'Se volvió a usar el valor que no había quedado' }] } });
+        auditLog('cop15', 'valor_recuperado', { type: 'vehicle', id: vivo.id, label: vivo.vin }, (row.campo || row.key),
+            { before: { valor: antes === undefined ? null : antes }, after: { valor: row.valor } });
+        if (saveDB() === false) { showToast('⚠️ Sin espacio: no se guardó. Libera espacio en Datos → Sistema.', 'error'); return; }
+        var gm = document.getElementById('globalModal'); if (gm) gm.remove();
+        refreshAllLists();
+        // Si está abierto en Operación: se repinta (o, con cambios sin guardar, la fusión a tres bandas lo respeta).
+        try { cascadeOnRemoteVehicleChange(); } catch (x) {}
+        showToast('Listo: «' + (row.campo || row.key) + '» quedó con el valor recuperado.', 'success');
+        histShowTimelineModal(vivo.id);
+    });
+}
+function _fbVehValTextSafe(v) { return (typeof _fbVehValText === 'function') ? _fbVehValText(v) : String(v); }
+
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
@@ -4241,6 +4326,8 @@ function submitToApproval() {
         }
     }
 
+    // [3.18.0] Candado de un instante: si otro equipo ya movió este vehículo, no se pide la firma.
+    _cascadeCloudGateThen(vehicle, 'ready-release', 'enviar a aprobación', function() {
     sigCaptureOpen({
         title: 'Firma del Liberador',
         role: 'Liberador / Técnico',
@@ -4294,6 +4381,7 @@ function submitToApproval() {
             showToast('Vehículo enviado a aprobación', 'success');
         },
         onCancel: function() { showToast('Operación cancelada', 'info'); }
+    });
     });
 }
 
@@ -4385,6 +4473,8 @@ function approveAndArchive() {
         return;
     }
 
+    // [3.18.0] Candado de un instante: si otro equipo ya lo aprobó o lo devolvió, no se pide la firma.
+    _cascadeCloudGateThen(vehicle, 'pending-approval', 'aprobar', function() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
@@ -4545,6 +4635,7 @@ function approveAndArchive() {
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
     });
+    });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -4590,6 +4681,11 @@ function returnToReleaser() {
                 var reasonEl = document.getElementById('return-reason');
                 var reason = reasonEl ? reasonEl.value.trim() : '';
                 if (reason.length < 5) { showToast('Escribe el motivo (mínimo 5 caracteres)', 'error'); return; }
+                // [3.18.0] Candado de un instante en la nube, y el vehículo VIVO de db (patrón #189).
+                _cascadeCloudGateThen(vehicle, 'pending-approval', 'devolver al liberador', function() {
+                var _now = cascadeVehicleAfterSign(vehicle, 'pending-approval');
+                if (!_now.v) { showToast(_now.why, 'error', 9000); refreshAllLists(); return; }
+                vehicle = _now.v;
 
                 undoPush('cop15', 'Devolver al liberador: ' + vehicle.vin);
                 var approverName = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
@@ -4635,6 +4731,7 @@ function returnToReleaser() {
                 document.getElementById('approvalVehSelect').value = '';
                 document.getElementById('appr-content').style.display = 'none';
                 if (typeof emitEvent === 'function') emitEvent('vehicle:returned', { vehicle: vehicle, reason: reason });
+                });
             }}
         ]
     });
@@ -7242,13 +7339,15 @@ function _altaCorrSave() {
 }
 
 /** Abre el modal. `prefill` = {vin?} (p. ej. desde el archivo VETS, ronda siguiente). */
-function vehicleCorrectAltaOpen(vehicleId, prefill) {
+function vehicleCorrectAltaOpen(vehicleId, prefill, _gated) {
     var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
     if (!v) return;
     if (!_cascadeCan('test.register') && !_cascadeCan('test.retro_edit')) {
         _cascadeGate('test.register', 'corregir el alta de un vehículo');
         return;
     }
+    // [3.18.0] Candado de un instante: si otro equipo cambió su etapa, se dice antes de abrir.
+    if (!_gated) { _cascadeCloudGateThen(v, v.status, 'corregir el alta', function() { vehicleCorrectAltaOpen(vehicleId, prefill, true); }); return; }
     prefill = prefill || {};
     window._altaCorr = { id: v.id, code: v.configCode || '', selected: '__actual__', plan: null, overlay: null };
     var modelo = (v.config && v.config['Modelo']) || '';
@@ -7295,7 +7394,22 @@ function histShowTimelineModal(vehicleId) {
       if (data.added && data.added.length) {
         html += '<div style="font-size: var(--fs-xs);color:var(--text);margin-top: var(--space-2xs);">Añadidos: ' + data.added.map(escapeHtml).join(', ') + '</div>';
       }
-      if (data.modified && data.modified.length) {
+      if (data.modified && data.modified.length && data.conflict) {
+        // [3.18.0] Un cambio cruzado entre equipos: "No quedó" lleva su botón debajo (una tabla
+        // de cinco columnas no cabe en un teléfono) y la razón va una sola vez.
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top: var(--space-2xs);">Dos equipos cambiaron estos datos a la vez; quedó el cambio más reciente.</div>' +
+                '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top: var(--space-xs);"><thead><tr>' +
+                ['Campo', 'No quedó', 'Quedó'].map(function(h) { return '<th style="text-align:left;padding: var(--space-2xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+        data.modified.forEach(function(m, mi) {
+          var puede = Object.prototype.hasOwnProperty.call(m, 'valor') && vehicleLostValueRestorable(m.key) && !_opIsReadOnlyStatus(vehicle.status);
+          html += '<tr><td style="padding: var(--space-2xs) var(--space-sm);font-weight:600;">' + escapeHtml(m.campo || m.key || '') + '</td>' +
+                  '<td style="padding: var(--space-2xs) var(--space-sm);color:var(--danger-text);">' + escapeHtml(String(m.antes)) +
+                  (puede ? '<div style="margin-top: var(--space-2xs);"><button type="button" class="btn btn-secondary btn-sm" onclick="vehicleUseLostValue(' +
+                      escapeHtml(JSON.stringify(vehicle.id)) + ',' + escapeHtml(JSON.stringify(item.timestamp)) + ',' + mi + ')">↩️ Usar este valor</button></div>' : '') +
+                  '</td><td style="padding: var(--space-2xs) var(--space-sm);color:var(--ok-text);">' + escapeHtml(String(m.despues)) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      } else if (data.modified && data.modified.length) {
         html += '<table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;margin-top: var(--space-xs);"><thead><tr>' +
                 ['Campo', 'Antes', 'Después', 'Razón'].map(function(h) { return '<th style="text-align:left;padding: var(--space-2xs) var(--space-sm);border-bottom:1px solid var(--border);color:var(--muted);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
         data.modified.forEach(function(m) {

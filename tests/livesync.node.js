@@ -478,8 +478,8 @@ console.log('\n== re-ensayo del mismo VIN entre dos equipos (2.37.2) ==');
         A.db.vehicles.map(v => v.id + ':' + v.status).join());
 }
 
-// ── 3.17.2: una lectura corregida en otro equipo llega a todos ────────────
-console.log('\n== 3.17.2: lecturas de gas — misma fecha y turno ==');
+// ── 3.18.0: una lectura corregida en otro equipo llega a todos ────────────
+console.log('\n== 3.18.0: lecturas de gas — misma fecha y turno ==');
 {
     arrancar();
     [A, B].forEach(d => {
@@ -512,8 +512,8 @@ console.log('\n== 3.17.2: lecturas de gas — misma fecha y turno ==');
     ok('la conversación termina', cola.length === 0);
 }
 
-// ── 3.17.2: dos cambios seguidos del mismo equipo llegan los dos ─────────
-console.log('\n== 3.17.2: dos cambios a 3 s ==');
+// ── 3.18.0: dos cambios seguidos del mismo equipo llegan los dos ─────────
+console.log('\n== 3.18.0: dos cambios a 3 s ==');
 {
     arrancar();
     const enviar = (n) => {
@@ -541,8 +541,8 @@ console.log('\n== 3.17.2: dos cambios a 3 s ==');
     ok('el mismo documento repetido se procesa una vez (por módulo)', llamadas === 2, 'llamadas=' + llamadas);
 }
 
-// ── 3.17.2: una fila quitada de la semana no regresa ─────────────────────
-console.log('\n== 3.17.2: quitar una fila del plan ==');
+// ── 3.18.0: una fila quitada de la semana no regresa ─────────────────────
+console.log('\n== 3.18.0: quitar una fila del plan ==');
 {
     arrancar();
     reloj += 60000;
