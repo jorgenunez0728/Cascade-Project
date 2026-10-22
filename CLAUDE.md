@@ -76,6 +76,7 @@ js/
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
   momentos.js           ← Momentos de cierre: semana cumplida, calibraciones al día, familia concordante (~140 lines)
+  normas.js             ← 📚 Mapa regulatorio: cada norma desde las constantes que la app aplica, "¿Por qué?", exportar .md (~330 lines)
   digest.js             ← Avisos del laboratorio: resumen diario, escalación, plan aceptado (correo/ntfy/Web Push) (~770 lines)
   xlsxw.js              ← Escritor de .xlsx propio (sin CDN): estilos, fórmulas, listas, colores (~380 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
@@ -196,7 +197,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -3928,3 +3929,24 @@ dicen de la base de COP15. Plan, inventario, panel, CoP y lo demás siguen en lo
   auditoría); la base va aparte en `scan.db` / `scan.idb` / `scan.dbLine` y no suma a `total`.
 - Regresar un equipo migrado a 3.19 lo resembraría desde la nube (lo no subido quedaría en
   IndexedDB hasta volver a actualizar). Dos pestañas siguen siendo "gana la última", como antes.
+
+## 3.21.0 — Mapa regulatorio (`js/normas.js`)
+
+- **`normaFacts(name, src)` (PURA) es LA descripción de una norma** y NO escribe ningún número a
+  mano: todo sale de la constante o función que la app usa para juzgar. Si una regla nueva cambia
+  un juicio (otro límite, otra regla de región, otro método CoP), el mapa la toma sola SIEMPRE que
+  viva en una constante; una regla escrita dentro de un `if` no aparece en el mapa. Antes de
+  escribir una regla regulatoria nueva, ponerla en una constante con nombre y agregarla a
+  `normaSource()`. `tests/normas.node.js` carga las constantes del código REAL (no copias).
+- **Las citas son solo las que ya están en comentarios del código** (`NORMAS_CITAS`). No inventar
+  cláusulas.
+- **Ninguna ayuda repite una regla con un número escrito.** El glosario decía "12 h" de reposo y
+  el tour del CoP un alcance viejo; `normasFixHelp()` los genera de las constantes. Texto nuevo de
+  ayuda que cite un número regulatorio se arma igual, o se enlaza a la ficha (`normaWhyHTML`).
+- `normaWhyHTML(nombre, etiqueta)` es la forma de poner "¿Por qué?" junto a un veredicto: abre
+  `FICHA_KINDS.norma` de la norma con que se JUZGÓ (`_libJudgedRegulation`, nunca la del alta).
+- **El chat con la regulación no vive en la plataforma** (no hay servidor y Cloud Functions exige
+  Blaze): `normasMarkdown` exporta las reglas para un asistente externo. Los procedimientos internos
+  NO se suben a la nube mientras `firestore.rules` siga sin publicarse (2.3.0).
+- Orden de carga: `… relevo.js → momentos.js → normas.js → digest.js …` (después de testplan,
+  cop15, cop_validator, copreport, vets y ficha, de las que lee).

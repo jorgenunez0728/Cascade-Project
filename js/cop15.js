@@ -3320,6 +3320,8 @@ function _libRegBasisHTML(vehicle, regName) {
          // [3.2.0] Regla de la región: el alta dice EURO-5 porque así se arma el vehículo.
          : (typeof labRegionRegulation === 'function' && labRegionRegulation(catalogReg, _libVehicleRegion(vehicle))
             ? ' <span style="color:var(--muted);">(regulación de México; el alta dice "' + escapeHtml(catalogReg) + '" porque así se arma)</span>' : '')) +
+        // [3.21.0] ¿Por qué estos límites? → la ficha de la norma (mapa regulatorio).
+        (typeof normaWhyHTML === 'function' ? ' ' + normaWhyHTML(regName, '¿Por qué estos límites?') : '') +
         '</span>';
     if (canChange) {
         html += '<button class="btn-secondary" style="font-size:12px;padding: var(--space-xs) var(--space-md);" onclick="libRegPickerToggle()">Cambiar</button>';
@@ -4344,6 +4346,7 @@ function loadApproval() {
     if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
         '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libJudgedRegulation(vehicle) || 'N/A') +
+        (typeof normaWhyHTML === 'function' ? ' ' + normaWhyHTML(_libJudgedRegulation(vehicle), '¿Por qué?') : '') +   // [3.21.0]
         (typeof fbVehChipHTML === 'function' ? ' ' + fbVehChipHTML(vehicle) : '') +
         (typeof fbPresenceChipHTML === 'function' ? ' ' + fbPresenceChipHTML('veh:' + vehicle.id, { here: true, screen: 'Aprobación' }) : '') +
         // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene

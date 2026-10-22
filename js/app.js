@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.20.0';
+var APP_VERSION = '3.21.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.20.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.21.0', date: '22 oct 2026', title: 'El mapa de cada norma',
+      bullets: ['Nueva pantalla Datos → 📚 Normas: para cada norma del laboratorio (NOM-042 C-VP, EURO-5, PRE-EURO 7, SULEV 30…) un mapa del alta al CoP con la regla de cada paso y dónde la verifica la plataforma, sus límites, la regla de región (México se juzga con NOM-042 aunque el alta diga EURO-5), cómo se juzga en el CoP (método de UN R154 §2.1.1, DF asignados, CO₂) y las familias que viven bajo ella.',
+                'Todo sale de lo que la plataforma aplica para juzgar: si cambia una regla, cambia el mapa. No hay nada escrito a mano que se pueda quedar viejo.',
+                '"¿Por qué estos límites?" en Liberación, "¿Por qué?" en Aprobación y en el veredicto del CoP: abre la ficha de la norma con que se juzga esa prueba o esa familia.',
+                '📤 Exportar para tu asistente: un archivo con todas las reglas del laboratorio para subirlo a un asistente (por ejemplo, un Proyecto de Claude) junto con los PDF de las normas, y preguntarle como si fuera la norma.',
+                'La ayuda ya no contradice a la plataforma: el glosario decía que el reposo es de 12 h (la plataforma usa 24) y el tour del CoP describía un alcance anterior.'] },
     { version: '3.20.0', date: '22 oct 2026', title: 'La base del equipo ya no se llena',
       bullets: ['Los vehículos y sus firmas ya no se guardan en el almacenamiento rápido del navegador (5 MB por equipo), sino en su base de datos (IndexedDB), que tiene cientos de MB. En el equipo más cargado el almacenamiento rápido iba en 74 % y, al llenarse, liberar y aprobar se detenían con "Almacenamiento lleno".',
                 'El cambio es automático la primera vez que abres esta versión y no cambia nada de lo que ves: mismos vehículos, mismas firmas, misma nube. Datos → Sistema ahora muestra aparte "Almacenamiento rápido" y la "Base del equipo (IndexedDB)" con lo que queda disponible.',
@@ -7859,7 +7865,7 @@ var UI_TAB_GROUPS = {
           groups: [
             { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
             { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
-            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-normas', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
 };
 // ── [2.16.0] Cada rol ve lo suyo ────────────────────────────────────────
 // Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas,

@@ -7084,3 +7084,54 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .st-more > summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
 .rm-room--lab .rm-door-lbl { font-size: calc(18px * var(--ls, 1)); }
 .rm-bar-btn--on { background: var(--accent-inventory, #10b981); color: #fff; }
+
+/* ══ [3.21.0] Mapa regulatorio (Datos → 📚 Normas) ══ */
+.nm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.nm-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.nm-chip {
+    min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border-radius: var(--radius-full, 999px);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+}
+.nm-chip.is-on { background: var(--accent-cop); border-color: var(--accent-cop); color: #fff; }
+.nm-title h3 { margin: 0; font-size: var(--fs-md, 18px); color: var(--text); }
+.nm-title h3 small { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+.nm-title p { margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); color: var(--muted); }
+.nm-region {
+    margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg);
+    background: var(--warn-tint, var(--warn-bg)); color: var(--warn-text); font-size: var(--fs-sm); line-height: var(--lh-base);
+}
+/* El mapa: una fila de pasos que se enrolla; cada paso dice la regla y dónde la verifica la app. */
+.nm-flow {
+    list-style: none; margin: 0 0 var(--space-lg); padding: 0; counter-reset: nm;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-md);
+}
+.nm-node {
+    position: relative; counter-increment: nm; padding: var(--space-md); border-radius: var(--radius-lg);
+    border: 1px solid var(--border); border-top: 3px solid var(--accent-cop); background: var(--surface);
+}
+.nm-node::before {
+    content: counter(nm); position: absolute; top: var(--space-sm); right: var(--space-sm);
+    font-size: var(--fs-2xs); font-weight: 700; color: var(--muted);
+}
+.nm-node.is-focus { box-shadow: 0 0 0 3px var(--accent-cop); }
+.nm-node-head { font-weight: 700; font-size: var(--fs-base); color: var(--text); margin-bottom: var(--space-xs); }
+.nm-req { margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
+.nm-where, .nm-cite { margin: 0; font-size: var(--fs-xs); color: var(--muted); line-height: var(--lh-base); }
+.nm-cite { font-style: italic; }
+.nm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-md); }
+.nm-card h4 { margin: 0 0 var(--space-sm); font-size: var(--fs-sm); color: var(--text); }
+.nm-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.nm-table th, .nm-table td { text-align: left; padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); }
+.nm-list { margin: 0 0 var(--space-sm); padding-left: var(--space-lg); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.nm-formula {
+    margin: 0 0 var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
+    background: var(--surface-alt); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--fs-sm); line-height: var(--lh-base);
+}
+.nm-foot { margin: var(--space-xs) 0 0; font-size: var(--fs-xs); color: var(--muted); line-height: var(--lh-base); }
+.nm-fams { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); }
+.nm-empty { color: var(--muted); }
+.ficha-link.nm-why { margin-left: var(--space-xs); font-size: var(--fs-xs); }
+@media (max-width: 640px) {
+    .nm-flow { grid-template-columns: 1fr; }
+    .nm-head { flex-direction: column; align-items: stretch; }
+}

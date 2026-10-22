@@ -20,6 +20,39 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.21.0 — El mapa de cada norma (2026-10-22)
+
+### Nuevo
+- **Datos → 📚 Normas.** Para cada norma del laboratorio (NOM-042 C-VP, EURO-5, EURO-6C/6E,
+  PRE-EURO 7, SULEV 30…):
+  - un **mapa del alta al CoP**: la regla de cada paso (reposo, traza WLTP, límites, doble ciego,
+    juicio de conformidad) y dónde la verifica la plataforma;
+  - sus **límites** y en qué unidad se capturan;
+  - la **regla de región** (México se juzga con NOM-042 C-VP aunque el alta diga EURO-5);
+  - cómo se juzga en el **CoP**: regla de corporativo (por lotes o 1 por familia), método de
+    gases de UN R154 §2.1.1 con sus cotas y DF asignados, y CO₂ (§3.3.1);
+  - las **familias** que viven bajo ella, cada una con su ficha.
+- **"¿Por qué estos límites?"** en Liberación, **"¿Por qué?"** en Aprobación y junto al veredicto
+  del CoP: abre la ficha de la norma con que se juzga.
+- **📤 Exportar para tu asistente**: un `.md` con todas las reglas del laboratorio, para subirlo a
+  un asistente (por ejemplo, un Proyecto de Claude) junto con los PDF de las normas y preguntarle
+  como si fuera la norma. El chat no vive dentro de la plataforma: no tiene servidor.
+
+### Arreglado
+- El glosario decía que el reposo es "mínimo 12 h"; la plataforma usa 24 h por defecto.
+- El tour del CoP describía el alcance anterior a 3.13.0 (EURO-5/6E en Europa).
+
+### Para desarrollo
+- **`normaFacts(name, src)` (PURA, `js/normas.js`) es LA descripción de una norma**, compuesta de
+  las constantes que la app usa para juzgar (perfiles, `LAB_REGION_CAPTURE`, `COP_HQ_RULES`,
+  `COP_GAS_A`, `COP_ASSIGNED_DF`, `COP_CO2_TABLE`, `COP_LOT_*`, `tpSoakHoursFor`,
+  `VETS_IWR_WLTP`, `PDF_REQUIRED_FIELDS`, `RELEASE_CHECKLIST`). `normaSource()` arma `src`.
+- `FICHA_KINDS.norma`, `pnRenderNormas` (pestaña `pn-normas`), `normaWhyHTML(nombre, etiqueta)`
+  para poner el "¿Por qué?" junto a cualquier veredicto, `normasMarkdown` (PURA).
+- `normasFixHelp()` reescribe al parsear las entradas del glosario y del tour que repiten reglas.
+- Pruebas: `tests/normas.node.js` (27, con las constantes REALES del código) y
+  `tests/v3210.e2e.js` (427 y 1920 px).
+
 ## 3.20.0 — La base del equipo ya no se llena (2026-10-22)
 
 ### Cambió
