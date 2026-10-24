@@ -5812,6 +5812,7 @@ function _histRenderBody() {
           '<button class="btn-secondary hist-mini" id="histSelAllBtn" onclick="histToggleAll(' + (allVisibleSel ? 'false' : 'true') + ')" title="Seleccionar todas las pruebas que pasan los filtros (también las de otras páginas)">' +
                 (allVisibleSel ? '☐ Quitar todas' : '☑ Seleccionar todas (' + filtered + ')') + '</button>' +
           '<button class="btn-secondary hist-mini batch-pdf-btn" id="batchPdfBtn" onclick="histPrintF05()" title="Imprimir la hoja COP15-F05 de las seleccionadas, o de todas las que se ven si no hay selección">🖨️ Imprimir F05</button>' +
+          '<button class="btn-secondary hist-mini" id="batchCompareBtn" onclick="histCompareSelected()" style="display:none;" title="Ver las pruebas seleccionadas lado a lado (2 a 6)">⚖️ Comparar</button>' +
           '<button class="btn-secondary hist-mini is-danger" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;">🗑 Eliminar seleccionados</button>' +
           '<button class="btn-secondary hist-mini" onclick="histExportXlsx()" title="Descargar en Excel lo que se ve (con filtros y orden), con los valores de gases">⬇ Excel</button>' +
           '<button class="btn-secondary hist-mini" onclick="window.print()" title="Imprimir la tabla del historial (no las hojas F05)">🖨️ Tabla</button>' +
@@ -5955,6 +5956,15 @@ function histUpdateBatchBtn() {
         var nVis = (window._histVisibleIds || []).length;
         pdfBtn.style.display = nVis || n ? '' : 'none';
         pdfBtn.textContent = n ? '🖨️ Imprimir F05 (' + n + ')' : '🖨️ Imprimir F05 de todas (' + nVis + ')';
+    }
+    // [3.22.0] Comparar: de 2 a 6 seleccionadas (compare.js).
+    var cmpBtn = document.getElementById('batchCompareBtn');
+    if (cmpBtn) {
+        var cmpMax = (typeof COMPARE_MAX !== 'undefined') ? COMPARE_MAX : 6;
+        cmpBtn.style.display = (n >= 2 && typeof histCompareSelected === 'function') ? '' : 'none';
+        cmpBtn.textContent = '⚖️ Comparar ' + n;
+        if (typeof uiExplainDisabled === 'function') uiExplainDisabled(cmpBtn, n > cmpMax ? 'Se comparan hasta ' + cmpMax + ' pruebas: quita ' + (n - cmpMax) + ' de la selección.' : '');
+        else cmpBtn.disabled = n > cmpMax;
     }
     if (delBtn) {
         if (n > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }

@@ -7578,6 +7578,32 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
     .nm-flow { grid-template-columns: 1fr; }
     .nm-head { flex-direction: column; align-items: stretch; }
 }
+
+/* ══ [3.22.0] Comparar pruebas ══ */
+.custom-modal-box--wide { width: min(1100px, 96vw); max-width: 96vw; max-height: 90vh; }
+.cmp-note { margin-bottom: var(--space-sm); padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); }
+.cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.cmp-table th, .cmp-table td { padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.cmp-table thead th { position: sticky; top: 0; background: var(--surface); min-width: 120px; }
+.cmp-table tbody th { font-weight: 600; white-space: nowrap; position: sticky; left: 0; background: var(--surface); }
+.cmp-table th small, .cmp-table td small { color: var(--muted); font-weight: 400; }
+.cmp-vin { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+.cmp-sub { font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
+.cmp-chip { display: inline-block; margin-top: var(--space-2xs); padding: 0 var(--space-xs); border-radius: var(--radius-full); font-size: var(--fs-2xs); font-weight: 600; }
+.cmp-chip.is-warn { background: var(--warn-bg); color: var(--warn-text); }
+.cmp-chip.is-muted { background: var(--surface-alt); color: var(--muted); }
+.cmp-sec th { background: var(--surface-alt) !important; font-size: var(--fs-xs); color: var(--muted); text-transform: none; }
+.cmp-table tr.is-differs > th { color: var(--accent-cop); }
+.cmp-flag { display: inline-block; margin-left: var(--space-2xs); font-weight: 700; color: var(--accent-cop); }
+.cmp-cell.is-fail { color: var(--danger-text); font-weight: 700; }
+.cmp-cell.is-max { background: var(--warn-tint); }
+.cmp-cell.is-min { background: var(--ok-tint, var(--ok-bg)); }
+.is-differs-cell { color: var(--accent-cop); font-weight: 700; }
+.cmp-bar { display: block; height: 4px; margin-top: var(--space-2xs); border-radius: var(--radius-full); background: var(--surface-alt); overflow: hidden; }
+.cmp-bar > span { display: block; height: 100%; background: var(--accent-cop); }
+.cmp-cell.is-fail .cmp-bar > span { background: var(--danger-fill); }
+.cmp-foot { margin: var(--space-sm) 0 0; font-size: var(--fs-xs); color: var(--muted); }
     </style>
 </head>
 
@@ -10309,10 +10335,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610222141';
+var APP_BUILD = '202610242245';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'e78e3f157636a0419eca2871b9e222b3ab64146d';
+var APP_COMMIT = 'd3a0a0a5ce79369435d661d21de5aee0b630d894';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10320,7 +10346,7 @@ var APP_COMMIT = 'e78e3f157636a0419eca2871b9e222b3ab64146d';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.21.0';
+var APP_VERSION = '3.22.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10328,6 +10354,13 @@ var APP_VERSION = '3.21.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.22.0', date: '24 oct 2026', title: 'Comparar pruebas',
+      bullets: ['Historial → selecciona de 2 a 6 pruebas → ⚖️ Comparar: una tabla con una columna por prueba y, renglón por renglón, cada gas con su % del límite, el CO₂ contra su declarado y los coeficientes del dinamómetro (Target y Dyno A/B/C, ETW).',
+                'Lo que se aparta se marca solo: un gas cuyo % del límite difiere 20 puntos o más entre pruebas, o un coeficiente que difiere más de 2 %. En cada renglón se marcan el máximo y el mínimo.',
+                'Cada prueba se lee con el límite con que se juzgó (el que congeló el liberador), así que comparar una de NOM-042 con una de EURO-5 no inventa números: el mismo gas en g/mi y en g/km sale en dos renglones, y arriba se avisa si son familias o normas distintas.',
+                'Una prueba sin aprobar se puede comparar, pero sale marcada "sin aprobar"; una aprobada que no cuenta para el CoP dice por qué (por ejemplo, IWR fuera de rango).',
+                'Desde la ficha de un vehículo: "Comparar con…" su re-test del mismo VIN o las pruebas más recientes de su familia, de un toque.',
+                'La comparación se descarga en Excel o en PDF para llevarla a una junta o a un reporte de investigación.'] },
     { version: '3.21.0', date: '22 oct 2026', title: 'El mapa de cada norma',
       bullets: ['Nueva pantalla Datos → 📚 Normas: para cada norma del laboratorio (NOM-042 C-VP, EURO-5, PRE-EURO 7, SULEV 30…) un mapa del alta al CoP con la regla de cada paso y dónde la verifica la plataforma, sus límites, la regla de región (México se juzga con NOM-042 aunque el alta diga EURO-5), cómo se juzga en el CoP (método de UN R154 §2.1.1, DF asignados, CO₂) y las familias que viven bajo ella.',
                 'Todo sale de lo que la plataforma aplica para juzgar: si cambia una regla, cambia el mapa. No hay nada escrito a mano que se pueda quedar viejo.',
@@ -11507,14 +11540,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610222141' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610242245' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610222141' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610242245' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11530,7 +11563,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610222141' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610242245' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -13776,7 +13809,7 @@ function showModal(opts) {
     overlay.id = 'globalModal';
 
     var box = document.createElement('div');
-    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '');
+    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '') + (opts.wide ? ' custom-modal-box--wide' : '');   // [3.22.0] tablas anchas
     var actionsHtml = '';
     if (customBtns) {
         customBtns.forEach(function(b, i) {
@@ -13787,7 +13820,7 @@ function showModal(opts) {
         actionsHtml = (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '')
                     + '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>';
     }
-    box.innerHTML = '<div class="custom-modal-title">' + (icons[type]||'') + ' ' + title + '</div>' +
+    box.innerHTML = '<div class="custom-modal-title">' + (opts.icon !== undefined ? opts.icon : (icons[type]||'')) + ' ' + title + '</div>' +
         '<div class="custom-modal-message">' + content + '</div>' +
         '<div class="custom-modal-actions">' + actionsHtml + '</div>';
     overlay.appendChild(box);
@@ -26248,6 +26281,7 @@ function _histRenderBody() {
           '<button class="btn-secondary hist-mini" id="histSelAllBtn" onclick="histToggleAll(' + (allVisibleSel ? 'false' : 'true') + ')" title="Seleccionar todas las pruebas que pasan los filtros (también las de otras páginas)">' +
                 (allVisibleSel ? '☐ Quitar todas' : '☑ Seleccionar todas (' + filtered + ')') + '</button>' +
           '<button class="btn-secondary hist-mini batch-pdf-btn" id="batchPdfBtn" onclick="histPrintF05()" title="Imprimir la hoja COP15-F05 de las seleccionadas, o de todas las que se ven si no hay selección">🖨️ Imprimir F05</button>' +
+          '<button class="btn-secondary hist-mini" id="batchCompareBtn" onclick="histCompareSelected()" style="display:none;" title="Ver las pruebas seleccionadas lado a lado (2 a 6)">⚖️ Comparar</button>' +
           '<button class="btn-secondary hist-mini is-danger" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;">🗑 Eliminar seleccionados</button>' +
           '<button class="btn-secondary hist-mini" onclick="histExportXlsx()" title="Descargar en Excel lo que se ve (con filtros y orden), con los valores de gases">⬇ Excel</button>' +
           '<button class="btn-secondary hist-mini" onclick="window.print()" title="Imprimir la tabla del historial (no las hojas F05)">🖨️ Tabla</button>' +
@@ -26391,6 +26425,15 @@ function histUpdateBatchBtn() {
         var nVis = (window._histVisibleIds || []).length;
         pdfBtn.style.display = nVis || n ? '' : 'none';
         pdfBtn.textContent = n ? '🖨️ Imprimir F05 (' + n + ')' : '🖨️ Imprimir F05 de todas (' + nVis + ')';
+    }
+    // [3.22.0] Comparar: de 2 a 6 seleccionadas (compare.js).
+    var cmpBtn = document.getElementById('batchCompareBtn');
+    if (cmpBtn) {
+        var cmpMax = (typeof COMPARE_MAX !== 'undefined') ? COMPARE_MAX : 6;
+        cmpBtn.style.display = (n >= 2 && typeof histCompareSelected === 'function') ? '' : 'none';
+        cmpBtn.textContent = '⚖️ Comparar ' + n;
+        if (typeof uiExplainDisabled === 'function') uiExplainDisabled(cmpBtn, n > cmpMax ? 'Se comparan hasta ' + cmpMax + ' pruebas: quita ' + (n - cmpMax) + ' de la selección.' : '');
+        else cmpBtn.disabled = n > cmpMax;
     }
     if (delBtn) {
         if (n > 0 && _cascadeCan('test.delete')) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + n + ' seleccionado' + (n > 1 ? 's' : ''); }
@@ -69992,7 +70035,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610222141' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610242245' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -86117,6 +86160,8 @@ function _fichaVehiculo(id) {
     });
     // [2.30.0] Prueba histórica (VETS): resultados, quién importó y quién confirmó.
     if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && typeof historicoFichaPatch === 'function') historicoFichaPatch(m, v);
+    // [3.22.0] Comparar con su re-test o con su familia (compare.js).
+    if (typeof compareFichaGroup === 'function') { var _cg = compareFichaGroup(v); if (_cg) (m.groups = m.groups || []).push(_cg); }
     return m;
 }
 
@@ -86337,8 +86382,10 @@ function fichaHTML(m, opts) {
         (g.lines || []).forEach(function(l) {
             var inner = '<span class="ficha-line-text">' + _fichaEsc(l.text) + '</span>' +
                 (l.who || l.when || l.whenText ? '<small>' + _fichaEsc([l.who, l.whenText || (l.when ? _fichaDate(l.when) : '')].filter(Boolean).join(' · ')) + '</small>' : '');
+            // [3.22.0] Una línea puede abrir otra cosa que no es una ficha (l.js, p. ej. Comparar).
             h += '<li class="ficha-line' + (l.tone ? ' is-' + _fichaEsc(l.tone) : '') + '">' + (l.link
                 ? '<button type="button" class="ficha-line-btn" onclick="fichaPush(\'' + _fichaArg(l.link.kind) + '\',\'' + _fichaArg(l.link.ref) + '\')">' + inner + '<span class="ficha-rel-go" aria-hidden="true">›</span></button>'
+                : l.js ? '<button type="button" class="ficha-line-btn" onclick="' + _fichaEsc(l.js) + '">' + inner + '<span class="ficha-rel-go" aria-hidden="true">›</span></button>'
                 : '<div class="ficha-line-in">' + inner + '</div>') + '</li>';
         });
         if (g.more) h += '<li class="ficha-line ficha-line-more">y ' + g.more + ' más</li>';
@@ -87444,6 +87491,396 @@ if (typeof HELP_TABS !== 'undefined') {
             'Los límites se editan en Datos → Regulaciones; el reposo, en Plan → Reglas. Aquí solo se leen.'
         ] }
     });
+}
+
+
+// @@module js/compare.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.22.0] COMPARAR PRUEBAS — 2 a 6 pruebas lado a lado                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Un re-test contra su prueba anterior, o varias pruebas de la misma familia: gases como %
+// del límite CON EL QUE SE JUZGÓ CADA UNA, CO₂ contra su declarado, coeficientes del
+// dinamómetro, y lo que difiere resaltado.
+//
+// REGLAS:
+//  - compareModel(vehicles, deps) es PURA: todo lo que lee del resto de la app llega en
+//    `deps` (compareDeps() arma el real). Se prueba en Node sin DOM.
+//  - Compone, no calcula: valores = los APROBADOS (`_copFinalGasValues`) y, si la prueba
+//    aún no está aprobada, los capturados marcados "sin aprobar" (`_copRawGasValues`).
+//    Perfil = `_libGasProfileForVehicle` (el congelado al liberar), NUNCA el vigente: una
+//    prueba se lee con los límites con que se juzgó. "Cuenta para CoP" = `copTestCounts` /
+//    `copTestWhyNot`.
+//  - Un gas que dos pruebas guardan en unidades distintas (g/km vs g/mi) son DOS filas:
+//    nunca se ponen en la misma fila valores que no se pueden comparar a ojo.
+//  - No escribe nada. Excel y PDF solo exportan lo que se ve.
+
+var COMPARE_MAX = 6;
+var COMPARE_MIN = 2;
+// Diferencia que se resalta: en % del límite (gases), en % relativo (dinamómetro y CO₂).
+var COMPARE_PCT_POINTS = 20;
+var COMPARE_REL_PCT = 2;
+
+function _cmpNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+}
+function _cmpFmt(v, dec) {
+    if (v === null || v === undefined) return '—';
+    var a = Math.abs(v);
+    var d = dec != null ? dec : (a >= 100 ? 1 : a >= 10 ? 2 : a >= 1 ? 3 : 4);
+    return String(Math.round(v * Math.pow(10, d)) / Math.pow(10, d));
+}
+function _cmpRange(nums) {
+    var xs = nums.filter(function(x) { return x !== null && x !== undefined && isFinite(x); });
+    if (xs.length < 2) return null;
+    return { min: Math.min.apply(null, xs), max: Math.max.apply(null, xs) };
+}
+
+/**
+ * LA comparación de pruebas. PURA.
+ * vehicles: 2..6 vehículos. deps: {valuesOf, approvedOf, profileOf, regOf, countsOf, whyNotOf,
+ *   co2Of, testDateOf, familyOf, signerOf}. Devuelve {cols, gas, co2, dyno, meta, notes}.
+ */
+function compareModel(vehicles, deps) {
+    var vs = (vehicles || []).filter(Boolean).slice(0, COMPARE_MAX);
+    var notes = [];
+    var cols = vs.map(function(v) {
+        var approved = !!deps.approvedOf(v);
+        var vals = deps.valuesOf(v) || null;
+        var counts = !!deps.countsOf(v);
+        return {
+            id: v.id, vin: v.vin || '', vinShort: String(v.vin || '').slice(-8),
+            date: deps.testDateOf(v) || '', reg: deps.regOf(v) || '',
+            approved: approved, hasValues: !!(vals && Object.keys(vals).length),
+            counts: counts, whyNot: counts ? '' : (deps.whyNotOf(v) || ''),
+            family: deps.familyOf(v) || '', status: v.status || '',
+            releaser: deps.signerOf(v, 'releaser'), approver: deps.signerOf(v, 'approver'),
+            testRef: (v.testData && v.testData.vets && v.testData.vets.testRef) || ''
+        };
+    });
+    if (cols.some(function(c) { return !c.approved && c.hasValues; })) notes.push('Las columnas marcadas "sin aprobar" muestran lo que capturó el liberador: todavía puede cambiar.');
+    var fams = {}; cols.forEach(function(c) { if (c.family) fams[c.family] = true; });
+    if (Object.keys(fams).length > 1) notes.push('Estas pruebas son de familias distintas: compáralas con cuidado.');
+    var regs = {}; cols.forEach(function(c) { if (c.reg) regs[c.reg] = true; });
+    if (Object.keys(regs).length > 1) notes.push('Se juzgaron con normas distintas: el % de cada una es contra SU límite.');
+
+    // Gases: una fila por campo + unidad guardada.
+    var rowIdx = {}, gas = [];
+    vs.forEach(function(v, i) {
+        var prof = deps.profileOf(v);
+        var vals = deps.valuesOf(v) || {};
+        var gases = (prof && prof.gases) || [];
+        var seen = {};
+        gases.forEach(function(g) {
+            seen[g.field] = true;
+            var key = g.field + '|' + (g.unit || '');
+            if (rowIdx[key] === undefined) { rowIdx[key] = gas.length; gas.push({ key: key, field: g.field, label: g.label || g.field, unit: g.unit || '', cells: [] }); }
+            var row = gas[rowIdx[key]];
+            var val = _cmpNum(vals[g.field]);
+            var lim = _cmpNum(g.limit);
+            row.cells[i] = { value: val, limit: lim, pct: (val !== null && lim) ? val / lim * 100 : null,
+                             verdict: (val === null || !lim) ? null : (val <= lim ? 'pasa' : 'falla') };
+        });
+        // Capturado pero fuera del perfil (un gas que el perfil ya no tiene): también se ve.
+        Object.keys(vals).forEach(function(f) {
+            if (seen[f]) return;
+            var key = f + '|';
+            if (rowIdx[key] === undefined) { rowIdx[key] = gas.length; gas.push({ key: key, field: f, label: f, unit: '', cells: [] }); }
+            gas[rowIdx[key]].cells[i] = { value: _cmpNum(vals[f]), limit: null, pct: null, verdict: null };
+        });
+    });
+    gas.forEach(function(row) {
+        for (var i = 0; i < vs.length; i++) if (!row.cells[i]) row.cells[i] = { value: null, limit: null, pct: null, verdict: null };
+        var rp = _cmpRange(row.cells.map(function(c) { return c.pct; }));
+        var rv = _cmpRange(row.cells.map(function(c) { return c.value; }));
+        row.spreadPts = rp ? rp.max - rp.min : null;
+        // Sin límite (CO₂, informativos) no hay % del límite: se compara en relativo, como el dinamómetro.
+        row.differs = rp ? (rp.max - rp.min) >= COMPARE_PCT_POINTS : !!(rv && rv.max > 0 && (rv.max - rv.min) / rv.max * 100 >= COMPARE_REL_PCT);
+        row.cells.forEach(function(c) {
+            // Máximo y mínimo solo en una fila que se aparta: 21 % contra 20 % no es una señal.
+            c.isMax = !!(row.differs && rp && c.pct !== null && c.pct === rp.max && rp.max !== rp.min);
+            c.isMin = !!(row.differs && rp && c.pct !== null && c.pct === rp.min && rp.max !== rp.min);
+        });
+    });
+
+    // CO₂ contra su declarado.
+    var co2 = vs.map(function(v) {
+        var c = deps.co2Of(v) || {};
+        var m = _cmpNum(c.measured), t = _cmpNum(c.target);
+        return { measured: m, target: t, dev: (m !== null && t) ? (m - t) / t * 100 : null };
+    });
+    // Sin ningún declarado la sección repetiría la fila de CO₂ de los gases: no se pinta.
+    var co2Any = co2.some(function(c) { return c.target !== null; });
+
+    // Dinamómetro (SI, como lo guarda Operación).
+    var DYNO = [['etw', 'ETW', 'kg'], ['targetA', 'Target A', 'N'], ['dynoA', 'Dyno A', 'N'],
+                ['targetB', 'Target B', 'N/(km/h)'], ['dynoB', 'Dyno B', 'N/(km/h)'],
+                ['targetC', 'Target C', 'N/(km/h)²'], ['dynoC', 'Dyno C', 'N/(km/h)²']];
+    var dyno = DYNO.map(function(d) {
+        var vals = vs.map(function(v) { return _cmpNum(v.testData && v.testData[d[0]]); });
+        var r = _cmpRange(vals);
+        var ref = r ? Math.max(Math.abs(r.max), Math.abs(r.min)) : 0;
+        return { key: d[0], label: d[1], unit: d[2], values: vals,
+                 differs: !!(r && ref > 0 && (r.max - r.min) / ref * 100 >= COMPARE_REL_PCT) };
+    }).filter(function(r) { return r.values.some(function(x) { return x !== null; }); });
+
+    return { cols: cols, gas: gas, co2: co2Any ? co2 : null, dyno: dyno, notes: notes };
+}
+
+/** Las dependencias reales (lo que la app usa para juzgar). */
+function compareDeps() {
+    return {
+        valuesOf: function(v) {
+            if (typeof _copFinalGasValues === 'function') { var f = _copFinalGasValues(v); if (f) return f; }
+            return typeof _copRawGasValues === 'function' ? _copRawGasValues(v) : null;
+        },
+        approvedOf: function(v) { return typeof copResultApproved === 'function' ? copResultApproved(v) : v.status === 'archived'; },
+        profileOf: function(v) { return typeof _libGasProfileForVehicle === 'function' ? _libGasProfileForVehicle(v) : null; },
+        regOf: function(v) { return typeof _libJudgedRegulation === 'function' ? _libJudgedRegulation(v) : ((v.config || {})['EMISSION REGULATION'] || ''); },
+        countsOf: function(v) { return typeof copTestCounts === 'function' ? copTestCounts(v) : false; },
+        whyNotOf: function(v) { return typeof copTestWhyNot === 'function' ? copTestWhyNot(v) : ''; },
+        co2Of: function(v) {
+            var vals = this.valuesOf(v) || {};
+            var m = vals.CO2 != null ? vals.CO2 : vals.co2;
+            var h = typeof homoVehicleData === 'function' ? homoVehicleData(v) : null;
+            return { measured: m, target: h ? h.co2Target : null };
+        },
+        testDateOf: function(v) { return typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : ''; },
+        familyOf: function(v) { return typeof copVehicleFamilyKey === 'function' ? copVehicleFamilyKey(v) : ''; },
+        signerOf: function(v, who) {
+            var s = v.testData && v.testData.signatures && v.testData.signatures[who];
+            return s ? (s.signerName || s.sessionUserName || '') : '';
+        }
+    };
+}
+
+/**
+ * Con qué comparar un vehículo: otras pruebas de su VIN (re-tests) y de su familia, con
+ * resultados capturados, la más reciente primero. PURA sobre la lista que recibe.
+ */
+function compareCandidatesFor(v, vehicles, deps) {
+    if (!v) return { sameVin: [], sameFamily: [] };
+    var fam = deps.familyOf(v), vin = String(v.vin || '').trim().toUpperCase();
+    var others = (vehicles || []).filter(function(x) {
+        if (!x || x === v || String(x.id) === String(v.id)) return false;
+        var vals = deps.valuesOf(x);
+        return !!(vals && Object.keys(vals).length);
+    });
+    var byDate = function(a, b) { return String(deps.testDateOf(b) || '').localeCompare(String(deps.testDateOf(a) || '')); };
+    var sameVin = others.filter(function(x) { return vin && String(x.vin || '').trim().toUpperCase() === vin; }).sort(byDate);
+    var sameFamily = others.filter(function(x) { return fam && deps.familyOf(x) === fam && sameVin.indexOf(x) === -1; }).sort(byDate);
+    return { sameVin: sameVin, sameFamily: sameFamily };
+}
+
+// ── Pantalla ─────────────────────────────────────────────────────────────
+
+var _cmpLast = null;   // ids de lo último abierto (para exportar)
+
+function compareOpen(ids) {
+    var list = ((typeof db !== 'undefined' && db.vehicles) || []);
+    var vs = (ids || []).map(function(id) { return list.filter(function(x) { return String(x.id) === String(id); })[0]; }).filter(Boolean);
+    if (vs.length < COMPARE_MIN) { showToast('Elige al menos ' + COMPARE_MIN + ' pruebas para comparar.', 'warning'); return; }
+    if (vs.length > COMPARE_MAX) { showToast('Se comparan hasta ' + COMPARE_MAX + ' pruebas a la vez; tomé las primeras ' + COMPARE_MAX + '.', 'info'); vs = vs.slice(0, COMPARE_MAX); }
+    _cmpLast = vs.map(function(v) { return v.id; });
+    var m = compareModel(vs, compareDeps());
+    if (typeof fichaClose === 'function') { try { fichaClose(); } catch (e) {} }
+    showModal({
+        title: 'Comparar ' + vs.length + ' pruebas', icon: '⚖️', body: compareHTML(m), wide: true,
+        buttons: [
+            { label: '⬇ Excel', onclick: function() { compareExportXlsx(); } },
+            { label: '🖨️ PDF', onclick: function() { compareExportPdf(); } },
+            { label: 'Cerrar', cls: 'btn-primary' }
+        ]
+    });
+    if (typeof auditLog === 'function') auditLog('cop15', 'pruebas_comparadas', { type: 'vehiculos', id: _cmpLast.join(','), label: vs.map(function(v) { return v.vin; }).join(', ') }, vs.length + ' pruebas');
+}
+
+/** HTML de la comparación. PURA sobre el modelo. */
+function compareHTML(m) {
+    var esc = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s); };
+    var dt = function(d) { return d ? d.split('-').reverse().join('/') : 'sin fecha'; };
+    var h = '';
+    if (m.notes.length) h += m.notes.map(function(n) { return '<div class="cmp-note">' + esc(n) + '</div>'; }).join('');
+    h += '<div class="cmp-scroll"><table class="cmp-table"><thead><tr><th scope="col"></th>' + m.cols.map(function(c) {
+        return '<th scope="col"><div class="cmp-vin">…' + esc(c.vinShort) + '</div><div class="cmp-sub">' + esc(dt(c.date)) + ' · ' + esc(c.reg || '—') + '</div>' +
+            (!c.approved && c.hasValues ? '<span class="cmp-chip is-warn">sin aprobar</span>' : '') +
+            (c.approved && !c.counts ? '<span class="cmp-chip is-muted" title="' + esc(c.whyNot) + '">no cuenta para CoP</span>' : '') + '</th>';
+    }).join('') + '</tr></thead><tbody>';
+
+    h += '<tr class="cmp-sec"><th scope="rowgroup" colspan="' + (m.cols.length + 1) + '">Gases · % del límite con que se juzgó cada una</th></tr>';
+    m.gas.forEach(function(r) {
+        h += '<tr' + (r.differs ? ' class="is-differs"' : '') + '><th scope="row">' + esc(r.label) + (r.unit ? ' <small>' + esc(r.unit) + '</small>' : '') +
+            (r.differs ? ' <span class="cmp-flag" title="Difiere ' + Math.round(r.spreadPts || 0) + ' puntos del límite entre pruebas">≠</span>' : '') + '</th>';
+        r.cells.forEach(function(c) {
+            var cls = 'cmp-cell' + (c.verdict === 'falla' ? ' is-fail' : '') + (c.isMax ? ' is-max' : '') + (c.isMin ? ' is-min' : '');
+            var bar = c.pct !== null ? '<span class="cmp-bar"><span style="width:' + Math.min(100, Math.max(0, c.pct)).toFixed(0) + '%"></span></span>' : '';
+            h += '<td class="' + cls + '">' + (c.value === null ? '<span class="u-muted">—</span>'
+                : esc(_cmpFmt(c.value)) + (c.pct !== null ? ' <small>' + Math.round(c.pct) + '%</small>' : '') + bar) + '</td>';
+        });
+        h += '</tr>';
+    });
+
+    if (m.co2) {
+        h += '<tr class="cmp-sec"><th scope="rowgroup" colspan="' + (m.cols.length + 1) + '">CO₂ contra el declarado</th></tr>';
+        h += '<tr><th scope="row">Medido / declarado</th>' + m.co2.map(function(c) {
+            return '<td>' + (c.measured === null ? '—' : esc(_cmpFmt(c.measured, 1))) + ' / ' + (c.target === null ? '—' : esc(_cmpFmt(c.target, 1))) + '</td>';
+        }).join('') + '</tr>';
+        h += '<tr><th scope="row">Desviación</th>' + m.co2.map(function(c) {
+            return '<td' + (c.dev !== null && Math.abs(c.dev) >= COMPARE_REL_PCT ? ' class="is-differs-cell"' : '') + '>' + (c.dev === null ? '—' : (c.dev > 0 ? '+' : '') + c.dev.toFixed(1) + ' %') + '</td>';
+        }).join('') + '</tr>';
+    }
+
+    if (m.dyno.length) {
+        h += '<tr class="cmp-sec"><th scope="rowgroup" colspan="' + (m.cols.length + 1) + '">Dinamómetro</th></tr>';
+        m.dyno.forEach(function(r) {
+            h += '<tr' + (r.differs ? ' class="is-differs"' : '') + '><th scope="row">' + esc(r.label) + ' <small>' + esc(r.unit) + '</small>' +
+                (r.differs ? ' <span class="cmp-flag" title="Difiere entre pruebas">≠</span>' : '') + '</th>' +
+                r.values.map(function(x) { return '<td>' + (x === null ? '<span class="u-muted">—</span>' : esc(_cmpFmt(x))) + '</td>'; }).join('') + '</tr>';
+        });
+    }
+
+    h += '<tr class="cmp-sec"><th scope="rowgroup" colspan="' + (m.cols.length + 1) + '">Registro</th></tr>';
+    h += '<tr><th scope="row">Liberó</th>' + m.cols.map(function(c) { return '<td>' + esc(c.releaser || '—') + '</td>'; }).join('') + '</tr>';
+    h += '<tr><th scope="row">Aprobó</th>' + m.cols.map(function(c) { return '<td>' + esc(c.approver || '—') + '</td>'; }).join('') + '</tr>';
+    h += '<tr><th scope="row">Prueba VETS</th>' + m.cols.map(function(c) { return '<td>' + esc(c.testRef || '—') + '</td>'; }).join('') + '</tr>';
+    h += '<tr><th scope="row">Ficha</th>' + m.cols.map(function(c) {
+        return '<td>' + (typeof fichaLinkHTML === 'function' ? fichaLinkHTML('vehiculo', c.id, 'Abrir') : '') + '</td>';
+    }).join('') + '</tr>';
+    h += '</tbody></table></div>';
+    h += '<p class="cmp-foot">≠ = la fila difiere entre pruebas (' + COMPARE_PCT_POINTS + ' puntos del límite en gases con límite; ' + COMPARE_REL_PCT + ' % en CO₂, gases sin límite y dinamómetro). ' +
+         'Los valores son los aprobados; el % es contra el límite del perfil con que se juzgó cada prueba.</p>';
+    return h;
+}
+
+// ── Exportar ─────────────────────────────────────────────────────────────
+
+function _cmpCurrent() {
+    var list = ((typeof db !== 'undefined' && db.vehicles) || []);
+    var vs = (_cmpLast || []).map(function(id) { return list.filter(function(x) { return String(x.id) === String(id); })[0]; }).filter(Boolean);
+    return vs.length >= COMPARE_MIN ? compareModel(vs, compareDeps()) : null;
+}
+
+/** Filas planas (encabezado + celdas) de la comparación: las usan Excel y PDF. PURA. */
+function compareRows(m) {
+    var out = [];
+    out.push(['', ].concat(m.cols.map(function(c) { return c.vin + (c.approved ? '' : ' (sin aprobar)'); })));
+    out.push(['Fecha de prueba'].concat(m.cols.map(function(c) { return c.date || ''; })));
+    out.push(['Norma con que se juzgó'].concat(m.cols.map(function(c) { return c.reg || ''; })));
+    out.push(['Cuenta para CoP'].concat(m.cols.map(function(c) { return c.counts ? 'Sí' : ('No' + (c.whyNot ? ' — ' + c.whyNot : '')); })));
+    m.gas.forEach(function(r) {
+        out.push([r.label + (r.unit ? ' (' + r.unit + ')' : '')].concat(r.cells.map(function(c) { return c.value; })));
+        if (r.cells.some(function(c) { return c.pct !== null; }))
+            out.push(['  % del límite'].concat(r.cells.map(function(c) { return c.pct === null ? null : Math.round(c.pct * 10) / 10; })));
+    });
+    if (m.co2) {
+        out.push(['CO₂ medido'].concat(m.co2.map(function(c) { return c.measured; })));
+        out.push(['CO₂ declarado'].concat(m.co2.map(function(c) { return c.target; })));
+        out.push(['CO₂ desviación %'].concat(m.co2.map(function(c) { return c.dev === null ? null : Math.round(c.dev * 10) / 10; })));
+    }
+    m.dyno.forEach(function(r) { out.push([r.label + ' (' + r.unit + ')'].concat(r.values)); });
+    out.push(['Liberó'].concat(m.cols.map(function(c) { return c.releaser || ''; })));
+    out.push(['Aprobó'].concat(m.cols.map(function(c) { return c.approver || ''; })));
+    out.push(['Prueba VETS'].concat(m.cols.map(function(c) { return c.testRef || ''; })));
+    return out;
+}
+
+function compareExportXlsx() {
+    var m = _cmpCurrent();
+    if (!m) return;
+    if (typeof xwBuildCompressed !== 'function') { showToast('No se pudo cargar el escritor de Excel. Recarga la página.', 'error'); return; }
+    var rows = compareRows(m);
+    var H = { font: { b: true, color: 'FFFFFF' }, fill: '1E293B', border: 'thin', align: { v: 'center', wrap: true } };
+    var cells = [];
+    rows.forEach(function(r, i) {
+        r.forEach(function(v, j) {
+            if (v === null || v === undefined || v === '') return;
+            cells.push({ r: i + 1, c: j + 1, v: v, s: i === 0 ? H : (j === 0 ? { font: { b: true } } : undefined) });
+        });
+    });
+    var spec = { sheets: [{ name: 'Comparar', freeze: { row: 2, col: 2 },
+        cols: rows[0].map(function(_, i) { return { min: i + 1, max: i + 1, width: i === 0 ? 30 : 22 }; }),
+        cells: cells, print: { landscape: true, fitWidth: 1 } }] };
+    var name = 'Comparar_pruebas_' + (typeof localToday === 'function' ? localToday() : '') + '.xlsx';
+    xwBuildCompressed(spec).then(function(bytes) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+        showToast('Descargado: ' + name, 'success');
+    }).catch(function(e) { showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error'); });
+}
+
+function compareExportPdf() {
+    var m = _cmpCurrent();
+    if (!m) return;
+    if (!window.jspdf || !window.jspdf.jsPDF) { showToast('No se pudo cargar el generador de PDF. Recarga la página.', 'error'); return; }
+    var safe = (typeof _pdfSafe === 'function') ? _pdfSafe : function(s) { return String(s); };
+    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth(), Hh = doc.internal.pageSize.getHeight(), ML = 10;
+    var rows = compareRows(m);
+    var c0 = 52, cw = Math.min(40, (W - 2 * ML - c0) / (rows[0].length - 1));
+    var y = 14;
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text(safe('Comparación de pruebas · KIA EmLab'), ML, y);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text(safe('Valores aprobados; % contra el límite con que se juzgó cada prueba. ' + new Date().toLocaleString('es-MX')), ML, y + 5);
+    y += 11;
+    var fmt = function(v, head) { return v === null || v === undefined || v === '' ? (head ? '' : '-') : (typeof v === 'number' ? _cmpFmt(v) : String(v)); };
+    var tableW = c0 + cw * (rows[0].length - 1);
+    var drawRow = function(r, head, shade) {
+        if (head) { doc.setFillColor(30, 41, 59); doc.rect(ML, y - 4, tableW, 6, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); }
+        else { doc.setTextColor(30); doc.setFont('helvetica', 'normal'); if (shade) { doc.setFillColor(241, 245, 249); doc.rect(ML, y - 4, tableW, 5.5, 'F'); } }
+        r.forEach(function(v, j) {
+            var x = j === 0 ? ML + 1 : ML + c0 + cw * (j - 1) + 1;
+            var maxW = (j === 0 ? c0 : cw) - 2;
+            var t = safe(fmt(v, head));
+            if (doc.getTextWidth(t) > maxW) {
+                while (t.length > 1 && doc.getTextWidth(t + '...') > maxW) t = t.slice(0, -1);
+                t += '...';
+            }
+            doc.text(t, x, y);
+        });
+        doc.setTextColor(30);
+        y += head ? 7 : 5.5;
+    };
+    rows.forEach(function(r, i) {
+        if (i === 0) { drawRow(r, true); return; }
+        // Página nueva: se repite el encabezado (VIN y fecha de cada columna).
+        if (y > Hh - 12) { doc.addPage(); y = 14; drawRow(rows[0], true); }
+        drawRow(r, false, i % 2);
+    });
+    if (m.notes.length) { y += 3; doc.setFontSize(7.5); m.notes.forEach(function(n) { if (y > Hh - 8) { doc.addPage(); y = 14; } doc.text(safe('* ' + n), ML, y); y += 4; }); }
+    var name = 'Comparar_pruebas_' + (typeof localToday === 'function' ? localToday() : '') + '.pdf';
+    doc.save(name);
+}
+
+// ── Entradas ─────────────────────────────────────────────────────────────
+
+/** Historial: compara lo seleccionado. */
+function histCompareSelected() {
+    var ids = (typeof histSelectedIds === 'function') ? histSelectedIds() : [];
+    compareOpen(ids);
+}
+
+/** Líneas "Comparar con…" para la ficha de un vehículo (las pinta ficha.js con `js`). */
+function compareFichaGroup(v) {
+    var list = ((typeof db !== 'undefined' && db.vehicles) || []);
+    var deps = compareDeps();
+    var mine = deps.valuesOf(v);
+    if (!mine || !Object.keys(mine).length) return null;
+    var c = compareCandidatesFor(v, list, deps);
+    var lines = [];
+    c.sameVin.slice(0, 3).forEach(function(x) {
+        lines.push({ text: 'Re-test del mismo VIN · ' + (deps.testDateOf(x) || 'sin fecha'), js: 'compareOpen([' + JSON.stringify(v.id) + ',' + JSON.stringify(x.id) + '])' });
+    });
+    if (c.sameFamily.length) {
+        var pick = c.sameFamily.slice(0, COMPARE_MAX - 1);
+        lines.push({ text: 'Con las ' + pick.length + ' más recientes de su familia', js: 'compareOpen(' + JSON.stringify([v.id].concat(pick.map(function(x) { return x.id; }))) + ')' });
+    }
+    return lines.length ? { icon: '⚖️', title: 'Comparar con…', lines: lines } : null;
 }
 
 
@@ -88799,7 +89236,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9843,"mods":[[9846,"js/app.js",20094],[20098,"js/uiflow.js",20433],[20437,"js/cop15.js",31454],[31458,"js/inventory.js",39462],[39466,"js/cuarto.js",41596],[41600,"js/sitio.js",43780],[43784,"js/conslist.js",44392],[44396,"js/testplan.js",56273],[56277,"js/panel.js",61643],[61647,"js/projects.js",63936],[63940,"js/auth.js",65020],[65024,"js/signatures.js",65225],[65229,"js/firebase-sync.js",73832],[73836,"js/cop_validator.js",78374],[78378,"js/copreport.js",79380],[79384,"js/cophq.js",80194],[80198,"js/homolog.js",82095],[82099,"js/vets.js",83898],[83902,"js/historico.js",84816],[84820,"js/review.js",85273],[85277,"js/opcards.js",85726],[85730,"js/handoff.js",86009],[86013,"js/ficha.js",86514],[86518,"js/relevo.js",86898],[86902,"js/momentos.js",87039],[87043,"js/normas.js",87447],[87451,"js/digest.js",88371],[88375,"js/xlsxw.js",88755],[88759,"js/bugreport.js",89905]]};
+var BUG_LINE_MAP = {"tag":9869,"mods":[[9872,"js/app.js",20127],[20131,"js/uiflow.js",20466],[20470,"js/cop15.js",31497],[31501,"js/inventory.js",39505],[39509,"js/cuarto.js",41639],[41643,"js/sitio.js",43823],[43827,"js/conslist.js",44435],[44439,"js/testplan.js",56316],[56320,"js/panel.js",61686],[61690,"js/projects.js",63979],[63983,"js/auth.js",65063],[65067,"js/signatures.js",65268],[65272,"js/firebase-sync.js",73875],[73879,"js/cop_validator.js",78417],[78421,"js/copreport.js",79423],[79427,"js/cophq.js",80237],[80241,"js/homolog.js",82138],[82142,"js/vets.js",83941],[83945,"js/historico.js",84859],[84863,"js/review.js",85316],[85320,"js/opcards.js",85769],[85773,"js/handoff.js",86052],[86056,"js/ficha.js",86561],[86565,"js/relevo.js",86945],[86949,"js/momentos.js",87086],[87090,"js/normas.js",87494],[87498,"js/compare.js",87884],[87888,"js/digest.js",88808],[88812,"js/xlsxw.js",89192],[89196,"js/bugreport.js",90342]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
