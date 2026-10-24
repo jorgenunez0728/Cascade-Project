@@ -105,6 +105,8 @@ function _fichaVehiculo(id) {
     });
     // [2.30.0] Prueba histórica (VETS): resultados, quién importó y quién confirmó.
     if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && typeof historicoFichaPatch === 'function') historicoFichaPatch(m, v);
+    // [3.22.0] Comparar con su re-test o con su familia (compare.js).
+    if (typeof compareFichaGroup === 'function') { var _cg = compareFichaGroup(v); if (_cg) (m.groups = m.groups || []).push(_cg); }
     return m;
 }
 
@@ -325,8 +327,10 @@ function fichaHTML(m, opts) {
         (g.lines || []).forEach(function(l) {
             var inner = '<span class="ficha-line-text">' + _fichaEsc(l.text) + '</span>' +
                 (l.who || l.when || l.whenText ? '<small>' + _fichaEsc([l.who, l.whenText || (l.when ? _fichaDate(l.when) : '')].filter(Boolean).join(' · ')) + '</small>' : '');
+            // [3.22.0] Una línea puede abrir otra cosa que no es una ficha (l.js, p. ej. Comparar).
             h += '<li class="ficha-line' + (l.tone ? ' is-' + _fichaEsc(l.tone) : '') + '">' + (l.link
                 ? '<button type="button" class="ficha-line-btn" onclick="fichaPush(\'' + _fichaArg(l.link.kind) + '\',\'' + _fichaArg(l.link.ref) + '\')">' + inner + '<span class="ficha-rel-go" aria-hidden="true">›</span></button>'
+                : l.js ? '<button type="button" class="ficha-line-btn" onclick="' + _fichaEsc(l.js) + '">' + inner + '<span class="ficha-rel-go" aria-hidden="true">›</span></button>'
                 : '<div class="ficha-line-in">' + inner + '</div>') + '</li>';
         });
         if (g.more) h += '<li class="ficha-line ficha-line-more">y ' + g.more + ' más</li>';

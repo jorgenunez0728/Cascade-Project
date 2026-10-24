@@ -20,6 +20,45 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.22.0 — Comparar pruebas (2026-10-24)
+
+### Nuevo
+- **Historial → ⚖️ Comparar.** Selecciona de 2 a 6 pruebas y se abre una tabla con una columna
+  por prueba (VIN corto, fecha de prueba, norma, quién liberó y quién aprobó) y estos renglones:
+  - cada **gas** con su valor y su **% del límite**, contra el límite con que se juzgó esa prueba;
+  - el **CO₂** contra su declarado (desviación en %);
+  - los **coeficientes del dinamómetro** (Target y Dyno A/B/C, ETW). Lo que nadie capturó no
+    sale.
+- **Lo que se aparta se marca solo**:
+  - un gas cuyo % del límite difiere **20 puntos o más** entre las pruebas;
+  - un coeficiente o un CO₂ que difiere **más de 2 %**.
+
+  En cada renglón se marcan además el máximo y el mínimo, y en rojo lo que pasa el límite.
+- **Ficha del vehículo → "Comparar con…"**: su re-test del mismo VIN, o las pruebas más recientes
+  de su familia, de un toque.
+- **⬇ Excel y 🖨️ PDF** de la comparación, para una junta o un reporte de investigación.
+
+### Cuidados
+- El mismo gas en **g/mi y en g/km sale en dos renglones**: nunca se mezclan unidades en una fila.
+- Si las pruebas son de **familias o normas distintas**, la comparación lo dice arriba.
+- Una prueba **sin aprobar** se puede comparar, pero sale marcada; una aprobada que **no cuenta
+  para el CoP** dice por qué.
+- Comparar no cambia nada: solo lee. Queda en el historial de cambios (`pruebas_comparadas`).
+
+### Para desarrollo
+- `js/compare.js` (nuevo, después de `normas.js`). **`compareModel(vehicles, deps)` es PURA** y es
+  LA definición de la comparación; las dependencias reales están en `compareDeps()`:
+  - valores aprobados por `_copFinalGasValues` (respaldo: los del liberador, marcados
+    `approved:false`);
+  - perfil con `_libGasProfileForVehicle` (el congelado), nunca `getRegulationProfile()`;
+  - "cuenta para CoP" con `copTestCounts` / `copTestUsable`.
+- Umbrales en constantes: `COMPARE_PCT_POINTS` (20), `COMPARE_REL_PCT` (2), `COMPARE_MAX` (6),
+  `COMPARE_MIN` (2).
+- `compareRows(m)` (PURA) son las filas planas que comparten Excel (`xwBuildCompressed`) y PDF.
+- `showModal({wide:true})` → `.custom-modal-box--wide`.
+- La ficha pinta líneas de grupo con `js` (botón) además de `ficha`.
+- Pruebas: `tests/compare.node.js` (22) y `tests/v3220.e2e.js`.
+
 ## 3.21.0 — El mapa de cada norma (2026-10-22)
 
 ### Nuevo

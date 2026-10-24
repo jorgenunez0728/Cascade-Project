@@ -76,6 +76,7 @@ js/
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
   momentos.js           ← Momentos de cierre: semana cumplida, calibraciones al día, familia concordante (~140 lines)
+  compare.js            ← ⚖️ Comparar pruebas: lado a lado, % del límite congelado, dinamómetro, Excel/PDF (~390 lines)
   normas.js             ← 📚 Mapa regulatorio: cada norma desde las constantes que la app aplica, "¿Por qué?", exportar .md (~330 lines)
   digest.js             ← Avisos del laboratorio: resumen diario, escalación, plan aceptado (correo/ntfy/Web Push) (~770 lines)
   xlsxw.js              ← Escritor de .xlsx propio (sin CDN): estilos, fórmulas, listas, colores (~380 lines)
@@ -197,7 +198,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`compare.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -3950,3 +3951,24 @@ dicen de la base de COP15. Plan, inventario, panel, CoP y lo demás siguen en lo
   NO se suben a la nube mientras `firestore.rules` siga sin publicarse (2.3.0).
 - Orden de carga: `… relevo.js → momentos.js → normas.js → digest.js …` (después de testplan,
   cop15, cop_validator, copreport, vets y ficha, de las que lee).
+
+## 3.22.0 — Comparar pruebas (`js/compare.js`)
+
+- **`compareModel(vehicles, deps)` (PURA) es LA definición de la comparación de pruebas.** Todo
+  lo externo llega en `deps` (`compareDeps()` arma las reales). Lee, nunca escribe: comparar no
+  cambia ningún vehículo.
+- **Los valores son los aprobados** (`_copFinalGasValues`); sin aprobar se usan los del liberador
+  y la columna lleva `approved:false`, que la vista y el Excel declaran "(sin aprobar)". Nunca
+  mezclar los dos sin marca.
+- **El % del límite es contra el perfil CONGELADO de cada prueba** (`_libGasProfileForVehicle`,
+  regla de 2.2.0), no contra el vigente. Una fila = campo + unidad: el mismo gas en g/mi y en g/km
+  son dos filas (`row.key` = campo|unidad). No convertir para juntarlas: lo que se compara es el juicio.
+- "Se aparta" = `COMPARE_PCT_POINTS` puntos del límite (gases) o `COMPARE_REL_PCT` % relativo
+  (gases sin límite como CO₂, desviación contra el declarado, dinamómetro). Un umbral nuevo va como constante, nunca dentro de un `if`.
+- `compareRows(m)` (PURA) es la tabla plana que usan Excel y PDF: un cambio de la vista que deba
+  salir en los archivos va ahí.
+- Entradas: `histCompareSelected()` (Historial, selección `_histSel`) y `compareFichaGroup(v)`
+  (ficha del vehículo; `compareCandidatesFor` da re-test del mismo VIN y la misma familia por
+  `copVehicleFamilyKey`, más reciente primero). Un grupo de la ficha puede llevar líneas con `js`.
+- `showModal({wide:true})` para una tabla ancha (`.custom-modal-box--wide`).
+- Orden de carga: `… momentos.js → normas.js → compare.js → digest.js …`.

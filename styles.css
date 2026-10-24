@@ -7135,3 +7135,29 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
     .nm-flow { grid-template-columns: 1fr; }
     .nm-head { flex-direction: column; align-items: stretch; }
 }
+
+/* ══ [3.22.0] Comparar pruebas ══ */
+.custom-modal-box--wide { width: min(1100px, 96vw); max-width: 96vw; max-height: 90vh; }
+.cmp-note { margin-bottom: var(--space-sm); padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-sm); }
+.cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.cmp-table th, .cmp-table td { padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.cmp-table thead th { position: sticky; top: 0; background: var(--surface); min-width: 120px; }
+.cmp-table tbody th { font-weight: 600; white-space: nowrap; position: sticky; left: 0; background: var(--surface); }
+.cmp-table th small, .cmp-table td small { color: var(--muted); font-weight: 400; }
+.cmp-vin { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+.cmp-sub { font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
+.cmp-chip { display: inline-block; margin-top: var(--space-2xs); padding: 0 var(--space-xs); border-radius: var(--radius-full); font-size: var(--fs-2xs); font-weight: 600; }
+.cmp-chip.is-warn { background: var(--warn-bg); color: var(--warn-text); }
+.cmp-chip.is-muted { background: var(--surface-alt); color: var(--muted); }
+.cmp-sec th { background: var(--surface-alt) !important; font-size: var(--fs-xs); color: var(--muted); text-transform: none; }
+.cmp-table tr.is-differs > th { color: var(--accent-cop); }
+.cmp-flag { display: inline-block; margin-left: var(--space-2xs); font-weight: 700; color: var(--accent-cop); }
+.cmp-cell.is-fail { color: var(--danger-text); font-weight: 700; }
+.cmp-cell.is-max { background: var(--warn-tint); }
+.cmp-cell.is-min { background: var(--ok-tint, var(--ok-bg)); }
+.is-differs-cell { color: var(--accent-cop); font-weight: 700; }
+.cmp-bar { display: block; height: 4px; margin-top: var(--space-2xs); border-radius: var(--radius-full); background: var(--surface-alt); overflow: hidden; }
+.cmp-bar > span { display: block; height: 100%; background: var(--accent-cop); }
+.cmp-cell.is-fail .cmp-bar > span { background: var(--danger-fill); }
+.cmp-foot { margin: var(--space-sm) 0 0; font-size: var(--fs-xs); color: var(--muted); }

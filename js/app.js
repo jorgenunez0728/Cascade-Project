@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.21.0';
+var APP_VERSION = '3.22.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.21.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.22.0', date: '24 oct 2026', title: 'Comparar pruebas',
+      bullets: ['Historial → selecciona de 2 a 6 pruebas → ⚖️ Comparar: una tabla con una columna por prueba y, renglón por renglón, cada gas con su % del límite, el CO₂ contra su declarado y los coeficientes del dinamómetro (Target y Dyno A/B/C, ETW).',
+                'Lo que se aparta se marca solo: un gas cuyo % del límite difiere 20 puntos o más entre pruebas, o un coeficiente que difiere más de 2 %. En cada renglón se marcan el máximo y el mínimo.',
+                'Cada prueba se lee con el límite con que se juzgó (el que congeló el liberador), así que comparar una de NOM-042 con una de EURO-5 no inventa números: el mismo gas en g/mi y en g/km sale en dos renglones, y arriba se avisa si son familias o normas distintas.',
+                'Una prueba sin aprobar se puede comparar, pero sale marcada "sin aprobar"; una aprobada que no cuenta para el CoP dice por qué (por ejemplo, IWR fuera de rango).',
+                'Desde la ficha de un vehículo: "Comparar con…" su re-test del mismo VIN o las pruebas más recientes de su familia, de un toque.',
+                'La comparación se descarga en Excel o en PDF para llevarla a una junta o a un reporte de investigación.'] },
     { version: '3.21.0', date: '22 oct 2026', title: 'El mapa de cada norma',
       bullets: ['Nueva pantalla Datos → 📚 Normas: para cada norma del laboratorio (NOM-042 C-VP, EURO-5, PRE-EURO 7, SULEV 30…) un mapa del alta al CoP con la regla de cada paso y dónde la verifica la plataforma, sus límites, la regla de región (México se juzga con NOM-042 aunque el alta diga EURO-5), cómo se juzga en el CoP (método de UN R154 §2.1.1, DF asignados, CO₂) y las familias que viven bajo ella.',
                 'Todo sale de lo que la plataforma aplica para juzgar: si cambia una regla, cambia el mapa. No hay nada escrito a mano que se pueda quedar viejo.',
@@ -3931,7 +3938,7 @@ function showModal(opts) {
     overlay.id = 'globalModal';
 
     var box = document.createElement('div');
-    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '');
+    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '') + (opts.wide ? ' custom-modal-box--wide' : '');   // [3.22.0] tablas anchas
     var actionsHtml = '';
     if (customBtns) {
         customBtns.forEach(function(b, i) {
@@ -3942,7 +3949,7 @@ function showModal(opts) {
         actionsHtml = (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '')
                     + '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>';
     }
-    box.innerHTML = '<div class="custom-modal-title">' + (icons[type]||'') + ' ' + title + '</div>' +
+    box.innerHTML = '<div class="custom-modal-title">' + (opts.icon !== undefined ? opts.icon : (icons[type]||'')) + ' ' + title + '</div>' +
         '<div class="custom-modal-message">' + content + '</div>' +
         '<div class="custom-modal-actions">' + actionsHtml + '</div>';
     overlay.appendChild(box);
