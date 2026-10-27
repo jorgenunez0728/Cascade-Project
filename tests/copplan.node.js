@@ -60,6 +60,37 @@ setup([veh(1, '26 MODEL', '2026-06-10')], [{ configText: 'EU27', date: '2026-10-
 a = A();
 ok('una declarada de OBD II no baja el pendiente de emisiones', a.EU27.deficit === 2, a.EU27.deficit);
 
+console.log('\n== [3.22.0] Solo cuenta lo registrado como conformidad de la producción ==');
+setup([veh(1, '26 MODEL', '2026-06-10'), veh(2, '26 MODEL', '2026-07-01', 'archived', { purpose: 'EO-Emisiones' }),
+       veh(3, '27 MODEL', '2026-10-19', 'in-progress', { purpose: 'ND-Emisiones' })],
+      [{ configText: 'EU27', date: '2026-10-15', verified: false, source: 'plan-manual', purpose: 'Investigacion' }]);
+a = A();
+ok('una EO archivada, una ND en curso y una investigación declarada no bajan el pendiente (falta 2)', a.EU27.deficit === 2 && a.EU27.copYear.done === 1 &&
+   a.EU27.copYear.inFlight === 0 && a.EU27.copYear.declared === 0, JSON.stringify(a.EU27.copYear));
+const MO = P.copYearReportModel({ force: true });
+ok('el estatus la declara aparte: 1 ensayo EO del alcance', MO.otherPurpose.length === 1 && MO.otherPurpose[0].purpose === 'EO-Emisiones' && MO.otherPurpose[0].n === 1,
+   JSON.stringify(MO.otherPurpose));
+const AU = P.copRepYearAudit(2026, MO);
+ok('la lista de revisión trae los tres, con el motivo', AU.length === 3 && AU.filter(x => x.counts).length === 1 &&
+   AU.some(x => x.purpose === 'EO-Emisiones' && /EO · Emisiones|EO-Emisiones/.test(x.why)) && AU.some(x => x.why === 'en curso' || /Nuevo desarrollo|ND-Emisiones/.test(x.why)),
+   JSON.stringify(AU.map(x => [x.purpose, x.counts, x.why])));
+
+console.log('\n== [3.22.0] count_hist como producción del año ==');
+setup([veh(1, '26 MODEL', '2026-06-10')], [], { planImportDate: '2026-10-09T15:00:00Z', planFirstMonth: 'Oct-26',
+    planData: [cfg('EU26', '26 MODEL', 'EUROPE', 'PRE-EURO 7', [999, 200, 0], { hist: 7400 }), cfg('EU27', '27 MODEL', 'EUROPE', 'PRE-EURO 7', [0, 300, 200])] });
+a = A();
+ok('7,400 acumuladas + 700 por producir (sin el junio viejo) → 6 ensayos', a.EU27.copYear.req === 6, JSON.stringify(a.EU27.copYear));
+const MH = P.copYearReportModel({ force: true });
+ok('el estatus usa el acumulado: ene–sep no faltan (solo dic, que el plan no trae)', MH.rows[0].vol === 8100 && MH.missingMonths.join() === '12' && MH.histAsOf === '2026-10-09',
+   MH.rows[0].vol + ' ' + MH.missingMonths);
+
+console.log('\n== [3.22.0] Con qué propósito nace una prueba ==');
+setup([]);
+ok('Europa PRE-EURO 7 nace CoP; Europa EURO-5 (fuera del alcance) nace EO', P.tpPurposeForCfg(planData()[1]) === 'COP-Emisiones' && P.tpPurposeForCfg(planData()[3]) === 'EO-Emisiones');
+P.__copSet({ yearExclude: { [P.copYearKeyOf(P.tpFamilyKeyForCfg(planData()[1]), 2026)]: { excluded: true, reason: 'híbrido nuevo, piloto', at: '1' } } });
+ok('una familia sacada del reporte (unidades piloto) nace EO', P.tpPurposeForCfg(planData()[1]) === 'EO-Emisiones');
+P.__copSet({ yearExclude: {} });
+
 console.log('\n== El horizonte no pide de más ==');
 setup([veh(1, '26 MODEL', '2026-06-10')]);
 const H = P.tpPlanHorizon({ weeks: 3, capacity: 8, startDate: '2026-10-26', selectOpts: { ignoreFilters: true } });

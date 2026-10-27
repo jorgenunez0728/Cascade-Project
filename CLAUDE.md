@@ -3950,3 +3950,41 @@ dicen de la base de COP15. Plan, inventario, panel, CoP y lo demás siguen en lo
   NO se suben a la nube mientras `firestore.rules` siga sin publicarse (2.3.0).
 - Orden de carga: `… relevo.js → momentos.js → normas.js → digest.js …` (después de testplan,
   cop15, cop_validator, copreport, vets y ficha, de las que lee).
+
+## 3.22.0 — El CoP cuenta lo que corporativo cuenta (`js/cop_validator.js`, `js/copreport.js`)
+
+Reemplaza lo que 3.13.0 dice del alcance (General EURO-6C, Medio Oriente EURO-5 completo) y lo
+que 3.12.0 dice de `count_hist` ("NO es producción del año").
+
+- **Al CoP solo entra el propósito CoP · Emisiones** (`COP_PURPOSES`, `copPurposeCounts`, PURA).
+  Lo decidió el laboratorio el 27-oct-2026. `copTestCounts` la exige; todo cálculo de conformidad
+  pasa por ahí. En el REQ de corporativo del Plan, lo que está en curso y lo declarado también
+  pasan por `copPurposeCounts`. Sin propósito NO cuenta ("solo lo marcado"). El SPC no se filtra,
+  porque es control de proceso. **No confundir con `tpTestedCountsForReq`**: esa es la regla del
+  Plan, editable, y sí acredita correlación e investigación.
+- **`COP_HQ_RULES` admite `mod`**: una fila que vale para un solo modelo, como Medio Oriente
+  EURO-5, que es solo BL7m. `_copRgnReg` lee `Modelo`/`mod`. Hoy PRE-EURO 7 y EURO 7 solo
+  existen en EUROPE; si aparecen en otra región, se agrega una fila. No poner región comodín:
+  metería México y EE. UU. en los selectores de región del CoP.
+- **`count_hist` del CSV es lo producido de enero a la fecha del CSV, en el año en curso.** Lo
+  confirmó el laboratorio. La producción del año es Σ `count_hist` + plan desde
+  `tpState.planFirstMonth` (`copYearHistBoundary`). Las reglas:
+  - los meses anteriores a ese límite son `'hist'`: no se capturan ni se suman (lo que un CSV
+    viejo dejó ahí era pronóstico);
+  - la fecha del acumulado es `cfg.histAsOf`, que sella `tpImportPlanCSV`;
+  - una configuración retirada conserva la fecha de la importación donde salió, y sin fecha no se
+    cuenta;
+  - el acumulado de otro año no se usa.
+- **`tpPurposeForCfg(cfg)` es LA forma de proponer el propósito** de una fila o un alta: el de la
+  región, salvo que diga CoP y la configuración no sea CoP (fuera del alcance, o con la familia
+  del año excluida). En ese caso propone EO. Nunca volver a `tpPurposeForRegion` directo.
+- **El propósito se corrige con `vehicleCorrectAlta`** (`change.purpose`), solo dentro del mismo
+  formato (`altaPurposeGroup`). Corregirlo actualiza `testedList[].purpose`,
+  `item.actualPurpose` y la mesa del CoP. Los juicios guardados no cambian.
+- `copRepYearAudit(year, model)` es la lista de revisión: todas las pruebas de familias del
+  alcance y por qué no cuenta cada una. Se ve en la app (🔎 Ensayos del año), nunca en el reporte
+  compartido.
+- Los híbridos nuevos (CL4MH) vienen en el CSV **sin Modelo**. Se sacan del reporte con
+  ⚙️ Familias y su motivo, no con una regla escrita en el código: cuando entren a producción en
+  serie, sí van a pedir CoP.
+

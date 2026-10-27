@@ -122,7 +122,8 @@ function normaFacts(name, src) {
         var text = r.rule === 'lot'
             ? (src.lot.tests + ' ensayos hasta ' + _nmFmtInt(src.lot.first) + ' unidades del año; ' + src.lot.tests + ' más por cada ' + _nmFmtInt(src.lot.next) + ' o fracción después')
             : '1 ensayo por familia con producción en el año';
-        return { region: r.region, label: r.label, rule: r.rule, text: text };
+        if (r.mod) text += ' (solo ' + r.mod + ')';   // [3.22.0] fila acotada a un modelo
+        return { region: r.region, label: r.label, rule: r.rule, mod: r.mod || '', text: text };
     });
     var df = src.df && src.df.PI ? src.df.PI : {};
     var gasMethod = cop.length ? {

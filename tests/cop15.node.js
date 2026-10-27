@@ -399,6 +399,16 @@ console.log('\n== vehicleAltaCorrectionPlan ==');
     ok('con regulación elegida a mano al liberar, la config no la mueve', r.ok && !r.regChanged);
     r = P(base('in-progress', { homolog: { mcCode: 'MC1', f0: 100 } }), { configCode: 'C-WGN', config: wgn }, { vehicles: [] });
     ok('Europa con ficha de homologación: pide revisarla', r.warnings.some(w => /homologación/.test(w)));
+
+    // [3.22.0] El propósito se corrige aquí, sin cambiar de formato.
+    r = P(base('archived', { purpose: 'COP-Emisiones' }), { purpose: 'EO-Emisiones' }, { vehicles: [] });
+    ok('archivado: CoP → EO se permite con firma y queda en los cambios', r.ok && r.purposeChanged && r.requiresSignature &&
+        r.changes.some(c => c.campo === 'Propósito' && c.key === 'purpose'));
+    r = P(base('in-progress', { purpose: 'COP-Emisiones' }), { purpose: 'COP-OBD2' }, { vehicles: [] });
+    ok('emisiones → OBD cambia el formato: no es corrección de alta', !r.ok && /formato/.test(r.errors[0]));
+    r = P(base('in-progress', { purpose: 'COP-Emisiones' }), { purpose: 'COP-Emisiones' }, { vehicles: [] });
+    ok('el mismo propósito no es un cambio', !r.ok && /No hay cambios/.test(r.errors[0]));
+    ok('formatos: emisiones / simple / training', ctx.altaPurposeGroup('ND-Emisiones') === 'emisiones' && ctx.altaPurposeGroup('Investigacion') === 'simple');
 }
 
 // ── [3.9.1] Revisión del F05 según el día de la hoja ──────────────────────

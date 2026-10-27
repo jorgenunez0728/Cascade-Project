@@ -789,11 +789,14 @@ var COP_SCOPE_DEFAULT = {
 //   'lot' → copLotRequired (3 hasta 7,500 u; +3 por cada 5,000 o fracción después)
 //   'one' → 1 ensayo por familia con producción en el año
 // Decisión del laboratorio (20-oct-2026). Una pareja nueva = una fila aquí.
+// [3.22.0] Alcance corregido por el laboratorio (27-oct-2026): PRE-EURO 7 y EURO 7 (lotes)
+// y, en Medio Oriente, SOLO el BL7m EURO-5 (1 por familia). General EURO-6C y las CL4 de
+// Medio Oriente salen. `mod` (opcional) acota la fila a un modelo.
 // ═══════════════════════════════════════════════════════════════════════════════
 var COP_HQ_RULES = [
     { region: 'EUROPE',      reg: 'PRE-EURO 7', rule: 'lot', label: 'Europa · PRE-EURO 7' },
-    { region: 'GENERAL',     reg: 'EURO-6C',    rule: 'lot', label: 'General · EURO-6C' },
-    { region: 'MIDDLE EAST', reg: 'EURO-5',     rule: 'one', label: 'Medio Oriente · EURO-5' }
+    { region: 'EUROPE',      reg: 'EURO 7',     rule: 'lot', label: 'Europa · EURO 7' },
+    { region: 'MIDDLE EAST', reg: 'EURO-5', mod: 'BL7m', rule: 'one', label: 'Medio Oriente · BL7m EURO-5' }
 ];
 
 /** Normaliza para comparar normas/regiones: sin acentos, sin separadores, mayúsculas. */
@@ -811,7 +814,8 @@ function _copNormRegion(s) {
 function _copRgnReg(x) {
     var cfg = (x && x.config) || x || {};
     return { rgn: cfg['REGION'] || cfg.rgn || (x && x.rgn) || '',
-             reg: cfg['EMISSION REGULATION'] || cfg.reg || (x && x.reg) || '' };
+             reg: cfg['EMISSION REGULATION'] || cfg.reg || (x && x.reg) || '',
+             mod: cfg['Modelo'] || cfg.mod || (x && x.mod) || '' };
 }
 
 /**
@@ -824,8 +828,11 @@ function copHqRuleFor(x, rules) {
     var rk = _copNormRegion(rr.rgn), gk = _copNormKey(rr.reg);
     if (!rk || !gk) return null;
     var list = rules || COP_HQ_RULES;
+    var mk = _copNormKey(rr.mod);
     for (var i = 0; i < list.length; i++) {
-        if (_copNormRegion(list[i].region) === rk && _copNormKey(list[i].reg) === gk) return list[i];
+        if (_copNormRegion(list[i].region) !== rk || _copNormKey(list[i].reg) !== gk) continue;
+        if (list[i].mod && _copNormKey(list[i].mod) !== mk) continue;   // [3.22.0] fila de un solo modelo
+        return list[i];
     }
     return null;
 }
@@ -887,7 +894,12 @@ function copInScope(x) {
     if (!copScopeHasRegion(rgn)) return { ok: false, reason: 'región ' + (rgn || '(sin región)') + ' fuera del alcance CoP', kind: 'region', region: rgn, reg: reg };
     if (!_copCustomScope()) {
         var rule = copHqRuleFor(x);
-        if (!rule) return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' en ' + rgn + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+        if (!rule) {
+            // [3.22.0] La norma sí está en una fila pero acotada a otro modelo: se dice así.
+            var porModelo = COP_HQ_RULES.filter(function(r) { return r.mod && _copNormRegion(r.region) === _copNormRegion(rgn) && _copNormKey(r.reg) === _copNormKey(reg); });
+            if (porModelo.length) return { ok: false, reason: 'en ' + rgn + ' ' + reg + ' solo cuenta ' + porModelo.map(function(r) { return r.mod; }).join(', ') + ' para CoP', kind: 'model', region: rgn, reg: reg };
+            return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' en ' + rgn + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+        }
         return { ok: true, reason: '', region: rgn, reg: reg, rule: rule };
     }
     if (!copScopeHasReg(reg))    return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
@@ -1172,6 +1184,7 @@ function copOutOfScopeSummary() {
         if (s.ok) return;
         total++;
         var label = s.kind === 'region' ? ('Región ' + (s.region || '(sin región)'))
+                  : s.kind === 'model' ? ('Otro modelo en ' + (s.region || '') + ' ' + (s.reg || ''))
                                         : ('Norma ' + (s.reg || '(sin norma)'));
         if (!byReason[label]) byReason[label] = { label: label, kind: s.kind, n: 0 };
         byReason[label].n++;
@@ -1269,6 +1282,8 @@ function copOnVehicleAltaCorrected(vehicle, before) {
     var newKey = copVehicleFamilyKey(vehicle);
     var oldKey = before.famKey || '';
     var ahora = new Date().toISOString();
+    // [3.22.0] Dejó de ser conformidad de la producción: sus filas automáticas salen de la mesa.
+    var yaNoCuenta = before.purpose !== undefined && copPurposeCounts(before.purpose) && !copPurposeCounts(vehicle.purpose);
     Object.keys(copState.families).forEach(function(k) {
         var f = copState.families[k];
         if (!f || !Array.isArray(f.vehicles)) return;
@@ -1276,7 +1291,7 @@ function copOnVehicleAltaCorrected(vehicle, before) {
         for (var i = f.vehicles.length - 1; i >= 0; i--) {
             var r = f.vehicles[i];
             if (!r || !r.vin || (r.vin !== before.vin && r.vin !== vehicle.vin)) continue;
-            if (oldKey && oldKey !== newKey && k === oldKey) {
+            if ((oldKey && oldKey !== newKey && k === oldKey) || (yaNoCuenta && r.vin === vehicle.vin)) {
                 if (r.source === 'auto') { f.vehicles.splice(i, 1); out.removed++; tocada = true; continue; }
                 out.manualLeft++;
             }
@@ -1371,6 +1386,8 @@ function copSyncVinsFromTests(key) {
         if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && !(v.historic && v.historic.state === 'confirmado')) return;
         // [2.31.0] Aceptada pero no usable para CoP (p. ej. IWR fuera de rango): no entra.
         if (!copTestUsable(v).usable) return;
+        // [3.22.0] Ni una prueba que no se registró como conformidad de la producción.
+        if (!copPurposeCounts(v.purpose)) return;
         var vk = String(v.vin).trim().toUpperCase();
         var row = byVin[vk];
         if (!row) {
@@ -1420,13 +1437,30 @@ function copTestUsable(vehicle) {
 
 function _copVinKey(v) { return String(v || '').trim().toUpperCase(); }
 
-/** ¿Este ensayo cuenta para CoP? Aprobado Y usable. */
+// [3.22.0] Al CoP solo entra lo que se registró como CONFORMIDAD DE LA PRODUCCIÓN
+// (decisión del laboratorio, 27-oct-2026). EO, nuevo desarrollo, correlación,
+// investigación u OBD no cuentan aunque sean de una familia del alcance. Sin propósito
+// tampoco: "solo lo marcado". Esto es para la conformidad (mesa, veredicto, estatus del
+// año, REQ de corporativo en el Plan); el SPC sigue leyendo todo lo aprobado
+// (_copFinalGasValues), porque es control de proceso.
+var COP_PURPOSES = ['COP-Emisiones'];
+
+/** ¿Este propósito es conformidad de la producción? PURA. */
+function copPurposeCounts(purpose) {
+    return COP_PURPOSES.indexOf(String(purpose || '')) !== -1;
+}
+
+/** ¿Este ensayo cuenta para CoP? Propósito CoP, aprobado Y usable. */
 function copTestCounts(v) {
-    return copResultApproved(v) && copTestUsable(v).usable && !!_copRawGasValues(v);
+    return !!v && copPurposeCounts(v.purpose) && copResultApproved(v) && copTestUsable(v).usable && !!_copRawGasValues(v);
 }
 
 /** Por qué un ensayo del laboratorio no cuenta (o '' si cuenta). */
 function copTestWhyNot(v) {
+    if (v && !copPurposeCounts(v.purpose)) {
+        var pl = (typeof uiLabel === 'function' && v.purpose) ? uiLabel('purpose', v.purpose) : (v.purpose || 'sin propósito');
+        return 'se registró como ' + pl + ', no como conformidad de la producción';
+    }
     var u = copTestUsable(v);
     if (!u.usable) return u.text;
     if (!copResultApproved(v)) return 'su prueba aún no está aprobada';
@@ -1451,7 +1485,7 @@ function _copRowFromUnusable(row, key, vehicles) {
     var mine = _copVinTests(row.vin, key, vehicles);
     if (!mine.length) return false;              // no es de este laboratorio/familia: no se toca
     var conValor = Object.keys(row.values || {}).some(function(k) { return _copNum(row.values[k]) !== null; });
-    if (!conValor) return mine.every(function(v) { return !copTestUsable(v).usable; });
+    if (!conValor) return mine.every(function(v) { return !copTestUsable(v).usable || !copPurposeCounts(v.purpose); });
     return mine.filter(function(v) { return !copTestCounts(v) && _copRawGasValues(v); }).some(function(v) {
         var raw = _copRawGasValues(v), igual = true, alguno = false;
         Object.keys(row.values || {}).forEach(function(pid) {

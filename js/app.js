@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.21.0';
+var APP_VERSION = '3.22.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.21.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.22.0', date: '27 oct 2026', title: 'El CoP cuenta lo que corporativo cuenta',
+      bullets: ['Al CoP solo entran las pruebas registradas como conformidad de la producción (CoP · Emisiones). EO, nuevo desarrollo, correlación e investigación ya no cuentan aunque sean de una familia del alcance: no bajan lo que falta, no entran a la mesa del Validador ni al estatus semanal.',
+                'Alcance nuevo: PRE-EURO 7 y EURO 7 (por lotes) y, en Medio Oriente, solo el BL7m EURO-5 (1 por familia). General EURO-6C y las CL4 de Medio Oriente salen.',
+                'La producción del año sale del plan importado: count_hist es lo producido de enero a la fecha del CSV, y se le suma lo planeado de los meses que siguen. El reporte dice de qué fecha es el acumulado; ya no pide capturar enero a septiembre a mano.',
+                'Estatus de la semana → 🔎 Ensayos del año: todas las pruebas de familias del alcance, cuáles cuentan y por qué no las demás, con ✏️ para corregir.',
+                '✏️ Corregir alta también corrige el propósito (con firma si ya está archivada). Una prueba de CoP registrada como EO, o al revés, se arregla sin borrarla.',
+                'Una prueba de una configuración fuera del CoP (Europa EURO-5) o de una familia sacada del reporte (unidades piloto, híbridos nuevos) ya no nace como CoP al iniciarla desde el plan: nace como EO.'] },
     { version: '3.21.0', date: '22 oct 2026', title: 'El mapa de cada norma',
       bullets: ['Nueva pantalla Datos → 📚 Normas: para cada norma del laboratorio (NOM-042 C-VP, EURO-5, PRE-EURO 7, SULEV 30…) un mapa del alta al CoP con la regla de cada paso y dónde la verifica la plataforma, sus límites, la regla de región (México se juzga con NOM-042 aunque el alta diga EURO-5), cómo se juzga en el CoP (método de UN R154 §2.1.1, DF asignados, CO₂) y las familias que viven bajo ella.',
                 'Todo sale de lo que la plataforma aplica para juzgar: si cambia una regla, cambia el mapa. No hay nada escrito a mano que se pueda quedar viejo.',
@@ -1546,8 +1553,11 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.10.0';
+var CASCADE_VERSION = '4.11.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.11.0', date: '27 oct 2026', app: '3.22.0', title: 'Corregir el propósito',
+      bullets: ['✏️ Corregir alta también cambia el propósito, dentro del mismo formato de prueba (con firma si ya está archivada).',
+                'Al iniciar desde el plan, una configuración que no es CoP nace como EO.'] },
     { version: '4.10.0', date: '22 oct 2026', app: '3.18.0', title: 'Aprobar exige conexión',
       bullets: ['Enviar a aprobación, Aprobar, Devolver y Corregir alta revisan primero si otro equipo ya movió el vehículo; si sí, se detienen antes de pedir la firma.',
                 'Aprobar exige conexión: sin red no se aprueba. Los demás pasos siguen sin red.'] },

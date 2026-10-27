@@ -51,7 +51,7 @@ const SEED = () => {
                 if (iwr !== undefined) { r.drive.iwr = iwr; const c = r.checks.find(x => x.name === 'IWR'); c.ave = iwr; c.status = 'FAIL'; c.where = ['ciclo']; }
                 return vetsSummary(r, { fileName: 'x.xlsx' }, vetsClassifyChecks(r.checks, []), {});
             };
-            const mk = (id, vin, co, s, status, co2) => ({ id: id, vin: vin, status: status || 'archived', purpose: 'Emisiones', configCode: code,
+            const mk = (id, vin, co, s, status, co2) => ({ id: id, vin: vin, status: status || 'archived', purpose: 'COP-Emisiones', configCode: code,
                 config: Object.assign({}, cfg), registeredAt: '2026-09-0' + (id % 9 + 1) + 'T09:00:00', archivedAt: '2026-09-1' + (id % 9) + 'T09:00:00',
                 timeline: [], homolog: { co2Target: 129 }, testData: { vets: s, testDatetime: '2026-09-0' + (id % 9 + 1) + 'T10:00', gasResults: {
                     liberador: { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02, PM: 0.0002, CO2: co2 }, capturedAt: '2026-09-0' + (id % 9 + 1) + 'T11:00:00', releasedBy: 'Ana Manager' },
@@ -169,7 +169,7 @@ const SEED = () => {
 
         // ── Plan: no baja el déficit ──────────────────────────────────────
         s = await page.evaluate(() => {
-            tpState.testedList.push({ configText: 'X', date: '2026-09-04', vin: 'VINIWRMALA0000004', vehicleId: 9104, source: 'cop15-release', purpose: 'Emisiones' });
+            tpState.testedList.push({ configText: 'X', date: '2026-09-04', vin: 'VINIWRMALA0000004', vehicleId: 9104, source: 'cop15-release', purpose: 'COP-Emisiones' });
             const r = { malo: tpTestedCountsForReq(tpState.testedList[tpState.testedList.length - 1]) };
             tpState.testedList.pop();
             return r;

@@ -128,27 +128,61 @@ function _copRepMonth(label) {
 }
 
 /**
+ * [3.22.0] Hasta qué mes cubre el `count_hist` del CSV en `year`. PURA.
+ * El laboratorio confirmó (27-oct-2026) que `count_hist` es lo producido de enero a la
+ * fecha del CSV, en el año en curso. Los meses del año ANTERIORES al primer mes que trae
+ * el CSV quedan dentro de ese acumulado (lo que el plan tenga ahí, de un CSV viejo, era
+ * pronóstico y se ignora); del primer mes del CSV en adelante se suma el plan — la misma
+ * convención que el REQ del Plan (`hist + total`).
+ * hist = {asOf:'AAAA-MM-DD' (importación), firstMonth:'Oct-26'|null}.
+ * Devuelve el mes (1..13) desde el que cuenta el plan, o 0 si el acumulado no es de `year`.
+ */
+function copYearHistBoundary(hist, year) {
+    if (!hist || !hist.asOf) return 0;
+    var y = Number(String(hist.asOf).slice(0, 4));
+    if (y !== Number(year)) return 0;
+    var p = hist.firstMonth ? _copRepMonth(hist.firstMonth) : null;
+    if (!p) return Number(String(hist.asOf).slice(5, 7)) || 0;
+    if (p.y > y) return 13;
+    if (p.y < y) return 1;
+    return p.m;
+}
+
+/**
  * LA producción de un año calendario por familia. PURA.
  * src = {year, months:[etiquetas], planData:[cfg con m[] alineado a months],
  *        inScope(cfg)→bool, keyOf(cfg)→clave de familia, actuals:{clave_año:{m:[12]}},
- *        ruleOf(cfg)→fila de COP_HQ_RULES o null (opcional)}
+ *        ruleOf(cfg)→fila de COP_HQ_RULES o null (opcional),
+ *        hist:{asOf, firstMonth} (opcional, [3.22.0] el acumulado del CSV)}
  *
+ * - [3.22.0] Con `hist` del mismo año: producción = Σ `count_hist` de sus configuraciones
+ *   (`f.hist`, con fecha `cfg.histAsOf`) + los meses desde el primero del CSV. Los meses
+ *   anteriores van como 'hist' (cubiertos por el acumulado), nunca como "sin dato".
+ *   Una configuración retirada conserva el acumulado de la importación donde salió
+ *   (`histAsOf`): lo producido en el año sigue contando. Sin `histAsOf` y retirada, no.
  * - Un mes "tiene dato" si viene en el plan y el plan ENTERO trae unidades ese mes: un
  *   mes en cero para todas las configuraciones es un mes que el CSV no trajo, no un mes
  *   sin producción. Se DECLARA (`missing`), nunca se lee como cero.
- * - Lo capturado como real (`actuals`) manda sobre el plan, mes por mes.
- * Devuelve {fams:{clave_año:{…, m:[12], src:[12]}}, monthHas:[12], missing:[1..12]}.
+ * - Lo capturado como real (`actuals`) manda sobre el plan, mes por mes (solo en los
+ *   meses que no cubre el acumulado: si no, se contaría dos veces).
+ * Devuelve {fams:{clave_año:{…, hist, m:[12], src:[12]}}, monthHas:[12], missing:[1..12], histBoundary, histAsOf}.
  */
 function copYearProduction(src) {
     var year = Number(src.year);
     var months = src.months || [];
     var plan = src.planData || [];
+    var hb = copYearHistBoundary(src.hist, year);       // 0 = sin acumulado de este año
     var idx = months.map(function(l) { var p = _copRepMonth(l); return (p && p.y === year) ? p.m - 1 : -1; });
     var tot = [0,0,0,0,0,0,0,0,0,0,0,0];
     plan.forEach(function(c) {
         (c && c.m || []).forEach(function(v, i) { if (idx[i] >= 0) tot[idx[i]] += Number(v) || 0; });
     });
-    var monthHas = tot.map(function(t) { return t > 0; });
+    var monthHas = tot.map(function(t, i) { return (hb && i < hb - 1) ? true : t > 0; });
+    var histAsOfOf = function(c) {
+        var a = c.histAsOf || (c._retired ? '' : (src.hist && src.hist.asOf) || '');
+        return Number(String(a).slice(0, 4)) === year ? a : '';
+    };
+    var latestAsOf = '';
     var fams = {};
     plan.forEach(function(c) {
         if (!c || (src.inScope && !src.inScope(c))) return;
@@ -158,8 +192,15 @@ function copYearProduction(src) {
         if (!f) f = fams[yk] = { key: yk, mod: c.mod || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
             ep: (c.ep && c.ep !== '0') ? c.ep : '', engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
             body: (c.body && c.body !== '0') ? c.body : '', regions: {}, mys: {}, configs: 0,
-            plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '' };
+            plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '', hist: 0, histAsOf: '' };
         f.configs++;
+        var hAsOf = hb ? histAsOfOf(c) : '';
+        if (hAsOf && Number(c.hist) > 0) {
+            f.hist += Number(c.hist) || 0;
+            if (hAsOf > f.histAsOf) f.histAsOf = hAsOf;
+            if (hAsOf > latestAsOf) latestAsOf = hAsOf;
+            if (c.my) f.mys[c.my] = true;
+        }
         if (c.rgn) f.regions[c.rgn] = true;
         // [3.13.0] La regla de corporativo de la familia. Si dos configuraciones traen reglas
         // distintas, manda 'lot' (pide más) y se marca: no se elige la barata en silencio.
@@ -169,7 +210,10 @@ function copYearProduction(src) {
             if (!f.rule || hr.rule === 'lot') { f.rule = hr.rule; f.ruleLabel = hr.label || ''; }
         }
         var añoCfg = 0;
-        (c.m || []).forEach(function(v, i) { if (idx[i] >= 0) { f.plan[idx[i]] += Number(v) || 0; añoCfg += Number(v) || 0; } });
+        (c.m || []).forEach(function(v, i) {
+            if (idx[i] < 0 || (hb && idx[i] < hb - 1)) return;      // dentro del acumulado
+            f.plan[idx[i]] += Number(v) || 0; añoCfg += Number(v) || 0;
+        });
         if (c.my && añoCfg > 0) f.mys[c.my] = true;
     });
     var actuals = src.actuals || {};
@@ -178,15 +222,16 @@ function copYearProduction(src) {
         f.m = []; f.src = [];
         for (var i = 0; i < 12; i++) {
             var r = a[i];
-            if (r !== null && r !== undefined && r !== '' && isFinite(Number(r))) { f.m.push(Number(r)); f.src.push('real'); }
+            if (hb && i < hb - 1) { f.m.push(0); f.src.push('hist'); }
+            else if (r !== null && r !== undefined && r !== '' && isFinite(Number(r))) { f.m.push(Number(r)); f.src.push('real'); }
             else if (monthHas[i]) { f.m.push(f.plan[i]); f.src.push('plan'); }
             else { f.m.push(0); f.src.push('sin-dato'); }
         }
-        f.vol = f.m.reduce(function(s, v) { return s + v; }, 0);
+        f.vol = f.hist + f.m.reduce(function(s, v) { return s + v; }, 0);
     });
     var missing = [];
     monthHas.forEach(function(h, i) { if (!h) missing.push(i + 1); });
-    return { year: year, fams: fams, monthHas: monthHas, missing: missing };
+    return { year: year, fams: fams, monthHas: monthHas, missing: missing, histBoundary: hb, histAsOf: latestAsOf };
 }
 
 // ─── Fechas (cadenas AAAA-MM-DD, nunca new Date('AAAA-MM-DD')) ─────────────────
@@ -274,7 +319,7 @@ function copYearReportCompute(src) {
         e.tests.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
         var prevTests = e.tests.filter(function(t) { return t.date <= prevCut; });
         var closed = cutYear > year ? 12 : (cutYear < year ? 0 : cutMonth - 1);
-        var volToDate = f.m.slice(0, closed).reduce(function(s, v) { return s + v; }, 0);
+        var volToDate = (Number(f.hist) || 0) + f.m.slice(0, closed).reduce(function(s, v) { return s + v; }, 0);
         var rule = f.rule || 'lot';
         var req = copYearRequired(rule, f.vol);
         var done = e.tests.length;
@@ -293,7 +338,7 @@ function copYearReportCompute(src) {
         rows.push({
             key: k, label: copRepFamilyLabel(f), fam: f, region: region, regions: regions, group: g,
             mys: Object.keys(f.mys).sort(), configs: f.configs, noPlan: !!f.noPlan,
-            vol: f.vol, volToDate: volToDate, months: f.m, monthSrc: f.src,
+            vol: f.vol, volToDate: volToDate, hist: Number(f.hist) || 0, histAsOf: f.histAsOf || '', months: f.m, monthSrc: f.src,
             rule: rule, ruleLabel: f.ruleLabel || '', ruleMixed: !!f.ruleMixed,
             req: req, reqToDate: copYearRequired(rule, volToDate), nextLotAt: rule === 'lot' ? copLotNextAt(f.vol) : null,
             done: done, prevDone: prevDone, added: done - prevDone, pending: Math.max(0, req - done),
@@ -342,6 +387,8 @@ function copYearReportCompute(src) {
         }),
         total: sum(rows),
         missingMonths: prod.missing || [],
+        histBoundary: prod.histBoundary || 0, histAsOf: prod.histAsOf || '',
+        otherPurpose: src.otherPurpose || [],
         realMonths: (function() {
             var m = {};
             rows.forEach(function(r) { (r.monthSrc || []).forEach(function(s, i) { if (s === 'real') m[i + 1] = true; }); });
@@ -569,7 +616,8 @@ function copYearReportHTML(m, opts) {
     });
     foot.push('<b>Regla de muestreo</b> (año calendario). ' + (ruleLines.length ? ruleLines.join(' ') : copYearRuleText('lot') + '.') +
               ' Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
-    foot.push('<b>Cuentan</b> los ensayos aprobados y válidos para CoP con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
+    foot.push(copRepProductionText(m));
+    foot.push('<b>Cuentan</b> los ensayos registrados como conformidad de la producción, aprobados y válidos para CoP, con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
     var nc = Object.keys(m.nonCopPurposes);
     if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
     // Lo que quedó fuera (excluidas, sin producción, fuera del alcance) NO se menciona en el
@@ -580,6 +628,17 @@ function copYearReportHTML(m, opts) {
     h += '<div style="height:10px;background:#0b1f3a;border-radius:0 0 14px 14px;margin-top:12px;"></div>';
     h += '</div>';
     return h;
+}
+
+/** [3.22.0] De dónde sale la columna de producción, dicho en una línea. PURA. */
+function copRepProductionText(m) {
+    var hb = Number(m.histBoundary) || 0;
+    if (!hb) return '<b>Producción ' + m.year + '</b>: suma de los meses del plan de producción' +
+                    (m.realMonths && m.realMonths.length ? ' (con producción real capturada en ' + _crMonthsList(m.realMonths) + ')' : '') + '.';
+    var t = '<b>Producción ' + m.year + '</b>: lo producido de enero al ' + _crEsc(_crDay(m.histAsOf)) +
+            ' (acumulado del plan de producción)';
+    if (hb <= 12) t += ' + lo planeado de ' + _COP_REP_MONTHS[hb - 1] + ' a dic';
+    return t + '.';
 }
 
 /** Documento completo (para imprimir, descargar o abrir aparte). PURA. */
@@ -647,14 +706,66 @@ function copRepYearTests(year) {
     return out;
 }
 
+/** [3.22.0] Ensayos del año en el alcance que NO se registraron como CoP: {propósito: n}. */
+function _copRepOtherPurpose(year, cut) {
+    var o = {};
+    ((typeof db !== 'undefined' && db.vehicles) || []).forEach(function(v) {
+        if (!v || copPurposeCounts(v.purpose) || !copInScope(v).ok || !copResultApproved(v)) return;
+        if (typeof isEmissionsPurpose === 'function' && v.purpose && !isEmissionsPurpose(v.purpose) && !/correl|investig/i.test(v.purpose)) return;
+        var d = vehicleTestDate(v);
+        if (!d || Number(d.slice(0, 4)) !== year || d > cut) return;
+        var p = v.purpose || '(sin propósito)';
+        o[p] = (o[p] || 0) + 1;
+    });
+    return Object.keys(o).map(function(k) { return { purpose: k, n: o[k] }; });
+}
+
 function _copRepProduction(year, inScope) {
     return copYearProduction({
         year: year, months: (typeof tpMonths === 'function') ? tpMonths() : [],
         planData: (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : [],
         inScope: inScope, keyOf: tpFamilyKeyForCfg,
         ruleOf: (typeof copHqRuleFor === 'function') ? function(c) { return copHqRuleFor(c); } : null,
-        actuals: (copState.yearProd && copState.yearProd[year]) || {}
+        actuals: (copState.yearProd && copState.yearProd[year]) || {},
+        hist: _copRepHistSource()
     });
+}
+
+/** [3.22.0] De cuándo es el `count_hist` del plan importado (y desde qué mes trae plan). */
+function _copRepHistSource() {
+    if (typeof tpState === 'undefined' || !tpState || !tpState.planImportDate) return null;
+    var iso = String(tpState.planImportDate);
+    var day = iso.slice(0, 10);
+    try { if (iso.length > 10 && typeof localDateStr === 'function') day = localDateStr(new Date(iso)); } catch (e) {}
+    return { asOf: day, firstMonth: tpState.planFirstMonth || null };
+}
+
+/**
+ * [3.22.0] Los ensayos del año en familias del alcance, cuenten o no, con el motivo.
+ * Es la lista para revisar qué se está contando (y corregir el propósito de lo que se
+ * registró mal). No es PURA: lee db.vehicles.
+ */
+function copRepYearAudit(year, model) {
+    var out = [];
+    var excl = (model && model.excluded || []).reduce(function(o, x) { o[x.key] = x; return o; }, {});
+    var rows = (model && model.rows || []).reduce(function(o, r) { o[r.key] = r; return o; }, {});
+    ((typeof db !== 'undefined' && db.vehicles) || []).forEach(function(v) {
+        if (!v || !copInScope(v).ok) return;
+        if (typeof isEmissionsPurpose === 'function' && v.purpose && !isEmissionsPurpose(v.purpose) &&
+            !/correl|investig/i.test(v.purpose)) return;            // OBD / Training: otro formato
+        var d = vehicleTestDate(v) || String(v.registeredAt || '').slice(0, 10);
+        if (!d || Number(d.slice(0, 4)) !== year) return;
+        var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
+        var counts = copTestCounts(v);
+        var why = counts ? '' : (copPurposeCounts(v.purpose) && !copResultApproved(v) && vehicleIsLive(v) ? 'en curso' : copTestWhyNot(v));
+        if (counts && excl[yk]) why = 'familia fuera del reporte' + (excl[yk].reason ? ' (' + excl[yk].reason + ')' : '');
+        out.push({ id: v.id, vin: v.vin || '', date: d, purpose: v.purpose || '', status: v.status || '',
+                   yk: yk, family: rows[yk] ? rows[yk].label : (excl[yk] ? excl[yk].label : yk),
+                   my: (v.config && v.config['MODEL YEAR (VIN)']) || '', counts: counts && !excl[yk], why: why,
+                   inReport: !!rows[yk] });
+    });
+    out.sort(function(a, b) { return (a.family < b.family ? -1 : a.family > b.family ? 1 : 0) || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0); });
+    return out;
 }
 
 var _copRepCache = { key: '', model: null };
@@ -670,6 +781,7 @@ function copYearReportModel(opts) {
     var year = Number(cut.slice(0, 4));
     var nVeh = ((typeof db !== 'undefined' && db.vehicles) || []).length;
     var key = [cut, nVeh, _copRev, (typeof tpState !== 'undefined' && tpState._lastSave) || '',
+               (typeof tpState !== 'undefined' && tpState.planImportDate) || '',
                (typeof tpMonths === 'function' ? tpMonths().length : 0)].join('|');
     if (!opts.force && _copRepCache.key === key && _copRepCache.model) return _copRepCache.model;
     var prod = _copRepProduction(year, function(c) { return copInScope(c).ok; });
@@ -681,6 +793,7 @@ function copYearReportModel(opts) {
     var cuts = copState.yearCuts || {};
     var model = copYearReportCompute({
         year: year, cutIso: cut, prod: prod, tests: copRepYearTests(year),
+        otherPurpose: _copRepOtherPurpose(year, cut),
         verdictOf: function(k, tests) { return _copRepVerdict(tests); },
         prevSaved: cuts[_copRepAddDays(copRepMonday(cut), -7)] || null,
         exclude: copState.yearExclude || {},
@@ -752,6 +865,7 @@ function copRepOpen(cutIso) {
             '<button type="button" class="btn btn-sm btn-ghost" onclick="copRepDownload()">⬇️ HTML</button>' +
             '<button type="button" class="btn btn-sm btn-ghost" id="cop-rep-prod-btn" onclick="copRepProdOpen()">✏️ Producción real</button>' +
             '<button type="button" class="btn btn-sm btn-ghost" id="cop-rep-fam-btn" onclick="copRepFamiliesOpen()">⚙️ Familias</button>' +
+            '<button type="button" class="btn btn-sm btn-ghost" onclick="copRepAuditOpen()">🔎 Ensayos del año</button>' +
             '<button type="button" class="btn btn-sm btn-ghost cop-rep-close" onclick="copRepClose()" aria-label="Cerrar">✕</button>' +
           '</div>' +
         '</div>' +
@@ -777,7 +891,50 @@ function _copRepLeftOutHTML(m) {
     if (m.excluded.length) parts.push('excluidas por el laboratorio: ' + m.excluded.map(function(x) { return _crEsc(x.label) + (x.reason ? ' (' + _crEsc(x.reason) + ')' : ''); }).join('; '));
     if (m.noProduction.length) parts.push('sin producción en ' + m.year + ' (con ensayos): ' + m.noProduction.map(function(x) { return _crEsc(x.label); }).join('; '));
     if (m.outOfScope.length) parts.push('fuera del alcance CoP: ' + m.outOfScope.map(function(x) { return _crEsc(x.label) + ' (' + _crNum(x.vol) + ')'; }).join('; '));
+    // [3.22.0] Ensayos aprobados de familias del alcance que no se registraron como CoP.
+    if (m.otherPurpose && m.otherPurpose.length) {
+        parts.push('ensayos que no cuentan por su propósito: ' + m.otherPurpose.map(function(x) {
+            return _crEsc(typeof uiLabel === 'function' ? uiLabel('purpose', x.purpose) : x.purpose) + ' (' + x.n + ')';
+        }).join(', ') + ' — revísalos en 🔎 Ensayos del año');
+    }
     return parts.length ? '<div class="cop-rep-left">No van en el reporte — ' + parts.join(' · ') + '.</div>' : '';
+}
+
+/**
+ * [3.22.0] Los ensayos del año en familias del alcance: cuáles cuentan y por qué no los
+ * demás. Desde aquí se corrige el propósito de un ensayo mal registrado (✏️ Corregir
+ * alta, con sus candados y su firma).
+ */
+function copRepAuditOpen() {
+    var cut = _copRepUi.cut || localToday();
+    var m = copYearReportModel({ cutIso: cut });
+    var list = copRepYearAudit(m.year, m);
+    var nOk = list.filter(function(x) { return x.counts; }).length;
+    var body = '<p style="font-size: var(--fs-sm);margin:0 0 var(--space-sm);">Ensayos con fecha en ' + m.year + ' de familias del alcance CoP. ' +
+               'Cuentan <b>' + nOk + '</b> de ' + list.length + ': solo los registrados como conformidad de la producción, aprobados y válidos. ' +
+               'Si uno se registró con el propósito equivocado, corrígelo con ✏️ (queda en su historial).</p>';
+    if (!list.length) body += '<p class="u-muted">No hay ensayos del alcance en ' + m.year + '.</p>';
+    else {
+        body += '<div class="cop-rep-prod-wrap"><table class="u-cards cop-rep-audit"><thead><tr><th>Familia</th><th>VIN</th><th>Fecha</th><th>Propósito</th><th>¿Cuenta?</th><th></th></tr></thead><tbody>';
+        list.forEach(function(x) {
+            var pl = x.purpose ? (typeof uiLabel === 'function' ? uiLabel('purpose', x.purpose) : x.purpose) : 'sin propósito';
+            body += '<tr><td>' + _crEsc(x.family) + (x.my ? ' <span class="u-muted">· ' + _crEsc(String(x.my).replace(/\s*MODEL/i, '')) + '</span>' : '') + '</td>' +
+                    '<td style="font-family:monospace;">' + _crEsc(x.vin) + '</td><td>' + _crEsc(_crDay(x.date)) + '</td>' +
+                    '<td>' + _crEsc(pl) + '</td>' +
+                    '<td>' + (x.counts ? '✅ Sí' : '— No · ' + _crEsc(x.why)) + '</td>' +
+                    '<td><button type="button" class="btn btn-sm btn-ghost" aria-label="Corregir el alta de ' + _crEsc(x.vin) + '" ' +
+                    'onclick="copRepAuditFix(' + _crEsc(JSON.stringify(x.id)) + ')">✏️ Corregir</button></td></tr>';
+        });
+        body += '</tbody></table></div>';
+    }
+    showModal({ title: '🔎 Ensayos CoP ' + m.year, body: body, buttons: [{ label: 'Cerrar' }] });
+}
+
+/** Cierra la lista y abre ✏️ Corregir alta del vehículo. */
+function copRepAuditFix(id) {
+    var g = document.getElementById('globalModal');
+    if (g) g.remove();
+    if (typeof vehicleCorrectAltaOpen === 'function') vehicleCorrectAltaOpen(id);
 }
 
 function copRepClose() {
@@ -850,7 +1007,9 @@ function copRepProdOpen() {
     var year = Number(cut.slice(0, 4));
     var m = copYearReportModel({ cutIso: cut, force: true });
     var actual = (copState.yearProd && copState.yearProd[year]) || {};
-    var body = '<p style="font-size: var(--fs-sm);margin:0 0 var(--space-sm);">Lo que captures aquí manda sobre el plan importado en ese mes. ' +
+    var body = (m.histBoundary ? '<p style="font-size: var(--fs-sm);margin:0 0 var(--space-sm);">' + copRepProductionText(m) +
+                ' Esos meses ya van en el acumulado (<i>acum.</i>): para actualizarlos, importa el CSV más reciente en Plan.</p>' : '') +
+               '<p style="font-size: var(--fs-sm);margin:0 0 var(--space-sm);">Lo que captures aquí manda sobre el plan importado en ese mes. ' +
                'Deja vacío lo que no sepas: se queda lo del plan' + (m.missingMonths.length ? ' (el plan no trae ' + _crMonthsList(m.missingMonths) + ')' : '') + '.</p>';
     body += '<div class="cop-rep-prod-wrap"><table class="cop-rep-prod"><thead><tr><th>Familia</th>';
     _COP_REP_MONTHS.forEach(function(mo) { body += '<th>' + mo + '</th>'; });
@@ -860,9 +1019,12 @@ function copRepProdOpen() {
         body += '<tr data-key="' + _crEsc(r.key) + '"><td class="cop-rep-prod-fam">' + _crEsc(r.label) + '</td>';
         for (var i = 0; i < 12; i++) {
             var v = (a[i] === null || a[i] === undefined) ? '' : a[i];
-            var plan = r.monthSrc[i] === 'sin-dato' ? '—' : String(r.fam.plan ? r.fam.plan[i] : r.months[i]);
+            // [3.22.0] Un mes dentro del acumulado del CSV no se captura: contaría dos veces.
+            var enHist = r.monthSrc[i] === 'hist';
+            var plan = enHist ? 'acum.' : r.monthSrc[i] === 'sin-dato' ? '—' : String(r.fam.plan ? r.fam.plan[i] : r.months[i]);
             body += '<td><input type="number" min="0" step="1" inputmode="numeric" aria-label="' + _crEsc(r.label + ' · ' + _COP_REP_MONTHS[i]) + '" ' +
-                    'data-mi="' + i + '" value="' + _crEsc(v) + '" placeholder="' + _crEsc(plan) + '"></td>';
+                    'data-mi="' + i + '" value="' + _crEsc(v) + '" placeholder="' + _crEsc(plan) + '"' +
+                    (enHist ? ' disabled title="Va dentro de lo producido al ' + _crEsc(_crDay(m.histAsOf)) + ' del plan importado"' : '') + '></td>';
         }
         body += '</tr>';
     });
