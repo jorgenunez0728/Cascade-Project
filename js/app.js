@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.22.0';
+var APP_VERSION = '3.23.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.22.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.23.0', date: '27 oct 2026', title: 'El estatus CoP, listo para la gerencia',
+      bullets: ['El estatus de la semana se rehízo: arriba la frase del avance y cuatro indicadores (avance, ensayos, ritmo y familias cumplidas); después, las familias que requieren atención, los ensayos por semana, los puntos clave, la nota del laboratorio y el estatus por familia.',
+                'Ritmo: cuántos ensayos CoP hubo cada semana (las últimas 8) contra cuántos hacen falta por semana para cerrar el 31 de diciembre, descontando las semanas sin celda de Plan → Disponibilidad, y en qué fecha se terminaría al ritmo actual.',
+                'Requiere atención: la familia más crítica primero. Pesa que queden pocas unidades por producir (hay que apartar una ya), lo que falta, el muestreo abierto y la cercanía al siguiente lote. La misma familia aparece en la tarjeta del Panorama.',
+                'English / Español: el reporte sale en inglés para corporativo o en español, con el mismo contenido. El correo del viernes sale en inglés salvo que se elija español en Datos → Sistema → Avisos.',
+                '📝 Nota de la semana: lo que no sale de los datos (la celda fuera, un retraso) se escribe una vez y va en la pantalla, el correo y el texto que se copia.',
+                'Las familias se nombran como las dice la gerencia (CL4 1.6 T-GDI LP 7DCT), y el correo se arma para que Outlook de escritorio lo pinte igual que el navegador.'] },
     { version: '3.22.0', date: '27 oct 2026', title: 'El CoP cuenta lo que corporativo cuenta',
       bullets: ['Al CoP solo entran las pruebas registradas como conformidad de la producción (CoP · Emisiones). EO, nuevo desarrollo, correlación e investigación ya no cuentan aunque sean de una familia del alcance: no bajan lo que falta, no entran a la mesa del Validador ni al estatus semanal.',
                 'Alcance nuevo: PRE-EURO 7 y EURO 7 (por lotes) y, en Medio Oriente, solo el BL7m EURO-5 (1 por familia). General EURO-6C y las CL4 de Medio Oriente salen.',
@@ -2750,7 +2757,8 @@ var UI_PREFS_DEFAULTS = {
     roomLabels: null,      // [3.10.0] etiquetas en el cuarto (null = sí en escritorio, no en teléfono)
     roomWhich: 'gases',    // [3.11.0] qué cuarto se ve: 'gases' | 'gasolina'
     roomCamFuel: null,     // [3.11.0] cámara del cuarto de gasolina (como roomCam)
-    copGroupBy: 'cal'      // [3.12.0] Validador CoP: 'cal' (año calendario, todos los MY) | 'my' (año modelo)
+    copGroupBy: 'cal',     // [3.12.0] Validador CoP: 'cal' (año calendario, todos los MY) | 'my' (año modelo)
+    copRepLang: 'en'       // [3.23.0] idioma del estatus CoP en pantalla: 'en' (va a corporativo) | 'es'
 };
 
 function _uiPrefsRead() {

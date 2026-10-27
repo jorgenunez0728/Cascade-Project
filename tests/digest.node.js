@@ -165,6 +165,13 @@ let out = run({ vehicles, tpState: plansTp, settings, state: { plansSeeded: '202
 ok('envía el resumen a las 7:30 con el jefe en copia', /\[DRY\] resumen: «EmLab · jue 8 oct · 4 activos · 2 escalados/.test(out) && /CC jefe@kia\.com/.test(out), out);
 ok('anuncia el plan aceptado', /\[DRY\] plan: «EmLab · Plan aceptado: semana 12–16 oct \(1 prueba\)»/.test(out), out);
 ok('deja la vista previa', fs.existsSync(path.join(dir, 'digest-preview.html')));
+// [3.23.0] El estatus CoP sale en el idioma del laboratorio (inglés por default).
+out = run({ vehicles, tpState: plansTp, settings: Object.assign({}, settings, { copTo: ['hq@kia.com'] }), state: { plansSeeded: 'x' }, cop: {} }, { FORCE_COP: '1' });
+ok('[3.23.0] estatus CoP del viernes en inglés por default', /\[DRY\] CoP: «CoP 20\d\d status · week \d+/.test(out) &&
+    /Conformity of Production/.test(fs.readFileSync(path.join(dir, 'cop-preview.html'), 'utf8')), out);
+out = run({ vehicles, tpState: plansTp, settings: Object.assign({}, settings, { copTo: ['hq@kia.com'], copLang: 'es' }), state: { plansSeeded: 'x' }, cop: {} }, { FORCE_COP: '1' });
+ok('[3.23.0] y en español si el laboratorio lo elige', /\[DRY\] CoP: «CoP 20\d\d · semana \d+/.test(out) &&
+    /Conformidad de la Producción/.test(fs.readFileSync(path.join(dir, 'cop-preview.html'), 'utf8')), out);
 out = run({ vehicles, tpState: plansTp, settings, state: {} });
 ok('primera corrida: registra los planes sin avisar', /primera corrida/.test(out) && !/\[DRY\] plan:/.test(out), out);
 out = run({ vehicles, tpState: plansTp, settings, state: { lastDigestDate: '2026-10-08', plansSeeded: 'x', notifiedPlans: { W2: '2026-10-08T15:00:00Z' } } });
@@ -281,6 +288,8 @@ console.log('\n== [3.12.0] Estatus CoP semanal ==');
 {
     const S = P.digestSettingsNormalize({ copTo: 'hq@kia.com, mal' });
     ok('la lista del estatus CoP es propia y se limpia', S.copTo.length === 1 && S.copTo[0] === 'hq@kia.com');
+    ok('[3.23.0] el estatus CoP sale en inglés salvo que el laboratorio elija español', S.copLang === 'en' &&
+        P.digestSettingsNormalize({ copLang: 'es' }).copLang === 'es' && P.digestSettingsNormalize({ copLang: 'fr' }).copLang === 'en');
     const L = iso => P.digestLocalParts(iso);
     const vie7 = L('2026-10-23T13:05:00Z'), vie6 = L('2026-10-23T12:30:00Z'), vie16 = L('2026-10-23T22:05:00Z'), lun = L('2026-10-26T13:05:00Z'), jue = L('2026-10-29T22:05:00Z');
     const due = (lp, st) => { const d = P.digestCopDue(lp, st, S); return d ? d.week + '/' + d.cut : null; };

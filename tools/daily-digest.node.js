@@ -252,16 +252,19 @@ async function main() {
             P.__copSet(cop);
             P.__setRegProfiles(data.regProfiles);
             const m = P.copYearReportModel({ cutIso, force: true });
-            const html = P.copYearReportHTML(m, { generatedAt: lp.date + ' ' + lp.hhmm, generatedBy: 'envío automático' });
-            const subject = P.copRepSubject(m);
+            // [3.23.0] El idioma del estatus es un ajuste del laboratorio (default inglés: va a corporativo).
+            const lang = data.settings.copLang;
+            const ropts = { generatedAt: lp.date + ' ' + lp.hhmm, generatedBy: lang === 'en' ? 'automatic send' : 'envío automático', lang };
+            const html = P.copYearReportHTML(m, ropts);
+            const subject = P.copRepSubject(m, lang);
             log(`CoP: ${m.total.done}/${m.total.req} ensayos, ${Math.round(m.total.progress * 100)}% (+${m.total.added} esta semana), ${m.rows.length} familias`);
             if (DRY) {
                 const f = path.join(OUT, 'cop-preview.html');
-                fs.writeFileSync(f, P.copYearReportDocument(m, { generatedAt: lp.date + ' ' + lp.hhmm }));
+                fs.writeFileSync(f, P.copYearReportDocument(m, ropts));
                 log(`[DRY] CoP: «${subject}» → ${data.settings.copTo.join(', ') || '(sin destinatarios)'} | ${f}`);
             } else {
                 try {
-                    await sendEmail(TEST ? TEST_TO : data.settings.copTo, [], (TEST ? '[Prueba] ' : '') + subject, html, P.copRepPlainText(m));
+                    await sendEmail(TEST ? TEST_TO : data.settings.copTo, [], (TEST ? '[Prueba] ' : '') + subject, html, P.copRepPlainText(m, lang));
                     if (!TEST && !env.DIGEST_FIXTURE) {
                         state.lastCopWeek = week;
                         state.copLastCut = P.copRepCutSnapshot(m, nowIso, 'envío automático');

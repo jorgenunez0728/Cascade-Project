@@ -20,6 +20,57 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.23.0 — El estatus CoP, listo para la gerencia (2026-10-27)
+
+Atiende lo que pidió la gerencia tras el primer estatus enviado (semana 43): cuántos ensayos se
+hacen por semana y cuál es la siguiente familia más crítica. También rehace el formato del reporte.
+
+### Nuevo
+- **Ritmo.** Los ensayos CoP que cuentan, semana por semana (las últimas 8), contra los que hacen
+  falta por semana para cerrar el 31 de diciembre. Las semanas sin celda se toman de Plan →
+  Disponibilidad y se dicen con su nota. El reporte dice en qué fecha se terminaría al ritmo de las
+  últimas 4 semanas, o que no alcanza.
+- **Requiere atención.** Las 5 familias más críticas, con el motivo y lo que hay que hacer:
+  - quedan pocas unidades por producir, o ninguna en diciembre: *aparta una unidad ya*;
+  - el resultado es no concordante;
+  - el REQ está cubierto pero el muestreo sigue abierto;
+  - todavía faltan ensayos;
+  - la familia está a menos de 1,000 unidades del siguiente lote.
+
+  La más crítica también aparece en la tarjeta del Panorama.
+- **Puntos clave** automáticos: los ensayos de la semana, las familias que quedan cumplidas, los
+  cambios de REQ contra el corte anterior, los no concordantes y las semanas sin celda que vienen.
+- **📝 Nota de la semana.** Lo que no sale de los datos se escribe una vez y va en la pantalla, el
+  correo y el texto que se copia. Pide el permiso de administrar el plan y queda auditada.
+- **English / Español.** El mismo reporte en los dos idiomas. En pantalla, cada equipo elige el
+  suyo (abre en inglés). El correo del viernes sale en inglés salvo que se elija español en Datos →
+  Sistema → Avisos.
+
+### Cambió
+- El reporte se reordenó para leerse en 10 segundos: la frase del avance, cuatro indicadores
+  (avance, ensayos, ritmo, familias cumplidas), lo crítico, el ritmo, los puntos clave, la nota y al
+  final el estatus por familia con las columnas Producción (a la fecha y del año), REQ, Hechas,
+  Avance y Estatus.
+- Las familias se nombran como las dice la gerencia (CL4 1.6 T-GDI LP 7DCT, BL7m 1.6 6AT); la
+  carrocería es el grupo de la tabla.
+- Se arma con tablas y colores en línea: Outlook de escritorio no entiende gradientes, `position`
+  ni `flex`, y el reporte anterior se le desacomodaba. En el teléfono, los indicadores van de dos en
+  dos y cada familia es una tarjeta.
+- "Ensayos" y el avance cuentan lo cubierto (hasta el REQ de cada familia). Los ensayos de más se
+  dicen aparte.
+
+### Para desarrollo
+- `copRepPace(m)`, `copRepCritical(m)`, `copRepHighlights(m)` y `copRepShortName(f)` son PURAS y
+  `copYearReportCompute` las deja en `m.pace`, `m.critical` y `m.highlights`. Cada fila trae
+  `name`, `testDates`, `ahead` (lo planeado del mes del corte a diciembre), `lastProdMonth` y
+  `prevStatus`.
+- `copYearReportHTML(m, {lang})`, `copRepPlainText(m, lang)` y `copRepSubject(m, lang)`: los textos
+  viven en `COP_REP_TXT.es/en`. Default `'es'`; la pantalla usa `uiPref('copRepLang')` (`'en'`) y
+  el correo usa `settings/digest.copLang` (`digestSettingsNormalize`, `'en'`).
+- `copState.yearNotes = {lunes: {text, at, by}}`. Se une con `copRepNotesUnion` (PURA, simétrica,
+  tope `COP_REP_CUTS_KEEP`) y está en `copPersist`/`copLoad`. La escribe `copRepNoteEdit`.
+- `_copRepWeekOff(year)` lee `tpState.weekAvailability` (`available === false`).
+
 ## 3.22.0 — El CoP cuenta lo que corporativo cuenta (2026-10-27)
 
 Sale del primer estatus semanal enviado a la gerencia (semana 43). Ese correo tenía tres problemas:

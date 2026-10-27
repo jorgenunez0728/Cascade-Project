@@ -2384,6 +2384,8 @@ function fbPullApply(collections, results, showFeedback) {
             if (typeof copRepProdUnion === 'function') _mergedCop.yearProd = copRepProdUnion(_localCop.yearProd, _mergedCop.yearProd);
             if (typeof copRepCutsUnion === 'function') _mergedCop.yearCuts = copRepCutsUnion(_localCop.yearCuts, _mergedCop.yearCuts);
             if (typeof copRepExcludeUnion === 'function') _mergedCop.yearExclude = copRepExcludeUnion(_localCop.yearExclude, _mergedCop.yearExclude);
+            // [3.23.0] La nota del laboratorio por semana: gana la más reciente.
+            if (typeof copRepNotesUnion === 'function') _mergedCop.yearNotes = copRepNotesUnion(_localCop.yearNotes, _mergedCop.yearNotes);
 
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();

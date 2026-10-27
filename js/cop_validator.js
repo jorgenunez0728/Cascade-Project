@@ -944,7 +944,8 @@ function copPersist() {
             present: copState.present, ovFilter: copState.ovFilter,
             families: copCleanFamilies(copState.families), copSchema: copState.copSchema,
             // [3.12.0] Producción real del año y cortes semanales del reporte CoP (compartidos)
-            yearProd: copState.yearProd, yearCuts: copState.yearCuts, yearExclude: copState.yearExclude
+            yearProd: copState.yearProd, yearCuts: copState.yearCuts, yearExclude: copState.yearExclude,
+            yearNotes: copState.yearNotes   // [3.23.0] nota del laboratorio por semana
         }));
         _copBumpRev();
         return true;
@@ -958,7 +959,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema','yearProd','yearCuts','yearExclude'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema','yearProd','yearCuts','yearExclude','yearNotes'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
         copCleanFamilies(copState.families);
