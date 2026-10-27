@@ -102,7 +102,7 @@ const CFG = { 'Modelo': 'SPORTAGE', 'ENGINE CAPACITY': '1.6', 'TRANSMISSION': 'A
               'EMISSION REGULATION': 'PRE-EURO 7', 'REGION': 'EUROPE', 'BODY TYPE': '5DR' };
 let nid = 1;
 function veh(vin, co, vets, extra) {
-    return Object.assign({ id: nid++, vin: vin, status: 'archived', purpose: 'Emisiones', configCode: 'CFG-EU', config: Object.assign({}, CFG),
+    return Object.assign({ id: nid++, vin: vin, status: 'archived', purpose: 'COP-Emisiones', configCode: 'CFG-EU', config: Object.assign({}, CFG),
         testData: { vets: vets, gasResults: { aprobador: { values: { CO: co, THC: 0.05, NMHC: 0.03, NOx: 0.02 }, capturedAt: '2026-09-0' + nid + 'T10:00:00' } } } }, extra || {});
 }
 const A = veh('VINAAAAAAAAAAAAA1', 0.30, resumen(recEU));
@@ -235,8 +235,8 @@ console.log('\n== REQ del plan ==');
 const S = ctx.__getTp();
 S.planData = [{ desc: 'CFG-EU', mod: 'SPORTAGE', eng: '1.6', tx: 'AT', my: '2026', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR', total: 100, hist: 0 }];
 S.testedList = [
-    { configText: 'CFG-EU', date: '2026-09-02', vin: A.vin, vehicleId: A.id, source: 'cop15-release', purpose: 'Emisiones' },
-    { configText: 'CFG-EU', date: '2026-09-03', vin: MALO.vin, vehicleId: MALO.id, source: 'cop15-release', purpose: 'Emisiones' }
+    { configText: 'CFG-EU', date: '2026-09-02', vin: A.vin, vehicleId: A.id, source: 'cop15-release', purpose: 'COP-Emisiones' },
+    { configText: 'CFG-EU', date: '2026-09-03', vin: MALO.vin, vehicleId: MALO.id, source: 'cop15-release', purpose: 'COP-Emisiones' }
 ];
 ok('la buena acredita el REQ', ctx.tpTestedCountsForReq(S.testedList[0]) === true);
 ok('la de IWR −2.17 % NO acredita el REQ', ctx.tpTestedCountsForReq(S.testedList[1]) === false);

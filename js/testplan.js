@@ -637,6 +637,29 @@ function tpPurposeForRegion(rgn) {
     var p = map[_tpNorm(rgn)] || map['*'];
     return (p && TP_PURPOSES_VALID.indexOf(p) !== -1) ? p : 'COP-Emisiones';
 }
+
+/**
+ * [3.22.0] El propósito con el que nace una prueba de esta configuración. Es el de su
+ * región (Plan → Reglas), salvo que diga CoP y la configuración NO sea conformidad de la
+ * producción: fuera del alcance CoP (p. ej. Europa EURO-5) o de una familia que el
+ * laboratorio sacó del reporte del año (unidades piloto, híbridos nuevos). Ahí nace EO:
+ * así se marcaron como CoP pruebas que no lo eran. Es solo el default: el Alta lo cambia.
+ */
+function tpPurposeForCfg(cfg) {
+    var p = tpPurposeForRegion(cfg && cfg.rgn);
+    if (!cfg || !/^COP-/.test(p) || typeof copInScope !== 'function') return p;
+    var eo = p.replace(/^COP-/, 'EO-');
+    if (TP_PURPOSES_VALID.indexOf(eo) === -1) return p;
+    try {
+        if (!copInScope(cfg).ok) return eo;
+        if (typeof copYearKeyOf === 'function' && typeof copState !== 'undefined' && copState && copState.yearExclude) {
+            var year = Number(String(localToday()).slice(0, 4));
+            var x = copState.yearExclude[copYearKeyOf(tpFamilyKeyForCfg(cfg), year)];
+            if (x && x.excluded) return eo;
+        }
+    } catch (e) {}
+    return p;
+}
 // ══════════════════════════════════════════════════════════════════════
 // [v23.1] QUÉ ACREDITA EL REQ DE EMISIONES
 //
@@ -1248,7 +1271,7 @@ function tpGetAnalysis() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // [3.13.0] EL REQ DE CORPORATIVO EN EL PLAN
 //
-// Para las parejas de COP_HQ_RULES (Europa PRE-EURO 7, General EURO-6C, Medio Oriente
+// Para las parejas de COP_HQ_RULES ([3.22.0] Europa PRE-EURO 7 y EURO 7, Medio Oriente BL7m
 // EURO-5) el Plan ya no pide lo de Plan → Reglas por configuración: pide lo que le
 // falta a la familia DEL AÑO CALENDARIO según corporativo — el mismo número del
 // estatus semanal (copYearReportModel). Sin esto el armador proponía MY27 en familias
@@ -1337,7 +1360,8 @@ function tpCopReqBase() {
             if (!v || !copInScope(v).ok) return;
             var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
             if (!vehicleIsLive(v) && !pend) return;
-            if (!tpPurposeCountsForReq(v.purpose)) return;
+            // [3.22.0] Para corporativo solo cuenta lo registrado como conformidad de la producción.
+            if (typeof copPurposeCounts === 'function' ? !copPurposeCounts(v.purpose) : !tpPurposeCountsForReq(v.purpose)) return;
             var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
             if (d && Number(d.slice(0, 4)) !== year) return;
             var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
@@ -1384,6 +1408,8 @@ function _tpCopReqPlan(list, base) {
         if (!t || !tpTestedCountsForReq(t)) return;
         var yk = byDesc[t.configText];
         if (!yk) return;
+        // [3.22.0] Una declaración con otro propósito (EO, correlación…) no cubre el CoP.
+        if (t.purpose && typeof copPurposeCounts === 'function' && !copPurposeCounts(t.purpose)) return;
         if (t.source === 'plan') { fam[yk].declared++; return; }       // propuesta del horizonte
         if (!tpTestedIsDeclared(t)) return;                              // lo demás ya está en db
         if (String(t.date || '').slice(0, 4) !== String(base.year)) return;
@@ -1928,6 +1954,11 @@ function tpImportPlanCSV(csvText) {
 
     if (idxDesc < 0 || idxRgn < 0) { showToast('CSV sin columnas requeridas (codigo_config_text, REGION)', 'error'); return; }
 
+    // [3.22.0] `count_hist` es lo producido de enero a la fecha del CSV en el año en curso
+    // (confirmado por el laboratorio): cada configuración guarda de cuándo es su acumulado,
+    // para que el CoP por año calendario lo sume sin confundirlo con el de otro año.
+    const _histAsOf = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    const _prevImportDay = tpState.planImportDate ? String(tpState.planImportDate).slice(0, 10) : '';
     const newData = [];
     for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map(c => c.trim());
@@ -1950,6 +1981,7 @@ function tpImportPlanCSV(csvText) {
             body: cols[idxBody] || '',
             engpkg: cols[idxEngPkg] || '',
             hist: parseInt(cols[idxHist]) || 0,
+            histAsOf: _histAsOf,
             _cvals: (function(){ var o = {}; csvMonths.forEach(function(mc){ o[mc.label] = parseInt(cols[mc.idx]) || 0; }); return o; })(),
             total: parseInt(cols[idxTotalCalc]) || 0,
         });
@@ -1989,7 +2021,9 @@ function tpImportPlanCSV(csvText) {
     oldData.forEach(c => {
         if (!newMap[c.desc]) {
             diff.removed.push(c);
-            newData.push({ ...c, total: 0, _retired: true });
+            // Su acumulado es el de la importación anterior (la última donde apareció).
+            const histAsOf = c.histAsOf || (!c._retired ? _prevImportDay : '');
+            newData.push({ ...c, total: 0, _retired: true, histAsOf: histAsOf });
         }
     });
 
@@ -2029,6 +2063,8 @@ function tpImportPlanCSV(csvText) {
     tpState.lastDiffDate = new Date().toISOString();
     tpState.planData = newData;
     tpState.planImportDate = new Date().toISOString();
+    // [3.22.0] Desde qué mes trae plan el CSV: los meses anteriores del año van en `count_hist`.
+    tpState.planFirstMonth = csvMonths.length ? _tpSortMonths(csvMonths.map(mc => mc.label))[0] : null;
     if (typeof auditLog === 'function') auditLog('tp', 'plan_imported', {type:'plan', label:'producción'}, newData.length + ' configs · +' + (diff.added ? diff.added.length : 0) + ' / -' + (diff.removed ? diff.removed.length : 0));
     tpSave();
 
@@ -6224,7 +6260,7 @@ function tpStartTestFromPlan(weekIdx, itemIdx) {
         configCode: item.desc || '',
         // v23: el propósito de la FILA manda; `tpPurposeForRegion` solo es el default
         // con el que nació. Si alguien planeó un EO-OBD2, el alta no debe proponer COP.
-        purpose: item.purpose || tpPurposeForRegion(item.rgn),
+        purpose: item.purpose || tpPurposeForCfg(item),
         planItem: {
             desc: item.desc,
             mod: item.mod || '', my: item.my || '', eng: item.eng || '',
@@ -6917,7 +6953,7 @@ function _tpMakeItem(cfg, testedCopy, flags) {
         // (TP_PURPOSES_VALID). Antes una fila del plan era implícitamente una prueba
         // de emisiones y no había forma de planear OBD ni Nuevos Modelos. Opcional y
         // retrocompatible: una fila sin `purpose` se comporta igual que antes.
-        purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn),
+        purpose: (flags && flags.purpose) || tpPurposeForCfg(cfg),
         manual: !!(flags && flags.manual), carriedOver: !!(flags && flags.carriedOver),
         _scoreDetail: tpBuildScoreDetail(cfg, n, req, sc)
     };
@@ -6981,7 +7017,7 @@ function tpSelectWeeklyItems(opts) {
         // [v23.1] El propósito viaja en la copia rodante: si la región tiene configurado
         // un propósito que NO acredita, esta fila sintética tampoco debe bajar el déficit.
         testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan',
-                          purpose: (flags && flags.purpose) || tpPurposeForRegion(cfg.rgn) });
+                          purpose: (flags && flags.purpose) || tpPurposeForCfg(cfg) });
         used.add(cfg.desc);
         return true;
     }
@@ -8538,6 +8574,8 @@ function tpOnVehicleAltaCorrected(vehicle, before) {
     before = before || {};
     var vinCambio = !!before.vin && vehicle.vin !== before.vin;
     var cfgCambio = !!before.configCode && vehicle.configCode !== before.configCode;
+    // [3.22.0] El propósito corregido viaja a su evidencia: es lo que decide qué acredita.
+    var propCambio = before.purpose !== undefined && String(vehicle.purpose || '') !== String(before.purpose || '');
     var filas = {};   // planId::uid (o ::#idx) de las filas que acredita su evidencia
     (tpState.testedList || []).forEach(function(t) {
         if (!t) return;
@@ -8551,6 +8589,7 @@ function tpOnVehicleAltaCorrected(vehicle, before) {
             if (t.note && t.note.indexOf(before.vin) !== -1) { t.note = t.note.split(before.vin).join(vehicle.vin); cambio = true; }
         }
         if (cfgCambio && t.configText === before.configCode) { t.configText = vehicle.configCode; cambio = true; }
+        if (propCambio && t.purpose !== vehicle.purpose) { t.purpose = vehicle.purpose || ''; cambio = true; }
         if (vid == null) { t.vehicleId = vehicle.id; cambio = true; }
         if (cambio) out.tested++;
         if (t.planId) filas[t.planId + '::' + (t.itemUid ? t.itemUid : '#' + t.itemIdx)] = true;
@@ -8564,6 +8603,7 @@ function tpOnVehicleAltaCorrected(vehicle, before) {
             var acreditada = filas[pid + '::' + (it.uid || '')] || filas[pid + '::#' + i];
             if (!ligada && !acreditada) return;
             if (ligada && vinCambio) it.linkedVin = vehicle.vin || '';
+            if (propCambio) it.actualPurpose = vehicle.purpose || '';
             if (cfgCambio || vinCambio) {
                 var d = _tpConfigDiffs(it.desc, vehicle.configCode, it);
                 if (d.distinta) {

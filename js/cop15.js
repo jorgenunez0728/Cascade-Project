@@ -7277,6 +7277,13 @@ function altaConfigFromCatalog(entry, keys) {
     return c;
 }
 
+/** [3.22.0] Formato de prueba de un propósito: 'emisiones' | 'training' | 'simple'. PURA. */
+function altaPurposeGroup(p) {
+    if (typeof isTrainingPurpose === 'function' && isTrainingPurpose(p)) return 'training';
+    if (typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(p)) return 'emisiones';
+    return 'simple';
+}
+
 function _altaCorrRegOf(v, cfg) {
     return String((v && v.regulationOverride && v.regulationOverride.name) || (cfg && cfg['EMISSION REGULATION']) || '').trim();
 }
@@ -7301,8 +7308,32 @@ function vehicleAltaCorrectionPlan(vehicle, change, ctx) {
     out.newVin = newVin; out.newConfig = newCfg; out.newConfigCode = newCode;
     out.vinChanged = newVin !== oldVin;
     out.configChanged = newCode !== String(vehicle.configCode || '') || same(newCfg) !== same(oldCfg);
+    // [3.22.0] El propósito también se corrige aquí: una prueba registrada como CoP que no
+    // lo era (o al revés) cambia lo que cuenta para la conformidad de la producción.
+    var oldP = String(vehicle.purpose || '');
+    var newP = change.purpose != null ? String(change.purpose) : oldP;
+    out.newPurpose = newP;
+    out.purposeChanged = newP !== oldP;
 
-    if (!out.vinChanged && !out.configChanged) out.errors.push('No hay cambios: el VIN y la configuración son los mismos.');
+    if (!out.vinChanged && !out.configChanged && !out.purposeChanged) out.errors.push('No hay cambios: el VIN, la configuración y el propósito son los mismos.');
+
+    if (out.purposeChanged) {
+        var pl = function(p) { return p ? ((typeof uiLabel === 'function') ? uiLabel('purpose', p) : p) : '—'; };
+        if (altaPurposeGroup(newP) !== altaPurposeGroup(oldP)) {
+            out.errors.push('Cambiar de ' + pl(oldP) + ' a ' + pl(newP) + ' cambia el formato de la prueba (emisiones, formato simple o training): ' +
+                            'no es una corrección de alta. Para eso hay que registrar la prueba de nuevo.');
+        } else if (!newP) {
+            out.errors.push('Elige el propósito.');
+        }
+        out.changes.push({ campo: 'Propósito', key: 'purpose', antes: pl(oldP), despues: pl(newP) });
+        if (typeof copPurposeCounts === 'function') {
+            if (copPurposeCounts(oldP) && !copPurposeCounts(newP)) {
+                out.warnings.push('Deja de contar para el CoP: sale de la mesa de su familia, del estatus del año y del REQ de corporativo. Los juicios ya guardados no cambian.');
+            } else if (!copPurposeCounts(oldP) && copPurposeCounts(newP)) {
+                out.warnings.push('Pasa a contar para el CoP de su familia (si está aprobada y es válida). Los juicios ya guardados no cambian.');
+            }
+        }
+    }
 
     if (out.vinChanged) {
         if (!ALTA_CORR_VIN_RE.test(newVin)) {
@@ -7400,7 +7431,7 @@ function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
     if (!_releasePreflightStorage('corregir el alta')) return { ok: false, reason: 'No hay espacio en este dispositivo.', plan: plan };
 
     var dbAntes = JSON.stringify(db);   // si saveDB falla, se restaura TODO (no solo el vehículo)
-    var before = { vin: v.vin || '', configCode: v.configCode || '', famKey: ctx.famKeyOf ? ctx.famKeyOf(v) : '' };
+    var before = { vin: v.vin || '', configCode: v.configCode || '', famKey: ctx.famKeyOf ? ctx.famKeyOf(v) : '', purpose: v.purpose || '' };
     if (typeof undoPush === 'function') undoPush('all', 'Corregir alta: ' + (v.vin || ''));
     var ahora = new Date().toISOString();
     var quien = (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '') || 'Sistema';
@@ -7420,6 +7451,7 @@ function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
         v.config = JSON.parse(JSON.stringify(plan.newConfig));
         v.configCode = plan.newConfigCode;
     }
+    if (plan.purposeChanged) v.purpose = plan.newPurpose;
     var td = v.testData = v.testData || {};
     if (plan.resetRelease) {
         if (td.gasResults) { delete td.gasResults.liberador; delete td.gasResults.aprobador; delete td.gasResults.mismatch; }
@@ -7452,6 +7484,7 @@ function vehicleCorrectAlta(vehicleId, change, motivo, sig) {
         if (inv && typeof invSave === 'function') invSave();
     }
     var cop = (typeof copOnVehicleAltaCorrected === 'function') ? copOnVehicleAltaCorrected(v, before) : { renamed: 0, removed: 0, manualLeft: 0 };
+    if (plan.purposeChanged && typeof copInvalidateCache === 'function') copInvalidateCache();
     if (plan.vinChanged) {
         try {
             var sk = JSON.parse(localStorage.getItem('kia_soak_timer') || 'null');
@@ -7523,6 +7556,8 @@ function _altaCorrChange() {
     var code = sel ? sel.value : '__actual__';
     st.selected = code;
     var change = { vin: vin };
+    var ps = document.getElementById('altaCorrPurpose');
+    if (ps) change.purpose = ps.value;
     if (code && code !== '__actual__') {
         var entry = _altaCorrCatalog().find(function(c) { return c.codigo_config_text === code; });
         if (entry) {
@@ -7579,6 +7614,20 @@ function _altaCorrRefresh() {
     }
 }
 
+/** [3.22.0] Los propósitos del MISMO formato que el actual (cambiar de formato no es corrección). */
+function _altaCorrPurposeOptions(cur) {
+    var all = (typeof TP_PURPOSES_VALID !== 'undefined' ? TP_PURPOSES_VALID.slice() : ['COP-Emisiones', 'EO-Emisiones', 'ND-Emisiones'])
+        .concat(typeof TRAINING_PURPOSE !== 'undefined' ? [TRAINING_PURPOSE] : []);
+    var g = altaPurposeGroup(cur);
+    var list = all.filter(function(p) { return altaPurposeGroup(p) === g; });
+    if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+    if (!cur) list.unshift('');
+    return list.map(function(p) {
+        var l = p ? ((typeof uiLabel === 'function') ? uiLabel('purpose', p) : p) : '(sin propósito)';
+        return '<option value="' + escapeHtml(p) + '"' + (p === cur ? ' selected' : '') + '>' + escapeHtml(l) + '</option>';
+    }).join('');
+}
+
 function _altaCorrClose() {
     var st = window._altaCorr;
     if (st && st.overlay) st.overlay.style.display = 'none';
@@ -7626,7 +7675,7 @@ function vehicleCorrectAltaOpen(vehicleId, prefill, _gated) {
     window._altaCorr = { id: v.id, code: v.configCode || '', selected: '__actual__', plan: null, overlay: null };
     var modelo = (v.config && v.config['Modelo']) || '';
     var body =
-        '<p class="miss-intro">Corrige el VIN o la configuración sin borrar el vehículo: se conservan su línea de tiempo, su captura y su crédito en el plan, que pasa a la configuración correcta. La corrección queda en su historial.</p>' +
+        '<p class="miss-intro">Corrige el VIN, la configuración o el propósito sin borrar el vehículo: se conservan su línea de tiempo, su captura y su crédito en el plan, que pasa a la configuración correcta. La corrección queda en su historial.</p>' +
         '<div class="form-group"><label for="altaCorrVin">VIN</label>' +
         '<input id="altaCorrVin" maxlength="17" autocomplete="off" spellcheck="false" value="' + escapeHtml(prefill.vin || v.vin || '') + '" ' +
         'oninput="this.value=this.value.toUpperCase();_altaCorrRefresh()" style="font-family:monospace;letter-spacing:1px;text-transform:uppercase;">' +
@@ -7635,6 +7684,8 @@ function vehicleCorrectAltaOpen(vehicleId, prefill, _gated) {
         '<input id="altaCorrBuscar" type="search" autocomplete="off" placeholder="Ej.: SELTOS WGN 1.5" value="' + escapeHtml(modelo) + '" oninput="_altaCorrFill()">' +
         '<select id="altaCorrCfg" size="6" onchange="_altaCorrRefresh()" style="width:100%;margin-top:var(--space-xs);font-size:var(--fs-sm);"></select>' +
         '<div id="altaCorrCount" class="u-muted" style="font-size:var(--fs-xs);margin-top:var(--space-2xs);"></div></div>' +
+        '<div class="form-group"><label for="altaCorrPurpose">Propósito</label>' +
+        '<select id="altaCorrPurpose" onchange="_altaCorrRefresh()">' + _altaCorrPurposeOptions(v.purpose || '') + '</select></div>' +
         '<div class="form-group"><label for="altaCorrMotivo">Motivo</label>' +
         '<textarea id="altaCorrMotivo" rows="2" placeholder="Ej.: se capturó 5DR y el vehículo es WGN" oninput="_altaCorrRefresh()"></textarea></div>' +
         '<div id="altaCorrEfectos" aria-live="polite"></div>';
@@ -11012,6 +11063,10 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
         text: 'Escribe palabras para acotar el catálogo (modelo, carrocería, motor, región…) y elige la '
             + 'configuración correcta. "(sin cambio)" deja la actual. Si la regulación cambia en un vehículo '
             + 'ya enviado a aprobación, regresa a Liberación; en uno ya aprobado no se permite.' },
+    altaCorrPurpose: { title: 'Propósito',
+        text: 'Para qué se hizo la prueba. Solo las registradas como CoP · Emisiones cuentan para la conformidad '
+            + 'de la producción (mesa del Validador, estatus del año, REQ de corporativo). Se puede cambiar dentro '
+            + 'del mismo formato de prueba (emisiones, formato simple o training); cambiar de formato no es una corrección de alta.' },
     altaCorrMotivo: { title: 'Motivo de la corrección',
         text: 'Qué estaba mal y cómo se detectó. Queda en la línea de tiempo del vehículo y en el historial '
             + 'de cambios, junto con el antes y el después de cada campo.' }

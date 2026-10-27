@@ -1882,6 +1882,8 @@ function _fbPullSeed(col, remoteData, pulled) {
          'weekHistory', 'planHistory', 'weeks', 'fixedPlan', 'fixedWeeklyPlan', 'deadline'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
+        // [3.22.0] Desde qué mes trae plan el CSV: solo si el remoto es la MISMA importación.
+        if (tpState.planFirstMonth == null && prevTp.planFirstMonth != null && prevTp.planImportDate === tpState.planImportDate) tpState.planFirstMonth = prevTp.planFirstMonth;
         // [2.33.0] Las marcas de planes borrados de los dos lados.
         if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
         // [2.36.0] Las familias fuera del conteo, de los dos lados (gana la marca más reciente).
@@ -3902,6 +3904,9 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             // Also import planData if local is empty and remote has data
             if ((tpState.planData || []).length === 0 && (remoteData.testplan.planData || []).length > 0) {
                 tpState.planData = remoteData.testplan.planData;
+                // [3.22.0] De cuándo es el acumulado (count_hist) y desde qué mes hay plan: van juntos.
+                if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
+                tpState.planFirstMonth = remoteData.testplan.planFirstMonth || null;
                 parts.push('+' + tpState.planData.length + ' configs plan');
             }
             // Also import weeklyPlans if local is empty and remote has data
@@ -3933,6 +3938,7 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
                 if ((tpState.planData || []).length === 0 || remoteIsNewer) {
                     tpState.planData = remoteData.testplan.planData;
                     if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
+                    tpState.planFirstMonth = remoteData.testplan.planFirstMonth || null;   // [3.22.0] va con la importación
                     if (remoteData.testplan.lastDiff) tpState.lastDiff = remoteData.testplan.lastDiff;
                     if (remoteData.testplan.lastDiffDate) tpState.lastDiffDate = remoteData.testplan.lastDiffDate;
                     // [v15.6] Los meses dinámicos van con el plan: las columnas de

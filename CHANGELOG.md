@@ -20,6 +20,53 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.22.0 — El CoP cuenta lo que corporativo cuenta (2026-10-27)
+
+Sale del primer estatus semanal enviado a la gerencia (semana 43). Ese correo tenía tres problemas:
+contaba pruebas que no eran CoP, metía familias que corporativo no pide y su columna de producción
+no era la del año.
+
+### Cambió
+- **Solo cuentan las pruebas registradas como conformidad de la producción** (CoP · Emisiones).
+  EO, nuevo desarrollo, correlación e investigación ya no cuentan aunque sean de una familia del
+  alcance. Eso aplica a la mesa del Validador, al veredicto, al estatus semanal, al REQ de
+  corporativo en el Plan y a lo que está en curso o declarado. El SPC sigue viendo todo lo
+  aprobado, porque es control de proceso.
+- **Alcance del CoP**: PRE-EURO 7 y EURO 7 (por lotes) y, en Medio Oriente, solo el **BL7m
+  EURO-5** (1 por familia). General EURO-6C y las CL4 de Medio Oriente salen del alcance.
+- **Producción del año = `count_hist` del plan importado + lo planeado de los meses que siguen.**
+  El laboratorio confirmó que `count_hist` es lo producido de enero a la fecha del CSV. Antes la
+  plataforma lo ignoraba: daba enero a septiembre como "sin dato" y pedía capturarlos a mano. Lo
+  que un CSV viejo dejó en esos meses era pronóstico y ya no se suma. El reporte dice de qué fecha
+  es el acumulado.
+- Una prueba iniciada desde el plan con una configuración fuera del CoP (Europa EURO-5), o de una
+  familia sacada del reporte (unidades piloto, híbridos nuevos), nace como **EO** y no como CoP.
+  Por ese default se registraron como CoP pruebas que no lo eran.
+
+### Nuevo
+- **🔎 Ensayos del año** en el estatus de la semana: todas las pruebas de familias del alcance,
+  con cuáles cuentan y por qué no las demás. Cada una trae su ✏️ para corregirla.
+- **✏️ Corregir alta corrige el propósito**, dentro del mismo formato de prueba, con firma si ya
+  está archivada. La evidencia del plan y la mesa del Validador se ajustan solas.
+- La barra del estatus lista los ensayos aprobados que no cuentan por su propósito. Esa lista no
+  va en el reporte que se comparte.
+
+### Para desarrollo
+- `COP_PURPOSES` + `copPurposeCounts(p)` (PURA) son LA definición de "conformidad de la
+  producción". `copTestCounts` la exige y `copTestWhyNot` la dice primero.
+- `COP_HQ_RULES` acepta `mod` (fila de un solo modelo). `_copRgnReg` lee el modelo y
+  `copInScope` devuelve `kind: 'model'` con el motivo.
+- `copYearHistBoundary(hist, year)` (PURA): desde qué mes cuenta el plan. `copYearProduction`
+  recibe `hist: {asOf, firstMonth}` y cada configuración su `histAsOf`; esos datos los sella
+  `tpImportPlanCSV`. El modelo expone `histAsOf` y `histBoundary`, y `copRepProductionText(m)`
+  los dice en una línea.
+- `tpPurposeForCfg(cfg)` reemplaza a `tpPurposeForRegion` en los tres puntos donde nace una fila
+  o un alta.
+- `vehicleAltaCorrectionPlan` acepta `change.purpose`. `altaPurposeGroup(p)` (PURA) impide
+  cambiar de formato.
+- `tpState.planFirstMonth` viaja con la importación: se toma junto con `planImportDate` en
+  `merge_all` y se preserva en `_fbPullSeed` solo si es la misma importación.
+
 ## 3.21.0 — El mapa de cada norma (2026-10-22)
 
 ### Nuevo

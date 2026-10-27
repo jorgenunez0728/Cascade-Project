@@ -15,6 +15,8 @@ const _cv = fs.readFileSync(path.join(__dirname, '..', 'js', 'cop_validator.js')
 vm.runInContext(/\/\/ \[3\.12\.0\] Familia del AÑO CALENDARIO[\s\S]*?(?=\/\*\*\n \* \[2\.4\.0\])/.exec(_cv)[0], ctx, { filename: 'cop_validator.js' });
 // [3.13.0] Las reglas de corporativo (COP_HQ_RULES, copHqRuleFor, copInScope): su bloque real.
 vm.runInContext(/var COP_HQ_RULES = \[[\s\S]*?(?=\/\/ ─── CACHE DEL PANORAMA)/.exec(_cv)[0], ctx, { filename: 'cop_validator.js' });
+// [3.22.0] Qué propósito es conformidad de la producción: su bloque real.
+vm.runInContext(/var COP_PURPOSES = [\s\S]*?\nfunction copPurposeCounts\(purpose\) \{[\s\S]*?\n\}/.exec(_cv)[0], ctx, { filename: 'cop_validator.js' });
 // copVehicleInFamily usa la clave de siempre (cop_validator.js) y la fecha de prueba (app.js)
 vm.runInContext(`
 function copVehicleFamilyKey(v) { var c = v.config; return [c.Modelo, c.ENG, c.TX, c.MY, c.REG, c.EP || '', c.EPK || '', c.BODY].join('|'); }
@@ -30,16 +32,19 @@ casos.forEach(([u, r]) => ok(u + ' unidades → ' + r + ' ensayos', C.copLotRequ
 ok('el siguiente lote empieza en la unidad 7,501 y luego cada 5,000', C.copLotNextAt(100) === 7501 && C.copLotNextAt(7600) === 12501 && C.copLotNextAt(12500) === 12501);
 
 console.log('\n== [3.13.0] Reglas de corporativo por región + norma ==');
-const R = (rgn, reg) => C.copHqRuleFor({ rgn, reg });
+const R = (rgn, reg, mod) => C.copHqRuleFor({ rgn, reg, mod });
 ok('Europa PRE-EURO 7 → lotes (también escrito EUROPA)', R('EUROPE', 'PRE-EURO 7').rule === 'lot' && R('EUROPA', 'pre-euro 7').rule === 'lot');
-ok('General EURO-6C → lotes', R('GENERAL', 'EURO-6C').rule === 'lot');
-ok('Medio Oriente EURO-5 → 1 por familia', R('MIDDLE EAST', 'EURO-5').rule === 'one');
-ok('Europa EURO-5 no pide; Medio Oriente EURO-4 tampoco', R('EUROPE', 'EURO-5') === null && R('MIDDLE EAST', 'EURO-4') === null);
-ok('un vehículo se lee por su config', C.copHqRuleFor({ config: { REGION: 'GENERAL', 'EMISSION REGULATION': 'EURO-6C' } }).rule === 'lot');
+ok('[3.22.0] Europa EURO 7 → lotes (con o sin guion)', R('EUROPE', 'EURO 7').rule === 'lot' && R('EUROPE', 'EURO-7').rule === 'lot');
+ok('[3.22.0] General EURO-6C ya no entra', R('GENERAL', 'EURO-6C') === null && !C.copInScope({ rgn: 'GENERAL', reg: 'EURO-6C' }).ok);
+ok('[3.22.0] Medio Oriente EURO-5 → 1 por familia, SOLO el BL7m', R('MIDDLE EAST', 'EURO-5', 'BL7m').rule === 'one' && R('MIDDLE EAST', 'EURO-5', 'bl7m').rule === 'one' &&
+    R('MIDDLE EAST', 'EURO-5', 'CL4') === null);
+ok('[3.22.0] una CL4 de Medio Oriente queda fuera y se dice por qué', C.copInScope({ rgn: 'MIDDLE EAST', reg: 'EURO-5', mod: 'CL4' }).kind === 'model' &&
+    /solo cuenta BL7m/.test(C.copInScope({ rgn: 'MIDDLE EAST', reg: 'EURO-5', mod: 'CL4' }).reason));
+ok('Europa EURO-5 no pide; Medio Oriente EURO-4 tampoco', R('EUROPE', 'EURO-5') === null && R('MIDDLE EAST', 'EURO-4', 'BL7m') === null);
+ok('un vehículo se lee por su config (modelo incluido)', C.copHqRuleFor({ config: { REGION: 'MIDDLE EAST', 'EMISSION REGULATION': 'EURO-5', Modelo: 'BL7m' } }).rule === 'one');
 ok('alcance = tiene regla: Europa EURO-5 queda fuera por su norma', !C.copInScope({ rgn: 'EUROPE', reg: 'EURO-5' }).ok && C.copInScope({ rgn: 'EUROPE', reg: 'EURO-5' }).kind === 'regulation');
-ok('General EURO-6C entra; USA queda fuera por región', C.copInScope({ rgn: 'GENERAL', reg: 'EURO-6C' }).ok && C.copInScope({ rgn: 'USA', reg: 'SULEV 30' }).kind === 'region');
-ok('General EURO-4 queda fuera aunque General esté en el alcance', !C.copInScope({ rgn: 'GENERAL', reg: 'EURO-4' }).ok);
-ok('el alcance se dice por parejas', C.copScopeLabel() === 'Europa · PRE-EURO 7 · General · EURO-6C · Medio Oriente · EURO-5', C.copScopeLabel());
+ok('General y USA quedan fuera por región', C.copInScope({ rgn: 'GENERAL', reg: 'EURO-6C' }).kind === 'region' && C.copInScope({ rgn: 'USA', reg: 'SULEV 30' }).kind === 'region');
+ok('el alcance se dice por parejas', C.copScopeLabel() === 'Europa · PRE-EURO 7 · Europa · EURO 7 · Medio Oriente · BL7m EURO-5', C.copScopeLabel());
 ok('1 por familia: 50 unidades → 1; sin producción → 0', C.copYearRequired('one', 50) === 1 && C.copYearRequired('one', 0) === 0);
 ok('lotes: 8,000 unidades → 6 (la misma regla de copLotRequired)', C.copYearRequired('lot', 8000) === 6 && C.copYearRequired('lot', 27) === 3);
 
@@ -155,15 +160,49 @@ ok('el texto plano resume avance y faltantes', /Avance global 67%/.test(C.copRep
 const cfgR = (mod, rgn, reg, body, m) => ({ mod, eng: '1600cc GAMMA', tx: '6AT', my: '26 MODEL', reg, ep: '0', engpkg: '0', body, rgn, m });
 const ruleOf = c => C.copHqRuleFor(c);
 const PHQ = C.copYearProduction({ year: 2026, months: ['Jun-26'], planData: [cfgR('CL4', 'EUROPE', 'PRE-EURO 7', '5DR', [8000]),
-    cfgR('BL7m', 'GENERAL', 'EURO-6C', '5DR', [151]), cfgR('BL7m', 'MIDDLE EAST', 'EURO-5', '4DR', [815])],
+    cfgR('BL7m', 'GENERAL', 'EURO-6C', '5DR', [151]), cfgR('BL7m', 'MIDDLE EAST', 'EURO-5', '4DR', [815]), cfgR('CL4', 'MIDDLE EAST', 'EURO-5', '4DR', [430])],
     inScope: c => C.copInScope(c).ok, keyOf, ruleOf });
 const MHQ = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: PHQ, tests: [], prevSaved: null });
 const byReg = {}; MHQ.regions.forEach(rg => { byReg[rg.id] = rg; });
-ok('secciones en orden: Europa, General · EURO-6C, Medio Oriente', MHQ.regions.map(r => r.id).join(',') === 'EUROPE,GENERAL,MIDDLE EAST' && byReg.GENERAL.label === 'General · EURO-6C');
-ok('Europa 8,000 → 6 · General 151 → 3 · Medio Oriente 815 → 1', byReg.EUROPE.rows[0].req === 6 && byReg.GENERAL.rows[0].req === 3 && byReg['MIDDLE EAST'].rows[0].req === 1);
+ok('[3.22.0] secciones: Europa y Medio Oriente (General salió del alcance)', MHQ.regions.map(r => r.id).join(',') === 'EUROPE,MIDDLE EAST');
+ok('Europa 8,000 → 6 · Medio Oriente: solo el BL7m, 815 → 1', byReg.EUROPE.rows[0].req === 6 && byReg['MIDDLE EAST'].rows.length === 1 &&
+    byReg['MIDDLE EAST'].rows[0].fam.mod === 'BL7m' && byReg['MIDDLE EAST'].rows[0].req === 1);
 ok('Medio Oriente no tiene "siguiente lote"', byReg['MIDDLE EAST'].rows[0].nextLotAt === null && byReg.EUROPE.rows[0].nextLotAt === 12501);
 const HHQ = C.copYearReportHTML(MHQ, {});
-ok('el pie dice la regla de cada región', /Medio Oriente:<\/b> 1 ensayo por familia con producción en el año/.test(HHQ) && /General · EURO-6C:<\/b> hasta 7,500/.test(HHQ));
+ok('el pie dice la regla de cada región', /Medio Oriente:<\/b> 1 ensayo por familia con producción en el año/.test(HHQ) && /Europa:<\/b> hasta 7,500/.test(HHQ));
+
+console.log('\n== [3.22.0] count_hist es lo producido en el año a la fecha del CSV ==');
+// Mismo acomodo que el CSV real de oct-2026: count_hist + columnas de oct en adelante, y un
+// mes viejo (sep) que dejó un CSV anterior con su PRONÓSTICO (no debe sumarse).
+const cfgH = (my, hist, m, extra) => Object.assign({ mod: 'CL4', eng: '1600CC GAMMA-II', tx: '7DCT', my, reg: 'PRE-EURO 7', ep: '0', engpkg: 'LOW POWER',
+    body: 'WGN', rgn: 'EUROPE', hist, m }, extra || {});
+const MON = ['Sep-26', 'Oct-26', 'Nov-26', 'Dec-26', 'Jan-27'];
+const HS = { asOf: '2026-10-09', firstMonth: 'Oct-26' };
+const PH = C.copYearProduction({ year: 2026, months: MON, inScope: () => true, keyOf, ruleOf, hist: HS,
+    planData: [cfgH('26 MODEL', 9054, [999, 309, 0, 0, 0]), cfgH('27 MODEL', 0, [0, 187, 571, 304, 529]),
+               cfgH('25 MODEL', 400, [50, 0, 0, 0, 0], { _retired: true, histAsOf: '2026-06-02' }),
+               cfgH('24 MODEL', 300, [0, 0, 0, 0, 0], { _retired: true })] });
+const FH = PH.fams[Object.keys(PH.fams)[0]];
+ok('producción = Σ count_hist del año + plan de oct–dic (sin el pronóstico viejo de sep ni enero 2027)',
+    FH.hist === 9454 && FH.vol === 9454 + 309 + 187 + 571 + 304, FH.hist + ' / ' + FH.vol);
+ok('ene–sep van "en el acumulado", no "sin dato"', PH.missing.length === 0 && FH.src.slice(0, 9).every(x => x === 'hist') && FH.src[9] === 'plan');
+ok('una retirada conserva su acumulado del año; sin fecha, no se adivina', FH.hist === 9054 + 400);
+ok('el año modelo de lo acumulado se lista', FH.mys['26 MODEL'] && FH.mys['25 MODEL']);
+ok('el límite del acumulado: CSV que empieza en oct → oct; de otro año → nada', C.copYearHistBoundary(HS, 2026) === 10 && C.copYearHistBoundary(HS, 2027) === 0 &&
+    C.copYearHistBoundary({ asOf: '2026-12-20', firstMonth: 'Jan-27' }, 2026) === 13 && C.copYearHistBoundary({ asOf: '2026-10-09' }, 2026) === 10);
+const PH27 = C.copYearProduction({ year: 2027, months: MON, inScope: () => true, keyOf, ruleOf, hist: HS, planData: [cfgH('27 MODEL', 0, [0, 187, 571, 304, 529])] });
+ok('2027 no toma el acumulado de 2026', PH27.fams[Object.keys(PH27.fams)[0]].vol === 529 && PH27.missing.length === 11);
+const PHR = C.copYearProduction({ year: 2026, months: MON, inScope: () => true, keyOf, ruleOf, hist: HS,
+    planData: [cfgH('26 MODEL', 9054, [999, 309, 0, 0, 0])], actuals: { [Object.keys(PH.fams)[0]]: { m: [100, 0, 0, 0, 0, 0, 0, 0, 900, 400, null, null] } } });
+ok('lo capturado como real solo manda en los meses fuera del acumulado (no cuenta dos veces)', PHR.fams[Object.keys(PHR.fams)[0]].vol === 9054 + 400);
+const MH = C.copYearReportCompute({ year: 2026, cutIso: '2026-10-20', prod: PH, tests: [], prevSaved: null });
+ok('el REQ sale del año completo: 9,454 + plan → 6', MH.rows[0].req === 6 && MH.histAsOf === '2026-10-09' && MH.histBoundary === 10);
+const HH = C.copYearReportHTML(MH, {});
+ok('el reporte dice de dónde sale la producción', /lo producido de enero al 9 oct 2026/.test(HH) && /lo planeado de oct a dic/.test(HH) && !/no trae/.test(HH));
+
+console.log('\n== [3.22.0] Solo cuenta lo registrado como conformidad de la producción ==');
+ok('COP-Emisiones cuenta; EO, ND, correlación, investigación, OBD y sin propósito no',
+    C.copPurposeCounts('COP-Emisiones') && ['EO-Emisiones', 'ND-Emisiones', 'Correlacion', 'Investigacion', 'COP-OBD2', '', null].every(p => !C.copPurposeCounts(p)));
 ok('documento imprimible completo', /^<!doctype html>/.test(C.copYearReportDocument(M, {})) && /@page/.test(C.copYearReportDocument(M, {})));
 
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
