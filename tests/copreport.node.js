@@ -260,5 +260,24 @@ ok('la nota del laboratorio sale tal cual, con sus renglones', /Note from the la
 ok('notas: por semana gana la más reciente (simétrica)', C.copRepNotesUnion({ w: { text: 'a', at: '1' } }, { w: { text: 'b', at: '2' } }).w.text === 'b' &&
     C.copRepNotesUnion({ w: { text: 'b', at: '2' } }, { w: { text: 'a', at: '1' } }).w.text === 'b');
 
+console.log('\n== [3.24.0] Uso de la celda: esta semana y la siguiente ==');
+const blk = (n, state, extra) => Object.assign({ n, state, reason: null, fam: '', proposal: false }, extra || {});
+const wkNow = { weekDate: '2026-10-19', planState: 'accepted', extra: 0,
+    total: { blocks: 8, tests: 5, use: 5 / 8, unexplained: 1, pending: 0, planned: 0, byReason: { qc: 2 } },
+    days: [{ iso: '2026-10-20', day: 'mar', blocks: [blk(1, 'prueba', { fam: 'CL4 1.6 T-GDI LP 7DCT WGN' }), blk(2, 'motivo', { reason: 'qc' })] },
+           { iso: '2026-10-21', day: 'mie', blocks: [blk(1, 'prueba', { fam: 'CL4 1.6 T-GDI HP 7DCT WGN' }), blk(2, 'sin-explicar')] }] };
+const wkNext = { weekDate: '2026-10-26', planState: 'proposal', extra: 0,
+    total: { blocks: 8, tests: 0, use: 0, unexplained: 0, pending: 0, planned: 7, byReason: {} },
+    days: [{ iso: '2026-10-27', day: 'mar', blocks: [blk(1, 'planeada', { fam: 'CL4 1.0 T-GDI 48V 6MT WGN', proposal: true }), blk(2, 'libre')] }] };
+const MC = Object.assign({}, M, { cell: { now: wkNow, next: wkNext } });
+const HC = C.copYearReportHTML(MC, { lang: 'en' }), HCs = C.copYearReportHTML(MC, { lang: 'es' });
+ok('la sección sale en los dos idiomas con el uso y la semana siguiente', /Cell use/.test(HC) && /5 of 8 test blocks used \(63%\)/.test(HC) &&
+    /1 not explained/.test(HC) && /Next week<\/b> \(<span[^>]*>proposal, not accepted yet/.test(HC) && /7 tests planned in 8 blocks/.test(HC) &&
+    /Uso de la celda/.test(HCs) && /5 de 8 bloques con prueba/.test(HCs) && /propuesta sin aceptar/.test(HCs), HC.slice(HC.indexOf('Cell use'), HC.indexOf('Cell use') + 900));
+ok('la tabla de bloques: familia, motivo y "sin explicar"; sin VIN', /CL4 1\.6 T-GDI LP 7DCT WGN/.test(HC) && /Not explained/.test(HC) && !/\bVIN\b/.test(HC));
+ok('la tabla es para Outlook (sin flex, grid ni position)', !/linear-gradient|position:\s*(absolute|relative)|display:\s*(flex|grid)/.test(HC) && /class="cr-blocks"/.test(HC));
+ok('sin bloques no hay sección (y el reporte de siempre no cambia)', C.copYearReportHTML(M, { lang: 'en' }).indexOf('Cell use') < 0);
+ok('texto plano: el uso y la semana siguiente día por día', /Cell use:/.test(C.copRepPlainText(MC, 'en')) && /Tue 27 Oct: CL4 1\.0 T-GDI 48V 6MT WGN/.test(C.copRepPlainText(MC, 'en')));
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;

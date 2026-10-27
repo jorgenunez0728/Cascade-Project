@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.23.0';
+var APP_VERSION = '3.24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '3.23.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.24.0', date: '27 oct 2026', title: 'Bloques de la celda: cada lugar de prueba tiene su explicación',
+      bullets: ['Plan → Mi semana → 🧱 Bloques de la semana: la capacidad instalada de la celda, lugar por lugar (con 2 vehículos por par son 8: dos pruebas de martes a viernes). Cada bloque muestra la prueba que se corrió ese día o, si quedó vacío, por qué.',
+                'Un signatario pone el motivo de un bloque vacío de una lista cerrada: quality check, mantenimiento o calibración, proyecto, sin vehículo, celda fuera de servicio, prueba inválida o repetida, sin personal o día festivo, con una nota opcional. Se puede aplicar a todos los bloques vacíos del mismo día.',
+                'Lo que la plataforma ya sabe se pone solo: días no laborables y semanas sin celda (Plan → Disponibilidad), y mantenimientos o calibraciones de equipos que detienen pruebas. El signatario puede cambiarlo.',
+                'HOY le avisa al signatario los bloques sin explicar de esta semana y de la anterior.',
+                '📤 Excel de la semana: la cuadrícula del laboratorio (preacondicionamiento y prueba de cada bloque, día por día), el resumen del uso de la celda y la bitácora de bloques. Sirve para la semana que viene (lo planeado) y para la que pasó (lo que se hizo).',
+                'El libro de auditoría trae los motivos en su calendario (como actividades) y una hoja nueva, Cell use, con el uso de la celda semana por semana.',
+                'El estatus CoP del viernes trae el uso de la celda de la semana y el plan de la siguiente, bloque por bloque y sin VIN.'] },
     { version: '3.23.0', date: '27 oct 2026', title: 'El estatus CoP, listo para la gerencia',
       bullets: ['El estatus de la semana se rehízo: arriba la frase del avance y cuatro indicadores (avance, ensayos, ritmo y familias cumplidas); después, las familias que requieren atención, los ensayos por semana, los puntos clave, la nota del laboratorio y el estatus por familia.',
                 'Ritmo: cuántos ensayos CoP hubo cada semana (las últimas 8) contra cuántos hacen falta por semana para cerrar el 31 de diciembre, descontando las semanas sin celda de Plan → Disponibilidad, y en qué fecha se terminaría al ritmo actual.',
@@ -5508,6 +5516,25 @@ function dashCollectActivities() {
                 }
             }
         } catch (e) {}
+
+        // [3.24.0] Bloques de la celda sin prueba ni motivo (esta semana y la anterior): los
+        // explica un signatario. Es de hoy, no deuda: la semana se reporta el viernes.
+        try {
+            if (typeof tpBlocksUnexplained === 'function') {
+                var _ub = tpBlocksUnexplained();
+                if (_ub.n) {
+                    var _ubDias = _ub.days.map(function(d) {
+                        return (typeof _tpBlockDayLabel === 'function' ? _tpBlockDayLabel(d.iso).toLowerCase() : d.iso) + (d.n > 1 ? ' (' + d.n + ')' : '');
+                    });
+                    acts.push({ id: 'act-blocks', cat: 'plan', icon: '🧱', perm: 'test.approve',
+                        title: _ub.n + (_ub.n === 1 ? ' bloque de prueba sin explicar' : ' bloques de prueba sin explicar'),
+                        meta: 'No hubo prueba y falta el motivo: ' + _ubDias.join(', '),
+                        status: 'atrasado', urgency: 2,
+                        action: { label: '🧱 Explicar', aria: 'Abrir los bloques de esa semana',
+                                  js: "dashGo('testplan','tp-myweek','tpCalendarOpenWeek','" + _ub.week + "')" } });
+                }
+            }
+        } catch (e) { console.warn('act-blocks:', e); }
 
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {

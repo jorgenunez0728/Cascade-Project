@@ -511,6 +511,7 @@ function _tpEnsureState() {
     }
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
     if (!tpState.reqFamilies || typeof tpState.reqFamilies !== 'object') tpState.reqFamilies = {}; // [2.36.0]
+    if (!tpState.blockNotes || typeof tpState.blockNotes !== 'object') tpState.blockNotes = {};    // [3.24.0] motivos de los bloques
     if (!tpState.configOverrides) tpState.configOverrides = {};
     if (typeof tpState.capacity !== 'number') tpState.capacity = 8;
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
@@ -5696,6 +5697,8 @@ function tpRenderMyWeek(el) {
              '</div>';
         // Sin plan, el armador se muestra abierto: es lo único que hay que hacer aquí.
         h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+        // [3.24.0] Una semana sin plan también tiene bloques: lo que se corrió, o por qué no.
+        if (b.weekDate && typeof tpBlocksCardHTML === 'function') h += tpBlocksCardHTML(b.weekDate);
         h += '</div>';
         el.innerHTML = h;
         requestAnimationFrame(function() {
@@ -5749,6 +5752,8 @@ function tpRenderMyWeek(el) {
         b.unscheduled.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays, { suggest: _sugPorFila }); });
         h += '</div></div>';
     }
+    // [3.24.0] Los bloques de la celda: cada lugar de prueba, con su prueba o su motivo.
+    if (b.weekDate && typeof tpBlocksCardHTML === 'function') h += tpBlocksCardHTML(b.weekDate);
 
 
     h += '</div>';
@@ -10031,7 +10036,11 @@ function _tpCalVehicleTested(v, today) {
  * completo. Devuelve {byDay:{iso:[test]}, all:[test], undated:[test]}.
  * test = {date, familyKey, familyShort, configCode, vin, purpose, status, source, vehicleId, declared}
  */
-function tpCalendarTests(fromIso, toIso) {
+function tpCalendarTests(fromIso, toIso, opts) {
+    // [3.24.0] opts.datedOnly: solo lo fechado dentro del rango (sin la lista de sin fecha).
+    // El rango se revisa ANTES de armar la configuración: es lo caro y casi todo queda fuera.
+    var datedOnly = !!(opts && opts.datedOnly);
+    var outOfRange = function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d) ? ((fromIso && d < fromIso) || (toIso && d > toIso)) : datedOnly; };
     var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
     var vehicles = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
     var tombs = (typeof db !== 'undefined' && db && Array.isArray(db.deletedVehicles)) ? db.deletedVehicles : [];
@@ -10056,6 +10065,7 @@ function tpCalendarTests(fromIso, toIso) {
         if (!_tpCalVehicleTested(v, today)) return;
         var td = v.testData || {};
         var d = String(td.testDatetime || '').slice(0, 10);
+        if (outOfRange(d)) return;
         var cfg = _tpCalVehicleCfg(v);
         var f = fam(cfg);
         push({
@@ -10092,6 +10102,7 @@ function tpCalendarTests(fromIso, toIso) {
         var date = null;
         if (declared && t.planId) date = itemDay[t.planId + '|' + t.itemUid] || itemDay[t.planId + '|#' + t.itemIdx] || null;
         if (!date) date = /^\d{4}-\d{2}-\d{2}/.test(String(t.date || '')) ? String(t.date).slice(0, 10) : null;
+        if (outOfRange(date || '')) return;
         var cfg = tpConfigByDesc(t.configText);
         var f = fam(cfg);
         push({
@@ -10351,7 +10362,9 @@ function tpCalendarDayDetail(dateKey) {
 // El libro va en INGLÉS (decisión del laboratorio: lo lee un auditor).
 
 var TP_AUDIT_ACTIVITIES = ['Quality Checks', 'Preconditioning', 'Development Testing', 'Correlation',
-    'Dyno Calibration', 'Equipment Maintenance', 'Training', 'Holiday'];
+    'Dyno Calibration', 'Equipment Maintenance', 'Training', 'Holiday',
+    // [3.24.0] Los motivos de un bloque de la celda sin prueba (TP_BLOCK_REASONS[].audit).
+    'Project', 'No vehicle', 'Cell out of service', 'Invalid / repeated test', 'No staff / training'];
 var TP_AUDIT_EXTRA_ROWS = 15;   // renglones en blanco para familias que el laboratorio agregue a mano
 var TP_AUDIT_SLOTS = 6;         // renglones por día en el calendario (la exportación crece si hace falta)
 var TP_AUDIT_MAX_MONTHS = 24;
@@ -10406,7 +10419,7 @@ function tpAuditXlsxModel(opts) {
     opts = opts || {};
     var months = tpAuditMonths(opts.from, opts.to);
     var template = !!opts.template;
-    var model = { template: template, months: months, families: [], tests: [], undated: [], planned: [],
+    var model = { template: template, months: months, families: [], tests: [], undated: [], planned: [], blocks: [], blockEntries: [],
                   activities: TP_AUDIT_ACTIVITIES.slice(), generated: opts.generated || '',
                   appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' };
     if (!months.length) return model;
@@ -10520,6 +10533,21 @@ function tpAuditXlsxModel(opts) {
         });
     }
 
+    // [3.24.0] Los bloques de la celda de cada semana del periodo (hasta la semana que entra):
+    // su motivo va al calendario como actividad y la bitácora completa a la hoja "Cell use".
+    if (!template && typeof tpBlocksForWeek === 'function') {
+        var lastWeek = tpIsoAddDays(tpMondayIso((typeof localToday === 'function') ? localToday() : pTo), 7);
+        for (var wk = tpMondayIso(pFrom); wk && wk <= pTo && wk <= lastWeek; wk = tpIsoAddDays(wk, 7)) {
+            var br = tpBlocksForWeek(wk);
+            br.blocks.forEach(function(b) {
+                if (b.iso < pFrom || b.iso > pTo) return;
+                model.blocks.push(b);
+                var R = (b.state === 'motivo' || b.state === 'auto') ? tpBlockReason(b.reason) : null;
+                if (R) model.blockEntries.push({ date: b.iso, label: R.audit, vin: '', activity: true });
+            });
+        }
+    }
+
     var active = function(f) {
         return f.hasVolume || f.hasPlan || model.tests.some(function(t) { return t.family === f.short; });
     };
@@ -10625,7 +10653,7 @@ function tpAuditXlsxSpec(model) {
     // Calendario: ubicar cada prueba en su día y medir cuántos renglones necesita cada semana.
     // Por día: primero lo probado (con VIN), después lo planeado pendiente (sin VIN).
     var testsByDay = {};
-    (model.tests || []).concat(model.planned || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
+    (model.tests || []).concat(model.planned || [], model.blockEntries || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
     // Lo que darán las fórmulas: Planned = apariciones de la familia en el calendario (con o
     // sin VIN); Tested = apariciones con VIN al lado. Mismo criterio que COUNTIF / COUNTIFS.
     var testedCount = months.map(function() { return {}; });
@@ -10877,6 +10905,7 @@ function tpAuditXlsxSpec(model) {
         ['', 'Projection — units produced per family and month (yellow, input). Required tests are calculated from it.'],
         ['', 'One sheet per month — left: the families with Required / Planned / Tested / Gap; right: the calendar, Monday to Sunday.'],
         ['', 'Test Log — every test of the period with its test date, family, configuration, VIN, purpose and status.'],
+        ['', 'Cell use — every test block of the installed capacity, week by week: the test that filled it, or why there was none (recorded by a signatory).'],
         ['', ''],
         ['h2', 'Rules'],
         ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
@@ -10918,8 +10947,62 @@ function tpAuditXlsxSpec(model) {
 
     sheets.push(IN, SM, P);
     monthSheets.forEach(function(s) { sheets.push(s); });
-    sheets.push(TL, L);
+    sheets.push(TL);
+    if ((model.blocks || []).length) sheets.push(_tpAuditCellUseSheet(model.blocks, X));
+    sheets.push(L);
     return { title: 'Test Plan', creator: 'KIA EmLab', appVersion: model.appVersion, sheets: sheets };
+}
+
+/**
+ * [3.24.0] La hoja "Cell use" del libro: arriba una fila por semana (fórmulas COUNTIFS sobre
+ * la bitácora, cada una con su valor), abajo la bitácora de bloques. PURA.
+ */
+function _tpAuditCellUseSheet(blocks, X) {
+    var rows = blocks.map(tpBlockLogRow);
+    var weeks = [];
+    rows.forEach(function(x) { if (weeks.indexOf(x.week) < 0) weeks.push(x.week); });
+    weeks.sort();
+    var reasons = TP_BLOCK_REASONS;
+    var S = { name: 'Cell use', tabColor: 'B45309', showGrid: false, cells: [], cf: [], freeze: { row: 5, col: 2 },
+              cols: [{ min: 1, max: 1, width: 13 }, { min: 2, max: 3, width: 9 }, { min: 4, max: 4 + reasons.length, width: 13 },
+                     { min: 5 + reasons.length, max: 6 + reasons.length, width: 11 }], rows: { 4: { height: 32 } } };
+    S.cells.push({ r: 1, c: 1, v: 'Cell use — every test block, week by week', s: X.title });
+    S.cells.push({ r: 2, c: 1, v: 'A block is one test of the installed capacity (day pairs × vehicles per pair). Blocks without a test carry a reason, recorded by a signatory ' +
+        '(or set by the platform: holiday, cell not available, maintenance of equipment that stops testing).', s: X.sub });
+    var hdr = ['Week (Mon)', 'Blocks', 'Tests'].concat(reasons.map(function(R) { return R.en; }), ['Not explained', 'Cell use']);
+    hdr.forEach(function(t, i) { S.cells.push({ r: 4, c: 1 + i, v: t, s: X.hdr }); });
+    var R0 = 5, LH = R0 + weeks.length + 2, L0 = LH + 1, L1 = Math.max(L0, L0 + rows.length - 1);
+    var col = function(c) { return xwRange(L0, c, L1, c, true); };
+    weeks.forEach(function(w, i) {
+        var r = R0 + i, mine = rows.filter(function(x) { return x.week === w; }), wk = xwRef(r, 1);
+        S.cells.push({ r: r, c: 1, v: { date: w }, s: X.date });
+        S.cells.push({ r: r, c: 2, f: 'COUNTIF(' + col(1) + ',' + wk + ')', v: mine.length, s: X.calc });
+        S.cells.push({ r: r, c: 3, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(5) + ',"Test")', v: mine.filter(function(x) { return x.state === 'prueba'; }).length, s: X.calc });
+        reasons.forEach(function(R, k) {
+            S.cells.push({ r: r, c: 4 + k, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(9) + ',"' + R.en + '")',
+                           v: mine.filter(function(x) { return x.reason === R.en; }).length, s: X.calc });
+        });
+        var cNe = 4 + reasons.length;
+        S.cells.push({ r: r, c: cNe, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(5) + ',"NOT EXPLAINED")',
+                       v: mine.filter(function(x) { return x.state === 'sin-explicar'; }).length, s: X.calc });
+        S.cells.push({ r: r, c: cNe + 1, f: 'IF(N(' + xwRef(r, 2) + ')=0,"",' + xwRef(r, 3) + '/' + xwRef(r, 2) + ')',
+                       v: mine.length ? mine.filter(function(x) { return x.state === 'prueba'; }).length / mine.length : '', s: X.pct });
+    });
+    var lastW = R0 + Math.max(weeks.length, 1) - 1;
+    S.cf.push({ sqref: xwRange(R0, 4 + reasons.length, lastW, 4 + reasons.length), type: 'expression',
+                formula: 'N(' + xwRef(R0, 4 + reasons.length) + ')>0', style: { font: { b: true, color: 'B3261E' } } });
+    S.cf.push({ sqref: xwRange(R0, 2, lastW, 4 + reasons.length), type: 'expression', formula: xwRef(R0, 2) + '=0', style: { font: { color: 'B0B7C3' } } });
+    var hdrL = ['Week', 'Date', 'Day', 'Block', 'Status', 'Family', 'VIN', 'Purpose', 'Reason', 'Note', 'Recorded by'];
+    hdrL.forEach(function(t, i) { S.cells.push({ r: LH, c: 1 + i, v: t, s: X.hdr }); });
+    rows.forEach(function(x, i) {
+        var r = L0 + i, st = { border: 'thin', fill: (typeof _TP_BLK_FILL !== 'undefined' && _TP_BLK_FILL[x.state]) || 'FFFFFF' };
+        S.cells.push({ r: r, c: 1, v: { date: x.week }, s: X.date }, { r: r, c: 2, v: { date: x.date }, s: X.date }, { r: r, c: 3, v: x.day, s: X.txt },
+                     { r: r, c: 4, v: x.block, s: X.txt }, { r: r, c: 5, v: x.status, s: st }, { r: r, c: 6, v: x.family, s: X.fam },
+                     { r: r, c: 7, v: x.vin, s: X.txt }, { r: r, c: 8, v: x.purpose, s: X.txt }, { r: r, c: 9, v: x.reason, s: X.fam },
+                     { r: r, c: 10, v: x.note, s: X.fam }, { r: r, c: 11, v: x.by, s: X.txt });
+    });
+    S.autoFilter = 'A' + LH + ':' + xwRef(L1, hdrL.length);
+    return S;
 }
 
 /** Exportar desde la plataforma: elige el periodo y descarga el .xlsx. */

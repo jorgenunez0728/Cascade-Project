@@ -1888,6 +1888,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
         // [2.36.0] Las familias fuera del conteo, de los dos lados (gana la marca más reciente).
         if (typeof tpReqFamiliesUnion === 'function') tpState.reqFamilies = tpReqFamiliesUnion(prevTp.reqFamilies, tpState.reqFamilies);
+        // [3.24.0] Los motivos de los bloques de la celda, de los dos lados.
+        if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(prevTp.blockNotes, tpState.blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo: gana el cambio más reciente.
         if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -1944,6 +1946,8 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
         // [2.36.0] Un pull cuyo único cambio es sacar/regresar una familia del conteo.
         (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo((typeof tpState !== 'undefined' && tpState && tpState.reqFamilies) || {}, (remoteData && remoteData.reqFamilies) || {})) ||
+        // [3.24.0] Un pull cuyo único cambio es el motivo de un bloque.
+        (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo((typeof tpState !== 'undefined' && tpState && tpState.blockNotes) || {}, (remoteData && remoteData.blockNotes) || {})) ||
         // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
         (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
@@ -2839,7 +2843,7 @@ function fbAssignInPlace(target, src) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
@@ -2881,6 +2885,8 @@ function _fbLocalHasExtras(col, remote) {
         if (_fbPlanTombsNewTo(remote.deletedPlans || [], tpState.deletedPlans || [])) return true;
         // [2.36.0] Una familia sacada/regresada al conteo aquí que la nube no tiene se sube.
         if (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo(remote.reqFamilies || {}, tpState.reqFamilies || {})) return true;
+        // [3.24.0] Un motivo de bloque puesto aquí que la nube no tiene.
+        if (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo(remote.blockNotes || {}, tpState.blockNotes || {})) return true;
         // [3.13.0] El interruptor del REQ de corporativo cambiado aquí y no en la nube.
         if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
         var rt = {};
@@ -4056,6 +4062,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             tpState.reqFamilies = tpReqFamiliesUnion(tpState.reqFamilies, (remoteData.testplan || {}).reqFamilies);
             if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
         }
+        // [3.24.0] Los motivos de los bloques se UNEN siempre (gana el más reciente por bloque).
+        if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(tpState.blockNotes, (remoteData.testplan || {}).blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo se une igual (gana el más reciente).
         if (typeof tpCopReqModeUnion === 'function') {
             var _crm = tpCopReqModeUnion(tpState.copReqMode, (remoteData.testplan || {}).copReqMode);

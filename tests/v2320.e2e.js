@@ -106,7 +106,8 @@ const SEED = () => {
             const vie = { fam: (sep[20] || {})[15] || '', vin: (sep[20] || {})[16] || '' };
             return { hojas: Object.keys(g), martes, vie, log: JSON.stringify(g['Test Log'] || {}).length };
         }, buf.toString('base64'));
-        chk('hojas del libro', leido.hojas.join() === 'Instructions,Summary,Projection,Sep-26,Oct-26,Test Log,Lists', leido.hojas.join());
+        // [3.24.0] "Cell use": el uso de la celda semana por semana (bloques con prueba o motivo).
+        chk('hojas del libro', leido.hojas.join() === 'Instructions,Summary,Projection,Sep-26,Oct-26,Test Log,Cell use,Lists', leido.hojas.join());
         // Semana del 14-sep es la 3ª (renglón 5 + 2·7 = 19); martes = columnas I/J (9/10): VIN en 20:10.
         chk('el VIN (últimos 6) quedó en el martes 15 de la hoja Sep-26', leido.martes === '20:10', leido.martes);
         chk('lo planeado del viernes 18 está en su día, sin VIN', /^CL4 1\.0 KAPPA PE 6MT MY26 PRE-EURO 7 5DR$/.test(leido.vie.fam) && !leido.vie.vin, JSON.stringify(leido.vie));

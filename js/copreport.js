@@ -708,6 +708,19 @@ var COP_REP_TXT = {
             return t;
         },
         weekShort: 'S', legendNeed: function(n) { return 'necesario: ' + n + '/sem.'; }, offShort: 'sin celda',
+        secCell: 'Uso de la celda', secCellSub: 'Bloques de prueba de esta semana y el plan de la siguiente',
+        cellNow: function(T) {
+            return '<b>Esta semana:</b> ' + T.tests + ' de ' + T.blocks + ' bloques con prueba (' + _crPct(T.use) + ')' +
+                   (T.unexplained ? ' · <b style="color:#b91c1c;">' + T.unexplained + ' sin explicar</b>' : '') +
+                   (T.pending || T.planned ? ' · ' + (T.pending + T.planned) + ' por correr' : '') + '.';
+        },
+        cellNext: function(st, T) {
+            if (st === 'none') return '<b>Semana siguiente:</b> todavía no tiene plan.';
+            return '<b>Semana siguiente</b> (' + (st === 'accepted' ? 'plan aceptado' : '<span style="color:#92400e;">propuesta sin aceptar</span>') + '): ' +
+                   T.planned + ' ' + _crPlural(T.planned, 'prueba planeada', 'pruebas planeadas') + ' en ' + T.blocks + ' bloques.';
+        },
+        cellBlock: 'Bloque', cellToday: 'hoy', cellFree: 'libre', cellNotExplained: 'Sin explicar', cellProposal: 'propuesta',
+        cellExtra: function(n) { return n + ' ' + _crPlural(n, 'prueba', 'pruebas') + ' de más (sobre la capacidad).'; },
         secKey: 'Puntos clave', secNote: 'Nota del laboratorio',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'ensayo', 'ensayos') + '</b> esta semana: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'Sin ensayos nuevos esta semana.',
@@ -782,6 +795,19 @@ var COP_REP_TXT = {
             return t;
         },
         weekShort: 'W', legendNeed: function(n) { return 'needed: ' + n + '/wk'; }, offShort: 'no cell',
+        secCell: 'Cell use', secCellSub: 'Test blocks this week and next week’s plan',
+        cellNow: function(T) {
+            return '<b>This week:</b> ' + T.tests + ' of ' + T.blocks + ' test blocks used (' + _crPct(T.use) + ')' +
+                   (T.unexplained ? ' · <b style="color:#b91c1c;">' + T.unexplained + ' not explained</b>' : '') +
+                   (T.pending || T.planned ? ' · ' + (T.pending + T.planned) + ' still to run' : '') + '.';
+        },
+        cellNext: function(st, T) {
+            if (st === 'none') return '<b>Next week:</b> no plan yet.';
+            return '<b>Next week</b> (' + (st === 'accepted' ? 'plan accepted' : '<span style="color:#92400e;">proposal, not accepted yet</span>') + '): ' +
+                   T.planned + ' ' + _crPlural(T.planned, 'test', 'tests') + ' planned in ' + T.blocks + ' blocks.';
+        },
+        cellBlock: 'Block', cellToday: 'today', cellFree: 'free', cellNotExplained: 'Not explained', cellProposal: 'proposal',
+        cellExtra: function(n) { return n + ' extra ' + _crPlural(n, 'test', 'tests') + ' (over capacity).'; },
         secKey: 'Key points', secNote: 'Note from the lab',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'test', 'tests') + '</b> this week: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'No new tests this week.',
@@ -892,6 +918,58 @@ function _crHighlightText(hl, X, lang) {
     return '';
 }
 
+/** [3.24.0] Color de un bloque en el correo (relleno, texto). */
+var _CR_BLK = { prueba: ['#d1fae5', '#065f46'], motivo: ['#fef3c7', '#92400e'], auto: ['#fef3c7', '#92400e'], planeada: ['#dbeafe', '#1e3a8a'],
+                libre: ['#f8fafc', '#94a3b8'], pendiente: ['#f1f5f9', '#475569'], 'sin-explicar': ['#fee2e2', '#991b1b'] };
+
+/** El día de una columna de bloques: "Tue 20 Oct" / "Mar 20 oct". PURA. */
+function _crBlockDay(iso, lang) {
+    var p = String(iso || '').split('-');
+    if (p.length !== 3) return '';
+    var wd = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
+    var D = lang === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return D[wd] + ' ' + Number(p[2]) + ' ' + _crMonL(Number(p[1]), lang);
+}
+
+/** Un bloque en el correo: la familia, el motivo, o el estado. Sin VIN. PURA. */
+function _crBlockText(b, X, lang) {
+    if (b.state === 'prueba') return '✓ ' + _crEsc(b.fam);
+    if (b.state === 'motivo' || b.state === 'auto') {
+        var R = typeof tpBlockReason === 'function' ? tpBlockReason(b.reason) : null;
+        return _crEsc(R ? (lang === 'en' ? R.en : R.es) : b.reason);
+    }
+    if (b.state === 'planeada') return _crEsc(b.fam) + (b.proposal ? ' <i>(' + X.cellProposal + ')</i>' : '');
+    if (b.state === 'sin-explicar') return '<b>' + X.cellNotExplained + '</b>';
+    if (b.state === 'pendiente') return X.cellToday;
+    return X.cellFree;
+}
+
+/** La semana como tabla: columnas = días de prueba, renglones = bloques (Outlook la pinta). PURA. */
+function _crBlocksTable(wk, X, lang) {
+    var days = wk.days || [], maxN = days.reduce(function(s, d) { return Math.max(s, d.blocks.length); }, 0);
+    if (!days.length) return '';
+    var w = Math.floor(100 / days.length);
+    var h = '<table role="presentation" class="cr-blocks" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;table-layout:fixed;"><tr>';
+    days.forEach(function(d) {
+        h += '<td width="' + w + '%" style="width:' + w + '%;padding:6px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:' + _CR_MUTED +
+             ';border-bottom:2px solid ' + _CR_LINE + ';">' + _crEsc(_crBlockDay(d.iso, lang)) + '</td>';
+    });
+    h += '</tr>';
+    for (var k = 0; k < maxN; k++) {
+        h += '<tr>';
+        days.forEach(function(d) {
+            var b = d.blocks[k];
+            if (!b) { h += '<td style="padding:3px;"></td>'; return; }
+            var c = _CR_BLK[b.state] || _CR_BLK.libre;
+            h += '<td valign="top" style="padding:3px;vertical-align:top;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>' +
+                 '<td bgcolor="' + c[0] + '" style="background:' + c[0] + ';color:' + c[1] + ';border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.35;word-wrap:break-word;">' +
+                 _crBlockText(b, X, lang) + '</td></tr></table></td>';
+        });
+        h += '</tr>';
+    }
+    return h + '</table>';
+}
+
 /** Barras de ensayos por semana (tablas: así las pinta Outlook). PURA. */
 function _crPaceChart(P, X) {
     var H = 64;
@@ -991,6 +1069,17 @@ function copYearReportHTML(m, opts) {
     h += _crSection(X.secPace, X.secPaceSub);
     h += '<tr><td style="padding:0 24px;">' + _crPaceChart(P, X) +
          '<div style="font-size:13px;line-height:1.55;color:#334155;margin-top:10px;">' + X.paceText(P, lang) + '</div></td></tr>';
+    // ── [3.24.0] Uso de la celda: esta semana y la siguiente, bloque por bloque
+    if (m.cell && m.cell.now && m.cell.now.total.blocks) {
+        h += _crSection(X.secCell, X.secCellSub);
+        h += '<tr><td style="padding:0 24px;font-size:13px;line-height:1.55;color:#334155;">' + X.cellNow(m.cell.now.total) +
+             (m.cell.now.extra ? ' ' + X.cellExtra(m.cell.now.extra) : '') + '</td></tr>';
+        h += '<tr><td style="padding:6px 24px 0;">' + _crBlocksTable(m.cell.now, X, lang) + '</td></tr>';
+        if (m.cell.next) {
+            h += '<tr><td style="padding:14px 24px 0;font-size:13px;line-height:1.55;color:#334155;">' + X.cellNext(m.cell.next.planState, m.cell.next.total) + '</td></tr>';
+            if (m.cell.next.planState !== 'none') h += '<tr><td style="padding:6px 24px 0;">' + _crBlocksTable(m.cell.next, X, lang) + '</td></tr>';
+        }
+    }
     // ── Puntos clave y nota del laboratorio
     h += _crSection(X.secKey);
     h += '<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">';
@@ -1301,8 +1390,35 @@ function copYearReportModel(opts) {
         exclude: copState.yearExclude || {},
         outOfScope: outOfScope
     });
+    // [3.24.0] Los bloques de la celda solo los lee el reporte: se arman la primera vez que
+    // se piden (el Plan pide este modelo desde el arranque y no los necesita). No enumerable:
+    // no viaja en el corte guardado.
+    var _cell;
+    Object.defineProperty(model, 'cell', { enumerable: false, configurable: true,
+        get: function() { if (_cell === undefined) _cell = _copRepCell(cut); return _cell; } });
     _copRepCache = { key: key, model: model };
     return model;
+}
+
+/**
+ * [3.24.0] Los bloques de la celda para el reporte: la semana del corte y la siguiente, sin
+ * VIN (sale por correo). Salen de tpBlocksForWeek (bloques.js), con el corte como "hoy".
+ */
+function _copRepCell(cut) {
+    if (typeof tpBlocksForWeek !== 'function') return null;
+    var pack = function(r) {
+        return { weekDate: r.weekDate, planState: r.planState, total: r.total, extra: r.extra.length,
+                 days: r.days.map(function(d) {
+                     return { iso: d.iso, day: d.day, blocks: d.blocks.map(function(b) {
+                         var src = b.test || b.planned;
+                         return { n: b.n, state: b.state, reason: b.reason, fam: src ? tpBlockFamilyName(src) : '', proposal: !!(b.planned && b.planned.proposal) };
+                     }) };
+                 }) };
+    };
+    try {
+        var mon = copRepMonday(cut);
+        return { now: pack(tpBlocksForWeek(mon, { today: cut })), next: pack(tpBlocksForWeek(_copRepAddDays(mon, 7), { today: cut })) };
+    } catch (e) { console.warn('_copRepCell:', e); return null; }
 }
 
 /**
@@ -1519,6 +1635,16 @@ function copRepPlainText(m, lang) {
                    (r.added ? ' (+' + r.added + ')' : '') + ' · ' + ((X.status[r.status.id]) || r.status.label));
         });
     });
+    if (m.cell && m.cell.now && m.cell.now.total.blocks) {
+        var strip = function(t) { return String(t).replace(/<[^>]+>/g, ''); };
+        L.push('', X.secCell + ':', '  ' + strip(X.cellNow(m.cell.now.total)));
+        if (m.cell.next) {
+            L.push('  ' + strip(X.cellNext(m.cell.next.planState, m.cell.next.total)));
+            if (m.cell.next.planState !== 'none') m.cell.next.days.forEach(function(d) {
+                L.push('    ' + _crBlockDay(d.iso, lang) + ': ' + d.blocks.map(function(b) { return strip(_crBlockText(b, X, lang)); }).join(' | '));
+            });
+        }
+    }
     if (m.note) L.push('', X.secNote + ': ' + m.note.text);
     return L.join('\n');
 }

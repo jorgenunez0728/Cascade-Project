@@ -56,6 +56,7 @@ js/
   uiflow.js             ← Una cosa a la vez: primitiva de tarjetas para toda la plataforma fuera de Operación (~300 lines)
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
+  bloques.js            ← Bloques de la celda: cada lugar de prueba con su prueba o su motivo + Excel de la semana (~600 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   cuarto.js             ← 🗺️ Cuartos de gases y de gasolina: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~2,050 lines)
   sitio.js              ← 🚗 Laboratorio en el mapa: celda + acondicionamiento, unidades por VIN, equipos editables, estacionamiento de la flota Master, autos en 3D (~2,160 lines)
@@ -196,7 +197,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
+`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → **`bloques.js`** → `panel.js` → **`projects.js`** → `auth.js` →
 `signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
@@ -4020,4 +4021,32 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
   pintar.
 - `copState.yearNotes` es del laboratorio. Sigue el patrón de `yearCuts`: está en
   `copPersist`/`copLoad` y se une con `copRepNotesUnion` en la rama `cop` de `fbPullApply`.
+
+## 3.24.0 — Bloques de la celda (`js/bloques.js`)
+
+- **Un bloque es un lugar de prueba de la capacidad INSTALADA**: los pares preacondicionar →
+  probar de lunes a viernes con el reposo default (`tpSlotsForSoak`) × `tpState.vehiclesPerSlot`.
+  `tpBlockLayout` es la capacidad y `tpBlocksCompute(src)` (PURA) es LA definición de los bloques
+  de una semana. `tpBlocksForWeek(weekDate, {today})` le pasa los datos.
+- **No es `tpWeeklyCapacityFor`.** Ésa dice cuántas pruebas se PLANEAN (práctica, acotada); los
+  bloques dicen qué se hizo con la capacidad física. No mezclarlas. Un día no laborable de una
+  semana NO quita bloques: los deja con motivo automático, para que se vea qué se perdió.
+- **Los bloques se calculan; solo el motivo se guarda** (`tpState.blockNotes`, por
+  `lunes|día|n`). Un motivo nuevo va en `TP_BLOCK_REASONS`, que es la lista CERRADA, con su
+  `audit` en `TP_AUDIT_ACTIVITIES`; `tests/bloques.node.js` lo verifica. Nunca texto libre como
+  motivo: la nota es aparte.
+- Una prueba llena un bloque por su **fecha de prueba**: `tpCalendarTests`, más `vehicleTestDate`
+  para el formato simple. Busca primero los bloques sin motivo y, si hay más pruebas, la prueba
+  manda sobre el motivo. Lo que no cabe va a `extra` y se declara.
+- Orden de un bloque vacío: motivo del signatario → automático (`_tpBlockAuto`: semana sin celda,
+  día o preacondicionamiento no laborable, mantenimiento o calibración de un `blocksTesting`) →
+  planeada / libre / hoy / **sin explicar**.
+- **El motivo lo escribe solo `tpBlockExplain`** (`test.approve`, auditado con antes y después).
+  Quitar deja `reason: null`, la marca que gana por fecha. Se une con
+  `tpBlockNotesUnion`/`tpBlockNotesNewTo` en los cinco puntos de `reqFamilies` (siembra, `hasWork`,
+  `_fbLocalHasExtras`, `merge_all` y la huella).
+- El reporte CoP recibe los bloques ya empacados y SIN VIN (`model.cell`, `_copRepCell`). Toda
+  sección nueva del correo que hable de pruebas pasa por ese mismo empaque.
+- Orden de carga: `… testplan.js → bloques.js → panel.js …`; `tools/digest-env.js` también lo
+  carga.
 
