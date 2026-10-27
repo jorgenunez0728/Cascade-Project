@@ -3988,3 +3988,36 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
   ⚙️ Familias y su motivo, no con una regla escrita en el código: cuando entren a producción en
   serie, sí van a pedir CoP.
 
+## 3.23.0 — El estatus CoP, listo para la gerencia (`js/copreport.js`)
+
+- **`copRepPace(m)` es LA definición del ritmo** y es PURA:
+  - las 8 semanas que terminan en la del corte, contadas por la fecha de prueba (`vehicleTestDate`)
+    de los ensayos que cuentan;
+  - `recent` es el promedio de las últimas 4;
+  - `needed` es lo pendiente ÷ las semanas con celda que quedan hasta el 31 dic (las que no tienen
+    celda salen de `tpState.weekAvailability`, vía `_copRepWeekOff`);
+  - `finish` es el viernes en que se terminaría.
+
+  Nunca contar la semana por `archivedAt`: un ensayo cuenta en la semana en que se probó (2.32.0).
+- **`copRepCritical(m)` es LA definición de "la familia más crítica"** (PURA, con orden por
+  puntaje). Lo primero es que se acaben las unidades: con ensayos pendientes y menos de
+  `COP_REP_SCARCE_UNITS` por producir, o sin producción en diciembre, hay que apartar una ya. Un
+  criterio nuevo va aquí, con su texto en los dos idiomas de `COP_REP_TXT`. La tarjeta del
+  Panorama la lee de `m.critical`; no recalcularla en otro lado.
+- **El reporte tiene dos idiomas y UN modelo.** Todo texto nuevo del reporte va en
+  `COP_REP_TXT.es` y `.en` a la vez (`tests/copreport.node.js` revisa los dos).
+  `copYearReportHTML` tiene default `'es'` porque es PURA y sus pruebas leen español. Quien la llama
+  pasa el idioma: la pantalla con `uiPref('copRepLang')` (`'en'`) y el correo con
+  `settings/digest.copLang` (`'en'`). La nota de la semana NO se traduce: sale como se escribió.
+- **El HTML del correo es para Outlook de escritorio**: tablas, `bgcolor`, anchos fijos y el
+  envoltorio `<!--[if mso]>`. Están prohibidos `linear-gradient`, `position`, `display:flex/grid` y
+  `div` con alto para dibujar: Outlook usa el motor de Word y los ignora (la prueba lo vigila). Las
+  barras son `_crBar` (dos celdas de ancho fijo) y las gráficas `_crPaceChart` (celdas con alto).
+  Lo de teléfono va solo en el `<style>` de `copYearReportDocument`, que el correo ignora.
+- **`copRepShortName(f)`** es el nombre de una familia en el reporte. Las etiquetas salen de
+  `COP_REP_ENGINE_TAGS` / `COP_REP_PKG_TAGS`, y lo que no reconoce se deja como viene. La
+  carrocería NO va en el nombre (es el grupo); donde no hay grupo (puntos clave), se agrega al
+  pintar.
+- `copState.yearNotes` es del laboratorio. Sigue el patrón de `yearCuts`: está en
+  `copPersist`/`copLoad` y se une con `copRepNotesUnion` en la rama `cop` de `fbPullApply`.
+

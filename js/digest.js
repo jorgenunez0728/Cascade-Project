@@ -161,6 +161,8 @@ function digestSettingsNormalize(s) {
         escalateTo: Array.isArray(s.escalateTo) ? digestParseEmails(s.escalateTo.join(' ')) : digestParseEmails(s.escalateTo),
         // [3.12.0] Estatus CoP semanal (viernes 7:00): su propia lista — suele ser corporativo.
         copTo: Array.isArray(s.copTo) ? digestParseEmails(s.copTo.join(' ')) : digestParseEmails(s.copTo),
+        // [3.23.0] Idioma del estatus CoP del viernes: inglés salvo que el laboratorio elija español.
+        copLang: s.copLang === 'es' ? 'es' : 'en',
         escalateDays: (isNaN(days) || days < 1) ? DIGEST_ESCALATE_DAYS_DEFAULT : Math.min(days, 90),
         ntfyTopic: String(s.ntfyTopic || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64),
         vapidPublic: String(s.vapidPublic || ''),
@@ -811,6 +813,7 @@ function digestSettingsSave() {
     var next = {
         to: digestParseEmails(get('dg-to')), escalateTo: digestParseEmails(get('dg-esc')), escalateDays: days, ntfyTopic: topic,
         copTo: digestParseEmails(get('dg-cop')),
+        copLang: get('dg-cop-lang') === 'es' ? 'es' : 'en',
         vapidPublic: before.vapidPublic,
         updatedAt: new Date().toISOString(), by: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : ''
     };
@@ -818,8 +821,8 @@ function digestSettingsSave() {
         _digestUi.settings = next;
         if (typeof auditLog === 'function') {
             auditLog('panel', 'avisos_configurados', { type: 'settings', label: 'Avisos del laboratorio' }, '', {
-                before: { to: before.to.join(', '), escalateTo: before.escalateTo.join(', '), escalateDays: before.escalateDays, ntfyTopic: before.ntfyTopic, copTo: before.copTo.join(', ') },
-                after: { to: next.to.join(', '), escalateTo: next.escalateTo.join(', '), escalateDays: next.escalateDays, ntfyTopic: next.ntfyTopic, copTo: next.copTo.join(', ') }
+                before: { to: before.to.join(', '), escalateTo: before.escalateTo.join(', '), escalateDays: before.escalateDays, ntfyTopic: before.ntfyTopic, copTo: before.copTo.join(', '), copLang: before.copLang },
+                after: { to: next.to.join(', '), escalateTo: next.escalateTo.join(', '), escalateDays: next.escalateDays, ntfyTopic: next.ntfyTopic, copTo: next.copTo.join(', '), copLang: next.copLang }
             });
         }
         showToast('Avisos guardados para todo el laboratorio.', 'success');
@@ -859,6 +862,10 @@ function digestPanelRender(opts) {
         '<textarea id="dg-esc" rows="2" placeholder="Ej.: jefe@kia.com"' + dis + '>' + _digestEsc(s.escalateTo.join(', ')) + '</textarea></div>';
     h += '<div class="form-group"><label for="dg-cop">Estatus CoP semanal (viernes, 7:00)</label>' +
         '<textarea id="dg-cop" rows="2" placeholder="Ej.: corporativo@kia.com — vacío = no se envía"' + dis + '>' + _digestEsc(s.copTo.join(', ')) + '</textarea></div>';
+    h += '<div class="form-group"><label for="dg-cop-lang">Idioma del estatus CoP</label>' +
+        '<select id="dg-cop-lang" data-chips' + dis + '>' +
+        '<option value="en"' + (s.copLang === 'en' ? ' selected' : '') + '>English</option>' +
+        '<option value="es"' + (s.copLang === 'es' ? ' selected' : '') + '>Español</option></select></div>';
     h += '<div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">' +
         '<div class="form-group" style="flex:0 1 160px;"><label for="dg-days">Escalar después de (días)</label>' +
         '<input id="dg-days" type="number" min="1" max="90" inputmode="numeric" value="' + s.escalateDays + '"' + dis + '></div>' +
@@ -913,7 +920,8 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') {
     Object.assign(CASCADE_TOOLTIPS, {
         'dg-to': { title: 'Destinatarios del resumen', text: 'Correos que reciben el resumen (lunes a viernes, 7:00 y 16:00) y el aviso de plan aceptado. Sepáralos con comas. Puede ser una lista de distribución.' },
         'dg-esc': { title: 'Escalación', text: 'Correos que se agregan EN COPIA solo los días en que hay vehículos con más días de los indicados desde su alta sin aprobar. Dejan de recibirlo cuando esos vehículos se aprueban.' },
-        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (Europa PRE-EURO 7, General EURO-6C y Medio Oriente EURO-5): producción, ensayos requeridos y hechos, avance y la diferencia contra la semana anterior. Es el mismo reporte de Datos → Reportes. Vacío = no se envía. No trae VINs ni valores de gases.' },
+        'dg-cop': { title: 'Estatus CoP semanal', text: 'Correos que reciben cada viernes a las 7:00 el estatus CoP del año calendario (las familias del alcance CoP): avance, ritmo de ensayos por semana contra el necesario, familias que requieren atención, puntos clave, la nota de la semana y el estatus por familia. Es el mismo reporte de CoP → Estatus de la semana. Vacío = no se envía. No trae VINs ni valores de gases.' },
+        'dg-cop-lang': { title: 'Idioma del estatus CoP', text: 'En qué idioma sale el correo del viernes. Inglés por default, porque va a corporativo. En pantalla cada equipo elige el suyo con English / Español.' },
         'dg-days': { title: 'Escalar después de', text: 'Días naturales desde el alta (incluye fin de semana). Con 7, un vehículo se escala a partir del día 8 sin aprobar.' },
         'dg-ntfy': { title: 'Tema de ntfy', text: 'Nombre del canal en la app gratuita ntfy. Quien se suscriba a ese tema recibe la notificación del resumen. Usa un nombre difícil de adivinar: cualquiera que lo conozca puede leerlo (solo trae conteos, nunca VINs completos ni valores).' },
         'pn_digest': { title: 'Avisos del laboratorio', text: 'Resumen diario por correo y al teléfono, escalación a un jefe de los vehículos atorados y aviso cuando se acepta el plan de una semana. Lo envía un proceso automático en la nube con los datos sincronizados.' }

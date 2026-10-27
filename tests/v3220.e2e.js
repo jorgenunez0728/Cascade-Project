@@ -19,6 +19,7 @@ const SEED = () => {
     localStorage.setItem('kia_fb_sync_modules', JSON.stringify({}));
     localStorage.setItem('kia_help_dismissed', JSON.stringify({ '*': true }));
     localStorage.setItem('kia_tour_done', '1');
+    localStorage.setItem('kia_ui_prefs', JSON.stringify({ copRepLang: 'es' }));   // [3.23.0] el visor abre en inglés por default
     ['global', 'today', 'testplan', 'inventory', 'panel', 'cop', 'cop15'].forEach(m => localStorage.setItem('kia_tour_done_' + m, '1'));
     const year = new Date().getFullYear(), yy = String(year).slice(2);
     const base = { mod: 'CL4', eng: '1600CC GAMMA-II', tx: '7DCT', reg: 'PRE-EURO 7', ep: '0', engpkg: 'LOW POWER', drv: 'LHD', tire: '-', rgn: 'EUROPE', total: 0 };

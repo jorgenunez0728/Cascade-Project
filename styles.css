@@ -4327,6 +4327,11 @@ details.ui-card:not([open]) > .ui-card-head::after { transform: rotate(-90deg); 
 .cop-rep-card-bar { height: 6px; border-radius: var(--radius-full); background: rgba(255,255,255,0.18); margin-top: var(--space-sm); overflow: hidden; }
 .cop-rep-card-bar > span { display: block; height: 100%; background: #60a5fa; border-radius: var(--radius-full); }
 .cop-rep-card-warn { font-size: var(--fs-2xs); color: #fde68a; margin-top: var(--space-xs); }
+/* [3.23.0] Ritmo y familia más crítica en la tarjeta del Panorama */
+.cop-rep-card-pace { font-size: var(--fs-2xs); color: #dbeafe; margin-top: var(--space-xs); }
+/* [3.23.0] English / Español del estatus (una sola elección visible) */
+.cop-rep-lang { display: inline-flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.cop-rep-lang > .btn { border-radius: 0; border: 0; }
 .cop-rep {
     position: fixed; inset: 0; z-index: 9400; display: none; flex-direction: column;
     background: var(--bg);

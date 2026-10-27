@@ -346,7 +346,12 @@ function copYearReportCompute(src) {
             progress: progress, prevProgress: prevProgress, deltaPp: Math.round((progress - prevProgress) * 1000) / 10,
             verdict: verdict, prevVerdict: prevVerdict, status: copRepStatus(req, done, verdict),
             lastTest: done ? e.tests[done - 1].date : '', purposes: purposes,
-            vins: e.tests.map(function(t) { return t.vin; })
+            vins: e.tests.map(function(t) { return t.vin; }),
+            // [3.23.0] Para el ritmo, lo crítico y los puntos clave.
+            name: copRepShortName(f), testDates: e.tests.map(function(t) { return t.date; }),
+            prevStatus: copRepStatus(prevReq, prevDone, prevVerdict),
+            ahead: _copRepAhead(f.m, f.src, cutYear > year ? 12 : (cutYear < year ? 0 : cutMonth - 1)),
+            lastProdMonth: _copRepLastProdMonth(f.m, f.src)
         });
     });
     rows.sort(function(a, b) {
@@ -374,7 +379,7 @@ function copYearReportCompute(src) {
     rows.forEach(function(r) { if (regionsOut.indexOf(r.region) < 0) regionsOut.push(r.region); });
     var nonCop = {};
     rows.forEach(function(r) { Object.keys(r.purposes).forEach(function(pu) { if (!/^COP/i.test(pu)) nonCop[pu] = (nonCop[pu] || 0) + r.purposes[pu]; }); });
-    return {
+    var model = {
         year: year, cut: cut, prevCut: prevCut, weekOf: copRepMonday(cut), week: copRepIsoWeek(cut),
         prevFromSaved: !!prev, prevSavedAt: prev ? prev.at : '',
         rows: rows,
@@ -397,8 +402,159 @@ function copYearReportCompute(src) {
         nonCopPurposes: nonCop,
         excluded: excludedOut.sort(function(a, b) { return b.vol - a.vol; }),
         noProduction: noProduction,
-        outOfScope: src.outOfScope || []
+        outOfScope: src.outOfScope || [],
+        note: (src.note && String(src.note.text || '').trim()) ? src.note : null,
+        weekOff: src.weekOff || {}
     };
+    // [3.23.0] Lo que pidió la gerencia: el ritmo real contra el necesario y qué familia
+    // es la más crítica. Se DERIVA del mismo modelo, nunca se guarda.
+    model.pace = copRepPace(model);
+    model.critical = copRepCritical(model);
+    model.highlights = copRepHighlights(model);
+    return model;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.23.0] Ritmo, familias críticas y puntos clave — PURAS, sobre el modelo del estatus
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Unidades planeadas del mes del corte a diciembre (lo que todavía se va a producir). PURA. */
+function _copRepAhead(months, srcs, fromIdx) {
+    var n = 0;
+    for (var i = Math.max(0, fromIdx); i < 12; i++) {
+        if (srcs && (srcs[i] === 'plan' || srcs[i] === 'real')) n += Number(months[i]) || 0;
+    }
+    return n;
+}
+/** Último mes (1..12) del año con producción planeada o real; 0 = el plan no trae ninguno. PURA. */
+function _copRepLastProdMonth(months, srcs) {
+    for (var i = 11; i >= 0; i--) {
+        if (srcs && (srcs[i] === 'plan' || srcs[i] === 'real') && (Number(months[i]) || 0) > 0) return i + 1;
+    }
+    return 0;
+}
+
+/**
+ * Cómo dice una familia la gerencia: "CL4 1.6 T-GDI LP 7DCT", "BL7m 1.6 6AT". PURA.
+ * La carrocería no va en el nombre: es el grupo de la tabla. Lo que no se reconoce se
+ * deja como viene (nunca se inventa una etiqueta).
+ */
+var COP_REP_ENGINE_TAGS = [
+    { re: /1000\s*cc\s*KAPPA\s*PE/i, tag: 'T-GDI', base: '12V' },
+    { re: /KAPPA\s*PE/i, tag: 'T-GDI' },
+    { re: /GAMMA[-\s]?II/i, tag: 'T-GDI' }
+];
+var COP_REP_PKG_TAGS = { 'LOW POWER': 'LP', 'HIGH POWER': 'HP', 'DCVVT': '' };
+function copRepShortName(f) {
+    if (!f) return '';
+    var eng = String(f.eng || '');
+    var mcc = /(\d{3,4})\s*cc/i.exec(eng);
+    var disp = mcc ? (Number(mcc[1]) / 1000).toFixed(1) : eng;
+    var tag = null;
+    for (var i = 0; i < COP_REP_ENGINE_TAGS.length; i++) if (COP_REP_ENGINE_TAGS[i].re.test(eng)) { tag = COP_REP_ENGINE_TAGS[i]; break; }
+    var ep = String(f.ep || '').toUpperCase();
+    var elec = /MILD/.test(ep) ? '48V' : (/\bHEV\b|HYBRID/.test(ep) ? 'HEV' : (tag && tag.base) || '');
+    var pkgRaw = String(f.engpkg || '').toUpperCase();
+    var pkg = Object.prototype.hasOwnProperty.call(COP_REP_PKG_TAGS, pkgRaw) ? COP_REP_PKG_TAGS[pkgRaw] : (f.engpkg || '');
+    return [f.mod || '', disp, tag ? tag.tag : '', elec, pkg, f.tx || ''].filter(function(x) { return x && x !== '0'; }).join(' ');
+}
+
+/**
+ * El ritmo. PURA. Sobre m.rows (los ensayos que cuentan, con fecha) y m.weekOff
+ * ({lunes: nota} de las semanas sin celda, de Plan → Disponibilidad):
+ *  - weeks: las 8 semanas que terminan en la del corte, con cuántos ensayos hubo;
+ *  - recent: promedio de las últimas 4;
+ *  - weeksLeft: semanas con celda desde la siguiente al corte hasta el 31 dic;
+ *  - needed: lo que falta ÷ esas semanas;
+ *  - finish: el viernes en que se terminaría al ritmo de recent (o null si no alcanza).
+ */
+function copRepPace(m) {
+    var cutMon = copRepMonday(m.cut), counts = {};
+    (m.rows || []).forEach(function(r) {
+        (r.testDates || []).forEach(function(d) { var k = copRepMonday(d); counts[k] = (counts[k] || 0) + 1; });
+    });
+    var weeks = [];
+    for (var i = 7; i >= 0; i--) {
+        var mon = _copRepAddDays(cutMon, -7 * i);
+        weeks.push({ monday: mon, week: copRepIsoWeek(mon), n: counts[mon] || 0, off: !!(m.weekOff && m.weekOff[mon] !== undefined) });
+    }
+    var last4 = weeks.slice(-4);
+    var recent = Math.round(last4.reduce(function(s, w) { return s + w.n; }, 0) / 4 * 10) / 10;
+    var end = m.year + '-12-31', off = [], avail = [];
+    for (var mon2 = _copRepAddDays(cutMon, 7); mon2 <= end; mon2 = _copRepAddDays(mon2, 7)) {
+        if (m.weekOff && m.weekOff[mon2] !== undefined) off.push({ monday: mon2, note: String(m.weekOff[mon2] || '') });
+        else avail.push(mon2);
+    }
+    var pending = (m.total && m.total.pending) || 0;
+    var needed = avail.length ? Math.round(pending / avail.length * 10) / 10 : (pending ? null : 0);
+    var finish = null, late = false;
+    if (pending && recent > 0) {
+        var k = Math.ceil(pending / recent);
+        if (k <= avail.length) finish = _copRepAddDays(avail[k - 1], 4);
+        else late = true;
+    } else if (pending) late = true;
+    return { weeks: weeks, recent: recent, weeksLeft: avail.length, off: off, pending: pending, needed: needed,
+             finish: finish, late: late, onTrack: !pending || (needed !== null && recent >= needed) };
+}
+
+/** Margen de unidades antes del siguiente lote que se avisa (un lote son 5,000). */
+var COP_REP_NEAR_LOT_UNITS = 1000;
+/** Con menos de esto por producir en el año, conseguir una unidad es el riesgo. */
+var COP_REP_SCARCE_UNITS = 60;
+
+/**
+ * La siguiente familia más crítica. PURA. Una familia entra si le falta algo o si un
+ * cambio de producción le subiría el REQ. El orden pesa, en este orden:
+ *  1. no concordante;
+ *  2. pocas unidades por producir (o ninguna en diciembre) con ensayos pendientes:
+ *     si no se aparta una unidad ya, puede no haber con qué ensayar;
+ *  3. muestreo abierto con el REQ cubierto;
+ *  4. cuántos ensayos faltan;
+ *  5. cerca del siguiente lote.
+ * Devuelve [{key, name, row, score, reasons:[{k, …}]}] de mayor a menor.
+ */
+function copRepCritical(m) {
+    var out = [];
+    (m.rows || []).forEach(function(r) {
+        var reasons = [], score = 0;
+        if (r.status.id === 'fail') { reasons.push({ k: 'fail' }); score += 1000; }
+        if (r.pending > 0 && (r.ahead < COP_REP_SCARCE_UNITS || (r.lastProdMonth && r.lastProdMonth < 12))) {
+            reasons.push({ k: 'scarce', n: r.ahead, last: r.lastProdMonth }); score += 200 + Math.max(0, COP_REP_SCARCE_UNITS - r.ahead);
+        }
+        if (r.status.id === 'open') { reasons.push({ k: 'open' }); score += 80; }
+        if (r.pending > 0) {
+            reasons.push({ k: r.done ? 'pending' : 'todo', p: r.pending, req: r.req }); score += 20 * r.pending + (r.done ? 0 : 10);
+        }
+        if (r.rule === 'lot' && r.nextLotAt && r.nextLotAt - r.vol <= COP_REP_NEAR_LOT_UNITS && r.nextLotAt - r.vol > 0) {
+            reasons.push({ k: 'nearLot', n: r.nextLotAt - r.vol, t: COP_LOT_TESTS }); score += 15;
+        }
+        if (!reasons.length) return;
+        out.push({ key: r.key, name: r.name, row: r, score: score, reasons: reasons });
+    });
+    out.sort(function(a, b) { return (b.score - a.score) || (b.row.vol - a.row.vol) || (a.name < b.name ? -1 : 1); });
+    return out;
+}
+
+/**
+ * Puntos clave de la semana, como datos (el texto lo pone el idioma). PURA.
+ * [{k:'added', n, names[]}, {k:'none'}, {k:'complete', name, done, req},
+ *  {k:'req', name, from, to, vol}, {k:'fail', name}, {k:'off', monday, note}]
+ */
+function copRepHighlights(m) {
+    var H = [], rows = m.rows || [];
+    var added = rows.filter(function(r) { return r.added > 0; });
+    var n = added.reduce(function(s, r) { return s + r.added; }, 0);
+    H.push(n ? { k: 'added', n: n, names: added.map(function(r) { return r.name; }), groups: added.map(function(r) { return r.group.id; }) } : { k: 'none' });
+    rows.forEach(function(r) {
+        var g = r.group.id;
+        if (r.status.id === 'fail' && r.prevVerdict !== 'FAIL') H.push({ k: 'fail', name: r.name, group: g });
+        if (r.status.id === 'ok' && r.prevStatus && r.prevStatus.id !== 'ok') H.push({ k: 'complete', name: r.name, group: g, done: r.done, req: r.req });
+        if (m.prevFromSaved && r.prevReq && r.req !== r.prevReq) H.push({ k: 'req', name: r.name, group: g, from: r.prevReq, to: r.req, vol: r.vol });
+    });
+    (m.pace && m.pace.off || []).slice(0, 3).forEach(function(o) {
+        if (o.monday <= _copRepAddDays(copRepMonday(m.cut), 21)) H.push({ k: 'off', monday: o.monday, note: o.note });
+    });
+    return H;
 }
 
 /** Lo que se guarda de un corte (chico: viaja dentro de cop/current). PURA. */
@@ -462,15 +618,6 @@ function copRepProdUnion(a, b) {
 
 // ─── El reporte (HTML con estilos LITERALES: pantalla, impresión y correo) ──────
 var _COP_REP_MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-var COP_REP_TONE = {
-    ok:    { fg: '#065f46', bg: '#d1fae5', bar: '#059669' },
-    run:   { fg: '#1e3a8a', bg: '#dbeafe', bar: '#2563eb' },
-    open:  { fg: '#92400e', bg: '#fef3c7', bar: '#d97706' },
-    todo:  { fg: '#9f1239', bg: '#ffe4e6', bar: '#e11d48' },
-    fail:  { fg: '#991b1b', bg: '#fee2e2', bar: '#dc2626' },
-    none:  { fg: '#475569', bg: '#e2e8f0', bar: '#94a3b8' },
-    extra: { fg: '#475569', bg: '#e2e8f0', bar: '#94a3b8' }
-};
 function _crEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function _crNum(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function _crPct(x) { return Math.round((Number(x) || 0) * 100) + '%'; }
@@ -478,27 +625,11 @@ function _crDay(iso) {
     var p = String(iso || '').split('-');
     return p.length === 3 ? Number(p[2]) + ' ' + _COP_REP_MONTHS[Number(p[1]) - 1] + ' ' + p[0] : '';
 }
-function _crDelta(n, unit) {
-    var v = Math.round((Number(n) || 0) * 10) / 10;
-    if (!v) return '<span style="color:#94a3b8;">—</span>';
-    return '<span style="color:' + (v > 0 ? '#047857' : '#b91c1c') + ';font-weight:700;">' + (v > 0 ? '+' : '−') + Math.abs(v) + (unit || '') + '</span>';
-}
-function _crBar(p, prev, color) {
-    var w = Math.max(0, Math.min(100, Math.round((p || 0) * 100)));
-    var pw = (prev === null || prev === undefined) ? null : Math.max(0, Math.min(100, Math.round(prev * 100)));
-    var h = '<div style="position:relative;height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden;min-width:70px;">';
-    if (pw !== null && pw < w) h += '<div style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + color + ';opacity:0.35;"></div>' +
-                                   '<div style="position:absolute;left:0;top:0;bottom:0;width:' + pw + '%;background:' + color + ';"></div>';
-    else h += '<div style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + color + ';"></div>';
-    return h + '</div>';
-}
-function _crPill(st) {
-    var t = COP_REP_TONE[st.id] || COP_REP_TONE.none;
-    return '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;color:' + t.fg + ';background:' + t.bg + ';">' + _crEsc(st.label) + '</span>';
-}
-function _crVerdictText(v) {
-    return v === 'PASS' ? 'concordante' : v === 'FAIL' ? 'no concordante' : v === 'CONTINUE' ? 'sin decidir' : 'n &lt; 3';
-}
+// ─── [3.23.0] Idioma del reporte ───────────────────────────────────────────────
+// El estatus va a la gerencia y a corporativo en inglés; el laboratorio lo lee en español.
+// Las dos versiones salen del MISMO modelo: solo cambia el texto. Default 'es' (la función
+// es PURA y sus pruebas leen español); la pantalla y el correo pasan el idioma elegido.
+var COP_REP_LANGS = ['en', 'es'];
 function _crMonthsList(list) {
     if (!list.length) return '';
     // rangos: [1,2,3,4,5] → "ene–may"
@@ -511,122 +642,430 @@ function _crMonthsList(list) {
     }
     return out.join(', ');
 }
+var _COP_REP_MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function copRepLang(x) { return x === 'en' ? 'en' : 'es'; }
+function _crDayL(iso, lang) {
+    if (lang !== 'en') return _crDay(iso);
+    var p = String(iso || '').split('-');
+    return p.length === 3 ? Number(p[2]) + ' ' + _COP_REP_MONTHS_EN[Number(p[1]) - 1] + ' ' + p[0] : '';
+}
+function _crMonL(i, lang) { return (lang === 'en' ? _COP_REP_MONTHS_EN : _COP_REP_MONTHS)[i - 1] || ''; }
+function _crMonthsListL(list, lang) {
+    if (lang !== 'en') return _crMonthsList(list);
+    var out = [], i = 0;
+    while (i < list.length) {
+        var j = i;
+        while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+        out.push(_crMonL(list[i], 'en') + (j > i ? '–' + _crMonL(list[j], 'en') : ''));
+        i = j + 1;
+    }
+    return out.join(', ');
+}
+function _crDec(x) { var v = Math.round((Number(x) || 0) * 10) / 10; return String(v); }
+function _crPlural(n, one, many) { return n === 1 ? one : many; }
+
+var COP_REP_TXT = {
+    es: {
+        lab: 'KIA México · Laboratorio de Emisiones',
+        title: function(y) { return 'Conformidad de la Producción ' + y; },
+        sub: function(w, d) { return 'Estatus al corte · semana ' + w + ' · ' + d + ' &nbsp;|&nbsp; Año calendario (ene–dic), todos los años modelo'; },
+        headline: function(T) {
+            return '<b>' + _crPct(T.progress) + ' de avance</b>: ' + _crNum(T.covered) + ' de ' + _crNum(T.req) + ' ensayos requeridos y ' +
+                   T.ok + ' de ' + T.withReq + ' familias cumplidas. ' +
+                   (T.fail ? '<b style="color:#b91c1c;">' + T.fail + ' ' + _crPlural(T.fail, 'familia no concordante', 'familias no concordantes') + '.</b>'
+                           : 'Sin resultados no concordantes.');
+        },
+        kProgress: 'Avance', kTests: 'Ensayos', kPace: 'Ritmo', kFam: 'Familias cumplidas',
+        vsLast: function(d) { return d + ' vs. semana anterior'; },
+        thisWeek: function(n) { return n ? '<b style="color:#047857;">+' + n + '</b> esta semana' : 'ninguno esta semana'; },
+        extra: function(n) { return ' · ' + n + ' de más'; },
+        perWeek: '/sem.',
+        need: function(n, ok) { return '<span style="color:' + (ok ? '#047857' : '#b91c1c') + ';font-weight:700;">hacen falta ' + n + '/sem.</span> para el 31 dic'; },
+        allDone: 'todos los requeridos, hechos',
+        noWeeks: 'ya no quedan semanas con celda',
+        ncNone: 'ninguna no concordante',
+        ncSome: function(n) { return '<b style="color:#b91c1c;">' + n + ' no concordante' + (n > 1 ? 's' : '') + '</b>'; },
+        secAttention: 'Requiere atención', secAttentionSub: 'Las familias más críticas, por riesgo y por lo que falta',
+        nothingCritical: 'Ninguna familia tiene ensayos pendientes ni riesgo de cambiar de REQ.',
+        rFail: 'Resultado NO CONCORDANTE: revisar antes de seguir ensayando.',
+        rScarce: function(r) {
+            return 'Quedan ~' + _crNum(r.n) + ' unidades por producir' + (r.last && r.last < 12 ? ', la última en ' + _crMonL(r.last, 'es') : '') +
+                   ': <b>apartar una unidad ya</b>.';
+        },
+        rOpen: 'REQ cubierto, pero el muestreo sigue abierto: hace falta otro ensayo.',
+        rPending: function(r) { return (r.p === 1 ? 'Falta ' : 'Faltan ') + r.p + ' de ' + r.req + ' ' + _crPlural(r.req, 'ensayo', 'ensayos') + '.'; },
+        rTodo: function(r) { return 'Sin iniciar: ' + r.p + ' de ' + r.req + ' ' + _crPlural(r.req, 'ensayo', 'ensayos') + ' por hacer.'; },
+        rNearLot: function(r) { return 'A ' + _crNum(r.n) + ' unidades del siguiente lote (+' + r.t + ' ensayos).'; },
+        secPace: 'Ensayos por semana', secPaceSub: 'Ensayos CoP que cuentan, por semana de prueba',
+        paceText: function(P, lang) {
+            if (!P.pending) return 'Todos los ensayos requeridos están hechos.';
+            var t = 'Faltan <b>' + P.pending + '</b> ensayos y quedan <b>' + P.weeksLeft + '</b> ' + _crPlural(P.weeksLeft, 'semana', 'semanas') +
+                    ' con celda disponible hasta el 31 dic' + (P.needed !== null ? ': hacen falta <b>' + _crDec(P.needed) + ' por semana</b>.' : '.');
+            if (P.recent > 0) t += ' Al ritmo de las últimas 4 semanas (' + _crDec(P.recent) + '/sem.) ' +
+                (P.finish ? 'se terminaría el <b>' + _crDayL(P.finish, lang) + '</b>.' : '<b style="color:#b91c1c;">no se termina antes del 31 dic</b>.');
+            else t += ' <b style="color:#b91c1c;">No hubo ensayos en las últimas 4 semanas.</b>';
+            if (P.off.length) t += ' Semanas sin celda: ' + P.off.map(function(o) { return _crDayL(o.monday, lang) + (o.note ? ' (' + _crEsc(o.note) + ')' : ''); }).join(', ') + '.';
+            return t;
+        },
+        weekShort: 'S', legendNeed: function(n) { return 'necesario: ' + n + '/sem.'; }, offShort: 'sin celda',
+        secKey: 'Puntos clave', secNote: 'Nota del laboratorio',
+        hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'ensayo', 'ensayos') + '</b> esta semana: ' + h.names.map(_crEsc).join(', ') + '.'; },
+        hNone: 'Sin ensayos nuevos esta semana.',
+        hComplete: function(h) { return '<b>' + _crEsc(h.name) + '</b> queda cumplida (' + h.done + '/' + h.req + ').'; },
+        hReq: function(h) { return '<b>' + _crEsc(h.name) + '</b>: el REQ pasa de ' + h.from + ' a <b>' + h.to + '</b> (' + _crNum(h.vol) + ' unidades en el año).'; },
+        hFail: function(h) { return '<b style="color:#b91c1c;">' + _crEsc(h.name) + ': resultado no concordante.</b>'; },
+        hOff: function(h, lang) { return 'Semana del ' + _crDayL(h.monday, lang) + ': <b>celda no disponible</b>' + (h.note ? ' — ' + _crEsc(h.note) : '') + '.'; },
+        secStatus: 'Estatus por familia',
+        families: function(n) { return n + ' ' + _crPlural(n, 'familia', 'familias'); },
+        tests: 'ensayos',
+        thFamily: 'Familia', thProdShort: 'Producción', thProd: function(y) { return 'Producción ' + y; }, thReq: 'REQ', thDone: 'Hechas', thProgress: 'Avance', thStatus: 'Estatus',
+        toDate: 'a la fecha', yearTotal: function(n) { return 'año: ' + _crNum(n); },
+        lastTest: function(d) { return 'último ensayo ' + d; },
+        verdict: function(v) { return 'veredicto: ' + (v === 'PASS' ? 'concordante' : v === 'FAIL' ? 'no concordante' : v === 'CONTINUE' ? 'sin decidir' : 'n &lt; 3'); },
+        noPlan: 'sin producción en el plan', noModel: '(sin modelo)',
+        status: { ok: 'Cumplido', run: 'En progreso', open: 'Muestreo abierto', todo: 'Sin iniciar', fail: 'No concordante', none: 'Sin producción', extra: 'Sin producción' },
+        groups: { hev: 'Híbrido', '5dr': '5 puertas', wgn: 'Wagon', '4dr': '4 puertas', otra: 'Otras' },
+        regions: { 'EUROPE': 'Europa', 'GENERAL': 'General · EURO-6C', 'MIDDLE EAST': 'Medio Oriente' },
+        missing: function(list, real, y) {
+            return '<b>Producción incompleta:</b> el plan importado no trae ' + list + ' ' + y +
+                   (real ? ' (con producción real capturada en ' + real + ')' : '') + '. Esos meses cuentan como 0 hasta capturar lo producido; el REQ puede subir.';
+        },
+        noPrev: 'Sin corte guardado de la semana anterior: los ensayos de la semana pasada salen por su fecha de prueba y la producción se compara contra la de hoy.',
+        footRule: function(lines) { return '<b>Regla de muestreo</b> (año calendario). ' + lines + ' Los ensayos deben resultar concordantes (UN R154).'; },
+        footCounts: function(y) { return '<b>Cuentan</b> los ensayos registrados como conformidad de la producción, aprobados y válidos para CoP, con fecha de prueba en ' + y + ' hasta el corte. El avance suma lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.'; },
+        footReq: 'El REQ sale de la producción esperada del año completo (lo producido + lo planeado).',
+        footCompare: function(d, saved) { return 'Comparación contra el corte del ' + d + (saved ? ' (corte guardado)' : '') + '.'; },
+        footGen: function(at, by) { return ' Generado ' + at + (by ? ' por ' + by : '') + '.'; },
+        ruleText: function(rule) { return copYearRuleText(rule); },
+        prod: function(m) { return copRepProductionText(m); }
+    },
+    en: {
+        lab: 'KIA Mexico · Emissions Laboratory',
+        title: function(y) { return 'Conformity of Production ' + y; },
+        sub: function(w, d) { return 'Status as of ' + d + ' · week ' + w + ' &nbsp;|&nbsp; Calendar year (Jan–Dec), all model years'; },
+        headline: function(T) {
+            return '<b>' + _crPct(T.progress) + ' complete</b>: ' + _crNum(T.covered) + ' of ' + _crNum(T.req) + ' required tests done and ' +
+                   T.ok + ' of ' + T.withReq + ' families complete. ' +
+                   (T.fail ? '<b style="color:#b91c1c;">' + T.fail + ' non-conforming ' + _crPlural(T.fail, 'family', 'families') + '.</b>'
+                           : 'No non-conforming results.');
+        },
+        kProgress: 'Progress', kTests: 'Tests', kPace: 'Pace', kFam: 'Families complete',
+        vsLast: function(d) { return d + ' vs. last week'; },
+        thisWeek: function(n) { return n ? '<b style="color:#047857;">+' + n + '</b> this week' : 'none this week'; },
+        extra: function(n) { return ' · ' + n + ' extra'; },
+        perWeek: '/wk',
+        need: function(n, ok) { return '<span style="color:' + (ok ? '#047857' : '#b91c1c') + ';font-weight:700;">' + n + '/wk needed</span> to close by Dec 31'; },
+        allDone: 'all required tests done',
+        noWeeks: 'no cell weeks left this year',
+        ncNone: 'no non-conforming',
+        ncSome: function(n) { return '<b style="color:#b91c1c;">' + n + ' non-conforming</b>'; },
+        secAttention: 'Needs attention', secAttentionSub: 'Most critical families, by risk and by tests to go',
+        nothingCritical: 'No family has pending tests or is close to a higher requirement.',
+        rFail: 'NON-CONFORMING result: review before testing further.',
+        rScarce: function(r) {
+            return 'Only ~' + _crNum(r.n) + ' units left to build' + (r.last && r.last < 12 ? ', last ones in ' + _crMonL(r.last, 'en') : '') +
+                   ': <b>reserve a unit now</b>.';
+        },
+        rOpen: 'Requirement met, but sampling is still open: one more test needed.',
+        rPending: function(r) { return r.p + ' of ' + r.req + ' ' + _crPlural(r.req, 'test', 'tests') + ' to go.'; },
+        rTodo: function(r) { return 'Not started: ' + r.p + ' of ' + r.req + ' ' + _crPlural(r.req, 'test', 'tests') + ' to go.'; },
+        rNearLot: function(r) { return _crNum(r.n) + ' units from the next lot (+' + r.t + ' tests).'; },
+        secPace: 'Tests per week', secPaceSub: 'CoP tests that count, by test week',
+        paceText: function(P, lang) {
+            if (!P.pending) return 'All required tests are done.';
+            var t = '<b>' + P.pending + '</b> tests to go and <b>' + P.weeksLeft + '</b> ' + _crPlural(P.weeksLeft, 'week', 'weeks') +
+                    ' with the cell available until Dec 31' + (P.needed !== null ? ': <b>' + _crDec(P.needed) + ' per week</b> needed.' : '.');
+            if (P.recent > 0) t += ' At the last 4 weeks’ pace (' + _crDec(P.recent) + '/wk) we would finish ' +
+                (P.finish ? 'on <b>' + _crDayL(P.finish, lang) + '</b>.' : '<b style="color:#b91c1c;">after Dec 31</b>.');
+            else t += ' <b style="color:#b91c1c;">No tests in the last 4 weeks.</b>';
+            if (P.off.length) t += ' Weeks without the cell: ' + P.off.map(function(o) { return _crDayL(o.monday, lang) + (o.note ? ' (' + _crEsc(o.note) + ')' : ''); }).join(', ') + '.';
+            return t;
+        },
+        weekShort: 'W', legendNeed: function(n) { return 'needed: ' + n + '/wk'; }, offShort: 'no cell',
+        secKey: 'Key points', secNote: 'Note from the lab',
+        hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'test', 'tests') + '</b> this week: ' + h.names.map(_crEsc).join(', ') + '.'; },
+        hNone: 'No new tests this week.',
+        hComplete: function(h) { return '<b>' + _crEsc(h.name) + '</b> is now complete (' + h.done + '/' + h.req + ').'; },
+        hReq: function(h) { return '<b>' + _crEsc(h.name) + '</b> now needs <b>' + h.to + '</b> tests (was ' + h.from + '): ' + _crNum(h.vol) + ' units expected this year.'; },
+        hFail: function(h) { return '<b style="color:#b91c1c;">' + _crEsc(h.name) + ': non-conforming result.</b>'; },
+        hOff: function(h, lang) { return 'Week of ' + _crDayL(h.monday, lang) + ': <b>cell not available</b>' + (h.note ? ' — ' + _crEsc(h.note) : '') + '.'; },
+        secStatus: 'Status by family',
+        families: function(n) { return n + ' ' + _crPlural(n, 'family', 'families'); },
+        tests: 'tests',
+        thFamily: 'Family', thProdShort: 'Production', thProd: function(y) { return 'Production ' + y; }, thReq: 'Required', thDone: 'Done', thProgress: 'Progress', thStatus: 'Status',
+        toDate: 'to date', yearTotal: function(n) { return 'year: ' + _crNum(n); },
+        lastTest: function(d) { return 'last test ' + d; },
+        verdict: function(v) { return 'verdict: ' + (v === 'PASS' ? 'conforming' : v === 'FAIL' ? 'non-conforming' : v === 'CONTINUE' ? 'not decided yet' : 'n &lt; 3'); },
+        noPlan: 'no production in the plan', noModel: '(no model)',
+        status: { ok: 'Complete', run: 'In progress', open: 'Sampling open', todo: 'Not started', fail: 'Non-conforming', none: 'No production', extra: 'No production' },
+        groups: { hev: 'Hybrid', '5dr': '5-door', wgn: 'Wagon', '4dr': '4-door', otra: 'Other' },
+        regions: { 'EUROPE': 'Europe', 'GENERAL': 'General · EURO-6C', 'MIDDLE EAST': 'Middle East' },
+        missing: function(list, real, y) {
+            return '<b>Production incomplete:</b> the imported plan has no data for ' + list + ' ' + y +
+                   (real ? ' (actuals entered for ' + real + ')' : '') + '. Those months count as 0 until entered; the requirement may go up.';
+        },
+        noPrev: 'No saved cut from last week: last week’s tests are taken by test date and production is compared against today’s.',
+        footRule: function(lines) { return '<b>Sampling rule</b> (calendar year). ' + lines + ' Tests must be conforming (UN R154).'; },
+        footCounts: function(y) { return '<b>Counted:</b> tests registered as conformity of production, approved and valid for CoP, with a test date in ' + y + ' up to the cut. Progress adds each family up to its requirement: extra tests in one family do not cover another.'; },
+        footReq: 'Required tests come from the expected production for the full year (built + planned).',
+        footCompare: function(d, saved) { return 'Compared against the cut of ' + d + (saved ? ' (saved cut)' : '') + '.'; },
+        footGen: function(at, by) { return ' Generated ' + at + (by ? ' by ' + by : '') + '.'; },
+        ruleText: function(rule) {
+            return rule === 'one' ? '1 test per family produced in the year'
+                : 'up to 7,500 units built, 3 tests; 7,501 to 12,500, 6; 3 more for every additional 5,000 units (or fraction)';
+        },
+        prod: function(m) {
+            var hb = Number(m.histBoundary) || 0;
+            if (!hb) return '<b>Production ' + m.year + '</b>: sum of the months in the production plan' +
+                (m.realMonths && m.realMonths.length ? ' (actuals entered for ' + _crMonthsListL(m.realMonths, 'en') + ')' : '') + '.';
+            var t = '<b>Production ' + m.year + '</b>: built from January to ' + _crEsc(_crDayL(m.histAsOf, 'en')) + ' (production history)';
+            if (hb <= 12) t += ' + planned from ' + _crMonL(hb, 'en') + ' to Dec';
+            return t + '.';
+        }
+    }
+};
+
+var COP_REP_TONE = {
+    ok:    { fg: '#065f46', bg: '#d1fae5', bar: '#059669' },
+    run:   { fg: '#1e3a8a', bg: '#dbeafe', bar: '#2563eb' },
+    open:  { fg: '#92400e', bg: '#fef3c7', bar: '#d97706' },
+    todo:  { fg: '#9f1239', bg: '#ffe4e6', bar: '#e11d48' },
+    fail:  { fg: '#991b1b', bg: '#fee2e2', bar: '#dc2626' },
+    none:  { fg: '#475569', bg: '#e2e8f0', bar: '#94a3b8' },
+    extra: { fg: '#475569', bg: '#e2e8f0', bar: '#94a3b8' }
+};
+var _CR_NAVY = '#05141f', _CR_RED = '#bb162b', _CR_INK = '#0f172a', _CR_MUTED = '#64748b', _CR_LINE = '#e2e8f0', _CR_SOFT = '#f8fafc';
+var _CR_FONT = "font-family:'Segoe UI',Helvetica,Arial,sans-serif;";
+
+/** Delta con signo y color (n en las unidades que se pasen). PURA. */
+function _crDelta(n, unit) {
+    var v = Math.round((Number(n) || 0) * 10) / 10;
+    if (!v) return '<span style="color:#94a3b8;">—</span>';
+    return '<span style="color:' + (v > 0 ? '#047857' : '#b91c1c') + ';font-weight:700;">' + (v > 0 ? '+' : '−') + Math.abs(v) + (unit || '') + '</span>';
+}
+/**
+ * Barra de avance que Outlook de escritorio sí pinta: una tabla de dos celdas con ancho fijo
+ * (Outlook ignora div con position/height y los gradientes).
+ */
+function _crBar(p, color, w) {
+    w = w || 120;
+    var pct = Math.max(0, Math.min(100, Math.round((Number(p) || 0) * 100)));
+    var on = Math.round(w * pct / 100), off = w - on;
+    var cell = function(width, bg) {
+        return '<td width="' + width + '" height="8" bgcolor="' + bg + '" style="width:' + width + 'px;height:8px;background:' + bg +
+               ';font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td>';
+    };
+    return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="' + w + '" style="width:' + w + 'px;border-collapse:collapse;"><tr>' +
+           (on > 0 ? cell(on, color) : '') + (off > 0 ? cell(off, _CR_LINE) : '') + '</tr></table>';
+}
+function _crPill(id, X) {
+    var t = COP_REP_TONE[id] || COP_REP_TONE.none;
+    return '<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;color:' + t.fg +
+           ';background-color:' + t.bg + ';">' + _crEsc((X.status && X.status[id]) || id) + '</span>';
+}
+function _crSection(title, sub) {
+    return '<tr><td style="padding:24px 24px 8px;">' +
+           '<div style="font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:' + _CR_RED + ';">' + title + '</div>' +
+           (sub ? '<div style="font-size:12px;color:' + _CR_MUTED + ';margin-top:2px;">' + sub + '</div>' : '') + '</td></tr>';
+}
+function _crFamName(r, X) { return _crEsc(r.name || '') || X.noModel; }
+function _crReasonText(rs, X) {
+    if (rs.k === 'fail') return X.rFail;
+    if (rs.k === 'scarce') return X.rScarce(rs);
+    if (rs.k === 'open') return X.rOpen;
+    if (rs.k === 'pending') return X.rPending(rs);
+    if (rs.k === 'todo') return X.rTodo(rs);
+    if (rs.k === 'nearLot') return X.rNearLot(rs);
+    return '';
+}
+function _crHighlightText(hl, X, lang) {
+    // La carrocería no va en el nombre corto (es el grupo de la tabla): aquí sí hace falta.
+    var withG = function(name, g) { return (name || X.noModel) + (g && X.groups[g] ? ' ' + X.groups[g] : ''); };
+    if (hl.names) hl = Object.assign({}, hl, { names: hl.names.map(function(nm, i) { return withG(nm, hl.groups && hl.groups[i]); }) });
+    else if (hl.name !== undefined) hl = Object.assign({}, hl, { name: withG(hl.name, hl.group) });
+    if (hl.k === 'added') return X.hAdded(hl);
+    if (hl.k === 'none') return X.hNone;
+    if (hl.k === 'complete') return X.hComplete(hl);
+    if (hl.k === 'req') return X.hReq(hl);
+    if (hl.k === 'fail') return X.hFail(hl);
+    if (hl.k === 'off') return X.hOff(hl, lang);
+    return '';
+}
+
+/** Barras de ensayos por semana (tablas: así las pinta Outlook). PURA. */
+function _crPaceChart(P, X) {
+    var H = 64;
+    var max = Math.max(1, P.needed || 0, Math.max.apply(null, P.weeks.map(function(w) { return w.n; })));
+    var h = '<table role="presentation" class="cr-chart" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>';
+    P.weeks.forEach(function(w) {
+        var bh = w.n ? Math.max(3, Math.round(H * w.n / max)) : 0;
+        var color = w.off ? '#cbd5e1' : (P.needed && w.n >= P.needed ? '#059669' : '#2563eb');
+        h += '<td align="center" valign="bottom" width="12%" style="padding:0 4px;vertical-align:bottom;">' +
+             '<div style="font-size:12px;font-weight:700;color:' + _CR_INK + ';">' + (w.off && !w.n ? '–' : w.n) + '</div>' +
+             '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;"><tr>' +
+             '<td height="' + H + '" valign="bottom" style="height:' + H + 'px;vertical-align:bottom;border-bottom:2px solid ' + _CR_LINE + ';">' +
+             (bh ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="70%" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>' +
+                   '<td height="' + bh + '" bgcolor="' + color + '" style="height:' + bh + 'px;background:' + color + ';font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td></tr></table>' : '') +
+             '</td></tr></table>' +
+             '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:4px;">' + X.weekShort + w.week + (w.off ? '<br>' + X.offShort : '') + '</div></td>';
+    });
+    h += '</tr></table>';
+    if (P.needed) h += '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:6px;">' +
+                       '<span style="display:inline-block;width:10px;height:10px;background:#059669;vertical-align:middle;"></span> ≥ ' + X.legendNeed(_crDec(P.needed)) +
+                       ' &nbsp; <span style="display:inline-block;width:10px;height:10px;background:#2563eb;vertical-align:middle;"></span> &lt; ' + X.legendNeed(_crDec(P.needed)) + '</div>';
+    return h;
+}
 
 /**
- * El reporte gerencial. PURA (mismo modelo → mismo texto). Estilos literales: nada de
- * var(--…) — sale de la app por correo e impreso.
- * opts = {generatedAt, generatedBy, lab}
+ * El reporte gerencial. PURA (mismo modelo → mismo texto). Estilos literales y maquetado con
+ * tablas: sale por correo (Outlook de escritorio no entiende flex, grid, position ni
+ * gradientes) e impreso. opts = {generatedAt, generatedBy, lang: 'es'|'en'}.
+ * Orden: lo que se decide primero (avance, ritmo, lo crítico) y el detalle al final.
  */
 function copYearReportHTML(m, opts) {
     opts = opts || {};
-    var T = m.total;
-    var F = 'font-family:Segoe UI,Helvetica,Arial,sans-serif;';
-    var h = '<div style="' + F + 'color:#0f172a;max-width:980px;margin:0 auto;background:#ffffff;">';
-    // Encabezado
-    h += '<div style="background:#0b1f3a;color:#ffffff;padding:22px 26px 18px;border-radius:14px 14px 0 0;">' +
-         '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#93c5fd;font-weight:700;">' + _crEsc(opts.lab || 'KIA México · Laboratorio de Emisiones') + '</div>' +
-         '<div style="font-size:24px;font-weight:800;margin-top:6px;">Conformidad de la Producción ' + m.year + '</div>' +
-         '<div style="font-size:14px;color:#cbd5e1;margin-top:4px;">Estatus al corte · semana ' + m.week + ' · ' + _crEsc(_crDay(m.cut)) +
-         ' &nbsp;|&nbsp; Año calendario (ene–dic), todos los años modelo</div></div>';
-    h += '<div style="height:4px;background:linear-gradient(90deg,#bb162b,#ef4444 40%,#0b1f3a);"></div>';
-    // KPIs
+    var lang = copRepLang(opts.lang), X = COP_REP_TXT[lang];
+    var T = m.total, P = m.pace || copRepPace(m), C = m.critical || copRepCritical(m), HL = m.highlights || copRepHighlights(m);
+    var h = '<!--[if mso]><table role="presentation" width="760" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->';
+    h += '<table role="presentation" class="cr-wrap" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="' + _CR_FONT +
+         'width:100%;max-width:760px;margin:0 auto;background:#ffffff;border-collapse:collapse;color:' + _CR_INK + ';border:1px solid ' + _CR_LINE + ';">';
+    // ── Encabezado
+    h += '<tr><td bgcolor="' + _CR_NAVY + '" style="background:' + _CR_NAVY + ';padding:20px 24px 16px;">' +
+         '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#93c5fd;font-weight:700;">' + X.lab + '</div>' +
+         '<div style="font-size:24px;line-height:1.25;font-weight:800;color:#ffffff;margin-top:6px;">' + X.title(m.year) + '</div>' +
+         '<div style="font-size:13px;color:#cbd5e1;margin-top:4px;">' + X.sub(m.week, _crEsc(_crDayL(m.cut, lang))) + '</div></td></tr>';
+    h += '<tr><td height="4" bgcolor="' + _CR_RED + '" style="height:4px;background:' + _CR_RED + ';font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td></tr>';
+    // ── La frase
+    h += '<tr><td style="padding:18px 24px 4px;font-size:16px;line-height:1.5;color:' + _CR_INK + ';">' + X.headline(T) + '</td></tr>';
+    // ── Indicadores
+    var extra = T.done > T.covered ? X.extra(T.done - T.covered) : '';
+    var paceDetail = !P.pending ? X.allDone : (P.needed === null ? '<span style="color:#b91c1c;font-weight:700;">' + X.noWeeks + '</span>' : X.need(_crDec(P.needed), P.onTrack));
     var tiles = [
-        { k: 'Avance global', v: _crPct(T.progress), d: _crDelta(T.deltaPp, ' pp') + ' vs semana anterior', bar: _crBar(T.progress, T.prevProgress, '#2563eb') },
-        { k: 'Ensayos válidos ' + m.year, v: _crNum(T.done) + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + _crNum(T.req) + '</span>', d: _crDelta(T.added, '') + ' esta semana' },
-        { k: 'Pendientes', v: _crNum(T.pending), d: 'para cubrir el REQ de ' + _crNum(T.vol) + ' unidades producidas' },
-        { k: 'Familias cumplidas', v: T.ok + ' <span style="font-size:14px;color:#64748b;font-weight:600;">de ' + T.withReq + '</span>',
-          d: T.fail ? '<span style="color:#b91c1c;font-weight:700;">' + T.fail + ' no concordante' + (T.fail > 1 ? 's' : '') + '</span>' : 'ninguna no concordante' }
+        { k: X.kProgress, v: _crPct(T.progress), bar: _crBar(T.progress, '#2563eb', 130), d: X.vsLast(_crDelta(T.deltaPp, ' pp')) },
+        { k: X.kTests, v: _crNum(T.covered) + '<span style="font-size:15px;color:' + _CR_MUTED + ';font-weight:600;"> / ' + _crNum(T.req) + '</span>', d: X.thisWeek(T.added) + extra },
+        { k: X.kPace, v: _crDec(P.recent) + '<span style="font-size:15px;color:' + _CR_MUTED + ';font-weight:600;">' + X.perWeek + '</span>', d: paceDetail },
+        { k: X.kFam, v: T.ok + '<span style="font-size:15px;color:' + _CR_MUTED + ';font-weight:600;"> / ' + T.withReq + '</span>', d: T.fail ? X.ncSome(T.fail) : X.ncNone }
     ];
-    h += '<table role="presentation" class="cr-tiles" style="width:100%;border-collapse:separate;border-spacing:10px;margin:6px 0 0;"><tr>';
+    h += '<tr><td style="padding:10px 16px 0;"><table role="presentation" class="cr-tiles" width="100%" cellpadding="0" cellspacing="8" border="0" style="width:100%;"><tr>';
     tiles.forEach(function(t) {
-        h += '<td class="cr-tile" style="width:25%;vertical-align:top;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;">' +
-             '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">' + t.k + '</div>' +
-             '<div style="font-size:28px;font-weight:800;color:#0b1f3a;margin-top:4px;line-height:1.1;">' + t.v + '</div>' +
+        h += '<td class="cr-tile" width="25%" valign="top" bgcolor="' + _CR_SOFT + '" style="width:25%;vertical-align:top;background:' + _CR_SOFT +
+             ';border:1px solid ' + _CR_LINE + ';border-radius:10px;padding:12px 14px;">' +
+             '<div style="font-size:11px;color:' + _CR_MUTED + ';text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">' + t.k + '</div>' +
+             '<div style="font-size:26px;line-height:1.15;font-weight:800;color:' + _CR_NAVY + ';margin-top:4px;">' + t.v + '</div>' +
              (t.bar ? '<div style="margin-top:8px;">' + t.bar + '</div>' : '') +
-             '<div style="font-size:12px;color:#475569;margin-top:6px;">' + t.d + '</div></td>';
+             '<div style="font-size:12px;line-height:1.4;color:#475569;margin-top:6px;">' + t.d + '</div></td>';
     });
-    h += '</tr></table>';
-    // Avisos de datos
+    h += '</tr></table></td></tr>';
+    // ── Avisos de datos
     var notes = [];
-    if (m.missingMonths.length) {
-        notes.push('<b>Producción incompleta:</b> el plan importado no trae ' + _crMonthsList(m.missingMonths) + ' ' + m.year +
-                   (m.realMonths.length ? ' (con producción real capturada en ' + _crMonthsList(m.realMonths) + ')' : '') +
-                   '. Esos meses cuentan como 0 hasta capturar lo producido; el REQ puede subir.');
-    }
-    if (!m.prevFromSaved) notes.push('Sin corte guardado de la semana anterior: los ensayos de la semana pasada salen por su fecha de prueba y la producción se compara contra la de hoy.');
+    if (m.missingMonths.length) notes.push(X.missing(_crMonthsListL(m.missingMonths, lang), m.realMonths.length ? _crMonthsListL(m.realMonths, lang) : '', m.year));
+    if (!m.prevFromSaved) notes.push(X.noPrev);
     if (notes.length) {
-        h += '<div style="margin:6px 10px 0;padding:10px 14px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-size:12px;line-height:1.5;">⚠ ' + notes.join('<br>⚠ ') + '</div>';
+        h += '<tr><td style="padding:8px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+             '<td bgcolor="#fffbeb" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;color:#78350f;font-size:12px;line-height:1.5;">⚠ ' +
+             notes.join('<br>⚠ ') + '</td></tr></table></td></tr>';
     }
-    // Regiones
+    // ── Requiere atención
+    h += _crSection(X.secAttention, X.secAttentionSub);
+    var top = C.slice(0, 5);
+    if (!top.length) {
+        h += '<tr><td style="padding:0 24px;font-size:13px;color:#475569;">' + X.nothingCritical + '</td></tr>';
+    } else {
+        h += '<tr><td style="padding:0 24px;"><table role="presentation" class="cr-att" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">';
+        top.forEach(function(c, i) {
+            var r = c.row, tone = COP_REP_TONE[r.status.id] || COP_REP_TONE.none;
+            var lead = c.reasons[0].k === 'fail' || c.reasons[0].k === 'scarce' ? '#b91c1c' : _CR_NAVY;
+            h += '<tr><td width="34" valign="top" style="width:34px;padding:10px 0;border-top:1px solid ' + _CR_LINE + ';vertical-align:top;">' +
+                 '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="24" height="24" align="center" bgcolor="' + lead +
+                 '" style="width:24px;height:24px;background:' + lead + ';border-radius:12px;color:#ffffff;font-size:12px;font-weight:800;text-align:center;">' + (i + 1) + '</td></tr></table></td>' +
+                 '<td valign="top" style="padding:10px 8px;border-top:1px solid ' + _CR_LINE + ';vertical-align:top;">' +
+                 '<div style="font-size:14px;font-weight:800;color:' + _CR_INK + ';">' + _crFamName(r, X) +
+                 ' <span style="font-size:12px;font-weight:600;color:' + _CR_MUTED + ';">· ' + _crEsc((X.regions[r.region] || r.region) + ' · ' + (X.groups[r.group.id] || r.group.label)) + '</span></div>' +
+                 '<div style="font-size:13px;line-height:1.5;color:#334155;margin-top:2px;">' + c.reasons.map(function(rs) { return _crReasonText(rs, X); }).join(' ') + '</div></td>' +
+                 '<td width="70" align="right" valign="top" style="width:70px;padding:10px 0;border-top:1px solid ' + _CR_LINE + ';vertical-align:top;text-align:right;white-space:nowrap;">' +
+                 '<div style="font-size:16px;font-weight:800;color:' + tone.fg + ';">' + Math.min(r.done, r.req || r.done) + '/' + r.req + '</div></td></tr>';
+        });
+        h += '</table></td></tr>';
+    }
+    // ── Ritmo
+    h += _crSection(X.secPace, X.secPaceSub);
+    h += '<tr><td style="padding:0 24px;">' + _crPaceChart(P, X) +
+         '<div style="font-size:13px;line-height:1.55;color:#334155;margin-top:10px;">' + X.paceText(P, lang) + '</div></td></tr>';
+    // ── Puntos clave y nota del laboratorio
+    h += _crSection(X.secKey);
+    h += '<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">';
+    HL.forEach(function(hl) {
+        h += '<tr><td width="16" valign="top" style="width:16px;vertical-align:top;color:' + _CR_RED + ';font-size:14px;line-height:1.5;">•</td>' +
+             '<td valign="top" style="vertical-align:top;font-size:13px;line-height:1.5;color:#334155;padding-bottom:4px;">' + _crHighlightText(hl, X, lang) + '</td></tr>';
+    });
+    h += '</table></td></tr>';
+    if (m.note) {
+        h += '<tr><td style="padding:10px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+             '<td bgcolor="#eff6ff" style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 14px;font-size:13px;line-height:1.55;color:#1e3a8a;">' +
+             '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">' + X.secNote + '</div>' +
+             _crEsc(m.note.text).replace(/\n/g, '<br>') + '</td></tr></table></td></tr>';
+    }
+    // ── Estatus por familia
+    h += _crSection(X.secStatus);
     m.regions.forEach(function(rg) {
         var R = rg.total;
-        h += '<div style="margin:22px 10px 0;">';
-        h += '<table role="presentation" class="cr-rh" style="width:100%;border-collapse:collapse;"><tr>' +
-             '<td style="font-size:18px;font-weight:800;color:#0b1f3a;">' + _crEsc(rg.label) +
-             ' <span style="font-size:13px;color:#64748b;font-weight:600;">· ' + R.families + ' familia' + (R.families === 1 ? '' : 's') + ' · ' + _crNum(R.vol) + ' unidades</span></td>' +
-             '<td style="text-align:right;font-size:13px;color:#334155;white-space:nowrap;"><b>' + _crPct(R.progress) + '</b> de avance · ' +
-             _crNum(R.done) + '/' + _crNum(R.req) + ' ensayos · ' + _crDelta(R.added, '') + ' sem.</td></tr></table>';
-        h += '<div style="margin:8px 0 10px;">' + _crBar(R.progress, R.prevProgress, '#0b1f3a') + '</div>';
-        h += '<table class="cr-fam" style="width:100%;border-collapse:collapse;font-size:12px;">';
-        h += '<tr class="cr-head" style="background:#f1f5f9;color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:0.05em;">' +
-             '<th style="text-align:left;padding:8px;">Familia</th>' +
-             '<th style="text-align:right;padding:8px;">Producción ' + m.year + '</th>' +
-             '<th style="text-align:right;padding:8px;">REQ</th>' +
-             '<th style="text-align:right;padding:8px;">Hechas</th>' +
-             '<th style="text-align:right;padding:8px;">Semana</th>' +
-             '<th style="text-align:right;padding:8px;">Faltan</th>' +
-             '<th style="text-align:left;padding:8px;min-width:120px;">Avance</th>' +
-             '<th style="text-align:left;padding:8px;">Estatus</th></tr>';
+        h += '<tr><td style="padding:6px 24px 0;">' +
+             '<table role="presentation" class="cr-rh" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+             '<td style="font-size:16px;font-weight:800;color:' + _CR_NAVY + ';">' + _crEsc(X.regions[rg.id] || rg.label) +
+             ' <span style="font-size:12px;color:' + _CR_MUTED + ';font-weight:600;">· ' + X.families(R.families) + '</span></td>' +
+             '<td align="right" style="text-align:right;font-size:13px;color:#334155;white-space:nowrap;"><b>' + _crPct(R.progress) + '</b> · ' +
+             _crNum(R.covered) + '/' + _crNum(R.req) + ' ' + X.tests + '</td></tr></table>';
+        h += '<table role="presentation" class="cr-fam" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;table-layout:fixed;margin-top:8px;font-size:13px;">';
+        // Anchos fijos: las tablas de cada región quedan alineadas entre sí.
+        var th = function(t, al, w) {
+            return '<th align="' + al + '" width="' + w + '" style="width:' + w + ';text-align:' + al + ';padding:8px;font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;vertical-align:bottom;">' + t + '</th>';
+        };
+        h += '<tr class="cr-head" bgcolor="#f1f5f9" style="background:#f1f5f9;">' + th(X.thFamily, 'left', '34%') +
+             th(X.thProdShort + '<div style="font-weight:600;text-transform:none;letter-spacing:0;color:' + _CR_MUTED + ';">' + m.year + ', ' + X.toDate + '</div>', 'right', '17%') +
+             th(X.thReq, 'right', '10%') + th(X.thDone, 'right', '9%') + th(X.thProgress, 'left', '16%') + th(X.thStatus, 'left', '14%') + '</tr>';
         var lastGroup = null;
         rg.rows.forEach(function(r) {
             if (r.group.id !== lastGroup) {
                 lastGroup = r.group.id;
-                h += '<tr class="cr-grp"><td colspan="8" style="padding:10px 8px 4px;font-size:11px;font-weight:800;color:#bb162b;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #e2e8f0;">' + _crEsc(r.group.label) + '</td></tr>';
+                h += '<tr class="cr-grp"><td colspan="6" style="padding:12px 8px 4px;font-size:11px;font-weight:800;color:' + _CR_RED +
+                     ';text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid ' + _CR_LINE + ';">' + _crEsc(X.groups[r.group.id] || r.group.label) + '</td></tr>';
             }
             var tone = COP_REP_TONE[r.status.id] || COP_REP_TONE.none;
             var sub = [];
             if (r.mys.length) sub.push('MY ' + r.mys.map(function(x) { return String(x).replace(/\s*MODEL/i, ''); }).join(' + '));
-            if (r.verdict || r.done) sub.push('veredicto: ' + _crVerdictText(r.verdict));
-            if (r.lastTest) sub.push('último ensayo ' + _crDay(r.lastTest));
-            if (r.noPlan) sub.push('sin producción en el plan');
-            h += '<tr class="cr-row" style="border-bottom:1px solid #f1f5f9;">' +
-                 '<td class="cr-name" style="padding:8px;vertical-align:top;"><div style="font-weight:700;color:#0f172a;">' + _crEsc(r.label) + '</div>' +
-                 '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + sub.join(' · ') + '</div></td>' +
-                 '<td data-l="Producción" style="padding:8px;text-align:right;vertical-align:top;font-variant-numeric:tabular-nums;">' + _crNum(r.vol) +
-                 (r.volDelta ? '<div style="font-size:11px;">' + _crDelta(r.volDelta, '') + '</div>' : '') + '</td>' +
-                 '<td data-l="REQ" style="padding:8px;text-align:right;vertical-align:top;font-weight:700;">' + r.req +
-                 (r.req && r.req !== r.prevReq ? '<div style="font-size:11px;">' + _crDelta(r.req - r.prevReq, '') + '</div>' : '') + '</td>' +
-                 '<td data-l="Hechas" style="padding:8px;text-align:right;vertical-align:top;font-weight:700;">' + r.done + '</td>' +
-                 '<td data-l="Semana" style="padding:8px;text-align:right;vertical-align:top;">' + _crDelta(r.added, '') + '</td>' +
-                 '<td data-l="Faltan" style="padding:8px;text-align:right;vertical-align:top;font-weight:700;color:' + (r.pending ? '#9f1239' : '#94a3b8') + ';">' + (r.pending || '—') + '</td>' +
-                 '<td class="cr-bar" style="padding:8px;vertical-align:top;">' + _crBar(r.progress, r.prevProgress, tone.bar) +
-                 '<div style="font-size:11px;color:#475569;margin-top:3px;">' + _crPct(r.progress) + ' ' + (r.deltaPp ? _crDelta(r.deltaPp, ' pp') : '') + '</div></td>' +
-                 '<td class="cr-st" style="padding:8px;vertical-align:top;">' + _crPill(r.status) + '</td></tr>';
+            if (r.lastTest) sub.push(X.lastTest(_crEsc(_crDayL(r.lastTest, lang))));
+            if (r.verdict || r.done) sub.push(X.verdict(r.verdict));
+            if (r.noPlan) sub.push(X.noPlan);
+            var td = 'padding:9px 8px;vertical-align:top;border-bottom:1px solid #f1f5f9;';
+            h += '<tr class="cr-row">' +
+                 '<td class="cr-name" style="' + td + '"><div style="font-weight:700;color:' + _CR_INK + ';">' + _crFamName(r, X) + '</div>' +
+                 '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:2px;">' + sub.join(' · ') + '</div></td>' +
+                 '<td data-l="' + X.thProd(m.year) + '" align="right" style="' + td + 'text-align:right;white-space:nowrap;"><b>' + _crNum(r.volToDate) + '</b>' +
+                 (r.vol !== r.volToDate ? '<div style="font-size:11px;color:' + _CR_MUTED + ';">' + X.yearTotal(r.vol) + '</div>' : '') + '</td>' +
+                 '<td data-l="' + X.thReq + '" align="right" style="' + td + 'text-align:right;font-weight:700;">' + r.req +
+                 (m.prevFromSaved && r.prevReq && r.req !== r.prevReq ? '<div style="font-size:11px;">' + _crDelta(r.req - r.prevReq, '') + '</div>' : '') + '</td>' +
+                 '<td data-l="' + X.thDone + '" align="right" style="' + td + 'text-align:right;font-weight:700;">' + r.done +
+                 (r.added ? '<div style="font-size:11px;">' + _crDelta(r.added, '') + '</div>' : '') + '</td>' +
+                 '<td class="cr-bar" data-l="' + X.thProgress + '" style="' + td + '">' + _crBar(r.progress, tone.bar, 96) +
+                 '<div style="font-size:11px;color:#475569;margin-top:3px;">' + _crPct(r.progress) + '</div></td>' +
+                 '<td class="cr-st" data-l="' + X.thStatus + '" style="' + td + '">' + _crPill(r.status.id, X) + '</td></tr>';
         });
-        h += '</table></div>';
+        h += '</table></td></tr>';
     });
     if (!m.rows.length) {
-        h += '<div style="margin:24px 10px;padding:20px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:12px;">No hay familias del alcance CoP con producción o ensayos en ' + m.year + '.</div>';
+        h += '<tr><td style="padding:16px 24px;text-align:center;color:' + _CR_MUTED + ';">' +
+             (lang === 'en' ? 'No CoP families with production or tests in ' + m.year + '.' : 'No hay familias del alcance CoP con producción o ensayos en ' + m.year + '.') + '</td></tr>';
     }
-    // Notas
-    var foot = [];
-    // [3.13.0] La regla de cada región, tal como la pide corporativo.
+    // ── Notas de método
     var ruleLines = m.regions.filter(function(rg) { return rg.rows.length; }).map(function(rg) {
-        return '<b>' + _crEsc(rg.label) + ':</b> ' + rg.rules.map(copYearRuleText).join('; ') + '.';
+        return '<b>' + _crEsc(X.regions[rg.id] || rg.label) + ':</b> ' + rg.rules.map(X.ruleText).join('; ') + '.';
     });
-    foot.push('<b>Regla de muestreo</b> (año calendario). ' + (ruleLines.length ? ruleLines.join(' ') : copYearRuleText('lot') + '.') +
-              ' Los ensayos deben resultar concordantes (muestreo secuencial del CoP).');
-    foot.push(copRepProductionText(m));
-    foot.push('<b>Cuentan</b> los ensayos registrados como conformidad de la producción, aprobados y válidos para CoP, con fecha de prueba en ' + m.year + ' hasta el corte. El avance de cada región y el global suman lo cubierto de cada familia hasta su REQ: los ensayos de más en una familia no cubren a otra.');
-    var nc = Object.keys(m.nonCopPurposes);
-    if (nc.length) foot.push('Incluye ensayos con propósito distinto de CoP: ' + nc.map(function(k) { return _crEsc(k) + ' (' + m.nonCopPurposes[k] + ')'; }).join(', ') + '.');
-    // Lo que quedó fuera (excluidas, sin producción, fuera del alcance) NO se menciona en el
-    // reporte que se comparte (decisión del laboratorio): la app lo lista en su barra.
-    h += '<div style="margin:22px 10px 0;padding:12px 14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.6;">' + foot.join('<br>') +
-         '<br>Comparación contra el corte del ' + _crEsc(_crDay(m.prevCut)) + (m.prevFromSaved ? ' (corte guardado)' : '') + '.' +
-         (opts.generatedAt ? ' Generado ' + _crEsc(opts.generatedAt) + (opts.generatedBy ? ' por ' + _crEsc(opts.generatedBy) : '') + '.' : '') + '</div>';
-    h += '<div style="height:10px;background:#0b1f3a;border-radius:0 0 14px 14px;margin-top:12px;"></div>';
-    h += '</div>';
+    var foot = [X.footRule(ruleLines.length ? ruleLines.join(' ') : X.ruleText('lot') + '.'), X.prod(m), X.footReq, X.footCounts(m.year)];
+    h += '<tr><td style="padding:22px 24px 18px;"><div style="border-top:1px solid ' + _CR_LINE + ';padding-top:12px;font-size:11px;line-height:1.6;color:' + _CR_MUTED + ';">' +
+         foot.join('<br>') + '<br>' + X.footCompare(_crEsc(_crDayL(m.prevCut, lang)), m.prevFromSaved) +
+         (opts.generatedAt ? X.footGen(_crEsc(opts.generatedAt), opts.generatedBy ? _crEsc(opts.generatedBy) : '') : '') + '</div></td></tr>';
+    h += '<tr><td height="8" bgcolor="' + _CR_NAVY + '" style="height:8px;background:' + _CR_NAVY + ';font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td></tr>';
+    h += '</table><!--[if mso]></td></tr></table><![endif]-->';
     return h;
 }
 
@@ -643,21 +1082,21 @@ function copRepProductionText(m) {
 
 /** Documento completo (para imprimir, descargar o abrir aparte). PURA. */
 function copYearReportDocument(m, opts) {
-    return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
-           '<title>CoP ' + m.year + ' — semana ' + m.week + '</title>' +
-           '<style>@page{size:letter landscape;margin:10mm}body{margin:0;padding:16px;background:#ffffff;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
-           '@media print{body{padding:0}tr{page-break-inside:avoid}}' +
-           // En pantalla angosta la tabla se vuelve una tarjeta por familia (el correo
-           // ignora estas reglas y se queda con la tabla, que es lo que se lee en escritorio).
-           '@media screen and (max-width:640px){body{padding:8px}' +
-           '.cr-tiles,.cr-tiles tbody,.cr-tiles tr{display:block}.cr-tiles{border-spacing:0!important}' +
-           '.cr-tile{display:inline-block!important;width:calc(50% - 6px)!important;box-sizing:border-box;margin:3px 0;vertical-align:top}' +
-           '.cr-tile div[style*="font-size:28px"]{font-size:22px!important}' +
+    var lang = copRepLang(opts && opts.lang);
+    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+           '<title>CoP ' + m.year + ' — ' + (lang === 'en' ? 'week ' : 'semana ') + m.week + '</title>' +
+           '<style>@page{size:letter portrait;margin:10mm}body{margin:0;padding:16px;background:#f1f5f9;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+           '@media print{body{padding:0;background:#ffffff}.cr-wrap{border:0!important}tr{page-break-inside:avoid}}' +
+           // En pantalla angosta: indicadores de dos en dos y una tarjeta por familia (el correo
+           // ignora estas reglas y se queda con las tablas, que es lo que se lee en Outlook).
+           '@media screen and (max-width:640px){body{padding:6px}' +
+           '.cr-tiles,.cr-tiles tbody,.cr-tiles tr{display:block}' +
+           '.cr-tiles td.cr-tile{display:inline-block!important;width:47%!important;box-sizing:border-box;margin:1.5%;vertical-align:top}' +
            '.cr-rh,.cr-rh tbody,.cr-rh tr,.cr-rh td{display:block;text-align:left!important}' +
            '.cr-fam,.cr-fam tbody{display:block}.cr-fam .cr-head{display:none}.cr-fam .cr-grp,.cr-fam .cr-grp td{display:block}' +
-           '.cr-fam tr.cr-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px 0;border-bottom:1px solid #e2e8f0!important}' +
-           '.cr-fam tr.cr-row td{display:block;text-align:left!important;padding:3px 6px!important}' +
-           '.cr-fam td.cr-name{grid-column:1/-1}.cr-fam td.cr-bar{grid-column:1/4}.cr-fam td.cr-st{grid-column:4/-1;text-align:right!important}' +
+           '.cr-fam tr.cr-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:6px 0;border-bottom:1px solid #e2e8f0}' +
+           '.cr-fam tr.cr-row td{display:block;text-align:left!important;padding:3px 6px!important;border:0!important}' +
+           '.cr-fam td.cr-name{grid-column:1/-1}.cr-fam td.cr-bar{grid-column:1/3}.cr-fam td.cr-st{grid-column:3/-1}' +
            '.cr-fam td[data-l]:before{content:attr(data-l);display:block;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em}}' +
            '</style></head><body>' +
            copYearReportHTML(m, opts) + '</body></html>';
@@ -718,6 +1157,67 @@ function _copRepOtherPurpose(year, cut) {
         o[p] = (o[p] || 0) + 1;
     });
     return Object.keys(o).map(function(k) { return { purpose: k, n: o[k] }; });
+}
+
+/** [3.23.0] Semanas sin celda del año (Plan → Disponibilidad): {lunes: nota}. */
+function _copRepWeekOff(year) {
+    var out = {}, av = (typeof tpState !== 'undefined' && tpState && tpState.weekAvailability) || {};
+    Object.keys(av).forEach(function(mon) {
+        if (av[mon] && av[mon].available === false && Number(String(mon).slice(0, 4)) >= year - 1) out[mon] = String(av[mon].note || '');
+    });
+    return out;
+}
+
+/**
+ * [3.23.0] La nota del laboratorio de una semana (lo que no sale de los datos: "la celda
+ * estará fuera la semana que entra"). Se une entre equipos por semana, gana la más
+ * reciente. PURA y simétrica. Borrarla deja texto vacío (la marca que gana por fecha).
+ */
+function copRepNotesUnion(a, b) {
+    var out = {};
+    [a || {}, b || {}].forEach(function(src) {
+        Object.keys(src).forEach(function(k) {
+            var n = src[k];
+            if (!k || !n || typeof n !== 'object') return;
+            var cur = out[k];
+            if (!cur || String(n.at || '') > String(cur.at || '') ||
+                (String(n.at || '') === String(cur.at || '') && JSON.stringify(n) > JSON.stringify(cur))) out[k] = n;
+        });
+    });
+    var keys = Object.keys(out).sort();
+    if (keys.length > COP_REP_CUTS_KEEP) keys.slice(0, keys.length - COP_REP_CUTS_KEEP).forEach(function(k) { delete out[k]; });
+    return out;
+}
+
+/** Escribe la nota de la semana del corte abierto (permiso del plan, auditada). */
+function copRepNoteEdit() {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'escribir la nota de la semana del estatus CoP')) return;
+    var cut = _copRepUi.cut || localToday(), mon = copRepMonday(cut);
+    var cur = (copState.yearNotes && copState.yearNotes[mon]) || null;
+    uiPrompt({ title: '📝 Nota de la semana ' + copRepIsoWeek(cut), multiline: true, value: cur ? cur.text : '',
+               label: 'Va en el estatus, en el idioma en que la escribas (al correo de corporativo, en inglés).',
+               placeholder: 'Ej.: Next week the emission cell will not be available (HEV modification, phase 2).',
+               confirmText: 'Guardar nota' }).then(function(text) {
+        if (text === null) return;
+        var before = cur ? cur.text : '';
+        if (text === before) return;
+        if (!copState.yearNotes) copState.yearNotes = {};
+        copState.yearNotes[mon] = { text: text, at: new Date().toISOString(), by: (typeof _copWho === 'function') ? _copWho() : '' };
+        copPersist();
+        if (typeof auditLog === 'function') auditLog('cop', 'cop_nota_semana', { type: 'cop', label: 'Estatus CoP · semana ' + copRepIsoWeek(cut) },
+            text ? 'Nota de la semana' : 'Nota borrada', { before: { nota: before }, after: { nota: text } });
+        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled) {
+            try { fbPush('cop', JSON.parse(localStorage.getItem(COP_LS_KEY))); } catch (e) {}
+        }
+        showToast(text ? 'Nota guardada: sale en el estatus de esta semana.' : 'Nota borrada.', 'success');
+        copRepOpen(cut);
+    });
+}
+
+/** Cambia el idioma del estatus en pantalla (preferencia de este equipo). */
+function copRepSetLang(lang) {
+    uiPref('copRepLang', copRepLang(lang));
+    copRepOpen(_copRepUi.cut || localToday());
 }
 
 function _copRepProduction(year, inScope) {
@@ -794,6 +1294,8 @@ function copYearReportModel(opts) {
     var model = copYearReportCompute({
         year: year, cutIso: cut, prod: prod, tests: copRepYearTests(year),
         otherPurpose: _copRepOtherPurpose(year, cut),
+        weekOff: _copRepWeekOff(year),
+        note: (copState.yearNotes && copState.yearNotes[copRepMonday(cut)]) || null,
         verdictOf: function(k, tests) { return _copRepVerdict(tests); },
         prevSaved: cuts[_copRepAddDays(copRepMonday(cut), -7)] || null,
         exclude: copState.yearExclude || {},
@@ -830,9 +1332,9 @@ function _copRepDocFor(cut) {
     var m = copYearReportModel({ cutIso: cut, force: true });
     var who = (typeof authState !== 'undefined' && authState.currentUser) ? authState.currentUser.name : '';
     var now = new Date();
-    return { model: m, doc: copYearReportDocument(m, {
-        generatedAt: localDateStr(now) + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
-        generatedBy: who }) };
+    var opts = { generatedAt: localDateStr(now) + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+                 generatedBy: who, lang: copRepLang(typeof uiPref === 'function' ? uiPref('copRepLang') : 'en') };
+    return { model: m, opts: opts, doc: copYearReportDocument(m, opts) };
 }
 
 var _copRepUi = { cut: '' };
@@ -866,6 +1368,12 @@ function copRepOpen(cutIso) {
             '<button type="button" class="btn btn-sm btn-ghost" id="cop-rep-prod-btn" onclick="copRepProdOpen()">✏️ Producción real</button>' +
             '<button type="button" class="btn btn-sm btn-ghost" id="cop-rep-fam-btn" onclick="copRepFamiliesOpen()">⚙️ Familias</button>' +
             '<button type="button" class="btn btn-sm btn-ghost" onclick="copRepAuditOpen()">🔎 Ensayos del año</button>' +
+            '<button type="button" class="btn btn-sm btn-ghost" id="cop-rep-note-btn" onclick="copRepNoteEdit()">📝 Nota de la semana</button>' +
+            '<span class="cop-rep-lang" role="group" aria-label="Idioma del estatus">' +
+              ['en', 'es'].map(function(l) {
+                  return '<button type="button" class="btn btn-sm ' + (r.opts.lang === l ? 'btn-primary' : 'btn-ghost') + '" aria-pressed="' + (r.opts.lang === l) +
+                         '" onclick="copRepSetLang(\'' + l + '\')">' + (l === 'en' ? 'English' : 'Español') + '</button>';
+              }).join('') + '</span>' +
             '<button type="button" class="btn btn-sm btn-ghost cop-rep-close" onclick="copRepClose()" aria-label="Cerrar">✕</button>' +
           '</div>' +
         '</div>' +
@@ -881,6 +1389,8 @@ function copRepOpen(cutIso) {
     }
     var pb = document.getElementById('cop-rep-prod-btn');
     if (pb && typeof uiExplainDisabled === 'function') uiExplainDisabled(pb, canEdit ? '' : 'Capturar la producción real pide el permiso de administrar el plan.');
+    var nb = document.getElementById('cop-rep-note-btn');
+    if (nb && typeof uiExplainDisabled === 'function') uiExplainDisabled(nb, canEdit ? '' : 'Escribir la nota de la semana pide el permiso de administrar el plan.');
     var fb = document.getElementById('cop-rep-fam-btn');
     if (fb && typeof uiExplainDisabled === 'function') uiExplainDisabled(fb, canEdit ? '' : 'Decidir qué familias van al reporte pide el permiso de administrar el plan.');
 }
@@ -970,12 +1480,12 @@ function copRepDownload() {
 /** Copia el reporte como texto con formato, listo para pegar en un correo. */
 function copRepCopyEmail() {
     var r = _copRepDocFor(_copRepUi.cut || localToday());
-    var html = copYearReportHTML(r.model, {});
+    var html = copYearReportHTML(r.model, { lang: r.opts.lang });
     try {
         if (navigator.clipboard && window.ClipboardItem) {
             navigator.clipboard.write([new ClipboardItem({
                 'text/html': new Blob([html], { type: 'text/html' }),
-                'text/plain': new Blob([copRepPlainText(r.model)], { type: 'text/plain' })
+                'text/plain': new Blob([copRepPlainText(r.model, r.opts.lang)], { type: 'text/plain' })
             })]).then(function() { showToast('Reporte copiado: pégalo en el correo.', 'success'); },
                       function() { copRepDownload(); showToast('El navegador no dejó copiar: se descargó el HTML.', 'warning'); });
             return;
@@ -986,17 +1496,30 @@ function copRepCopyEmail() {
 }
 
 /** Resumen en texto plano (para el portapapeles sin formato y el aviso). PURA. */
-function copRepPlainText(m) {
-    var L = ['CoP ' + m.year + ' — estatus al corte ' + _crDay(m.cut) + ' (semana ' + m.week + ')',
-             'Avance global ' + _crPct(m.total.progress) + ' · ' + m.total.done + '/' + m.total.req + ' ensayos · ' +
-             (m.total.added >= 0 ? '+' : '') + m.total.added + ' esta semana · faltan ' + m.total.pending];
+function copRepPlainText(m, lang) {
+    lang = copRepLang(lang);
+    var X = COP_REP_TXT[lang], T = m.total, P = m.pace || copRepPace(m), en = lang === 'en';
+    var L = [en ? 'CoP ' + m.year + ' — status as of ' + _crDayL(m.cut, lang) + ' (week ' + m.week + ')'
+                : 'CoP ' + m.year + ' — estatus al corte ' + _crDay(m.cut) + ' (semana ' + m.week + ')',
+             (en ? 'Overall progress ' : 'Avance global ') + _crPct(T.progress) + ' · ' + T.covered + '/' + T.req + (en ? ' tests · ' : ' ensayos · ') +
+             (T.added >= 0 ? '+' : '') + T.added + (en ? ' this week · ' + T.pending + ' to go' : ' esta semana · faltan ' + T.pending)];
+    if (P.pending) L.push((en ? 'Pace: ' : 'Ritmo: ') + _crDec(P.recent) + X.perWeek + (en ? ' (last 4 weeks) · needed ' : ' (últimas 4 semanas) · hacen falta ') +
+                          (P.needed === null ? '—' : _crDec(P.needed) + X.perWeek));
+    var C = (m.critical || []).slice(0, 5);
+    if (C.length) {
+        L.push('', X.secAttention + ':');
+        C.forEach(function(c, i) {
+            L.push('  ' + (i + 1) + '. ' + (c.name || X.noModel) + ' — ' + c.reasons.map(function(rs) { return _crReasonText(rs, X); }).join(' ').replace(/<[^>]+>/g, ''));
+        });
+    }
     m.regions.forEach(function(rg) {
-        L.push('', rg.label + ': ' + _crPct(rg.total.progress) + ' (' + rg.total.done + '/' + rg.total.req + ')');
+        L.push('', (X.regions[rg.id] || rg.label) + ': ' + _crPct(rg.total.progress) + ' (' + rg.total.covered + '/' + rg.total.req + ')');
         rg.rows.forEach(function(r) {
-            L.push('  · ' + r.label + ' — ' + _crNum(r.vol) + ' u · ' + r.done + '/' + r.req +
-                   (r.added ? ' (+' + r.added + ')' : '') + ' · ' + r.status.label);
+            L.push('  · ' + (r.name || X.noModel) + ' ' + (X.groups[r.group.id] || '') + ' — ' + _crNum(r.volToDate) + ' u · ' + r.done + '/' + r.req +
+                   (r.added ? ' (+' + r.added + ')' : '') + ' · ' + ((X.status[r.status.id]) || r.status.label));
         });
     });
+    if (m.note) L.push('', X.secNote + ': ' + m.note.text);
     return L.join('\n');
 }
 
@@ -1082,6 +1605,9 @@ function copRepOverviewCardHTML() {
         '<div class="cop-rep-card-v"><b>' + _crPct(T.progress) + '</b> de avance · ' + T.done + ' de ' + T.req + ' ensayos · ' +
         (T.added ? '<b>+' + T.added + '</b> esta semana · ' : '') + T.pending + ' por hacer</div>' +
         '<div class="cop-rep-card-bar"><span style="width:' + Math.round(T.progress * 100) + '%"></span></div>' +
+        (m.pace && m.pace.pending ? '<div class="cop-rep-card-pace">Ritmo: <b>' + _crDec(m.pace.recent) + '/sem.</b> (últimas 4) · ' +
+            (m.pace.needed === null ? 'ya no quedan semanas con celda' : 'hacen falta <b>' + _crDec(m.pace.needed) + '/sem.</b> para el 31 dic') +
+            (m.critical && m.critical.length ? ' · más crítica: <b>' + _crEsc(m.critical[0].name || '(sin modelo)') + '</b>' : '') + '</div>' : '') +
         (m.missingMonths.length ? '<div class="cop-rep-card-warn">⚠ El plan no trae ' + _crMonthsList(m.missingMonths) + ' ' + m.year + ': captura la producción real.</div>' : '') +
         '</div><button type="button" class="btn btn-sm btn-primary" onclick="copRepOpen()">Estatus de la semana</button></div>';
     return h;
@@ -1159,7 +1685,12 @@ function copRepFamiliesSave() {
 }
 
 /** Asunto del correo semanal. PURA. */
-function copRepSubject(m) {
-    return 'CoP ' + m.year + ' · semana ' + m.week + ' — ' + _crPct(m.total.progress) + ' de avance (' +
-           m.total.done + '/' + m.total.req + ' ensayos' + (m.total.added ? ', +' + m.total.added + ' esta semana' : '') + ')';
+function copRepSubject(m, lang) {
+    var T = m.total;
+    if (copRepLang(lang) === 'en') {
+        return 'CoP ' + m.year + ' status · week ' + m.week + ' — ' + _crPct(T.progress) + ' complete (' + T.covered + '/' + T.req + ' tests' +
+               (T.added ? ', +' + T.added + ' this week' : '') + ')';
+    }
+    return 'CoP ' + m.year + ' · semana ' + m.week + ' — ' + _crPct(T.progress) + ' de avance (' +
+           T.covered + '/' + T.req + ' ensayos' + (T.added ? ', +' + T.added + ' esta semana' : '') + ')';
 }

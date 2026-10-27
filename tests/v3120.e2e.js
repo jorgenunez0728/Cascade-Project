@@ -20,6 +20,7 @@ const SEED = () => {
     localStorage.setItem('kia_fb_sync_modules', JSON.stringify({}));
     localStorage.setItem('kia_help_dismissed', JSON.stringify({ '*': true }));
     localStorage.setItem('kia_tour_done', '1');
+    localStorage.setItem('kia_ui_prefs', JSON.stringify({ copRepLang: 'es' }));   // [3.23.0] el visor abre en inglés por default
     ['global', 'today', 'testplan', 'inventory', 'panel', 'cop', 'cop15'].forEach(m => localStorage.setItem('kia_tour_done_' + m, '1'));
     const base = { mod: 'CL4', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', ep: '0', engpkg: '0', drv: 'LHD', tire: '-', rgn: 'EUROPE', hist: 0, total: 0 };
     const cfg = (my, body, m, extra) => Object.assign({}, base, { my, body, m, desc: 'CL4-' + my + '-' + body + (extra && extra.rgn || '') + (extra && extra.reg || '') }, extra || {});

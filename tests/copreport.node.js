@@ -205,5 +205,60 @@ ok('COP-Emisiones cuenta; EO, ND, correlación, investigación, OBD y sin propó
     C.copPurposeCounts('COP-Emisiones') && ['EO-Emisiones', 'ND-Emisiones', 'Correlacion', 'Investigacion', 'COP-OBD2', '', null].every(p => !C.copPurposeCounts(p)));
 ok('documento imprimible completo', /^<!doctype html>/.test(C.copYearReportDocument(M, {})) && /@page/.test(C.copYearReportDocument(M, {})));
 
+console.log('\n== [3.23.0] El nombre que usa la gerencia ==');
+const SN = f => C.copRepShortName(Object.assign({ mod: 'CL4', eng: '', tx: '', ep: '', engpkg: '' }, f));
+ok('CL4 1.6 T-GDI LP 7DCT / HP', SN({ eng: '1600CC GAMMA-II', engpkg: 'LOW POWER', tx: '7DCT' }) === 'CL4 1.6 T-GDI LP 7DCT' &&
+    SN({ eng: '1600CC GAMMA-II', engpkg: 'HIGH POWER', tx: '7DCT' }) === 'CL4 1.6 T-GDI HP 7DCT');
+ok('CL4 1.0 T-GDI 48V (mild HEV) y 12V', SN({ eng: '1000cc KAPPA PE', ep: 'MILD HEV', tx: '6MT' }) === 'CL4 1.0 T-GDI 48V 6MT' &&
+    SN({ eng: '1000cc KAPPA PE', tx: '6MT' }) === 'CL4 1.0 T-GDI 12V 6MT');
+ok('BL7m 1.6 6AT (DCVVT no se dice); un motor desconocido queda como viene', SN({ mod: 'BL7m', eng: '1600cc GAMMA', engpkg: 'DCVVT', tx: '6AT' }) === 'BL7m 1.6 6AT' &&
+    SN({ eng: '160KW', tx: '1DT' }) === 'CL4 160KW 1DT');
+
+console.log('\n== [3.23.0] Ritmo, lo crítico y los puntos clave ==');
+// Una familia con 3 de 6 y otra con pocas unidades por producir; ensayos repartidos en semanas.
+const famR = (body, eng, vol, req) => ({ key: 'K' + body + eng, name: 'CL4 ' + eng, group: { id: body === 'WGN' ? 'wgn' : '5dr', order: 1 },
+    region: 'EUROPE', rule: 'lot', vol, req, nextLotAt: C.copLotNextAt(vol), status: { id: 'run' } });
+const mk = (r, done, dates, ahead, last) => Object.assign(r, { done, pending: Math.max(0, r.req - done), testDates: dates, ahead, lastProdMonth: last,
+    added: 0, prevReq: r.req, prevStatus: { id: 'run' } });
+const MR = { year: 2026, cut: '2026-10-23', prevFromSaved: false, total: { pending: 5 }, weekOff: { '2026-10-26': 'HEV fase 2' },
+    rows: [mk(famR('WGN', '1.6', 10425, 6), 3, ['2026-10-01', '2026-10-08', '2026-10-21'], 1163, 12),
+           mk(famR('WGN', '1.0', 157, 3), 1, ['2026-07-29'], 44, 11)] };
+const PR = C.copRepPace(MR);
+ok('8 semanas que terminan en la del corte; las últimas 4 dan el ritmo', PR.weeks.length === 8 && PR.weeks[7].monday === '2026-10-19' && PR.weeks[7].n === 1 &&
+    PR.recent === 0.8, JSON.stringify(PR.weeks.map(w => w.n)) + ' ' + PR.recent);
+ok('quedan las semanas hasta el 31 dic sin las de celda fuera; hacen falta pendiente ÷ semanas', PR.weeksLeft === 9 && PR.off.length === 1 &&
+    PR.needed === Math.round(5 / 9 * 10) / 10, PR.weeksLeft + ' ' + PR.needed);
+ok('al ritmo actual (0.8/sem.) 5 ensayos son 7 semanas con celda: el viernes 18 dic', PR.finish === '2026-12-18' && !PR.late && PR.onTrack, PR.finish);
+ok('sin ensayos recientes no se promete fecha', C.copRepPace(Object.assign({}, MR, { rows: [] })).late === true);
+const PR2 = C.copRepPace(Object.assign({}, MR, { total: { pending: 1 } }));
+ok('con 1 pendiente: dos semanas con celda (la del 26 oct no cuenta) → viernes 13 nov', PR2.finish === '2026-11-13' && PR2.onTrack, PR2.finish);
+const CR = C.copRepCritical(MR);
+ok('lo más crítico primero: pocas unidades por producir (apartar una) gana a "más ensayos pendientes"',
+    CR[0].name === 'CL4 1.0' && CR[0].reasons[0].k === 'scarce' && CR[0].reasons[0].n === 44 && CR[1].name === 'CL4 1.6', JSON.stringify(CR.map(c => [c.name, c.reasons.map(r => r.k)])));
+ok('cerca del siguiente lote se avisa (a ≤ 1,000 unidades)', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 7000, 3), 3, [], 500, 12)] })[0].reasons.some(r => r.k === 'nearLot' && r.n === 501));
+ok('una familia cumplida y lejos del lote no entra', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 4000, 3), 3, [], 400, 12)] }).length === 0);
+const HL = C.copRepHighlights(Object.assign({}, MR, { pace: PR, rows: MR.rows.map((r, i) => Object.assign({}, r, { added: i ? 0 : 2 })) }));
+ok('puntos clave: lo nuevo de la semana y la semana sin celda que viene', HL[0].k === 'added' && HL[0].n === 2 && HL.some(h => h.k === 'off' && h.monday === '2026-10-26'));
+
+console.log('\n== [3.23.0] El reporte en inglés y para Outlook ==');
+const HE = C.copYearReportHTML(M, { lang: 'en', generatedAt: '2026-10-20 10:00' });
+ok('en inglés: título, frase y secciones', /Conformity of Production 2026/.test(HE) && /complete<\/b>: /.test(HE) && /Needs attention/.test(HE) &&
+    /Tests per week/.test(HE) && /Key points/.test(HE) && /Status by family/.test(HE) && !/ensayos requeridos/.test(HE));
+ok('la regla de muestreo también en inglés', /up to 7,500 units built, 3 tests/.test(HE));
+ok('mismo modelo, mismo texto (PURA) y estilos literales', HE === C.copYearReportHTML(M, { lang: 'en', generatedAt: '2026-10-20 10:00' }) && HE.indexOf('var(--') < 0);
+ok('nada que Outlook de escritorio no pinte: sin gradientes, position, flex ni grid en el correo',
+    !/linear-gradient|position:\s*(absolute|relative)|display:\s*(flex|grid)/.test(HE) && /<!--\[if mso\]>/.test(HE));
+ok('las barras son tablas con ancho fijo (Outlook)', /<td width="\d+" height="8" bgcolor="#/.test(HE));
+ok('no trae VIN', !/\bVIN\b/.test(HE) && HE.indexOf('>A<') < 0);
+ok('el idioma por default de la función es español', /Conformidad de la Producción 2026/.test(C.copYearReportHTML(M, {})));
+ok('el documento declara su idioma', /<html lang="en">/.test(C.copYearReportDocument(M, { lang: 'en' })));
+ok('asunto y texto plano en inglés', /^CoP 2026 status · week 43 — \d+% complete/.test(C.copRepSubject(M, 'en')) &&
+    /Overall progress/.test(C.copRepPlainText(M, 'en')) && /Avance global/.test(C.copRepPlainText(M)));
+const MN = Object.assign({}, M, { note: { text: 'Next week the cell is out.\nResumes after.', at: '1' } });
+ok('la nota del laboratorio sale tal cual, con sus renglones', /Note from the lab/.test(C.copYearReportHTML(MN, { lang: 'en' })) &&
+    /Next week the cell is out\.<br>Resumes after\./.test(C.copYearReportHTML(MN, { lang: 'en' })));
+ok('notas: por semana gana la más reciente (simétrica)', C.copRepNotesUnion({ w: { text: 'a', at: '1' } }, { w: { text: 'b', at: '2' } }).w.text === 'b' &&
+    C.copRepNotesUnion({ w: { text: 'b', at: '2' } }, { w: { text: 'a', at: '1' } }).w.text === 'b');
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;
