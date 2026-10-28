@@ -18,12 +18,10 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
     <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+    <!-- [3.24.1] La firma ya no viene del CDN: el lienzo es propio (js/signatures.js). -->
     <script>
 /** @license
  *
@@ -4095,7 +4093,12 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
 .sig-capture-close:hover { background: #f1f5f9; }
 .sig-capture-field {
     padding: var(--space-sm) var(--space-lg); display: flex; align-items: center; gap: var(--space-sm);
+    flex-wrap: wrap;
 }
+/* [3.24.1] "Firmar por otra persona…" va en su propio renglón: junto al campo se salía de la
+   caja en el teléfono. */
+#sig-onbehalf-btn { flex-basis: 100%; text-align: right; margin-top: 0 !important; }
+.sig-capture-field .sig-input { min-width: 0; }
 .sig-capture-field label {
     font-size: 12px; font-weight: 600; color: #475569; min-width: 100px;
 }
@@ -4112,7 +4115,13 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     margin: var(--space-sm) var(--space-lg); border: 2px dashed #cbd5e1; border-radius: var(--radius-xl);
     background: #fff; position: relative; overflow: hidden;
 }
-.sig-capture-canvas-wrap canvas { display: block; width: 100%; touch-action: none; }
+.sig-capture-canvas-wrap canvas { display: block; width: 100%; margin: 0 auto; touch-action: none; cursor: crosshair; }
+/* [3.24.1] Guía visual del recuadro: punteado = falta firmar; sólido = ya hay firma;
+   rojo = se intentó continuar sin firma. La pista se quita al empezar a firmar. */
+.sig-capture-canvas-wrap.is-signed { border-style: solid; border-color: #94a3b8; }
+.sig-capture-canvas-wrap.is-signed .sig-hint { display: none; }
+.sig-capture-canvas-wrap.sig-need { border-color: var(--danger-fill, #ef4444); background: var(--danger-tint, #fff5f5); }
+.sig-capture-canvas-wrap.sig-need .sig-hint { color: var(--danger-text, #991b1b); font-weight: 600; }
 .sig-hint {
     position: absolute; bottom: 6px; left: 0; right: 0;
     text-align: center; font-size: var(--fs-xs); color: #94a3b8; pointer-events: none;
@@ -10362,10 +10371,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610282027';
+var APP_BUILD = '202610282100';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'c3624f02e0f382534bdd4c2ce877557b55e88d79';
+var APP_COMMIT = '8261db07c3dd030ea4b60d86bd2161aecae9737d';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10373,7 +10382,7 @@ var APP_COMMIT = 'c3624f02e0f382534bdd4c2ce877557b55e88d79';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.24.0';
+var APP_VERSION = '3.24.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10381,6 +10390,10 @@ var APP_VERSION = '3.24.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.24.1', date: '28 oct 2026', title: 'La firma funciona sin internet',
+      bullets: ['El recuadro de firma ya no se descarga de internet: viene dentro de la app. Antes, si la red bloqueaba ese servidor o el equipo abría sin conexión, el recuadro no pintaba y no se podía liberar ni aprobar.',
+                'El trazo cae justo donde está el dedo (antes podía correrse) y se ve nítido en teléfonos y tabletas.',
+                'El recuadro guía: punteado mientras falta firmar, sólido cuando ya hay firma, y en rojo si se intenta continuar sin firmar.'] },
     { version: '3.24.0', date: '28 oct 2026', title: 'Bloques de la celda y la fecha de prueba en el CoP',
       bullets: ['Plan → Mi semana → 🧱 Bloques de la semana: la capacidad instalada de la celda, lugar por lugar (con 2 vehículos por par son 8: dos pruebas de martes a viernes). Cada bloque muestra la prueba que se corrió ese día o, si quedó vacío, por qué.',
                 'Un signatario pone el motivo de un bloque vacío de una lista cerrada: quality check, mantenimiento o calibración, proyecto, sin vehículo, celda fuera de servicio, prueba inválida o repetida, sin personal o día festivo, con una nota opcional. Se puede aplicar a todos los bloques vacíos del mismo día.',
@@ -11588,14 +11601,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610282027' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610282100' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610282027' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610282100' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11611,7 +11624,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610282027' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610282100' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -65927,9 +65940,201 @@ function _authLockCountdown(err, until) {
 // @@module js/signatures.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Digital Signature Capture Module                      ║
-// ║  Reusable modal using SignaturePad (CDN already loaded).           ║
+// ║  Modal reutilizable con lienzo de firma PROPIO (SigPad, 3.24.1).    ║
 // ║  Two capture moments: technician (VETS photo) + releaser.         ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+
+// [3.24.1] LIENZO DE FIRMA PROPIO. Antes la firma usaba `signature_pad` desde cdnjs:
+// si la red del laboratorio bloqueaba el CDN (o el equipo abría sin internet), el
+// lienzo no pintaba y no se podía liberar ni aprobar nada. Ahora no depende de nada
+// externo. La interfaz es la que el resto del código ya usaba: isEmpty(), clear(),
+// toDataURL('image/png').
+//
+// Los trazos se guardan en coordenadas LÓGICAS (el tamaño con que se abrió el lienzo),
+// así que:
+//   · el toque cae donde está el dedo aunque el CSS estire el lienzo (antes se corría);
+//   · se pinta nítido en pantallas de alta densidad (backing store × devicePixelRatio);
+//   · la imagen que se guarda es SIEMPRE de tamaño lógico (≤ 560×180), no ×3 en un
+//     teléfono: las firmas son ~95 % del peso de un vehículo en la nube (2.3.0).
+var SIG_MIN_W = 0.8;       // grosor mínimo del trazo (rápido)
+var SIG_MAX_W = 2.6;       // grosor máximo (lento)
+var SIG_MIN_DIST = 1.5;    // px lógicos: puntos más juntos se ignoran (ruido del dedo)
+
+/** [3.24.1] Grosor del trazo según la velocidad (px/ms), suavizado con el anterior. PURA. */
+function sigStrokeWidth(velocity, prevWidth) {
+    var target = Math.max(SIG_MAX_W / (velocity + 1), SIG_MIN_W);
+    return prevWidth == null ? target : prevWidth * 0.6 + target * 0.4;
+}
+
+/** [3.24.1] Agrega un punto al trazo (x,y en px lógicos, t en ms). Devuelve false si se descarta. PURA sobre `stroke`. */
+function sigStrokeAdd(stroke, x, y, t) {
+    var last = stroke.length ? stroke[stroke.length - 1] : null;
+    if (!last) { stroke.push({ x: x, y: y, t: t, w: sigStrokeWidth(0, null), v: 0 }); return true; }
+    var d = Math.hypot(x - last.x, y - last.y);
+    if (d < SIG_MIN_DIST) return false;
+    var dt = Math.max(1, t - last.t);
+    var v = 0.7 * (last.v || 0) + 0.3 * (d / dt);
+    stroke.push({ x: x, y: y, t: t, w: sigStrokeWidth(v, last.w), v: v });
+    return true;
+}
+
+/** [3.24.1] Pinta el tramo que termina en el punto i del trazo (curva por puntos medios). */
+function _sigDrawSegment(ctx, stroke, i) {
+    var p = stroke[i];
+    if (i === 0) return;
+    var a = stroke[i - 1], b = i >= 2 ? stroke[i - 2] : null;
+    var m0 = b ? { x: (b.x + a.x) / 2, y: (b.y + a.y) / 2 } : a;
+    var m1 = { x: (a.x + p.x) / 2, y: (a.y + p.y) / 2 };
+    ctx.beginPath();
+    ctx.lineWidth = (a.w + p.w) / 2;
+    ctx.moveTo(m0.x, m0.y);
+    ctx.quadraticCurveTo(a.x, a.y, m1.x, m1.y);
+    ctx.stroke();
+}
+
+/** [3.24.1] Pinta un trazo completo (para repintar y exportar). Un toque solo = punto. */
+function _sigDrawStroke(ctx, stroke) {
+    if (!stroke.length) return;
+    if (stroke.length === 1) {
+        ctx.beginPath();
+        ctx.arc(stroke[0].x, stroke[0].y, stroke[0].w, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+    }
+    for (var i = 1; i < stroke.length; i++) _sigDrawSegment(ctx, stroke, i);
+    // El último medio tramo (de su punto medio al punto final).
+    var a = stroke[stroke.length - 2], p = stroke[stroke.length - 1];
+    ctx.beginPath(); ctx.lineWidth = p.w;
+    ctx.moveTo((a.x + p.x) / 2, (a.y + p.y) / 2); ctx.lineTo(p.x, p.y); ctx.stroke();
+}
+
+function _sigPrepCtx(ctx, scale, color) {
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+}
+
+/**
+ * [3.24.1] Lienzo de firma. `opts = {width, height, penColor, background, onChange}`.
+ * width/height son el tamaño LÓGICO (el de la imagen que se guarda).
+ */
+function SigPad(canvas, opts) {
+    opts = opts || {};
+    this.canvas = canvas;
+    this.w = Math.max(80, Math.round(opts.width || 520));
+    this.h = Math.max(60, Math.round(opts.height || 180));
+    this.pen = opts.penColor || '#000000';
+    this.bg = opts.background || '#ffffff';
+    this.onChange = opts.onChange || null;
+    this.strokes = [];
+    this._cur = null;
+    this._pid = null;
+    var dpr = Math.min(3, Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+    this.scale = dpr;
+    canvas.width = Math.round(this.w * dpr);
+    canvas.height = Math.round(this.h * dpr);
+    canvas.style.width = this.w + 'px';
+    canvas.style.maxWidth = '100%';
+    canvas.style.height = this.h + 'px';
+    this.ctx = canvas.getContext('2d');
+    this._paintAll();
+    var self = this;
+    this._h = {
+        down: function(e) { self._down(e); },
+        move: function(e) { self._move(e); },
+        up: function(e) { self._up(e); }
+    };
+    canvas.addEventListener('pointerdown', this._h.down);
+    canvas.addEventListener('pointermove', this._h.move);
+    canvas.addEventListener('pointerup', this._h.up);
+    canvas.addEventListener('pointercancel', this._h.up);
+    canvas.addEventListener('lostpointercapture', this._h.up);
+}
+SigPad.prototype._point = function(e) {
+    var r = this.canvas.getBoundingClientRect();
+    var x = (e.clientX - r.left) * this.w / (r.width || this.w);
+    var y = (e.clientY - r.top) * this.h / (r.height || this.h);
+    return { x: Math.max(0, Math.min(this.w, x)), y: Math.max(0, Math.min(this.h, y)), t: e.timeStamp || Date.now() };
+};
+SigPad.prototype._down = function(e) {
+    if (e.isPrimary === false || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    this._pid = e.pointerId;
+    this._cur = [];
+    this.strokes.push(this._cur);
+    var p = this._point(e);
+    sigStrokeAdd(this._cur, p.x, p.y, p.t);
+    _sigPrepCtx(this.ctx, this.scale, this.pen);
+    _sigDrawStroke(this.ctx, this._cur);
+    if (this.onChange) this.onChange(this);
+};
+SigPad.prototype._move = function(e) {
+    if (!this._cur || e.pointerId !== this._pid) return;
+    e.preventDefault();
+    var evs = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents()) || [];
+    if (!evs.length) evs = [e];
+    _sigPrepCtx(this.ctx, this.scale, this.pen);
+    for (var i = 0; i < evs.length; i++) {
+        var p = this._point(evs[i]);
+        if (sigStrokeAdd(this._cur, p.x, p.y, p.t)) _sigDrawSegment(this.ctx, this._cur, this._cur.length - 1);
+    }
+};
+SigPad.prototype._up = function(e) {
+    if (!this._cur || (e && e.pointerId !== this._pid)) return;
+    this._cur = null; this._pid = null;
+    this._paintAll();   // repinta limpio (cierra el último medio tramo)
+};
+SigPad.prototype._paintAll = function() {
+    var c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = this.bg; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    _sigPrepCtx(c, this.scale, this.pen);
+    for (var i = 0; i < this.strokes.length; i++) _sigDrawStroke(c, this.strokes[i]);
+};
+SigPad.prototype.isEmpty = function() {
+    return !this.strokes.some(function(s) { return s.length > 0; });
+};
+SigPad.prototype.clear = function() {
+    this.strokes = []; this._cur = null; this._pid = null;
+    this._paintAll();
+    if (this.onChange) this.onChange(this);
+};
+/** Imagen en tamaño LÓGICO, fondo blanco (lo que guarda la firma y lee el F05). */
+SigPad.prototype.toDataURL = function(type) {
+    var out = document.createElement('canvas');
+    out.width = this.w; out.height = this.h;
+    var c = out.getContext('2d');
+    c.fillStyle = this.bg; c.fillRect(0, 0, this.w, this.h);
+    _sigPrepCtx(c, 1, this.pen);
+    for (var i = 0; i < this.strokes.length; i++) _sigDrawStroke(c, this.strokes[i]);
+    return out.toDataURL(type || 'image/png');
+};
+SigPad.prototype.off = function() {
+    var cv = this.canvas, h = this._h;
+    if (!cv || !h) return;
+    cv.removeEventListener('pointerdown', h.down);
+    cv.removeEventListener('pointermove', h.move);
+    cv.removeEventListener('pointerup', h.up);
+    cv.removeEventListener('pointercancel', h.up);
+    cv.removeEventListener('lostpointercapture', h.up);
+    this._h = null;
+};
+
+/** [3.24.1] Suelta el lienzo abierto (quita sus oyentes). */
+function _sigPadRelease() {
+    if (_sigPadInstance && typeof _sigPadInstance.off === 'function') _sigPadInstance.off();
+    _sigPadInstance = null;
+}
+
+/** [3.24.1] Guía visual: el recuadro dice si ya hay firma (borde sólido, sin la pista). */
+function _sigPadChanged(pad) {
+    var wrap = pad && pad.canvas && pad.canvas.parentElement;
+    if (!wrap) return;
+    var empty = pad.isEmpty();
+    wrap.classList.toggle('is-signed', !empty);
+    if (!empty) wrap.classList.remove('sig-need');
+}
 
 var _sigPadInstance = null;
 var _sigCaptureOpts = null;
@@ -65970,8 +66175,8 @@ function sigCaptureOpen(opts) {
                 '<div class="sig-role-display">' + (opts.role || 'Tecnico') + '</div>' +
             '</div>' +
             '<div class="sig-capture-canvas-wrap">' +
-                '<canvas id="sig-capture-canvas"></canvas>' +
-                '<div class="sig-hint">Firme arriba con el dedo o mouse</div>' +
+                '<canvas id="sig-capture-canvas" aria-label="Recuadro de firma"></canvas>' +
+                '<div class="sig-hint">✍️ Firma aquí con el dedo, el lápiz o el mouse</div>' +
             '</div>' +
             '<div class="sig-capture-actions">' +
                 '<button type="button" class="btn btn-ghost" onclick="sigCaptureClear()">Borrar</button>' +
@@ -65985,43 +66190,9 @@ function sigCaptureOpen(opts) {
     var canvas = document.getElementById('sig-capture-canvas');
     if (canvas) {
         var wrap = canvas.parentElement;
-        canvas.width = Math.min(wrap.clientWidth - 16, 560);
-        canvas.height = 180;
-        if (typeof SignaturePad !== 'undefined') {
-            _sigPadInstance = new SignaturePad(canvas, { backgroundColor: '#ffffff', penColor: '#000000' });
-        } else {
-            // [v23.2] Antes esto era un `console.warn` y nada más: el técnico veía un
-            // lienzo en blanco que no pintaba, y NADIE le decía por qué.
-            //
-            // No es un detalle cosmético. `signature_pad` se carga desde cdnjs
-            // (index.html), y la firma cierra `finishRelease()` **y**
-            // `approveAndArchive()`: si la red del trabajo bloquea el CDN, no se puede
-            // liberar ningún vehículo. Ya pasó dos veces con otras librerías —Alpine y
-            // jsPDF están en `vendor/` justo por esto.
-            //
-            // PENDIENTE: vendorizar `signature_pad` a `vendor/` como los otros dos.
-            // No se pudo hacer en esta ronda porque el entorno no tiene salida a cdnjs.
-            // Mientras tanto, el fallo al menos se declara en vez de fingir que el
-            // lienzo funciona.
-            void 0;
-            var aviso = document.getElementById('sig-capture-error');
-            if (!aviso && canvas.parentElement) {
-                aviso = document.createElement('div');
-                aviso.id = 'sig-capture-error';
-                aviso.setAttribute('role', 'alert');
-                aviso.style.cssText = 'margin-top: var(--space-sm);padding: var(--space-md);' +
-                    'border:1px solid var(--danger-border, #fecaca);background:var(--danger-bg, #fef2f2);' +
-                    'color:var(--danger-text, #991b1b);border-radius: var(--radius-md);font-size: var(--fs-sm);';
-                aviso.innerHTML = '<b>No se puede firmar en este dispositivo.</b><br>' +
-                    'No cargó la librería de firma (la red del laboratorio está bloqueando el CDN). ' +
-                    'Revisa la conexión y recarga la página: sin firma no se puede liberar ni aprobar.';
-                canvas.parentElement.appendChild(aviso);
-            }
-            canvas.style.opacity = '0.4';
-            if (typeof showToast === 'function') {
-                showToast('No cargó la librería de firma. Recarga la página con conexión.', 'error');
-            }
-        }
+        // [3.24.1] Lienzo propio: el ancho lógico es el del recuadro (tope 560, como antes).
+        var w = Math.min((wrap && wrap.clientWidth) || 520, 560);
+        _sigPadInstance = new SigPad(canvas, { width: w, height: 180, penColor: '#000000', background: '#ffffff', onChange: _sigPadChanged });
     }
     if (typeof a11yDialog === 'function') {
         window._sigA11yClose = a11yDialog(overlay, {
@@ -66029,7 +66200,7 @@ function sigCaptureOpen(opts) {
             onClose: function () {
                 var o = document.querySelector('.sig-capture-overlay');
                 if (o) o.remove();
-                _sigPadInstance = null;
+                _sigPadRelease();
                 _sigCaptureOpts = null;
             }
         });
@@ -66067,7 +66238,10 @@ var _sigOnBehalf = false;
 
 function sigCaptureConfirm() {
     if (!_sigPadInstance || _sigPadInstance.isEmpty()) {
-        if (typeof showToast === 'function') showToast('Por favor firme antes de continuar', 'warning');
+        // [3.24.1] El aviso va en el recuadro (regla 2.12.0), no solo en un toast que se va.
+        var _wrap = document.querySelector('.sig-capture-canvas-wrap');
+        if (_wrap) _wrap.classList.add('sig-need');
+        if (typeof showToast === 'function') showToast('Firma en el recuadro antes de continuar.', 'warning');
         return;
     }
     var nameEl = document.getElementById('sig-signer-name');
@@ -66124,7 +66298,7 @@ function sigCaptureDismiss() {
     }
     var o = document.querySelector('.sig-capture-overlay');
     if (o) o.remove();
-    _sigPadInstance = null;
+    _sigPadRelease();
     _sigCaptureOpts = null;
 }
 
@@ -70912,7 +71086,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610282027' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610282100' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -90712,7 +90886,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9896,"mods":[[9899,"js/app.js",20195],[20199,"js/uiflow.js",20534],[20538,"js/cop15.js",31610],[31614,"js/inventory.js",39618],[39622,"js/cuarto.js",41752],[41756,"js/sitio.js",43936],[43940,"js/conslist.js",44548],[44552,"js/testplan.js",56552],[56556,"js/bloques.js",57177],[57181,"js/panel.js",62547],[62551,"js/projects.js",64840],[64844,"js/auth.js",65924],[65928,"js/signatures.js",66129],[66133,"js/firebase-sync.js",74752],[74756,"js/cop_validator.js",79459],[79463,"js/copreport.js",81284],[81288,"js/cophq.js",82098],[82102,"js/homolog.js",83999],[84003,"js/vets.js",85802],[85806,"js/historico.js",86720],[86724,"js/review.js",87177],[87181,"js/opcards.js",87630],[87634,"js/handoff.js",87913],[87917,"js/ficha.js",88418],[88422,"js/relevo.js",88802],[88806,"js/momentos.js",88943],[88947,"js/normas.js",89352],[89356,"js/digest.js",90284],[90288,"js/xlsxw.js",90668],[90672,"js/bugreport.js",91818]]};
+var BUG_LINE_MAP = {"tag":9905,"mods":[[9908,"js/app.js",20208],[20212,"js/uiflow.js",20547],[20551,"js/cop15.js",31623],[31627,"js/inventory.js",39631],[39635,"js/cuarto.js",41765],[41769,"js/sitio.js",43949],[43953,"js/conslist.js",44561],[44565,"js/testplan.js",56565],[56569,"js/bloques.js",57190],[57194,"js/panel.js",62560],[62564,"js/projects.js",64853],[64857,"js/auth.js",65937],[65941,"js/signatures.js",66303],[66307,"js/firebase-sync.js",74926],[74930,"js/cop_validator.js",79633],[79637,"js/copreport.js",81458],[81462,"js/cophq.js",82272],[82276,"js/homolog.js",84173],[84177,"js/vets.js",85976],[85980,"js/historico.js",86894],[86898,"js/review.js",87351],[87355,"js/opcards.js",87804],[87808,"js/handoff.js",88087],[88091,"js/ficha.js",88592],[88596,"js/relevo.js",88976],[88980,"js/momentos.js",89117],[89121,"js/normas.js",89526],[89530,"js/digest.js",90458],[90462,"js/xlsxw.js",90842],[90846,"js/bugreport.js",91992]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

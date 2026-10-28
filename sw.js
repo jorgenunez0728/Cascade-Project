@@ -10,7 +10,7 @@ var CACHE_VERSION = '__BUILD_VERSION__';
 var CACHE_NAME = 'kia-emlab-v' + CACHE_VERSION;
 
 var CDN_ASSETS = [
-    'https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js',
+    // [3.24.1] signature_pad salió: la firma usa un lienzo propio (js/signatures.js).
     // [v23.2] jsPDF salió de esta lista: ya vive en vendor/jspdf.umd.min.js y la
     // app no lo pide al CDN, así que precachearlo era descargar 364 KB para nada
     // en cada versión nueva (el SW borra toda la caché al activarse).

@@ -3652,7 +3652,12 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
 .sig-capture-close:hover { background: #f1f5f9; }
 .sig-capture-field {
     padding: var(--space-sm) var(--space-lg); display: flex; align-items: center; gap: var(--space-sm);
+    flex-wrap: wrap;
 }
+/* [3.24.1] "Firmar por otra persona…" va en su propio renglón: junto al campo se salía de la
+   caja en el teléfono. */
+#sig-onbehalf-btn { flex-basis: 100%; text-align: right; margin-top: 0 !important; }
+.sig-capture-field .sig-input { min-width: 0; }
 .sig-capture-field label {
     font-size: 12px; font-weight: 600; color: #475569; min-width: 100px;
 }
@@ -3669,7 +3674,13 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     margin: var(--space-sm) var(--space-lg); border: 2px dashed #cbd5e1; border-radius: var(--radius-xl);
     background: #fff; position: relative; overflow: hidden;
 }
-.sig-capture-canvas-wrap canvas { display: block; width: 100%; touch-action: none; }
+.sig-capture-canvas-wrap canvas { display: block; width: 100%; margin: 0 auto; touch-action: none; cursor: crosshair; }
+/* [3.24.1] Guía visual del recuadro: punteado = falta firmar; sólido = ya hay firma;
+   rojo = se intentó continuar sin firma. La pista se quita al empezar a firmar. */
+.sig-capture-canvas-wrap.is-signed { border-style: solid; border-color: #94a3b8; }
+.sig-capture-canvas-wrap.is-signed .sig-hint { display: none; }
+.sig-capture-canvas-wrap.sig-need { border-color: var(--danger-fill, #ef4444); background: var(--danger-tint, #fff5f5); }
+.sig-capture-canvas-wrap.sig-need .sig-hint { color: var(--danger-text, #991b1b); font-weight: 600; }
 .sig-hint {
     position: absolute; bottom: 6px; left: 0; right: 0;
     text-align: center; font-size: var(--fs-xs); color: #94a3b8; pointer-events: none;
