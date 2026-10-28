@@ -233,6 +233,8 @@ parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuá
 - Trazabilidad por prueba: equipos, calibración y cilindros vigentes el día de la prueba
   (28-oct-2026).
 - Lista del viernes para pedir o apartar unidades a producción (28-oct-2026).
+- Que el plan agende los ensayos extra que una familia con el muestreo abierto necesita para
+  decidir, con la estimación de cuántos le faltan (28-oct-2026).
 
 **Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
 en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
@@ -244,6 +246,10 @@ qué se pone y dónde.
   falla real.
 - Carta de control de los vehículos Master (deriva de la celda): gases de las pruebas de
   correlación del Master, con I-MR por vehículo.
+- Al aprobar, comparar cada gas contra la historia de su familia (media ± 3σ de la carta de
+  control), con un aviso que NO bloquea. Atrapa capturas imposibles (unidad equivocada, bolsa
+  mal leída, un cero de más) antes de que entren al CoP. Hoy nada en `review.js` ni en la
+  aprobación de `cop15.js` lo compara.
 
 ## Historia técnica por versión
 
