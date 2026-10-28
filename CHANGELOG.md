@@ -20,7 +20,7 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.24.0 — Bloques de la celda (2026-10-27)
+## 3.24.0 — Bloques de la celda y la fecha de prueba en el CoP (2026-10-28)
 
 La gerencia pidió ver bien la calendarización de la semana siguiente. Además, el laboratorio
 quería que cada lugar de prueba de la semana quede explicado: si un día no se probó, se registra
@@ -66,6 +66,35 @@ por qué. Esta versión cubre las dos cosas.
 - **El estatus CoP del viernes** trae la sección *Uso de la celda*: los bloques de esta semana y
   el plan de la siguiente (aceptado o propuesta), bloque por bloque, sin VIN.
 
+### Nuevo en el CoP
+- **Fecha de prueba en el Validador.** Cada VIN de la tabla trae el día en que se probó:
+  - con 🔒 si el VIN es del laboratorio (no se teclea; si está mal, se corrige en Historial →
+    📝 Completar);
+  - con ≈ si esa prueba no traía fecha (se muestra el día en que se capturaron los resultados);
+  - en amarillo, para teclearla, si el VIN es manual.
+
+  **↕ Por fecha de prueba** ordena la tabla de la prueba más vieja a la más reciente. La tabla de
+  CO₂ también trae la fecha, y el juicio guardado congela la fecha de cada VIN.
+- **Colores que dicen qué hacer** en la tabla, con su leyenda arriba:
+  - azul = viene del laboratorio (prueba aprobada);
+  - amarillo punteado = vacío, teclea aquí;
+  - blanco = tecleado a mano.
+
+  Cada campo trae un ejemplo y dice su unidad.
+
+### Arreglado
+- **La fecha que usaba el CoP era la de aprobación, no la de prueba.** Una prueba del martes
+  aprobada el jueves salía el jueves en:
+  - la mesa;
+  - la carta de control (I-MR);
+  - el orden de la secuencia de CO₂;
+  - el PDF del expediente.
+
+  Ahora todos usan la fecha de prueba, la misma del calendario.
+- "Limpiar valores" ya no borra la fecha tecleada de un VIN manual.
+- La ayuda de "Alcance del CoP" seguía diciendo EURO-5 / EURO-6E en Europa y Medio Oriente; ahora
+  se arma del alcance vigente.
+
 ### Para desarrollo
 - `js/bloques.js` (carga después de testplan.js). `tpBlocksCompute(src)` (PURA) es LA definición
   de los bloques de una semana; `tpBlocksForWeek(weekDate)` le pasa los datos de la plataforma.
@@ -79,6 +108,10 @@ por qué. Esta versión cubre las dos cosas.
 - El reporte CoP lee `model.cell` (`_copRepCell`, sin VIN). Lo pinta `_crBlocksTable`, con tablas
   para Outlook.
 - Pruebas: `tests/bloques.node.js`, con recálculo en LibreOffice, y `tests/v3240.e2e.js`.
+- CoP: `_copSpcDate` usa `testDatetime` (o el del formato simple) antes que el día de captura.
+  `copTestDate(v)` da la fecha de prueba con `approx`, y `copMesaRowDate(row, key)` la de una fila.
+  Las filas manuales guardan `row.testDate`. Las clases `cop-in--lab|todo|manual` llevan prefijo
+  `input.`, porque la regla global `input:valid` pinta de verde y les ganaba.
 
 ## 3.23.0 — El estatus CoP, listo para la gerencia (2026-10-27)
 

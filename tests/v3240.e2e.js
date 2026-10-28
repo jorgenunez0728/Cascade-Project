@@ -39,7 +39,9 @@ const SEED = () => {
         configCode: cfg.desc, registeredAt: d + 'T08:00:00.000Z',
         config: { 'Modelo': 'CL4', 'ENGINE CAPACITY': '1600CC GAMMA-II', 'TRANSMISSION': '7DCT', 'MODEL YEAR (VIN)': '26 MODEL', 'EMISSION REGULATION': 'PRE-EURO 7',
                   'ENVIRONMENT PACKAGE': '0', 'ENGINE PACKAGE': 'LOW POWER', 'BODY TYPE': 'WGN', 'REGION': 'EUROPE', 'DRIVE TYPE': 'LHD' },
-        testData: { testDatetime: d + 'T10:00' } });
+        // Aprobada DOS días después de la prueba: la mesa del CoP debe decir el día de la PRUEBA.
+        testData: { testDatetime: d + 'T10:00', gasResults: { aprobador: { values: { CO: 0.2 + i / 100, THC: 0.03, NMHC: 0.02, NOx: 0.01 },
+            capturedAt: day(4) + 'T18:00:00.000Z' } } } });
     // Martes y miércoles: 2 pruebas · jueves: 0 · viernes no laborable.
     localStorage.setItem('kia_db_v11', JSON.stringify({ lastId: 100, vehicles: [veh(1, day(1)), veh(2, day(1)), veh(3, day(2)), veh(4, day(2))] }));
 };
@@ -69,7 +71,8 @@ const card = page => page.evaluate(() => { const c = document.querySelector('.tp
     await page.evaluate(() => { switchPlatform('today'); });
     await page.waitForTimeout(700);
     const hoy = await page.evaluate(() => document.getElementById('platform-today').innerText);
-    ok('HOY le pide al signatario explicar los bloques vacíos', /2 bloques de prueba sin explicar/.test(hoy), hoy.slice(0, 600));
+    // Cuántos depende del día en que corre (esta semana también cuenta): basta con que lo pida.
+    ok('HOY le pide al signatario explicar los bloques vacíos', /\d+ bloques? de prueba sin explicar/.test(hoy), hoy.slice(0, 600));
 
     await page.evaluate(w => { dashGo('testplan', 'tp-myweek', 'tpCalendarOpenWeek', w); }, wk);
     await page.waitForTimeout(1400);
@@ -102,6 +105,45 @@ const card = page => page.evaluate(() => { const c = document.querySelector('.tp
     const rep = await page.evaluate(w => { const m = copYearReportModel({ cutIso: tpIsoAddDays(w, 4), force: true }); return copYearReportHTML(m, { lang: 'en' }); }, wk);
     ok('el estatus CoP trae el uso de la celda y la semana siguiente, sin VIN', /Cell use/.test(rep) && /4 of 8 test blocks used/.test(rep) &&
         /Quality check/.test(rep) && /Next week/.test(rep) && !/KNAE2E/.test(rep), rep.slice(rep.indexOf('Cell use'), rep.indexOf('Cell use') + 500));
+
+    // [3.24.0] CoP → Validador: la fecha de prueba de cada VIN, y qué se teclea dónde
+    await page.evaluate(() => { switchPlatform('cop'); copOpenFamily(copVehicleFamilyKey(db.vehicles[0])); });
+    await page.waitForTimeout(800);
+    const mesa = await page.evaluate(() => {
+        const t = Array.from(document.querySelectorAll('#platform-cop table')).find(x => /Fecha de prueba/i.test(x.innerText) && x.querySelector('input'));
+        return { head: t ? Array.from(t.querySelectorAll('thead th')).map(th => th.innerText.trim()) : [],
+                 fechas: t ? Array.from(t.querySelectorAll('tbody .cop-date--lab')).map(x => x.innerText.trim()) : [],
+                 lab: t ? t.querySelectorAll('input.cop-in--lab').length : 0, todo: t ? t.querySelectorAll('input.cop-in--todo').length : 0,
+                 legend: (document.querySelector('#platform-cop .cop-legend') || {}).innerText || '' };
+    });
+    const martes = await page.evaluate(w => tpIsoAddDays(w, 1), wk), miercoles = await page.evaluate(w => tpIsoAddDays(w, 2), wk);
+    ok('la mesa trae la columna Fecha de prueba junto al VIN', mesa.head[0] === 'VIN' && /Fecha de prueba/i.test(mesa.head[1]), JSON.stringify(mesa.head));
+    ok('cada VIN del laboratorio trae el día de su PRUEBA (no el de aprobación) y bloqueado 🔒',
+        mesa.fechas.length === 4 && mesa.fechas.filter(f => f === '🔒 ' + martes).length === 2 && mesa.fechas.filter(f => f === '🔒 ' + miercoles).length === 2,
+        JSON.stringify(mesa.fechas));
+    ok('los valores del laboratorio en azul y la leyenda dice qué es cada color', mesa.lab >= 16 && /Azul/.test(mesa.legend) && /teclea aquí/i.test(mesa.legend), JSON.stringify(mesa));
+    // VIN manual: la fecha y los gases se teclean (amarillo) y al teclear la celda cambia
+    await page.evaluate(() => copAddManualRow());
+    await page.waitForTimeout(400);
+    const man = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('#platform-cop tbody tr')).filter(r => r.querySelector('input.cop-in--date'));
+        const r = rows[rows.length - 1];
+        const d = r.querySelector('input.cop-in--date'), g = r.querySelector('input.cop-in--num');
+        const antes = { d: d.className, g: g.className };
+        d.value = '2026-03-02'; d.dispatchEvent(new Event('change', { bubbles: true }));
+        g.value = '0.25'; g.dispatchEvent(new Event('input', { bubbles: true }));
+        const fila = copState.vehicles[copState.vehicles.length - 1];
+        return { antes, despues: { d: d.className, g: g.className }, guardada: fila.testDate };
+    });
+    ok('un VIN manual pide la fecha y los gases en amarillo; al teclear, la celda queda blanca y la fecha se guarda',
+        /cop-in--todo/.test(man.antes.d) && /cop-in--todo/.test(man.antes.g) && /cop-in--manual/.test(man.despues.d) && /cop-in--manual/.test(man.despues.g) &&
+        man.guardada === '2026-03-02', JSON.stringify(man));
+    await page.evaluate(() => copSortMesaByDate());
+    await page.waitForTimeout(300);
+    ok('↕ ordena la mesa por fecha de prueba (el VIN manual del 2 de marzo queda primero)', await page.evaluate(() => copState.vehicles[0].testDate === '2026-03-02'));
+    ok('la tabla de CO₂ y el expediente leen la misma fecha de prueba', await page.evaluate((m) =>
+        copCo2RowsFor([db.vehicles[0].vin], copVehicleFamilyKey(db.vehicles[0]))[0].date.slice(0, 10) === m &&
+        copTestDate(db.vehicles[0]).date === m && !copTestDate(db.vehicles[0]).approx, martes));
 
     // Sin permiso: el candado
     await page.evaluate(() => { authState.currentUser.role = 'Técnico'; });

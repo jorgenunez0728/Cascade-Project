@@ -4049,4 +4049,16 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
   sección nueva del correo que hable de pruebas pasa por ese mismo empaque.
 - Orden de carga: `… testplan.js → bloques.js → panel.js …`; `tools/digest-env.js` también lo
   carga.
+- **CoP: la fecha de un ensayo es la de la PRUEBA.** `_copSpcDate` usa `testDatetime` (o
+  `testData.simple.datetime`) y solo sin ella cae al día de captura del aprobador. Ese día es el
+  que ordenaba la carta I-MR y la secuencia de CO₂, y no es el día de la prueba.
+  - `copTestDate(v)` → `{date, approx}` es LA fecha que se muestra;
+  - `copMesaRowDate(row, key)` es la de una fila: la del laboratorio si el VIN es suyo (no se
+    teclea), o `row.testDate` si es manual;
+  - el juicio la congela por VIN.
+- **Guía de color en tablas de captura**: azul = viene de la plataforma, amarillo punteado = vacío
+  (teclea aquí), blanco = tecleado a mano. Siempre con su leyenda (`_copMesaLegendHTML`).
+  - Las clases van con prefijo `input.`: la regla global `input:valid { border-color: success }`
+    le gana a una clase sola.
+  - Un `.label-title` (MAYÚSCULAS) no lleva oraciones de guía: va `.cop-guide`.
 

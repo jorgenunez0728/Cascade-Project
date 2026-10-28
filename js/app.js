@@ -483,14 +483,17 @@ var APP_VERSION = '3.24.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.24.0', date: '27 oct 2026', title: 'Bloques de la celda: cada lugar de prueba tiene su explicación',
+    { version: '3.24.0', date: '28 oct 2026', title: 'Bloques de la celda y la fecha de prueba en el CoP',
       bullets: ['Plan → Mi semana → 🧱 Bloques de la semana: la capacidad instalada de la celda, lugar por lugar (con 2 vehículos por par son 8: dos pruebas de martes a viernes). Cada bloque muestra la prueba que se corrió ese día o, si quedó vacío, por qué.',
                 'Un signatario pone el motivo de un bloque vacío de una lista cerrada: quality check, mantenimiento o calibración, proyecto, sin vehículo, celda fuera de servicio, prueba inválida o repetida, sin personal o día festivo, con una nota opcional. Se puede aplicar a todos los bloques vacíos del mismo día.',
                 'Lo que la plataforma ya sabe se pone solo: días no laborables y semanas sin celda (Plan → Disponibilidad), y mantenimientos o calibraciones de equipos que detienen pruebas. El signatario puede cambiarlo.',
                 'HOY le avisa al signatario los bloques sin explicar de esta semana y de la anterior.',
                 '📤 Excel de la semana: la cuadrícula del laboratorio (preacondicionamiento y prueba de cada bloque, día por día), el resumen del uso de la celda y la bitácora de bloques. Sirve para la semana que viene (lo planeado) y para la que pasó (lo que se hizo).',
                 'El libro de auditoría trae los motivos en su calendario (como actividades) y una hoja nueva, Cell use, con el uso de la celda semana por semana.',
-                'El estatus CoP del viernes trae el uso de la celda de la semana y el plan de la siguiente, bloque por bloque y sin VIN.'] },
+                'El estatus CoP del viernes trae el uso de la celda de la semana y el plan de la siguiente, bloque por bloque y sin VIN.',
+                'CoP → Validador: cada VIN trae su fecha de prueba (🔒 si es del laboratorio; un VIN manual la pide) y ↕ ordena la tabla por fecha. La tabla de CO₂ también la trae.',
+                'La fecha que usa el CoP ahora sí es la de la PRUEBA: antes la mesa, la carta de control, el orden del CO₂ y el PDF del expediente tomaban el día en que se aprobó.',
+                'La tabla del Validador dice con colores qué hacer: azul = viene del laboratorio, amarillo = vacío (teclea aquí), blanco = tecleado a mano, con su leyenda arriba.'] },
     { version: '3.23.0', date: '27 oct 2026', title: 'El estatus CoP, listo para la gerencia',
       bullets: ['El estatus de la semana se rehízo: arriba la frase del avance y cuatro indicadores (avance, ensayos, ritmo y familias cumplidas); después, las familias que requieren atención, los ensayos por semana, los puntos clave, la nota del laboratorio y el estatus por familia.',
                 'Ritmo: cuántos ensayos CoP hubo cada semana (las últimas 8) contra cuántos hacen falta por semana para cerrar el 31 de diciembre, descontando las semanas sin celda de Plan → Disponibilidad, y en qué fecha se terminaría al ritmo actual.',
