@@ -216,6 +216,35 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
 - Verify syntax with `node --check js/<file>.js`; run `./build.sh` after changes; verify the bundle's
   largest inline `<script>` with `node --check` too
 
+## Propuestas del laboratorio: descartadas y aceptadas
+
+**No volver a proponer lo descartado** (decisión del laboratorio). Si algo de esta lista vuelve a
+parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuál.
+
+**Descartadas:**
+- OCR o lectura de imágenes, en cualquier forma: ampliarlo, mejorarlo o volverlo camino
+  principal. Se queda como respaldo, como está.
+- Publicar `firestore.rules` / "cerrar la base" como mejora propuesta (28-oct-2026). El hecho
+  técnico de 2.3.0 sigue siendo cierto; solo no se propone como ronda.
+- Indicador de tiempo de ciclo (alta → aprobación, etapa donde se atora) (28-oct-2026).
+- Avisos push por evento ("te toca aprobar") con un workflow periódico (28-oct-2026).
+- Marcas de borrado para el resto de los módulos (inventario, etc.) como ronda propia
+  (28-oct-2026).
+- Trazabilidad por prueba: equipos, calibración y cilindros vigentes el día de la prueba
+  (28-oct-2026).
+- Lista del viernes para pedir o apartar unidades a producción (28-oct-2026).
+
+**Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
+en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
+qué se pone y dónde.
+
+**Aceptadas, pendientes de hacer:**
+- Registrar una prueba que FALLA. Hoy `_libVerifyReleaseValues` bloquea liberar con un gas sobre
+  el límite, y `requestRetest` borra la captura. Falta saber cómo maneja hoy el laboratorio una
+  falla real.
+- Carta de control de los vehículos Master (deriva de la celda): gases de las pruebas de
+  correlación del Master, con I-MR por vehículo.
+
 ## Historia técnica por versión
 
 Las secciones siguientes van en **orden cronológico** (la más nueva al final). Hasta v24.4 usan
@@ -2970,7 +2999,7 @@ abría, y Vincular escondía vehículos).
   dispositivo con contraseña de laboratorio (Firebase Email/Password) — juntos, no solo cosméticos.
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
-- **CDN deps**: signature_pad, JsBarcode, html5-qrcode, Firebase SDK. **Excel**: se escribe con `js/xlsxw.js` (propio, 2.32.0). **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
+- **CDN deps**: JsBarcode, html5-qrcode, Firebase SDK (la firma es propia desde 3.24.1). **Excel**: se escribe con `js/xlsxw.js` (propio, 2.32.0). **Vendorizados** (`vendor/`): jsPDF, Alpine, Chart.js 4.4.7 (2.28.1).
 - `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. Las
   configuraciones dadas de alta a mano (`kia_manual_configs`, Gestor de Configuraciones) se
   fusionan al final de **`parseCSV()`** vía `_mergeManualConfigsIntoAll()` — **v17.9**: antes solo
@@ -4061,4 +4090,16 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
   - Las clases van con prefijo `input.`: la regla global `input:valid { border-color: success }`
     le gana a una clase sola.
   - Un `.label-title` (MAYÚSCULAS) no lleva oraciones de guía: va `.cop-guide`.
+
+## 3.24.1 — La firma sin CDN (`js/signatures.js`)
+
+- **`SigPad` es LA captura de firma.** No volver a traer una librería de firma de un CDN: la
+  firma cierra la liberación y la aprobación, y la red del laboratorio bloquea CDNs.
+- Interfaz: `isEmpty()`, `clear()`, `toDataURL(tipo)`, `off()`. Los trazos se guardan en
+  coordenadas LÓGICAS (el tamaño con que se abrió el lienzo).
+- **La imagen guardada es de tamaño lógico (≤ 560×180)**, nunca × devicePixelRatio: las firmas
+  son casi todo el peso de un vehículo en la nube (2.3.0).
+- Un lienzo que se cierra suelta sus oyentes (`_sigPadRelease`).
+- Las pruebas E2E que firman dibujan en el lienzo (`tests/v3241.e2e.js`). Ya no se simula
+  `window.SignaturePad`.
 

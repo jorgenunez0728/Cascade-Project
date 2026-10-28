@@ -20,6 +20,28 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.24.1 — La firma funciona sin internet (2026-10-28)
+
+### Arreglado
+- **El recuadro de firma ya no depende de internet.** Antes se descargaba de un servidor externo
+  (cdnjs) cada vez que se abría la app. Si la red del laboratorio lo bloqueaba, o el equipo abría
+  sin conexión, el recuadro no pintaba, y sin firma no se puede liberar ni aprobar. Ahora el
+  recuadro viene dentro de la app.
+- **El trazo cae donde está el dedo.** Antes el recuadro se estiraba un poco y la línea podía
+  quedar corrida. Además se ve nítido en pantallas de teléfono y tableta.
+
+### Cambió
+- **El recuadro guía**: punteado con "✍️ Firma aquí" mientras falta firmar, borde sólido cuando
+  ya hay firma, y en rojo si se toca "Firmar y Continuar" sin haber firmado.
+
+### Para desarrollo
+- `SigPad` (js/signatures.js) reemplaza a `signature_pad` 1.5.3. Mantiene la interfaz que usaba
+  el código (`isEmpty`, `clear`, `toDataURL`) y suma `off()`. Los trazos van en coordenadas
+  lógicas; la imagen guardada es de tamaño lógico (≤ 560×180), no × devicePixelRatio.
+  `sigStrokeAdd` / `sigStrokeWidth` son PURAS.
+- Se quitaron el `<script>` del CDN (index.html, build.sh), su preconexión y su precarga en
+  `sw.js`. `tests/v3241.e2e.js` firma con mouse y con el dedo con todos los CDN bloqueados.
+
 ## 3.24.0 — Bloques de la celda y la fecha de prueba en el CoP (2026-10-28)
 
 La gerencia pidió ver bien la calendarización de la semana siguiente. Además, el laboratorio

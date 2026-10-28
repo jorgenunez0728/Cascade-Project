@@ -29,11 +29,6 @@ const SEED = (who) => {
     localStorage.setItem('kia_help_dismissed', JSON.stringify({ '*': true }));
     localStorage.setItem('kia_tour_done', '1');
     ['global', 'today', 'testplan', 'inventory', 'panel', 'cop', 'cop15'].forEach(m => localStorage.setItem('kia_tour_done_' + m, '1'));
-    // La librería de firma viene de un CDN (bloqueado aquí): una mínima que "firma".
-    window.SignaturePad = function() {
-        this.isEmpty = () => false; this.clear = () => {};
-        this.toDataURL = () => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-    };
 };
 
 let browser;
@@ -164,6 +159,10 @@ async function abrir(ctx, who) {
         chk('el resumen cuenta 1 por confirmar y 1 no confirmada', /1 por confirmar/.test(st) && /1 por marcar como no confirmada/.test(st), st);
         await page.click('#ui-flow .uf-final button:has-text("Firmar y aplicar")');
         await page.waitForTimeout(400);
+        // [3.24.1] La firma es propia (sin CDN): se firma de verdad en el lienzo.
+        await page.evaluate(() => { const c = document.getElementById('sig-capture-canvas'), r = c.getBoundingClientRect();
+            const ev = (t, x) => c.dispatchEvent(new PointerEvent(t, { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, bubbles: true, clientX: r.left + x, clientY: r.top + 90 }));
+            ev('pointerdown', 20); for (let x = 30; x < 200; x += 10) ev('pointermove', x); ev('pointerup', 200); });
         await page.click('.sig-capture-overlay button:has-text("Firmar y Continuar")');
         await page.waitForTimeout(600);
         st = await page.evaluate(() => {

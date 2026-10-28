@@ -37,12 +37,10 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
     <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+    <!-- [3.24.1] La firma ya no viene del CDN: el lienzo es propio (js/signatures.js). -->
     <!--JSPDF_INLINE_PLACEHOLDER-->
     <!-- [2.28.1] Chart.js VENDORIZADO, por el mismo motivo que jsPDF: la red del trabajo
          bloquea CDNs, y sin Chart.js toda gráfica (Control SPC incluida) salía en blanco
