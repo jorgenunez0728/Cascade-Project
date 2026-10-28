@@ -237,21 +237,19 @@ parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuá
   decidir, con la estimación de cuántos le faltan (28-oct-2026).
 - "¿Nos alcanza la celda?": capacidad real (pruebas/semana históricas) contra la demanda completa
   y la proyección del año siguiente (28-oct-2026).
+- Pantalla de revisión de datos antes de una auditoría (huecos y contradicciones de todos los
+  módulos con su botón para corregir) (28-oct-2026).
+- Cruzar las unidades presentes en el mapa (cajones, estacionamiento) con el plan de la semana
+  (28-oct-2026).
+- Vista previa del impacto de un cambio de límites antes de publicarlo (28-oct-2026).
+- Modo práctica para capacitación con datos de ejemplo aislados de la nube (28-oct-2026).
 
 **Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
 en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
 qué se pone y dónde.
 
-**Aceptadas, pendientes de hacer:**
-- Registrar una prueba que FALLA. Hoy `_libVerifyReleaseValues` bloquea liberar con un gas sobre
-  el límite, y `requestRetest` borra la captura. Falta saber cómo maneja hoy el laboratorio una
-  falla real.
-- Carta de control de los vehículos Master (deriva de la celda): gases de las pruebas de
-  correlación del Master, con I-MR por vehículo.
-- Al aprobar, comparar cada gas contra la historia de su familia (media ± 3σ de la carta de
-  control), con un aviso que NO bloquea. Atrapa capturas imposibles (unidad equivocada, bolsa
-  mal leída, un cero de más) antes de que entren al CoP. Hoy nada en `review.js` ni en la
-  aprobación de `cop15.js` lo compara.
+**Aceptadas y hechas (3.25.0):** registrar una prueba que falla; carta de control de los
+vehículos Master; comparar al aprobar contra la historia de la familia.
 
 ## Historia técnica por versión
 
@@ -4110,4 +4108,37 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
 - Un lienzo que se cierra suelta sus oyentes (`_sigPadRelease`).
 - Las pruebas E2E que firman dibujan en el lienzo (`tests/v3241.e2e.js`). Ya no se simula
   `window.SignaturePad`.
+
+## 3.25.0 — Una prueba que falla, la carta de la celda y comparar al aprobar (`js/cop15.js`, `js/cop_validator.js`)
+
+- **Una prueba con un gas sobre el límite se REGISTRA, nunca se borra.**
+  - El liberador la envía declarada: `gasResults.liberador.failDeclared` + `failing`.
+  - El aprobador la decide después del doble ciego, y eso queda en `testData.failure`.
+  - `libFailDeclWhy` / `aprFailDecisionWhy` (PURAS) son el candado en la capa de datos.
+  - No volver a bloquear el envío por un gas sobre el límite: eso dejaba fuera del CoP justo
+    las mediciones que más importan.
+- **La decisión se muestra SOLO después de que los valores coinciden** (`aprFailBoxSync` dentro de la
+  rama "concordantes" de `libOnApproverGasChange`). Antes de eso, decirle al aprobador "el liberador
+  declaró una falla en NOx" filtraría el resultado del liberador y rompería el doble ciego.
+- **Falla válida cuenta; inválida no.** `copTestUsable` es la única que lo decide, y con eso el
+  validador, el SPC, el Panorama, el estatus del año y el REQ del plan la siguen solos. No agregar
+  otro filtro por `failure` en un consumidor.
+- **`requestRetest` pide el motivo y guarda lo tecleado** (`timeline[].data.discardedValues`).
+  Repetir para borrar un resultado no se justifica ante un auditor.
+- **Las tablas de gases buscan sus filas DENTRO de su contenedor** (`_libGasRowEl`,
+  `_libGasStatusEl`, `data-gasrow`, `data-gasstatus`). El id `lib-gas-row-*` solo existe en la de
+  Liberación. Toda tabla de gases nueva usa `_libRenderGasEntry` con su propio contenedor y nunca
+  `getElementById('lib-gas-row-…')`.
+- **`copFamilyCheck` es LA comparación contra la familia y es PURA.** Usa la misma serie y la misma
+  σ que la carta I-MR, y necesita `COP_SPC_MIN` ensayos. Es un aviso: NUNCA bloquea la aprobación.
+  Lo que se vio se congela en `gasResults.aprobador.familyCheck`.
+- **Vehículos Master:**
+  - `copMasterFamilies` / `copMasterScanAlarms` arman "familias" con clave `MASTER:<id>`, con las
+    pruebas aprobadas que sirven, de su VIN, en orden de prueba. En la celda el CO₂ SÍ alarma.
+  - Sus gases de formato simple van en `testData.simple.master`, **NUNCA en `gasResults`**: eso lo
+    leen el CoP, el SPC de familias y el F05 como resultado verificado.
+  - `masterGasSync` corre en CADA `loadVehicle` (antes de la rama de formato), para que un
+    vehículo de emisiones no herede el bloque.
+- `copState.spc.source` / `masterKey` son estado de pantalla por equipo (viajan dentro de `spc`, que
+  ya está en la lista de exclusión de `fbPullApply`).
 

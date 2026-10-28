@@ -2379,6 +2379,25 @@ function pnGetActiveAlerts() {
             });
         } catch (e) {}
     }
+    // [3.25.0] Deriva de la celda: un vehículo Master fuera de control apunta al laboratorio.
+    if (typeof copMasterScanAlarms === 'function') {
+        try {
+            copMasterScanAlarms().forEach(function(a) {
+                alerts.push(_pnAlert('ALTA', 'master-deriva', 'CoP SPC', 'Celda: ' + a.gasLabel + ' del Master ' + a.famLabel.replace(/^🎯 /, '') +
+                    ' fuera de control (' + (a.rule || '') + ') — revisa analizador, dinamómetro y procedimiento'));
+            });
+        } catch (e) {}
+    }
+    // [3.25.0] Falla válida en los últimos 30 días: cuenta para CoP y hay que leerla.
+    if (typeof vehicleFailure === 'function' && typeof db !== 'undefined' && db && db.vehicles) {
+        var _f30 = Date.now() - 30 * 86400000;
+        db.vehicles.forEach(function(v) {
+            var f = vehicleFailure(v);
+            if (!f || f.verdict !== 'valida' || !(Date.parse(f.at) >= _f30)) return;
+            alerts.push(_pnAlert('ALTA', 'prueba-falla', 'COP15', 'Falla válida: ' + (v.vin || '?') + ' — ' + (f.gases || []).join(', ') +
+                ' sobre el límite (' + (v.configCode || '') + ')'));
+        });
+    }
 
     // v15.9: Consumo proyectado (modelo aprendido) — gas/gasolina insuficiente para pendientes
     if (typeof invForecastGasNeeds === 'function') {
@@ -2429,7 +2448,9 @@ var PN_ALERT_KINDS = {
     'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
     'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
     'cal-regreso':        { icon: '🚚', one: 'Instrumento no ha regresado de calibración', many: 'instrumentos no han regresado de calibración', go: "dashGo('inventory','inv-equipment')" },
-    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
+    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" },
+    'master-deriva':      { icon: '🎯', one: 'Posible deriva de la celda (vehículo Master)', many: 'avisos de deriva de la celda (vehículos Master)', go: "copSpcOpenMaster()" },
+    'prueba-falla':       { icon: '✗', one: 'Falla válida en los últimos 30 días', many: 'fallas válidas en los últimos 30 días', go: "dashGo('cop15','dashboard')" }
 };
 var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };
 /** Orden de un nivel (CRITICA primero). Ojo: `ORDEN[l] || 9` mandaba CRITICA (0) al final. */

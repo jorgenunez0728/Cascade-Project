@@ -20,6 +20,63 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.25.0 — Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia (2026-10-28)
+
+Tres cosas que el laboratorio eligió de la lista de propuestas. Las tres atacan el mismo problema:
+que lo que el CoP juzga sea todo lo que se midió, y que un error se vea antes de que entre.
+
+### Nuevo
+- **Una prueba que falla se envía y se decide.** Antes, con un gas sobre el límite, el botón de
+  Liberación se bloqueaba y la única salida era "Repetir la prueba". La medición que falló no
+  quedaba en ningún lado: el muestreo del CoP solo veía ensayos que pasaban, y ante un auditor no
+  había forma de mostrar las fallas. Ahora:
+  - **Liberación:** aparece "✗ Resultado sobre el límite". Se marca "Releí el reporte del banco",
+    se escribe qué se observó y el botón dice "Enviar a aprobación como FALLA".
+  - **Aprobación:** el doble ciego sigue igual. Cuando los valores coinciden, quien aprueba decide:
+    - **falla válida:** la prueba se hizo bien. Cuenta para CoP como cualquier ensayo y puede llevar
+      a su familia a NO CONCORDANTE;
+    - **prueba inválida:** algo de la prueba hizo que el resultado no represente al vehículo. Se elige
+      la causa (equipo, procedimiento, muestreo, vehículo, otro) y no cuenta para CoP ni para el REQ.
+  - Las dos quedan en la línea de tiempo, en la auditoría y en el Historial (✗ Falla / ⊘ No cuenta
+    para CoP). Para repetir, se da de alta otra vez el mismo VIN; la prueba que falló nunca se borra.
+- **📊 Comparado con su familia** (Aprobación). Cada gas va junto a lo normal de su familia: la media
+  ± 3σ de los ensayos aprobados, la misma carta de control del CoP. Lo que está a más de 3σ sale
+  "atípico", para revisar unidad (g/mi contra g/km), bolsa o un cero de más. **No bloquea**: si el
+  valor es real se aprueba, y queda anotado en el registro y en la auditoría.
+- **🎯 La carta de la celda (vehículos Master).** En la prueba de correlación de un Master (Operación,
+  formato simple) aparece "🎯 Gases del vehículo Master". CoP → Control SPC tiene ahora dos opciones:
+  **📈 Producto (familias)** y **🎯 Celda (vehículos Master)**. Como el Master es el mismo vehículo
+  probado una y otra vez, si sus resultados se mueven lo que cambió es la celda (analizador,
+  dinamómetro, procedimiento), no el producto. En la celda el CO₂ también alarma.
+- **Alertas:** posible deriva de la celda (un Master fuera de control) y falla válida en los últimos
+  30 días. En el mapa, el Master trae "📈 Carta de la celda".
+
+### Cambió
+- **🔄 Repetir la prueba** pide el motivo. Si hay un gas sobre el límite, avisa que eso se envía
+  como FALLA. Lo que estaba tecleado queda en la línea de tiempo.
+
+### Arreglado
+- Las tablas de gases de Liberación y de Aprobación compartían los ids de sus filas. Con las dos en
+  pantalla, el estado de un gas del aprobador podía pintarse en la tabla de Liberación. Ahora cada
+  tabla busca dentro de sí misma.
+
+### Para desarrollo
+- `vehicle.testData.failure` es EL registro de una falla: `{verdict:'valida'|'invalida', cause,
+  causeLabel, note, gases, by, byId, at, releaser}`. `failureRecord` lo arma y es PURA (sin claves
+  undefined).
+  - `libFailDeclWhy` (liberador) y `aprFailDecisionWhy` (aprobador) son PURAS y son el candado:
+    `submitToApproval` y `approveAndArchive` las vuelven a correr en la capa de datos.
+  - Una prueba inválida no cuenta porque `copTestUsable` la excluye. Con eso salen solas del
+    validador, el SPC, el Panorama, el estatus del año y el REQ del plan.
+- `gasResults.liberador.failDeclared`/`failing` registran lo que envió el liberador. El doble ciego
+  no cambia: la decisión se muestra solo después de que los valores coinciden.
+- `copFamilyCheck(history, values, gases)` es PURA (σ = MR̄/1.128, la de la carta I-MR) y lo
+  congelado va en `gasResults.aprobador.familyCheck`.
+- `copMasterFamilies` y `copMasterScanAlarms` agrupan por VIN de `db.siteMasters` las pruebas aprobadas
+  que sirven. Los gases del formato simple viven en `testData.simple.master`, NUNCA en `gasResults`.
+  `copState.spc.source` (`familia` | `master`) es estado por equipo.
+- `CASCADE_VERSION` 4.12.0. Pruebas: `tests/falla.node.js` (33) y `tests/v3250.e2e.js`.
+
 ## 3.24.1 — La firma funciona sin internet (2026-10-28)
 
 ### Arreglado

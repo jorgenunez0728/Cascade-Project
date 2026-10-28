@@ -1002,6 +1002,14 @@
         </div>
       </div>
 
+      <!-- [3.25.0] Si el VIN es de un vehículo Master: sus gases vigilan la deriva de la celda. -->
+      <div id="master-gas-block" class="master-gas-block" style="display:none;" data-card-group data-card-title="Gases del vehículo Master">
+        <div class="master-gas-head" data-help="master_gases">🎯 Gases del vehículo Master</div>
+        <p class="master-gas-hint">Este VIN es un vehículo <b>Master</b> del laboratorio. Captura sus gases del reporte del banco: con ellos se
+          vigila si la celda está derivando (CoP → Control SPC → 🎯 Celda). No deciden nada de esta prueba y puedes dejarlos vacíos si no se midieron.</p>
+        <div id="master-gas-entry"></div>
+      </div>
+
       <div class="form-group">
         <label>Comentarios / Observaciones</label>
         <textarea id="simple_notes" rows="3" placeholder="Notas generales..."></textarea>
@@ -1077,6 +1085,8 @@
                             <span id="vets-attach-status" class="vets-attach-status"></span>
                         </div>
                         <div id="lib-gas-entry-content"></div>
+                        <!-- [3.25.0] Un gas sobre el límite se registra como FALLA, no se repite para borrarlo. -->
+                        <div id="lib-fail-box" style="display:none;"></div>
                     </div>
                 </div>
                 <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
@@ -1128,6 +1138,9 @@
                     <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
+                    <!-- [3.25.0] Comparación con la historia de la familia (aviso, no bloquea) y decisión de una falla. -->
+                    <div id="appr-family-check" style="display:none;"></div>
+                    <div id="appr-fail-box" style="display:none;"></div>
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>

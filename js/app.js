@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.24.1';
+var APP_VERSION = '3.25.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.24.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.25.0', date: '28 oct 2026', title: 'Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia',
+      bullets: ['Liberación: con un gas sobre el límite aparece "Resultado sobre el límite". Se confirma que se releyó el reporte del banco, se escribe qué se observó y se envía como FALLA. Antes el botón se bloqueaba y la única salida era repetir la prueba, sin que la medición quedara en ningún lado.',
+                'Aprobación: después del doble ciego, quien aprueba decide si es una falla válida (cuenta para CoP como cualquier ensayo) o una prueba inválida (no cuenta para CoP ni para el REQ, con su causa de una lista). Queda en la línea de tiempo, en la auditoría y en el Historial (✗ Falla / ⊘ No cuenta para CoP).',
+                '🔄 Repetir la prueba ahora pide el motivo, avisa si hay un gas sobre el límite y guarda en la línea de tiempo lo que estaba tecleado.',
+                'Aprobación: "📊 Comparado con su familia" pone cada gas junto a lo normal de su familia (media ± 3σ de los ensayos aprobados). Marca lo atípico para revisar unidad, bolsa o un cero de más. No bloquea; queda anotado en el registro.',
+                'Vehículos Master: en su prueba de correlación (Operación, formato simple) aparece "🎯 Gases del vehículo Master". CoP → Control SPC → 🎯 Celda grafica sus pruebas: si se mueven, lo que cambió es la celda (analizador, dinamómetro, procedimiento), no el producto. El CO₂ también alarma.',
+                'Alertas nuevas: posible deriva de la celda (Master fuera de control) y falla válida en los últimos 30 días. Desde el mapa, el Master tiene "📈 Carta de la celda".'] },
     { version: '3.24.1', date: '28 oct 2026', title: 'La firma funciona sin internet',
       bullets: ['El recuadro de firma ya no se descarga de internet: viene dentro de la app. Antes, si la red bloqueaba ese servidor o el equipo abría sin conexión, el recuadro no pintaba y no se podía liberar ni aprobar.',
                 'El trazo cae justo donde está el dedo (antes podía correrse) y se ve nítido en teléfonos y tabletas.',
@@ -1575,8 +1582,13 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.11.0';
+var CASCADE_VERSION = '4.12.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.12.0', date: '28 oct 2026', app: '3.25.0', title: 'Una prueba que falla se registra',
+      bullets: ['Con un gas sobre el límite, Liberación ya no se bloquea: se envía como FALLA confirmando que se releyó el reporte y escribiendo qué se observó.',
+                'Quien aprueba, después del doble ciego, decide: falla válida (cuenta para CoP) o prueba inválida (no cuenta, con su causa).',
+                'Repetir la prueba pide el motivo y guarda en la línea de tiempo lo que estaba tecleado.',
+                'Una prueba de un vehículo Master captura sus gases en Operación (formato simple).'] },
     { version: '4.11.0', date: '27 oct 2026', app: '3.22.0', title: 'Corregir el propósito',
       bullets: ['✏️ Corregir alta también cambia el propósito, dentro del mismo formato de prueba (con firma si ya está archivada).',
                 'Al iniciar desde el plan, una configuración que no es CoP nace como EO.'] },
