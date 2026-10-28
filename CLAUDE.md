@@ -235,6 +235,8 @@ parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuá
 - Lista del viernes para pedir o apartar unidades a producción (28-oct-2026).
 - Que el plan agende los ensayos extra que una familia con el muestreo abierto necesita para
   decidir, con la estimación de cuántos le faltan (28-oct-2026).
+- "¿Nos alcanza la celda?": capacidad real (pruebas/semana históricas) contra la demanda completa
+  y la proyección del año siguiente (28-oct-2026).
 
 **Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
 en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
