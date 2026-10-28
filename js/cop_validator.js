@@ -1432,6 +1432,12 @@ function copSyncVinsFromTests(key) {
 function copTestUsable(vehicle) {
     var s = vehicle && vehicle.testData && vehicle.testData.vets;
     var reasons = (s && typeof vetsDriveTraceInvalid === 'function') ? vetsDriveTraceInvalid(s) : [];
+    // [3.25.0] Una prueba que el aprobador declaró INVÁLIDA (falla con causa ajena al
+    // vehículo) no cuenta. Una falla VÁLIDA sí: su valor entra al muestreo como cualquiera.
+    var f = vehicle && vehicle.testData && vehicle.testData.failure;
+    if (f && f.verdict === 'invalida') {
+        reasons = reasons.concat([{ id: 'invalida', text: 'prueba invalidada al aprobar' + (f.causeLabel ? ': ' + f.causeLabel : '') }]);
+    }
     return { usable: !reasons.length, reasons: reasons,
              text: reasons.map(function(r) { return r.text; }).join(' · ') };
 }
@@ -3703,12 +3709,206 @@ function copSpcScanAlarms() {
     return out;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.25.0] CARTA DE CONTROL DE LOS VEHÍCULOS MASTER — la deriva de la CELDA
+//
+// Un Master (db.siteMasters, 3.17.0) es el mismo vehículo probado una y otra vez. Si sus
+// resultados se mueven, lo que cambió es la celda (analizador, dinamómetro, procedimiento),
+// no el producto. La carta de familias vigila el producto; ésta vigila el laboratorio.
+// Misma matemática (copSpcStats / copSpcFlags / Nelson); cambia QUÉ se agrupa: todas las
+// pruebas APROBADAS del VIN del Master que sirven (copTestUsable), con los gases del
+// formato simple (testData.simple.master, capturados en Operación) o, si la prueba fue de
+// emisiones, los finales de siempre. Aquí el CO₂ SÍ alarma: es el indicador clásico de
+// correlación (combustible y carga del dinamómetro).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Valores de gases de una prueba de un Master, o null si no cuenta. */
+function copMasterTestValues(v) {
+    if (!v || !copResultApproved(v) || !copTestUsable(v).usable) return null;
+    var m = v.testData && v.testData.simple && v.testData.simple.master;
+    if (m && m.values && Object.keys(m.values).some(function(k) { return _copNum(m.values[k]) !== null; })) return m.values;
+    return _copRawGasValues(v);
+}
+
+/** Fecha de la prueba de un Master (formato simple o emisiones). */
+function _copMasterTestDate(v) {
+    var td = (v && v.testData) || {};
+    return String(td.testDatetime || (td.simple && td.simple.datetime) || _copSpcDate(v) || '');
+}
+
+/**
+ * Una "familia" de la carta por cada Master vivo: {key:'MASTER:<id>', masterId, master:true,
+ * label, regName, region, tests:[{vin, date, values, vehicleId}], n}. opts: {masters, vehicles}.
+ */
+function copMasterFamilies(opts) {
+    opts = opts || {};
+    var masters = opts.masters || ((typeof db !== 'undefined' && db && db.siteMasters) || []);
+    var vehicles = opts.vehicles || ((typeof db !== 'undefined' && db && db.vehicles) || []);
+    return masters.filter(function(m) { return m && !m.deleted && m.vin; }).map(function(m) {
+        var vk = _copVinKey(m.vin), regName = '', region = '';
+        var tests = [];
+        vehicles.forEach(function(v) {
+            if (!v || _copVinKey(v.vin) !== vk) return;
+            var vals = copMasterTestValues(v);
+            if (!vals) return;
+            var sm = v.testData && v.testData.simple && v.testData.simple.master;
+            regName = (sm && sm.profile && sm.profile.name) ||
+                      ((typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : '') || regName;
+            region = ((v.config || {})['REGION']) || region;
+            tests.push({ vin: v.vin, date: _copMasterTestDate(v), values: vals, vehicleId: v.id });
+        });
+        tests.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var tail = String(m.vin).slice(-6);
+        return { key: 'MASTER:' + m.id, masterId: m.id, master: true, inScope: true,
+                 label: '🎯 ' + (m.name || 'Master') + ' · …' + tail, regName: regName, region: region,
+                 tests: tests, n: tests.length };
+    }).sort(function(a, b) { return (b.n - a.n) || (a.label < b.label ? -1 : 1); });
+}
+
+/** Alarmas Nelson de las cartas de los Master (CO₂ incluido). → [{famKey, famLabel, gas, gasLabel, rule, val, date, unit, master:true}] */
+function copMasterScanAlarms(opts) {
+    var out = [];
+    copMasterFamilies(opts).filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
+        copSpcGases(f).forEach(function(g) {
+            var pts = copSpcSeries(f, g.field);
+            var st = copSpcStats(pts.map(function(p) { return p.v; }), g.limit);
+            if (!st || st.n < COP_SPC_MIN) return;
+            var fl = copSpcFlags(st), idx = [];
+            fl.forEach(function(a, i) { if (a.length) idx.push(i); });
+            if (!idx.length) return;
+            var last = idx[idx.length - 1];
+            out.push({ famKey: f.key, famLabel: f.label, gas: g.field, gasLabel: g.label, rule: fl[last][0],
+                       val: pts[last].v, date: pts[last].date, unit: g.unit || '', master: true, inScope: true });
+        });
+    });
+    return out;
+}
+
+/** Cambia qué vigila la carta: 'familia' (producto) | 'master' (celda). */
+function copSpcSetSource(src) {
+    copState.spc.source = src === 'master' ? 'master' : 'familia';
+    copPersist(); copRender();
+}
+
+/** Abre la carta de la celda (desde una alerta o el mapa). id opcional del Master. */
+function copSpcOpenMaster(masterId) {
+    if (typeof switchPlatform === 'function') switchPlatform('cop');
+    copState.spc.source = 'master';
+    if (masterId) copState.spc.masterKey = 'MASTER:' + masterId;
+    copPersist();
+    if (typeof copSetView === 'function') copSetView('spc'); else copRender();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.25.0] AL APROBAR: ¿ESTE RESULTADO ES NORMAL PARA SU FAMILIA?
+//
+// La carta de control solo ve lo ya aprobado; nada en la aprobación decía "este NOx está
+// muy fuera de lo normal para esta familia". Aquí cada gas se compara contra la media ± 3σ
+// de los ensayos APROBADOS de su familia (la misma serie y la misma σ = MR̄/1.128 de la
+// carta I-MR). Es un AVISO, nunca bloquea: atrapa una unidad equivocada (g/mi vs g/km),
+// una bolsa mal leída o un cero de más antes de que entren al CoP. Lo que se vio queda
+// congelado en gasResults.aprobador.familyCheck.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_FAMCHECK_WARN_Z = 2;   // > 2σ: poco común
+var COP_FAMCHECK_ALARM_Z = 3;  // > 3σ: atípico (fuera de los límites de control)
+
+/**
+ * Compara valores contra la historia de la familia. PURA.
+ * history = [{values}] (orden de prueba) · values = {campo: número} · gases = [{field,label,unit,limit}]
+ * → {n, rows:[{field,label,unit,value,n,mean,sigma,lo,hi,z,status}], atypical:[row], rare:[row]}
+ *   status: 'normal' | 'raro' | 'atipico' | 'pocos' (n < COP_SPC_MIN) | 'sin-variacion'
+ */
+function copFamilyCheck(history, values, gases) {
+    var rows = [], nMax = 0;
+    (gases || []).forEach(function(g) {
+        var x = _copNum(values && values[g.field]);
+        if (x === null) return;
+        var vals = [];
+        (history || []).forEach(function(t) { var v = _copNum(t && t.values && t.values[g.field]); if (v !== null) vals.push(v); });
+        nMax = Math.max(nMax, vals.length);
+        var row = { field: g.field, label: g.label || g.field, unit: g.unit || '', value: x, n: vals.length };
+        if (vals.length < COP_SPC_MIN) { row.status = 'pocos'; rows.push(row); return; }
+        var st = copSpcStats(vals, null);
+        row.mean = st.mean; row.sigma = st.sigma;
+        if (!(st.sigma > 0)) { row.status = 'sin-variacion'; rows.push(row); return; }
+        row.lo = Math.max(0, st.mean - COP_FAMCHECK_ALARM_Z * st.sigma);
+        row.hi = st.mean + COP_FAMCHECK_ALARM_Z * st.sigma;
+        row.z = (x - st.mean) / st.sigma;
+        var az = Math.abs(row.z);
+        row.status = az > COP_FAMCHECK_ALARM_Z ? 'atipico' : az > COP_FAMCHECK_WARN_Z ? 'raro' : 'normal';
+        rows.push(row);
+    });
+    return { n: nMax, rows: rows,
+             atypical: rows.filter(function(r) { return r.status === 'atipico'; }),
+             rare: rows.filter(function(r) { return r.status === 'raro'; }) };
+}
+
+/** La historia (aprobada) de la familia de un vehículo y sus gases. → {fam, gases} | null */
+function copFamilyHistoryFor(vehicle) {
+    if (!vehicle) return null;
+    var key = copVehicleFamilyKey(vehicle);
+    var fam = copSpcFamilies({ allScopes: true }).filter(function(f) { return f.key === key; })[0] || null;
+    var prof = (typeof _libGasProfileForVehicle === 'function') ? _libGasProfileForVehicle(vehicle) : null;
+    var gases = (prof && prof.gases) || (fam ? copSpcGases(fam) : []);
+    // La serie no incluye a este mismo vehículo (aún no está aprobado; y si lo estuviera, no
+    // se compararía consigo mismo).
+    var hist = fam ? fam.tests.filter(function(t) { return _copVinKey(t.vin) !== _copVinKey(vehicle.vin) || t.date !== _copSpcDate(vehicle); }) : [];
+    return { fam: fam, famLabel: fam ? fam.label : '', history: hist, gases: gases };
+}
+
+/** Texto corto de un número para la tabla. */
+function _copFcFmt(x) { return (typeof _copSpcFmt === 'function') ? _copSpcFmt(x) : String(x); }
+
+/** Tarjeta "comparado con su familia". PURA (recibe el resultado de copFamilyCheck). */
+function copFamilyCheckHTML(res, famLabel) {
+    if (!res || !res.rows.length) return '';
+    var esc = _copEsc;
+    var chip = { normal: '<span class="fc-chip fc-ok">✓ normal</span>', raro: '<span class="fc-chip fc-warn">⚠ poco común</span>',
+                 atipico: '<span class="fc-chip fc-bad">⚠ atípico</span>', pocos: '<span class="fc-chip fc-na">sin historia</span>',
+                 'sin-variacion': '<span class="fc-chip fc-na">sin variación</span>' };
+    var h = '<div class="fc-card' + (res.atypical.length ? ' fc-card--bad' : '') + '">';
+    h += '<div class="fc-title" data-help="appr_family_check">📊 Comparado con su familia' + (res.n ? ' (' + res.n + ' ensayo' + (res.n === 1 ? '' : 's') + ' aprobado' + (res.n === 1 ? '' : 's') + ')' : '') + '</div>';
+    if (famLabel) h += '<div class="u-muted-xs">' + esc(famLabel) + '</div>';
+    if (res.n < COP_SPC_MIN) {
+        h += '<p class="fc-text">Su familia tiene ' + res.n + ' ensayo(s) aprobado(s): hacen falta ' + COP_SPC_MIN + ' para saber qué es normal. No hay con qué comparar todavía.</p></div>';
+        return h;
+    }
+    h += '<table class="fc-table"><thead><tr><th>Gas</th><th>Este</th><th>Normal en la familia</th><th></th></tr></thead><tbody>';
+    res.rows.forEach(function(r) {
+        var rango = (r.lo !== undefined) ? _copFcFmt(r.lo) + ' – ' + _copFcFmt(r.hi) : (r.mean !== undefined ? '≈ ' + _copFcFmt(r.mean) : '—');
+        h += '<tr class="fc-row fc-row--' + r.status + '"><td>' + esc(r.label) + '</td><td><b>' + _copFcFmt(r.value) + '</b> ' + esc(r.unit) + '</td>' +
+             '<td>' + rango + (r.mean !== undefined ? ' <span class="u-muted-xs">(media ' + _copFcFmt(r.mean) + ')</span>' : '') + '</td><td>' + (chip[r.status] || '') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    if (res.atypical.length) {
+        h += '<p class="fc-text"><b>' + res.atypical.map(function(r) { return esc(r.label); }).join(', ') + '</b> está muy fuera de lo normal para esta familia (más de 3σ). ' +
+             'Antes de aprobar revisa la unidad (g/mi contra g/km), la bolsa y que no sobre ni falte un cero. <b>No bloquea</b>: si el valor es real, apruébalo y quedará anotado.</p>';
+    } else if (res.rare.length) {
+        h += '<p class="fc-text">' + res.rare.map(function(r) { return esc(r.label); }).join(', ') + ' está en la orilla de lo normal (más de 2σ). Vale la pena una segunda mirada.</p>';
+    } else {
+        h += '<p class="fc-text">Todo dentro de lo normal para su familia.</p>';
+    }
+    return h + '</div>';
+}
+
+/** Lo que se congela en el registro de aprobación (sin claves undefined). PURA. */
+function copFamilyCheckRecord(res, nowIso) {
+    if (!res || res.n < COP_SPC_MIN) return null;
+    var pick = function(r) { return { field: r.field, label: r.label, value: r.value, mean: r.mean, sigma: r.sigma, z: Math.round(r.z * 100) / 100 }; };
+    return { n: res.n, at: nowIso, atypical: res.atypical.map(pick), rare: res.rare.map(pick) };
+}
+
 // ─── SPC: manejadores ─────────────────────────────────────────────────────────
-function copSpcSelectFamily(key) { copState.spc.familyKey = key; copPersist(); copRender(); }
+function copSpcSelectFamily(key) {
+    // [3.25.0] La carta de la celda recuerda su propio Master elegido.
+    if (String(key).indexOf('MASTER:') === 0) copState.spc.masterKey = key; else copState.spc.familyKey = key;
+    copPersist(); copRender();
+}
 function copSpcSelectGas(f) { copState.spc.gas = f; copPersist(); copRender(); }
 function copSpcToggle(opt, el) { copState.spc[opt] = !!(el && el.checked); copPersist(); copRender(); }
 function copSpcGotoAlarm(famKey, gas) {
-    copState.spc.familyKey = famKey;
+    if (String(famKey).indexOf('MASTER:') === 0) { copState.spc.source = 'master'; copState.spc.masterKey = famKey; }   // [3.25.0]
+    else { copState.spc.source = 'familia'; copState.spc.familyKey = famKey; }
     copState.spc.gas = gas;
     copPersist();
     copRender();
@@ -3718,12 +3918,15 @@ function copSpcGotoAlarm(famKey, gas) {
 
 // Resuelve familia y gas seleccionados (con defaults sensatos).
 function _copSpcSelection() {
-    var fams = copSpcFamilies();
-    if (!fams.length) return { fams: fams, fam: null, gases: [], gas: null };
-    var fam = fams.find(function(f) { return f.key === copState.spc.familyKey; }) || fams[0];
+    // [3.25.0] Producto (familias) o celda (vehículos Master): misma carta, otras series.
+    var master = copState.spc.source === 'master';
+    var fams = master ? copMasterFamilies() : copSpcFamilies();
+    if (!fams.length) return { fams: fams, fam: null, gases: [], gas: null, master: master };
+    var want = master ? copState.spc.masterKey : copState.spc.familyKey;
+    var fam = fams.find(function(f) { return f.key === want; }) || fams[0];
     var gases = copSpcGases(fam);
     var gas = gases.find(function(g) { return g.field === copState.spc.gas; }) || gases[0] || null;
-    return { fams: fams, fam: fam, gases: gases, gas: gas };
+    return { fams: fams, fam: fam, gases: gases, gas: gas, master: master };
 }
 
 // ─── SPC: HTML ────────────────────────────────────────────────────────────────
@@ -3732,7 +3935,8 @@ function copBuildSpcHTML() {
     var html = '';
 
     // Panel de alarmas (retráctil)
-    var alarms = copSpcScanAlarms();
+    // [3.25.0] Las alarmas de la celda (Master) van en la misma lista, marcadas.
+    var alarms = copSpcScanAlarms().concat(copMasterScanAlarms());
     html += '<details class="card" style="margin-bottom: var(--space-lg);" ' + (alarms.length ? 'open' : '') + '>';
     html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap: var(--space-md);font-weight:var(--weight-bold);color:var(--text);">' +
             '🚨 Alarmas de control de proceso ' +
@@ -3748,6 +3952,7 @@ function copBuildSpcHTML() {
                     'style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-sm);cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
             html += '<span class="badge badge-danger" style="padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:800;">' + a.rule + '</span>';
+            if (a.master) html += '<span class="cop-spc-cell-tag" title="Vehículo Master: si se mueve, lo que cambió es la celda">🎯 Celda</span>';
             html += '<b style="font-size:12px;">' + _copEsc(a.gasLabel) + '</b>';
             html += '<span style="font-size:12px;color:var(--text);">' + _copEsc(a.famLabel) + '</span>';
             html += '<span style="margin-left:auto;font-size: var(--fs-sm);color:var(--muted);">' + COP_SPC_RULES[a.rule] +
@@ -3759,7 +3964,24 @@ function copBuildSpcHTML() {
 
     // Selección familia + gas + toggles
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    html += sel.master
+        ? '<div class="card-title" data-help="cop-spc-master-help" style="border-bottom-color:var(--accent-cop);">🎯 Carta de control de la celda (vehículos Master)</div>'
+        : '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    // [3.25.0] Qué se vigila: el producto (familias) o la celda (el mismo vehículo una y otra vez).
+    html += '<div class="cop-spc-source" role="group" aria-label="Qué vigilar">' +
+        '<button type="button" class="cop-spc-src' + (sel.master ? '' : ' is-on') + '" aria-pressed="' + !sel.master + '" onclick="copSpcSetSource(\'familia\')">📈 Producto (familias)</button>' +
+        '<button type="button" class="cop-spc-src' + (sel.master ? ' is-on' : '') + '" aria-pressed="' + sel.master + '" onclick="copSpcSetSource(\'master\')">🎯 Celda (vehículos Master)</button>' +
+        '</div>';
+    if (sel.master) {
+        html += '<p class="cop-guide">El Master es el mismo vehículo probado una y otra vez: si sus resultados se mueven, lo que cambió es la ' +
+                '<b>celda</b> (analizador, dinamómetro, procedimiento), no el producto. Una alarma aquí pide revisar el equipo antes de seguir probando. ' +
+                'Aquí el CO₂ también alarma.</p>';
+    }
+    if (!sel.fams.length && sel.master) {
+        html += '<p class="label-title" style="margin:0;color:var(--warning);">No hay vehículos Master dados de alta. Se agregan en el mapa del laboratorio ' +
+                '(Pruebas → Consumibles → 🗺️ Mapa → Laboratorio, estacionamiento de afuera).</p></div>';
+        return html;
+    }
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
                 'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
@@ -3768,8 +3990,8 @@ function copBuildSpcHTML() {
         return html;
     }
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;margin-bottom: var(--space-md);">';
-    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia (' + sel.fams.length + ')</p>';
-    html += '<select aria-label="Familia para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">' + (sel.master ? 'Vehículo Master' : 'Familia') + ' (' + sel.fams.length + ')</p>';
+    html += '<select aria-label="' + (sel.master ? 'Vehículo Master' : 'Familia') + ' para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     sel.fams.forEach(function(f) {
         html += '<option value="' + _copEsc(f.key) + '" ' + (sel.fam && f.key === sel.fam.key ? 'selected' : '') + '>' +
                 _copEsc(f.label) + ' (' + f.n + ' ensayo' + (f.n === 1 ? '' : 's') + ')</option>';
@@ -3794,7 +4016,7 @@ function copBuildSpcHTML() {
     html += '</div>';
 
     // [2.31.0] Ensayos de la familia fuera de la carta (aceptados, inválidos para CoP).
-    if (sel.fam) html += _copExcludedNoteHTML(copExcludedTests({ familyKey: sel.fam.key, allScopes: true }), 'la carta de control');
+    if (sel.fam && !sel.master) html += _copExcludedNoteHTML(copExcludedTests({ familyKey: sel.fam.key, allScopes: true }), 'la carta de control');
 
     // Serie + estadística
     var pts = copSpcSeries(sel.fam, sel.gas ? sel.gas.field : '');
@@ -3802,7 +4024,11 @@ function copBuildSpcHTML() {
     var unit = sel.gas ? (sel.gas.unit || '') : '';
 
     if (!st) {
-        html += '<p class="label-title" style="margin-top: var(--space-md);">Sin datos para este gas en la familia seleccionada.</p>';
+        html += sel.master && sel.fam && !sel.fam.n
+            ? '<p class="cop-guide" style="margin-top: var(--space-md);">Este Master aún no tiene pruebas aprobadas con gases. En su prueba de correlación, ' +
+              'Operación (formato simple) muestra el bloque <b>🎯 Gases del vehículo Master</b>: captúralos del reporte del banco. ' +
+              'Con ' + COP_SPC_MIN + ' pruebas aprobadas la carta ya tiene límites de control.</p>'
+            : '<p class="label-title" style="margin-top: var(--space-md);">Sin datos para este gas en ' + (sel.master ? 'el Master seleccionado' : 'la familia seleccionada') + '.</p>';
         html += '</div>';
         return html;
     }
@@ -3845,6 +4071,7 @@ function copBuildSpcHTML() {
     html += '<p><b>Carta de individuos (I-MR):</b> cada ensayo es una medición única por familia. La línea central es la media histórica de esa familia para el gas elegido; UCL/LCL son media ± 3σ, con σ estimada del rango móvil (MR̄/1.128). Son los <b>límites de control del proceso</b>, distintos del límite regulatorio (línea ámbar).</p>';
     html += '<p><b>Reglas de alarma (Nelson):</b> R1 = punto fuera de ±3σ (rojo); R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos en fila subiendo o bajando (tendencia). Cualquiera dispara la alarma de la familia.</p>';
     html += '<p><b>Cpk:</b> capacidad del proceso frente al límite regulatorio = (Límite − media) / 3σ. Cpk ≥ 1.33 se considera capaz; &lt; 1.0 indica resultados demasiado cerca (o por encima) del límite. Se calcula con ≥ ' + COP_SPC_RELIABLE + ' ensayos.</p>';
+    html += '<p><b>Celda (vehículos Master):</b> la misma carta, pero con las pruebas de un mismo vehículo. Como el vehículo no cambia, una alarma apunta al laboratorio: revisa calibración del analizador, dinamómetro y procedimiento antes de seguir probando. En la celda el CO₂ sí genera alarmas.</p>';
     html += '<p><b>Umbrales:</b> n&lt;' + COP_SPC_MIN + ' → datos insuficientes; ' + COP_SPC_MIN + '–' + (COP_SPC_RELIABLE - 1) + ' → límites preliminares; ≥' + COP_SPC_RELIABLE + ' → confiables. CO2 se grafica para vigilancia pero no genera alarmas (no tiene límite).</p>';
     html += '</div></details>';
 
@@ -4051,6 +4278,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó la cota de falla); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
+    'cop-spc-master-help': { title: 'Carta de la celda (vehículos Master)', text: 'Cada punto es una prueba aprobada del mismo vehículo Master. Si se sale de control, el producto no cambió: revisa la celda (analizador, dinamómetro, procedimiento) antes de seguir probando. Los gases se capturan en Operación, en la prueba de correlación del Master.' },
     'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' },
     'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
     'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'La barra compara Xtests (el promedio con DF) contra dos cotas de UN R154 §2.1.1 que dependen de cuántos vehículos llevas y de su dispersión (VAR). A la izquierda de la cota de paso la familia es CONCORDANTE; a la derecha de la cota de falla es NO CONCORDANTE; en medio, hace falta otro vehículo. La marca negra es dónde está Xtests ahora.' },

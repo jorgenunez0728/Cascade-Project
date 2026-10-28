@@ -1879,7 +1879,10 @@ function _siteMasterPanelHTML(id) {
     var opt = function(map, sel) { return Object.keys(map).map(function(k) { return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + e(map[k].label) + '</option>'; }).join(''); };
     html += '<div class="st-tools">' +
         (pe.inLab ? '' : '<button type="button" class="tp-btn tp-btn-primary" onclick="siteMasterStartTest(' + q + ')" title="Abre el Alta con su VIN">🧪 Empezar una prueba</button>') +
-        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveStart(\'master\',' + q + ')" title="A otro lugar de afuera, o adentro a un cajón o al dinamómetro">↔ Mover</button></div>' +
+        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveStart(\'master\',' + q + ')" title="A otro lugar de afuera, o adentro a un cajón o al dinamómetro">↔ Mover</button>' +
+        // [3.25.0] Sus pruebas, graficadas: la deriva de la celda.
+        (typeof copSpcOpenMaster === 'function' ? '<button type="button" class="tp-btn tp-btn-ghost" onclick="copSpcOpenMaster(' + q + ')" title="CoP → Control SPC → Celda: sus gases prueba tras prueba">📈 Carta de la celda</button>' : '') +
+        '</div>' +
         '<details class="rm-more st-more"><summary>Editar</summary>' +
           '<label class="st-field">Carrocería<select data-chips onchange="siteMasterSetBody(' + q + ', this.value)">' + opt(SITE_BODIES, SITE_BODIES[m.body] ? m.body : 'sedan') + '</select></label>' +
           '<label class="st-field">Color<select data-chips onchange="siteMasterSetPaint(' + q + ', this.value)">' + opt(SITE_PAINTS, SITE_PAINTS[m.paint] ? m.paint : 'blanco') + '</select></label>' +

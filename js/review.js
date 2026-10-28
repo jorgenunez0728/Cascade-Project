@@ -202,6 +202,9 @@ function reviewBlocks(vehicle, ctx) {
 
     // 4 · Resultados
     var lib = (td.gasResults && td.gasResults.liberador && td.gasResults.liberador.values) || {};
+    // [3.25.0] El liberador la envió como FALLA (confirmó el reporte): sobre el límite deja
+    // de ser "no se acepta" y pasa a pedir la decisión (válida / inválida) del aprobador.
+    var failDecl = !!(td.gasResults && td.gasResults.liberador && td.gasResults.liberador.failDeclared);
     var prof = ctx.profile;
     if (!prof || !prof.gases || !prof.gases.length) add('resultados', 'fail', 'No hay perfil de gases con qué juzgar.', true);
     else prof.gases.forEach(function(g) {
@@ -210,7 +213,10 @@ function reviewBlocks(vehicle, ctx) {
         if (v == null || v === '') { if (lim !== null) add('resultados', 'fail', g.label + ': sin valor del liberador.', true); return; }
         v = Number(v);
         var txt = g.label + ' ' + _reviewFmt(v) + ' ' + g.unit + (lim !== null ? ' · límite ' + lim : ' · sin límite');
-        if (lim !== null && v > lim) add('resultados', 'fail', txt + ' — SOBRE EL LÍMITE.', true);
+        if (lim !== null && v > lim) {
+            if (failDecl) add('resultados', 'warn', txt + ' — SOBRE EL LÍMITE: el liberador la envió como FALLA. Decide abajo si es válida o inválida.');
+            else add('resultados', 'fail', txt + ' — SOBRE EL LÍMITE.', true);
+        }
         else add('resultados', 'ok', txt + (lim !== null ? ' (' + _reviewFmt(v / lim * 100, 3) + ' % del límite)' : '') + '.');
         var vv = ctx.gasValue ? ctx.gasValue(s, g.field, g.unit) : null;
         if (vv !== null && vv !== undefined) {
@@ -324,19 +330,29 @@ function reviewRenderApproval(vehicle) {
     });
     h += '<div id="review-status" class="review-status" aria-live="polite"></div>';
     el.innerHTML = h;
+    // [3.25.0] La decisión de la falla vive fuera de este bloque (no se borra al marcar).
+    if (typeof aprFailBoxSync === 'function') aprFailBoxSync(vehicle, aprFailingFor(vehicle, _reviewLibValues(vehicle)));
+    if (typeof aprFamilyCheckSync === 'function') aprFamilyCheckSync(vehicle, _reviewLibValues(vehicle));
     reviewRefreshButton(vehicle, blocks);
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+/** [3.25.0] Valores del liberador (los que se aprueban en revisión dirigida). */
+function _reviewLibValues(vehicle) {
+    var gr = vehicle && vehicle.testData && vehicle.testData.gasResults;
+    return (gr && gr.liberador && gr.liberador.values) || {};
 }
 
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    var _vw = (typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '';   // [2.20.0]
+    var _vw = ((typeof aprFailWhyFor === 'function') ? aprFailWhyFor(vehicle, _reviewLibValues(vehicle)) : '') ||
+              ((typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '');   // [2.20.0] [3.25.0]
     uiExplainDisabled(btn, r.ok ? _vw : r.hard.length
         ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');
-    if (box) box.textContent = r.ok ? 'Los cinco bloques están revisados: ya puedes aprobar y firmar.'
+    if (box) box.textContent = r.ok ? (_vw ? 'Los cinco bloques están revisados. Falta: ' + _vw : 'Los cinco bloques están revisados: ya puedes aprobar y firmar.')
         : r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.';
 }

@@ -7640,6 +7640,61 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
     .nm-flow { grid-template-columns: 1fr; }
     .nm-head { flex-direction: column; align-items: stretch; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.25.0] PRUEBA QUE FALLA — tarjeta en Liberación y decisión en Aprobación */
+/* ══════════════════════════════════════════════════════════════════════ */
+.fail-box {
+    margin-top: var(--space-md); padding: var(--space-md) var(--space-lg);
+    border: 2px solid var(--danger-fill); border-radius: var(--radius-xl);
+    background: var(--danger-tint); color: var(--text);
+    display: flex; flex-direction: column; gap: var(--space-sm);
+}
+.fail-box-title { font-weight: 700; color: var(--danger-text); font-size: var(--fs-base); }
+.fail-box-text { margin: 0; font-size: var(--fs-sm); line-height: var(--lh-base); }
+.fail-box-list { margin: 0; padding-left: var(--space-lg); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.fail-box-list li + li { margin-top: var(--space-xs); }
+.fail-box-check { display: flex; align-items: flex-start; gap: var(--space-sm); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+/* El estilo global de input (min-height 52px, padding) bajaba la casilla a otro renglón. */
+.fail-box-check input { margin: var(--space-2xs) 0 0; padding: 0; min-height: 0; width: 18px; height: 18px; flex-shrink: 0; }
+.fail-box-lbl { font-size: var(--fs-sm); font-weight: 600; margin-top: var(--space-xs); }
+.fail-box-note {
+    width: 100%; box-sizing: border-box; font-size: var(--fs-base);
+    border: 1px dashed var(--warn-text); background: #fffbeb; border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+}
+.fail-box-note:not(:placeholder-shown) { border-style: solid; border-color: var(--border); background: #fff; }
+.hist-fail-badge { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-fill); }
+
+/* [3.25.0] Control SPC: producto o celda (vehículos Master) */
+.cop-spc-source { display: inline-flex; gap: var(--space-2xs); padding: var(--space-2xs); margin-bottom: var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-alt); flex-wrap: wrap; }
+.cop-spc-src { border: 0; background: transparent; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
+    font-size: var(--fs-sm); font-weight: 600; color: var(--muted); cursor: pointer; min-height: var(--target-min, 40px); }
+.cop-spc-src.is-on { background: var(--accent-cop); color: #fff; }
+.cop-spc-cell-tag { font-size: var(--fs-2xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-sm);
+    background: var(--info-bg, #e8f1fb); color: var(--info-text); }
+/* [3.25.0] Gases del vehículo Master en Operación (formato simple) */
+.master-gas-block { margin: var(--space-md) 0; padding: var(--space-md) var(--space-lg); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent-cop); border-radius: var(--radius-xl); background: var(--surface-alt); }
+.master-gas-head { font-weight: 700; font-size: var(--fs-base); }
+.master-gas-hint { margin: var(--space-xs) 0 var(--space-sm); font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-base); }
+
+/* [3.25.0] Aprobación: comparado con su familia (aviso, no bloquea) */
+.fc-card { margin-top: var(--space-md); padding: var(--space-md) var(--space-lg); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); background: var(--surface-alt); }
+.fc-card--bad { border: 2px solid var(--warn-fill); background: var(--warn-tint, #fffaf0); }
+.fc-title { font-weight: 700; font-size: var(--fs-base); }
+.fc-text { margin: var(--space-sm) 0 0; font-size: var(--fs-sm); line-height: var(--lh-base); }
+.fc-table { width: 100%; border-collapse: collapse; margin-top: var(--space-sm); font-size: var(--fs-sm); }
+.fc-table th { text-align: left; color: var(--muted); font-weight: 600; padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid var(--border); }
+.fc-table td { padding: var(--space-xs) var(--space-sm); border-bottom: 1px solid rgba(0,0,0,0.05); }
+.fc-row--atipico td { background: var(--warn-bg); }
+.fc-chip { display: inline-block; font-size: var(--fs-2xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-sm); white-space: nowrap; }
+.fc-ok { background: var(--ok-bg, #e6f4ea); color: var(--ok-text); }
+.fc-warn { background: var(--warn-bg); color: var(--warn-text); }
+.fc-bad { background: var(--warn-fill); color: #fff; }
+.fc-na { background: var(--surface-alt); color: var(--muted); border: 1px solid var(--border); }
     </style>
 </head>
 
@@ -8605,6 +8660,14 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
         </div>
       </div>
 
+      <!-- [3.25.0] Si el VIN es de un vehículo Master: sus gases vigilan la deriva de la celda. -->
+      <div id="master-gas-block" class="master-gas-block" style="display:none;" data-card-group data-card-title="Gases del vehículo Master">
+        <div class="master-gas-head" data-help="master_gases">🎯 Gases del vehículo Master</div>
+        <p class="master-gas-hint">Este VIN es un vehículo <b>Master</b> del laboratorio. Captura sus gases del reporte del banco: con ellos se
+          vigila si la celda está derivando (CoP → Control SPC → 🎯 Celda). No deciden nada de esta prueba y puedes dejarlos vacíos si no se midieron.</p>
+        <div id="master-gas-entry"></div>
+      </div>
+
       <div class="form-group">
         <label>Comentarios / Observaciones</label>
         <textarea id="simple_notes" rows="3" placeholder="Notas generales..."></textarea>
@@ -8680,6 +8743,8 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
                             <span id="vets-attach-status" class="vets-attach-status"></span>
                         </div>
                         <div id="lib-gas-entry-content"></div>
+                        <!-- [3.25.0] Un gas sobre el límite se registra como FALLA, no se repite para borrarlo. -->
+                        <div id="lib-fail-box" style="display:none;"></div>
                     </div>
                 </div>
                 <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
@@ -8731,6 +8796,9 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
                     <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
+                    <!-- [3.25.0] Comparación con la historia de la familia (aviso, no bloquea) y decisión de una falla. -->
+                    <div id="appr-family-check" style="display:none;"></div>
+                    <div id="appr-fail-box" style="display:none;"></div>
                 </div>
                 <div class="card">
                     <div class="card-title">✅ Acción</div>
@@ -10371,10 +10439,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610282100';
+var APP_BUILD = '202610282126';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '8261db07c3dd030ea4b60d86bd2161aecae9737d';
+var APP_COMMIT = '5342aeb13568f605658687b5b72d06c408a5af08';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10382,7 +10450,7 @@ var APP_COMMIT = '8261db07c3dd030ea4b60d86bd2161aecae9737d';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.24.1';
+var APP_VERSION = '3.25.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10390,6 +10458,13 @@ var APP_VERSION = '3.24.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.25.0', date: '28 oct 2026', title: 'Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia',
+      bullets: ['Liberación: con un gas sobre el límite aparece "Resultado sobre el límite". Se confirma que se releyó el reporte del banco, se escribe qué se observó y se envía como FALLA. Antes el botón se bloqueaba y la única salida era repetir la prueba, sin que la medición quedara en ningún lado.',
+                'Aprobación: después del doble ciego, quien aprueba decide si es una falla válida (cuenta para CoP como cualquier ensayo) o una prueba inválida (no cuenta para CoP ni para el REQ, con su causa de una lista). Queda en la línea de tiempo, en la auditoría y en el Historial (✗ Falla / ⊘ No cuenta para CoP).',
+                '🔄 Repetir la prueba ahora pide el motivo, avisa si hay un gas sobre el límite y guarda en la línea de tiempo lo que estaba tecleado.',
+                'Aprobación: "📊 Comparado con su familia" pone cada gas junto a lo normal de su familia (media ± 3σ de los ensayos aprobados). Marca lo atípico para revisar unidad, bolsa o un cero de más. No bloquea; queda anotado en el registro.',
+                'Vehículos Master: en su prueba de correlación (Operación, formato simple) aparece "🎯 Gases del vehículo Master". CoP → Control SPC → 🎯 Celda grafica sus pruebas: si se mueven, lo que cambió es la celda (analizador, dinamómetro, procedimiento), no el producto. El CO₂ también alarma.',
+                'Alertas nuevas: posible deriva de la celda (Master fuera de control) y falla válida en los últimos 30 días. Desde el mapa, el Master tiene "📈 Carta de la celda".'] },
     { version: '3.24.1', date: '28 oct 2026', title: 'La firma funciona sin internet',
       bullets: ['El recuadro de firma ya no se descarga de internet: viene dentro de la app. Antes, si la red bloqueaba ese servidor o el equipo abría sin conexión, el recuadro no pintaba y no se podía liberar ni aprobar.',
                 'El trazo cae justo donde está el dedo (antes podía correrse) y se ve nítido en teléfonos y tabletas.',
@@ -11482,8 +11557,13 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.11.0';
+var CASCADE_VERSION = '4.12.0';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.12.0', date: '28 oct 2026', app: '3.25.0', title: 'Una prueba que falla se registra',
+      bullets: ['Con un gas sobre el límite, Liberación ya no se bloquea: se envía como FALLA confirmando que se releyó el reporte y escribiendo qué se observó.',
+                'Quien aprueba, después del doble ciego, decide: falla válida (cuenta para CoP) o prueba inválida (no cuenta, con su causa).',
+                'Repetir la prueba pide el motivo y guarda en la línea de tiempo lo que estaba tecleado.',
+                'Una prueba de un vehículo Master captura sus gases en Operación (formato simple).'] },
     { version: '4.11.0', date: '27 oct 2026', app: '3.22.0', title: 'Corregir el propósito',
       bullets: ['✏️ Corregir alta también cambia el propósito, dentro del mismo formato de prueba (con firma si ya está archivada).',
                 'Al iniciar desde el plan, una configuración que no es CoP nace como EO.'] },
@@ -11601,14 +11681,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610282100' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610282126' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610282100' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610282126' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11624,7 +11704,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610282100' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610282126' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -22401,6 +22481,10 @@ function loadVehicle() {
   updateTestVerificationVisibility();
   initStatusPrevValue();
 
+  // [3.25.0] El bloque de gases del Master se decide en CADA carga (un vehículo de
+  // emisiones abierto después de un Master no debe heredarlo).
+  masterGasSync(vehicle);
+
   // ===== MODO SIMPLE =====
   if (!isEmissionsPurpose(vehicle.purpose)) {
     const s = vehicle.testData?.simple || {};
@@ -23406,6 +23490,7 @@ function saveProgress(opts) {
   // ==================== MODO SIMPLE ====================
   if (!isEm) {
     vehicle.testData = vehicle.testData || {};
+    var _prevMaster = vehicle.testData.simple && vehicle.testData.simple.master;   // [3.25.0]
     vehicle.testData.simple = {
       operator: document.getElementById('simple_operator')?.value || '',
       datetime: document.getElementById('simple_datetime')?.value || '',
@@ -23414,6 +23499,9 @@ function saveProgress(opts) {
     };
     // [3.9.0] Resultado del Training (solo en ese propósito).
     if (isTrainingPurpose(vehicle.purpose)) vehicle.testData.simple.training = trainingFromForm();
+    // [3.25.0] Gases de un vehículo Master (solo si su bloque está a la vista; si no, se conservan).
+    var _mg = masterGasFromForm(vehicle, _prevMaster);
+    if (_mg) vehicle.testData.simple.master = _mg;
 
       // Un valor vacío (estado que el select no representa) conserva el estado actual.
     const newStatus = _opStatusFromForm(vehicle);
@@ -24309,12 +24397,16 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
         var capUnit = _libCapUnitFor(g, containerId);
         var stored = existingValues && existingValues[g.field] != null ? existingValues[g.field] : '';
         var val = stored === '' ? '' : gasConvert(stored, g.unit, capUnit);
-        html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" id="lib-gas-row-' + g.field + '">';
+        // [3.25.0] Fila y estado se buscan DENTRO de su tabla (data-gasrow / data-gasstatus):
+        // con ids globales, la tabla del aprobador escribía en la de Liberación si las dos
+        // seguían en el DOM. El id se conserva solo en la de Liberación (pruebas y enlaces).
+        var _ids = containerId === 'lib-gas-entry-content';
+        html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" data-gasrow="' + escapeHtml(g.field) + '"' + (_ids ? ' id="lib-gas-row-' + g.field + '"' : '') + '>';
         html += '<td style="padding: var(--space-sm) var(--space-sm);font-weight:600;">' + escapeHtml(g.label) + '</td>';
         html += '<td data-ucell="' + escapeHtml(g.field) + '" style="text-align:center;padding: var(--space-sm) var(--space-sm);color:var(--muted);">' + _libUnitCellHTML(g, capUnit) + '</td>';
         html += '<td data-lcell="' + escapeHtml(g.field) + '" style="text-align:center;padding: var(--space-sm) var(--space-sm);">' + _libLimitCellHTML(g, capUnit) + '</td>';
         html += '<td style="padding: var(--space-sm) var(--space-sm);text-align:center;"><input type="number" inputmode="decimal" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
-        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" id="lib-gas-status-' + g.field + '">—</td>';
+        html += '<td style="text-align:center;padding: var(--space-sm) var(--space-sm);" data-gasstatus="' + escapeHtml(g.field) + '"' + (_ids ? ' id="lib-gas-status-' + g.field + '"' : '') + '>—</td>';
         html += '</tr>';
     });
     html += '</tbody></table>';
@@ -24328,18 +24420,28 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
     if (existingValues && Object.keys(existingValues).length > 0) _libUpdateGasStatuses(profile, containerId);
 }
 
+/** [3.25.0] Fila / celda de estado de un gas dentro de SU tabla. */
+function _libGasRowEl(containerId, field) {
+    var box = document.getElementById(containerId);
+    return box ? box.querySelector('[data-gasrow="' + field + '"]') : null;
+}
+function _libGasStatusEl(containerId, field) {
+    var box = document.getElementById(containerId);
+    return box ? box.querySelector('[data-gasstatus="' + field + '"]') : null;
+}
+
 function _libUpdateGasStatuses(profile, containerId) {
     var allPass = true;
     var anyValue = false;
     profile.gases.forEach(function(g) {
         var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
-        var statusEl = document.getElementById('lib-gas-status-' + g.field);
+        var statusEl = _libGasStatusEl(containerId, g.field);
         if (!input || !statusEl) return;
         // Se teclea en la unidad de captura, pero TODO lo que sigue (límite,
         // rangos de plausibilidad, economía de combustible) está en g.unit.
         var typed = _libNormalizeVal(input.value);
         var val = typed === null ? null : gasConvert(typed, _libCapUnitFor(g, containerId), g.unit);
-        var row = document.getElementById('lib-gas-row-' + g.field);
+        var row = _libGasRowEl(containerId, g.field);
         if (val === null) { statusEl.innerHTML = '<span style="color:var(--muted);">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
         var warn = _libValueImplausible(g.field, val);
@@ -24396,18 +24498,21 @@ function libOnGasChange() {
     var profile = regName ? _libCaptureProfileFor(vehicle, regName) : null;
     if (!profile) return;
     _libUpdateGasStatuses(profile, 'lib-gas-entry-content');
+    // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
+    var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+    // [3.25.0] Todo capturado y algo sobre el límite = una FALLA que se envía declarada.
+    var _failOnly = !_rv.missing.length && _rv.failing.length > 0;
+    libFailBoxSync(vehicle, _failOnly ? _rv.failing : []);
     var btn = document.getElementById('release-archive-btn');
     if (btn) {
-        // [2.2.0] La misma regla que `submitToApproval` vuelve a verificar.
-        var _rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+        btn.textContent = _failOnly ? '📤 Enviar a aprobación como FALLA' : '📤 Enviar a aprobación';
         // [2.19.1] Quien no libera no puede enviar, falte lo que falte: el motivo es ESE. Antes
         // al Técnico se le decía "decide la falla de VETS", que no es su paso.
         if (_libRoleWhy()) { uiExplainDisabled(btn, _libRoleWhy()); return; }
         // [2.10.0] Deshabilitado CON motivo: tocarlo dice qué falta.
-        uiExplainDisabled(btn, !_rv.ok ? (_rv.failing.length
-            ? 'No se puede liberar: ' + _rv.failing.join(', ') + ' sobre el límite.'
-            : 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.')
-            : '');
+        uiExplainDisabled(btn, _rv.missing.length
+            ? 'Captura ' + _rv.missing.join(', ') + ' para poder liberar.'
+            : (_failOnly ? libFailDeclWhy(_rv.failing, _libFailDecl[vehicle.id]) : ''));
     }
 }
 
@@ -24435,6 +24540,7 @@ function libOnApproverGasChange() {
     if (!profile) return;
     _libUpdateGasStatuses(profile, 'appr-gas-entry-content');
     var approverValues = _libCollectGasValues(profile, 'appr-gas-entry-content');
+    aprFamilyCheckSync(vehicle, approverValues);   // [3.25.0] aviso, no bloquea
     var liberadorValues = (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador) ? vehicle.testData.gasResults.liberador.values : {};
     var matchStatus = document.getElementById('appr-match-status');
     var btn = document.getElementById('approve-archive-btn');
@@ -24452,9 +24558,10 @@ function libOnApproverGasChange() {
     });
     // Reset per-row mismatch cue (never reveals the liberador's value)
     profile.gases.forEach(function(g) {
-        var row = document.getElementById('lib-gas-row-' + g.field);
+        var row = _libGasRowEl('appr-gas-entry-content', g.field);
         if (row) row.style.boxShadow = '';
     });
+    if (!hasAllValues || mismatches.length) aprFailBoxSync(vehicle, []);   // [3.25.0] se decide tras coincidir
     if (!hasAllValues) {
         matchStatus.style.display = 'none';
         uiExplainDisabled(btn, 'Captura todos los gases para compararlos con los del liberador.');
@@ -24467,7 +24574,10 @@ function libOnApproverGasChange() {
         matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
         matchStatus.style.color = tokenColor('--ok-text');
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
-        uiExplainDisabled(btn, _aprVetsWhy(vehicle));   // [2.20.0]
+        // [3.25.0] Coinciden y algo está sobre el límite: el aprobador decide qué es esa falla.
+        var _apFail = _libVerifyReleaseValues(profile, approverValues).failing;
+        aprFailBoxSync(vehicle, _apFail);
+        uiExplainDisabled(btn, aprFailDecisionWhy(_apFail, _aprFailDecision[vehicle.id]) || _aprVetsWhy(vehicle));   // [2.20.0]
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
         _libHighlightReturnBtn(false);
@@ -24479,7 +24589,7 @@ function libOnApproverGasChange() {
         }
     } else {
         mismatchFields.forEach(function(f) {
-            var row = document.getElementById('lib-gas-row-' + f);
+            var row = _libGasRowEl('appr-gas-entry-content', f);
             if (row) { row.style.background = 'rgba(239,68,68,0.12)'; row.style.boxShadow = 'inset 3px 0 0 #ef4444'; }
         });
         matchStatus.style.background = 'rgba(239,68,68,0.1)';
@@ -24767,6 +24877,9 @@ function loadRelease() {
         return;
     }
     content.style.display = 'block';
+    // [3.25.0] Cada vehículo arranca sin la tarjeta de falla y con el botón de siempre.
+    libFailBoxSync(null);
+    (function() { var b = document.getElementById('release-archive-btn'); if (b) b.textContent = '📤 Enviar a aprobación'; })();
     _cascadeRoleNote('lib-role-note', 'test.release', 'liberar');
     // [2.18.0] Quien no libera pero sí adjunta VETS: que lo sepa aquí mismo.
     (function() {
@@ -24806,6 +24919,7 @@ function loadRelease() {
             '<strong>Operador:</strong> ' + escapeHtml(s.operator || 'N/A') + '<br>' +
             '<strong>Fecha/Hora:</strong> ' + escapeHtml(s.datetime || 'N/A') + '<br>' +
             (isTrainingPurpose(vehicle.purpose) ? trainingSummaryHTML(s.training) : '') +
+            masterGasSummaryHTML(s.master) +   // [3.25.0]
             '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
             '</div>';
         document.getElementById('lib-gas-entry-card').style.display = 'none';
@@ -24892,6 +25006,8 @@ function loadApproval() {
         content.style.display = 'none'; return;
     }
     content.style.display = 'block';
+    aprFailBoxSync(null);   // [3.25.0]
+    if (typeof aprFamilyCheckSync === 'function') aprFamilyCheckSync(null);
     _cascadeRoleNote('appr-role-note', 'test.approve', 'aprobar');
     if (typeof vetsRenderApprovalNote === 'function') vetsRenderApprovalNote(vehicle);   // [2.20.0]
     document.getElementById('approvalInfo').innerHTML =
@@ -24918,6 +25034,7 @@ function loadApproval() {
             ? '<strong>Fecha de la prueba:</strong> ' + escapeHtml((testData.simple && testData.simple.datetime) || 'N/A') + '<br>' +
               trainingSummaryHTML(testData.simple && testData.simple.training)
             : '') +
+        (!isEm ? masterGasSummaryHTML(testData.simple && testData.simple.master) : '') +   // [3.25.0]
         '</div>';
 
     var regName = _libGetVehicleRegulation(vehicle);
@@ -25080,6 +25197,225 @@ function vehicleUseLostValue(vehicleId, entryTs, rowIdx) {
 }
 function _fbVehValTextSafe(v) { return (typeof _fbVehValText === 'function') ? _fbVehValText(v) : String(v); }
 
+// ══════════════════════════════════════════════════════════════════════
+// [3.25.0] UNA PRUEBA QUE FALLA SE REGISTRA
+// ══════════════════════════════════════════════════════════════════════
+// Antes un gas sobre el límite bloqueaba "Enviar a aprobación" y la única salida era
+// "🔄 Repetir la prueba": la medición que falló no quedaba en ningún lado. Eso tiene
+// dos costos: el muestreo del CoP solo veía ensayos que pasaban (veredicto optimista
+// por construcción) y ante un auditor no había forma de mostrar las fallas.
+//
+// Ahora: el liberador ENVÍA la falla (confirma que releyó el reporte + qué observó);
+// el aprobador, después del doble ciego, DECIDE:
+//   · falla válida  → cuenta para CoP como cualquier ensayo (su valor entra al muestreo);
+//   · prueba inválida → no cuenta (copTestUsable), queda con su causa en el historial.
+// El retest es una alta nueva del mismo VIN: la prueba que falló nunca se borra.
+//
+// `vehicle.testData.failure` es EL registro: {verdict, cause, causeLabel, note, gases,
+// by, byId, at, releaser:{note, by, at}}. Su ausencia = la prueba pasó.
+
+var FAIL_NOTE_MIN = 5;
+var FAIL_INVALID_CAUSES = [
+    { id: 'equipo',        label: 'Falla o calibración del equipo de medición' },
+    { id: 'procedimiento', label: 'Desviación del procedimiento (preacondicionamiento, reposo, ciclo)' },
+    { id: 'muestreo',      label: 'Problema de muestreo o de bolsas' },
+    { id: 'vehiculo',      label: 'Problema del vehículo ajeno a producción (fuga de escape, daño de transporte)' },
+    { id: 'otro',          label: 'Otro (explícalo en la nota)' }
+];
+
+/** Etiqueta de una causa de prueba inválida. PURA. */
+function failCauseLabel(id) {
+    var c = FAIL_INVALID_CAUSES.filter(function(x) { return x.id === id; })[0];
+    return c ? c.label : (id || '');
+}
+
+/** ¿Qué le falta al liberador para enviar una falla? '' = nada. PURA. decl = {confirmed, note}. */
+function libFailDeclWhy(failing, decl) {
+    if (!failing || !failing.length) return '';
+    if (!decl || !decl.confirmed) return 'Confirma que releíste el reporte del banco: ' + failing.join(', ') + ' sobre el límite.';
+    if (String(decl.note || '').trim().length < FAIL_NOTE_MIN) return 'Escribe qué observaste (al menos ' + FAIL_NOTE_MIN + ' caracteres).';
+    return '';
+}
+
+/** ¿Qué le falta al aprobador para decidir una falla? '' = nada. PURA. d = {verdict, cause, note}. */
+function aprFailDecisionWhy(failing, d) {
+    if (!failing || !failing.length) return '';
+    if (!d || (d.verdict !== 'valida' && d.verdict !== 'invalida')) {
+        return 'El resultado está sobre el límite en ' + failing.join(', ') + ': decide si es una falla válida o una prueba inválida.';
+    }
+    if (d.verdict === 'invalida' && !FAIL_INVALID_CAUSES.some(function(c) { return c.id === d.cause; })) {
+        return 'Elige la causa por la que la prueba es inválida.';
+    }
+    if (String(d.note || '').trim().length < FAIL_NOTE_MIN) return 'Escribe en qué te basas (al menos ' + FAIL_NOTE_MIN + ' caracteres).';
+    return '';
+}
+
+/** El registro que se guarda en testData.failure. PURA (sin claves undefined: Firestore, 2.29.2). */
+function failureRecord(failing, d, who, releaserDecl, nowIso) {
+    var r = { verdict: d.verdict, note: String(d.note || '').trim(), gases: (failing || []).slice(),
+              by: (who && who.name) || '', at: nowIso };
+    if (who && who.id) r.byId = who.id;
+    if (d.verdict === 'invalida') { r.cause = d.cause; r.causeLabel = failCauseLabel(d.cause); }
+    if (releaserDecl && releaserDecl.note) {
+        r.releaser = { note: releaserDecl.note, by: releaserDecl.by || '', at: releaserDecl.at || '' };
+    }
+    return r;
+}
+
+/** La falla registrada de un vehículo, o null. */
+function vehicleFailure(v) {
+    var f = v && v.testData && v.testData.failure;
+    return (f && (f.verdict === 'valida' || f.verdict === 'invalida')) ? f : null;
+}
+
+/** Texto corto de la falla: '✗ Falla válida: NOx' / '⊘ Prueba inválida: …'. PURA. */
+function vehicleFailureText(f) {
+    if (!f) return '';
+    var g = (f.gases || []).join(', ');
+    return f.verdict === 'valida'
+        ? '✗ Falla válida' + (g ? ': ' + g : '')
+        : '⊘ Prueba inválida' + (f.causeLabel ? ' — ' + f.causeLabel : '') + (g ? ' (' + g + ' sobre el límite)' : '');
+}
+
+// ─── Liberación ─────────────────────────────────────────────────────────────
+var _libFailDecl = {};   // {vehicleId: {confirmed, note}} mientras se libera (memoria)
+
+/** Pinta (o esconde) la tarjeta "resultado sobre el límite" de Liberación. */
+function libFailBoxSync(vehicle, failing) {
+    var box = document.getElementById('lib-fail-box');
+    if (!box) return;
+    if (!vehicle || !failing || !failing.length) { box.style.display = 'none'; box.innerHTML = ''; box.dataset.key = ''; return; }
+    var d = _libFailDecl[vehicle.id] = _libFailDecl[vehicle.id] || { confirmed: false, note: '' };
+    var key = vehicle.id + '|' + failing.join(',');
+    // Solo se repinta si cambió QUÉ falla: libOnGasChange corre en cada tecla y repintar
+    // borraría lo que se está escribiendo.
+    if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        box.innerHTML =
+            '<div class="fail-box" role="group" aria-labelledby="lib-fail-title">' +
+            '<div class="fail-box-title" id="lib-fail-title">✗ Resultado sobre el límite: ' + escapeHtml(failing.join(', ')) + '</div>' +
+            '<p class="fail-box-text">Si el reporte del banco dice esto, es una <b>FALLA</b> y se envía así: no se repite la prueba para borrarla. ' +
+            'Quien aprueba decide si es una <b>falla válida</b> (cuenta para CoP) o una <b>prueba inválida</b> (no cuenta, con su causa).</p>' +
+            '<label class="fail-box-check u-hit"><input type="checkbox" id="lib-fail-confirm" onchange="libFailDeclSet()"' + (d.confirmed ? ' checked' : '') + '> ' +
+            'Releí el reporte del banco: el valor capturado es el medido.</label>' +
+            '<label class="fail-box-lbl" for="lib-fail-note">Qué observaste</label>' +
+            '<textarea id="lib-fail-note" rows="2" class="fail-box-note" oninput="libFailDeclSet()" ' +
+            'placeholder="Ej.: el reporte de VETS dice lo mismo; el vehículo llegó con el testigo de motor encendido.">' + escapeHtml(d.note || '') + '</textarea>' +
+            '</div>';
+    }
+    box.style.display = '';
+}
+
+/** Lee la tarjeta y actualiza el botón. */
+function libFailDeclSet() {
+    var vid = activeVehicleId;
+    if (vid == null) return;
+    var c = document.getElementById('lib-fail-confirm'), n = document.getElementById('lib-fail-note');
+    _libFailDecl[vid] = { confirmed: !!(c && c.checked), note: n ? n.value : '' };
+    libOnGasChange();
+}
+
+// ─── Aprobación ─────────────────────────────────────────────────────────────
+var _aprFailDecision = {};   // {vehicleId: {verdict, cause, note}} mientras se aprueba (memoria)
+
+/** Gases sobre el límite con estos valores (perfil congelado del liberador). */
+function aprFailingFor(vehicle, values) {
+    var prof = (typeof _libGasProfileForVehicle === 'function') ? _libGasProfileForVehicle(vehicle) : null;
+    if (!prof || !prof.gases) return [];
+    return _libVerifyReleaseValues(prof, values || {}).failing;
+}
+
+/** Motivo por el que aún no se aprueba por la falla ('' = nada pendiente). */
+function aprFailWhyFor(vehicle, values) {
+    return aprFailDecisionWhy(aprFailingFor(vehicle, values), _aprFailDecision[vehicle.id]);
+}
+
+/** Pinta (o esconde) la decisión de la falla en Aprobación. */
+function aprFailBoxSync(vehicle, failing) {
+    var box = document.getElementById('appr-fail-box');
+    if (!box) return;
+    if (!vehicle || !failing || !failing.length) { box.style.display = 'none'; box.innerHTML = ''; box.dataset.key = ''; return; }
+    var d = _aprFailDecision[vehicle.id] = _aprFailDecision[vehicle.id] || { verdict: '', cause: '', note: '' };
+    var key = vehicle.id + '|' + failing.join(',');
+    if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        var lib = (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador) || {};
+        var decl = lib.failDeclared;
+        var opt = function(v, l) { return '<option value="' + v + '"' + (d.verdict === v ? ' selected' : '') + '>' + l + '</option>'; };
+        box.innerHTML =
+            '<div class="fail-box" role="group" aria-labelledby="appr-fail-title">' +
+            '<div class="fail-box-title" id="appr-fail-title">✗ Resultado sobre el límite: ' + escapeHtml(failing.join(', ')) + ' — decide qué es</div>' +
+            (decl && decl.note ? '<p class="fail-box-text">El liberador lo envió como falla' + (decl.by ? ' (' + escapeHtml(decl.by) + ')' : '') +
+                ': «' + escapeHtml(decl.note) + '»</p>' : '') +
+            '<ul class="fail-box-list">' +
+            '<li><b>Falla válida:</b> la prueba se hizo bien y el vehículo emitió eso. Cuenta para CoP como cualquier ensayo y puede llevar a su familia a NO CONCORDANTE.</li>' +
+            '<li><b>Prueba inválida:</b> algo de la prueba hizo que el resultado no represente al vehículo. No cuenta para CoP ni para el REQ; queda en el historial con su causa. Para repetirla, da de alta otra vez el mismo VIN.</li>' +
+            '</ul>' +
+            '<label class="fail-box-lbl" for="appr-fail-verdict">Decisión</label>' +
+            '<select id="appr-fail-verdict" data-chips onchange="aprFailSet()">' +
+            '<option value="">Seleccionar…</option>' + opt('valida', '✗ Falla válida') + opt('invalida', '⊘ Prueba inválida') + '</select>' +
+            '<div id="appr-fail-cause-wrap"' + (d.verdict === 'invalida' ? '' : ' style="display:none;"') + '>' +
+            '<label class="fail-box-lbl" for="appr-fail-cause">Causa</label>' +
+            '<select id="appr-fail-cause" data-chips onchange="aprFailSet()"><option value="">Seleccionar…</option>' +
+            FAIL_INVALID_CAUSES.map(function(c) { return '<option value="' + c.id + '"' + (d.cause === c.id ? ' selected' : '') + '>' + escapeHtml(c.label) + '</option>'; }).join('') +
+            '</select></div>' +
+            '<label class="fail-box-lbl" for="appr-fail-note">En qué te basas</label>' +
+            '<textarea id="appr-fail-note" rows="2" class="fail-box-note" oninput="aprFailSet()" ' +
+            'placeholder="Ej.: revisé el reporte de VETS y la calibración del analizador; la prueba es válida.">' + escapeHtml(d.note || '') + '</textarea>' +
+            '</div>';
+        if (typeof uiChipsEnhance === 'function') uiChipsEnhance(box);
+    }
+    box.style.display = '';
+}
+
+// ─── [3.25.0] Comparado con su familia (aviso, no bloquea) ─────────────────────
+var _aprFamHist = null;   // {id, data}: la historia de la familia se calcula una vez por vehículo abierto
+
+/** Pinta "comparado con su familia" con estos valores (unidad guardada). Devuelve el resultado. */
+function aprFamilyCheckSync(vehicle, values) {
+    var box = document.getElementById('appr-family-check');
+    if (!box) return null;
+    if (!vehicle || typeof copFamilyCheck !== 'function' || !isEmissionsPurpose(vehicle.purpose)) {
+        box.style.display = 'none'; box.innerHTML = ''; _aprFamHist = null; return null;
+    }
+    if (!_aprFamHist || _aprFamHist.id !== vehicle.id) _aprFamHist = { id: vehicle.id, data: copFamilyHistoryFor(vehicle) };
+    var d = _aprFamHist.data;
+    var res = d ? copFamilyCheck(d.history, values || {}, d.gases) : null;
+    if (!res || !res.rows.length) { box.style.display = 'none'; box.innerHTML = ''; return res; }
+    var html = copFamilyCheckHTML(res, d.famLabel);
+    if (box.dataset.html !== html) {   // se teclea: solo se repinta si cambió algo
+        box.dataset.html = html;
+        box.innerHTML = html;
+        if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    }
+    box.style.display = '';
+    return res;
+}
+
+/** Lo que se congela en el registro de aprobación, con la historia de ESTE instante. */
+function aprFamilyCheckRecordFor(vehicle, values) {
+    if (typeof copFamilyCheck !== 'function' || typeof copFamilyHistoryFor !== 'function') return null;
+    var d = copFamilyHistoryFor(vehicle);
+    return d ? copFamilyCheckRecord(copFamilyCheck(d.history, values || {}, d.gases), new Date().toISOString()) : null;
+}
+
+/** Lee la decisión de la falla y actualiza el botón de aprobar. */
+function aprFailSet() {
+    var vid = activeVehicleId;
+    if (vid == null) return;
+    var g = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
+    _aprFailDecision[vid] = { verdict: g('appr-fail-verdict'), cause: g('appr-fail-cause'), note: g('appr-fail-note') };
+    var cw = document.getElementById('appr-fail-cause-wrap');
+    if (cw) cw.style.display = _aprFailDecision[vid].verdict === 'invalida' ? '' : 'none';
+    var v = (db.vehicles || []).find(function(x) { return x.id == vid; });
+    if (!v) return;
+    if (typeof reviewFlowFor === 'function' && reviewFlowFor(v) === 'dirigida') {
+        if (typeof reviewRefreshButton === 'function') reviewRefreshButton(v);
+    } else {
+        libOnApproverGasChange();
+    }
+}
+
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('Primero elige un vehículo en la parte de arriba.', 'warning'); return; }
@@ -25097,6 +25433,7 @@ function submitToApproval() {
     if (_blockers.length > 0) { _showPdfMissingPopup(_blockers, vehicle.id); return; }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
+    var _failOnly = false, _failDecl = null, _rel = null;   // [3.25.0]
     // El checklist de liberación se imprime en el F05 con la firma del liberador
     // debajo: no se envía con confirmaciones en blanco.
     if (isEm) {
@@ -25124,7 +25461,18 @@ function submitToApproval() {
             return;
         }
         var _rel = _libVerifyReleaseValues(profile, gasValues);
-        if (!_rel.ok) {
+        // [3.25.0] Todo capturado y algo sobre el límite: se envía como FALLA declarada.
+        // Exige la confirmación y la observación del liberador, EN su campo.
+        _failOnly = !_rel.ok && !_rel.missing.length && _rel.failing.length > 0;
+        if (_failOnly) {
+            _failDecl = _libFailDecl[vehicle.id] || { confirmed: false, note: '' };
+            var _fw = libFailDeclWhy(_rel.failing, _failDecl);
+            if (_fw) {
+                var _fel = document.getElementById(_failDecl.confirmed ? 'lib-fail-note' : 'lib-fail-confirm');
+                uiInvalid(_fel, _fw);
+                return;
+            }
+        } else if (!_rel.ok) {
             // [2.12.0] Cada gas que falta o no pasa se marca EN su casilla y se lleva a la primera.
             var _gasBox = document.getElementById('lib-gas-entry-content');
             if (_gasBox && typeof uiFieldError === 'function') {
@@ -25175,6 +25523,15 @@ function submitToApproval() {
                     // equipo del aprobador tenga otro.
                     profile: _libGasProfileSnapshot(_profFrozen, regName)
                 };
+                // [3.25.0] La falla va DECLARADA: qué gases y qué observó quien la envía.
+                if (_failOnly) {
+                    var _su = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+                    vehicle.testData.gasResults.liberador.failing = _rel.failing.slice();
+                    vehicle.testData.gasResults.liberador.failDeclared = {
+                        note: String(_failDecl.note || '').trim(), by: sig.signerName || '', at: new Date().toISOString()
+                    };
+                    if (_su && _su.id) vehicle.testData.gasResults.liberador.failDeclared.byId = _su.id;
+                }
                 _libAuditImplausibleValues(vehicle, gasValues, 'liberador');
             }
             if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
@@ -25187,10 +25544,19 @@ function submitToApproval() {
             vehicle.timeline.push({
                 timestamp: new Date().toISOString(),
                 user: sig.signerName || 'Liberador',
-                action: _wasReturn ? 'Reenviado a Aprobación (corregido)' : 'Enviado a Aprobación',
+                action: (_wasReturn ? 'Reenviado a Aprobación (corregido)' : 'Enviado a Aprobación') +
+                        (_failOnly ? ' con resultado sobre el límite (' + _rel.failing.join(', ') + ')' : ''),
                 data: { status: 'pending-approval', gasValues: gasValues,
                         releaseChecklist: vehicle.testData.releaseChecklist || null }
             });
+            if (_failOnly) {
+                vehicle.timeline[vehicle.timeline.length - 1].data.failing = _rel.failing.slice();
+                auditLog('cop15', 'falla_declarada', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                    'Enviada como falla: ' + _rel.failing.join(', ') + ' sobre el límite. ' + String(_failDecl.note || '').trim(),
+                    { before: { estado: 'ready-release' },
+                      after: { estado: 'pending-approval', sobreLimite: _rel.failing.slice(), valores: gasValues } });
+                delete _libFailDecl[vehicle.id];
+            }
             auditLog('cop15', _wasReturn ? 'vehicle_resubmitted' : 'vehicle_pending_approval', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
                 (_wasReturn ? 'Reenviado tras devolución por ' : 'Enviado a aprobación por ') + (sig.signerName || ''));
             if (saveDB() === false) {
@@ -25201,7 +25567,7 @@ function submitToApproval() {
             updateProgressBar();
             document.getElementById('releaseVehSelect').value = '';
             document.getElementById('lib-content').style.display = 'none';
-            showToast('Vehículo enviado a aprobación', 'success');
+            showToast(_failOnly ? 'Enviado a aprobación como FALLA. Quien apruebe decide si es válida o inválida.' : 'Vehículo enviado a aprobación', 'success');
         },
         onCancel: function() { showToast('Operación cancelada', 'info'); }
     });
@@ -25296,6 +25662,23 @@ function approveAndArchive() {
         return;
     }
 
+    // [3.25.0] Un resultado sobre el límite no se aprueba sin decidir qué es (capa de datos).
+    var _apFailing = profile ? _libVerifyReleaseValues(profile, approverValues).failing : [];
+    var _apFailWhy = aprFailDecisionWhy(_apFailing, _aprFailDecision[vehicle.id]);
+    if (_apFailWhy) {
+        var _fbx = document.getElementById('appr-fail-box');
+        if (_fbx && _fbx.style.display !== 'none') {
+            var _d0 = _aprFailDecision[vehicle.id] || {};
+            var _fid = (_d0.verdict !== 'valida' && _d0.verdict !== 'invalida') ? 'appr-fail-verdict'
+                     : (_d0.verdict === 'invalida' && !_d0.cause) ? 'appr-fail-cause' : 'appr-fail-note';
+            uiInvalid(document.getElementById(_fid), _apFailWhy);
+        } else {
+            showToast(_apFailWhy, 'warning', 8000);
+        }
+        return;
+    }
+    var _apFailDec = _apFailing.length ? JSON.parse(JSON.stringify(_aprFailDecision[vehicle.id])) : null;
+
     // [3.18.0] Candado de un instante: si otro equipo ya lo aprobó o lo devolvió, no se pide la firma.
     // Aprobar es el único paso que además EXIGE conexión: sin red no se aprueba.
     _cascadeCloudGateThen(vehicle, 'pending-approval', 'aprobar', function() {
@@ -25329,8 +25712,16 @@ function approveAndArchive() {
                 }
             }
 
+            // [3.25.0] Con los valores de ESTE instante: si lo que está sobre el límite cambió
+            // mientras se firmaba, la decisión tomada ya no corresponde.
+            var _failNow = profile ? _libVerifyReleaseValues(profile, approverValues).failing : [];
+            if (_failNow.join('|') !== _apFailing.join('|')) {
+                showToast('Lo que está sobre el límite cambió mientras firmabas. No se archivó: revisa la decisión de la falla.', 'error', 9000);
+                return;
+            }
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
+            var prevFailure = (vehicle.testData && vehicle.testData.failure) ? JSON.parse(JSON.stringify(vehicle.testData.failure)) : null;
             var prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
             try {
                 if (!vehicle.testData) vehicle.testData = {};
@@ -25348,8 +25739,20 @@ function approveAndArchive() {
                         matchVerifiedAt: new Date().toISOString(),
                         method: _flow === 'dirigida' ? 'revision-dirigida' : 'doble-ciego'
                     };
+                    // [3.25.0] Qué tan normal era para su familia, como se vio al aprobar.
+                    var _fcRec = aprFamilyCheckRecordFor(vehicle, approverValues);
+                    if (_fcRec) vehicle.testData.gasResults.aprobador.familyCheck = _fcRec;
                     if (_review) vehicle.testData.review = _review;   // [2.8.0] qué revisó, cuándo y por qué aceptó
                     _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
+                }
+                // [3.25.0] La falla queda registrada con la decisión de quien aprueba.
+                if (_apFailDec) {
+                    var _apUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+                    vehicle.testData.failure = failureRecord(_apFailing, _apFailDec,
+                        { name: sig.signerName || '', id: _apUser && _apUser.id },
+                        (vehicle.testData.gasResults.liberador || {}).failDeclared, new Date().toISOString());
+                } else if (vehicle.testData.failure) {
+                    delete vehicle.testData.failure;
                 }
                 // Aprobado ⇒ los valores coincidieron: limpiar la alarma de desacuerdo
                 if (vehicle.testData.gasResults.mismatch) delete vehicle.testData.gasResults.mismatch;
@@ -25361,7 +25764,8 @@ function approveAndArchive() {
                 vehicle.timeline.push({
                     timestamp: new Date().toISOString(),
                     user: sig.signerName || 'Aprobador',
-                    action: _review ? 'Vehículo Aprobado (revisión dirigida) y Archivado' : 'Vehículo Aprobado y Archivado',
+                    action: (_review ? 'Vehículo Aprobado (revisión dirigida) y Archivado' : 'Vehículo Aprobado y Archivado') +
+                            (_apFailDec ? ' — ' + vehicleFailureText(vehicle.testData.failure) : ''),
                     data: _review
                         ? { status: 'archived', revision: _review.blocks.map(function(b) { return b.title + ': ' + b.status + (b.justification ? ' — ' + b.justification : ''); }) }
                         : { status: 'archived', approverValues: approverValues }
@@ -25379,13 +25783,31 @@ function approveAndArchive() {
                     fbPostTestCompleted(vehicle.vin, _res);
                 }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
+                var _fcA = (vehicle.testData.gasResults.aprobador || {}).familyCheck;
+                if (_fcA && _fcA.atypical && _fcA.atypical.length) {
+                    auditLog('cop15', 'aprobado_con_atipico', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                        'Aprobado con valores atípicos para su familia: ' + _fcA.atypical.map(function(r) { return r.label + ' ' + r.value + ' (media ' + r.mean + ', ' + r.z + 'σ)'; }).join(', '),
+                        { after: { atipicos: _fcA.atypical } });
+                }
+                if (_apFailDec) {
+                    auditLog('cop15', 'prueba_falla', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                        vehicleFailureText(vehicle.testData.failure) + ' · ' + vehicle.testData.failure.note,
+                        { before: { falla: prevFailure }, after: { falla: vehicle.testData.failure } });
+                }
                 generateCOP15PDF(vehicle.id, { silent: true });
-                showToast('Vehículo aprobado y archivado. PDF generado.', 'success');
-                if (typeof animateConfetti === 'function') animateConfetti();
+                if (_apFailDec) {
+                    showToast(_apFailDec.verdict === 'valida'
+                        ? 'Archivado como FALLA válida: cuenta para CoP. PDF generado.'
+                        : 'Archivado como prueba inválida: no cuenta para CoP. Para repetirla, da de alta otra vez el VIN.', 'info', 9000);
+                } else {
+                    showToast('Vehículo aprobado y archivado. PDF generado.', 'success');
+                    if (typeof animateConfetti === 'function') animateConfetti();
+                }
             } catch(e) {
                 vehicle.status = prevStatus;
                 vehicle.timeline = prevTimeline;
                 delete vehicle.archivedAt;
+                if (prevFailure) vehicle.testData.failure = prevFailure; else if (vehicle.testData) delete vehicle.testData.failure;
                 showToast('Error al archivar: ' + e.message + '. Cambios revertidos.', 'error');
                 void 0;
                 return;
@@ -25396,6 +25818,7 @@ function approveAndArchive() {
                 vehicle.status = prevStatus;
                 vehicle.timeline = prevTimeline;
                 delete vehicle.archivedAt;
+                if (prevFailure) vehicle.testData.failure = prevFailure; else if (vehicle.testData) delete vehicle.testData.failure;
                 showConfirm(
                     'No hay espacio para guardar el archivado y <b>se revirtió el cambio</b>. '
                     + 'El vehículo sigue listo para liberar.<br><br>'
@@ -25451,6 +25874,7 @@ function approveAndArchive() {
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
             document.getElementById('approvalVehSelect').value = '';
             document.getElementById('appr-content').style.display = 'none';
+            delete _aprFailDecision[vehicle.id];   // [3.25.0]
             if (window._pendingCreditChoice != null) {
                 var _pcc = window._pendingCreditChoice;
                 window._pendingCreditChoice = null;
@@ -25565,23 +25989,53 @@ function requestRetest() {
     if (!activeVehicleId) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle) return;
-    showConfirm('¿Regresar este vehículo a prueba? Se perderán los datos de liberación.', function() {
-        undoPush('cop15', 'Retest: ' + vehicle.vin);
-        vehicle.status = 'registered';
-        vehicle.timeline.push({
+    // [3.25.0] Repetir ya no borra en silencio: lo que estaba tecleado se guarda en la línea
+    // de tiempo con el motivo. Y si hay un gas sobre el límite se DICE que eso se envía como
+    // falla: repetir para borrar un resultado no se puede justificar ante un auditor.
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    var regName = isEm ? _libGetVehicleRegulation(vehicle) : null;
+    var profile = isEm && regName ? _libCaptureProfileFor(vehicle, regName) : null;
+    var typed = profile ? _libCollectGasValues(profile, 'lib-gas-entry-content') : {};
+    var kept = {};
+    Object.keys(typed).forEach(function(k) { if (typed[k] !== null && typed[k] !== undefined) kept[k] = typed[k]; });
+    var failing = (profile && Object.keys(kept).length) ? _libVerifyReleaseValues(profile, kept).failing : [];
+    uiPrompt({
+        title: '🔄 Repetir la prueba',
+        label: (failing.length
+            ? '⚠ ' + failing.join(', ') + ' está sobre el límite. Si el reporte del banco dice eso, no repitas: envíala como FALLA. Si la prueba salió mal por otra causa, escribe cuál. '
+            : '') + '¿Por qué se repite la prueba?',
+        placeholder: 'Ej.: se cortó el ciclo en la fase 3 por una falla del dinamómetro',
+        confirmText: 'Regresar a prueba',
+        multiline: true
+    }).then(function(motivo) {
+        if (motivo === null) return;
+        motivo = String(motivo || '').trim();
+        if (motivo.length < FAIL_NOTE_MIN) { showToast('Escribe por qué se repite (al menos ' + FAIL_NOTE_MIN + ' caracteres).', 'warning'); return; }
+        var v = (db.vehicles || []).find(function(x) { return x.id == vehicle.id; });
+        if (!v) return;
+        undoPush('cop15', 'Retest: ' + v.vin);
+        var prev = v.status;
+        v.status = 'registered';
+        var entry = { status: 'registered', retest: true, reason: motivo };
+        if (Object.keys(kept).length) entry.discardedValues = kept;
+        if (failing.length) entry.discardedFailing = failing.slice();
+        v.timeline.push({
             timestamp: new Date().toISOString(),
-            user: 'Sistema',
-            action: 'Retest solicitado - Vehículo regresado a estado inicial',
-            data: { status: 'registered', retest: true }
+            user: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') || 'Sistema' : 'Sistema',
+            action: 'Retest solicitado - Vehículo regresado a estado inicial: ' + motivo,
+            data: entry
         });
-        auditLog('cop15', 'vehicle_retest', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Retest solicitado');
+        auditLog('cop15', 'vehicle_retest', { type: 'vehicle', id: v.id, label: v.vin }, 'Retest solicitado: ' + motivo,
+            { before: { estado: prev, valoresTecleados: Object.keys(kept).length ? kept : null, sobreLimite: failing.length ? failing : null },
+              after: { estado: 'registered' } });
         saveDB();
+        delete _libFailDecl[v.id];
         refreshAllLists();
         updateProgressBar();
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
-        showToast('Vehículo marcado para nueva prueba', 'info');
-    }, { title: 'Confirmar Retest', confirmText: 'Regresar a Prueba' });
+        showToast('Vehículo marcado para nueva prueba' + (Object.keys(kept).length ? ' (lo tecleado quedó en su línea de tiempo)' : ''), 'info');
+    });
 }
 
 function _renderUsedCylinders(vehicle) {
@@ -25836,6 +26290,7 @@ function histRowFacts(v) {
     }
     miss += clMiss; soft += clAuto;
     var cu = typeof copTestUsable === 'function' ? copTestUsable(v) : null;
+    var fail = typeof vehicleFailure === 'function' ? vehicleFailure(v) : null;   // [3.25.0]
 
     var famParts = [cfg['Modelo'], cfg['ENGINE CAPACITY'], cfg['ENGINE PACKAGE'], cfg['ENVIRONMENT PACKAGE'],
                     cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], cfg['EMISSION REGULATION'], cfg['BODY TYPE']].map(_histNz).filter(Boolean);
@@ -25859,6 +26314,7 @@ function histRowFacts(v) {
         emis: emis, gasCount: gasCount,
         miss: miss, soft: soft,
         copExcluded: !!(cu && !cu.usable), copWhy: cu && !cu.usable ? cu.text : '',
+        failValid: !!(fail && fail.verdict === 'valida'), failText: fail ? vehicleFailureText(fail) : '',
         adhoc: !!v.adhoc, testRef: testRef
     };
     f.text = _histFoldTxt([f.vin, f.configCode, f.famLabel, f.region, f.purpose, purposeLabel, statusLabel, testRef]
@@ -26247,6 +26703,7 @@ function _histRowHTML(r, toks) {
             (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v, { compact: true, quiet: true }) : '') +
             (r.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : '') +
             (r.copExcluded ? '<span class="offplan-badge" data-cop-excluded="1" title="Aceptada, pero no cuenta para CoP ni para el REQ del plan: ' + escapeHtml(r.copWhy) + '">⊘ No cuenta para CoP</span>' : '') +
+            (r.failValid ? '<span class="offplan-badge hist-fail-badge" data-fail="valida" title="' + escapeHtml(r.failText) + ' — cuenta para CoP">✗ Falla</span>' : '') +
             (r.testRef ? '<div class="u-muted-xs" title="Test Reference de VETS">VETS ' + _histHi(r.testRef, toks) + '</div>' : '') +
         '</td>' +
         '<td data-label="Configuración">' +
@@ -27111,6 +27568,72 @@ function trainingFormFill(tr) {
 function trainingGasesToggle() {
   var sel = document.getElementById('tr_gases'), blk = document.getElementById('tr-gases-block');
   if (blk) blk.style.display = (sel && sel.value === 'yes') ? '' : 'none';
+}
+
+// ─── [3.25.0] Gases de un vehículo Master en una prueba de formato simple ───────────────
+// Se guardan en testData.simple.master = {values (unidad del perfil), profile:{name,gases},
+// capturedAt}. NUNCA en gasResults: eso lo leen el CoP, el SPC de familias y el F05 como
+// resultado verificado de una prueba de emisiones. La carta de la celda los lee
+// (copMasterFamilies) solo cuando la prueba está aprobada.
+
+/** El Master (db.siteMasters) de este vehículo por VIN, o null. */
+function vehicleMasterOf(v) {
+    var vin = String((v && v.vin) || '').trim().toUpperCase();
+    if (!vin || typeof db === 'undefined' || !db) return null;
+    return (db.siteMasters || []).filter(function(m) {
+        return m && !m.deleted && String(m.vin || '').trim().toUpperCase() === vin;
+    })[0] || null;
+}
+
+function _masterGasProfile(vehicle) {
+    var reg = _libGetVehicleRegulation(vehicle);
+    return reg ? _libCaptureProfileFor(vehicle, reg) : null;
+}
+
+/** Muestra (o esconde) el bloque de gases del Master en Operación. */
+function masterGasSync(vehicle) {
+    var blk = document.getElementById('master-gas-block'), box = document.getElementById('master-gas-entry');
+    if (!blk || !box) return;
+    var m = vehicle && !isEmissionsPurpose(vehicle.purpose) ? vehicleMasterOf(vehicle) : null;
+    if (!m) { blk.style.display = 'none'; box.innerHTML = ''; return; }
+    blk.style.display = '';
+    var prof = _masterGasProfile(vehicle);
+    if (!prof || !prof.gases || !prof.gases.length) {
+        box.innerHTML = '<p class="master-gas-hint">La regulación de este vehículo no tiene perfil de gases: no hay qué capturar. ' +
+                        'Revisa su alta (Historial → ⋯ → Corregir alta).</p>';
+        return;
+    }
+    var cur = (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.master) || {};
+    _libRenderGasEntry('master-gas-entry', prof, cur.values || {}, 'masterGasOnChange()');
+}
+
+function masterGasOnChange() {
+    var v = (db.vehicles || []).find(function(x) { return x.id == activeVehicleId; });
+    var prof = v ? _masterGasProfile(v) : null;
+    if (prof) _libUpdateGasStatuses(prof, 'master-gas-entry');
+}
+
+/** Lo que hay en el bloque, como se guarda; `prev` si el bloque no está a la vista. */
+function masterGasFromForm(vehicle, prev) {
+    var blk = document.getElementById('master-gas-block');
+    if (!blk || blk.style.display === 'none' || !document.querySelector('#master-gas-entry .lib-gas-input')) return prev || null;
+    var prof = _masterGasProfile(vehicle);
+    if (!prof) return prev || null;
+    var vals = _libCollectGasValues(prof, 'master-gas-entry'), any = false;
+    Object.keys(vals).forEach(function(k) { if (vals[k] === null) delete vals[k]; else any = true; });
+    if (!any) return null;
+    return { values: vals, capturedAt: new Date().toISOString(),
+             profile: { name: prof.name || '', gases: prof.gases.map(function(g) { return { field: g.field, label: g.label, unit: g.unit }; }) } };
+}
+
+/** Línea de resumen de los gases del Master (Liberación, Aprobación). PURA. */
+function masterGasSummaryHTML(mg) {
+    if (!mg || !mg.values) return '';
+    var esc = typeof escapeHtml === 'function' ? escapeHtml : function(x) { return String(x); };
+    var gases = (mg.profile && mg.profile.gases) || Object.keys(mg.values).map(function(f) { return { field: f, label: f, unit: '' }; });
+    var parts = gases.filter(function(g) { return mg.values[g.field] !== undefined && mg.values[g.field] !== null; })
+        .map(function(g) { return esc(g.label || g.field) + ' ' + esc(String(mg.values[g.field])) + (g.unit ? ' ' + esc(g.unit) : ''); });
+    return parts.length ? '<strong>🎯 Gases del Master:</strong> ' + parts.join(' · ') + '<br>' : '';
 }
 
 /** [3.9.0] Resultado de un Training en líneas para Liberación, Aprobación e Historial. PURA. */
@@ -30797,6 +31320,8 @@ var CASCADE_TOOLTIPS = {
     tr_violations: { title: 'Violations', text: 'Salidas de la banda de velocidad (violations) que reporta el sistema al terminar el ciclo. Escribe 0 si no hubo.' },
     tr_iwr: { title: 'IWR (%)', text: 'Inertial Work Rating del ciclo, en %. Puede ser negativo. Para una prueba de WLTP válida va de −2 a +4 %; en un Training solo se registra.' },
     tr_gases: { title: '¿Se midieron gases?', text: 'Si en este Training se midieron emisiones, elige Sí y captura Fuel Economy y CO₂ con su unidad. No entran al CoP ni a ninguna estadística de emisiones.' },
+    appr_family_check: { title: 'Comparado con su familia', text: 'Cada gas contra lo normal de su familia: la media ± 3σ de los ensayos ya aprobados (la misma carta de control del CoP). Atípico = más de 3σ: revisa unidad, bolsa y que no sobre ni falte un cero. Es un aviso: no bloquea la aprobación y queda anotado en el registro.' },
+    master_gases: { title: 'Gases del vehículo Master', text: 'Un Master es el mismo vehículo probado una y otra vez. Sus gases se grafican en CoP → Control SPC → 🎯 Celda: si se mueven, lo que cambió es la celda (analizador, dinamómetro, procedimiento). Teclea los valores del reporte del banco, en la unidad que muestra cada fila.' },
     simple_notes: { title: 'Comentarios / Observaciones', text: 'Notas generales sobre este registro. D\u00e9jalo vac\u00edo si no aplica.' },
 
     op_status: { title: 'Estado del veh\u00edculo', text: 'Etapa actual del veh\u00edculo en el flujo del laboratorio. C\u00e1mbiala manualmente solo si necesitas corregir el flujo autom\u00e1tico \u2014 normalmente avanza sola conforme completas cada bloque.' },
@@ -43647,7 +44172,10 @@ function _siteMasterPanelHTML(id) {
     var opt = function(map, sel) { return Object.keys(map).map(function(k) { return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + e(map[k].label) + '</option>'; }).join(''); };
     html += '<div class="st-tools">' +
         (pe.inLab ? '' : '<button type="button" class="tp-btn tp-btn-primary" onclick="siteMasterStartTest(' + q + ')" title="Abre el Alta con su VIN">🧪 Empezar una prueba</button>') +
-        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveStart(\'master\',' + q + ')" title="A otro lugar de afuera, o adentro a un cajón o al dinamómetro">↔ Mover</button></div>' +
+        '<button type="button" class="tp-btn tp-btn-ghost" onclick="siteMoveStart(\'master\',' + q + ')" title="A otro lugar de afuera, o adentro a un cajón o al dinamómetro">↔ Mover</button>' +
+        // [3.25.0] Sus pruebas, graficadas: la deriva de la celda.
+        (typeof copSpcOpenMaster === 'function' ? '<button type="button" class="tp-btn tp-btn-ghost" onclick="copSpcOpenMaster(' + q + ')" title="CoP → Control SPC → Celda: sus gases prueba tras prueba">📈 Carta de la celda</button>' : '') +
+        '</div>' +
         '<details class="rm-more st-more"><summary>Editar</summary>' +
           '<label class="st-field">Carrocería<select data-chips onchange="siteMasterSetBody(' + q + ', this.value)">' + opt(SITE_BODIES, SITE_BODIES[m.body] ? m.body : 'sedan') + '</select></label>' +
           '<label class="st-field">Color<select data-chips onchange="siteMasterSetPaint(' + q + ', this.value)">' + opt(SITE_PAINTS, SITE_PAINTS[m.paint] ? m.paint : 'blanco') + '</select></label>' +
@@ -59572,6 +60100,25 @@ function pnGetActiveAlerts() {
             });
         } catch (e) {}
     }
+    // [3.25.0] Deriva de la celda: un vehículo Master fuera de control apunta al laboratorio.
+    if (typeof copMasterScanAlarms === 'function') {
+        try {
+            copMasterScanAlarms().forEach(function(a) {
+                alerts.push(_pnAlert('ALTA', 'master-deriva', 'CoP SPC', 'Celda: ' + a.gasLabel + ' del Master ' + a.famLabel.replace(/^🎯 /, '') +
+                    ' fuera de control (' + (a.rule || '') + ') — revisa analizador, dinamómetro y procedimiento'));
+            });
+        } catch (e) {}
+    }
+    // [3.25.0] Falla válida en los últimos 30 días: cuenta para CoP y hay que leerla.
+    if (typeof vehicleFailure === 'function' && typeof db !== 'undefined' && db && db.vehicles) {
+        var _f30 = Date.now() - 30 * 86400000;
+        db.vehicles.forEach(function(v) {
+            var f = vehicleFailure(v);
+            if (!f || f.verdict !== 'valida' || !(Date.parse(f.at) >= _f30)) return;
+            alerts.push(_pnAlert('ALTA', 'prueba-falla', 'COP15', 'Falla válida: ' + (v.vin || '?') + ' — ' + (f.gases || []).join(', ') +
+                ' sobre el límite (' + (v.configCode || '') + ')'));
+        });
+    }
 
     // v15.9: Consumo proyectado (modelo aprendido) — gas/gasolina insuficiente para pendientes
     if (typeof invForecastGasNeeds === 'function') {
@@ -59622,7 +60169,9 @@ var PN_ALERT_KINDS = {
     'plan-riesgo':        { icon: '📅', one: 'Pruebas de la semana en riesgo', many: 'avisos del plan', go: "dashGo('testplan','tp-myweek')" },
     'proy-vencido':       { icon: '🗂️', one: 'Paso de proyecto vencido', many: 'pasos de proyecto vencidos', go: "dashGo('panel','pn-projects')" },
     'cal-regreso':        { icon: '🚚', one: 'Instrumento no ha regresado de calibración', many: 'instrumentos no han regresado de calibración', go: "dashGo('inventory','inv-equipment')" },
-    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" }
+    'cal-porvencer':      { icon: '🔧', one: 'Calibración por vencer', many: 'calibraciones por vencer', go: "dashGo('inventory','inv-equipment')" },
+    'master-deriva':      { icon: '🎯', one: 'Posible deriva de la celda (vehículo Master)', many: 'avisos de deriva de la celda (vehículos Master)', go: "copSpcOpenMaster()" },
+    'prueba-falla':       { icon: '✗', one: 'Falla válida en los últimos 30 días', many: 'fallas válidas en los últimos 30 días', go: "dashGo('cop15','dashboard')" }
 };
 var PN_ALERT_LEVEL_ORDER = { CRITICA: 0, ALTA: 1, MEDIA: 2 };
 /** Orden de un nivel (CRITICA primero). Ojo: `ORDEN[l] || 9` mandaba CRITICA (0) al final. */
@@ -71086,7 +71635,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610282100' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610282126' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76361,6 +76910,12 @@ function copSyncVinsFromTests(key) {
 function copTestUsable(vehicle) {
     var s = vehicle && vehicle.testData && vehicle.testData.vets;
     var reasons = (s && typeof vetsDriveTraceInvalid === 'function') ? vetsDriveTraceInvalid(s) : [];
+    // [3.25.0] Una prueba que el aprobador declaró INVÁLIDA (falla con causa ajena al
+    // vehículo) no cuenta. Una falla VÁLIDA sí: su valor entra al muestreo como cualquiera.
+    var f = vehicle && vehicle.testData && vehicle.testData.failure;
+    if (f && f.verdict === 'invalida') {
+        reasons = reasons.concat([{ id: 'invalida', text: 'prueba invalidada al aprobar' + (f.causeLabel ? ': ' + f.causeLabel : '') }]);
+    }
     return { usable: !reasons.length, reasons: reasons,
              text: reasons.map(function(r) { return r.text; }).join(' · ') };
 }
@@ -78632,12 +79187,206 @@ function copSpcScanAlarms() {
     return out;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.25.0] CARTA DE CONTROL DE LOS VEHÍCULOS MASTER — la deriva de la CELDA
+//
+// Un Master (db.siteMasters, 3.17.0) es el mismo vehículo probado una y otra vez. Si sus
+// resultados se mueven, lo que cambió es la celda (analizador, dinamómetro, procedimiento),
+// no el producto. La carta de familias vigila el producto; ésta vigila el laboratorio.
+// Misma matemática (copSpcStats / copSpcFlags / Nelson); cambia QUÉ se agrupa: todas las
+// pruebas APROBADAS del VIN del Master que sirven (copTestUsable), con los gases del
+// formato simple (testData.simple.master, capturados en Operación) o, si la prueba fue de
+// emisiones, los finales de siempre. Aquí el CO₂ SÍ alarma: es el indicador clásico de
+// correlación (combustible y carga del dinamómetro).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Valores de gases de una prueba de un Master, o null si no cuenta. */
+function copMasterTestValues(v) {
+    if (!v || !copResultApproved(v) || !copTestUsable(v).usable) return null;
+    var m = v.testData && v.testData.simple && v.testData.simple.master;
+    if (m && m.values && Object.keys(m.values).some(function(k) { return _copNum(m.values[k]) !== null; })) return m.values;
+    return _copRawGasValues(v);
+}
+
+/** Fecha de la prueba de un Master (formato simple o emisiones). */
+function _copMasterTestDate(v) {
+    var td = (v && v.testData) || {};
+    return String(td.testDatetime || (td.simple && td.simple.datetime) || _copSpcDate(v) || '');
+}
+
+/**
+ * Una "familia" de la carta por cada Master vivo: {key:'MASTER:<id>', masterId, master:true,
+ * label, regName, region, tests:[{vin, date, values, vehicleId}], n}. opts: {masters, vehicles}.
+ */
+function copMasterFamilies(opts) {
+    opts = opts || {};
+    var masters = opts.masters || ((typeof db !== 'undefined' && db && db.siteMasters) || []);
+    var vehicles = opts.vehicles || ((typeof db !== 'undefined' && db && db.vehicles) || []);
+    return masters.filter(function(m) { return m && !m.deleted && m.vin; }).map(function(m) {
+        var vk = _copVinKey(m.vin), regName = '', region = '';
+        var tests = [];
+        vehicles.forEach(function(v) {
+            if (!v || _copVinKey(v.vin) !== vk) return;
+            var vals = copMasterTestValues(v);
+            if (!vals) return;
+            var sm = v.testData && v.testData.simple && v.testData.simple.master;
+            regName = (sm && sm.profile && sm.profile.name) ||
+                      ((typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : '') || regName;
+            region = ((v.config || {})['REGION']) || region;
+            tests.push({ vin: v.vin, date: _copMasterTestDate(v), values: vals, vehicleId: v.id });
+        });
+        tests.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var tail = String(m.vin).slice(-6);
+        return { key: 'MASTER:' + m.id, masterId: m.id, master: true, inScope: true,
+                 label: '🎯 ' + (m.name || 'Master') + ' · …' + tail, regName: regName, region: region,
+                 tests: tests, n: tests.length };
+    }).sort(function(a, b) { return (b.n - a.n) || (a.label < b.label ? -1 : 1); });
+}
+
+/** Alarmas Nelson de las cartas de los Master (CO₂ incluido). → [{famKey, famLabel, gas, gasLabel, rule, val, date, unit, master:true}] */
+function copMasterScanAlarms(opts) {
+    var out = [];
+    copMasterFamilies(opts).filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
+        copSpcGases(f).forEach(function(g) {
+            var pts = copSpcSeries(f, g.field);
+            var st = copSpcStats(pts.map(function(p) { return p.v; }), g.limit);
+            if (!st || st.n < COP_SPC_MIN) return;
+            var fl = copSpcFlags(st), idx = [];
+            fl.forEach(function(a, i) { if (a.length) idx.push(i); });
+            if (!idx.length) return;
+            var last = idx[idx.length - 1];
+            out.push({ famKey: f.key, famLabel: f.label, gas: g.field, gasLabel: g.label, rule: fl[last][0],
+                       val: pts[last].v, date: pts[last].date, unit: g.unit || '', master: true, inScope: true });
+        });
+    });
+    return out;
+}
+
+/** Cambia qué vigila la carta: 'familia' (producto) | 'master' (celda). */
+function copSpcSetSource(src) {
+    copState.spc.source = src === 'master' ? 'master' : 'familia';
+    copPersist(); copRender();
+}
+
+/** Abre la carta de la celda (desde una alerta o el mapa). id opcional del Master. */
+function copSpcOpenMaster(masterId) {
+    if (typeof switchPlatform === 'function') switchPlatform('cop');
+    copState.spc.source = 'master';
+    if (masterId) copState.spc.masterKey = 'MASTER:' + masterId;
+    copPersist();
+    if (typeof copSetView === 'function') copSetView('spc'); else copRender();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.25.0] AL APROBAR: ¿ESTE RESULTADO ES NORMAL PARA SU FAMILIA?
+//
+// La carta de control solo ve lo ya aprobado; nada en la aprobación decía "este NOx está
+// muy fuera de lo normal para esta familia". Aquí cada gas se compara contra la media ± 3σ
+// de los ensayos APROBADOS de su familia (la misma serie y la misma σ = MR̄/1.128 de la
+// carta I-MR). Es un AVISO, nunca bloquea: atrapa una unidad equivocada (g/mi vs g/km),
+// una bolsa mal leída o un cero de más antes de que entren al CoP. Lo que se vio queda
+// congelado en gasResults.aprobador.familyCheck.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_FAMCHECK_WARN_Z = 2;   // > 2σ: poco común
+var COP_FAMCHECK_ALARM_Z = 3;  // > 3σ: atípico (fuera de los límites de control)
+
+/**
+ * Compara valores contra la historia de la familia. PURA.
+ * history = [{values}] (orden de prueba) · values = {campo: número} · gases = [{field,label,unit,limit}]
+ * → {n, rows:[{field,label,unit,value,n,mean,sigma,lo,hi,z,status}], atypical:[row], rare:[row]}
+ *   status: 'normal' | 'raro' | 'atipico' | 'pocos' (n < COP_SPC_MIN) | 'sin-variacion'
+ */
+function copFamilyCheck(history, values, gases) {
+    var rows = [], nMax = 0;
+    (gases || []).forEach(function(g) {
+        var x = _copNum(values && values[g.field]);
+        if (x === null) return;
+        var vals = [];
+        (history || []).forEach(function(t) { var v = _copNum(t && t.values && t.values[g.field]); if (v !== null) vals.push(v); });
+        nMax = Math.max(nMax, vals.length);
+        var row = { field: g.field, label: g.label || g.field, unit: g.unit || '', value: x, n: vals.length };
+        if (vals.length < COP_SPC_MIN) { row.status = 'pocos'; rows.push(row); return; }
+        var st = copSpcStats(vals, null);
+        row.mean = st.mean; row.sigma = st.sigma;
+        if (!(st.sigma > 0)) { row.status = 'sin-variacion'; rows.push(row); return; }
+        row.lo = Math.max(0, st.mean - COP_FAMCHECK_ALARM_Z * st.sigma);
+        row.hi = st.mean + COP_FAMCHECK_ALARM_Z * st.sigma;
+        row.z = (x - st.mean) / st.sigma;
+        var az = Math.abs(row.z);
+        row.status = az > COP_FAMCHECK_ALARM_Z ? 'atipico' : az > COP_FAMCHECK_WARN_Z ? 'raro' : 'normal';
+        rows.push(row);
+    });
+    return { n: nMax, rows: rows,
+             atypical: rows.filter(function(r) { return r.status === 'atipico'; }),
+             rare: rows.filter(function(r) { return r.status === 'raro'; }) };
+}
+
+/** La historia (aprobada) de la familia de un vehículo y sus gases. → {fam, gases} | null */
+function copFamilyHistoryFor(vehicle) {
+    if (!vehicle) return null;
+    var key = copVehicleFamilyKey(vehicle);
+    var fam = copSpcFamilies({ allScopes: true }).filter(function(f) { return f.key === key; })[0] || null;
+    var prof = (typeof _libGasProfileForVehicle === 'function') ? _libGasProfileForVehicle(vehicle) : null;
+    var gases = (prof && prof.gases) || (fam ? copSpcGases(fam) : []);
+    // La serie no incluye a este mismo vehículo (aún no está aprobado; y si lo estuviera, no
+    // se compararía consigo mismo).
+    var hist = fam ? fam.tests.filter(function(t) { return _copVinKey(t.vin) !== _copVinKey(vehicle.vin) || t.date !== _copSpcDate(vehicle); }) : [];
+    return { fam: fam, famLabel: fam ? fam.label : '', history: hist, gases: gases };
+}
+
+/** Texto corto de un número para la tabla. */
+function _copFcFmt(x) { return (typeof _copSpcFmt === 'function') ? _copSpcFmt(x) : String(x); }
+
+/** Tarjeta "comparado con su familia". PURA (recibe el resultado de copFamilyCheck). */
+function copFamilyCheckHTML(res, famLabel) {
+    if (!res || !res.rows.length) return '';
+    var esc = _copEsc;
+    var chip = { normal: '<span class="fc-chip fc-ok">✓ normal</span>', raro: '<span class="fc-chip fc-warn">⚠ poco común</span>',
+                 atipico: '<span class="fc-chip fc-bad">⚠ atípico</span>', pocos: '<span class="fc-chip fc-na">sin historia</span>',
+                 'sin-variacion': '<span class="fc-chip fc-na">sin variación</span>' };
+    var h = '<div class="fc-card' + (res.atypical.length ? ' fc-card--bad' : '') + '">';
+    h += '<div class="fc-title" data-help="appr_family_check">📊 Comparado con su familia' + (res.n ? ' (' + res.n + ' ensayo' + (res.n === 1 ? '' : 's') + ' aprobado' + (res.n === 1 ? '' : 's') + ')' : '') + '</div>';
+    if (famLabel) h += '<div class="u-muted-xs">' + esc(famLabel) + '</div>';
+    if (res.n < COP_SPC_MIN) {
+        h += '<p class="fc-text">Su familia tiene ' + res.n + ' ensayo(s) aprobado(s): hacen falta ' + COP_SPC_MIN + ' para saber qué es normal. No hay con qué comparar todavía.</p></div>';
+        return h;
+    }
+    h += '<table class="fc-table"><thead><tr><th>Gas</th><th>Este</th><th>Normal en la familia</th><th></th></tr></thead><tbody>';
+    res.rows.forEach(function(r) {
+        var rango = (r.lo !== undefined) ? _copFcFmt(r.lo) + ' – ' + _copFcFmt(r.hi) : (r.mean !== undefined ? '≈ ' + _copFcFmt(r.mean) : '—');
+        h += '<tr class="fc-row fc-row--' + r.status + '"><td>' + esc(r.label) + '</td><td><b>' + _copFcFmt(r.value) + '</b> ' + esc(r.unit) + '</td>' +
+             '<td>' + rango + (r.mean !== undefined ? ' <span class="u-muted-xs">(media ' + _copFcFmt(r.mean) + ')</span>' : '') + '</td><td>' + (chip[r.status] || '') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    if (res.atypical.length) {
+        h += '<p class="fc-text"><b>' + res.atypical.map(function(r) { return esc(r.label); }).join(', ') + '</b> está muy fuera de lo normal para esta familia (más de 3σ). ' +
+             'Antes de aprobar revisa la unidad (g/mi contra g/km), la bolsa y que no sobre ni falte un cero. <b>No bloquea</b>: si el valor es real, apruébalo y quedará anotado.</p>';
+    } else if (res.rare.length) {
+        h += '<p class="fc-text">' + res.rare.map(function(r) { return esc(r.label); }).join(', ') + ' está en la orilla de lo normal (más de 2σ). Vale la pena una segunda mirada.</p>';
+    } else {
+        h += '<p class="fc-text">Todo dentro de lo normal para su familia.</p>';
+    }
+    return h + '</div>';
+}
+
+/** Lo que se congela en el registro de aprobación (sin claves undefined). PURA. */
+function copFamilyCheckRecord(res, nowIso) {
+    if (!res || res.n < COP_SPC_MIN) return null;
+    var pick = function(r) { return { field: r.field, label: r.label, value: r.value, mean: r.mean, sigma: r.sigma, z: Math.round(r.z * 100) / 100 }; };
+    return { n: res.n, at: nowIso, atypical: res.atypical.map(pick), rare: res.rare.map(pick) };
+}
+
 // ─── SPC: manejadores ─────────────────────────────────────────────────────────
-function copSpcSelectFamily(key) { copState.spc.familyKey = key; copPersist(); copRender(); }
+function copSpcSelectFamily(key) {
+    // [3.25.0] La carta de la celda recuerda su propio Master elegido.
+    if (String(key).indexOf('MASTER:') === 0) copState.spc.masterKey = key; else copState.spc.familyKey = key;
+    copPersist(); copRender();
+}
 function copSpcSelectGas(f) { copState.spc.gas = f; copPersist(); copRender(); }
 function copSpcToggle(opt, el) { copState.spc[opt] = !!(el && el.checked); copPersist(); copRender(); }
 function copSpcGotoAlarm(famKey, gas) {
-    copState.spc.familyKey = famKey;
+    if (String(famKey).indexOf('MASTER:') === 0) { copState.spc.source = 'master'; copState.spc.masterKey = famKey; }   // [3.25.0]
+    else { copState.spc.source = 'familia'; copState.spc.familyKey = famKey; }
     copState.spc.gas = gas;
     copPersist();
     copRender();
@@ -78647,12 +79396,15 @@ function copSpcGotoAlarm(famKey, gas) {
 
 // Resuelve familia y gas seleccionados (con defaults sensatos).
 function _copSpcSelection() {
-    var fams = copSpcFamilies();
-    if (!fams.length) return { fams: fams, fam: null, gases: [], gas: null };
-    var fam = fams.find(function(f) { return f.key === copState.spc.familyKey; }) || fams[0];
+    // [3.25.0] Producto (familias) o celda (vehículos Master): misma carta, otras series.
+    var master = copState.spc.source === 'master';
+    var fams = master ? copMasterFamilies() : copSpcFamilies();
+    if (!fams.length) return { fams: fams, fam: null, gases: [], gas: null, master: master };
+    var want = master ? copState.spc.masterKey : copState.spc.familyKey;
+    var fam = fams.find(function(f) { return f.key === want; }) || fams[0];
     var gases = copSpcGases(fam);
     var gas = gases.find(function(g) { return g.field === copState.spc.gas; }) || gases[0] || null;
-    return { fams: fams, fam: fam, gases: gases, gas: gas };
+    return { fams: fams, fam: fam, gases: gases, gas: gas, master: master };
 }
 
 // ─── SPC: HTML ────────────────────────────────────────────────────────────────
@@ -78661,7 +79413,8 @@ function copBuildSpcHTML() {
     var html = '';
 
     // Panel de alarmas (retráctil)
-    var alarms = copSpcScanAlarms();
+    // [3.25.0] Las alarmas de la celda (Master) van en la misma lista, marcadas.
+    var alarms = copSpcScanAlarms().concat(copMasterScanAlarms());
     html += '<details class="card" style="margin-bottom: var(--space-lg);" ' + (alarms.length ? 'open' : '') + '>';
     html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap: var(--space-md);font-weight:var(--weight-bold);color:var(--text);">' +
             '🚨 Alarmas de control de proceso ' +
@@ -78677,6 +79430,7 @@ function copBuildSpcHTML() {
                     'style="display:flex;gap: var(--space-md);align-items:center;flex-wrap:wrap;padding: var(--space-sm) var(--space-md);margin-bottom: var(--space-sm);cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
             html += '<span class="badge badge-danger" style="padding: var(--space-2xs) var(--space-sm);border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:800;">' + a.rule + '</span>';
+            if (a.master) html += '<span class="cop-spc-cell-tag" title="Vehículo Master: si se mueve, lo que cambió es la celda">🎯 Celda</span>';
             html += '<b style="font-size:12px;">' + _copEsc(a.gasLabel) + '</b>';
             html += '<span style="font-size:12px;color:var(--text);">' + _copEsc(a.famLabel) + '</span>';
             html += '<span style="margin-left:auto;font-size: var(--fs-sm);color:var(--muted);">' + COP_SPC_RULES[a.rule] +
@@ -78688,7 +79442,24 @@ function copBuildSpcHTML() {
 
     // Selección familia + gas + toggles
     html += '<div class="card" style="margin-bottom: var(--space-lg);">';
-    html += '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    html += sel.master
+        ? '<div class="card-title" data-help="cop-spc-master-help" style="border-bottom-color:var(--accent-cop);">🎯 Carta de control de la celda (vehículos Master)</div>'
+        : '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    // [3.25.0] Qué se vigila: el producto (familias) o la celda (el mismo vehículo una y otra vez).
+    html += '<div class="cop-spc-source" role="group" aria-label="Qué vigilar">' +
+        '<button type="button" class="cop-spc-src' + (sel.master ? '' : ' is-on') + '" aria-pressed="' + !sel.master + '" onclick="copSpcSetSource(\'familia\')">📈 Producto (familias)</button>' +
+        '<button type="button" class="cop-spc-src' + (sel.master ? ' is-on' : '') + '" aria-pressed="' + sel.master + '" onclick="copSpcSetSource(\'master\')">🎯 Celda (vehículos Master)</button>' +
+        '</div>';
+    if (sel.master) {
+        html += '<p class="cop-guide">El Master es el mismo vehículo probado una y otra vez: si sus resultados se mueven, lo que cambió es la ' +
+                '<b>celda</b> (analizador, dinamómetro, procedimiento), no el producto. Una alarma aquí pide revisar el equipo antes de seguir probando. ' +
+                'Aquí el CO₂ también alarma.</p>';
+    }
+    if (!sel.fams.length && sel.master) {
+        html += '<p class="label-title" style="margin:0;color:var(--warning);">No hay vehículos Master dados de alta. Se agregan en el mapa del laboratorio ' +
+                '(Pruebas → Consumibles → 🗺️ Mapa → Laboratorio, estacionamiento de afuera).</p></div>';
+        return html;
+    }
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
                 'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
@@ -78697,8 +79468,8 @@ function copBuildSpcHTML() {
         return html;
     }
     html += '<div style="display:flex;gap: var(--space-lg);flex-wrap:wrap;align-items:flex-end;margin-bottom: var(--space-md);">';
-    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">Familia (' + sel.fams.length + ')</p>';
-    html += '<select aria-label="Familia para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom: var(--space-sm);">' + (sel.master ? 'Vehículo Master' : 'Familia') + ' (' + sel.fams.length + ')</p>';
+    html += '<select aria-label="' + (sel.master ? 'Vehículo Master' : 'Familia') + ' para Control SPC" onchange="copSpcSelectFamily(this.value)" style="width:100%;padding: var(--space-sm) var(--space-md);font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     sel.fams.forEach(function(f) {
         html += '<option value="' + _copEsc(f.key) + '" ' + (sel.fam && f.key === sel.fam.key ? 'selected' : '') + '>' +
                 _copEsc(f.label) + ' (' + f.n + ' ensayo' + (f.n === 1 ? '' : 's') + ')</option>';
@@ -78723,7 +79494,7 @@ function copBuildSpcHTML() {
     html += '</div>';
 
     // [2.31.0] Ensayos de la familia fuera de la carta (aceptados, inválidos para CoP).
-    if (sel.fam) html += _copExcludedNoteHTML(copExcludedTests({ familyKey: sel.fam.key, allScopes: true }), 'la carta de control');
+    if (sel.fam && !sel.master) html += _copExcludedNoteHTML(copExcludedTests({ familyKey: sel.fam.key, allScopes: true }), 'la carta de control');
 
     // Serie + estadística
     var pts = copSpcSeries(sel.fam, sel.gas ? sel.gas.field : '');
@@ -78731,7 +79502,11 @@ function copBuildSpcHTML() {
     var unit = sel.gas ? (sel.gas.unit || '') : '';
 
     if (!st) {
-        html += '<p class="label-title" style="margin-top: var(--space-md);">Sin datos para este gas en la familia seleccionada.</p>';
+        html += sel.master && sel.fam && !sel.fam.n
+            ? '<p class="cop-guide" style="margin-top: var(--space-md);">Este Master aún no tiene pruebas aprobadas con gases. En su prueba de correlación, ' +
+              'Operación (formato simple) muestra el bloque <b>🎯 Gases del vehículo Master</b>: captúralos del reporte del banco. ' +
+              'Con ' + COP_SPC_MIN + ' pruebas aprobadas la carta ya tiene límites de control.</p>'
+            : '<p class="label-title" style="margin-top: var(--space-md);">Sin datos para este gas en ' + (sel.master ? 'el Master seleccionado' : 'la familia seleccionada') + '.</p>';
         html += '</div>';
         return html;
     }
@@ -78774,6 +79549,7 @@ function copBuildSpcHTML() {
     html += '<p><b>Carta de individuos (I-MR):</b> cada ensayo es una medición única por familia. La línea central es la media histórica de esa familia para el gas elegido; UCL/LCL son media ± 3σ, con σ estimada del rango móvil (MR̄/1.128). Son los <b>límites de control del proceso</b>, distintos del límite regulatorio (línea ámbar).</p>';
     html += '<p><b>Reglas de alarma (Nelson):</b> R1 = punto fuera de ±3σ (rojo); R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos en fila subiendo o bajando (tendencia). Cualquiera dispara la alarma de la familia.</p>';
     html += '<p><b>Cpk:</b> capacidad del proceso frente al límite regulatorio = (Límite − media) / 3σ. Cpk ≥ 1.33 se considera capaz; &lt; 1.0 indica resultados demasiado cerca (o por encima) del límite. Se calcula con ≥ ' + COP_SPC_RELIABLE + ' ensayos.</p>';
+    html += '<p><b>Celda (vehículos Master):</b> la misma carta, pero con las pruebas de un mismo vehículo. Como el vehículo no cambia, una alarma apunta al laboratorio: revisa calibración del analizador, dinamómetro y procedimiento antes de seguir probando. En la celda el CO₂ sí genera alarmas.</p>';
     html += '<p><b>Umbrales:</b> n&lt;' + COP_SPC_MIN + ' → datos insuficientes; ' + COP_SPC_MIN + '–' + (COP_SPC_RELIABLE - 1) + ' → límites preliminares; ≥' + COP_SPC_RELIABLE + ' → confiables. CO2 se grafica para vigilancia pero no genera alarmas (no tiene límite).</p>';
     html += '</div></details>';
 
@@ -78980,6 +79756,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó la cota de falla); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
+    'cop-spc-master-help': { title: 'Carta de la celda (vehículos Master)', text: 'Cada punto es una prueba aprobada del mismo vehículo Master. Si se sale de control, el producto no cambió: revisa la celda (analizador, dinamómetro, procedimiento) antes de seguir probando. Los gases se capturan en Operación, en la prueba de correlación del Master.' },
     'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' },
     'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
     'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'La barra compara Xtests (el promedio con DF) contra dos cotas de UN R154 §2.1.1 que dependen de cuántos vehículos llevas y de su dispersión (VAR). A la izquierda de la cota de paso la familia es CONCORDANTE; a la derecha de la cota de falla es NO CONCORDANTE; en medio, hace falta otro vehículo. La marca negra es dónde está Xtests ahora.' },
@@ -87099,6 +87876,9 @@ function reviewBlocks(vehicle, ctx) {
 
     // 4 · Resultados
     var lib = (td.gasResults && td.gasResults.liberador && td.gasResults.liberador.values) || {};
+    // [3.25.0] El liberador la envió como FALLA (confirmó el reporte): sobre el límite deja
+    // de ser "no se acepta" y pasa a pedir la decisión (válida / inválida) del aprobador.
+    var failDecl = !!(td.gasResults && td.gasResults.liberador && td.gasResults.liberador.failDeclared);
     var prof = ctx.profile;
     if (!prof || !prof.gases || !prof.gases.length) add('resultados', 'fail', 'No hay perfil de gases con qué juzgar.', true);
     else prof.gases.forEach(function(g) {
@@ -87107,7 +87887,10 @@ function reviewBlocks(vehicle, ctx) {
         if (v == null || v === '') { if (lim !== null) add('resultados', 'fail', g.label + ': sin valor del liberador.', true); return; }
         v = Number(v);
         var txt = g.label + ' ' + _reviewFmt(v) + ' ' + g.unit + (lim !== null ? ' · límite ' + lim : ' · sin límite');
-        if (lim !== null && v > lim) add('resultados', 'fail', txt + ' — SOBRE EL LÍMITE.', true);
+        if (lim !== null && v > lim) {
+            if (failDecl) add('resultados', 'warn', txt + ' — SOBRE EL LÍMITE: el liberador la envió como FALLA. Decide abajo si es válida o inválida.');
+            else add('resultados', 'fail', txt + ' — SOBRE EL LÍMITE.', true);
+        }
         else add('resultados', 'ok', txt + (lim !== null ? ' (' + _reviewFmt(v / lim * 100, 3) + ' % del límite)' : '') + '.');
         var vv = ctx.gasValue ? ctx.gasValue(s, g.field, g.unit) : null;
         if (vv !== null && vv !== undefined) {
@@ -87221,19 +88004,29 @@ function reviewRenderApproval(vehicle) {
     });
     h += '<div id="review-status" class="review-status" aria-live="polite"></div>';
     el.innerHTML = h;
+    // [3.25.0] La decisión de la falla vive fuera de este bloque (no se borra al marcar).
+    if (typeof aprFailBoxSync === 'function') aprFailBoxSync(vehicle, aprFailingFor(vehicle, _reviewLibValues(vehicle)));
+    if (typeof aprFamilyCheckSync === 'function') aprFamilyCheckSync(vehicle, _reviewLibValues(vehicle));
     reviewRefreshButton(vehicle, blocks);
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+/** [3.25.0] Valores del liberador (los que se aprueban en revisión dirigida). */
+function _reviewLibValues(vehicle) {
+    var gr = vehicle && vehicle.testData && vehicle.testData.gasResults;
+    return (gr && gr.liberador && gr.liberador.values) || {};
 }
 
 function reviewRefreshButton(vehicle, blocks) {
     var r = reviewReady(blocks || reviewBlocks(vehicle, reviewContextFor(vehicle)), _reviewMarks[vehicle.id]);
     var btn = document.getElementById('approve-archive-btn');
-    var _vw = (typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '';   // [2.20.0]
+    var _vw = ((typeof aprFailWhyFor === 'function') ? aprFailWhyFor(vehicle, _reviewLibValues(vehicle)) : '') ||
+              ((typeof _aprVetsWhy === 'function') ? _aprVetsWhy(vehicle) : '');   // [2.20.0] [3.25.0]
     uiExplainDisabled(btn, r.ok ? _vw : r.hard.length
         ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.');
     var box = document.getElementById('review-status');
-    if (box) box.textContent = r.ok ? 'Los cinco bloques están revisados: ya puedes aprobar y firmar.'
+    if (box) box.textContent = r.ok ? (_vw ? 'Los cinco bloques están revisados. Falta: ' + _vw : 'Los cinco bloques están revisados: ya puedes aprobar y firmar.')
         : r.hard.length ? 'No se puede aprobar: ' + r.hard.join(', ') + ' tiene un problema que no se acepta. Devuélvela al liberador.'
         : 'Falta revisar: ' + r.missing.join(', ') + '.';
 }
@@ -90886,7 +91679,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9905,"mods":[[9908,"js/app.js",20208],[20212,"js/uiflow.js",20547],[20551,"js/cop15.js",31623],[31627,"js/inventory.js",39631],[39635,"js/cuarto.js",41765],[41769,"js/sitio.js",43949],[43953,"js/conslist.js",44561],[44565,"js/testplan.js",56565],[56569,"js/bloques.js",57190],[57194,"js/panel.js",62560],[62564,"js/projects.js",64853],[64857,"js/auth.js",65937],[65941,"js/signatures.js",66303],[66307,"js/firebase-sync.js",74926],[74930,"js/cop_validator.js",79633],[79637,"js/copreport.js",81458],[81462,"js/cophq.js",82272],[82276,"js/homolog.js",84173],[84177,"js/vets.js",85976],[85980,"js/historico.js",86894],[86898,"js/review.js",87351],[87355,"js/opcards.js",87804],[87808,"js/handoff.js",88087],[88091,"js/ficha.js",88592],[88596,"js/relevo.js",88976],[88980,"js/momentos.js",89117],[89121,"js/normas.js",89526],[89530,"js/digest.js",90458],[90462,"js/xlsxw.js",90842],[90846,"js/bugreport.js",91992]]};
+var BUG_LINE_MAP = {"tag":9973,"mods":[[9976,"js/app.js",20288],[20292,"js/uiflow.js",20627],[20631,"js/cop15.js",32148],[32152,"js/inventory.js",40156],[40160,"js/cuarto.js",42290],[42294,"js/sitio.js",44477],[44481,"js/conslist.js",45089],[45093,"js/testplan.js",57093],[57097,"js/bloques.js",57718],[57722,"js/panel.js",63109],[63113,"js/projects.js",65402],[65406,"js/auth.js",66486],[66490,"js/signatures.js",66852],[66856,"js/firebase-sync.js",75475],[75479,"js/cop_validator.js",80410],[80414,"js/copreport.js",82235],[82239,"js/cophq.js",83049],[83053,"js/homolog.js",84950],[84954,"js/vets.js",86753],[86757,"js/historico.js",87671],[87675,"js/review.js",88144],[88148,"js/opcards.js",88597],[88601,"js/handoff.js",88880],[88884,"js/ficha.js",89385],[89389,"js/relevo.js",89769],[89773,"js/momentos.js",89910],[89914,"js/normas.js",90319],[90323,"js/digest.js",91251],[91255,"js/xlsxw.js",91635],[91639,"js/bugreport.js",92785]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
