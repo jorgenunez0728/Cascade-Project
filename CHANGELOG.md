@@ -20,6 +20,99 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.24.0 — Bloques de la celda y la fecha de prueba en el CoP (2026-10-28)
+
+La gerencia pidió ver bien la calendarización de la semana siguiente. Además, el laboratorio
+quería que cada lugar de prueba de la semana quede explicado: si un día no se probó, se registra
+por qué. Esta versión cubre las dos cosas.
+
+### Nuevo
+- **🧱 Bloques de la semana** (Plan → Mi semana). La capacidad instalada de la celda, lugar por
+  lugar: los pares preacondicionar → probar de lunes a viernes por los vehículos de cada par. Con
+  2 por par son 8 bloques: dos pruebas de martes a viernes. Cada bloque muestra una de tres cosas:
+  - la prueba que se corrió ese día, por su **fecha de prueba**, como el calendario;
+  - lo planeado, si el día no ha llegado;
+  - el motivo, si quedó vacío.
+
+  Una semana sin plan también tiene bloques.
+- **El motivo de un bloque vacío lo pone un signatario.** Se elige de una lista cerrada, con una
+  nota opcional:
+  - Quality check / verificación interna;
+  - Mantenimiento o calibración;
+  - Proyecto;
+  - Sin vehículo disponible;
+  - Celda fuera de servicio;
+  - Prueba inválida o repetida;
+  - Sin personal / capacitación;
+  - Día festivo.
+
+  Se puede aplicar a todos los bloques vacíos del mismo día. Queda en el historial de cambios con
+  antes y después, y lo ven todos los equipos.
+- **Lo que la plataforma ya sabe se pone solo**, marcado "automático", y el signatario lo puede
+  cambiar:
+  - un día no laborable (Plan → Disponibilidad): también pierde la prueba del día siguiente,
+    porque no se preacondicionó;
+  - una semana sin celda;
+  - un mantenimiento o una calibración registrados ese día en un equipo que detiene pruebas.
+- **HOY** le avisa al signatario los bloques sin explicar de esta semana y de la anterior.
+- **📤 Excel de la semana** (en la misma tarjeta). Sirve para mandar la semana que viene o para
+  cerrar la que pasó. Trae:
+  - la cuadrícula del laboratorio: por día, el preacondicionamiento y la prueba de cada bloque;
+  - el resumen del uso de la celda;
+  - la bitácora de bloques en su propia hoja.
+- **El libro de auditoría** pone los motivos en su calendario, como actividades de la lista
+  desplegable, y suma la hoja **Cell use**: el uso de la celda semana por semana y la bitácora
+  completa. Las fórmulas se recalculan igual en Excel y LibreOffice.
+- **El estatus CoP del viernes** trae la sección *Uso de la celda*: los bloques de esta semana y
+  el plan de la siguiente (aceptado o propuesta), bloque por bloque, sin VIN.
+
+### Nuevo en el CoP
+- **Fecha de prueba en el Validador.** Cada VIN de la tabla trae el día en que se probó:
+  - con 🔒 si el VIN es del laboratorio (no se teclea; si está mal, se corrige en Historial →
+    📝 Completar);
+  - con ≈ si esa prueba no traía fecha (se muestra el día en que se capturaron los resultados);
+  - en amarillo, para teclearla, si el VIN es manual.
+
+  **↕ Por fecha de prueba** ordena la tabla de la prueba más vieja a la más reciente. La tabla de
+  CO₂ también trae la fecha, y el juicio guardado congela la fecha de cada VIN.
+- **Colores que dicen qué hacer** en la tabla, con su leyenda arriba:
+  - azul = viene del laboratorio (prueba aprobada);
+  - amarillo punteado = vacío, teclea aquí;
+  - blanco = tecleado a mano.
+
+  Cada campo trae un ejemplo y dice su unidad.
+
+### Arreglado
+- **La fecha que usaba el CoP era la de aprobación, no la de prueba.** Una prueba del martes
+  aprobada el jueves salía el jueves en:
+  - la mesa;
+  - la carta de control (I-MR);
+  - el orden de la secuencia de CO₂;
+  - el PDF del expediente.
+
+  Ahora todos usan la fecha de prueba, la misma del calendario.
+- "Limpiar valores" ya no borra la fecha tecleada de un VIN manual.
+- La ayuda de "Alcance del CoP" seguía diciendo EURO-5 / EURO-6E en Europa y Medio Oriente; ahora
+  se arma del alcance vigente.
+
+### Para desarrollo
+- `js/bloques.js` (carga después de testplan.js). `tpBlocksCompute(src)` (PURA) es LA definición
+  de los bloques de una semana; `tpBlocksForWeek(weekDate)` le pasa los datos de la plataforma.
+- `tpBlockLayout(soak, perSlot)` = la capacidad instalada (lunes a viernes, reposo default).
+- Lo único que se guarda es `tpState.blockNotes` (`{blockId: {reason, note, by, at}}`). Se une con
+  `tpBlockNotesUnion`/`NewTo` en los mismos puntos del sync que `reqFamilies`. Quitar un motivo deja
+  `reason: null`.
+- `tpBlockExplain` pide `test.approve` en la capa de datos y audita con antes y después.
+- `tpWeekXlsxSpec` (PURA) arma el Excel de la semana. La hoja `Cell use` del libro sale de
+  `_tpAuditCellUseSheet`. `TP_AUDIT_ACTIVITIES` suma los motivos nuevos.
+- El reporte CoP lee `model.cell` (`_copRepCell`, sin VIN). Lo pinta `_crBlocksTable`, con tablas
+  para Outlook.
+- Pruebas: `tests/bloques.node.js`, con recálculo en LibreOffice, y `tests/v3240.e2e.js`.
+- CoP: `_copSpcDate` usa `testDatetime` (o el del formato simple) antes que el día de captura.
+  `copTestDate(v)` da la fecha de prueba con `approx`, y `copMesaRowDate(row, key)` la de una fila.
+  Las filas manuales guardan `row.testDate`. Las clases `cop-in--lab|todo|manual` llevan prefijo
+  `input.`, porque la regla global `input:valid` pinta de verde y les ganaba.
+
 ## 3.23.0 — El estatus CoP, listo para la gerencia (2026-10-27)
 
 Atiende lo que pidió la gerencia tras el primer estatus enviado (semana 43): cuántos ensayos se

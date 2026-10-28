@@ -1741,7 +1741,33 @@ function copSetVin(el) {
     var id = parseInt(el.dataset.vid);
     var v = copState.vehicles.find(function(x) { return x.id === id; });
     if (v) v.vin = el.value;
+    if (v && v.source !== 'auto') _copInTone(el, el.value);
     copPersist(); // sin re-render para no perder el foco
+}
+/** [3.24.0] La fecha de prueba de un VIN que el laboratorio no tiene (fila manual). */
+function copSetRowDate(el) {
+    var id = parseInt(el.dataset.vid);
+    var v = copState.vehicles.find(function(x) { return x.id === id; });
+    if (!v) return;
+    var d = String(el.value || '');
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    if (d) v.testDate = d; else delete v.testDate;
+    _copInTone(el, d);
+    _copSetVehicles(copState.vehicles);
+    copPersist();
+}
+/** [3.24.0] Ordena la mesa por fecha de prueba (lo que no tiene fecha va al final). */
+function copSortMesaByDate() {
+    copInitState();
+    var key = copState.familyKey, vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var conDia = copState.vehicles.map(function(r, i) { return { r: r, i: i, d: copMesaRowDate(r, key, vehicles).date }; });
+    conDia.sort(function(a, b) {
+        if (!a.d !== !b.d) return a.d ? -1 : 1;
+        return a.d < b.d ? -1 : a.d > b.d ? 1 : a.i - b.i;
+    });
+    _copSetVehicles(conDia.map(function(x) { return x.r; }));
+    copPersist(); copRender();
+    if (typeof showToast === 'function') showToast('Mesa ordenada por fecha de prueba', 'success');
 }
 /**
  * v19.0 — el registro se CONGELA con lo que se usó para decidir.
@@ -1767,7 +1793,12 @@ function copSaveJudgment() {
         regulation: copState.regulation, fuelType: copState.fuelType,
         emissionReg: _copFamilyEmissionReg(copState.familyKey),
         activePolls: JSON.parse(JSON.stringify(copState.activePolls)),
-        vehicles: JSON.parse(JSON.stringify(copMesaRows())),
+        // [3.24.0] Con la fecha de prueba de cada VIN: un registro dice CUÁNDO se ensayó cada uno.
+        vehicles: JSON.parse(JSON.stringify(copMesaRows())).map(function(r) {
+            var d = copMesaRowDate(r, copState.familyKey);
+            if (d.date) { r.testDate = d.date; if (d.approx) r.testDateApprox = true; }
+            return r;
+        }),
         // [2.31.0] Lo que se dejó fuera, y por qué: el registro tiene que decirlo.
         excluded: copExcludedTests({ familyKey: copState.familyKey, allScopes: true }).map(function(x) {
             return { vin: x.vin, date: String(x.date || '').slice(0, 10), reason: x.text };
@@ -2373,8 +2404,15 @@ function copHandleInput(el) {
     var pid = el.dataset.pid;
     var vehicle = copState.vehicles.find(function(v) { return v.id === vid; });
     if (vehicle) vehicle.values[pid] = el.value;
+    _copInTone(el, el.value);
     copPersist();
     copRenderStats();
+}
+/** [3.24.0] El color de una celda tecleada: vacía = amarilla (teclea aquí); con valor = blanca. */
+function _copInTone(el, val) {
+    if (!el || !el.classList) return;
+    el.classList.remove('cop-in--lab', 'cop-in--todo', 'cop-in--manual');
+    el.classList.add(String(val || '') === '' ? 'cop-in--todo' : 'cop-in--manual');
 }
 
 function copClearData() {
@@ -2383,7 +2421,8 @@ function copClearData() {
     if (!conValor) { showToast('No hay valores que limpiar.', 'info'); return; }
     var hacer = function() {
         var antes = JSON.parse(JSON.stringify(copState.vehicles));
-        _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
+        // [3.24.0] La fecha de prueba de una fila manual no es un "valor": se queda.
+        _copSetVehicles(copState.vehicles.map(function(v) { var r = { id: v.id, vin: v.vin, values: {}, source: v.source }; if (v.testDate) r.testDate = v.testDate; return r; }));
         copState._lastDecision = null;
         copPersist();
         copRender();
@@ -3138,6 +3177,30 @@ function copBuildHTML() {
 }
 
 // ─── HTML: VISTA VALIDADOR ────────────────────────────────────────────────────
+/** [3.24.0] La celda de la fecha de prueba: del laboratorio (bloqueada) o tecleada. */
+function _copMesaDateCellHTML(row, d) {
+    if (d.source === 'lab') {
+        return '<span class="cop-date cop-date--lab" title="' + (d.approx
+                    ? 'La prueba no trae fecha de prueba: es el día en que se capturaron los resultados. Corrígela en Historial → 📝 Completar.'
+                    : 'Fecha de la prueba en el laboratorio. No se teclea aquí: si está mal, corrígela en Historial → 📝 Completar.') + '">' +
+               '🔒 ' + _copEsc(d.date) + (d.approx ? ' <b>≈</b>' : '') + '</span>';
+    }
+    return '<input type="date" class="cop-in cop-in--date ' + (d.date ? 'cop-in--manual' : 'cop-in--todo') + '" value="' + _copEsc(d.date || '') + '" ' +
+           'data-vid="' + row.id + '" onchange="copSetRowDate(this)" aria-label="Fecha de prueba — VIN ' + _copEsc(row.vin || '(sin VIN)') + '" ' +
+           'title="Este VIN no está en el laboratorio: teclea el día en que se probó" />';
+}
+
+/** [3.24.0] La leyenda de colores de la mesa: qué sale solo y dónde se teclea. */
+function _copMesaLegendHTML() {
+    return '<div class="cop-legend" role="note" aria-label="Qué significa cada color">' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--lab" aria-hidden="true"></span><b>Azul</b> = viene del laboratorio (prueba aprobada)</span>' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--todo" aria-hidden="true"></span><b>Amarillo</b> = vacío: <b>teclea aquí</b></span>' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--manual" aria-hidden="true"></span><b>Blanco</b> = tecleado a mano</span>' +
+        '<span class="cop-legend-item"><span class="cop-date cop-date--lab" aria-hidden="true">🔒</span> fecha de la prueba, no se edita aquí</span>' +
+        '<span class="cop-legend-item"><span aria-hidden="true">⊘</span> tachado = no cuenta para CoP (se dice por qué)</span>' +
+    '</div>';
+}
+
 function copBuildValidatorHTML() {
     var limits = COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS;
     var activeLimits = copGetActiveLimits();
@@ -3263,6 +3326,7 @@ function copBuildValidatorHTML() {
 
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">';
     html += '<button onclick="copAddManualRow()" class="btn btn-sm btn-ghost" style="color:var(--info);">➕ VIN manual</button>';
+    html += '<button onclick="copSortMesaByDate()" class="btn btn-sm btn-ghost" title="Ordena los VINes de la prueba más vieja a la más reciente">↕ Por fecha de prueba</button>';
     html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar valores</button>';
     html += '<button onclick="copSaveJudgment()" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;margin-left:auto;">💾 Guardar juicio</button>';
     html += '</div>';
@@ -3284,12 +3348,16 @@ function copBuildValidatorHTML() {
                     '. Revisa cuál es el correcto y usa ↻ en la fila para traer el del laboratorio.';
             html += '</div>';
         }
+        // [3.24.0] Qué es cada color: qué sale solo y dónde se teclea.
+        html += _copMesaLegendHTML();
+        var _vehs = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
         html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
         html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
+        html += '<th scope="col" style="' + _copTh() + 'text-align:left;" data-help="cop-mesa-date-help">Fecha de prueba</th>';
         activeLimits.forEach(function(p) {
             html += '<th scope="col" style="' + _copTh() + '">' + p.label +
                     '<br><span style="font-size: var(--fs-xs);font-weight:400;color:var(--muted);text-transform:none;">L=' + copFmtLimit(p.limit, p.isPn) + ' ' + p.unit + '</span></th>';
@@ -3303,18 +3371,23 @@ function copBuildValidatorHTML() {
             html += '<tr' + (_exTxt ? ' class="cop-row--excluded" title="No cuenta para CoP: ' + _copEsc(_exTxt) + '"' : '') + '>';
             html += '<td style="' + _copTd() + 'text-align:left;padding-left: var(--space-md);">';
             if (_exTxt) html += '<div class="cop-row-excluded-why">⊘ No cuenta: ' + _copEsc(_exTxt) + '</div>';
+            var _auto = v.source === 'auto';
             html += '<input type="text" aria-label="VIN" value="' + _copEsc(v.vin || '') + '" data-vid="' + v.id + '" ' +
-                    'oninput="copSetVin(this)" placeholder="VIN" ' + (v.source === 'auto' ? 'title="Auto desde vehículo probado" ' : '') +
-                    'style="width:170px;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);box-sizing:border-box;font-family:monospace;' +
-                    (v.source === 'auto' ? 'border-left:3px solid var(--accent-cop);' : '') + '" />';
+                    'oninput="copSetVin(this)" placeholder="Ej.: KNAE2E…" ' +
+                    'title="' + (_auto ? 'Viene de un vehículo probado de esta familia' : 'VIN tecleado a mano') + '" ' +
+                    'class="cop-in cop-in--vin ' + (_auto ? 'cop-in--lab' : (v.vin ? 'cop-in--manual' : 'cop-in--todo')) + '" />';
             html += '</td>';
+            html += '<td style="' + _copTd() + 'text-align:left;white-space:nowrap;">' + _copMesaDateCellHTML(v, copMesaRowDate(v, copState.familyKey, _vehs)) + '</td>';
             activeLimits.forEach(function(p) {
+                var _val = v.values[p.id] !== undefined ? v.values[p.id] : '';
+                var _cls = _val === '' ? 'cop-in--todo' : (_auto && !v.staleAuto ? 'cop-in--lab' : 'cop-in--manual');
                 html += '<td style="' + _copTd() + 'padding: var(--space-sm) var(--space-sm);">';
-                html += '<input type="number" step="any" inputmode="decimal" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
-                html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
+                html += '<input type="number" step="any" inputmode="decimal" placeholder="Ej.: 0.12" aria-label="' + _copEsc(p.label) + ' (' + _copEsc(p.unit) + ') — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
+                html += 'value="' + _val + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
-                html += 'style="width:90px;padding: var(--space-sm) var(--space-sm);font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
+                html += 'title="' + (_cls === 'cop-in--lab' ? 'Resultado aprobado en el laboratorio' : _cls === 'cop-in--todo' ? 'Teclea el resultado en ' + _copEsc(p.unit) : 'Valor tecleado a mano') + '" ';
+                html += 'class="cop-in cop-in--num ' + _cls + '" />';
                 html += '</td>';
             });
             html += '<td style="' + _copTd() + 'padding: var(--space-xs);white-space:nowrap;">';
@@ -3332,7 +3405,8 @@ function copBuildValidatorHTML() {
 
         html += '</tbody></table>';
         html += '</div>'; // overflow-x
-        html += '<p class="label-title" style="margin-top: var(--space-md);font-size: var(--fs-xs);color:var(--muted);">Los VINes marcados en azul se autollenaron desde vehículos probados de la familia; captura/edita los gases. El veredicto se recalcula en vivo (requiere ≥3 VINes con valor por contaminante).</p>';
+        html += '<p class="cop-guide">El veredicto se recalcula en vivo mientras tecleas. Hacen falta <b>3 VINes o más con valor</b> en cada contaminante. ' +
+                'Las unidades son las del encabezado de cada columna.</p>';
     }
     html += '</div>'; // data card
 
@@ -3418,14 +3492,56 @@ var COP_SPC_RELIABLE = 8; // n para límites confiables y Cpk
 var COP_SPC_RULES = { R1: 'Fuera de ±3σ', R2: 'Corrimiento (8 de un lado)', R3: 'Tendencia (6 en fila)' };
 
 function _copSpcDate(v) {
-    var gr = v && v.testData && v.testData.gasResults;
+    var td = v && v.testData, gr = td && td.gasResults;
     if (!gr) return '';
-    // [2.30.0] Una prueba histórica se confirma hoy, pero ocurrió cuando dice VETS: la
-    // carta I-MR va en orden de PRUEBA (si no, los rangos móviles se calculan revueltos).
-    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && v.testData.testDatetime) return v.testData.testDatetime;
+    // [3.24.0] Orden de PRUEBA, de verdad: el día de la prueba (testDatetime, o el del formato
+    // simple), como el calendario (2.32.0). Antes solo el histórico lo usaba y el resto tomaba
+    // el día en que el aprobador capturó: una prueba del martes aprobada el jueves salía el
+    // jueves en la mesa, la carta I-MR y la secuencia de CO₂.
+    if (td.testDatetime) return String(td.testDatetime);
+    if (td.simple && td.simple.datetime) return String(td.simple.datetime);
+    // Sin fecha de prueba (registros viejos): el día de captura, y se marca como aproximado.
     var rec = (gr.aprobador && gr.aprobador.values) ? gr.aprobador
             : (gr.liberador && gr.liberador.values) ? gr.liberador : null;
     return (rec && rec.capturedAt) || '';
+}
+
+/**
+ * [3.24.0] LA fecha de prueba de un ensayo del CoP → {date: 'AAAA-MM-DD' | '', approx}.
+ * `approx` = la prueba no trae fecha y se tomó el día en que se capturaron los resultados.
+ */
+function copTestDate(v) {
+    var td = (v && v.testData) || {};
+    var real = String(td.testDatetime || (td.simple && td.simple.datetime) || '').slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(real)) return { date: real, approx: false };
+    var d = String(_copSpcDate(v) || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? { date: d, approx: true } : { date: '', approx: false };
+}
+
+/**
+ * [3.24.0] LA fecha de prueba de una fila de la mesa → {date, source: 'lab'|'manual'|'',
+ * approx, vehicleId}. Si el VIN es del laboratorio, sale de SU prueba (la que cuenta, o la
+ * más reciente de la familia) y no se teclea. Solo un VIN que el laboratorio no tiene usa la
+ * fecha que se capturó en la fila (`row.testDate`).
+ */
+function copMesaRowDate(row, key, vehicles) {
+    if (!row) return { date: '', source: '', approx: false, vehicleId: null };
+    vehicles = vehicles || ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []);
+    if (row.vin) {
+        var veh = _copVinBestTest(row.vin, key, vehicles);
+        if (!veh) {
+            var mine = _copVinTests(row.vin, key, vehicles).filter(function(v) { return copTestDate(v).date; });
+            mine.sort(function(a, b) { var da = _copSpcDate(a), dbb = _copSpcDate(b); return da < dbb ? -1 : da > dbb ? 1 : 0; });
+            veh = mine.length ? mine[mine.length - 1] : null;
+        }
+        if (veh) {
+            var d = copTestDate(veh);
+            if (d.date) return { date: d.date, source: 'lab', approx: d.approx, vehicleId: veh.id };
+        }
+    }
+    var m = String(row.testDate || '');
+    return /^\d{4}-\d{2}-\d{2}$/.test(m) ? { date: m, source: 'manual', approx: false, vehicleId: null }
+                                         : { date: '', source: '', approx: false, vehicleId: null };
 }
 
 function _copSpcFmt(v, dec) {
@@ -3918,7 +4034,8 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Si generas el PDF sin un juicio guardado, sale marcado PRELIMINAR — a propósito.'
     ]},
     'cop-validator': { title: 'Validador CoP', text: 'Valida la conformidad de producción de una familia: elige región y familia, la tabla se llena con los VINes ya probados, y el veredicto CONCORDANTE se calcula en vivo (muestreo secuencial, mínimo 3 VINes).', tips: [
-        'Los VINes en azul se autollenaron desde vehículos ya probados; captura/edita los gases que falten.',
+        'Colores de la tabla: azul = viene del laboratorio; amarillo = vacío, teclea ahí; blanco = tecleado a mano.',
+        'La fecha de prueba de cada VIN sale sola (🔒) si el VIN es del laboratorio; solo un VIN manual pide teclearla. ↕ ordena la tabla por fecha.',
         'Necesitas al menos 3 VINes con valor por contaminante para obtener un veredicto.',
         'Guarda el juicio con 💾 para dejar constancia auditable de la evaluación.'
     ]},
@@ -3930,6 +4047,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, con la regla de UN R154 §2.1.1: promedio de las emisiones × DF asignado (Xtests) contra A·L − VAR/L (pasa) y A·L − ((n−3)/13)·VAR/L (falla), con A = 1.05. Desde 3 VINes; entre las dos cotas hace falta otra medición, hasta 16.' },
+    'cop-mesa-date-help': { title: 'Fecha de prueba', text: 'El día en que se corrió la prueba de ese VIN (no el de liberación ni el de aprobación), el mismo que usa el calendario del Plan. Con 🔒 viene del laboratorio: si está mal, se corrige en Historial → 📝 Completar. Con ≈ la prueba no traía fecha y se muestra el día en que se capturaron los resultados. Un VIN que el laboratorio no tiene pide teclear la fecha en el campo amarillo.' },
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó la cota de falla); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
@@ -3937,7 +4055,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
     'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'La barra compara Xtests (el promedio con DF) contra dos cotas de UN R154 §2.1.1 que dependen de cuántos vehículos llevas y de su dispersión (VAR). A la izquierda de la cota de paso la familia es CONCORDANTE; a la derecha de la cota de falla es NO CONCORDANTE; en medio, hace falta otro vehículo. La marca negra es dónde está Xtests ahora.' },
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
-    'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
+    'cop-scope-help': { title: 'Alcance del CoP', text: '' },   // [3.24.0] se arma del alcance real (abajo)
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
     'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa ➖ en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
     'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
@@ -4044,7 +4162,7 @@ function _copBuildCo2HTML() {
     // Tabla por vehículo
     html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
-        ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
+        ['VIN', 'Fecha de prueba', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
         }).join('') + '</tr></thead><tbody>';
 
@@ -4066,6 +4184,7 @@ function _copBuildCo2HTML() {
         };
         html += '<tr>';
         html += cell(r.vin, 'font-weight:700;white-space:nowrap;');
+        html += cell(r.date ? String(r.date).slice(0, 10) : null, 'white-space:nowrap;');
         html += cell(h.mcCode);
         html += cell(r.measured == null ? null : Number(r.measured).toFixed(1));
         html += cell(r.target == null ? null : Number(r.target).toFixed(1));
@@ -4426,7 +4545,7 @@ function copFamilyPDF(familyKey) {
     var gases = (row.polls || []).slice(0, 5);
     doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.text('VIN', ML + 2, y); doc.text('Fecha', ML + 42, y);
+    doc.text('VIN', ML + 2, y); doc.text('Fecha de prueba', ML + 42, y);
     gases.forEach(function(g, i) { doc.text(String(g.label).slice(0, 6), ML + 66 + i * 23, y); });
     y += 4; doc.setFont('helvetica', 'normal');
     (row.tests || []).forEach(function(t) {
@@ -4571,4 +4690,15 @@ function copFamilyPDF(familyKey) {
         auditLog('cop', 'dossier_exported', { type: 'cop', label: row.label },
                  'Expediente PDF' + (preliminar ? ' (preliminar)' : ' del juicio del ' + (judgment.date || '').slice(0, 10)));
     }
+}
+
+// [3.24.0] La ayuda del alcance se arma de COP_HQ_RULES al abrirla: un texto escrito a mano
+// se quedó diciendo "EURO-5, EURO-6E y PRE-EURO 7" después de que el alcance cambió (3.22.0).
+if (typeof CASCADE_TOOLTIPS !== 'undefined' && CASCADE_TOOLTIPS['cop-scope-help']) {
+    Object.defineProperty(CASCADE_TOOLTIPS['cop-scope-help'], 'text', { enumerable: true, configurable: true, get: function() {
+        var alc = (typeof copScopeLabel === 'function') ? copScopeLabel() : '';
+        return 'El laboratorio hace Conformidad de Producción sobre: ' + (alc || 'las parejas región + norma de corporativo') + '. ' +
+               'Solo cuentan las pruebas registradas como CoP · Emisiones. El resto del catálogo se prueba, pero no entra al juicio de ' +
+               'conformidad: aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.';
+    } });
 }

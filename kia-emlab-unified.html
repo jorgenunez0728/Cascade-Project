@@ -5132,6 +5132,25 @@ body.cop-rep-open { overflow: hidden; }
 .cop-note-title { font-weight: var(--weight-bold); margin-bottom: var(--space-xs); }
 /* [2.31.0] Fila de la mesa que no entra al cálculo (ensayo aceptado, inválido para CoP) */
 .cop-row--excluded input { text-decoration: line-through; color: var(--muted); }
+/* [3.24.0] La mesa del Validador: qué sale solo y dónde se teclea */
+.cop-in { box-sizing: border-box; padding: var(--space-sm); font-size: var(--fs-sm); font-family: monospace;
+          border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.cop-in--vin { width: 200px; }
+.cop-in--num { width: 104px; text-align: right; }
+.cop-in--date { width: 150px; font-family: inherit; }
+/* input.cop-in… : la regla global input:valid pinta todo borde de verde y le ganaba a la clase sola. */
+.cop-in--lab, input.cop-in--lab { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-fill); border-left-width: 4px; }
+.cop-in--todo, input.cop-in--todo { background: var(--warn-bg); border: 2px dashed var(--warn-fill); }
+.cop-in--manual, input.cop-in--manual { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+input.cop-in:focus { outline: 2px solid var(--accent-cop); outline-offset: 1px; }
+input.cop-in--todo::placeholder { color: var(--warn-text); opacity: .7; }
+.cop-date { display: inline-block; font-size: var(--fs-sm); font-family: monospace; white-space: nowrap; }
+.cop-date--lab { padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-sm); background: var(--info-bg); color: var(--info-text); }
+.cop-legend { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); margin: 0 0 var(--space-md);
+              padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--surface-alt); font-size: var(--fs-sm); }
+.cop-legend-item { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.cop-swatch { display: inline-block; width: 22px; height: 16px; padding: 0; border-radius: var(--radius-sm); }
+.cop-guide { margin: var(--space-md) 0 0; font-size: var(--fs-sm); color: var(--muted); }
 .cop-row-excluded-why { font-size: var(--fs-2xs); color: var(--warn-text); margin-bottom: var(--space-2xs); }
 /* [2.31.0] Secuencia de la prueba de CO₂ en orden de ensayo */
 .cop-seq { margin-top: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); }
@@ -5344,6 +5363,35 @@ body.cop-present .cop-toolbar    { display: none; }
 .tp-week-empty-icon { font-size: 34px; margin-bottom: var(--space-sm); }
 .tp-week-empty p { color: var(--muted); font-size: var(--fs-sm); margin: var(--space-sm) 0 var(--space-md); }
 .tp-week-unsched { margin-top: var(--space-lg); }
+/* [3.24.0] Bloques de la celda: cada lugar de prueba, con su prueba o su motivo */
+.tp-blk-sum { display: flex; flex-direction: column; gap: var(--space-xs); margin-bottom: var(--space-md); }
+.tp-blk-use { font-size: var(--fs-base); }
+.tp-blk-bad { color: var(--danger-text); }
+.tp-blk-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.tp-blk-chip { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); background: var(--warn-tint); color: var(--warn-text); }
+.tp-blk-cap { font-size: var(--fs-sm); }
+.tp-blk-cap .tp-btn { margin-left: var(--space-xs); }
+.tp-blk-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-md); }
+.tp-blk-day { display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; }
+.tp-blk-dayh { display: flex; flex-direction: column; font-size: var(--fs-sm); }
+.tp-blk { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-sm); align-items: start; text-align: left;
+          width: 100%; min-height: var(--target-min); padding: var(--space-sm); border-radius: var(--radius-md);
+          border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+button.tp-blk { cursor: pointer; }
+button.tp-blk:hover { border-color: var(--border-strong); }
+.tp-blk-n { grid-row: span 2; font-size: var(--fs-xs); color: var(--muted); font-weight: 700; padding-top: 2px; }
+.tp-blk-main { font-size: var(--fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+.tp-blk-sub { font-size: var(--fs-xs); color: var(--muted); overflow-wrap: anywhere; }
+.tp-blk--prueba { background: var(--ok-tint); border-color: var(--ok-bg); }
+.tp-blk--motivo, .tp-blk--auto { background: var(--warn-tint); border-color: var(--warn-bg); }
+.tp-blk--planeada { background: var(--info-tint); border-color: var(--info-bg); }
+.tp-blk--sin-explicar { background: var(--danger-tint); border-color: var(--danger-bg); }
+.tp-blk--sin-explicar .tp-blk-main { color: var(--danger-text); }
+.tp-blk--libre .tp-blk-main, .tp-blk--pendiente .tp-blk-main { color: var(--muted); font-weight: 500; }
+.tp-blk-note { font-size: var(--fs-sm); margin: var(--space-sm) 0 0; }
+.tp-blk-modal textarea, .tp-blk-modal select { width: 100%; font-size: var(--fs-base); }
+.tp-blk-lbl { display: block; font-weight: 600; font-size: var(--fs-sm); margin: var(--space-md) 0 var(--space-xs); }
+.tp-blk-same { display: flex; gap: var(--space-sm); align-items: center; margin-top: var(--space-md); font-size: var(--fs-sm); }
 .tp-week-unsched h4 { margin: 0 0 4px; color: var(--warn-text); font-size: var(--fs-md); }
 .tp-week-unsched p  { margin: 0 0 var(--space-sm); color: var(--muted); font-size: var(--fs-sm); }
 .tp-week-unsched-list {
@@ -10314,10 +10362,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610271847';
+var APP_BUILD = '202610282027';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'e0cbf25562527be0825044ff2ea7b1a6db25ebec';
+var APP_COMMIT = 'c3624f02e0f382534bdd4c2ce877557b55e88d79';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10325,7 +10373,7 @@ var APP_COMMIT = 'e0cbf25562527be0825044ff2ea7b1a6db25ebec';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.23.0';
+var APP_VERSION = '3.24.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10333,6 +10381,17 @@ var APP_VERSION = '3.23.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.24.0', date: '28 oct 2026', title: 'Bloques de la celda y la fecha de prueba en el CoP',
+      bullets: ['Plan → Mi semana → 🧱 Bloques de la semana: la capacidad instalada de la celda, lugar por lugar (con 2 vehículos por par son 8: dos pruebas de martes a viernes). Cada bloque muestra la prueba que se corrió ese día o, si quedó vacío, por qué.',
+                'Un signatario pone el motivo de un bloque vacío de una lista cerrada: quality check, mantenimiento o calibración, proyecto, sin vehículo, celda fuera de servicio, prueba inválida o repetida, sin personal o día festivo, con una nota opcional. Se puede aplicar a todos los bloques vacíos del mismo día.',
+                'Lo que la plataforma ya sabe se pone solo: días no laborables y semanas sin celda (Plan → Disponibilidad), y mantenimientos o calibraciones de equipos que detienen pruebas. El signatario puede cambiarlo.',
+                'HOY le avisa al signatario los bloques sin explicar de esta semana y de la anterior.',
+                '📤 Excel de la semana: la cuadrícula del laboratorio (preacondicionamiento y prueba de cada bloque, día por día), el resumen del uso de la celda y la bitácora de bloques. Sirve para la semana que viene (lo planeado) y para la que pasó (lo que se hizo).',
+                'El libro de auditoría trae los motivos en su calendario (como actividades) y una hoja nueva, Cell use, con el uso de la celda semana por semana.',
+                'El estatus CoP del viernes trae el uso de la celda de la semana y el plan de la siguiente, bloque por bloque y sin VIN.',
+                'CoP → Validador: cada VIN trae su fecha de prueba (🔒 si es del laboratorio; un VIN manual la pide) y ↕ ordena la tabla por fecha. La tabla de CO₂ también la trae.',
+                'La fecha que usa el CoP ahora sí es la de la PRUEBA: antes la mesa, la carta de control, el orden del CO₂ y el PDF del expediente tomaban el día en que se aprobó.',
+                'La tabla del Validador dice con colores qué hacer: azul = viene del laboratorio, amarillo = vacío (teclea aquí), blanco = tecleado a mano, con su leyenda arriba.'] },
     { version: '3.23.0', date: '27 oct 2026', title: 'El estatus CoP, listo para la gerencia',
       bullets: ['El estatus de la semana se rehízo: arriba la frase del avance y cuatro indicadores (avance, ensayos, ritmo y familias cumplidas); después, las familias que requieren atención, los ensayos por semana, los puntos clave, la nota del laboratorio y el estatus por familia.',
                 'Ritmo: cuántos ensayos CoP hubo cada semana (las últimas 8) contra cuántos hacen falta por semana para cerrar el 31 de diciembre, descontando las semanas sin celda de Plan → Disponibilidad, y en qué fecha se terminaría al ritmo actual.',
@@ -11529,14 +11588,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610271847' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610282027' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610271847' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610282027' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11552,7 +11611,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610271847' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610282027' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -15358,6 +15417,25 @@ function dashCollectActivities() {
                 }
             }
         } catch (e) {}
+
+        // [3.24.0] Bloques de la celda sin prueba ni motivo (esta semana y la anterior): los
+        // explica un signatario. Es de hoy, no deuda: la semana se reporta el viernes.
+        try {
+            if (typeof tpBlocksUnexplained === 'function') {
+                var _ub = tpBlocksUnexplained();
+                if (_ub.n) {
+                    var _ubDias = _ub.days.map(function(d) {
+                        return (typeof _tpBlockDayLabel === 'function' ? _tpBlockDayLabel(d.iso).toLowerCase() : d.iso) + (d.n > 1 ? ' (' + d.n + ')' : '');
+                    });
+                    acts.push({ id: 'act-blocks', cat: 'plan', icon: '🧱', perm: 'test.approve',
+                        title: _ub.n + (_ub.n === 1 ? ' bloque de prueba sin explicar' : ' bloques de prueba sin explicar'),
+                        meta: 'No hubo prueba y falta el motivo: ' + _ubDias.join(', '),
+                        status: 'atrasado', urgency: 2,
+                        action: { label: '🧱 Explicar', aria: 'Abrir los bloques de esa semana',
+                                  js: "dashGo('testplan','tp-myweek','tpCalendarOpenWeek','" + _ub.week + "')" } });
+                }
+            }
+        } catch (e) { void 0; }
 
         if (_b && !_b.plan) {
             if ((tpState.weeklyPlans || []).length > 0) {
@@ -44984,6 +45062,7 @@ function _tpEnsureState() {
     }
     if (!tpState.familyOverrides) tpState.familyOverrides = {};
     if (!tpState.reqFamilies || typeof tpState.reqFamilies !== 'object') tpState.reqFamilies = {}; // [2.36.0]
+    if (!tpState.blockNotes || typeof tpState.blockNotes !== 'object') tpState.blockNotes = {};    // [3.24.0] motivos de los bloques
     if (!tpState.configOverrides) tpState.configOverrides = {};
     if (typeof tpState.capacity !== 'number') tpState.capacity = 8;
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
@@ -50169,6 +50248,8 @@ function tpRenderMyWeek(el) {
              '</div>';
         // Sin plan, el armador se muestra abierto: es lo único que hay que hacer aquí.
         h += '<div data-armar="1">' + tpBuildArmarCardHTML(b) + '</div>';
+        // [3.24.0] Una semana sin plan también tiene bloques: lo que se corrió, o por qué no.
+        if (b.weekDate && typeof tpBlocksCardHTML === 'function') h += tpBlocksCardHTML(b.weekDate);
         h += '</div>';
         el.innerHTML = h;
         requestAnimationFrame(function() {
@@ -50222,6 +50303,8 @@ function tpRenderMyWeek(el) {
         b.unscheduled.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays, { suggest: _sugPorFila }); });
         h += '</div></div>';
     }
+    // [3.24.0] Los bloques de la celda: cada lugar de prueba, con su prueba o su motivo.
+    if (b.weekDate && typeof tpBlocksCardHTML === 'function') h += tpBlocksCardHTML(b.weekDate);
 
 
     h += '</div>';
@@ -54504,7 +54587,11 @@ function _tpCalVehicleTested(v, today) {
  * completo. Devuelve {byDay:{iso:[test]}, all:[test], undated:[test]}.
  * test = {date, familyKey, familyShort, configCode, vin, purpose, status, source, vehicleId, declared}
  */
-function tpCalendarTests(fromIso, toIso) {
+function tpCalendarTests(fromIso, toIso, opts) {
+    // [3.24.0] opts.datedOnly: solo lo fechado dentro del rango (sin la lista de sin fecha).
+    // El rango se revisa ANTES de armar la configuración: es lo caro y casi todo queda fuera.
+    var datedOnly = !!(opts && opts.datedOnly);
+    var outOfRange = function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d) ? ((fromIso && d < fromIso) || (toIso && d > toIso)) : datedOnly; };
     var today = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
     var vehicles = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
     var tombs = (typeof db !== 'undefined' && db && Array.isArray(db.deletedVehicles)) ? db.deletedVehicles : [];
@@ -54529,6 +54616,7 @@ function tpCalendarTests(fromIso, toIso) {
         if (!_tpCalVehicleTested(v, today)) return;
         var td = v.testData || {};
         var d = String(td.testDatetime || '').slice(0, 10);
+        if (outOfRange(d)) return;
         var cfg = _tpCalVehicleCfg(v);
         var f = fam(cfg);
         push({
@@ -54565,6 +54653,7 @@ function tpCalendarTests(fromIso, toIso) {
         var date = null;
         if (declared && t.planId) date = itemDay[t.planId + '|' + t.itemUid] || itemDay[t.planId + '|#' + t.itemIdx] || null;
         if (!date) date = /^\d{4}-\d{2}-\d{2}/.test(String(t.date || '')) ? String(t.date).slice(0, 10) : null;
+        if (outOfRange(date || '')) return;
         var cfg = tpConfigByDesc(t.configText);
         var f = fam(cfg);
         push({
@@ -54824,7 +54913,9 @@ function tpCalendarDayDetail(dateKey) {
 // El libro va en INGLÉS (decisión del laboratorio: lo lee un auditor).
 
 var TP_AUDIT_ACTIVITIES = ['Quality Checks', 'Preconditioning', 'Development Testing', 'Correlation',
-    'Dyno Calibration', 'Equipment Maintenance', 'Training', 'Holiday'];
+    'Dyno Calibration', 'Equipment Maintenance', 'Training', 'Holiday',
+    // [3.24.0] Los motivos de un bloque de la celda sin prueba (TP_BLOCK_REASONS[].audit).
+    'Project', 'No vehicle', 'Cell out of service', 'Invalid / repeated test', 'No staff / training'];
 var TP_AUDIT_EXTRA_ROWS = 15;   // renglones en blanco para familias que el laboratorio agregue a mano
 var TP_AUDIT_SLOTS = 6;         // renglones por día en el calendario (la exportación crece si hace falta)
 var TP_AUDIT_MAX_MONTHS = 24;
@@ -54879,7 +54970,7 @@ function tpAuditXlsxModel(opts) {
     opts = opts || {};
     var months = tpAuditMonths(opts.from, opts.to);
     var template = !!opts.template;
-    var model = { template: template, months: months, families: [], tests: [], undated: [], planned: [],
+    var model = { template: template, months: months, families: [], tests: [], undated: [], planned: [], blocks: [], blockEntries: [],
                   activities: TP_AUDIT_ACTIVITIES.slice(), generated: opts.generated || '',
                   appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '' };
     if (!months.length) return model;
@@ -54993,6 +55084,21 @@ function tpAuditXlsxModel(opts) {
         });
     }
 
+    // [3.24.0] Los bloques de la celda de cada semana del periodo (hasta la semana que entra):
+    // su motivo va al calendario como actividad y la bitácora completa a la hoja "Cell use".
+    if (!template && typeof tpBlocksForWeek === 'function') {
+        var lastWeek = tpIsoAddDays(tpMondayIso((typeof localToday === 'function') ? localToday() : pTo), 7);
+        for (var wk = tpMondayIso(pFrom); wk && wk <= pTo && wk <= lastWeek; wk = tpIsoAddDays(wk, 7)) {
+            var br = tpBlocksForWeek(wk);
+            br.blocks.forEach(function(b) {
+                if (b.iso < pFrom || b.iso > pTo) return;
+                model.blocks.push(b);
+                var R = (b.state === 'motivo' || b.state === 'auto') ? tpBlockReason(b.reason) : null;
+                if (R) model.blockEntries.push({ date: b.iso, label: R.audit, vin: '', activity: true });
+            });
+        }
+    }
+
     var active = function(f) {
         return f.hasVolume || f.hasPlan || model.tests.some(function(t) { return t.family === f.short; });
     };
@@ -55098,7 +55204,7 @@ function tpAuditXlsxSpec(model) {
     // Calendario: ubicar cada prueba en su día y medir cuántos renglones necesita cada semana.
     // Por día: primero lo probado (con VIN), después lo planeado pendiente (sin VIN).
     var testsByDay = {};
-    (model.tests || []).concat(model.planned || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
+    (model.tests || []).concat(model.planned || [], model.blockEntries || []).forEach(function(t) { (testsByDay[t.date] = testsByDay[t.date] || []).push(t); });
     // Lo que darán las fórmulas: Planned = apariciones de la familia en el calendario (con o
     // sin VIN); Tested = apariciones con VIN al lado. Mismo criterio que COUNTIF / COUNTIFS.
     var testedCount = months.map(function() { return {}; });
@@ -55350,6 +55456,7 @@ function tpAuditXlsxSpec(model) {
         ['', 'Projection — units produced per family and month (yellow, input). Required tests are calculated from it.'],
         ['', 'One sheet per month — left: the families with Required / Planned / Tested / Gap; right: the calendar, Monday to Sunday.'],
         ['', 'Test Log — every test of the period with its test date, family, configuration, VIN, purpose and status.'],
+        ['', 'Cell use — every test block of the installed capacity, week by week: the test that filled it, or why there was none (recorded by a signatory).'],
         ['', ''],
         ['h2', 'Rules'],
         ['', 'Every test is placed on its TEST day. Release and approval dates are never used.'],
@@ -55391,8 +55498,62 @@ function tpAuditXlsxSpec(model) {
 
     sheets.push(IN, SM, P);
     monthSheets.forEach(function(s) { sheets.push(s); });
-    sheets.push(TL, L);
+    sheets.push(TL);
+    if ((model.blocks || []).length) sheets.push(_tpAuditCellUseSheet(model.blocks, X));
+    sheets.push(L);
     return { title: 'Test Plan', creator: 'KIA EmLab', appVersion: model.appVersion, sheets: sheets };
+}
+
+/**
+ * [3.24.0] La hoja "Cell use" del libro: arriba una fila por semana (fórmulas COUNTIFS sobre
+ * la bitácora, cada una con su valor), abajo la bitácora de bloques. PURA.
+ */
+function _tpAuditCellUseSheet(blocks, X) {
+    var rows = blocks.map(tpBlockLogRow);
+    var weeks = [];
+    rows.forEach(function(x) { if (weeks.indexOf(x.week) < 0) weeks.push(x.week); });
+    weeks.sort();
+    var reasons = TP_BLOCK_REASONS;
+    var S = { name: 'Cell use', tabColor: 'B45309', showGrid: false, cells: [], cf: [], freeze: { row: 5, col: 2 },
+              cols: [{ min: 1, max: 1, width: 13 }, { min: 2, max: 3, width: 9 }, { min: 4, max: 4 + reasons.length, width: 13 },
+                     { min: 5 + reasons.length, max: 6 + reasons.length, width: 11 }], rows: { 4: { height: 32 } } };
+    S.cells.push({ r: 1, c: 1, v: 'Cell use — every test block, week by week', s: X.title });
+    S.cells.push({ r: 2, c: 1, v: 'A block is one test of the installed capacity (day pairs × vehicles per pair). Blocks without a test carry a reason, recorded by a signatory ' +
+        '(or set by the platform: holiday, cell not available, maintenance of equipment that stops testing).', s: X.sub });
+    var hdr = ['Week (Mon)', 'Blocks', 'Tests'].concat(reasons.map(function(R) { return R.en; }), ['Not explained', 'Cell use']);
+    hdr.forEach(function(t, i) { S.cells.push({ r: 4, c: 1 + i, v: t, s: X.hdr }); });
+    var R0 = 5, LH = R0 + weeks.length + 2, L0 = LH + 1, L1 = Math.max(L0, L0 + rows.length - 1);
+    var col = function(c) { return xwRange(L0, c, L1, c, true); };
+    weeks.forEach(function(w, i) {
+        var r = R0 + i, mine = rows.filter(function(x) { return x.week === w; }), wk = xwRef(r, 1);
+        S.cells.push({ r: r, c: 1, v: { date: w }, s: X.date });
+        S.cells.push({ r: r, c: 2, f: 'COUNTIF(' + col(1) + ',' + wk + ')', v: mine.length, s: X.calc });
+        S.cells.push({ r: r, c: 3, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(5) + ',"Test")', v: mine.filter(function(x) { return x.state === 'prueba'; }).length, s: X.calc });
+        reasons.forEach(function(R, k) {
+            S.cells.push({ r: r, c: 4 + k, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(9) + ',"' + R.en + '")',
+                           v: mine.filter(function(x) { return x.reason === R.en; }).length, s: X.calc });
+        });
+        var cNe = 4 + reasons.length;
+        S.cells.push({ r: r, c: cNe, f: 'COUNTIFS(' + col(1) + ',' + wk + ',' + col(5) + ',"NOT EXPLAINED")',
+                       v: mine.filter(function(x) { return x.state === 'sin-explicar'; }).length, s: X.calc });
+        S.cells.push({ r: r, c: cNe + 1, f: 'IF(N(' + xwRef(r, 2) + ')=0,"",' + xwRef(r, 3) + '/' + xwRef(r, 2) + ')',
+                       v: mine.length ? mine.filter(function(x) { return x.state === 'prueba'; }).length / mine.length : '', s: X.pct });
+    });
+    var lastW = R0 + Math.max(weeks.length, 1) - 1;
+    S.cf.push({ sqref: xwRange(R0, 4 + reasons.length, lastW, 4 + reasons.length), type: 'expression',
+                formula: 'N(' + xwRef(R0, 4 + reasons.length) + ')>0', style: { font: { b: true, color: 'B3261E' } } });
+    S.cf.push({ sqref: xwRange(R0, 2, lastW, 4 + reasons.length), type: 'expression', formula: xwRef(R0, 2) + '=0', style: { font: { color: 'B0B7C3' } } });
+    var hdrL = ['Week', 'Date', 'Day', 'Block', 'Status', 'Family', 'VIN', 'Purpose', 'Reason', 'Note', 'Recorded by'];
+    hdrL.forEach(function(t, i) { S.cells.push({ r: LH, c: 1 + i, v: t, s: X.hdr }); });
+    rows.forEach(function(x, i) {
+        var r = L0 + i, st = { border: 'thin', fill: (typeof _TP_BLK_FILL !== 'undefined' && _TP_BLK_FILL[x.state]) || 'FFFFFF' };
+        S.cells.push({ r: r, c: 1, v: { date: x.week }, s: X.date }, { r: r, c: 2, v: { date: x.date }, s: X.date }, { r: r, c: 3, v: x.day, s: X.txt },
+                     { r: r, c: 4, v: x.block, s: X.txt }, { r: r, c: 5, v: x.status, s: st }, { r: r, c: 6, v: x.family, s: X.fam },
+                     { r: r, c: 7, v: x.vin, s: X.txt }, { r: r, c: 8, v: x.purpose, s: X.txt }, { r: r, c: 9, v: x.reason, s: X.fam },
+                     { r: r, c: 10, v: x.note, s: X.fam }, { r: r, c: 11, v: x.by, s: X.txt });
+    });
+    S.autoFilter = 'A' + LH + ':' + xwRef(L1, hdrL.length);
+    return S;
 }
 
 /** Exportar desde la plataforma: elige el periodo y descarga el .xlsx. */
@@ -56388,6 +56549,631 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp_week_subst': { title: 'Alcance de la sustitución', text: '🎯 Misma familia es la sustitución equivalente: solo cambia rin, carrocería, tracción o paquete. 📋 Misma región y norma puede cambiar hasta el motor — sirve para cubrir la norma, no para sustituir esa familia. 🌍 Misma región solo comparte el mercado. Las que se alejan del núcleo salen marcadas ⚠️ y el nivel queda grabado en el registro.' },
     'tp_week_kpis': { title: 'La semana de un vistazo', text: 'Planeadas / hechas / en curso / movidas / en riesgo. "Hechas" incluye las declaradas a mano (pasa el cursor para ver cuántas). "Movidas" son las que cambiaron de día respecto al plan original — no es un error, es el registro de que la semana se reacomodó. "En riesgo" es un aviso interno anticipado, no un juicio.' },
     'tp-dormant-help': { title: 'Configuración inactiva', text: 'Lleva 3 o más meses seguidos sin volumen planeado. Puedes marcarla "Pausada" (deja de exigir pruebas y de contar en cobertura) o confirmar que sigue vigente.' }
+});
+
+
+// @@module js/bloques.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.24.0] Bloques de la celda — cada lugar de prueba de la semana    ║
+// ║  termina en una prueba o en un motivo                                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// La semana tiene una capacidad INSTALADA: los pares preacondicionamiento → prueba de lunes
+// a viernes (tpSlotsForSoak, reposo default) × vehículos por par. Con 24 h y 2 por par son
+// 8 bloques de prueba (martes a viernes, 2 por día). Un bloque:
+//   · se llena con la prueba que se corrió ESE día (fecha de PRUEBA, como el calendario);
+//   · si quedó vacío, lleva un motivo de una lista CERRADA (TP_BLOCK_REASONS) que registra
+//     un signatario (test.approve), o el que la plataforma deduce (festivo, celda fuera de
+//     servicio, mantenimiento o calibración de un equipo que detiene pruebas).
+// Los bloques se CALCULAN (tpBlocksForWeek); lo único que se guarda es el motivo
+// (tpState.blockNotes). Si mañana cambia la capacidad, los bloques cambian solos.
+
+var TP_BLOCK_REASONS = [
+    { id: 'qc',          icon: '🔬', es: 'Quality check / verificación interna', en: 'Quality check',            audit: 'Quality Checks' },
+    { id: 'mtto',        icon: '🛠️', es: 'Mantenimiento o calibración',          en: 'Maintenance or calibration', audit: 'Equipment Maintenance' },
+    { id: 'proyecto',    icon: '🗂️', es: 'Proyecto',                             en: 'Project',                  audit: 'Project' },
+    { id: 'sinvehiculo', icon: '🚗', es: 'Sin vehículo disponible',              en: 'No vehicle available',     audit: 'No vehicle' },
+    { id: 'celda',       icon: '⛔', es: 'Celda fuera de servicio',              en: 'Cell out of service',      audit: 'Cell out of service' },
+    { id: 'invalida',    icon: '🔁', es: 'Prueba inválida o repetida',           en: 'Invalid or repeated test', audit: 'Invalid / repeated test' },
+    { id: 'personal',    icon: '👥', es: 'Sin personal / capacitación',          en: 'No staff / training',      audit: 'No staff / training' },
+    { id: 'festivo',     icon: '📅', es: 'Día festivo',                          en: 'Holiday',                  audit: 'Holiday' }
+];
+// La semana instalada: lunes a viernes. Un día no laborable de UNA semana (Disponibilidad)
+// no quita bloques: los deja con motivo "Día festivo", para que se vea qué se perdió.
+var TP_BLOCK_STD_DAYS = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+var TP_BLOCK_NOTE_MAX = 240;
+var TP_BLOCK_ASK_WEEKS = 2;   // HOY pide explicar los de esta semana y los de la anterior
+
+/** La entrada de un motivo, o null. PURA. */
+function tpBlockReason(id) {
+    for (var i = 0; i < TP_BLOCK_REASONS.length; i++) if (TP_BLOCK_REASONS[i].id === id) return TP_BLOCK_REASONS[i];
+    return null;
+}
+
+/** Identidad de un bloque: lunes|día|número. PURA. */
+function tpBlockId(weekDate, day, n) { return weekDate + '|' + day + '|' + n; }
+function tpBlockParseId(id) {
+    var m = /^(\d{4}-\d{2}-\d{2})\|([a-z]{3})\|(\d+)$/.exec(String(id || ''));
+    return m ? { weekDate: m[1], day: m[2], n: Number(m[3]) } : null;
+}
+
+/**
+ * La capacidad instalada día por día. PURA: [{day, precon, n}] — `n` bloques de prueba ese
+ * día (los pares que terminan ahí × vehículos por par), `precon` = el día en que se
+ * preacondicionan (el primero de esos pares).
+ */
+function tpBlockLayout(soakHours, perSlot) {
+    var per = Math.max(1, parseInt(perSlot, 10) || 1);
+    var slots = tpSlotsForSoak(soakHours, TP_BLOCK_STD_DAYS).filter(function(s) { return !s.spillsNextWeek; });
+    var byDay = {};
+    slots.forEach(function(s) {
+        if (!byDay[s.test]) byDay[s.test] = { day: s.test, precon: s.precon, n: 0 };
+        byDay[s.test].n += per;
+    });
+    return TP_DAY_ORDER.filter(function(d) { return byDay[d]; }).map(function(d) { return byDay[d]; });
+}
+
+/**
+ * LA definición de los bloques de una semana. PURA.
+ * src = { weekDate, today, layout:[{day, iso, precon, preconIso, n}], tests:{iso:[t]},
+ *         planned:{iso:[p]}, notes:{id:{reason, note, by, at}}, auto:{iso:{reason, note}} }
+ * Cada bloque: {id, day, iso, n, precon, preconIso, state, test, planned, reason, note, by,
+ * at, auto, noteOverridden}. Estados: 'prueba' | 'motivo' (lo registró un signatario) |
+ * 'auto' (lo dedujo la plataforma) | 'planeada' | 'libre' | 'pendiente' (hoy, vacío) |
+ * 'sin-explicar' (día pasado, vacío y sin motivo).
+ * Las pruebas llenan primero los bloques sin motivo; las que no caben van a `extra`.
+ */
+function tpBlocksCompute(src) {
+    var today = src.today || '', notes = src.notes || {}, auto = src.auto || {};
+    var tests = src.tests || {}, planned = src.planned || {};
+    var out = { weekDate: src.weekDate, days: [], blocks: [], extra: [], plannedOver: [] };
+    (src.layout || []).forEach(function(L) {
+        var day = { day: L.day, iso: L.iso, precon: L.precon, preconIso: L.preconIso, blocks: [] };
+        var list = [];
+        for (var n = 1; n <= L.n; n++) {
+            var id = tpBlockId(src.weekDate, L.day, n), nt = notes[id];
+            list.push({ id: id, day: L.day, iso: L.iso, n: n, precon: L.precon, preconIso: L.preconIso,
+                        state: null, test: null, planned: null, reason: null, note: '', by: '', at: '',
+                        auto: false, noteOverridden: false, _note: (nt && nt.reason && tpBlockReason(nt.reason)) ? nt : null });
+        }
+        // Pruebas: primero a los bloques sin motivo, luego a los que lo tienen (la prueba
+        // manda: una corrida que llegó tarde no se esconde detrás de un motivo).
+        var order = list.filter(function(b) { return !b._note; }).concat(list.filter(function(b) { return b._note; }));
+        (tests[L.iso] || []).forEach(function(t, i) {
+            if (i < order.length) { order[i].test = t; if (order[i]._note) order[i].noteOverridden = true; }
+            else out.extra.push({ iso: L.iso, day: L.day, test: t });
+        });
+        var free = list.filter(function(b) { return !b.test; });
+        (planned[L.iso] || []).forEach(function(p, i) {
+            if (i < free.length) free[i].planned = p;
+            else out.plannedOver.push({ iso: L.iso, day: L.day, planned: p });
+        });
+        var a = auto[L.iso] && tpBlockReason(auto[L.iso].reason) ? auto[L.iso] : null;
+        list.forEach(function(b) {
+            if (b.test) b.state = 'prueba';
+            else if (b._note) { b.state = 'motivo'; b.reason = b._note.reason; b.note = b._note.note || ''; b.by = b._note.by || ''; b.at = b._note.at || ''; }
+            else if (a) { b.state = 'auto'; b.reason = a.reason; b.note = a.note || ''; b.auto = true; }
+            else if (L.iso > today) b.state = b.planned ? 'planeada' : 'libre';
+            else if (L.iso === today) b.state = b.planned ? 'planeada' : 'pendiente';
+            else b.state = 'sin-explicar';
+            delete b._note;
+            day.blocks.push(b); out.blocks.push(b);
+        });
+        out.days.push(day);
+    });
+    var T = { blocks: out.blocks.length, tests: 0, extra: out.extra.length, byReason: {}, explained: 0,
+              unexplained: 0, pending: 0, planned: 0, free: 0, use: 0 };
+    out.blocks.forEach(function(b) {
+        if (b.state === 'prueba') T.tests++;
+        else if (b.state === 'motivo' || b.state === 'auto') { T.explained++; T.byReason[b.reason] = (T.byReason[b.reason] || 0) + 1; }
+        else if (b.state === 'sin-explicar') T.unexplained++;
+        else if (b.state === 'pendiente') T.pending++;
+        else if (b.state === 'planeada') T.planned++;
+        else T.free++;
+    });
+    T.use = T.blocks ? T.tests / T.blocks : 0;
+    out.total = T;
+    return out;
+}
+
+/** Une los motivos de dos equipos: por bloque gana el de fecha más reciente. PURA y simétrica. */
+function tpBlockNotesUnion(a, b) {
+    var out = {};
+    [a || {}, b || {}].forEach(function(src) {
+        Object.keys(src).forEach(function(k) {
+            var e = src[k];
+            if (!k || !e || typeof e !== 'object') return;
+            var cur = out[k], ea = String(e.at || ''), ca = cur ? String(cur.at || '') : '';
+            if (!cur || ea > ca || (ea === ca && JSON.stringify(e) > JSON.stringify(cur))) out[k] = e;
+        });
+    });
+    return out;
+}
+
+/** ¿`incoming` trae algún motivo más nuevo que `known`? PURA (la usa el sync). */
+function tpBlockNotesNewTo(known, incoming) {
+    known = known || {};
+    return Object.keys(incoming || {}).some(function(k) {
+        var e = incoming[k];
+        if (!k || !e) return false;
+        var c = known[k];
+        return !c || String(e.at || '') > String(c.at || '') ||
+               (String(e.at || '') === String(c.at || '') && JSON.stringify(e) > JSON.stringify(c));
+    });
+}
+
+/** La configuración corta que viaja en un bloque (sin VIN): basta para nombrar la familia. */
+function _tpBlockCfgOf(cfg) {
+    return cfg ? { mod: cfg.mod || '', eng: cfg.eng || '', ep: cfg.ep || '', engpkg: cfg.engpkg || '', tx: cfg.tx || '',
+                   body: cfg.body || '', reg: cfg.reg || '' } : null;
+}
+
+/** El nombre de una familia en un bloque, como lo dice la gerencia (+ carrocería). */
+function tpBlockFamilyName(x) {
+    if (!x) return '';
+    var c = x.cfg;
+    if (c && c.mod) {
+        var base = (typeof copRepShortName === 'function') ? copRepShortName(c) : tpFamilyShortLabel(c);
+        return (base + (c.body ? ' ' + c.body : '')).trim();
+    }
+    return x.familyShort || x.desc || '';
+}
+
+/** Los motivos que la plataforma deduce sola, por día. */
+function _tpBlockAuto(weekDate, layout) {
+    var out = {};
+    var av = (tpState.weekAvailability || {})[weekDate] || null;
+    var wd = av && av.workDays && typeof av.workDays === 'object' ? av.workDays : null;
+    var assets = {}, eqAsset = {};
+    var inv = (typeof invState !== 'undefined' && invState) ? invState : null;
+    if (inv) {
+        (inv.assets || []).forEach(function(a) { if (a && a.blocksTesting) assets[a.id] = a; });
+        (inv.equipment || []).forEach(function(e) { if (e && assets[e.assetId]) eqAsset[e.id] = e; });
+    }
+    var acts = {};
+    if (inv) (inv.maintActivities || []).forEach(function(a) { if (a) acts[a.id] = a; });
+    layout.forEach(function(L) {
+        if (av && av.available === false) { out[L.iso] = { reason: 'celda', note: av.note || '' }; return; }
+        if (wd && (wd[L.day] === false || wd[L.precon] === false)) {
+            out[L.iso] = { reason: 'festivo', note: wd[L.day] === false ? 'Día no laborable' : 'No se preacondicionó (' + TP_DAY_LABELS[L.precon].toLowerCase() + ' no laborable)' };
+            return;
+        }
+        if (!inv) return;
+        var what = [];
+        (inv.maintLog || []).forEach(function(e) {
+            if (!e || e.date !== L.iso || !assets[e.assetId]) return;
+            var act = acts[e.activityId];
+            what.push(assets[e.assetId].name + (act && act.desc ? ': ' + act.desc : ''));
+        });
+        Object.keys(eqAsset).forEach(function(id) {
+            var e = eqAsset[id];
+            (e.calHistory || []).forEach(function(h) { if (h && String(h.date || '').slice(0, 10) === L.iso) what.push('Calibración: ' + e.name); });
+        });
+        if (what.length) out[L.iso] = { reason: 'mtto', note: what.slice(0, 3).join(' · ') + (what.length > 3 ? ' (+' + (what.length - 3) + ')' : '') };
+    });
+    return out;
+}
+
+/** Las pruebas realizadas por día de la semana (incluye las de formato simple). */
+function _tpBlockTests(from, to) {
+    var cal = tpCalendarTests(from, to, { datedOnly: true }), byDay = {};
+    var add = function(t, iso) {
+        var cfg = t.configCode ? tpConfigByDesc(t.configCode) : null;
+        if (!cfg && t.vehicleId != null && typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) {
+            var v = db.vehicles.find(function(x) { return x && String(x.id) === String(t.vehicleId); });
+            if (v && typeof _tpCalVehicleCfg === 'function') cfg = _tpCalVehicleCfg(v);
+        }
+        (byDay[iso] = byDay[iso] || []).push({ familyShort: t.familyShort || '', cfg: _tpBlockCfgOf(cfg), vin: t.vin || '',
+            purpose: t.purpose || '', status: t.status || '', vehicleId: t.vehicleId != null ? t.vehicleId : null, declared: !!t.declared });
+    };
+    Object.keys(cal.byDay).forEach(function(iso) { cal.byDay[iso].forEach(function(t) { add(t, iso); }); });
+    // Formato simple (OBD II, Training…): sin testDatetime, su fecha vive en testData.simple.datetime.
+    if (typeof vehicleTestDate === 'function' && typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) {
+        var today = (typeof localToday === 'function') ? localToday() : '';
+        var tombs = Array.isArray(db.deletedVehicles) ? db.deletedVehicles : [];
+        db.vehicles.forEach(function(v) {
+            if (!v || (v.testData && v.testData.testDatetime)) return;
+            var iso = vehicleTestDate(v);
+            if (!iso || iso < from || iso > to) return;
+            if (v.status === 'testing' ? iso > today : !_tpCalVehicleTested(v, today)) return;
+            if (tombs.length && typeof vehicleIsTombstoned === 'function' && vehicleIsTombstoned(v, tombs)) return;
+            var cfg = _tpCalVehicleCfg(v);
+            add({ familyShort: cfg ? tpFamilyShortLabel(cfg) : '', configCode: v.configCode || '', vin: v.vin || '',
+                  purpose: v.purpose || '', status: v.status, vehicleId: v.id, declared: false }, iso);
+        });
+    }
+    return byDay;
+}
+
+/**
+ * La huella de lo que cambia un bloque: plan (tpState._lastSave), vehículos (su _rev) y
+ * mantenimientos/calibraciones. Barata: no arma configuraciones.
+ */
+function _tpBlockFingerprint() {
+    var h = String((tpState && tpState._lastSave) || '') + '|' + ((typeof db !== 'undefined' && db && db.vehicles) || []).map(function(v) {
+        return v ? (v._rev || v.updatedAt || '') + (v.status || '') : '';
+    }).join(',');
+    if (typeof invState !== 'undefined' && invState) {
+        h += '|' + ((invState.maintLog || []).length) + '|' + (invState.equipment || []).reduce(function(s, e) { return s + ((e && e.calHistory) || []).length; }, 0) +
+             '|' + (invState.assets || []).filter(function(a) { return a && a.blocksTesting; }).length;
+    }
+    return h + '|' + (tpState.vehiclesPerSlot || '') + '|' + JSON.stringify(tpState.weekAvailability || {}).length;
+}
+var _tpBlockMemo = {};
+
+/** Los bloques de una semana con los datos de la plataforma. Memoizada (la leen HOY y Mi semana). */
+function tpBlocksForWeek(weekDate, opts) {
+    opts = opts || {};
+    weekDate = tpMondayIso(weekDate) || weekDate;
+    var today = opts.today || ((typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10));
+    var key = weekDate + '|' + today + '|' + _tpBlockFingerprint();
+    var memo = _tpBlockMemo[weekDate];
+    if (memo && memo.key === key) return memo.r;
+    var r = _tpBlocksForWeekRaw(weekDate, today);
+    _tpBlockMemo[weekDate] = { key: key, r: r };
+    return r;
+}
+
+function _tpBlocksForWeekRaw(weekDate, today) {
+    var soak = tpSoakCfg().defaultHours, per = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+    var layout = tpBlockLayout(soak, per).map(function(L) {
+        return Object.assign({}, L, { iso: tpWeekDayIso(weekDate, L.day), preconIso: tpWeekDayIso(weekDate, L.precon) });
+    });
+    var to = tpIsoAddDays(weekDate, 6);
+    var planned = {}, pc = (typeof tpCalendarPlanned === 'function') ? tpCalendarPlanned(weekDate, to) : {};
+    Object.keys(pc).forEach(function(iso) {
+        planned[iso] = pc[iso].map(function(p) {
+            var cfg = tpConfigByDesc(p.desc);
+            var it = null;
+            if (p.planId && p.uid) (tpState.weeklyPlans || []).some(function(pl) {
+                if (!pl || tpPlanId(pl) !== p.planId) return false;
+                it = (pl.items || []).find(function(x) { return x && x.uid === p.uid; }) || null;
+                return true;
+            });
+            return { desc: p.desc, familyShort: p.familyShort, cfg: _tpBlockCfgOf(cfg), proposal: !!p.proposal,
+                     purpose: (it && it.purpose) || '', planId: p.planId, uid: p.uid };
+        });
+    });
+    var notes = {}, all = tpState.blockNotes || {};
+    Object.keys(all).forEach(function(k) { if (k.indexOf(weekDate + '|') === 0) notes[k] = all[k]; });
+    var plan = (typeof tpWeekPlanFor === 'function') ? tpWeekPlanFor(weekDate) : null;
+    var r = tpBlocksCompute({ weekDate: weekDate, today: today, layout: layout, tests: _tpBlockTests(weekDate, to),
+                              planned: planned, notes: notes, auto: _tpBlockAuto(weekDate, layout) });
+    r.perSlot = per; r.soakHours = soak;
+    r.pairs = layout.reduce(function(s, L) { return s + L.n; }, 0) / per;
+    r.planState = !plan || !plan.plan ? 'none' : plan.accepted ? 'accepted' : 'proposal';
+    return r;
+}
+
+/** Los bloques sin explicar de esta semana y la anterior (para HOY). */
+function tpBlocksUnexplained(opts) {
+    var today = (opts && opts.today) || localToday();
+    var mon = tpMondayIso(today), out = { n: 0, week: null, days: [] };
+    for (var w = TP_BLOCK_ASK_WEEKS - 1; w >= 0; w--) {
+        var wk = tpIsoAddDays(mon, -7 * w);
+        var r = tpBlocksForWeek(wk, { today: today });
+        var dias = {};
+        r.blocks.forEach(function(b) { if (b.state === 'sin-explicar') { out.n++; dias[b.iso] = (dias[b.iso] || 0) + 1; } });
+        var keys = Object.keys(dias).sort();
+        if (keys.length && !out.week) out.week = wk;
+        keys.forEach(function(iso) { out.days.push({ iso: iso, n: dias[iso] }); });
+    }
+    return out;
+}
+
+/**
+ * Registra (o quita, con reason null) el motivo de uno o varios bloques. Lo decide un
+ * signatario (test.approve), queda en la auditoría con antes/después y viaja por el sync.
+ */
+function tpBlockExplain(ids, reason, note) {
+    if (!Array.isArray(ids)) ids = [ids];
+    ids = ids.filter(function(id) { return !!tpBlockParseId(id); });
+    if (!ids.length) return false;
+    if (typeof authRequire === 'function' && !authRequire('test.approve', 'explicar un bloque de la semana')) return false;
+    if (reason !== null && !tpBlockReason(reason)) {
+        if (typeof showToast === 'function') showToast('Elige un motivo de la lista.', 'warning');
+        return false;
+    }
+    note = String(note || '').trim().slice(0, TP_BLOCK_NOTE_MAX);
+    if (typeof undoPush === 'function') undoPush('testplan', reason ? 'Explicar bloque' : 'Quitar motivo de bloque');
+    if (!tpState.blockNotes || typeof tpState.blockNotes !== 'object') tpState.blockNotes = {};
+    var by = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    var at = new Date().toISOString(), before = {};
+    ids.forEach(function(id) {
+        var prev = tpState.blockNotes[id];
+        before[id] = prev && prev.reason ? { motivo: prev.reason, nota: prev.note || '' } : null;
+        tpState.blockNotes[id] = { reason: reason, note: reason ? note : '', by: by, at: at };
+    });
+    tpSave();
+    if (typeof auditLog === 'function') {
+        var R = tpBlockReason(reason);
+        auditLog('testplan', reason ? 'bloque_explicado' : 'bloque_sin_motivo', { type: 'block', id: ids.join(','), label: ids.length + ' bloque(s) · ' + ids[0].split('|').slice(0, 2).join(' ') },
+                 reason ? R.es + (note ? ' — ' + note : '') : 'Motivo quitado',
+                 { before: before, after: reason ? { motivo: reason, nota: note } : null });
+    }
+    if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp', 'tp-myweek');
+    if (typeof tpRender === 'function') tpRender();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') &&
+        document.getElementById('platform-today').classList.contains('active')) { try { dailyDashRender(); } catch (e) {} }
+    if (typeof showToast === 'function') showToast(reason ? (ids.length > 1 ? ids.length + ' bloques explicados' : 'Bloque explicado') : 'Motivo quitado', 'success');
+    return true;
+}
+
+// ── Pantalla: la tarjeta de bloques en Mi semana ─────────────────────────────
+
+var TP_BLOCK_STATE_LABEL = { prueba: 'Prueba', motivo: 'Con motivo', auto: 'Motivo automático', planeada: 'Planeada',
+                             libre: 'Libre', pendiente: 'Hoy', 'sin-explicar': 'Sin explicar' };
+
+function _tpBlockDayLabel(iso) {
+    var wd = tpIsoWeekday(iso), m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso || '');
+    var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return TP_DAY_LABELS[TP_DAY_ORDER[wd]] + ' ' + (m ? Number(m[2]) + ' ' + MES[Number(m[1]) - 1] : '');
+}
+
+function _tpBlockTileHTML(b, can) {
+    var R = tpBlockReason(b.reason), main = '', sub = '';
+    if (b.state === 'prueba') {
+        main = '✅ ' + escapeHtml(tpBlockFamilyName(b.test) || 'Prueba');
+        sub = (b.test.vin ? 'VIN …' + escapeHtml(_tpCalVinTail(b.test.vin)) : (b.test.declared ? 'declarada a mano' : '')) +
+              (b.noteOverridden ? ' · tenía un motivo, la prueba manda' : '');
+    } else if (b.state === 'motivo' || b.state === 'auto') {
+        main = R.icon + ' ' + escapeHtml(R.es);
+        sub = (b.note ? escapeHtml(b.note) : '') + (b.state === 'auto' ? (b.note ? ' · ' : '') + 'automático' : (b.by ? (b.note ? ' · ' : '') + escapeHtml(b.by) : ''));
+    } else if (b.state === 'planeada') {
+        main = '📋 ' + escapeHtml(tpBlockFamilyName(b.planned));
+        sub = b.planned.proposal ? 'propuesta' : 'planeada';
+    } else if (b.state === 'sin-explicar') {
+        main = '⚠️ Sin explicar';
+        sub = b.planned ? 'estaba planeada: ' + escapeHtml(tpBlockFamilyName(b.planned)) : 'no hubo prueba';
+    } else if (b.state === 'pendiente') { main = 'Hoy · sin prueba todavía'; }
+    else { main = 'Libre'; }
+    var cls = 'tp-blk tp-blk--' + b.state;
+    var label = 'Bloque ' + b.n + ' del ' + _tpBlockDayLabel(b.iso).toLowerCase() + ': ' + (TP_BLOCK_STATE_LABEL[b.state] || '');
+    var inner = '<span class="tp-blk-n">' + b.n + '</span><span class="tp-blk-main">' + main + '</span>' + (sub ? '<span class="tp-blk-sub">' + sub + '</span>' : '');
+    if (b.state === 'prueba') return '<div class="' + cls + '" title="' + escapeHtml(label) + '">' + inner + '</div>';
+    return '<button type="button" class="' + cls + '" aria-label="' + escapeHtml(label + (can ? '. Tocar para poner el motivo' : '')) + '"' +
+           ' title="' + (can ? 'Poner o cambiar el motivo' : 'El motivo lo registra un signatario') + '"' +
+           ' onclick="tpBlockExplainOpen(\'' + b.id + '\')">' + inner + '</button>';
+}
+
+/** La tarjeta "Bloques de la semana" (Mi semana). */
+function tpBlocksCardHTML(weekDate) {
+    var r;
+    try { r = tpBlocksForWeek(weekDate); } catch (e) { void 0; return ''; }
+    if (!r.blocks.length) return '';
+    var T = r.total, can = (typeof authCan === 'function') ? authCan('test.approve') : true;
+    var chips = TP_BLOCK_REASONS.filter(function(x) { return T.byReason[x.id]; })
+        .map(function(x) { return '<span class="tp-blk-chip">' + x.icon + ' ' + escapeHtml(x.es) + ' <b>' + T.byReason[x.id] + '</b></span>'; });
+    if (T.extra) chips.push('<span class="tp-blk-chip">➕ Pruebas de más <b>' + T.extra + '</b></span>');
+    var h = '<div class="tp-blk-sum">' +
+        '<div class="tp-blk-use"><b>' + T.tests + ' de ' + T.blocks + '</b> bloques con prueba <span class="u-muted">(' + Math.round(T.use * 100) + ' %)</span>' +
+        (T.unexplained ? ' · <b class="tp-blk-bad">' + T.unexplained + ' sin explicar</b>' : '') +
+        (T.pending ? ' · ' + T.pending + ' de hoy' : '') + (T.planned ? ' · ' + T.planned + ' planeados' : '') + '</div>' +
+        (chips.length ? '<div class="tp-blk-chips">' + chips.join('') + '</div>' : '') +
+        '<div class="tp-blk-cap u-muted">Capacidad instalada: ' + r.pairs + ' pares de días × ' + r.perSlot + ' vehículo' + (r.perSlot === 1 ? '' : 's') +
+        ' = ' + T.blocks + ' bloques de prueba. Cada bloque vacío lleva un motivo, que registra un signatario.' +
+        (r.perSlot === 1 ? ' <button type="button" class="tp-btn tp-btn-ghost" onclick="tpBlockSetPerSlot(2)">Usar 2 vehículos por par</button>' : '') + '</div></div>';
+    h += '<div class="tp-blk-days">';
+    r.days.forEach(function(d) {
+        h += '<div class="tp-blk-day"><div class="tp-blk-dayh"><b>' + escapeHtml(_tpBlockDayLabel(d.iso)) + '</b>' +
+             '<span class="u-muted">preacond. ' + escapeHtml(TP_DAY_LABELS[d.precon].toLowerCase()) + '</span></div>' +
+             d.blocks.map(function(b) { return _tpBlockTileHTML(b, can); }).join('') + '</div>';
+    });
+    h += '</div>';
+    if (r.extra.length) h += '<p class="tp-blk-note u-muted">➕ ' + r.extra.length + ' prueba(s) por encima de la capacidad instalada: ' +
+        r.extra.map(function(x) { return escapeHtml(_tpBlockDayLabel(x.iso).toLowerCase() + ' — ' + tpBlockFamilyName(x.test)); }).join('; ') + '.</p>';
+    if (r.plannedOver.length) h += '<p class="tp-blk-note u-muted">📋 ' + r.plannedOver.length + ' fila(s) del plan no caben en los bloques de su día.</p>';
+    var tone = T.unexplained ? 'danger' : (T.tests === T.blocks ? 'success' : 'neutral');
+    return uiCard({ id: 'tp-blocks', icon: '🧱', title: 'Bloques de la semana', help: 'tp_blocks', defaultOpen: true,
+                    count: { label: T.tests + '/' + T.blocks + (T.unexplained ? ' · ' + T.unexplained + ' sin explicar' : ''), tone: tone },
+                    actions: '<button type="button" class="tp-btn tp-btn-ghost" onclick="tpWeekXlsxExport(\'' + r.weekDate + '\')">📤 Excel de la semana</button>',
+                    body: h });
+}
+
+/** Cambia los vehículos por par desde la tarjeta (permiso del plan). */
+function tpBlockSetPerSlot(n) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar los vehículos por par')) return false;
+    tpSetVehiclesPerSlot(n);
+    if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+    tpRender();
+    return true;
+}
+
+/** El diálogo para poner el motivo de un bloque (y, si se quiere, de los vacíos de su día). */
+function tpBlockExplainOpen(id) {
+    var p = tpBlockParseId(id);
+    if (!p) return;
+    if (typeof authRequire === 'function' && !authRequire('test.approve', 'explicar un bloque de la semana')) return;
+    var r = tpBlocksForWeek(p.weekDate);
+    var b = r.blocks.find(function(x) { return x.id === id; });
+    if (!b) { if (typeof showToast === 'function') showToast('Ese bloque ya no existe (cambió la capacidad).', 'warning'); return; }
+    if (b.state === 'prueba') return;
+    var hermanos = r.blocks.filter(function(x) { return x.iso === b.iso && x.id !== id && x.state !== 'prueba' && x.state !== 'motivo'; });
+    var actual = b.state === 'motivo' ? b.reason : '';
+    var sugerido = b.state === 'auto' ? b.reason : '';
+    var opts = '<option value="">— Elige —</option>' + TP_BLOCK_REASONS.map(function(x) {
+        return '<option value="' + x.id + '"' + ((actual || sugerido) === x.id ? ' selected' : '') + '>' + x.icon + ' ' + escapeHtml(x.es) + '</option>';
+    }).join('');
+    var body = '<div class="tp-blk-modal">' +
+        '<p><b>' + escapeHtml(_tpBlockDayLabel(b.iso)) + ' · bloque ' + b.n + '</b>' +
+        (b.planned ? '<br><span class="u-muted">Estaba planeada: ' + escapeHtml(tpBlockFamilyName(b.planned)) + '</span>' : '') +
+        (b.state === 'auto' ? '<br><span class="u-muted">La plataforma propone: ' + escapeHtml(tpBlockReason(b.reason).es) + (b.note ? ' — ' + escapeHtml(b.note) : '') + '</span>' : '') + '</p>' +
+        '<label class="tp-blk-lbl" for="tp-blk-reason">¿Por qué no hubo prueba?</label>' +
+        '<select id="tp-blk-reason" data-chips>' + opts + '</select>' +
+        '<label class="tp-blk-lbl" for="tp-blk-note">Nota (opcional)</label>' +
+        '<textarea id="tp-blk-note" rows="2" maxlength="' + TP_BLOCK_NOTE_MAX + '" placeholder="Ej.: verificación de bolsas; esperando la unidad de la línea">' +
+        escapeHtml(b.state === 'motivo' ? b.note : '') + '</textarea>' +
+        (hermanos.length ? '<label class="tp-blk-same u-hit"><input type="checkbox" id="tp-blk-same" checked> Aplicar también ' +
+            (hermanos.length === 1 ? 'al otro bloque vacío' : 'a los otros ' + hermanos.length + ' bloques vacíos') + ' de este día</label>' : '') +
+        '</div>';
+    var close = function() { var m = document.getElementById('globalModal'); if (m) m.remove(); };
+    var buttons = [{ label: 'Cancelar', cls: '' }];
+    if (b.state === 'motivo') buttons.push({ label: 'Quitar motivo', cls: '', onclick: function() { if (tpBlockExplain([id], null, '')) close(); } });
+    buttons.push({ label: 'Guardar', cls: 'btn-primary', onclick: function() {
+        var sel = document.getElementById('tp-blk-reason');
+        if (!sel || !sel.value) { if (typeof uiInvalid === 'function') uiInvalid(sel, 'Elige el motivo.'); return; }
+        var same = document.getElementById('tp-blk-same');
+        var ids = [id].concat(same && same.checked ? hermanos.map(function(x) { return x.id; }) : []);
+        if (tpBlockExplain(ids, sel.value, (document.getElementById('tp-blk-note') || {}).value)) close();
+    } });
+    showModal({ title: '🧱 Motivo del bloque', type: 'info', body: body, buttons: buttons });
+}
+
+// ── El Excel de la semana (PURO) ─────────────────────────────────────────────
+
+var _TP_BLK_FILL = { prueba: 'D1FAE5', motivo: 'FEF3C7', auto: 'FEF3C7', planeada: 'DBEAFE', libre: 'F3F4F6', pendiente: 'F3F4F6', 'sin-explicar': 'FEE2E2' };
+var _TP_BLK_STATUS_EN = { prueba: 'Test', motivo: 'Reason', auto: 'Reason (automatic)', planeada: 'Planned', libre: 'Free',
+                          pendiente: 'Pending (today)', 'sin-explicar': 'NOT EXPLAINED' };
+var _TP_BLK_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var _TP_BLK_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function _tpBlkDayEn(iso) {
+    var m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso || '');
+    return m ? _TP_BLK_DOW[tpIsoWeekday(iso)] + ' ' + Number(m[2]) + ' ' + _TP_BLK_MON[Number(m[1]) - 1] : '';
+}
+
+/** El texto de un bloque en el Excel (inglés, como el libro de auditoría). PURA. */
+function tpBlockCellText(b) {
+    var R = tpBlockReason(b.reason);
+    if (b.state === 'prueba') return tpBlockFamilyName(b.test) + (b.test.vin ? ' · ' + _tpCalVinTail(b.test.vin) : '');
+    if (b.state === 'motivo' || b.state === 'auto') return R.en + (b.note ? ' — ' + b.note : '');
+    if (b.state === 'planeada') return tpBlockFamilyName(b.planned) + (b.planned.proposal ? ' (proposal)' : '');
+    if (b.state === 'sin-explicar') return 'NOT EXPLAINED' + (b.planned ? ' (planned: ' + tpBlockFamilyName(b.planned) + ')' : '');
+    if (b.state === 'pendiente') return 'Today';
+    return '';
+}
+
+/** Un renglón de bitácora de bloques (lo comparten el Excel de la semana y el libro). PURA. */
+function tpBlockLogRow(b) {
+    var R = tpBlockReason(b.reason);
+    var fam = b.test ? tpBlockFamilyName(b.test) : b.planned ? tpBlockFamilyName(b.planned) : '';
+    var purpose = (b.test && b.test.purpose) || (b.planned && b.planned.purpose) || '';
+    return { week: tpMondayIso(b.iso), date: b.iso, day: _TP_BLK_DOW[tpIsoWeekday(b.iso)], block: b.n,
+             precon: b.preconIso || '', status: _TP_BLK_STATUS_EN[b.state] || b.state, family: fam,
+             vin: b.test ? _tpCalVinTail(b.test.vin) : '',
+             purpose: (typeof _TP_AUDIT_PURPOSE !== 'undefined' && _TP_AUDIT_PURPOSE[purpose]) || purpose,
+             reason: (b.state === 'motivo' || b.state === 'auto') && R ? R.en : '', note: b.note || '',
+             by: b.state === 'auto' ? 'platform' : (b.by || ''), state: b.state };
+}
+
+/**
+ * LA definición del Excel de la semana. PURA: modelo (tpBlocksForWeek + generated/appVersion)
+ * → spec de xwBuild. Hoja "Week": la cuadrícula del laboratorio (por día, los
+ * preacondicionamientos y las pruebas de cada bloque) y el resumen (fórmulas sobre la
+ * bitácora, cada una con su valor). Hoja "Block log": un renglón por bloque.
+ */
+function tpWeekXlsxSpec(m) {
+    var X = _TP_AX;
+    var S = { name: 'Week', tabColor: '1F3A5F', showGrid: false, cells: [], merges: [], cf: [], print: { landscape: true, fitWidth: 1 }, zoom: 90, rows: {} };
+    var days = m.days || [];
+    // Columnas = lunes a viernes (los días de preacondicionamiento y de prueba).
+    var colDays = ['lun', 'mar', 'mie', 'jue', 'vie'];
+    days.forEach(function(d) { if (colDays.indexOf(d.day) < 0) colDays.push(d.day); if (colDays.indexOf(d.precon) < 0) colDays.push(d.precon); });
+    colDays.sort(function(a, b) { return ((TP_DAY_ORDER.indexOf(a) + 6) % 7) - ((TP_DAY_ORDER.indexOf(b) + 6) % 7); });
+    var isoOf = function(day) { return tpWeekDayIso(m.weekDate, day); };
+    var stateTxt = { accepted: 'Plan accepted', proposal: 'Plan not accepted yet (proposal)', none: 'No plan for this week' };
+    S.cells.push({ r: 1, c: 1, v: 'Test schedule — week of ' + _tpBlkDayEn(m.weekDate) + ' ' + String(m.weekDate).slice(0, 4), s: X.title });
+    S.cells.push({ r: 2, c: 1, v: (stateTxt[m.planState] || '') + ' · Installed capacity: ' + m.pairs + ' day pairs × ' + m.perSlot + ' vehicle(s) = ' +
+        m.total.blocks + ' test blocks. Generated ' + (m.generated || '') + ' by KIA EmLab ' + (m.appVersion || '') + '.', s: X.sub });
+    // Cuadrícula.
+    var maxN = days.reduce(function(s, d) { return Math.max(s, d.blocks.length); }, 0);
+    var r = 4;
+    S.cells.push({ r: r, c: 1, v: '', s: X.hdrL });
+    colDays.forEach(function(d, i) { S.cells.push({ r: r, c: 2 + i, v: _tpBlkDayEn(isoOf(d)), s: X.hdr }); });
+    var cellFor = function(b) {
+        return { v: tpBlockCellText(b), s: { border: 'thin', fill: _TP_BLK_FILL[b.state] || 'FFFFFF', font: { sz: 10, b: b.state === 'sin-explicar' }, align: { v: 'center', wrap: true } } };
+    };
+    for (var k = 0; k < maxN; k++) {
+        S.cells.push({ r: r + 1 + k, c: 1, v: 'Preconditioning ' + (k + 1), s: X.hdrL });
+        S.cells.push({ r: r + 1 + maxN + k, c: 1, v: 'Test ' + (k + 1), s: X.hdrL });
+        colDays.forEach(function(cd, i) {
+            // Preacondicionamiento: el bloque k del día que se prueba después de éste.
+            var dp = days.find(function(d) { return d.precon === cd; });
+            var bp = dp && dp.blocks[k];
+            var cp = bp ? cellFor(bp) : { v: '', s: { border: 'thin', fill: 'FFFFFF' } };
+            if (bp && bp.state === 'prueba') cp.v = tpBlockFamilyName(bp.test) + ' (→ ' + _TP_BLK_DOW[tpIsoWeekday(bp.iso)] + ')';
+            else if (bp && bp.state === 'planeada') cp.v = tpBlockFamilyName(bp.planned) + ' (→ ' + _TP_BLK_DOW[tpIsoWeekday(bp.iso)] + ')';
+            S.cells.push({ r: r + 1 + k, c: 2 + i, v: cp.v, s: cp.s });
+            var dt = days.find(function(d) { return d.day === cd; });
+            var bt = dt && dt.blocks[k];
+            var ct = bt ? cellFor(bt) : { v: '', s: { border: 'thin', fill: 'FFFFFF' } };
+            S.cells.push({ r: r + 1 + maxN + k, c: 2 + i, v: ct.v, s: ct.s });
+        });
+    }
+    for (var rr = r + 1; rr <= r + 2 * maxN; rr++) S.rows[rr] = { height: 44 };
+
+    // Bitácora (abajo) y resumen (en medio, con fórmulas sobre la bitácora).
+    var rows = m.blocks.map(tpBlockLogRow);
+    (m.extra || []).forEach(function(x) {
+        rows.push({ week: m.weekDate, date: x.iso, day: _TP_BLK_DOW[tpIsoWeekday(x.iso)], block: 'extra', precon: '', status: 'Extra test',
+                    family: tpBlockFamilyName(x.test), vin: _tpCalVinTail(x.test.vin), purpose: '', reason: '', note: 'over the installed capacity', by: '', state: 'extra' });
+    });
+    var rs = r + 2 * maxN + 3;
+    var reasons = TP_BLOCK_REASONS;
+    // La bitácora va en su propia hoja: comparte columnas con la cuadrícula si no, y se estorban.
+    var LOG = 'Block log', L0 = 5, L1 = Math.max(L0, L0 + rows.length - 1);
+    var col = function(c) { return "'" + LOG + "'!" + xwRange(L0, c, L1, c, true); };
+    var cnt = function(pred) { return rows.filter(pred).length; };
+    S.cells.push({ r: rs, c: 1, v: 'Summary', s: X.h2 });
+    var line = function(i, label, f, v, style) {
+        S.cells.push({ r: rs + 1 + i, c: 1, v: label, s: X.fam });
+        S.cells.push({ r: rs + 1 + i, c: 2, f: f, v: v, s: style || X.calc });
+    };
+    var i0 = 0;
+    line(i0++, 'Test blocks', 'COUNTIFS(' + col(5) + ',"<>Extra test",' + col(1) + ',"<>")', cnt(function(x) { return x.state !== 'extra'; }));
+    line(i0++, 'With a test', 'COUNTIF(' + col(5) + ',"Test")', cnt(function(x) { return x.state === 'prueba'; }));
+    reasons.forEach(function(R) { line(i0++, R.en, 'COUNTIF(' + col(9) + ',"' + R.en + '")', cnt(function(x) { return x.reason === R.en; })); });
+    line(i0++, 'NOT EXPLAINED', 'COUNTIF(' + col(5) + ',"NOT EXPLAINED")', cnt(function(x) { return x.state === 'sin-explicar'; }));
+    line(i0++, 'Planned / free / today', 'COUNTIF(' + col(5) + ',"Planned")+COUNTIF(' + col(5) + ',"Free")+COUNTIF(' + col(5) + ',"Pending (today)")',
+         cnt(function(x) { return x.state === 'planeada' || x.state === 'libre' || x.state === 'pendiente'; }));
+    line(i0++, 'Extra tests (over capacity)', 'COUNTIF(' + col(5) + ',"Extra test")', cnt(function(x) { return x.state === 'extra'; }));
+    var blocksRef = xwRef(rs + 1, 2), testsRef = xwRef(rs + 2, 2);
+    line(i0++, 'Cell use', 'IF(N(' + blocksRef + ')=0,"",' + testsRef + '/' + blocksRef + ')', m.total.blocks ? m.total.tests / m.total.blocks : '', X.pct);
+    S.cols = [{ min: 1, max: 1, width: 26 }, { min: 2, max: 1 + colDays.length, width: 32 }];
+
+    var B = { name: LOG, tabColor: 'B45309', showGrid: false, cells: [], freeze: { row: L0, col: 1 }, print: { landscape: true, fitWidth: 1 },
+              cols: [{ min: 1, max: 2, width: 12 }, { min: 3, max: 4, width: 7 }, { min: 5, max: 5, width: 18 }, { min: 6, max: 6, width: 34 },
+                     { min: 7, max: 8, width: 13 }, { min: 9, max: 9, width: 26 }, { min: 10, max: 10, width: 44 }, { min: 11, max: 12, width: 16 }] };
+    B.cells.push({ r: 1, c: 1, v: 'Block log — week of ' + _tpBlkDayEn(m.weekDate) + ' ' + String(m.weekDate).slice(0, 4), s: X.title });
+    B.cells.push({ r: 2, c: 1, v: 'One row per test block. A block without a test carries a reason (recorded by a signatory, or set by the platform).', s: X.sub });
+    var hdr = ['Week', 'Date', 'Day', 'Block', 'Status', 'Family', 'VIN', 'Purpose', 'Reason', 'Note', 'Recorded by', 'Preconditioning'];
+    hdr.forEach(function(t, i) { B.cells.push({ r: L0 - 1, c: 1 + i, v: t, s: i === 5 || i === 9 ? X.hdrL : X.hdr }); });
+    rows.forEach(function(x, i) {
+        var rr2 = L0 + i, st = { border: 'thin', fill: _TP_BLK_FILL[x.state] || 'FFFFFF', align: { v: 'center' } };
+        B.cells.push({ r: rr2, c: 1, v: { date: x.week }, s: X.date }, { r: rr2, c: 2, v: { date: x.date }, s: X.date },
+                     { r: rr2, c: 3, v: x.day, s: X.txt }, { r: rr2, c: 4, v: x.block, s: X.txt },
+                     { r: rr2, c: 5, v: x.status, s: st }, { r: rr2, c: 6, v: x.family, s: X.fam }, { r: rr2, c: 7, v: x.vin, s: X.txt },
+                     { r: rr2, c: 8, v: x.purpose, s: X.txt }, { r: rr2, c: 9, v: x.reason, s: X.fam }, { r: rr2, c: 10, v: x.note, s: X.fam },
+                     { r: rr2, c: 11, v: x.by, s: X.txt }, { r: rr2, c: 12, v: x.precon ? { date: x.precon } : '', s: X.date });
+    });
+    B.autoFilter = 'A' + (L0 - 1) + ':' + xwRef(L1, hdr.length);
+    return { title: 'Test Week', creator: 'KIA EmLab', appVersion: m.appVersion || '', sheets: [S, B] };
+}
+
+/** Descarga el Excel de una semana (Mi semana → 📤). */
+function tpWeekXlsxExport(weekDate) {
+    var m = tpBlocksForWeek(weekDate);
+    m.generated = (typeof localToday === 'function') ? localToday() : '';
+    m.appVersion = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '';
+    var name = 'Test_Week_' + m.weekDate + '.xlsx';
+    return xwBuildCompressed(tpWeekXlsxSpec(m)).then(function(bytes) {
+        _tpAuditDownload(bytes, name);
+        if (typeof auditLog === 'function') auditLog('tp', 'semana_xlsx_exportada', name,
+            { week: m.weekDate, blocks: m.total.blocks, tests: m.total.tests, unexplained: m.total.unexplained });
+        showToast('Descargado: ' + name + (m.total.unexplained ? ' · ' + m.total.unexplained + ' bloque(s) sin explicar' : ''), 'success');
+        return true;
+    }).catch(function(e) {
+        showToast('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Usa 🐞 para reportarlo.', 'error');
+        return false;
+    });
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    tp_blocks: { title: 'Bloques de la semana',
+        text: 'La capacidad instalada de la celda, bloque por bloque: cada par de días (preacondicionar → probar) por los vehículos que caben en él. ' +
+              'Un bloque se llena con la prueba que se corrió ese día. Si quedó vacío, un signatario pone el motivo (quality check, mantenimiento, ' +
+              'proyecto, sin vehículo…). Los días no laborables, las semanas sin celda y los mantenimientos de equipos que detienen pruebas se ponen solos. ' +
+              'El Excel de la semana y el estatus del viernes salen de aquí.' }
 });
 
 
@@ -67234,6 +68020,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpPlanTombstonesUnion === 'function') tpState.deletedPlans = tpPlanTombstonesUnion(prevTp.deletedPlans, tpState.deletedPlans);
         // [2.36.0] Las familias fuera del conteo, de los dos lados (gana la marca más reciente).
         if (typeof tpReqFamiliesUnion === 'function') tpState.reqFamilies = tpReqFamiliesUnion(prevTp.reqFamilies, tpState.reqFamilies);
+        // [3.24.0] Los motivos de los bloques de la celda, de los dos lados.
+        if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(prevTp.blockNotes, tpState.blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo: gana el cambio más reciente.
         if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -67290,6 +68078,8 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         _fbPlanTombsNewTo((typeof tpState !== 'undefined' && tpState && tpState.deletedPlans) || [], (remoteData && remoteData.deletedPlans) || []) ||
         // [2.36.0] Un pull cuyo único cambio es sacar/regresar una familia del conteo.
         (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo((typeof tpState !== 'undefined' && tpState && tpState.reqFamilies) || {}, (remoteData && remoteData.reqFamilies) || {})) ||
+        // [3.24.0] Un pull cuyo único cambio es el motivo de un bloque.
+        (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo((typeof tpState !== 'undefined' && tpState && tpState.blockNotes) || {}, (remoteData && remoteData.blockNotes) || {})) ||
         // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
         (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
@@ -68185,7 +68975,7 @@ function fbAssignInPlace(target, src) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
@@ -68227,6 +69017,8 @@ function _fbLocalHasExtras(col, remote) {
         if (_fbPlanTombsNewTo(remote.deletedPlans || [], tpState.deletedPlans || [])) return true;
         // [2.36.0] Una familia sacada/regresada al conteo aquí que la nube no tiene se sube.
         if (typeof tpReqFamiliesNewTo === 'function' && tpReqFamiliesNewTo(remote.reqFamilies || {}, tpState.reqFamilies || {})) return true;
+        // [3.24.0] Un motivo de bloque puesto aquí que la nube no tiene.
+        if (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo(remote.blockNotes || {}, tpState.blockNotes || {})) return true;
         // [3.13.0] El interruptor del REQ de corporativo cambiado aquí y no en la nube.
         if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
         var rt = {};
@@ -69402,6 +70194,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             tpState.reqFamilies = tpReqFamiliesUnion(tpState.reqFamilies, (remoteData.testplan || {}).reqFamilies);
             if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
         }
+        // [3.24.0] Los motivos de los bloques se UNEN siempre (gana el más reciente por bloque).
+        if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(tpState.blockNotes, (remoteData.testplan || {}).blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo se une igual (gana el más reciente).
         if (typeof tpCopReqModeUnion === 'function') {
             var _crm = tpCopReqModeUnion(tpState.copReqMode, (remoteData.testplan || {}).copReqMode);
@@ -70118,7 +70912,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610271847' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610282027' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -75702,7 +76496,33 @@ function copSetVin(el) {
     var id = parseInt(el.dataset.vid);
     var v = copState.vehicles.find(function(x) { return x.id === id; });
     if (v) v.vin = el.value;
+    if (v && v.source !== 'auto') _copInTone(el, el.value);
     copPersist(); // sin re-render para no perder el foco
+}
+/** [3.24.0] La fecha de prueba de un VIN que el laboratorio no tiene (fila manual). */
+function copSetRowDate(el) {
+    var id = parseInt(el.dataset.vid);
+    var v = copState.vehicles.find(function(x) { return x.id === id; });
+    if (!v) return;
+    var d = String(el.value || '');
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    if (d) v.testDate = d; else delete v.testDate;
+    _copInTone(el, d);
+    _copSetVehicles(copState.vehicles);
+    copPersist();
+}
+/** [3.24.0] Ordena la mesa por fecha de prueba (lo que no tiene fecha va al final). */
+function copSortMesaByDate() {
+    copInitState();
+    var key = copState.familyKey, vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var conDia = copState.vehicles.map(function(r, i) { return { r: r, i: i, d: copMesaRowDate(r, key, vehicles).date }; });
+    conDia.sort(function(a, b) {
+        if (!a.d !== !b.d) return a.d ? -1 : 1;
+        return a.d < b.d ? -1 : a.d > b.d ? 1 : a.i - b.i;
+    });
+    _copSetVehicles(conDia.map(function(x) { return x.r; }));
+    copPersist(); copRender();
+    if (typeof showToast === 'function') showToast('Mesa ordenada por fecha de prueba', 'success');
 }
 /**
  * v19.0 — el registro se CONGELA con lo que se usó para decidir.
@@ -75728,7 +76548,12 @@ function copSaveJudgment() {
         regulation: copState.regulation, fuelType: copState.fuelType,
         emissionReg: _copFamilyEmissionReg(copState.familyKey),
         activePolls: JSON.parse(JSON.stringify(copState.activePolls)),
-        vehicles: JSON.parse(JSON.stringify(copMesaRows())),
+        // [3.24.0] Con la fecha de prueba de cada VIN: un registro dice CUÁNDO se ensayó cada uno.
+        vehicles: JSON.parse(JSON.stringify(copMesaRows())).map(function(r) {
+            var d = copMesaRowDate(r, copState.familyKey);
+            if (d.date) { r.testDate = d.date; if (d.approx) r.testDateApprox = true; }
+            return r;
+        }),
         // [2.31.0] Lo que se dejó fuera, y por qué: el registro tiene que decirlo.
         excluded: copExcludedTests({ familyKey: copState.familyKey, allScopes: true }).map(function(x) {
             return { vin: x.vin, date: String(x.date || '').slice(0, 10), reason: x.text };
@@ -76334,8 +77159,15 @@ function copHandleInput(el) {
     var pid = el.dataset.pid;
     var vehicle = copState.vehicles.find(function(v) { return v.id === vid; });
     if (vehicle) vehicle.values[pid] = el.value;
+    _copInTone(el, el.value);
     copPersist();
     copRenderStats();
+}
+/** [3.24.0] El color de una celda tecleada: vacía = amarilla (teclea aquí); con valor = blanca. */
+function _copInTone(el, val) {
+    if (!el || !el.classList) return;
+    el.classList.remove('cop-in--lab', 'cop-in--todo', 'cop-in--manual');
+    el.classList.add(String(val || '') === '' ? 'cop-in--todo' : 'cop-in--manual');
 }
 
 function copClearData() {
@@ -76344,7 +77176,8 @@ function copClearData() {
     if (!conValor) { showToast('No hay valores que limpiar.', 'info'); return; }
     var hacer = function() {
         var antes = JSON.parse(JSON.stringify(copState.vehicles));
-        _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
+        // [3.24.0] La fecha de prueba de una fila manual no es un "valor": se queda.
+        _copSetVehicles(copState.vehicles.map(function(v) { var r = { id: v.id, vin: v.vin, values: {}, source: v.source }; if (v.testDate) r.testDate = v.testDate; return r; }));
         copState._lastDecision = null;
         copPersist();
         copRender();
@@ -77099,6 +77932,30 @@ function copBuildHTML() {
 }
 
 // ─── HTML: VISTA VALIDADOR ────────────────────────────────────────────────────
+/** [3.24.0] La celda de la fecha de prueba: del laboratorio (bloqueada) o tecleada. */
+function _copMesaDateCellHTML(row, d) {
+    if (d.source === 'lab') {
+        return '<span class="cop-date cop-date--lab" title="' + (d.approx
+                    ? 'La prueba no trae fecha de prueba: es el día en que se capturaron los resultados. Corrígela en Historial → 📝 Completar.'
+                    : 'Fecha de la prueba en el laboratorio. No se teclea aquí: si está mal, corrígela en Historial → 📝 Completar.') + '">' +
+               '🔒 ' + _copEsc(d.date) + (d.approx ? ' <b>≈</b>' : '') + '</span>';
+    }
+    return '<input type="date" class="cop-in cop-in--date ' + (d.date ? 'cop-in--manual' : 'cop-in--todo') + '" value="' + _copEsc(d.date || '') + '" ' +
+           'data-vid="' + row.id + '" onchange="copSetRowDate(this)" aria-label="Fecha de prueba — VIN ' + _copEsc(row.vin || '(sin VIN)') + '" ' +
+           'title="Este VIN no está en el laboratorio: teclea el día en que se probó" />';
+}
+
+/** [3.24.0] La leyenda de colores de la mesa: qué sale solo y dónde se teclea. */
+function _copMesaLegendHTML() {
+    return '<div class="cop-legend" role="note" aria-label="Qué significa cada color">' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--lab" aria-hidden="true"></span><b>Azul</b> = viene del laboratorio (prueba aprobada)</span>' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--todo" aria-hidden="true"></span><b>Amarillo</b> = vacío: <b>teclea aquí</b></span>' +
+        '<span class="cop-legend-item"><span class="cop-swatch cop-in--manual" aria-hidden="true"></span><b>Blanco</b> = tecleado a mano</span>' +
+        '<span class="cop-legend-item"><span class="cop-date cop-date--lab" aria-hidden="true">🔒</span> fecha de la prueba, no se edita aquí</span>' +
+        '<span class="cop-legend-item"><span aria-hidden="true">⊘</span> tachado = no cuenta para CoP (se dice por qué)</span>' +
+    '</div>';
+}
+
 function copBuildValidatorHTML() {
     var limits = COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS;
     var activeLimits = copGetActiveLimits();
@@ -77224,6 +78081,7 @@ function copBuildValidatorHTML() {
 
     html += '<div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-lg);flex-wrap:wrap;">';
     html += '<button onclick="copAddManualRow()" class="btn btn-sm btn-ghost" style="color:var(--info);">➕ VIN manual</button>';
+    html += '<button onclick="copSortMesaByDate()" class="btn btn-sm btn-ghost" title="Ordena los VINes de la prueba más vieja a la más reciente">↕ Por fecha de prueba</button>';
     html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar valores</button>';
     html += '<button onclick="copSaveJudgment()" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;margin-left:auto;">💾 Guardar juicio</button>';
     html += '</div>';
@@ -77245,12 +78103,16 @@ function copBuildValidatorHTML() {
                     '. Revisa cuál es el correcto y usa ↻ en la fila para traer el del laboratorio.';
             html += '</div>';
         }
+        // [3.24.0] Qué es cada color: qué sale solo y dónde se teclea.
+        html += _copMesaLegendHTML();
+        var _vehs = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
         html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<caption class="sr-only">VINes de la familia y su resultado por gas</caption>';
         html += '<thead><tr style="background:var(--bg);">';
         html += '<th scope="col" style="' + _copTh() + 'text-align:left;padding-left: var(--space-lg);">VIN</th>';
+        html += '<th scope="col" style="' + _copTh() + 'text-align:left;" data-help="cop-mesa-date-help">Fecha de prueba</th>';
         activeLimits.forEach(function(p) {
             html += '<th scope="col" style="' + _copTh() + '">' + p.label +
                     '<br><span style="font-size: var(--fs-xs);font-weight:400;color:var(--muted);text-transform:none;">L=' + copFmtLimit(p.limit, p.isPn) + ' ' + p.unit + '</span></th>';
@@ -77264,18 +78126,23 @@ function copBuildValidatorHTML() {
             html += '<tr' + (_exTxt ? ' class="cop-row--excluded" title="No cuenta para CoP: ' + _copEsc(_exTxt) + '"' : '') + '>';
             html += '<td style="' + _copTd() + 'text-align:left;padding-left: var(--space-md);">';
             if (_exTxt) html += '<div class="cop-row-excluded-why">⊘ No cuenta: ' + _copEsc(_exTxt) + '</div>';
+            var _auto = v.source === 'auto';
             html += '<input type="text" aria-label="VIN" value="' + _copEsc(v.vin || '') + '" data-vid="' + v.id + '" ' +
-                    'oninput="copSetVin(this)" placeholder="VIN" ' + (v.source === 'auto' ? 'title="Auto desde vehículo probado" ' : '') +
-                    'style="width:170px;padding: var(--space-sm) var(--space-sm);font-size: var(--fs-sm);box-sizing:border-box;font-family:monospace;' +
-                    (v.source === 'auto' ? 'border-left:3px solid var(--accent-cop);' : '') + '" />';
+                    'oninput="copSetVin(this)" placeholder="Ej.: KNAE2E…" ' +
+                    'title="' + (_auto ? 'Viene de un vehículo probado de esta familia' : 'VIN tecleado a mano') + '" ' +
+                    'class="cop-in cop-in--vin ' + (_auto ? 'cop-in--lab' : (v.vin ? 'cop-in--manual' : 'cop-in--todo')) + '" />';
             html += '</td>';
+            html += '<td style="' + _copTd() + 'text-align:left;white-space:nowrap;">' + _copMesaDateCellHTML(v, copMesaRowDate(v, copState.familyKey, _vehs)) + '</td>';
             activeLimits.forEach(function(p) {
+                var _val = v.values[p.id] !== undefined ? v.values[p.id] : '';
+                var _cls = _val === '' ? 'cop-in--todo' : (_auto && !v.staleAuto ? 'cop-in--lab' : 'cop-in--manual');
                 html += '<td style="' + _copTd() + 'padding: var(--space-sm) var(--space-sm);">';
-                html += '<input type="number" step="any" inputmode="decimal" placeholder="—" aria-label="' + _copEsc(p.label) + ' — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
-                html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
+                html += '<input type="number" step="any" inputmode="decimal" placeholder="Ej.: 0.12" aria-label="' + _copEsc(p.label) + ' (' + _copEsc(p.unit) + ') — VIN ' + _copEsc(v.vin || '(sin VIN)') + '" ';
+                html += 'value="' + _val + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
-                html += 'style="width:90px;padding: var(--space-sm) var(--space-sm);font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
+                html += 'title="' + (_cls === 'cop-in--lab' ? 'Resultado aprobado en el laboratorio' : _cls === 'cop-in--todo' ? 'Teclea el resultado en ' + _copEsc(p.unit) : 'Valor tecleado a mano') + '" ';
+                html += 'class="cop-in cop-in--num ' + _cls + '" />';
                 html += '</td>';
             });
             html += '<td style="' + _copTd() + 'padding: var(--space-xs);white-space:nowrap;">';
@@ -77293,7 +78160,8 @@ function copBuildValidatorHTML() {
 
         html += '</tbody></table>';
         html += '</div>'; // overflow-x
-        html += '<p class="label-title" style="margin-top: var(--space-md);font-size: var(--fs-xs);color:var(--muted);">Los VINes marcados en azul se autollenaron desde vehículos probados de la familia; captura/edita los gases. El veredicto se recalcula en vivo (requiere ≥3 VINes con valor por contaminante).</p>';
+        html += '<p class="cop-guide">El veredicto se recalcula en vivo mientras tecleas. Hacen falta <b>3 VINes o más con valor</b> en cada contaminante. ' +
+                'Las unidades son las del encabezado de cada columna.</p>';
     }
     html += '</div>'; // data card
 
@@ -77379,14 +78247,56 @@ var COP_SPC_RELIABLE = 8; // n para límites confiables y Cpk
 var COP_SPC_RULES = { R1: 'Fuera de ±3σ', R2: 'Corrimiento (8 de un lado)', R3: 'Tendencia (6 en fila)' };
 
 function _copSpcDate(v) {
-    var gr = v && v.testData && v.testData.gasResults;
+    var td = v && v.testData, gr = td && td.gasResults;
     if (!gr) return '';
-    // [2.30.0] Una prueba histórica se confirma hoy, pero ocurrió cuando dice VETS: la
-    // carta I-MR va en orden de PRUEBA (si no, los rangos móviles se calculan revueltos).
-    if (typeof vehicleIsHistoric === 'function' && vehicleIsHistoric(v) && v.testData.testDatetime) return v.testData.testDatetime;
+    // [3.24.0] Orden de PRUEBA, de verdad: el día de la prueba (testDatetime, o el del formato
+    // simple), como el calendario (2.32.0). Antes solo el histórico lo usaba y el resto tomaba
+    // el día en que el aprobador capturó: una prueba del martes aprobada el jueves salía el
+    // jueves en la mesa, la carta I-MR y la secuencia de CO₂.
+    if (td.testDatetime) return String(td.testDatetime);
+    if (td.simple && td.simple.datetime) return String(td.simple.datetime);
+    // Sin fecha de prueba (registros viejos): el día de captura, y se marca como aproximado.
     var rec = (gr.aprobador && gr.aprobador.values) ? gr.aprobador
             : (gr.liberador && gr.liberador.values) ? gr.liberador : null;
     return (rec && rec.capturedAt) || '';
+}
+
+/**
+ * [3.24.0] LA fecha de prueba de un ensayo del CoP → {date: 'AAAA-MM-DD' | '', approx}.
+ * `approx` = la prueba no trae fecha y se tomó el día en que se capturaron los resultados.
+ */
+function copTestDate(v) {
+    var td = (v && v.testData) || {};
+    var real = String(td.testDatetime || (td.simple && td.simple.datetime) || '').slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(real)) return { date: real, approx: false };
+    var d = String(_copSpcDate(v) || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? { date: d, approx: true } : { date: '', approx: false };
+}
+
+/**
+ * [3.24.0] LA fecha de prueba de una fila de la mesa → {date, source: 'lab'|'manual'|'',
+ * approx, vehicleId}. Si el VIN es del laboratorio, sale de SU prueba (la que cuenta, o la
+ * más reciente de la familia) y no se teclea. Solo un VIN que el laboratorio no tiene usa la
+ * fecha que se capturó en la fila (`row.testDate`).
+ */
+function copMesaRowDate(row, key, vehicles) {
+    if (!row) return { date: '', source: '', approx: false, vehicleId: null };
+    vehicles = vehicles || ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []);
+    if (row.vin) {
+        var veh = _copVinBestTest(row.vin, key, vehicles);
+        if (!veh) {
+            var mine = _copVinTests(row.vin, key, vehicles).filter(function(v) { return copTestDate(v).date; });
+            mine.sort(function(a, b) { var da = _copSpcDate(a), dbb = _copSpcDate(b); return da < dbb ? -1 : da > dbb ? 1 : 0; });
+            veh = mine.length ? mine[mine.length - 1] : null;
+        }
+        if (veh) {
+            var d = copTestDate(veh);
+            if (d.date) return { date: d.date, source: 'lab', approx: d.approx, vehicleId: veh.id };
+        }
+    }
+    var m = String(row.testDate || '');
+    return /^\d{4}-\d{2}-\d{2}$/.test(m) ? { date: m, source: 'manual', approx: false, vehicleId: null }
+                                         : { date: '', source: '', approx: false, vehicleId: null };
 }
 
 function _copSpcFmt(v, dec) {
@@ -77879,7 +78789,8 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Si generas el PDF sin un juicio guardado, sale marcado PRELIMINAR — a propósito.'
     ]},
     'cop-validator': { title: 'Validador CoP', text: 'Valida la conformidad de producción de una familia: elige región y familia, la tabla se llena con los VINes ya probados, y el veredicto CONCORDANTE se calcula en vivo (muestreo secuencial, mínimo 3 VINes).', tips: [
-        'Los VINes en azul se autollenaron desde vehículos ya probados; captura/edita los gases que falten.',
+        'Colores de la tabla: azul = viene del laboratorio; amarillo = vacío, teclea ahí; blanco = tecleado a mano.',
+        'La fecha de prueba de cada VIN sale sola (🔒) si el VIN es del laboratorio; solo un VIN manual pide teclearla. ↕ ordena la tabla por fecha.',
         'Necesitas al menos 3 VINes con valor por contaminante para obtener un veredicto.',
         'Guarda el juicio con 💾 para dejar constancia auditable de la evaluación.'
     ]},
@@ -77891,6 +78802,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, con la regla de UN R154 §2.1.1: promedio de las emisiones × DF asignado (Xtests) contra A·L − VAR/L (pasa) y A·L − ((n−3)/13)·VAR/L (falla), con A = 1.05. Desde 3 VINes; entre las dos cotas hace falta otra medición, hasta 16.' },
+    'cop-mesa-date-help': { title: 'Fecha de prueba', text: 'El día en que se corrió la prueba de ese VIN (no el de liberación ni el de aprobación), el mismo que usa el calendario del Plan. Con 🔒 viene del laboratorio: si está mal, se corrige en Historial → 📝 Completar. Con ≈ la prueba no traía fecha y se muestra el día en que se capturaron los resultados. Un VIN que el laboratorio no tiene pide teclear la fecha en el campo amarillo.' },
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó la cota de falla); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
@@ -77898,7 +78810,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
     'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'La barra compara Xtests (el promedio con DF) contra dos cotas de UN R154 §2.1.1 que dependen de cuántos vehículos llevas y de su dispersión (VAR). A la izquierda de la cota de paso la familia es CONCORDANTE; a la derecha de la cota de falla es NO CONCORDANTE; en medio, hace falta otro vehículo. La marca negra es dónde está Xtests ahora.' },
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
-    'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
+    'cop-scope-help': { title: 'Alcance del CoP', text: '' },   // [3.24.0] se arma del alcance real (abajo)
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
     'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa ➖ en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
     'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
@@ -78005,7 +78917,7 @@ function _copBuildCo2HTML() {
     // Tabla por vehículo
     html += '<div style="overflow-x:auto;margin-top: var(--space-md);"><table class="u-cards" style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
-        ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
+        ['VIN', 'Fecha de prueba', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
         }).join('') + '</tr></thead><tbody>';
 
@@ -78027,6 +78939,7 @@ function _copBuildCo2HTML() {
         };
         html += '<tr>';
         html += cell(r.vin, 'font-weight:700;white-space:nowrap;');
+        html += cell(r.date ? String(r.date).slice(0, 10) : null, 'white-space:nowrap;');
         html += cell(h.mcCode);
         html += cell(r.measured == null ? null : Number(r.measured).toFixed(1));
         html += cell(r.target == null ? null : Number(r.target).toFixed(1));
@@ -78387,7 +79300,7 @@ function copFamilyPDF(familyKey) {
     var gases = (row.polls || []).slice(0, 5);
     doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.text('VIN', ML + 2, y); doc.text('Fecha', ML + 42, y);
+    doc.text('VIN', ML + 2, y); doc.text('Fecha de prueba', ML + 42, y);
     gases.forEach(function(g, i) { doc.text(String(g.label).slice(0, 6), ML + 66 + i * 23, y); });
     y += 4; doc.setFont('helvetica', 'normal');
     (row.tests || []).forEach(function(t) {
@@ -78532,6 +79445,17 @@ function copFamilyPDF(familyKey) {
         auditLog('cop', 'dossier_exported', { type: 'cop', label: row.label },
                  'Expediente PDF' + (preliminar ? ' (preliminar)' : ' del juicio del ' + (judgment.date || '').slice(0, 10)));
     }
+}
+
+// [3.24.0] La ayuda del alcance se arma de COP_HQ_RULES al abrirla: un texto escrito a mano
+// se quedó diciendo "EURO-5, EURO-6E y PRE-EURO 7" después de que el alcance cambió (3.22.0).
+if (typeof CASCADE_TOOLTIPS !== 'undefined' && CASCADE_TOOLTIPS['cop-scope-help']) {
+    Object.defineProperty(CASCADE_TOOLTIPS['cop-scope-help'], 'text', { enumerable: true, configurable: true, get: function() {
+        var alc = (typeof copScopeLabel === 'function') ? copScopeLabel() : '';
+        return 'El laboratorio hace Conformidad de Producción sobre: ' + (alc || 'las parejas región + norma de corporativo') + '. ' +
+               'Solo cuentan las pruebas registradas como CoP · Emisiones. El resto del catálogo se prueba, pero no entra al juicio de ' +
+               'conformidad: aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.';
+    } });
 }
 
 
@@ -79246,6 +80170,19 @@ var COP_REP_TXT = {
             return t;
         },
         weekShort: 'S', legendNeed: function(n) { return 'necesario: ' + n + '/sem.'; }, offShort: 'sin celda',
+        secCell: 'Uso de la celda', secCellSub: 'Bloques de prueba de esta semana y el plan de la siguiente',
+        cellNow: function(T) {
+            return '<b>Esta semana:</b> ' + T.tests + ' de ' + T.blocks + ' bloques con prueba (' + _crPct(T.use) + ')' +
+                   (T.unexplained ? ' · <b style="color:#b91c1c;">' + T.unexplained + ' sin explicar</b>' : '') +
+                   (T.pending || T.planned ? ' · ' + (T.pending + T.planned) + ' por correr' : '') + '.';
+        },
+        cellNext: function(st, T) {
+            if (st === 'none') return '<b>Semana siguiente:</b> todavía no tiene plan.';
+            return '<b>Semana siguiente</b> (' + (st === 'accepted' ? 'plan aceptado' : '<span style="color:#92400e;">propuesta sin aceptar</span>') + '): ' +
+                   T.planned + ' ' + _crPlural(T.planned, 'prueba planeada', 'pruebas planeadas') + ' en ' + T.blocks + ' bloques.';
+        },
+        cellBlock: 'Bloque', cellToday: 'hoy', cellFree: 'libre', cellNotExplained: 'Sin explicar', cellProposal: 'propuesta',
+        cellExtra: function(n) { return n + ' ' + _crPlural(n, 'prueba', 'pruebas') + ' de más (sobre la capacidad).'; },
         secKey: 'Puntos clave', secNote: 'Nota del laboratorio',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'ensayo', 'ensayos') + '</b> esta semana: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'Sin ensayos nuevos esta semana.',
@@ -79320,6 +80257,19 @@ var COP_REP_TXT = {
             return t;
         },
         weekShort: 'W', legendNeed: function(n) { return 'needed: ' + n + '/wk'; }, offShort: 'no cell',
+        secCell: 'Cell use', secCellSub: 'Test blocks this week and next week’s plan',
+        cellNow: function(T) {
+            return '<b>This week:</b> ' + T.tests + ' of ' + T.blocks + ' test blocks used (' + _crPct(T.use) + ')' +
+                   (T.unexplained ? ' · <b style="color:#b91c1c;">' + T.unexplained + ' not explained</b>' : '') +
+                   (T.pending || T.planned ? ' · ' + (T.pending + T.planned) + ' still to run' : '') + '.';
+        },
+        cellNext: function(st, T) {
+            if (st === 'none') return '<b>Next week:</b> no plan yet.';
+            return '<b>Next week</b> (' + (st === 'accepted' ? 'plan accepted' : '<span style="color:#92400e;">proposal, not accepted yet</span>') + '): ' +
+                   T.planned + ' ' + _crPlural(T.planned, 'test', 'tests') + ' planned in ' + T.blocks + ' blocks.';
+        },
+        cellBlock: 'Block', cellToday: 'today', cellFree: 'free', cellNotExplained: 'Not explained', cellProposal: 'proposal',
+        cellExtra: function(n) { return n + ' extra ' + _crPlural(n, 'test', 'tests') + ' (over capacity).'; },
         secKey: 'Key points', secNote: 'Note from the lab',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'test', 'tests') + '</b> this week: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'No new tests this week.',
@@ -79430,6 +80380,58 @@ function _crHighlightText(hl, X, lang) {
     return '';
 }
 
+/** [3.24.0] Color de un bloque en el correo (relleno, texto). */
+var _CR_BLK = { prueba: ['#d1fae5', '#065f46'], motivo: ['#fef3c7', '#92400e'], auto: ['#fef3c7', '#92400e'], planeada: ['#dbeafe', '#1e3a8a'],
+                libre: ['#f8fafc', '#94a3b8'], pendiente: ['#f1f5f9', '#475569'], 'sin-explicar': ['#fee2e2', '#991b1b'] };
+
+/** El día de una columna de bloques: "Tue 20 Oct" / "Mar 20 oct". PURA. */
+function _crBlockDay(iso, lang) {
+    var p = String(iso || '').split('-');
+    if (p.length !== 3) return '';
+    var wd = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
+    var D = lang === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return D[wd] + ' ' + Number(p[2]) + ' ' + _crMonL(Number(p[1]), lang);
+}
+
+/** Un bloque en el correo: la familia, el motivo, o el estado. Sin VIN. PURA. */
+function _crBlockText(b, X, lang) {
+    if (b.state === 'prueba') return '✓ ' + _crEsc(b.fam);
+    if (b.state === 'motivo' || b.state === 'auto') {
+        var R = typeof tpBlockReason === 'function' ? tpBlockReason(b.reason) : null;
+        return _crEsc(R ? (lang === 'en' ? R.en : R.es) : b.reason);
+    }
+    if (b.state === 'planeada') return _crEsc(b.fam) + (b.proposal ? ' <i>(' + X.cellProposal + ')</i>' : '');
+    if (b.state === 'sin-explicar') return '<b>' + X.cellNotExplained + '</b>';
+    if (b.state === 'pendiente') return X.cellToday;
+    return X.cellFree;
+}
+
+/** La semana como tabla: columnas = días de prueba, renglones = bloques (Outlook la pinta). PURA. */
+function _crBlocksTable(wk, X, lang) {
+    var days = wk.days || [], maxN = days.reduce(function(s, d) { return Math.max(s, d.blocks.length); }, 0);
+    if (!days.length) return '';
+    var w = Math.floor(100 / days.length);
+    var h = '<table role="presentation" class="cr-blocks" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;table-layout:fixed;"><tr>';
+    days.forEach(function(d) {
+        h += '<td width="' + w + '%" style="width:' + w + '%;padding:6px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:' + _CR_MUTED +
+             ';border-bottom:2px solid ' + _CR_LINE + ';">' + _crEsc(_crBlockDay(d.iso, lang)) + '</td>';
+    });
+    h += '</tr>';
+    for (var k = 0; k < maxN; k++) {
+        h += '<tr>';
+        days.forEach(function(d) {
+            var b = d.blocks[k];
+            if (!b) { h += '<td style="padding:3px;"></td>'; return; }
+            var c = _CR_BLK[b.state] || _CR_BLK.libre;
+            h += '<td valign="top" style="padding:3px;vertical-align:top;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>' +
+                 '<td bgcolor="' + c[0] + '" style="background:' + c[0] + ';color:' + c[1] + ';border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.35;word-wrap:break-word;">' +
+                 _crBlockText(b, X, lang) + '</td></tr></table></td>';
+        });
+        h += '</tr>';
+    }
+    return h + '</table>';
+}
+
 /** Barras de ensayos por semana (tablas: así las pinta Outlook). PURA. */
 function _crPaceChart(P, X) {
     var H = 64;
@@ -79529,6 +80531,17 @@ function copYearReportHTML(m, opts) {
     h += _crSection(X.secPace, X.secPaceSub);
     h += '<tr><td style="padding:0 24px;">' + _crPaceChart(P, X) +
          '<div style="font-size:13px;line-height:1.55;color:#334155;margin-top:10px;">' + X.paceText(P, lang) + '</div></td></tr>';
+    // ── [3.24.0] Uso de la celda: esta semana y la siguiente, bloque por bloque
+    if (m.cell && m.cell.now && m.cell.now.total.blocks) {
+        h += _crSection(X.secCell, X.secCellSub);
+        h += '<tr><td style="padding:0 24px;font-size:13px;line-height:1.55;color:#334155;">' + X.cellNow(m.cell.now.total) +
+             (m.cell.now.extra ? ' ' + X.cellExtra(m.cell.now.extra) : '') + '</td></tr>';
+        h += '<tr><td style="padding:6px 24px 0;">' + _crBlocksTable(m.cell.now, X, lang) + '</td></tr>';
+        if (m.cell.next) {
+            h += '<tr><td style="padding:14px 24px 0;font-size:13px;line-height:1.55;color:#334155;">' + X.cellNext(m.cell.next.planState, m.cell.next.total) + '</td></tr>';
+            if (m.cell.next.planState !== 'none') h += '<tr><td style="padding:6px 24px 0;">' + _crBlocksTable(m.cell.next, X, lang) + '</td></tr>';
+        }
+    }
     // ── Puntos clave y nota del laboratorio
     h += _crSection(X.secKey);
     h += '<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">';
@@ -79839,8 +80852,35 @@ function copYearReportModel(opts) {
         exclude: copState.yearExclude || {},
         outOfScope: outOfScope
     });
+    // [3.24.0] Los bloques de la celda solo los lee el reporte: se arman la primera vez que
+    // se piden (el Plan pide este modelo desde el arranque y no los necesita). No enumerable:
+    // no viaja en el corte guardado.
+    var _cell;
+    Object.defineProperty(model, 'cell', { enumerable: false, configurable: true,
+        get: function() { if (_cell === undefined) _cell = _copRepCell(cut); return _cell; } });
     _copRepCache = { key: key, model: model };
     return model;
+}
+
+/**
+ * [3.24.0] Los bloques de la celda para el reporte: la semana del corte y la siguiente, sin
+ * VIN (sale por correo). Salen de tpBlocksForWeek (bloques.js), con el corte como "hoy".
+ */
+function _copRepCell(cut) {
+    if (typeof tpBlocksForWeek !== 'function') return null;
+    var pack = function(r) {
+        return { weekDate: r.weekDate, planState: r.planState, total: r.total, extra: r.extra.length,
+                 days: r.days.map(function(d) {
+                     return { iso: d.iso, day: d.day, blocks: d.blocks.map(function(b) {
+                         var src = b.test || b.planned;
+                         return { n: b.n, state: b.state, reason: b.reason, fam: src ? tpBlockFamilyName(src) : '', proposal: !!(b.planned && b.planned.proposal) };
+                     }) };
+                 }) };
+    };
+    try {
+        var mon = copRepMonday(cut);
+        return { now: pack(tpBlocksForWeek(mon, { today: cut })), next: pack(tpBlocksForWeek(_copRepAddDays(mon, 7), { today: cut })) };
+    } catch (e) { void 0; return null; }
 }
 
 /**
@@ -80057,6 +81097,16 @@ function copRepPlainText(m, lang) {
                    (r.added ? ' (+' + r.added + ')' : '') + ' · ' + ((X.status[r.status.id]) || r.status.label));
         });
     });
+    if (m.cell && m.cell.now && m.cell.now.total.blocks) {
+        var strip = function(t) { return String(t).replace(/<[^>]+>/g, ''); };
+        L.push('', X.secCell + ':', '  ' + strip(X.cellNow(m.cell.now.total)));
+        if (m.cell.next) {
+            L.push('  ' + strip(X.cellNext(m.cell.next.planState, m.cell.next.total)));
+            if (m.cell.next.planState !== 'none') m.cell.next.days.forEach(function(d) {
+                L.push('    ' + _crBlockDay(d.iso, lang) + ': ' + d.blocks.map(function(b) { return strip(_crBlockText(b, X, lang)); }).join(' | '));
+            });
+        }
+    }
     if (m.note) L.push('', X.secNote + ': ' + m.note.text);
     return L.join('\n');
 }
@@ -89662,7 +90712,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9848,"mods":[[9851,"js/app.js",20117],[20121,"js/uiflow.js",20456],[20460,"js/cop15.js",31532],[31536,"js/inventory.js",39540],[39544,"js/cuarto.js",41674],[41678,"js/sitio.js",43858],[43862,"js/conslist.js",44470],[44474,"js/testplan.js",56391],[56395,"js/panel.js",61761],[61765,"js/projects.js",64054],[64058,"js/auth.js",65138],[65142,"js/signatures.js",65343],[65347,"js/firebase-sync.js",73958],[73962,"js/cop_validator.js",78535],[78539,"js/copreport.js",80234],[80238,"js/cophq.js",81048],[81052,"js/homolog.js",82949],[82953,"js/vets.js",84752],[84756,"js/historico.js",85670],[85674,"js/review.js",86127],[86131,"js/opcards.js",86580],[86584,"js/handoff.js",86863],[86867,"js/ficha.js",87368],[87372,"js/relevo.js",87752],[87756,"js/momentos.js",87893],[87897,"js/normas.js",88302],[88306,"js/digest.js",89234],[89238,"js/xlsxw.js",89618],[89622,"js/bugreport.js",90768]]};
+var BUG_LINE_MAP = {"tag":9896,"mods":[[9899,"js/app.js",20195],[20199,"js/uiflow.js",20534],[20538,"js/cop15.js",31610],[31614,"js/inventory.js",39618],[39622,"js/cuarto.js",41752],[41756,"js/sitio.js",43936],[43940,"js/conslist.js",44548],[44552,"js/testplan.js",56552],[56556,"js/bloques.js",57177],[57181,"js/panel.js",62547],[62551,"js/projects.js",64840],[64844,"js/auth.js",65924],[65928,"js/signatures.js",66129],[66133,"js/firebase-sync.js",74752],[74756,"js/cop_validator.js",79459],[79463,"js/copreport.js",81284],[81288,"js/cophq.js",82098],[82102,"js/homolog.js",83999],[84003,"js/vets.js",85802],[85806,"js/historico.js",86720],[86724,"js/review.js",87177],[87181,"js/opcards.js",87630],[87634,"js/handoff.js",87913],[87917,"js/ficha.js",88418],[88422,"js/relevo.js",88802],[88806,"js/momentos.js",88943],[88947,"js/normas.js",89352],[89356,"js/digest.js",90284],[90288,"js/xlsxw.js",90668],[90672,"js/bugreport.js",91818]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

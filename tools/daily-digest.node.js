@@ -249,6 +249,8 @@ async function main() {
             cop.yearCuts = cop.yearCuts || {};
             if (!cop.yearCuts[prevWeek] && state.copLastCut && state.copLastCut.weekOf === prevWeek) cop.yearCuts[prevWeek] = state.copLastCut;
             P.db.vehicles = data.vehicles;
+            // [3.24.0] Los bloques de la celda deducen mantenimientos y calibraciones del inventario.
+            if (data.inventory && typeof P.__invSet === 'function') P.__invSet(data.inventory);
             P.__copSet(cop);
             P.__setRegProfiles(data.regProfiles);
             const m = P.copYearReportModel({ cutIso, force: true });

@@ -62,6 +62,8 @@ function loadDigestEnv() {
     vm.runInContext(src('testplan.js') + '\nvar __tpGet = function(){ return tpState; };' +
         '\nvar __tpSet = function(s){ tpState = s; if (typeof _tpEnsureState === "function") _tpEnsureState();' +
         ' if (typeof tpWeekPlanInvalidate === "function") tpWeekPlanInvalidate(); };', sb, { filename: 'testplan.js' });
+    // [3.24.0] Los bloques de la celda (el estatus del viernes trae esta semana y la siguiente).
+    vm.runInContext(src('bloques.js'), sb, { filename: 'bloques.js' });
 
     // La app junta los vehículos por VIN y retira los borrados: se cargan SUS funciones.
     ['stableStringify', 'strHash', 'revContentHash', '_vehTombKey', 'vehicleIsTombstoned', 'vehicleTombstonesUnion', 'vehicleCopyKey']
