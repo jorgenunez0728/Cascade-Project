@@ -4157,4 +4157,7 @@ Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
   (PURA) lo deduce del catálogo del Alta (desc → prefijo del desc → único modelo con los mismos
   campos; con dos posibles devuelve `''`). `tpRepairPlanModels()` lo aplica a `planData` y marca
   `modInferred`; corre al importar, tras `parseCSV()` en el arranque y en `_tpEnsureState` (pull).
-
+- **`copRepCritical` ya no avisa "pocas unidades por producir"** (decisión del laboratorio,
+  30-oct-2026: era ruido). Reemplaza el primer criterio que describe 3.23.0. No volver a meter
+  un aviso que dependa de lo que FALTA por producir: el plan de producción suele venir incompleto
+  y el aviso sale en familias que sí se producen.

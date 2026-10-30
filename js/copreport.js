@@ -351,9 +351,7 @@ function copYearReportCompute(src) {
             vins: e.tests.map(function(t) { return t.vin; }),
             // [3.23.0] Para el ritmo, lo crítico y los puntos clave.
             name: copRepShortName(f), testDates: e.tests.map(function(t) { return t.date; }),
-            prevStatus: copRepStatus(prevReq, prevDone, prevVerdict),
-            ahead: _copRepAhead(f.m, f.src, cutYear > year ? 12 : (cutYear < year ? 0 : cutMonth - 1)),
-            lastProdMonth: _copRepLastProdMonth(f.m, f.src)
+            prevStatus: copRepStatus(prevReq, prevDone, prevVerdict)
         });
     });
     rows.sort(function(a, b) {
@@ -420,22 +418,6 @@ function copYearReportCompute(src) {
 // [3.23.0] Ritmo, familias críticas y puntos clave — PURAS, sobre el modelo del estatus
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Unidades planeadas del mes del corte a diciembre (lo que todavía se va a producir). PURA. */
-function _copRepAhead(months, srcs, fromIdx) {
-    var n = 0;
-    for (var i = Math.max(0, fromIdx); i < 12; i++) {
-        if (srcs && (srcs[i] === 'plan' || srcs[i] === 'real')) n += Number(months[i]) || 0;
-    }
-    return n;
-}
-/** Último mes (1..12) del año con producción planeada o real; 0 = el plan no trae ninguno. PURA. */
-function _copRepLastProdMonth(months, srcs) {
-    for (var i = 11; i >= 0; i--) {
-        if (srcs && (srcs[i] === 'plan' || srcs[i] === 'real') && (Number(months[i]) || 0) > 0) return i + 1;
-    }
-    return 0;
-}
-
 /**
  * Cómo dice una familia la gerencia: "CL4 1.6 T-GDI LP 7DCT", "BL7m 1.6 6AT". PURA.
  * La carrocería no va en el nombre: es el grupo de la tabla. Lo que no se reconoce se
@@ -501,18 +483,16 @@ function copRepPace(m) {
 
 /** Margen de unidades antes del siguiente lote que se avisa (un lote son 5,000). */
 var COP_REP_NEAR_LOT_UNITS = 1000;
-/** Con menos de esto por producir en el año, conseguir una unidad es el riesgo. */
-var COP_REP_SCARCE_UNITS = 60;
 
 /**
  * La siguiente familia más crítica. PURA. Una familia entra si le falta algo o si un
  * cambio de producción le subiría el REQ. El orden pesa, en este orden:
  *  1. no concordante;
- *  2. pocas unidades por producir (o ninguna en diciembre) con ensayos pendientes:
- *     si no se aparta una unidad ya, puede no haber con qué ensayar;
- *  3. muestreo abierto con el REQ cubierto;
- *  4. cuántos ensayos faltan;
- *  5. cerca del siguiente lote.
+ *  2. muestreo abierto con el REQ cubierto;
+ *  3. cuántos ensayos faltan;
+ *  4. cerca del siguiente lote.
+ * [3.26.0] Se quitó "pocas unidades por producir — apartar una ya": el laboratorio lo
+ * leyó como ruido (con el plan de producción incompleto decía "~0 unidades").
  * Devuelve [{key, name, row, score, reasons:[{k, …}]}] de mayor a menor.
  */
 function copRepCritical(m) {
@@ -520,9 +500,6 @@ function copRepCritical(m) {
     (m.rows || []).forEach(function(r) {
         var reasons = [], score = 0;
         if (r.status.id === 'fail') { reasons.push({ k: 'fail' }); score += 1000; }
-        if (r.pending > 0 && (r.ahead < COP_REP_SCARCE_UNITS || (r.lastProdMonth && r.lastProdMonth < 12))) {
-            reasons.push({ k: 'scarce', n: r.ahead, last: r.lastProdMonth }); score += 200 + Math.max(0, COP_REP_SCARCE_UNITS - r.ahead);
-        }
         if (r.status.id === 'open') { reasons.push({ k: 'open' }); score += 80; }
         if (r.pending > 0) {
             reasons.push({ k: r.done ? 'pending' : 'todo', p: r.pending, req: r.req }); score += 20 * r.pending + (r.done ? 0 : 10);
@@ -690,10 +667,6 @@ var COP_REP_TXT = {
         secAttention: 'Requiere atención', secAttentionSub: 'Las familias más críticas, por riesgo y por lo que falta',
         nothingCritical: 'Ninguna familia tiene ensayos pendientes ni riesgo de cambiar de REQ.',
         rFail: 'Resultado NO CONCORDANTE: revisar antes de seguir ensayando.',
-        rScarce: function(r) {
-            return 'Quedan ~' + _crNum(r.n) + ' unidades por producir' + (r.last && r.last < 12 ? ', la última en ' + _crMonL(r.last, 'es') : '') +
-                   ': <b>apartar una unidad ya</b>.';
-        },
         rOpen: 'REQ cubierto, pero el muestreo sigue abierto: hace falta otro ensayo.',
         rPending: function(r) { return (r.p === 1 ? 'Falta ' : 'Faltan ') + r.p + ' de ' + r.req + ' ' + _crPlural(r.req, 'ensayo', 'ensayos') + '.'; },
         rTodo: function(r) { return 'Sin iniciar: ' + r.p + ' de ' + r.req + ' ' + _crPlural(r.req, 'ensayo', 'ensayos') + ' por hacer.'; },
@@ -777,10 +750,6 @@ var COP_REP_TXT = {
         secAttention: 'Needs attention', secAttentionSub: 'Most critical families, by risk and by tests to go',
         nothingCritical: 'No family has pending tests or is close to a higher requirement.',
         rFail: 'NON-CONFORMING result: review before testing further.',
-        rScarce: function(r) {
-            return 'Only ~' + _crNum(r.n) + ' units left to build' + (r.last && r.last < 12 ? ', last ones in ' + _crMonL(r.last, 'en') : '') +
-                   ': <b>reserve a unit now</b>.';
-        },
         rOpen: 'Requirement met, but sampling is still open: one more test needed.',
         rPending: function(r) { return r.p + ' of ' + r.req + ' ' + _crPlural(r.req, 'test', 'tests') + ' to go.'; },
         rTodo: function(r) { return 'Not started: ' + r.p + ' of ' + r.req + ' ' + _crPlural(r.req, 'test', 'tests') + ' to go.'; },
@@ -899,7 +868,6 @@ function _crSection(title, sub) {
 function _crFamName(r, X) { return _crEsc(r.name || '') || X.noModel; }
 function _crReasonText(rs, X) {
     if (rs.k === 'fail') return X.rFail;
-    if (rs.k === 'scarce') return X.rScarce(rs);
     if (rs.k === 'open') return X.rOpen;
     if (rs.k === 'pending') return X.rPending(rs);
     if (rs.k === 'todo') return X.rTodo(rs);
@@ -1054,7 +1022,7 @@ function copYearReportHTML(m, opts) {
         h += '<tr><td style="padding:0 24px;"><table role="presentation" class="cr-att" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">';
         top.forEach(function(c, i) {
             var r = c.row, tone = COP_REP_TONE[r.status.id] || COP_REP_TONE.none;
-            var lead = c.reasons[0].k === 'fail' || c.reasons[0].k === 'scarce' ? '#b91c1c' : _CR_NAVY;
+            var lead = c.reasons[0].k === 'fail' ? '#b91c1c' : _CR_NAVY;
             h += '<tr><td width="34" valign="top" style="width:34px;padding:10px 0;border-top:1px solid ' + _CR_LINE + ';vertical-align:top;">' +
                  '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="24" height="24" align="center" bgcolor="' + lead +
                  '" style="width:24px;height:24px;background:' + lead + ';border-radius:12px;color:#ffffff;font-size:12px;font-weight:800;text-align:center;">' + (i + 1) + '</td></tr></table></td>' +

@@ -34,6 +34,11 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   único modelo del catálogo con ese motor, transmisión, norma, región, carrocería y paquetes. Si
   hay dos posibles no adivina y la fila se queda como venía.
 
+- **"Requiere atención" ya no avisa de pocas unidades por producir** ("Only ~0 units left to
+  build: reserve a unit now"). Con el plan de producción incompleto decía "~0 unidades" en
+  familias que sí se producen, y era el renglón que más ruido hacía. Las familias se ordenan por
+  no concordante → muestreo abierto → ensayos pendientes → cerca del siguiente lote.
+
 ### No cambia
 - La CL4 (gasolina y 48V) sigue separando 5 puertas y Wagon.
 - La clave por año modelo, la carta SPC y los juicios guardados siguen por carrocería.
@@ -45,6 +50,8 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - `copYearProduction` y `copYearReportCompute` toman modelo y carrocería de la CLAVE del año.
 - `tpInferModel(cfg, catalog)` (PURA) y `tpRepairPlanModels()` (testplan.js) rellenan `mod` vacío
   en `planData` (`modInferred: true`) al importar, al arrancar tras `parseCSV()` y tras cada pull.
+- `copRepCritical` ya no tiene el criterio `scarce`; se retiraron `COP_REP_SCARCE_UNITS`,
+  `_copRepAhead`, `_copRepLastProdMonth` y los campos `ahead` / `lastProdMonth` de cada fila.
 - Una exclusión o producción real capturada antes con la clave vieja (sin modelo, o con la
   carrocería) ya no aplica a la familia unida.
 

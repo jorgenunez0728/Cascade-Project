@@ -247,8 +247,8 @@ ok('sin ensayos recientes no se promete fecha', C.copRepPace(Object.assign({}, M
 const PR2 = C.copRepPace(Object.assign({}, MR, { total: { pending: 1 } }));
 ok('con 1 pendiente: dos semanas con celda (la del 26 oct no cuenta) → viernes 13 nov', PR2.finish === '2026-11-13' && PR2.onTrack, PR2.finish);
 const CR = C.copRepCritical(MR);
-ok('lo más crítico primero: pocas unidades por producir (apartar una) gana a "más ensayos pendientes"',
-    CR[0].name === 'CL4 1.0' && CR[0].reasons[0].k === 'scarce' && CR[0].reasons[0].n === 44 && CR[1].name === 'CL4 1.6', JSON.stringify(CR.map(c => [c.name, c.reasons.map(r => r.k)])));
+ok('lo más crítico primero: más ensayos pendientes; [3.26.0] ya no se avisa "pocas unidades por producir"',
+    CR[0].name === 'CL4 1.6' && CR[1].name === 'CL4 1.0' && !CR.some(c => c.reasons.some(r => r.k === 'scarce')), JSON.stringify(CR.map(c => [c.name, c.reasons.map(r => r.k)])));
 ok('cerca del siguiente lote se avisa (a ≤ 1,000 unidades)', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 7000, 3), 3, [], 500, 12)] })[0].reasons.some(r => r.k === 'nearLot' && r.n === 501));
 ok('una familia cumplida y lejos del lote no entra', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 4000, 3), 3, [], 400, 12)] }).length === 0);
 const HL = C.copRepHighlights(Object.assign({}, MR, { pace: PR, rows: MR.rows.map((r, i) => Object.assign({}, r, { added: i ? 0 : 2 })) }));
@@ -256,6 +256,7 @@ ok('puntos clave: lo nuevo de la semana y la semana sin celda que viene', HL[0].
 
 console.log('\n== [3.23.0] El reporte en inglés y para Outlook ==');
 const HE = C.copYearReportHTML(M, { lang: 'en', generatedAt: '2026-10-20 10:00' });
+ok('[3.26.0] el reporte ya no dice "apartar una unidad" / "units left"', !/apartar una unidad|units left|reserve a unit/.test(HE + C.copYearReportHTML(M, { lang: 'es' })));
 ok('en inglés: título, frase y secciones', /Conformity of Production 2026/.test(HE) && /complete<\/b>: /.test(HE) && /Needs attention/.test(HE) &&
     /Tests per week/.test(HE) && /Key points/.test(HE) && /Status by family/.test(HE) && !/ensayos requeridos/.test(HE));
 ok('la regla de muestreo también en inglés', /up to 7,500 units built, 3 tests/.test(HE));
