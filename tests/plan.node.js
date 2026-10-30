@@ -614,5 +614,42 @@ t('se infiere del catálogo: por desc, por prefijo o por el único Modelo con es
     eq(sandbox.tpInferModel({ desc: '-26 MODEL-Z', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' }, cat), '');
 });
 
+console.log('\n== [3.27.0] En Europa PRE-EURO 7 / EURO 7 y Middle East, MY26 y MY27 son una familia para el score ==');
+t('qué junta los años modelo', () => {
+    eq(sandbox.tpScoreMergesMy({ rgn: 'EUROPE', reg: 'PRE-EURO 7' }), true);
+    eq(sandbox.tpScoreMergesMy({ rgn: 'europa', reg: 'euro 7' }), true);
+    eq(sandbox.tpScoreMergesMy({ rgn: 'EUROPE', reg: 'EURO-5' }), false);
+    eq(sandbox.tpScoreMergesMy({ rgn: 'MIDDLE EAST', reg: 'EURO-5' }), true);
+    eq(sandbox.tpScoreMergesMy({ rgn: 'USA', reg: 'SULEV 30' }), false);
+    const a = { mod: 'CL4', eng: '1.0', tx: '6MT', my: '26 MODEL', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: 'WGN' };
+    eq(sandbox.tpScoreFamKey(a), sandbox.tpScoreFamKey(Object.assign({}, a, { my: '27 MODEL' })));
+    const u = { mod: 'CL4', eng: '2.0', tx: 'CVT', my: '26 MODEL', reg: 'SULEV 30', rgn: 'USA', body: '4DR' };
+    eq(sandbox.tpScoreFamKey(u) === sandbox.tpScoreFamKey(Object.assign({}, u, { my: '27 MODEL' })), false);
+});
+t('MY26 y MY27 de una familia europea valen lo mismo; las de USA siguen separadas', () => {
+    reset([{ configText: 'EU26', date: '2026-10-01', purpose: 'COP-Emisiones' }]);
+    const eu = { mod: 'CL4', rgn: 'EUROPE', reg: 'PRE-EURO 7', eng: '1.0', tx: '6MT', drv: 'LHD', body: 'WGN', ep: '', engpkg: '', tire: '-', m: [] };
+    const us = { mod: 'CL4', rgn: 'USA', reg: 'SULEV 30', eng: '2.0', tx: 'CVT', drv: 'LHD', body: '4DR', ep: '', engpkg: '', tire: '-', m: [] };
+    S.planData = [
+        Object.assign({ desc: 'EU26', my: '26 MODEL', total: 300, hist: 2000 }, eu),
+        Object.assign({ desc: 'EU27', my: '27 MODEL', total: 500, hist: 0 }, eu),
+        Object.assign({ desc: 'US26', my: '26 MODEL', total: 300, hist: 2000 }, us),
+        Object.assign({ desc: 'US27', my: '27 MODEL', total: 500, hist: 0 }, us)
+    ];
+    S.rules = [{ id: 'r1', rgn: 'EUROPE', reg: '*', ratio: 3, per: 1000, label: 'EU' }, { id: 'r2', rgn: 'USA', reg: '*', ratio: 3, per: 1000, label: 'US' }];
+    S.scoreTable = null;
+    S._lastSave = Date.now() + Math.random();
+    sandbox.tpInvalidateCache();
+    const A = {}; sandbox.tpGetAnalysis().forEach(a => { A[a.desc] = a; });
+    const parts = d => { const o = {}; sandbox.tpScoreBreakdown(A[d], A[d].testedN, A[d].scoreCtx).parts.forEach(p => { o[p.k] = p.pts; }); return o; };
+    const e26 = parts('EU26'), e27 = parts('EU27');
+    ['fam', 'pend', 'days', 'vol', 'new', 'aging'].forEach(k => eq(e26[k], e27[k], 'EU ' + k + ':'));
+    eq(e26.days, 0, 'la prueba del MY26 cuenta para la familia:');
+    eq(e27.new, undefined, 'el MY27 no es "nuevo" si la familia ya produjo:');
+    const u26 = parts('US26'), u27 = parts('US27');
+    eq(u27.new, 2, 'USA: el MY27 sí es configuración nueva:');
+    eq(u26.vol === u27.vol && u26.new === u27.new, false, 'USA sigue por año modelo:');
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

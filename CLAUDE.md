@@ -4191,3 +4191,18 @@ Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
   porcentaje**: un factor nuevo es una entrada en `tpScoreTableDefault` + su línea en
   `tpScoreCompute` + su control en `tpScoreUiHTML`.
 
+## 3.27.0 — La familia del score junta años modelo donde corporativo los junta (`js/testplan.js`)
+
+- **`tpScoreFamKey(cfg)` es LA familia del score.** Donde `tpScoreMergesMy(cfg)`
+  (`TP_SCORE_MY_MERGE`: Europa PRE-EURO 7 / EURO 7 y todo Middle East, decisión del laboratorio
+  30-oct-2026) el segmento del MY es `MY*` y la carrocería compartida del WVTA se une. Todo factor
+  de familia del score (nivel, días sin probar, probadas en el año, pendientes, volumen, nueva,
+  postergada) se calcula sobre esa clave; **la Actividad sigue por año modelo** (OBD-II del MY
+  nuevo). `tpFamilyKeyForCfg` (Plan → Familias, overrides, soak, SPC) **no cambia**.
+- **Los pendientes de una familia unida son la suma de sus configuraciones**: `_tpAnalyze` calcula
+  el score en una SEGUNDA pasada y deja `row.scoreCtx` (`famDeficit`, `famHasReq`). Todo
+  consumidor que pinte el desglose de una fila del análisis pasa `a.scoreCtx`, o el número no
+  coincide con el que ordenó.
+- `tpScoreFamilyLevel(clave, claveVieja)` / `famKeyOld` en los hechos: un nivel guardado con la
+  clave por año modelo se sigue leyendo hasta que se guarde el de la familia unida.
+

@@ -1334,10 +1334,54 @@ function tpScoreTableNewTo(known, incoming) {
     return tpScoreTableUnion(known, incoming) === incoming && JSON.stringify(known || null) !== JSON.stringify(incoming);
 }
 
-/** Nivel (0–10) de una familia en la tabla de prioridad guardada. */
-function tpScoreFamilyLevel(famKey) {
+/**
+ * [3.27.0] Dónde el año modelo NO separa familias para el score (decisión del laboratorio,
+ * 30-oct-2026): Europa PRE-EURO 7 / EURO 7 y todo Middle East. Ahí MY26 y MY27 son UNA
+ * familia (como la cuenta corporativo en el CoP por año calendario): mismo nivel de Familia,
+ * mismos días sin probar, mismas probadas en el año, los pendientes, el volumen, "nueva" y
+ * "postergada" de la familia entera. Solo la Actividad sigue siendo del año modelo (el OBD-II
+ * es del MY nuevo). Una región/norma más = una fila aquí.
+ */
+var TP_SCORE_MY_MERGE = [
+    { rgn: 'EUROPE', regs: ['PRE-EURO 7', 'EURO 7'] },
+    { rgn: 'MIDDLE EAST' }
+];
+
+/** ¿El score junta los años modelo de esta configuración? PURA. */
+function tpScoreMergesMy(cfg) {
+    if (!cfg) return false;
+    var n = function(v) { return String(v || '').trim().toUpperCase().replace(/\s+/g, ' '); };
+    var rgn = n(cfg.rgn), reg = n(cfg.reg);
+    if (rgn === 'EUROPA') rgn = 'EUROPE';
+    return TP_SCORE_MY_MERGE.some(function(r) {
+        if (n(r.rgn) !== rgn) return false;
+        return !r.regs || r.regs.some(function(x) { return n(x).replace(/-/g, ' ') === reg.replace(/-/g, ' '); });
+    });
+}
+
+/**
+ * LA familia del score de una configuración: la de siempre (tpFamilyKeyForCfg), o sin año
+ * modelo donde tpScoreMergesMy (segmento 'MY*'; la carrocería compartida del WVTA también se
+ * une, COP_WVTA_SHARED_BODY). Ocho segmentos, así que todo parseo por posición sigue valiendo.
+ */
+function tpScoreFamKey(cfg) {
+    var fk = tpFamilyKeyForCfg(cfg);
+    if (!tpScoreMergesMy(cfg)) return fk;
+    var p = fk.split('|');
+    p[3] = 'MY*';
+    if (typeof copBodySharedFor === 'function' && copBodySharedFor(p[0])) p[7] = '';
+    return p.join('|');
+}
+
+/**
+ * Nivel (0–10) de una familia en la tabla de prioridad guardada. `oldKey` = la clave por año
+ * modelo, por si el laboratorio guardó el nivel antes de que el score juntara los MY.
+ */
+function tpScoreFamilyLevel(famKey, oldKey) {
     var t = tpScoreTable();
-    return Object.prototype.hasOwnProperty.call(t.fam, famKey) ? Number(t.fam[famKey]) : t.famDefault;
+    if (Object.prototype.hasOwnProperty.call(t.fam, famKey)) return Number(t.fam[famKey]);
+    if (oldKey && Object.prototype.hasOwnProperty.call(t.fam, oldKey)) return Number(t.fam[oldKey]);
+    return t.famDefault;
 }
 
 /**
@@ -1389,7 +1433,8 @@ function tpScoreCompute(f, t) {
     var add = function(k, label, pts, why) { parts.push({ k: k, label: label, pts: Math.round((Number(pts) || 0) * 10) / 10, why: why || '' }); };
     add('reg', 'Regulación', tpScoreLevel(t.reg, f.reg, t.regDefault), f.reg || '—');
     add('act', 'Actividad', tpScoreLevel(t.act, f.act, t.actDefault), f.actWhy || f.act || '—');
-    var famPts = (f.famKey && Object.prototype.hasOwnProperty.call(t.fam, f.famKey)) ? Number(t.fam[f.famKey]) : t.famDefault;
+    var has = function(k) { return k && Object.prototype.hasOwnProperty.call(t.fam, k); };
+    var famPts = has(f.famKey) ? Number(t.fam[f.famKey]) : has(f.famKeyOld) ? Number(t.fam[f.famKeyOld]) : t.famDefault;
     add('fam', 'Familia', famPts, f.famLabel || '');
     if (f.hasReq) {
         var dfc = Math.max(0, Number(f.deficit) || 0);
@@ -1436,7 +1481,7 @@ function _tpScoreIndex(list) {
         if (!cfg) return;
         if (/OBD2/.test(String(t.purpose || ''))) obd[String(cfg.mod || '').toUpperCase() + '|' + tpMyNum(cfg.my)] = true;
         if (!tpTestedCountsForReq(t)) return;
-        var fk = tpFamilyKeyForCfg(cfg), d = String(t.date || '').slice(0, 10);
+        var fk = tpScoreFamKey(cfg), d = String(t.date || '').slice(0, 10);
         var e = fam[fk] || (fam[fk] = { last: '', year: 0 });
         if (d > e.last) e.last = d;
         if (d.slice(0, 4) === year) e.year++;
@@ -1445,7 +1490,21 @@ function _tpScoreIndex(list) {
         if (!v || !/OBD2/.test(String(v.purpose || '')) || !v.config) return;
         obd[String(v.config['Modelo'] || '').toUpperCase() + '|' + tpMyNum(v.config['MODEL YEAR (VIN)'])] = true;
     });
-    var data = { fam: fam, obd: obd, newestMy: newestMy };
+    // [3.27.0] Lo de la familia entera para las que juntan años modelo: volumen, si ya tuvo
+    // producción (para "nueva"), semanas postergada (la mayor) y los años modelo que la forman.
+    var agg = {};
+    (tpState.planData || []).forEach(function(c) {
+        if (!c || c.paused || !tpScoreMergesMy(c)) return;
+        var k = tpScoreFamKey(c);
+        var a = agg[k] || (agg[k] = { vol: 0, hist: 0, total: 0, aging: 0, mys: {} });
+        a.vol += (Number(c.total) || 0) + (Number(c.hist) || 0);
+        a.hist += Number(c.hist) || 0;
+        a.total += Number(c.total) || 0;
+        a.aging = Math.max(a.aging, typeof tpCarryoverAge === 'function' ? tpCarryoverAge(c.desc) : 0);
+        var my = tpMyNum(c.my);
+        if (my !== null) a.mys[my] = true;
+    });
+    var data = { fam: fam, obd: obd, newestMy: newestMy, agg: agg };
     _tpScoreIdxMemo = { list: list, key: key, data: data };
     return data;
 }
@@ -1470,12 +1529,18 @@ function tpActivityFor(cfg, idx) {
 function tpScoreFacts(cfg, testedN, ctx) {
     ctx = ctx || {};
     var idx = _tpScoreIndex(ctx.list);
-    var famKey = tpFamilyKeyForCfg(cfg);
+    var famKeyOld = tpFamilyKeyForCfg(cfg);
+    var famKey = tpScoreFamKey(cfg);
+    var merged = famKey !== famKeyOld || tpScoreMergesMy(cfg);
+    var ag = merged ? (idx.agg[famKey] || null) : null;
     var fe = idx.fam[famKey] || null;
     var today = localToday();
     var daysSince = null;
     if (fe && fe.last) daysSince = Math.max(0, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(fe.last + 'T12:00:00Z')) / 86400000));
-    var deficit = ctx.deficit, hasReq = ctx.hasReq;
+    // [3.27.0] Familia que junta años modelo: los pendientes son los de la familia entera
+    // (los suma _tpAnalyze en ctx.famDeficit/famHasReq).
+    var deficit = (merged && ctx.famDeficit !== undefined) ? ctx.famDeficit : ctx.deficit;
+    var hasReq = (merged && ctx.famHasReq !== undefined) ? ctx.famHasReq : ctx.hasReq;
     if (deficit === undefined || hasReq === undefined) {
         var req = cfg.paused ? 0 : tpCalcRequired(cfg, tpReqRuleFor(cfg));
         if (deficit === undefined) deficit = Math.max(0, req - (testedN || 0));
@@ -1486,16 +1551,18 @@ function tpScoreFacts(cfg, testedN, ctx) {
     var inCop = false;
     try { inCop = typeof copInScope === 'function' && copInScope(cfg).ok; } catch (e) {}
     var me = String(cfg.rgn || '').trim().toUpperCase() === 'MIDDLE EAST';
-    var ov = (tpState.familyOverrides || {})[famKey];
+    var ov = (tpState.familyOverrides || {})[famKeyOld];
     var dl = null;
     if (ov && ov.deadline) dl = Math.ceil((Date.parse(ov.deadline + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000);
     return {
-        reg: reg, act: act.act, actWhy: act.why, famKey: famKey, famLabel: '',
+        reg: reg, act: act.act, actWhy: act.why, famKey: famKey, famKeyOld: famKeyOld,
+        famLabel: ag ? 'MY' + Object.keys(ag.mys).sort().join('+') + ' juntos' : '',
         hasReq: !!hasReq, deficit: deficit, daysSince: daysSince, yearCount: fe ? fe.year : 0,
-        vol: (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
-        isNew: (Number(cfg.hist) || 0) === 0 && (Number(cfg.total) || 0) > 0,
+        vol: ag ? ag.vol : (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
+        isNew: ag ? (ag.hist === 0 && ag.total > 0) : (Number(cfg.hist) || 0) === 0 && (Number(cfg.total) || 0) > 0,
         audit: inCop || me, auditWhy: inCop ? 'alcance CoP' : (me ? 'Middle East' : ''),
-        deadlineDays: dl, agingWeeks: typeof tpCarryoverAge === 'function' ? tpCarryoverAge(cfg.desc) : 0
+        deadlineDays: dl,
+        agingWeeks: ag ? ag.aging : (typeof tpCarryoverAge === 'function' ? tpCarryoverAge(cfg.desc) : 0)
     };
 }
 
@@ -1758,7 +1825,7 @@ function _tpAnalyze(list) {
     });
     // [3.13.0] Las familias de corporativo se cuentan por año calendario (ver tpCopReqBase).
     var _hq = _tpCopReqPlan(src, tpCopReqBase());
-    return tpState.planData.map(cfg => {
+    var rows = tpState.planData.map(cfg => {
         if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year, src);
         const rule = tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
@@ -1773,13 +1840,30 @@ function _tpAnalyze(list) {
         const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada = no exige
         const comp = req > 0 ? Math.min(n / req, 1) : 1;
         const st = comp >= 1 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
-        const sc = tpPriorityScore(cfg, n, { deficit: Math.max(0, req - n), hasReq: req > 0, list: src });
         // v16.2: cuánto volumen entra al cálculo y qué regla se usó — para transparencia total
         const ruleInfo = { label: rule.label || '(sin nombre)', matchType: rule._matchType, ratio: rule.ratio, per: rule.per,
             vol: cfg.total + cfg.hist, formula: '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
         return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
-                 required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
-    }).sort((a, b) => b.score - a.score);
+                 required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: 0, ruleInfo: ruleInfo,
+                 _scoreHasReq: req > 0 };
+    });
+    // [3.27.0] Segunda pasada: el score. Donde el score junta años modelo (tpScoreMergesMy), los
+    // pendientes son la suma de la familia entera; así MY26 y MY27 de una familia valen lo mismo.
+    var fam = {};
+    rows.forEach(function(r) {
+        if (!tpScoreMergesMy(r)) return;
+        var k = tpScoreFamKey(r), e = fam[k] || (fam[k] = { deficit: 0, hasReq: false });
+        e.deficit += Number(r.deficit) || 0;
+        if (r._scoreHasReq) e.hasReq = true;
+    });
+    rows.forEach(function(r) {
+        var e = tpScoreMergesMy(r) ? fam[tpScoreFamKey(r)] : null;
+        r.scoreCtx = { deficit: r.deficit, hasReq: !!r._scoreHasReq };
+        if (e) { r.scoreCtx.famDeficit = e.deficit; r.scoreCtx.famHasReq = e.hasReq; }
+        delete r._scoreHasReq;
+        r.score = tpPriorityScore(r, r.testedN, Object.assign({ list: src }, r.scoreCtx));
+    });
+    return rows.sort((a, b) => b.score - a.score);
 }
 
 /**
@@ -1804,7 +1888,7 @@ function _tpAnalyzeCopCfg(cfg, filas, f, year, list) {
             : 'Familia ' + year + ': REQ ' + f.req + ' − hechas ' + f.done + ' − en curso ' + f.inFlight +
               ' − declaradas ' + f.declared + ' = faltan ' + f.pending + (share ? ' · a esta configuración: ' + share : '') };
     return { ...cfg, testedN: n, testedVerified: n - nDecl, testedDeclared: nDecl,
-             required: req, deficit: share, compliance: comp, status: st, score: tpPriorityScore(cfg, n, { deficit: share, hasReq: f.req > 0 && !f.excluded, list: list }), ruleInfo: ruleInfo,
+             required: req, deficit: share, compliance: comp, status: st, score: 0, _scoreHasReq: f.req > 0 && !f.excluded, ruleInfo: ruleInfo,
              copYear: { year: year, key: f.key, label: f.label, rule: f.rule, req: f.req, done: f.done, inFlight: f.inFlight,
                         declared: f.declared, pending: f.pending, share: share, excluded: f.excluded } };
 }
@@ -2548,7 +2632,7 @@ function tpRenderExecSummary() {
     html += '<div style="margin-top: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom: var(--space-xs);">🔥 Prioridades — qué probar ahora</div>';
     if (top.length === 0) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin déficit pendiente. 🎉</div>';
     else top.forEach(function(a){
-        var reason = tpScoreReason(a, a.testedN, { deficit: a.deficit, hasReq: a.required > 0 });
+        var reason = tpScoreReason(a, a.testedN, a.scoreCtx || { deficit: a.deficit, hasReq: a.required > 0 });
         var modSafe = (a.mod||'').replace(/'/g,"\\'");
         html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);cursor:pointer;flex-wrap:wrap;">';
         html += '<span class="tp-badge" style="background:'+tpRegionColor(a.rgn)+'20;color:'+tpRegionColor(a.rgn)+';font-size: var(--fs-sm);">'+(a.rgn||'?')+'</span>';
@@ -4495,10 +4579,18 @@ function _tpScoreBoardItems(kind, t) {
     } else if (kind === 'fam') {
         (tpState.planData || []).forEach(function(c) {
             if (c._retired || c.paused) return;
-            var fk = tpFamilyKeyForCfg(c);
+            // [3.27.0] Una ficha por familia del SCORE: donde se juntan años modelo, MY26 y MY27 son una.
+            var fk = tpScoreFamKey(c), old = tpFamilyKeyForCfg(c);
             if (seen[fk.toUpperCase()]) return;
-            var lvl = Object.prototype.hasOwnProperty.call(t.fam, fk) ? Number(t.fam[fk]) : t.famDefault;
-            push(fk, (typeof tpFamilyShortLabel === 'function' ? tpFamilyShortLabel(c) : tpFamilyLabel(c)) + (c.rgn ? ' · ' + c.rgn : ''), lvl);
+            var lvl = Object.prototype.hasOwnProperty.call(t.fam, fk) ? Number(t.fam[fk])
+                    : Object.prototype.hasOwnProperty.call(t.fam, old) ? Number(t.fam[old]) : t.famDefault;
+            var label = (typeof tpFamilyShortLabel === 'function' ? tpFamilyShortLabel(c) : tpFamilyLabel(c));
+            if (fk !== old) {
+                var mys = {};
+                (tpState.planData || []).forEach(function(o) { if (o && !o.paused && tpScoreFamKey(o) === fk && tpMyNum(o.my) !== null) mys[tpMyNum(o.my)] = true; });
+                label = label.replace(/\bMY\d{2,4}\b/, 'MY' + Object.keys(mys).sort().join('+'));
+            }
+            push(fk, label + (c.rgn ? ' · ' + c.rgn : ''), lvl);
         });
         out.sort(function(a, b) { return a.label < b.label ? -1 : 1; });
     }
@@ -4564,7 +4656,7 @@ function _tpScorePreviewHTML() {
     var rows = an.filter(function(a) { return !a.paused && (_tpScoreUi.all || a.deficit > 0); });
     var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.desc < b.desc ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
     var R = rows.map(function(a) {
-        var b = tpScoreBreakdown(a, a.testedN, { deficit: a.deficit, hasReq: a.required > 0 }, draft);
+        var b = tpScoreBreakdown(a, a.testedN, a.scoreCtx || { deficit: a.deficit, hasReq: a.required > 0 }, draft);
         return { a: a, before: a.score, after: b.total, parts: b.parts };
     });
     withRank(R, 'before'); withRank(R, 'after');
@@ -9542,7 +9634,9 @@ function tpBuildFamilies() {
         var _ov = (tpState.familyOverrides || {})[f.key] || {};
         // [3.26.0] La importancia de la familia es su nivel en la tabla de prioridad (0–10):
         // ⚑ crítico = 10, ▲ alto = 8 o 9. Una sola fuente, la que suma al score.
-        f.scoreLevel = tpScoreFamilyLevel(f.key);
+        var _sk = (f.configs && f.configs[0]) ? tpScoreFamKey(f.configs[0]) : f.key;
+        f.scoreKey = _sk;
+        f.scoreLevel = tpScoreFamilyLevel(_sk, f.key);
         f.criticality = f.scoreLevel >= 10 ? 'critical' : f.scoreLevel >= 8 ? 'high' : 'normal';
         f.familyDeadline = _ov.deadline || ''; // deadline propio de la familia (para el input de familia)
 
@@ -10060,8 +10154,8 @@ function tpRenderFamilies(el) {
                     ${tpFamilyReqRowHTML(f)}
                     <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);" title="Puntos de la familia en la tabla de prioridad (Plan → Reglas)">Nivel en la tabla de prioridad
-                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpScoreSetFamilyLevel('${f.key.replace(/'/g,"\\'")}', +this.value);">
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);" title="Puntos de la familia en la tabla de prioridad (Plan → Reglas)">Nivel en la tabla de prioridad${f.scoreKey && f.scoreKey !== f.key ? ' <small>(el mismo para todos sus años modelo)</small>' : ''}
+                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpScoreSetFamilyLevel('${(f.scoreKey || f.key).replace(/'/g,"\\'")}', +this.value);">
                                 ${TP_SCORE_LEVELS.map(n => `<option value="${n}" ${f.scoreLevel===n?'selected':''}>${n}</option>`).join('')}
                             </select>
                         </label>
