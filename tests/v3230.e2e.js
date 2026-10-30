@@ -2,8 +2,8 @@
 // ║  3.23.0 — Estatus CoP: ritmo, lo crítico, nota de la semana, inglés   ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 // El visor abre en inglés (va a corporativo) y cambia a español; el ritmo cuenta los ensayos
-// por semana y la semana sin celda; "Needs attention" pone primero la familia con pocas
-// unidades por producir; la nota de la semana sale en el reporte. 1440×950 y 430×900.
+// por semana y la semana sin celda; "Needs attention" ya no avisa de pocas unidades por
+// producir (3.26.0); la nota de la semana sale en el reporte. 1440×950 y 430×900.
 const { chromium } = require('playwright');
 const path = require('path');
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -73,7 +73,7 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     await page.waitForTimeout(800);
     let t = await frameText(page);
     ok('abre en inglés (va a corporativo)', /Conformity of Production/.test(t) && /Needs attention/i.test(t) && /Tests per week/i.test(t), t.slice(0, 300));
-    ok('lo más crítico primero: la familia con pocas unidades por producir, con la acción', /1\s*CL4 1\.0 T-GDI 48V 6MT[\s\S]*reserve a unit now/.test(t), t.slice(0, 1600));
+    ok('[3.26.0] lo crítico ya no pide "reserve a unit now" (pocas unidades por producir)', /Needs attention/i.test(t) && !/reserve a unit now|units left to build/i.test(t), t.slice(0, 1600));
     ok('ritmo: 3 ensayos en las últimas 4 semanas y la semana sin celda declarada', /0\.8\/wk/.test(t) && /cell not available/.test(t) && /HEV phase 2 commissioning/.test(t), t.slice(0, 2400));
     ok('nombres como los dice la gerencia', /CL4 1\.6 T-GDI LP 7DCT/.test(t));
     // Nota de la semana
@@ -89,7 +89,7 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
     await page.locator('#cop-rep .cop-rep-lang button', { hasText: 'Español' }).click();
     await page.waitForTimeout(800);
     t = await frameText(page);
-    ok('Español: el mismo reporte en español, y se recuerda', /Conformidad de la Producción/.test(t) && /Requiere atención/i.test(t) && /apartar una unidad ya/.test(t) &&
+    ok('Español: el mismo reporte en español, y se recuerda', /Conformidad de la Producción/.test(t) && /Requiere atención/i.test(t) && !/apartar una unidad/.test(t) &&
         await page.evaluate(() => uiPref('copRepLang') === 'es'));
     ok('la nota se queda en el idioma en que se escribió', /Nota del laboratorio/i.test(t) && /Next week the emission cell/.test(t));
     ok('sin errores de página', errores.length === 0, errores.join(' | '));

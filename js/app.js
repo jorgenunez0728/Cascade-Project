@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.25.0';
+var APP_VERSION = '3.26.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,15 @@ var APP_VERSION = '3.25.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.26.0', date: '30 oct 2026', title: 'Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP',
+      bullets: ['Plan → Reglas → 🎯 Tabla de prioridad: el orden en que el armador propone pruebas ya no sale de porcentajes. Cada configuración suma puntos: regulación (PRE-EURO 7 10, SULEV 30 9, NOM-042 8…), actividad, familia, ensayos pendientes, días sin probar, volumen y bonos (configuración nueva, auditoría, fecha límite, postergada).',
+                'Regulación, actividad y familia se acomodan arrastrando cada ficha a su nivel de 0 a 10 (o tocándola y tocando el nivel). Varios pueden compartir nivel. Abajo se ve cómo se mueve el orden antes de guardar; guardar cambia la tabla para todo el laboratorio y queda en el historial de cambios.',
+                'Actividad: OBD-II solo cuenta cuando el año modelo es nuevo y todavía no tiene una prueba de OBD-II registrada. Auditoría suma a las familias del alcance CoP y de Middle East. México se puntúa con la NOM-042, que es con la que se juzga.',
+                'Se retiraron los porcentajes de ponderación, el peso por región, el empuje por antigüedad y los chips de "Enfoque de la semana". En Plan → Familias, "Criticidad" pasa a ser el nivel de la familia en la misma tabla.',
+                'Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
+                'El plan de producción trae algunas configuraciones sin Modelo. La app lo toma del catálogo del Alta (misma configuración, o el único modelo con ese motor, transmisión, norma, región y carrocería). Si hay dos posibles, no adivina.',
+                'Lo demás no cambia: la CL4 sigue separando 5 puertas y Wagon, y la carta SPC y los juicios guardados siguen por carrocería.',
+                'Estatus CoP: "Requiere atención" ya no dice "quedan ~N unidades por producir: apartar una unidad ya". Con el plan de producción incompleto decía "~0 unidades" y era ruido.'] },
     { version: '3.25.0', date: '28 oct 2026', title: 'Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia',
       bullets: ['Liberación: con un gas sobre el límite aparece "Resultado sobre el límite". Se confirma que se releyó el reporte del banco, se escribe qué se observó y se envía como FALLA. Antes el botón se bloqueaba y la única salida era repetir la prueba, sin que la medición quedara en ningún lado.',
                 'Aprobación: después del doble ciego, quien aprueba decide si es una falla válida (cuenta para CoP como cualquier ensayo) o una prueba inválida (no cuenta para CoP ni para el REQ, con su causa de una lista). Queda en la línea de tiempo, en la auditoría y en el Historial (✗ Falla / ⊘ No cuenta para CoP).',
@@ -7269,6 +7278,7 @@ function storageFreeBytes() {
         bootMark('inicio');
         bootProgress('Cargando configuraciones…');
         try { parseCSV(); } catch(e) { console.error('parseCSV error:', e); }
+        try { if (typeof tpRepairPlanModels === 'function') tpRepairPlanModels(); } catch(e) { console.error('plan models error:', e); }
         bootMark('catalogo');
         try { populateOperators(); } catch(e) { console.error('populateOperators error:', e); }
         try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { console.error('op picker error:', e); }

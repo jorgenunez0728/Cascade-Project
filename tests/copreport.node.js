@@ -70,6 +70,20 @@ ok('un ensayo de 2025 no entra a la familia 2026', !C.copVehicleInFamily(veh('26
 ok('sin fecha de prueba no entra (todavía no hay ensayo)', !C.copVehicleInFamily(veh('26 MODEL', ''), yk));
 ok('por año modelo sigue siendo la igualdad de siempre', C.copVehicleInFamily(veh('26 MODEL', '2025-01-01'), k26) && !C.copVehicleInFamily(veh('27 MODEL', '2026-01-01'), k26));
 
+console.log('\n== [3.26.0] Una familia del WVTA para todas las carrocerías (CL4MH) ==');
+const kH5 = 'CL4MH|1600CC KAPPA PE|6DCT|27 MODEL|PRE-EURO 7|||5DR', kHW = kH5.replace('|5DR', '|WGN');
+ok('CL4MH 5DR y WGN son UNA familia del año, sin carrocería', C.copYearKeyOf(kH5, 2026) === C.copYearKeyOf(kHW, 2026) && C.copYearKeyOf(kH5, 2026).split('|')[7] === '');
+ok('…sin tocar la clave por año modelo', C.copYearOfKey(kH5) === null && kH5 !== kHW);
+ok('la CL4 sigue separando 5DR y WGN', C.copYearKeyOf(k26, 2026) !== C.copYearKeyOf(k26.replace('|5DR', '|WGN'), 2026));
+const vH = (body, date) => ({ config: { Modelo: 'CL4MH', ENG: '1600CC KAPPA PE', TX: '6DCT', MY: '27 MODEL', REG: 'PRE-EURO 7', BODY: body }, testData: { testDatetime: date } });
+ok('un ensayo 5DR y uno WGN entran a la misma familia del año', C.copVehicleInFamily(vH('5DR', '2026-10-01'), C.copYearKeyOf(kHW, 2026)) && C.copVehicleInFamily(vH('WGN', '2026-10-02'), C.copYearKeyOf(kH5, 2026)));
+const cH = (body, m) => ({ mod: 'CL4MH', eng: '1600CC KAPPA PE', tx: '6DCT', my: '27 MODEL', reg: 'PRE-EURO 7', ep: '0', engpkg: '0', body, rgn: 'EUROPE', m });
+const kOf = c => [c.mod, c.eng, c.tx, c.my, c.reg, '', '', c.body].join('|');
+const PHy = C.copYearProduction({ year: 2026, months: ['Nov-26'], planData: [cH('5DR', [300]), cH('WGN', [200])], inScope: () => true, keyOf: kOf });
+const fHy = PHy.fams[C.copYearKeyOf(kH5, 2026)];
+ok('la producción de las dos carrocerías se suma en una familia', Object.keys(PHy.fams).length === 1 && fHy.vol === 500 && fHy.configs === 2 && fHy.body === '', fHy && fHy.vol);
+ok('y se lee como híbrido', C.copRepGroupOf(fHy).id === 'hev');
+
 console.log('\n== Grupos y meses ==');
 ok('CL4MH es el híbrido; MILD HEV no', C.copRepGroupOf({ mod: 'CL4MH', body: 'WGN' }).id === 'hev' && C.copRepGroupOf({ mod: 'CL4', ep: 'MILD HEV', body: 'WGN' }).id === 'wgn');
 ok('5DR y 4DR', C.copRepGroupOf({ mod: 'CL4', body: '5DR' }).label === '5 puertas' && C.copRepGroupOf({ mod: 'BL7m', body: '4DR' }).label === '4 puertas');
@@ -233,8 +247,8 @@ ok('sin ensayos recientes no se promete fecha', C.copRepPace(Object.assign({}, M
 const PR2 = C.copRepPace(Object.assign({}, MR, { total: { pending: 1 } }));
 ok('con 1 pendiente: dos semanas con celda (la del 26 oct no cuenta) → viernes 13 nov', PR2.finish === '2026-11-13' && PR2.onTrack, PR2.finish);
 const CR = C.copRepCritical(MR);
-ok('lo más crítico primero: pocas unidades por producir (apartar una) gana a "más ensayos pendientes"',
-    CR[0].name === 'CL4 1.0' && CR[0].reasons[0].k === 'scarce' && CR[0].reasons[0].n === 44 && CR[1].name === 'CL4 1.6', JSON.stringify(CR.map(c => [c.name, c.reasons.map(r => r.k)])));
+ok('lo más crítico primero: más ensayos pendientes; [3.26.0] ya no se avisa "pocas unidades por producir"',
+    CR[0].name === 'CL4 1.6' && CR[1].name === 'CL4 1.0' && !CR.some(c => c.reasons.some(r => r.k === 'scarce')), JSON.stringify(CR.map(c => [c.name, c.reasons.map(r => r.k)])));
 ok('cerca del siguiente lote se avisa (a ≤ 1,000 unidades)', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 7000, 3), 3, [], 500, 12)] })[0].reasons.some(r => r.k === 'nearLot' && r.n === 501));
 ok('una familia cumplida y lejos del lote no entra', C.copRepCritical({ rows: [mk(famR('5DR', '1.6', 4000, 3), 3, [], 400, 12)] }).length === 0);
 const HL = C.copRepHighlights(Object.assign({}, MR, { pace: PR, rows: MR.rows.map((r, i) => Object.assign({}, r, { added: i ? 0 : 2 })) }));
@@ -242,6 +256,7 @@ ok('puntos clave: lo nuevo de la semana y la semana sin celda que viene', HL[0].
 
 console.log('\n== [3.23.0] El reporte en inglés y para Outlook ==');
 const HE = C.copYearReportHTML(M, { lang: 'en', generatedAt: '2026-10-20 10:00' });
+ok('[3.26.0] el reporte ya no dice "apartar una unidad" / "units left"', !/apartar una unidad|units left|reserve a unit/.test(HE + C.copYearReportHTML(M, { lang: 'es' })));
 ok('en inglés: título, frase y secciones', /Conformity of Production 2026/.test(HE) && /complete<\/b>: /.test(HE) && /Needs attention/.test(HE) &&
     /Tests per week/.test(HE) && /Key points/.test(HE) && /Status by family/.test(HE) && !/ensayos requeridos/.test(HE));
 ok('la regla de muestreo también en inglés', /up to 7,500 units built, 3 tests/.test(HE));

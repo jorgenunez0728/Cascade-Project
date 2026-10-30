@@ -309,13 +309,15 @@ t('el deficit DECAE de una semana a la siguiente', () => {
     reset([]);
     const H = sandbox.tpPlanHorizon({ weeks: 3, startDate: '2026-09-07', capacity: 1 });
     eq(H.weeks.length, 3);
-    // Repetir la misma config entre semanas es CORRECTO: con REQ 27 hacen falta 27
-    // pruebas. Lo que se verifica es que el deficit que la fila declara vaya bajando —
-    // eso es lo que antes no pasaba porque cada lazo llevaba su propio contador.
-    const d = H.weeks.map(w => w.items[0] && w.items[0].deficit);
-    if (!(d[0] > d[1] && d[1] > d[2])) {
-        throw new Error('el deficit no decae en el horizonte: ' + JSON.stringify(d));
-    }
+    // Lo que se verifica es que el deficit que declara la MISMA configuración vaya bajando
+    // entre semanas — eso es lo que antes no pasaba porque cada lazo llevaba su propio
+    // contador. [3.26.0] Con "días sin probar" en la tabla, la semana siguiente puede rotar
+    // a otra configuración: se sigue a cada una por su desc.
+    const porDesc = {};
+    H.weeks.forEach(w => w.items.forEach(i => (porDesc[i.desc] = porDesc[i.desc] || []).push(i.deficit)));
+    const rep = Object.keys(porDesc).filter(k => porDesc[k].length > 1);
+    if (!rep.length) throw new Error('ninguna configuración se repitió: ' + JSON.stringify(porDesc));
+    rep.forEach(k => { const d = porDesc[k]; for (let x = 1; x < d.length; x++) if (!(d[x] < d[x - 1])) throw new Error('el deficit no decae: ' + k + ' ' + JSON.stringify(d)); });
 });
 t('la lista rodante crece con lo planeado', () => {
     reset([]);
@@ -367,21 +369,53 @@ t('tpAutoGenerateIfNeeded / tpShouldAutoGenerate estan borradas', () => {
     eq(typeof sandbox.tpShouldAutoGenerate, 'undefined');
 });
 
-console.log('\n== v24: los pesos siempre suman 100 ==');
-t('mover un peso reparte la diferencia entre los demas', () => {
-    const r = sandbox.tpWeightsRebalance({ compliance: 25, volume: 35, region: 20, newConfig: 10, urgency: 10 }, 'compliance', 50);
-    eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
-    eq(r.compliance, 50, 'el que se movio:');
-    eq(r.volume > r.region, true, 'se respeta la proporcion:');
+console.log('\n== [3.26.0] La tabla de prioridad: el score es una suma de puntos ==');
+const _F = (o) => Object.assign({ reg: 'PRE-EURO 7', act: 'COP-Emisiones', famKey: 'F', hasReq: true, deficit: 2, daysSince: null,
+    yearCount: 0, vol: 3000, isNew: false, audit: true, deadlineDays: null, agingWeeks: 0 }, o || {});
+t('suma de puntos con desglose', () => {
+    const r = sandbox.tpScoreCompute(_F(), null);
+    // 10 reg + 9 act + 5 familia + 6 pendientes (2×3) + 6 nunca + 2 volumen + 3 auditoría
+    eq(r.total, 41, 'total:');
+    eq(r.parts.map(p => p.k).join(','), 'reg,act,fam,pend,days,vol,audit');
 });
-t('con los demas en 0, se reparte parejo', () => {
-    const r = sandbox.tpWeightsRebalance({ compliance: 100, volume: 0, region: 0, newConfig: 0, urgency: 0 }, 'compliance', 40);
-    eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
-    eq(r.volume, 15);
+t('empates permitidos y nombres sin distinguir mayúsculas', () => {
+    const tb = { reg: { 'pre-euro 7': 8, 'SULEV 30': 8 } };
+    eq(sandbox.tpScoreCompute(_F({ reg: 'PRE-EURO 7' }), tb).parts[0].pts, 8);
+    eq(sandbox.tpScoreCompute(_F({ reg: 'SULEV 30' }), tb).parts[0].pts, 8);
+    eq(sandbox.tpScoreCompute(_F({ reg: 'OTRA' }), tb).parts[0].pts, 0, 'sin nivel = regDefault:');
 });
-t('valores fuera de rango se acotan a 0..100 en pasos de 5', () => {
-    const r = sandbox.tpWeightsRebalance({ compliance: 20, volume: 20, region: 20, newConfig: 20, urgency: 20 }, 'region', 133);
-    eq(r.region, 100); eq(Object.values(r).reduce((a, b) => a + b, 0), 100, 'suma:');
+t('pendientes con tope; sin REQ cuentan las probadas del año', () => {
+    eq(sandbox.tpScoreCompute(_F({ deficit: 10 }), null).parts.find(p => p.k === 'pend').pts, 9);
+    const sr = sandbox.tpScoreCompute(_F({ hasReq: false, yearCount: 1 }), null);
+    eq(sr.parts.some(p => p.k === 'pend'), false);
+    eq(sr.parts.find(p => p.k === 'year').pts, 2);
+});
+t('tramos: días sin probar y volumen', () => {
+    const P = (o, k) => sandbox.tpScoreCompute(_F(o), null).parts.find(p => p.k === k).pts;
+    eq(P({ daysSince: 10 }, 'days'), 0); eq(P({ daysSince: 45 }, 'days'), 2); eq(P({ daysSince: 200 }, 'days'), 6);
+    eq(P({ vol: 0 }, 'vol'), 0); eq(P({ vol: 999 }, 'vol'), 1); eq(P({ vol: 5000 }, 'vol'), 3);
+});
+t('bonos: nueva, fecha límite, postergada con tope', () => {
+    const r = sandbox.tpScoreCompute(_F({ isNew: true, deadlineDays: 10, agingWeeks: 9, audit: false }), null);
+    eq(r.parts.find(p => p.k === 'new').pts, 2);
+    eq(r.parts.find(p => p.k === 'deadline').pts, 3);
+    eq(r.parts.find(p => p.k === 'aging').pts, 5);
+    eq(r.parts.some(p => p.k === 'audit'), false);
+    eq(sandbox.tpScoreCompute(_F({ deadlineDays: 45 }), null).parts.some(p => p.k === 'deadline'), false);
+});
+t('la tabla se une entre equipos: gana la edición más reciente (simétrica)', () => {
+    const a = { updatedAt: '2026-10-30T10:00:00Z', reg: { X: 1 } }, b = { updatedAt: '2026-10-30T11:00:00Z', reg: { X: 2 } };
+    eq(sandbox.tpScoreTableUnion(a, b), b); eq(sandbox.tpScoreTableUnion(b, a), b);
+    eq(sandbox.tpScoreTableNewTo(a, b), true); eq(sandbox.tpScoreTableNewTo(b, a), false);
+    eq(sandbox.tpScoreTableUnion(null, a), a);
+});
+t('OBD-II solo con el año modelo nuevo sin OBD-II registrada', () => {
+    reset([]);
+    const idx = { newestMy: { CL4: 27 }, obd: {}, fam: {} };
+    eq(sandbox.tpActivityFor({ mod: 'CL4', my: '27 MODEL', rgn: 'EUROPE' }, idx).act.indexOf('OBD2') > 0, true);
+    eq(sandbox.tpActivityFor({ mod: 'CL4', my: '26 MODEL', rgn: 'EUROPE' }, idx).act.indexOf('OBD2'), -1);
+    idx.obd['CL4|27'] = true;
+    eq(sandbox.tpActivityFor({ mod: 'CL4', my: '27 MODEL', rgn: 'EUROPE' }, idx).act.indexOf('OBD2'), -1);
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -564,6 +598,20 @@ t('Training no es propósito del plan y su liberación no deja evidencia', () =>
     eq(sandbox.tpAutoFeedFromRelease({ id: 9901, vin: 'KNDJ23AU0T7009901', configCode: 'CFG-X', purpose: 'Training', status: 'archived',
         testData: { simple: { datetime: '2026-10-14T09:00' } } }, { skipSave: true }), false);
     eq((S.testedList || []).length, antes);
+});
+
+console.log('\n== [3.26.0] El Modelo que el CSV de producción trae vacío ==');
+t('se infiere del catálogo: por desc, por prefijo o por el único Modelo con esos campos', () => {
+    const base = { eng: '1600CC KAPPA PE', tx: '6DCT', reg: 'PRE-EURO 7', rgn: 'EUROPE', ep: '0', engpkg: '0' };
+    const cat = [Object.assign({ desc: 'CL4MH-27 MODEL-A-5DR', mod: 'CL4MH', body: '5DR' }, base),
+                 Object.assign({ desc: 'CL4MH-27 MODEL-A-WGN', mod: 'CL4MH', body: 'WGN' }, base),
+                 { desc: 'CL4-26 MODEL-X', mod: 'CL4', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' },
+                 { desc: 'CL4-26 MODEL-Y', mod: 'BL7m', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' }];
+    eq(sandbox.tpInferModel({ desc: 'CL4MH-27 MODEL-A-WGN' }, cat), 'CL4MH');
+    eq(sandbox.tpInferModel({ desc: 'CL4MH-27 MODEL-NUEVA' }, cat), 'CL4MH');
+    eq(sandbox.tpInferModel(Object.assign({ desc: '-27 MODEL-B-WGN', body: 'WGN' }, base), cat), 'CL4MH');
+    // Con dos Modelos posibles no se adivina.
+    eq(sandbox.tpInferModel({ desc: '-26 MODEL-Z', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' }, cat), '');
 });
 
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');

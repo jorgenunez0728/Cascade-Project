@@ -1892,6 +1892,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(prevTp.blockNotes, tpState.blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo: gana el cambio más reciente.
         if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
+        // [3.26.0] La tabla de prioridad: gana la edición más reciente.
+        if (typeof tpScoreTableUnion === 'function') tpState.scoreTable = tpScoreTableUnion(prevTp.scoreTable, tpState.scoreTable) || undefined;
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -1949,7 +1951,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [3.24.0] Un pull cuyo único cambio es el motivo de un bloque.
         (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo((typeof tpState !== 'undefined' && tpState && tpState.blockNotes) || {}, (remoteData && remoteData.blockNotes) || {})) ||
         // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
-        (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null));
+        (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null)) ||
+        // [3.26.0] Un pull cuyo único cambio es la tabla de prioridad.
+        (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo((typeof tpState !== 'undefined' && tpState && tpState.scoreTable) || null, (remoteData && remoteData.scoreTable) || null));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -2843,7 +2847,7 @@ function fbAssignInPlace(target, src) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}, tpState.scoreTable || null]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
@@ -2889,6 +2893,8 @@ function _fbLocalHasExtras(col, remote) {
         if (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo(remote.blockNotes || {}, tpState.blockNotes || {})) return true;
         // [3.13.0] El interruptor del REQ de corporativo cambiado aquí y no en la nube.
         if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
+        // [3.26.0] La tabla de prioridad editada aquí y no en la nube.
+        if (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo(remote.scoreTable || null, tpState.scoreTable || null)) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -4068,6 +4074,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
         if (typeof tpCopReqModeUnion === 'function') {
             var _crm = tpCopReqModeUnion(tpState.copReqMode, (remoteData.testplan || {}).copReqMode);
             if (_crm) tpState.copReqMode = _crm;
+        }
+        // [3.26.0] La tabla de prioridad se une igual (gana la edición más reciente).
+        if (typeof tpScoreTableUnion === 'function') {
+            var _stb = tpScoreTableUnion(tpState.scoreTable, (remoteData.testplan || {}).scoreTable);
+            if (_stb) { tpState.scoreTable = _stb; if (typeof tpInvalidateCache === 'function') tpInvalidateCache(); }
         }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
