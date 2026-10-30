@@ -20,7 +20,29 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.26.0 — Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP (2026-10-30)
+## 3.27.0 — Prioridad: MY26 y MY27 cuentan como una familia en Europa y Middle East (2026-10-30)
+
+### Cambió
+- **Tabla de prioridad**: en Europa PRE-EURO 7 / EURO 7 y en todo Middle East, el año modelo ya
+  no separa familias para el score. MY26 y MY27 de una familia comparten el nivel de **Familia**,
+  los **días sin probar** (una prueba del MY26 cuenta para el MY27), las **probadas en el año**,
+  los **pendientes** (los de la familia entera), el **volumen** y los bonos de **configuración
+  nueva** (solo si la familia entera no ha producido) y **postergada**. Antes el MY27 sacaba +2
+  por "nueva" y el MY26 +1 por "postergada", y la misma familia salía con dos puntajes.
+- La **Actividad** sigue siendo del año modelo: el OBD-II es del año modelo nuevo.
+- En 🎯 Tabla de prioridad esas familias son una sola ficha ("MY26+27"); en Plan → Familias su
+  nivel es el mismo para todos sus años modelo. Un nivel guardado antes por año modelo se sigue
+  leyendo hasta que se guarde el de la familia unida.
+- El resto (USA, México, Europa EURO-5…) sigue por año modelo.
+
+### Para desarrollo
+- `TP_SCORE_MY_MERGE` + `tpScoreMergesMy(cfg)` (PURA) dicen dónde se juntan los años modelo;
+  `tpScoreFamKey(cfg)` es la familia del score (segmento `MY*`, carrocería compartida del WVTA
+  unida). `tpFamilyKeyForCfg` no cambia.
+- `_tpAnalyze` calcula el score en una segunda pasada: `row.scoreCtx = {deficit, hasReq,
+  famDeficit, famHasReq}`; todo desglose del score de una fila del análisis usa `a.scoreCtx`.
+
+Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP (2026-10-30)
 
 ### Nuevo
 - **🎯 Tabla de prioridad** (Plan → Reglas). El orden en que el armador propone pruebas ya no sale

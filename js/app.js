@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.26.0';
+var APP_VERSION = '3.27.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.26.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.27.0', date: '30 oct 2026', title: 'Prioridad: MY26 y MY27 cuentan como una familia en Europa y Middle East',
+      bullets: ['Tabla de prioridad: en Europa PRE-EURO 7 / EURO 7 y en Middle East, las configuraciones MY26 y MY27 de una familia ya valen lo mismo. Comparten el nivel de familia, los días sin probar, las probadas en el año, los pendientes, el volumen y los bonos de "nueva" y "postergada", como corporativo cuenta el CoP por año calendario.',
+                'Solo la actividad sigue siendo del año modelo: el OBD-II es del año modelo nuevo.',
+                'En la tabla, esas familias son una sola ficha (Ej.: "MY26+27"), y en Plan → Familias su nivel es el mismo para todos sus años modelo.'] },
     { version: '3.26.0', date: '30 oct 2026', title: 'Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP',
       bullets: ['Plan → Reglas → 🎯 Tabla de prioridad: el orden en que el armador propone pruebas ya no sale de porcentajes. Cada configuración suma puntos: regulación (PRE-EURO 7 10, SULEV 30 9, NOM-042 8…), actividad, familia, ensayos pendientes, días sin probar, volumen y bonos (configuración nueva, auditoría, fecha límite, postergada).',
                 'Regulación, actividad y familia se acomodan arrastrando cada ficha a su nivel de 0 a 10 (o tocándola y tocando el nivel). Varios pueden compartir nivel. Abajo se ve cómo se mueve el orden antes de guardar; guardar cambia la tabla para todo el laboratorio y queda en el historial de cambios.',
