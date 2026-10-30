@@ -20,7 +20,37 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
-## 3.26.0 — CL4MH es una sola familia en el CoP (2026-10-30)
+## 3.26.0 — Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP (2026-10-30)
+
+### Nuevo
+- **🎯 Tabla de prioridad** (Plan → Reglas). El orden en que el armador propone pruebas ya no sale
+  de cinco porcentajes que suman 100: cada configuración **suma puntos** y cada fila dice de dónde
+  salió cada uno.
+  - **Regulación** (0–10, la norma con que se juzga: México = NOM-042). De fábrica: PRE-EURO 7 y
+    EURO 7 10, SULEV 30 9, NOM-042 8, EURO-6C 7, EURO-5 6, BRAZIL L8 5, EURO-4 4, EURO-3 3,
+    EURO-2 2, eléctricos 0.
+  - **Actividad** (0–10). OBD-II solo cuando el año modelo es nuevo (el más reciente del modelo en
+    el plan) y todavía no tiene una prueba de OBD-II registrada; si no, la actividad de siempre de
+    la configuración (CoP, EO…).
+  - **Familia** (0–10, todas empiezan en 5).
+  - **Ensayos pendientes** (3 por ensayo, tope 9) en familias con REQ; **probadas en el año** en
+    las que no tienen REQ.
+  - **Días sin probar la familia** (31/61/91 días → 2/4/6; nunca probada → 6) y **volumen**.
+  - **Bonos**: configuración nueva +2, auditoría +3 (alcance CoP y Middle East), fecha límite a
+    menos de 30 días +3, postergada +1 por semana (tope 5).
+- Regulación, actividad y familia se acomodan **arrastrando** cada ficha a su nivel (o tocándola y
+  tocando el nivel, para el teléfono y el teclado). **Se permiten empates.** Todo número es
+  editable. Abajo, **"Cómo queda el orden"** muestra las 15 primeras con cuántos lugares sube o baja
+  cada una, **antes de guardar**. Guardar pide permiso del plan, se ve en todos los equipos y queda
+  en el historial de cambios con antes y después.
+
+### Cambió
+- Se retiraron la **ponderación por porcentajes**, el **peso por región**, el **empuje por
+  antigüedad** y los chips de **"Enfoque de la semana"** del armador: todo eso es ahora la tabla.
+- Plan → Familias: "Criticidad" (normal / alta / crítico) pasa a ser **el nivel de la familia en
+  la tabla** (0–10). Mientras nadie guarde la tabla, una familia crítica vale 10 y una alta 8, para
+  que el orden no salte al actualizar.
+- Las plantillas de reglas guardan y cargan también la tabla de prioridad.
 
 ### Arreglado
 - **El estatus CoP del año partía la CL4MH en tres familias**: "1.6 T-GDI 6DCT · 5 puertas",
@@ -44,6 +74,13 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
 - La clave por año modelo, la carta SPC y los juicios guardados siguen por carrocería.
 
 ### Para desarrollo
+- **`tpScoreCompute(facts, table)` (PURA) es LA definición del score**; `tpScoreFacts(cfg, n, ctx)`
+  arma los hechos y `tpPriorityScore` = `tpScoreBreakdown(...).total`. `tpScoreTable()` es la forma
+  de leer la tabla (`tpState.scoreTable`), con `tpScoreTableUnion`/`NewTo` en los cinco puntos del
+  sync. `tpActivityFor` decide la actividad (OBD-II del año modelo nuevo).
+- Se retiraron `tpState.weights` como fuente del orden (el campo queda, sin efecto),
+  `tpWeightsRebalance`, `tpSetWeightBalanced`, `TP_FOCUS`/`tpSetFocus`, `tpRegionPriorityValue` y
+  `tpAgingBoost`.
 - `COP_WVTA_SHARED_BODY` (cop_validator.js) lista los modelos cuya familia del WVTA cubre todas
   sus carrocerías; `copYearKeyOf` deja vacía la carrocería de esos modelos. Solo la familia del
   año calendario cambia (va encima de la clave de siempre, v19.1).

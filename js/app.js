@@ -483,8 +483,12 @@ var APP_VERSION = '3.26.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.26.0', date: '30 oct 2026', title: 'CL4MH es una sola familia en el CoP',
-      bullets: ['Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
+    { version: '3.26.0', date: '30 oct 2026', title: 'Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP',
+      bullets: ['Plan → Reglas → 🎯 Tabla de prioridad: el orden en que el armador propone pruebas ya no sale de porcentajes. Cada configuración suma puntos: regulación (PRE-EURO 7 10, SULEV 30 9, NOM-042 8…), actividad, familia, ensayos pendientes, días sin probar, volumen y bonos (configuración nueva, auditoría, fecha límite, postergada).',
+                'Regulación, actividad y familia se acomodan arrastrando cada ficha a su nivel de 0 a 10 (o tocándola y tocando el nivel). Varios pueden compartir nivel. Abajo se ve cómo se mueve el orden antes de guardar; guardar cambia la tabla para todo el laboratorio y queda en el historial de cambios.',
+                'Actividad: OBD-II solo cuenta cuando el año modelo es nuevo y todavía no tiene una prueba de OBD-II registrada. Auditoría suma a las familias del alcance CoP y de Middle East. México se puntúa con la NOM-042, que es con la que se juzga.',
+                'Se retiraron los porcentajes de ponderación, el peso por región, el empuje por antigüedad y los chips de "Enfoque de la semana". En Plan → Familias, "Criticidad" pasa a ser el nivel de la familia en la misma tabla.',
+                'Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
                 'El plan de producción trae algunas configuraciones sin Modelo. La app lo toma del catálogo del Alta (misma configuración, o el único modelo con ese motor, transmisión, norma, región y carrocería). Si hay dos posibles, no adivina.',
                 'Lo demás no cambia: la CL4 sigue separando 5 puertas y Wagon, y la carta SPC y los juicios guardados siguen por carrocería.',
                 'Estatus CoP: "Requiere atención" ya no dice "quedan ~N unidades por producir: apartar una unidad ya". Con el plan de producción incompleto decía "~0 unidades" y era ruido.'] },

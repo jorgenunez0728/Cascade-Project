@@ -186,11 +186,9 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
         const w = await page.evaluate(async () => {
             switchPlatform('testplan'); tpSwitchTab('tp-rules');
             await new Promise(r => setTimeout(r, 300));
-            tpSetWeightBalanced('compliance', 60);
-            const W = tpState.weights;
-            return ['compliance', 'volume', 'region', 'newConfig', 'urgency'].reduce((a, k) => a + (+W[k] || 0), 0);
+            return !!document.querySelector('#tp-score-ui .tp-score-level');
         });
-        chk('B3: mover un peso deja el total en 100', w === 100, String(w));
+        chk('B3: [3.26.0] Reglas muestra la tabla de prioridad (los pesos por % se retiraron)', w === true, String(w));
 
         chk('computadora: sin diálogos nativos', await page.evaluate(() => window._nativeDialogs) === 0);
         chk('computadora: sin errores de página', errs.length === 0, errs.join(' | '));

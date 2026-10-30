@@ -4142,7 +4142,7 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
 - `copState.spc.source` / `masterKey` son estado de pantalla por equipo (viajan dentro de `spc`, que
   ya está en la lista de exclusión de `fbPullApply`).
 
-## 3.26.0 — Una familia del WVTA para todas las carrocerías (`js/cop_validator.js`, `js/testplan.js`)
+## 3.26.0 — Tabla de prioridad por puntos; una familia del WVTA para todas las carrocerías (`js/testplan.js`, `js/cop_validator.js`)
 
 Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
 
@@ -4161,3 +4161,33 @@ Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
   30-oct-2026: era ruido). Reemplaza el primer criterio que describe 3.23.0. No volver a meter
   un aviso que dependa de lo que FALTA por producir: el plan de producción suele venir incompleto
   y el aviso sale en familias que sí se producen.
+
+### Tabla de prioridad (reemplaza lo que v18.0, v20 y v24.0 dicen de pesos, región, enfoque y empuje)
+
+- **`tpScoreCompute(facts, table)` es LA definición del score y es PURA**: una SUMA de puntos, sin
+  porcentajes ni pesos. Devuelve `{total, parts:[{k, label, pts, why}]}`: toda pantalla que diga
+  "por qué" usa `parts` (`tpScoreReason`), nunca recalcula.
+- **`tpScoreTable()` es LA forma de leer la tabla** (`tpState.scoreTable`, reaplica la de fábrica
+  en cada lectura). Sin tabla guardada, la Familia sale de la criticidad vieja (crítico 10, alto 8).
+  Viaja con `tpScoreTableUnion`/`tpScoreTableNewTo` (gana `updatedAt`) en los cinco puntos del
+  sync. **Toda escritura sella `updatedAt` y `by`, pide `plan.manage` y audita `tabla_prioridad`.**
+- **`tpScoreFacts(cfg, testedN, ctx)` arma los hechos**; `ctx = {deficit, hasReq, list}`. Pásale el
+  `deficit` del análisis: en una familia de corporativo el pendiente es el reparto del año, no
+  `req − testedN`. Familia, días sin probar y probadas en el año salen de `_tpScoreIndex(list)`
+  (evidencia que acredita el REQ, por clave de familia); con la lista del horizonte, la semana
+  siguiente rota a otra familia en vez de repetir la misma.
+- **Regulación = la norma con que se juzga** (`labRegionRegulation`: México → NOM-042), no la del
+  alta. **Auditoría** = `copInScope(cfg).ok` o región MIDDLE EAST. **Actividad = `tpActivityFor`**:
+  OBD-II solo con el año modelo más reciente del modelo en el plan y sin prueba OBD-II registrada
+  (testedList o `db.vehicles`); si no, `tpPurposeForCfg`. Solo puntúa: el propósito de la fila que
+  arma el generador no cambia.
+- **La UI edita un BORRADOR** (`_tpScoreDraft`) y la vista previa compara lo guardado contra él;
+  nunca escribir `tpState.scoreTable` desde un control de la tarjeta, solo `tpScoreTableSave` (o
+  `tpScoreSetFamilyLevel` desde Plan → Familias). Los tableros usan `gridDragInit` con
+  `tapToMove`: ids `kind::clave`, celdas `kind::nivel`.
+- Retirados: `tpWeightsRebalance`, `tpSetWeightBalanced`, `TP_FOCUS`/`tpSetFocus`/`tpCurrentFocus`,
+  `tpRegionPriorityValue`, `tpAgingBoost`. `tpState.weights`/`regionPriority`/`agingBoost` quedan en
+  el estado sin efecto (los traen plantillas y equipos viejos). **No volver a meter un factor con
+  porcentaje**: un factor nuevo es una entrada en `tpScoreTableDefault` + su línea en
+  `tpScoreCompute` + su control en `tpScoreUiHTML`.
+

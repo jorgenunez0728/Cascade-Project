@@ -71,6 +71,37 @@ const SEED = () => {
 
     await page.evaluate(() => { switchPlatform('cop'); copSetView('overview'); });
     await page.waitForTimeout(500);
+
+    // ── Tabla de prioridad: tocar una ficha y tocar el nivel; la vista previa se mueve; guardar ──
+    await page.evaluate(() => { switchPlatform('testplan'); tpSwitchTab('tp-rules'); });
+    await page.waitForSelector('#tp-score-ui .tp-score-level', { timeout: 8000 });
+    const antes = await page.evaluate(() => ({ lv: tpScoreTable().reg['EURO-5'], niveles: document.querySelectorAll('#tp-score-board-reg .tp-score-level').length,
+        prev: document.querySelectorAll('#tp-score-preview li').length, guardar: document.querySelector('#tp-score-ui .tp-score-actions button').disabled }));
+    ok('Reglas muestra los tableros 10→0 y la vista previa; Guardar apagado sin cambios', antes.niveles === 11 && antes.prev > 0 && antes.guardar && antes.lv === 6, JSON.stringify(antes));
+    const chip = page.locator('#tp-score-board-reg .tp-score-chip', { hasText: /^PRE-EURO 7$/ });
+    await chip.click();
+    await page.locator('#tp-score-board-reg .tp-score-level[data-drag-cell="reg::2"]').click();
+    await page.waitForTimeout(400);
+    const mov = await page.evaluate(() => ({ draft: _tpScoreDraft && _tpScoreDraft.reg['PRE-EURO 7'], saved: tpScoreTable().reg['PRE-EURO 7'],
+        enNivel: !!document.querySelector('#tp-score-board-reg .tp-score-level[data-drag-cell="reg::2"] .tp-score-chip[data-drag-id="reg::PRE-EURO 7"]'),
+        texto: document.getElementById('tp-score-preview').textContent, guardar: document.querySelector('#tp-score-ui .tp-score-actions button').disabled }));
+    ok('tocar la ficha y tocar el nivel la mueve en el BORRADOR (lo guardado no cambia)', mov.draft === 2 && mov.saved === 10 && mov.enNivel && !mov.guardar, JSON.stringify(mov));
+    ok('la vista previa dice cuánto se mueve el orden', /cambian de lugar/.test(mov.texto) && /antes /.test(mov.texto), mov.texto.slice(0, 300));
+    await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/score-desktop.png' : '/dev/null', fullPage: false }).catch(() => {});
+    await page.locator('#tp-score-ui .tp-score-actions button', { hasText: 'Guardar tabla' }).click();
+    await page.waitForTimeout(400);
+    const g = await page.evaluate(() => ({ lv: tpState.scoreTable && tpState.scoreTable.reg['PRE-EURO 7'], at: tpState.scoreTable && tpState.scoreTable.updatedAt,
+        audit: auditGetTrail().some(e => e.action === 'tabla_prioridad'), dirty: _tpScoreDirty(),
+        score: tpGetAnalysis().find(a => a.reg === 'PRE-EURO 7' && a.mod === 'CL4').score }));
+    ok('Guardar la deja para el laboratorio, sellada y auditada; el análisis ya ordena con ella', g.lv === 2 && !!g.at && g.audit && g.dirty === false, JSON.stringify(g));
+
+    // Teléfono: la tarjeta cabe sin desplazamiento horizontal.
+    await page.setViewportSize({ width: 430, height: 900 });
+    await page.waitForTimeout(400);
+    const ancho = await page.evaluate(() => { const e = document.getElementById('tp-score-ui'); return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, w: e.getBoundingClientRect().width }; });
+    ok('en el teléfono la tabla cabe (sin desplazamiento horizontal)', ancho.sw <= ancho.cw + 1, JSON.stringify(ancho));
+    if (process.env.SHOT_DIR) { await page.locator('#tp-score-ui').scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT_DIR + '/score-phone.png' }); }
+
     ok('sin errores en la página', errores.length === 0, errores.join(' | '));
     await browser.close();
     console.log(fallas ? '\n' + fallas + ' fallaron' : '\ntodo bien');

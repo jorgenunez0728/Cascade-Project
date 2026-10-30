@@ -801,7 +801,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 .etw-box {
   background: #f1f5f9;
   border: 1px solid #e2e5ea;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-full);
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
@@ -833,7 +833,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   gap: var(--space-md);
   background: #f8fafc;
   border: 1px solid #e2e5ea;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-full);
   padding: var(--space-md);
 }
 
@@ -1091,7 +1091,7 @@ input:focus, select:focus, textarea:focus{
   width: 100%;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-full);
   font-size: 0.85rem;
   background: white;
   color: #1e293b;
@@ -1115,7 +1115,7 @@ input:focus, select:focus, textarea:focus{
 .hist-search input {
   width: 100%; box-sizing: border-box; min-height: var(--target-min);
   padding: var(--space-sm) var(--space-md) var(--space-sm) calc(var(--space-md) * 2 + 16px);
-  border: 1px solid var(--border-strong); border-radius: var(--radius-xl);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-full);
   font-size: var(--fs-base); background: var(--surface); color: var(--text);
 }
 .hist-search input:focus { outline: 2px solid var(--kia-red); outline-offset: 1px; }
@@ -1741,7 +1741,7 @@ body{ overflow-x: hidden; }
     gap: var(--space-xs);
     padding: var(--space-md) var(--space-md);
     background: var(--kia-dark);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     margin-bottom: var(--space-md);
     overflow-x: auto;
     white-space: nowrap;
@@ -1783,7 +1783,7 @@ body{ overflow-x: hidden; }
 
 .cascade-level {
     margin-bottom: var(--space-md);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     overflow: hidden;
     transition:opacity var(--dur-base), max-height var(--dur-slow) ease;
 }
@@ -1813,7 +1813,7 @@ body{ overflow-x: hidden; }
     letter-spacing: 0.03em;
 }
 .cascade-level.completed .cascade-level-header {
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
 }
 .cascade-level-header .level-step {
     background: var(--kia-dark);
@@ -1855,7 +1855,7 @@ body{ overflow-x: hidden; }
     padding: var(--space-md) var(--space-lg);
     background: #f8fafc;
     border: 1.5px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     font-size: 0.88rem;
     font-weight: 600;
     color: var(--text);
@@ -2461,7 +2461,7 @@ body{ overflow-x: hidden; }
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; align-items: center; justify-content: center;
     font-size: var(--fs-sm); font-weight: 700; color: #94a3b8;
-    background: rgba(255,255,255,0.7); border-radius: var(--radius-xl);
+    background: rgba(255,255,255,0.7); border-radius: var(--radius-full);
     backdrop-filter: blur(4px);
     z-index: 5;
 }
@@ -2469,7 +2469,7 @@ body{ overflow-x: hidden; }
 /* ── Completion badges on accordion headers ── */
 .smart-badge {
     margin-left: var(--space-sm); font-size: var(--fs-xs); font-weight: 700;
-    padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full);
     vertical-align: middle;
 }
 .smart-badge-complete { background: rgba(16,185,129,0.2); color: #10b981; }
@@ -2479,7 +2479,7 @@ body{ overflow-x: hidden; }
 /* ── Copy banner ── */
 .smart-copy-banner {
     display: flex; align-items: center; justify-content: space-between;
-    padding: var(--space-sm) var(--space-lg); margin-bottom: var(--space-md); border-radius: var(--radius-xl);
+    padding: var(--space-sm) var(--space-lg); margin-bottom: var(--space-md); border-radius: var(--radius-full);
     background: #eff6ff; color: #2563eb;
     border: 1px solid #bfdbfe;
     font-size: var(--fs-sm); font-weight: 600;
@@ -2516,7 +2516,7 @@ body{ overflow-x: hidden; }
     color: #64748b; padding: 6px 0;
 }
 .cal-cell {
-    min-height: var(--target-min); padding: var(--space-xs); border-radius: var(--radius-xl);
+    min-height: var(--target-min); padding: var(--space-xs); border-radius: var(--radius-full);
     background: #fff; cursor: pointer;
     transition:background var(--dur-fast);
     display: flex; flex-direction: column; align-items: center;
@@ -2663,7 +2663,7 @@ body{ overflow-x: hidden; }
     cursor: pointer; transition:box-shadow var(--dur-fast), transform var(--dur-fast), border-color var(--dur-fast);
 }
 .daily-dash-card-icon {
-    width: 36px; height: 36px; border-radius: var(--radius-xl);
+    width: 36px; height: 36px; border-radius: var(--radius-full);
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; flex-shrink: 0;
 }
@@ -2702,7 +2702,7 @@ body{ overflow-x: hidden; }
 .daily-dash-action {
     display: flex; align-items: center; gap: var(--space-sm);
     padding: var(--space-md) var(--space-lg); background: #f8fafc;
-    border: 1px solid #e2e8f0; border-radius: var(--radius-xl);
+    border: 1px solid #e2e8f0; border-radius: var(--radius-full);
     cursor: pointer; transition:background-color var(--dur-fast), border-color var(--dur-fast);
     font-size: 12px; font-weight: 700; color: #334155;
 }
@@ -2736,7 +2736,7 @@ body{ overflow-x: hidden; }
 }
 .vcl-toggle .vcl-badge {
     position: absolute; top: -4px; right: -4px;
-    min-width: 18px; height: 18px; border-radius: var(--radius-xl);
+    min-width: 18px; height: 18px; border-radius: var(--radius-full);
     background: #ef4444; color: #fff;
     font-size: var(--fs-xs); font-weight: 800; text-align: center; line-height: 18px;
     padding: 0 4px;
@@ -2830,7 +2830,7 @@ body{ overflow-x: hidden; }
 }
 .cascade-tooltip-close {
     display: block; margin-top: var(--space-lg); width: 100%;
-    padding: var(--space-sm); border: none; border-radius: var(--radius-xl);
+    padding: var(--space-sm); border: none; border-radius: var(--radius-full);
     background: #f1f5f9; color: #334155;
     font-size: 12px; font-weight: 700; cursor: pointer;
     transition:background-color var(--dur-fast);
@@ -2965,7 +2965,7 @@ html { scroll-behavior: smooth; }
     background: #eff6ff;
     border: 1px solid #bfdbfe;
     border-left: 4px solid #3b82f6;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     animation:tabFadeIn var(--dur-base) var(--ease-out) both;
 }
 .plan-preload-banner-inner {
@@ -3145,7 +3145,7 @@ html.booting, html.booting body { overflow: hidden; }
 .auth-brand { text-align: center; margin-bottom: var(--space-2xl); }
 .auth-brand-mark {
     width: 60px; height: 60px; margin: 0 auto var(--space-md);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     background: var(--kia-red); color: #fff;
     display: flex; align-items: center; justify-content: center;
     font-size: 28px; box-shadow: var(--shadow-lg);
@@ -3480,7 +3480,7 @@ html.booting, html.booting body { overflow: hidden; }
     font-size: var(--fs-sm); font-weight: 800; padding: var(--space-2xs) var(--space-xs) var(--space-sm); color: var(--tp-text);
 }
 .pn-kanban-count {
-    background: var(--surface); border: 1px solid var(--tp-border); border-radius: var(--radius-xl);
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: var(--radius-full);
     padding: 0 7px; font-size: var(--fs-xs);
 }
 .pn-kanban-col--pendiente  .pn-kanban-colhead { border-bottom: 2px solid #94a3b8; }
@@ -3696,7 +3696,7 @@ html.booting, html.booting body { overflow: hidden; }
     background: linear-gradient(90deg, var(--border) 25%, transparent 50%, var(--border) 75%);
     background-size: 200% 100%;
     animation:skeleton-pulse 1.5s var(--ease-in-out) infinite;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
 }
 .skeleton-card {
     background: var(--surface);
@@ -3960,7 +3960,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     gap: var(--space-lg);
     align-items: center;
     padding: var(--space-lg);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     border: 1px solid transparent;
 }
 .pa-doc-status.pa-doc-pending {
@@ -3977,7 +3977,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     flex: 0 0 96px;
     width: 96px;
     height: 96px;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     overflow: hidden;
     border: 1px solid rgba(0,0,0,0.1);
     background: #000;
@@ -4036,7 +4036,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
 .pa-camera-stage {
     position: relative;
     background: #000;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-full);
     overflow: hidden;
     min-height: 240px;
     display: flex;
@@ -4103,7 +4103,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     font-size: 12px; font-weight: 600; color: #475569; min-width: 100px;
 }
 .sig-input {
-    flex: 1; padding: var(--space-sm) var(--space-md); border: 1px solid #cbd5e1; border-radius: var(--radius-xl);
+    flex: 1; padding: var(--space-sm) var(--space-md); border: 1px solid #cbd5e1; border-radius: var(--radius-full);
     font-size: 13px; background: #fff; color: #1e293b;
 }
 .sig-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
@@ -4112,7 +4112,7 @@ body.has-next-step #soak-floating-badge { bottom: 128px !important; }
     background: #f1f5f9; border-radius: var(--radius-lg);
 }
 .sig-capture-canvas-wrap {
-    margin: var(--space-sm) var(--space-lg); border: 2px dashed #cbd5e1; border-radius: var(--radius-xl);
+    margin: var(--space-sm) var(--space-lg); border: 2px dashed #cbd5e1; border-radius: var(--radius-full);
     background: #fff; position: relative; overflow: hidden;
 }
 .sig-capture-canvas-wrap canvas { display: block; width: 100%; margin: 0 auto; touch-action: none; cursor: crosshair; }
@@ -4472,7 +4472,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 /* ===== v16.0 · Ayuda / Autoguía: banners por pestaña, botón ℹ️, menú de ayuda ===== */
 .help-banner {
     display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-sm);
-    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-xl);
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-full);
     padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); font-size: 12.5px; line-height: 1.5; color: #1e3a5f;
 }
 .help-banner-icon { font-size: 15px; line-height: 1.4; }
@@ -4494,7 +4494,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 }
 .help-tab-btn:hover { background: #eff6ff; border-color: #93c5fd; }
 .help-menu-item {
-    text-align: left; font-size: 13px; font-weight: 600; padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl);
+    text-align: left; font-size: 13px; font-weight: 600; padding: var(--space-md) var(--space-lg); border-radius: var(--radius-full);
     border: 1px solid #e2e8f0; background: #f8fafc; color: #1e293b; cursor: pointer; min-height: 40px;
 }
 .help-menu-item:hover { background: #eff6ff; border-color: #93c5fd; }
@@ -5986,7 +5986,7 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 }
 
 /* Botón de borrar como enlace discreto a la izquierda de un modal, no entre Guardar y Cancelar. */
-.u-danger-link { order: -1; margin-right: auto; background: none; border: none; color: var(--danger-text, #b91c1c); text-decoration: underline; cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; min-height: 32px; }
+.u-danger-link { order: -1; margin-right: auto; background: none; border: none; color: var(--danger-text); text-decoration: underline; cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; min-height: 32px; }
 @media (pointer: coarse) { .u-danger-link { min-height: var(--target-min); } }
 
 /* [v24] Dependencias de un paso de proyecto: casillas, no <select multiple>. */
@@ -6105,7 +6105,7 @@ td .ui-num-row > input { min-width: 5rem; }
 
 /* Lo siguiente: una lista corta con el mismo formato de fila de siempre. */
 .dash-next {
-    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    border: 1px solid var(--border); border-radius: var(--radius-full);
     background: var(--surface); overflow: hidden; margin-bottom: var(--space-md);
 }
 .dash-next > .dash-row:first-child { border-top: none; }
@@ -6410,7 +6410,7 @@ body.uf-open { overflow: hidden; }
     border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text);
 }
 .uf-badge {
-    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full);
     font-size: var(--fs-sm); font-weight: var(--weight-bold); background: var(--surface-alt); color: var(--text);
 }
 .uf-badge.is-bad  { background: var(--danger-tint); color: var(--danger-text); }
@@ -6514,7 +6514,7 @@ body.uf-at-final .uf-foot { grid-template-columns: 56px; }
 .ficha-sub { margin-top: var(--space-2xs); font-size: var(--fs-sm); color: var(--muted); }
 .ficha-badges { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
 .ficha-badge {
-    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    display: inline-block; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full);
     font-size: var(--fs-sm); font-weight: var(--weight-bold); background: var(--surface-alt); color: var(--text);
 }
 .ficha-badge.is-ok   { background: var(--ok-bg);     color: var(--ok-text); }
@@ -6588,7 +6588,7 @@ body.ficha-open { overflow: hidden; }
     position: fixed; z-index: 9600; left: 50%; top: calc(var(--space-lg) + env(safe-area-inset-top, 0px));
     width: min(420px, calc(100vw - 2 * var(--space-md))); transform: translateX(-50%);
     display: flex; align-items: flex-start; gap: var(--space-md);
-    padding: var(--space-md); border-radius: var(--radius-xl);
+    padding: var(--space-md); border-radius: var(--radius-full);
     background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
     border: 1px solid var(--ok-fill); border-left-width: 4px;
     animation: momentIn var(--dur-slow) var(--ease-out) both;
@@ -6611,7 +6611,7 @@ body.ficha-open { overflow: hidden; }
 .veh-cloud {
     display: inline-flex; align-items: center; gap: var(--space-xs);
     margin-left: var(--space-sm); padding: var(--space-xs) var(--space-sm); min-height: 28px;
-    border: 1px solid transparent; border-radius: var(--radius-xl);
+    border: 1px solid transparent; border-radius: var(--radius-full);
     font: inherit; font-size: var(--fs-sm); font-weight: 700; line-height: 1.3;
     background: var(--info-bg); color: var(--info-text); cursor: pointer; vertical-align: middle;
     transition: background-color var(--dur-base), color var(--dur-base), border-color var(--dur-base);
@@ -7090,7 +7090,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .rm-ghost text { font-size: 12px; font-weight: 700; fill: #0f766e; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 
 .rm-ctrl { position: absolute; top: var(--space-md); left: var(--space-md); display: flex; flex-direction: column; gap: var(--space-xs);
-  padding: var(--space-xs); background: rgba(255, 255, 255, 0.88); border: 1px solid var(--border); border-radius: var(--radius-xl);
+  padding: var(--space-xs); background: rgba(255, 255, 255, 0.88); border: 1px solid var(--border); border-radius: var(--radius-full);
   box-shadow: var(--shadow-md); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .rm-ctrl button { width: var(--target-min); height: var(--target-min); border: 0; border-radius: var(--radius-lg); background: transparent;
   font-size: var(--fs-md); color: var(--text); cursor: pointer; }
@@ -7259,7 +7259,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .rm-pop-host { position: absolute; z-index: 4; width: 320px; max-height: calc(100% - 110px); overflow-y: auto; transition: opacity var(--dur-fast); }
 .rm-pop-host[hidden] { display: none; }
 .rm-pop-flying .rm-pop-host { opacity: 0; pointer-events: none; }
-.rm-pop-host .rm-panel { padding: var(--space-md); background: rgba(255, 255, 255, 0.97); border: 1px solid var(--border); border-radius: var(--radius-xl);
+.rm-pop-host .rm-panel { padding: var(--space-md); background: rgba(255, 255, 255, 0.97); border: 1px solid var(--border); border-radius: var(--radius-full);
   box-shadow: var(--shadow-xl); display: flex; flex-direction: column; gap: var(--space-sm); animation: rmPopIn var(--dur-base) var(--ease-out); }
 @keyframes rmPopIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
 .rm-pop .rm-panel-title { font-size: var(--fs-base); }
@@ -7646,7 +7646,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 /* ══════════════════════════════════════════════════════════════════════ */
 .fail-box {
     margin-top: var(--space-md); padding: var(--space-md) var(--space-lg);
-    border: 2px solid var(--danger-fill); border-radius: var(--radius-xl);
+    border: 2px solid var(--danger-fill); border-radius: var(--radius-full);
     background: var(--danger-tint); color: var(--text);
     display: flex; flex-direction: column; gap: var(--space-sm);
 }
@@ -7695,6 +7695,42 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .fc-warn { background: var(--warn-bg); color: var(--warn-text); }
 .fc-bad { background: var(--warn-fill); color: #fff; }
 .fc-na { background: var(--surface-alt); color: var(--muted); border: 1px solid var(--border); }
+
+/* ═══ [3.26.0] Tabla de prioridad (Plan → Reglas) ═══ */
+.tp-score-hint { font-size: var(--fs-xs); color: var(--muted); }
+.tp-score-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: var(--space-sm) 0 var(--space-md); }
+.tp-score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: var(--space-md); }
+.tp-score-board { border: 1px solid var(--tp-border); border-radius: var(--radius-lg); padding: var(--space-sm); margin-bottom: var(--space-md); min-width: 0; }
+.tp-score-board-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-sm); margin-bottom: var(--space-xs); }
+.tp-score-search { width: 100%; margin-bottom: var(--space-xs); }
+.tp-score-level { display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-2xs) var(--space-xs);
+    border-top: 1px dashed var(--tp-border); min-height: 36px; }
+.tp-score-level.drag-ready { background: var(--info-bg); }
+.tp-score-lv { flex: 0 0 28px; font-weight: 800; font-size: var(--fs-sm); text-align: right; color: var(--tp-text); padding-top: var(--space-2xs); }
+.tp-score-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); flex: 1; min-width: 0; }
+.tp-score-chip { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px solid var(--tp-border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--tp-text); cursor: grab; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+.tp-score-chip--sel { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-score-empty { color: var(--muted); font-size: var(--fs-xs); padding-top: var(--space-2xs); }
+.tp-score-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--space-md); margin-bottom: var(--space-md); }
+.tp-score-tiers { border: 1px solid var(--tp-border); border-radius: var(--radius-lg); padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; }
+.tp-score-tier { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.tp-score-num { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-sm); flex-wrap: wrap; }
+.tp-score-num > span { min-width: 7em; }
+.tp-score-num input { width: 0; flex: 1; min-width: 72px; max-width: 120px; font-size: var(--fs-base); }
+.tp-score-preview { border-top: 2px solid var(--tp-border); padding-top: var(--space-sm); }
+.tp-score-prev-head { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: baseline; margin-bottom: var(--space-xs); }
+.tp-score-prev { list-style: none; margin: 0; padding: 0; }
+.tp-score-prev li { display: grid; grid-template-columns: 28px 40px minmax(0, 1fr) auto; gap: var(--space-xs) var(--space-sm); align-items: baseline;
+    padding: var(--space-xs) 0; border-bottom: 1px solid var(--tp-border); }
+.tp-score-rank { font-weight: 800; text-align: right; }
+.tp-score-name { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.tp-score-total { font-weight: 800; white-space: nowrap; }
+.tp-score-parts { grid-column: 3 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.tp-score-part { font-size: var(--fs-2xs); padding: 0 var(--space-xs); border-radius: var(--radius-sm); background: var(--info-bg); color: var(--info-text); }
+.tp-score-up { color: var(--ok-text); font-weight: 700; font-size: var(--fs-xs); }
+.tp-score-down { color: var(--danger-text); font-weight: 700; font-size: var(--fs-xs); }
+.tp-score-same { color: var(--muted); font-size: var(--fs-xs); }
     </style>
 </head>
 
@@ -10439,10 +10475,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610301740';
+var APP_BUILD = '202610301803';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'f5db3878f7057033794efcc317cf420f628ef545';
+var APP_COMMIT = '4bcf10f887fb359d6958719b97a2c8b486b221a2';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10458,8 +10494,12 @@ var APP_VERSION = '3.26.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.26.0', date: '30 oct 2026', title: 'CL4MH es una sola familia en el CoP',
-      bullets: ['Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
+    { version: '3.26.0', date: '30 oct 2026', title: 'Tabla de prioridad por puntos, y CL4MH es una sola familia en el CoP',
+      bullets: ['Plan → Reglas → 🎯 Tabla de prioridad: el orden en que el armador propone pruebas ya no sale de porcentajes. Cada configuración suma puntos: regulación (PRE-EURO 7 10, SULEV 30 9, NOM-042 8…), actividad, familia, ensayos pendientes, días sin probar, volumen y bonos (configuración nueva, auditoría, fecha límite, postergada).',
+                'Regulación, actividad y familia se acomodan arrastrando cada ficha a su nivel de 0 a 10 (o tocándola y tocando el nivel). Varios pueden compartir nivel. Abajo se ve cómo se mueve el orden antes de guardar; guardar cambia la tabla para todo el laboratorio y queda en el historial de cambios.',
+                'Actividad: OBD-II solo cuenta cuando el año modelo es nuevo y todavía no tiene una prueba de OBD-II registrada. Auditoría suma a las familias del alcance CoP y de Middle East. México se puntúa con la NOM-042, que es con la que se juzga.',
+                'Se retiraron los porcentajes de ponderación, el peso por región, el empuje por antigüedad y los chips de "Enfoque de la semana". En Plan → Familias, "Criticidad" pasa a ser el nivel de la familia en la misma tabla.',
+                'Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
                 'El plan de producción trae algunas configuraciones sin Modelo. La app lo toma del catálogo del Alta (misma configuración, o el único modelo con ese motor, transmisión, norma, región y carrocería). Si hay dos posibles, no adivina.',
                 'Lo demás no cambia: la CL4 sigue separando 5 puertas y Wagon, y la carta SPC y los juicios guardados siguen por carrocería.',
                 'Estatus CoP: "Requiere atención" ya no dice "quedan ~N unidades por producir: apartar una unidad ya". Con el plan de producción incompleto decía "~0 unidades" y era ruido.'] },
@@ -11686,14 +11726,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610301740' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610301803' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610301740' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610301803' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11709,7 +11749,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610301740' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610301803' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -46327,15 +46367,6 @@ function _tpMigrateFamilyKeysBody() {
     if ((m1 || m2) && typeof tpInvalidateCache === 'function') tpInvalidateCache();
 }
 
-// Importancia 0-100 de la región (editable en pestaña Reglas).
-function tpRegionPriorityValue(rgn) {
-    var rp = tpState.regionPriority || {};
-    var v = rp[rgn];
-    if (v === undefined || v === null) v = rp['*'];
-    if (v === undefined || v === null) v = 50;
-    return v;
-}
-
 // Override manual de familia (criticidad + deadline). Devuelve {boost, criticality, deadline, days}.
 function tpFamilyOverrideFor(cfg) {
     var ov = (tpState.familyOverrides || {})[tpFamilyKeyForCfg(cfg)];
@@ -46350,45 +46381,280 @@ function tpFamilyOverrideFor(cfg) {
     return { boost: boost, criticality: ov.criticality || 'normal', deadline: ov.deadline || '', days: days };
 }
 
-function tpPriorityScore(cfg, testedN) {
-    const rule = tpReqRuleFor(cfg);
-    const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
-    const w = tpState.weights;
-    const maxVol = Math.max(...tpState.planData.map(c => c.total + c.hist), 1);
-    const volScore = ((cfg.total + cfg.hist) / maxVol) * 100;
-    const compScore = req > 0 ? (1 - Math.min(testedN / req, 1)) * 100 : 0;
-    const newScore = cfg.hist === 0 && cfg.total > 0 ? 100 : 0;
-    const _mArr = cfg.m || [];
-    const _mLen = _mArr.length || 6;
-    const firstM = _mArr.findIndex(v => v > 0);
-    const urgScore = firstM === -1 ? 0 : ((_mLen - firstM) / _mLen) * 100;
-    const regScore = tpRegionPriorityValue(cfg.rgn);
-    const wReg = w.region || 0;
-    const base = (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency + regScore * wReg) / 100;
-    const ov = tpFamilyOverrideFor(cfg);
-    // v16.4: + empuje por antigüedad, para que lo que lleva semanas postergado suba solo y el
-    // backlog no se estanque al fondo de la lista para siempre.
-    const aging = typeof tpAgingBoost === 'function' ? tpAgingBoost(cfg.desc) : 0;
-    return base + (ov ? ov.boost : 0) + aging;
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.26.0] TABLA DE PRIORIDAD — el score es una SUMA DE PUNTOS, sin porcentajes
+//
+// Reemplaza el promedio ponderado (tpState.weights, 5 porcentajes que suman 100), los
+// 10 deslizadores de región, la criticidad por familia (+20/+40) y el empuje por
+// antigüedad de sus propios deslizadores. Cada fila del plan dice de dónde salió cada
+// punto. La tabla vive en tpState.scoreTable (sincronizada, gana la edición más
+// reciente) y se edita arrastrando en Plan → Reglas → 🎯 Tabla de prioridad.
+//   · Regulación, Actividad y Familia: niveles 0–10 (empates permitidos).
+//   · Pendientes, días sin probar, probadas en el año, volumen: tramos editables.
+//   · Configuración nueva, auditoría, fecha límite, postergada: bonos.
+// LA definición: tpScoreCompute(facts, table) (PURA). tpScoreFacts arma los hechos.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Tabla de fábrica. Se copia al crear la del laboratorio; después solo manda la guardada. */
+function tpScoreTableDefault() {
+    return {
+        v: 1,
+        reg: { 'PRE-EURO 7': 10, 'EURO 7': 10, 'SULEV 30': 9, 'NOM-042 C-VP': 8, 'EURO-6C': 7, 'EURO-5': 6,
+               'BRAZIL L8': 5, 'EURO-4': 4, 'EURO-3': 3, 'EURO-2': 2, '120V': 0, '220V': 0, 'EV': 0 },
+        regDefault: 0,
+        act: { 'COP-OBD2': 10, 'COP-Emisiones': 9, 'EO-Emisiones': 8, 'EO-OBD2': 7, 'ND-Emisiones': 6,
+               'ND-OBD2': 5, 'Correlacion': 4, 'Investigacion': 3 },
+        actDefault: 0,
+        fam: {}, famDefault: 5,
+        pend: { per: 3, max: 9 },
+        days: [{ min: 31, pts: 2 }, { min: 61, pts: 4 }, { min: 91, pts: 6 }], never: 6,
+        year: [{ min: 0, pts: 4 }, { min: 1, pts: 2 }, { min: 3, pts: 0 }],
+        vol: [{ min: 1, pts: 1 }, { min: 1000, pts: 2 }, { min: 5000, pts: 3 }],
+        newCfg: 2, audit: 3, deadline: { days: 30, pts: 3 }, aging: { per: 1, max: 5 }
+    };
 }
 
-// Texto "por qué se priorizó" — para transparencia en plan y resumen ejecutivo.
-function tpScoreReason(cfg, testedN) {
+/** Normaliza una tabla (rellena lo que falte con la de fábrica). PURA. */
+function tpScoreTableNormalize(t) {
+    var d = tpScoreTableDefault();
+    t = (t && typeof t === 'object') ? t : {};
+    var num = function(x, def) { var n = Number(x); return isFinite(n) ? n : def; };
+    var map = function(x, def) { return (x && typeof x === 'object' && !Array.isArray(x)) ? Object.assign({}, x) : Object.assign({}, def); };
+    var tiers = function(x, def) {
+        var arr = Array.isArray(x) ? x : def;
+        return arr.filter(function(r) { return r && isFinite(Number(r.min)); })
+            .map(function(r) { return { min: Number(r.min), pts: num(r.pts, 0) }; })
+            .sort(function(a, b) { return a.min - b.min; });
+    };
+    return {
+        v: 1,
+        reg: map(t.reg, d.reg), regDefault: num(t.regDefault, d.regDefault),
+        act: map(t.act, d.act), actDefault: num(t.actDefault, d.actDefault),
+        fam: map(t.fam, d.fam), famDefault: num(t.famDefault, d.famDefault),
+        pend: { per: num(t.pend && t.pend.per, d.pend.per), max: num(t.pend && t.pend.max, d.pend.max) },
+        days: tiers(t.days, d.days), never: num(t.never, d.never),
+        year: tiers(t.year, d.year), vol: tiers(t.vol, d.vol),
+        newCfg: num(t.newCfg, d.newCfg), audit: num(t.audit, d.audit),
+        deadline: { days: num(t.deadline && t.deadline.days, d.deadline.days), pts: num(t.deadline && t.deadline.pts, d.deadline.pts) },
+        aging: { per: num(t.aging && t.aging.per, d.aging.per), max: num(t.aging && t.aging.max, d.aging.max) },
+        updatedAt: t.updatedAt || '', by: t.by || ''
+    };
+}
+
+/**
+ * LA forma de leer la tabla del laboratorio (nunca tpState.scoreTable.x directo).
+ * Mientras nadie la edite, la Familia sale de la criticidad de siempre (crítico 10,
+ * alto 8): así el orden no salta al actualizar.
+ */
+function tpScoreTable() {
+    if (tpState.scoreTable) return tpScoreTableNormalize(tpState.scoreTable);
+    var t = tpScoreTableDefault();
+    var ov = tpState.familyOverrides || {};
+    Object.keys(ov).forEach(function(k) {
+        if (ov[k] && ov[k].criticality === 'critical') t.fam[k] = 10;
+        else if (ov[k] && ov[k].criticality === 'high') t.fam[k] = 8;
+    });
+    return tpScoreTableNormalize(t);
+}
+
+/** Une la tabla de dos equipos: gana la edición más reciente. PURA y simétrica. */
+function tpScoreTableUnion(a, b) {
+    var ok = function(x) { return x && typeof x === 'object' && x.updatedAt; };
+    if (!ok(a)) return ok(b) ? b : (a || b || null);
+    if (!ok(b)) return a;
+    var aa = String(a.updatedAt), ba = String(b.updatedAt);
+    if (aa !== ba) return aa > ba ? a : b;
+    return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+}
+/** ¿`incoming` trae una tabla más nueva que `known`? PURA (la usa el sync). */
+function tpScoreTableNewTo(known, incoming) {
+    if (!incoming || typeof incoming !== 'object' || !incoming.updatedAt) return false;
+    return tpScoreTableUnion(known, incoming) === incoming && JSON.stringify(known || null) !== JSON.stringify(incoming);
+}
+
+/** Nivel (0–10) de una familia en la tabla de prioridad guardada. */
+function tpScoreFamilyLevel(famKey) {
+    var t = tpScoreTable();
+    return Object.prototype.hasOwnProperty.call(t.fam, famKey) ? Number(t.fam[famKey]) : t.famDefault;
+}
+
+/**
+ * Cambia el nivel de UNA familia directo en la tabla del laboratorio (Plan → Familias).
+ * Mismo candado y auditoría que guardar la tabla entera; no toca un borrador abierto en Reglas.
+ */
+function tpScoreSetFamilyLevel(famKey, level) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar la prioridad de una familia')) { tpRefreshFamilies(); return false; }
+    if (!famKey || !isFinite(level)) return false;
+    var t = tpScoreTable(), before = tpScoreFamilyLevel(famKey);
+    if (before === level) return true;
+    t.fam[famKey] = level;
+    t.updatedAt = new Date().toISOString();
+    t.by = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '';
+    tpState.scoreTable = t;
+    if (_tpScoreDraft) _tpScoreDraft.fam[famKey] = level;
+    tpInvalidateCache();
+    tpSave();
+    if (typeof auditLog === 'function') auditLog('tp', 'tabla_prioridad', { type: 'family', label: famKey },
+        'Nivel de la familia en la tabla de prioridad: ' + before + ' → ' + level, { before: { level: before }, after: { level: level } });
+    tpRefreshFamilies();
+    return true;
+}
+
+/** Puntos de un tramo: el del mayor `min` que no pasa de `x`. PURA. */
+function tpScoreTier(tiers, x) {
+    var pts = 0, v = Number(x) || 0;
+    (tiers || []).forEach(function(t) { if (v >= t.min) pts = t.pts; });
+    return pts;
+}
+
+/** Nivel de una clave en una tabla 0–10 (sin mayúsculas ni espacios de por medio). PURA. */
+function tpScoreLevel(map, key, def) {
+    var k = String(key || '').trim().toUpperCase();
+    if (!k) return def;
+    var hit = Object.keys(map || {}).find(function(m) { return String(m).trim().toUpperCase() === k; });
+    return hit !== undefined ? Number(map[hit]) : def;
+}
+
+/**
+ * LA definición del score. PURA: `f` son los hechos de una configuración y `t` la tabla.
+ * f = {reg, act, actWhy, famKey, famLabel, hasReq, deficit, daysSince (null = nunca),
+ *      yearCount, vol, isNew, audit, auditWhy, deadlineDays (null = sin fecha), agingWeeks}
+ * Devuelve {total, parts:[{k, label, pts, why}]} — parts en el orden de la tabla.
+ */
+function tpScoreCompute(f, t) {
+    f = f || {}; t = tpScoreTableNormalize(t);
     var parts = [];
-    var ov = tpFamilyOverrideFor(cfg);
-    if (ov && ov.criticality === 'critical') parts.push('⚑ Crítico');
-    else if (ov && ov.criticality === 'high') parts.push('▲ Alto');
-    if (ov && ov.days !== null && ov.days <= 30) parts.push('⏰ ' + (ov.days < 0 ? 'vencido' : ov.days + 'd'));
-    var vol = (cfg.total || 0) + (cfg.hist || 0);
-    if (vol > 0) parts.push('Vol ' + vol.toLocaleString('es-MX'));
-    var regV = tpRegionPriorityValue(cfg.rgn);
-    if (cfg.rgn && regV >= 80) parts.push(cfg.rgn + ' (alta)');
-    else if (cfg.rgn) parts.push(cfg.rgn);
-    if ((testedN || 0) === 0) parts.push('0 probadas');
-    if (cfg.hist === 0 && cfg.total > 0) parts.push('config nueva');
-    var age = typeof tpCarryoverAge === 'function' ? tpCarryoverAge(cfg.desc) : 0;
-    if (age > 0) parts.push('🔄 ' + age + ' sem postergada');
-    return parts.join(' · ');
+    var add = function(k, label, pts, why) { parts.push({ k: k, label: label, pts: Math.round((Number(pts) || 0) * 10) / 10, why: why || '' }); };
+    add('reg', 'Regulación', tpScoreLevel(t.reg, f.reg, t.regDefault), f.reg || '—');
+    add('act', 'Actividad', tpScoreLevel(t.act, f.act, t.actDefault), f.actWhy || f.act || '—');
+    var famPts = (f.famKey && Object.prototype.hasOwnProperty.call(t.fam, f.famKey)) ? Number(t.fam[f.famKey]) : t.famDefault;
+    add('fam', 'Familia', famPts, f.famLabel || '');
+    if (f.hasReq) {
+        var dfc = Math.max(0, Number(f.deficit) || 0);
+        add('pend', 'Pendientes', Math.min(dfc * t.pend.per, t.pend.max), dfc + ' por probar');
+    } else {
+        var yc = Math.max(0, Number(f.yearCount) || 0);
+        add('year', 'Probadas en el año', tpScoreTier(t.year, yc), yc + ' en el año · sin REQ');
+    }
+    if (f.daysSince === null || f.daysSince === undefined) add('days', 'Sin probar', t.never, 'nunca probada');
+    else add('days', 'Sin probar', tpScoreTier(t.days, f.daysSince), f.daysSince + ' días');
+    add('vol', 'Volumen', tpScoreTier(t.vol, f.vol), (Number(f.vol) || 0).toLocaleString('es-MX') + ' u');
+    if (f.isNew) add('new', 'Configuración nueva', t.newCfg, 'sin histórico');
+    if (f.audit) add('audit', 'Auditoría', t.audit, f.auditWhy || '');
+    if (f.deadlineDays !== null && f.deadlineDays !== undefined && f.deadlineDays <= t.deadline.days)
+        add('deadline', 'Fecha límite', t.deadline.pts, f.deadlineDays < 0 ? 'vencida' : f.deadlineDays + ' días');
+    var ag = Math.max(0, Number(f.agingWeeks) || 0);
+    if (ag) add('aging', 'Postergada', Math.min(ag * t.aging.per, t.aging.max), ag + ' sem.');
+    var total = parts.reduce(function(s, p) { return s + p.pts; }, 0);
+    return { total: Math.round(total * 10) / 10, parts: parts };
+}
+
+/** Año modelo como número ("27 MODEL" → 27). PURA. */
+function tpMyNum(my) { var m = /(\d{2,4})/.exec(String(my || '')); return m ? Number(m[1]) % 100 : null; }
+
+/**
+ * Índice de la evidencia para el score: por familia, la última fecha y cuántas en el año;
+ * y qué modelo+año modelo ya tiene una prueba de OBD-II. Memoizado por lista.
+ */
+var _tpScoreIdxMemo = { list: null, key: '', data: null };
+function _tpScoreIndex(list) {
+    list = list || tpState.testedList || [];
+    var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    var key = list.length + '|' + (tpState._lastSave || 0) + '|' + vehs.length + '|' + localToday();
+    if (_tpScoreIdxMemo.list === list && _tpScoreIdxMemo.key === key) return _tpScoreIdxMemo.data;
+    var year = localToday().slice(0, 4);
+    var fam = {}, obd = {}, newestMy = {};
+    (tpState.planData || []).forEach(function(c) {
+        var n = tpMyNum(c.my), m = String(c.mod || '').toUpperCase();
+        if (m && n !== null && (newestMy[m] === undefined || n > newestMy[m])) newestMy[m] = n;
+    });
+    list.forEach(function(t) {
+        if (!t) return;
+        var cfg = tpConfigByDesc(t.configText);
+        if (!cfg) return;
+        if (/OBD2/.test(String(t.purpose || ''))) obd[String(cfg.mod || '').toUpperCase() + '|' + tpMyNum(cfg.my)] = true;
+        if (!tpTestedCountsForReq(t)) return;
+        var fk = tpFamilyKeyForCfg(cfg), d = String(t.date || '').slice(0, 10);
+        var e = fam[fk] || (fam[fk] = { last: '', year: 0 });
+        if (d > e.last) e.last = d;
+        if (d.slice(0, 4) === year) e.year++;
+    });
+    vehs.forEach(function(v) {
+        if (!v || !/OBD2/.test(String(v.purpose || '')) || !v.config) return;
+        obd[String(v.config['Modelo'] || '').toUpperCase() + '|' + tpMyNum(v.config['MODEL YEAR (VIN)'])] = true;
+    });
+    var data = { fam: fam, obd: obd, newestMy: newestMy };
+    _tpScoreIdxMemo = { list: list, key: key, data: data };
+    return data;
+}
+
+/**
+ * La actividad que pide una configuración. OBD-II solo con el año modelo NUEVO (el más
+ * reciente del modelo en el plan) que todavía no tiene una prueba de OBD-II registrada
+ * (decisión del laboratorio, 30-oct-2026); si no, su propósito de siempre.
+ */
+function tpActivityFor(cfg, idx) {
+    var p = tpPurposeForCfg(cfg);
+    idx = idx || _tpScoreIndex();
+    var m = String(cfg.mod || '').toUpperCase(), my = tpMyNum(cfg.my);
+    if (m && my !== null && idx.newestMy[m] === my && !idx.obd[m + '|' + my]) {
+        var o = /^COP-/.test(p) ? 'COP-OBD2' : /^ND-/.test(p) ? 'ND-OBD2' : 'EO-OBD2';
+        return { act: o, why: o + ' · año modelo ' + my + ' nuevo, sin OBD-II registrada' };
+    }
+    return { act: p, why: p };
+}
+
+/** Los hechos de una configuración para el score. ctx = {deficit, hasReq, list}. */
+function tpScoreFacts(cfg, testedN, ctx) {
+    ctx = ctx || {};
+    var idx = _tpScoreIndex(ctx.list);
+    var famKey = tpFamilyKeyForCfg(cfg);
+    var fe = idx.fam[famKey] || null;
+    var today = localToday();
+    var daysSince = null;
+    if (fe && fe.last) daysSince = Math.max(0, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(fe.last + 'T12:00:00Z')) / 86400000));
+    var deficit = ctx.deficit, hasReq = ctx.hasReq;
+    if (deficit === undefined || hasReq === undefined) {
+        var req = cfg.paused ? 0 : tpCalcRequired(cfg, tpReqRuleFor(cfg));
+        if (deficit === undefined) deficit = Math.max(0, req - (testedN || 0));
+        if (hasReq === undefined) hasReq = req > 0;
+    }
+    var reg = (typeof labRegionRegulation === 'function' && labRegionRegulation(cfg.reg, cfg.rgn)) || cfg.reg || '';
+    var act = tpActivityFor(cfg, idx);
+    var inCop = false;
+    try { inCop = typeof copInScope === 'function' && copInScope(cfg).ok; } catch (e) {}
+    var me = String(cfg.rgn || '').trim().toUpperCase() === 'MIDDLE EAST';
+    var ov = (tpState.familyOverrides || {})[famKey];
+    var dl = null;
+    if (ov && ov.deadline) dl = Math.ceil((Date.parse(ov.deadline + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000);
+    return {
+        reg: reg, act: act.act, actWhy: act.why, famKey: famKey, famLabel: '',
+        hasReq: !!hasReq, deficit: deficit, daysSince: daysSince, yearCount: fe ? fe.year : 0,
+        vol: (Number(cfg.total) || 0) + (Number(cfg.hist) || 0),
+        isNew: (Number(cfg.hist) || 0) === 0 && (Number(cfg.total) || 0) > 0,
+        audit: inCop || me, auditWhy: inCop ? 'alcance CoP' : (me ? 'Middle East' : ''),
+        deadlineDays: dl, agingWeeks: typeof tpCarryoverAge === 'function' ? tpCarryoverAge(cfg.desc) : 0
+    };
+}
+
+/** El score con su desglose. `table` opcional (la vista previa pasa la que se está editando). */
+function tpScoreBreakdown(cfg, testedN, ctx, table) {
+    return tpScoreCompute(tpScoreFacts(cfg, testedN, ctx), table || tpScoreTable());
+}
+
+/**
+ * [3.26.0] El score de una configuración = suma de puntos de la tabla de prioridad
+ * (tpScoreCompute). ctx = {deficit, hasReq, list}: sin ctx se calcula de la regla.
+ */
+function tpPriorityScore(cfg, testedN, ctx) {
+    return tpScoreBreakdown(cfg, testedN, ctx).total;
+}
+
+// Texto "por qué se priorizó": [3.26.0] los puntos de la tabla, de mayor a menor.
+function tpScoreReason(cfg, testedN, ctx) {
+    var b = tpScoreBreakdown(cfg, testedN, ctx);
+    return b.parts.filter(function(p) { return p.pts; }).sort(function(a, c) { return c.pts - a.pts; })
+        .map(function(p) { return p.label + ' ' + p.pts + (p.why ? ' (' + p.why + ')' : ''); }).join(' · ');
 }
 
 // Detalle de score para mostrar el "por qué" en cada item del plan.
@@ -46400,7 +46666,7 @@ function tpBuildScoreDetail(cfg, n, req, score) {
         var _t = tpState.testedList[i];
         if (_t && _t.configText === cfg.desc && tpTestedCountsForReq(_t)) { lastTested = _t.date || ''; break; }
     }
-    return { deficit: Math.max(0, req - n), score: score, lastTested: lastTested, reason: tpScoreReason(cfg, n) };
+    return { deficit: Math.max(0, req - n), score: score, lastTested: lastTested, reason: tpScoreReason(cfg, n, { deficit: Math.max(0, req - n), hasReq: req > 0 }) };
 }
 
 // Cache for tpGetAnalysis — invalidated on plan/tested changes
@@ -46631,7 +46897,7 @@ function _tpAnalyze(list) {
     // [3.13.0] Las familias de corporativo se cuentan por año calendario (ver tpCopReqBase).
     var _hq = _tpCopReqPlan(src, tpCopReqBase());
     return tpState.planData.map(cfg => {
-        if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year);
+        if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year, src);
         const rule = tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
         // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
@@ -46645,7 +46911,7 @@ function _tpAnalyze(list) {
         const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada = no exige
         const comp = req > 0 ? Math.min(n / req, 1) : 1;
         const st = comp >= 1 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
-        const sc = tpPriorityScore(cfg, n);
+        const sc = tpPriorityScore(cfg, n, { deficit: Math.max(0, req - n), hasReq: req > 0, list: src });
         // v16.2: cuánto volumen entra al cálculo y qué regla se usó — para transparencia total
         const ruleInfo = { label: rule.label || '(sin nombre)', matchType: rule._matchType, ratio: rule.ratio, per: rule.per,
             vol: cfg.total + cfg.hist, formula: '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
@@ -46661,7 +46927,7 @@ function _tpAnalyze(list) {
  * cumplida en la cobertura); las demás piden 0. `testedN` sigue siendo la evidencia de la
  * configuración. `copYear` lo declara.
  */
-function _tpAnalyzeCopCfg(cfg, filas, f, year) {
+function _tpAnalyzeCopCfg(cfg, filas, f, year, list) {
     const n = filas.length;
     const nDecl = filas.filter(tpTestedIsDeclared).length;
     const share = (f.split && f.split[cfg.desc]) || 0;
@@ -46676,7 +46942,7 @@ function _tpAnalyzeCopCfg(cfg, filas, f, year) {
             : 'Familia ' + year + ': REQ ' + f.req + ' − hechas ' + f.done + ' − en curso ' + f.inFlight +
               ' − declaradas ' + f.declared + ' = faltan ' + f.pending + (share ? ' · a esta configuración: ' + share : '') };
     return { ...cfg, testedN: n, testedVerified: n - nDecl, testedDeclared: nDecl,
-             required: req, deficit: share, compliance: comp, status: st, score: tpPriorityScore(cfg, n), ruleInfo: ruleInfo,
+             required: req, deficit: share, compliance: comp, status: st, score: tpPriorityScore(cfg, n, { deficit: share, hasReq: f.req > 0 && !f.excluded, list: list }), ruleInfo: ruleInfo,
              copYear: { year: year, key: f.key, label: f.label, rule: f.rule, req: f.req, done: f.done, inFlight: f.inFlight,
                         declared: f.declared, pending: f.pending, share: share, excluded: f.excluded } };
 }
@@ -47420,7 +47686,7 @@ function tpRenderExecSummary() {
     html += '<div style="margin-top: var(--space-md);"><div style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);margin-bottom: var(--space-xs);">🔥 Prioridades — qué probar ahora</div>';
     if (top.length === 0) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin déficit pendiente. 🎉</div>';
     else top.forEach(function(a){
-        var reason = tpScoreReason(a, a.testedN);
+        var reason = tpScoreReason(a, a.testedN, { deficit: a.deficit, hasReq: a.required > 0 });
         var modSafe = (a.mod||'').replace(/'/g,"\\'");
         html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-2xs);border:1px solid var(--tp-border);border-radius: var(--radius-lg);background:var(--tp-card);cursor:pointer;flex-wrap:wrap;">';
         html += '<span class="tp-badge" style="background:'+tpRegionColor(a.rgn)+'20;color:'+tpRegionColor(a.rgn)+';font-size: var(--fs-sm);">'+(a.rgn||'?')+'</span>';
@@ -48732,7 +48998,7 @@ function tpRenderRules(el) {
             count: { label: tpState.rules.length + ' reglas' + (_tpNoSpecificRule.length ? ' · ' + _tpNoSpecificRule.length + ' no cuentan' : ''), tone: _tpNoSpecificRule.length ? 'warn' : 'ok' },
             actions: _ratioActions, body: _ratioBody })}
         <div>
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
+            ${tpBuildPriorityKnobsHTML()}
             ${uiCard({ id: 'tp-rules-startpurpose', icon: '🎯', title: 'Propósito al iniciar prueba desde el plan', accent: 'testplan',
                 help: 'tp-purpose-region-help', defaultOpen: false, body: _spBody,
                 count: { label: 'Europa: ' + uiLabel('purpose', (tpState.startPurposeByRegion || {}).EUROPE || 'COP-Emisiones') } })}
@@ -48741,6 +49007,8 @@ function tpRenderRules(el) {
         </div>
     </div>
     `;
+    // [3.26.0] La tabla de prioridad se arrastra: conectar sus tableros.
+    tpScoreUiWire();
 }
 
 // [2.36.0] Una regla nueva nace con ratio 0 (no cuenta) hasta que se escriba el suyo: con
@@ -48798,6 +49066,7 @@ function _tpSaveRulePresetNamed(name) {
         rules: JSON.parse(JSON.stringify(tpState.rules)),
         weights: JSON.parse(JSON.stringify(tpState.weights)),
         regionPriority: JSON.parse(JSON.stringify(tpState.regionPriority || {})),
+        scoreTable: JSON.parse(JSON.stringify(tpScoreTable())),   // [3.26.0]
         created: new Date().toISOString()
     });
     tpSave(); tpRender();
@@ -48813,6 +49082,12 @@ function tpLoadRulePreset(idx) {
         tpState.rules = JSON.parse(JSON.stringify(preset.rules));
         tpState.weights = JSON.parse(JSON.stringify(preset.weights));
         if (preset.regionPriority) tpState.regionPriority = JSON.parse(JSON.stringify(preset.regionPriority));
+        // [3.26.0] La tabla de prioridad viaja con la plantilla (sellada ahora, para que gane en el sync).
+        if (preset.scoreTable) {
+            tpState.scoreTable = Object.assign(JSON.parse(JSON.stringify(preset.scoreTable)), { updatedAt: new Date().toISOString(),
+                by: (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '' });
+            _tpScoreDraft = null;
+        }
         tpSave(); tpRender(); tpInvalidateCache();
         showToast('Plantilla "' + preset.name + '" cargada', 'success');
     });
@@ -49128,17 +49403,6 @@ function tpBacklogEligible() {
     return out;
 }
 
-function tpAgingBoost(desc) {
-    var age = tpCarryoverAge(desc);
-    if (!age) return 0;
-    // Acotar la edad a la caducidad: si no, una config ya caducada que alguien fija
-    // a mano conserva el empuje completo y le gana a todo lo demás.
-    var ttl = parseInt(tpPlannerCfg().carryoverTtlWeeks, 10) || 0;
-    if (ttl > 0) age = Math.min(age, ttl);
-    var cfgB = tpState.agingBoost || { perWeek: 6, max: 30 };
-    return Math.min(age * (cfgB.perWeek || 0), cfgB.max || 0);
-}
-
 /**
  * ¿El descarte de esta config sigue vigente? Un descarte se hace con un déficit
  * concreto a la vista; si después el déficit CRECE por encima de ese valor, la
@@ -49311,34 +49575,6 @@ function tpAssignSchedule(items, workDays, opts) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
-/**
- * [v24] Mover un peso reparte la diferencia entre los otros cuatro, en proporción a lo
- * que ya pesaban (en pasos de 5), para que el total SIEMPRE sea 100. Antes había que
- * cuadrar cinco deslizadores a mano y la tarjeta decía "— ajustar".
- * Pura respecto al DOM; devuelve el objeto de pesos nuevo.
- */
-var TP_WEIGHT_KEYS = ['compliance', 'volume', 'region', 'newConfig', 'urgency'];
-function tpWeightsRebalance(weights, key, value) {
-    var w = {};
-    TP_WEIGHT_KEYS.forEach(function(k) { w[k] = Math.max(0, +weights[k] || 0); });
-    value = Math.max(0, Math.min(100, Math.round((+value || 0) / 5) * 5));
-    w[key] = value;
-    var others = TP_WEIGHT_KEYS.filter(function(k) { return k !== key; });
-    var rest = 100 - value;
-    var base = others.reduce(function(a, k) { return a + w[k]; }, 0);
-    others.forEach(function(k) { w[k] = base > 0 ? Math.floor((w[k] / base) * rest / 5) * 5 : Math.floor(rest / others.length / 5) * 5; });
-    // Lo que sobra por redondear va al que más pesa (o al primero).
-    var diff = 100 - TP_WEIGHT_KEYS.reduce(function(a, k) { return a + w[k]; }, 0);
-    if (diff !== 0) {
-        var target = others.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
-        w[target] = Math.max(0, w[target] + diff);
-    }
-    return w;
-}
-function tpSetWeightBalanced(key, value) {
-    tpState.weights = Object.assign({}, tpState.weights || {}, tpWeightsRebalance(tpState.weights || {}, key, value));
-}
-
 function _tpSliderHTML(o) {
     return '<div style="margin-bottom: var(--space-md);">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom: var(--space-2xs);">' +
@@ -49351,201 +49587,280 @@ function _tpSliderHTML(o) {
         '</div>';
 }
 
-/**
- * Pesos + prioridad por región + empuje por antigüedad. Se monta en Reglas y en
- * el Plan Semanal; `opts.onInput` decide qué se re-renderiza en cada una.
- */
 // ═══════════════════════════════════════════════════════════════════════════════
-// [v20] ENFOQUE DE LA SEMANA — "las prioridades son probar lo de Europa, lo de USA"
+// [3.26.0] 🎯 TABLA DE PRIORIDAD — editar arrastrando y ver cómo se mueve el orden
 //
-// TRAMPA que esto resuelve: `tpState.weights.region` puede quedar legítimamente en
-// **0** (la migración de arranque lo pone así para no romper sumas viejas), y con
-// region=0 los 10 sliders de prioridad por región **no hacen absolutamente nada**.
-// Un chip de enfoque que solo tocara `regionPriority` sería decorativo. `tpSetFocus`
-// SUBE el peso de región y redistribuye el resto proporcionalmente.
+// Se edita sobre un BORRADOR (`_tpScoreDraft`, en memoria): la vista previa compara el
+// orden con la tabla guardada contra el borrador, en cada cambio. Guardar pide
+// plan.manage, se audita con antes/después y viaja a todos los equipos.
+// Niveles 0–10 de Regulación / Actividad / Familia: arrastrar la ficha a otro nivel, o
+// tocarla y tocar el nivel (gridDragInit con tapToMove: sirve con el pulgar y con teclado).
 // ═══════════════════════════════════════════════════════════════════════════════
+var _tpScoreDraft = null;
+var _tpScoreUi = { famQ: '', all: false };
 
-var TP_FOCUS = {
-    europa:    { label: '🇪🇺 Europa',        regions: ['EUROPE'],            weight: 45 },
-    usa:       { label: '🇺🇸 USA',           regions: ['USA', 'CANADA'],     weight: 45 },
-    prioridad: { label: '🇪🇺+🇺🇸 Prioridad', regions: ['EUROPE','USA','CANADA'], weight: 40 },
-    todo:      { label: '🌎 Todo',           regions: null,                  weight: 20 }
-};
-
-/** Qué enfoque describe la configuración actual. DERIVADO, no una bandera guardada. */
-function tpCurrentFocus() {
-    var rp = tpState.regionPriority || {};
-    var w = +(tpState.weights || {}).region || 0;
-    if (w < 25) return 'todo';
-    var alto = Object.keys(rp).filter(function(r) { return r !== '*' && rp[r] >= 95; }).sort().join(',');
-    var claves = Object.keys(TP_FOCUS);
-    for (var i = 0; i < claves.length; i++) {
-        var f = TP_FOCUS[claves[i]];
-        if (f.regions && f.regions.slice().sort().join(',') === alto) return claves[i];
-    }
-    return 'medida';
+function _tpScoreDraftGet() {
+    if (!_tpScoreDraft) _tpScoreDraft = JSON.parse(JSON.stringify(tpScoreTable()));
+    return _tpScoreDraft;
+}
+function _tpScoreDirty() {
+    if (!_tpScoreDraft) return false;
+    var strip = function(t) { var c = JSON.parse(JSON.stringify(t)); delete c.updatedAt; delete c.by; return stableStringify(c); };
+    return strip(_tpScoreDraft) !== strip(tpScoreTable());
 }
 
-/**
- * Aplica un enfoque. Sube `weights.region` al valor del enfoque y reparte lo que
- * sobra entre los demás pesos EN PROPORCIÓN a como estaban, para que la suma siga
- * siendo 100 sin borrar lo que el usuario ya había ajustado.
- */
-function tpSetFocus(key) {
-    var f = TP_FOCUS[key];
-    if (!f) return;
-    var w = tpState.weights;
-    var otros = ['volume', 'compliance', 'newConfig', 'urgency'];
-    var sumaOtros = otros.reduce(function(s, k) { return s + (+w[k] || 0); }, 0);
-    var restante = Math.max(0, 100 - f.weight);
-    otros.forEach(function(k) {
-        w[k] = sumaOtros > 0 ? Math.round((+w[k] || 0) / sumaOtros * restante) : Math.round(restante / otros.length);
-    });
-    // El redondeo puede dejar ±1: se ajusta sobre el peso más grande, no sobre región.
-    var total = otros.reduce(function(s, k) { return s + w[k]; }, 0) + f.weight;
-    if (total !== 100) {
-        var mayor = otros.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
-        w[mayor] = Math.max(0, w[mayor] + (100 - total));
-    }
-    w.region = f.weight;
+var TP_SCORE_LEVELS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-    if (!tpState.regionPriority) tpState.regionPriority = {};
-    var rp = tpState.regionPriority;
-    var regiones = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean)));
-    regiones.forEach(function(r) {
-        rp[r] = (!f.regions || f.regions.indexOf(r) !== -1) ? 100 : (f.regions ? 30 : 50);
-    });
-    if (f.regions) f.regions.forEach(function(r) { rp[r] = 100; });
-    rp['*'] = f.regions ? 30 : 50;
-
-    tpInvalidateCache();
-    tpSave();
-    if (typeof auditLog === 'function') {
-        auditLog('tp', 'focus_changed', { type: 'plan', label: f.label },
-                 'peso de región ' + f.weight + '% · ' + (f.regions ? f.regions.join(' + ') : 'todas por igual'));
+/** Lo que va en cada tablero de niveles: [{key, label, level}]. */
+function _tpScoreBoardItems(kind, t) {
+    var out = [], seen = {};
+    var push = function(key, label, lvl) {
+        var k = String(key || '').trim();
+        if (!k || seen[k.toUpperCase()]) return;
+        seen[k.toUpperCase()] = true;
+        out.push({ key: k, label: label || k, level: lvl });
+    };
+    if (kind === 'reg') {
+        Object.keys(t.reg).forEach(function(k) { push(k, k, Number(t.reg[k])); });
+        (tpState.planData || []).forEach(function(c) {
+            var r = (typeof labRegionRegulation === 'function' && labRegionRegulation(c.reg, c.rgn)) || c.reg;
+            if (r) push(r, r, tpScoreLevel(t.reg, r, t.regDefault));
+        });
+    } else if (kind === 'act') {
+        Object.keys(t.act).concat(TP_PURPOSES_VALID).forEach(function(k) {
+            push(k, (typeof uiLabel === 'function' ? uiLabel('purpose', k) : k), tpScoreLevel(t.act, k, t.actDefault));
+        });
+    } else if (kind === 'fam') {
+        (tpState.planData || []).forEach(function(c) {
+            if (c._retired || c.paused) return;
+            var fk = tpFamilyKeyForCfg(c);
+            if (seen[fk.toUpperCase()]) return;
+            var lvl = Object.prototype.hasOwnProperty.call(t.fam, fk) ? Number(t.fam[fk]) : t.famDefault;
+            push(fk, (typeof tpFamilyShortLabel === 'function' ? tpFamilyShortLabel(c) : tpFamilyLabel(c)) + (c.rgn ? ' · ' + c.rgn : ''), lvl);
+        });
+        out.sort(function(a, b) { return a.label < b.label ? -1 : 1; });
     }
-    tpRender();
-    showToast('Enfoque: ' + f.label + ' — peso de región ' + f.weight + '%. La propuesta se reordenó.', 'success');
+    return out;
 }
 
-/** La fila de chips. Siempre visible: es la perilla que el laboratorio usa a diario. */
-function tpBuildFocusChipsHTML() {
-    var actual = tpCurrentFocus();
-    var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
-    var f = TP_FOCUS[actual];
-    var enFoco = f && f.regions
-        ? an.filter(function(a) { return f.regions.indexOf(a.rgn) !== -1 && a.required > 0; })
-        : an.filter(function(a) { return a.required > 0; });
-    var conDeficit = enFoco.filter(function(a) { return a.deficit > 0; }).length;
-
-    var h = '<div class="tp-focus" data-help="tp-focus-help">';
-    h += '<span class="tp-focus-label">Enfoque de la semana</span><div class="tp-focus-chips">';
-    Object.keys(TP_FOCUS).forEach(function(k) {
-        h += '<button class="tp-focus-chip' + (actual === k ? ' tp-focus-chip--on' : '') + '" ' +
-             'onclick="tpSetFocus(\'' + k + '\')" aria-pressed="' + (actual === k) + '">' + TP_FOCUS[k].label + '</button>';
+function _tpScoreBoardHTML(kind, title, hint, t) {
+    var items = _tpScoreBoardItems(kind, t);
+    var q = kind === 'fam' ? _uiFold(_tpScoreUi.famQ || '') : '';
+    var shown = q ? items.filter(function(i) { return _uiFold(i.label).indexOf(q) >= 0; }) : items;
+    var h = '<div class="tp-score-board" data-kind="' + kind + '">';
+    h += '<div class="tp-score-board-head"><strong>' + title + '</strong><span class="tp-score-hint">' + hint + '</span></div>';
+    if (kind === 'fam') {
+        h += '<input type="search" class="tp-select tp-score-search" placeholder="Buscar familia (Ej.: CL4MH, BL7m)" value="' + escapeHtml(_tpScoreUi.famQ || '') + '" ' +
+             'oninput="_tpScoreUi.famQ=this.value;_tpScoreRepaintBoard(\'fam\')">';
+        if (q) h += '<p class="tp-score-hint">' + shown.length + ' de ' + items.length + ' familias (' + (items.length - shown.length) + ' ocultas por la búsqueda)</p>';
+    }
+    TP_SCORE_LEVELS.forEach(function(lv) {
+        var inLv = shown.filter(function(i) { return Math.round(i.level) === lv; });
+        h += '<div class="tp-score-level" data-drag-cell="' + kind + '::' + lv + '" aria-label="Nivel ' + lv + '">' +
+             '<span class="tp-score-lv">' + lv + '</span><div class="tp-score-chips">';
+        inLv.forEach(function(i) {
+            h += '<button type="button" class="tp-score-chip" data-drag-id="' + escapeHtml(kind + '::' + i.key) + '" data-drag-cell="' + kind + '::' + lv + '" ' +
+                 'aria-label="' + escapeHtml(i.label) + ', nivel ' + lv + '" title="Arrastra a otro nivel, o tócala y toca el nivel">' + escapeHtml(i.label) + '</button>';
+        });
+        if (!inLv.length) h += '<span class="tp-score-empty">—</span>';
+        h += '</div></div>';
     });
-    // "A medida" no aplica nada: abre las perillas de siempre. tpBuildPriorityKnobsHTML
-    // YA acepta opts.openRegions desde v18 y hasta ahora nadie se lo pasaba.
-    h += '<button class="tp-focus-chip' + (actual === 'medida' ? ' tp-focus-chip--on' : '') + '" ' +
-         'onclick="window._tpOpenRegions=true;tpRender();">⚙️ A medida</button>';
-    h += '</div>';
-    h += '<div class="tp-focus-read">' + enFoco.length + ' configuración(es) en foco · <strong>' +
-         conDeficit + '</strong> con déficit' +
-         (+(tpState.weights || {}).region === 0
-            ? ' · <span class="tp-focus-warn">⚠️ el peso de región está en 0: las prioridades por región no influyen</span>'
-            : '') + '</div>';
+    // Lo que no cae en un nivel entero (escrito a mano en otro equipo) se declara.
+    var odd = shown.filter(function(i) { return TP_SCORE_LEVELS.indexOf(Math.round(i.level)) < 0; });
+    if (odd.length) h += '<p class="tp-score-hint">Fuera de 0–10: ' + odd.map(function(i) { return escapeHtml(i.label) + ' (' + i.level + ')'; }).join(', ') + '</p>';
     return h + '</div>';
 }
 
-function tpBuildPriorityKnobsHTML(opts) {
-    opts = opts || {};
-    var onInput = opts.onInput || '_tpDebouncedRender()';
-    var w = tpState.weights || {};
-    var rp = tpState.regionPriority || {};
-    var ab = tpState.agingBoost || { perWeek: 6, max: 30 };
-    var wTotal = ['volume','compliance','region','newConfig','urgency']
-        .reduce(function(s, k) { return s + (+w[k] || 0); }, 0);
-    var regions = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean))).sort();
-
-    var h = '';
-    // v22.3 — Las tres tarjetas de esta pantalla pasan por uiCard (app.js): un solo
-    // encabezado, colapso recordado por dispositivo, y el chip muestra el dato clave
-    // SIN abrir la tarjeta (el total de ponderación, cuántas regiones, si el empuje
-    // está apagado). Es la pantalla más densa de la app, así que es donde más rinde.
-    var _uc = (typeof uiCard === 'function');
-
-    // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom: var(--space-md);">Cuánto pesa cada factor al ordenar candidatos. Al mover uno, los demás se reparten solos para que siempre sumen 100.</p>';
-    [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
-        .forEach(function(p) {
-            bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-                set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
-        });
-    bWeights += '<details style="margin-top: var(--space-xs);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top: var(--space-sm);">';
-    [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
-        bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
-            set: "tpSetWeightBalanced('" + p[0] + "', +this.value)", onInput: onInput });
+/** Un campo numérico del borrador. path = 'pend.per', 'days.1.pts', 'newCfg'… */
+function _tpScoreNum(path, label, t, unit) {
+    var v = path.split('.').reduce(function(o, k) { return o == null ? o : o[k]; }, t);
+    return '<label class="tp-score-num"><span>' + label + '</span><input type="number" class="tp-select" inputmode="numeric" data-num="step" step="1" ' +
+           'value="' + (v == null ? '' : v) + '" oninput="_tpScoreSetNum(\'' + path + '\', this.value)">' + (unit ? '<small>' + unit + '</small>' : '') + '</label>';
+}
+function _tpScoreTiersHTML(key, label, unit, t) {
+    var h = '<div class="tp-score-tiers"><strong>' + label + '</strong>';
+    (t[key] || []).forEach(function(r, i) {
+        h += '<div class="tp-score-tier">' + _tpScoreNum(key + '.' + i + '.min', 'desde', t, unit) + _tpScoreNum(key + '.' + i + '.pts', '→ puntos', t) + '</div>';
     });
-    bWeights += '</div></details>';
+    return h + '</div>';
+}
 
-    if (_uc) {
-        h += uiCard({
-            id: 'tp-knobs-weights', icon: '⚖️', title: 'Ponderación', accent: 'testplan',
-            help: 'tp-weights-help', body: bWeights,
-            count: { label: 'Total ' + wTotal + '%' + (wTotal === 100 ? ' ✓' : ' — ajustar'),
-                     tone: wTotal === 100 ? 'ok' : 'warn' }
-        });
-    } else {
-        h += '<div class="tp-card"><div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>' + bWeights + '</div>';
-    }
+function _tpScoreSetNum(path, value) {
+    var t = _tpScoreDraftGet();
+    var parts = path.split('.'), o = t;
+    for (var i = 0; i < parts.length - 1; i++) { if (o[parts[i]] == null) return; o = o[parts[i]]; }
+    var n = Number(value);
+    if (value === '' || !isFinite(n)) return;
+    o[parts[parts.length - 1]] = n;
+    _tpScorePreviewSoon();
+}
 
-    // ── Peso por región (plegado: 10 sliders alargaban la columna de más) ──
-    var regionList = regions.filter(function(r) { return r !== '*'; }).concat(['*']);
-    var bRegions = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
-    // El peso de región puede estar legítimamente en 0, y entonces estos sliders no
-    // hacen absolutamente nada (v20). Se dice, no se esconde.
-    if (!(+w.region)) {
-        bRegions = '<p class="u-chip u-chip--warn" style="display:block;margin:0 0 10px;">El factor "Importancia de región" está en 0%: estos controles no afectan al orden hasta que lo subas.</p>' + bRegions;
-    }
-    regionList.forEach(function(r) {
-        bRegions += _tpSliderHTML({
-            label: (r === '*' ? 'Otras (default)' : r), labelColor: tpRegionColor(r),
-            value: (rp[r] !== undefined ? rp[r] : 50), min: 0, max: 100, step: 5, accent: tpRegionColor(r),
-            set: "if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['" + r + "']=+this.value",
-            onInput: onInput
-        });
+/** La vista previa: el orden con la tabla guardada contra el borrador. */
+function _tpScorePreviewHTML() {
+    var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
+    var draft = _tpScoreDraftGet();
+    var rows = an.filter(function(a) { return !a.paused && (_tpScoreUi.all || a.deficit > 0); });
+    var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.desc < b.desc ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
+    var R = rows.map(function(a) {
+        var b = tpScoreBreakdown(a, a.testedN, { deficit: a.deficit, hasReq: a.required > 0 }, draft);
+        return { a: a, before: a.score, after: b.total, parts: b.parts };
     });
-
-    var bAging = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>'
-        + _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
-            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput })
-        + _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
-            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
-
-    if (_uc) {
-        h += uiCard({
-            id: 'tp-knobs-regions', icon: '🌍', title: 'Peso por región', accent: 'testplan',
-            help: 'tp-region-priority-help', body: bRegions,
-            // openRegions manda sobre la preferencia guardada: el chip "⚙️ A medida"
-            // abre esta tarjeta a propósito, no puede quedar cerrada porque el
-            // dispositivo la cerró la última vez.
-            open: opts.openRegions ? true : undefined,
-            defaultOpen: false,
-            count: { label: regionList.length + (regionList.length === 1 ? ' región' : ' regiones'),
-                     tone: (+w.region) ? 'neutral' : 'warn' }
-        });
-        h += uiCard({
-            id: 'tp-knobs-aging', icon: '⏳', title: 'Empuje por antigüedad', accent: 'testplan',
-            help: 'tp-aging-help', body: bAging, defaultOpen: false,
-            count: (+ab.perWeek) ? { label: '+' + (+ab.perWeek) + ' pts/sem', tone: 'neutral' }
-                                 : { label: 'apagado', tone: 'neutral' }
-        });
-    } else {
-        h += '<div class="tp-card" style="margin-top: var(--space-lg);"><div class="tp-card-title"><span>🌍 Peso por región</span></div>' + bRegions + '</div>';
-        h += '<div class="tp-card" style="margin-top: var(--space-lg);"><div class="tp-card-title"><span>⏳ Empuje por antigüedad</span></div>' + bAging + '</div>';
-    }
-
+    withRank(R, 'before'); withRank(R, 'after');
+    R.sort(function(x, y) { return x.afterRank - y.afterRank; });
+    var moved = R.filter(function(r) { return r.afterRank !== r.beforeRank; }).length;
+    var h = '<div class="tp-score-prev-head"><strong>Cómo queda el orden</strong> ' +
+            '<span class="tp-score-hint">' + (_tpScoreDirty() ? moved + ' de ' + R.length + ' cambian de lugar con lo que estás moviendo' : 'sin cambios por guardar') + '</span>' +
+            '<label class="u-hit tp-score-hint"><input type="checkbox" ' + (_tpScoreUi.all ? 'checked' : '') + ' onchange="_tpScoreUi.all=this.checked;_tpScorePreviewSoon()"> Ver también las que no tienen pendientes</label></div>';
+    if (!R.length) return h + '<p class="tp-score-hint">No hay configuraciones con pendientes en el plan.</p>';
+    h += '<ol class="tp-score-prev">';
+    R.slice(0, 15).forEach(function(r) {
+        var d = r.beforeRank - r.afterRank;
+        var mv = d > 0 ? '<span class="tp-score-up">▲' + d + '</span>' : d < 0 ? '<span class="tp-score-down">▼' + (-d) + '</span>' : '<span class="tp-score-same">=</span>';
+        var chips = r.parts.filter(function(p) { return p.pts; }).map(function(p) {
+            return '<span class="tp-score-part" title="' + escapeHtml(p.why || '') + '">' + escapeHtml(p.label) + ' ' + p.pts + '</span>';
+        }).join('');
+        h += '<li><span class="tp-score-rank">' + r.afterRank + '</span>' + mv +
+             '<span class="tp-score-name">' + escapeHtml(tpFamilyShortLabel(r.a) || r.a.desc) + ' <small>' + escapeHtml(r.a.rgn || '') + '</small></span>' +
+             '<span class="tp-score-total">' + r.after + (r.after !== r.before ? ' <small>(antes ' + r.before + ')</small>' : '') + '</span>' +
+             '<span class="tp-score-parts">' + chips + '</span></li>';
+    });
+    h += '</ol>';
+    if (R.length > 15) h += '<p class="tp-score-hint">Se muestran las primeras 15 de ' + R.length + '.</p>';
     return h;
+}
+
+/** El cuerpo entero de la tarjeta (sin la tarjeta). */
+function tpScoreUiHTML() {
+    var t = _tpScoreDraftGet();
+    var saved = tpScoreTable();
+    var h = '<p class="tp-score-hint">El score de cada configuración es la <b>suma de estos puntos</b>. Arrastra una ficha a otro nivel (o tócala y toca el nivel); ' +
+            'empates permitidos. Abajo ves cómo se mueve el orden antes de guardar.' +
+            (saved.updatedAt ? ' Guardada ' + escapeHtml(String(saved.updatedAt).slice(0, 10)) + (saved.by ? ' por ' + escapeHtml(saved.by) : '') + '.' : ' Todavía es la tabla de fábrica.') + '</p>';
+    h += '<div class="tp-score-actions">' +
+         '<button class="tp-btn tp-btn-primary" onclick="tpScoreTableSave()"' + (_tpScoreDirty() ? '' : ' disabled') + '>💾 Guardar tabla</button>' +
+         '<button class="tp-btn tp-btn-ghost" onclick="tpScoreDraftDiscard()"' + (_tpScoreDirty() ? '' : ' disabled') + '>↩ Descartar cambios</button>' +
+         '<button class="tp-btn tp-btn-ghost" onclick="tpScoreDraftFactory()">🏭 Valores de fábrica</button></div>';
+    h += '<div class="tp-score-grid">';
+    h += '<div id="tp-score-board-reg">' + _tpScoreBoardHTML('reg', '📜 Regulación', 'La norma con que se juzga (México = NOM-042).', t) + '</div>';
+    h += '<div id="tp-score-board-act">' + _tpScoreBoardHTML('act', '🧪 Actividad', 'OBD-II solo cuenta con el año modelo nuevo sin OBD-II registrada.', t) + '</div>';
+    h += '</div>';
+    h += '<div id="tp-score-board-fam">' + _tpScoreBoardHTML('fam', '👪 Familia', 'Todas empiezan en ' + t.famDefault + '. Sube las que importan más.', t) + '</div>';
+    h += '<div class="tp-score-nums">';
+    h += '<div class="tp-score-tiers"><strong>Pendientes (familias con REQ)</strong>' + _tpScoreNum('pend.per', 'por ensayo', t, 'pts') + _tpScoreNum('pend.max', 'tope', t, 'pts') + '</div>';
+    h += _tpScoreTiersHTML('days', 'Días sin probar la familia', 'días', t).replace('</div>' + '', '</div>');
+    h += '<div class="tp-score-tiers"><strong>Nunca probada</strong>' + _tpScoreNum('never', 'puntos', t) + '</div>';
+    h += _tpScoreTiersHTML('year', 'Probadas en el año (familias sin REQ)', 'pruebas', t);
+    h += _tpScoreTiersHTML('vol', 'Volumen de la configuración', 'u', t);
+    h += '<div class="tp-score-tiers"><strong>Bonos</strong>' + _tpScoreNum('newCfg', 'Config. nueva', t, 'pts') +
+         _tpScoreNum('audit', 'Auditoría (CoP y Middle East)', t, 'pts') +
+         _tpScoreNum('deadline.pts', 'Fecha límite', t, 'pts') + _tpScoreNum('deadline.days', 'a menos de', t, 'días') +
+         _tpScoreNum('aging.per', 'Postergada, por semana', t, 'pts') + _tpScoreNum('aging.max', 'tope', t, 'pts') + '</div>';
+    h += '</div>';
+    h += '<div id="tp-score-preview" class="tp-score-preview">' + _tpScorePreviewHTML() + '</div>';
+    return h;
+}
+
+/** Pinta la tarjeta en su lugar (sin repintar Reglas entera) y conecta el arrastre. */
+function tpScoreUiRepaint() {
+    var host = document.getElementById('tp-score-ui');
+    if (!host) return;
+    host.innerHTML = tpScoreUiHTML();
+    tpScoreUiWire();
+}
+function _tpScoreRepaintBoard(kind) {
+    var host = document.getElementById('tp-score-board-' + kind);
+    if (!host) return;
+    var focused = document.activeElement && document.activeElement.classList.contains('tp-score-search');
+    host.innerHTML = _tpScoreBoardHTML(kind, kind === 'fam' ? '👪 Familia' : kind === 'reg' ? '📜 Regulación' : '🧪 Actividad',
+        kind === 'fam' ? 'Todas empiezan en ' + _tpScoreDraftGet().famDefault + '. Sube las que importan más.'
+        : kind === 'reg' ? 'La norma con que se juzga (México = NOM-042).' : 'OBD-II solo cuenta con el año modelo nuevo sin OBD-II registrada.', _tpScoreDraftGet());
+    _tpScoreWireBoard(host);
+    if (focused) { var s = host.querySelector('.tp-score-search'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
+}
+var _tpScorePrevTimer = null;
+function _tpScorePreviewSoon() {
+    clearTimeout(_tpScorePrevTimer);
+    _tpScorePrevTimer = setTimeout(function() {
+        var p = document.getElementById('tp-score-preview');
+        if (p) p.innerHTML = _tpScorePreviewHTML();
+        var acts = document.querySelectorAll('#tp-score-ui .tp-score-actions button');
+        if (acts.length >= 2) { acts[0].disabled = !_tpScoreDirty(); acts[1].disabled = !_tpScoreDirty(); }
+    }, 150);
+}
+
+function _tpScoreWireBoard(host) {
+    if (typeof gridDragInit !== 'function' || !host) return;
+    var kind = host.id.replace('tp-score-board-', '');
+    gridDragInit(host, {
+        ns: 'tp-score-' + kind,
+        itemSelector: '.tp-score-chip, .tp-score-level',
+        refocusSelector: '.tp-score-level',
+        idAttr: 'data-drag-id', cellAttr: 'data-drag-cell',
+        selectedClass: 'tp-score-chip--sel', ghostWidth: 96, tapToMove: true, autoScroll: true,
+        label: function(id, el) { return (el && el.textContent) || 'La ficha'; },
+        canDrop: function(id, from, to, el) {
+            if (!to || to === from || (el && el.getAttribute('data-drag-id'))) return false;
+            return String(id).split('::')[0] === String(to).split('::')[0];
+        },
+        onDrop: function(id, from, to) { tpScoreSetLevel(id, Number(String(to).split('::')[1])); }
+    });
+}
+function tpScoreUiWire() {
+    ['reg', 'act', 'fam'].forEach(function(k) { _tpScoreWireBoard(document.getElementById('tp-score-board-' + k)); });
+    if (typeof uiNumEnhance === 'function') { var h = document.getElementById('tp-score-ui'); if (h) uiNumEnhance(h); }
+}
+
+/** Mueve una ficha a un nivel en el BORRADOR. id = 'reg::EURO-5' | 'act::COP-OBD2' | 'fam::<clave>'. */
+function tpScoreSetLevel(id, level) {
+    var s = String(id || ''), i = s.indexOf('::');
+    if (i < 0 || !isFinite(level)) return;
+    var kind = s.slice(0, i), key = s.slice(i + 2), t = _tpScoreDraftGet();
+    if (!t[kind] || typeof t[kind] !== 'object') return;
+    var hit = Object.keys(t[kind]).find(function(k) { return k.toUpperCase() === key.toUpperCase(); });
+    t[kind][hit !== undefined ? hit : key] = level;
+    _tpScoreRepaintBoard(kind);
+    _tpScorePreviewSoon();
+}
+
+function tpScoreDraftDiscard() { _tpScoreDraft = null; tpScoreUiRepaint(); }
+function tpScoreDraftFactory() {
+    var keepFam = _tpScoreDraftGet().fam;
+    _tpScoreDraft = tpScoreTableNormalize(Object.assign(tpScoreTableDefault(), { fam: keepFam }));
+    tpScoreUiRepaint();
+    showToast('Borrador con los valores de fábrica (las familias se conservan). Revisa el orden y guarda si te convence.', 'info');
+}
+
+/** Guarda el borrador como la tabla del laboratorio (plan.manage, auditado con antes/después). */
+function tpScoreTableSave() {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'cambiar la tabla de prioridad')) return false;
+    if (!_tpScoreDirty()) return false;
+    var before = tpScoreTable();
+    var who = (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '';
+    var after = JSON.parse(JSON.stringify(_tpScoreDraft));
+    after.updatedAt = new Date().toISOString(); after.by = who;
+    tpState.scoreTable = after;
+    _tpScoreDraft = null;
+    tpInvalidateCache();
+    tpSave();
+    if (typeof auditLog === 'function') {
+        var strip = function(t) { var c = JSON.parse(JSON.stringify(t)); delete c.updatedAt; delete c.by; return c; };
+        auditLog('tp', 'tabla_prioridad', { type: 'plan', label: 'Tabla de prioridad' }, 'Tabla de prioridad guardada',
+                 { before: strip(before), after: strip(after) });
+    }
+    showToast('Tabla de prioridad guardada: el armador ya ordena con ella', 'success');
+    tpScoreUiRepaint();
+    return true;
+}
+
+/** La tarjeta de Reglas. (Reemplaza las perillas de porcentaje de v18–v24.) */
+function tpBuildPriorityKnobsHTML() {
+    var t = tpScoreTable();
+    var dirty = _tpScoreDirty();
+    return uiCard({
+        id: 'tp-score-table', icon: '🎯', title: 'Tabla de prioridad', accent: 'testplan', help: 'tp-score-help',
+        count: { label: dirty ? 'cambios sin guardar' : (t.updatedAt ? 'guardada' : 'de fábrica'), tone: dirty ? 'warn' : 'ok' },
+        body: '<div id="tp-score-ui">' + tpScoreUiHTML() + '</div>'
+    });
 }
 
 /** Cola de pendientes: encendido, caducidad y cuota máxima de la capacidad. */
@@ -50603,7 +50918,8 @@ function tpBuildArmarCardHTML(b) {
             'onchange="tpSetVehiclesPerSlot(this.value);_tpBoardRepaint();"></label>';
     body += '</div>';
 
-    body += tpBuildFocusChipsHTML();
+    // [3.26.0] El orden lo decide la tabla de prioridad (los chips de enfoque movían pesos que ya no existen).
+    body += '<p class="tp-armar-hint">🎯 El orden de las candidatas sale de la <a href="#" onclick="tpSwitchTab(\'tp-rules\');return false;">tabla de prioridad</a> (Plan → Reglas).</p>';
 
     // ── 2) Días de asistencia ──
     var etiquetas = { dom:'Domingo', lun:'Lunes', mar:'Martes', mie:'Miércoles', jue:'Jueves', vie:'Viernes', sab:'Sábado' };
@@ -50667,7 +50983,7 @@ function tpBuildArmarCardHTML(b) {
             '<label class="tp-armar-check u-hit"><input type="checkbox" ' + (pCfg.checkInventory !== false ? 'checked' : '') +
             ' onchange="tpSetPlannerInventory(this.checked)"> Revisar inventario</label>' +
             '<span class="tp-armar-spacer"></span>' +
-            '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-rules\')" title="Ponderación, peso por región y empuje por antigüedad">⚙️ Cómo se elige</button>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-rules\')" title="La tabla de prioridad (Plan → Reglas)">🎯 Cómo se elige</button>' +
             '<button class="tp-btn tp-btn-primary tp-armar-go" onclick="tpGenerarSemana()">🚀 Generar</button>' +
             '</div>';
 
@@ -52102,7 +52418,7 @@ function _tpMakeItem(cfg, testedCopy, flags) {
     var _hq = _tpCopReqPlan(testedCopy, tpCopReqBase());
     var _hf = (_hq && _hq.byDesc[cfg.desc]) ? _hq.fam[_hq.byDesc[cfg.desc]] : null;
     if (_hf) { req = _hf.req; deficit = _hf.pending; }
-    var sc = tpPriorityScore(cfg, n);
+    var sc = tpPriorityScore(cfg, n, { deficit: deficit, hasReq: req > 0, list: testedCopy });
     return {
         uid: _tpItemUid(),
         desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
@@ -54362,7 +54678,10 @@ function tpBuildFamilies() {
 
         // Override manual (criticidad + deadline por familia)
         var _ov = (tpState.familyOverrides || {})[f.key] || {};
-        f.criticality = _ov.criticality || 'normal';
+        // [3.26.0] La importancia de la familia es su nivel en la tabla de prioridad (0–10):
+        // ⚑ crítico = 10, ▲ alto = 8 o 9. Una sola fuente, la que suma al score.
+        f.scoreLevel = tpScoreFamilyLevel(f.key);
+        f.criticality = f.scoreLevel >= 10 ? 'critical' : f.scoreLevel >= 8 ? 'high' : 'normal';
         f.familyDeadline = _ov.deadline || ''; // deadline propio de la familia (para el input de familia)
 
         // Deadline particular por variante (configuración)
@@ -54879,11 +55198,9 @@ function tpRenderFamilies(el) {
                     ${tpFamilyReqRowHTML(f)}
                     <div style="display:flex;align-items:center;gap: var(--space-sm);flex-wrap:wrap;padding: var(--space-xs) var(--space-sm);margin-bottom: var(--space-sm);background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius: var(--radius-lg);">
                         <span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
-                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Criticidad
-                            <select class="tp-select" data-chips style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
-                                <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
-                                <option value="high" ${f.criticality==='high'?'selected':''}>Alta</option>
-                                <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
+                        <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);" title="Puntos de la familia en la tabla de prioridad (Plan → Reglas)">Nivel en la tabla de prioridad
+                            <select class="tp-select" style="font-size: var(--fs-sm);padding: var(--space-2xs) var(--space-xs);" onchange="tpScoreSetFamilyLevel('${f.key.replace(/'/g,"\\'")}', +this.value);">
+                                ${TP_SCORE_LEVELS.map(n => `<option value="${n}" ${f.scoreLevel===n?'selected':''}>${n}</option>`).join('')}
                             </select>
                         </label>
                         <label style="font-size: var(--fs-sm);color:var(--tp-dim);display:flex;align-items:center;gap: var(--space-2xs);">Fecha límite de la familia
@@ -57102,12 +57419,12 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'tp-rules': {
         title: 'Reglas',
-        text: 'Cuántas pruebas por cada N unidades según región y norma: solo cuenta para el plan lo que tiene regla aquí. También los pesos de priorización y el propósito precargado por región (COP solo Europa).',
+        text: 'Cuántas pruebas por cada N unidades según región y norma: solo cuenta para el plan lo que tiene regla aquí. También la tabla de prioridad (en qué orden propone el armador) y el propósito precargado por región (COP solo Europa).',
         tips: [
             'Una configuración sin regla no exige pruebas: no entra al REQ, a la cobertura ni al generador.',
             'La regla de región + norma exacta tiene prioridad sobre la de región con "Todas".',
             'Para dejar fuera una familia aunque su norma tenga regla: Plan → Familias → 🚫 Sacar del conteo.',
-            'Los pesos de priorización deben sumar 100 — el sistema te avisa si no cuadran.',
+            'Tabla de prioridad: el score es la suma de puntos. Arrastra regulaciones, actividades y familias a su nivel (0–10) y mira cómo se mueve el orden antes de guardar.',
             'El propósito por región define qué se precarga en Alta al iniciar una prueba desde el plan (editable aquí).'
         ]
     },
@@ -57136,18 +57453,15 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-copreq-help': { title: 'CoP de corporativo', text: 'Corporativo cuenta el CoP por año calendario: lo producido de enero a diciembre por familia, todos los años modelo juntos. Europa PRE-EURO 7 y General EURO-6C piden 3 ensayos hasta 7,500 unidades y 3 más por cada 5,000 (o fracción); Medio Oriente EURO-5 pide 1 ensayo por familia con producción en el año. Encendido, el Plan propone solo lo que le falta a cada familia y se lo pide a las configuraciones que siguen en producción. Apagado, esas normas vuelven a las reglas de ratio.' },
     'tp-reqpurpose-help': { title: 'Qué acredita el REQ de emisiones', text: 'Cascade tiene ocho propósitos de prueba y no todos miden emisiones. Una prueba de OBD II verifica el diagnóstico a bordo, no el escape: se registra y se ve en el historial, pero no baja el déficit de emisiones ni sube la cobertura. Aquí decides cuáles sí cuentan. Desmarcar no borra nada — la evidencia sigue guardada, así que volver a marcar devuelve los mismos números.' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada N unidades producidas, según región y regulación. SOLO cuenta para el plan lo que tiene regla aquí: una configuración sin regla no exige pruebas, no entra a la cobertura, al generador ni al Excel para auditoría. La regla de región + norma exacta gana sobre la de región con "Todas". Para dejar fuera una familia completa aunque su norma tenga regla, usa "🚫 Sacar del conteo" en Plan → Familias (pide motivo y queda en el historial).' },
-    'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
-    'tp-aging-help': { title: 'Empuje por antigüedad', text: 'Puntos que gana una configuración por cada semana que lleva postergada, para que la cola no se estanque. El tope evita que lo viejo le gane siempre a lo urgente. En 0, la antigüedad deja de influir por completo.' },
     'tp-carryover-help': { title: 'Cola de pendientes', text: 'Lo que quedó sin hacer en semanas anteriores. "Caducan" descarta lo que lleva demasiado tiempo arrastrándose (útil cuando cambian las prioridades) y "Máximo de la semana" limita cuántos lugares puede ocupar la cola, para que siempre quede espacio a lo actual. Ni caducar ni descartar cuentan como probado: el déficit y la cobertura no cambian.' },
     'tp-weekfilter-help': { title: 'Filtros de la semana', text: 'Restringe la propuesta a un subconjunto — por ejemplo solo body type 5DR y regulación EURO-6C — para dedicar la semana a ese tipo de vehículo. Los selectores se van estrechando entre sí, como la cascada del Alta. Las pruebas que fijaste a mano entran aunque no cumplan el filtro (se avisa).' },
     'tp-preview-help': { title: 'Propuesta en vivo', text: 'Lo que crearía "Generar" en este momento, con el día de preacondicionamiento y prueba de cada vehículo, su puntaje y de dónde salió (obligatoria, cola o déficit). Cambia solo al mover cualquier control de la izquierda.' },
-    'tp-region-priority-help': { title: 'Prioridad por Región', text: 'Qué tan importante es cada mercado (0-100) al calcular la urgencia de una configuración. Europa suele ir más alto por fechas de arranque de producción (SOP).' },
+    'tp-score-help': { title: 'Tabla de prioridad', text: 'El orden en que el armador propone pruebas sale de esta tabla: el score de cada configuración es la SUMA de sus puntos (regulación, actividad, familia, pendientes, días sin probar, volumen y bonos). Arrastra una ficha a otro nivel, o tócala y toca el nivel; varios pueden compartir nivel. Abajo se ve cómo se mueve el orden ANTES de guardar. Guardar cambia la tabla para todo el laboratorio y queda en el historial de cambios.' },
     'tp-purpose-region-help': { title: 'Propósito por región', text: 'Qué propósito se precarga automáticamente en Alta cuando inicias una prueba desde el plan, según la región de la configuración (regla: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo manualmente en Alta.' },
     'tp-csvimport-help': { title: 'Importar Plan de Producción', text: 'El CSV se FUSIONA con lo que ya tenías cargado — no borra meses anteriores, solo agrega o actualiza los que vengan en el archivo nuevo. Columnas esperadas: codigo_config, Modelo, Motor, Regulación, Región, etc. y una columna por mes (ej. Feb-26).' },
     'tp-availability-help': { title: 'Disponibilidad por semana', text: 'Marca "No disponible" las semanas de mantenimiento/paro del dinamómetro (no cuentan capacidad). "Cap" = número de pruebas que caben esa semana; "días" = cuántos días de la semana asistes. La capacidad real es pruebas/semana, no pruebas/día — puedes correr más de una por día.' },
     'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' },
     'tp-req-help': { title: 'Pruebas requeridas (Req.)', text: 'Se calcula así: (Vol.Plan + Hist) × ratio / por, según la regla de Reglas → Ratio que coincida con la región y regulación de esta configuración. Toca el número de cualquier fila para ver la fórmula exacta y qué regla se usó. Un punto ámbar ● significa que no hay regla específica para esa región/regulación — se usó una regla comodín.' },
-    'tp-focus-help': { title: 'Enfoque de la semana', text: 'Un toque reordena la propuesta hacia un mercado. IMPORTANTE: sube el peso de "Importancia de región" y reparte el resto proporcionalmente — si ese peso está en 0, las prioridades por región no influyen en nada y los chips serían decorativos. "⚙️ A medida" abre las perillas de siempre con la sección de regiones desplegada.' },
     'tp_week_add': { title: 'Agregar una prueba', text: 'El ＋ de cada día agrega una configuración a ese día. Puedes agregar una que YA esté en la semana: son dos vehículos distintos de la misma configuración, que es un caso normal del laboratorio. El menú ⋯ de una tarjeta tiene el atajo "⧉ Otra unidad igual".' },
     'tp_week_link': { title: 'Vincular con una prueba', text: 'Cuando la liberación no acreditó la fila sola (el vehículo se registró por fuera del plan, o son dos idénticos y hay que decir cuál es cuál), aquí eliges la prueba real por VIN. Vincular NO es lo mismo que palomear a mano: palomear declara sin respaldo, vincular deja el VIN. Si el vehículo es de otra configuración, queda registrado como sustitución con sus diferencias.' },
     'tp_week_subst': { title: 'Alcance de la sustitución', text: '🎯 Misma familia es la sustitución equivalente: solo cambia rin, carrocería, tracción o paquete. 📋 Misma región y norma puede cambiar hasta el motor — sirve para cubrir la norma, no para sustituir esa familia. 🌍 Misma región solo comparte el mercado. Las que se alejan del núcleo salen marcadas ⚠️ y el nivel queda grabado en el registro.' },
@@ -68810,6 +69124,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpBlockNotesUnion === 'function') tpState.blockNotes = tpBlockNotesUnion(prevTp.blockNotes, tpState.blockNotes);
         // [3.13.0] El interruptor del REQ de corporativo: gana el cambio más reciente.
         if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
+        // [3.26.0] La tabla de prioridad: gana la edición más reciente.
+        if (typeof tpScoreTableUnion === 'function') tpState.scoreTable = tpScoreTableUnion(prevTp.scoreTable, tpState.scoreTable) || undefined;
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -68867,7 +69183,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [3.24.0] Un pull cuyo único cambio es el motivo de un bloque.
         (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo((typeof tpState !== 'undefined' && tpState && tpState.blockNotes) || {}, (remoteData && remoteData.blockNotes) || {})) ||
         // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
-        (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null));
+        (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null)) ||
+        // [3.26.0] Un pull cuyo único cambio es la tabla de prioridad.
+        (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo((typeof tpState !== 'undefined' && tpState && tpState.scoreTable) || null, (remoteData && remoteData.scoreTable) || null));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -69761,7 +70079,7 @@ function fbAssignInPlace(target, src) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}, tpState.scoreTable || null]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
@@ -69807,6 +70125,8 @@ function _fbLocalHasExtras(col, remote) {
         if (typeof tpBlockNotesNewTo === 'function' && tpBlockNotesNewTo(remote.blockNotes || {}, tpState.blockNotes || {})) return true;
         // [3.13.0] El interruptor del REQ de corporativo cambiado aquí y no en la nube.
         if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
+        // [3.26.0] La tabla de prioridad editada aquí y no en la nube.
+        if (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo(remote.scoreTable || null, tpState.scoreTable || null)) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -70987,6 +71307,11 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             var _crm = tpCopReqModeUnion(tpState.copReqMode, (remoteData.testplan || {}).copReqMode);
             if (_crm) tpState.copReqMode = _crm;
         }
+        // [3.26.0] La tabla de prioridad se une igual (gana la edición más reciente).
+        if (typeof tpScoreTableUnion === 'function') {
+            var _stb = tpScoreTableUnion(tpState.scoreTable, (remoteData.testplan || {}).scoreTable);
+            if (_stb) { tpState.scoreTable = _stb; if (typeof tpInvalidateCache === 'function') tpInvalidateCache(); }
+        }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
     }
@@ -71698,7 +72023,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610301740' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610301803' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -91732,7 +92057,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9973,"mods":[[9976,"js/app.js",20294],[20298,"js/uiflow.js",20633],[20637,"js/cop15.js",32154],[32158,"js/inventory.js",40162],[40166,"js/cuarto.js",42296],[42300,"js/sitio.js",44483],[44487,"js/conslist.js",45095],[45099,"js/testplan.js",57156],[57160,"js/bloques.js",57781],[57785,"js/panel.js",63172],[63176,"js/projects.js",65465],[65469,"js/auth.js",66549],[66553,"js/signatures.js",66915],[66919,"js/firebase-sync.js",75538],[75542,"js/cop_validator.js",80490],[80494,"js/copreport.js",82285],[82289,"js/cophq.js",83099],[83103,"js/homolog.js",85000],[85004,"js/vets.js",86803],[86807,"js/historico.js",87721],[87725,"js/review.js",88194],[88198,"js/opcards.js",88647],[88651,"js/handoff.js",88930],[88934,"js/ficha.js",89435],[89439,"js/relevo.js",89819],[89823,"js/momentos.js",89960],[89964,"js/normas.js",90372],[90376,"js/digest.js",91304],[91308,"js/xlsxw.js",91688],[91692,"js/bugreport.js",92838]]};
+var BUG_LINE_MAP = {"tag":10009,"mods":[[10012,"js/app.js",20334],[20338,"js/uiflow.js",20673],[20677,"js/cop15.js",32194],[32198,"js/inventory.js",40202],[40206,"js/cuarto.js",42336],[42340,"js/sitio.js",44523],[44527,"js/conslist.js",45135],[45139,"js/testplan.js",57470],[57474,"js/bloques.js",58095],[58099,"js/panel.js",63486],[63490,"js/projects.js",65779],[65783,"js/auth.js",66863],[66867,"js/signatures.js",67229],[67233,"js/firebase-sync.js",75863],[75867,"js/cop_validator.js",80815],[80819,"js/copreport.js",82610],[82614,"js/cophq.js",83424],[83428,"js/homolog.js",85325],[85329,"js/vets.js",87128],[87132,"js/historico.js",88046],[88050,"js/review.js",88519],[88523,"js/opcards.js",88972],[88976,"js/handoff.js",89255],[89259,"js/ficha.js",89760],[89764,"js/relevo.js",90144],[90148,"js/momentos.js",90285],[90289,"js/normas.js",90697],[90701,"js/digest.js",91629],[91633,"js/xlsxw.js",92013],[92017,"js/bugreport.js",93163]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
