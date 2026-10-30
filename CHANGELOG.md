@@ -20,6 +20,34 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.26.0 — CL4MH es una sola familia en el CoP (2026-10-30)
+
+### Arreglado
+- **El estatus CoP del año partía la CL4MH en tres familias**: "1.6 T-GDI 6DCT · 5 puertas",
+  "1.6 T-GDI 6DCT · Wagon" y "CL4MH 1.6 T-GDI 6DCT · Híbrido". Son la misma: el WVTA tiene una
+  sola familia de interpolación para la 5 puertas y la Wagon. Ahora sale una sola familia
+  (grupo Híbrido), con la producción de las dos carrocerías sumada y un solo REQ. El Plan, que
+  pide el REQ de corporativo para estas familias, la sigue igual.
+- **Configuraciones del plan de producción sin Modelo.** El CSV trae las CL4MH con la columna
+  Modelo vacía, y por eso salían como "(sin modelo)" y no empataban con los vehículos del Alta.
+  La app toma el Modelo del catálogo: la misma configuración, el primer segmento del código, o el
+  único modelo del catálogo con ese motor, transmisión, norma, región, carrocería y paquetes. Si
+  hay dos posibles no adivina y la fila se queda como venía.
+
+### No cambia
+- La CL4 (gasolina y 48V) sigue separando 5 puertas y Wagon.
+- La clave por año modelo, la carta SPC y los juicios guardados siguen por carrocería.
+
+### Para desarrollo
+- `COP_WVTA_SHARED_BODY` (cop_validator.js) lista los modelos cuya familia del WVTA cubre todas
+  sus carrocerías; `copYearKeyOf` deja vacía la carrocería de esos modelos. Solo la familia del
+  año calendario cambia (va encima de la clave de siempre, v19.1).
+- `copYearProduction` y `copYearReportCompute` toman modelo y carrocería de la CLAVE del año.
+- `tpInferModel(cfg, catalog)` (PURA) y `tpRepairPlanModels()` (testplan.js) rellenan `mod` vacío
+  en `planData` (`modInferred: true`) al importar, al arrancar tras `parseCSV()` y tras cada pull.
+- Una exclusión o producción real capturada antes con la clave vieja (sin modelo, o con la
+  carrocería) ya no aplica a la familia unida.
+
 ## 3.25.0 — Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia (2026-10-28)
 
 Tres cosas que el laboratorio eligió de la lista de propuestas. Las tres atacan el mismo problema:

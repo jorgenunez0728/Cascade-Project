@@ -566,5 +566,19 @@ t('Training no es propósito del plan y su liberación no deja evidencia', () =>
     eq((S.testedList || []).length, antes);
 });
 
+console.log('\n== [3.26.0] El Modelo que el CSV de producción trae vacío ==');
+t('se infiere del catálogo: por desc, por prefijo o por el único Modelo con esos campos', () => {
+    const base = { eng: '1600CC KAPPA PE', tx: '6DCT', reg: 'PRE-EURO 7', rgn: 'EUROPE', ep: '0', engpkg: '0' };
+    const cat = [Object.assign({ desc: 'CL4MH-27 MODEL-A-5DR', mod: 'CL4MH', body: '5DR' }, base),
+                 Object.assign({ desc: 'CL4MH-27 MODEL-A-WGN', mod: 'CL4MH', body: 'WGN' }, base),
+                 { desc: 'CL4-26 MODEL-X', mod: 'CL4', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' },
+                 { desc: 'CL4-26 MODEL-Y', mod: 'BL7m', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' }];
+    eq(sandbox.tpInferModel({ desc: 'CL4MH-27 MODEL-A-WGN' }, cat), 'CL4MH');
+    eq(sandbox.tpInferModel({ desc: 'CL4MH-27 MODEL-NUEVA' }, cat), 'CL4MH');
+    eq(sandbox.tpInferModel(Object.assign({ desc: '-27 MODEL-B-WGN', body: 'WGN' }, base), cat), 'CL4MH');
+    // Con dos Modelos posibles no se adivina.
+    eq(sandbox.tpInferModel({ desc: '-26 MODEL-Z', eng: '1000cc KAPPA PE', tx: '6MT', reg: 'PRE-EURO 7', rgn: 'EUROPE', body: '5DR' }, cat), '');
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

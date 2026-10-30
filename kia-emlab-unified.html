@@ -10439,10 +10439,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202610282126';
+var APP_BUILD = '202610301728';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '5342aeb13568f605658687b5b72d06c408a5af08';
+var APP_COMMIT = '4a0ef43aec458b00cc853ae6c0197a6eaadbb4f9';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10450,7 +10450,7 @@ var APP_COMMIT = '5342aeb13568f605658687b5b72d06c408a5af08';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.25.0';
+var APP_VERSION = '3.26.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10458,6 +10458,10 @@ var APP_VERSION = '3.25.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.26.0', date: '30 oct 2026', title: 'CL4MH es una sola familia en el CoP',
+      bullets: ['Estatus CoP del año: la CL4MH 5 puertas, la CL4MH Wagon y la "1.6 T-GDI 6DCT" sin modelo salían como tres familias. Ahora son una: el WVTA tiene una sola familia de interpolación para las dos carrocerías. Su producción se suma y su REQ es uno.',
+                'El plan de producción trae algunas configuraciones sin Modelo. La app lo toma del catálogo del Alta (misma configuración, o el único modelo con ese motor, transmisión, norma, región y carrocería). Si hay dos posibles, no adivina.',
+                'Lo demás no cambia: la CL4 sigue separando 5 puertas y Wagon, y la carta SPC y los juicios guardados siguen por carrocería.'] },
     { version: '3.25.0', date: '28 oct 2026', title: 'Una prueba que falla se registra, la celda tiene su carta y al aprobar se compara contra la familia',
       bullets: ['Liberación: con un gas sobre el límite aparece "Resultado sobre el límite". Se confirma que se releyó el reporte del banco, se escribe qué se observó y se envía como FALLA. Antes el botón se bloqueaba y la única salida era repetir la prueba, sin que la medición quedara en ningún lado.',
                 'Aprobación: después del doble ciego, quien aprueba decide si es una falla válida (cuenta para CoP como cualquier ensayo) o una prueba inválida (no cuenta para CoP ni para el REQ, con su causa de una lista). Queda en la línea de tiempo, en la auditoría y en el Historial (✗ Falla / ⊘ No cuenta para CoP).',
@@ -11681,14 +11685,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202610282126' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202610301728' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202610282126' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202610301728' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11704,7 +11708,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202610282126' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202610301728' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -17244,6 +17248,7 @@ function storageFreeBytes() {
         bootMark('inicio');
         bootProgress('Cargando configuraciones…');
         try { parseCSV(); } catch(e) { void 0; }
+        try { if (typeof tpRepairPlanModels === 'function') tpRepairPlanModels(); } catch(e) { void 0; }
         bootMark('catalogo');
         try { populateOperators(); } catch(e) { void 0; }
         try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { void 0; }
@@ -45564,6 +45569,8 @@ function _tpEnsureState() {
     if (!Array.isArray(tpState.deletedPlans)) tpState.deletedPlans = [];
     // [2.33.0] Lo borrado no regresa y toda semana es un lunes (también tras cada pull).
     _tpNormalizePlans();
+    // [3.26.0] Un pull puede traer el plan con el Modelo vacío (CSV de producción).
+    if (typeof allConfigurations !== 'undefined' && allConfigurations.length) tpRepairPlanModels();
 
     // [v23.2] Resembrar la CONFIGURACIÓN nunca es silencioso en un laboratorio que ya
     // tiene datos.
@@ -46218,6 +46225,58 @@ function tpCatalogOnlyNoteHTML() {
 }
 
 function tpCatalogInvalidate() { _tpCatalogCache = { key: '', list: null, byDesc: null }; }
+
+/**
+ * [3.26.0] El Modelo de una configuración del plan que el CSV de producción trae VACÍO
+ * (pasa con los híbridos CL4MH). Sin Modelo su familia sale como "(sin modelo)" y no
+ * empata con los vehículos del Alta (que sí lo traen del catálogo). PURA.
+ * `catalog` = configuraciones cortas del catálogo (tpCfgFromCatalogRow). Orden:
+ *  1. la misma configuración (desc) en el catálogo;
+ *  2. el primer segmento del desc ("CL4MH-27 MODEL-…"), si es un Modelo del catálogo;
+ *  3. el ÚNICO Modelo del catálogo con mismo motor, transmisión, norma, región,
+ *     carrocería, paquete ambiental y de motor. Con dos posibles no se adivina: ''.
+ */
+function tpInferModel(cfg, catalog) {
+    if (!cfg) return '';
+    var cat = (catalog || []).filter(function(c) { return c && c.mod; });
+    var n = function(v) { var t = String(v == null ? '' : v).trim().toUpperCase(); return t === '0' ? '' : t; };
+    var desc = String(cfg.desc || '').trim();
+    var same = desc ? cat.find(function(c) { return c.desc === desc; }) : null;
+    if (same) return same.mod;
+    var pre = n(desc.split('-')[0]);
+    if (pre) {
+        var byPre = cat.find(function(c) { return n(c.mod) === pre; });
+        if (byPre) return byPre.mod;
+    }
+    var keys = ['eng', 'tx', 'reg', 'rgn', 'body', 'ep', 'engpkg'];
+    var mods = {};
+    cat.forEach(function(c) {
+        if (keys.every(function(k) { return n(c[k]) === n(cfg[k]); })) mods[c.mod] = true;
+    });
+    var list = Object.keys(mods);
+    return list.length === 1 ? list[0] : '';
+}
+
+/**
+ * [3.26.0] Rellena el Modelo vacío de `tpState.planData` (tpInferModel) y lo marca
+ * `modInferred` para poder declararlo. Idempotente; corre al importar, al arrancar (tras
+ * cargar el catálogo) y después de cada pull. Devuelve cuántas filas cambió.
+ */
+function tpRepairPlanModels() {
+    var plan = tpState.planData || [];
+    if (!plan.some(function(c) { return c && !c.mod; })) return 0;
+    var rows = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var cat = rows.map(tpCfgFromCatalogRow).filter(Boolean);
+    if (!cat.length) return 0;
+    var changed = 0;
+    plan.forEach(function(c) {
+        if (!c || c.mod) return;
+        var m = tpInferModel(c, cat);
+        if (m) { c.mod = m; c.modInferred = true; changed++; }
+    });
+    if (changed) { tpCatalogInvalidate(); tpInvalidateCache(); }
+    return changed;
+}
 
 function tpFamilyKeyForCfg(cfg) {
     return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
@@ -47156,6 +47215,9 @@ function tpImportPlanCSV(csvText) {
     tpState.lastDiffDate = new Date().toISOString();
     tpState.planData = newData;
     tpState.planImportDate = new Date().toISOString();
+    // [3.26.0] El CSV trae algunas configuraciones sin Modelo (CL4MH): se infiere del catálogo.
+    const _modFixed = tpRepairPlanModels();
+    if (_modFixed) diff.modInferred = _modFixed;
     // [3.22.0] Desde qué mes trae plan el CSV: los meses anteriores del año van en `count_hist`.
     tpState.planFirstMonth = csvMonths.length ? _tpSortMonths(csvMonths.map(mc => mc.label))[0] : null;
     if (typeof auditLog === 'function') auditLog('tp', 'plan_imported', {type:'plan', label:'producción'}, newData.length + ' configs · +' + (diff.added ? diff.added.length : 0) + ' / -' + (diff.removed ? diff.removed.length : 0));
@@ -71635,7 +71697,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202610282126' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202610301728' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -76715,11 +76777,28 @@ function copVehicleFamilyKey(v) {
 // la mesa del validador vive en copState.families[clave] como cualquier otra.
 var COP_YEAR_SEG = 'CAL ';
 
+/**
+ * [3.26.0] Modelos cuya familia del WVTA (familia de interpolación) cubre TODAS sus
+ * carrocerías: en el CoP de corporativo su 5DR y su WGN son UNA familia. Lo confirmó el
+ * laboratorio con el WVTA de CL4MH (30-oct-2026). Solo cambia la familia del AÑO
+ * CALENDARIO (encima de la clave de siempre, regla v19.1): la clave por año modelo,
+ * las series SPC y los juicios guardados siguen separando la carrocería (v20.8).
+ * Un modelo nuevo con familia compartida = una entrada aquí.
+ */
+var COP_WVTA_SHARED_BODY = ['CL4MH'];
+
+/** ¿La carrocería deja de separar familias de este modelo en el CoP del año? PURA. */
+function copBodySharedFor(mod) {
+    var m = String(mod || '').trim().toUpperCase();
+    return !!m && COP_WVTA_SHARED_BODY.some(function(x) { return String(x).toUpperCase() === m; });
+}
+
 /** Clave de la familia del año calendario a partir de la clave de siempre. PURA. */
 function copYearKeyOf(familyKey, year) {
     var p = String(familyKey || '').split('|');
     if (p.length < 8) return '';
     p[3] = COP_YEAR_SEG + year;
+    if (copBodySharedFor(p[0])) p[7] = '';
     return p.join('|');
 }
 /** El año de una clave de año calendario, o null si es una clave por año modelo. PURA. */
@@ -80601,10 +80680,12 @@ function copYearProduction(src) {
         if (!c || (src.inScope && !src.inScope(c))) return;
         var yk = copYearKeyOf(src.keyOf(c), year);
         if (!yk) return;
-        var f = fams[yk];
-        if (!f) f = fams[yk] = { key: yk, mod: c.mod || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
+        var f = fams[yk], yp = yk.split('|');
+        // [3.26.0] Modelo y carrocería salen de la CLAVE: el modelo puede venir inferido
+        // (CSV sin Modelo) y la carrocería vacía (familia del WVTA compartida).
+        if (!f) f = fams[yk] = { key: yk, mod: yp[0] || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
             ep: (c.ep && c.ep !== '0') ? c.ep : '', engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
-            body: (c.body && c.body !== '0') ? c.body : '', regions: {}, mys: {}, configs: 0,
+            body: yp[7] || '', regions: {}, mys: {}, configs: 0,
             plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '', hist: 0, histAsOf: '' };
         f.configs++;
         var hAsOf = hb ? histAsOfOf(c) : '';
@@ -80705,9 +80786,9 @@ function copYearReportCompute(src) {
     Object.keys(prod.fams).forEach(function(k) { byKey[k] = { fam: prod.fams[k], tests: [] }; });
     tests.forEach(function(t) {
         if (!byKey[t.yk]) {
-            var f = t.fam || {};
-            byKey[t.yk] = { fam: { key: t.yk, mod: f.mod || '', eng: f.eng || '', tx: f.tx || '', reg: f.reg || '', ep: f.ep || '',
-                engpkg: f.engpkg || '', body: f.body || '', regions: {}, mys: {}, configs: 0, m: [0,0,0,0,0,0,0,0,0,0,0,0],
+            var f = t.fam || {}, tp = String(t.yk).split('|');
+            byKey[t.yk] = { fam: { key: t.yk, mod: tp[0] || f.mod || '', eng: f.eng || '', tx: f.tx || '', reg: f.reg || '', ep: f.ep || '',
+                engpkg: f.engpkg || '', body: tp.length >= 8 ? tp[7] : (f.body || ''), regions: {}, mys: {}, configs: 0, m: [0,0,0,0,0,0,0,0,0,0,0,0],
                 src: [], vol: 0, noPlan: true }, tests: [] };
         }
         if (t.region) byKey[t.yk].fam.regions[t.region] = true;
@@ -89947,6 +90028,7 @@ function normaSource() {
         profiles: (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [],
         regionRules: (typeof LAB_REGION_CAPTURE !== 'undefined') ? LAB_REGION_CAPTURE : {},
         hqRules: (typeof COP_HQ_RULES !== 'undefined') ? COP_HQ_RULES : [],
+        sharedBody: (typeof COP_WVTA_SHARED_BODY !== 'undefined') ? COP_WVTA_SHARED_BODY : [],
         gasA: (typeof COP_GAS_A !== 'undefined') ? COP_GAS_A : null,
         gasNmax: (typeof COP_GAS_NMAX !== 'undefined') ? COP_GAS_NMAX : null,
         df: (typeof COP_ASSIGNED_DF !== 'undefined') ? COP_ASSIGNED_DF : {},
@@ -90036,6 +90118,8 @@ function normaFacts(name, src) {
             ? (src.lot.tests + ' ensayos hasta ' + _nmFmtInt(src.lot.first) + ' unidades del año; ' + src.lot.tests + ' más por cada ' + _nmFmtInt(src.lot.next) + ' o fracción después')
             : '1 ensayo por familia con producción en el año';
         if (r.mod) text += ' (solo ' + r.mod + ')';   // [3.22.0] fila acotada a un modelo
+        // [3.26.0] Modelos con UNA familia del WVTA para todas sus carrocerías.
+        if (src.sharedBody && src.sharedBody.length) text += '. Una sola familia para todas las carrocerías (WVTA): ' + src.sharedBody.join(', ');
         return { region: r.region, label: r.label, rule: r.rule, mod: r.mod || '', text: text };
     });
     var df = src.df && src.df.PI ? src.df.PI : {};
@@ -91679,7 +91763,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":9973,"mods":[[9976,"js/app.js",20288],[20292,"js/uiflow.js",20627],[20631,"js/cop15.js",32148],[32152,"js/inventory.js",40156],[40160,"js/cuarto.js",42290],[42294,"js/sitio.js",44477],[44481,"js/conslist.js",45089],[45093,"js/testplan.js",57093],[57097,"js/bloques.js",57718],[57722,"js/panel.js",63109],[63113,"js/projects.js",65402],[65406,"js/auth.js",66486],[66490,"js/signatures.js",66852],[66856,"js/firebase-sync.js",75475],[75479,"js/cop_validator.js",80410],[80414,"js/copreport.js",82235],[82239,"js/cophq.js",83049],[83053,"js/homolog.js",84950],[84954,"js/vets.js",86753],[86757,"js/historico.js",87671],[87675,"js/review.js",88144],[88148,"js/opcards.js",88597],[88601,"js/handoff.js",88880],[88884,"js/ficha.js",89385],[89389,"js/relevo.js",89769],[89773,"js/momentos.js",89910],[89914,"js/normas.js",90319],[90323,"js/digest.js",91251],[91255,"js/xlsxw.js",91635],[91639,"js/bugreport.js",92785]]};
+var BUG_LINE_MAP = {"tag":9973,"mods":[[9976,"js/app.js",20293],[20297,"js/uiflow.js",20632],[20636,"js/cop15.js",32153],[32157,"js/inventory.js",40161],[40165,"js/cuarto.js",42295],[42299,"js/sitio.js",44482],[44486,"js/conslist.js",45094],[45098,"js/testplan.js",57155],[57159,"js/bloques.js",57780],[57784,"js/panel.js",63171],[63175,"js/projects.js",65464],[65468,"js/auth.js",66548],[66552,"js/signatures.js",66914],[66918,"js/firebase-sync.js",75537],[75541,"js/cop_validator.js",80489],[80493,"js/copreport.js",82316],[82320,"js/cophq.js",83130],[83134,"js/homolog.js",85031],[85035,"js/vets.js",86834],[86838,"js/historico.js",87752],[87756,"js/review.js",88225],[88229,"js/opcards.js",88678],[88682,"js/handoff.js",88961],[88965,"js/ficha.js",89466],[89470,"js/relevo.js",89850],[89854,"js/momentos.js",89991],[89995,"js/normas.js",90403],[90407,"js/digest.js",91335],[91339,"js/xlsxw.js",91719],[91723,"js/bugreport.js",92869]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

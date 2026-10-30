@@ -4142,3 +4142,19 @@ que 3.12.0 dice de `count_hist` ("NO es producción del año").
 - `copState.spc.source` / `masterKey` son estado de pantalla por equipo (viajan dentro de `spc`, que
   ya está en la lista de exclusión de `fbPullApply`).
 
+## 3.26.0 — Una familia del WVTA para todas las carrocerías (`js/cop_validator.js`, `js/testplan.js`)
+
+Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
+
+- **`COP_WVTA_SHARED_BODY` es LA lista de modelos cuya familia del WVTA cubre todas sus
+  carrocerías** (hoy `CL4MH`, confirmado con el WVTA el 30-oct-2026). `copYearKeyOf` deja vacío
+  el segmento de carrocería de esos modelos. **No tocar `tpFamilyKeyForCfg` /
+  `copVehicleFamilyKey`**: la clave por año modelo, las series SPC y los juicios siguen por
+  carrocería. Un modelo nuevo con familia compartida = una entrada en la lista.
+- **Toda familia del año toma modelo y carrocería de su clave** (`copYearProduction`,
+  `copYearReportCompute`), nunca de la primera configuración que entró.
+- **El CSV de producción puede traer `Modelo` vacío** (CL4MH). `tpInferModel(cfg, catalog)`
+  (PURA) lo deduce del catálogo del Alta (desc → prefijo del desc → único modelo con los mismos
+  campos; con dos posibles devuelve `''`). `tpRepairPlanModels()` lo aplica a `planData` y marca
+  `modInferred`; corre al importar, tras `parseCSV()` en el arranque y en `_tpEnsureState` (pull).
+

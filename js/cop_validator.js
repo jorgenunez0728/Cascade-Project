@@ -1237,11 +1237,28 @@ function copVehicleFamilyKey(v) {
 // la mesa del validador vive en copState.families[clave] como cualquier otra.
 var COP_YEAR_SEG = 'CAL ';
 
+/**
+ * [3.26.0] Modelos cuya familia del WVTA (familia de interpolación) cubre TODAS sus
+ * carrocerías: en el CoP de corporativo su 5DR y su WGN son UNA familia. Lo confirmó el
+ * laboratorio con el WVTA de CL4MH (30-oct-2026). Solo cambia la familia del AÑO
+ * CALENDARIO (encima de la clave de siempre, regla v19.1): la clave por año modelo,
+ * las series SPC y los juicios guardados siguen separando la carrocería (v20.8).
+ * Un modelo nuevo con familia compartida = una entrada aquí.
+ */
+var COP_WVTA_SHARED_BODY = ['CL4MH'];
+
+/** ¿La carrocería deja de separar familias de este modelo en el CoP del año? PURA. */
+function copBodySharedFor(mod) {
+    var m = String(mod || '').trim().toUpperCase();
+    return !!m && COP_WVTA_SHARED_BODY.some(function(x) { return String(x).toUpperCase() === m; });
+}
+
 /** Clave de la familia del año calendario a partir de la clave de siempre. PURA. */
 function copYearKeyOf(familyKey, year) {
     var p = String(familyKey || '').split('|');
     if (p.length < 8) return '';
     p[3] = COP_YEAR_SEG + year;
+    if (copBodySharedFor(p[0])) p[7] = '';
     return p.join('|');
 }
 /** El año de una clave de año calendario, o null si es una clave por año modelo. PURA. */

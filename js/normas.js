@@ -34,6 +34,7 @@ function normaSource() {
         profiles: (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [],
         regionRules: (typeof LAB_REGION_CAPTURE !== 'undefined') ? LAB_REGION_CAPTURE : {},
         hqRules: (typeof COP_HQ_RULES !== 'undefined') ? COP_HQ_RULES : [],
+        sharedBody: (typeof COP_WVTA_SHARED_BODY !== 'undefined') ? COP_WVTA_SHARED_BODY : [],
         gasA: (typeof COP_GAS_A !== 'undefined') ? COP_GAS_A : null,
         gasNmax: (typeof COP_GAS_NMAX !== 'undefined') ? COP_GAS_NMAX : null,
         df: (typeof COP_ASSIGNED_DF !== 'undefined') ? COP_ASSIGNED_DF : {},
@@ -123,6 +124,8 @@ function normaFacts(name, src) {
             ? (src.lot.tests + ' ensayos hasta ' + _nmFmtInt(src.lot.first) + ' unidades del año; ' + src.lot.tests + ' más por cada ' + _nmFmtInt(src.lot.next) + ' o fracción después')
             : '1 ensayo por familia con producción en el año';
         if (r.mod) text += ' (solo ' + r.mod + ')';   // [3.22.0] fila acotada a un modelo
+        // [3.26.0] Modelos con UNA familia del WVTA para todas sus carrocerías.
+        if (src.sharedBody && src.sharedBody.length) text += '. Una sola familia para todas las carrocerías (WVTA): ' + src.sharedBody.join(', ');
         return { region: r.region, label: r.label, rule: r.rule, mod: r.mod || '', text: text };
     });
     var df = src.df && src.df.PI ? src.df.PI : {};

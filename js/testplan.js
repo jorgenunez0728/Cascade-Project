@@ -472,6 +472,8 @@ function _tpEnsureState() {
     if (!Array.isArray(tpState.deletedPlans)) tpState.deletedPlans = [];
     // [2.33.0] Lo borrado no regresa y toda semana es un lunes (también tras cada pull).
     _tpNormalizePlans();
+    // [3.26.0] Un pull puede traer el plan con el Modelo vacío (CSV de producción).
+    if (typeof allConfigurations !== 'undefined' && allConfigurations.length) tpRepairPlanModels();
 
     // [v23.2] Resembrar la CONFIGURACIÓN nunca es silencioso en un laboratorio que ya
     // tiene datos.
@@ -1126,6 +1128,58 @@ function tpCatalogOnlyNoteHTML() {
 }
 
 function tpCatalogInvalidate() { _tpCatalogCache = { key: '', list: null, byDesc: null }; }
+
+/**
+ * [3.26.0] El Modelo de una configuración del plan que el CSV de producción trae VACÍO
+ * (pasa con los híbridos CL4MH). Sin Modelo su familia sale como "(sin modelo)" y no
+ * empata con los vehículos del Alta (que sí lo traen del catálogo). PURA.
+ * `catalog` = configuraciones cortas del catálogo (tpCfgFromCatalogRow). Orden:
+ *  1. la misma configuración (desc) en el catálogo;
+ *  2. el primer segmento del desc ("CL4MH-27 MODEL-…"), si es un Modelo del catálogo;
+ *  3. el ÚNICO Modelo del catálogo con mismo motor, transmisión, norma, región,
+ *     carrocería, paquete ambiental y de motor. Con dos posibles no se adivina: ''.
+ */
+function tpInferModel(cfg, catalog) {
+    if (!cfg) return '';
+    var cat = (catalog || []).filter(function(c) { return c && c.mod; });
+    var n = function(v) { var t = String(v == null ? '' : v).trim().toUpperCase(); return t === '0' ? '' : t; };
+    var desc = String(cfg.desc || '').trim();
+    var same = desc ? cat.find(function(c) { return c.desc === desc; }) : null;
+    if (same) return same.mod;
+    var pre = n(desc.split('-')[0]);
+    if (pre) {
+        var byPre = cat.find(function(c) { return n(c.mod) === pre; });
+        if (byPre) return byPre.mod;
+    }
+    var keys = ['eng', 'tx', 'reg', 'rgn', 'body', 'ep', 'engpkg'];
+    var mods = {};
+    cat.forEach(function(c) {
+        if (keys.every(function(k) { return n(c[k]) === n(cfg[k]); })) mods[c.mod] = true;
+    });
+    var list = Object.keys(mods);
+    return list.length === 1 ? list[0] : '';
+}
+
+/**
+ * [3.26.0] Rellena el Modelo vacío de `tpState.planData` (tpInferModel) y lo marca
+ * `modInferred` para poder declararlo. Idempotente; corre al importar, al arrancar (tras
+ * cargar el catálogo) y después de cada pull. Devuelve cuántas filas cambió.
+ */
+function tpRepairPlanModels() {
+    var plan = tpState.planData || [];
+    if (!plan.some(function(c) { return c && !c.mod; })) return 0;
+    var rows = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var cat = rows.map(tpCfgFromCatalogRow).filter(Boolean);
+    if (!cat.length) return 0;
+    var changed = 0;
+    plan.forEach(function(c) {
+        if (!c || c.mod) return;
+        var m = tpInferModel(c, cat);
+        if (m) { c.mod = m; c.modInferred = true; changed++; }
+    });
+    if (changed) { tpCatalogInvalidate(); tpInvalidateCache(); }
+    return changed;
+}
 
 function tpFamilyKeyForCfg(cfg) {
     return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
@@ -2064,6 +2118,9 @@ function tpImportPlanCSV(csvText) {
     tpState.lastDiffDate = new Date().toISOString();
     tpState.planData = newData;
     tpState.planImportDate = new Date().toISOString();
+    // [3.26.0] El CSV trae algunas configuraciones sin Modelo (CL4MH): se infiere del catálogo.
+    const _modFixed = tpRepairPlanModels();
+    if (_modFixed) diff.modInferred = _modFixed;
     // [3.22.0] Desde qué mes trae plan el CSV: los meses anteriores del año van en `count_hist`.
     tpState.planFirstMonth = csvMonths.length ? _tpSortMonths(csvMonths.map(mc => mc.label))[0] : null;
     if (typeof auditLog === 'function') auditLog('tp', 'plan_imported', {type:'plan', label:'producción'}, newData.length + ' configs · +' + (diff.added ? diff.added.length : 0) + ' / -' + (diff.removed ? diff.removed.length : 0));

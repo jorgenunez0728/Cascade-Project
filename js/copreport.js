@@ -188,10 +188,12 @@ function copYearProduction(src) {
         if (!c || (src.inScope && !src.inScope(c))) return;
         var yk = copYearKeyOf(src.keyOf(c), year);
         if (!yk) return;
-        var f = fams[yk];
-        if (!f) f = fams[yk] = { key: yk, mod: c.mod || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
+        var f = fams[yk], yp = yk.split('|');
+        // [3.26.0] Modelo y carrocería salen de la CLAVE: el modelo puede venir inferido
+        // (CSV sin Modelo) y la carrocería vacía (familia del WVTA compartida).
+        if (!f) f = fams[yk] = { key: yk, mod: yp[0] || '', eng: c.eng || '', tx: c.tx || '', reg: c.reg || '',
             ep: (c.ep && c.ep !== '0') ? c.ep : '', engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
-            body: (c.body && c.body !== '0') ? c.body : '', regions: {}, mys: {}, configs: 0,
+            body: yp[7] || '', regions: {}, mys: {}, configs: 0,
             plan: [0,0,0,0,0,0,0,0,0,0,0,0], rule: '', ruleLabel: '', hist: 0, histAsOf: '' };
         f.configs++;
         var hAsOf = hb ? histAsOfOf(c) : '';
@@ -292,9 +294,9 @@ function copYearReportCompute(src) {
     Object.keys(prod.fams).forEach(function(k) { byKey[k] = { fam: prod.fams[k], tests: [] }; });
     tests.forEach(function(t) {
         if (!byKey[t.yk]) {
-            var f = t.fam || {};
-            byKey[t.yk] = { fam: { key: t.yk, mod: f.mod || '', eng: f.eng || '', tx: f.tx || '', reg: f.reg || '', ep: f.ep || '',
-                engpkg: f.engpkg || '', body: f.body || '', regions: {}, mys: {}, configs: 0, m: [0,0,0,0,0,0,0,0,0,0,0,0],
+            var f = t.fam || {}, tp = String(t.yk).split('|');
+            byKey[t.yk] = { fam: { key: t.yk, mod: tp[0] || f.mod || '', eng: f.eng || '', tx: f.tx || '', reg: f.reg || '', ep: f.ep || '',
+                engpkg: f.engpkg || '', body: tp.length >= 8 ? tp[7] : (f.body || ''), regions: {}, mys: {}, configs: 0, m: [0,0,0,0,0,0,0,0,0,0,0,0],
                 src: [], vol: 0, noPlan: true }, tests: [] };
         }
         if (t.region) byKey[t.yk].fam.regions[t.region] = true;
