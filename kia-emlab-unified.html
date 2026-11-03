@@ -10581,10 +10581,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611031944';
+var APP_BUILD = '202611032026';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'f99c96a6f1a501407568ac8a53c899cac374dcee';
+var APP_COMMIT = 'ea93e737e7e56cecfe8d0477777245c623279f15';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10592,7 +10592,7 @@ var APP_COMMIT = 'f99c96a6f1a501407568ac8a53c899cac374dcee';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.29.0';
+var APP_VERSION = '3.29.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10600,6 +10600,9 @@ var APP_VERSION = '3.29.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.29.1', date: '3 nov 2026', title: 'Buscar familias en cualquier orden',
+      bullets: ['Plan → Reglas → Tabla de prioridad: el buscador de familias encuentra por palabras, en cualquier orden y sin importar acentos ni mayúsculas. "cl4 wgn" ya muestra las Wagon de la CL4 (antes buscaba la frase exacta y no encontraba nada).',
+                'La misma regla en el buscador del Dashboard del Plan (que además busca por el nombre de la familia, no solo por el código) y en el filtro de "Agregar prueba".'] },
     { version: '3.29.0', date: '3 nov 2026', title: 'Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada',
       bullets: ['Estatus CoP → nueva sección "Plan al 31 dic": cuántos ensayos están registrados, en curso, agendados en el plan semanal, en propuesta y sin agendar, contra el REQ del año. Una barra del año, cinco cuadros y una gráfica por semana hasta el 31 dic.',
                 'Cuenta en orden y nunca de más: lo registrado, luego lo en curso, luego lo agendado en un plan aceptado, luego lo propuesto. Lo agendado de más, las semanas sin plan y las pruebas planeadas en días que ya pasaron sin hacerse se dicen aparte.',
@@ -11852,14 +11855,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611032026' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611032026' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11875,7 +11878,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611031944' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611032026' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -48166,7 +48169,7 @@ function tpRenderDashboard(el) {
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
         <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">
-            <input class="tp-input" aria-label="Buscar configuración" placeholder="Buscar config..." style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
+            <input class="tp-input" aria-label="Buscar configuración" placeholder="Buscar (Ej.: cl4 wgn)" style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
             <select class="tp-select" id="tp-dash-fmodel" onchange="tpRenderDashTable()">
                 <option value="ALL">Todos los modelos</option>
                 ${[...new Set(tpState.planData.map(c=>c.mod))].sort().map(m=>`<option>${m}</option>`).join('')}
@@ -48541,7 +48544,8 @@ function tpRenderDashTable() {
         if (fModel !== 'ALL' && a.mod !== fModel) return false;
         if (fRegion !== 'ALL' && a.rgn !== fRegion) return false;
         if (fStatus !== 'ALL' && a.status !== fStatus) return false;
-        if (search && !a.desc.toLowerCase().includes(search) && !a.id.toLowerCase().includes(search)) return false;
+        // [3.29.1] Por palabras, en cualquier orden, sobre el código y el nombre de la familia.
+        if (search && !tpSearchMatch(a.desc + ' ' + a.id + ' ' + tpFamilyShortLabel(a) + ' ' + (a.rgn || ''), search)) return false;
         return true;
     });
 
@@ -50153,14 +50157,27 @@ function _tpScoreBoardItems(kind, t) {
     return out;
 }
 
+/**
+ * [3.29.1] ¿El texto tiene TODAS las palabras de la búsqueda, en cualquier orden? PURA.
+ * Sin acentos ni mayúsculas (_uiFold): "cl4 wgn" encuentra "CL4 1.0 KAPPA PE … WGN · EUROPE".
+ * Búsqueda vacía = todo pasa.
+ */
+function tpSearchMatch(text, query) {
+    var fold = typeof _uiFold === 'function' ? _uiFold : function(x) { return String(x || '').toLowerCase(); };
+    var words = fold(query).split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    var hay = fold(text);
+    return words.every(function(w) { return hay.indexOf(w) >= 0; });
+}
+
 function _tpScoreBoardHTML(kind, title, hint, t) {
     var items = _tpScoreBoardItems(kind, t);
-    var q = kind === 'fam' ? _uiFold(_tpScoreUi.famQ || '') : '';
-    var shown = q ? items.filter(function(i) { return _uiFold(i.label).indexOf(q) >= 0; }) : items;
+    var q = kind === 'fam' ? String(_tpScoreUi.famQ || '').trim() : '';
+    var shown = q ? items.filter(function(i) { return tpSearchMatch(i.label, q); }) : items;
     var h = '<div class="tp-score-board" data-kind="' + kind + '">';
     h += '<div class="tp-score-board-head"><strong>' + title + '</strong><span class="tp-score-hint">' + hint + '</span></div>';
     if (kind === 'fam') {
-        h += '<input type="search" class="tp-select tp-score-search" placeholder="Buscar familia (Ej.: CL4MH, BL7m)" value="' + escapeHtml(_tpScoreUi.famQ || '') + '" ' +
+        h += '<input type="search" class="tp-select tp-score-search" placeholder="Buscar familia, en cualquier orden (Ej.: cl4 wgn 1.0)" value="' + escapeHtml(_tpScoreUi.famQ || '') + '" ' +
              'oninput="_tpScoreUi.famQ=this.value;_tpScoreRepaintBoard(\'fam\')">';
         if (q) h += '<p class="tp-score-hint">' + shown.length + ' de ' + items.length + ' familias (' + (items.length - shown.length) + ' ocultas por la búsqueda)</p>';
     }
@@ -52451,13 +52468,11 @@ function tpBuildPickOptgroupsHTML(descs) {
 function tpFilterPickOptions(q, selectId) {
     var sel = document.getElementById(selectId || 'tp-manual-pick-select');
     if (!sel) return;
-    var t = String(q || '').trim().toLowerCase();
-    var terminos = t ? t.split(/\s+/) : [];
+    var t = String(q || '').trim();
     Array.prototype.forEach.call(sel.querySelectorAll('optgroup'), function(g) {
         var visibles = 0;
         Array.prototype.forEach.call(g.querySelectorAll('option'), function(o) {
-            var texto = (o.getAttribute('data-full') || o.value || '').toLowerCase() + ' ' + g.label.toLowerCase();
-            var ok = terminos.every(function(x) { return texto.indexOf(x) !== -1; });
+            var ok = tpSearchMatch((o.getAttribute('data-full') || o.value || '') + ' ' + g.label, t);
             o.hidden = !ok;
             if (ok) visibles++;
         });
@@ -73245,7 +73260,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611031944' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611032026' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -93638,7 +93653,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20460],[20464,"js/uiflow.js",20799],[20803,"js/cop15.js",32329],[32333,"js/inventory.js",40337],[40341,"js/cuarto.js",42471],[42475,"js/sitio.js",44658],[44662,"js/conslist.js",45270],[45274,"js/testplan.js",58355],[58359,"js/bloques.js",58987],[58991,"js/resumen.js",59309],[59313,"js/panel.js",64700],[64704,"js/projects.js",66993],[66997,"js/auth.js",68077],[68081,"js/signatures.js",68443],[68447,"js/firebase-sync.js",77085],[77089,"js/cop_validator.js",82037],[82041,"js/copreport.js",84191],[84195,"js/cophq.js",85005],[85009,"js/homolog.js",86906],[86910,"js/vets.js",88709],[88713,"js/historico.js",89627],[89631,"js/review.js",90100],[90104,"js/opcards.js",90553],[90557,"js/handoff.js",90836],[90840,"js/ficha.js",91341],[91345,"js/relevo.js",91725],[91729,"js/momentos.js",91866],[91870,"js/normas.js",92278],[92282,"js/digest.js",93210],[93214,"js/xlsxw.js",93594],[93598,"js/bugreport.js",94744]]};
+var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20463],[20467,"js/uiflow.js",20802],[20806,"js/cop15.js",32332],[32336,"js/inventory.js",40340],[40344,"js/cuarto.js",42474],[42478,"js/sitio.js",44661],[44665,"js/conslist.js",45273],[45277,"js/testplan.js",58370],[58374,"js/bloques.js",59002],[59006,"js/resumen.js",59324],[59328,"js/panel.js",64715],[64719,"js/projects.js",67008],[67012,"js/auth.js",68092],[68096,"js/signatures.js",68458],[68462,"js/firebase-sync.js",77100],[77104,"js/cop_validator.js",82052],[82056,"js/copreport.js",84206],[84210,"js/cophq.js",85020],[85024,"js/homolog.js",86921],[86925,"js/vets.js",88724],[88728,"js/historico.js",89642],[89646,"js/review.js",90115],[90119,"js/opcards.js",90568],[90572,"js/handoff.js",90851],[90855,"js/ficha.js",91356],[91360,"js/relevo.js",91740],[91744,"js/momentos.js",91881],[91885,"js/normas.js",92293],[92297,"js/digest.js",93225],[93229,"js/xlsxw.js",93609],[93613,"js/bugreport.js",94759]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

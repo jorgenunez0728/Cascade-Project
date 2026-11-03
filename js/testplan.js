@@ -2893,7 +2893,7 @@ function tpRenderDashboard(el) {
             <span style="font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
         <div style="display:flex;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap;">
-            <input class="tp-input" aria-label="Buscar configuración" placeholder="Buscar config..." style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
+            <input class="tp-input" aria-label="Buscar configuración" placeholder="Buscar (Ej.: cl4 wgn)" style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
             <select class="tp-select" id="tp-dash-fmodel" onchange="tpRenderDashTable()">
                 <option value="ALL">Todos los modelos</option>
                 ${[...new Set(tpState.planData.map(c=>c.mod))].sort().map(m=>`<option>${m}</option>`).join('')}
@@ -3268,7 +3268,8 @@ function tpRenderDashTable() {
         if (fModel !== 'ALL' && a.mod !== fModel) return false;
         if (fRegion !== 'ALL' && a.rgn !== fRegion) return false;
         if (fStatus !== 'ALL' && a.status !== fStatus) return false;
-        if (search && !a.desc.toLowerCase().includes(search) && !a.id.toLowerCase().includes(search)) return false;
+        // [3.29.1] Por palabras, en cualquier orden, sobre el código y el nombre de la familia.
+        if (search && !tpSearchMatch(a.desc + ' ' + a.id + ' ' + tpFamilyShortLabel(a) + ' ' + (a.rgn || ''), search)) return false;
         return true;
     });
 
@@ -4880,14 +4881,27 @@ function _tpScoreBoardItems(kind, t) {
     return out;
 }
 
+/**
+ * [3.29.1] ¿El texto tiene TODAS las palabras de la búsqueda, en cualquier orden? PURA.
+ * Sin acentos ni mayúsculas (_uiFold): "cl4 wgn" encuentra "CL4 1.0 KAPPA PE … WGN · EUROPE".
+ * Búsqueda vacía = todo pasa.
+ */
+function tpSearchMatch(text, query) {
+    var fold = typeof _uiFold === 'function' ? _uiFold : function(x) { return String(x || '').toLowerCase(); };
+    var words = fold(query).split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    var hay = fold(text);
+    return words.every(function(w) { return hay.indexOf(w) >= 0; });
+}
+
 function _tpScoreBoardHTML(kind, title, hint, t) {
     var items = _tpScoreBoardItems(kind, t);
-    var q = kind === 'fam' ? _uiFold(_tpScoreUi.famQ || '') : '';
-    var shown = q ? items.filter(function(i) { return _uiFold(i.label).indexOf(q) >= 0; }) : items;
+    var q = kind === 'fam' ? String(_tpScoreUi.famQ || '').trim() : '';
+    var shown = q ? items.filter(function(i) { return tpSearchMatch(i.label, q); }) : items;
     var h = '<div class="tp-score-board" data-kind="' + kind + '">';
     h += '<div class="tp-score-board-head"><strong>' + title + '</strong><span class="tp-score-hint">' + hint + '</span></div>';
     if (kind === 'fam') {
-        h += '<input type="search" class="tp-select tp-score-search" placeholder="Buscar familia (Ej.: CL4MH, BL7m)" value="' + escapeHtml(_tpScoreUi.famQ || '') + '" ' +
+        h += '<input type="search" class="tp-select tp-score-search" placeholder="Buscar familia, en cualquier orden (Ej.: cl4 wgn 1.0)" value="' + escapeHtml(_tpScoreUi.famQ || '') + '" ' +
              'oninput="_tpScoreUi.famQ=this.value;_tpScoreRepaintBoard(\'fam\')">';
         if (q) h += '<p class="tp-score-hint">' + shown.length + ' de ' + items.length + ' familias (' + (items.length - shown.length) + ' ocultas por la búsqueda)</p>';
     }
@@ -7178,13 +7192,11 @@ function tpBuildPickOptgroupsHTML(descs) {
 function tpFilterPickOptions(q, selectId) {
     var sel = document.getElementById(selectId || 'tp-manual-pick-select');
     if (!sel) return;
-    var t = String(q || '').trim().toLowerCase();
-    var terminos = t ? t.split(/\s+/) : [];
+    var t = String(q || '').trim();
     Array.prototype.forEach.call(sel.querySelectorAll('optgroup'), function(g) {
         var visibles = 0;
         Array.prototype.forEach.call(g.querySelectorAll('option'), function(o) {
-            var texto = (o.getAttribute('data-full') || o.value || '').toLowerCase() + ' ' + g.label.toLowerCase();
-            var ok = terminos.every(function(x) { return texto.indexOf(x) !== -1; });
+            var ok = tpSearchMatch((o.getAttribute('data-full') || o.value || '') + ' ' + g.label, t);
             o.hidden = !ok;
             if (ok) visibles++;
         });
