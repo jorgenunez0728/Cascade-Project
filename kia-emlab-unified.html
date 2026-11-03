@@ -7786,9 +7786,56 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-armar-markets { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
 .tp-armar-markets .tp-wd-chips { flex-wrap: wrap; }
 .tp-mkt small { opacity: .7; font-size: var(--fs-2xs); margin-left: var(--space-2xs, 2px); }
-.tp-wd-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary); list-style: none; padding: var(--space-2xs, 2px) 0; }
+.tp-wd-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); list-style: none; padding: var(--space-2xs, 2px) 0; }
 .tp-wd-more > summary::-webkit-details-marker { display: none; }
 .tp-wd-more[open] > summary { margin-bottom: var(--space-xs); }
+
+/* [3.29.0] Plan → Resumen del año */
+.ys-lead { margin: 0 0 var(--space-md); font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-base); }
+.ys-controls { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); align-items: center; margin-bottom: var(--space-md); }
+.ys-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.ys-ctl-l { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.ys-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ys-chip { border: 1px solid var(--tp-border); background: var(--surface); color: var(--tp-text); border-radius: var(--radius-full, 999px);
+  padding: var(--space-xs) var(--space-md); font-size: var(--fs-sm); cursor: pointer; min-height: 32px; }
+.ys-chip[aria-checked="true"] { background: var(--tp-blue, #2563eb); border-color: var(--tp-blue, #2563eb); color: #fff; font-weight: 700; }
+.ys-check { display: inline-flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-sm); }
+.ys-metrics { margin-bottom: var(--space-md); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+.ys-table-wrap { overflow-x: auto; }
+.ys-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.ys-table th { text-align: left; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  padding: var(--space-sm); border-bottom: 2px solid var(--tp-border); white-space: nowrap; }
+.ys-table td { padding: var(--space-sm); border-bottom: 1px solid var(--tp-border); vertical-align: middle; }
+.ys-table .ys-num { text-align: right; white-space: nowrap; }
+.ys-label { font-weight: 600; min-width: 160px; }
+.ys-bar-td { min-width: 160px; }
+.ys-bar { display: inline-flex; width: calc(100% - 36px); height: 12px; background: var(--surface-alt, #f1f5f9); border-radius: var(--radius-sm); overflow: hidden; vertical-align: middle; }
+.ys-bar-done { background: #059669; }
+.ys-bar-sched { background: #93c5fd; }
+.ys-bar-n { display: inline-block; width: 32px; text-align: right; }
+.ys-months { white-space: nowrap; }
+.ys-m { display: inline-block; width: 16px; height: 18px; line-height: 18px; text-align: center; font-size: 10px; margin-right: 1px;
+  border-radius: 3px; color: var(--muted); background: var(--surface-alt, #f1f5f9); }
+.ys-m--1 { background: #d1fae5; color: #065f46; }
+.ys-m--2 { background: #6ee7b7; color: #064e3b; }
+.ys-m--3 { background: #10b981; color: #fff; }
+.ys-m--4 { background: #047857; color: #fff; }
+.ys-m--fut { opacity: .45; }
+.ys-prop { color: var(--muted); }
+.ys-more { margin-top: var(--space-sm); }
+.ys-legend { margin-top: var(--space-sm); font-size: var(--fs-xs); color: var(--muted); }
+.ys-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+.ys-sw--done { background: #059669; } .ys-sw--sched { background: #93c5fd; }
+.ys-empty { color: var(--muted); font-size: var(--fs-sm); }
+.ys-mv { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.ys-mv--up { color: #b91c1c; } .ys-mv--down { color: #047857; } .ys-mv--new { color: #92400e; }
+.ys-up { color: #b91c1c; font-weight: 700; } .ys-down { color: #047857; font-weight: 700; }
+.ys-parts { min-width: 220px; }
+.ys-part { display: inline-block; margin: 2px 4px 2px 0; padding: 2px var(--space-sm); border-radius: var(--radius-full, 999px);
+  background: var(--surface-alt, #f1f5f9); font-size: var(--fs-xs); white-space: nowrap; }
+.ys-part--pend { background: #fee2e2; color: #991b1b; }
+.ys-part--days { background: #fef3c7; color: #92400e; }
+.ys-leaving { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
     </style>
 </head>
 
@@ -8989,6 +9036,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
         <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-myweek')">📅 Mi semana</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-yearsummary')">🧮 Resumen del año</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-recovery')">🚑 Recuperación</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
         <div class="tp-tab-more-wrap">
@@ -10533,10 +10581,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611031928';
+var APP_BUILD = '202611031944';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '7c89e95f424327adb346d18cd718ab94259695df';
+var APP_COMMIT = 'f99c96a6f1a501407568ac8a53c899cac374dcee';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10552,12 +10600,14 @@ var APP_VERSION = '3.29.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
-    { version: '3.29.0', date: '3 nov 2026', title: 'Estatus CoP: plan al 31 dic',
+    { version: '3.29.0', date: '3 nov 2026', title: 'Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada',
       bullets: ['Estatus CoP → nueva sección "Plan al 31 dic": cuántos ensayos están registrados, en curso, agendados en el plan semanal, en propuesta y sin agendar, contra el REQ del año. Una barra del año, cinco cuadros y una gráfica por semana hasta el 31 dic.',
                 'Cuenta en orden y nunca de más: lo registrado, luego lo en curso, luego lo agendado en un plan aceptado, luego lo propuesto. Lo agendado de más, las semanas sin plan y las pruebas planeadas en días que ya pasaron sin hacerse se dicen aparte.',
                 'Las pruebas de correlación (agendadas, en propuesta y hechas en el año) y las de otros propósitos se muestran aparte: ocupan la celda pero no cuentan para el CoP.',
                 'Por familia: con qué se cubre (hechas · en curso · agendadas · en propuesta), cuántas faltan por agendar y el día en que se completaría con lo agendado.',
-                'Sale en la pantalla, impreso y en el correo del viernes, en inglés y en español. El Panorama lo resume en una línea.'] },
+                'Sale en la pantalla, impreso y en el correo del viernes, en inglés y en español. El Panorama lo resume en una línea.',
+                'Plan → 🧮 Resumen del año: cuántas pruebas se han hecho en el año, de mayor a menor, agrupadas por familia, modelo, región, carrocería, regulación, motor o transmisión, con una tira por mes y lo agendado hasta el 31 dic al lado. Se elige qué cuenta: lo que acredita el REQ, solo CoP o todas.',
+                'En la misma pantalla, "Prioridad: hoy y al 31 dic": el score de la tabla de prioridad de cada familia hoy y como quedaría el 31 dic si se hacen las pruebas agendadas, con el desglose de puntos, cuántos lugares sube o baja y qué familias salen del top 15.'] },
     { version: '3.28.0', date: '3 nov 2026', title: 'Armar la semana: primero cómo va a ser, después qué probar',
       bullets: ['Mi semana → 🎛️ Armar la semana va arriba y empieza por ① La semana: cada día se marca laborable o 🏖️ asueto, se elige cuántas pruebas de emisiones (0 a 4) y de correlación lleva, y qué más hay en la celda (quality checks, mantenimiento, proyecto, capacitación). El total de la semana sale de ahí.',
                 'Un día solo prueba si el día de preacondicionar se trabaja: el lunes no prueba (sería preacondicionar en domingo) y el día después de un asueto tampoco. La pantalla lo dice en el día.',
@@ -11802,14 +11852,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611031928' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611031928' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11825,7 +11875,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611031928' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611031944' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -18014,7 +18064,7 @@ var UI_TAB_GROUPS = {
     tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
           groups: [
             { id: 'semana', label: '📅 Semana', tabs: ['tp-calendar', 'tp-myweek'] },
-            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-yearsummary', 'tp-tested', 'tp-families'] },
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
           groups: [
@@ -46745,7 +46795,8 @@ function tpScoreFacts(cfg, testedN, ctx) {
     var merged = famKey !== famKeyOld || tpScoreMergesMy(cfg);
     var ag = merged ? (idx.agg[famKey] || null) : null;
     var fe = idx.fam[famKey] || null;
-    var today = localToday();
+    // [3.29.0] ctx.asOf: el día en que se evalúa (la proyección al 31 dic). Sin él, hoy.
+    var today = ctx.asOf || localToday();
     var daysSince = null;
     if (fe && fe.last) daysSince = Math.max(0, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(fe.last + 'T12:00:00Z')) / 86400000));
     // [3.27.0] Familia que junta años modelo: los pendientes son los de la familia entera
@@ -47020,8 +47071,9 @@ function tpCopReqSummary() {
  *
  * PURA respecto a `tpState.testedList`: no lee ni escribe la lista global.
  */
-function _tpAnalyze(list) {
+function _tpAnalyze(list, opts) {
     var src = list || [];
+    var asOf = (opts && opts.asOf) || null;
     var porDesc = {};
     src.forEach(function(t) {
         if (!t || !tpTestedCountsForReq(t)) return;
@@ -47063,6 +47115,10 @@ function _tpAnalyze(list) {
     rows.forEach(function(r) {
         var e = tpScoreMergesMy(r) ? fam[tpScoreFamKey(r)] : null;
         r.scoreCtx = { deficit: r.deficit, hasReq: !!r._scoreHasReq };
+        if (asOf) r.scoreCtx.asOf = asOf;
+        // [3.29.0] Con una lista que no es la real (la proyección), el desglose que se pinte
+        // después tiene que leer ESA lista o diría otros puntos. No enumerable: no se copia.
+        if (src !== tpState.testedList) Object.defineProperty(r.scoreCtx, 'list', { value: src, enumerable: false });
         if (e) { r.scoreCtx.famDeficit = e.deficit; r.scoreCtx.famHasReq = e.hasReq; }
         delete r._scoreHasReq;
         r.score = tpPriorityScore(r, r.testedN, Object.assign({ list: src }, r.scoreCtx));
@@ -47693,7 +47749,7 @@ function tpUpdateBadges() {
 // v23: fuera 'tp-weekly' (el armador vive dentro de Mi semana) y fuera
 // 'tp-planactual'/'tp-planhistory', declaradas desde hace rondas sin ningún botón
 // que las alcanzara.
-var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
+var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-yearsummary','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
@@ -47724,7 +47780,9 @@ function _tpGetRenderer(tabId) {
         'tp-myweek': tpRenderMyWeek,
         'tp-simulator': tpRenderSimulator,
         'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
-        'tp-recovery': tpRenderRecovery
+        'tp-recovery': tpRenderRecovery,
+        // [3.29.0] Resumen del año (js/resumen.js, carga después de este archivo).
+        'tp-yearsummary': (typeof tpRenderYearSummary === 'function') ? tpRenderYearSummary : null
     };
     return map[tabId] || null;
 }
@@ -53672,6 +53730,67 @@ function tpEnsureItemUids() {
 }
 
 /**
+ * [3.29.0] LA definición de "lo que dice el plan" de una fecha a otra: semana por semana, el
+ * plan VIGENTE (tpWeekPlanFor: los aceptados, o la propuesta) y cada fila con su día y su
+ * estado. status: 'done' (palomeada) · 'inflight' (vinculada a un vehículo, sin terminar) ·
+ * 'late' (abierta y su día ya pasó: se planeó y no se hizo) · 'open' (agendada).
+ * Devuelve {weeks:[{monday, state:'accepted'|'proposal'|'none', rows:[{item, date, status,
+ * proposal, planId}]}]}. La usan el plan al 31 dic del reporte CoP y la proyección del score.
+ */
+function tpPlanRowsUntil(fromIso, toIso) {
+    var weeks = [], first = tpMondayIso(fromIso);
+    if (!first || !toIso) return { weeks: weeks };
+    for (var mon = first; mon <= toIso; mon = tpIsoAddDays(mon, 7)) {
+        var vig = tpWeekPlanFor(mon), plans = [], state = 'none';
+        if (vig && vig.plan) {
+            state = vig.accepted ? 'accepted' : 'proposal';
+            plans = vig.accepted ? (vig.plans || [vig.plan]) : [vig.plan];
+        }
+        var rows = [];
+        plans.forEach(function(p) {
+            (p.items || []).forEach(function(it) {
+                if (!it) return;
+                var date = it.testDay ? (tpWeekDayIso(mon, it.testDay) || mon) : mon;
+                if (date > toIso) return;
+                var status = it.completed ? 'done' : (it.linkedVehicleId != null ? 'inflight' : (date < fromIso ? 'late' : 'open'));
+                rows.push({ item: it, date: date, status: status, proposal: !p.accepted, planId: tpPlanId(p) });
+            });
+        });
+        weeks.push({ monday: mon, state: state, rows: rows });
+    }
+    return { weeks: weeks };
+}
+
+/**
+ * [3.29.0] El análisis "como si lo agendado se hiciera": la lista de probadas más una fila
+ * simulada (`source:'plan'`, la misma forma que usa el horizonte) por cada prueba agendada
+ * de hoy al `asOf` (default 31 dic), evaluado ese día. No escribe nada.
+ * opts = {asOf, proposals:true|false}. Una fila vinculada a un vehículo que el CoP de
+ * corporativo ya cuenta "en curso" no se simula otra vez. Devuelve {rows, sim, asOf}.
+ */
+function tpProjectedAnalysis(opts) {
+    opts = opts || {};
+    var today = localToday();
+    var asOf = opts.asOf || (today.slice(0, 4) + '-12-31');
+    var base = (typeof tpCopReqBase === 'function') ? tpCopReqBase() : null;
+    var sim = [];
+    tpPlanRowsUntil(today, asOf).weeks.forEach(function(w) {
+        w.rows.forEach(function(r) {
+            var it = r.item;
+            if (r.status !== 'open' && r.status !== 'inflight') return;
+            if (r.proposal && !opts.proposals) return;
+            if (tpItemIsActivity(it)) return;
+            if (r.status === 'inflight' && base && base.inFlightIds && base.inFlightIds[String(it.linkedVehicleId)]) return;
+            var cfg = tpConfigByDesc(it.desc) || it;
+            sim.push({ configText: it.desc, date: r.date, source: 'plan', verified: false, simulated: true,
+                       purpose: it.actualPurpose || it.purpose || tpPurposeForCfg(cfg), planId: r.planId, itemUid: it.uid || null });
+        });
+    });
+    var list = (tpState.testedList || []).concat(sim);
+    return { rows: _tpAnalyze(list, { asOf: asOf }), sim: sim, asOf: asOf };
+}
+
+/**
  * [v23] LA definición de "el plan vigente de una semana".
  *
  * `tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`: cada
@@ -58865,6 +58984,328 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
               'Un bloque se llena con la prueba que se corrió ese día. Si quedó vacío, un signatario pone el motivo (quality check, mantenimiento, ' +
               'proyecto, sin vehículo…). Los días no laborables, las semanas sin celda y los mantenimientos de equipos que detienen pruebas se ponen solos. ' +
               'El Excel de la semana y el estatus del viernes salen de aquí.' }
+});
+
+
+// @@module js/resumen.js
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.29.0] RESUMEN DEL AÑO (Plan → 🧮 Resumen del año)
+//
+// Dos preguntas en una pantalla:
+//  1. ¿Cuánto se ha probado este año, y de qué? — por familia, modelo, región, carrocería,
+//     regulación, motor o transmisión (los mismos campos de los filtros), de mayor a menor,
+//     con lo agendado hasta el 31 dic al lado.
+//  2. ¿Qué quedaría como lo más importante al 31 dic si se hace lo agendado? — el score de
+//     la tabla de prioridad hoy contra el de la proyección (tpProjectedAnalysis), familia
+//     por familia, con el desglose de puntos.
+//
+// Las definiciones de las que sale todo: tpCalendarTests (qué se probó y qué día),
+// tpPlanRowsUntil (qué dice el plan), tpGetAnalysis / tpProjectedAnalysis (el score).
+// Este archivo no calcula ningún número propio: agrupa y compara.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Los campos por los que se agrupa, en el orden de los filtros del Plan. */
+var YS_DIMS = [
+    ['fam', 'Familia'], ['mod', 'Modelo'], ['rgn', 'Región'], ['body', 'Carrocería'],
+    ['reg', 'Regulación'], ['eng', 'Motor'], ['tx', 'Transmisión']
+];
+/** Qué pruebas cuentan en el resumen. */
+var YS_SCOPES = [
+    ['req', 'Cuentan para el REQ'], ['cop', 'Solo CoP'], ['all', 'Todas']
+];
+var YS_MONTHS = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+var YS_MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+/** Cuántas familias se comparan en la prioridad. */
+var YS_SCORE_TOP = 15;
+
+/** El valor de una prueba en un campo. PURA. x = {cfg, famLabel}. */
+function tpYearDimValue(x, dim) {
+    if (dim === 'fam') return String((x && x.famLabel) || '').trim() || '(sin familia)';
+    var v = String((x && x.cfg && x.cfg[dim]) == null ? '' : x.cfg[dim]).trim();
+    return (v && v !== '0' && v !== '-') ? v : '(sin dato)';
+}
+
+/**
+ * LA definición del resumen del año. PURA.
+ * src = {year, dim, scope:'req'|'cop'|'all', proposals,
+ *        tests:[{date, cfg, famLabel, req, cop}]            ← lo probado en el año
+ *        planned:[{date, cfg, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
+ *        corr:{sched, prop}}
+ * Agrupa por el campo, de mayor a menor por lo probado. "Proyección" = probadas + agendadas
+ * (+ propuestas si `proposals`). Lo que no cumple el alcance elegido no se cuenta.
+ */
+function tpYearSummaryModel(src) {
+    src = src || {};
+    var dim = src.dim || 'fam', scope = src.scope || 'req', withProp = !!src.proposals;
+    var pass = function(x) { return scope === 'all' || (scope === 'cop' ? !!x.cop : !!x.req); };
+    var groups = {}, T = { done: 0, sched: 0, prop: 0, proj: 0, groups: 0 };
+    var g = function(x) {
+        var k = tpYearDimValue(x, dim);
+        return groups[k] || (groups[k] = { key: k, label: k, done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+    };
+    (src.tests || []).forEach(function(x) {
+        if (!x || !pass(x)) return;
+        var e = g(x), m = Number(String(x.date || '').slice(5, 7));
+        e.done++; T.done++;
+        if (m >= 1 && m <= 12) e.months[m - 1]++;
+    });
+    (src.planned || []).forEach(function(x) {
+        if (!x || !pass(x)) return;
+        var e = g(x);
+        if (x.proposal) { e.prop++; T.prop++; } else { e.sched++; T.sched++; }
+    });
+    var rows = Object.keys(groups).map(function(k) {
+        var e = groups[k];
+        e.proj = e.done + e.sched + (withProp ? e.prop : 0);
+        return e;
+    });
+    rows.sort(function(a, b) { return (b.done - a.done) || (b.proj - a.proj) || (a.label < b.label ? -1 : 1); });
+    T.proj = T.done + T.sched + (withProp ? T.prop : 0);
+    T.groups = rows.length;
+    var maxMonth = 0, maxDone = 0;
+    rows.forEach(function(r) { maxDone = Math.max(maxDone, r.proj); r.months.forEach(function(v) { maxMonth = Math.max(maxMonth, v); }); });
+    return { year: src.year, dim: dim, scope: scope, proposals: withProp, rows: rows, total: T,
+             corr: src.corr || { sched: 0, prop: 0 }, maxMonth: maxMonth, maxDone: maxDone };
+}
+
+/**
+ * LA comparación de prioridad hoy contra la proyección. PURA.
+ * now/proj = filas del análisis (tpGetAnalysis / tpProjectedAnalysis().rows), con `score`.
+ * opts = {keyOf(row), labelOf(row), partsOf(row) → [{k,label,pts,why}], pendOf(row), skip(row), top}
+ * Por familia del score se toma la configuración de mayor score (la que el armador pondría
+ * primero). Devuelve las `top` de la proyección con su lugar hoy, más las que salen del top.
+ */
+function tpYearScoreCompare(now, proj, opts) {
+    opts = opts || {};
+    var top = opts.top || YS_SCORE_TOP;
+    var best = function(list) {
+        var m = {};
+        (list || []).forEach(function(r) {
+            if (!r || (opts.skip && opts.skip(r))) return;
+            var k = opts.keyOf(r);
+            if (!m[k] || r.score > m[k].score) m[k] = r;
+        });
+        var arr = Object.keys(m).map(function(k) { return { key: k, row: m[k] }; });
+        arr.sort(function(a, b) { return (b.row.score - a.row.score) || (a.key < b.key ? -1 : 1); });
+        arr.forEach(function(x, i) { x.rank = i + 1; });
+        var idx = {};
+        arr.forEach(function(x) { idx[x.key] = x; });
+        return { arr: arr, idx: idx };
+    };
+    var N = best(now), P = best(proj);
+    var side = function(x) {
+        return x ? { score: x.row.score, rank: x.rank, pend: opts.pendOf ? opts.pendOf(x.row) : 0,
+                     parts: opts.partsOf ? opts.partsOf(x.row) : [] } : null;
+    };
+    var rows = P.arr.slice(0, top).map(function(x) {
+        var n = N.idx[x.key] || null;
+        return { key: x.key, label: opts.labelOf ? opts.labelOf(x.row) : x.key,
+                 now: side(n), proj: side(x),
+                 delta: n ? Math.round((x.row.score - n.row.score) * 10) / 10 : null,
+                 move: n ? n.rank - x.rank : null };
+    });
+    var inTop = {};
+    rows.forEach(function(r) { inTop[r.key] = true; });
+    var leaving = N.arr.slice(0, top).filter(function(x) { return !inTop[x.key]; }).map(function(x) {
+        var p = P.idx[x.key] || null;
+        return { key: x.key, label: opts.labelOf ? opts.labelOf(x.row) : x.key, now: side(x), proj: side(p) };
+    });
+    return { rows: rows, leaving: leaving, families: P.arr.length };
+}
+
+// ─── Lo que lee del laboratorio (no PURO) ────────────────────────────────────────
+
+/** Una configuración desde la clave de familia (respaldo cuando el catálogo no la tiene). */
+function _ysCfgFromFamKey(fk) {
+    var p = String(fk || '').split('|');
+    return { mod: p[0] || '', eng: p[1] || '', tx: p[2] || '', my: p[3] || '', reg: p[4] || '', ep: p[5] || '', engpkg: p[6] || '', body: p[7] || '', rgn: '' };
+}
+function _ysIsCop(purpose, cfg) {
+    try { return typeof copPurposeCounts === 'function' && copPurposeCounts(purpose) && typeof copInScope === 'function' && copInScope(cfg).ok; }
+    catch (e) { return false; }
+}
+
+/** Las pruebas del año y lo agendado hasta el 31 dic, listas para tpYearSummaryModel. */
+function _tpYearSummaryInput(year) {
+    var today = localToday(), from = year + '-01-01', until = year + '-12-31';
+    var cal = tpCalendarTests(from, today < until ? today : until, { datedOnly: true });
+    var tests = cal.all.map(function(t) {
+        var cfg = tpConfigByDesc(t.configCode) || _ysCfgFromFamKey(t.familyKey);
+        return { date: t.date, cfg: cfg, famLabel: t.familyShort || tpFamilyShortLabel(cfg),
+                 req: tpTestedCountsForReq({ purpose: t.purpose, vehicleId: t.vehicleId, source: t.source }),
+                 cop: _ysIsCop(t.purpose, cfg) };
+    });
+    var planned = [], corr = { sched: 0, prop: 0 };
+    if (today <= until) {
+        tpPlanRowsUntil(today, until).weeks.forEach(function(w) {
+            w.rows.forEach(function(r) {
+                if (r.status !== 'open' && r.status !== 'inflight') return;
+                var it = r.item;
+                if (tpItemIsActivity(it)) {
+                    if (it.activity === 'correlacion') { if (r.proposal) corr.prop++; else corr.sched++; }
+                    return;
+                }
+                var cfg = tpConfigByDesc(it.desc) || it;
+                var pu = it.actualPurpose || it.purpose || tpPurposeForCfg(cfg);
+                planned.push({ date: r.date, cfg: cfg, famLabel: tpFamilyShortLabel(cfg), proposal: r.proposal,
+                               req: tpPurposeCountsForReq(pu), cop: _ysIsCop(pu, cfg) });
+            });
+        });
+    }
+    return { tests: tests, planned: planned, corr: corr };
+}
+
+/** El nombre de una familia del score (las que juntan años modelo lo dicen). */
+function _ysScoreFamLabel(row) {
+    if (!tpScoreMergesMy(row)) return tpFamilyShortLabel(row);
+    var mys = {};
+    (tpState.planData || []).forEach(function(c) {
+        if (c && !c.paused && tpScoreFamKey(c) === tpScoreFamKey(row)) { var n = tpMyNum(c.my); if (n !== null) mys[n] = true; }
+    });
+    var my = Object.keys(mys).sort();
+    return tpFamilyShortLabel(Object.assign({}, row, { my: '' })) + (my.length ? ' · MY' + my.join('+') : '');
+}
+
+function _ysPrefs() {
+    var p = (typeof uiPref === 'function' && uiPref('yearSum')) || {};
+    return { dim: p.dim || 'fam', scope: p.scope || 'req', proposals: !!p.proposals, all: !!p.all };
+}
+function tpYearSummarySet(k, v) {
+    var p = _ysPrefs();
+    p[k] = v;
+    if (typeof uiPref === 'function') uiPref('yearSum', p);
+    tpRender();
+}
+
+// ─── La pantalla ─────────────────────────────────────────────────────────────────
+
+function _ysChips(kind, list, cur) {
+    return '<div class="ys-chips" role="radiogroup">' + list.map(function(o) {
+        return '<button class="ys-chip" role="radio" aria-checked="' + (o[0] === cur) + '" onclick="tpYearSummarySet(\'' + kind + '\',\'' + o[0] + '\')">' +
+               escapeHtml(o[1]) + '</button>';
+    }).join('') + '</div>';
+}
+function _ysMetric(v, label, cls) {
+    return '<div class="tp-metric"><div class="tp-metric-val' + (cls ? ' ' + cls : '') + '">' + v + '</div><div class="tp-metric-label">' + label + '</div></div>';
+}
+function _ysPartsHTML(parts) {
+    return (parts || []).filter(function(p) { return p.pts; }).sort(function(a, b) { return b.pts - a.pts; }).map(function(p) {
+        return '<span class="ys-part ys-part--' + p.k + '" title="' + escapeHtml(p.why || '') + '">' + escapeHtml(p.label) + ' <b>' + p.pts + '</b></span>';
+    }).join('');
+}
+
+function tpRenderYearSummary(el) {
+    var pr = _ysPrefs();
+    var year = Number(localToday().slice(0, 4));
+    var inp = _tpYearSummaryInput(year);
+    var M = tpYearSummaryModel({ year: year, dim: pr.dim, scope: pr.scope, proposals: pr.proposals,
+                                 tests: inp.tests, planned: inp.planned, corr: inp.corr });
+    var T = M.total, dimLabel = (YS_DIMS.filter(function(d) { return d[0] === pr.dim; })[0] || YS_DIMS[0])[1];
+    var h = '<div class="tp-card ys">';
+    h += '<div class="tp-card-title" data-help="tp-yearsummary-help"><span>🧮 Resumen del año ' + year + '</span></div>';
+    h += '<p class="ys-lead">Lo probado de enero a hoy, de mayor a menor, y lo agendado en el plan semanal hasta el 31 dic. Cada prueba cuenta en su <strong>día de prueba</strong>.</p>';
+    h += '<div class="ys-controls"><div class="ys-ctl"><span class="ys-ctl-l">Agrupar por</span>' + _ysChips('dim', YS_DIMS, pr.dim) + '</div>' +
+         '<div class="ys-ctl"><span class="ys-ctl-l">Qué pruebas</span>' + _ysChips('scope', YS_SCOPES, pr.scope) + '</div>' +
+         '<label class="ys-check u-hit"><input type="checkbox"' + (pr.proposals ? ' checked' : '') +
+         ' onchange="tpYearSummarySet(\'proposals\',this.checked)"> Contar las propuestas sin aceptar</label></div>';
+    h += '<div class="tp-cal-metrics ys-metrics">' +
+         _ysMetric(T.done, 'Probadas en ' + year, 'tp-cal-ok') +
+         _ysMetric(T.sched, 'Agendadas hasta el 31 dic', 'tp-cal-warn') +
+         _ysMetric(T.prop, 'En propuesta') +
+         _ysMetric(T.proj, 'Proyección al 31 dic') +
+         _ysMetric(M.corr.sched, 'Correlación agendada' + (M.corr.prop ? ' · +' + M.corr.prop + ' en propuesta' : '')) + '</div>';
+    if (!M.rows.length) {
+        h += '<p class="ys-empty">No hay pruebas ' + (pr.scope === 'cop' ? 'de CoP ' : '') + 'registradas ni agendadas en ' + year + '.</p></div>';
+    } else {
+        var limit = pr.all ? M.rows.length : 25;
+        var mx = Math.max(1, M.maxDone), mm = Math.max(1, M.maxMonth);
+        var curM = Number(localToday().slice(5, 7));
+        h += '<div class="ys-table-wrap"><table class="ys-table u-cards"><thead><tr><th>' + escapeHtml(dimLabel) + '</th><th>Probadas</th>' +
+             '<th class="ys-months-h">Por mes</th><th class="ys-num">Agendadas</th><th class="ys-num">Al 31 dic</th></tr></thead><tbody>';
+        M.rows.slice(0, limit).forEach(function(r) {
+            var wd = Math.round(100 * r.done / mx), ws = Math.round(100 * (r.sched + (pr.proposals ? r.prop : 0)) / mx);
+            var months = r.months.map(function(v, i) {
+                var lvl = v ? Math.min(4, Math.ceil(4 * v / mm)) : 0;
+                var fut = i + 1 > curM;
+                return '<span class="ys-m ys-m--' + lvl + (fut ? ' ys-m--fut' : '') + '" title="' + YS_MONTHS_LONG[i] + ': ' + v + '">' + YS_MONTHS[i] + '</span>';
+            }).join('');
+            h += '<tr><td class="ys-label">' + escapeHtml(r.label) + '</td>' +
+                 '<td class="ys-bar-td"><div class="ys-bar"><span class="ys-bar-done" style="width:' + wd + '%"></span><span class="ys-bar-sched" style="width:' + ws + '%"></span></div>' +
+                 '<b class="ys-bar-n">' + r.done + '</b></td>' +
+                 '<td class="ys-months">' + months + '</td>' +
+                 '<td class="ys-num">' + (r.sched || '—') + (r.prop ? ' <small class="ys-prop">+' + r.prop + '</small>' : '') + '</td>' +
+                 '<td class="ys-num"><b>' + r.proj + '</b></td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if (M.rows.length > 25) {
+            h += '<button class="tp-btn tp-btn-ghost ys-more" onclick="tpYearSummarySet(\'all\',' + (!pr.all) + ')">' +
+                 (pr.all ? 'Ver solo las primeras 25' : 'Ver todas (' + M.rows.length + ')') + '</button>';
+        }
+        h += '<div class="ys-legend"><span class="ys-sw ys-sw--done"></span> probadas · <span class="ys-sw ys-sw--sched"></span> agendadas' +
+             (pr.proposals ? ' (con propuestas)' : '') + ' · los meses que vienen van en gris claro</div>';
+        h += '</div>';
+    }
+    h += _ysScoreCardHTML(pr);
+    el.innerHTML = h;
+}
+
+/** La tarjeta de prioridad: hoy contra el 31 dic. */
+function _ysScoreCardHTML(pr) {
+    var P, C;
+    try {
+        P = tpProjectedAnalysis({ proposals: pr.proposals });
+        var pendOf = function(r) { var c = r.scoreCtx || {}; return c.famDeficit !== undefined ? c.famDeficit : (c.deficit || 0); };
+        C = tpYearScoreCompare(tpGetAnalysis(), P.rows, {
+            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: _ysScoreFamLabel, pendOf: pendOf,
+            partsOf: function(r) { return tpScoreBreakdown(r, r.testedN, r.scoreCtx).parts; },
+            skip: function(r) { return !!r.paused; }
+        });
+    } catch (e) {
+        void 0;
+        return '<div class="tp-card ys"><p class="ys-empty">No se pudo calcular la proyección de la prioridad: ' + escapeHtml(e.message) + '</p></div>';
+    }
+    var h = '<div class="tp-card ys">';
+    h += '<div class="tp-card-title" data-help="tp-yearscore-help"><span>🎯 Prioridad: hoy y al 31 dic</span></div>';
+    h += '<p class="ys-lead">Si se hacen las <b>' + P.sim.length + '</b> pruebas agendadas' + (pr.proposals ? ' (con las propuestas)' : '') +
+         ', así quedaría la tabla de prioridad el <b>31 dic</b>: bajan los pendientes de lo que se prueba y suben los días sin probar de lo que no. ' +
+         'Mismo cálculo que el armador; <a href="#" onclick="tpSwitchTab(\'tp-rules\');return false;">la tabla</a> no se toca.</p>';
+    if (!C.rows.length) return h + '<p class="ys-empty">No hay configuraciones en el plan de producción.</p></div>';
+    h += '<div class="ys-table-wrap"><table class="ys-table ys-score u-cards"><thead><tr><th class="ys-num">#</th><th>Familia</th>' +
+         '<th class="ys-num">Hoy</th><th class="ys-num">31 dic</th><th>Por qué, al 31 dic</th></tr></thead><tbody>';
+    C.rows.forEach(function(r) {
+        var mv = r.move === null ? '<span class="ys-mv ys-mv--new" title="Hoy no estaba entre las familias con score">nueva</span>'
+               : r.move > 0 ? '<span class="ys-mv ys-mv--up" title="Sube ' + r.move + ' lugares">▲' + r.move + '</span>'
+               : r.move < 0 ? '<span class="ys-mv ys-mv--down" title="Baja ' + (-r.move) + ' lugares">▼' + (-r.move) + '</span>' : '<span class="ys-mv">=</span>';
+        var pend = function(s) { return s ? '<small>' + s.pend + ' pend.</small>' : ''; };
+        h += '<tr><td class="ys-num"><b>' + r.proj.rank + '</b> ' + mv + '</td>' +
+             '<td class="ys-label">' + escapeHtml(r.label) + '</td>' +
+             '<td class="ys-num" data-label="Hoy">' + (r.now ? r.now.score + '<br>' + pend(r.now) + '<br><small>#' + r.now.rank + '</small>' : '—') + '</td>' +
+             '<td class="ys-num" data-label="31 dic"><b>' + r.proj.score + '</b>' +
+             (r.delta ? ' <small class="' + (r.delta < 0 ? 'ys-down' : 'ys-up') + '">' + (r.delta > 0 ? '+' : '−') + Math.abs(r.delta) + '</small>' : '') +
+             '<br>' + pend(r.proj) + '</td>' +
+             '<td class="ys-parts">' + _ysPartsHTML(r.proj.parts) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if (C.leaving.length) {
+        h += '<p class="ys-leaving"><b>Salen del top ' + YS_SCORE_TOP + '</b> con lo agendado: ' + C.leaving.map(function(x) {
+            return escapeHtml(x.label) + ' (' + x.now.score + ' → ' + (x.proj ? x.proj.score : '—') + ')';
+        }).join(' · ') + '.</p>';
+    }
+    return h + '</div>';
+}
+
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'tp-yearsummary': {
+        title: 'Resumen del año',
+        text: 'Cuánto se ha probado este año y de qué, de mayor a menor, agrupado por familia, modelo, región, carrocería, regulación, motor o transmisión. Al lado, lo agendado hasta el 31 dic y cómo quedaría la tabla de prioridad si se hace.',
+        tips: ['"Cuentan para el REQ" deja fuera lo que no acredita el REQ (OBD II, por ejemplo); "Solo CoP" deja solo CoP · Emisiones del alcance; "Todas" cuenta todo.',
+               'Una propuesta sin aceptar no cuenta como agendada salvo que marques "Contar las propuestas sin aceptar".',
+               'La prioridad al 31 dic usa la misma tabla que el armador: bajan los pendientes de lo que se va a probar y suben los días sin probar de lo que no.']
+    }
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'tp-yearsummary-help': { title: 'Resumen del año', text: 'Cada prueba cuenta en su día de prueba (el mismo calendario del Plan). "Al 31 dic" = probadas + agendadas en planes aceptados (y las propuestas, si las cuentas). La tira de meses va de enero a diciembre; más oscuro = más pruebas ese mes.' },
+    'tp-yearscore-help': { title: 'Prioridad al 31 dic', text: 'El score de cada familia hoy y el que tendría el 31 dic si se hacen las pruebas agendadas. Es el mismo cálculo del armador (Plan → Reglas → Tabla de prioridad); aquí solo se simula. ▲/▼ = lugares que sube o baja. "Pend." = pruebas que le faltan.' }
 });
 
 
@@ -72804,7 +73245,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611031928' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611031944' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -83281,7 +83722,7 @@ function copYearReportModel(opts) {
  * alcance; la correlación es la actividad del armador (3.28.0). Sin VIN: sale por correo.
  */
 function _copRepOutlookInput(m) {
-    if (typeof tpWeekPlanFor !== 'function' || typeof tpState === 'undefined') return null;
+    if (typeof tpPlanRowsUntil !== 'function' || typeof tpState === 'undefined') return null;
     var year = m.year, cut = m.cut, until = year + '-12-31';
     var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
     var inFlight = {};
@@ -83302,25 +83743,13 @@ function _copRepOutlookInput(m) {
         if (!copPurposeCounts(pu) || !copInScope(cfg).ok) return { kind: 'other' };
         return { kind: 'cop', yk: copYearKeyOf(tpFamilyKeyForCfg(cfg), year) };
     };
-    var weeks = [];
-    for (var mon = copRepMonday(cut); mon <= until; mon = _copRepAddDays(mon, 7)) {
-        var vig = tpWeekPlanFor(mon), plans = [], state = 'none';
-        if (vig && vig.plan) {
-            state = vig.accepted ? 'accepted' : 'proposal';
-            plans = vig.accepted ? (vig.plans || [vig.plan]) : [vig.plan];
-        }
-        var items = [];
-        plans.forEach(function(p) {
-            (p.items || []).forEach(function(it) {
-                if (!it) return;
-                var c = classify(it);
-                var date = it.testDay && typeof tpWeekDayIso === 'function' ? tpWeekDayIso(mon, it.testDay) : mon;
-                var status = it.completed ? 'done' : (it.linkedVehicleId != null ? 'inflight' : (date < cut ? 'late' : 'open'));
-                items.push({ kind: c.kind, yk: c.yk || null, date: date, status: status, proposal: !p.accepted });
-            });
-        });
-        weeks.push({ monday: mon, state: state, items: items });
-    }
+    // [3.29.0] Las filas del plan salen de LA definición (tpPlanRowsUntil, testplan.js).
+    var weeks = tpPlanRowsUntil(cut, until).weeks.map(function(w) {
+        return { monday: w.monday, state: w.state, items: w.rows.map(function(r) {
+            var c = classify(r.item);
+            return { kind: c.kind, yk: c.yk || null, date: r.date, status: r.status, proposal: r.proposal };
+        }) };
+    });
     return { weeks: weeks, inFlight: inFlight, corrDone: corrDone };
 }
 
@@ -93209,7 +93638,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10067,"mods":[[10070,"js/app.js",20410],[20414,"js/uiflow.js",20749],[20753,"js/cop15.js",32279],[32283,"js/inventory.js",40287],[40291,"js/cuarto.js",42421],[42425,"js/sitio.js",44608],[44612,"js/conslist.js",45220],[45224,"js/testplan.js",58236],[58240,"js/bloques.js",58868],[58872,"js/panel.js",64259],[64263,"js/projects.js",66552],[66556,"js/auth.js",67636],[67640,"js/signatures.js",68002],[68006,"js/firebase-sync.js",76644],[76648,"js/cop_validator.js",81596],[81600,"js/copreport.js",83762],[83766,"js/cophq.js",84576],[84580,"js/homolog.js",86477],[86481,"js/vets.js",88280],[88284,"js/historico.js",89198],[89202,"js/review.js",89671],[89675,"js/opcards.js",90124],[90128,"js/handoff.js",90407],[90411,"js/ficha.js",90912],[90916,"js/relevo.js",91296],[91300,"js/momentos.js",91437],[91441,"js/normas.js",91849],[91853,"js/digest.js",92781],[92785,"js/xlsxw.js",93165],[93169,"js/bugreport.js",94315]]};
+var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20460],[20464,"js/uiflow.js",20799],[20803,"js/cop15.js",32329],[32333,"js/inventory.js",40337],[40341,"js/cuarto.js",42471],[42475,"js/sitio.js",44658],[44662,"js/conslist.js",45270],[45274,"js/testplan.js",58355],[58359,"js/bloques.js",58987],[58991,"js/resumen.js",59309],[59313,"js/panel.js",64700],[64704,"js/projects.js",66993],[66997,"js/auth.js",68077],[68081,"js/signatures.js",68443],[68447,"js/firebase-sync.js",77085],[77089,"js/cop_validator.js",82037],[82041,"js/copreport.js",84191],[84195,"js/cophq.js",85005],[85009,"js/homolog.js",86906],[86910,"js/vets.js",88709],[88713,"js/historico.js",89627],[89631,"js/review.js",90100],[90104,"js/opcards.js",90553],[90557,"js/handoff.js",90836],[90840,"js/ficha.js",91341],[91345,"js/relevo.js",91725],[91729,"js/momentos.js",91866],[91870,"js/normas.js",92278],[92282,"js/digest.js",93210],[93214,"js/xlsxw.js",93594],[93598,"js/bugreport.js",94744]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

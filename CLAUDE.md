@@ -57,6 +57,7 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   bloques.js            ← Bloques de la celda: cada lugar de prueba con su prueba o su motivo + Excel de la semana (~600 lines)
+  resumen.js            ← Resumen del año por familia/modelo/región/… + prioridad hoy vs. 31 dic (~330 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   cuarto.js             ← 🗺️ Cuartos de gases y de gasolina: escena isométrica, estado + lectura al tocar, recepción, arrastrar (~2,050 lines)
   sitio.js              ← 🚗 Laboratorio en el mapa: celda + acondicionamiento, unidades por VIN, equipos editables, estacionamiento de la flota Master, autos en 3D (~2,160 lines)
@@ -197,7 +198,7 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → **`bloques.js`** → `panel.js` → **`projects.js`** → `auth.js` →
+`app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → **`bloques.js`** → **`resumen.js`** → `panel.js` → **`projects.js`** → `auth.js` →
 `signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
@@ -4265,3 +4266,26 @@ por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana
   escribir ese filtro en otro lado.
 - `_crStack(parts, total, {h, px})` es la barra apilada del correo (Outlook: celdas con ancho en %
   o px, nada de `div` con alto). Colores en `_CR_OUT`.
+- **`tpPlanRowsUntil(desde, hasta)` (testplan.js) es LA definición de "lo que dice el plan" entre
+  dos fechas**: el plan VIGENTE de cada semana y cada fila con `status` (`done` · `inflight` ·
+  `late` · `open`) y `proposal`. El plan al 31 dic (`_copRepOutlookInput`) y la proyección del score
+  la usan; todo consumidor nuevo que pregunte "qué está agendado" pasa por ahí.
+
+### Resumen del año y prioridad proyectada (`js/resumen.js`, Plan → 🧮 Resumen del año)
+
+- **`tpProjectedAnalysis({asOf, proposals})` es LA proyección del score**: `_tpAnalyze` sobre
+  `testedList` + una fila simulada (`source:'plan'`, la forma del horizonte) por cada prueba
+  agendada (abierta o en curso; sin actividades; sin las que el CoP ya cuenta en curso), evaluada el
+  `asOf` (31 dic). `_tpAnalyze(list, {asOf})` pone `asOf` en `scoreCtx` y `tpScoreFacts` lo usa
+  para los días sin probar y la fecha límite. **No escribe nada.**
+- **Un análisis sobre otra lista guarda esa lista en `scoreCtx.list` (no enumerable)**: todo
+  desglose (`tpScoreBreakdown(r, r.testedN, r.scoreCtx)`) de una fila así lee la misma lista que
+  produjo su total. Sin eso, el "por qué" contradecía al número.
+- **`tpYearSummaryModel(src)` (PURA) es el resumen**: lo probado sale de `tpCalendarTests` (día de
+  prueba, la misma definición del calendario) y lo agendado de `tpPlanRowsUntil`; agrupa por un
+  campo de `YS_DIMS`. "Cuentan para el REQ" = `tpTestedCountsForReq` (correlación incluida si el
+  laboratorio la acredita); "Solo CoP" = `copPurposeCounts` + `copInScope`.
+- **`tpYearScoreCompare(now, proj, opts)` (PURA)** compara por familia del score (`tpScoreFamKey`),
+  con la configuración de mayor score de cada una. Las preferencias de la pantalla viven en
+  `uiPref('yearSum')` (por equipo).
+- Orden de carga: `… testplan.js → bloques.js → resumen.js → panel.js …`.

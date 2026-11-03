@@ -1682,7 +1682,7 @@ function copYearReportModel(opts) {
  * alcance; la correlación es la actividad del armador (3.28.0). Sin VIN: sale por correo.
  */
 function _copRepOutlookInput(m) {
-    if (typeof tpWeekPlanFor !== 'function' || typeof tpState === 'undefined') return null;
+    if (typeof tpPlanRowsUntil !== 'function' || typeof tpState === 'undefined') return null;
     var year = m.year, cut = m.cut, until = year + '-12-31';
     var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
     var inFlight = {};
@@ -1703,25 +1703,13 @@ function _copRepOutlookInput(m) {
         if (!copPurposeCounts(pu) || !copInScope(cfg).ok) return { kind: 'other' };
         return { kind: 'cop', yk: copYearKeyOf(tpFamilyKeyForCfg(cfg), year) };
     };
-    var weeks = [];
-    for (var mon = copRepMonday(cut); mon <= until; mon = _copRepAddDays(mon, 7)) {
-        var vig = tpWeekPlanFor(mon), plans = [], state = 'none';
-        if (vig && vig.plan) {
-            state = vig.accepted ? 'accepted' : 'proposal';
-            plans = vig.accepted ? (vig.plans || [vig.plan]) : [vig.plan];
-        }
-        var items = [];
-        plans.forEach(function(p) {
-            (p.items || []).forEach(function(it) {
-                if (!it) return;
-                var c = classify(it);
-                var date = it.testDay && typeof tpWeekDayIso === 'function' ? tpWeekDayIso(mon, it.testDay) : mon;
-                var status = it.completed ? 'done' : (it.linkedVehicleId != null ? 'inflight' : (date < cut ? 'late' : 'open'));
-                items.push({ kind: c.kind, yk: c.yk || null, date: date, status: status, proposal: !p.accepted });
-            });
-        });
-        weeks.push({ monday: mon, state: state, items: items });
-    }
+    // [3.29.0] Las filas del plan salen de LA definición (tpPlanRowsUntil, testplan.js).
+    var weeks = tpPlanRowsUntil(cut, until).weeks.map(function(w) {
+        return { monday: w.monday, state: w.state, items: w.rows.map(function(r) {
+            var c = classify(r.item);
+            return { kind: c.kind, yk: c.yk || null, date: r.date, status: r.status, proposal: r.proposal };
+        }) };
+    });
     return { weeks: weeks, inFlight: inFlight, corrDone: corrDone };
 }
 

@@ -37,7 +37,10 @@ const SEED = () => {
     localStorage.setItem('kia_testplan_v1', JSON.stringify({
         months, testedList: [], planImportDate: iso(new Date(year, 0, 1)) + 'T15:00:00.000Z', planFirstMonth: 'Jan-' + yy, weekAvailability: {},
         planData: [{ desc, mod: 'CL4', my: '26 MODEL', body: 'WGN', eng: '1600CC GAMMA-II', tx: '7DCT', reg: 'PRE-EURO 7', ep: '0', engpkg: 'LOW POWER',
-                     drv: 'LHD', tire: '-', rgn: 'EUROPE', hist: 0, total: 14400, m: months.map(() => 1200) }],      // 14,400 → 9 ensayos
+                     drv: 'LHD', tire: '-', rgn: 'EUROPE', hist: 0, total: 14400, m: months.map(() => 1200) },     // 14,400 → 9 ensayos
+                   { desc: 'K3-MX-4DR', mod: 'BL7m', my: '26 MODEL', body: '4DR', eng: '1.6 MPI', tx: '6AT', reg: 'EURO-5', ep: '0', engpkg: '0',
+                     drv: 'LHD', tire: '-', rgn: 'MEXICO', hist: 0, total: 6000, m: months.map(() => 500) }],
+        rules: [{ id: 'r1', rgn: 'MEXICO', reg: '*', ratio: 1, per: 1000, label: 'México' }],
         weeklyPlans: [
             { planId: 'P1', id: 1, weekDate: monAt(1), accepted: true, acceptedDate: monAt(0) + 'T10:00:00Z', created: monAt(0) + 'T09:00:00Z', workDays: W,
               items: [row('a1', 'mar'), row('a2', 'jue'), corr('c1', 'mie')] },
@@ -53,7 +56,10 @@ const SEED = () => {
     localStorage.setItem('kia_db_v11', JSON.stringify({ lastId: 100, vehicles: [
         veh(1, daysAgo(7)), veh(2, daysAgo(14)), veh(3, daysAgo(21)),
         veh(4, daysAgo(0), { status: 'ready-release', testData: { testDatetime: daysAgo(0) + 'T10:00' } }),                     // en curso
-        veh(5, daysAgo(10), { purpose: 'Correlacion', vin: 'KNAMASTER00000777' })                                               // correlación hecha
+        veh(5, daysAgo(10), { purpose: 'Correlacion', vin: 'KNAMASTER00000777' }),                                              // correlación hecha
+        veh(6, daysAgo(30), { purpose: 'EO-Emisiones', configCode: 'K3-MX-4DR', vin: 'KNAK3MX000000006',
+            config: { 'Modelo': 'BL7m', 'ENGINE CAPACITY': '1.6 MPI', 'TRANSMISSION': '6AT', 'MODEL YEAR (VIN)': '26 MODEL', 'EMISSION REGULATION': 'EURO-5',
+                      'ENVIRONMENT PACKAGE': '0', 'ENGINE PACKAGE': '0', 'BODY TYPE': '4DR', 'REGION': 'MEXICO', 'DRIVE TYPE': 'LHD' } })
     ] }));
 };
 
@@ -65,7 +71,7 @@ async function abrir(browser, vp) {
     page.on('dialog', d => { errores.push('dialog: ' + d.message()); d.dismiss(); });
     await page.addInitScript(SEED);
     await page.goto('file://' + path.join(REPO, process.env.E2E_BUNDLE ? 'kia-emlab-unified.html' : 'index.html'));
-    await page.waitForFunction(() => typeof copRepOpen === 'function' && typeof db !== 'undefined' && db.vehicles.length === 5, null, { timeout: 20000 });
+    await page.waitForFunction(() => typeof copRepOpen === 'function' && typeof db !== 'undefined' && db.vehicles.length === 6, null, { timeout: 20000 });
     await page.waitForTimeout(600);
     await page.evaluate(() => { switchPlatform('cop'); copSetView('overview'); });
     await page.waitForTimeout(500);
@@ -105,6 +111,38 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
             await page.waitForTimeout(300);
             await page.screenshot({ path: SHOTS + '/outlook-' + vp.width + '.png' });
         }
+        // ── Plan → Resumen del año
+        await page.evaluate(() => { const m = document.getElementById('cop-rep'); if (m) copRepClose(); dashGo('testplan', 'tp-yearsummary'); });
+        await page.waitForTimeout(900);
+        const ys = await page.evaluate(() => {
+            const c = document.querySelector('#tp-content');
+            const rows = Array.from(c.querySelectorAll('.ys-table:not(.ys-score) tbody tr')).map(r => r.innerText.replace(/\s+/g, ' ').trim());
+            const score = Array.from(c.querySelectorAll('.ys-score tbody tr')).map(r => r.innerText.replace(/\s+/g, ' ').trim());
+            return { title: (c.querySelector('.ys .tp-card-title') || {}).innerText || '', rows, score,
+                     metrics: Array.from(c.querySelectorAll('.ys-metrics .tp-metric')).map(m => m.innerText.replace(/\s+/g, ' ')) };
+        });
+        // Cuentan para el REQ: las 3 CoP, la que está en prueba hoy (su día ya llegó) y la de correlación
+        // (el Plan la acredita por omisión) en la CL4, más la EO de la BL7m.
+        ok('el resumen del año: título, probadas y lo agendado', /Resumen del año/.test(ys.title) && ys.metrics.some(m => /^6 Probadas en/i.test(m)) &&
+           ys.metrics.some(m => /^2 Agendadas hasta el 31 dic/i.test(m)) && ys.metrics.some(m => /^1 Correlación agendada · \+1 en propuesta/i.test(m)), JSON.stringify(ys.metrics));
+        ok('por familia, de mayor a menor: CL4 5 probadas + 2 agendadas (+1 propuesta) = 7; BL7m 1',
+           /^CL4 .*WGN 5 .* 2 \+1 7$/.test(ys.rows[0]) && /^BL7m .* 1 .* 1$/.test(ys.rows[1]), JSON.stringify(ys.rows));
+        await page.evaluate(() => tpYearSummarySet('scope', 'cop'));
+        await page.waitForTimeout(400);
+        const cop = await page.evaluate(() => Array.from(document.querySelectorAll('#tp-content .ys-table:not(.ys-score) tbody tr')).map(r => r.innerText.replace(/\s+/g, ' ').trim()));
+        ok('solo CoP: la CL4 con 4 (sin la correlación) y la BL7m fuera', cop.length === 1 && /WGN 4 /.test(cop[0]), JSON.stringify(cop));
+        await page.evaluate(() => tpYearSummarySet('scope', 'all'));
+        await page.waitForTimeout(400);
+        await page.locator('#tp-content .ys-chip', { hasText: 'Región' }).click();
+        await page.waitForTimeout(500);
+        const byRg = await page.evaluate(() => Array.from(document.querySelectorAll('#tp-content .ys-table:not(.ys-score) tbody tr .ys-label')).map(x => x.innerText));
+        ok('por región, todas las pruebas: Europa primero y México', byRg[0] === 'EUROPE' && byRg.indexOf('MEXICO') > 0, JSON.stringify(byRg));
+        ok('la prioridad hoy y al 31 dic trae las dos familias', ys.score.length === 2 && ys.score.some(r => /CL4/.test(r)) && ys.score.some(r => /BL7m/.test(r)), JSON.stringify(ys.score));
+        const pageOver = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+        ok('la pantalla no se desborda a lo ancho', pageOver.sw <= pageOver.cw + 1, JSON.stringify(pageOver));
+        if (SHOTS) { await page.evaluate(() => tpYearSummarySet('scope', 'req')); await page.waitForTimeout(400);
+                     await page.screenshot({ path: SHOTS + '/resumen-' + vp.width + '.png', fullPage: true }); }
+        await page.evaluate(() => tpYearSummarySet('scope', 'req'));
         ok('sin errores de página', !errores.length, errores.join(' | '));
         await context.close();
     }
