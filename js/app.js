@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.29.2';
+var APP_VERSION = '3.30.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.29.2';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.30.0', date: '3 nov 2026', title: 'El rin no separa pruebas',
+      bullets: ['Plan: las configuraciones que solo cambian de llanta son UNA para planear. Su REQ sale del volumen de todas juntas y una prueba con cualquier rin cuenta para todas; el pendiente lo lleva la de más volumen y las demás dicen que el REQ lo lleva otra llanta.',
+                'Armar la semana → Elegir otra (en cascada): ya no pregunta la llanta. Sale un renglón por configuración con sus rines (por ejemplo "rines R16, R17, R18"), y cuando quedan varios renglones con el mismo nombre se dice qué los distingue (por ejemplo LHD / RHD).',
+                'Los chips de las pruebas dicen todos los rines de la configuración, así que dos pruebas que solo cambiaban de llanta se ven iguales: lo son. Si la semana trae la misma configuración más de una vez, la vista previa lo avisa. El generador ya no propone dos llantas de la misma configuración en una semana.',
+                'Liberar con otro rin del planeado acredita la fila como la misma configuración, sin registrarlo como sustitución.',
+                'CoP corporativo: el pendiente de una familia ya no se reparte entre llantas.'] },
     { version: '3.29.2', date: '3 nov 2026', title: '"Cómo queda el orden" por familia',
       bullets: ['Plan → Reglas → Tabla de prioridad → Cómo queda el orden: un renglón por familia. En Europa PRE-EURO 7 (y en Middle East) MY26 y MY27 salen juntos como "MY26+27", igual que en el tablero de familias; las variantes de llanta o manejo de una familia también se juntan y se dice cuántas configuraciones son.',
                 'El nombre de la familia es el mismo en el tablero, en esta lista y en el Resumen del año.'] },

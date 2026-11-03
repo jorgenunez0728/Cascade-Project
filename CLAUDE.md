@@ -4307,3 +4307,25 @@ por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana
   representa su configuración de mayor score. Toda lista nueva que muestre el score para que el
   laboratorio decida se lee por familia, no por configuración: el generador sigue eligiendo
   configuraciones, pero el laboratorio prioriza familias.
+
+## 3.30.0 — El rin no separa pruebas (`js/testplan.js`)
+
+Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van juntos. Matiza lo que
+2.27.0 dice de la llanta como "variante" y lo que 3.28.0 dice del selector en cascada.
+
+- **`tpTireGroupKey(cfg)` es LA configuración para planear**: todos los campos menos la llanta
+  (`TP_TIRE_FREE_FIELDS`). `tpFamilyKeyForCfg` no cambia (ya no traía el rin).
+- **`tpTireGroupsCompute(configs, counts, ruleFor)` (PURA) es LA definición del REQ por
+  configuración**: volumen de las llantas sin pausar, probadas de TODAS, el pendiente lo lleva la
+  de más volumen (`rep`); las demás piden 0 y llevan `tireOf`. `tpTireGroupFor(cfg, list)` para
+  una sola. Nunca volver a `tpCalcRequired(cfg, …)` de una configuración suelta para decidir
+  cuánto falta. Con un solo rin el resultado es el de antes.
+- En el análisis `testedN` sigue siendo la evidencia de la configuración; contra el REQ se compara
+  **`reqTested`** (y `reqVerified`). Todo "¿está cumplida?" nuevo usa `deficit === 0` o
+  `reqTested`, nunca `testedN >= required`.
+- **`tpConfigFit` ignora la llanta**: otro rin es `exacta`, sin sustitución. Entre exactas gana
+  el mismo `desc` (`sameDesc` en `_tpCandCmp`).
+- El generador no repite por clave sin rin (`used` en `tpSelectWeeklyItems`); fijar a mano sí.
+- Selector: `tpPickerRows` / `tpPickerVaryFields` (PURAS). Dos renglones con el mismo nombre
+  deben decir qué los distingue, nunca verse idénticos sin aviso.
+- CoP corporativo: `_tpTireCollapseSplit` junta las llantas antes de `copYearPlanSplit`.

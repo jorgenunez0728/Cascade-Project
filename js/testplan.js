@@ -843,6 +843,100 @@ function tpCalcRequired(cfg, rule) {
     return Math.max(1, Math.ceil((vol * rule.ratio) / rule.per));
 }
 
+// ── [3.30.0] El rin no separa pruebas ──────────────────────────────────────────
+// Decisión del laboratorio (3-nov-2026): "engloba en todas las familias todos los tipos de
+// rin, no los pruebo por separado". Las configuraciones que solo difieren en la llanta son
+// UNA unidad de planeación: su REQ sale del volumen de todas, una prueba de cualquiera de
+// ellas cuenta para todas, y el pendiente se le pone a UNA (la de más volumen, `rep`).
+// Las demás piden 0 y llevan `tireOf`. Con un solo rin nada cambia.
+
+/** Los campos que identifican una configuración para planear: todos menos la llanta. */
+var TP_TIRE_FREE_FIELDS = ['mod', 'my', 'tx', 'ep', 'reg', 'drv', 'eng', 'rgn', 'body', 'engpkg'];
+
+/** LA clave de una configuración sin el rin. PURA. */
+function tpTireGroupKey(cfg) {
+    return TP_TIRE_FREE_FIELDS.map(function(f) { return _tpFitNorm(cfg && cfg[f]); }).join('|');
+}
+
+/** El rin corto para leer ("R16"), o la llanta completa si no trae rodada. */
+function tpTireShort(tire) {
+    var m = String(tire || '').match(/R\s*(\d{2})/i);
+    return m ? 'R' + m[1] : String(tire || '').trim();
+}
+
+/**
+ * LA definición de los grupos de rin y de su REQ. PURA.
+ * configs: filas de planData · counts: {desc: {n, nDecl}} (probadas que acreditan el REQ)
+ * ruleFor(cfg): la regla con que cuenta (tpReqRuleFor).
+ * Devuelve {byDesc: {desc: clave}, groups: {clave: {key, members, tires, rep, n, nDecl,
+ * req, rule, total, hist}}}. El REQ es el de la suma de las que no están pausadas; las
+ * probadas de TODAS (pausadas incluidas) cuentan.
+ */
+function tpTireGroupsCompute(configs, counts, ruleFor) {
+    var byDesc = {}, groups = {};
+    (configs || []).forEach(function(c) {
+        if (!c || !c.desc) return;
+        var k = tpTireGroupKey(c);
+        byDesc[c.desc] = k;
+        (groups[k] || (groups[k] = { key: k, cfgs: [] })).cfgs.push(c);
+    });
+    var vol = function(c) { return (Number(c.total) || 0) + (Number(c.hist) || 0); };
+    Object.keys(groups).forEach(function(k) {
+        var g = groups[k];
+        var live = g.cfgs.filter(function(c) { return !c.paused; });
+        var pool = (live.length ? live : g.cfgs).slice()
+            .sort(function(a, b) { return (vol(b) - vol(a)) || (a.desc < b.desc ? -1 : 1); });
+        g.rep = pool[0].desc;
+        g.members = g.cfgs.map(function(c) { return c.desc; });
+        g.tires = [];
+        g.cfgs.forEach(function(c) { var t = String(c.tire || '').trim(); if (t && g.tires.indexOf(t) === -1) g.tires.push(t); });
+        g.tires.sort();
+        g.total = live.reduce(function(s, c) { return s + (Number(c.total) || 0); }, 0);
+        g.hist = live.reduce(function(s, c) { return s + (Number(c.hist) || 0); }, 0);
+        g.n = 0; g.nDecl = 0;
+        g.cfgs.forEach(function(c) { var e = (counts || {})[c.desc]; if (e) { g.n += e.n || 0; g.nDecl += e.nDecl || 0; } });
+        g.rule = ruleFor ? ruleFor(pool[0]) : null;
+        g.req = live.length ? tpCalcRequired({ total: g.total, hist: g.hist }, g.rule) : 0;
+        delete g.cfgs;
+    });
+    return { byDesc: byDesc, groups: groups };
+}
+
+/** Conteo {desc: {n, nDecl}} de una lista de probadas (solo lo que acredita el REQ). */
+function _tpTireCounts(list) {
+    var out = {};
+    (list || []).forEach(function(t) {
+        if (!t || !tpTestedCountsForReq(t)) return;
+        var e = out[t.configText] || (out[t.configText] = { n: 0, nDecl: 0 });
+        e.n++;
+        if (tpTestedIsDeclared(t)) e.nDecl++;
+    });
+    return out;
+}
+
+/** Los rines de la configuración (todas las llantas del plan con la misma clave sin rin). */
+function tpTireGroupTires(cfg) {
+    if (!cfg) return [];
+    var k = tpTireGroupKey(cfg), out = [];
+    (tpState.planData || []).forEach(function(c) {
+        var t = c && String(c.tire || '').trim();
+        if (t && out.indexOf(t) === -1 && tpTireGroupKey(c) === k) out.push(t);
+    });
+    var own = String(cfg.tire || '').trim();
+    if (own && out.indexOf(own) === -1) out.push(own);
+    return out.sort();
+}
+
+/** El grupo de rin de UNA configuración contra una lista (la real por defecto). */
+function tpTireGroupFor(cfg, list) {
+    if (!cfg || !cfg.desc) return null;
+    var k = tpTireGroupKey(cfg);
+    var mates = (tpState.planData || []).filter(function(c) { return c && tpTireGroupKey(c) === k; });
+    if (!mates.some(function(c) { return c.desc === cfg.desc; })) mates.push(cfg);
+    var G = tpTireGroupsCompute(mates, _tpTireCounts(list || tpState.testedList), tpReqRuleFor);
+    return G.groups[k] || null;
+}
+
 // ── [2.36.0] Familias fuera del conteo ─────────────────────────────────────────
 // `tpState.reqFamilies` = { [familyKey]: {excluded, at, by, reason} }. Una entrada con
 // excluded:false NO se borra: es la marca de "volvió a contar" y gana por fecha en el sync
@@ -1776,7 +1870,8 @@ function _tpCopReqPlan(list, base) {
         f.rule = b ? b.rule : '';
         f.pending = f.excluded ? 0 : copYearPlanPending(f);
         f.covered = Math.max(0, f.req - f.pending);
-        f.split = copYearPlanSplit(f.pending, f.cfgs);
+        // [3.30.0] El rin no separa pruebas: el reparto va por grupo de rin, no por llanta.
+        f.split = copYearPlanSplit(f.pending, _tpTireCollapseSplit(f.cfgs));
         // A quién se le acredita lo ya cubierto: la primera del reparto, o la de más volumen.
         var rep = Object.keys(f.split)[0];
         if (!rep) {
@@ -1788,6 +1883,31 @@ function _tpCopReqPlan(list, base) {
         f.rep = rep;
     });
     return { year: base.year, byDesc: byDesc, fam: fam };
+}
+
+/**
+ * [3.30.0] Junta las configuraciones de una familia de corporativo que solo difieren en el
+ * rin: una entrada por grupo (la de más producción por venir lleva el nombre, los volúmenes
+ * se suman). Así copYearPlanSplit no reparte la familia entre llantas.
+ */
+function _tpTireCollapseSplit(cfgs) {
+    var by = {}, out = [];
+    (cfgs || []).forEach(function(c) {
+        var cfg = tpConfigByDesc(c.desc) || c;
+        var k = tpTireGroupKey(cfg);
+        var e = by[k];
+        if (!e) { e = by[k] = { list: [] }; out.push(e); }
+        e.list.push(c);
+    });
+    return out.map(function(e) {
+        var live = e.list.filter(function(c) { return !c.paused; });
+        var pool = (live.length ? live : e.list).slice().sort(function(a, b) {
+            return ((b.upcoming || 0) - (a.upcoming || 0)) || ((b.total || 0) - (a.total || 0)) || (a.desc < b.desc ? -1 : 1);
+        });
+        return { desc: pool[0].desc, paused: !live.length,
+                 upcoming: live.reduce(function(s, c) { return s + (Number(c.upcoming) || 0); }, 0),
+                 total: live.reduce(function(s, c) { return s + (Number(c.total) || 0); }, 0) };
+    });
 }
 
 /** [3.13.0] Lo que dice el Plan de una familia de corporativo (para la cobertura y las tarjetas). */
@@ -1828,9 +1948,17 @@ function _tpAnalyze(list, opts) {
     });
     // [3.13.0] Las familias de corporativo se cuentan por año calendario (ver tpCopReqBase).
     var _hq = _tpCopReqPlan(src, tpCopReqBase());
+    // [3.30.0] El rin no separa pruebas: REQ y probadas por grupo de rin (tpTireGroupsCompute).
+    var _counts = {};
+    Object.keys(porDesc).forEach(function(d) {
+        _counts[d] = { n: porDesc[d].length, nDecl: porDesc[d].filter(tpTestedIsDeclared).length };
+    });
+    var _TG = tpTireGroupsCompute(tpState.planData.filter(function(c) { return !(_hq && _hq.byDesc[c.desc]); }),
+                                  _counts, tpReqRuleFor);
     var rows = tpState.planData.map(cfg => {
         if (_hq && _hq.byDesc[cfg.desc]) return _tpAnalyzeCopCfg(cfg, porDesc[cfg.desc] || [], _hq.fam[_hq.byDesc[cfg.desc]], _hq.year, src);
-        const rule = tpReqRuleFor(cfg);
+        const g = _TG.groups[_TG.byDesc[cfg.desc]];
+        const rule = g.rule || tpReqRuleFor(cfg);
         // [v23.1] `tpTestedCountsForReq` es LA forma de contar contra el REQ: filtra los
         // propósitos que no acreditan (OBD2 por defecto). Ver tpReqPurposes().
         const filas = porDesc[cfg.desc] || [];
@@ -1840,15 +1968,28 @@ function _tpAnalyze(list, opts) {
         // va el número solo-verificadas, que nunca se oculta.
         const nDecl = filas.filter(tpTestedIsDeclared).length;
         const nVer = n - nDecl;
-        const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada = no exige
-        const comp = req > 0 ? Math.min(n / req, 1) : 1;
+        // [3.30.0] `testedN` sigue siendo la evidencia de ESTA configuración; contra el REQ
+        // cuentan las del grupo de rin (`reqTested`). Solo la `rep` pide.
+        const isRep = g.rep === cfg.desc;
+        const many = g.members.length > 1;
+        const req = isRep ? g.req : 0; // v16.2: pausada = no exige (ya excluida del volumen del grupo)
+        const gn = g.n;
+        const comp = req > 0 ? Math.min(gn / req, 1) : 1;
         const st = comp >= 1 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
         // v16.2: cuánto volumen entra al cálculo y qué regla se usó — para transparencia total
         const ruleInfo = { label: rule.label || '(sin nombre)', matchType: rule._matchType, ratio: rule.ratio, per: rule.per,
-            vol: cfg.total + cfg.hist, formula: '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
-        return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
-                 required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: 0, ruleInfo: ruleInfo,
+            vol: many ? g.total + g.hist : cfg.total + cfg.hist,
+            formula: many
+                ? (isRep ? 'Rines juntos (' + g.tires.map(tpTireShort).join(', ') + '): (' + g.total.toLocaleString() + ' plan + ' + g.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() + ' · probadas de cualquier rin: ' + gn
+                         : 'El rin no separa pruebas: el REQ lo lleva ' + (tpConfigByDesc(g.rep) ? tpTireShort(tpConfigByDesc(g.rep).tire) : g.rep) + ' con todos los rines juntos')
+                : '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
+        const row = { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
+                 required: req, deficit: Math.max(0, req - gn), compliance: comp, status: st, score: 0, ruleInfo: ruleInfo,
+                 reqTested: gn, reqVerified: gn - g.nDecl,
                  _scoreHasReq: req > 0 };
+        if (many) row.tireGroup = { key: g.key, rep: g.rep, members: g.members, tires: g.tires, n: gn, req: g.req };
+        if (many && !isRep) row.tireOf = g.rep;
+        return row;
     });
     // [3.27.0] Segunda pasada: el score. Donde el score junta años modelo (tpScoreMergesMy), los
     // pendientes son la suma de la familia entera; así MY26 y MY27 de una familia valen lo mismo.
@@ -1932,7 +2073,7 @@ function tpCoverageSummary() {
     // inútil. Pero el número solo-verificadas va AL LADO, siempre visible: nunca
     // ocultar, siempre declarar (el principio del semáforo del CoP).
     var totalDeclared = analysis.reduce(function(s, a) { return s + (a.testedDeclared || 0); }, 0);
-    var okVerified = vigentes.filter(function(a) { return (a.testedVerified || 0) >= a.required; }).length;
+    var okVerified = vigentes.filter(function(a) { return (a.reqVerified != null ? a.reqVerified : (a.testedVerified || 0)) >= a.required; }).length;
     var _noReq = tpNoReqBreakdown();
     return {
         vigentes: vigentes.length,
@@ -2592,7 +2733,10 @@ function tpConfigBadges(item, opts) {
     var ep = tpEpLabel(c.ep);
     if (ep) h += '<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:'+sz+';">'+ep+'</span>';
     if (c.engpkg && c.engpkg !== '0') h += '<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:'+sz+';">'+c.engpkg+'</span>';
-    if (c.tire) h += '<span class="tp-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;font-size:'+sz+';">'+c.tire+'</span>';
+    // [3.30.0] El rin no separa pruebas: el chip dice TODOS los rines de esta configuración.
+    var _tires = tpTireGroupTires(c);
+    if (_tires.length > 1) h += '<span class="tp-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;font-size:'+sz+';" title="El rin no separa pruebas: cualquiera de estos sirve (' + escapeHtml(_tires.join(', ')) + ')">rines ' + escapeHtml(_tires.map(tpTireShort).join(' · ')) + '</span>';
+    else if (c.tire) h += '<span class="tp-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;font-size:'+sz+';">'+c.tire+'</span>';
     return h;
 }
 
@@ -5420,6 +5564,14 @@ function tpRenderPlannerPreview() {
         h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-amber);">⚠ ' + R.outOfFilter.length +
              ' obligatoria(s) fuera del filtro — entran igual porque las fijaste a mano.</div>';
     }
+    // [3.30.0] Dos filas que solo difieren en el rin son la MISMA prueba dos veces: se dice.
+    var _tgCount = {};
+    rows.forEach(function(it) { var k = tpTireGroupKey(tpConfigByDesc(it.desc) || it); _tgCount[k] = (_tgCount[k] || 0) + 1; });
+    var _tgDup = Object.keys(_tgCount).filter(function(k) { return _tgCount[k] > 1; });
+    if (_tgDup.length) {
+        h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-amber);">ℹ️ ' + _tgDup.length +
+             ' configuración(es) van más de una vez esta semana (el rin no separa pruebas: son la misma). Quita las que no necesites con 🚫 o 📌✓.</div>';
+    }
     if (R.expiredCount || R.filteredCount) {
         h += '<div style="margin-top: var(--space-sm);font-size: var(--fs-xs);color:var(--tp-dim);">🕒 ' + R.expiredCount +
              ' caducadas · 🔎 ' + R.filteredCount + ' fuera del filtro (no compiten esta semana).</div>';
@@ -5427,9 +5579,9 @@ function tpRenderPlannerPreview() {
 
     // Siguientes candidatos — la vía fácil para añadir
     var usados = {};
-    rows.forEach(function(it) { usados[it.desc] = true; });
+    rows.forEach(function(it) { usados[tpTireGroupKey(tpConfigByDesc(it.desc) || it)] = true; });
     var cands = tpGetAnalysis().filter(function(c) {
-        return c.deficit > 0 && !usados[c.desc] && excl.indexOf(c.desc) === -1 && tpPassesWeekFilter(c);
+        return c.deficit > 0 && !usados[tpTireGroupKey(c)] && excl.indexOf(c.desc) === -1 && tpPassesWeekFilter(c);
     }).slice(0, 6);
     if (cands.length) {
         h += '<details style="margin-top: var(--space-md);"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">➕ Siguientes candidatos (' + cands.length + ')</summary><div style="padding-top: var(--space-sm);">';
@@ -6397,12 +6549,13 @@ function tpArmarPickStepHTML(model) {
 }
 
 // ── El selector en cascada ─────────────────────────────────────────────────────
-// Los niveles en el orden de la cascada del Alta (Modelo → Año modelo → Motor → …),
-// la llanta al final. Un nivel con una sola opción se toma solo.
+// Los niveles en el orden de la cascada del Alta (Modelo → Año modelo → Motor → …).
+// Un nivel con una sola opción se toma solo. [3.30.0] La llanta ya no es un nivel: el rin
+// no separa pruebas, así que las que solo difieren en él salen como UNA fila.
 var TP_PICK_LEVELS = [
     ['mod', 'Modelo'], ['my', 'Año modelo'], ['eng', 'Motor'], ['tx', 'Transmisión'],
     ['ep', 'Paquete ambiental'], ['reg', 'Regulación'], ['rgn', 'Región'], ['body', 'Carrocería'],
-    ['drv', 'Manejo'], ['engpkg', 'Paquete de motor'], ['tire', 'Llanta']
+    ['drv', 'Manejo'], ['engpkg', 'Paquete de motor']
 ];
 var TP_PICK_SHOW = 6;
 
@@ -6436,6 +6589,48 @@ function tpPickerModel(configs, picks, levels) {
     return { crumbs: crumbs, level: level, options: options, matches: matches };
 }
 
+/**
+ * [3.30.0] Las filas del selector: una por configuración sin rin. PURA (recibe el análisis).
+ * La fila elegible es la que lleva el pendiente del grupo (la de más déficit, o la `rep`);
+ * `deficit` es la suma del grupo y `members` todos sus `desc`. Orden: con pendiente
+ * primero, luego score.
+ */
+function tpPickerRows(matches, an) {
+    var by = {}, out = [];
+    (matches || []).forEach(function(c) {
+        var k = tpTireGroupKey(c);
+        var g = by[k];
+        if (!g) { g = by[k] = { key: k, list: [] }; out.push(g); }
+        g.list.push(c);
+    });
+    out = out.map(function(g) {
+        var best = g.list.slice().sort(function(x, y) {
+            var ax = an[x.desc] || {}, ay = an[y.desc] || {};
+            return ((ay.deficit || 0) - (ax.deficit || 0)) ||
+                   ((ay.tireOf ? 0 : 1) - (ax.tireOf ? 0 : 1)) ||
+                   ((ay.score || 0) - (ax.score || 0)) || (x.desc < y.desc ? -1 : 1);
+        })[0];
+        var tires = [];
+        g.list.forEach(function(c) { var t = String(c.tire || '').trim(); if (t && tires.indexOf(t) === -1) tires.push(t); });
+        tires.sort();
+        return { c: best, a: an[best.desc] || null, members: g.list.map(function(c) { return c.desc; }), tires: tires,
+                 deficit: g.list.reduce(function(s, c) { return s + ((an[c.desc] && an[c.desc].deficit) || 0); }, 0) };
+    });
+    return out.sort(function(x, y) {
+        var dx = x.deficit > 0 ? 1 : 0, dy = y.deficit > 0 ? 1 : 0;
+        return (dy - dx) || (((y.a && y.a.score) || 0) - ((x.a && x.a.score) || 0)) || (x.c.desc < y.c.desc ? -1 : 1);
+    });
+}
+
+/** [3.30.0] Los niveles cuyo valor todavía cambia entre las configuraciones dadas. PURA. */
+function tpPickerVaryFields(cfgs, levels) {
+    return (levels || []).filter(function(l) {
+        var seen = {};
+        (cfgs || []).forEach(function(c) { seen[_tpFitNorm(c[l[0]])] = true; });
+        return Object.keys(seen).length > 1;
+    });
+}
+
 function tpArmarPickerHTML() {
     var picks = window._tpPick || {};
     var cat = tpConfigCatalog();
@@ -6462,22 +6657,26 @@ function tpArmarPickerHTML() {
         });
         h += '</div></div>';
     }
-    // Lo que queda, de mayor a menor score (lo que tiene pendientes primero).
-    var rows = M.matches.map(function(c) { return { c: c, a: an[c.desc] || null }; })
-        .sort(function(x, y) {
-            var dx = x.a && x.a.deficit > 0 ? 1 : 0, dy = y.a && y.a.deficit > 0 ? 1 : 0;
-            return (dy - dx) || (((y.a && y.a.score) || 0) - ((x.a && x.a.score) || 0)) || (x.c.desc < y.c.desc ? -1 : 1);
-        });
+    // [3.30.0] Una fila por configuración SIN rin (tpTireGroupKey): los rines van juntos.
+    var rows = tpPickerRows(M.matches, an);
     if (!manualCrumbs.length && rows.length > TP_PICK_SHOW) {
         return h + '<p class="tp-armar-hint">' + rows.length + ' configuraciones: empieza por el modelo.</p>';
     }
+    // Lo que distingue a las filas que quedan: los campos que todavía cambian entre ellas.
+    // (Modelo, motor, paquete de motor, transmisión y año ya van en el nombre.)
+    var vary = tpPickerVaryFields(rows.map(function(r) { return r.c; }), TP_PICK_LEVELS)
+        .filter(function(l) { return ['mod', 'eng', 'engpkg', 'tx', 'my'].indexOf(l[0]) === -1; });
     h += '<div class="tp-pick-list">';
     rows.slice(0, TP_PICK_SHOW).forEach(function(r) {
-        var veces = chosen.filter(function(d) { return d === r.c.desc; }).length;
+        var veces = chosen.filter(function(d) { return r.members.indexOf(d) !== -1; }).length;
+        var tag = vary.map(function(f) { return _tpFitShow(f[0], r.c[f[0]]); });
+        var meta = [r.c.body, r.c.rgn, r.c.reg].filter(Boolean).filter(function(v) { return tag.indexOf(v) === -1; });
+        var rines = r.tires.length ? (r.tires.length > 1 ? 'rines ' : 'rin ') + r.tires.map(tpTireShort).join(', ') : '';
         h += '<div class="tp-pick-row"><div class="tp-pick-name">' + escapeHtml(tpConfigShortName(r.c)) +
-             ' <small>' + escapeHtml([r.c.body, r.c.rgn, r.c.reg].filter(Boolean).join(' · ')) + '</small></div>' +
+             (tag.length ? ' <strong class="tp-pick-diff">' + escapeHtml(tag.join(' · ')) + '</strong>' : '') +
+             ' <small>' + escapeHtml(meta.concat(rines ? [rines] : []).join(' · ')) + '</small></div>' +
              (r.a ? '<span class="tp-pick-score" title="' + escapeHtml(tpScoreReason(r.a, r.a.testedN, r.a.scoreCtx)) + '">' + Math.round(r.a.score) + ' pts' +
-                    (r.a.deficit > 0 ? ' · faltan ' + r.a.deficit : '') + '</span>'
+                    (r.deficit > 0 ? ' · faltan ' + r.deficit : '') + '</span>'
                   : '<span class="tp-pick-score u-muted">sin volumen</span>') +
              '<button class="tp-btn ' + (veces ? 'tp-btn-ghost' : 'tp-btn-primary') + '" onclick="tpPickAdd(\'' + _tpQ(r.c.desc) + '\')">' +
              (veces ? '＋ otra (' + veces + ')' : '＋ Elegir') + '</button></div>';
@@ -7969,10 +8168,11 @@ function tpRenderRecovery(el) {
 // excedente en silencio. Ahora las dos entran por aquí y el tope se respeta siempre;
 // lo que no cabe se REPORTA en vez de perderse.
 function _tpMakeItem(cfg, testedCopy, flags) {
-    var rule = tpReqRuleFor(cfg);
     var n = tpTestedCountFor(cfg.desc, testedCopy);
-    var req = tpCalcRequired(cfg, rule);
-    var deficit = Math.max(0, req - n);
+    // [3.30.0] El REQ y lo que falta son los del grupo de rin (todas las llantas juntas).
+    var _tg = tpTireGroupFor(cfg, testedCopy);
+    var req = _tg ? _tg.req : tpCalcRequired(cfg, tpReqRuleFor(cfg));
+    var deficit = Math.max(0, req - (_tg ? _tg.n : n));
     // [3.13.0] En una familia de corporativo la fila guarda el REQ y lo que falta del AÑO.
     var _hq = _tpCopReqPlan(testedCopy, tpCopReqBase());
     var _hf = (_hq && _hq.byDesc[cfg.desc]) ? _hq.fam[_hq.byDesc[cfg.desc]] : null;
@@ -7990,7 +8190,7 @@ function _tpMakeItem(cfg, testedCopy, flags) {
         // retrocompatible: una fila sin `purpose` se comporta igual que antes.
         purpose: (flags && flags.purpose) || tpPurposeForCfg(cfg),
         manual: !!(flags && flags.manual), carriedOver: !!(flags && flags.carriedOver),
-        _scoreDetail: tpBuildScoreDetail(cfg, n, req, sc)
+        _scoreDetail: tpBuildScoreDetail(cfg, _tg ? _tg.n : n, req, sc)
     };
 }
 
@@ -8044,7 +8244,8 @@ function tpSelectWeeklyItems(opts) {
     // a mano es una intención explícita — dos vehículos idénticos — y ahora se respeta.
     function take(cfg, flags, allowRepeat) {
         if (!cfg) return false;
-        if (!allowRepeat && used.has(cfg.desc)) return false;
+        // [3.30.0] "Repetir" es por configuración SIN rin: dos llantas son la misma prueba.
+        if (!allowRepeat && used.has(tpTireGroupKey(cfg))) return false;
         if (excl.has(cfg.desc)) return false;
         if (items.length >= capacity) return false;
         if (opts.checkInventory) {
@@ -8056,7 +8257,7 @@ function tpSelectWeeklyItems(opts) {
         // un propósito que NO acredita, esta fila sintética tampoco debe bajar el déficit.
         testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan',
                           purpose: (flags && flags.purpose) || tpPurposeForCfg(cfg) });
-        used.add(cfg.desc);
+        used.add(tpTireGroupKey(cfg));
         return true;
     }
 
@@ -8998,7 +9199,7 @@ function _tpVehicleCfg(v) {
 
 /**
  * LA definición de qué tan bien una configuración REAL cubre una PLANEADA. PURA.
- *  · exacta   — el mismo `desc`, o ningún campo distinto.
+ *  · exacta   — el mismo `desc`, o ningún campo distinto (el rin no cuenta, 3.30.0).
  *  · variante — mismo núcleo (modelo, motor, transmisión, año, norma, región); cambia
  *               rin, carrocería, tracción o paquete. Es la sustitución equivalente.
  *  · otra     — cambia algo del núcleo. Se puede vincular a mano, nunca solo.
@@ -9009,6 +9210,8 @@ function tpConfigFit(actual, planned) {
     if (actual.desc && planned.desc && actual.desc === planned.desc) return { level: 'exacta', diffs: [], breaksCore: false };
     var diffs = [], breaksCore = false;
     _tpCoreFields.concat(_tpFlexFields).forEach(function(f) {
+        // [3.30.0] El rin no separa pruebas: otra llanta es la MISMA configuración.
+        if (f === 'tire') return;
         var a = _tpFitNorm(planned[f]), b = _tpFitNorm(actual[f]);
         if (a === b) return;
         var core = _tpCoreFields.indexOf(f) !== -1;
@@ -9080,6 +9283,8 @@ function tpVehicleLinkIndex(excludeItem) {
 
 function _tpCandCmp(a, b) {
     return (TP_FIT_ORDER[a.fit.level] - TP_FIT_ORDER[b.fit.level]) ||
+           // [3.30.0] Entre dos exactas, la del mismo `desc` (mismo rin) primero.
+           ((b.sameDesc ? 1 : 0) - (a.sameDesc ? 1 : 0)) ||
            ((b.sameDay ? 1 : 0) - (a.sameDay ? 1 : 0)) ||
            ((b.declared ? 1 : 0) - (a.declared ? 1 : 0)) ||
            (a.fit.diffs.length - b.fit.diffs.length) ||
@@ -9153,7 +9358,8 @@ function tpCreditCandidatesFor(vehicle, opts) {
             var fit = tpConfigFit(actual, tpConfigByDesc(it.desc) || it);
             if (fit.level === 'otra' && !opts.includeOther) return;
             out.candidates.push({ plan: p, planId: tpPlanId(p), item: it, uid: it.uid || null, idx: i, fit: fit,
-                                  sameDay: !!out.testDay && tpItemDay(it) === out.testDay, declared: !!it.declared });
+                                  sameDay: !!out.testDay && tpItemDay(it) === out.testDay, declared: !!it.declared,
+                                  sameDesc: !!actual.desc && actual.desc === it.desc });
         });
     });
     out.candidates.sort(_tpCandCmp);
@@ -10251,6 +10457,8 @@ function tpBuildFamilies() {
     // claves de 7 segmentos en overrides/soak — la migración es idempotente y barata.
     try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     const families = {};
+    // [3.30.0] El rin no separa pruebas: REQ y probadas por configuración sin rin.
+    const _TG = tpTireGroupsCompute(tpState.planData, _tpTireCounts(tpState.testedList), tpReqRuleFor);
     tpState.planData.forEach(cfg => {
         const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
@@ -10270,9 +10478,12 @@ function tpBuildFamilies() {
         // [v23.1] Contra el REQ solo cuentan los propósitos que acreditan (OBD2 no).
         const vins = tpTestedForConfig(cfg.desc);
         const n = vins.length;
-        const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
-
-        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
+        const _g = _TG.groups[_TG.byDesc[cfg.desc]];
+        const _isRep = _g.rep === cfg.desc;
+        const req = _isRep ? _g.req : 0; // v16.2: pausada no exige · [3.30.0] el REQ lo lleva la `rep` del rin
+        const _cfgRow = { ...cfg, testedN:n, required:req, deficit:Math.max(0,req-_g.n), vins, reqTested:_g.n, groupReq:_g.req };
+        if (_g.members.length > 1 && !_isRep) _cfgRow.tireOf = _g.rep;
+        families[key].configs.push(_cfgRow);
         // v15.8: fecha del ensayo más reciente de la familia (ISO 'YYYY-MM-DD' → max lexicográfico)
         vins.forEach(v => { if (v.date && v.date > (families[key].lastTestDate || '')) families[key].lastTestDate = v.date; });
         families[key].bodies.add(cfg.body||'');
@@ -10890,10 +11101,12 @@ function tpRenderFamilies(el) {
                             vinHtml += `</div>`;
                         }
                         var _dotColor, _dotTitle;
-                        if (c.testedN >= c.required) { _dotColor = 'var(--tp-green)'; _dotTitle = 'Probada'; }
+                        // [3.30.0] Contra el REQ cuentan las probadas de todos los rines (`reqTested`).
+                        var _rt = c.reqTested != null ? c.reqTested : c.testedN, _rq = c.groupReq != null ? c.groupReq : c.required;
+                        if (_rt >= _rq) { _dotColor = 'var(--tp-green)'; _dotTitle = (c.tireOf && c.testedN === 0 && _rt > 0) ? 'Cubierta con otro rin (el rin no separa pruebas)' : 'Probada'; }
                         else if (c.coveredByContinuity) { _dotColor = '#84cc16'; _dotTitle = 'Continuidad MY ' + c.coveredByContinuity.prevMy + ' (' + c.coveredByContinuity.prevTestVin + ')'; }
                         else if (c.coveredByRep && window._tpAuditView) { _dotColor = 'var(--tp-blue)'; _dotTitle = 'Cubierta por representativa (' + (f.representative && f.representative.tire || '') + ')'; }
-                        else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
+                        else if (_rt > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
                         var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size: var(--fs-sm);color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
                         var _isAutoCont = c.coveredByContinuity && c.coveredByContinuity.auto;
@@ -10922,7 +11135,7 @@ function tpRenderFamilies(el) {
                                 <div style="display:flex;gap: var(--space-xs);align-items:center;flex-wrap:wrap;">
                                     ${_cDeadBadge}${_cDeadCtrl}
                                     ${_contBtn}
-                                    <span style="font-size: var(--fs-sm);font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
+                                    <span style="font-size: var(--fs-sm);font-weight:700;color:${(c.reqTested!=null?c.reqTested:c.testedN)>=c.required?'var(--tp-green)':'var(--tp-red)'};" title="${c.tireOf?'El rin no separa pruebas: el REQ lo lleva otra llanta de esta configuración':(c.reqTested!=null&&c.reqTested!==c.testedN?'Probadas de cualquier rin: '+c.reqTested:'')}">${c.reqTested!=null&&c.reqTested!==c.testedN?c.testedN+' ('+c.reqTested+' con todos los rines)':c.testedN}/${c.tireOf?'—':c.required}</span>
                                     <span style="font-size: var(--fs-sm);color:var(--tp-dim);">${c.total.toLocaleString()}</span>
                                 </div>
                             </div>
@@ -12191,9 +12404,10 @@ function tpGetAltaSuggestion(configText) {
     const cfg = tpState.planData.find(c => c.desc === configText);
     if (!cfg) return '';
 
-    const rule = tpReqRuleFor(cfg);
-    const n = tpState.testedList.filter(t => t.configText === configText).length;
-    const req = tpCalcRequired(cfg, rule);
+    // [3.30.0] Lo que pide y lo probado son de la configuración con TODOS sus rines.
+    const g = tpTireGroupFor(cfg);
+    const n = g ? g.n : tpTestedCountFor(configText);
+    const req = g ? g.req : tpCalcRequired(cfg, tpReqRuleFor(cfg));
     const deficit = Math.max(0, req - n);
 
     // Get weekly plan pending items

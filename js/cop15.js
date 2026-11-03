@@ -1730,7 +1730,7 @@ setAltaDatetimeIfEmpty(true);
 
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
-        if (planLink && planLink.variantChanged && _preFit && typeof tpFitDiffText === 'function') {
+        if (planLink && planLink.variantChanged && _preFit && _preFit.level !== 'exacta' && typeof tpFitDiffText === 'function') {
             setTimeout(function() {
                 showToast('Quedó ligado a su fila del plan. Al liberarse la acreditará como sustitución — ' +
                           tpFitDiffText(_preFit) + '.', 'info', 8000);
