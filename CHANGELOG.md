@@ -20,6 +20,21 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.29.2 — "Cómo queda el orden" por familia (2026-11-03)
+
+### Arreglado
+- **Plan → Reglas → Tabla de prioridad → Cómo queda el orden** salía configuración por
+  configuración: MY26 y MY27 de una familia europea PRE-EURO 7 aparecían como renglones
+  separados con el mismo score, aunque el score ya los cuenta como una sola familia. Ahora hay
+  **un renglón por familia** ("MY26+27"), con cuántas configuraciones junta. Lo mismo para
+  Middle East. Las familias de USA y México siguen por año modelo.
+- El nombre de la familia es el mismo en el tablero de familias, en esta lista y en el Resumen
+  del año.
+
+### Para desarrollo
+- `tpScoreFamLabel(cfg)` es el nombre de una familia del score; la vista previa agrupa por
+  `tpScoreFamKey` y la representa su configuración de mayor score.
+
 ## 3.29.1 — Buscar familias en cualquier orden (2026-11-03)
 
 ### Arreglado

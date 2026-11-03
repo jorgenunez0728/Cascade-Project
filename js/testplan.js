@@ -1362,6 +1362,26 @@ function tpScoreFamKey(cfg) {
 }
 
 /**
+ * [3.29.2] LA forma de nombrar una familia del score. Donde el score junta años modelo
+ * (tpScoreMergesMy), el MY se dice con todos los de la familia ("MY26+27") y, si la familia
+ * del WVTA cubre todas las carrocerías (copBodySharedFor), la carrocería no se dice.
+ * La usan el tablero de familias, "Cómo queda el orden" y el Resumen del año.
+ */
+function tpScoreFamLabel(cfg) {
+    if (!cfg) return '';
+    if (!tpScoreMergesMy(cfg)) return tpFamilyShortLabel(cfg);
+    var fk = tpScoreFamKey(cfg), mys = {};
+    (tpState.planData || []).forEach(function(o) {
+        if (o && !o.paused && tpScoreFamKey(o) === fk && tpMyNum(o.my) !== null) mys[tpMyNum(o.my)] = true;
+    });
+    var shared = typeof copBodySharedFor === 'function' && copBodySharedFor(cfg.mod);
+    var label = tpFamilyShortLabel(shared ? Object.assign({}, cfg, { body: '' }) : cfg);
+    var my = Object.keys(mys).sort();
+    if (!my.length) return label;
+    return /\bMY\d{2,4}\b/.test(label) ? label.replace(/\bMY\d{2,4}\b/, 'MY' + my.join('+')) : label + ' MY' + my.join('+');
+}
+
+/**
  * Nivel (0–10) de una familia en la tabla de prioridad guardada. `oldKey` = la clave por año
  * modelo, por si el laboratorio guardó el nivel antes de que el score juntara los MY.
  */
@@ -4868,12 +4888,7 @@ function _tpScoreBoardItems(kind, t) {
             if (seen[fk.toUpperCase()]) return;
             var lvl = Object.prototype.hasOwnProperty.call(t.fam, fk) ? Number(t.fam[fk])
                     : Object.prototype.hasOwnProperty.call(t.fam, old) ? Number(t.fam[old]) : t.famDefault;
-            var label = (typeof tpFamilyShortLabel === 'function' ? tpFamilyShortLabel(c) : tpFamilyLabel(c));
-            if (fk !== old) {
-                var mys = {};
-                (tpState.planData || []).forEach(function(o) { if (o && !o.paused && tpScoreFamKey(o) === fk && tpMyNum(o.my) !== null) mys[tpMyNum(o.my)] = true; });
-                label = label.replace(/\bMY\d{2,4}\b/, 'MY' + Object.keys(mys).sort().join('+'));
-            }
+            var label = tpScoreFamLabel(c);
             push(fk, label + (c.rgn ? ' · ' + c.rgn : ''), lvl);
         });
         out.sort(function(a, b) { return a.label < b.label ? -1 : 1; });
@@ -4951,18 +4966,26 @@ function _tpScorePreviewHTML() {
     var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
     var draft = _tpScoreDraftGet();
     var rows = an.filter(function(a) { return !a.paused && (_tpScoreUi.all || a.deficit > 0); });
-    var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.desc < b.desc ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
-    var R = rows.map(function(a) {
+    var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.key < b.key ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
+    // [3.29.2] Un renglón por FAMILIA del score (tpScoreFamKey): MY26 y MY27 de Europa PRE-EURO 7
+    // (y las variantes de llanta o manejo) ya valen lo mismo, así que se leen juntas. La
+    // representa su configuración de mayor score, la que el armador pondría primero.
+    var fams = {};
+    rows.forEach(function(a) {
         var b = tpScoreBreakdown(a, a.testedN, a.scoreCtx || { deficit: a.deficit, hasReq: a.required > 0 }, draft);
-        return { a: a, before: a.score, after: b.total, parts: b.parts };
+        var k = tpScoreFamKey(a), f = fams[k] || (fams[k] = { key: k, n: 0, before: -Infinity, after: -Infinity, a: null, parts: [] });
+        f.n++;
+        if (a.score > f.before) f.before = a.score;
+        if (b.total > f.after || !f.a) { f.after = b.total; f.a = a; f.parts = b.parts; }
     });
+    var R = Object.keys(fams).map(function(k) { return fams[k]; });
     withRank(R, 'before'); withRank(R, 'after');
     R.sort(function(x, y) { return x.afterRank - y.afterRank; });
     var moved = R.filter(function(r) { return r.afterRank !== r.beforeRank; }).length;
     var h = '<div class="tp-score-prev-head"><strong>Cómo queda el orden</strong> ' +
-            '<span class="tp-score-hint">' + (_tpScoreDirty() ? moved + ' de ' + R.length + ' cambian de lugar con lo que estás moviendo' : 'sin cambios por guardar') + '</span>' +
+            '<span class="tp-score-hint">' + (_tpScoreDirty() ? moved + ' de ' + R.length + ' familias cambian de lugar con lo que estás moviendo' : 'sin cambios por guardar') + '</span>' +
             '<label class="u-hit tp-score-hint"><input type="checkbox" ' + (_tpScoreUi.all ? 'checked' : '') + ' onchange="_tpScoreUi.all=this.checked;_tpScorePreviewSoon()"> Ver también las que no tienen pendientes</label></div>';
-    if (!R.length) return h + '<p class="tp-score-hint">No hay configuraciones con pendientes en el plan.</p>';
+    if (!R.length) return h + '<p class="tp-score-hint">No hay familias con pendientes en el plan.</p>';
     h += '<ol class="tp-score-prev">';
     R.slice(0, 15).forEach(function(r) {
         var d = r.beforeRank - r.afterRank;
@@ -4971,12 +4994,13 @@ function _tpScorePreviewHTML() {
             return '<span class="tp-score-part" title="' + escapeHtml(p.why || '') + '">' + escapeHtml(p.label) + ' ' + p.pts + '</span>';
         }).join('');
         h += '<li><span class="tp-score-rank">' + r.afterRank + '</span>' + mv +
-             '<span class="tp-score-name">' + escapeHtml(tpFamilyShortLabel(r.a) || r.a.desc) + ' <small>' + escapeHtml(r.a.rgn || '') + '</small></span>' +
+             '<span class="tp-score-name">' + escapeHtml(tpScoreFamLabel(r.a) || r.a.desc) + ' <small>' + escapeHtml(r.a.rgn || '') +
+             (r.n > 1 ? ' · ' + r.n + ' configuraciones' : '') + '</small></span>' +
              '<span class="tp-score-total">' + r.after + (r.after !== r.before ? ' <small>(antes ' + r.before + ')</small>' : '') + '</span>' +
              '<span class="tp-score-parts">' + chips + '</span></li>';
     });
     h += '</ol>';
-    if (R.length > 15) h += '<p class="tp-score-hint">Se muestran las primeras 15 de ' + R.length + '.</p>';
+    if (R.length > 15) h += '<p class="tp-score-hint">Se muestran las primeras 15 de ' + R.length + ' familias.</p>';
     return h;
 }
 

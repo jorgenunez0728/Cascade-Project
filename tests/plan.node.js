@@ -830,5 +830,17 @@ t('tpSearchMatch: todas las palabras, en cualquier orden, sin acentos ni mayúsc
     eq(sandbox.tpSearchMatch(L, 'europe mhev'), true);
 });
 
+console.log('\n== [3.29.2] El nombre de una familia del score ==');
+t('tpScoreFamLabel: Europa PRE-EURO 7 junta MY26+27; USA sigue por año modelo', () => {
+    reset([]);
+    const eu = { mod: 'CL4', rgn: 'EUROPE', reg: 'PRE-EURO 7', eng: '1.0', tx: '6MT', drv: 'LHD', body: 'WGN', ep: '', engpkg: '', tire: '-', total: 100, hist: 0, m: [] };
+    S.planData = [Object.assign({ desc: 'E26', my: '26 MODEL' }, eu), Object.assign({ desc: 'E27', my: '27 MODEL' }, eu),
+                  Object.assign({ desc: 'U26', my: '26 MODEL' }, eu, { rgn: 'USA', reg: 'SULEV 30' })];
+    const L = sandbox.tpScoreFamLabel(S.planData[0]);
+    eq(/MY26\+27/.test(L), true, L);
+    eq(L, sandbox.tpScoreFamLabel(S.planData[1]), 'MY26 y MY27 se llaman igual:');
+    eq(/MY26\b/.test(sandbox.tpScoreFamLabel(S.planData[2])) && !/\+/.test(sandbox.tpScoreFamLabel(S.planData[2])), true);
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

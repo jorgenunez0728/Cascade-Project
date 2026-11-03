@@ -4297,3 +4297,13 @@ por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana
   tabla de prioridad (familias), el Dashboard del Plan y el filtro de Agregar prueba. Un buscador
   nuevo la llama; no volver a comparar la frase completa con `indexOf`/`includes` (así "cl4 wgn" no
   encontraba "CL4 … WGN").
+
+## 3.29.2 — La vista previa del score es por familia
+
+- **`tpScoreFamLabel(cfg)` es LA forma de nombrar una familia del score** ("MY26+27" donde
+  `tpScoreMergesMy`, sin carrocería donde `copBodySharedFor`). La usan el tablero de familias,
+  "Cómo queda el orden" y el Resumen del año; no volver a armar el nombre a mano.
+- **"Cómo queda el orden" (`_tpScorePreviewHTML`) agrupa por `tpScoreFamKey`** y cada familia la
+  representa su configuración de mayor score. Toda lista nueva que muestre el score para que el
+  laboratorio decida se lee por familia, no por configuración: el generador sigue eligiendo
+  configuraciones, pero el laboratorio prioriza familias.
