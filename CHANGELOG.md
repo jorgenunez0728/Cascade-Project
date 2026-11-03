@@ -20,6 +20,51 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.28.0 — Armar la semana: primero cómo va a ser, después qué probar (2026-11-03)
+
+### Nuevo
+- **Mi semana → 🎛️ Armar la semana**, arriba de todo, en tres pasos:
+  - **① La semana**, día por día: laborable o 🏖️ **asueto**, cuántas **pruebas de emisiones**
+    (0–4), cuántas de **correlación** (0–2) y qué más hay en la celda (🔬 quality checks,
+    🛠️ mantenimiento/calibración, 🗂️ proyecto, 🎓 capacitación, 📝 otra) con una nota. Arriba
+    se dice el total ("4 pruebas en la semana: 3 de emisiones + 1 de correlación · 1 día de
+    asueto"). 📋 Copiar la semana anterior, ＋ Sábado y ↺ Restablecer.
+  - **② Qué probar**: fichas de **🌍 Mercados** (varias regiones a la vez; dice cuántas
+    configuraciones con pendientes quedan fuera), **⭐ Recomendadas** por la tabla de prioridad
+    y **🔎 Elegir otra (en cascada)**: modelo → año modelo → motor → transmisión → … en el orden
+    del Alta; un nivel con una sola opción se toma solo.
+  - **③ Generar**: reparte las pruebas en los días definidos, en orden de prioridad.
+- **Prueba de correlación** como lugar de la semana: ocupa la celda pero **no cuenta para el REQ
+  ni para el CoP**. Se elige el vehículo Master de la flota; ▶ Iniciar abre el Alta con su VIN y
+  el propósito Correlación, y al liberarla llena la fila de correlación de su día (antes se
+  agregaba como "no planeada").
+
+### Cambió
+- Un día solo prueba si su día de preacondicionar se trabaja. El lunes no prueba (sería
+  preacondicionar el domingo) y el día después de un asueto tampoco; la pantalla lo dice.
+- El asueto y las actividades del día explican solos los **bloques de la celda** ("Día festivo",
+  "Quality checks"…), sin que el signatario lo escriba.
+- El tablero de la semana muestra el asueto y las actividades de cada día.
+- Los días y la capacidad de cada semana **se comparten entre equipos** (antes solo se conservaban
+  al sembrar: el asueto marcado en un equipo no llegaba al otro).
+
+### Arreglado
+- El tour del Plan apuntaba a un campo que ya no existía ("Cuántas pruebas") y se saltaba.
+
+### Para desarrollo
+- `tpWeekSetupModel(setup, {soakHours, perSlot})` (PURA) es LA semana por día; `tpWeekSetupFor` /
+  `tpWeekSetupModelFor(lunes)` la leen de `tpState.weekAvailability[lunes].setup` o la derivan
+  (`tpWeekSetupDefault`). Escritores: `tpWeekSetupSet`, `tpWeekSetupSetMaster`,
+  `tpWeekSetupReset`, `tpWeekSetupCopyPrev` (sellan `updatedAt`/`by` con `_tpWeekAvTouch`).
+- `weekAvailability` se une por semana con `tpWeekAvUnion` / `tpWeekAvNewTo` en los cinco puntos
+  del sync.
+- `tpPlannerOpts` toma la capacidad de la semana (`capacityExact`: 0 es 0, no "el máximo").
+- `tpAssignWeekDays(items, model)` reparte; `tpWeekCorrRows(model, master)` arma las filas de
+  correlación (`activity: 'correlacion'`, `required: 0`); `tpItemIsActivity(item)`.
+- `tpPickerModel(configs, picks, levels)` (PURA) es la ramificación del selector.
+- `plannerCfg.markets` (lista de regiones) se cumple en `tpPassesWeekFilter`, aparte de `filtersOn`.
+- Se retiraron `tpSetWorkDay` y `tpAddManualPick`.
+
 ## 3.27.0 — Prioridad: MY26 y MY27 cuentan como una familia en Europa y Middle East (2026-10-30)
 
 ### Cambió

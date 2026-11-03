@@ -627,7 +627,9 @@ t('qué junta los años modelo', () => {
     eq(sandbox.tpScoreFamKey(u) === sandbox.tpScoreFamKey(Object.assign({}, u, { my: '27 MODEL' })), false);
 });
 t('MY26 y MY27 de una familia europea valen lo mismo; las de USA siguen separadas', () => {
-    reset([{ configText: 'EU26', date: '2026-10-01', purpose: 'COP-Emisiones' }]);
+    // Fecha relativa a hoy: la prueba es de hace 5 días (si no, la prueba envejece con el calendario).
+    const _hace5 = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
+    reset([{ configText: 'EU26', date: _hace5, purpose: 'COP-Emisiones' }]);
     const eu = { mod: 'CL4', rgn: 'EUROPE', reg: 'PRE-EURO 7', eng: '1.0', tx: '6MT', drv: 'LHD', body: 'WGN', ep: '', engpkg: '', tire: '-', m: [] };
     const us = { mod: 'CL4', rgn: 'USA', reg: 'SULEV 30', eng: '2.0', tx: 'CVT', drv: 'LHD', body: '4DR', ep: '', engpkg: '', tire: '-', m: [] };
     S.planData = [
@@ -649,6 +651,95 @@ t('MY26 y MY27 de una familia europea valen lo mismo; las de USA siguen separada
     const u26 = parts('US26'), u27 = parts('US27');
     eq(u27.new, 2, 'USA: el MY27 sí es configuración nueva:');
     eq(u26.vol === u27.vol && u26.new === u27.new, false, 'USA sigue por año modelo:');
+});
+
+console.log('\n== [3.28.0] Armar la semana: días, actividades y selector ==');
+const _WD = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+t('semana derivada: la capacidad se reparte en los días en que se puede probar (lunes no: su preacond. sería domingo)', () => {
+    const s = sandbox.tpWeekSetupDefault({ workDays: _WD, soakHours: 24, cap: 4 });
+    const m = sandbox.tpWeekSetupModel(s, { soakHours: 24, perSlot: 1 });
+    const d = {}; m.days.forEach(x => { d[x.key] = x; });
+    eq(d.lun.testable, false); eq(d.lun.tests, 0);
+    eq([d.mar.tests, d.mie.tests, d.jue.tests, d.vie.tests].join(','), '1,1,1,1');
+    eq(m.totals.tests, 4);
+});
+t('un asueto quita su día y el día siguiente (sin preacondicionar); se dice por qué', () => {
+    const s = { days: { mie: { off: true, tests: 2 }, mar: { tests: 2 }, jue: { tests: 1, acts: ['qc'] }, vie: { corr: 1 } } };
+    const m = sandbox.tpWeekSetupModel(s, { soakHours: 24, perSlot: 1 });
+    const d = {}; m.days.forEach(x => { d[x.key] = x; });
+    eq(d.mie.testable, false); eq(d.mie.why, 'Asueto'); eq(d.mie.tests, 0, 'lo pedido el día de asueto no cuenta:');
+    eq(d.jue.testable, false); eq(/asueto/.test(d.jue.why), true, 'jueves no tiene preacondicionamiento:');
+    eq(d.jue.acts.join(), 'qc', 'la actividad se conserva:');
+    eq(d.mar.tests, 2); eq(d.mar.over, true, 'más que lo instalado se avisa, no se impide:');
+    eq(m.totals.tests, 2); eq(m.totals.corr, 1); eq(m.totals.slots, 3); eq(m.totals.off, 1);
+    eq(m.workDays.mie, false, 'el asueto deja de ser día trabajado:');
+});
+t('una actividad desconocida se descarta y los números se acotan', () => {
+    const m = sandbox.tpWeekSetupModel({ days: { mar: { tests: -3, corr: 'x', acts: ['qc', 'nada'] } } }, { soakHours: 24 });
+    const mar = m.days.find(x => x.key === 'mar');
+    eq(mar.tests, 0); eq(mar.corr, 0); eq(mar.acts.join(), 'qc');
+});
+t('tpAssignWeekDays: en orden de prioridad, al primer día con lugar; lo que no cabe se declara', () => {
+    const m = sandbox.tpWeekSetupModel({ days: { mar: { tests: 1 }, jue: { tests: 1 } } }, { soakHours: 24 });
+    const items = [{ desc: 'A' }, { desc: 'B' }, { desc: 'C' }];
+    sandbox.tpAssignWeekDays(items, m);
+    eq(items[0].testDay, 'mar'); eq(items[0].preconDay, 'lun');
+    eq(items[1].testDay, 'jue'); eq(items[1].preconDay, 'mie');
+    eq(items[2].unscheduled, true); eq(items[2].testDay, null);
+});
+t('tpAssignWeekDays: una fila con reposo de 48 h no cae en un día sin preacond. trabajado a 2 días', () => {
+    const m = sandbox.tpWeekSetupModel({ days: { mar: { tests: 1 }, jue: { tests: 1 } } }, { soakHours: 24 });
+    const items = [{ desc: 'L', soakHours: 48 }];
+    sandbox.tpAssignWeekDays(items, m);
+    eq(items[0].testDay, 'jue', 'martes exigiría preacondicionar el domingo:');
+    eq(items[0].preconDay, 'mar');
+});
+t('tpWeekCorrRows: una fila por lugar de correlación, sin REQ, con el Master', () => {
+    const m = sandbox.tpWeekSetupModel({ days: { mar: { corr: 1 }, vie: { corr: 2 } } }, { soakHours: 24 });
+    const rows = sandbox.tpWeekCorrRows(m, { id: 'm1', name: 'Master K3', vin: 'KNA1' });
+    eq(rows.length, 3);
+    eq(rows.every(r => r.activity === 'correlacion' && r.purpose === 'Correlacion' && r.required === 0), true);
+    eq(rows.map(r => r.testDay).join(), 'mar,vie,vie');
+    eq(rows[0].masterVin, 'KNA1'); eq(/Master K3/.test(rows[0].desc), true);
+    eq(new Set(rows.map(r => r.uid)).size, 3, 'cada fila con su uid:');
+    eq(sandbox.tpItemIsActivity(rows[0]), true); eq(sandbox.tpItemIsActivity({ desc: 'x' }), false);
+});
+t('tpWeekAvUnion: por semana gana la edición más reciente, simétrica', () => {
+    const a = { '2026-11-02': { updatedAt: '2026-11-01T10:00:00Z', setup: { days: { mar: { tests: 1 } } } }, '2026-11-09': { updatedAt: '2026-11-01T00:00:00Z' } };
+    const b = { '2026-11-02': { updatedAt: '2026-11-01T12:00:00Z', setup: { days: { mar: { tests: 3 } } } } };
+    const ab = sandbox.tpWeekAvUnion(a, b), ba = sandbox.tpWeekAvUnion(b, a);
+    eq(JSON.stringify(ab['2026-11-02']), JSON.stringify(ba['2026-11-02']), 'simétrica:');
+    eq(ab['2026-11-02'].setup.days.mar.tests, 3); eq(ba['2026-11-02'].setup.days.mar.tests, 3);
+    eq(!!ab['2026-11-09'], true, 'la semana que solo tiene un equipo se conserva:');
+    eq(sandbox.tpWeekAvNewTo(a, b), true); eq(sandbox.tpWeekAvNewTo(b, a), true, '2026-11-09 es nueva para b:');
+    eq(sandbox.tpWeekAvNewTo(ab, a), false);
+});
+t('tpPickerModel: ramifica en el orden de la cascada y toma solo lo que tiene una opción', () => {
+    const C = [
+        { desc: '1', mod: 'CL4', my: '27 MODEL', eng: '1.0', tx: '6MT', body: '5DR', rgn: 'EUROPE' },
+        { desc: '2', mod: 'CL4', my: '27 MODEL', eng: '1.0', tx: '6MT', body: 'WGN', rgn: 'EUROPE' },
+        { desc: '3', mod: 'CL4', my: '27 MODEL', eng: '1.6', tx: '7DCT', body: '5DR', rgn: 'EUROPE' },
+        { desc: '4', mod: 'SP2', my: '26 MODEL', eng: '1.6', tx: 'CVT', body: 'SUV', rgn: 'MEXICO' }
+    ];
+    const L = sandbox.TP_PICK_LEVELS;
+    let M = sandbox.tpPickerModel(C, {}, L);
+    eq(M.level.field, 'mod'); eq(M.options.map(o => o.value + ':' + o.n).join(), 'CL4:3,SP2:1');
+    M = sandbox.tpPickerModel(C, { mod: 'CL4' }, L);
+    eq(M.crumbs.find(c => c.field === 'my').auto, true, 'un solo año modelo se toma solo:');
+    eq(M.level.field, 'eng');
+    M = sandbox.tpPickerModel(C, { mod: 'CL4', eng: '1.0' }, L);
+    eq(M.level.field, 'body', 'transmisión única se salta:');
+    eq(M.matches.length, 2);
+    M = sandbox.tpPickerModel(C, { mod: 'CL4', eng: '1.0', body: 'WGN' }, L);
+    eq(M.level, null); eq(M.matches.length, 1); eq(M.matches[0].desc, '2');
+});
+t('capacityExact: la selección usa lo que dice la semana, aunque sea 0', () => {
+    reset([]);
+    S.planData = [{ desc: 'X', mod: 'CL4', rgn: 'EUROPE', reg: 'PRE-EURO 7', total: 9000, hist: 0, m: [] }];
+    S.rules = [{ id: 'r', rgn: '*', reg: '*', ratio: 3, per: 1000 }];
+    S._lastSave = Date.now() + Math.random(); sandbox.tpInvalidateCache();
+    const R0 = sandbox.tpSelectWeeklyItems({ capacity: 0, capacityExact: true, dryRun: true });
+    eq(R0.items.length, 0, 'con 0 pruebas no elige nada (antes 0 = el máximo):');
 });
 
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');

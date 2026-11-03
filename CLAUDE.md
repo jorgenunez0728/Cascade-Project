@@ -4206,3 +4206,41 @@ Matiza v20.8 ("la carrocería es familia") SOLO para el CoP del año calendario.
 - `tpScoreFamilyLevel(clave, claveVieja)` / `famKeyOld` en los hechos: un nivel guardado con la
   clave por año modelo se sigue leyendo hasta que se guarde el de la familia unida.
 
+
+## 3.28.0 — Armar la semana día por día (`js/testplan.js`)
+
+Reemplaza lo que v23.0 dice de la capacidad del armador ("`tpWeeklyCapacityFor` es LA definición
+de cuántas caben") para el ARMADOR: la capacidad de una semana que se arma sale de su definición
+por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana sin definir.
+
+- **`tpWeekSetupModel(setup, {soakHours, perSlot})` es LA semana por día y es PURA.** Un día prueba
+  solo si su día de preacondicionar (tantos días antes como pide el reposo) se trabaja y no es
+  asueto: si no, sus pruebas cuentan 0 y `why` lo dice. Más pruebas que lo instalado se AVISA
+  (`over`), no se impide. Todo consumidor nuevo de "cuántas pruebas y qué días" la llama.
+- **El setup vive en `tpState.weekAvailability[lunes].setup`** = `{days:{dia:{off, work, tests,
+  corr, acts, note}}, masterId}`. Sin setup, la semana se DERIVA (`tpWeekSetupDefault`: los días
+  de siempre y la capacidad práctica repartida). Escribir solo con `tpWeekSetupSet` y compañía:
+  materializan la derivada, escriben `workDays` (lo leen bloques y tablero), actualizan una
+  PROPUESTA (nunca un plan aceptado) y sellan `updatedAt`/`by` (`_tpWeekAvTouch`). **Todo escritor
+  de `weekAvailability` sella con `_tpWeekAvTouch`**: el sync une por semana con `tpWeekAvUnion`
+  (gana `updatedAt`), en los cinco puntos de `reqFamilies`.
+- **Las actividades del día (`TP_DAY_ACTS`) usan los ids de `TP_BLOCK_REASONS`**: un día sin
+  pruebas con una actividad explica sus bloques solo (`_tpBlockAuto`). Una actividad nueva que
+  deba explicar bloques necesita su motivo en `TP_BLOCK_REASONS`.
+- **Una fila de correlación es una ACTIVIDAD, no una configuración** (`activity: 'correlacion'`,
+  `purpose: 'Correlacion'`, `required: 0`, `desc` que no es código; `tpWeekCorrRows`). No cuenta
+  para el REQ (su `desc` no empata con `planData`) ni para el CoP (`copPurposeCounts`).
+  `tpCreditCandidatesFor` acredita una liberación de propósito Correlación SOLO a filas de
+  correlación de su semana (mismo día primero, luego mismo Master), y una prueba de emisiones
+  nunca toma una de correlación. `tpStartTestFromPlan` precarga el VIN del Master, nunca el
+  `desc`. **Todo código que recorra `plan.items` como configuraciones salta
+  `tpItemIsActivity(item)`.**
+- **`tpPlannerOpts` pasa `capacityExact`**: la capacidad es la de la semana y **0 es 0**
+  (`tpSelectWeeklyItems` sin `capacityExact` sigue tomando 0 como "el máximo", por los demás
+  llamadores). `tpAssignWeekDays(items, model)` reparte en orden de prioridad respetando el reposo
+  de cada fila; lo que no cabe queda `unscheduled`.
+- **`tpPickerModel(configs, picks, levels)` (PURA) es el selector en cascada** (`TP_PICK_LEVELS`,
+  orden del Alta). Un nivel con una sola opción se toma solo. Elegir = `window._tpWeeklyManualPicks`.
+- **`plannerCfg.markets`** (lista de regiones; vacía = todas) se cumple en `tpPassesWeekFilter`
+  aparte de `filtersOn`, y la pantalla cuenta lo que deja fuera (`tpMarketsModel`, regla v22.5).
+- Se retiraron `tpSetWorkDay` y `tpAddManualPick`.
