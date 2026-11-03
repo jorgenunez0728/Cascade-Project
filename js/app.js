@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.29.1';
+var APP_VERSION = '3.29.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,9 @@ var APP_VERSION = '3.29.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.29.2', date: '3 nov 2026', title: '"Cómo queda el orden" por familia',
+      bullets: ['Plan → Reglas → Tabla de prioridad → Cómo queda el orden: un renglón por familia. En Europa PRE-EURO 7 (y en Middle East) MY26 y MY27 salen juntos como "MY26+27", igual que en el tablero de familias; las variantes de llanta o manejo de una familia también se juntan y se dice cuántas configuraciones son.',
+                'El nombre de la familia es el mismo en el tablero, en esta lista y en el Resumen del año.'] },
     { version: '3.29.1', date: '3 nov 2026', title: 'Buscar familias en cualquier orden',
       bullets: ['Plan → Reglas → Tabla de prioridad: el buscador de familias encuentra por palabras, en cualquier orden y sin importar acentos ni mayúsculas. "cl4 wgn" ya muestra las Wagon de la CL4 (antes buscaba la frase exacta y no encontraba nada).',
                 'La misma regla en el buscador del Dashboard del Plan (que además busca por el nombre de la familia, no solo por el código) y en el filtro de "Agregar prueba".'] },

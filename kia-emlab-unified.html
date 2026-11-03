@@ -10581,10 +10581,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611032026';
+var APP_BUILD = '202611032037';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'ea93e737e7e56cecfe8d0477777245c623279f15';
+var APP_COMMIT = '1ed034ea2343b50dae55c170c9582478052f04b7';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10592,7 +10592,7 @@ var APP_COMMIT = 'ea93e737e7e56cecfe8d0477777245c623279f15';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.29.1';
+var APP_VERSION = '3.29.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10600,6 +10600,9 @@ var APP_VERSION = '3.29.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.29.2', date: '3 nov 2026', title: '"Cómo queda el orden" por familia',
+      bullets: ['Plan → Reglas → Tabla de prioridad → Cómo queda el orden: un renglón por familia. En Europa PRE-EURO 7 (y en Middle East) MY26 y MY27 salen juntos como "MY26+27", igual que en el tablero de familias; las variantes de llanta o manejo de una familia también se juntan y se dice cuántas configuraciones son.',
+                'El nombre de la familia es el mismo en el tablero, en esta lista y en el Resumen del año.'] },
     { version: '3.29.1', date: '3 nov 2026', title: 'Buscar familias en cualquier orden',
       bullets: ['Plan → Reglas → Tabla de prioridad: el buscador de familias encuentra por palabras, en cualquier orden y sin importar acentos ni mayúsculas. "cl4 wgn" ya muestra las Wagon de la CL4 (antes buscaba la frase exacta y no encontraba nada).',
                 'La misma regla en el buscador del Dashboard del Plan (que además busca por el nombre de la familia, no solo por el código) y en el filtro de "Agregar prueba".'] },
@@ -11855,14 +11858,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611032026' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611032037' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611032026' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611032037' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11878,7 +11881,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611032026' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611032037' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -46638,6 +46641,26 @@ function tpScoreFamKey(cfg) {
 }
 
 /**
+ * [3.29.2] LA forma de nombrar una familia del score. Donde el score junta años modelo
+ * (tpScoreMergesMy), el MY se dice con todos los de la familia ("MY26+27") y, si la familia
+ * del WVTA cubre todas las carrocerías (copBodySharedFor), la carrocería no se dice.
+ * La usan el tablero de familias, "Cómo queda el orden" y el Resumen del año.
+ */
+function tpScoreFamLabel(cfg) {
+    if (!cfg) return '';
+    if (!tpScoreMergesMy(cfg)) return tpFamilyShortLabel(cfg);
+    var fk = tpScoreFamKey(cfg), mys = {};
+    (tpState.planData || []).forEach(function(o) {
+        if (o && !o.paused && tpScoreFamKey(o) === fk && tpMyNum(o.my) !== null) mys[tpMyNum(o.my)] = true;
+    });
+    var shared = typeof copBodySharedFor === 'function' && copBodySharedFor(cfg.mod);
+    var label = tpFamilyShortLabel(shared ? Object.assign({}, cfg, { body: '' }) : cfg);
+    var my = Object.keys(mys).sort();
+    if (!my.length) return label;
+    return /\bMY\d{2,4}\b/.test(label) ? label.replace(/\bMY\d{2,4}\b/, 'MY' + my.join('+')) : label + ' MY' + my.join('+');
+}
+
+/**
  * Nivel (0–10) de una familia en la tabla de prioridad guardada. `oldKey` = la clave por año
  * modelo, por si el laboratorio guardó el nivel antes de que el score juntara los MY.
  */
@@ -50144,12 +50167,7 @@ function _tpScoreBoardItems(kind, t) {
             if (seen[fk.toUpperCase()]) return;
             var lvl = Object.prototype.hasOwnProperty.call(t.fam, fk) ? Number(t.fam[fk])
                     : Object.prototype.hasOwnProperty.call(t.fam, old) ? Number(t.fam[old]) : t.famDefault;
-            var label = (typeof tpFamilyShortLabel === 'function' ? tpFamilyShortLabel(c) : tpFamilyLabel(c));
-            if (fk !== old) {
-                var mys = {};
-                (tpState.planData || []).forEach(function(o) { if (o && !o.paused && tpScoreFamKey(o) === fk && tpMyNum(o.my) !== null) mys[tpMyNum(o.my)] = true; });
-                label = label.replace(/\bMY\d{2,4}\b/, 'MY' + Object.keys(mys).sort().join('+'));
-            }
+            var label = tpScoreFamLabel(c);
             push(fk, label + (c.rgn ? ' · ' + c.rgn : ''), lvl);
         });
         out.sort(function(a, b) { return a.label < b.label ? -1 : 1; });
@@ -50227,18 +50245,26 @@ function _tpScorePreviewHTML() {
     var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
     var draft = _tpScoreDraftGet();
     var rows = an.filter(function(a) { return !a.paused && (_tpScoreUi.all || a.deficit > 0); });
-    var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.desc < b.desc ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
-    var R = rows.map(function(a) {
+    var withRank = function(list, key) { list.slice().sort(function(a, b) { return (b[key] - a[key]) || (a.key < b.key ? -1 : 1); }).forEach(function(r, i) { r[key + 'Rank'] = i + 1; }); };
+    // [3.29.2] Un renglón por FAMILIA del score (tpScoreFamKey): MY26 y MY27 de Europa PRE-EURO 7
+    // (y las variantes de llanta o manejo) ya valen lo mismo, así que se leen juntas. La
+    // representa su configuración de mayor score, la que el armador pondría primero.
+    var fams = {};
+    rows.forEach(function(a) {
         var b = tpScoreBreakdown(a, a.testedN, a.scoreCtx || { deficit: a.deficit, hasReq: a.required > 0 }, draft);
-        return { a: a, before: a.score, after: b.total, parts: b.parts };
+        var k = tpScoreFamKey(a), f = fams[k] || (fams[k] = { key: k, n: 0, before: -Infinity, after: -Infinity, a: null, parts: [] });
+        f.n++;
+        if (a.score > f.before) f.before = a.score;
+        if (b.total > f.after || !f.a) { f.after = b.total; f.a = a; f.parts = b.parts; }
     });
+    var R = Object.keys(fams).map(function(k) { return fams[k]; });
     withRank(R, 'before'); withRank(R, 'after');
     R.sort(function(x, y) { return x.afterRank - y.afterRank; });
     var moved = R.filter(function(r) { return r.afterRank !== r.beforeRank; }).length;
     var h = '<div class="tp-score-prev-head"><strong>Cómo queda el orden</strong> ' +
-            '<span class="tp-score-hint">' + (_tpScoreDirty() ? moved + ' de ' + R.length + ' cambian de lugar con lo que estás moviendo' : 'sin cambios por guardar') + '</span>' +
+            '<span class="tp-score-hint">' + (_tpScoreDirty() ? moved + ' de ' + R.length + ' familias cambian de lugar con lo que estás moviendo' : 'sin cambios por guardar') + '</span>' +
             '<label class="u-hit tp-score-hint"><input type="checkbox" ' + (_tpScoreUi.all ? 'checked' : '') + ' onchange="_tpScoreUi.all=this.checked;_tpScorePreviewSoon()"> Ver también las que no tienen pendientes</label></div>';
-    if (!R.length) return h + '<p class="tp-score-hint">No hay configuraciones con pendientes en el plan.</p>';
+    if (!R.length) return h + '<p class="tp-score-hint">No hay familias con pendientes en el plan.</p>';
     h += '<ol class="tp-score-prev">';
     R.slice(0, 15).forEach(function(r) {
         var d = r.beforeRank - r.afterRank;
@@ -50247,12 +50273,13 @@ function _tpScorePreviewHTML() {
             return '<span class="tp-score-part" title="' + escapeHtml(p.why || '') + '">' + escapeHtml(p.label) + ' ' + p.pts + '</span>';
         }).join('');
         h += '<li><span class="tp-score-rank">' + r.afterRank + '</span>' + mv +
-             '<span class="tp-score-name">' + escapeHtml(tpFamilyShortLabel(r.a) || r.a.desc) + ' <small>' + escapeHtml(r.a.rgn || '') + '</small></span>' +
+             '<span class="tp-score-name">' + escapeHtml(tpScoreFamLabel(r.a) || r.a.desc) + ' <small>' + escapeHtml(r.a.rgn || '') +
+             (r.n > 1 ? ' · ' + r.n + ' configuraciones' : '') + '</small></span>' +
              '<span class="tp-score-total">' + r.after + (r.after !== r.before ? ' <small>(antes ' + r.before + ')</small>' : '') + '</span>' +
              '<span class="tp-score-parts">' + chips + '</span></li>';
     });
     h += '</ol>';
-    if (R.length > 15) h += '<p class="tp-score-hint">Se muestran las primeras 15 de ' + R.length + '.</p>';
+    if (R.length > 15) h += '<p class="tp-score-hint">Se muestran las primeras 15 de ' + R.length + ' familias.</p>';
     return h;
 }
 
@@ -59170,17 +59197,6 @@ function _tpYearSummaryInput(year) {
     return { tests: tests, planned: planned, corr: corr };
 }
 
-/** El nombre de una familia del score (las que juntan años modelo lo dicen). */
-function _ysScoreFamLabel(row) {
-    if (!tpScoreMergesMy(row)) return tpFamilyShortLabel(row);
-    var mys = {};
-    (tpState.planData || []).forEach(function(c) {
-        if (c && !c.paused && tpScoreFamKey(c) === tpScoreFamKey(row)) { var n = tpMyNum(c.my); if (n !== null) mys[n] = true; }
-    });
-    var my = Object.keys(mys).sort();
-    return tpFamilyShortLabel(Object.assign({}, row, { my: '' })) + (my.length ? ' · MY' + my.join('+') : '');
-}
-
 function _ysPrefs() {
     var p = (typeof uiPref === 'function' && uiPref('yearSum')) || {};
     return { dim: p.dim || 'fam', scope: p.scope || 'req', proposals: !!p.proposals, all: !!p.all };
@@ -59271,7 +59287,7 @@ function _ysScoreCardHTML(pr) {
         P = tpProjectedAnalysis({ proposals: pr.proposals });
         var pendOf = function(r) { var c = r.scoreCtx || {}; return c.famDeficit !== undefined ? c.famDeficit : (c.deficit || 0); };
         C = tpYearScoreCompare(tpGetAnalysis(), P.rows, {
-            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: _ysScoreFamLabel, pendOf: pendOf,
+            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: tpScoreFamLabel, pendOf: pendOf,
             partsOf: function(r) { return tpScoreBreakdown(r, r.testedN, r.scoreCtx).parts; },
             skip: function(r) { return !!r.paused; }
         });
@@ -73260,7 +73276,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611032026' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611032037' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -93653,7 +93669,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20463],[20467,"js/uiflow.js",20802],[20806,"js/cop15.js",32332],[32336,"js/inventory.js",40340],[40344,"js/cuarto.js",42474],[42478,"js/sitio.js",44661],[44665,"js/conslist.js",45273],[45277,"js/testplan.js",58370],[58374,"js/bloques.js",59002],[59006,"js/resumen.js",59324],[59328,"js/panel.js",64715],[64719,"js/projects.js",67008],[67012,"js/auth.js",68092],[68096,"js/signatures.js",68458],[68462,"js/firebase-sync.js",77100],[77104,"js/cop_validator.js",82052],[82056,"js/copreport.js",84206],[84210,"js/cophq.js",85020],[85024,"js/homolog.js",86921],[86925,"js/vets.js",88724],[88728,"js/historico.js",89642],[89646,"js/review.js",90115],[90119,"js/opcards.js",90568],[90572,"js/handoff.js",90851],[90855,"js/ficha.js",91356],[91360,"js/relevo.js",91740],[91744,"js/momentos.js",91881],[91885,"js/normas.js",92293],[92297,"js/digest.js",93225],[93229,"js/xlsxw.js",93609],[93613,"js/bugreport.js",94759]]};
+var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20466],[20470,"js/uiflow.js",20805],[20809,"js/cop15.js",32335],[32339,"js/inventory.js",40343],[40347,"js/cuarto.js",42477],[42481,"js/sitio.js",44664],[44668,"js/conslist.js",45276],[45280,"js/testplan.js",58397],[58401,"js/bloques.js",59029],[59033,"js/resumen.js",59340],[59344,"js/panel.js",64731],[64735,"js/projects.js",67024],[67028,"js/auth.js",68108],[68112,"js/signatures.js",68474],[68478,"js/firebase-sync.js",77116],[77120,"js/cop_validator.js",82068],[82072,"js/copreport.js",84222],[84226,"js/cophq.js",85036],[85040,"js/homolog.js",86937],[86941,"js/vets.js",88740],[88744,"js/historico.js",89658],[89662,"js/review.js",90131],[90135,"js/opcards.js",90584],[90588,"js/handoff.js",90867],[90871,"js/ficha.js",91372],[91376,"js/relevo.js",91756],[91760,"js/momentos.js",91897],[91901,"js/normas.js",92309],[92313,"js/digest.js",93241],[93245,"js/xlsxw.js",93625],[93629,"js/bugreport.js",94775]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

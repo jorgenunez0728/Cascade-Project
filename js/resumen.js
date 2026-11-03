@@ -165,17 +165,6 @@ function _tpYearSummaryInput(year) {
     return { tests: tests, planned: planned, corr: corr };
 }
 
-/** El nombre de una familia del score (las que juntan años modelo lo dicen). */
-function _ysScoreFamLabel(row) {
-    if (!tpScoreMergesMy(row)) return tpFamilyShortLabel(row);
-    var mys = {};
-    (tpState.planData || []).forEach(function(c) {
-        if (c && !c.paused && tpScoreFamKey(c) === tpScoreFamKey(row)) { var n = tpMyNum(c.my); if (n !== null) mys[n] = true; }
-    });
-    var my = Object.keys(mys).sort();
-    return tpFamilyShortLabel(Object.assign({}, row, { my: '' })) + (my.length ? ' · MY' + my.join('+') : '');
-}
-
 function _ysPrefs() {
     var p = (typeof uiPref === 'function' && uiPref('yearSum')) || {};
     return { dim: p.dim || 'fam', scope: p.scope || 'req', proposals: !!p.proposals, all: !!p.all };
@@ -266,7 +255,7 @@ function _ysScoreCardHTML(pr) {
         P = tpProjectedAnalysis({ proposals: pr.proposals });
         var pendOf = function(r) { var c = r.scoreCtx || {}; return c.famDeficit !== undefined ? c.famDeficit : (c.deficit || 0); };
         C = tpYearScoreCompare(tpGetAnalysis(), P.rows, {
-            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: _ysScoreFamLabel, pendOf: pendOf,
+            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: tpScoreFamLabel, pendOf: pendOf,
             partsOf: function(r) { return tpScoreBreakdown(r, r.testedN, r.scoreCtx).parts; },
             skip: function(r) { return !!r.paused; }
         });
