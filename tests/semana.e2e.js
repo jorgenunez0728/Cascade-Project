@@ -154,7 +154,9 @@ const SEED = () => {
     await page.waitForTimeout(800);
     r.hoyPlan = await page.evaluate(() =>
         (typeof dashCollectActivities === 'function' ? dashCollectActivities() : [])
-            .filter(a => a.cat === 'plan').map(a => a.title.slice(0, 60)));
+            // [3.28.0] Sin la fila de bloques de la celda (3.24.0): es otro tema —días ya
+            // pasados sin prueba ni motivo— y sale haya o no plan.
+            .filter(a => a.cat === 'plan' && a.id !== 'act-blocks').map(a => a.title.slice(0, 60)));
 
     // Y con el plan SIN aceptar, HOY no debe listar pruebas
     await page.evaluate(() => {
@@ -165,7 +167,9 @@ const SEED = () => {
     await page.waitForTimeout(300);
     r.hoyPropuesta = await page.evaluate(() =>
         (typeof dashCollectActivities === 'function' ? dashCollectActivities() : [])
-            .filter(a => a.cat === 'plan').map(a => a.title.slice(0, 60)));
+            // [3.28.0] Sin la fila de bloques de la celda (3.24.0): es otro tema —días ya
+            // pasados sin prueba ni motivo— y sale haya o no plan.
+            .filter(a => a.cat === 'plan' && a.id !== 'act-blocks').map(a => a.title.slice(0, 60)));
 
     r.errores = errores.slice(0, 6);
     console.log(JSON.stringify(r, null, 2));
