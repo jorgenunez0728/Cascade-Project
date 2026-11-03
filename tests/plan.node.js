@@ -820,5 +820,15 @@ t('tpProjectedAnalysis: lo agendado baja los pendientes y se evalúa al 31 dic',
     eq(/días/.test(days.why), true, 'CFG-A ya tiene "última prueba" (la agendada):');
 });
 
+console.log('\n== [3.29.1] Buscar familias en cualquier orden ==');
+t('tpSearchMatch: todas las palabras, en cualquier orden, sin acentos ni mayúsculas', () => {
+    const L = 'CL4 1.0 KAPPA PE MHEV 7DCT MY26+27 PRE-EURO 7 WGN · EUROPE';
+    eq(sandbox.tpSearchMatch(L, 'cl4 wgn'), true);
+    eq(sandbox.tpSearchMatch(L, 'wgn   cl4 1.0'), true);
+    eq(sandbox.tpSearchMatch(L, 'cl4 5dr'), false);
+    eq(sandbox.tpSearchMatch(L, ''), true);
+    eq(sandbox.tpSearchMatch(L, 'europe mhev'), true);
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

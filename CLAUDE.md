@@ -4289,3 +4289,11 @@ por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana
   con la configuración de mayor score de cada una. Las preferencias de la pantalla viven en
   `uiPref('yearSum')` (por equipo).
 - Orden de carga: `… testplan.js → bloques.js → resumen.js → panel.js …`.
+
+## 3.29.1 — Buscar en cualquier orden (`js/testplan.js`)
+
+- **`tpSearchMatch(texto, búsqueda)` (PURA) es LA regla de un buscador de texto del Plan**: cada
+  palabra tiene que aparecer, en cualquier orden, sin acentos ni mayúsculas (`_uiFold`). La usan la
+  tabla de prioridad (familias), el Dashboard del Plan y el filtro de Agregar prueba. Un buscador
+  nuevo la llama; no volver a comparar la frase completa con `indexOf`/`includes` (así "cl4 wgn" no
+  encontraba "CL4 … WGN").

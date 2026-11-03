@@ -20,6 +20,18 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.29.1 — Buscar familias en cualquier orden (2026-11-03)
+
+### Arreglado
+- **Plan → Reglas → Tabla de prioridad**: el buscador de familias buscaba la frase exacta, así que
+  "cl4 wgn" no encontraba "CL4 1.0 KAPPA PE … WGN". Ahora busca **por palabras, en cualquier orden**
+  y sin importar acentos ni mayúsculas.
+- La misma regla en el buscador del **Dashboard del Plan** (que ahora también busca por el nombre
+  de la familia, no solo por el código de la configuración) y en el filtro de **Agregar prueba**.
+
+### Para desarrollo
+- `tpSearchMatch(texto, búsqueda)` (PURA): todas las palabras, en cualquier orden, con `_uiFold`.
+
 ## 3.29.0 — Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada (2026-11-03)
 
 ### Nuevo
