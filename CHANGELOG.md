@@ -20,6 +20,41 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.30.0 — El rin no separa pruebas (2026-11-03)
+
+Decisión del laboratorio: en todas las familias, los distintos rines van juntos; no se prueban
+por separado.
+
+### Cambió
+- **El REQ de las configuraciones que solo cambian de llanta se cuenta junto.** Sale del volumen
+  de todas (las pausadas no suman) y una prueba con cualquiera de esos rines cuenta para todas.
+  El pendiente lo lleva la de más volumen; las demás piden 0 y lo dicen ("el REQ lo lleva otra
+  llanta"). La evidencia de cada prueba sigue en su configuración real. **La cobertura del Plan
+  cambia**: hay menos configuraciones vigentes y una prueba de un rin ya no deja pendientes a los
+  otros.
+- **Armar la semana → Elegir otra (en cascada)** ya no pregunta la llanta: sale un renglón por
+  configuración con sus rines ("rines R16, R17, R18") y "faltan" suma los de todas. Cuando
+  quedan renglones con el mismo nombre se dice qué los distingue (manejo LHD/RHD, paquete
+  ambiental…). Antes se veían iguales sin decir cuál era cuál.
+- Los chips de una prueba dicen **todos los rines** de su configuración. Dos pruebas fijadas que
+  solo cambiaban de llanta ahora se ven iguales, porque lo son; la vista previa avisa cuántas
+  configuraciones van más de una vez en la semana.
+- El generador ya no propone por su cuenta dos llantas de la misma configuración en una semana.
+- Liberar con otro rin que el planeado acredita la fila como **la misma configuración** (antes
+  quedaba como sustitución "Rin/Llanta: 205/55 R16 → 225/45 R17").
+- CoP corporativo: el pendiente de una familia ya no se reparte entre llantas.
+
+### Para desarrollo
+- `tpTireGroupKey(cfg)` (PURA) = la configuración sin rin (`TP_TIRE_FREE_FIELDS`).
+- `tpTireGroupsCompute(configs, counts, ruleFor)` (PURA) es LA definición de los grupos y su
+  REQ; `tpTireGroupFor(cfg, list)` el de una configuración. Lo usan `_tpAnalyze`,
+  `tpBuildFamilies`, `_tpMakeItem` y la sugerencia del Alta. Filas del análisis:
+  `reqTested`/`reqVerified` (probadas del grupo), `tireGroup`, `tireOf` (no es la `rep`).
+  `testedN` sigue siendo la evidencia de la configuración.
+- `tpConfigFit` ignora `tire`; entre exactas gana el mismo `desc` (`sameDesc`).
+- `tpPickerRows` / `tpPickerVaryFields` (PURAS); `tire` salió de `TP_PICK_LEVELS`.
+- `_tpTireCollapseSplit` junta las llantas antes de `copYearPlanSplit`.
+
 ## 3.29.2 — "Cómo queda el orden" por familia (2026-11-03)
 
 ### Arreglado

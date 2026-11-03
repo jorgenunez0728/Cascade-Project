@@ -87,6 +87,7 @@ const R16    = cfg('CL4-R16');
 const R17    = cfg('CL4-R17', { tire: '225/45 R17' });
 const HEV17  = cfg('CL4-HEV-R17', { tire: '225/45 R17', ep: 'MILD HEV' });
 const HEV16  = cfg('CL4-HEV-R16', { ep: 'MILD HEV' });
+const HEVW17 = cfg('CL4-HEV-WGN-R17', { tire: '225/45 R17', ep: 'MILD HEV', body: 'WGN' });
 const OTRO   = cfg('CL4-1600', { eng: '1600CC GAMMA-II', tx: '7DCT' });
 const WD = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
 
@@ -100,7 +101,7 @@ function row(uid, desc, testDay, over) {
         preconDay: dias[dias.indexOf(testDay) - 1] }, over || {});
 }
 function reset(planes) {
-    S.planData = [R16, R17, HEV17, HEV16, OTRO];
+    S.planData = [R16, R17, HEV17, HEV16, HEVW17, OTRO];
     S.testedList = [];
     S.weekHistory = [];
     S.vehiclesPerSlot = 2;
@@ -127,10 +128,14 @@ const P = () => S.weeklyPlans.find(p => p.weekDate === W);
 const item = uid => { for (const p of S.weeklyPlans) for (const it of p.items) if (it.uid === uid) return it; return null; };
 
 console.log('\n== tpConfigFit: exacta / variante / otra ==');
-t('otro rin y otro paquete ambiental = variante, con sus diferencias', () => {
+t('otro paquete ambiental = variante, con sus diferencias (el rin no cuenta)', () => {
     const f = sandbox.tpConfigFit(HEV17, R16);
     eq(f.level, 'variante');
-    eq(f.diffs.map(d => d.field).sort().join(','), 'ep,tire');
+    eq(f.diffs.map(d => d.field).sort().join(','), 'ep');
+});
+t('[3.30.0] solo otro rin = la MISMA configuración (exacta, sin diferencias)', () => {
+    const f = sandbox.tpConfigFit(R17, R16);
+    eq(f.level, 'exacta'); eq(f.diffs.length, 0);
 });
 t("'0', '-' y vacío son lo mismo (nada)", () => {
     eq(sandbox.tpConfigFit(cfg('X', { ep: '' }), cfg('Y', { ep: '0' })).level, 'exacta');
@@ -162,9 +167,16 @@ t('el alta desde el plan (▶ Iniciar) conserva su fila aunque se cambie el rin'
     eq(r.why, 'alta'); eq(r.credited.uid, 'C', 'la fila desde la que se dio de alta:');
     eq(item('C').substituted, true);
 });
-t('con DOS variantes posibles ese día no adivina: entra no planeada y pregunta', () => {
+t('[3.30.0] otro rin con la fila del mismo día = exacta: se acredita sin sustitución', () => {
     reset([plan(W, [row('B', 'CL4-R16', 'mar'), row('D', 'CL4-HEV-R16', 'mar')])]);
     const v = veh('CL4-HEV-R17', '2026-09-29');
+    const r = sandbox.tpCreditReleaseToWeek(v, { skipSave: true });
+    eq(r.matched, true); eq(r.credited.uid, 'D'); eq(r.fit.level, 'exacta');
+    eq(!!item('D').substituted, false, 'otra llanta no es sustitución:');
+});
+t('con DOS variantes posibles ese día no adivina: entra no planeada y pregunta', () => {
+    reset([plan(W, [row('B', 'CL4-R16', 'mar'), row('D', 'CL4-HEV-R16', 'mar')])]);
+    const v = veh('CL4-HEV-WGN-R17', '2026-09-29');
     const r = sandbox.tpCreditReleaseToWeek(v, { skipSave: true });
     eq(r.matched, false); eq(!!r.appended, true);
     eq(r.alternatives.length, 2, 'ofrece las dos filas:');
@@ -292,6 +304,45 @@ t('una prueba de emisiones nunca se lleva una fila de correlación', () => {
     const c = sandbox.tpCreditCandidatesFor(v);
     eq(c.candidates.length, 0);
     eq(c.auto, null);
+});
+
+console.log('\n== [3.30.0] El rin no separa pruebas ==');
+t('tpTireGroupsCompute junta las llantas: REQ de la suma, probadas de cualquiera, pide la de más volumen', () => {
+    const G = sandbox.tpTireGroupsCompute([cfg('A16', { total: 4000 }), cfg('A17', { tire: '225/45 R17', total: 9000 }),
+                                           cfg('A18', { tire: '235/40 R18', total: 2000, paused: true }), HEV16],
+                                          { A16: { n: 1, nDecl: 0 }, A18: { n: 1, nDecl: 1 } },
+                                          () => ({ ratio: 1, per: 1000 }));
+    const g = G.groups[G.byDesc.A16];
+    eq(G.byDesc.A17, G.byDesc.A16, 'mismo grupo:');
+    eq(G.byDesc['CL4-HEV-R16'] === G.byDesc.A16, false, 'otro paquete ambiental es otro grupo:');
+    eq(g.rep, 'A17', 'la de más volumen lleva el REQ:');
+    eq(g.req, 13, 'REQ de 4000 + 9000 (la pausada no suma volumen):');
+    eq(g.n, 2, 'las probadas de todos los rines cuentan, pausada incluida:');
+    eq(g.nDecl, 1);
+    eq(g.tires.join(','), '205/55 R16,225/45 R17,235/40 R18');
+});
+t('el análisis pide el REQ una sola vez por configuración sin rin', () => {
+    reset([]);
+    S.rules = [{ region: '*', regulation: '*', ratio: 1, per: 1000, label: 'Todas' }];
+    S.testedList = [{ configText: 'CL4-R17', date: '2026-09-29', vin: 'X1' }];
+    S._lastSave++; sandbox.tpInvalidateCache();
+    const an = {}; sandbox.tpGetAnalysis().forEach(a => { an[a.desc] = a; });
+    eq(an['CL4-R16'].required, 12, 'R16 + R17 = 12 000 u:');
+    eq(an['CL4-R16'].deficit, 11, 'la prueba con rin 17 cuenta:');
+    eq(an['CL4-R17'].required, 0); eq(an['CL4-R17'].tireOf, 'CL4-R16');
+    eq(an['CL4-R17'].testedN, 1, 'la evidencia sigue en su configuración:');
+    const cov = sandbox.tpCoverageSummary();
+    eq(cov.totalTested, 1, 'nada se cuenta dos veces:');
+});
+t('el selector muestra UNA fila por configuración sin rin, con sus rines', () => {
+    const an = { 'CL4-R16': { deficit: 2, score: 30 }, 'CL4-R17': { deficit: 0, score: 10, tireOf: 'CL4-R16' } };
+    const rows = sandbox.tpPickerRows([R16, R17, HEV16], an);
+    eq(rows.length, 2);
+    eq(rows[0].c.desc, 'CL4-R16', 'se elige la que lleva el pendiente:');
+    eq(rows[0].tires.join(','), '205/55 R16,225/45 R17');
+    eq(rows[0].members.length, 2);
+    eq(sandbox.tpPickerVaryFields([R16, HEV16], sandbox.TP_PICK_LEVELS).map(l => l[0]).join(','), 'ep',
+       'dice qué distingue a las filas que quedan:');
 });
 
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
