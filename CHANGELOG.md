@@ -20,6 +20,54 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.29.0 — Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada (2026-11-03)
+
+### Nuevo
+- **Estatus CoP → "Plan al 31 dic"**, después de "Ensayos por semana":
+  - una frase: "Con lo agendado se llega a **X de Y** ensayos al 31 dic; con las propuestas sin
+    aceptar, a Z. **Faltan N por agendar**";
+  - una barra del año con cinco tramos y sus cuadros: **registradas · en curso · agendadas ·
+    en propuesta · sin agendar**;
+  - una gráfica por semana hasta el 31 dic: CoP agendadas, CoP en propuesta, correlación y otras,
+    con "sin plan", "propuesta" o "sin celda" debajo de cada semana;
+  - **correlación**: agendadas, en propuesta y hechas en el año (ocupan la celda, no cuentan para
+    el CoP);
+  - por familia que todavía no cubre su REQ: con qué se cubre, cuántas faltan por agendar y el día
+    en que se completaría con lo agendado ("no alcanza" si no).
+- Sale en la pantalla, al imprimir, al copiar para correo y en el envío del viernes, en inglés y
+  en español. El Panorama lo dice en una línea.
+- **Plan → 🧮 Resumen del año** (grupo Cobertura):
+  - cuántas pruebas se han hecho en el año, **de mayor a menor**, agrupadas por **familia, modelo,
+    región, carrocería, regulación, motor o transmisión**; cada renglón con su barra, una tira de
+    enero a diciembre (más oscuro = más pruebas ese mes), lo agendado hasta el 31 dic y la
+    proyección;
+  - se elige qué pruebas cuentan: las que acreditan el REQ, solo CoP o todas; y si las propuestas
+    sin aceptar cuentan;
+  - **Prioridad: hoy y al 31 dic**: el score de la tabla de prioridad de cada familia hoy y el que
+    tendría el 31 dic si se hacen las pruebas agendadas (bajan sus pendientes; suben los días sin
+    probar de lo que no se agenda), con el desglose de puntos, ▲/▼ lugares y qué familias salen
+    del top 15. Es el mismo cálculo del armador: la tabla no se toca.
+
+### Cambió
+- "En curso" para el CoP del año tiene una sola definición, la misma en el Plan y en el reporte.
+
+### Arreglado
+- El desglose de puntos de un análisis hecho sobre otra lista (una proyección) se calculaba contra
+  la lista real: el total y el "por qué" no coincidían.
+
+### Para desarrollo
+- `tpPlanRowsUntil(desde, hasta)` es LA definición de lo que dice el plan entre dos fechas (plan
+  vigente de cada semana, fila por fila con su estado). La usan el plan al 31 dic y la proyección.
+- `tpProjectedAnalysis({asOf, proposals})`: `_tpAnalyze` sobre la lista de probadas + las agendadas
+  simuladas, evaluado el `asOf` (`ctx.asOf` en `tpScoreFacts`). No escribe nada.
+- `js/resumen.js`: `tpYearSummaryModel` y `tpYearScoreCompare` (PURAS), `tpRenderYearSummary`.
+- `copRepOutlookCompute(m, input)` (PURA) es LA definición del plan al 31 dic; `_copRepOutlookInput(m)`
+  lee los planes semanales (plan vigente de cada semana por `tpWeekPlanFor`) y los vehículos.
+  Vive en `model.outlook`, diferido como `model.cell`.
+- `copYearInFlight(vehs, year)` es LA definición de "en curso" para el CoP del año; la usan
+  `tpCopReqBase` y el reporte.
+- `_crStack(parts, total, opts)`: barra apilada que Outlook pinta (celdas con ancho en % o en px).
+
 ## 3.28.0 — Armar la semana: primero cómo va a ser, después qué probar (2026-11-03)
 
 ### Nuevo

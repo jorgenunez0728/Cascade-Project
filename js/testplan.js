@@ -1522,7 +1522,8 @@ function tpScoreFacts(cfg, testedN, ctx) {
     var merged = famKey !== famKeyOld || tpScoreMergesMy(cfg);
     var ag = merged ? (idx.agg[famKey] || null) : null;
     var fe = idx.fam[famKey] || null;
-    var today = localToday();
+    // [3.29.0] ctx.asOf: el día en que se evalúa (la proyección al 31 dic). Sin él, hoy.
+    var today = ctx.asOf || localToday();
     var daysSince = null;
     if (fe && fe.last) daysSince = Math.max(0, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(fe.last + 'T12:00:00Z')) / 86400000));
     // [3.27.0] Familia que junta años modelo: los pendientes son los de la familia entera
@@ -1691,19 +1692,12 @@ function tpCopReqBase() {
         });
         var excluded = {};
         (model.excluded || []).forEach(function(x) { excluded[x.key] = x; });
+        // [3.29.0] En curso: una sola definición (copYearInFlight), la misma que lee el reporte.
         var inFlightIds = {};
-        vehs.forEach(function(v) {
-            if (!v || !copInScope(v).ok) return;
-            var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
-            if (!vehicleIsLive(v) && !pend) return;
-            // [3.22.0] Para corporativo solo cuenta lo registrado como conformidad de la producción.
-            if (typeof copPurposeCounts === 'function' ? !copPurposeCounts(v.purpose) : !tpPurposeCountsForReq(v.purpose)) return;
-            var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
-            if (d && Number(d.slice(0, 4)) !== year) return;
-            var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
-            if (!fams[yk]) return;
-            fams[yk].inFlight++;
-            inFlightIds[String(v.id)] = true;
+        (typeof copYearInFlight === 'function' ? copYearInFlight(vehs, year) : []).forEach(function(x) {
+            if (!fams[x.yk]) return;
+            fams[x.yk].inFlight++;
+            inFlightIds[String(x.id)] = true;
         });
         // Meses que vienen (este incluido): de ahí sale qué configuración sigue en producción.
         var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));
@@ -1804,8 +1798,9 @@ function tpCopReqSummary() {
  *
  * PURA respecto a `tpState.testedList`: no lee ni escribe la lista global.
  */
-function _tpAnalyze(list) {
+function _tpAnalyze(list, opts) {
     var src = list || [];
+    var asOf = (opts && opts.asOf) || null;
     var porDesc = {};
     src.forEach(function(t) {
         if (!t || !tpTestedCountsForReq(t)) return;
@@ -1847,6 +1842,10 @@ function _tpAnalyze(list) {
     rows.forEach(function(r) {
         var e = tpScoreMergesMy(r) ? fam[tpScoreFamKey(r)] : null;
         r.scoreCtx = { deficit: r.deficit, hasReq: !!r._scoreHasReq };
+        if (asOf) r.scoreCtx.asOf = asOf;
+        // [3.29.0] Con una lista que no es la real (la proyección), el desglose que se pinte
+        // después tiene que leer ESA lista o diría otros puntos. No enumerable: no se copia.
+        if (src !== tpState.testedList) Object.defineProperty(r.scoreCtx, 'list', { value: src, enumerable: false });
         if (e) { r.scoreCtx.famDeficit = e.deficit; r.scoreCtx.famHasReq = e.hasReq; }
         delete r._scoreHasReq;
         r.score = tpPriorityScore(r, r.testedN, Object.assign({ list: src }, r.scoreCtx));
@@ -2477,7 +2476,7 @@ function tpUpdateBadges() {
 // v23: fuera 'tp-weekly' (el armador vive dentro de Mi semana) y fuera
 // 'tp-planactual'/'tp-planhistory', declaradas desde hace rondas sin ningún botón
 // que las alcanzara.
-var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
+var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-yearsummary','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
@@ -2508,7 +2507,9 @@ function _tpGetRenderer(tabId) {
         'tp-myweek': tpRenderMyWeek,
         'tp-simulator': tpRenderSimulator,
         'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
-        'tp-recovery': tpRenderRecovery
+        'tp-recovery': tpRenderRecovery,
+        // [3.29.0] Resumen del año (js/resumen.js, carga después de este archivo).
+        'tp-yearsummary': (typeof tpRenderYearSummary === 'function') ? tpRenderYearSummary : null
     };
     return map[tabId] || null;
 }
@@ -8453,6 +8454,67 @@ function tpEnsureItemUids() {
     _tpMigrDone('itemUids');
     if (tocados) tpSave();
     return tocados;
+}
+
+/**
+ * [3.29.0] LA definición de "lo que dice el plan" de una fecha a otra: semana por semana, el
+ * plan VIGENTE (tpWeekPlanFor: los aceptados, o la propuesta) y cada fila con su día y su
+ * estado. status: 'done' (palomeada) · 'inflight' (vinculada a un vehículo, sin terminar) ·
+ * 'late' (abierta y su día ya pasó: se planeó y no se hizo) · 'open' (agendada).
+ * Devuelve {weeks:[{monday, state:'accepted'|'proposal'|'none', rows:[{item, date, status,
+ * proposal, planId}]}]}. La usan el plan al 31 dic del reporte CoP y la proyección del score.
+ */
+function tpPlanRowsUntil(fromIso, toIso) {
+    var weeks = [], first = tpMondayIso(fromIso);
+    if (!first || !toIso) return { weeks: weeks };
+    for (var mon = first; mon <= toIso; mon = tpIsoAddDays(mon, 7)) {
+        var vig = tpWeekPlanFor(mon), plans = [], state = 'none';
+        if (vig && vig.plan) {
+            state = vig.accepted ? 'accepted' : 'proposal';
+            plans = vig.accepted ? (vig.plans || [vig.plan]) : [vig.plan];
+        }
+        var rows = [];
+        plans.forEach(function(p) {
+            (p.items || []).forEach(function(it) {
+                if (!it) return;
+                var date = it.testDay ? (tpWeekDayIso(mon, it.testDay) || mon) : mon;
+                if (date > toIso) return;
+                var status = it.completed ? 'done' : (it.linkedVehicleId != null ? 'inflight' : (date < fromIso ? 'late' : 'open'));
+                rows.push({ item: it, date: date, status: status, proposal: !p.accepted, planId: tpPlanId(p) });
+            });
+        });
+        weeks.push({ monday: mon, state: state, rows: rows });
+    }
+    return { weeks: weeks };
+}
+
+/**
+ * [3.29.0] El análisis "como si lo agendado se hiciera": la lista de probadas más una fila
+ * simulada (`source:'plan'`, la misma forma que usa el horizonte) por cada prueba agendada
+ * de hoy al `asOf` (default 31 dic), evaluado ese día. No escribe nada.
+ * opts = {asOf, proposals:true|false}. Una fila vinculada a un vehículo que el CoP de
+ * corporativo ya cuenta "en curso" no se simula otra vez. Devuelve {rows, sim, asOf}.
+ */
+function tpProjectedAnalysis(opts) {
+    opts = opts || {};
+    var today = localToday();
+    var asOf = opts.asOf || (today.slice(0, 4) + '-12-31');
+    var base = (typeof tpCopReqBase === 'function') ? tpCopReqBase() : null;
+    var sim = [];
+    tpPlanRowsUntil(today, asOf).weeks.forEach(function(w) {
+        w.rows.forEach(function(r) {
+            var it = r.item;
+            if (r.status !== 'open' && r.status !== 'inflight') return;
+            if (r.proposal && !opts.proposals) return;
+            if (tpItemIsActivity(it)) return;
+            if (r.status === 'inflight' && base && base.inFlightIds && base.inFlightIds[String(it.linkedVehicleId)]) return;
+            var cfg = tpConfigByDesc(it.desc) || it;
+            sim.push({ configText: it.desc, date: r.date, source: 'plan', verified: false, simulated: true,
+                       purpose: it.actualPurpose || it.purpose || tpPurposeForCfg(cfg), planId: r.planId, itemUid: it.uid || null });
+        });
+    });
+    var list = (tpState.testedList || []).concat(sim);
+    return { rows: _tpAnalyze(list, { asOf: asOf }), sim: sim, asOf: asOf };
 }
 
 /**

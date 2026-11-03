@@ -65,6 +65,9 @@ const src = fs.readFileSync('js/testplan.js', 'utf8') +
     '\nvar __getTp = function(){ return tpState; };\n';
 try { vm.runInContext(src, sandbox, { filename: 'testplan.js' }); }
 catch (e) { console.error('NO CARGA:', e.message); process.exit(1); }
+// [3.29.0] El resumen del año (carga después de testplan.js, como en la app).
+try { vm.runInContext(fs.readFileSync('js/resumen.js', 'utf8'), sandbox, { filename: 'resumen.js' }); }
+catch (e) { console.error('NO CARGA resumen.js:', e.message); process.exit(1); }
 
 let pass = 0, fail = 0;
 function t(nombre, fn) {
@@ -740,6 +743,81 @@ t('capacityExact: la selección usa lo que dice la semana, aunque sea 0', () => 
     S._lastSave = Date.now() + Math.random(); sandbox.tpInvalidateCache();
     const R0 = sandbox.tpSelectWeeklyItems({ capacity: 0, capacityExact: true, dryRun: true });
     eq(R0.items.length, 0, 'con 0 pruebas no elige nada (antes 0 = el máximo):');
+});
+
+console.log('\n== [3.29.0] Resumen del año y prioridad al 31 dic ==');
+const _iso = d => d.toISOString().slice(0, 10);
+const _hoy = sandbox.localToday();
+const _lunes = k => sandbox.tpIsoAddDays(sandbox.tpMondayIso(_hoy), 7 * k);
+const _x = (date, cfg, o) => Object.assign({ date, cfg, famLabel: cfg.mod + ' ' + cfg.body, req: true, cop: false }, o || {});
+t('tpYearSummaryModel: agrupa por el campo, de mayor a menor, con meses y lo agendado', () => {
+    const A = { mod: 'K5', rgn: 'EUROPE', body: '5DR', reg: 'EURO-6E', eng: '2.0', tx: 'AT' };
+    const B = { mod: 'K8', rgn: 'MEXICO', body: '4DR', reg: 'EPA T3', eng: '2.5', tx: 'AT' };
+    const tests = [_x('2026-01-10', A), _x('2026-02-11', A), _x('2026-02-20', B), _x('2026-03-01', B, { req: false }), _x('2026-03-05', B, { cop: true })];
+    const planned = [_x('2026-11-10', B), _x('2026-11-12', B), _x('2026-11-20', A, { proposal: true })];
+    let M = sandbox.tpYearSummaryModel({ year: 2026, dim: 'mod', scope: 'req', tests, planned });
+    eq(M.rows.map(r => r.label + ':' + r.done + '/' + r.sched + '/' + r.prop + '/' + r.proj).join(), 'K8:2/2/0/4,K5:2/0/1/2', 'por modelo, REQ (empate en probadas: desempata la proyección):');
+    eq(M.rows[1].months.slice(0, 3).join(), '1,1,0');
+    eq(M.total.done + '/' + M.total.sched + '/' + M.total.proj, '4/2/6');
+    M = sandbox.tpYearSummaryModel({ year: 2026, dim: 'rgn', scope: 'all', proposals: true, tests, planned });
+    eq(M.rows.map(r => r.label + ':' + r.done + '/' + r.proj).join(), 'MEXICO:3/5,EUROPE:2/3', 'todas, con propuestas:');
+    M = sandbox.tpYearSummaryModel({ year: 2026, dim: 'tx', scope: 'cop', tests, planned });
+    eq(M.rows.length + ':' + M.total.done, '1:1', 'solo CoP:');
+    eq(sandbox.tpYearDimValue({ cfg: { body: '0' } }, 'body'), '(sin dato)');
+});
+t('tpYearScoreCompare: el top de la proyección con su lugar de hoy y lo que sale del top', () => {
+    const now = [{ k: 'A', score: 40 }, { k: 'A', score: 30 }, { k: 'B', score: 35 }, { k: 'C', score: 20 }];
+    const proj = [{ k: 'A', score: 28 }, { k: 'B', score: 36 }, { k: 'C', score: 33 }, { k: 'D', score: 10 }];
+    const C = sandbox.tpYearScoreCompare(now, proj, { keyOf: r => r.k, labelOf: r => r.k, top: 2, pendOf: () => 0 });
+    eq(C.rows.map(r => r.key + '#' + r.proj.rank + '(' + (r.move > 0 ? '+' : '') + r.move + ')').join(), 'B#1(+1),C#2(+1)');
+    eq(C.rows[0].delta, 1); eq(C.rows[0].now.score, 35);
+    eq(C.leaving.map(x => x.key + ':' + x.now.score + '→' + x.proj.score).join(), 'A:40→28', 'A deja el top:');
+});
+t('tpPlanRowsUntil: el plan vigente de cada semana, con el estado de cada fila', () => {
+    reset([]);
+    const W = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+    S.weeklyPlans = [
+        { planId: 'P0', id: 'P0', weekDate: _lunes(0), accepted: true, acceptedDate: _lunes(0) + 'T00:00:00Z', created: _lunes(0), workDays: W,
+          items: [{ uid: 'x1', desc: 'CFG-A', testDay: 'lun' }, { uid: 'x2', desc: 'CFG-A', testDay: 'mar', completed: true }] },
+        { planId: 'P1', id: 'P1', weekDate: _lunes(1), accepted: false, created: _lunes(0), workDays: W,
+          items: [{ uid: 'y1', desc: 'CFG-B', testDay: 'mie' }, { uid: 'y2', desc: 'CFG-A', testDay: 'jue', linkedVehicleId: 9 }] }
+    ];
+    sandbox.tpWeekPlanInvalidate();
+    const R = sandbox.tpPlanRowsUntil(_hoy, _lunes(3));
+    eq(R.weeks.length, 4); eq(R.weeks[0].state, 'accepted'); eq(R.weeks[1].state, 'proposal'); eq(R.weeks[2].state, 'none');
+    const st = R.weeks[1].rows.map(r => r.item.uid + ':' + r.status + ':' + r.proposal).join();
+    eq(st, 'y1:open:true,y2:inflight:true');
+    eq(R.weeks[0].rows[1].status, 'done');
+    // La del lunes ya pasó si hoy no es lunes.
+    const lun = R.weeks[0].rows[0];
+    eq(lun.status, lun.date < _hoy ? 'late' : 'open');
+});
+t('tpProjectedAnalysis: lo agendado baja los pendientes y se evalúa al 31 dic', () => {
+    reset([]);
+    S.rules = [{ id: 'r', rgn: '*', reg: '*', ratio: 3, per: 1000, label: 'Todas' }];
+    S.copReqMode = { on: false, at: '2026-01-01' };
+    const W = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+    S.weeklyPlans = [
+        { planId: 'Q1', id: 'Q1', weekDate: _lunes(1), accepted: true, acceptedDate: _lunes(0) + 'T00:00:00Z', created: _lunes(0), workDays: W,
+          items: [{ uid: 'q1', desc: 'CFG-A', testDay: 'mar', purpose: 'EO-Emisiones' }, { uid: 'q2', desc: 'CFG-A', testDay: 'jue', purpose: 'EO-Emisiones' },
+                  { uid: 'q3', activity: 'correlacion', purpose: 'Correlacion', desc: 'Prueba de correlación', testDay: 'vie' }] },
+        { planId: 'Q2', id: 'Q2', weekDate: _lunes(2), accepted: false, created: _lunes(0), workDays: W,
+          items: [{ uid: 'q4', desc: 'CFG-B', testDay: 'mar', purpose: 'EO-Emisiones' }] }
+    ];
+    S._lastSave = Date.now() + Math.random();
+    sandbox.tpInvalidateCache();
+    const now = {}; sandbox.tpGetAnalysis().forEach(a => { now[a.desc] = a; });
+    const P = sandbox.tpProjectedAnalysis({ asOf: _hoy.slice(0, 4) + '-12-31' });
+    const pr = {}; P.rows.forEach(a => { pr[a.desc] = a; });
+    eq(P.sim.length, 2, 'dos agendadas en un plan aceptado (la correlación y la propuesta no):');
+    eq(pr['CFG-A'].deficit, now['CFG-A'].deficit - 2, 'CFG-A baja 2 pendientes:');
+    eq(pr['CFG-B'].deficit, now['CFG-B'].deficit, 'CFG-B no cambia (su prueba es una propuesta):');
+    eq(pr['CFG-A'].scoreCtx.asOf, _hoy.slice(0, 4) + '-12-31');
+    const P2 = sandbox.tpProjectedAnalysis({ proposals: true });
+    eq(P2.sim.length, 3, 'con propuestas:');
+    eq(S.testedList.length, 0, 'no escribe nada:');
+    const days = sandbox.tpScoreBreakdown(pr['CFG-A'], pr['CFG-A'].testedN, pr['CFG-A'].scoreCtx).parts.find(p => p.k === 'days');
+    eq(/días/.test(days.why), true, 'CFG-A ya tiene "última prueba" (la agendada):');
 });
 
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');

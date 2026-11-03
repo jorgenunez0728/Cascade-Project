@@ -7786,9 +7786,56 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-armar-markets { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
 .tp-armar-markets .tp-wd-chips { flex-wrap: wrap; }
 .tp-mkt small { opacity: .7; font-size: var(--fs-2xs); margin-left: var(--space-2xs, 2px); }
-.tp-wd-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary); list-style: none; padding: var(--space-2xs, 2px) 0; }
+.tp-wd-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); list-style: none; padding: var(--space-2xs, 2px) 0; }
 .tp-wd-more > summary::-webkit-details-marker { display: none; }
 .tp-wd-more[open] > summary { margin-bottom: var(--space-xs); }
+
+/* [3.29.0] Plan → Resumen del año */
+.ys-lead { margin: 0 0 var(--space-md); font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-base); }
+.ys-controls { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); align-items: center; margin-bottom: var(--space-md); }
+.ys-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.ys-ctl-l { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.ys-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ys-chip { border: 1px solid var(--tp-border); background: var(--surface); color: var(--tp-text); border-radius: var(--radius-full, 999px);
+  padding: var(--space-xs) var(--space-md); font-size: var(--fs-sm); cursor: pointer; min-height: 32px; }
+.ys-chip[aria-checked="true"] { background: var(--tp-blue, #2563eb); border-color: var(--tp-blue, #2563eb); color: #fff; font-weight: 700; }
+.ys-check { display: inline-flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-sm); }
+.ys-metrics { margin-bottom: var(--space-md); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+.ys-table-wrap { overflow-x: auto; }
+.ys-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.ys-table th { text-align: left; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  padding: var(--space-sm); border-bottom: 2px solid var(--tp-border); white-space: nowrap; }
+.ys-table td { padding: var(--space-sm); border-bottom: 1px solid var(--tp-border); vertical-align: middle; }
+.ys-table .ys-num { text-align: right; white-space: nowrap; }
+.ys-label { font-weight: 600; min-width: 160px; }
+.ys-bar-td { min-width: 160px; }
+.ys-bar { display: inline-flex; width: calc(100% - 36px); height: 12px; background: var(--surface-alt, #f1f5f9); border-radius: var(--radius-sm); overflow: hidden; vertical-align: middle; }
+.ys-bar-done { background: #059669; }
+.ys-bar-sched { background: #93c5fd; }
+.ys-bar-n { display: inline-block; width: 32px; text-align: right; }
+.ys-months { white-space: nowrap; }
+.ys-m { display: inline-block; width: 16px; height: 18px; line-height: 18px; text-align: center; font-size: 10px; margin-right: 1px;
+  border-radius: 3px; color: var(--muted); background: var(--surface-alt, #f1f5f9); }
+.ys-m--1 { background: #d1fae5; color: #065f46; }
+.ys-m--2 { background: #6ee7b7; color: #064e3b; }
+.ys-m--3 { background: #10b981; color: #fff; }
+.ys-m--4 { background: #047857; color: #fff; }
+.ys-m--fut { opacity: .45; }
+.ys-prop { color: var(--muted); }
+.ys-more { margin-top: var(--space-sm); }
+.ys-legend { margin-top: var(--space-sm); font-size: var(--fs-xs); color: var(--muted); }
+.ys-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+.ys-sw--done { background: #059669; } .ys-sw--sched { background: #93c5fd; }
+.ys-empty { color: var(--muted); font-size: var(--fs-sm); }
+.ys-mv { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.ys-mv--up { color: #b91c1c; } .ys-mv--down { color: #047857; } .ys-mv--new { color: #92400e; }
+.ys-up { color: #b91c1c; font-weight: 700; } .ys-down { color: #047857; font-weight: 700; }
+.ys-parts { min-width: 220px; }
+.ys-part { display: inline-block; margin: 2px 4px 2px 0; padding: 2px var(--space-sm); border-radius: var(--radius-full, 999px);
+  background: var(--surface-alt, #f1f5f9); font-size: var(--fs-xs); white-space: nowrap; }
+.ys-part--pend { background: #fee2e2; color: #991b1b; }
+.ys-part--days { background: #fef3c7; color: #92400e; }
+.ys-leaving { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
     </style>
 </head>
 
@@ -8989,6 +9036,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
         <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-myweek')">📅 Mi semana</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-yearsummary')">🧮 Resumen del año</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-recovery')">🚑 Recuperación</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
         <div class="tp-tab-more-wrap">
@@ -10533,10 +10581,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611031616';
+var APP_BUILD = '202611031944';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '726349c453833820f2450845bbdffbfc3166da68';
+var APP_COMMIT = 'f99c96a6f1a501407568ac8a53c899cac374dcee';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10544,7 +10592,7 @@ var APP_COMMIT = '726349c453833820f2450845bbdffbfc3166da68';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.28.0';
+var APP_VERSION = '3.29.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10552,6 +10600,14 @@ var APP_VERSION = '3.28.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.29.0', date: '3 nov 2026', title: 'Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada',
+      bullets: ['Estatus CoP → nueva sección "Plan al 31 dic": cuántos ensayos están registrados, en curso, agendados en el plan semanal, en propuesta y sin agendar, contra el REQ del año. Una barra del año, cinco cuadros y una gráfica por semana hasta el 31 dic.',
+                'Cuenta en orden y nunca de más: lo registrado, luego lo en curso, luego lo agendado en un plan aceptado, luego lo propuesto. Lo agendado de más, las semanas sin plan y las pruebas planeadas en días que ya pasaron sin hacerse se dicen aparte.',
+                'Las pruebas de correlación (agendadas, en propuesta y hechas en el año) y las de otros propósitos se muestran aparte: ocupan la celda pero no cuentan para el CoP.',
+                'Por familia: con qué se cubre (hechas · en curso · agendadas · en propuesta), cuántas faltan por agendar y el día en que se completaría con lo agendado.',
+                'Sale en la pantalla, impreso y en el correo del viernes, en inglés y en español. El Panorama lo resume en una línea.',
+                'Plan → 🧮 Resumen del año: cuántas pruebas se han hecho en el año, de mayor a menor, agrupadas por familia, modelo, región, carrocería, regulación, motor o transmisión, con una tira por mes y lo agendado hasta el 31 dic al lado. Se elige qué cuenta: lo que acredita el REQ, solo CoP o todas.',
+                'En la misma pantalla, "Prioridad: hoy y al 31 dic": el score de la tabla de prioridad de cada familia hoy y como quedaría el 31 dic si se hacen las pruebas agendadas, con el desglose de puntos, cuántos lugares sube o baja y qué familias salen del top 15.'] },
     { version: '3.28.0', date: '3 nov 2026', title: 'Armar la semana: primero cómo va a ser, después qué probar',
       bullets: ['Mi semana → 🎛️ Armar la semana va arriba y empieza por ① La semana: cada día se marca laborable o 🏖️ asueto, se elige cuántas pruebas de emisiones (0 a 4) y de correlación lleva, y qué más hay en la celda (quality checks, mantenimiento, proyecto, capacitación). El total de la semana sale de ahí.',
                 'Un día solo prueba si el día de preacondicionar se trabaja: el lunes no prueba (sería preacondicionar en domingo) y el día después de un asueto tampoco. La pantalla lo dice en el día.',
@@ -11796,14 +11852,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611031616' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611031616' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611031944' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11819,7 +11875,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611031616' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611031944' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -18008,7 +18064,7 @@ var UI_TAB_GROUPS = {
     tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
           groups: [
             { id: 'semana', label: '📅 Semana', tabs: ['tp-calendar', 'tp-myweek'] },
-            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-yearsummary', 'tp-tested', 'tp-families'] },
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
           groups: [
@@ -46739,7 +46795,8 @@ function tpScoreFacts(cfg, testedN, ctx) {
     var merged = famKey !== famKeyOld || tpScoreMergesMy(cfg);
     var ag = merged ? (idx.agg[famKey] || null) : null;
     var fe = idx.fam[famKey] || null;
-    var today = localToday();
+    // [3.29.0] ctx.asOf: el día en que se evalúa (la proyección al 31 dic). Sin él, hoy.
+    var today = ctx.asOf || localToday();
     var daysSince = null;
     if (fe && fe.last) daysSince = Math.max(0, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(fe.last + 'T12:00:00Z')) / 86400000));
     // [3.27.0] Familia que junta años modelo: los pendientes son los de la familia entera
@@ -46908,19 +46965,12 @@ function tpCopReqBase() {
         });
         var excluded = {};
         (model.excluded || []).forEach(function(x) { excluded[x.key] = x; });
+        // [3.29.0] En curso: una sola definición (copYearInFlight), la misma que lee el reporte.
         var inFlightIds = {};
-        vehs.forEach(function(v) {
-            if (!v || !copInScope(v).ok) return;
-            var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
-            if (!vehicleIsLive(v) && !pend) return;
-            // [3.22.0] Para corporativo solo cuenta lo registrado como conformidad de la producción.
-            if (typeof copPurposeCounts === 'function' ? !copPurposeCounts(v.purpose) : !tpPurposeCountsForReq(v.purpose)) return;
-            var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
-            if (d && Number(d.slice(0, 4)) !== year) return;
-            var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
-            if (!fams[yk]) return;
-            fams[yk].inFlight++;
-            inFlightIds[String(v.id)] = true;
+        (typeof copYearInFlight === 'function' ? copYearInFlight(vehs, year) : []).forEach(function(x) {
+            if (!fams[x.yk]) return;
+            fams[x.yk].inFlight++;
+            inFlightIds[String(x.id)] = true;
         });
         // Meses que vienen (este incluido): de ahí sale qué configuración sigue en producción.
         var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));
@@ -47021,8 +47071,9 @@ function tpCopReqSummary() {
  *
  * PURA respecto a `tpState.testedList`: no lee ni escribe la lista global.
  */
-function _tpAnalyze(list) {
+function _tpAnalyze(list, opts) {
     var src = list || [];
+    var asOf = (opts && opts.asOf) || null;
     var porDesc = {};
     src.forEach(function(t) {
         if (!t || !tpTestedCountsForReq(t)) return;
@@ -47064,6 +47115,10 @@ function _tpAnalyze(list) {
     rows.forEach(function(r) {
         var e = tpScoreMergesMy(r) ? fam[tpScoreFamKey(r)] : null;
         r.scoreCtx = { deficit: r.deficit, hasReq: !!r._scoreHasReq };
+        if (asOf) r.scoreCtx.asOf = asOf;
+        // [3.29.0] Con una lista que no es la real (la proyección), el desglose que se pinte
+        // después tiene que leer ESA lista o diría otros puntos. No enumerable: no se copia.
+        if (src !== tpState.testedList) Object.defineProperty(r.scoreCtx, 'list', { value: src, enumerable: false });
         if (e) { r.scoreCtx.famDeficit = e.deficit; r.scoreCtx.famHasReq = e.hasReq; }
         delete r._scoreHasReq;
         r.score = tpPriorityScore(r, r.testedN, Object.assign({ list: src }, r.scoreCtx));
@@ -47694,7 +47749,7 @@ function tpUpdateBadges() {
 // v23: fuera 'tp-weekly' (el armador vive dentro de Mi semana) y fuera
 // 'tp-planactual'/'tp-planhistory', declaradas desde hace rondas sin ningún botón
 // que las alcanzara.
-var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
+var _tpTabs = ['tp-calendar','tp-myweek','tp-dashboard','tp-yearsummary','tp-recovery','tp-tested','tp-families','tp-rules','tp-simulator','tp-production'];
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
@@ -47725,7 +47780,9 @@ function _tpGetRenderer(tabId) {
         'tp-myweek': tpRenderMyWeek,
         'tp-simulator': tpRenderSimulator,
         'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
-        'tp-recovery': tpRenderRecovery
+        'tp-recovery': tpRenderRecovery,
+        // [3.29.0] Resumen del año (js/resumen.js, carga después de este archivo).
+        'tp-yearsummary': (typeof tpRenderYearSummary === 'function') ? tpRenderYearSummary : null
     };
     return map[tabId] || null;
 }
@@ -53673,6 +53730,67 @@ function tpEnsureItemUids() {
 }
 
 /**
+ * [3.29.0] LA definición de "lo que dice el plan" de una fecha a otra: semana por semana, el
+ * plan VIGENTE (tpWeekPlanFor: los aceptados, o la propuesta) y cada fila con su día y su
+ * estado. status: 'done' (palomeada) · 'inflight' (vinculada a un vehículo, sin terminar) ·
+ * 'late' (abierta y su día ya pasó: se planeó y no se hizo) · 'open' (agendada).
+ * Devuelve {weeks:[{monday, state:'accepted'|'proposal'|'none', rows:[{item, date, status,
+ * proposal, planId}]}]}. La usan el plan al 31 dic del reporte CoP y la proyección del score.
+ */
+function tpPlanRowsUntil(fromIso, toIso) {
+    var weeks = [], first = tpMondayIso(fromIso);
+    if (!first || !toIso) return { weeks: weeks };
+    for (var mon = first; mon <= toIso; mon = tpIsoAddDays(mon, 7)) {
+        var vig = tpWeekPlanFor(mon), plans = [], state = 'none';
+        if (vig && vig.plan) {
+            state = vig.accepted ? 'accepted' : 'proposal';
+            plans = vig.accepted ? (vig.plans || [vig.plan]) : [vig.plan];
+        }
+        var rows = [];
+        plans.forEach(function(p) {
+            (p.items || []).forEach(function(it) {
+                if (!it) return;
+                var date = it.testDay ? (tpWeekDayIso(mon, it.testDay) || mon) : mon;
+                if (date > toIso) return;
+                var status = it.completed ? 'done' : (it.linkedVehicleId != null ? 'inflight' : (date < fromIso ? 'late' : 'open'));
+                rows.push({ item: it, date: date, status: status, proposal: !p.accepted, planId: tpPlanId(p) });
+            });
+        });
+        weeks.push({ monday: mon, state: state, rows: rows });
+    }
+    return { weeks: weeks };
+}
+
+/**
+ * [3.29.0] El análisis "como si lo agendado se hiciera": la lista de probadas más una fila
+ * simulada (`source:'plan'`, la misma forma que usa el horizonte) por cada prueba agendada
+ * de hoy al `asOf` (default 31 dic), evaluado ese día. No escribe nada.
+ * opts = {asOf, proposals:true|false}. Una fila vinculada a un vehículo que el CoP de
+ * corporativo ya cuenta "en curso" no se simula otra vez. Devuelve {rows, sim, asOf}.
+ */
+function tpProjectedAnalysis(opts) {
+    opts = opts || {};
+    var today = localToday();
+    var asOf = opts.asOf || (today.slice(0, 4) + '-12-31');
+    var base = (typeof tpCopReqBase === 'function') ? tpCopReqBase() : null;
+    var sim = [];
+    tpPlanRowsUntil(today, asOf).weeks.forEach(function(w) {
+        w.rows.forEach(function(r) {
+            var it = r.item;
+            if (r.status !== 'open' && r.status !== 'inflight') return;
+            if (r.proposal && !opts.proposals) return;
+            if (tpItemIsActivity(it)) return;
+            if (r.status === 'inflight' && base && base.inFlightIds && base.inFlightIds[String(it.linkedVehicleId)]) return;
+            var cfg = tpConfigByDesc(it.desc) || it;
+            sim.push({ configText: it.desc, date: r.date, source: 'plan', verified: false, simulated: true,
+                       purpose: it.actualPurpose || it.purpose || tpPurposeForCfg(cfg), planId: r.planId, itemUid: it.uid || null });
+        });
+    });
+    var list = (tpState.testedList || []).concat(sim);
+    return { rows: _tpAnalyze(list, { asOf: asOf }), sim: sim, asOf: asOf };
+}
+
+/**
  * [v23] LA definición de "el plan vigente de una semana".
  *
  * `tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`: cada
@@ -58866,6 +58984,328 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
               'Un bloque se llena con la prueba que se corrió ese día. Si quedó vacío, un signatario pone el motivo (quality check, mantenimiento, ' +
               'proyecto, sin vehículo…). Los días no laborables, las semanas sin celda y los mantenimientos de equipos que detienen pruebas se ponen solos. ' +
               'El Excel de la semana y el estatus del viernes salen de aquí.' }
+});
+
+
+// @@module js/resumen.js
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.29.0] RESUMEN DEL AÑO (Plan → 🧮 Resumen del año)
+//
+// Dos preguntas en una pantalla:
+//  1. ¿Cuánto se ha probado este año, y de qué? — por familia, modelo, región, carrocería,
+//     regulación, motor o transmisión (los mismos campos de los filtros), de mayor a menor,
+//     con lo agendado hasta el 31 dic al lado.
+//  2. ¿Qué quedaría como lo más importante al 31 dic si se hace lo agendado? — el score de
+//     la tabla de prioridad hoy contra el de la proyección (tpProjectedAnalysis), familia
+//     por familia, con el desglose de puntos.
+//
+// Las definiciones de las que sale todo: tpCalendarTests (qué se probó y qué día),
+// tpPlanRowsUntil (qué dice el plan), tpGetAnalysis / tpProjectedAnalysis (el score).
+// Este archivo no calcula ningún número propio: agrupa y compara.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Los campos por los que se agrupa, en el orden de los filtros del Plan. */
+var YS_DIMS = [
+    ['fam', 'Familia'], ['mod', 'Modelo'], ['rgn', 'Región'], ['body', 'Carrocería'],
+    ['reg', 'Regulación'], ['eng', 'Motor'], ['tx', 'Transmisión']
+];
+/** Qué pruebas cuentan en el resumen. */
+var YS_SCOPES = [
+    ['req', 'Cuentan para el REQ'], ['cop', 'Solo CoP'], ['all', 'Todas']
+];
+var YS_MONTHS = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+var YS_MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+/** Cuántas familias se comparan en la prioridad. */
+var YS_SCORE_TOP = 15;
+
+/** El valor de una prueba en un campo. PURA. x = {cfg, famLabel}. */
+function tpYearDimValue(x, dim) {
+    if (dim === 'fam') return String((x && x.famLabel) || '').trim() || '(sin familia)';
+    var v = String((x && x.cfg && x.cfg[dim]) == null ? '' : x.cfg[dim]).trim();
+    return (v && v !== '0' && v !== '-') ? v : '(sin dato)';
+}
+
+/**
+ * LA definición del resumen del año. PURA.
+ * src = {year, dim, scope:'req'|'cop'|'all', proposals,
+ *        tests:[{date, cfg, famLabel, req, cop}]            ← lo probado en el año
+ *        planned:[{date, cfg, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
+ *        corr:{sched, prop}}
+ * Agrupa por el campo, de mayor a menor por lo probado. "Proyección" = probadas + agendadas
+ * (+ propuestas si `proposals`). Lo que no cumple el alcance elegido no se cuenta.
+ */
+function tpYearSummaryModel(src) {
+    src = src || {};
+    var dim = src.dim || 'fam', scope = src.scope || 'req', withProp = !!src.proposals;
+    var pass = function(x) { return scope === 'all' || (scope === 'cop' ? !!x.cop : !!x.req); };
+    var groups = {}, T = { done: 0, sched: 0, prop: 0, proj: 0, groups: 0 };
+    var g = function(x) {
+        var k = tpYearDimValue(x, dim);
+        return groups[k] || (groups[k] = { key: k, label: k, done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+    };
+    (src.tests || []).forEach(function(x) {
+        if (!x || !pass(x)) return;
+        var e = g(x), m = Number(String(x.date || '').slice(5, 7));
+        e.done++; T.done++;
+        if (m >= 1 && m <= 12) e.months[m - 1]++;
+    });
+    (src.planned || []).forEach(function(x) {
+        if (!x || !pass(x)) return;
+        var e = g(x);
+        if (x.proposal) { e.prop++; T.prop++; } else { e.sched++; T.sched++; }
+    });
+    var rows = Object.keys(groups).map(function(k) {
+        var e = groups[k];
+        e.proj = e.done + e.sched + (withProp ? e.prop : 0);
+        return e;
+    });
+    rows.sort(function(a, b) { return (b.done - a.done) || (b.proj - a.proj) || (a.label < b.label ? -1 : 1); });
+    T.proj = T.done + T.sched + (withProp ? T.prop : 0);
+    T.groups = rows.length;
+    var maxMonth = 0, maxDone = 0;
+    rows.forEach(function(r) { maxDone = Math.max(maxDone, r.proj); r.months.forEach(function(v) { maxMonth = Math.max(maxMonth, v); }); });
+    return { year: src.year, dim: dim, scope: scope, proposals: withProp, rows: rows, total: T,
+             corr: src.corr || { sched: 0, prop: 0 }, maxMonth: maxMonth, maxDone: maxDone };
+}
+
+/**
+ * LA comparación de prioridad hoy contra la proyección. PURA.
+ * now/proj = filas del análisis (tpGetAnalysis / tpProjectedAnalysis().rows), con `score`.
+ * opts = {keyOf(row), labelOf(row), partsOf(row) → [{k,label,pts,why}], pendOf(row), skip(row), top}
+ * Por familia del score se toma la configuración de mayor score (la que el armador pondría
+ * primero). Devuelve las `top` de la proyección con su lugar hoy, más las que salen del top.
+ */
+function tpYearScoreCompare(now, proj, opts) {
+    opts = opts || {};
+    var top = opts.top || YS_SCORE_TOP;
+    var best = function(list) {
+        var m = {};
+        (list || []).forEach(function(r) {
+            if (!r || (opts.skip && opts.skip(r))) return;
+            var k = opts.keyOf(r);
+            if (!m[k] || r.score > m[k].score) m[k] = r;
+        });
+        var arr = Object.keys(m).map(function(k) { return { key: k, row: m[k] }; });
+        arr.sort(function(a, b) { return (b.row.score - a.row.score) || (a.key < b.key ? -1 : 1); });
+        arr.forEach(function(x, i) { x.rank = i + 1; });
+        var idx = {};
+        arr.forEach(function(x) { idx[x.key] = x; });
+        return { arr: arr, idx: idx };
+    };
+    var N = best(now), P = best(proj);
+    var side = function(x) {
+        return x ? { score: x.row.score, rank: x.rank, pend: opts.pendOf ? opts.pendOf(x.row) : 0,
+                     parts: opts.partsOf ? opts.partsOf(x.row) : [] } : null;
+    };
+    var rows = P.arr.slice(0, top).map(function(x) {
+        var n = N.idx[x.key] || null;
+        return { key: x.key, label: opts.labelOf ? opts.labelOf(x.row) : x.key,
+                 now: side(n), proj: side(x),
+                 delta: n ? Math.round((x.row.score - n.row.score) * 10) / 10 : null,
+                 move: n ? n.rank - x.rank : null };
+    });
+    var inTop = {};
+    rows.forEach(function(r) { inTop[r.key] = true; });
+    var leaving = N.arr.slice(0, top).filter(function(x) { return !inTop[x.key]; }).map(function(x) {
+        var p = P.idx[x.key] || null;
+        return { key: x.key, label: opts.labelOf ? opts.labelOf(x.row) : x.key, now: side(x), proj: side(p) };
+    });
+    return { rows: rows, leaving: leaving, families: P.arr.length };
+}
+
+// ─── Lo que lee del laboratorio (no PURO) ────────────────────────────────────────
+
+/** Una configuración desde la clave de familia (respaldo cuando el catálogo no la tiene). */
+function _ysCfgFromFamKey(fk) {
+    var p = String(fk || '').split('|');
+    return { mod: p[0] || '', eng: p[1] || '', tx: p[2] || '', my: p[3] || '', reg: p[4] || '', ep: p[5] || '', engpkg: p[6] || '', body: p[7] || '', rgn: '' };
+}
+function _ysIsCop(purpose, cfg) {
+    try { return typeof copPurposeCounts === 'function' && copPurposeCounts(purpose) && typeof copInScope === 'function' && copInScope(cfg).ok; }
+    catch (e) { return false; }
+}
+
+/** Las pruebas del año y lo agendado hasta el 31 dic, listas para tpYearSummaryModel. */
+function _tpYearSummaryInput(year) {
+    var today = localToday(), from = year + '-01-01', until = year + '-12-31';
+    var cal = tpCalendarTests(from, today < until ? today : until, { datedOnly: true });
+    var tests = cal.all.map(function(t) {
+        var cfg = tpConfigByDesc(t.configCode) || _ysCfgFromFamKey(t.familyKey);
+        return { date: t.date, cfg: cfg, famLabel: t.familyShort || tpFamilyShortLabel(cfg),
+                 req: tpTestedCountsForReq({ purpose: t.purpose, vehicleId: t.vehicleId, source: t.source }),
+                 cop: _ysIsCop(t.purpose, cfg) };
+    });
+    var planned = [], corr = { sched: 0, prop: 0 };
+    if (today <= until) {
+        tpPlanRowsUntil(today, until).weeks.forEach(function(w) {
+            w.rows.forEach(function(r) {
+                if (r.status !== 'open' && r.status !== 'inflight') return;
+                var it = r.item;
+                if (tpItemIsActivity(it)) {
+                    if (it.activity === 'correlacion') { if (r.proposal) corr.prop++; else corr.sched++; }
+                    return;
+                }
+                var cfg = tpConfigByDesc(it.desc) || it;
+                var pu = it.actualPurpose || it.purpose || tpPurposeForCfg(cfg);
+                planned.push({ date: r.date, cfg: cfg, famLabel: tpFamilyShortLabel(cfg), proposal: r.proposal,
+                               req: tpPurposeCountsForReq(pu), cop: _ysIsCop(pu, cfg) });
+            });
+        });
+    }
+    return { tests: tests, planned: planned, corr: corr };
+}
+
+/** El nombre de una familia del score (las que juntan años modelo lo dicen). */
+function _ysScoreFamLabel(row) {
+    if (!tpScoreMergesMy(row)) return tpFamilyShortLabel(row);
+    var mys = {};
+    (tpState.planData || []).forEach(function(c) {
+        if (c && !c.paused && tpScoreFamKey(c) === tpScoreFamKey(row)) { var n = tpMyNum(c.my); if (n !== null) mys[n] = true; }
+    });
+    var my = Object.keys(mys).sort();
+    return tpFamilyShortLabel(Object.assign({}, row, { my: '' })) + (my.length ? ' · MY' + my.join('+') : '');
+}
+
+function _ysPrefs() {
+    var p = (typeof uiPref === 'function' && uiPref('yearSum')) || {};
+    return { dim: p.dim || 'fam', scope: p.scope || 'req', proposals: !!p.proposals, all: !!p.all };
+}
+function tpYearSummarySet(k, v) {
+    var p = _ysPrefs();
+    p[k] = v;
+    if (typeof uiPref === 'function') uiPref('yearSum', p);
+    tpRender();
+}
+
+// ─── La pantalla ─────────────────────────────────────────────────────────────────
+
+function _ysChips(kind, list, cur) {
+    return '<div class="ys-chips" role="radiogroup">' + list.map(function(o) {
+        return '<button class="ys-chip" role="radio" aria-checked="' + (o[0] === cur) + '" onclick="tpYearSummarySet(\'' + kind + '\',\'' + o[0] + '\')">' +
+               escapeHtml(o[1]) + '</button>';
+    }).join('') + '</div>';
+}
+function _ysMetric(v, label, cls) {
+    return '<div class="tp-metric"><div class="tp-metric-val' + (cls ? ' ' + cls : '') + '">' + v + '</div><div class="tp-metric-label">' + label + '</div></div>';
+}
+function _ysPartsHTML(parts) {
+    return (parts || []).filter(function(p) { return p.pts; }).sort(function(a, b) { return b.pts - a.pts; }).map(function(p) {
+        return '<span class="ys-part ys-part--' + p.k + '" title="' + escapeHtml(p.why || '') + '">' + escapeHtml(p.label) + ' <b>' + p.pts + '</b></span>';
+    }).join('');
+}
+
+function tpRenderYearSummary(el) {
+    var pr = _ysPrefs();
+    var year = Number(localToday().slice(0, 4));
+    var inp = _tpYearSummaryInput(year);
+    var M = tpYearSummaryModel({ year: year, dim: pr.dim, scope: pr.scope, proposals: pr.proposals,
+                                 tests: inp.tests, planned: inp.planned, corr: inp.corr });
+    var T = M.total, dimLabel = (YS_DIMS.filter(function(d) { return d[0] === pr.dim; })[0] || YS_DIMS[0])[1];
+    var h = '<div class="tp-card ys">';
+    h += '<div class="tp-card-title" data-help="tp-yearsummary-help"><span>🧮 Resumen del año ' + year + '</span></div>';
+    h += '<p class="ys-lead">Lo probado de enero a hoy, de mayor a menor, y lo agendado en el plan semanal hasta el 31 dic. Cada prueba cuenta en su <strong>día de prueba</strong>.</p>';
+    h += '<div class="ys-controls"><div class="ys-ctl"><span class="ys-ctl-l">Agrupar por</span>' + _ysChips('dim', YS_DIMS, pr.dim) + '</div>' +
+         '<div class="ys-ctl"><span class="ys-ctl-l">Qué pruebas</span>' + _ysChips('scope', YS_SCOPES, pr.scope) + '</div>' +
+         '<label class="ys-check u-hit"><input type="checkbox"' + (pr.proposals ? ' checked' : '') +
+         ' onchange="tpYearSummarySet(\'proposals\',this.checked)"> Contar las propuestas sin aceptar</label></div>';
+    h += '<div class="tp-cal-metrics ys-metrics">' +
+         _ysMetric(T.done, 'Probadas en ' + year, 'tp-cal-ok') +
+         _ysMetric(T.sched, 'Agendadas hasta el 31 dic', 'tp-cal-warn') +
+         _ysMetric(T.prop, 'En propuesta') +
+         _ysMetric(T.proj, 'Proyección al 31 dic') +
+         _ysMetric(M.corr.sched, 'Correlación agendada' + (M.corr.prop ? ' · +' + M.corr.prop + ' en propuesta' : '')) + '</div>';
+    if (!M.rows.length) {
+        h += '<p class="ys-empty">No hay pruebas ' + (pr.scope === 'cop' ? 'de CoP ' : '') + 'registradas ni agendadas en ' + year + '.</p></div>';
+    } else {
+        var limit = pr.all ? M.rows.length : 25;
+        var mx = Math.max(1, M.maxDone), mm = Math.max(1, M.maxMonth);
+        var curM = Number(localToday().slice(5, 7));
+        h += '<div class="ys-table-wrap"><table class="ys-table u-cards"><thead><tr><th>' + escapeHtml(dimLabel) + '</th><th>Probadas</th>' +
+             '<th class="ys-months-h">Por mes</th><th class="ys-num">Agendadas</th><th class="ys-num">Al 31 dic</th></tr></thead><tbody>';
+        M.rows.slice(0, limit).forEach(function(r) {
+            var wd = Math.round(100 * r.done / mx), ws = Math.round(100 * (r.sched + (pr.proposals ? r.prop : 0)) / mx);
+            var months = r.months.map(function(v, i) {
+                var lvl = v ? Math.min(4, Math.ceil(4 * v / mm)) : 0;
+                var fut = i + 1 > curM;
+                return '<span class="ys-m ys-m--' + lvl + (fut ? ' ys-m--fut' : '') + '" title="' + YS_MONTHS_LONG[i] + ': ' + v + '">' + YS_MONTHS[i] + '</span>';
+            }).join('');
+            h += '<tr><td class="ys-label">' + escapeHtml(r.label) + '</td>' +
+                 '<td class="ys-bar-td"><div class="ys-bar"><span class="ys-bar-done" style="width:' + wd + '%"></span><span class="ys-bar-sched" style="width:' + ws + '%"></span></div>' +
+                 '<b class="ys-bar-n">' + r.done + '</b></td>' +
+                 '<td class="ys-months">' + months + '</td>' +
+                 '<td class="ys-num">' + (r.sched || '—') + (r.prop ? ' <small class="ys-prop">+' + r.prop + '</small>' : '') + '</td>' +
+                 '<td class="ys-num"><b>' + r.proj + '</b></td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if (M.rows.length > 25) {
+            h += '<button class="tp-btn tp-btn-ghost ys-more" onclick="tpYearSummarySet(\'all\',' + (!pr.all) + ')">' +
+                 (pr.all ? 'Ver solo las primeras 25' : 'Ver todas (' + M.rows.length + ')') + '</button>';
+        }
+        h += '<div class="ys-legend"><span class="ys-sw ys-sw--done"></span> probadas · <span class="ys-sw ys-sw--sched"></span> agendadas' +
+             (pr.proposals ? ' (con propuestas)' : '') + ' · los meses que vienen van en gris claro</div>';
+        h += '</div>';
+    }
+    h += _ysScoreCardHTML(pr);
+    el.innerHTML = h;
+}
+
+/** La tarjeta de prioridad: hoy contra el 31 dic. */
+function _ysScoreCardHTML(pr) {
+    var P, C;
+    try {
+        P = tpProjectedAnalysis({ proposals: pr.proposals });
+        var pendOf = function(r) { var c = r.scoreCtx || {}; return c.famDeficit !== undefined ? c.famDeficit : (c.deficit || 0); };
+        C = tpYearScoreCompare(tpGetAnalysis(), P.rows, {
+            keyOf: function(r) { return tpScoreFamKey(r); }, labelOf: _ysScoreFamLabel, pendOf: pendOf,
+            partsOf: function(r) { return tpScoreBreakdown(r, r.testedN, r.scoreCtx).parts; },
+            skip: function(r) { return !!r.paused; }
+        });
+    } catch (e) {
+        void 0;
+        return '<div class="tp-card ys"><p class="ys-empty">No se pudo calcular la proyección de la prioridad: ' + escapeHtml(e.message) + '</p></div>';
+    }
+    var h = '<div class="tp-card ys">';
+    h += '<div class="tp-card-title" data-help="tp-yearscore-help"><span>🎯 Prioridad: hoy y al 31 dic</span></div>';
+    h += '<p class="ys-lead">Si se hacen las <b>' + P.sim.length + '</b> pruebas agendadas' + (pr.proposals ? ' (con las propuestas)' : '') +
+         ', así quedaría la tabla de prioridad el <b>31 dic</b>: bajan los pendientes de lo que se prueba y suben los días sin probar de lo que no. ' +
+         'Mismo cálculo que el armador; <a href="#" onclick="tpSwitchTab(\'tp-rules\');return false;">la tabla</a> no se toca.</p>';
+    if (!C.rows.length) return h + '<p class="ys-empty">No hay configuraciones en el plan de producción.</p></div>';
+    h += '<div class="ys-table-wrap"><table class="ys-table ys-score u-cards"><thead><tr><th class="ys-num">#</th><th>Familia</th>' +
+         '<th class="ys-num">Hoy</th><th class="ys-num">31 dic</th><th>Por qué, al 31 dic</th></tr></thead><tbody>';
+    C.rows.forEach(function(r) {
+        var mv = r.move === null ? '<span class="ys-mv ys-mv--new" title="Hoy no estaba entre las familias con score">nueva</span>'
+               : r.move > 0 ? '<span class="ys-mv ys-mv--up" title="Sube ' + r.move + ' lugares">▲' + r.move + '</span>'
+               : r.move < 0 ? '<span class="ys-mv ys-mv--down" title="Baja ' + (-r.move) + ' lugares">▼' + (-r.move) + '</span>' : '<span class="ys-mv">=</span>';
+        var pend = function(s) { return s ? '<small>' + s.pend + ' pend.</small>' : ''; };
+        h += '<tr><td class="ys-num"><b>' + r.proj.rank + '</b> ' + mv + '</td>' +
+             '<td class="ys-label">' + escapeHtml(r.label) + '</td>' +
+             '<td class="ys-num" data-label="Hoy">' + (r.now ? r.now.score + '<br>' + pend(r.now) + '<br><small>#' + r.now.rank + '</small>' : '—') + '</td>' +
+             '<td class="ys-num" data-label="31 dic"><b>' + r.proj.score + '</b>' +
+             (r.delta ? ' <small class="' + (r.delta < 0 ? 'ys-down' : 'ys-up') + '">' + (r.delta > 0 ? '+' : '−') + Math.abs(r.delta) + '</small>' : '') +
+             '<br>' + pend(r.proj) + '</td>' +
+             '<td class="ys-parts">' + _ysPartsHTML(r.proj.parts) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if (C.leaving.length) {
+        h += '<p class="ys-leaving"><b>Salen del top ' + YS_SCORE_TOP + '</b> con lo agendado: ' + C.leaving.map(function(x) {
+            return escapeHtml(x.label) + ' (' + x.now.score + ' → ' + (x.proj ? x.proj.score : '—') + ')';
+        }).join(' · ') + '.</p>';
+    }
+    return h + '</div>';
+}
+
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'tp-yearsummary': {
+        title: 'Resumen del año',
+        text: 'Cuánto se ha probado este año y de qué, de mayor a menor, agrupado por familia, modelo, región, carrocería, regulación, motor o transmisión. Al lado, lo agendado hasta el 31 dic y cómo quedaría la tabla de prioridad si se hace.',
+        tips: ['"Cuentan para el REQ" deja fuera lo que no acredita el REQ (OBD II, por ejemplo); "Solo CoP" deja solo CoP · Emisiones del alcance; "Todas" cuenta todo.',
+               'Una propuesta sin aceptar no cuenta como agendada salvo que marques "Contar las propuestas sin aceptar".',
+               'La prioridad al 31 dic usa la misma tabla que el armador: bajan los pendientes de lo que se va a probar y suben los días sin probar de lo que no.']
+    }
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'tp-yearsummary-help': { title: 'Resumen del año', text: 'Cada prueba cuenta en su día de prueba (el mismo calendario del Plan). "Al 31 dic" = probadas + agendadas en planes aceptados (y las propuestas, si las cuentas). La tira de meses va de enero a diciembre; más oscuro = más pruebas ese mes.' },
+    'tp-yearscore-help': { title: 'Prioridad al 31 dic', text: 'El score de cada familia hoy y el que tendría el 31 dic si se hacen las pruebas agendadas. Es el mismo cálculo del armador (Plan → Reglas → Tabla de prioridad); aquí solo se simula. ▲/▼ = lugares que sube o baja. "Pend." = pruebas que le faltan.' }
 });
 
 
@@ -72805,7 +73245,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611031616' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611031944' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -81682,6 +82122,28 @@ function copYearPlanSplit(pending, cfgs) {
     return out;
 }
 
+/**
+ * [3.29.0] LA definición de "en curso" para el CoP del año: vehículos vivos (o históricos
+ * pendientes de confirmar) del alcance, registrados como CoP · Emisiones, con fecha de
+ * prueba (o de alta) en el año. Devuelve [{id, yk}]. La usan el Plan (tpCopReqBase) y el
+ * plan al cierre del año del reporte.
+ */
+function copYearInFlight(vehs, year) {
+    var out = [];
+    (vehs || []).forEach(function(v) {
+        if (!v || !copInScope(v).ok) return;
+        var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
+        if (!vehicleIsLive(v) && !pend) return;
+        // [3.22.0] Para corporativo solo cuenta lo registrado como conformidad de la producción.
+        if (typeof copPurposeCounts === 'function' ? !copPurposeCounts(v.purpose)
+            : (typeof tpPurposeCountsForReq === 'function' && !tpPurposeCountsForReq(v.purpose))) return;
+        var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
+        if (d && Number(d.slice(0, 4)) !== year) return;
+        out.push({ id: v.id, yk: copYearKeyOf(copVehicleFamilyKey(v), year) });
+    });
+    return out;
+}
+
 /** [3.13.0] Cómo se dice una regla en el reporte. PURA. */
 function copYearRuleText(rule) {
     return rule === 'one' ? '1 ensayo por familia con producción en el año'
@@ -82081,6 +82543,79 @@ function copRepPace(m) {
              finish: finish, late: late, onTrack: !pending || (needed !== null && recent >= needed) };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [3.29.0] Plan al cierre del año — PURA, sobre el modelo del estatus + los planes semanales
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * LA definición de "cómo se llega al 31 dic". PURA.
+ * m     = el modelo del estatus (rows, cut, year, weekOff).
+ * input = {weeks:[{monday, state:'accepted'|'proposal'|'none', items:[{kind:'cop'|'corr'|'other',
+ *          yk, date, status:'open'|'late'|'done'|'inflight', proposal}]}], inFlight:{yk:n}, corrDone}
+ * Por familia, lo que cubre el REQ se cuenta en orden y nunca de más: hechas → en curso →
+ * agendadas (plan aceptado) → en propuesta → sin agendar. Lo agendado de más se DECLARA
+ * (`over`), igual que lo agendado de una familia que no está en el reporte (`unmatched`).
+ * Una fila abierta cuyo día ya pasó no es "agendada": va a `late` (se planeó y no se hizo).
+ */
+function copRepOutlookCompute(m, input) {
+    input = input || {};
+    var cut = m.cut, until = m.year + '-12-31', inFlight = input.inFlight || {};
+    var byKey = {}, perFam = {};
+    (m.rows || []).forEach(function(r) { byKey[r.key] = r; perFam[r.key] = { sched: [], prop: [] }; });
+    var T = { req: 0, done: 0, inFlight: 0, scheduled: 0, proposed: 0, gap: 0, over: 0, landing: 0, landingWithProp: 0,
+              corr: 0, corrProp: 0, corrDone: Number(input.corrDone) || 0, other: 0, otherProp: 0, late: 0,
+              unmatched: 0, weeksNoPlan: 0, weeksProposal: 0, families: 0, complete: 0 };
+    var weeks = (input.weeks || []).filter(function(w) { return w && w.monday && w.monday <= until; }).map(function(w) {
+        var off = !!(m.weekOff && m.weekOff[w.monday] !== undefined);
+        var o = { monday: w.monday, week: copRepIsoWeek(w.monday), state: w.state || 'none', off: off,
+                  cop: 0, copProp: 0, corr: 0, corrProp: 0, other: 0 };
+        if (!off && o.state === 'none') T.weeksNoPlan++;
+        if (o.state === 'proposal') T.weeksProposal++;
+        (w.items || []).forEach(function(it) {
+            if (!it) return;
+            if (it.status === 'late') { if (it.kind === 'cop') T.late++; return; }
+            if (it.status !== 'open') return;          // hechas y en curso ya cuentan por su vehículo
+            var prop = !!it.proposal;
+            if (it.kind === 'corr') { if (prop) { o.corrProp++; T.corrProp++; } else { o.corr++; T.corr++; } return; }
+            if (it.kind !== 'cop') { if (prop) T.otherProp++; else T.other++; o.other++; return; }
+            if (prop) o.copProp++; else o.cop++;
+            if (!perFam[it.yk]) { T.unmatched++; return; }
+            perFam[it.yk][prop ? 'prop' : 'sched'].push(it.date || w.monday);
+        });
+        return o;
+    });
+    var rows = [];
+    (m.rows || []).forEach(function(r) {
+        if (!(r.req > 0)) return;
+        var f = perFam[r.key], req = r.req;
+        f.sched.sort(); f.prop.sort();
+        var dn = Math.min(r.done, req), fl = Math.min(Number(inFlight[r.key]) || 0, req - dn);
+        var sc = Math.min(f.sched.length, req - dn - fl), pr = Math.min(f.prop.length, req - dn - fl - sc);
+        var gap = req - dn - fl - sc - pr;
+        var over = (f.sched.length + f.prop.length) - (sc + pr);
+        // El día en que se completaría, con lo agendado (y si hace falta, con lo propuesto).
+        var need = req - dn - fl, closes = '', closesProp = false;
+        if (need > 0 && !gap) {
+            if (sc >= need) closes = f.sched[need - 1];
+            else { var all = f.sched.concat(f.prop).sort(); closes = all[need - 1]; closesProp = true; }
+        }
+        var row = { key: r.key, name: r.name, group: r.group, region: r.region, req: req,
+                    done: dn, inFlight: fl, scheduled: sc, proposed: pr, gap: gap, over: over,
+                    complete: need <= 0, closes: closes || '', closesProp: closesProp };
+        rows.push(row);
+        T.families++; if (row.complete) T.complete++;
+        T.req += req; T.done += dn; T.inFlight += fl; T.scheduled += sc; T.proposed += pr; T.gap += gap; T.over += over;
+    });
+    T.landing = T.done + T.inFlight + T.scheduled;
+    T.landingWithProp = T.landing + T.proposed;
+    T.pct = T.req ? T.landing / T.req : 0;
+    T.pctWithProp = T.req ? T.landingWithProp / T.req : 0;
+    rows.sort(function(a, b) {
+        return (a.complete - b.complete) || (b.gap - a.gap) || ((b.req - b.done) - (a.req - a.done)) || (a.name < b.name ? -1 : 1);
+    });
+    return { until: until, cut: cut, weeks: weeks, rows: rows, total: T };
+}
+
 /** Margen de unidades antes del siguiente lote que se avisa (un lote son 5,000). */
 var COP_REP_NEAR_LOT_UNITS = 1000;
 
@@ -82296,6 +82831,39 @@ var COP_REP_TXT = {
         },
         cellBlock: 'Bloque', cellToday: 'hoy', cellFree: 'libre', cellNotExplained: 'Sin explicar', cellProposal: 'propuesta',
         cellExtra: function(n) { return n + ' ' + _crPlural(n, 'prueba', 'pruebas') + ' de más (sobre la capacidad).'; },
+        // [3.29.0] Plan al 31 dic
+        secOutlook: 'Plan al 31 dic', secOutlookSub: 'Lo registrado, lo que está en curso y lo agendado en el plan semanal, contra el REQ del año',
+        oHead: function(T) {
+            if (!T.gap && !T.proposed) return '<b>Con lo agendado se cubre todo el REQ del año</b> (' + _crNum(T.landing) + ' de ' + _crNum(T.req) + ' ensayos).';
+            return 'Con lo agendado se llega a <b>' + _crNum(T.landing) + ' de ' + _crNum(T.req) + '</b> ensayos (' + _crPct(T.pct) + ') al 31 dic' +
+                   (T.proposed ? '; con las propuestas sin aceptar, a <b>' + _crNum(T.landingWithProp) + '</b> (' + _crPct(T.pctWithProp) + ')' : '') + '. ' +
+                   (T.gap ? '<b style="color:#b91c1c;">' + (T.gap === 1 ? 'Falta 1 por agendar.' : 'Faltan ' + T.gap + ' por agendar.') + '</b>' : 'No falta nada por agendar.');
+        },
+        lDone: 'Registradas', lFlight: 'En curso', lSched: 'Agendadas', lProp: 'En propuesta', lGap: 'Sin agendar', lCorr: 'Correlación', lOther: 'Otras',
+        oCorr: function(T) {
+            return '<b>Correlación:</b> ' + T.corr + ' ' + _crPlural(T.corr, 'agendada', 'agendadas') + ' hasta el 31 dic' +
+                   (T.corrProp ? ' (+' + T.corrProp + ' en propuesta)' : '') + ' · ' + T.corrDone + ' ' + _crPlural(T.corrDone, 'hecha', 'hechas') + ' en el año. ' +
+                   'Ocupan su lugar en la celda pero no cuentan para el CoP.' +
+                   ((T.other + T.otherProp) ? ' Además hay <b>' + (T.other + T.otherProp) + '</b> ' + _crPlural(T.other + T.otherProp, 'prueba', 'pruebas') + ' de otros propósitos (EO, OBD…).' : '');
+        },
+        oLate: function(n) { return n + ' ' + _crPlural(n, 'prueba CoP planeada en un día que ya pasó sigue', 'pruebas CoP planeadas en días que ya pasaron siguen') + ' sin hacerse: no cuentan como agendadas.'; },
+        oNoPlan: function(n) { return n + ' ' + _crPlural(n, 'semana', 'semanas') + ' antes del 31 dic ' + _crPlural(n, 'sigue', 'siguen') + ' sin plan.'; },
+        oPropWeeks: function(n) { return n + ' ' + _crPlural(n, 'semana tiene', 'semanas tienen') + ' una propuesta sin aceptar: lo propuesto se muestra aparte.'; },
+        oUnmatched: function(n) { return n + ' ' + _crPlural(n, 'prueba agendada es', 'pruebas agendadas son') + ' de familias que no están en este reporte.'; },
+        oOver: function(n) { return n + ' ' + _crPlural(n, 'prueba agendada', 'pruebas agendadas') + ' de más (sobre el REQ de su familia).'; },
+        stNone: 'sin plan', stProp: 'propuesta', stOff: 'sin celda',
+        thCovered: 'Cubierto', thGap: 'Sin agendar', thCloses: 'Se completa',
+        oParts: function(r) {
+            var p = [];
+            if (r.done) p.push(r.done + ' ' + _crPlural(r.done, 'hecha', 'hechas'));
+            if (r.inFlight) p.push(r.inFlight + ' en curso');
+            if (r.scheduled) p.push(r.scheduled + ' ' + _crPlural(r.scheduled, 'agendada', 'agendadas'));
+            if (r.proposed) p.push(r.proposed + ' en propuesta');
+            return p.join(' · ') || 'nada todavía';
+        },
+        closesProp: 'con propuesta', closesNo: 'no alcanza',
+        oFamDone: function(n) { return n + ' ' + _crPlural(n, 'familia ya tiene', 'familias ya tienen') + ' su REQ cubierto y no se ' + _crPlural(n, 'lista', 'listan') + '.'; },
+        oAllDone: 'Todas las familias tienen su REQ cubierto.',
         secKey: 'Puntos clave', secNote: 'Nota del laboratorio',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'ensayo', 'ensayos') + '</b> esta semana: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'Sin ensayos nuevos esta semana.',
@@ -82379,6 +82947,38 @@ var COP_REP_TXT = {
         },
         cellBlock: 'Block', cellToday: 'today', cellFree: 'free', cellNotExplained: 'Not explained', cellProposal: 'proposal',
         cellExtra: function(n) { return n + ' extra ' + _crPlural(n, 'test', 'tests') + ' (over capacity).'; },
+        // [3.29.0] Plan to Dec 31
+        secOutlook: 'Plan to Dec 31', secOutlookSub: 'Registered, in progress and scheduled in the weekly plan, against the year’s requirement',
+        oHead: function(T) {
+            if (!T.gap && !T.proposed) return '<b>What is scheduled covers the full year requirement</b> (' + _crNum(T.landing) + ' of ' + _crNum(T.req) + ' tests).';
+            return 'With what is scheduled we reach <b>' + _crNum(T.landing) + ' of ' + _crNum(T.req) + '</b> tests (' + _crPct(T.pct) + ') by Dec 31' +
+                   (T.proposed ? '; with the proposals not yet accepted, <b>' + _crNum(T.landingWithProp) + '</b> (' + _crPct(T.pctWithProp) + ')' : '') + '. ' +
+                   (T.gap ? '<b style="color:#b91c1c;">' + T.gap + ' still to schedule.</b>' : 'Nothing left to schedule.');
+        },
+        lDone: 'Registered', lFlight: 'In progress', lSched: 'Scheduled', lProp: 'Proposed', lGap: 'Not scheduled', lCorr: 'Correlation', lOther: 'Other',
+        oCorr: function(T) {
+            return '<b>Correlation:</b> ' + T.corr + ' scheduled until Dec 31' + (T.corrProp ? ' (+' + T.corrProp + ' proposed)' : '') +
+                   ' · ' + T.corrDone + ' done this year. They take a cell slot but do not count for CoP.' +
+                   ((T.other + T.otherProp) ? ' There are also <b>' + (T.other + T.otherProp) + '</b> ' + _crPlural(T.other + T.otherProp, 'test', 'tests') + ' for other purposes (EO, OBD…).' : '');
+        },
+        oLate: function(n) { return n + ' CoP ' + _crPlural(n, 'test', 'tests') + ' planned on days already past ' + _crPlural(n, 'is', 'are') + ' still not done: not counted as scheduled.'; },
+        oNoPlan: function(n) { return n + ' ' + _crPlural(n, 'week', 'weeks') + ' before Dec 31 still ' + _crPlural(n, 'has', 'have') + ' no plan.'; },
+        oPropWeeks: function(n) { return n + ' ' + _crPlural(n, 'week has', 'weeks have') + ' a proposal not yet accepted: proposed tests are shown separately.'; },
+        oUnmatched: function(n) { return n + ' scheduled ' + _crPlural(n, 'test belongs', 'tests belong') + ' to families not in this report.'; },
+        oOver: function(n) { return n + ' extra scheduled ' + _crPlural(n, 'test', 'tests') + ' (over the family requirement).'; },
+        stNone: 'no plan', stProp: 'proposal', stOff: 'no cell',
+        thCovered: 'Covered', thGap: 'Not scheduled', thCloses: 'Completes',
+        oParts: function(r) {
+            var p = [];
+            if (r.done) p.push(r.done + ' done');
+            if (r.inFlight) p.push(r.inFlight + ' in progress');
+            if (r.scheduled) p.push(r.scheduled + ' scheduled');
+            if (r.proposed) p.push(r.proposed + ' proposed');
+            return p.join(' · ') || 'nothing yet';
+        },
+        closesProp: 'with proposal', closesNo: 'not reached',
+        oFamDone: function(n) { return n + ' ' + _crPlural(n, 'family already has its', 'families already have their') + ' requirement covered and ' + _crPlural(n, 'is', 'are') + ' not listed.'; },
+        oAllDone: 'All families have their requirement covered.',
         secKey: 'Key points', secNote: 'Note from the lab',
         hAdded: function(h) { return '<b>+' + h.n + ' ' + _crPlural(h.n, 'test', 'tests') + '</b> this week: ' + h.names.map(_crEsc).join(', ') + '.'; },
         hNone: 'No new tests this week.',
@@ -82540,6 +83140,137 @@ function _crBlocksTable(wk, X, lang) {
     return h + '</table>';
 }
 
+/** [3.29.0] Colores del plan al 31 dic (relleno). */
+var _CR_OUT = { done: '#059669', flight: '#0891b2', sched: '#2563eb', prop: '#93c5fd', gap: '#fca5a5',
+                corr: '#f59e0b', corrProp: '#fde68a', other: '#cbd5e1' };
+
+/**
+ * Barra apilada que Outlook sí pinta: una celda por tramo, con ancho en % (opts.px: en px).
+ * parts = [{n, color}]. PURA.
+ */
+function _crStack(parts, total, opts) {
+    opts = opts || {};
+    var h = opts.h || 14, px = opts.px || 0, list = parts.filter(function(p) { return p.n > 0; });
+    if (!total || !list.length) list = [{ n: 1, color: _CR_LINE }], total = 1;
+    var acc = 0, cells = '';
+    list.forEach(function(p, i) {
+        var share = p.n / total, w;
+        if (px) { w = i === list.length - 1 ? px - acc : Math.max(1, Math.round(px * share)); acc += w; }
+        else { w = i === list.length - 1 ? 100 - acc : Math.max(1, Math.round(100 * share)); acc += w; }
+        var ws = px ? w + 'px' : w + '%';
+        cells += '<td width="' + (px ? w : w + '%') + '" height="' + h + '" bgcolor="' + p.color + '" style="width:' + ws + ';height:' + h + 'px;background:' + p.color +
+                 ';font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td>';
+    });
+    return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="' + (px || '100%') + '" style="width:' + (px ? px + 'px' : '100%') +
+           ';border-collapse:collapse;table-layout:fixed;"><tr>' + cells + '</tr></table>';
+}
+function _crSwatch(color) {
+    return '<span style="display:inline-block;width:10px;height:10px;background:' + color + ';vertical-align:middle;border-radius:2px;"></span>';
+}
+
+/** Pruebas agendadas por semana hasta el 31 dic, apiladas por tipo. PURA. */
+function _crOutlookChart(O, X) {
+    var H = 80, n = O.weeks.length;
+    if (!n) return '';
+    var tot = function(w) { return w.cop + w.copProp + w.corr + w.corrProp + w.other; };
+    var max = Math.max(1, Math.max.apply(null, O.weeks.map(tot)));
+    var cw = Math.floor(100 / n);
+    var h = '<table role="presentation" class="cr-chart" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;table-layout:fixed;"><tr>';
+    O.weeks.forEach(function(w) {
+        var stack = [['other', w.other], ['corrProp', w.corrProp], ['corr', w.corr], ['prop', w.copProp], ['sched', w.cop]];
+        var cop = w.cop + w.copProp, t = tot(w);
+        var seg = '';
+        stack.forEach(function(sg) {
+            if (!sg[1]) return;
+            var sh = Math.max(3, Math.round(H * sg[1] / max)), c = _CR_OUT[sg[0]];
+            seg += '<tr><td height="' + sh + '" bgcolor="' + c + '" style="height:' + sh + 'px;background:' + c + ';font-size:0;line-height:0;mso-line-height-rule:exactly;border-top:1px solid #ffffff;">&nbsp;</td></tr>';
+        });
+        var st = w.off ? X.stOff : (w.state === 'none' ? X.stNone : (w.state === 'proposal' ? X.stProp : ''));
+        h += '<td align="center" valign="bottom" width="' + cw + '%" style="width:' + cw + '%;padding:0 3px;vertical-align:bottom;">' +
+             '<div style="font-size:12px;font-weight:800;color:' + _CR_INK + ';">' + (t ? cop : '–') + '</div>' +
+             (w.corr + w.corrProp ? '<div style="font-size:10px;color:#b45309;font-weight:700;">+' + (w.corr + w.corrProp) + '</div>' : '<div style="font-size:10px;">&nbsp;</div>') +
+             '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;"><tr>' +
+             '<td height="' + H + '" valign="bottom" style="height:' + H + 'px;vertical-align:bottom;border-bottom:2px solid ' + _CR_LINE + ';">' +
+             (seg ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="72%" align="center" style="border-collapse:collapse;margin:0 auto;">' + seg + '</table>' : '') +
+             '</td></tr></table>' +
+             '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:4px;">' + X.weekShort + w.week + '</div>' +
+             '<div style="font-size:10px;color:' + (w.state === 'none' && !w.off ? '#b91c1c' : _CR_MUTED) + ';">' + (st || '&nbsp;') + '</div></td>';
+    });
+    h += '</tr></table>';
+    var leg = [[_CR_OUT.sched, 'CoP ' + X.lSched.toLowerCase()], [_CR_OUT.prop, 'CoP ' + X.lProp.toLowerCase()], [_CR_OUT.corr, X.lCorr], [_CR_OUT.other, X.lOther]];
+    h += '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:6px;">' +
+         leg.map(function(l) { return _crSwatch(l[0]) + ' ' + l[1]; }).join(' &nbsp; ') + '</div>';
+    return h;
+}
+
+/**
+ * La sección "Plan al 31 dic": frase, barra del año, cuadros, semanas y familias que faltan.
+ * Devuelve renglones <tr> del reporte. PURA.
+ */
+function _crOutlookHTML(O, X, lang) {
+    var T = O.total, h = '';
+    h += _crSection(X.secOutlook, X.secOutlookSub);
+    h += '<tr><td style="padding:0 24px;font-size:14px;line-height:1.55;color:' + _CR_INK + ';">' + X.oHead(T) + '</td></tr>';
+    var parts = [
+        { k: 'done', n: T.done, l: X.lDone }, { k: 'flight', n: T.inFlight, l: X.lFlight }, { k: 'sched', n: T.scheduled, l: X.lSched },
+        { k: 'prop', n: T.proposed, l: X.lProp }, { k: 'gap', n: T.gap, l: X.lGap }
+    ];
+    h += '<tr><td style="padding:10px 24px 0;">' +
+         _crStack(parts.map(function(p) { return { n: p.n, color: _CR_OUT[p.k] }; }), T.req, { h: 22 }) + '</td></tr>';
+    // Los números de la barra, en cuadros (en el teléfono van de dos en dos).
+    h += '<tr><td style="padding:6px 16px 0;"><table role="presentation" class="cr-tiles" width="100%" cellpadding="0" cellspacing="8" border="0" style="width:100%;"><tr>';
+    parts.forEach(function(p) {
+        var red = p.k === 'gap' && p.n;
+        h += '<td class="cr-tile" width="20%" valign="top" bgcolor="' + _CR_SOFT + '" style="width:20%;vertical-align:top;background:' + _CR_SOFT +
+             ';border:1px solid ' + _CR_LINE + ';border-top:4px solid ' + _CR_OUT[p.k] + ';border-radius:8px;padding:8px 10px;">' +
+             '<div style="font-size:10px;color:' + _CR_MUTED + ';text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">' + p.l + '</div>' +
+             '<div style="font-size:22px;line-height:1.15;font-weight:800;color:' + (red ? '#b91c1c' : _CR_NAVY) + ';margin-top:2px;">' + _crNum(p.n) + '</div></td>';
+    });
+    h += '</tr></table></td></tr>';
+    if (O.weeks.length) h += '<tr><td style="padding:12px 24px 0;">' + _crOutlookChart(O, X) + '</td></tr>';
+    h += '<tr><td style="padding:10px 24px 0;font-size:13px;line-height:1.55;color:#334155;">' + X.oCorr(T) + '</td></tr>';
+    var notes = [];
+    if (T.late) notes.push(X.oLate(T.late));
+    if (T.weeksNoPlan) notes.push(X.oNoPlan(T.weeksNoPlan));
+    if (T.weeksProposal) notes.push(X.oPropWeeks(T.weeksProposal));
+    if (T.unmatched) notes.push(X.oUnmatched(T.unmatched));
+    if (T.over) notes.push(X.oOver(T.over));
+    if (notes.length) {
+        h += '<tr><td style="padding:8px 24px 0;font-size:12px;line-height:1.5;color:' + _CR_MUTED + ';">· ' + notes.join('<br>· ') + '</td></tr>';
+    }
+    // Familias que todavía no cubren su REQ: con qué se cubren y cuándo.
+    var open = O.rows.filter(function(r) { return !r.complete; });
+    if (!open.length) {
+        h += '<tr><td style="padding:10px 24px 0;font-size:13px;color:#047857;font-weight:700;">' + X.oAllDone + '</td></tr>';
+        return h;
+    }
+    var th = function(t, al, w) {
+        return '<th align="' + al + '" width="' + w + '" style="width:' + w + ';text-align:' + al + ';padding:8px;font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;vertical-align:bottom;">' + t + '</th>';
+    };
+    h += '<tr><td style="padding:10px 24px 0;"><table role="presentation" class="cr-fam cr-out" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;table-layout:fixed;font-size:13px;">';
+    h += '<tr class="cr-head" bgcolor="#f1f5f9" style="background:#f1f5f9;">' + th(X.thFamily, 'left', '32%') + th(X.thReq, 'right', '9%') +
+         th(X.thCovered, 'left', '33%') + th(X.thGap, 'right', '11%') + th(X.thCloses, 'left', '15%') + '</tr>';
+    open.forEach(function(r) {
+        var td = 'padding:9px 8px;vertical-align:top;border-bottom:1px solid #f1f5f9;';
+        var bar = _crStack([{ n: r.done, color: _CR_OUT.done }, { n: r.inFlight, color: _CR_OUT.flight }, { n: r.scheduled, color: _CR_OUT.sched },
+                            { n: r.proposed, color: _CR_OUT.prop }, { n: r.gap, color: _CR_OUT.gap }], r.req, { h: 10, px: 150 });
+        var closes = r.closes ? _crEsc(_crDayL(r.closes, lang)) + (r.closesProp ? '<div style="font-size:11px;color:' + _CR_MUTED + ';">' + X.closesProp + '</div>' : '')
+                              : '<span style="color:#b91c1c;font-weight:700;">' + X.closesNo + '</span>';
+        h += '<tr class="cr-row">' +
+             '<td class="cr-name" style="' + td + '"><div style="font-weight:700;color:' + _CR_INK + ';">' + _crFamName(r, X) + '</div>' +
+             '<div style="font-size:11px;color:' + _CR_MUTED + ';margin-top:2px;">' + _crEsc((X.regions[r.region] || r.region) + ' · ' + ((r.group && (X.groups[r.group.id] || r.group.label)) || '')) + '</div></td>' +
+             '<td data-l="' + X.thReq + '" align="right" style="' + td + 'text-align:right;font-weight:700;">' + r.req + '</td>' +
+             '<td class="cr-bar" data-l="' + X.thCovered + '" style="' + td + '">' + bar +
+             '<div style="font-size:11px;color:#475569;margin-top:3px;">' + X.oParts(r) + '</div></td>' +
+             '<td data-l="' + X.thGap + '" align="right" style="' + td + 'text-align:right;font-weight:800;color:' + (r.gap ? '#b91c1c' : '#047857') + ';">' + r.gap + '</td>' +
+             '<td data-l="' + X.thCloses + '" style="' + td + '">' + closes + '</td></tr>';
+    });
+    h += '</table></td></tr>';
+    var nDone = O.rows.length - open.length;
+    if (nDone) h += '<tr><td style="padding:6px 24px 0;font-size:12px;color:' + _CR_MUTED + ';">' + X.oFamDone(nDone) + '</td></tr>';
+    return h;
+}
+
 /** Barras de ensayos por semana (tablas: así las pinta Outlook). PURA. */
 function _crPaceChart(P, X) {
     var H = 64;
@@ -82639,6 +83370,9 @@ function copYearReportHTML(m, opts) {
     h += _crSection(X.secPace, X.secPaceSub);
     h += '<tr><td style="padding:0 24px;">' + _crPaceChart(P, X) +
          '<div style="font-size:13px;line-height:1.55;color:#334155;margin-top:10px;">' + X.paceText(P, lang) + '</div></td></tr>';
+    // ── [3.29.0] Plan al 31 dic: registradas, en curso, agendadas y lo que falta agendar
+    var O = opts.outlook === false ? null : m.outlook;
+    if (O && O.total && O.total.req) h += _crOutlookHTML(O, X, lang);
     // ── [3.24.0] Uso de la celda: esta semana y la siguiente, bloque por bloque
     if (m.cell && m.cell.now && m.cell.now.total.blocks) {
         h += _crSection(X.secCell, X.secCellSub);
@@ -82966,8 +83700,57 @@ function copYearReportModel(opts) {
     var _cell;
     Object.defineProperty(model, 'cell', { enumerable: false, configurable: true,
         get: function() { if (_cell === undefined) _cell = _copRepCell(cut); return _cell; } });
+    // [3.29.0] El plan al cierre del año, igual de diferido (lee los planes semanales).
+    var _outlook;
+    Object.defineProperty(model, 'outlook', { enumerable: false, configurable: true,
+        get: function() {
+            if (_outlook === undefined) {
+                try { var inp = _copRepOutlookInput(model); _outlook = inp ? copRepOutlookCompute(model, inp) : null; }
+                catch (e) { void 0; _outlook = null; }
+            }
+            return _outlook;
+        } });
     _copRepCache = { key: key, model: model };
     return model;
+}
+
+/**
+ * [3.29.0] Lee los planes semanales y los vehículos para el plan al cierre del año (no
+ * PURA). De la semana del corte al 31 dic, el plan VIGENTE de cada semana (tpWeekPlanFor):
+ * los aceptados, o la propuesta si no hay aceptado. Una fila es de CoP si su propósito es
+ * CoP · Emisiones (el de la fila, o el que propondría el Alta) y su configuración entra al
+ * alcance; la correlación es la actividad del armador (3.28.0). Sin VIN: sale por correo.
+ */
+function _copRepOutlookInput(m) {
+    if (typeof tpPlanRowsUntil !== 'function' || typeof tpState === 'undefined') return null;
+    var year = m.year, cut = m.cut, until = year + '-12-31';
+    var vehs = (typeof db !== 'undefined' && db && Array.isArray(db.vehicles)) ? db.vehicles : [];
+    var inFlight = {};
+    copYearInFlight(vehs, year).forEach(function(x) { inFlight[x.yk] = (inFlight[x.yk] || 0) + 1; });
+    var corrDone = 0;
+    vehs.forEach(function(v) {
+        if (!v || !/correl/i.test(String(v.purpose || '')) || !(typeof vehicleIsPastTest === 'function' ? vehicleIsPastTest(v) : v.status === 'archived')) return;
+        var d = typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '';
+        if (d && d.slice(0, 4) === String(year) && d <= cut) corrDone++;
+    });
+    var classify = function(it) {
+        if (typeof tpItemIsActivity === 'function' ? tpItemIsActivity(it) : !!it.activity) {
+            return { kind: it.activity === 'correlacion' ? 'corr' : 'other' };
+        }
+        var cfg = (typeof tpConfigByDesc === 'function' ? tpConfigByDesc(it.desc) : null) || it;
+        var pu = it.actualPurpose || it.purpose || (typeof tpPurposeForCfg === 'function' ? tpPurposeForCfg(cfg) : '');
+        if (/correl/i.test(String(pu))) return { kind: 'corr' };
+        if (!copPurposeCounts(pu) || !copInScope(cfg).ok) return { kind: 'other' };
+        return { kind: 'cop', yk: copYearKeyOf(tpFamilyKeyForCfg(cfg), year) };
+    };
+    // [3.29.0] Las filas del plan salen de LA definición (tpPlanRowsUntil, testplan.js).
+    var weeks = tpPlanRowsUntil(cut, until).weeks.map(function(w) {
+        return { monday: w.monday, state: w.state, items: w.rows.map(function(r) {
+            var c = classify(r.item);
+            return { kind: c.kind, yk: c.yk || null, date: r.date, status: r.status, proposal: r.proposal };
+        }) };
+    });
+    return { weeks: weeks, inFlight: inFlight, corrDone: corrDone };
 }
 
 /**
@@ -83215,6 +83998,13 @@ function copRepPlainText(m, lang) {
             });
         }
     }
+    var O = m.outlook;
+    if (O && O.total && O.total.req) {
+        var st = function(t) { return String(t).replace(/<[^>]+>/g, ''); }, OT = O.total;
+        L.push('', X.secOutlook + ':', '  ' + st(X.oHead(OT)),
+               '  ' + X.lDone + ' ' + OT.done + ' · ' + X.lFlight + ' ' + OT.inFlight + ' · ' + X.lSched + ' ' + OT.scheduled +
+               ' · ' + X.lProp + ' ' + OT.proposed + ' · ' + X.lGap + ' ' + OT.gap, '  ' + st(X.oCorr(OT)));
+    }
     if (m.note) L.push('', X.secNote + ': ' + m.note.text);
     return L.join('\n');
 }
@@ -83304,6 +84094,15 @@ function copRepOverviewCardHTML() {
         (m.pace && m.pace.pending ? '<div class="cop-rep-card-pace">Ritmo: <b>' + _crDec(m.pace.recent) + '/sem.</b> (últimas 4) · ' +
             (m.pace.needed === null ? 'ya no quedan semanas con celda' : 'hacen falta <b>' + _crDec(m.pace.needed) + '/sem.</b> para el 31 dic') +
             (m.critical && m.critical.length ? ' · más crítica: <b>' + _crEsc(m.critical[0].name || '(sin modelo)') + '</b>' : '') + '</div>' : '') +
+        (function() {
+            // [3.29.0] Plan al 31 dic, en una línea.
+            var O = m.outlook, OT = O && O.total;
+            if (!OT || !OT.req) return '';
+            return '<div class="cop-rep-card-pace">Al 31 dic con lo agendado: <b>' + OT.landing + ' de ' + OT.req + '</b>' +
+                   (OT.proposed ? ' (+' + OT.proposed + ' en propuesta)' : '') + ' · ' +
+                   (OT.gap ? '<b style="color:var(--danger-text, #b91c1c);">' + OT.gap + ' sin agendar</b>' : 'nada sin agendar') +
+                   (OT.corr ? ' · ' + OT.corr + ' de correlación' : '') + '</div>';
+        })() +
         (m.missingMonths.length ? '<div class="cop-rep-card-warn">⚠ El plan no trae ' + _crMonthsList(m.missingMonths) + ' ' + m.year + ': captura la producción real.</div>' : '') +
         '</div><button type="button" class="btn btn-sm btn-primary" onclick="copRepOpen()">Estatus de la semana</button></div>';
     return h;
@@ -92839,7 +93638,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10067,"mods":[[10070,"js/app.js",20404],[20408,"js/uiflow.js",20743],[20747,"js/cop15.js",32273],[32277,"js/inventory.js",40281],[40285,"js/cuarto.js",42415],[42419,"js/sitio.js",44602],[44606,"js/conslist.js",45214],[45218,"js/testplan.js",58237],[58241,"js/bloques.js",58869],[58873,"js/panel.js",64260],[64264,"js/projects.js",66553],[66557,"js/auth.js",67637],[67641,"js/signatures.js",68003],[68007,"js/firebase-sync.js",76645],[76649,"js/cop_validator.js",81597],[81601,"js/copreport.js",83392],[83396,"js/cophq.js",84206],[84210,"js/homolog.js",86107],[86111,"js/vets.js",87910],[87914,"js/historico.js",88828],[88832,"js/review.js",89301],[89305,"js/opcards.js",89754],[89758,"js/handoff.js",90037],[90041,"js/ficha.js",90542],[90546,"js/relevo.js",90926],[90930,"js/momentos.js",91067],[91071,"js/normas.js",91479],[91483,"js/digest.js",92411],[92415,"js/xlsxw.js",92795],[92799,"js/bugreport.js",93945]]};
+var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20460],[20464,"js/uiflow.js",20799],[20803,"js/cop15.js",32329],[32333,"js/inventory.js",40337],[40341,"js/cuarto.js",42471],[42475,"js/sitio.js",44658],[44662,"js/conslist.js",45270],[45274,"js/testplan.js",58355],[58359,"js/bloques.js",58987],[58991,"js/resumen.js",59309],[59313,"js/panel.js",64700],[64704,"js/projects.js",66993],[66997,"js/auth.js",68077],[68081,"js/signatures.js",68443],[68447,"js/firebase-sync.js",77085],[77089,"js/cop_validator.js",82037],[82041,"js/copreport.js",84191],[84195,"js/cophq.js",85005],[85009,"js/homolog.js",86906],[86910,"js/vets.js",88709],[88713,"js/historico.js",89627],[89631,"js/review.js",90100],[90104,"js/opcards.js",90553],[90557,"js/handoff.js",90836],[90840,"js/ficha.js",91341],[91345,"js/relevo.js",91725],[91729,"js/momentos.js",91866],[91870,"js/normas.js",92278],[92282,"js/digest.js",93210],[93214,"js/xlsxw.js",93594],[93598,"js/bugreport.js",94744]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

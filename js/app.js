@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.28.0';
+var APP_VERSION = '3.29.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '3.28.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.29.0', date: '3 nov 2026', title: 'Plan al 31 dic en el estatus CoP y Resumen del año con la prioridad proyectada',
+      bullets: ['Estatus CoP → nueva sección "Plan al 31 dic": cuántos ensayos están registrados, en curso, agendados en el plan semanal, en propuesta y sin agendar, contra el REQ del año. Una barra del año, cinco cuadros y una gráfica por semana hasta el 31 dic.',
+                'Cuenta en orden y nunca de más: lo registrado, luego lo en curso, luego lo agendado en un plan aceptado, luego lo propuesto. Lo agendado de más, las semanas sin plan y las pruebas planeadas en días que ya pasaron sin hacerse se dicen aparte.',
+                'Las pruebas de correlación (agendadas, en propuesta y hechas en el año) y las de otros propósitos se muestran aparte: ocupan la celda pero no cuentan para el CoP.',
+                'Por familia: con qué se cubre (hechas · en curso · agendadas · en propuesta), cuántas faltan por agendar y el día en que se completaría con lo agendado.',
+                'Sale en la pantalla, impreso y en el correo del viernes, en inglés y en español. El Panorama lo resume en una línea.',
+                'Plan → 🧮 Resumen del año: cuántas pruebas se han hecho en el año, de mayor a menor, agrupadas por familia, modelo, región, carrocería, regulación, motor o transmisión, con una tira por mes y lo agendado hasta el 31 dic al lado. Se elige qué cuenta: lo que acredita el REQ, solo CoP o todas.',
+                'En la misma pantalla, "Prioridad: hoy y al 31 dic": el score de la tabla de prioridad de cada familia hoy y como quedaría el 31 dic si se hacen las pruebas agendadas, con el desglose de puntos, cuántos lugares sube o baja y qué familias salen del top 15.'] },
     { version: '3.28.0', date: '3 nov 2026', title: 'Armar la semana: primero cómo va a ser, después qué probar',
       bullets: ['Mi semana → 🎛️ Armar la semana va arriba y empieza por ① La semana: cada día se marca laborable o 🏖️ asueto, se elige cuántas pruebas de emisiones (0 a 4) y de correlación lleva, y qué más hay en la celda (quality checks, mantenimiento, proyecto, capacitación). El total de la semana sale de ahí.',
                 'Un día solo prueba si el día de preacondicionar se trabaja: el lunes no prueba (sería preacondicionar en domingo) y el día después de un asueto tampoco. La pantalla lo dice en el día.',
@@ -7939,7 +7947,7 @@ var UI_TAB_GROUPS = {
     tp: { bar: 'tp-tabs-bar', sw: 'tpSwitchTab', state: function() { return typeof tpState !== 'undefined' && tpState.activeTab; },
           groups: [
             { id: 'semana', label: '📅 Semana', tabs: ['tp-calendar', 'tp-myweek'] },
-            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-tested', 'tp-families'] },
+            { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-yearsummary', 'tp-tested', 'tp-families'] },
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
           groups: [
