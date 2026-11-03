@@ -1076,10 +1076,19 @@ function cop15PreloadFromPlan(preload) {
     if (purposeSel && !purposeSel.value && preload.purpose) {
         purposeSel.value = preload.purpose;
     }
+    // [3.28.0] Una fila de correlación trae el VIN del Master: se escribe como si se tecleara
+    // (así corren el aviso de re-test y el ICMS), solo si el campo está vacío.
+    var vinEl = document.getElementById('vin');
+    if (vinEl && preload.vin && !vinEl.value) {
+        vinEl.value = preload.vin;
+        try { vinEl.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    }
 
     // Render the banner
     if (banner) {
-        var matchLabel = match
+        var matchLabel = preload.activity === 'correlacion'
+            ? (match ? 'Prueba de correlación: la configuración es la de la última prueba de este Master.' : 'Prueba de correlación: elige la configuración del vehículo Master.')
+            : match
             ? 'Configuración del catálogo aplicada.'
             : 'Esta configuración del plan no existe en el catálogo. Revisa o cambia a modo manual.';
         banner.innerHTML =
@@ -1087,7 +1096,7 @@ function cop15PreloadFromPlan(preload) {
                 '<span class="plan-preload-banner-icon">📋</span>' +
                 '<div class="plan-preload-banner-body">' +
                     '<strong>Precargado desde el plan semanal — Semana ' + (preload.weekIdx + 1) + '</strong>' +
-                    '<div>' + (preload.configCode || '(sin código)') + '</div>' +
+                    '<div>' + escapeHtml(preload.configCode || (preload.activity === 'correlacion' ? 'Correlación' + (preload.vin ? ' · ' + preload.vin : '') : '(sin código)')) + '</div>' +
                     '<small>' + matchLabel + ' Si este vehículo es otra config, cámbiala manualmente antes de registrar.</small>' +
                 '</div>' +
                 '<button class="plan-preload-banner-close" onclick="cop15ClearPlanPreload()" title="Descartar precarga">✕</button>' +

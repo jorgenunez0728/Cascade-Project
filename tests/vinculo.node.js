@@ -275,5 +275,24 @@ t('desvincular una sustitución nacida del vínculo la deshace', () => {
     eq(item('B').substituted, undefined); eq(item('B').completed, false);
 });
 
+console.log('\n== [3.28.0] Una prueba de correlación llena SU lugar ==');
+t('la correlación del martes acredita la fila de correlación del martes, no una de emisiones', () => {
+    reset([plan(W, [row('A', 'CL4-R16', 'mar'),
+        row('C1', 'Prueba de correlación · Master', 'mar', { activity: 'correlacion', purpose: 'Correlacion', masterVin: 'KNAMASTER00000001' }),
+        row('C2', 'Prueba de correlación · Master', 'mie', { activity: 'correlacion', purpose: 'Correlacion', masterVin: 'KNAMASTER00000001' })])]);
+    const v = veh('CL4-R16', '2026-09-29', { purpose: 'Correlacion', vin: 'KNAMASTER00000001' });
+    const c = sandbox.tpCreditCandidatesFor(v);
+    eq(c.why, 'correlacion');
+    eq(c.auto.uid, 'C1', 'la del mismo día:');
+    eq(c.candidates.some(x => x.uid === 'A'), false, 'nunca una fila de emisiones:');
+});
+t('una prueba de emisiones nunca se lleva una fila de correlación', () => {
+    reset([plan(W, [row('C1', 'Prueba de correlación', 'mar', { activity: 'correlacion', purpose: 'Correlacion' })])]);
+    const v = veh('CL4-R16', '2026-09-29');
+    const c = sandbox.tpCreditCandidatesFor(v);
+    eq(c.candidates.length, 0);
+    eq(c.auto, null);
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

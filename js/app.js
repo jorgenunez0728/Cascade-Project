@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.27.0';
+var APP_VERSION = '3.28.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,14 @@ var APP_VERSION = '3.27.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.28.0', date: '3 nov 2026', title: 'Armar la semana: primero cómo va a ser, después qué probar',
+      bullets: ['Mi semana → 🎛️ Armar la semana va arriba y empieza por ① La semana: cada día se marca laborable o 🏖️ asueto, se elige cuántas pruebas de emisiones (0 a 4) y de correlación lleva, y qué más hay en la celda (quality checks, mantenimiento, proyecto, capacitación). El total de la semana sale de ahí.',
+                'Un día solo prueba si el día de preacondicionar se trabaja: el lunes no prueba (sería preacondicionar en domingo) y el día después de un asueto tampoco. La pantalla lo dice en el día.',
+                'Prueba de correlación: ocupa su lugar en la celda pero no cuenta para el REQ ni para el CoP. Se puede elegir el vehículo Master; ▶ Iniciar abre el Alta con su VIN y el propósito, y al liberarla llena la fila de correlación de ese día.',
+                '② Qué probar: fichas de 🌍 Mercados (una o varias regiones; dice cuántas configuraciones con pendientes quedan fuera), las recomendadas por la tabla de prioridad, y un selector en cascada (modelo → año → motor → …) que se salta lo que tiene una sola opción.',
+                'Generar reparte las pruebas en los días que definiste, en orden de prioridad. Lo que no cabe se dice.',
+                'El asueto y las actividades de un día explican solos los bloques de la celda ("Día festivo", "Quality checks"). Los días de la semana ahora se comparten entre equipos (antes cada equipo tenía los suyos).',
+                '📋 Copiar la semana anterior y ↺ Restablecer.'] },
     { version: '3.27.0', date: '30 oct 2026', title: 'Prioridad: MY26 y MY27 cuentan como una familia en Europa y Middle East',
       bullets: ['Tabla de prioridad: en Europa PRE-EURO 7 / EURO 7 y en Middle East, las configuraciones MY26 y MY27 de una familia ya valen lo mismo. Comparten el nivel de familia, los días sin probar, las probadas en el año, los pendientes, el volumen y los bonos de "nueva" y "postergada", como corporativo cuenta el CoP por año calendario.',
                 'Solo la actividad sigue siendo del año modelo: el OBD-II es del año modelo nuevo.',
@@ -9150,7 +9158,7 @@ var TOURS = {
     ],
     testplan: [
         { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
-        { target: '#tp-weekly-cap', title: 'Cuántas pruebas', text: 'Cuántas pruebas se planean esta semana. El máximo físico (pares preacon→prueba × vehículos por par) solo acota; este número es el que manda y se guarda.', position: 'bottom', tab: 'tp-myweek' },
+        { target: '.tp-wd-grid', title: 'La semana, día por día', text: 'Antes de elegir qué probar, define cada día: asueto, cuántas pruebas de emisiones y de correlación, y qué más hay en la celda. El total de la semana sale de aquí.', position: 'bottom', tab: 'tp-myweek' },
         { target: '[data-help="tp-priority-help"]', title: 'Recuperación', text: 'Clasifica todo lo pendiente por prioridad (P1..P10) y reparte en las semanas disponibles.', position: 'top', tab: 'tp-recovery' },
         { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
     ],

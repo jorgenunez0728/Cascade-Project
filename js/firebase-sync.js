@@ -1894,6 +1894,8 @@ function _fbPullSeed(col, remoteData, pulled) {
         if (typeof tpCopReqModeUnion === 'function') tpState.copReqMode = tpCopReqModeUnion(prevTp.copReqMode, tpState.copReqMode) || undefined;
         // [3.26.0] La tabla de prioridad: gana la edición más reciente.
         if (typeof tpScoreTableUnion === 'function') tpState.scoreTable = tpScoreTableUnion(prevTp.scoreTable, tpState.scoreTable) || undefined;
+        // [3.28.0] La semana día por día (y la disponibilidad): por semana gana la edición más reciente.
+        if (typeof tpWeekAvUnion === 'function') tpState.weekAvailability = tpWeekAvUnion(prevTp.weekAvailability, tpState.weekAvailability);
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
         pulled.push('Test Plan');
@@ -1953,7 +1955,9 @@ function _fbPullMergeModule(col, remoteData, pulled, opts) {
         // [3.13.0] Un pull cuyo único cambio es el interruptor del REQ de corporativo.
         (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo((typeof tpState !== 'undefined' && tpState && tpState.copReqMode) || null, (remoteData && remoteData.copReqMode) || null)) ||
         // [3.26.0] Un pull cuyo único cambio es la tabla de prioridad.
-        (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo((typeof tpState !== 'undefined' && tpState && tpState.scoreTable) || null, (remoteData && remoteData.scoreTable) || null));
+        (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo((typeof tpState !== 'undefined' && tpState && tpState.scoreTable) || null, (remoteData && remoteData.scoreTable) || null)) ||
+        // [3.28.0] Un pull cuyo único cambio es cómo se definió una semana.
+        (typeof tpWeekAvNewTo === 'function' && tpWeekAvNewTo((typeof tpState !== 'undefined' && tpState && tpState.weekAvailability) || {}, (remoteData && remoteData.weekAvailability) || {}));
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
         (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
@@ -2847,7 +2851,7 @@ function fbAssignInPlace(target, src) {
 function _fbModuleFingerprint(col) {
     try {
         if (col === 'cop15') return strHash(stableStringify([(db && db.vehicles) || [], (db && db.siteUnits) || [], (db && db.siteMasters) || []]));
-        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}, tpState.scoreTable || null]));
+        if (col === 'testplan') return strHash(stableStringify([tpState.testedList, tpState.weeklyPlans, tpState.planData, tpState.rules, tpState.months, tpState.reqFamilies || {}, tpState.blockNotes || {}, tpState.scoreTable || null, tpState.weekAvailability || {}]));
         if (col === 'inventory') return strHash(stableStringify([invState.gases, invState.equipment, invState.fuelTanks, invState.assets, invState.maintActivities, invState.maintLog, invState.fuelTypes || [], invState.siteItems || [], invState.consHistory || []]));
     } catch (e) {}
     return '';
@@ -2895,6 +2899,8 @@ function _fbLocalHasExtras(col, remote) {
         if (typeof tpCopReqModeNewTo === 'function' && tpCopReqModeNewTo(remote.copReqMode || null, tpState.copReqMode || null)) return true;
         // [3.26.0] La tabla de prioridad editada aquí y no en la nube.
         if (typeof tpScoreTableNewTo === 'function' && tpScoreTableNewTo(remote.scoreTable || null, tpState.scoreTable || null)) return true;
+        // [3.28.0] Una semana definida aquí y no en la nube.
+        if (typeof tpWeekAvNewTo === 'function' && tpWeekAvNewTo(remote.weekAvailability || {}, tpState.weekAvailability || {})) return true;
         var rt = {};
         (remote.testedList || []).forEach(function(t) { rt[_fbTestedKey(t)] = true; });
         if ((tpState.testedList || []).some(function(t) { return !rt[_fbTestedKey(t)]; })) return true;
@@ -4080,6 +4086,8 @@ function fbMergeExecute(remoteData, analysis, choices, opts) {
             var _stb = tpScoreTableUnion(tpState.scoreTable, (remoteData.testplan || {}).scoreTable);
             if (_stb) { tpState.scoreTable = _stb; if (typeof tpInvalidateCache === 'function') tpInvalidateCache(); }
         }
+        // [3.28.0] La semana día por día se une igual (por semana, gana la más reciente).
+        if (typeof tpWeekAvUnion === 'function') tpState.weekAvailability = tpWeekAvUnion(tpState.weekAvailability, (remoteData.testplan || {}).weekAvailability);
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
         _fbTpUISync();
     }

@@ -7290,3 +7290,61 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-score-up { color: var(--ok-text); font-weight: 700; font-size: var(--fs-xs); }
 .tp-score-down { color: var(--danger-text); font-weight: 700; font-size: var(--fs-xs); }
 .tp-score-same { color: var(--muted); font-size: var(--fs-xs); }
+
+/* ═══ [3.28.0] Armar la semana: ① la semana día por día · ② qué probar · ③ generar ═══ */
+.tp-armar-step { border-top: 1px solid var(--tp-border); padding-top: var(--space-md); margin-top: var(--space-md); }
+.tp-armar-steph { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--fs-base); margin: 0 0 var(--space-sm); }
+.tp-armar-stepn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-full);
+    background: var(--info-text); color: var(--surface); font-size: var(--fs-sm); font-weight: 800; flex: 0 0 auto; }
+.tp-wd-tools { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-sm); }
+.tp-wd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: var(--space-sm); }
+.tp-wd { border: 1px solid var(--tp-border); border-radius: var(--radius-lg); padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; background: var(--surface); }
+.tp-wd--off { background: var(--surface-alt); }
+.tp-wd--notest .tp-wd-sub { color: var(--warn-text); }
+.tp-wd--over { border-color: var(--warn-text); }
+.tp-wd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.tp-wd-off { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px solid var(--tp-border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--tp-text); cursor: pointer; min-height: var(--target-min, 32px); }
+.tp-wd-off[aria-pressed="true"] { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-text); font-weight: 700; }
+.tp-wd-why, .tp-wd-sub { font-size: var(--fs-sm); color: var(--muted); }
+.tp-wd-warn { font-size: var(--fs-sm); color: var(--warn-text); }
+.tp-wd-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.tp-wd-lbl { font-size: var(--fs-sm); min-width: 6.5em; color: var(--tp-text); }
+.tp-wd-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.tp-wd-chip { min-width: var(--target-min, 32px); min-height: var(--target-min, 32px); border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--tp-text); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
+.tp-wd-chip[aria-checked="true"] { background: var(--info-text); color: var(--surface); border-color: var(--info-text); }
+.tp-wd-acts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.tp-wd-act { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px dashed var(--tp-border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--muted); cursor: pointer; }
+.tp-wd-act[aria-pressed="true"] { border-style: solid; background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-wd-note { width: 100%; font-size: var(--fs-base); }
+.tp-wd-sum { font-size: var(--fs-sm); margin: var(--space-sm) 0 0; }
+.tp-wd-master { font-size: var(--fs-base); max-width: 100%; }
+.tp-armar-filters > summary, .tp-armar-sub > summary { cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; }
+.tp-pick-crumbs { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; margin-bottom: var(--space-xs); }
+.tp-pick-crumb { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px solid var(--info-text); border-radius: var(--radius-full);
+    background: var(--info-bg); color: var(--info-text); cursor: pointer; }
+.tp-pick-crumb--auto { border-style: dashed; cursor: default; background: var(--surface); color: var(--muted); border-color: var(--tp-border); }
+.tp-pick-level { display: flex; flex-direction: column; gap: var(--space-2xs); margin-bottom: var(--space-sm); }
+.tp-pick-opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.tp-pick-opt { font-size: var(--fs-sm); padding: var(--space-xs) var(--space-sm); min-height: var(--target-min, 32px); border: 1px solid var(--tp-border);
+    border-radius: var(--radius-md); background: var(--surface); color: var(--tp-text); cursor: pointer; }
+.tp-pick-opt small { color: var(--muted); margin-left: var(--space-2xs); }
+.tp-pick-list { display: flex; flex-direction: column; }
+.tp-pick-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--tp-border); flex-wrap: wrap; }
+.tp-pick-name { flex: 1; min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.tp-pick-name small { color: var(--muted); }
+.tp-pick-score { font-size: var(--fs-xs); color: var(--tp-text); white-space: nowrap; }
+.tp-week-col-acts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); padding: var(--space-2xs) var(--space-sm) 0; }
+.tp-week-act { font-size: var(--fs-xs); padding: 0 var(--space-xs); border-radius: var(--radius-sm); background: var(--info-bg); color: var(--info-text); }
+.tp-week-act--off { background: var(--warn-bg); color: var(--warn-text); font-weight: 700; }
+.tp-week-act--note { background: var(--surface-alt); color: var(--muted); }
+
+/* [3.28.0] Mercados y "＋ Actividad" plegado */
+.tp-armar-markets { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
+.tp-armar-markets .tp-wd-chips { flex-wrap: wrap; }
+.tp-mkt small { opacity: .7; font-size: var(--fs-2xs); margin-left: var(--space-2xs, 2px); }
+.tp-wd-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary); list-style: none; padding: var(--space-2xs, 2px) 0; }
+.tp-wd-more > summary::-webkit-details-marker { display: none; }
+.tp-wd-more[open] > summary { margin-bottom: var(--space-xs); }

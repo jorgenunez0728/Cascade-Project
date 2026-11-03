@@ -183,6 +183,13 @@ function _tpBlockAuto(weekDate, layout) {
             out[L.iso] = { reason: 'festivo', note: wd[L.day] === false ? 'Día no laborable' : 'No se preacondicionó (' + TP_DAY_LABELS[L.precon].toLowerCase() + ' no laborable)' };
             return;
         }
+        // [3.28.0] Un día que la semana dedicó a otra actividad (sin pruebas planeadas) explica
+        // sus bloques solo: quality checks, mantenimiento, proyecto, capacitación.
+        var sd = (av && av.setup && av.setup.days) ? av.setup.days[L.day] : null;
+        if (sd && !sd.off && !(parseInt(sd.tests, 10) > 0) && !(parseInt(sd.corr, 10) > 0)) {
+            var actR = (sd.acts || []).filter(function(x) { return tpBlockReason(x); })[0];
+            if (actR) { out[L.iso] = { reason: actR, note: 'Planeado en la semana' + (sd.note ? ': ' + sd.note : '') }; return; }
+        }
         if (!inv) return;
         var what = [];
         (inv.maintLog || []).forEach(function(e) {
