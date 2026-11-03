@@ -294,5 +294,38 @@ ok('la tabla es para Outlook (sin flex, grid ni position)', !/linear-gradient|po
 ok('sin bloques no hay sección (y el reporte de siempre no cambia)', C.copYearReportHTML(M, { lang: 'en' }).indexOf('Cell use') < 0);
 ok('texto plano: el uso y la semana siguiente día por día', /Cell use:/.test(C.copRepPlainText(MC, 'en')) && /Tue 27 Oct: CL4 1\.0 T-GDI 48V 6MT WGN/.test(C.copRepPlainText(MC, 'en')));
 
+console.log('\n== [3.29.0] Plan al 31 dic ==');
+const K0 = M.rows[0].key;          // REQ 6, 4 hechas al corte (20-oct)
+const it = (kind, date, status, o) => Object.assign({ kind, yk: kind === 'cop' ? K0 : null, date, status, proposal: false }, o || {});
+const OI = { inFlight: { [K0]: 1 }, corrDone: 3, weeks: [
+    { monday: '2026-10-19', state: 'accepted', items: [it('cop', '2026-10-19', 'late'), it('cop', '2026-10-22', 'open'), it('corr', '2026-10-21', 'open'),
+                                                      it('other', '2026-10-23', 'open'), it('cop', '2026-10-21', 'open', { yk: 'OTRA|FAM' }), it('cop', '2026-10-20', 'done')] },
+    { monday: '2026-10-26', state: 'proposal', items: [it('cop', '2026-10-28', 'open', { proposal: true }), it('corr', '2026-10-27', 'open', { proposal: true })] },
+    { monday: '2026-11-02', state: 'none', items: [] },
+    { monday: '2027-01-04', state: 'accepted', items: [it('cop', '2027-01-05', 'open')] }] };
+const O1 = C.copRepOutlookCompute(M, OI), T1 = O1.total, R1 = O1.rows[0];
+ok('cuenta en orden y nunca de más: 4 hechas + 1 en curso + 1 agendada = 6', R1.done === 4 && R1.inFlight === 1 && R1.scheduled === 1 && R1.proposed === 0 && R1.gap === 0, JSON.stringify(R1));
+ok('lo propuesto que ya no hace falta es "de más"', R1.over === 1 && T1.over === 1);
+ok('se completa el día de la agendada que cierra el REQ', R1.closes === '2026-10-22' && !R1.closesProp, R1.closes);
+ok('una fila cuyo día ya pasó no es agendada: va a "late"', T1.late === 1 && T1.scheduled === 1);
+ok('correlación agendada, en propuesta y hecha, aparte del CoP', T1.corr === 1 && T1.corrProp === 1 && T1.corrDone === 3);
+ok('otra familia y otros propósitos se declaran', T1.unmatched === 1 && T1.other === 1);
+ok('semanas sin plan y con propuesta; nada después del 31 dic', T1.weeksNoPlan === 1 && T1.weeksProposal === 1 && O1.weeks.length === 3);
+ok('al 31 dic se llega a 6 de 6', T1.landing === 6 && T1.req === 6 && T1.pct === 1);
+const w0 = O1.weeks[0];
+ok('la semana: CoP agendadas (las de otra familia también), correlación y otras', w0.cop === 2 && w0.corr === 1 && w0.other === 1 && O1.weeks[1].copProp === 1);
+const O2 = C.copRepOutlookCompute(M, { inFlight: {}, corrDone: 0, weeks: [{ monday: '2026-10-26', state: 'proposal', items: [it('cop', '2026-10-29', 'open', { proposal: true })] }] });
+ok('sin agendar lo que falta: 1 en propuesta y 1 sin agendar, no se completa', O2.rows[0].proposed === 1 && O2.rows[0].gap === 1 && O2.rows[0].closes === '' && O2.total.gap === 1);
+const O3 = C.copRepOutlookCompute(M, { inFlight: {}, weeks: [{ monday: '2026-10-19', state: 'accepted', items: [it('cop', '2026-10-21', 'open')] },
+    { monday: '2026-10-26', state: 'proposal', items: [it('cop', '2026-10-28', 'open', { proposal: true })] }] });
+ok('con lo propuesto sí se completa y se dice', O3.rows[0].gap === 0 && O3.rows[0].closes === '2026-10-28' && O3.rows[0].closesProp === true);
+const MO = Object.assign({}, M, { outlook: O2 });
+const HO = C.copYearReportHTML(MO, { lang: 'es' }), HOe = C.copYearReportHTML(MO, { lang: 'en' });
+ok('la sección sale en los dos idiomas con lo que falta por agendar', /Plan al 31 dic/.test(HO) && /Falta 1 por agendar/.test(HO) && /Plan to Dec 31/.test(HOe) && /1 still to schedule/.test(HOe));
+ok('la familia que no alcanza lo dice', /no alcanza/.test(HO) && /not reached/.test(HOe));
+ok('sale por correo: estilos literales, sin flex/grid/position ni VIN', HO.indexOf('var(--') < 0 && !/display:\s*(flex|grid)|position:|linear-gradient/.test(HO) && !/\bVIN\b/.test(HO));
+ok('sin plan al 31 dic no hay sección (el reporte de siempre no cambia)', C.copYearReportHTML(M, { lang: 'es' }).indexOf('Plan al 31 dic') < 0);
+ok('texto plano: la frase y los números', /Plan to Dec 31:/.test(C.copRepPlainText(MO, 'en')) && /Not scheduled 1/.test(C.copRepPlainText(MO, 'en')));
+
 console.log('\n' + pasaron + ' pasaron, ' + fallaron + ' fallaron');
 if (fallaron) process.exitCode = 1;

@@ -1691,19 +1691,12 @@ function tpCopReqBase() {
         });
         var excluded = {};
         (model.excluded || []).forEach(function(x) { excluded[x.key] = x; });
+        // [3.29.0] En curso: una sola definición (copYearInFlight), la misma que lee el reporte.
         var inFlightIds = {};
-        vehs.forEach(function(v) {
-            if (!v || !copInScope(v).ok) return;
-            var pend = v.status === 'historico' && v.historic && v.historic.state === 'pendiente';
-            if (!vehicleIsLive(v) && !pend) return;
-            // [3.22.0] Para corporativo solo cuenta lo registrado como conformidad de la producción.
-            if (typeof copPurposeCounts === 'function' ? !copPurposeCounts(v.purpose) : !tpPurposeCountsForReq(v.purpose)) return;
-            var d = (typeof vehicleTestDate === 'function' ? vehicleTestDate(v) : '') || String(v.registeredAt || '').slice(0, 10);
-            if (d && Number(d.slice(0, 4)) !== year) return;
-            var yk = copYearKeyOf(copVehicleFamilyKey(v), year);
-            if (!fams[yk]) return;
-            fams[yk].inFlight++;
-            inFlightIds[String(v.id)] = true;
+        (typeof copYearInFlight === 'function' ? copYearInFlight(vehs, year) : []).forEach(function(x) {
+            if (!fams[x.yk]) return;
+            fams[x.yk].inFlight++;
+            inFlightIds[String(x.id)] = true;
         });
         // Meses que vienen (este incluido): de ahí sale qué configuración sigue en producción.
         var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));

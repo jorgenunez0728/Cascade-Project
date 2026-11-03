@@ -4244,3 +4244,24 @@ por día. `tpWeeklyCapacityFor` sigue siendo el valor con el que nace una semana
 - **`plannerCfg.markets`** (lista de regiones; vacía = todas) se cumple en `tpPassesWeekFilter`
   aparte de `filtersOn`, y la pantalla cuenta lo que deja fuera (`tpMarketsModel`, regla v22.5).
 - Se retiraron `tpSetWorkDay` y `tpAddManualPick`.
+
+## 3.29.0 — Estatus CoP: plan al 31 dic (`js/copreport.js`)
+
+- **`copRepOutlookCompute(m, input)` (PURA) es LA definición de "cómo se llega al 31 dic"**.
+  Por familia del reporte cubre el REQ en orden y nunca de más: hechas → en curso → agendadas
+  (plan ACEPTADO) → en propuesta → sin agendar. Lo agendado de más (`over`), lo de familias que
+  no están en el reporte (`unmatched`), las semanas sin plan y las filas abiertas cuyo día ya pasó
+  (`late`, NO cuentan como agendadas) se DECLARAN. Correlación y otros propósitos van aparte.
+- **`_copRepOutlookInput(m)` es lo único que lee el estado** (no PURA): de la semana del corte al
+  31 dic, el plan VIGENTE de cada semana (`tpWeekPlanFor`: los aceptados, o la propuesta). Una
+  fila es de CoP si su propósito (`actualPurpose` → `purpose` → `tpPurposeForCfg`) pasa
+  `copPurposeCounts` y su configuración `copInScope`; la familia es
+  `copYearKeyOf(tpFamilyKeyForCfg(cfg), año)`, la misma que `_tpCopReqPlan`. Una fila hecha o
+  vinculada a un vehículo NO se cuenta aquí: ya cuenta por su vehículo (registradas / en curso).
+- **`model.outlook` es diferido y no enumerable** (patrón de `model.cell`): no viaja en el corte
+  guardado. `copYearReportHTML(m, {outlook:false})` lo omite.
+- **`copYearInFlight(vehs, year)` es LA definición de "en curso" para el CoP del año** (vivo o
+  histórico pendiente, alcance, propósito CoP, fecha en el año). `tpCopReqBase` la usa; no volver a
+  escribir ese filtro en otro lado.
+- `_crStack(parts, total, {h, px})` es la barra apilada del correo (Outlook: celdas con ancho en %
+  o px, nada de `div` con alto). Colores en `_CR_OUT`.

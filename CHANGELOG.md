@@ -20,6 +20,34 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.29.0 — Estatus CoP: plan al 31 dic (2026-11-03)
+
+### Nuevo
+- **Estatus CoP → "Plan al 31 dic"**, después de "Ensayos por semana":
+  - una frase: "Con lo agendado se llega a **X de Y** ensayos al 31 dic; con las propuestas sin
+    aceptar, a Z. **Faltan N por agendar**";
+  - una barra del año con cinco tramos y sus cuadros: **registradas · en curso · agendadas ·
+    en propuesta · sin agendar**;
+  - una gráfica por semana hasta el 31 dic: CoP agendadas, CoP en propuesta, correlación y otras,
+    con "sin plan", "propuesta" o "sin celda" debajo de cada semana;
+  - **correlación**: agendadas, en propuesta y hechas en el año (ocupan la celda, no cuentan para
+    el CoP);
+  - por familia que todavía no cubre su REQ: con qué se cubre, cuántas faltan por agendar y el día
+    en que se completaría con lo agendado ("no alcanza" si no).
+- Sale en la pantalla, al imprimir, al copiar para correo y en el envío del viernes, en inglés y
+  en español. El Panorama lo dice en una línea.
+
+### Cambió
+- "En curso" para el CoP del año tiene una sola definición, la misma en el Plan y en el reporte.
+
+### Para desarrollo
+- `copRepOutlookCompute(m, input)` (PURA) es LA definición del plan al 31 dic; `_copRepOutlookInput(m)`
+  lee los planes semanales (plan vigente de cada semana por `tpWeekPlanFor`) y los vehículos.
+  Vive en `model.outlook`, diferido como `model.cell`.
+- `copYearInFlight(vehs, year)` es LA definición de "en curso" para el CoP del año; la usan
+  `tpCopReqBase` y el reporte.
+- `_crStack(parts, total, opts)`: barra apilada que Outlook pinta (celdas con ancho en % o en px).
+
 ## 3.28.0 — Armar la semana: primero cómo va a ser, después qué probar (2026-11-03)
 
 ### Nuevo
